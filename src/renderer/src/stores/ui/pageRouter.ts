@@ -1,75 +1,68 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { Store } from '@tanstack/store'
 import { createSessionClient } from '../../../api/SessionClient'
 
 export type PageRoute = { name: 'newThread' } | { name: 'chat'; sessionId: string }
-type GoToNewThreadOptions = {
-  refresh?: boolean
-}
-type InitializePageRouterOptions = {
-  activeSessionId?: string | null
-}
 
-export const usePageRouterStore = defineStore('pageRouter', () => {
-  const sessionClient = createSessionClient()
+type GoToNewThreadOptions = { refresh?: boolean }
+type InitializePageRouterOptions = { activeSessionId?: string | null }
 
-  // --- State ---
-  const route = ref<PageRoute>({ name: 'newThread' })
-  const newThreadRefreshKey = ref(0)
-  const error = ref<string | null>(null)
+const sessionClient = createSessionClient()
 
-  // --- Actions ---
+export const pageRouterStore = new Store({
+  route: { name: 'newThread' } as PageRoute,
+  newThreadRefreshKey: 0,
+  error: null as string | null
+})
 
-  async function initialize(options: InitializePageRouterOptions = {}): Promise<void> {
-    try {
-      error.value = null
+export const currentRoute = () => pageRouterStore.state.route.name
 
-      if (options.activeSessionId !== undefined) {
-        route.value = options.activeSessionId
+export const chatSessionId = () =>
+  pageRouterStore.state.route.name === 'chat' ? pageRouterStore.state.route.sessionId : null
+
+export const initialize = async (options: InitializePageRouterOptions = {}): Promise<void> => {
+  try {
+    pageRouterStore.setState((prev) => ({ ...prev, error: null }))
+
+    if (options.activeSessionId !== undefined) {
+      pageRouterStore.setState((prev) => ({
+        ...prev,
+        route: options.activeSessionId
           ? { name: 'chat', sessionId: options.activeSessionId }
           : { name: 'newThread' }
-        return
-      }
-
-      // 1. Check for the active agent session bound to this renderer first.
-      const { session: activeAgentSession } = await sessionClient.getActive()
-      if (activeAgentSession) {
-        route.value = { name: 'chat', sessionId: activeAgentSession.id }
-        return
-      }
-
-      // 2. Default to new thread
-      route.value = { name: 'newThread' }
-    } catch (e) {
-      error.value = String(e)
-      route.value = { name: 'newThread' }
+      }))
+      return
     }
-  }
 
-  function goToNewThread(options: GoToNewThreadOptions = {}): void {
-    route.value = { name: 'newThread' }
-    if (options.refresh) {
-      newThreadRefreshKey.value += 1
+    const { session: activeAgentSession } = await sessionClient.getActive()
+    if (activeAgentSession) {
+      pageRouterStore.setState((prev) => ({
+        ...prev,
+        route: { name: 'chat', sessionId: activeAgentSession.id }
+      }))
+      return
     }
+
+    pageRouterStore.setState((prev) => ({ ...prev, route: { name: 'newThread' } }))
+  } catch (e) {
+    pageRouterStore.setState((prev) => ({
+      ...prev,
+      error: String(e),
+      route: { name: 'newThread' }
+    }))
   }
+}
 
-  function goToChat(sessionId: string): void {
-    route.value = { name: 'chat', sessionId }
-  }
+export const goToNewThread = (options: GoToNewThreadOptions = {}): void => {
+  pageRouterStore.setState((prev) => ({
+    ...prev,
+    route: { name: 'newThread' },
+    ...(options.refresh ? { newThreadRefreshKey: prev.newThreadRefreshKey + 1 } : {})
+  }))
+}
 
-  // --- Getters ---
-
-  const currentRoute = computed(() => route.value.name)
-  const chatSessionId = computed(() => (route.value.name === 'chat' ? route.value.sessionId : null))
-
-  return {
-    route,
-    newThreadRefreshKey,
-    error,
-    initialize,
-    goToNewThread,
-    goToChat,
-    currentRoute,
-    chatSessionId
-  }
-})
+export const goToChat = (sessionId: string): void => {
+  pageRouterStore.setState((prev) => ({
+    ...prev,
+    route: { name: 'chat', sessionId }
+  }))
+}

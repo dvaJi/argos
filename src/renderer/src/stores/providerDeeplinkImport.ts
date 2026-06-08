@@ -1,24 +1,23 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { Store } from '@tanstack/store'
 import type { ProviderInstallPreview } from '@shared/presenter'
 
-export const useProviderDeeplinkImportStore = defineStore('providerDeeplinkImport', () => {
-  const preview = ref<ProviderInstallPreview | null>(null)
-  const previewToken = ref(0)
+interface ProviderDeeplinkImportState {
+  preview: ProviderInstallPreview | null
+  previewToken: number
+}
 
-  const openPreview = (nextPreview: ProviderInstallPreview) => {
-    previewToken.value += 1
-    preview.value = { ...nextPreview }
-  }
-
-  const clearPreview = () => {
-    preview.value = null
-  }
-
-  return {
-    preview,
-    previewToken,
-    openPreview,
-    clearPreview
-  }
+export const providerDeeplinkImportStore = new Store<ProviderDeeplinkImportState>({
+  preview: null,
+  previewToken: 0
 })
+
+export const openPreview = (nextPreview: ProviderInstallPreview) => {
+  providerDeeplinkImportStore.setState((prev) => ({
+    previewToken: prev.previewToken + 1,
+    preview: { ...nextPreview }
+  }))
+}
+
+export const clearPreview = () => {
+  providerDeeplinkImportStore.setState({ preview: null })
+}

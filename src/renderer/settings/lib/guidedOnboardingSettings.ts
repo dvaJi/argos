@@ -2,7 +2,6 @@ import type { GuidedOnboardingState, GuidedOnboardingStepId } from '@shared/cont
 import { resolveGuidedOnboardingStepTarget } from '@shared/guidedOnboarding'
 import { createOnboardingClient } from '@api/OnboardingClient'
 import { persistGuidedOnboardingResumeIntent } from '@/lib/onboardingResume'
-import type { Router } from 'vue-router'
 
 const resolveGuidedOnboardingResumeStepId = (
   state: GuidedOnboardingState | null | undefined
@@ -20,9 +19,15 @@ const resolveGuidedOnboardingResumeStepId = (
 
 export async function continueGuidedOnboardingFromSettings(options: {
   state: GuidedOnboardingState | null | undefined
-  router: Pick<Router, 'push'>
+  router: {
+    navigate: (opts: {
+      to: string
+      params?: Record<string, string>
+      replace?: boolean
+    }) => Promise<void>
+  }
   currentRoute?: {
-    name?: unknown
+    pathname?: string
     params?: Record<string, unknown>
   }
   windowPresenter: {
@@ -33,10 +38,6 @@ export async function continueGuidedOnboardingFromSettings(options: {
   let { state } = options
   let stepId = resolveGuidedOnboardingResumeStepId(state)
 
-  // If the caller passed a stale/null state, the local handler likely failed
-  // its IPC call (or never received a response). Re-read from the backend so a
-  // transient renderer hiccup cannot force the helper into the fallback branch
-  // that focuses the main window instead of advancing within settings.
   if (!stepId) {
     try {
       state = await createOnboardingClient().getState()
@@ -51,12 +52,14 @@ export async function continueGuidedOnboardingFromSettings(options: {
   if (target?.surface === 'settings' && target.routeName) {
     const providerId = currentRoute?.params?.providerId
 
-    await router.push({
-      name: target.routeName,
-      params:
-        target.routeName === 'settings-provider' && typeof providerId === 'string'
-          ? { providerId }
-          : undefined
+    const params =
+      target.routeName === 'settings-provider' && typeof providerId === 'string'
+        ? { providerId }
+        : undefined
+
+    await router.navigate({
+      to: `/settings/${target.routeName}`,
+      params
     })
     return
   }

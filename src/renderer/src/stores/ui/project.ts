@@ -1,10 +1,7 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { Store } from '@tanstack/store'
 import { createConfigClient } from '../../../api/ConfigClient'
 import { createProjectClient } from '@api/ProjectClient'
 import type { EnvironmentSummary, Project } from '@shared/types/agent-interface'
-
-// --- Type Definitions ---
 
 export interface UIProject {
   name: string
@@ -15,215 +12,238 @@ export interface UIProject {
 
 type ProjectSelectionSource = 'none' | 'manual' | 'default'
 
-// --- Store ---
+interface ProjectState {
+  projects: UIProject[]
+  environments: EnvironmentSummary[]
+  selectedProjectPath: string | null
+  defaultProjectPath: string | null
+  selectionSource: ProjectSelectionSource
+  error: string | null
+}
 
-export const useProjectStore = defineStore('project', () => {
-  const configClient = createConfigClient()
-  const projectClient = createProjectClient()
+const configClient = createConfigClient()
+const projectClient = createProjectClient()
 
-  // --- State ---
-  const projects = ref<UIProject[]>([])
-  const environments = ref<EnvironmentSummary[]>([])
-  const selectedProjectPath = ref<string | null>(null)
-  const defaultProjectPath = ref<string | null>(null)
-  const selectionSource = ref<ProjectSelectionSource>('none')
-  const error = ref<string | null>(null)
-  let listenersRegistered = false
+export const projectStore = new Store<ProjectState>({
+  projects: [],
+  environments: [],
+  selectedProjectPath: null,
+  defaultProjectPath: null,
+  selectionSource: 'none',
+  error: null
+})
 
-  // --- Getters ---
-  const selectedProject = computed(() =>
-    projects.value.find((p) => p.path === selectedProjectPath.value)
-  )
+export const selectedProject = () =>
+  projectStore.state.projects.find((p) => p.path === projectStore.state.selectedProjectPath)
 
-  const normalizePath = (path: string | null | undefined): string | null => {
-    const normalized = path?.trim()
-    return normalized ? normalized : null
+const normalizePath = (path: string | null | undefined): string | null => {
+  const normalized = path?.trim()
+  return normalized ? normalized : null
+}
+
+const createSyntheticProject = (projectPath: string): UIProject => ({
+  name: projectPath.split(/[/\\]/).pop() ?? projectPath,
+  path: projectPath,
+  icon: null,
+  isSynthetic: true
+})
+
+const reconcileProjects = (
+  state: Pick<ProjectState, 'selectionSource' | 'selectedProjectPath' | 'defaultProjectPath'>,
+  baseProjects: UIProject[]
+): UIProject[] => {
+  const nextProjects = baseProjects.filter((project) => !project.isSynthetic)
+  const syntheticPaths: string[] = []
+
+  if (
+    state.selectionSource === 'manual' &&
+    state.selectedProjectPath &&
+    !nextProjects.some((project) => project.path === state.selectedProjectPath)
+  ) {
+    syntheticPaths.push(state.selectedProjectPath)
   }
 
-  const createSyntheticProject = (projectPath: string): UIProject => ({
-    name: projectPath.split(/[/\\]/).pop() ?? projectPath,
-    path: projectPath,
-    icon: null,
-    isSynthetic: true
-  })
-
-  const reconcileProjects = (baseProjects: UIProject[]): UIProject[] => {
-    const nextProjects = baseProjects.filter((project) => !project.isSynthetic)
-    const syntheticPaths: string[] = []
-
-    if (
-      selectionSource.value === 'manual' &&
-      selectedProjectPath.value &&
-      !nextProjects.some((project) => project.path === selectedProjectPath.value)
-    ) {
-      syntheticPaths.push(selectedProjectPath.value)
-    }
-
-    if (
-      defaultProjectPath.value &&
-      !nextProjects.some((project) => project.path === defaultProjectPath.value) &&
-      !syntheticPaths.includes(defaultProjectPath.value)
-    ) {
-      syntheticPaths.unshift(defaultProjectPath.value)
-    }
-
-    return [...syntheticPaths.map(createSyntheticProject), ...nextProjects]
+  if (
+    state.defaultProjectPath &&
+    !nextProjects.some((project) => project.path === state.defaultProjectPath) &&
+    !syntheticPaths.includes(state.defaultProjectPath)
+  ) {
+    syntheticPaths.unshift(state.defaultProjectPath)
   }
 
-  const applyDefaultSelection = () => {
-    if (!defaultProjectPath.value) {
-      if (selectionSource.value === 'default') {
-        selectedProjectPath.value = null
-        selectionSource.value = 'none'
-      }
-      return
-    }
+  return [...syntheticPaths.map(createSyntheticProject), ...nextProjects]
+}
 
-    if (selectionSource.value === 'none' || selectionSource.value === 'default') {
-      selectedProjectPath.value = defaultProjectPath.value
-      selectionSource.value = 'default'
+const computeDefaultSelectionUpdates = (
+  state: Pick<ProjectState, 'defaultProjectPath' | 'selectionSource'>
+): Partial<Pick<ProjectState, 'selectedProjectPath' | 'selectionSource'>> => {
+  if (!state.defaultProjectPath) {
+    if (state.selectionSource === 'default') {
+      return { selectedProjectPath: null, selectionSource: 'none' }
     }
+    return {}
   }
+  if (state.selectionSource === 'none' || state.selectionSource === 'default') {
+    return { selectedProjectPath: state.defaultProjectPath, selectionSource: 'default' }
+  }
+  return {}
+}
 
-  const handleDefaultProjectPathChanged = (
-    _event?: unknown,
-    payload?: string | { path?: string | null }
-  ) => {
-    defaultProjectPath.value = normalizePath(
+const handleDefaultProjectPathChanged = (
+  _event?: unknown,
+  payload?: string | { path?: string | null }
+) => {
+  projectStore.setState((prev) => {
+    const normalizedPath = normalizePath(
       typeof payload === 'string' ? payload : (payload?.path ?? null)
     )
-    projects.value = reconcileProjects(projects.value)
-    applyDefaultSelection()
-  }
-
-  const applyBootstrapDefaultProjectPath = (path: string | null | undefined) => {
-    defaultProjectPath.value = normalizePath(path)
-    projects.value = reconcileProjects(projects.value)
-    applyDefaultSelection()
-  }
-
-  const ensureListenersRegistered = () => {
-    if (listenersRegistered) return
-    configClient.onDefaultProjectPathChanged(({ path }) => {
-      handleDefaultProjectPathChanged(undefined, { path })
-    })
-    listenersRegistered = true
-  }
-
-  ensureListenersRegistered()
-
-  // --- Actions ---
-
-  async function loadDefaultProjectPath(): Promise<void> {
-    try {
-      applyBootstrapDefaultProjectPath(await configClient.getDefaultProjectPath())
-    } catch (e) {
-      error.value = `Failed to load default project path: ${e}`
+    const merged = { ...prev, defaultProjectPath: normalizedPath }
+    return {
+      ...merged,
+      projects: reconcileProjects(merged, prev.projects),
+      ...computeDefaultSelectionUpdates(merged)
     }
-  }
+  })
+}
 
-  async function fetchProjects(): Promise<void> {
-    try {
-      const [result, nextDefaultProjectPath] = await Promise.all([
-        projectClient.listRecent(20),
-        configClient.getDefaultProjectPath()
-      ])
-
-      defaultProjectPath.value = normalizePath(nextDefaultProjectPath)
-      projects.value = reconcileProjects(
-        (result as Project[]).map((p) => ({
-          name: p.name,
-          path: p.path,
-          icon: p.icon
-        }))
-      )
-      applyDefaultSelection()
-    } catch (e) {
-      error.value = `Failed to load projects: ${e}`
-    }
-  }
-
-  async function fetchEnvironments(): Promise<void> {
-    try {
-      environments.value = await projectClient.listEnvironments()
-    } catch (e) {
-      error.value = `Failed to load environments: ${e}`
-    }
-  }
-
-  function selectProject(
-    path: string | null,
-    source: ProjectSelectionSource = normalizePath(path) ? 'manual' : 'none'
-  ): void {
-    selectedProjectPath.value = normalizePath(path)
-    selectionSource.value = selectedProjectPath.value || source === 'manual' ? source : 'none'
-    projects.value = reconcileProjects(projects.value)
-  }
-
-  async function setDefaultProject(path: string | null): Promise<void> {
+export const applyBootstrapDefaultProjectPath = (path: string | null | undefined) => {
+  projectStore.setState((prev) => {
     const normalizedPath = normalizePath(path)
-    try {
-      await configClient.setDefaultProjectPath(normalizedPath)
-      handleDefaultProjectPathChanged(undefined, { path: normalizedPath })
-    } catch (e) {
-      error.value = `Failed to update default project path: ${e}`
-      throw e
+    const merged = { ...prev, defaultProjectPath: normalizedPath }
+    return {
+      ...merged,
+      projects: reconcileProjects(merged, prev.projects),
+      ...computeDefaultSelectionUpdates(merged)
     }
-  }
+  })
+}
 
-  async function clearDefaultProject(): Promise<void> {
-    await setDefaultProject(null)
-  }
+let listenersRegistered = false
 
-  async function openDirectory(path: string): Promise<void> {
-    try {
-      await projectClient.openDirectory(path)
-    } catch (e) {
-      error.value = `Failed to open directory: ${e}`
-      throw e
-    }
-  }
+function ensureListenersRegistered() {
+  if (listenersRegistered) return
+  configClient.onDefaultProjectPathChanged(({ path }) => {
+    handleDefaultProjectPathChanged(undefined, { path })
+  })
+  listenersRegistered = true
+}
 
-  async function refreshEnvironmentData(): Promise<void> {
-    await Promise.all([loadDefaultProjectPath(), fetchEnvironments()])
-  }
+ensureListenersRegistered()
 
-  async function openFolderPicker(): Promise<void> {
-    try {
-      const selectedPath = await projectClient.selectDirectory()
-      if (selectedPath) {
-        const name = selectedPath.split(/[/\\]/).pop() ?? selectedPath
-        const nextProjects = projects.value.filter((project) => project.path !== selectedPath)
-        nextProjects.unshift({
-          name,
-          path: selectedPath,
-          icon: null
-        })
-        projects.value = reconcileProjects(nextProjects)
-        selectProject(selectedPath, 'manual')
+export async function loadDefaultProjectPath(): Promise<void> {
+  try {
+    applyBootstrapDefaultProjectPath(await configClient.getDefaultProjectPath())
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to load default project path: ${e}`
+    }))
+  }
+}
+
+export async function fetchProjects(): Promise<void> {
+  try {
+    const [result, nextDefaultProjectPath] = await Promise.all([
+      projectClient.listRecent(20),
+      configClient.getDefaultProjectPath()
+    ])
+
+    projectStore.setState((prev) => {
+      const normalizedDefault = normalizePath(nextDefaultProjectPath)
+      const mapped = (result as Project[]).map((p) => ({
+        name: p.name,
+        path: p.path,
+        icon: p.icon
+      }))
+      const merged = { ...prev, defaultProjectPath: normalizedDefault }
+      return {
+        ...merged,
+        projects: reconcileProjects(merged, mapped),
+        ...computeDefaultSelectionUpdates(merged)
       }
-    } catch (e) {
-      error.value = `Failed to open folder picker: ${e}`
-    }
+    })
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to load projects: ${e}`
+    }))
   }
+}
 
-  return {
-    projects,
-    environments,
-    selectedProjectPath,
-    defaultProjectPath,
-    selectionSource,
-    error,
-    selectedProject,
-    fetchProjects,
-    fetchEnvironments,
-    loadDefaultProjectPath,
-    applyBootstrapDefaultProjectPath,
-    refreshEnvironmentData,
-    selectProject,
-    setDefaultProject,
-    clearDefaultProject,
-    openDirectory,
-    openFolderPicker
+export async function fetchEnvironments(): Promise<void> {
+  try {
+    const envs = await projectClient.listEnvironments()
+    projectStore.setState((prev) => ({ ...prev, environments: envs }))
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to load environments: ${e}`
+    }))
   }
-})
+}
+
+export function selectProject(
+  path: string | null,
+  source: ProjectSelectionSource = normalizePath(path) ? 'manual' : 'none'
+): void {
+  projectStore.setState((prev) => {
+    const normalizedPath = normalizePath(path)
+    const nextSource = normalizedPath || source === 'manual' ? source : 'none'
+    const merged = { ...prev, selectedProjectPath: normalizedPath, selectionSource: nextSource }
+    return { ...merged, projects: reconcileProjects(merged, prev.projects) }
+  })
+}
+
+export async function setDefaultProject(path: string | null): Promise<void> {
+  const normalizedPath = normalizePath(path)
+  try {
+    await configClient.setDefaultProjectPath(normalizedPath)
+    handleDefaultProjectPathChanged(undefined, { path: normalizedPath })
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to update default project path: ${e}`
+    }))
+    throw e
+  }
+}
+
+export async function clearDefaultProject(): Promise<void> {
+  await setDefaultProject(null)
+}
+
+export async function openDirectory(path: string): Promise<void> {
+  try {
+    await projectClient.openDirectory(path)
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to open directory: ${e}`
+    }))
+    throw e
+  }
+}
+
+export async function refreshEnvironmentData(): Promise<void> {
+  await Promise.all([loadDefaultProjectPath(), fetchEnvironments()])
+}
+
+export async function openFolderPicker(): Promise<void> {
+  try {
+    const selectedPath = await projectClient.selectDirectory()
+    if (selectedPath) {
+      const name = selectedPath.split(/[/\\]/).pop() ?? selectedPath
+      projectStore.setState((prev) => {
+        const nextProjects = prev.projects.filter((project) => project.path !== selectedPath)
+        nextProjects.unshift({ name, path: selectedPath, icon: null })
+        return { ...prev, projects: reconcileProjects(prev, nextProjects) }
+      })
+      selectProject(selectedPath, 'manual')
+    }
+  } catch (e) {
+    projectStore.setState((prev) => ({
+      ...prev,
+      error: `Failed to open folder picker: ${e}`
+    }))
+  }
+}

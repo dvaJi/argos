@@ -1,5 +1,3 @@
-import type { Ref } from 'vue'
-import { computed } from 'vue'
 import { useAudioRecorder } from './useAudioRecorder'
 
 export type VoiceInputErrorCode = string
@@ -11,7 +9,7 @@ export type VoiceInputAudioPayload = {
 
 export interface VoiceInputController {
   isSupported: boolean
-  isListening: Ref<boolean>
+  isListening: boolean
   start: () => Promise<boolean> | boolean
   stop: () => void
   toggle: () => Promise<boolean> | boolean
@@ -28,37 +26,35 @@ export function useVoiceInput(options: {
 }): VoiceInputController {
   const provider = options.provider ?? 'local-recorder'
 
-  switch (provider) {
-    case 'local-recorder': {
-      const recorder = useAudioRecorder({
-        onRecorded: options.onAudio,
-        onUnsupported: options.onUnsupported,
-        onError: options.onError
-      })
+  const recorder = useAudioRecorder({
+    onRecorded: options.onAudio,
+    onUnsupported: options.onUnsupported,
+    onError: options.onError
+  })
 
-      return {
-        isSupported: recorder.isSupported,
-        isListening: computed(() => recorder.isRecording.value),
-        start: recorder.start,
-        stop: recorder.stop,
-        toggle: recorder.toggle,
-        cleanup: recorder.cleanup
-      }
+  if (provider === 'local-recorder') {
+    return {
+      isSupported: recorder.isSupported,
+      isListening: recorder.isRecording,
+      start: recorder.start,
+      stop: recorder.stop,
+      toggle: recorder.toggle,
+      cleanup: recorder.cleanup
     }
-    default:
-      return {
-        isSupported: false,
-        isListening: computed(() => false),
-        start: () => {
-          options.onUnsupported?.()
-          return false
-        },
-        stop: () => {},
-        toggle: () => {
-          options.onUnsupported?.()
-          return false
-        },
-        cleanup: () => {}
-      }
+  }
+
+  return {
+    isSupported: false,
+    isListening: false,
+    start: () => {
+      options.onUnsupported?.()
+      return false
+    },
+    stop: () => {},
+    toggle: () => {
+      options.onUnsupported?.()
+      return false
+    },
+    cleanup: () => {}
   }
 }

@@ -1,90 +1,53 @@
-// === Types ===
-import type { Ref } from 'vue'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ArtifactState } from '@/stores/artifact'
 
-// === Vue Core ===
-import { ref, watch } from 'vue'
-
-/**
- * Artifact types that automatically show preview mode when loaded
- */
 const AUTO_PREVIEW_TYPES = new Set([
   'image/svg+xml',
   'application/vnd.ant.mermaid',
   'application/vnd.ant.react'
 ])
 
-/**
- * Composable for managing artifact view mode (preview/code)
- *
- * Features:
- * - Automatic preview mode for specific artifact types
- * - Manual override support with user preference tracking
- * - Status-aware mode switching
- */
-export function useArtifactViewMode(artifact: Ref<ArtifactState | null>) {
-  // === Local State ===
-  const isPreview = ref(false)
-  const userHasSetPreview = ref(false)
-  let lastArtifactId: string | null = null
+const getDefaultPreviewState = (art: ArtifactState | null): boolean => {
+  if (!art) return false
+  if (art.status !== 'loaded') return false
+  return AUTO_PREVIEW_TYPES.has(art.type)
+}
 
-  // === Internal Helpers ===
-  /**
-   * Get default preview state based on artifact type and status
-   */
-  const getDefaultPreviewState = (art: ArtifactState | null): boolean => {
-    if (!art) return false
-    if (art.status !== 'loaded') return false
-    return AUTO_PREVIEW_TYPES.has(art.type)
-  }
+export function useArtifactViewMode(artifact: ArtifactState | null) {
+  const [isPreview, setIsPreview] = useState(false)
+  const userHasSetPreviewRef = useRef(false)
+  const lastArtifactIdRef = useRef<string | null>(null)
 
-  // === Public Methods ===
-  /**
-   * Manually set preview mode and mark as user preference
-   */
-  const setPreview = (value: boolean) => {
-    userHasSetPreview.value = true
-    isPreview.value = value
-  }
+  const setPreview = useCallback((value: boolean) => {
+    userHasSetPreviewRef.current = true
+    setIsPreview(value)
+  }, [])
 
-  /**
-   * Reset to default state
-   */
-  const reset = () => {
-    isPreview.value = false
-    userHasSetPreview.value = false
-    lastArtifactId = null
-  }
+  const reset = useCallback(() => {
+    setIsPreview(false)
+    userHasSetPreviewRef.current = false
+    lastArtifactIdRef.current = null
+  }, [])
 
-  // === Lifecycle Hooks ===
-  // Watch artifact and status changes to manage preview state
-  // Use 'sync' flush to ensure immediate updates for testing
-  watch(
-    () => [artifact.value, artifact.value?.status] as const,
-    ([newArtifact]) => {
-      if (!newArtifact) {
-        reset()
-        return
-      }
+  useEffect(() => {
+    if (!artifact) {
+      setIsPreview(false)
+      userHasSetPreviewRef.current = false
+      lastArtifactIdRef.current = null
+      return
+    }
 
-      // Check if this is a different artifact
-      const isNewArtifact = lastArtifactId !== newArtifact.id
+    const isNewArtifact = lastArtifactIdRef.current !== artifact.id
 
-      if (isNewArtifact) {
-        // New artifact: reset user preference and update last ID
-        lastArtifactId = newArtifact.id
-        userHasSetPreview.value = false
-        isPreview.value = getDefaultPreviewState(newArtifact)
-      } else if (!userHasSetPreview.value) {
-        // Same artifact, but user hasn't set preference: update based on status
-        isPreview.value = getDefaultPreviewState(newArtifact)
-      }
-      // If user has set preference and it's the same artifact, keep their preference
-    },
-    { immediate: true, flush: 'sync' }
-  )
+    if (isNewArtifact) {
+      lastArtifactIdRef.current = artifact.id
+      userHasSetPreviewRef.current = false
+      setIsPreview(getDefaultPreviewState(artifact))
+    } else if (!userHasSetPreviewRef.current) {
+      setIsPreview(getDefaultPreviewState(artifact))
+    }
+  }, [artifact?.id, artifact?.status])
 
-  // === Return API ===
   return {
     isPreview,
     setPreview,

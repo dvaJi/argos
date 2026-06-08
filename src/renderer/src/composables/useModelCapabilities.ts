@@ -1,5 +1,4 @@
-// === Vue Core ===
-import { ref, watch, type Ref } from 'vue'
+import { useState, useEffect, useRef } from 'react'
 
 import { createModelClient } from '@api/ModelClient'
 import type { ReasoningPortrait } from '@shared/types/model-db'
@@ -35,7 +34,6 @@ const mergeBudgetRanges = (
   return Object.keys(merged).length > 0 ? merged : null
 }
 
-// === Interfaces ===
 export interface ModelCapabilities {
   supportsReasoning: boolean | null
   budgetRange: ThinkingBudgetRange | null
@@ -49,97 +47,153 @@ export interface ModelCapabilities {
 }
 
 export interface UseModelCapabilitiesOptions {
-  providerId: Ref<string | undefined>
-  modelId: Ref<string | undefined>
+  providerId: string | undefined
+  modelId: string | undefined
 }
 
-/**
- * Composable for fetching and managing model capabilities
- * Handles reasoning support, thinking budget ranges, and search capabilities
- */
 export function useModelCapabilities(options: UseModelCapabilitiesOptions) {
   const { providerId, modelId } = options
-  const modelClient = createModelClient()
+  const modelClientRef = useRef(createModelClient())
 
-  // === Local State ===
-  const capabilitySupportsReasoning = ref<boolean | null>(null)
-  const capabilityBudgetRange = ref<ThinkingBudgetRange | null>(null)
-  const capabilitySupportsSearch = ref<boolean | null>(null)
-  const capabilitySupportsTemperatureControl = ref<boolean | null>(null)
-  const capabilitySearchDefaults = ref<{
+  const [capabilitySupportsReasoning, setCapabilitySupportsReasoning] = useState<boolean | null>(
+    null
+  )
+  const [capabilityBudgetRange, setCapabilityBudgetRange] = useState<ThinkingBudgetRange | null>(
+    null
+  )
+  const [capabilitySupportsSearch, setCapabilitySupportsSearch] = useState<boolean | null>(null)
+  const [capabilitySupportsTemperatureControl, setCapabilitySupportsTemperatureControl] = useState<
+    boolean | null
+  >(null)
+  const [capabilitySearchDefaults, setCapabilitySearchDefaults] = useState<{
     default?: boolean
     forced?: boolean
     strategy?: 'turbo' | 'max'
   } | null>(null)
-  const isLoading = ref(false)
-  let requestId = 0
+  const [isLoading, setIsLoading] = useState(false)
+  const requestIdRef = useRef(0)
 
-  // === Internal Methods ===
   const resetCapabilities = () => {
-    capabilitySupportsReasoning.value = null
-    capabilityBudgetRange.value = null
-    capabilitySupportsSearch.value = null
-    capabilitySupportsTemperatureControl.value = null
-    capabilitySearchDefaults.value = null
+    setCapabilitySupportsReasoning(null)
+    setCapabilityBudgetRange(null)
+    setCapabilitySupportsSearch(null)
+    setCapabilitySupportsTemperatureControl(null)
+    setCapabilitySearchDefaults(null)
   }
 
-  const fetchCapabilities = async () => {
-    const currentRequestId = ++requestId
-    const currentProviderId = providerId.value
-    const currentModelId = modelId.value
+  useEffect(() => {
+    const currentRequestId = ++requestIdRef.current
+    const currentProviderId = providerId
+    const currentModelId = modelId
 
     if (!currentProviderId || !currentModelId) {
       resetCapabilities()
-      isLoading.value = false
+      setIsLoading(false)
       return
     }
 
-    isLoading.value = true
+    setIsLoading(true)
+
+    const fetchCapabilities = async () => {
+      try {
+        const capabilities = await modelClientRef.current.getCapabilities(
+          currentProviderId,
+          currentModelId
+        )
+
+        if (currentRequestId !== requestIdRef.current) return
+
+        setCapabilitySupportsReasoning(
+          typeof capabilities.supportsReasoning === 'boolean'
+            ? capabilities.supportsReasoning
+            : null
+        )
+        setCapabilityBudgetRange(
+          mergeBudgetRanges(
+            capabilities.thinkingBudgetRange,
+            capabilities.reasoningPortrait?.budget
+          )
+        )
+        setCapabilitySupportsSearch(
+          typeof capabilities.supportsSearch === 'boolean' ? capabilities.supportsSearch : null
+        )
+        setCapabilitySearchDefaults(capabilities.searchDefaults || {})
+        setCapabilitySupportsTemperatureControl(
+          typeof capabilities.supportsTemperatureControl === 'boolean'
+            ? capabilities.supportsTemperatureControl
+            : typeof capabilities.temperatureCapability === 'boolean'
+              ? capabilities.temperatureCapability
+              : null
+        )
+      } catch (error) {
+        if (currentRequestId !== requestIdRef.current) return
+
+        resetCapabilities()
+        console.error(error)
+      } finally {
+        if (currentRequestId === requestIdRef.current) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void fetchCapabilities()
+  }, [providerId, modelId])
+
+  const refresh = async () => {
+    const currentRequestId = ++requestIdRef.current
+    const currentProviderId = providerId
+    const currentModelId = modelId
+
+    if (!currentProviderId || !currentModelId) {
+      resetCapabilities()
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
     try {
-      const capabilities = await modelClient.getCapabilities(currentProviderId, currentModelId)
-
-      if (currentRequestId !== requestId) return
-
-      capabilitySupportsReasoning.value =
-        typeof capabilities.supportsReasoning === 'boolean' ? capabilities.supportsReasoning : null
-      capabilityBudgetRange.value = mergeBudgetRanges(
-        capabilities.thinkingBudgetRange,
-        capabilities.reasoningPortrait?.budget
+      const capabilities = await modelClientRef.current.getCapabilities(
+        currentProviderId,
+        currentModelId
       )
-      capabilitySupportsSearch.value =
+      if (currentRequestId !== requestIdRef.current) return
+
+      setCapabilitySupportsReasoning(
+        typeof capabilities.supportsReasoning === 'boolean' ? capabilities.supportsReasoning : null
+      )
+      setCapabilityBudgetRange(
+        mergeBudgetRanges(capabilities.thinkingBudgetRange, capabilities.reasoningPortrait?.budget)
+      )
+      setCapabilitySupportsSearch(
         typeof capabilities.supportsSearch === 'boolean' ? capabilities.supportsSearch : null
-      capabilitySearchDefaults.value = capabilities.searchDefaults || {}
-      capabilitySupportsTemperatureControl.value =
+      )
+      setCapabilitySearchDefaults(capabilities.searchDefaults || {})
+      setCapabilitySupportsTemperatureControl(
         typeof capabilities.supportsTemperatureControl === 'boolean'
           ? capabilities.supportsTemperatureControl
           : typeof capabilities.temperatureCapability === 'boolean'
             ? capabilities.temperatureCapability
             : null
+      )
     } catch (error) {
-      if (currentRequestId !== requestId) return
-
+      if (currentRequestId !== requestIdRef.current) return
       resetCapabilities()
       console.error(error)
     } finally {
-      if (currentRequestId === requestId) {
-        isLoading.value = false
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false)
       }
     }
   }
 
-  // === Watchers ===
-  watch(() => [providerId.value, modelId.value], fetchCapabilities, { immediate: true })
-
-  // === Return Public API ===
   return {
-    // Read-only state
     supportsReasoning: capabilitySupportsReasoning,
     budgetRange: capabilityBudgetRange,
     supportsSearch: capabilitySupportsSearch,
     searchDefaults: capabilitySearchDefaults,
     supportsTemperatureControl: capabilitySupportsTemperatureControl,
     isLoading,
-    // Methods
-    refresh: fetchCapabilities
+    refresh
   }
 }

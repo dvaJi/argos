@@ -1,33 +1,21 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
-import vue from '@vitejs/plugin-vue'
-
-const isCustomElement = (tag: string) =>
-  tag === 'voice-agent-widget' || tag.startsWith('ui-resource-renderer')
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [
-    vue({
-      template: {
-        compilerOptions: {
-          isCustomElement
-        }
-      }
-    })
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': resolve('src/renderer/src'),
       '@api': resolve('src/renderer/api'),
       '@browser': resolve('src/renderer/browser'),
       '@shadcn': resolve('src/shadcn'),
-      '@shared': resolve('src/shared'),
-      vue: 'vue/dist/vue.esm-bundler.js'
+      '@shared': resolve('src/shared')
     }
   },
   test: {
     globals: true,
-    environment: 'jsdom', // 使用jsdom环境，适合renderer进程测试
+    environment: 'jsdom',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],

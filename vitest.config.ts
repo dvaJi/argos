@@ -1,27 +1,13 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
-import vue from '@vitejs/plugin-vue'
-
-const isCustomElement = (tag: string) =>
-  tag === 'voice-agent-widget' || tag.startsWith('ui-resource-renderer')
-
-const vuePlugin = () =>
-  vue({
-    template: {
-      compilerOptions: {
-        isCustomElement
-      }
-    }
-  })
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   test: {
     globals: true,
-    // Use projects to define different configurations for main and renderer tests
-    // This allows each test suite to use the correct alias resolution
     projects: [
       {
-        plugins: [vuePlugin()],
+        plugins: [react()],
         test: {
           name: 'renderer',
           environment: 'jsdom',
@@ -31,7 +17,6 @@ export default defineConfig({
         },
         resolve: {
           alias: [
-            // Renderer process aliases (match electron.vite.config.ts renderer config)
             { find: '@/', replacement: resolve('src/renderer/src/') + '/' },
             { find: '@api', replacement: resolve('src/renderer/api') },
             { find: '@browser', replacement: resolve('src/renderer/browser/') },
@@ -43,7 +28,7 @@ export default defineConfig({
         }
       },
       {
-        plugins: [vuePlugin()],
+        plugins: [react()],
         test: {
           name: 'main',
           environment: 'node',
@@ -53,7 +38,6 @@ export default defineConfig({
         },
         resolve: {
           alias: [
-            // Main process aliases (match electron.vite.config.ts main config)
             { find: '@/', replacement: resolve('src/main/') + '/' },
             { find: '@shared', replacement: resolve('src/shared') },
             { find: 'electron', replacement: resolve('test/mocks/electron.ts') },

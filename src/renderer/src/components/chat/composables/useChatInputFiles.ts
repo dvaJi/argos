@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { useState, useRef, useCallback } from 'react'
 import type { MessageFile } from '@shared/types/agent-interface'
 import { createFileClient } from '@api/FileClient'
 import { useToast } from '@/components/use-toast'
@@ -17,16 +17,24 @@ export interface PromptFileItem {
 }
 
 export function useChatInputFiles(
-  fileInput: Ref<HTMLInputElement | undefined>,
-  emit: (event: 'file-upload', files: MessageFile[]) => void,
-  t: (key: string, params?: any) => string
+  fileInputRef: React.RefObject<HTMLInputElement | null>,
+  emit: (event: 'file-upload', files: MessageFile[]) => void
 ) {
   const fileClient = createFileClient()
   const { toast } = useToast()
-  const selectedFiles = ref<MessageFile[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<MessageFile[]>([])
+  const selectedFilesRef = useRef<MessageFile[]>([])
+
+  const syncFiles = useCallback(() => {
+    setSelectedFiles([...selectedFilesRef.current])
+  }, [])
+
+  const emitFiles = useCallback(() => {
+    emit('file-upload', selectedFilesRef.current)
+  }, [emit])
 
   const getDisplayFileName = (file: File): string => {
-    return file.name?.trim() || t('chat.input.unnamedFile')
+    return file.name?.trim() || 'Unnamed file'
   }
 
   const formatFailedFileNames = (fileNames: string[]): string => {
@@ -36,7 +44,7 @@ export function useChatInputFiles(
       return visibleNames
     }
 
-    return `${visibleNames}${t('chat.input.fileUploadFailedMore', { count: remainingCount })}`
+    return `${visibleNames}, and ${remainingCount} more`
   }
 
   const showFileProcessingError = (fileNames: string[]) => {
@@ -45,11 +53,8 @@ export function useChatInputFiles(
     }
 
     toast({
-      title: t('chat.input.fileUploadFailed'),
-      description: t('chat.input.fileUploadFailedDesc', {
-        count: fileNames.length,
-        names: formatFailedFileNames(fileNames)
-      }),
+      title: 'File upload failed',
+      description: `Failed to process ${fileNames.length} file(s): ${formatFailedFileNames(fileNames)}`,
       variant: 'destructive'
     })
   }
@@ -116,8 +121,6 @@ export function useChatInputFiles(
     }
   }
 
-  const emitFiles = () => emit('file-upload', selectedFiles.value)
-
   const processIncomingFiles = async (
     files: FileList,
     processor: (file: File) => Promise<MessageFile | null>
@@ -128,7 +131,7 @@ export function useChatInputFiles(
     for (const file of Array.from(files)) {
       const fileInfo = await processor(file)
       if (fileInfo) {
-        selectedFiles.value.push(fileInfo)
+        selectedFilesRef.current.push(fileInfo)
         addedCount += 1
       } else {
         failedFileNames.push(getDisplayFileName(file))
@@ -136,6 +139,7 @@ export function useChatInputFiles(
     }
 
     if (addedCount > 0) {
+      syncFiles()
       emitFiles()
     }
 
@@ -169,18 +173,20 @@ export function useChatInputFiles(
   }
 
   const deleteFile = (idx: number) => {
-    selectedFiles.value.splice(idx, 1)
+    selectedFilesRef.current.splice(idx, 1)
+    syncFiles()
     emitFiles()
-    if (fileInput.value) {
-      fileInput.value.value = ''
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
   const clearFiles = () => {
-    selectedFiles.value = []
+    selectedFilesRef.current = []
+    syncFiles()
     emitFiles()
-    if (fileInput.value) {
-      fileInput.value.value = ''
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
@@ -192,7 +198,7 @@ export function useChatInputFiles(
 
     for (const fileItem of files) {
       try {
-        const exists = selectedFiles.value.some((f) => f.name === fileItem.name)
+        const exists = selectedFilesRef.current.some((f) => f.name === fileItem.name)
         if (exists) {
           continue
         }
@@ -222,7 +228,7 @@ export function useChatInputFiles(
           }
         }
 
-        selectedFiles.value.push(messageFile)
+        selectedFilesRef.current.push(messageFile)
         addedCount++
       } catch (error) {
         console.error('Failed to process prompt file:', fileItem, error)
@@ -231,9 +237,10 @@ export function useChatInputFiles(
     }
 
     if (addedCount > 0) {
+      syncFiles()
       toast({
-        title: t('chat.input.promptFilesAdded'),
-        description: t('chat.input.promptFilesAddedDesc', { count: addedCount }),
+        title: 'Files added',
+        description: `${addedCount} file(s) added successfully`,
         variant: 'default'
       })
       emitFiles()
@@ -241,15 +248,15 @@ export function useChatInputFiles(
 
     if (errorCount > 0) {
       toast({
-        title: t('chat.input.promptFilesError'),
-        description: t('chat.input.promptFilesErrorDesc', { count: errorCount }),
+        title: 'File processing error',
+        description: `Failed to process ${errorCount} file(s)`,
         variant: 'destructive'
       })
     }
   }
 
   const openFilePicker = () => {
-    fileInput.value?.click()
+    fileInputRef.current?.click()
   }
 
   return {

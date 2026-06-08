@@ -1,5 +1,4 @@
-import { defineStore } from 'pinia'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { Store } from '@tanstack/store'
 import { createMcpClient } from '@api/McpClient'
 import type {
   McpSamplingDecision,
@@ -7,10 +6,6 @@ import type {
   RENDERER_MODEL_META
 } from '@shared/presenter'
 import { resolveSamplingChatModel, type ChatModelSelection } from '@/lib/chatModelSelection'
-import { useModelStore } from '@/stores/modelStore'
-import { useProviderStore } from '@/stores/providerStore'
-import { useSessionStore } from '@/stores/ui/session'
-import { useDraftStore } from '@/stores/ui/draft'
 
 interface ApprovedServerInfo {
   providerId: string
@@ -18,8 +13,43 @@ interface ApprovedServerInfo {
   timestamp: number
 }
 
-// Session timeout: 30 minutes
 const SESSION_TIMEOUT = 30 * 60 * 1000
+
+const mcpClient = createMcpClient()
+const eventCleanups: Array<() => void> = []
+
+export interface McpSamplingDeps {
+  modelStore: {
+    get initialized(): boolean
+    initialize(): Promise<void>
+    chatSelectableModelGroups: Array<{ providerId: string; models: RENDERER_MODEL_META[] }>
+    findChatSelectableModel(
+      providerId: string,
+      modelId: string
+    ): { providerId: string; model: RENDERER_MODEL_META } | undefined
+  }
+  providerStore: {
+    sortedProviders: Array<{ id: string; name: string }>
+  }
+  sessionStore: {
+    activeSession: { providerId?: string; modelId?: string } | null
+  }
+  draftStore: {
+    providerId?: string
+    modelId?: string
+  }
+}
+
+let deps: McpSamplingDeps | null = null
+
+export const registerMcpSamplingDeps = (d: McpSamplingDeps) => {
+  deps = d
+}
+
+const requireDeps = (): McpSamplingDeps => {
+  if (!deps) throw new Error('MCP sampling dependencies not registered')
+  return deps
+}
 
 export const resolveSamplingDefaultModel = (input: {
   modelGroups: Array<{ providerId: string; models: RENDERER_MODEL_META[] }>
@@ -32,394 +62,382 @@ export const resolveSamplingDefaultModel = (input: {
     requiresVision: input.requiresVision,
     selections: [input.activeSelection, input.draftSelection]
   })
-
   return resolvedModel
     ? { providerId: resolvedModel.providerId, model: resolvedModel.model }
     : { providerId: null, model: null }
 }
 
-export const useMcpSamplingStore = defineStore('mcpSampling', () => {
-  const mcpClient = createMcpClient()
-  const modelStore = useModelStore()
-  const providerStore = useProviderStore()
-  const sessionStore = useSessionStore()
-  const draftStore = useDraftStore()
+export const mcpSamplingStore = new Store({
+  request: null as McpSamplingRequestPayload | null,
+  isOpen: false,
+  isSubmitting: false,
+  selectedProviderId: null as string | null,
+  selectedModel: null as RENDERER_MODEL_META | null,
+  isPreparingModels: false,
+  modelPreparationError: null as Error | null,
+  approvedServers: new Map<string, ApprovedServerInfo>()
+})
 
-  const request = ref<McpSamplingRequestPayload | null>(null)
-  const isOpen = ref(false)
-  const isSubmitting = ref(false)
-  const selectedProviderId = ref<string | null>(null)
-  const selectedModel = ref<RENDERER_MODEL_META | null>(null)
-  const isPreparingModels = ref(false)
-  const modelPreparationError = ref<Error | null>(null)
-  const eventCleanups: Array<() => void> = []
+export const getRequiresVision = () => mcpSamplingStore.state.request?.requiresVision ?? false
 
-  // Session tracking for auto-approval
-  const approvedServers = ref<Map<string, ApprovedServerInfo>>(new Map())
+export const getSelectedModelSupportsVision = () =>
+  mcpSamplingStore.state.selectedModel?.vision ?? false
 
-  const requiresVision = computed(() => request.value?.requiresVision ?? false)
-  const selectedModelSupportsVision = computed(() => selectedModel.value?.vision ?? false)
-  const selectedProviderLabel = computed(() => {
-    if (!selectedProviderId.value) {
-      return null
-    }
+export const getSelectedProviderLabel = () => {
+  const { selectedProviderId } = mcpSamplingStore.state
+  if (!selectedProviderId) return null
+  const d = requireDeps()
+  const provider = d.providerStore.sortedProviders.find((entry) => entry.id === selectedProviderId)
+  return provider?.name ?? selectedProviderId
+}
 
-    const provider = providerStore.sortedProviders.find(
-      (entry) => entry.id === selectedProviderId.value
-    )
+export const getIsModelSelectionReady = () => {
+  const d = requireDeps()
+  return (
+    d.modelStore.initialized &&
+    !mcpSamplingStore.state.isPreparingModels &&
+    !mcpSamplingStore.state.modelPreparationError
+  )
+}
 
-    return provider?.name ?? selectedProviderId.value
+const ensureModelsReady = async (): Promise<boolean> => {
+  const d = requireDeps()
+  if (d.modelStore.initialized) {
+    mcpSamplingStore.setState((s) => ({
+      ...s,
+      modelPreparationError: null,
+      isPreparingModels: false
+    }))
+    return true
+  }
+
+  mcpSamplingStore.setState((s) => ({
+    ...s,
+    isPreparingModels: true,
+    modelPreparationError: null
+  }))
+
+  try {
+    await d.modelStore.initialize()
+    return true
+  } catch (error) {
+    mcpSamplingStore.setState((s) => ({
+      ...s,
+      modelPreparationError:
+        error instanceof Error ? error : new Error('Failed to initialize enabled models')
+    }))
+    return false
+  } finally {
+    mcpSamplingStore.setState((s) => ({ ...s, isPreparingModels: false }))
+  }
+}
+
+const resetSelection = () => {
+  const d = requireDeps()
+  if (!d.modelStore.initialized) {
+    mcpSamplingStore.setState((s) => ({
+      ...s,
+      selectedProviderId: null,
+      selectedModel: null
+    }))
+    return
+  }
+
+  const activeSession = d.sessionStore.activeSession
+  const activeSelection =
+    activeSession?.providerId && activeSession?.modelId
+      ? { providerId: activeSession.providerId, modelId: activeSession.modelId }
+      : null
+  const draftSelection =
+    d.draftStore.providerId && d.draftStore.modelId
+      ? { providerId: d.draftStore.providerId, modelId: d.draftStore.modelId }
+      : null
+
+  const selection = resolveSamplingDefaultModel({
+    modelGroups: d.modelStore.chatSelectableModelGroups,
+    requiresVision: getRequiresVision(),
+    activeSelection,
+    draftSelection
   })
 
-  const isModelSelectionReady = computed(
-    () => modelStore.initialized && !isPreparingModels.value && !modelPreparationError.value
+  mcpSamplingStore.setState((s) => ({
+    ...s,
+    selectedProviderId: selection.providerId,
+    selectedModel: selection.model
+  }))
+}
+
+export const getHasEligibleModel = () => {
+  const { request } = mcpSamplingStore.state
+  if (!request || !getIsModelSelectionReady()) return false
+  const requiresVisionValue = getRequiresVision()
+  const d = requireDeps()
+  return d.modelStore.chatSelectableModelGroups.some((entry) =>
+    entry.models.some((model) => !requiresVisionValue || model.vision)
+  )
+}
+
+const getIsActiveSession = () => {
+  const { request, approvedServers } = mcpSamplingStore.state
+  if (!request) return false
+  const approvedInfo = approvedServers.get(request.serverName)
+  if (!approvedInfo) return false
+  return Date.now() - approvedInfo.timestamp < SESSION_TIMEOUT
+}
+
+const getActiveSessionInfo = () => {
+  const { request, approvedServers } = mcpSamplingStore.state
+  if (!request) return null
+  return approvedServers.get(request.serverName) || null
+}
+
+const cleanExpiredSessions = () => {
+  const { approvedServers } = mcpSamplingStore.state
+  const now = Date.now()
+  const next = new Map(approvedServers)
+  for (const [serverName, info] of next.entries()) {
+    if (now - info.timestamp >= SESSION_TIMEOUT) {
+      next.delete(serverName)
+    }
+  }
+  mcpSamplingStore.setState((s) => ({ ...s, approvedServers: next }))
+}
+
+const recordServerApproval = (serverName: string, providerId: string, modelId: string) => {
+  const { approvedServers } = mcpSamplingStore.state
+  const next = new Map(approvedServers)
+  next.set(serverName, { providerId, modelId, timestamp: Date.now() })
+  mcpSamplingStore.setState((s) => ({ ...s, approvedServers: next }))
+  cleanExpiredSessions()
+}
+
+const applySessionSelection = (): boolean => {
+  const d = requireDeps()
+  const { request, approvedServers } = mcpSamplingStore.state
+  if (!request || !d.modelStore.initialized) return false
+
+  const sessionInfo = approvedServers.get(request.serverName)
+  if (!sessionInfo) return false
+
+  const match = d.modelStore.findChatSelectableModel(sessionInfo.providerId, sessionInfo.modelId)
+  if (!match) {
+    const next = new Map(approvedServers)
+    next.delete(request.serverName)
+    mcpSamplingStore.setState((s) => ({ ...s, approvedServers: next }))
+    return false
+  }
+
+  if (getRequiresVision() && !match.model.vision) {
+    const next = new Map(approvedServers)
+    next.delete(request.serverName)
+    mcpSamplingStore.setState((s) => ({ ...s, approvedServers: next }))
+    return false
+  }
+
+  mcpSamplingStore.setState((s) => ({
+    ...s,
+    selectedProviderId: match.providerId,
+    selectedModel: match.model
+  }))
+  return true
+}
+
+const autoApproveRequest = async (): Promise<boolean> => {
+  const { request } = mcpSamplingStore.state
+  if (!request) return false
+
+  const applied = applySessionSelection()
+  if (
+    !applied ||
+    !mcpSamplingStore.state.selectedProviderId ||
+    !mcpSamplingStore.state.selectedModel
+  )
+    return false
+
+  recordServerApproval(
+    request.serverName,
+    mcpSamplingStore.state.selectedProviderId,
+    mcpSamplingStore.state.selectedModel.id
   )
 
-  const ensureModelsReady = async (): Promise<boolean> => {
-    if (modelStore.initialized) {
-      modelPreparationError.value = null
-      isPreparingModels.value = false
-      return true
-    }
-
-    isPreparingModels.value = true
-    modelPreparationError.value = null
-
-    try {
-      await modelStore.initialize()
-      return true
-    } catch (error) {
-      modelPreparationError.value =
-        error instanceof Error ? error : new Error('Failed to initialize enabled models')
-      return false
-    } finally {
-      isPreparingModels.value = false
-    }
-  }
-
-  const resetSelection = () => {
-    if (!modelStore.initialized) {
-      selectedProviderId.value = null
-      selectedModel.value = null
-      return
-    }
-
-    const activeSession = sessionStore.activeSession
-    const activeSelection =
-      activeSession?.providerId && activeSession?.modelId
-        ? { providerId: activeSession.providerId, modelId: activeSession.modelId }
-        : null
-    const draftSelection =
-      draftStore.providerId && draftStore.modelId
-        ? { providerId: draftStore.providerId, modelId: draftStore.modelId }
-        : null
-
-    const selection = resolveSamplingDefaultModel({
-      modelGroups: modelStore.chatSelectableModelGroups,
-      requiresVision: requiresVision.value,
-      activeSelection,
-      draftSelection
-    })
-
-    selectedProviderId.value = selection.providerId
-    selectedModel.value = selection.model
-  }
-
-  const hasEligibleModel = computed(() => {
-    if (!request.value || !isModelSelectionReady.value) {
-      return false
-    }
-
-    const requiresVisionValue = requiresVision.value
-    return modelStore.chatSelectableModelGroups.some((entry) =>
-      entry.models.some((model) => !requiresVisionValue || model.vision)
-    )
+  await submitDecision({
+    requestId: request.requestId,
+    approved: true,
+    providerId: mcpSamplingStore.state.selectedProviderId,
+    modelId: mcpSamplingStore.state.selectedModel.id
   })
 
-  // Check if current server has an active session
-  const isActiveSession = computed(() => {
-    if (!request.value) return false
+  return true
+}
 
-    const serverName = request.value.serverName
-    const approvedInfo = approvedServers.value.get(serverName)
-
-    if (!approvedInfo) return false
-
-    // Check if session is still valid
-    const now = Date.now()
-    return now - approvedInfo.timestamp < SESSION_TIMEOUT
-  })
-
-  // Get active session info for current server
-  const activeSessionInfo = computed(() => {
-    if (!request.value) return null
-
-    const serverName = request.value.serverName
-    return approvedServers.value.get(serverName) || null
-  })
-
-  // Session management methods
-  const cleanExpiredSessions = () => {
-    const now = Date.now()
-    for (const [serverName, info] of approvedServers.value.entries()) {
-      if (now - info.timestamp >= SESSION_TIMEOUT) {
-        approvedServers.value.delete(serverName)
-      }
-    }
-  }
-
-  const recordServerApproval = (serverName: string, providerId: string, modelId: string) => {
-    approvedServers.value.set(serverName, {
-      providerId,
-      modelId,
-      timestamp: Date.now()
-    })
+const openRequest = (payload: McpSamplingRequestPayload) => {
+  void (async () => {
     cleanExpiredSessions()
-  }
+    mcpSamplingStore.setState((s) => ({
+      ...s,
+      request: payload,
+      isOpen: true,
+      isSubmitting: false,
+      selectedProviderId: null,
+      selectedModel: null
+    }))
 
-  const applySessionSelection = (): boolean => {
-    if (!request.value || !modelStore.initialized) {
-      return false
-    }
-
-    const sessionInfo = activeSessionInfo.value
-    if (!sessionInfo) {
-      return false
-    }
-
-    const match = modelStore.findChatSelectableModel(sessionInfo.providerId, sessionInfo.modelId)
-    if (!match) {
-      approvedServers.value.delete(request.value.serverName)
-      return false
-    }
-
-    if (requiresVision.value && !match.model.vision) {
-      approvedServers.value.delete(request.value.serverName)
-      return false
-    }
-
-    selectedProviderId.value = match.providerId
-    selectedModel.value = match.model
-    return true
-  }
-
-  const autoApproveRequest = async (): Promise<boolean> => {
-    if (!request.value) {
-      return false
-    }
-
-    const applied = applySessionSelection()
-    if (!applied || !selectedProviderId.value || !selectedModel.value) {
-      return false
-    }
-
-    recordServerApproval(request.value.serverName, selectedProviderId.value, selectedModel.value.id)
-
-    await submitDecision({
-      requestId: request.value.requestId,
-      approved: true,
-      providerId: selectedProviderId.value,
-      modelId: selectedModel.value.id
-    })
-
-    return true
-  }
-
-  const openRequest = (payload: McpSamplingRequestPayload) => {
-    void (async () => {
-      cleanExpiredSessions()
-      request.value = payload
-      isOpen.value = true
-      isSubmitting.value = false
-      selectedProviderId.value = null
-      selectedModel.value = null
-
-      const ready = await ensureModelsReady()
-      if (!request.value || request.value.requestId !== payload.requestId) {
-        return
-      }
-
-      if (!ready) {
-        return
-      }
-
-      if (isActiveSession.value) {
-        const success = await autoApproveRequest()
-        if (!success && request.value?.requestId === payload.requestId) {
-          resetSelection()
-        }
-        return
-      }
-
-      resetSelection()
-    })()
-  }
-
-  const retryPrepareModels = async () => {
-    cleanExpiredSessions()
-    if (!request.value) {
-      return
-    }
-
-    const currentRequestId = request.value.requestId
     const ready = await ensureModelsReady()
-    if (!request.value || request.value.requestId !== currentRequestId || !ready) {
+    if (
+      !mcpSamplingStore.state.request ||
+      mcpSamplingStore.state.request.requestId !== payload.requestId
+    )
       return
-    }
+    if (!ready) return
 
-    if (isActiveSession.value) {
+    if (getIsActiveSession()) {
       const success = await autoApproveRequest()
-      if (!success && request.value?.requestId === currentRequestId) {
+      if (!success && mcpSamplingStore.state.request?.requestId === payload.requestId) {
         resetSelection()
       }
       return
     }
 
     resetSelection()
-  }
+  })()
+}
 
-  const clearRequest = () => {
-    isOpen.value = false
-    isSubmitting.value = false
-    request.value = null
-    selectedProviderId.value = null
-    selectedModel.value = null
-    isPreparingModels.value = false
-    modelPreparationError.value = null
-  }
+export const retryPrepareModels = async () => {
+  cleanExpiredSessions()
+  const { request } = mcpSamplingStore.state
+  if (!request) return
 
-  const selectModel = (model: RENDERER_MODEL_META, providerId: string) => {
-    if (!isModelSelectionReady.value || (requiresVision.value && !model.vision)) {
-      return
+  const currentRequestId = request.requestId
+  const ready = await ensureModelsReady()
+  if (
+    !mcpSamplingStore.state.request ||
+    mcpSamplingStore.state.request.requestId !== currentRequestId ||
+    !ready
+  )
+    return
+
+  if (getIsActiveSession()) {
+    const success = await autoApproveRequest()
+    if (!success && mcpSamplingStore.state.request?.requestId === currentRequestId) {
+      resetSelection()
     }
-
-    selectedModel.value = model
-    selectedProviderId.value = providerId
+    return
   }
 
-  const submitDecision = async (decision: McpSamplingDecision) => {
-    if (!request.value) {
-      return
-    }
+  resetSelection()
+}
 
-    const activeRequestId = request.value.requestId
+const clearRequest = () => {
+  mcpSamplingStore.setState((s) => ({
+    ...s,
+    isOpen: false,
+    isSubmitting: false,
+    request: null,
+    selectedProviderId: null,
+    selectedModel: null,
+    isPreparingModels: false,
+    modelPreparationError: null
+  }))
+}
 
-    isSubmitting.value = true
+export const selectModel = (model: RENDERER_MODEL_META, providerId: string) => {
+  if (!getIsModelSelectionReady() || (getRequiresVision() && !model.vision)) return
+  mcpSamplingStore.setState((s) => ({
+    ...s,
+    selectedModel: model,
+    selectedProviderId: providerId
+  }))
+}
+
+export const submitDecision = async (decision: McpSamplingDecision) => {
+  const { request } = mcpSamplingStore.state
+  if (!request) return
+
+  const activeRequestId = request.requestId
+  mcpSamplingStore.setState((s) => ({ ...s, isSubmitting: true }))
+  try {
+    await mcpClient.submitSamplingDecision(decision)
+    clearRequest()
+  } catch (error) {
+    console.error('[MCP Sampling] Failed to submit decision:', error)
     try {
-      await mcpClient.submitSamplingDecision(decision)
-      clearRequest()
-    } catch (error) {
-      console.error('[MCP Sampling] Failed to submit decision:', error)
-
-      try {
-        await mcpClient.cancelSamplingRequest(
-          activeRequestId,
-          'Sampling decision submission failed'
-        )
-      } catch (cancelError) {
-        console.error('[MCP Sampling] Failed to cancel sampling request:', cancelError)
-      }
-
-      clearRequest()
+      await mcpClient.cancelSamplingRequest(activeRequestId, 'Sampling decision submission failed')
+    } catch (cancelError) {
+      console.error('[MCP Sampling] Failed to cancel sampling request:', cancelError)
     }
+    clearRequest()
   }
+}
 
-  const confirmApproval = async () => {
-    if (
-      !request.value ||
-      !selectedProviderId.value ||
-      !selectedModel.value ||
-      !isModelSelectionReady.value
-    ) {
-      return
-    }
+export const confirmApproval = async () => {
+  const { request, selectedProviderId, selectedModel } = mcpSamplingStore.state
+  if (!request || !selectedProviderId || !selectedModel || !getIsModelSelectionReady()) return
 
-    // Record this server approval for future auto-approval
-    recordServerApproval(request.value.serverName, selectedProviderId.value, selectedModel.value.id)
+  recordServerApproval(request.serverName, selectedProviderId, selectedModel.id)
 
-    await submitDecision({
-      requestId: request.value.requestId,
-      approved: true,
-      providerId: selectedProviderId.value,
-      modelId: selectedModel.value.id
-    })
-  }
-
-  const rejectRequest = async () => {
-    if (!request.value) {
-      return
-    }
-
-    await submitDecision({
-      requestId: request.value.requestId,
-      approved: false,
-      reason: 'User rejected sampling request'
-    })
-  }
-
-  const dismissRequest = async () => {
-    if (!request.value) {
-      clearRequest()
-      return
-    }
-
-    await submitDecision({
-      requestId: request.value.requestId,
-      approved: false,
-      reason: 'User dismissed sampling request'
-    })
-  }
-
-  const handleSamplingRequest = (payload: { request: unknown }) => {
-    if (!payload?.request) {
-      return
-    }
-
-    openRequest(payload.request as McpSamplingRequestPayload)
-  }
-
-  const handleSamplingCancelled = (payload: { requestId: string }) => {
-    if (request.value && payload.requestId === request.value.requestId) {
-      clearRequest()
-    }
-  }
-
-  const handleSamplingDecision = (payload: { decision: unknown }) => {
-    const decision = payload.decision as McpSamplingDecision | undefined
-    if (request.value && decision?.requestId === request.value.requestId) {
-      clearRequest()
-    }
-  }
-
-  onMounted(() => {
-    eventCleanups.push(mcpClient.onSamplingRequest(handleSamplingRequest))
-    eventCleanups.push(mcpClient.onSamplingCancelled(handleSamplingCancelled))
-    eventCleanups.push(mcpClient.onSamplingDecision(handleSamplingDecision))
+  await submitDecision({
+    requestId: request.requestId,
+    approved: true,
+    providerId: selectedProviderId,
+    modelId: selectedModel.id
   })
+}
 
-  onUnmounted(() => {
-    while (eventCleanups.length > 0) {
-      eventCleanups.pop()?.()
-    }
+export const rejectRequest = async () => {
+  const { request } = mcpSamplingStore.state
+  if (!request) return
+
+  await submitDecision({
+    requestId: request.requestId,
+    approved: false,
+    reason: 'User rejected sampling request'
   })
+}
 
-  return {
-    request,
-    isOpen,
-    isSubmitting,
-    requiresVision,
-    selectedModelSupportsVision,
-    selectedProviderLabel,
-    selectedProviderId,
-    selectedModel,
-    isPreparingModels,
-    modelPreparationError,
-    isModelSelectionReady,
-    hasEligibleModel,
-    selectModel,
-    confirmApproval,
-    rejectRequest,
-    dismissRequest,
-    retryPrepareModels
+export const dismissRequest = async () => {
+  const { request } = mcpSamplingStore.state
+  if (!request) {
+    clearRequest()
+    return
   }
-})
+
+  await submitDecision({
+    requestId: request.requestId,
+    approved: false,
+    reason: 'User dismissed sampling request'
+  })
+}
+
+const handleSamplingRequest = (payload: { request: unknown }) => {
+  if (!payload?.request) return
+  openRequest(payload.request as McpSamplingRequestPayload)
+}
+
+const handleSamplingCancelled = (payload: { requestId: string }) => {
+  if (
+    mcpSamplingStore.state.request &&
+    payload.requestId === mcpSamplingStore.state.request.requestId
+  )
+    clearRequest()
+}
+
+const handleSamplingDecision = (payload: { decision: unknown }) => {
+  const decision = payload.decision as McpSamplingDecision | undefined
+  if (
+    mcpSamplingStore.state.request &&
+    decision?.requestId === mcpSamplingStore.state.request.requestId
+  )
+    clearRequest()
+}
+
+export const initMcpSampling = () => {
+  eventCleanups.push(mcpClient.onSamplingRequest(handleSamplingRequest))
+  eventCleanups.push(mcpClient.onSamplingCancelled(handleSamplingCancelled))
+  eventCleanups.push(mcpClient.onSamplingDecision(handleSamplingDecision))
+}
+
+export const cleanupMcpSampling = () => {
+  while (eventCleanups.length > 0) {
+    eventCleanups.pop()?.()
+  }
+}

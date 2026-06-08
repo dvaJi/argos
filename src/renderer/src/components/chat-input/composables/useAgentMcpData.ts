@@ -1,75 +1,86 @@
-import { computed, ref, watch } from 'vue'
-import { useMcpStore } from '@/stores/mcp'
-import { useSessionStore } from '@/stores/ui/session'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import {
+  mcpStore,
+  getVisibleTools,
+  getPluginTools,
+  getVisibleResources,
+  getVisiblePrompts
+} from '@/stores/mcp'
+import { sessionStore, getActiveSession } from '@/stores/ui/session'
 import { createConfigClient } from '@api/ConfigClient'
+import { useStore } from '@tanstack/react-store'
 
 const CUSTOM_PROMPTS_CLIENT = 'deepchat/custom-prompts-server'
 
 export function useAgentMcpData() {
-  const sessionStore = useSessionStore()
-  const mcpStore = useMcpStore()
   const configClient = createConfigClient()
-  const activeSelections = ref<string[] | null>(null)
-  let requestSeq = 0
+  const [activeSelections, setActiveSelections] = useState<string[] | null>(null)
+  const requestSeqRef = useRef(0)
 
-  const isAcpMode = computed(() => sessionStore.activeSession?.providerId === 'acp')
-  const activeAcpAgentId = computed(() =>
-    isAcpMode.value ? (sessionStore.activeSession?.modelId?.trim() ?? '') : ''
-  )
+  const activeSession = useStore(sessionStore, getActiveSession)
+  const mcpTools = useStore(mcpStore, (s) => s.tools)
+  const mcpResources = useStore(mcpStore, (s) => s.resources)
+  const mcpPrompts = useStore(mcpStore, (s) => s.prompts)
 
-  watch(
-    [isAcpMode, activeAcpAgentId],
-    async ([acpMode, agentId]) => {
-      const seq = ++requestSeq
-      if (!acpMode || !agentId) {
-        activeSelections.value = null
-        return
-      }
+  const isAcpMode = activeSession?.providerId === 'acp'
+  const activeAcpAgentId = isAcpMode ? (activeSession?.modelId?.trim() ?? '') : ''
 
-      try {
-        const selections = await configClient.getAgentMcpSelections(agentId)
-        if (seq !== requestSeq) return
-        activeSelections.value = Array.isArray(selections) ? selections : []
-      } catch (error) {
-        if (seq !== requestSeq) return
+  useEffect(() => {
+    const seq = ++requestSeqRef.current
+    if (!isAcpMode || !activeAcpAgentId) {
+      setActiveSelections(null)
+      return
+    }
+
+    let cancelled = false
+    configClient
+      .getAgentMcpSelections(activeAcpAgentId)
+      .then((selections) => {
+        if (cancelled || seq !== requestSeqRef.current) return
+        setActiveSelections(Array.isArray(selections) ? selections : [])
+      })
+      .catch((error) => {
+        if (cancelled || seq !== requestSeqRef.current) return
         console.warn('[useAgentMcpData] Failed to load ACP agent MCP selections:', error)
-        activeSelections.value = []
-      }
-    },
-    { immediate: true }
-  )
+        setActiveSelections([])
+      })
 
-  const selectionSet = computed(() => {
-    const selections = activeSelections.value
-    if (!isAcpMode.value || !selections?.length) return null
-    return new Set(selections)
-  })
+    return () => {
+      cancelled = true
+    }
+  }, [isAcpMode, activeAcpAgentId])
 
-  const tools = computed(() => {
-    if (!isAcpMode.value) return [...mcpStore.visibleTools, ...mcpStore.pluginTools]
-    const set = selectionSet.value
-    if (!set) return []
-    return mcpStore.visibleTools.filter((tool) => set.has(tool.server.name))
-  })
+  const selectionSet = useMemo(() => {
+    if (!isAcpMode || !activeSelections?.length) return null
+    return new Set(activeSelections)
+  }, [isAcpMode, activeSelections])
 
-  const resources = computed(() => {
-    if (!isAcpMode.value) return mcpStore.visibleResources
-    const set = selectionSet.value
-    if (!set) return []
-    return mcpStore.visibleResources.filter((resource) => set.has(resource.client.name))
-  })
+  const visibleTools = useMemo(() => getVisibleTools(), [mcpTools])
+  const pluginTools = useMemo(() => getPluginTools(), [mcpTools])
+  const visibleResources = useMemo(() => getVisibleResources(), [mcpResources])
+  const visiblePrompts = useMemo(() => getVisiblePrompts(), [mcpPrompts])
 
-  const prompts = computed(() => {
-    if (!isAcpMode.value) return mcpStore.visiblePrompts
-    const set = selectionSet.value
-    if (!set)
-      return mcpStore.visiblePrompts.filter(
-        (prompt) => prompt.client?.name === CUSTOM_PROMPTS_CLIENT
-      )
-    return mcpStore.visiblePrompts.filter(
-      (prompt) => prompt.client?.name === CUSTOM_PROMPTS_CLIENT || set.has(prompt.client?.name)
+  const tools = useMemo(() => {
+    if (!isAcpMode) return [...visibleTools, ...pluginTools]
+    if (!selectionSet) return []
+    return visibleTools.filter((tool) => selectionSet.has(tool.server.name))
+  }, [isAcpMode, selectionSet, visibleTools, pluginTools])
+
+  const resources = useMemo(() => {
+    if (!isAcpMode) return visibleResources
+    if (!selectionSet) return []
+    return visibleResources.filter((resource) => selectionSet.has(resource.client.name))
+  }, [isAcpMode, selectionSet, visibleResources])
+
+  const prompts = useMemo(() => {
+    if (!isAcpMode) return visiblePrompts
+    if (!selectionSet)
+      return visiblePrompts.filter((prompt) => prompt.client?.name === CUSTOM_PROMPTS_CLIENT)
+    return visiblePrompts.filter(
+      (prompt) =>
+        prompt.client?.name === CUSTOM_PROMPTS_CLIENT || selectionSet.has(prompt.client?.name)
     )
-  })
+  }, [isAcpMode, selectionSet, visiblePrompts])
 
   return {
     tools,

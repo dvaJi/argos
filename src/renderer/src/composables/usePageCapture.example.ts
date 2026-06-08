@@ -1,35 +1,29 @@
-// usePageCapture 使用示例
-
+import { useState, useEffect } from 'react'
 import { createDeviceClient } from '@api/DeviceClient'
 import { usePageCapture, createCapturePresets } from '@/composables/usePageCapture'
-import { useI18n } from 'vue-i18n'
-import { ref } from 'vue'
 
-// 在组件中使用示例
 export function useMessageCapture() {
-  const { t } = useI18n()
   const { isCapturing, captureAndCopy } = usePageCapture()
   const deviceClient = createDeviceClient()
-  const appVersion = ref('')
+  const [appVersion, setAppVersion] = useState('')
 
-  // 初始化应用版本
-  const initAppVersion = async () => {
-    appVersion.value = await deviceClient.getAppVersion()
-  }
+  useEffect(() => {
+    deviceClient.getAppVersion().then((version) => {
+      setAppVersion(version)
+    })
+  }, [])
 
-  // 获取水印配置
   const getWatermarkConfig = (isDark: boolean, modelName?: string, providerName?: string) => ({
     isDark,
-    version: appVersion.value,
+    version: appVersion,
     texts: {
       brand: 'DeepChat',
-      tip: t('common.watermarkTip'),
+      tip: 'Shared from DeepChat',
       model: modelName,
       provider: providerName
     }
   })
 
-  // 计算单个消息组范围（用户消息 + 助手消息）
   const calculateMessageGroupRect = (messageNode: HTMLElement, parentId?: string) => {
     const userMessageElement = parentId
       ? (document.querySelector(`[data-message-id="${parentId}"]`) as HTMLElement)
@@ -64,7 +58,6 @@ export function useMessageCapture() {
     }
   }
 
-  // 计算从顶部到当前消息的范围
   const calculateFromTopToCurrentRect = (currentMessageNode: HTMLElement) => {
     const container = document.querySelector('.message-list-container')
     if (!container || !currentMessageNode) return null
@@ -89,7 +82,6 @@ export function useMessageCapture() {
     }
   }
 
-  // 截图单个消息组
   const captureMessageGroup = async (
     messageNode: HTMLElement,
     parentId: string | undefined,
@@ -104,7 +96,6 @@ export function useMessageCapture() {
     })
   }
 
-  // 截图从顶部到当前消息
   const captureFromTopToCurrent = async (
     currentMessageNode: HTMLElement,
     isDark: boolean,
@@ -118,7 +109,6 @@ export function useMessageCapture() {
     })
   }
 
-  // 使用预设配置截取整个会话
   const captureFullConversation = async (
     isDark: boolean,
     modelName?: string,
@@ -129,7 +119,6 @@ export function useMessageCapture() {
     return await captureAndCopy(config)
   }
 
-  // 使用预设配置截取消息范围
   const captureMessageRange = async (
     startMessageId: string,
     endMessageId: string,
@@ -148,49 +137,9 @@ export function useMessageCapture() {
 
   return {
     isCapturing,
-    initAppVersion,
     captureMessageGroup,
     captureFromTopToCurrent,
     captureFullConversation,
     captureMessageRange
   }
 }
-
-// 在 MessageItemAssistant.vue 中的使用示例
-/*
-<script setup lang="ts">
-import { useMessageCapture } from '@/composables/usePageCapture.example'
-
-const {
-  isCapturing: isCapturingImage,
-  initAppVersion,
-  captureMessageGroup,
-  captureFromTopToCurrent
-} = useMessageCapture()
-
-// 在 onMounted 中初始化
-onMounted(async () => {
-  await initAppVersion()
-})
-
-// 处理复制图片操作
-const handleCopyImage = async (fromTop: boolean = false) => {
-  if (fromTop) {
-    await captureFromTopToCurrent(
-      messageNode.value,
-      props.isDark,
-      props.message.model_name,    // 传递模型名称
-      props.message.model_provider // 传递供应商名称
-    )
-  } else {
-    await captureMessageGroup(
-      messageNode.value,
-      props.message.parentId,
-      props.isDark,
-      props.message.model_name,    // 传递模型名称
-      props.message.model_provider // 传递供应商名称
-    )
-  }
-}
-</script>
-*/

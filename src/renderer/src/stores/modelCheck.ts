@@ -1,24 +1,19 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { Store } from '@tanstack/store'
 
-export const useModelCheckStore = defineStore('modelCheck', () => {
-  const isDialogOpen = ref(false)
-  const currentProviderId = ref<string>('')
+interface ModelCheckState {
+  isDialogOpen: boolean
+  currentProviderId: string
+}
 
-  const openDialog = (providerId: string) => {
-    currentProviderId.value = providerId
-    isDialogOpen.value = true
-  }
-
-  const closeDialog = () => {
-    isDialogOpen.value = false
-    currentProviderId.value = ''
-  }
-
-  return {
-    isDialogOpen,
-    currentProviderId,
-    openDialog,
-    closeDialog
-  }
+export const modelCheckStore = new Store<ModelCheckState>({
+  isDialogOpen: false,
+  currentProviderId: ''
 })
+
+export const openDialog = (providerId: string) => {
+  modelCheckStore.setState({ isDialogOpen: true, currentProviderId: providerId })
+}
+
+export const closeDialog = () => {
+  modelCheckStore.setState({ isDialogOpen: false, currentProviderId: '' })
+}

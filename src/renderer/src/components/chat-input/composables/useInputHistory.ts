@@ -1,74 +1,46 @@
-// === Vue Core ===
-import { ref, computed } from 'vue'
-
-// === Types ===
-import type { Editor } from '@tiptap/vue-3'
-
-// === Utils ===
+import { useState, useMemo, useRef } from 'react'
+import type { Editor } from '@tiptap/react'
 import { searchHistory } from '@/lib/searchHistory'
 
-/**
- * Composable for managing input history placeholder and navigation
- * Handles arrow key navigation through previous inputs and placeholder display
- */
-export function useInputHistory(editor: Editor | null, t: (key: string) => string) {
-  // === Local State ===
-  const currentHistoryPlaceholder = ref('')
-  const showHistoryPlaceholder = ref(false)
-  let editorInstance: Editor | null = editor
+export function useInputHistory(editor: Editor | null) {
+  const [currentHistoryPlaceholder, setCurrentHistoryPlaceholder] = useState('')
+  const [showHistoryPlaceholder, setShowHistoryPlaceholder] = useState(false)
+  const editorInstanceRef = useRef<Editor | null>(editor)
 
-  // === Computed ===
-  const dynamicPlaceholder = computed(() => {
-    if (currentHistoryPlaceholder.value) {
-      return `${currentHistoryPlaceholder.value} ${t('chat.input.historyPlaceholder')}`
+  const dynamicPlaceholder = useMemo(() => {
+    if (currentHistoryPlaceholder) {
+      return `${currentHistoryPlaceholder} (history)`
     }
-    return t('chat.input.placeholder')
-  })
+    return 'Type a message...'
+  }, [currentHistoryPlaceholder])
 
-  // === Internal Helper Functions ===
-  /**
-   * Force update TipTap editor's placeholder display
-   */
   const updatePlaceholder = () => {
+    const editorInstance = editorInstanceRef.current
     if (!editorInstance) return
     const { state } = editorInstance
     editorInstance.view.updateState(state)
   }
 
-  /**
-   * Set editor instance (for delayed initialization)
-   */
   const setEditor = (newEditor: Editor) => {
-    editorInstance = newEditor
+    editorInstanceRef.current = newEditor
   }
 
-  // === Public Methods ===
-  /**
-   * Set history placeholder text
-   */
   const setHistoryPlaceholder = (text: string) => {
-    currentHistoryPlaceholder.value = text
-    showHistoryPlaceholder.value = true
+    setCurrentHistoryPlaceholder(text)
+    setShowHistoryPlaceholder(true)
     updatePlaceholder()
   }
 
-  /**
-   * Clear history placeholder
-   */
   const clearHistoryPlaceholder = () => {
-    currentHistoryPlaceholder.value = ''
-    showHistoryPlaceholder.value = false
+    setCurrentHistoryPlaceholder('')
+    setShowHistoryPlaceholder(false)
     updatePlaceholder()
     searchHistory.resetIndex()
   }
 
-  /**
-   * Handle arrow key navigation for history
-   * @returns true if handled, false otherwise
-   */
   const handleArrowKey = (direction: 'up' | 'down', currentContent: string): boolean => {
     if (currentContent.trim()) {
-      return false // Only work when input is empty
+      return false
     }
 
     if (direction === 'up') {
@@ -83,10 +55,8 @@ export function useInputHistory(editor: Editor | null, t: (key: string) => strin
         setHistoryPlaceholder(nextSearch)
         return true
       } else {
-        // At the end of history, clear placeholder and reset index to end
-        // so that next up arrow starts from the latest entry
-        currentHistoryPlaceholder.value = ''
-        showHistoryPlaceholder.value = false
+        setCurrentHistoryPlaceholder('')
+        setShowHistoryPlaceholder(false)
         updatePlaceholder()
         searchHistory.resetIndex()
         return true
@@ -96,40 +66,28 @@ export function useInputHistory(editor: Editor | null, t: (key: string) => strin
     return false
   }
 
-  /**
-   * Confirm and fill history placeholder content
-   */
   const confirmHistoryPlaceholder = () => {
-    if (currentHistoryPlaceholder.value && editorInstance) {
-      editorInstance.commands.setContent(currentHistoryPlaceholder.value)
+    const editorInstance = editorInstanceRef.current
+    if (currentHistoryPlaceholder && editorInstance) {
+      editorInstance.commands.setContent(currentHistoryPlaceholder)
       clearHistoryPlaceholder()
       return true
     }
     return false
   }
 
-  /**
-   * Add text to search history
-   */
   const addToHistory = (text: string) => {
     searchHistory.addSearch(text)
   }
 
-  /**
-   * Initialize history system
-   */
   const initHistory = () => {
     searchHistory.resetIndex()
   }
 
-  // === Return Public API ===
   return {
-    // State (readonly)
-    currentHistoryPlaceholder: computed(() => currentHistoryPlaceholder.value),
-    showHistoryPlaceholder: computed(() => showHistoryPlaceholder.value),
+    currentHistoryPlaceholder,
+    showHistoryPlaceholder,
     dynamicPlaceholder,
-
-    // Methods
     setEditor,
     setHistoryPlaceholder,
     clearHistoryPlaceholder,

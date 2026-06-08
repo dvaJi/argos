@@ -58,27 +58,6 @@ vi.mock('@/stores/ui/session', () => ({
   })
 }))
 
-vi.mock('markstream-vue', () => ({
-  CodeBlockNode: defineComponent({
-    name: 'CodeBlockNode',
-    props: {
-      node: {
-        type: Object,
-        required: true
-      },
-      isDark: {
-        type: Boolean,
-        default: false
-      },
-      showHeader: {
-        type: Boolean,
-        default: true
-      }
-    },
-    template: '<div class="code-block-stub"></div>'
-  })
-}))
-
 const createBlock = (
   overrides: Partial<DisplayAssistantMessageBlock> = {}
 ): DisplayAssistantMessageBlock => ({

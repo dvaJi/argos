@@ -1,5 +1,4 @@
 import { type IPresenter, type IRemoteControlPresenter } from '@shared/presenter'
-import { toRaw } from 'vue'
 import { getLegacyIpcRenderer, getLegacyWebContentsId } from './runtime'
 
 function safeSerialize(value: unknown): unknown {
@@ -35,7 +34,7 @@ function safeSerialize(value: unknown): unknown {
 
 function toSerializablePayloads(payloads: unknown[]) {
   try {
-    return payloads.map((payload) => safeSerialize(toRaw(payload)))
+    return payloads.map((payload) => safeSerialize(payload))
   } catch (error) {
     console.warn('error on payload serialization', error)
     return payloads

@@ -226,7 +226,7 @@
 
 <script setup lang="ts">
 import { useLegacyPresenter } from '@api/legacy/presenters'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@shadcn/components/ui/button'
 import { Icon } from '@iconify/vue'
@@ -245,7 +245,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@shadcn/components/ui/select'
-import NodeRenderer from 'markstream-vue'
 import { useUpgradeStore } from '@/stores/upgrade'
 import { useLanguageStore } from '@/stores/language'
 import type { AcceptableValue } from 'reka-ui'
@@ -254,6 +253,23 @@ import { useToast } from '@/components/use-toast'
 import { DEV_EVENTS, SETTINGS_EVENTS } from '@/events'
 import { useRoute } from 'vue-router'
 import SettingsPageShell from './control-center/SettingsPageShell.vue'
+
+const NodeRenderer = defineComponent({
+  name: 'NodeRenderer',
+  props: {
+    content: { type: String, default: '' },
+    isDark: { type: Boolean, default: false },
+    typewriter: { type: Boolean, default: false },
+    codeBlockStream: { type: Boolean, default: false }
+  },
+  setup(props) {
+    return () =>
+      h('div', {
+        class: 'prose prose-sm dark:prose-invert max-w-none',
+        innerHTML: props.content
+      })
+  }
+})
 
 const { t } = useI18n()
 const { toast } = useToast()

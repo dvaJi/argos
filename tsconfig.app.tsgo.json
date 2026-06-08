@@ -3,25 +3,25 @@
   "include": [
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
-    "src/renderer/src/**/*.vue",
+    "src/renderer/src/**/*.tsx",
     "src/renderer/src/assets/**/*",
     "src/renderer/browser/env.d.ts",
     "src/renderer/browser/**/*",
-    "src/renderer/browser/**/*.vue",
+    "src/renderer/browser/**/*.tsx",
     "src/renderer/browser/assets/**/*",
     "src/renderer/floating/env.d.ts",
     "src/renderer/floating/**/*",
-    "src/renderer/floating/**/*.vue",
+    "src/renderer/floating/**/*.tsx",
     "src/renderer/floating/assets/**/*",
     "src/renderer/splash/**/*",
-    "src/renderer/splash/**/*.vue",
+    "src/renderer/splash/**/*.tsx",
     "src/renderer/splash/assets/**/*",
     "src/preload/*.d.ts",
     "src/renderer/api/**/*",
     "src/shared/**/*",
     "src/shadcn/**/*",
     "src/renderer/settings/**/*",
-    "src/renderer/settings/**/*.vue"
+    "src/renderer/settings/**/*.tsx"
   ],
   "compilerOptions": {
     "module": "esnext",
@@ -29,6 +29,8 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "paths": {
       "@/*": [
         "./src/renderer/src/*"

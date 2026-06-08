@@ -1,4 +1,3 @@
-import { toValue, type MaybeRefOrGetter } from 'vue'
 import { createBrowserClient } from '@api/BrowserClient'
 import { createWorkspaceClient } from '@api/WorkspaceClient'
 import { useSessionStore } from '@/stores/ui/session'
@@ -6,7 +5,7 @@ import { useSidepanelStore } from '@/stores/ui/sidepanel'
 import { classifyMarkdownLink, type MarkdownLinkContext } from './linkTypes'
 
 interface UseMarkdownLinkNavigationOptions {
-  linkContext?: MaybeRefOrGetter<MarkdownLinkContext | undefined>
+  linkContext?: MarkdownLinkContext | undefined
 }
 
 type SessionContext = {
@@ -26,7 +25,7 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
   const workspaceClient = createWorkspaceClient()
 
   const getSessionContext = (): SessionContext => {
-    const linkContext = toValue(options.linkContext)
+    const linkContext = options.linkContext
     const sessionId = linkContext?.sessionId ?? sessionStore.activeSessionId
     const session =
       sessionStore.sessions.find((item) => item.id === sessionId) ??

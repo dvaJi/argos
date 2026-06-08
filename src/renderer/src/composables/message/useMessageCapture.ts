@@ -1,38 +1,32 @@
-import { ref, onUnmounted, nextTick } from 'vue'
+import { useState, useRef, useEffect } from 'react'
 import { createDeviceClient } from '@api/DeviceClient'
 import { usePageCapture } from '@/composables/usePageCapture'
-import { useThemeStore } from '@/stores/theme'
-import { useI18n } from 'vue-i18n'
 import type { CaptureOptions } from './types'
 
-export function useMessageCapture() {
-  const { t } = useI18n()
-  const themeStore = useThemeStore()
+export function useMessageCapture(isDark: boolean) {
   const deviceClient = createDeviceClient()
   const { isCapturing, captureAndCopy } = usePageCapture()
 
-  const appVersion = ref('')
+  const [appVersion, setAppVersion] = useState('')
+  const containerCacheRef = useRef<Element | null>(null)
+  const captureHiddenElementsRef = useRef<HTMLElement[]>([])
 
-  // Initialize app version
-  deviceClient.getAppVersion().then((version) => {
-    appVersion.value = version
-  })
-
-  // Cache container element
-  let containerCache: Element | null = null
+  useEffect(() => {
+    deviceClient.getAppVersion().then((version) => {
+      setAppVersion(version)
+    })
+  }, [])
 
   const getContainer = () => {
-    if (!containerCache) {
-      containerCache = document.querySelector('.message-list-container')
+    if (!containerCacheRef.current) {
+      containerCacheRef.current = document.querySelector('.message-list-container')
     }
-    return containerCache
+    return containerCacheRef.current
   }
-
-  const captureHiddenElements = ref<HTMLElement[]>([])
 
   const hideCaptureOverlays = () => {
     const elements = Array.from(document.querySelectorAll('.chat-capture-hide')) as HTMLElement[]
-    captureHiddenElements.value = elements
+    captureHiddenElementsRef.current = elements
     elements.forEach((element) => {
       element.dataset.captureOriginalDisplay = element.style.display
       element.style.display = 'none'
@@ -40,7 +34,7 @@ export function useMessageCapture() {
   }
 
   const restoreCaptureOverlays = () => {
-    for (const element of captureHiddenElements.value) {
+    for (const element of captureHiddenElementsRef.current) {
       const original = element.dataset.captureOriginalDisplay
       if (original !== undefined) {
         element.style.display = original
@@ -49,14 +43,15 @@ export function useMessageCapture() {
         element.style.removeProperty('display')
       }
     }
-    captureHiddenElements.value = []
+    captureHiddenElementsRef.current = []
   }
 
-  // Clear cache on unmount
-  onUnmounted(() => {
-    containerCache = null
-    restoreCaptureOverlays()
-  })
+  useEffect(() => {
+    return () => {
+      containerCacheRef.current = null
+      restoreCaptureOverlays()
+    }
+  }, [])
 
   const findUserMessageElement = (parentId: string): HTMLElement | null => {
     if (!parentId) return null
@@ -154,7 +149,7 @@ export function useMessageCapture() {
       : () => calculateMessageGroupRect(messageId, parentId)
 
     hideCaptureOverlays()
-    await nextTick()
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
     await new Promise((resolve) => setTimeout(resolve, 60))
 
     let success = false
@@ -164,11 +159,11 @@ export function useMessageCapture() {
         getTargetRect,
         containerHeaderOffset: 0,
         watermark: {
-          isDark: themeStore.isDark,
-          version: appVersion.value,
+          isDark,
+          version: appVersion,
           texts: {
             brand: 'DeepChat',
-            tip: t('common.watermarkTip'),
+            tip: 'Shared from DeepChat',
             model: modelInfo?.model_name,
             provider: modelInfo?.model_provider
           }

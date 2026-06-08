@@ -1,4 +1,4 @@
-import { computed, shallowRef, triggerRef } from 'vue'
+import { useMemo, useRef, useReducer } from 'react'
 import type { MessageListItem } from '@/components/chat/messageListItems'
 
 export type MessageLayoutEntry = {
@@ -8,12 +8,6 @@ export type MessageLayoutEntry = {
   measuredHeight?: number
   top: number
   bottom: number
-}
-
-type ReadableRef<T> = { readonly value: T }
-
-type UseMessageWindowOptions = {
-  messages: ReadableRef<MessageListItem[]>
 }
 
 const MIN_HEIGHT = 96
@@ -76,13 +70,14 @@ function estimateHeight(msg: MessageListItem): number {
   return clamp(h)
 }
 
-export function useMessageWindow(options: UseMessageWindowOptions) {
-  const measuredHeights = shallowRef<Record<string, number>>({})
+export function useMessageWindow(messages: MessageListItem[]) {
+  const measuredHeightsRef = useRef<Record<string, number>>({})
+  const [version, bumpVersion] = useReducer((c: number) => c + 1, 0)
 
-  const entries = computed<MessageLayoutEntry[]>(() => {
+  const entries = useMemo<MessageLayoutEntry[]>(() => {
     let offset = 0
-    return options.messages.value.map((msg) => {
-      const measured = measuredHeights.value[msg.id]
+    return messages.map((msg) => {
+      const measured = measuredHeightsRef.current[msg.id]
       const estimated = estimateHeight(msg)
       const height = measured ?? estimated
       const entry: MessageLayoutEntry = {
@@ -96,27 +91,27 @@ export function useMessageWindow(options: UseMessageWindowOptions) {
       offset = entry.bottom
       return entry
     })
-  })
+  }, [messages, version])
 
-  const totalHeight = computed(() => entries.value[entries.value.length - 1]?.bottom ?? 0)
+  const totalHeight = useMemo(() => entries[entries.length - 1]?.bottom ?? 0, [entries])
 
   function getEntry(messageId: string): MessageLayoutEntry | undefined {
-    return entries.value.find((e) => e.id === messageId)
+    return entries.find((e) => e.id === messageId)
   }
 
   function setMeasuredHeight(messageId: string, height: number): number {
     if (!Number.isFinite(height) || height <= 0) return 0
     const rounded = Math.ceil(height)
-    const map = measuredHeights.value
-    const prev = map[messageId]
+    const prev = measuredHeightsRef.current[messageId]
     if (prev === rounded) return 0
-    map[messageId] = rounded
-    triggerRef(measuredHeights)
+    measuredHeightsRef.current[messageId] = rounded
+    bumpVersion()
     return rounded - (prev ?? getEntry(messageId)?.estimatedHeight ?? rounded)
   }
 
   function clearMeasurements() {
-    measuredHeights.value = {}
+    measuredHeightsRef.current = {}
+    bumpVersion()
   }
 
   return { entries, totalHeight, getEntry, setMeasuredHeight, clearMeasurements }

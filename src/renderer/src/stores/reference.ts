@@ -1,28 +1,30 @@
+import { Store } from '@tanstack/store'
 import type { SearchResult } from '@shared/types/core/search'
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
 
-export const useReferenceStore = defineStore('reference', () => {
-  const currentReference = ref<SearchResult | undefined>()
-  const showPreview = ref(false)
-  const previewRect = ref<DOMRect | undefined>()
-  const showReference = (reference: SearchResult, rect: DOMRect) => {
-    currentReference.value = reference
-    previewRect.value = rect
-    showPreview.value = true
-  }
+interface ReferenceState {
+  currentReference: SearchResult | undefined
+  showPreview: boolean
+  previewRect: DOMRect | undefined
+}
 
-  const hideReference = () => {
-    currentReference.value = undefined
-    previewRect.value = undefined
-    showPreview.value = false
-  }
-
-  return {
-    currentReference,
-    showPreview,
-    previewRect,
-    showReference,
-    hideReference
-  }
+export const referenceStore = new Store<ReferenceState>({
+  currentReference: undefined,
+  showPreview: false,
+  previewRect: undefined
 })
+
+export const showReference = (reference: SearchResult, rect: DOMRect) => {
+  referenceStore.setState({
+    currentReference: reference,
+    previewRect: rect,
+    showPreview: true
+  })
+}
+
+export const hideReference = () => {
+  referenceStore.setState({
+    currentReference: undefined,
+    previewRect: undefined,
+    showPreview: false
+  })
+}

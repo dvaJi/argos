@@ -1,11 +1,6 @@
-import { ref, computed, onMounted, watch } from 'vue'
-import { defineStore } from 'pinia'
+import { Store } from '@tanstack/store'
 import { createMcpClient } from '@api/McpClient'
 import { createConfigClient } from '../../api/ConfigClient'
-import { useIpcQuery } from '@/composables/useIpcQuery'
-import { useIpcMutation } from '@/composables/useIpcMutation'
-import { useI18n } from 'vue-i18n'
-import { useQuery, type UseMutationReturn, type UseQueryReturn } from '@pinia/colada'
 import type {
   McpClient as McpRuntimeClient,
   MCPConfig,
@@ -19,1083 +14,792 @@ import type {
 
 const ENABLED_MCP_TOOLS_KEY = 'input_enabledMcpTools'
 
-export const useMcpStore = defineStore('mcp', () => {
-  const { t } = useI18n()
-  // 获取MCP相关的presenter
-  const mcpClient = createMcpClient()
-  // 获取配置相关的client
-  const configClient = createConfigClient()
+const mcpClient = createMcpClient()
+const configClient = createConfigClient()
 
-  // ==================== 状态定义 ====================
-  // MCP配置
-  const config = ref<MCPConfig>({
-    mcpServers: {},
-    mcpEnabled: false, // 添加MCP启用状态
-    ready: false // if init finished, the ready will be true
-  })
-
-  // 深链安装缓存
-  const mcpInstallCache = ref<string | null>(null)
-
-  // MCP全局启用状态
-  const mcpEnabled = computed(() => config.value.mcpEnabled)
-
-  // 服务器状态
-  const serverStatuses = ref<Record<string, boolean>>({})
-  const serverLoadingStates = ref<Record<string, boolean>>({})
-  const configLoading = ref(false)
-
-  // 工具相关状态
-  const toolLoadingStates = ref<Record<string, boolean>>({})
-  const toolInputs = ref<Record<string, Record<string, string>>>({})
-  const toolResults = ref<Record<string, string | { type: string; text: string }[]>>({})
-  const enabledToolNames = ref<string[]>([])
-
-  type QueryExecuteOptions = { force?: boolean }
-
-  const runQuery = async <T>(queryReturn: UseQueryReturn<T>, options?: QueryExecuteOptions) => {
-    const runner = options?.force ? queryReturn.refetch : queryReturn.refresh
-    return await runner()
-  }
-
-  const normalizeEnabledToolNames = (value: unknown): string[] => {
-    if (!Array.isArray(value)) {
-      return []
-    }
-
-    const normalized = value
-      .filter((item): item is string => typeof item === 'string')
-      .map((item) => item.trim())
-      .filter(Boolean)
-
-    return Array.from(new Set(normalized))
-  }
-
-  const hasSameToolList = (left: string[], right: string[]): boolean => {
-    if (left.length !== right.length) {
-      return false
-    }
-    return left.every((item, index) => item === right[index])
-  }
-
-  const persistEnabledToolNames = async () => {
-    try {
-      await configClient.setSetting(ENABLED_MCP_TOOLS_KEY, [...enabledToolNames.value])
-    } catch (error) {
-      console.warn('Failed to persist enabled MCP tools:', error)
-    }
-  }
-
-  const setEnabledToolNames = async (names: string[], persist = true): Promise<void> => {
-    const normalized = normalizeEnabledToolNames(names)
-    if (hasSameToolList(enabledToolNames.value, normalized)) {
-      return
-    }
-    enabledToolNames.value = normalized
-    if (persist) {
-      await persistEnabledToolNames()
-    }
-  }
-
-  const loadEnabledToolNames = async () => {
-    try {
-      const stored = await configClient.getSetting(ENABLED_MCP_TOOLS_KEY)
-      await setEnabledToolNames(normalizeEnabledToolNames(stored), false)
-    } catch (error) {
-      console.warn('Failed to load enabled MCP tools:', error)
-      enabledToolNames.value = []
-    }
-  }
-
-  interface ConfigQueryResult {
-    mcpServers: MCPConfig['mcpServers']
+interface McpState {
+  config: {
+    mcpServers: Record<string, MCPServerConfig>
     mcpEnabled: boolean
+    ready: boolean
   }
+  mcpInstallCache: string | null
+  serverStatuses: Record<string, boolean>
+  serverLoadingStates: Record<string, boolean>
+  configLoading: boolean
+  toolLoadingStates: Record<string, boolean>
+  toolInputs: Record<string, Record<string, string>>
+  toolResults: Record<string, string | { type: string; text: string }[]>
+  enabledToolNames: string[]
+  tools: MCPToolDefinition[]
+  toolsLoading: boolean
+  toolsError: boolean
+  toolsErrorMessage: string
+  clients: McpRuntimeClient[]
+  resources: ResourceListEntry[]
+  prompts: PromptListEntry[]
+}
 
-  const configQuery = useQuery<ConfigQueryResult>({
-    key: () => ['mcp', 'config'],
-    staleTime: 30_000,
-    gcTime: 300_000,
-    query: async () => {
-      const [servers, enabled] = await Promise.all([
-        mcpClient.getMcpServers(),
-        mcpClient.getMcpEnabled()
-      ])
+export const mcpStore = new Store<McpState>({
+  config: {
+    mcpServers: {},
+    mcpEnabled: false,
+    ready: false
+  },
+  mcpInstallCache: null,
+  serverStatuses: {},
+  serverLoadingStates: {},
+  configLoading: false,
+  toolLoadingStates: {},
+  toolInputs: {},
+  toolResults: {},
+  enabledToolNames: [],
+  tools: [],
+  toolsLoading: false,
+  toolsError: false,
+  toolsErrorMessage: '',
+  clients: [],
+  resources: [],
+  prompts: []
+})
 
-      return {
-        mcpServers: servers ?? {},
-        mcpEnabled: Boolean(enabled)
-      }
-    }
-  })
-
-  const toolsQuery = useIpcQuery({
-    key: () => ['mcp', 'tools'],
-    query: () => mcpClient.getAllToolDefinitions(),
-    enabled: () => config.value.ready,
-    staleTime: 30_000
-  }) as UseQueryReturn<MCPToolDefinition[]>
-
-  const clientsQuery = useIpcQuery({
-    key: () => ['mcp', 'clients'],
-    query: () => mcpClient.getMcpClients(),
-    enabled: () => config.value.ready,
-    staleTime: 30_000
-  }) as UseQueryReturn<McpRuntimeClient[]>
-
-  const resourcesQuery = useIpcQuery({
-    key: () => ['mcp', 'resources'],
-    query: () => mcpClient.getAllResources(),
-    enabled: () => config.value.ready,
-    staleTime: 30_000
-  }) as UseQueryReturn<ResourceListEntry[]>
-
-  const loadMcpPrompts = async (): Promise<PromptListEntry[]> => {
-    try {
-      return await mcpClient.getAllPrompts()
-    } catch (error) {
-      console.warn('Failed to load MCP prompts:', error)
-      return []
-    }
-  }
-
-  const loadCustomPrompts = async (): Promise<PromptListEntry[]> => {
-    try {
-      const configPrompts: Prompt[] = await configClient.getCustomPrompts()
-      return configPrompts.map((prompt) => ({
-        name: prompt.name,
-        description: prompt.description,
-        arguments: prompt.parameters || [],
-        files: prompt.files || [],
-        client: {
-          name: 'deepchat/custom-prompts-server',
-          icon: '⚙️'
-        }
-      }))
-    } catch (error) {
-      console.warn('Failed to load custom prompts from config:', error)
-      return []
-    }
-  }
-
-  const promptsQuery = useQuery<PromptListEntry[]>({
-    key: () => ['mcp', 'prompts', config.value.mcpEnabled],
-    staleTime: 60_000,
-    gcTime: 300_000,
-    query: async () => {
-      const customPrompts = await loadCustomPrompts()
-      const mcpPrompts = await loadMcpPrompts()
-      return [...customPrompts, ...mcpPrompts]
-    }
-  })
-
-  const tools = computed(() => toolsQuery.data.value ?? [])
-
-  const clients = computed(() => clientsQuery.data.value ?? [])
-
-  const resources = computed(() => resourcesQuery.data.value ?? [])
-
-  const prompts = computed(() => promptsQuery.data.value ?? [])
-
-  const isPluginOwnedServerConfig = (serverConfig?: Partial<MCPServerConfig> | null): boolean =>
-    Boolean(serverConfig?.ownerPluginId || serverConfig?.source === 'plugin')
-
-  const isPluginOwnedServerName = (serverName?: string | null): boolean => {
-    if (!serverName) {
-      return false
-    }
-
-    return isPluginOwnedServerConfig(config.value.mcpServers?.[serverName])
-  }
-
-  const isVisibleServerName = (serverName?: string | null): boolean =>
-    !isPluginOwnedServerName(serverName)
-
-  const visibleTools = computed(() =>
-    tools.value.filter((tool) => isVisibleServerName(tool.server.name))
-  )
-
-  const pluginTools = computed(() =>
-    tools.value.filter((tool) => isPluginOwnedServerName(tool.server.name))
-  )
-
-  const visibleResources = computed(() =>
-    resources.value.filter((resource) => isVisibleServerName(resource.client.name))
-  )
-
-  const visiblePrompts = computed(() =>
-    prompts.value.filter((prompt) => isVisibleServerName(prompt.client?.name))
-  )
-
-  type CallToolRequest = Parameters<(typeof mcpClient)['callTool']>[0]
-  type CallToolResult = Awaited<ReturnType<(typeof mcpClient)['callTool']>>
-  type CallToolMutationVars = [request: CallToolRequest]
-
-  const callToolMutation = useIpcMutation<CallToolMutationVars, CallToolResult>({
-    mutation: (request: CallToolRequest) => mcpClient.callTool(request),
-    onSuccess(result, variables) {
-      const request = variables?.[0]
-      const toolName = request?.function?.name
-      if (result && toolName) {
-        toolResults.value[toolName] = result.content
-      }
-    },
-    onError(error, variables) {
-      const request = variables?.[0]
-      const toolName = request?.function?.name
-      console.error(t('mcp.errors.callToolFailed', { toolName }), error)
-      if (toolName) {
-        toolResults.value[toolName] = t('mcp.errors.toolCallError', { error: String(error) })
-      }
-    }
-  }) as UseMutationReturn<CallToolResult, CallToolMutationVars, Error>
-
-  const toolsLoading = computed(() =>
-    config.value.mcpEnabled ? toolsQuery.isLoading.value : false
-  )
-
-  const toolsError = computed(() => Boolean(toolsQuery.error.value))
-
-  const toolsErrorMessage = computed(() => {
-    const error = toolsQuery.error.value
-    if (!error) {
-      return ''
-    }
-
-    return error instanceof Error ? error.message : String(error)
-  })
-
-  const syncConfigFromQuery = (data?: ConfigQueryResult | null) => {
-    if (!data) {
-      return
-    }
-
-    const previousMcpEnabled = config.value.mcpEnabled
-    const previousReady = config.value.ready
-
-    // Avoid overriding an already-enabled state with a transient disabled value while queries refresh
-    const maybeQuery = configQuery as unknown as {
-      isFetching?: { value: boolean }
-      isLoading?: { value: boolean }
-      isRefreshing?: { value: boolean }
-    }
-    const queryInFlight = Boolean(
-      maybeQuery.isFetching?.value || maybeQuery.isLoading?.value || maybeQuery.isRefreshing?.value
+const normalizeEnabledToolNames = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return []
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean)
     )
+  )
+}
 
-    if (previousReady && previousMcpEnabled && queryInFlight && data.mcpEnabled === false) {
-      return
+const hasSameToolList = (left: string[], right: string[]): boolean => {
+  if (left.length !== right.length) return false
+  return left.every((item, index) => item === right[index])
+}
+
+const persistEnabledToolNames = async (names: string[]) => {
+  try {
+    await configClient.setSetting(ENABLED_MCP_TOOLS_KEY, [...names])
+  } catch (error) {
+    console.warn('Failed to persist enabled MCP tools:', error)
+  }
+}
+
+const setEnabledToolNames = async (names: string[], persist = true): Promise<void> => {
+  const normalized = normalizeEnabledToolNames(names)
+  if (hasSameToolList(mcpStore.state.enabledToolNames, normalized)) return
+  mcpStore.setState((s) => ({ ...s, enabledToolNames: normalized }))
+  if (persist) await persistEnabledToolNames(normalized)
+}
+
+const loadEnabledToolNames = async () => {
+  try {
+    const stored = await configClient.getSetting(ENABLED_MCP_TOOLS_KEY)
+    await setEnabledToolNames(normalizeEnabledToolNames(stored), false)
+  } catch (error) {
+    console.warn('Failed to load enabled MCP tools:', error)
+    mcpStore.setState((s) => ({ ...s, enabledToolNames: [] }))
+  }
+}
+
+const isPluginOwnedServerConfig = (serverConfig?: Partial<MCPServerConfig> | null): boolean =>
+  Boolean(serverConfig?.ownerPluginId || serverConfig?.source === 'plugin')
+
+export const isPluginOwnedServerName = (serverName?: string | null): boolean => {
+  if (!serverName) return false
+  return isPluginOwnedServerConfig(mcpStore.state.config.mcpServers?.[serverName])
+}
+
+export const isVisibleServerName = (serverName?: string | null): boolean =>
+  !isPluginOwnedServerName(serverName)
+
+const loadCustomPromptsData = async (): Promise<PromptListEntry[]> => {
+  try {
+    const configPrompts: Prompt[] = await configClient.getCustomPrompts()
+    return configPrompts.map((prompt) => ({
+      name: prompt.name,
+      description: prompt.description,
+      arguments: prompt.parameters || [],
+      files: prompt.files || [],
+      client: { name: 'deepchat/custom-prompts-server', icon: '⚙️' }
+    }))
+  } catch (error) {
+    console.warn('Failed to load custom prompts from config:', error)
+    return []
+  }
+}
+
+const loadMcpPromptsData = async (): Promise<PromptListEntry[]> => {
+  try {
+    return await mcpClient.getAllPrompts()
+  } catch (error) {
+    console.warn('Failed to load MCP prompts:', error)
+    return []
+  }
+}
+
+const applyToolsSnapshot = (toolDefs: MCPToolDefinition[] = []) => {
+  const nextInputs = { ...mcpStore.state.toolInputs }
+  toolDefs.forEach((tool) => {
+    if (!nextInputs[tool.function.name]) {
+      nextInputs[tool.function.name] = {}
+      if (tool.function.parameters?.properties) {
+        Object.keys(tool.function.parameters.properties).forEach((paramName) => {
+          nextInputs[tool.function.name][paramName] = ''
+        })
+      }
+      if (tool.function.name === 'glob_search') {
+        nextInputs[tool.function.name] = {
+          pattern: '**/*.md',
+          root: '',
+          excludePatterns: '',
+          maxResults: '1000',
+          sortBy: 'name'
+        }
+      }
     }
+  })
+  mcpStore.setState((s) => ({ ...s, toolInputs: nextInputs }))
+}
 
-    // Check if mcpEnabled status really changed
-    const mcpEnabledChanged = previousMcpEnabled !== data.mcpEnabled
+const syncEnabledToolsWithDefinitions = async (toolDefs: MCPToolDefinition[] = []) => {
+  const allToolNames = toolDefs.map((tool) => tool.function.name)
+  const availableSet = new Set(allToolNames)
+  const filtered = mcpStore.state.enabledToolNames.filter((name) => availableSet.has(name))
+  const next = filtered.length > 0 || allToolNames.length === 0 ? filtered : allToolNames
+  await setEnabledToolNames(next)
+}
 
-    if (mcpEnabledChanged) {
-      console.log(`MCP enabled state changing from ${previousMcpEnabled} to ${data.mcpEnabled}`)
-    }
+const syncConfigFromQuery = (
+  data?: { mcpServers: Record<string, MCPServerConfig>; mcpEnabled: boolean } | null
+) => {
+  if (!data) return
 
-    config.value = {
+  const previousMcpEnabled = mcpStore.state.config.mcpEnabled
+  const previousReady = mcpStore.state.config.ready
+  const mcpEnabledChanged = previousMcpEnabled !== data.mcpEnabled
+
+  if (mcpEnabledChanged) {
+    console.log(`MCP enabled state changing from ${previousMcpEnabled} to ${data.mcpEnabled}`)
+  }
+
+  mcpStore.setState((s) => ({
+    ...s,
+    config: {
       mcpServers: data.mcpServers ?? {},
       mcpEnabled: data.mcpEnabled,
       ready: true
     }
+  }))
 
-    // If mcpEnabled state changed, trigger query refreshes
-    if (previousReady && mcpEnabledChanged) {
-      if (data.mcpEnabled) {
-        // MCP enabled: refresh tools, clients, resources
-        Promise.all([
-          loadTools({ force: true }),
-          loadClients({ force: true }),
-          loadPrompts({ force: true })
-        ]).catch((error) => {
-          console.error('Failed to refresh MCP queries after enabling:', error)
-        })
-      } else {
-        // MCP disabled: clear state and refresh queries to get empty results
-        serverStatuses.value = {}
-        toolInputs.value = {}
-        toolResults.value = {}
-        Promise.all([
-          toolsQuery.refetch(),
-          clientsQuery.refetch(),
-          resourcesQuery.refetch(),
-          promptsQuery.refetch()
-        ]).catch((error) => {
-          console.error('Failed to refresh MCP queries after disabling:', error)
-        })
-      }
+  if (previousReady && mcpEnabledChanged) {
+    if (data.mcpEnabled) {
+      Promise.all([loadTools(), loadClients(), loadPrompts()]).catch((error) => {
+        console.error('Failed to refresh MCP queries after enabling:', error)
+      })
+    } else {
+      mcpStore.setState((s) => ({
+        ...s,
+        serverStatuses: {},
+        toolInputs: {},
+        toolResults: {},
+        tools: [],
+        clients: [],
+        resources: [],
+        prompts: []
+      }))
+      Promise.all([loadTools(), loadClients(), loadResources(), loadPrompts()]).catch((error) => {
+        console.error('Failed to refresh MCP queries after disabling:', error)
+      })
     }
   }
+}
 
-  const applyToolsSnapshot = (toolDefs: MCPToolDefinition[] = []) => {
-    toolDefs.forEach((tool) => {
-      if (!toolInputs.value[tool.function.name]) {
-        toolInputs.value[tool.function.name] = {}
-
-        if (tool.function.parameters?.properties) {
-          Object.keys(tool.function.parameters.properties).forEach((paramName) => {
-            toolInputs.value[tool.function.name][paramName] = ''
-          })
-        }
-
-        if (tool.function.name === 'glob_search') {
-          toolInputs.value[tool.function.name] = {
-            pattern: '**/*.md',
-            root: '',
-            excludePatterns: '',
-            maxResults: '1000',
-            sortBy: 'name'
-          }
-        }
-      }
+export const loadConfig = async () => {
+  mcpStore.setState((s) => ({ ...s, configLoading: true }))
+  try {
+    const [servers, enabled] = await Promise.all([
+      mcpClient.getMcpServers(),
+      mcpClient.getMcpEnabled()
+    ])
+    syncConfigFromQuery({
+      mcpServers: servers ?? {},
+      mcpEnabled: Boolean(enabled)
     })
+    await updateAllServerStatuses()
+  } catch (error) {
+    console.error('Failed to load MCP config:', error)
+  } finally {
+    mcpStore.setState((s) => ({ ...s, configLoading: false }))
   }
+}
 
-  const syncEnabledToolsWithDefinitions = async (toolDefs: MCPToolDefinition[] = []) => {
-    const allToolNames = toolDefs.map((tool) => tool.function.name)
-    const availableSet = new Set(allToolNames)
-    const filtered = enabledToolNames.value.filter((name) => availableSet.has(name))
-    const next = filtered.length > 0 || allToolNames.length === 0 ? filtered : allToolNames
-    await setEnabledToolNames(next)
-  }
-
-  watch(
-    () => configQuery.data.value,
-    (data) => syncConfigFromQuery(data),
-    { immediate: true }
-  )
-
-  watch(
-    () => toolsQuery.data.value,
-    (toolDefs) => {
-      if (!config.value.mcpEnabled) {
-        return
-      }
-
-      if (Array.isArray(toolDefs)) {
-        applyToolsSnapshot(toolDefs as MCPToolDefinition[])
-        void syncEnabledToolsWithDefinitions(toolDefs as MCPToolDefinition[])
-      }
-    },
-    { immediate: true }
-  )
-
-  watch(
-    () => config.value.mcpEnabled,
-    (enabled) => {
-      if (!enabled) {
-        toolInputs.value = {}
-        toolResults.value = {}
-      }
+const startEnabledServers = async () => {
+  for (const [serverName, serverConfig] of Object.entries(mcpStore.state.config.mcpServers)) {
+    if (!serverConfig.enabled || isPluginOwnedServerConfig(serverConfig)) continue
+    try {
+      const running = await mcpClient.isServerRunning(serverName)
+      if (!running) await mcpClient.startServer(serverName)
+    } catch (error) {
+      console.error('Failed to auto-start MCP server', serverName, error)
     }
-  )
-  // ==================== 计算属性 ====================
-  // 服务器列表
-  const allServerList = computed(() => {
-    const servers = Object.entries(config.value.mcpServers ?? {}).map(([name, serverConfig]) => ({
-      name,
-      ...serverConfig,
-      isRunning: serverStatuses.value[name] || false,
-      isLoading: serverLoadingStates.value[name] || false
+  }
+}
+
+export const updateAllServerStatuses = async () => {
+  for (const serverName of Object.keys(mcpStore.state.config.mcpServers)) {
+    await updateServerStatus(serverName, true)
+  }
+  await new Promise((resolve) => setTimeout(resolve, 100))
+  await Promise.all([loadTools(), loadClients()])
+}
+
+export const updateServerStatus = async (serverName: string, noRefresh = false) => {
+  try {
+    const serverConfig = mcpStore.state.config.mcpServers[serverName]
+    if (!mcpStore.state.config.mcpEnabled && !isPluginOwnedServerConfig(serverConfig)) {
+      mcpStore.setState((s) => ({
+        ...s,
+        serverStatuses: { ...s.serverStatuses, [serverName]: false }
+      }))
+      return
+    }
+
+    const isRunning = await mcpClient.isServerRunning(serverName)
+    mcpStore.setState((s) => ({
+      ...s,
+      serverStatuses: { ...s.serverStatuses, [serverName]: isRunning }
     }))
 
-    // 按照特定顺序排序：
-    // 1. 启用的inmemory服务
-    // 2. 其他启用的服务
-    // 3. 未启用的inmemory服务
-    // 4. 其他服务
-    return servers.sort((a, b) => {
-      const aIsInmemory = a.type === 'inmemory' || a.source === 'deepchat'
-      const bIsInmemory = b.type === 'inmemory' || b.source === 'deepchat'
-
-      // inmemory 都优先
-      if (aIsInmemory && !bIsInmemory) return -1
-      if (!aIsInmemory && bIsInmemory) return 1
-
-      return 0 // 保持原有顺序
-    })
-  })
-  const serverList = computed(() =>
-    allServerList.value.filter((server) => !isPluginOwnedServerConfig(server))
-  )
-  const pluginServerList = computed(() =>
-    allServerList.value.filter((server) => isPluginOwnedServerConfig(server))
-  )
-  const enabledServers = computed(() =>
-    config.value.mcpEnabled ? serverList.value.filter((server) => server.enabled) : []
-  )
-  const enabledPluginServers = computed(() =>
-    pluginServerList.value.filter((server) => server.enabled)
-  )
-  const enabledServerCount = computed(() => enabledServers.value.length)
-
-  // 工具数量
-  const toolCount = computed(() => visibleTools.value.length)
-  const hasTools = computed(() => toolCount.value > 0)
-
-  // ==================== Mutations ====================
-  // Mutations for write operations with automatic cache invalidation
-  const addServerMutation = useIpcMutation({
-    mutation: (serverName: string, serverConfig: MCPServerConfig) =>
-      mcpClient.addMcpServer(serverName, serverConfig),
-    invalidateQueries: () => [
-      ['mcp', 'config'],
-      ['mcp', 'tools'],
-      ['mcp', 'clients'],
-      ['mcp', 'resources']
-    ]
-  })
-
-  const updateServerMutation = useIpcMutation({
-    mutation: (serverName: string, serverConfig: Partial<MCPServerConfig>) =>
-      mcpClient.updateMcpServer(serverName, serverConfig),
-    invalidateQueries: () => [
-      ['mcp', 'config'],
-      ['mcp', 'tools'],
-      ['mcp', 'clients'],
-      ['mcp', 'resources']
-    ]
-  })
-
-  const removeServerMutation = useIpcMutation({
-    mutation: (serverName: string) => mcpClient.removeMcpServer(serverName),
-    invalidateQueries: () => [
-      ['mcp', 'config'],
-      ['mcp', 'tools'],
-      ['mcp', 'clients'],
-      ['mcp', 'resources']
-    ]
-  })
-
-  const setMcpServerEnabledMutation = useIpcMutation({
-    mutation: (serverName: string, enabled: boolean) =>
-      mcpClient.setMcpServerEnabled(serverName, enabled),
-    invalidateQueries: () => [['mcp', 'config']]
-  })
-
-  const setMcpEnabledMutation = useIpcMutation({
-    mutation: (enabled: boolean) => mcpClient.setMcpEnabled(enabled),
-    invalidateQueries: () => [['mcp', 'config']]
-  })
-
-  // ==================== 方法 ====================
-  // 加载MCP配置
-  const loadConfig = async (options?: QueryExecuteOptions) => {
-    configLoading.value = true
-    try {
-      const state = await runQuery(configQuery, options)
-      if (state.status === 'success') {
-        syncConfigFromQuery(state.data)
-        await updateAllServerStatuses()
-      }
-    } catch (error) {
-      console.error(t('mcp.errors.loadConfigFailed'), error)
-    } finally {
-      configLoading.value = false
+    if (!noRefresh) {
+      await Promise.all([loadTools(), loadClients()])
     }
-  }
 
-  // 设置MCP启用状态
-  const startEnabledServers = async () => {
-    for (const [serverName, serverConfig] of Object.entries(config.value.mcpServers)) {
-      if (!serverConfig.enabled || isPluginOwnedServerConfig(serverConfig)) {
-        continue
-      }
-      try {
-        const running = await mcpClient.isServerRunning(serverName)
-        if (!running) {
-          await mcpClient.startServer(serverName)
-        }
-      } catch (error) {
-        console.error('Failed to auto-start MCP server', serverName, error)
-      }
-    }
-  }
+    if (!mcpStore.state.config.mcpEnabled) return
 
-  const setMcpEnabled = async (enabled: boolean) => {
-    try {
-      // Optimistically set local state so toggle updates immediately
-      config.value.mcpEnabled = enabled
-      // Ensure config is ready so queries can execute
-      if (!config.value.ready) {
-        config.value.ready = true
-      }
-
-      await setMcpEnabledMutation.mutateAsync([enabled])
-      // Force refresh config to keep presenter query state in sync
-      await runQuery(configQuery, { force: true })
-
-      // Wait a bit for config to sync, then refresh queries
-      if (enabled) {
-        await startEnabledServers()
-        // Update server statuses first, then refresh tools
-        await updateAllServerStatuses()
-        // Wait a bit for servers to fully start and register tools
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        // Ensure queries are refreshed after enabling - force refresh multiple times to ensure tools are loaded
-        await Promise.all([
-          loadTools({ force: true }),
-          loadClients({ force: true }),
-          loadPrompts({ force: true })
-        ])
-        // Refresh again after a short delay to ensure all tools are loaded
-        setTimeout(async () => {
-          if (config.value.mcpEnabled) {
-            await Promise.all([loadTools({ force: true }), loadClients({ force: true })])
-          }
-        }, 1000)
-      } else {
-        await Promise.allSettled(
-          Object.entries(config.value.mcpServers)
-            .filter(([, serverConfig]) => !isPluginOwnedServerConfig(serverConfig))
-            .map(([serverName]) => mcpClient.stopServer(serverName))
+    if (isRunning) {
+      const serverTools = mcpStore.state.tools
+        .filter((tool) => tool.server.name === serverName)
+        .map((tool) => tool.function.name)
+      if (serverTools.length > 0) {
+        const mergedTools = Array.from(
+          new Set([...mcpStore.state.enabledToolNames, ...serverTools])
         )
-        // clearing server/tool state when disabling
-        serverStatuses.value = Object.fromEntries(
-          Object.entries(serverStatuses.value).filter(([serverName]) =>
-            isPluginOwnedServerName(serverName)
-          )
-        )
-        toolInputs.value = {}
-        toolResults.value = {}
-        // Force refresh queries to get empty results
-        await Promise.all([
-          toolsQuery.refetch(),
-          clientsQuery.refetch(),
-          resourcesQuery.refetch(),
-          promptsQuery.refetch()
-        ])
+        await setEnabledToolNames(mergedTools)
       }
-
-      return true
-    } catch (error) {
-      console.error(t('mcp.errors.setEnabledFailed'), error)
-      // Rollback on error
-      config.value.mcpEnabled = !enabled
-      return false
+    } else {
+      const allServerToolNames = mcpStore.state.tools.map((tool) => tool.function.name)
+      const filteredTools = mcpStore.state.enabledToolNames.filter((name) =>
+        allServerToolNames.includes(name)
+      )
+      await setEnabledToolNames(filteredTools)
     }
+  } catch (error) {
+    console.error(`Failed to get server status: ${serverName}`, error)
+    mcpStore.setState((s) => ({
+      ...s,
+      serverStatuses: { ...s.serverStatuses, [serverName]: false }
+    }))
   }
+}
 
-  // 更新所有服务器状态
-  const updateAllServerStatuses = async () => {
-    for (const serverName of Object.keys(config.value.mcpServers)) {
-      await updateServerStatus(serverName, true)
+export const loadTools = async () => {
+  if (!mcpStore.state.config.ready) return
+  try {
+    const toolDefs = (await mcpClient.getAllToolDefinitions()) ?? []
+    if (mcpStore.state.config.mcpEnabled) {
+      applyToolsSnapshot(toolDefs)
+      await syncEnabledToolsWithDefinitions(toolDefs)
     }
-    // Wait a bit for servers to register their tools
-    await new Promise((resolve) => setTimeout(resolve, 100))
-    // Force refresh tools and clients after updating all server statuses
-    await Promise.all([loadTools({ force: true }), loadClients({ force: true })])
+    mcpStore.setState((s) => ({
+      ...s,
+      tools: toolDefs,
+      toolsLoading: false,
+      toolsError: false,
+      toolsErrorMessage: ''
+    }))
+  } catch (error) {
+    mcpStore.setState((s) => ({
+      ...s,
+      toolsLoading: false,
+      toolsError: true,
+      toolsErrorMessage: error instanceof Error ? error.message : String(error)
+    }))
+    console.error('Failed to load MCP tools:', error)
   }
+}
 
-  // 更新单个服务器状态
-  const updateServerStatus = async (serverName: string, noRefresh: boolean = false) => {
-    try {
-      const serverConfig = config.value.mcpServers[serverName]
-      if (!config.value.mcpEnabled && !isPluginOwnedServerConfig(serverConfig)) {
-        serverStatuses.value[serverName] = false
-        return
-      }
+export const loadClients = async () => {
+  if (!mcpStore.state.config.ready) return
+  try {
+    const clients = (await mcpClient.getMcpClients()) ?? []
+    mcpStore.setState((s) => ({ ...s, clients }))
+    await Promise.all([loadPrompts(), loadResources()])
+  } catch (error) {
+    console.error('Failed to load MCP clients:', error)
+  }
+}
 
-      serverStatuses.value[serverName] = await mcpClient.isServerRunning(serverName)
-      if (!noRefresh) {
-        // Refresh tools and clients when server status changes
-        await Promise.all([loadTools({ force: true }), loadClients({ force: true })])
-      }
-      // 根据服务器的状态，关闭或者开启该服务器的所有工具
-      const isRunning = serverStatuses.value[serverName] || false
-      if (!config.value.mcpEnabled) {
-        return
-      }
+export const loadPrompts = async () => {
+  try {
+    const customPrompts = await loadCustomPromptsData()
+    const mcpPrompts = await loadMcpPromptsData()
+    const all = [...customPrompts, ...mcpPrompts]
+    mcpStore.setState((s) => ({ ...s, prompts: all }))
+  } catch (error) {
+    console.error('Failed to load MCP prompts:', error)
+  }
+}
 
-      if (isRunning) {
-        // Get server tools after refresh
-        const serverTools = tools.value
-          .filter((tool) => tool.server.name === serverName)
-          .map((tool) => tool.function.name)
-        if (serverTools.length > 0) {
-          const mergedTools = Array.from(new Set([...enabledToolNames.value, ...serverTools]))
-          await setEnabledToolNames(mergedTools)
+export const loadResources = async () => {
+  if (!mcpStore.state.config.ready) return
+  try {
+    const resources = (await mcpClient.getAllResources()) ?? []
+    mcpStore.setState((s) => ({ ...s, resources }))
+  } catch (error) {
+    console.error('Failed to load MCP resources:', error)
+  }
+}
+
+export const setMcpEnabled = async (enabled: boolean) => {
+  try {
+    mcpStore.setState((s) => ({
+      ...s,
+      config: { ...s.config, mcpEnabled: enabled, ready: s.config.ready || true }
+    }))
+
+    await mcpClient.setMcpEnabled(enabled)
+    await loadConfig()
+
+    if (enabled) {
+      await startEnabledServers()
+      await updateAllServerStatuses()
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      await Promise.all([loadTools(), loadClients(), loadPrompts()])
+      setTimeout(async () => {
+        if (mcpStore.state.config.mcpEnabled) {
+          await Promise.all([loadTools(), loadClients()])
         }
-      } else {
-        const allServerToolNames = tools.value.map((tool) => tool.function.name)
-        const filteredTools = enabledToolNames.value.filter((name) =>
-          allServerToolNames.includes(name)
-        )
-        await setEnabledToolNames(filteredTools)
+      }, 1000)
+    } else {
+      await Promise.allSettled(
+        Object.entries(mcpStore.state.config.mcpServers)
+          .filter(([, sc]) => !isPluginOwnedServerConfig(sc))
+          .map(([sn]) => mcpClient.stopServer(sn))
+      )
+      mcpStore.setState((s) => ({
+        ...s,
+        serverStatuses: Object.fromEntries(
+          Object.entries(s.serverStatuses).filter(([sn]) => isPluginOwnedServerName(sn))
+        ),
+        toolInputs: {},
+        toolResults: {}
+      }))
+      await Promise.all([loadTools(), loadClients(), loadResources(), loadPrompts()])
+    }
+
+    return true
+  } catch (error) {
+    console.error('Failed to set MCP enabled state:', error)
+    mcpStore.setState((s) => ({
+      ...s,
+      config: { ...s.config, mcpEnabled: !enabled }
+    }))
+    return false
+  }
+}
+
+export const addServer = async (serverName: string, serverConfig: MCPServerConfig) => {
+  try {
+    const success = await mcpClient.addMcpServer(serverName, serverConfig)
+    if (success) {
+      await loadConfig()
+      return { success: true, message: '' }
+    }
+    return { success: false, message: 'Failed to add MCP server' }
+  } catch (error) {
+    console.error('Failed to add MCP server:', error)
+    return { success: false, message: 'Failed to add MCP server' }
+  }
+}
+
+export const updateServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
+  try {
+    await mcpClient.updateMcpServer(serverName, serverConfig)
+    await loadConfig()
+    return true
+  } catch (error) {
+    console.error('Failed to update MCP server:', error)
+    return false
+  }
+}
+
+export const removeServer = async (serverName: string) => {
+  try {
+    await mcpClient.removeMcpServer(serverName)
+    await loadConfig()
+    return true
+  } catch (error) {
+    console.error('Failed to remove MCP server:', error)
+    return false
+  }
+}
+
+export const toggleServer = async (serverName: string) => {
+  if (mcpStore.state.serverLoadingStates[serverName]) return false
+
+  const serverConfig = mcpStore.state.config.mcpServers[serverName]
+  if (!serverConfig) return false
+
+  const nextEnabled = !serverConfig.enabled
+  const previousConfig = { ...serverConfig }
+
+  mcpStore.setState((s) => ({
+    ...s,
+    config: {
+      ...s.config,
+      mcpServers: {
+        ...s.config.mcpServers,
+        [serverName]: { ...serverConfig, enabled: nextEnabled }
       }
-    } catch (error) {
-      console.error(t('mcp.errors.getServerStatusFailed', { serverName }), error)
-      serverStatuses.value[serverName] = false
-    }
-  }
+    },
+    serverLoadingStates: { ...s.serverLoadingStates, [serverName]: true }
+  }))
 
-  // 添加服务器
-  const addServer = async (serverName: string, serverConfig: MCPServerConfig) => {
-    try {
-      const success = await addServerMutation.mutateAsync([serverName, serverConfig])
-      if (success) {
-        // Cache invalidation happens automatically, trigger config refresh
-        await runQuery(configQuery, { force: true })
-        return { success: true, message: '' }
+  try {
+    await mcpClient.setMcpServerEnabled(serverName, nextEnabled)
+    await loadConfig()
+    await updateServerStatus(serverName)
+    return true
+  } catch (error) {
+    mcpStore.setState((s) => ({
+      ...s,
+      config: {
+        ...s.config,
+        mcpServers: { ...s.config.mcpServers, [serverName]: previousConfig }
       }
-      return { success: false, message: t('mcp.errors.addServerFailed') }
-    } catch (error) {
-      console.error(t('mcp.errors.addServerFailed'), error)
-      return { success: false, message: t('mcp.errors.addServerFailed') }
-    }
-  }
-
-  // 更新服务器
-  const updateServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
+    }))
     try {
-      await updateServerMutation.mutateAsync([serverName, serverConfig])
-      // Cache invalidation happens automatically, trigger config refresh
-      await runQuery(configQuery, { force: true })
-      return true
-    } catch (error) {
-      console.error(t('mcp.errors.updateServerFailed'), error)
-      return false
+      await mcpClient.setMcpServerEnabled(serverName, previousConfig.enabled)
+    } catch (rollbackError) {
+      console.error(`Failed to rollback MCP server state for ${serverName}`, rollbackError)
     }
+    console.error(`Failed to toggle MCP server: ${serverName}`, error)
+    return false
+  } finally {
+    mcpStore.setState((s) => ({
+      ...s,
+      serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false }
+    }))
   }
+}
 
-  // 删除服务器
-  const removeServer = async (serverName: string) => {
-    try {
-      await removeServerMutation.mutateAsync([serverName])
-      // Cache invalidation happens automatically, trigger config refresh
-      await runQuery(configQuery, { force: true })
-      return true
-    } catch (error) {
-      console.error(t('mcp.errors.removeServerFailed'), error)
-      return false
-    }
-  }
+export const updateToolInput = (toolName: string, paramName: string, value: string) => {
+  const current = mcpStore.state.toolInputs[toolName] ?? {}
+  mcpStore.setState((s) => ({
+    ...s,
+    toolInputs: { ...s.toolInputs, [toolName]: { ...current, [paramName]: value } }
+  }))
+}
 
-  const toggleServer = async (serverName: string) => {
-    if (serverLoadingStates.value[serverName]) {
-      return false
-    }
+type CallToolRequest = Parameters<(typeof mcpClient)['callTool']>[0]
+type CallToolResult = Awaited<ReturnType<(typeof mcpClient)['callTool']>>
 
-    const serverConfig = config.value.mcpServers[serverName]
-    if (!serverConfig) {
-      return false
-    }
+export const callTool = async (toolName: string): Promise<CallToolResult> => {
+  mcpStore.setState((s) => ({
+    ...s,
+    toolLoadingStates: { ...s.toolLoadingStates, [toolName]: true }
+  }))
+  try {
+    const rawParams = mcpStore.state.toolInputs[toolName] || {}
+    const params = { ...rawParams } as Record<string, unknown>
 
-    const nextEnabled = !serverConfig.enabled
-    const previousConfig = { ...serverConfig }
-    config.value.mcpServers = {
-      ...config.value.mcpServers,
-      [serverName]: { ...serverConfig, enabled: nextEnabled }
-    }
-    serverLoadingStates.value[serverName] = true
-
-    try {
-      await setMcpServerEnabledMutation.mutateAsync([serverName, nextEnabled])
-
-      await runQuery(configQuery, { force: true })
-      await updateServerStatus(serverName)
-      return true
-    } catch (error) {
-      config.value.mcpServers = {
-        ...config.value.mcpServers,
-        [serverName]: previousConfig
+    if (toolName === 'glob_search') {
+      const pattern = typeof params.pattern === 'string' ? params.pattern.trim() : ''
+      if (!pattern) params.pattern = '**/*.md'
+      if (typeof params.root === 'string' && params.root.trim() === '') delete params.root
+      if (typeof params.excludePatterns === 'string') {
+        const parsed = params.excludePatterns
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+        if (parsed.length > 0) params.excludePatterns = parsed
+        else delete params.excludePatterns
       }
-      try {
-        await setMcpServerEnabledMutation.mutateAsync([serverName, previousConfig.enabled])
-      } catch (rollbackError) {
-        console.error(`Failed to rollback MCP server state for ${serverName}`, rollbackError)
+      if (typeof params.maxResults === 'string') {
+        const parsed = Number(params.maxResults)
+        if (!Number.isNaN(parsed)) params.maxResults = parsed
+        else delete params.maxResults
       }
-      console.error(t('mcp.errors.toggleServerFailed', { serverName }), error)
-      return false
-    } finally {
-      serverLoadingStates.value[serverName] = false
+      if (typeof params.sortBy === 'string' && params.sortBy.trim() === '') delete params.sortBy
     }
-  }
 
-  const loadClients = async (options?: QueryExecuteOptions) => {
+    const request: CallToolRequest = {
+      id: Date.now().toString(),
+      type: 'function',
+      function: { name: toolName, arguments: JSON.stringify(params) }
+    }
+
     try {
-      const state = await runQuery(clientsQuery, options)
-      if (state.status === 'success') {
-        await Promise.all([loadPrompts(options), loadResources(options)])
+      const result = await mcpClient.callTool(request)
+      if (result && toolName) {
+        mcpStore.setState((s) => ({
+          ...s,
+          toolResults: { ...s.toolResults, [toolName]: result.content }
+        }))
       }
+      return result
     } catch (error) {
-      console.error(t('mcp.errors.loadClientsFailed'), error)
-    }
-  }
-
-  const loadTools = async (options?: QueryExecuteOptions) => {
-    try {
-      const state = await runQuery(toolsQuery, options)
-      if (state.status === 'success' && config.value.mcpEnabled) {
-        await syncEnabledToolsWithDefinitions(state.data ?? [])
+      console.error(`Failed to call tool: ${toolName}`, error)
+      if (toolName) {
+        mcpStore.setState((s) => ({
+          ...s,
+          toolResults: { ...s.toolResults, [toolName]: `Tool call error: ${String(error)}` }
+        }))
       }
-    } catch (error) {
-      console.error(t('mcp.errors.loadToolsFailed'), error)
+      throw error
     }
+  } finally {
+    mcpStore.setState((s) => ({
+      ...s,
+      toolLoadingStates: { ...s.toolLoadingStates, [toolName]: false }
+    }))
   }
+}
 
-  // 加载提示模板
-  const loadPrompts = async (options?: QueryExecuteOptions) => {
-    try {
-      await runQuery(promptsQuery, options)
-    } catch (error) {
-      console.error(t('mcp.errors.loadPromptsFailed'), error)
-    }
-  }
+export const getPrompt = async (
+  prompt: PromptListEntry,
+  args?: Record<string, unknown>
+): Promise<unknown> => {
+  try {
+    const isCustomPrompt = prompt.client?.name === 'deepchat/custom-prompts-server'
 
-  // 加载资源列表
-  const loadResources = async (options?: QueryExecuteOptions) => {
-    try {
-      await runQuery(resourcesQuery, options)
-    } catch (error) {
-      console.error(t('mcp.errors.loadResourcesFailed'), error)
-    }
-  }
+    if (isCustomPrompt) {
+      const customPrompts: Prompt[] = await configClient.getCustomPrompts()
+      const matchedPrompt = customPrompts.find((p) => p.name === prompt.name)
 
-  // 更新工具输入
-  const updateToolInput = (toolName: string, paramName: string, value: string) => {
-    if (!toolInputs.value[toolName]) {
-      toolInputs.value[toolName] = {}
-    }
-    toolInputs.value[toolName][paramName] = value
-  }
+      if (!matchedPrompt) throw new Error(`Prompt not found: ${prompt.name}`)
+      if (!matchedPrompt.content || matchedPrompt.content.trim() === '')
+        throw new Error(`Prompt content is empty: ${prompt.name}`)
 
-  // 调用工具
-  const callTool = async (toolName: string): Promise<CallToolResult> => {
-    toolLoadingStates.value[toolName] = true
-    try {
-      // 准备工具参数
-      const rawParams = toolInputs.value[toolName] || {}
-      const params = { ...rawParams } as Record<string, unknown>
+      let content = matchedPrompt.content
 
-      // 特殊处理 glob_search 工具
-      if (toolName === 'glob_search') {
-        const pattern = typeof params.pattern === 'string' ? params.pattern.trim() : ''
-        if (!pattern) {
-          params.pattern = '**/*.md'
-        }
+      if (args && matchedPrompt.parameters) {
+        const requiredParams = matchedPrompt.parameters
+          .filter((param) => param.required)
+          .map((param) => param.name)
+        const missingParams = requiredParams.filter((paramName) => !(paramName in args))
+        if (missingParams.length > 0)
+          throw new Error(`Missing required parameters: ${missingParams.join(', ')}`)
 
-        if (typeof params.root === 'string' && params.root.trim() === '') {
-          delete params.root
-        }
+        const validParamNames = matchedPrompt.parameters.map((param) => param.name)
+        const invalidParams = Object.keys(args).filter((key) => !validParamNames.includes(key))
+        if (invalidParams.length > 0)
+          throw new Error(`Invalid parameters: ${invalidParams.join(', ')}`)
 
-        if (typeof params.excludePatterns === 'string') {
-          const parsed = params.excludePatterns
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean)
-          if (parsed.length > 0) {
-            params.excludePatterns = parsed
-          } else {
-            delete params.excludePatterns
-          }
-        }
-
-        if (typeof params.maxResults === 'string') {
-          const parsed = Number(params.maxResults)
-          if (!Number.isNaN(parsed)) {
-            params.maxResults = parsed
-          } else {
-            delete params.maxResults
-          }
-        }
-
-        if (typeof params.sortBy === 'string' && params.sortBy.trim() === '') {
-          delete params.sortBy
-        }
-      }
-
-      // 创建工具调用请求
-      const request: CallToolRequest = {
-        id: Date.now().toString(),
-        type: 'function',
-        function: {
-          name: toolName,
-          arguments: JSON.stringify(params)
-        }
-      }
-
-      return await callToolMutation.mutateAsync([request])
-    } finally {
-      toolLoadingStates.value[toolName] = false
-    }
-  }
-
-  // 获取提示模板详情
-  const getPrompt = async (
-    prompt: PromptListEntry,
-    args?: Record<string, unknown>
-  ): Promise<unknown> => {
-    try {
-      // 检查是否是自定义 prompt（来自 config）
-      const isCustomPrompt = prompt.client?.name === 'deepchat/custom-prompts-server'
-
-      if (isCustomPrompt) {
-        // 自定义 prompt 从 config 获取，不需要 MCP 启用
-        const customPrompts: Prompt[] = await configClient.getCustomPrompts()
-        const matchedPrompt = customPrompts.find((p) => p.name === prompt.name)
-
-        if (!matchedPrompt) {
-          throw new Error(t('mcp.errors.promptNotFound', { name: prompt.name }))
-        }
-
-        // 验证 prompt 内容
-        if (!matchedPrompt.content || matchedPrompt.content.trim() === '') {
-          throw new Error(t('mcp.errors.emptyPromptContent', { name: prompt.name }))
-        }
-
-        let content = matchedPrompt.content
-
-        // 验证参数
-        if (args && matchedPrompt.parameters) {
-          // 检查必需参数
-          const requiredParams = matchedPrompt.parameters
-            .filter((param) => param.required)
-            .map((param) => param.name)
-
-          const missingParams = requiredParams.filter((paramName) => !(paramName in args))
-          if (missingParams.length > 0) {
-            throw new Error(t('mcp.errors.missingParameters', { params: missingParams.join(', ') }))
-          }
-
-          // 验证提供的参数都是有效的
-          const validParamNames = matchedPrompt.parameters.map((param) => param.name)
-          const invalidParams = Object.keys(args).filter((key) => !validParamNames.includes(key))
-          if (invalidParams.length > 0) {
-            throw new Error(t('mcp.errors.invalidParameters', { params: invalidParams.join(', ') }))
-          }
-
-          // 安全的参数替换，使用字符串方法而非正则表达式
-          for (const [key, value] of Object.entries(args)) {
-            if (value !== null && value !== undefined) {
-              const placeholder = `{{${key}}}`
-              let startPos = 0
-              let pos
-
-              while ((pos = content.indexOf(placeholder, startPos)) !== -1) {
-                content =
-                  content.substring(0, pos) +
-                  String(value) +
-                  content.substring(pos + placeholder.length)
-                startPos = pos + String(value).length
-              }
+        for (const [key, value] of Object.entries(args)) {
+          if (value !== null && value !== undefined) {
+            const placeholder = `{{${key}}}`
+            let startPos = 0
+            let pos
+            while ((pos = content.indexOf(placeholder, startPos)) !== -1) {
+              content =
+                content.substring(0, pos) +
+                String(value) +
+                content.substring(pos + placeholder.length)
+              startPos = pos + String(value).length
             }
           }
         }
-
-        return { messages: [{ role: 'user', content: { type: 'text', text: content } }] }
       }
 
-      // MCP prompt 需要检查 MCP 是否启用
-      if (!config.value.mcpEnabled && !isPluginOwnedServerName(prompt.client?.name)) {
-        throw new Error(t('mcp.errors.mcpDisabled'))
-      }
-
-      // Keep the full prompt descriptor so the route can resolve the source correctly.
-      return await mcpClient.getPrompt(prompt, args)
-    } catch (error) {
-      console.error(t('mcp.errors.getPromptFailed'), error)
-      throw error
+      return { messages: [{ role: 'user', content: { type: 'text', text: content } }] }
     }
+
+    if (!mcpStore.state.config.mcpEnabled && !isPluginOwnedServerName(prompt.client?.name))
+      throw new Error('MCP is disabled')
+
+    return await mcpClient.getPrompt(prompt, args)
+  } catch (error) {
+    console.error('Failed to get prompt:', error)
+    throw error
   }
+}
 
-  // 读取资源内容
-  const readResource = async (resource: ResourceListEntry): Promise<Resource> => {
-    if (!config.value.mcpEnabled && !isPluginOwnedServerName(resource.client?.name)) {
-      throw new Error(t('mcp.errors.mcpDisabled'))
-    }
-
-    try {
-      // Keep the full resource descriptor so the route can resolve the source correctly.
-      return await mcpClient.readResource(resource)
-    } catch (error) {
-      console.error(t('mcp.errors.readResourceFailed'), error)
-      throw error
-    }
+export const readResource = async (resource: ResourceListEntry): Promise<Resource> => {
+  if (!mcpStore.state.config.mcpEnabled && !isPluginOwnedServerName(resource.client?.name))
+    throw new Error('MCP is disabled')
+  try {
+    return await mcpClient.readResource(resource)
+  } catch (error) {
+    console.error('Failed to read resource:', error)
+    throw error
   }
+}
 
-  // ==================== 事件监听 ====================
-  // 初始化事件监听
-  const initEvents = () => {
-    mcpClient.onServerStarted(({ serverName }) => {
-      console.log(`MCP server started: ${serverName}`)
-      updateServerStatus(serverName).then(() => {
-        // Force refresh tools after server starts to ensure tool count is updated
-        if (config.value.mcpEnabled) {
-          loadTools({ force: true }).catch((error) => {
-            console.error('Failed to refresh tools after server started:', error)
-          })
-        }
-      })
-    })
-
-    mcpClient.onServerStopped(({ serverName }) => {
-      console.log(`MCP server stopped: ${serverName}`)
-      updateServerStatus(serverName).then(() => {
-        // Force refresh tools after server stops to ensure tool count is updated
-        if (config.value.mcpEnabled) {
-          loadTools({ force: true }).catch((error) => {
-            console.error('Failed to refresh tools after server stopped:', error)
-          })
-        }
-      })
-    })
-
-    mcpClient.onConfigChanged((payload) => {
-      console.log('MCP config changed', payload)
-      syncConfigFromQuery(payload)
-      updateAllServerStatuses().catch((error) => {
-        console.error('Failed to update server statuses after config change:', error)
-      })
-    })
-
-    mcpClient.onServerStatusChanged(({ serverName, isRunning }) => {
-      console.log(`MCP server ${serverName} status changed: ${isRunning}`)
-      serverStatuses.value[serverName] = isRunning
-    })
-
-    mcpClient.onToolCallResult((result) => {
-      console.log(`MCP tool call result:`, result.functionName)
-      if (result && result.functionName) {
-        toolResults.value[result.functionName] = result.content
+const initEvents = () => {
+  mcpClient.onServerStarted(({ serverName }) => {
+    console.log(`MCP server started: ${serverName}`)
+    updateServerStatus(serverName).then(() => {
+      if (mcpStore.state.config.mcpEnabled) {
+        loadTools().catch((error) => {
+          console.error('Failed to refresh tools after server started:', error)
+        })
       }
     })
-
-    configClient.onCustomPromptsChanged(() => {
-      console.log('Custom prompts changed, reloading prompts list')
-      void loadPrompts()
-    })
-  }
-
-  // 初始化
-  const init = async () => {
-    initEvents()
-    await loadEnabledToolNames()
-    await loadConfig()
-
-    // 总是加载提示模板（包含config数据源）
-    await loadPrompts()
-
-    // 如果MCP已启用，加载工具、客户端和资源
-    if (config.value.mcpEnabled) {
-      await loadTools()
-      await loadClients()
-    }
-  }
-
-  // 立即初始化
-  onMounted(async () => {
-    await init()
   })
 
-  // 获取NPM Registry状态
-  const getNpmRegistryStatus = async () => {
-    return await mcpClient.getNpmRegistryStatus()
-  }
+  mcpClient.onServerStopped(({ serverName }) => {
+    console.log(`MCP server stopped: ${serverName}`)
+    updateServerStatus(serverName).then(() => {
+      if (mcpStore.state.config.mcpEnabled) {
+        loadTools().catch((error) => {
+          console.error('Failed to refresh tools after server stopped:', error)
+        })
+      }
+    })
+  })
 
-  // 手动刷新NPM Registry
-  const refreshNpmRegistry = async (): Promise<string> => {
-    return await mcpClient.refreshNpmRegistry()
-  }
+  mcpClient.onConfigChanged((payload) => {
+    console.log('MCP config changed', payload)
+    syncConfigFromQuery(payload)
+    updateAllServerStatuses().catch((error) => {
+      console.error('Failed to update server statuses after config change:', error)
+    })
+  })
 
-  // 设置自定义NPM Registry
-  const setCustomNpmRegistry = async (registry: string | undefined): Promise<void> => {
-    await mcpClient.setCustomNpmRegistry(registry)
-  }
+  mcpClient.onServerStatusChanged(({ serverName, isRunning }) => {
+    console.log(`MCP server ${serverName} status changed: ${isRunning}`)
+    mcpStore.setState((s) => ({
+      ...s,
+      serverStatuses: { ...s.serverStatuses, [serverName]: isRunning }
+    }))
+  })
 
-  // 设置自动检测NPM Registry
-  const setAutoDetectNpmRegistry = async (enabled: boolean): Promise<void> => {
-    await mcpClient.setAutoDetectNpmRegistry(enabled)
-  }
-
-  // 清除NPM Registry缓存
-  const clearNpmRegistryCache = async (): Promise<void> => {
-    await mcpClient.clearNpmRegistryCache()
-  }
-
-  // MCP 安装缓存管理（用于 deeplink）
-  const setMcpInstallCache = (value: string | null) => {
-    mcpInstallCache.value = value
-  }
-
-  const clearMcpInstallCache = () => {
-    mcpInstallCache.value = null
-  }
-
-  const isToolEnabled = (toolName: string): boolean => enabledToolNames.value.includes(toolName)
-
-  const setToolEnabled = async (toolName: string, enabled: boolean): Promise<void> => {
-    const current = enabledToolNames.value
-    if (enabled) {
-      await setEnabledToolNames([...current, toolName])
-      return
+  mcpClient.onToolCallResult((result) => {
+    console.log(`MCP tool call result:`, result.functionName)
+    if (result && result.functionName) {
+      mcpStore.setState((s) => ({
+        ...s,
+        toolResults: { ...s.toolResults, [result.functionName]: result.content }
+      }))
     }
-    await setEnabledToolNames(current.filter((name) => name !== toolName))
+  })
+
+  configClient.onCustomPromptsChanged(() => {
+    console.log('Custom prompts changed, reloading prompts list')
+    void loadPrompts()
+  })
+}
+
+export const initMcp = async () => {
+  initEvents()
+  await loadEnabledToolNames()
+  await loadConfig()
+  await loadPrompts()
+
+  if (mcpStore.state.config.mcpEnabled) {
+    await loadTools()
+    await loadClients()
   }
+}
 
-  return {
-    // 状态
-    config,
-    serverStatuses,
-    serverLoadingStates,
-    configLoading,
-    tools,
-    visibleTools,
-    pluginTools,
-    toolsLoading,
-    toolsError,
-    toolsErrorMessage,
-    toolLoadingStates,
-    toolInputs,
-    toolResults,
-    enabledToolNames,
-    prompts,
-    visiblePrompts,
-    resources,
-    visibleResources,
-    mcpEnabled,
-    mcpInstallCache,
+export const getNpmRegistryStatus = async () => {
+  return await mcpClient.getNpmRegistryStatus()
+}
 
-    // 计算属性
-    serverList,
-    pluginServerList,
-    enabledServers,
-    enabledPluginServers,
-    enabledServerCount,
-    toolCount,
-    hasTools,
-    clients,
+export const refreshNpmRegistry = async (): Promise<string> => {
+  return await mcpClient.refreshNpmRegistry()
+}
 
-    // 服务器管理方法
-    loadConfig,
-    updateAllServerStatuses,
-    updateServerStatus,
-    addServer,
-    updateServer,
-    removeServer,
-    toggleServer,
-    setMcpEnabled,
+export const setCustomNpmRegistry = async (registry: string | undefined): Promise<void> => {
+  await mcpClient.setCustomNpmRegistry(registry)
+}
 
-    // 工具和资源方法
-    loadTools,
-    loadClients,
-    loadPrompts,
-    loadResources,
-    updateToolInput,
-    isToolEnabled,
-    setToolEnabled,
-    callTool,
-    getPrompt,
-    readResource,
+export const setAutoDetectNpmRegistry = async (enabled: boolean): Promise<void> => {
+  await mcpClient.setAutoDetectNpmRegistry(enabled)
+}
 
-    // NPM Registry 管理方法
-    getNpmRegistryStatus,
-    refreshNpmRegistry,
-    setCustomNpmRegistry,
-    setAutoDetectNpmRegistry,
-    clearNpmRegistryCache,
-    setMcpInstallCache,
-    clearMcpInstallCache
+export const clearNpmRegistryCache = async (): Promise<void> => {
+  await mcpClient.clearNpmRegistryCache()
+}
+
+export const setMcpInstallCache = (value: string | null) => {
+  mcpStore.setState((s) => ({ ...s, mcpInstallCache: value }))
+}
+
+export const clearMcpInstallCache = () => {
+  mcpStore.setState((s) => ({ ...s, mcpInstallCache: null }))
+}
+
+export const isToolEnabled = (toolName: string): boolean =>
+  mcpStore.state.enabledToolNames.includes(toolName)
+
+export const setToolEnabled = async (toolName: string, enabled: boolean): Promise<void> => {
+  const current = mcpStore.state.enabledToolNames
+  if (enabled) {
+    await setEnabledToolNames([...current, toolName])
+    return
   }
-})
+  await setEnabledToolNames(current.filter((name) => name !== toolName))
+}
+
+export const getVisibleTools = () =>
+  mcpStore.state.tools.filter((tool) => isVisibleServerName(tool.server.name))
+
+export const getPluginTools = () =>
+  mcpStore.state.tools.filter((tool) => isPluginOwnedServerName(tool.server.name))
+
+export const getVisibleResources = () =>
+  mcpStore.state.resources.filter((resource) => isVisibleServerName(resource.client.name))
+
+export const getVisiblePrompts = () =>
+  mcpStore.state.prompts.filter((prompt) => isVisibleServerName(prompt.client?.name))
+
+export const getToolsLoading = () =>
+  mcpStore.state.config.mcpEnabled ? mcpStore.state.toolsLoading : false
+
+export const getToolsError = () => mcpStore.state.toolsError
+
+export const getToolsErrorMessage = () => mcpStore.state.toolsErrorMessage
+
+export const getMcpEnabled = () => mcpStore.state.config.mcpEnabled
+
+export const getAllServerList = () => {
+  const { config, serverStatuses, serverLoadingStates } = mcpStore.state
+  const servers = Object.entries(config.mcpServers ?? {}).map(([name, serverConfig]) => ({
+    name,
+    ...serverConfig,
+    isRunning: serverStatuses[name] || false,
+    isLoading: serverLoadingStates[name] || false
+  }))
+
+  return servers.sort((a, b) => {
+    const aIsInmemory = a.type === 'inmemory' || a.source === 'deepchat'
+    const bIsInmemory = b.type === 'inmemory' || b.source === 'deepchat'
+    if (aIsInmemory && !bIsInmemory) return -1
+    if (!aIsInmemory && bIsInmemory) return 1
+    return 0
+  })
+}
+
+export const getServerList = () =>
+  getAllServerList().filter((server) => !isPluginOwnedServerConfig(server))
+
+export const getPluginServerList = () =>
+  getAllServerList().filter((server) => isPluginOwnedServerConfig(server))
+
+export const getEnabledServers = () =>
+  mcpStore.state.config.mcpEnabled ? getServerList().filter((server) => server.enabled) : []
+
+export const getEnabledPluginServers = () =>
+  getPluginServerList().filter((server) => server.enabled)
+
+export const getEnabledServerCount = () => getEnabledServers().length
+
+export const getToolCount = () => getVisibleTools().length
+
+export const getHasTools = () => getToolCount() > 0

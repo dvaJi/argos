@@ -1,8 +1,4 @@
-// === Vue Core ===
-import { ref, computed, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
-
-// === Composables ===
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createConfigClient } from '@api/ConfigClient'
 import { createModelClient } from '@api/ModelClient'
 
@@ -13,9 +9,9 @@ const MODE_ICONS = {
   'acp agent': 'lucide:bot-message-square'
 } as const
 
-// Shared state so all callers observe the same mode.
-const currentMode = ref<ChatMode>('agent')
-const hasAcpAgents = ref<boolean>(false)
+const listeners = new Set<() => void>()
+let sharedCurrentMode: ChatMode = 'agent'
+let sharedHasAcpAgents = false
 let hasLoaded = false
 let loadPromise: Promise<void> | null = null
 let modeUpdateVersion = 0
@@ -23,149 +19,151 @@ let hasAcpListener = false
 const configClient = createConfigClient()
 const modelClient = createModelClient()
 
-/**
- * Manages chat mode selection (agent, acp agent)
- * Similar to useInputSettings, stores mode in config entries
- */
-export function useChatMode() {
-  const { t } = useI18n()
+function emitChange() {
+  listeners.forEach((fn) => fn())
+}
 
-  // === Computed ===
-  const currentIcon = computed(() => MODE_ICONS[currentMode.value])
-  const currentLabel = computed(() => {
-    if (currentMode.value === 'agent') return t('chat.mode.agent')
-    return t('chat.mode.acpAgent')
-  })
-  const modes = computed(() => {
+function useSharedState(): [ChatMode, boolean] {
+  const [state, setState] = useState<[ChatMode, boolean]>([sharedCurrentMode, sharedHasAcpAgents])
+
+  useEffect(() => {
+    const handler = () => setState([sharedCurrentMode, sharedHasAcpAgents])
+    listeners.add(handler)
+    return () => {
+      listeners.delete(handler)
+    }
+  }, [])
+
+  return state
+}
+
+export function useChatMode() {
+  const [currentMode, hasAcpAgents] = useSharedState()
+
+  const currentIcon = MODE_ICONS[currentMode]
+  const currentLabel = currentMode === 'agent' ? 'Agent' : 'ACP Agent'
+  const modes = useMemo(() => {
     const allModes = [
-      { value: 'agent' as ChatMode, label: t('chat.mode.agent'), icon: MODE_ICONS.agent },
+      { value: 'agent' as ChatMode, label: 'Agent', icon: MODE_ICONS.agent },
       {
         value: 'acp agent' as ChatMode,
-        label: t('chat.mode.acpAgent'),
+        label: 'ACP Agent',
         icon: MODE_ICONS['acp agent']
       }
     ]
-    // Filter out 'acp agent' mode if no ACP agents are configured
-    if (!hasAcpAgents.value) {
+    if (!hasAcpAgents) {
       return allModes.filter((mode) => mode.value !== 'acp agent')
     }
     return allModes
-  })
+  }, [hasAcpAgents])
 
-  // === Public Methods ===
-  const setMode = async (mode: ChatMode) => {
-    // Prevent setting 'acp agent' mode if no agents are configured
-    if (mode === 'acp agent' && !hasAcpAgents.value) {
+  const checkAcpAgents = useCallback(async () => {
+    try {
+      const acpEnabled = await configClient.getAcpEnabled()
+      if (!acpEnabled) {
+        sharedHasAcpAgents = false
+        emitChange()
+        return
+      }
+      const agents = await configClient.getAcpAgents()
+      sharedHasAcpAgents = agents.length > 0
+      emitChange()
+    } catch (error) {
+      console.warn('Failed to check ACP agents:', error)
+      sharedHasAcpAgents = false
+      emitChange()
+    }
+  }, [])
+
+  const setMode = useCallback(async (mode: ChatMode) => {
+    if (mode === 'acp agent' && !sharedHasAcpAgents) {
       console.warn('Cannot set acp agent mode: no ACP agents configured')
       return
     }
 
-    const previousValue = currentMode.value
+    const previousValue = sharedCurrentMode
     const updateVersion = ++modeUpdateVersion
-    currentMode.value = mode
+    sharedCurrentMode = mode
+    emitChange()
 
     try {
       await configClient.setSetting('input_chatMode', mode)
     } catch (error) {
-      // Revert to previous value on error
       if (modeUpdateVersion === updateVersion) {
-        currentMode.value = previousValue
+        sharedCurrentMode = previousValue
+        emitChange()
       }
       console.error('Failed to save chat mode:', error)
-      // TODO: Show user-facing notification when toast system is available
     }
-  }
+  }, [])
 
-  const checkAcpAgents = async () => {
-    try {
-      const acpEnabled = await configClient.getAcpEnabled()
-      if (!acpEnabled) {
-        hasAcpAgents.value = false
-        return
-      }
-      const agents = await configClient.getAcpAgents()
-      hasAcpAgents.value = agents.length > 0
-    } catch (error) {
-      console.warn('Failed to check ACP agents:', error)
-      hasAcpAgents.value = false
-    }
-  }
-
-  const loadMode = async () => {
+  const loadMode = useCallback(async () => {
     const loadVersion = modeUpdateVersion
     try {
-      // Check ACP agents availability first
       await checkAcpAgents()
 
       const saved = await configClient.getSetting('input_chatMode')
       if (modeUpdateVersion === loadVersion) {
         let savedMode: ChatMode = saved === 'acp agent' ? 'acp agent' : 'agent'
 
-        // Migrate legacy 'chat' mode to 'agent' and persist
         if (saved === 'chat') {
           savedMode = 'agent'
           await configClient.setSetting('input_chatMode', 'agent')
         }
 
-        // If saved mode is 'acp agent' but no agents are configured, fall back to 'agent'
-        if (savedMode === 'acp agent' && !hasAcpAgents.value) {
-          currentMode.value = 'agent'
+        if (savedMode === 'acp agent' && !sharedHasAcpAgents) {
+          sharedCurrentMode = 'agent'
           await configClient.setSetting('input_chatMode', 'agent')
         } else {
-          currentMode.value = savedMode
+          sharedCurrentMode = savedMode
         }
+        emitChange()
       }
     } catch (error) {
-      // Fall back to safe defaults on error
       if (modeUpdateVersion === loadVersion) {
-        currentMode.value = 'agent'
+        sharedCurrentMode = 'agent'
+        emitChange()
       }
       console.error('Failed to load chat mode, using default:', error)
     } finally {
       hasLoaded = true
     }
-  }
+  }, [checkAcpAgents])
 
-  const ensureLoaded = () => {
-    if (hasLoaded) return
-    if (!loadPromise) {
-      loadPromise = loadMode().finally(() => {
-        loadPromise = null
+  useEffect(() => {
+    const ensureLoaded = () => {
+      if (hasLoaded) return
+      if (!loadPromise) {
+        loadPromise = loadMode().finally(() => {
+          loadPromise = null
+        })
+      }
+    }
+
+    ensureLoaded()
+
+    if (!hasAcpListener) {
+      hasAcpListener = true
+      modelClient.onModelsChanged(({ providerId }) => {
+        if (!providerId || providerId === 'acp') {
+          void checkAcpAgents()
+        }
+      })
+      configClient.onAgentsChanged(() => {
+        void checkAcpAgents()
       })
     }
-  }
+  }, [loadMode, checkAcpAgents])
 
-  ensureLoaded()
-
-  if (!hasAcpListener) {
-    hasAcpListener = true
-    modelClient.onModelsChanged(({ providerId }) => {
-      if (!providerId || providerId === 'acp') {
-        void checkAcpAgents()
-      }
-    })
-    configClient.onAgentsChanged(() => {
-      void checkAcpAgents()
-    })
-  }
-
-  // Watch for ACP agents changes and update availability
-  // This will be triggered when ACP agents are added/removed
-  watch(
-    () => hasAcpAgents.value,
-    (hasAgents) => {
-      // If current mode is 'acp agent' but agents are removed, switch to 'agent'
-      if (!hasAgents && currentMode.value === 'acp agent') {
-        setMode('agent')
-      }
+  useEffect(() => {
+    if (!hasAcpAgents && currentMode === 'acp agent') {
+      setMode('agent')
     }
-  )
+  }, [hasAcpAgents, currentMode, setMode])
 
-  // Periodically check for ACP agents changes (in case they're updated elsewhere)
-  // This is a simple approach; in production, you might want to use events
-  const refreshAcpAgents = async () => {
+  const refreshAcpAgents = useCallback(async () => {
     await checkAcpAgents()
-  }
+  }, [checkAcpAgents])
 
   return {
     currentMode,

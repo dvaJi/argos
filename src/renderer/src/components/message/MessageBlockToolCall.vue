@@ -187,8 +187,28 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { useI18n } from 'vue-i18n'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { CodeBlockNode } from 'markstream-vue'
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
+const CodeBlockNode = defineComponent({
+  name: 'CodeBlockNode',
+  props: {
+    node: { type: Object, required: true },
+    isDark: { type: Boolean, default: false },
+    showHeader: { type: Boolean, default: true },
+    diff: { type: Boolean, default: false },
+    originalCode: String,
+    updatedCode: String
+  },
+  setup(props) {
+    return () =>
+      h(
+        'pre',
+        {
+          class: `text-xs p-2 overflow-auto ${props.isDark ? 'bg-zinc-900 text-zinc-100' : 'bg-zinc-50 text-zinc-900'} rounded-md`
+        },
+        props.node.code
+      )
+  }
+})
 import { summarizeToolCallPreview } from '@shared/lib/toolCallSummary'
 import { useThemeStore } from '@/stores/theme'
 import { useSessionStore } from '@/stores/ui/session'

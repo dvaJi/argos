@@ -1,15 +1,9 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
-import vue from '@vitejs/plugin-vue'
-import vueDevTools from 'vite-plugin-vue-devtools'
-import svgLoader from 'vite-svg-loader'
+import react from '@vitejs/plugin-react'
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm'
 import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
-
-const isCustomElement = (tag: string) =>
-  tag === 'voice-agent-widget' || tag.startsWith('ui-resource-renderer')
-const isVueDevToolsOverlayEnabled = process.env.DEEPCHAT_VUE_DEVTOOLS_OVERLAY !== '0'
 
 export default defineConfig({
   main: {
@@ -57,7 +51,7 @@ export default defineConfig({
   },
   renderer: {
     optimizeDeps: {
-      exclude: ['markstream-vue', 'stream-monaco'],
+      exclude: ['stream-monaco'],
       include: [
         '@antv/infographic',
         'monaco-editor',
@@ -69,12 +63,11 @@ export default defineConfig({
         '@': resolve('src/renderer/src'),
         '@api': resolve('src/renderer/api'),
         '@shared': resolve('src/shared'),
-        "@shadcn": resolve('src/shadcn'),
-        vue: 'vue/dist/vue.esm-bundler.js'
+        "@shadcn": resolve('src/shadcn')
       }
     },
     server: {
-      host: '0.0.0.0' // 防止代理干扰，导致vite-electron之间ws://localhost:5713和http://localhost:5713通信失败、页面组件无法加载
+      host: '0.0.0.0'
     },
     plugins: [
       tailwindcss(),
@@ -106,31 +99,13 @@ export default defineConfig({
           return path.resolve(buildOutDir, 'monacoeditorwork')
         },
       }),
-      vue({
-        template: {
-          compilerOptions: {
-            isCustomElement
-          }
-        }
-      }),
-      svgLoader(),
-      ...(isVueDevToolsOverlayEnabled
-        ? [
-            vueDevTools({
-              appendTo: 'src/renderer/src/main.ts'
-              // appendTo:'src/renderer/browser/main.ts'
-            })
-          ]
-        : [])
+      react()
     ],
     worker: {
       format: 'es'
     },
     build: {
       minify: 'esbuild',
-      // Ensure CSS order in build matches import order in dev
-      // This prevents extracted CSS from async chunks from reordering
-      // and breaking cascade precedence (e.g. markdown renderer vs app styles)
       cssCodeSplit: false,
       rollupOptions: {
         input: {

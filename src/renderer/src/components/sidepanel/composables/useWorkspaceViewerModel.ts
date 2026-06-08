@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from 'vue'
+import { useMemo } from 'react'
 import type { ArtifactState } from '@/stores/artifact'
 import type { WorkspaceFilePreview, WorkspaceViewMode } from '@shared/presenter'
 
@@ -22,27 +22,32 @@ type SessionStateLike = {
 }
 
 interface UseWorkspaceViewerModelOptions {
-  artifact: ComputedRef<ArtifactState | null>
-  filePreview: ComputedRef<WorkspaceFilePreview | null>
-  sessionState: ComputedRef<SessionStateLike>
+  artifact: ArtifactState | null
+  filePreview: WorkspaceFilePreview | null
+  sessionState: SessionStateLike
 }
 
 export function useWorkspaceViewerModel(options: UseWorkspaceViewerModelOptions) {
-  const activeSource = computed<WorkspaceViewerSource>(() => {
-    if (options.sessionState.value.selectedDiffPath) {
+  const activeSource = useMemo<WorkspaceViewerSource>(() => {
+    if (options.sessionState.selectedDiffPath) {
       return 'git-diff'
     }
-    if (options.sessionState.value.selectedFilePath) {
+    if (options.sessionState.selectedFilePath) {
       return 'file'
     }
-    if (options.sessionState.value.selectedArtifactContext && options.artifact.value) {
+    if (options.sessionState.selectedArtifactContext && options.artifact) {
       return 'artifact'
     }
     return null
-  })
+  }, [
+    options.sessionState.selectedDiffPath,
+    options.sessionState.selectedFilePath,
+    options.sessionState.selectedArtifactContext,
+    options.artifact
+  ])
 
-  const artifactPreviewKind = computed<WorkspacePreviewKind>(() => {
-    switch (options.artifact.value?.type) {
+  const artifactPreviewKind = useMemo<WorkspacePreviewKind>(() => {
+    switch (options.artifact?.type) {
       case 'text/markdown':
         return 'markdown'
       case 'text/html':
@@ -56,10 +61,10 @@ export function useWorkspaceViewerModel(options: UseWorkspaceViewerModelOptions)
       default:
         return 'raw'
     }
-  })
+  }, [options.artifact?.type])
 
-  const filePreviewKind = computed<WorkspacePreviewKind | null>(() => {
-    switch (options.filePreview.value?.kind) {
+  const filePreviewKind = useMemo<WorkspacePreviewKind | null>(() => {
+    switch (options.filePreview?.kind) {
       case 'markdown':
         return 'markdown'
       case 'html':
@@ -73,18 +78,18 @@ export function useWorkspaceViewerModel(options: UseWorkspaceViewerModelOptions)
       default:
         return null
     }
-  })
+  }, [options.filePreview?.kind])
 
-  const availableTabs = computed<WorkspaceViewMode[]>(() => {
-    if (activeSource.value === 'artifact') {
+  const availableTabs = useMemo<WorkspaceViewMode[]>(() => {
+    if (activeSource === 'artifact') {
       return ['preview', 'code']
     }
 
-    if (activeSource.value !== 'file' || !options.filePreview.value) {
+    if (activeSource !== 'file' || !options.filePreview) {
       return []
     }
 
-    switch (options.filePreview.value.kind) {
+    switch (options.filePreview.kind) {
       case 'markdown':
       case 'html':
       case 'svg':
@@ -96,38 +101,38 @@ export function useWorkspaceViewerModel(options: UseWorkspaceViewerModelOptions)
       default:
         return []
     }
-  })
+  }, [activeSource, options.filePreview])
 
-  const effectiveViewMode = computed<WorkspaceViewMode>(() => {
-    if (availableTabs.value.includes(options.sessionState.value.viewMode)) {
-      return options.sessionState.value.viewMode
+  const effectiveViewMode = useMemo<WorkspaceViewMode>(() => {
+    if (availableTabs.includes(options.sessionState.viewMode)) {
+      return options.sessionState.viewMode
     }
 
-    return availableTabs.value[0] ?? 'preview'
-  })
+    return availableTabs[0] ?? 'preview'
+  }, [availableTabs, options.sessionState.viewMode])
 
-  const paneKind = computed<WorkspaceViewerPane>(() => {
-    if (activeSource.value === null) {
+  const paneKind = useMemo<WorkspaceViewerPane>(() => {
+    if (activeSource === null) {
       return 'empty'
     }
 
-    if (activeSource.value === 'git-diff') {
+    if (activeSource === 'git-diff') {
       return 'git-diff'
     }
 
-    if (activeSource.value === 'artifact') {
-      if (effectiveViewMode.value === 'code') {
+    if (activeSource === 'artifact') {
+      if (effectiveViewMode === 'code') {
         return 'code'
       }
 
-      return options.artifact.value?.type === 'application/vnd.ant.code' ? 'code' : 'preview'
+      return options.artifact?.type === 'application/vnd.ant.code' ? 'code' : 'preview'
     }
 
-    if (!options.filePreview.value) {
+    if (!options.filePreview) {
       return 'empty'
     }
 
-    switch (options.filePreview.value.kind) {
+    switch (options.filePreview.kind) {
       case 'text':
         return 'code'
       case 'markdown':
@@ -135,26 +140,26 @@ export function useWorkspaceViewerModel(options: UseWorkspaceViewerModelOptions)
       case 'pdf':
       case 'svg':
       case 'image':
-        return effectiveViewMode.value === 'code' ? 'code' : 'preview'
+        return effectiveViewMode === 'code' ? 'code' : 'preview'
       case 'binary':
       default:
         return 'info'
     }
-  })
+  }, [activeSource, effectiveViewMode, options.artifact, options.filePreview])
 
-  const previewKind = computed<WorkspacePreviewKind | null>(() => {
-    if (paneKind.value !== 'preview') {
+  const previewKind = useMemo<WorkspacePreviewKind | null>(() => {
+    if (paneKind !== 'preview') {
       return null
     }
 
-    if (activeSource.value === 'artifact') {
-      return artifactPreviewKind.value
+    if (activeSource === 'artifact') {
+      return artifactPreviewKind
     }
 
-    return filePreviewKind.value
-  })
+    return filePreviewKind
+  }, [paneKind, activeSource, artifactPreviewKind, filePreviewKind])
 
-  const shouldShowTabs = computed(() => availableTabs.value.length > 1)
+  const shouldShowTabs = useMemo(() => availableTabs.length > 1, [availableTabs])
 
   return {
     activeSource,

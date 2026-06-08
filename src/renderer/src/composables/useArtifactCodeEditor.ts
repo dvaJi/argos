@@ -1,18 +1,9 @@
-// === Types ===
-import type { Ref } from 'vue'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ArtifactState } from '@/stores/artifact'
-
-// === Vue Core ===
-import { ref, watch, onBeforeUnmount } from 'vue'
-
-// === Composables ===
 import { useMonaco, detectLanguage } from 'stream-monaco'
-import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import { useThrottleFn } from '@vueuse/core'
+import { uiSettingsStore } from '@/stores/uiSettingsStore'
+import { useStore } from '@tanstack/react-store'
 
-/**
- * Normalize and sanitize language identifiers
- */
 const sanitizeLanguage = (language: string | undefined | null): string => {
   if (!language) return ''
   const normalized = language.trim().toLowerCase()
@@ -30,9 +21,6 @@ const sanitizeLanguage = (language: string | undefined | null): string => {
   }
 }
 
-/**
- * Get language from artifact type and explicit language field
- */
 const normalizeLanguage = (artifact: ArtifactState | null): string => {
   if (!artifact) return ''
 
@@ -59,156 +47,134 @@ const normalizeLanguage = (artifact: ArtifactState | null): string => {
   }
 }
 
-/**
- * Composable for managing Monaco code editor integration
- *
- * Features:
- * - Automatic language detection and normalization
- * - Throttled language detection for performance
- * - Lifecycle management for editor instance
- * - Real-time content synchronization
- */
 export function useArtifactCodeEditor(
-  artifact: Ref<ArtifactState | null>,
-  editorElement: Ref<HTMLElement | null>,
-  isPreview: Ref<boolean>,
-  isOpen: Ref<boolean>
+  artifact: ArtifactState | null,
+  editorElement: HTMLElement | null,
+  isPreview: boolean,
+  isOpen: boolean
 ) {
-  // === Local State ===
-  const codeLanguage = ref(normalizeLanguage(artifact.value))
+  const [codeLanguage, setCodeLanguage] = useState(() => normalizeLanguage(artifact))
+  const formattedCodeFontFamily = useStore(uiSettingsStore, (s) => s.formattedCodeFontFamily)
 
-  const uiSettingsStore = useUiSettingsStore()
-  // === Monaco Integration ===
   const { createEditor, updateCode, cleanupEditor, getEditorView } = useMonaco({
     MAX_HEIGHT: '100%',
     wordWrap: 'on',
     wrappingIndent: 'same',
-    fontFamily: uiSettingsStore.formattedCodeFontFamily
+    fontFamily: formattedCodeFontFamily
   })
-  const applyFontFamily = (fontFamily: string) => {
+
+  const lastDetectTimeRef = useRef(0)
+  const trailingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingCodeRef = useRef<string | null>(null)
+
+  const throttledDetectLanguage = useCallback((code: string) => {
+    const now = Date.now()
+    pendingCodeRef.current = code
+
+    if (now - lastDetectTimeRef.current >= 1000) {
+      lastDetectTimeRef.current = now
+      setCodeLanguage(sanitizeLanguage(detectLanguage(code)))
+      if (trailingTimerRef.current) {
+        clearTimeout(trailingTimerRef.current)
+        trailingTimerRef.current = null
+      }
+    } else if (!trailingTimerRef.current) {
+      trailingTimerRef.current = setTimeout(
+        () => {
+          trailingTimerRef.current = null
+          lastDetectTimeRef.current = Date.now()
+          if (pendingCodeRef.current !== null) {
+            setCodeLanguage(sanitizeLanguage(detectLanguage(pendingCodeRef.current)))
+          }
+        },
+        1000 - (now - lastDetectTimeRef.current)
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!artifact) {
+      setCodeLanguage('')
+      return
+    }
+
+    const normalizedLanguage = normalizeLanguage(artifact)
+    if (normalizedLanguage !== codeLanguage) {
+      setCodeLanguage(normalizedLanguage)
+    }
+
+    if (normalizedLanguage === 'mermaid') {
+      return
+    }
+
+    const newCode = artifact.content || ''
+
+    if (!normalizedLanguage) {
+      throttledDetectLanguage(newCode)
+    }
+
+    updateCode(newCode, normalizedLanguage)
+  }, [artifact?.id, artifact?.content, artifact?.language, artifact?.type, artifact?.status])
+
+  useEffect(() => {
+    if (!codeLanguage && artifact?.content !== undefined) {
+      throttledDetectLanguage(artifact.content || '')
+    }
+  }, [])
+
+  useEffect(() => {
+    updateCode(artifact?.content || '', codeLanguage)
+  }, [codeLanguage])
+
+  useEffect(() => {
+    if (artifact?.content !== undefined) {
+      updateCode(artifact.content, codeLanguage)
+    }
+  }, [artifact?.content])
+
+  useEffect(() => {
+    if (!isOpen || isPreview || !editorElement) return
+    void createEditor(editorElement, artifact?.content || '', codeLanguage)
     const editor = getEditorView()
     if (editor) {
-      editor.updateOptions({ fontFamily })
+      editor.updateOptions({ fontFamily: formattedCodeFontFamily })
     }
-  }
+  }, [editorElement, isPreview, isOpen])
 
-  // === Internal Helpers ===
-  /**
-   * Throttled language detection - max once per second
-   */
-  const throttledDetectLanguage = useThrottleFn(
-    (code: string) => {
-      codeLanguage.value = sanitizeLanguage(detectLanguage(code))
-    },
-    1000,
-    true
-  )
-
-  // === Lifecycle Hooks ===
-  // Watch artifact changes to update language and code
-  watch(
-    artifact,
-    (newArtifact) => {
-      if (!newArtifact) {
-        codeLanguage.value = ''
-        return
-      }
-
-      const normalizedLanguage = normalizeLanguage(newArtifact)
-      if (normalizedLanguage !== codeLanguage.value) {
-        codeLanguage.value = normalizedLanguage
-      }
-
-      // Skip mermaid language detection
-      if (codeLanguage.value === 'mermaid') {
-        return
-      }
-
-      const newCode = newArtifact.content || ''
-
-      // Detect language if not explicitly set
-      if (!codeLanguage.value) {
-        throttledDetectLanguage(newCode)
-      }
-
-      updateCode(newCode, codeLanguage.value)
-    },
-    {
-      immediate: true,
-      deep: true
-    }
-  )
-
-  // Initialize language detection if needed
-  if (!codeLanguage.value) {
-    throttledDetectLanguage(artifact.value?.content || '')
-  }
-
-  // Watch language changes to update editor
-  watch(codeLanguage, () => {
-    updateCode(artifact.value?.content || '', codeLanguage.value)
-  })
-
-  // Watch content changes for real-time updates
-  watch(
-    () => artifact.value?.content,
-    (newContent) => {
-      if (newContent !== undefined) {
-        updateCode(newContent, codeLanguage.value)
-      }
-    },
-    {
-      immediate: true
-    }
-  )
-
-  // Create editor when element is ready and not in preview mode
-  watch(
-    [editorElement, isPreview, isOpen],
-    ([editorEl, previewActive, open]) => {
-      if (!open || previewActive || !editorEl) return
-      void createEditor(editorEl, artifact.value?.content || '', codeLanguage.value)
-      applyFontFamily(uiSettingsStore.formattedCodeFontFamily)
-    },
-    {
-      flush: 'post',
-      immediate: true
-    }
-  )
-
-  // Cleanup editor when preview is toggled on
-  watch(isPreview, (previewActive) => {
-    if (previewActive) {
+  useEffect(() => {
+    if (isPreview) {
       cleanupEditor()
     }
-  })
+  }, [isPreview])
 
-  // Cleanup editor when editor element is unmounted
-  watch(editorElement, (editorEl) => {
-    if (!editorEl) {
+  useEffect(() => {
+    if (!editorElement) {
       cleanupEditor()
     }
-  })
+  }, [editorElement])
 
-  // Cleanup editor when dialog closes
-  watch(isOpen, (open) => {
-    if (!open) {
+  useEffect(() => {
+    if (!isOpen) {
       cleanupEditor()
     }
-  })
+  }, [isOpen])
 
-  onBeforeUnmount(() => {
-    cleanupEditor()
-  })
-
-  watch(
-    () => uiSettingsStore.formattedCodeFontFamily,
-    (font) => {
-      applyFontFamily(font)
+  useEffect(() => {
+    return () => {
+      cleanupEditor()
+      if (trailingTimerRef.current) {
+        clearTimeout(trailingTimerRef.current)
+      }
     }
-  )
+  }, [])
 
-  // === Return API ===
+  useEffect(() => {
+    const editor = getEditorView()
+    if (editor) {
+      editor.updateOptions({ fontFamily: formattedCodeFontFamily })
+    }
+  }, [formattedCodeFontFamily])
+
   return {
     codeLanguage
   }

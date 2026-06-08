@@ -1,71 +1,54 @@
-import { defineStore } from 'pinia'
-import { ref, onMounted } from 'vue'
+import { Store } from '@tanstack/store'
 import { createConfigClient } from '../../api/ConfigClient'
 
-export const useFloatingButtonStore = defineStore('floatingButton', () => {
-  const configClient = createConfigClient()
+interface FloatingButtonState {
+  enabled: boolean
+}
 
-  // 悬浮按钮是否启用的状态
-  const enabled = ref<boolean>(false)
-  let listenerRegistered = false
+const configClient = createConfigClient()
+let listenerRegistered = false
 
-  // 获取悬浮按钮启用状态
-  const getFloatingButtonEnabled = async (): Promise<boolean> => {
-    try {
-      return await configClient.getFloatingButtonEnabled()
-    } catch (error) {
-      console.error('Failed to get floating button enabled status:', error)
-      return false
-    }
-  }
-
-  // 设置悬浮按钮启用状态
-  const setFloatingButtonEnabled = async (value: boolean) => {
-    try {
-      enabled.value = Boolean(value)
-      await configClient.setFloatingButtonEnabled(value)
-    } catch (error) {
-      console.error('Failed to set floating button enabled status:', error)
-      // 如果设置失败，回滚本地状态
-      enabled.value = !value
-    }
-  }
-
-  // 初始化状态
-  const initializeState = async () => {
-    try {
-      const currentEnabled = await getFloatingButtonEnabled()
-      enabled.value = currentEnabled
-      setupFloatingButtonListener()
-    } catch (error) {
-      console.error('Failed to initialize floating button state:', error)
-      enabled.value = false
-    }
-  }
-
-  const setupFloatingButtonListener = () => {
-    if (listenerRegistered) {
-      return
-    }
-
-    listenerRegistered = true
-    configClient.onFloatingButtonChanged((payload) => {
-      enabled.value = Boolean(payload.enabled)
-    })
-  }
-
-  // 在组件挂载时初始化
-  onMounted(async () => {
-    await initializeState()
-  })
-
-  return {
-    // 状态
-    enabled,
-
-    // 方法
-    getFloatingButtonEnabled,
-    setFloatingButtonEnabled,
-    initializeState
-  }
+export const floatingButtonStore = new Store<FloatingButtonState>({
+  enabled: false
 })
+
+export const getFloatingButtonEnabled = async (): Promise<boolean> => {
+  try {
+    return await configClient.getFloatingButtonEnabled()
+  } catch (error) {
+    console.error('Failed to get floating button enabled status:', error)
+    return false
+  }
+}
+
+export const setFloatingButtonEnabled = async (value: boolean) => {
+  try {
+    floatingButtonStore.setState({ enabled: Boolean(value) })
+    await configClient.setFloatingButtonEnabled(value)
+  } catch (error) {
+    console.error('Failed to set floating button enabled status:', error)
+    floatingButtonStore.setState({ enabled: !value })
+  }
+}
+
+const setupFloatingButtonListener = () => {
+  if (listenerRegistered) {
+    return
+  }
+
+  listenerRegistered = true
+  configClient.onFloatingButtonChanged((payload) => {
+    floatingButtonStore.setState({ enabled: Boolean(payload.enabled) })
+  })
+}
+
+export const initializeState = async () => {
+  try {
+    const currentEnabled = await getFloatingButtonEnabled()
+    floatingButtonStore.setState({ enabled: currentEnabled })
+    setupFloatingButtonListener()
+  } catch (error) {
+    console.error('Failed to initialize floating button state:', error)
+    floatingButtonStore.setState({ enabled: false })
+  }
+}

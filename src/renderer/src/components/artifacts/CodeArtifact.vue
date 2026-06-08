@@ -38,17 +38,57 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, defineComponent, h, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useThrottleFn } from '@vueuse/core'
 import { Icon } from '@iconify/vue'
-import { MermaidBlockNode } from 'markstream-vue'
 import { createDeviceClient } from '@api/DeviceClient'
 import { useArtifactStore } from '@/stores/artifact'
 import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import { getLanguageIcon } from 'markstream-vue'
 import { detectLanguage, useMonaco } from 'stream-monaco'
 import { nanoid } from 'nanoid'
+
+const MermaidBlockNode = defineComponent({
+  name: 'MermaidBlockNode',
+  props: {
+    node: { type: Object, required: true }
+  },
+  setup(props) {
+    return () =>
+      h(
+        'pre',
+        {
+          class: 'text-xs p-3 bg-muted rounded-lg overflow-auto'
+        },
+        props.node.code
+      )
+  }
+})
+
+function getLanguageIcon(language: string): string {
+  const icons: Record<string, string> = {
+    javascript: 'logos:javascript',
+    typescript: 'logos:typescript-icon',
+    python: 'logos:python',
+    html: 'logos:html-5',
+    css: 'logos:css-3',
+    json: 'codicon:json',
+    markdown: 'codicon:markdown',
+    java: 'logos:java',
+    cpp: 'logos:c-plusplus',
+    csharp: 'logos:c-sharp',
+    go: 'logos:go',
+    rust: 'logos:rust',
+    sql: 'codicon:database',
+    shell: 'codicon:terminal',
+    yaml: 'codicon:settings',
+    xml: 'codicon:code',
+    vue: 'logos:vue',
+    react: 'logos:react',
+    svelte: 'logos:svelte-icon'
+  }
+  return icons[language] || 'codicon:file-code'
+}
 
 const props = defineProps<{
   block: {

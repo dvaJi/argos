@@ -1,54 +1,40 @@
-// === Vue Core ===
-import { ref, onMounted } from 'vue'
-
-// === Composables ===
+import { useState, useEffect } from 'react'
 import { createConfigClient } from '@api/ConfigClient'
 
-/**
- * Manages input-specific settings (deep thinking)
- */
 export function useInputSettings() {
-  // === Clients ===
   const configClient = createConfigClient()
 
-  // === Local State ===
-  const settings = ref({
+  const [settings, setSettings] = useState({
     deepThinking: false
   })
 
-  // === Public Methods ===
   const toggleDeepThinking = async () => {
-    const previousValue = settings.value.deepThinking
-    settings.value.deepThinking = !settings.value.deepThinking
+    const previousValue = settings.deepThinking
+    setSettings((prev) => ({ ...prev, deepThinking: !prev.deepThinking }))
 
     try {
-      await configClient.setSetting('input_deepThinking', settings.value.deepThinking)
+      await configClient.setSetting('input_deepThinking', !settings.deepThinking)
     } catch (error) {
-      // Revert to previous value on error
-      settings.value.deepThinking = previousValue
+      setSettings((prev) => ({ ...prev, deepThinking: previousValue }))
       console.error('Failed to save deep thinking setting:', error)
-      // TODO: Show user-facing notification when toast system is available
     }
   }
 
   const loadSettings = async () => {
     try {
-      settings.value.deepThinking = Boolean(await configClient.getSetting('input_deepThinking'))
+      const value = Boolean(await configClient.getSetting('input_deepThinking'))
+      setSettings({ deepThinking: value })
     } catch (error) {
-      // Fall back to safe defaults on error
-      settings.value.deepThinking = false
+      setSettings({ deepThinking: false })
       console.error('Failed to load input settings, using defaults:', error)
     }
   }
 
-  // === Lifecycle Hooks ===
-  onMounted(async () => {
-    try {
-      await loadSettings()
-    } catch (error) {
+  useEffect(() => {
+    loadSettings().catch((error) => {
       console.error('Failed to initialize input settings:', error)
-    }
-  })
+    })
+  }, [])
 
   return {
     settings,

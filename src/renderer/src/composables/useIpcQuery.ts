@@ -1,33 +1,19 @@
-import { useQuery, type EntryKey, type UseQueryOptions } from '@pinia/colada'
-import type { MaybeRefOrGetter } from 'vue'
-import { toValue } from 'vue'
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
-type QueryOptionKeys = 'enabled' | 'staleTime' | 'gcTime'
-
-type QueryFunction<TArgs extends unknown[], TResult> = (
-  ...args: TArgs
-) => Promise<TResult> | TResult
-
-export interface UseIpcQueryOptions<TArgs extends unknown[], TResult> extends Pick<
+export interface UseIpcQueryOptions<TResult> extends Pick<
   UseQueryOptions<Awaited<TResult>>,
-  QueryOptionKeys
+  'enabled' | 'staleTime' | 'gcTime'
 > {
-  key: () => EntryKey
-  query: QueryFunction<TArgs, TResult>
-  args?: MaybeRefOrGetter<TArgs>
+  key: unknown[]
+  query: () => Promise<TResult> | TResult
 }
 
-export function useIpcQuery<TArgs extends unknown[], TResult>(
-  options: UseIpcQueryOptions<TArgs, TResult>
-) {
+export function useIpcQuery<TResult>(options: UseIpcQueryOptions<TResult>) {
   return useQuery({
-    key: options.key,
+    queryKey: options.key,
+    queryFn: options.query,
     enabled: options.enabled,
     staleTime: options.staleTime,
-    gcTime: options.gcTime,
-    query: async () => {
-      const args = options.args ? toValue(options.args) : ([] as unknown as TArgs)
-      return await options.query(...args)
-    }
+    gcTime: options.gcTime
   })
 }

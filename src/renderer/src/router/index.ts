@@ -1,31 +1,42 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createHashHistory,
+  redirect
+} from '@tanstack/react-router'
 
-const router = createRouter({
-  history: createWebHashHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      redirect: '/chat'
-    },
-    {
-      path: '/chat',
-      name: 'chat',
-      component: () => import('@/views/ChatTabView.vue'),
-      meta: {
-        titleKey: 'routes.chat',
-        icon: 'lucide:message-square'
-      }
-    },
-    {
-      path: '/welcome',
-      name: 'welcome',
-      component: () => import('@/pages/WelcomePage.vue'),
-      meta: {
-        titleKey: 'routes.welcome',
-        icon: 'lucide:message-square'
-      }
-    }
-  ]
+const rootRoute = createRootRoute({})
+
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chat',
+  lazyRouteComponent: () => import('@/views/ChatTabView')
 })
 
-export default router
+const welcomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/welcome',
+  lazyRouteComponent: () => import('@/pages/WelcomePage')
+})
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/chat' })
+  }
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, chatRoute, welcomeRoute])
+
+export const router = createRouter({
+  routeTree,
+  history: createHashHistory()
+})
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router
+  }
+}

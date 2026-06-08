@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { useState, useRef } from 'react'
 
 export type RecorderWindow = {
   MediaRecorder?: typeof MediaRecorder
@@ -40,30 +40,36 @@ export function useAudioRecorder(options: {
 }) {
   const recorderWindow = options.recorderWindow ?? getDefaultRecorderWindow()
   const isSupported = isMediaRecorderSupported(recorderWindow)
-  const isRecording = ref(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const isRecordingRef = useRef(false)
 
-  let mediaRecorder: MediaRecorder | null = null
-  let mediaStream: MediaStream | null = null
-  const discardedRecorders = new WeakSet<MediaRecorder>()
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const discardedRecordersRef = useRef(new WeakSet<MediaRecorder>())
 
-  const stopTracks = (stream: MediaStream | null = mediaStream) => {
+  const setRecording = (val: boolean) => {
+    isRecordingRef.current = val
+    setIsRecording(val)
+  }
+
+  const stopTracks = (stream: MediaStream | null = mediaStreamRef.current) => {
     stream?.getTracks().forEach((track) => track.stop())
-    if (!stream || mediaStream === stream) {
-      mediaStream = null
+    if (!stream || mediaStreamRef.current === stream) {
+      mediaStreamRef.current = null
     }
   }
 
   const cleanupRecorder = (
-    recorder: MediaRecorder | null = mediaRecorder,
-    stream: MediaStream | null = mediaStream,
-    options?: { discardRecording?: boolean }
+    recorder: MediaRecorder | null = mediaRecorderRef.current,
+    stream: MediaStream | null = mediaStreamRef.current,
+    cleanupOptions?: { discardRecording?: boolean }
   ) => {
-    if (options?.discardRecording && recorder) {
-      discardedRecorders.add(recorder)
+    if (cleanupOptions?.discardRecording && recorder) {
+      discardedRecordersRef.current.add(recorder)
     }
-    if (!recorder || mediaRecorder === recorder) {
-      mediaRecorder = null
-      isRecording.value = false
+    if (!recorder || mediaRecorderRef.current === recorder) {
+      mediaRecorderRef.current = null
+      setRecording(false)
     }
     stopTracks(stream)
   }
@@ -74,18 +80,18 @@ export function useAudioRecorder(options: {
       return false
     }
 
-    if (isRecording.value) {
+    if (isRecordingRef.current) {
       return true
     }
 
     try {
       const stream = await recorderWindow!.navigator!.mediaDevices!.getUserMedia({ audio: true })
-      mediaStream = stream
+      mediaStreamRef.current = stream
       const preferredMimeType = resolvePreferredRecorderMimeType(recorderWindow)
       const recorder = preferredMimeType
         ? new recorderWindow!.MediaRecorder!(stream, { mimeType: preferredMimeType })
         : new recorderWindow!.MediaRecorder!(stream)
-      mediaRecorder = recorder
+      mediaRecorderRef.current = recorder
       const chunks: BlobPart[] = []
 
       recorder.ondataavailable = (event) => {
@@ -100,7 +106,7 @@ export function useAudioRecorder(options: {
       }
 
       recorder.onstop = () => {
-        const shouldEmitRecorded = !discardedRecorders.has(recorder)
+        const shouldEmitRecorded = !discardedRecordersRef.current.has(recorder)
         const mimeType = recorder.mimeType || 'audio/webm'
         const blob = new Blob(chunks, { type: mimeType })
         cleanupRecorder(recorder, stream)
@@ -111,7 +117,7 @@ export function useAudioRecorder(options: {
       }
 
       recorder.start()
-      isRecording.value = true
+      setRecording(true)
       return true
     } catch (error) {
       const code =
@@ -127,16 +133,16 @@ export function useAudioRecorder(options: {
   }
 
   const stop = () => {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
       cleanupRecorder()
       return
     }
 
-    mediaRecorder.stop()
+    mediaRecorderRef.current.stop()
   }
 
   const toggle = async () => {
-    if (isRecording.value) {
+    if (isRecordingRef.current) {
       stop()
       return false
     }
@@ -145,10 +151,10 @@ export function useAudioRecorder(options: {
   }
 
   const cleanup = () => {
-    const recorder = mediaRecorder
-    const stream = mediaStream
+    const recorder = mediaRecorderRef.current
+    const stream = mediaStreamRef.current
     if (recorder && recorder.state !== 'inactive') {
-      discardedRecorders.add(recorder)
+      discardedRecordersRef.current.add(recorder)
       recorder.stop()
     }
     cleanupRecorder(recorder, stream, { discardRecording: true })

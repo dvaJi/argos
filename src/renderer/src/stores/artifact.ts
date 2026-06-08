@@ -1,5 +1,4 @@
-import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { Store } from '@tanstack/store'
 import { useSidepanelStore } from './ui/sidepanel'
 
 export interface ArtifactState {
@@ -20,153 +19,171 @@ interface ShowArtifactOptions {
   viewMode?: 'preview' | 'code'
 }
 
-export const useArtifactStore = defineStore('artifact', () => {
-  const sidepanelStore = useSidepanelStore()
-  const currentArtifact = ref<ArtifactState | null>(null)
-  const currentMessageId = ref<string | null>(null)
-  const currentThreadId = ref<string | null>(null)
-  const dismissedContexts = ref(new Set<string>())
-  const completedContexts = ref(new Set<string>())
+interface ArtifactStoreState {
+  currentArtifact: ArtifactState | null
+  currentMessageId: string | null
+  currentThreadId: string | null
+  dismissedContexts: Set<string>
+  completedContexts: Set<string>
+}
 
-  const isOpen = computed(() => {
-    if (!currentArtifact.value || !currentThreadId.value) {
-      return false
-    }
+export const artifactStore = new Store<ArtifactStoreState>({
+  currentArtifact: null,
+  currentMessageId: null,
+  currentThreadId: null,
+  dismissedContexts: new Set(),
+  completedContexts: new Set()
+})
 
-    const sessionState = sidepanelStore.getSessionState(currentThreadId.value)
-    return (
-      sidepanelStore.open &&
-      sidepanelStore.activeTab === 'workspace' &&
-      sessionState.selectedArtifactContext?.artifactId === currentArtifact.value.id
-    )
-  })
-
-  const applyArtifactSelection = (
-    artifact: ArtifactState,
-    messageId: string,
-    threadId: string,
-    options?: ShowArtifactOptions
-  ) => {
-    currentArtifact.value = artifact
-    currentMessageId.value = messageId
-    currentThreadId.value = threadId
-    sidepanelStore.selectArtifact(
-      threadId,
-      {
-        threadId,
-        messageId,
-        artifactId: artifact.id
-      },
-      {
-        open: options?.open,
-        viewMode: options?.viewMode ?? 'preview'
-      }
-    )
+export const isOpen = () => {
+  const { currentArtifact, currentThreadId } = artifactStore.state
+  if (!currentArtifact || !currentThreadId) {
+    return false
   }
 
-  const showArtifact = (
-    artifact: ArtifactState,
-    messageId: string,
-    threadId: string,
-    options?: ShowArtifactOptions
-  ) => {
-    const contextKey = makeContextKey(artifact.id, messageId, threadId)
+  const sidepanelStore = useSidepanelStore()
+  const sessionState = sidepanelStore.getSessionState(currentThreadId)
+  return (
+    sidepanelStore.open &&
+    sidepanelStore.activeTab === 'workspace' &&
+    sessionState.selectedArtifactContext?.artifactId === currentArtifact.id
+  )
+}
 
-    if (!options?.force && dismissedContexts.value.has(contextKey)) {
-      return
-    }
-
-    if (options?.force) {
-      dismissedContexts.value.delete(contextKey)
-    }
-
-    applyArtifactSelection(artifact, messageId, threadId, {
-      open: options?.open ?? true,
+const applyArtifactSelection = (
+  artifact: ArtifactState,
+  messageId: string,
+  threadId: string,
+  options?: ShowArtifactOptions
+) => {
+  artifactStore.setState((prev) => ({
+    ...prev,
+    currentArtifact: artifact,
+    currentMessageId: messageId,
+    currentThreadId: threadId
+  }))
+  const sidepanelStore = useSidepanelStore()
+  sidepanelStore.selectArtifact(
+    threadId,
+    {
+      threadId,
+      messageId,
+      artifactId: artifact.id
+    },
+    {
+      open: options?.open,
       viewMode: options?.viewMode ?? 'preview'
+    }
+  )
+}
+
+export const showArtifact = (
+  artifact: ArtifactState,
+  messageId: string,
+  threadId: string,
+  options?: ShowArtifactOptions
+) => {
+  const contextKey = makeContextKey(artifact.id, messageId, threadId)
+
+  if (!options?.force && artifactStore.state.dismissedContexts.has(contextKey)) {
+    return
+  }
+
+  if (options?.force) {
+    artifactStore.setState((prev) => {
+      const next = new Set(prev.dismissedContexts)
+      next.delete(contextKey)
+      return { ...prev, dismissedContexts: next }
     })
   }
 
-  const hideArtifact = () => {
-    const threadId = currentThreadId.value
-    currentArtifact.value = null
-    currentMessageId.value = null
-    currentThreadId.value = null
-    if (threadId) {
-      sidepanelStore.clearArtifact(threadId)
-    }
+  applyArtifactSelection(artifact, messageId, threadId, {
+    open: options?.open ?? true,
+    viewMode: options?.viewMode ?? 'preview'
+  })
+}
+
+export const hideArtifact = () => {
+  const threadId = artifactStore.state.currentThreadId
+  artifactStore.setState((prev) => ({
+    ...prev,
+    currentArtifact: null,
+    currentMessageId: null,
+    currentThreadId: null
+  }))
+  if (threadId) {
+    const sidepanelStore = useSidepanelStore()
+    sidepanelStore.clearArtifact(threadId)
+  }
+}
+
+export const dismissArtifact = () => {
+  const { currentArtifact, currentMessageId, currentThreadId } = artifactStore.state
+  if (currentArtifact && currentMessageId && currentThreadId) {
+    const contextKey = makeContextKey(currentArtifact.id, currentMessageId, currentThreadId)
+    artifactStore.setState((prev) => {
+      const next = new Set(prev.dismissedContexts)
+      next.add(contextKey)
+      return { ...prev, dismissedContexts: next }
+    })
+  }
+  hideArtifact()
+}
+
+export const validateContext = (messageId: string, threadId: string) => {
+  return (
+    artifactStore.state.currentMessageId === messageId &&
+    artifactStore.state.currentThreadId === threadId
+  )
+}
+
+export const updateArtifactContent = (updates: Partial<ArtifactState>) => {
+  if (artifactStore.state.currentArtifact) {
+    artifactStore.setState((prev) => ({
+      ...prev,
+      currentArtifact: { ...prev.currentArtifact!, ...updates }
+    }))
+  }
+}
+
+export const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+  if (!artifactStore.state.currentArtifact || validateContext(messageId, threadId)) {
+    artifactStore.setState((prev) => ({
+      ...prev,
+      currentArtifact: artifact,
+      currentMessageId: messageId,
+      currentThreadId: threadId
+    }))
+  }
+}
+
+export const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+  const contextKey = makeContextKey(artifact.id, messageId, threadId)
+  const sidepanelStore = useSidepanelStore()
+  const panelWasHidden = !sidepanelStore.open
+  const currentMatches =
+    validateContext(messageId, threadId) && artifactStore.state.currentArtifact?.id === artifact.id
+
+  syncArtifact(artifact, messageId, threadId)
+
+  if (artifactStore.state.completedContexts.has(contextKey)) {
+    return
   }
 
-  const dismissArtifact = () => {
-    if (currentArtifact.value && currentMessageId.value && currentThreadId.value) {
-      const contextKey = makeContextKey(
-        currentArtifact.value.id,
-        currentMessageId.value,
-        currentThreadId.value
-      )
-      dismissedContexts.value.add(contextKey)
-    }
-    hideArtifact()
+  if (currentMatches) {
+    sidepanelStore.setViewMode(threadId, 'preview')
   }
 
-  const validateContext = (messageId: string, threadId: string) => {
-    return currentMessageId.value === messageId && currentThreadId.value === threadId
+  artifactStore.setState((prev) => {
+    const next = new Set(prev.completedContexts)
+    next.add(contextKey)
+    return { ...prev, completedContexts: next }
+  })
+
+  if (panelWasHidden && !artifactStore.state.dismissedContexts.has(contextKey)) {
+    applyArtifactSelection(artifact, messageId, threadId, {
+      open: true,
+      viewMode: 'preview'
+    })
   }
-
-  const updateArtifactContent = (updates: Partial<ArtifactState>) => {
-    if (currentArtifact.value) {
-      // Create a new object to trigger reactivity
-      currentArtifact.value = {
-        ...currentArtifact.value,
-        ...updates
-      }
-    }
-  }
-
-  const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
-    if (!currentArtifact.value || validateContext(messageId, threadId)) {
-      currentArtifact.value = artifact
-      currentMessageId.value = messageId
-      currentThreadId.value = threadId
-    }
-  }
-
-  const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
-    const contextKey = makeContextKey(artifact.id, messageId, threadId)
-    const panelWasHidden = !sidepanelStore.open
-    const currentMatches =
-      validateContext(messageId, threadId) && currentArtifact.value?.id === artifact.id
-
-    syncArtifact(artifact, messageId, threadId)
-
-    if (completedContexts.value.has(contextKey)) {
-      return
-    }
-
-    if (currentMatches) {
-      sidepanelStore.setViewMode(threadId, 'preview')
-    }
-
-    completedContexts.value.add(contextKey)
-
-    if (panelWasHidden && !dismissedContexts.value.has(contextKey)) {
-      applyArtifactSelection(artifact, messageId, threadId, {
-        open: true,
-        viewMode: 'preview'
-      })
-    }
-  }
-
-  return {
-    currentArtifact,
-    currentMessageId,
-    currentThreadId,
-    isOpen,
-    showArtifact,
-    hideArtifact,
-    dismissArtifact,
-    validateContext,
-    updateArtifactContent,
-    syncArtifact,
-    completeArtifact
-  }
-})
+}

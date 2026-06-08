@@ -1,38 +1,12 @@
 <template>
-  <div class="prose prose-zinc prose-sm dark:prose-invert w-full max-w-none break-all">
-    <NodeRenderer
-      :content="debouncedContent"
-      :custom-id="customRendererId"
-      :isDark="themeStore.isDark"
-      :smooth-streaming="smoothStreaming"
-      :fade="false"
-      :codeBlockDarkTheme="codeBlockDarkTheme"
-      :codeBlockLightTheme="codeBlockLightTheme"
-      :codeBlockMonacoOptions="codeBlockMonacoOption"
-      @copy="$emit('copy', $event)"
-    />
-  </div>
+  <div
+    class="prose prose-zinc prose-sm dark:prose-invert w-full max-w-none break-all"
+    v-html="debouncedContent"
+  ></div>
 </template>
 
 <script setup lang="ts">
-import { createSessionClient } from '@api/SessionClient'
-import { useArtifactStore } from '@/stores/artifact'
-import { useReferenceStore } from '@/stores/reference'
-import { nanoid } from 'nanoid'
-import { useDebounceFn } from '@vueuse/core'
-import { computed, h, onBeforeUnmount, ref, watch } from 'vue'
-import NodeRenderer, {
-  CodeBlockNode,
-  ReferenceNode,
-  removeCustomComponents,
-  setCustomComponents,
-  MermaidBlockNode
-} from 'markstream-vue'
-import { useThemeStore } from '@/stores/theme'
-import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import LinkNode from './LinkNode.vue'
-import { useMarkdownLinkNavigation } from './useMarkdownLinkNavigation'
-import type { MarkdownLinkContext } from './linkTypes'
+import { ref, watch, onBeforeUnmount } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -40,96 +14,37 @@ const props = withDefaults(
     debug?: boolean
     messageId?: string
     threadId?: string
-    linkContext?: MarkdownLinkContext
     smoothStreaming?: boolean
   }>(),
   {
     smoothStreaming: true
   }
 )
-const themeStore = useThemeStore()
-const uiSettingsStore = useUiSettingsStore()
-// 组件映射表
-const artifactStore = useArtifactStore()
-// 生成唯一的 message ID 和 thread ID，用于 MarkdownRenderer
-const fallbackMessageId = `artifact-msg-${nanoid()}`
-const fallbackThreadId = `artifact-thread-${nanoid()}`
-const referenceStore = useReferenceStore()
-const sessionClient = createSessionClient()
-const referenceNode = ref<HTMLElement | null>(null)
+
 const debouncedContent = ref(props.content)
-let searchResultsPromise: ReturnType<typeof sessionClient.getSearchResults> | null = null
-const effectiveMessageId = computed(() => props.messageId ?? fallbackMessageId)
-const effectiveThreadId = computed(() => props.threadId ?? fallbackThreadId)
-const effectiveLinkContext = computed<MarkdownLinkContext>(() => {
-  const provided = props.linkContext
-  if (provided) {
-    return provided
-  }
-
-  return {
-    source: 'chat',
-    sessionId: props.threadId
-  }
-})
-const customRendererId = computed(() =>
-  [
-    'markdown',
-    effectiveThreadId.value,
-    effectiveMessageId.value,
-    effectiveLinkContext.value.source,
-    effectiveLinkContext.value.sessionId ?? '',
-    effectiveLinkContext.value.sourceFilePath ?? ''
-  ].join('::')
-)
-const codeBlockThemes = ['vitesse-dark', 'vitesse-light'] as const
-const codeBlockDarkTheme = codeBlockThemes[0]
-const codeBlockLightTheme = codeBlockThemes[1]
-const codeBlockMonacoOption = computed(() => ({
-  fontFamily: uiSettingsStore.formattedCodeFontFamily
-}))
-const { navigateLink } = useMarkdownLinkNavigation({
-  linkContext: effectiveLinkContext
-})
-
-const getSearchResults = () => {
-  searchResultsPromise ??= sessionClient.getSearchResults(effectiveMessageId.value)
-  return searchResultsPromise
-}
-
-// Shared revision guard so an older slow-path update can never land after a
-// newer fast-path update (or vice versa) when the routing condition flips,
-// which would repaint stale markdown and reintroduce the completion flash.
 let contentRevision = 0
-
-const updateContentFast = useDebounceFn(
-  (revision: number, value: string) => {
-    if (revision === contentRevision) {
-      debouncedContent.value = value
-    }
-  },
-  32,
-  { maxWait: 64 }
-)
-const updateContentSlow = useDebounceFn(
-  (revision: number, value: string) => {
-    if (revision === contentRevision) {
-      debouncedContent.value = value
-    }
-  },
-  96,
-  { maxWait: 180 }
-)
+let fastTimer: ReturnType<typeof setTimeout> | null = null
+let slowTimer: ReturnType<typeof setTimeout> | null = null
 
 const updateContent = (value: string) => {
   const revision = ++contentRevision
 
-  if (props.smoothStreaming && value.length > 12_000) {
-    updateContentSlow(revision, value)
-    return
-  }
+  if (fastTimer) clearTimeout(fastTimer)
+  if (slowTimer) clearTimeout(slowTimer)
 
-  updateContentFast(revision, value)
+  if (props.smoothStreaming && value.length > 12_000) {
+    slowTimer = setTimeout(() => {
+      if (revision === contentRevision) {
+        debouncedContent.value = value
+      }
+    }, 96)
+  } else {
+    fastTimer = setTimeout(() => {
+      if (revision === contentRevision) {
+        debouncedContent.value = value
+      }
+    }, 32)
+  }
 }
 
 watch(
@@ -139,99 +54,9 @@ watch(
   }
 )
 
-watch(effectiveMessageId, () => {
-  searchResultsPromise = null
-})
-
-watch(
-  customRendererId,
-  (nextCustomRendererId, previousCustomRendererId) => {
-    if (previousCustomRendererId && previousCustomRendererId !== nextCustomRendererId) {
-      removeCustomComponents(previousCustomRendererId)
-    }
-
-    setCustomComponents(nextCustomRendererId, {
-      link: (_props) =>
-        h(LinkNode, {
-          ..._props,
-          linkContext: effectiveLinkContext.value
-        }),
-      reference: (_props) =>
-        h(ReferenceNode, {
-          ..._props,
-          messageId: effectiveMessageId.value,
-          threadId: effectiveThreadId.value,
-          onClick(event?: MouseEvent) {
-            getSearchResults().then((results) => {
-              const index = parseInt(_props.node.id, 10) - 1
-              if (index >= 0 && index < results.length) {
-                void navigateLink(results[index].url, event)
-              }
-            })
-          },
-          onMouseEnter() {
-            referenceStore.hideReference()
-            getSearchResults().then((results) => {
-              const index = parseInt(_props.node.id, 10) - 1
-              if (index >= 0 && index < results.length && referenceNode.value) {
-                referenceStore.showReference(
-                  results[index],
-                  referenceNode.value.getBoundingClientRect()
-                )
-              }
-            })
-          },
-          onMouseLeave() {
-            referenceStore.hideReference()
-          }
-        }),
-      mermaid: (_props) => {
-        return h(MermaidBlockNode, {
-          ..._props,
-          isStrict: true
-        })
-      },
-      code_block: (_props) => {
-        const isMermaid = _props.node.language === 'mermaid'
-        if (isMermaid) {
-          return h(MermaidBlockNode, {
-            ..._props,
-            isStrict: true
-          })
-        }
-        return h(CodeBlockNode, {
-          ..._props,
-          isDark: themeStore.isDark,
-          darkTheme: codeBlockDarkTheme,
-          lightTheme: codeBlockLightTheme,
-          themes: [...codeBlockThemes],
-          monacoOptions: codeBlockMonacoOption.value,
-          onPreviewCode(v) {
-            artifactStore.showArtifact(
-              {
-                id: v.id,
-                type: v.artifactType,
-                title: v.artifactTitle,
-                language: v.language,
-                content: v.node.code,
-                status: 'loaded'
-              },
-              effectiveMessageId.value,
-              effectiveThreadId.value,
-              { force: true }
-            )
-          }
-        })
-      }
-    })
-  },
-  {
-    immediate: true
-  }
-)
-
 onBeforeUnmount(() => {
-  removeCustomComponents(customRendererId.value)
+  if (fastTimer) clearTimeout(fastTimer)
+  if (slowTimer) clearTimeout(slowTimer)
 })
 
 defineEmits(['copy'])
@@ -246,10 +71,6 @@ defineEmits(['copy'])
   pre {
     margin-top: 0;
     margin-bottom: 0;
-  }
-
-  .mermaid-block-header img {
-    margin: 0 !important;
   }
 
   p {
@@ -290,18 +111,8 @@ defineEmits(['copy'])
     @apply my-8;
   }
 
-  /*
-    精准定位到那个被错误地渲染在 <a> 标签内部的 <div>，
-    并强制其以行内方式显示，从而修正换行 bug。
-    这可以保留链接组件原有的所有样式（包括颜色）。
-  */
   a .markdown-renderer {
     display: inline;
-  }
-
-  .table-node-wrapper {
-    @apply border border-border rounded-lg py-0 my-0 overflow-hidden shadow-sm;
-    contain: layout style paint;
   }
 
   table {

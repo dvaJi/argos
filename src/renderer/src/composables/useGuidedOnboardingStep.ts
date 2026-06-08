@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { createOnboardingClient } from '@api/OnboardingClient'
 import {
   GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
@@ -15,174 +15,185 @@ import type {
 } from '@shared/contracts/routes'
 
 export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
-  const onboardingClient = createOnboardingClient()
-  const onboardingState = ref<GuidedOnboardingState | null>(null)
-  const dismissed = ref(false)
-  const stepState = computed(
-    () => onboardingState.value?.steps.find((step) => step.id === stepId) ?? null
+  const onboardingClientRef = useRef(createOnboardingClient())
+  const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null)
+  const [dismissed, setDismissed] = useState(false)
+
+  const stepState = useMemo(
+    () => onboardingState?.steps.find((step) => step.id === stepId) ?? null,
+    [onboardingState, stepId]
   )
 
-  const currentStepId = computed<GuidedOnboardingStepId | null>(() => {
-    if (onboardingState.value?.currentStepId) {
-      return onboardingState.value.currentStepId
+  const currentStepId = useMemo<GuidedOnboardingStepId | null>(() => {
+    if (onboardingState?.currentStepId) {
+      return onboardingState.currentStepId
     }
 
-    return onboardingState.value?.steps.find((step) => step.status === 'pending')?.id ?? null
-  })
-  const stepIndex = computed(() => {
-    const index = onboardingState.value?.steps.findIndex((step) => step.id === stepId) ?? -1
+    return onboardingState?.steps.find((step) => step.status === 'pending')?.id ?? null
+  }, [onboardingState])
+
+  const stepIndex = useMemo(() => {
+    const index = onboardingState?.steps.findIndex((step) => step.id === stepId) ?? -1
     return index >= 0 ? index + 1 : 1
-  })
-  const totalSteps = computed(() => onboardingState.value?.steps.length ?? 1)
-  const previousStepId = computed(() => getPreviousGuidedOnboardingStepId(stepId))
-  const nextStepId = computed(() => getNextGuidedOnboardingStepId(stepId))
-  const isRequired = computed(() => stepState.value?.required ?? false)
-  const canSkip = computed(() => Boolean(stepState.value && !stepState.value.required))
-  const canGoPrevious = computed(() => Boolean(previousStepId.value))
-  const canGoNext = computed(() => Boolean(nextStepId.value))
-  const showGuide = computed(
-    () =>
-      onboardingState.value?.status === 'active' &&
-      currentStepId.value === stepId &&
-      !dismissed.value
+  }, [onboardingState, stepId])
+
+  const totalSteps = useMemo(() => onboardingState?.steps.length ?? 1, [onboardingState])
+  const previousStepId = useMemo(() => getPreviousGuidedOnboardingStepId(stepId), [stepId])
+  const nextStepIdVal = useMemo(() => getNextGuidedOnboardingStepId(stepId), [stepId])
+  const isRequired = useMemo(() => stepState?.required ?? false, [stepState])
+  const canSkip = useMemo(() => Boolean(stepState && !stepState.required), [stepState])
+  const canGoPrevious = useMemo(() => Boolean(previousStepId), [previousStepId])
+  const canGoNext = useMemo(() => Boolean(nextStepIdVal), [nextStepIdVal])
+  const showGuide = useMemo(
+    () => onboardingState?.status === 'active' && currentStepId === stepId && !dismissed,
+    [onboardingState, currentStepId, stepId, dismissed]
   )
 
-  const finalizeIfNeeded = async (state: GuidedOnboardingState | null) => {
-    if (
-      state?.status === 'active' &&
-      (state.currentStepId === null || state.currentStepId === undefined)
-    ) {
+  const recoverStateFromBackend = useCallback(
+    async (context: string): Promise<GuidedOnboardingState | null> => {
       try {
-        onboardingState.value = await onboardingClient.complete()
+        const refreshed = await onboardingClientRef.current.getState()
+        setOnboardingState(refreshed)
+        return refreshed
       } catch (error) {
-        console.warn(`[GuidedOnboarding] Failed to finalize onboarding from step ${stepId}:`, error)
+        console.warn(`[GuidedOnboarding] Failed to recover state after ${context}:`, error)
+        return onboardingState
       }
-    }
+    },
+    [onboardingState]
+  )
 
-    return onboardingState.value
-  }
+  const finalizeIfNeeded = useCallback(
+    async (state: GuidedOnboardingState | null) => {
+      if (
+        state?.status === 'active' &&
+        (state.currentStepId === null || state.currentStepId === undefined)
+      ) {
+        try {
+          const result = await onboardingClientRef.current.complete()
+          setOnboardingState(result)
+          return result
+        } catch (error) {
+          console.warn(
+            `[GuidedOnboarding] Failed to finalize onboarding from step ${stepId}:`,
+            error
+          )
+        }
+      }
 
-  const syncState = async () => {
-    try {
-      onboardingState.value = await onboardingClient.getState()
-    } catch (error) {
-      console.warn(`[GuidedOnboarding] Failed to sync step ${stepId}:`, error)
-    }
-  }
+      return onboardingState
+    },
+    [stepId, onboardingState]
+  )
 
-  const recoverStateFromBackend = async (
-    context: string
-  ): Promise<GuidedOnboardingState | null> => {
-    try {
-      const refreshed = await onboardingClient.getState()
-      onboardingState.value = refreshed
-      return refreshed
-    } catch (error) {
-      console.warn(`[GuidedOnboarding] Failed to recover state after ${context}:`, error)
-      return onboardingState.value
-    }
-  }
-
-  const dismissGuide = () => {
-    dismissed.value = true
-  }
-
-  const notifySiblingGuides = () => {
+  const notifySiblingGuides = useCallback(() => {
     requestGuidedOnboardingResume('step-completed')
-  }
+  }, [])
 
-  const setStepStatus = async (
-    status: Extract<GuidedOnboardingStepStatus, 'completed' | 'skipped'>
-  ) => {
+  const setStepStatus = useCallback(
+    async (status: Extract<GuidedOnboardingStepStatus, 'completed' | 'skipped'>) => {
+      try {
+        const result = await onboardingClientRef.current.setStepStatus({ stepId, status })
+        setOnboardingState(result)
+        setDismissed(false)
+        notifySiblingGuides()
+        return finalizeIfNeeded(result)
+      } catch (error) {
+        console.warn(`[GuidedOnboarding] Failed to set step ${stepId} status to ${status}:`, error)
+        return recoverStateFromBackend(`setStepStatus(${stepId}, ${status})`)
+      }
+    },
+    [stepId, notifySiblingGuides, finalizeIfNeeded, recoverStateFromBackend]
+  )
+
+  const activateStep = useCallback(
+    async (targetStepId: GuidedOnboardingStepId) => {
+      try {
+        const result = await onboardingClientRef.current.start({ stepId: targetStepId })
+        setOnboardingState(result)
+        setDismissed(false)
+        notifySiblingGuides()
+        return result
+      } catch (error) {
+        console.warn(`[GuidedOnboarding] Failed to activate step ${targetStepId}:`, error)
+        return recoverStateFromBackend(`activateStep(${targetStepId})`)
+      }
+    },
+    [notifySiblingGuides, recoverStateFromBackend]
+  )
+
+  const activatePreviousStep = useCallback(async () => {
+    if (!previousStepId) {
+      return onboardingState
+    }
+    return activateStep(previousStepId)
+  }, [previousStepId, onboardingState, activateStep])
+
+  const activateNextStep = useCallback(async () => {
+    if (!nextStepIdVal) {
+      return onboardingState
+    }
+    return activateStep(nextStepIdVal)
+  }, [nextStepIdVal, onboardingState, activateStep])
+
+  const forceComplete = useCallback(async () => {
     try {
-      onboardingState.value = await onboardingClient.setStepStatus({
-        stepId,
-        status
-      })
-      dismissed.value = false
+      const result = await onboardingClientRef.current.complete({ force: true })
+      setOnboardingState(result)
+      setDismissed(false)
       notifySiblingGuides()
-      return finalizeIfNeeded(onboardingState.value)
-    } catch (error) {
-      console.warn(`[GuidedOnboarding] Failed to set step ${stepId} status to ${status}:`, error)
-      return recoverStateFromBackend(`setStepStatus(${stepId}, ${status})`)
-    }
-  }
-
-  const activateStep = async (targetStepId: GuidedOnboardingStepId) => {
-    try {
-      onboardingState.value = await onboardingClient.start({ stepId: targetStepId })
-      dismissed.value = false
-      notifySiblingGuides()
-      return onboardingState.value
-    } catch (error) {
-      console.warn(`[GuidedOnboarding] Failed to activate step ${targetStepId}:`, error)
-      return recoverStateFromBackend(`activateStep(${targetStepId})`)
-    }
-  }
-
-  const activatePreviousStep = async () => {
-    if (!previousStepId.value) {
-      return onboardingState.value
-    }
-
-    return activateStep(previousStepId.value)
-  }
-
-  const activateNextStep = async () => {
-    if (!nextStepId.value) {
-      return onboardingState.value
-    }
-
-    return activateStep(nextStepId.value)
-  }
-
-  const forceComplete = async () => {
-    try {
-      onboardingState.value = await onboardingClient.complete({ force: true })
-      dismissed.value = false
-      notifySiblingGuides()
-      return onboardingState.value
+      return result
     } catch (error) {
       console.warn(`[GuidedOnboarding] Failed to force complete onboarding from ${stepId}:`, error)
       return recoverStateFromBackend(`forceComplete(${stepId})`)
     }
-  }
+  }, [stepId, notifySiblingGuides, recoverStateFromBackend])
 
-  const completeStep = () => setStepStatus('completed')
-  const skipStep = async () => {
-    if (!canSkip.value) {
-      return onboardingState.value
+  const completeStep = useCallback(() => setStepStatus('completed'), [setStepStatus])
+
+  const skipStep = useCallback(async () => {
+    if (!canSkip) {
+      return onboardingState
     }
     return setStepStatus('skipped')
-  }
+  }, [canSkip, onboardingState, setStepStatus])
 
-  const handleResumeRequested = () => {
-    void syncState()
-  }
-
-  watch(
-    () => currentStepId.value,
-    (nextStepId, previousStepId) => {
-      if (nextStepId !== previousStepId) {
-        dismissed.value = false
-      }
+  const syncState = useCallback(async () => {
+    try {
+      const result = await onboardingClientRef.current.getState()
+      setOnboardingState(result)
+    } catch (error) {
+      console.warn(`[GuidedOnboarding] Failed to sync step ${stepId}:`, error)
     }
-  )
+  }, [stepId])
 
-  onMounted(() => {
+  useEffect(() => {
+    const prevCurrentStepId = { value: currentStepId }
+    return () => {
+      prevCurrentStepId.value = currentStepId
+    }
+  }, [currentStepId])
+
+  useEffect(() => {
+    setDismissed(false)
+  }, [currentStepId])
+
+  useEffect(() => {
     void syncState()
+    const handleResumeRequested = () => {
+      void syncState()
+    }
     window.addEventListener(
       GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
       handleResumeRequested as EventListener
     )
-  })
-
-  onBeforeUnmount(() => {
-    window.removeEventListener(
-      GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
-      handleResumeRequested as EventListener
-    )
-  })
+    return () => {
+      window.removeEventListener(
+        GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
+        handleResumeRequested as EventListener
+      )
+    }
+  }, [syncState])
 
   return {
     onboardingState,
@@ -191,13 +202,13 @@ export function useGuidedOnboardingStep(stepId: GuidedOnboardingStepId) {
     stepIndex,
     totalSteps,
     previousStepId,
-    nextStepId,
+    nextStepId: nextStepIdVal,
     isRequired,
     canSkip,
     canGoPrevious,
     canGoNext,
     showGuide,
-    dismissGuide,
+    dismissGuide: () => setDismissed(true),
     completeStep,
     skipStep,
     activateStep,

@@ -1,5 +1,4 @@
-import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import type { DeepchatEventPayload } from '@shared/contracts/events'
 import { createStartupClient } from '@api/StartupClient'
 
@@ -28,57 +27,66 @@ const SECTION_TASK_IDS: Record<StartupSectionId, StartupWorkloadTask['id'][]> = 
   'settings.remote': ['settings.remote.runtime']
 }
 
-export const useStartupWorkloadStore = defineStore('startupWorkload', () => {
+export function useStartupWorkloadStore() {
   const startupClient = createStartupClient()
-  const runIds = ref<Record<StartupWorkloadTarget, string | null>>({
+  const [runIds, setRunIds] = useState<Record<StartupWorkloadTarget, string | null>>({
     main: null,
     settings: null
   })
-  const taskMaps = ref<Record<StartupWorkloadTarget, Record<string, StartupWorkloadTask>>>({
+  const [taskMaps, setTaskMaps] = useState<
+    Record<StartupWorkloadTarget, Record<string, StartupWorkloadTask>>
+  >({
     main: {},
     settings: {}
   })
-  const connected = ref(false)
-  let unsubscribe: (() => void) | null = null
+  const [connected, setConnected] = useState(false)
+  const unsubscribeRef = useRef<(() => void) | null>(null)
 
-  const connect = () => {
-    if (connected.value) {
-      return
-    }
+  const connect = useCallback(() => {
+    if (connected) return
 
-    unsubscribe = startupClient.onWorkloadChanged((payload) => {
-      runIds.value = {
-        ...runIds.value,
+    unsubscribeRef.current = startupClient.onWorkloadChanged((payload) => {
+      setRunIds((prev) => ({
+        ...prev,
         [payload.target]: payload.startupRunId
-      }
-      taskMaps.value = {
-        ...taskMaps.value,
+      }))
+      setTaskMaps((prev) => ({
+        ...prev,
         [payload.target]: Object.fromEntries(payload.tasks.map((task) => [task.id, task]))
-      }
+      }))
     })
-    connected.value = true
-  }
+    setConnected(true)
+  }, [connected, startupClient])
 
-  const disconnect = () => {
-    unsubscribe?.()
-    unsubscribe = null
-    connected.value = false
-  }
+  const disconnect = useCallback(() => {
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = null
+    setConnected(false)
+  }, [])
 
-  const mainTasks = computed(() => Object.values(taskMaps.value.main))
-  const settingsTasks = computed(() => Object.values(taskMaps.value.settings))
+  const mainTasks = useMemo(() => Object.values(taskMaps.main), [taskMaps.main])
+  const settingsTasks = useMemo(() => Object.values(taskMaps.settings), [taskMaps.settings])
 
-  const getTask = (taskId: StartupWorkloadTask['id']): StartupWorkloadTask | null => {
-    return taskMaps.value.main[taskId] ?? taskMaps.value.settings[taskId] ?? null
-  }
+  const getTask = useCallback(
+    (taskId: StartupWorkloadTask['id']): StartupWorkloadTask | null => {
+      return taskMaps.main[taskId] ?? taskMaps.settings[taskId] ?? null
+    },
+    [taskMaps]
+  )
 
-  const isTaskRunning = (taskId: StartupWorkloadTask['id']): boolean => {
-    return getTask(taskId)?.state === 'running'
-  }
+  const isTaskRunning = useCallback(
+    (taskId: StartupWorkloadTask['id']): boolean => {
+      return getTask(taskId)?.state === 'running'
+    },
+    [getTask]
+  )
 
-  const isSectionReady = (sectionId: StartupSectionId): boolean => {
-    return SECTION_TASK_IDS[sectionId].every((taskId) => getTask(taskId)?.state === 'completed')
-  }
+  const isSectionReady = useCallback(
+    (sectionId: StartupSectionId): boolean => {
+      return SECTION_TASK_IDS[sectionId].every((taskId) => getTask(taskId)?.state === 'completed')
+    },
+    [getTask]
+  )
 
   return {
     runIds,
@@ -91,4 +99,4 @@ export const useStartupWorkloadStore = defineStore('startupWorkload', () => {
     isTaskRunning,
     isSectionReady
   }
-})
+}

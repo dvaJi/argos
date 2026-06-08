@@ -1,18 +1,9 @@
-// === Vue Core ===
-import { ref, computed, onMounted, onUnmounted, watch, type Ref } from 'vue'
-
-// === Types ===
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { CONVERSATION_SETTINGS } from '@shared/presenter'
-
-// === Composables ===
 import { createProviderClient } from '@api/ProviderClient'
+import { providerStore } from '@/stores/providerStore'
+import { useStore } from '@tanstack/react-store'
 
-// === Stores ===
-import { useProviderStore } from '@/stores/providerStore'
-
-/**
- * Rate limit status interface
- */
 export interface RateLimitStatus {
   config: {
     enabled: boolean
@@ -23,181 +14,130 @@ export interface RateLimitStatus {
   lastRequestTime: number
 }
 
-/**
- * Composable for managing rate limit status display and polling
- * Handles status loading, icon/class/tooltip computation, and event listeners
- */
-export function useRateLimitStatus(
-  chatConfig: Ref<CONVERSATION_SETTINGS>,
-  t: (key: string, params?: any) => string
-) {
-  // === Clients ===
+export function useRateLimitStatus(chatConfig: CONVERSATION_SETTINGS) {
   const providerClient = createProviderClient()
+  const providers = useStore(providerStore, (s) => s.providers)
 
-  // === Stores ===
-  const providerStore = useProviderStore()
+  const [rateLimitStatus, setRateLimitStatus] = useState<RateLimitStatus | null>(null)
+  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const chatConfigRef = useRef(chatConfig)
+  chatConfigRef.current = chatConfig
+  const providersRef = useRef(providers)
+  providersRef.current = providers
 
-  // === Local State ===
-  const rateLimitStatus = ref<RateLimitStatus | null>(null)
-  let statusInterval: ReturnType<typeof setInterval> | null = null
-
-  // === Computed ===
-  const canSendImmediately = computed(() => {
-    if (!rateLimitStatus.value?.config.enabled) return true
+  const canSendImmediately = useMemo(() => {
+    if (!rateLimitStatus?.config.enabled) return true
 
     const now = Date.now()
-    const intervalMs = (1 / rateLimitStatus.value.config.qpsLimit) * 1000
-    const timeSinceLastRequest = now - rateLimitStatus.value.lastRequestTime
+    const intervalMs = (1 / rateLimitStatus.config.qpsLimit) * 1000
+    const timeSinceLastRequest = now - rateLimitStatus.lastRequestTime
 
     return timeSinceLastRequest >= intervalMs
-  })
+  }, [rateLimitStatus])
 
-  // === Internal Helper Functions ===
-  /**
-   * Check if rate limit is enabled for current provider
-   */
   const isRateLimitEnabled = (): boolean => {
-    const currentProviderId = chatConfig.value.providerId
+    const currentProviderId = chatConfigRef.current.providerId
     if (!currentProviderId) return false
 
-    const provider = providerStore.providers.find((p) => p.id === currentProviderId)
+    const provider = providersRef.current.find((p) => p.id === currentProviderId)
     return provider?.rateLimit?.enabled ?? false
   }
 
-  /**
-   * Load rate limit status from presenter
-   */
+  const stopRateLimitPolling = () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current)
+      statusIntervalRef.current = null
+    }
+  }
+
   const loadRateLimitStatus = async () => {
-    const currentProviderId = chatConfig.value.providerId
+    const currentProviderId = chatConfigRef.current.providerId
     if (!currentProviderId) return
 
     if (!isRateLimitEnabled()) {
-      rateLimitStatus.value = null
+      setRateLimitStatus(null)
       return
     }
 
     try {
       const status = await providerClient.getProviderRateLimitStatus(currentProviderId)
-      rateLimitStatus.value = status
+      setRateLimitStatus(status)
     } catch (error) {
       console.error('Failed to load rate limit status:', error)
     }
   }
 
-  /**
-   * Start polling rate limit status
-   */
   const startRateLimitPolling = () => {
-    if (statusInterval) {
-      clearInterval(statusInterval)
-    }
+    stopRateLimitPolling()
     if (isRateLimitEnabled()) {
-      statusInterval = setInterval(loadRateLimitStatus, 1000)
+      statusIntervalRef.current = setInterval(loadRateLimitStatus, 1000)
     }
   }
 
-  /**
-   * Stop polling rate limit status
-   */
-  const stopRateLimitPolling = () => {
-    if (statusInterval) {
-      clearInterval(statusInterval)
-      statusInterval = null
-    }
-  }
-
-  // === Public Methods ===
-  /**
-   * Get rate limit status icon
-   */
   const getRateLimitStatusIcon = (): string => {
-    if (!rateLimitStatus.value?.config.enabled) return ''
+    if (!rateLimitStatus?.config.enabled) return ''
 
-    if (rateLimitStatus.value.queueLength > 0) {
+    if (rateLimitStatus.queueLength > 0) {
       return 'lucide:clock'
     }
 
-    return canSendImmediately.value ? 'lucide:check-circle' : 'lucide:timer'
+    return canSendImmediately ? 'lucide:check-circle' : 'lucide:timer'
   }
 
-  /**
-   * Get rate limit status CSS class
-   */
   const getRateLimitStatusClass = (): string => {
-    if (!rateLimitStatus.value?.config.enabled) return ''
+    if (!rateLimitStatus?.config.enabled) return ''
 
-    if (rateLimitStatus.value.queueLength > 0) {
+    if (rateLimitStatus.queueLength > 0) {
       return 'text-orange-500'
     }
 
-    return canSendImmediately.value ? 'text-green-500' : 'text-yellow-500'
+    return canSendImmediately ? 'text-green-500' : 'text-yellow-500'
   }
 
-  /**
-   * Get rate limit status tooltip text
-   */
   const getRateLimitStatusTooltip = (): string => {
-    if (!rateLimitStatus.value?.config.enabled) return ''
+    if (!rateLimitStatus?.config.enabled) return ''
 
-    const intervalSeconds = 1 / rateLimitStatus.value.config.qpsLimit
+    const intervalSeconds = 1 / rateLimitStatus.config.qpsLimit
 
-    if (rateLimitStatus.value.queueLength > 0) {
-      return t('chat.input.rateLimitQueueTooltip', {
-        count: rateLimitStatus.value.queueLength,
-        interval: intervalSeconds
-      })
+    if (rateLimitStatus.queueLength > 0) {
+      return `Rate limit: ${rateLimitStatus.queueLength} queued (${intervalSeconds.toFixed(1)}s interval)`
     }
 
-    if (canSendImmediately.value) {
-      return t('chat.input.rateLimitReadyTooltip', { interval: intervalSeconds })
+    if (canSendImmediately) {
+      return `Ready to send (${intervalSeconds.toFixed(1)}s interval)`
     }
 
     const waitTime = Math.ceil(
-      (rateLimitStatus.value.lastRequestTime + intervalSeconds * 1000 - Date.now()) / 1000
+      (rateLimitStatus.lastRequestTime + intervalSeconds * 1000 - Date.now()) / 1000
     )
-    return t('chat.input.rateLimitWaitingTooltip', { seconds: waitTime, interval: intervalSeconds })
+    return `Wait ~${waitTime}s (${intervalSeconds.toFixed(1)}s interval)`
   }
 
-  /**
-   * Format wait time text
-   */
   const formatWaitTime = (): string => {
-    if (!rateLimitStatus.value?.config.enabled) return ''
+    if (!rateLimitStatus?.config.enabled) return ''
 
-    const intervalSeconds = 1 / rateLimitStatus.value.config.qpsLimit
+    const intervalSeconds = 1 / rateLimitStatus.config.qpsLimit
     const waitTime = Math.ceil(
-      (rateLimitStatus.value.lastRequestTime + intervalSeconds * 1000 - Date.now()) / 1000
+      (rateLimitStatus.lastRequestTime + intervalSeconds * 1000 - Date.now()) / 1000
     )
 
-    return t('chat.input.rateLimitWait', { seconds: Math.max(0, waitTime) })
+    return `Wait ${Math.max(0, waitTime)}s`
   }
 
-  // === Lifecycle Hooks ===
-  onMounted(() => {
-    void loadRateLimitStatus()
+  useEffect(() => {
+    loadRateLimitStatus()
     startRateLimitPolling()
-  })
+  }, [chatConfig.providerId, providers])
 
-  onUnmounted(() => {
-    stopRateLimitPolling()
-  })
+  useEffect(() => {
+    return () => {
+      stopRateLimitPolling()
+    }
+  }, [])
 
-  watch(
-    () => [chatConfig.value.providerId, providerStore.providers] as const,
-    () => {
-      void loadRateLimitStatus()
-      startRateLimitPolling()
-    },
-    { immediate: true, deep: true }
-  )
-
-  // === Return Public API ===
   return {
-    // State (readonly)
-    rateLimitStatus: computed(() => rateLimitStatus.value),
+    rateLimitStatus,
     canSendImmediately,
-
-    // Methods
     loadRateLimitStatus,
     startRateLimitPolling,
     stopRateLimitPolling,

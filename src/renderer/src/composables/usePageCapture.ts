@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { useState, useCallback, useRef } from 'react'
 import { createDeviceClient } from '@api/DeviceClient'
 import { createTabClient } from '@api/TabClient'
 
@@ -16,51 +16,19 @@ export interface WatermarkConfig {
     brand?: string
     time?: string
     tip?: string
-    model?: string // 模型名称
-    provider?: string // 供应商名称
+    model?: string
+    provider?: string
   }
 }
 
 export interface CaptureConfig {
-  /**
-   * 滚动容器，可以是CSS选择器字符串或HTML元素
-   */
   container: string | HTMLElement
-
-  /**
-   * 获取目标截图区域的函数
-   * @returns 返回目标区域的矩形信息，如果无法获取则返回null
-   */
   getTargetRect: () => CaptureRect | null
-
-  /**
-   * 水印配置
-   */
   watermark?: WatermarkConfig
-
-  /**
-   * 滚动行为，默认为 'auto'
-   */
   scrollBehavior?: 'auto' | 'smooth'
-
-  /**
-   * 每次截图后的延迟时间（毫秒），默认为 350
-   */
   captureDelay?: number
-
-  /**
-   * 最大迭代次数，防止无限循环，默认为 30
-   */
   maxIterations?: number
-
-  /**
-   * 滚动条偏移量，避免截取滚动条，默认为 20
-   */
   scrollbarOffset?: number
-
-  /**
-   * 容器顶部预留空间（如工具栏高度），默认为 44
-   */
   containerHeaderOffset?: number
   isHTMLIframe?: boolean
 }
@@ -72,13 +40,10 @@ export interface CaptureResult {
 }
 
 export function usePageCapture() {
-  const isCapturing = ref(false)
-  const tabClient = createTabClient()
-  const deviceClient = createDeviceClient()
+  const [isCapturing, setIsCapturing] = useState(false)
+  const tabClientRef = useRef(createTabClient())
+  const deviceClientRef = useRef(createDeviceClient())
 
-  /**
-   * 获取滚动容器元素
-   */
   const getScrollContainer = (container: string | HTMLElement): HTMLElement | null => {
     if (typeof container === 'string') {
       return document.querySelector(container) as HTMLElement
@@ -86,9 +51,6 @@ export function usePageCapture() {
     return container
   }
 
-  /**
-   * 执行滚动操作，支持普通元素和 iframe
-   */
   const performScroll = (
     scrollContainer: HTMLElement,
     scrollTop: number,
@@ -104,9 +66,6 @@ export function usePageCapture() {
     }
   }
 
-  /**
-   * 获取滚动位置，支持普通元素和 iframe
-   */
   const getScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false): number => {
     if (isIframe && scrollContainer.tagName.toLowerCase() === 'iframe') {
       const iframe = scrollContainer as HTMLIFrameElement
@@ -117,9 +76,6 @@ export function usePageCapture() {
     return scrollContainer.scrollTop
   }
 
-  /**
-   * 获取滚动容器的最大滚动高度
-   */
   const getMaxScrollTop = (scrollContainer: HTMLElement, isIframe: boolean = false): number => {
     if (isIframe && scrollContainer.tagName.toLowerCase() === 'iframe') {
       const iframe = scrollContainer as HTMLIFrameElement
@@ -134,9 +90,6 @@ export function usePageCapture() {
     return scrollContainer.scrollHeight - scrollContainer.clientHeight
   }
 
-  /**
-   * 获取 iframe 内容的实际高度
-   */
   const getIframeContentHeight = (iframe: HTMLIFrameElement): number => {
     if (iframe.contentDocument) {
       const doc = iframe.contentDocument
@@ -150,204 +103,195 @@ export function usePageCapture() {
     return 0
   }
 
-  /**
-   * 执行页面区域截图
-   * @param config 截图配置
-   * @returns 返回截图结果
-   */
-  const captureArea = async (config: CaptureConfig): Promise<CaptureResult> => {
-    if (isCapturing.value) {
-      return { success: false, error: '正在进行截图，请稍候...' }
-    }
-
-    isCapturing.value = true
-    let originalScrollBehavior = ''
-    let scrollContainer: HTMLElement | null = null
-
-    try {
-      // 配置默认参数
-      const {
-        scrollBehavior = 'auto',
-        captureDelay = 350,
-        maxIterations = 30,
-        scrollbarOffset = 20,
-        containerHeaderOffset = 44,
-        isHTMLIframe = false
-      } = config
-
-      // 获取初始目标区域
-      const initialRect = config.getTargetRect()
-      if (!initialRect) {
-        return { success: false, error: '无法获取截图目标区域' }
+  const captureArea = useCallback(
+    async (config: CaptureConfig): Promise<CaptureResult> => {
+      if (isCapturing) {
+        return { success: false, error: 'Capture already in progress, please wait...' }
       }
 
-      if (initialRect.height <= 0) {
-        return { success: false, error: '截图区域高度无效' }
-      }
+      setIsCapturing(true)
+      let originalScrollBehavior = ''
+      let scrollContainer: HTMLElement | null = null
 
-      // 获取滚动容器
-      scrollContainer = getScrollContainer(config.container)
-      if (!scrollContainer) {
-        return { success: false, error: '无法找到滚动容器' }
-      }
+      try {
+        const {
+          scrollBehavior = 'auto',
+          captureDelay = 350,
+          maxIterations = 30,
+          scrollbarOffset = 20,
+          containerHeaderOffset = 44,
+          isHTMLIframe = false
+        } = config
 
-      // 对于 iframe，我们需要获取其内容的实际高度
-      let targetContentHeight = initialRect.height
-      if (isHTMLIframe && scrollContainer.tagName.toLowerCase() === 'iframe') {
-        const iframe = scrollContainer as HTMLIFrameElement
-        const iframeContentHeight = getIframeContentHeight(iframe)
-        if (iframeContentHeight > 0) {
-          // 使用 iframe 内容的实际高度作为截图目标高度
-          targetContentHeight = iframeContentHeight
-        }
-      }
-
-      // 保存原始滚动行为并设置为指定行为
-      originalScrollBehavior = scrollContainer.style.scrollBehavior
-      scrollContainer.style.scrollBehavior = scrollBehavior
-
-      // 记录容器原始滚动位置
-      const containerOriginalScrollTop = getScrollTop(scrollContainer, isHTMLIframe)
-      const containerRect = scrollContainer.getBoundingClientRect()
-      const contentViewportTop = containerRect.top + containerHeaderOffset
-
-      // 计算可见截图窗口
-      const captureWindowVisibleHeight = containerRect.height - containerHeaderOffset
-      const captureWindowVisibleWidth = Math.max(0, containerRect.width - scrollbarOffset)
-      if (captureWindowVisibleHeight <= 0 || captureWindowVisibleWidth <= 0) {
-        return { success: false, error: '截图窗口尺寸无效' }
-      }
-
-      const fixedCaptureWindow = {
-        x: containerRect.left,
-        y: contentViewportTop,
-        width: captureWindowVisibleWidth,
-        height: captureWindowVisibleHeight
-      }
-
-      const maxScrollTop = getMaxScrollTop(scrollContainer, isHTMLIframe)
-      const imageDataList: string[] = []
-      let totalCapturedContentHeight = 0
-      let iteration = 0
-      const targetTopInContent = containerOriginalScrollTop + (initialRect.y - contentViewportTop)
-      const maxCapturableBottomInContent = maxScrollTop + fixedCaptureWindow.height
-      const targetBottomInContent = Math.min(
-        targetTopInContent + targetContentHeight,
-        maxCapturableBottomInContent
-      )
-      const effectiveTargetContentHeight = Math.max(0, targetBottomInContent - targetTopInContent)
-
-      if (effectiveTargetContentHeight <= 0) {
-        return { success: false, error: '目标区域超出可捕获范围' }
-      }
-
-      // 分段截图循环
-      while (
-        totalCapturedContentHeight < effectiveTargetContentHeight &&
-        iteration < maxIterations
-      ) {
-        iteration++
-
-        const remainingTopInContent = targetTopInContent + totalCapturedContentHeight
-        const scrollTopTarget = Math.max(0, Math.min(remainingTopInContent, maxScrollTop))
-
-        // 执行滚动
-        performScroll(scrollContainer, scrollTopTarget, isHTMLIframe)
-        await new Promise((resolve) => setTimeout(resolve, captureDelay))
-
-        const actualScrollTop = getScrollTop(scrollContainer, isHTMLIframe)
-        const visibleTopInContent = actualScrollTop
-        const visibleBottomInContent = actualScrollTop + fixedCaptureWindow.height
-        const captureTopInContent = Math.max(remainingTopInContent, visibleTopInContent)
-        const captureBottomInContent = Math.min(targetBottomInContent, visibleBottomInContent)
-        const heightToCaptureFromSegment = Math.max(0, captureBottomInContent - captureTopInContent)
-
-        if (heightToCaptureFromSegment < 1) {
-          break
+        const initialRect = config.getTargetRect()
+        if (!initialRect) {
+          return { success: false, error: 'Unable to get capture target area' }
         }
 
-        const captureStartYInWindow = Math.max(0, Math.round(captureTopInContent - actualScrollTop))
-
-        // 构建截图区域
-        const captureRect: CaptureRect = {
-          x: fixedCaptureWindow.x,
-          y: Math.round(fixedCaptureWindow.y + captureStartYInWindow),
-          width: fixedCaptureWindow.width,
-          height: Math.round(heightToCaptureFromSegment)
+        if (initialRect.height <= 0) {
+          return { success: false, error: 'Capture area height is invalid' }
         }
 
-        try {
-          const segmentData = await tabClient.captureCurrentArea(captureRect)
+        scrollContainer = getScrollContainer(config.container)
+        if (!scrollContainer) {
+          return { success: false, error: 'Unable to find scroll container' }
+        }
 
-          if (segmentData) {
-            imageDataList.push(segmentData)
-          } else {
-            console.error(`[CAPTURE_DEBUG] Iteration ${iteration}: 截图失败，未返回数据`)
+        let targetContentHeight = initialRect.height
+        if (isHTMLIframe && scrollContainer.tagName.toLowerCase() === 'iframe') {
+          const iframe = scrollContainer as HTMLIFrameElement
+          const iframeContentHeight = getIframeContentHeight(iframe)
+          if (iframeContentHeight > 0) {
+            targetContentHeight = iframeContentHeight
+          }
+        }
+
+        originalScrollBehavior = scrollContainer.style.scrollBehavior
+        scrollContainer.style.scrollBehavior = scrollBehavior
+
+        const containerOriginalScrollTop = getScrollTop(scrollContainer, isHTMLIframe)
+        const containerRect = scrollContainer.getBoundingClientRect()
+        const contentViewportTop = containerRect.top + containerHeaderOffset
+
+        const captureWindowVisibleHeight = containerRect.height - containerHeaderOffset
+        const captureWindowVisibleWidth = Math.max(0, containerRect.width - scrollbarOffset)
+        if (captureWindowVisibleHeight <= 0 || captureWindowVisibleWidth <= 0) {
+          return { success: false, error: 'Capture window dimensions are invalid' }
+        }
+
+        const fixedCaptureWindow = {
+          x: containerRect.left,
+          y: contentViewportTop,
+          width: captureWindowVisibleWidth,
+          height: captureWindowVisibleHeight
+        }
+
+        const maxScrollTopVal = getMaxScrollTop(scrollContainer, isHTMLIframe)
+        const imageDataList: string[] = []
+        let totalCapturedContentHeight = 0
+        let iteration = 0
+        const targetTopInContent = containerOriginalScrollTop + (initialRect.y - contentViewportTop)
+        const maxCapturableBottomInContent = maxScrollTopVal + fixedCaptureWindow.height
+        const targetBottomInContent = Math.min(
+          targetTopInContent + targetContentHeight,
+          maxCapturableBottomInContent
+        )
+        const effectiveTargetContentHeight = Math.max(0, targetBottomInContent - targetTopInContent)
+
+        if (effectiveTargetContentHeight <= 0) {
+          return { success: false, error: 'Target area is outside capturable range' }
+        }
+
+        while (
+          totalCapturedContentHeight < effectiveTargetContentHeight &&
+          iteration < maxIterations
+        ) {
+          iteration++
+
+          const remainingTopInContent = targetTopInContent + totalCapturedContentHeight
+          const scrollTopTarget = Math.max(0, Math.min(remainingTopInContent, maxScrollTopVal))
+
+          performScroll(scrollContainer, scrollTopTarget, isHTMLIframe)
+          await new Promise((resolve) => setTimeout(resolve, captureDelay))
+
+          const actualScrollTop = getScrollTop(scrollContainer, isHTMLIframe)
+          const visibleTopInContent = actualScrollTop
+          const visibleBottomInContent = actualScrollTop + fixedCaptureWindow.height
+          const captureTopInContent = Math.max(remainingTopInContent, visibleTopInContent)
+          const captureBottomInContent = Math.min(targetBottomInContent, visibleBottomInContent)
+          const heightToCaptureFromSegment = Math.max(
+            0,
+            captureBottomInContent - captureTopInContent
+          )
+
+          if (heightToCaptureFromSegment < 1) {
             break
           }
-        } catch (captureError) {
-          console.error(`[CAPTURE_DEBUG] Iteration ${iteration}: 截图出错:`, captureError)
-          break
+
+          const captureStartYInWindow = Math.max(
+            0,
+            Math.round(captureTopInContent - actualScrollTop)
+          )
+
+          const captureRect: CaptureRect = {
+            x: fixedCaptureWindow.x,
+            y: Math.round(fixedCaptureWindow.y + captureStartYInWindow),
+            width: fixedCaptureWindow.width,
+            height: Math.round(heightToCaptureFromSegment)
+          }
+
+          try {
+            const segmentData = await tabClientRef.current.captureCurrentArea(captureRect)
+
+            if (segmentData) {
+              imageDataList.push(segmentData)
+            } else {
+              console.error(
+                `[CAPTURE_DEBUG] Iteration ${iteration}: Capture failed, no data returned`
+              )
+              break
+            }
+          } catch (captureError) {
+            console.error(`[CAPTURE_DEBUG] Iteration ${iteration}: Capture error:`, captureError)
+            break
+          }
+
+          totalCapturedContentHeight += heightToCaptureFromSegment
         }
 
-        totalCapturedContentHeight += heightToCaptureFromSegment
-      }
+        performScroll(scrollContainer, containerOriginalScrollTop, isHTMLIframe)
 
-      // 恢复原始滚动位置
-      performScroll(scrollContainer, containerOriginalScrollTop, isHTMLIframe)
-
-      // 检查是否有截图数据
-      if (imageDataList.length === 0) {
-        if (targetContentHeight > 0) {
-          return { success: false, error: '截图失败，未能捕获任何图像数据' }
+        if (imageDataList.length === 0) {
+          if (targetContentHeight > 0) {
+            return { success: false, error: 'Capture failed, no image data captured' }
+          }
+          return { success: false, error: 'Target area height is 0, nothing to capture' }
         }
-        return { success: false, error: '目标区域高度为0，无需截图' }
+
+        let finalImage: string | null = null
+        if (config.watermark) {
+          finalImage = await tabClientRef.current.stitchImagesWithWatermark(
+            imageDataList,
+            config.watermark
+          )
+        } else {
+          finalImage = await tabClientRef.current.stitchImagesWithWatermark(imageDataList, {})
+        }
+
+        if (!finalImage) {
+          return { success: false, error: 'Image stitching failed' }
+        }
+
+        return { success: true, imageData: finalImage }
+      } catch (error) {
+        console.error('Error during capture:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      } finally {
+        if (scrollContainer && originalScrollBehavior !== undefined) {
+          scrollContainer.style.scrollBehavior = originalScrollBehavior
+        }
+        setIsCapturing(false)
+      }
+    },
+    [isCapturing]
+  )
+
+  const captureAndCopy = useCallback(
+    async (config: CaptureConfig): Promise<boolean> => {
+      const result = await captureArea(config)
+
+      if (result.success && result.imageData) {
+        deviceClientRef.current.copyImage(result.imageData)
+        return true
       }
 
-      // 拼接图片并添加水印
-      let finalImage: string | null = null
-      if (config.watermark) {
-        finalImage = await tabClient.stitchImagesWithWatermark(imageDataList, config.watermark)
-      } else {
-        // 如果不需要水印，只拼接图片
-        finalImage = await tabClient.stitchImagesWithWatermark(imageDataList, {})
-      }
-
-      if (!finalImage) {
-        return { success: false, error: '图片拼接失败' }
-      }
-
-      return { success: true, imageData: finalImage }
-    } catch (error) {
-      console.error('截图过程中发生错误:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '未知错误'
-      }
-    } finally {
-      // 恢复原始滚动行为
-      if (scrollContainer && originalScrollBehavior !== undefined) {
-        scrollContainer.style.scrollBehavior = originalScrollBehavior
-      }
-      isCapturing.value = false
-    }
-  }
-
-  /**
-   * 直接复制截图到剪贴板
-   * @param config 截图配置
-   * @returns 返回操作是否成功
-   */
-  const captureAndCopy = async (config: CaptureConfig): Promise<boolean> => {
-    const result = await captureArea(config)
-
-    if (result.success && result.imageData) {
-      deviceClient.copyImage(result.imageData)
-      return true
-    }
-
-    return false
-  }
+      return false
+    },
+    [captureArea]
+  )
 
   return {
     isCapturing,
@@ -356,15 +300,7 @@ export function usePageCapture() {
   }
 }
 
-/**
- * 预设的截图配置函数
- */
 export const createCapturePresets = () => {
-  /**
-   * 截取整个会话的配置
-   * @param watermarkConfig 水印配置
-   * @returns 截图配置
-   */
   const captureFullConversation = (watermarkConfig?: WatermarkConfig): CaptureConfig => ({
     container: '.message-list-container',
     getTargetRect: () => {
@@ -380,16 +316,9 @@ export const createCapturePresets = () => {
       }
     },
     watermark: watermarkConfig,
-    containerHeaderOffset: 44 // 顶部工具栏高度
+    containerHeaderOffset: 44
   })
 
-  /**
-   * 截取指定消息范围的配置
-   * @param startMessageId 起始消息ID
-   * @param endMessageId 结束消息ID
-   * @param watermarkConfig 水印配置
-   * @returns 截图配置
-   */
   const captureMessageRange = (
     startMessageId: string,
     endMessageId: string,
@@ -420,13 +349,6 @@ export const createCapturePresets = () => {
     watermark: watermarkConfig
   })
 
-  /**
-   * 截取自定义选择器范围的配置
-   * @param selector CSS选择器
-   * @param containerSelector 滚动容器选择器，默认为 '.message-list-container'
-   * @param watermarkConfig 水印配置
-   * @returns 截图配置
-   */
   const captureCustomElement = (
     selector: string,
     containerSelector: string = '.message-list-container',

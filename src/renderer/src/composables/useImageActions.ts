@@ -1,5 +1,4 @@
 import { createFileClient } from '@api/FileClient'
-import { useI18n } from 'vue-i18n'
 import { useToast } from '@/components/use-toast'
 
 export type ImageActionSource = {
@@ -9,7 +8,6 @@ export type ImageActionSource = {
 }
 
 export function useImageActions() {
-  const { t } = useI18n()
   const { toast } = useToast()
   const fileClient = createFileClient()
 
@@ -21,13 +19,13 @@ export function useImageActions() {
       }
 
       toast({
-        title: t('image.saveSuccess'),
+        title: 'Image saved',
         description: result.path
       })
     } catch (error) {
       console.error('Failed to save image:', error)
       toast({
-        title: t('image.saveFailed'),
+        title: 'Failed to save image',
         variant: 'destructive'
       })
     }
@@ -41,14 +39,14 @@ export function useImageActions() {
       }
 
       toast({
-        title: t('common.copyImageSuccess'),
-        description: t('common.copyImageSuccessDesc')
+        title: 'Image copied',
+        description: 'Image has been copied to clipboard'
       })
     } catch (error) {
       console.error('Failed to copy image:', error)
       toast({
-        title: t('common.copyFailed'),
-        description: t('common.copyFailedDesc'),
+        title: 'Copy failed',
+        description: 'Failed to copy image to clipboard',
         variant: 'destructive'
       })
     }

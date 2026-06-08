@@ -1,55 +1,42 @@
-// === Vue Core ===
-import { computed, Ref, unref } from 'vue'
-
-// === Types ===
+import { useMemo } from 'react'
 import type { MessageFile } from '@shared/types/agent-interface'
-import type { MaybeRef } from 'vue'
-
-// === Utils ===
 import { approximateTokenSize } from 'tokenx'
 
 interface ContextLengthOptions {
-  inputText: Ref<string>
-  selectedFiles: Ref<MessageFile[]>
-  contextLength?: MaybeRef<number | undefined>
+  inputText: string
+  selectedFiles: MessageFile[]
+  contextLength?: number | undefined
 }
 
-/**
- * Manages context length calculation and status display
- */
 export function useContextLength(options: ContextLengthOptions) {
   const { inputText, selectedFiles, contextLength } = options
 
-  // === Computed ===
-  const currentContextLength = computed(() => {
+  const currentContextLength = useMemo(() => {
     return (
-      approximateTokenSize(inputText.value) +
-      selectedFiles.value.reduce((acc, file) => {
+      approximateTokenSize(inputText) +
+      selectedFiles.reduce((acc, file) => {
         return acc + (file.token ?? 0)
       }, 0)
     )
-  })
+  }, [inputText, selectedFiles])
 
-  const currentContextLengthPercentage = computed(() => {
-    const length = unref(contextLength)
-    return currentContextLength.value / (length ?? 1000)
-  })
+  const currentContextLengthPercentage = useMemo(() => {
+    return currentContextLength / (contextLength ?? 1000)
+  }, [currentContextLength, contextLength])
 
-  const currentContextLengthText = computed(() => {
-    return `${Math.round(currentContextLengthPercentage.value * 100)}%`
-  })
+  const currentContextLengthText = useMemo(() => {
+    return `${Math.round(currentContextLengthPercentage * 100)}%`
+  }, [currentContextLengthPercentage])
 
-  const shouldShowContextLength = computed(() => {
-    const length = unref(contextLength)
-    return length && length > 0 && currentContextLengthPercentage.value > 0.5
-  })
+  const shouldShowContextLength = useMemo(() => {
+    return contextLength != null && contextLength > 0 && currentContextLengthPercentage > 0.5
+  }, [contextLength, currentContextLengthPercentage])
 
-  const contextLengthStatusClass = computed(() => {
-    const percentage = currentContextLengthPercentage.value
-    if (percentage > 0.9) return 'text-red-600'
-    if (percentage > 0.8) return 'text-yellow-600'
+  const contextLengthStatusClass = useMemo(() => {
+    if (currentContextLengthPercentage > 0.9) return 'text-red-600'
+    if (currentContextLengthPercentage > 0.8) return 'text-yellow-600'
     return 'text-muted-foreground'
-  })
+  }, [currentContextLengthPercentage])
 
   return {
     currentContextLength,

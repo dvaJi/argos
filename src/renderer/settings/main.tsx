@@ -1,0 +1,120 @@
+import '@/assets/main.css'
+import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createHashHistory,
+  redirect
+} from '@tanstack/react-router'
+import { getSettingsRouteItems } from '@shared/settingsNavigation'
+import { preloadIcons } from '../src/lib/iconLoader'
+
+const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform)
+
+const rootRoute = createRootRoute({})
+
+const settingsRoutes = settingsRouteItems
+  .map((item) => {
+    if (item.routeName === 'settings-dashboard') {
+      return createRoute({
+        getParentRoute: () => rootRoute,
+        path: item.path,
+        beforeLoad: () => {
+          throw redirect({ to: '/overview', search: { section: 'usage' } })
+        }
+      })
+    }
+
+    const routeName = item.routeName as string
+
+    const lazyImports: Record<string, () => Promise<any>> = {
+      'settings-overview': () => import('./components/SettingsOverview'),
+      'settings-common': () => import('./components/CommonSettings'),
+      'settings-display': () => import('./components/DisplaySettings'),
+      'settings-environments': () => import('./components/EnvironmentsSettings'),
+      'settings-provider': () => import('./components/ModelProviderSettings'),
+      'settings-mcp': () => import('./components/McpSettings'),
+      'settings-deepchat-agents': () => import('./components/DeepChatAgentsSettings'),
+      'settings-acp': () => import('./components/AcpSettings'),
+      'settings-remote': () => import('./components/RemoteSettings'),
+      'settings-notifications-hooks': () => import('./components/NotificationsHooksSettings'),
+      'settings-scheduled-tasks': () => import('./components/ScheduledTasksSettings'),
+      'settings-plugins': () => import('./components/PluginsSettings'),
+      'settings-skills': () => import('./components/skills/SkillsSettings'),
+      'settings-prompt': () => import('./components/PromptSetting'),
+      'settings-knowledge-base': () => import('./components/KnowledgeBaseSettings'),
+      'settings-database': () => import('./components/DataSettings'),
+      'settings-shortcut': () => import('./components/ShortcutSettings'),
+      'settings-about': () => import('./components/AboutUsSettings')
+    }
+
+    const lazyFn = lazyImports[routeName]
+    if (!lazyFn) return null
+
+    if (item.path.includes(':providerId?')) {
+      return createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/provider',
+        children: [
+          createRoute({
+            getParentRoute: () => rootRoute,
+            path: '/provider/$providerId',
+            lazyRouteComponent: lazyFn
+          })
+        ],
+        lazyRouteComponent: lazyFn
+      })
+    }
+
+    return createRoute({
+      getParentRoute: () => rootRoute,
+      path: item.path,
+      lazyRouteComponent: lazyFn
+    })
+  })
+  .filter(Boolean)
+
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/overview' })
+  }
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, ...settingsRoutes])
+
+const settingsRouter = createRouter({
+  routeTree,
+  history: createHashHistory()
+})
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof settingsRouter
+  }
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 300_000
+    }
+  }
+})
+
+const root = createRoot(document.getElementById('app')!)
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <RouterProvider router={settingsRouter} />
+  </QueryClientProvider>
+)
+
+setTimeout(() => {
+  preloadIcons().catch((error) => {
+    console.error('Failed to preload icons:', error)
+  })
+}, 0)

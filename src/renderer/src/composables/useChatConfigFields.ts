@@ -1,8 +1,4 @@
-// === Vue Core ===
-import { computed, type ComputedRef, type Ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-
-// === Types ===
+import { useMemo } from 'react'
 import type {
   SliderFieldConfig,
   InputFieldConfig,
@@ -41,29 +37,24 @@ const getThinkingBudgetInputBounds = (
   return bounds
 }
 
-// === Interfaces ===
 export interface UseChatConfigFieldsOptions {
-  // Props
-  temperature: Ref<number>
-  contextLength: Ref<number>
-  maxTokens: Ref<number>
-  contextLengthLimit: Ref<number | undefined>
-  maxTokensLimit: Ref<number | undefined>
-  thinkingBudget: Ref<number | undefined>
-  reasoningEffort: Ref<ReasoningEffort | undefined>
-  verbosity: Ref<Verbosity | undefined>
-  providerId: Ref<string | undefined>
+  temperature: number
+  contextLength: number
+  maxTokens: number
+  contextLengthLimit: number | undefined
+  maxTokensLimit: number | undefined
+  thinkingBudget: number | undefined
+  reasoningEffort: ReasoningEffort | undefined
+  verbosity: Verbosity | undefined
+  providerId: string | undefined
 
-  // Composables
-  supportsTemperatureControl: Ref<boolean | null>
-  showThinkingBudget: ComputedRef<boolean>
-  thinkingBudgetError: ComputedRef<string>
-  budgetRange: Ref<ThinkingBudgetRange | null>
+  supportsTemperatureControl: boolean | null
+  showThinkingBudget: boolean
+  thinkingBudgetError: string
+  budgetRange: ThinkingBudgetRange | null
 
-  // Utils
   formatSize: (size: number) => string
 
-  // Emits
   emit: {
     (e: 'update:temperature', value: number): void
     (e: 'update:contextLength', value: number): void
@@ -74,145 +65,130 @@ export interface UseChatConfigFieldsOptions {
   }
 }
 
-/**
- * Composable that defines all field configurations for ChatConfig
- * Using data-driven approach to eliminate template repetition
- */
 export function useChatConfigFields(options: UseChatConfigFieldsOptions) {
-  const { t } = useI18n()
-
-  // === Slider Fields ===
-  const sliderFields = computed<SliderFieldConfig[]>(() => {
+  const sliderFields = useMemo<SliderFieldConfig[]>(() => {
     const fields: SliderFieldConfig[] = []
 
-    // Temperature is hidden only when model capabilities explicitly disable it.
-    if (options.supportsTemperatureControl.value !== false) {
+    if (options.supportsTemperatureControl !== false) {
       fields.push({
         key: 'temperature',
         type: 'slider',
         icon: 'lucide:thermometer',
-        label: t('settings.model.temperature.label'),
-        description: t('settings.model.temperature.description'),
+        label: 'Temperature',
+        description: 'Controls randomness in responses',
         min: 0,
         max: 2,
         step: 0.1,
-        getValue: () => options.temperature.value,
+        getValue: () => options.temperature,
         setValue: (val) => options.emit('update:temperature', val)
       })
     }
 
-    // Context Length
     fields.push({
       key: 'contextLength',
       type: 'slider',
       icon: 'lucide:pencil-ruler',
-      label: t('settings.model.contextLength.label'),
-      description: t('settings.model.contextLength.description'),
+      label: 'Context Length',
+      description: 'Maximum context length for the model',
       min: 2048,
-      max: options.contextLengthLimit.value ?? 16384,
+      max: options.contextLengthLimit ?? 16384,
       step: 1024,
       formatter: options.formatSize,
-      getValue: () => options.contextLength.value,
+      getValue: () => options.contextLength,
       setValue: (val) => options.emit('update:contextLength', val)
     })
 
-    // Response Length
     fields.push({
       key: 'maxTokens',
       type: 'slider',
       icon: 'lucide:message-circle-reply',
-      label: t('settings.model.responseLength.label'),
-      description: t('settings.model.responseLength.description'),
+      label: 'Response Length',
+      description: 'Maximum response length',
       min: 1024,
-      max:
-        !options.maxTokensLimit.value || options.maxTokensLimit.value < 8192
-          ? 8192
-          : options.maxTokensLimit.value,
+      max: !options.maxTokensLimit || options.maxTokensLimit < 8192 ? 8192 : options.maxTokensLimit,
       step: 128,
       formatter: options.formatSize,
-      getValue: () => options.maxTokens.value,
+      getValue: () => options.maxTokens,
       setValue: (val) => options.emit('update:maxTokens', val)
     })
 
     return fields
-  })
+  }, [
+    options.temperature,
+    options.contextLength,
+    options.maxTokens,
+    options.contextLengthLimit,
+    options.maxTokensLimit,
+    options.supportsTemperatureControl,
+    options.formatSize,
+    options.emit
+  ])
 
-  // === Input Fields ===
-  const inputFields = computed<InputFieldConfig[]>(() => {
+  const inputFields = useMemo<InputFieldConfig[]>(() => {
     const fields: InputFieldConfig[] = []
 
-    // Thinking Budget
-    if (options.showThinkingBudget.value) {
-      const thinkingBudgetInputBounds = getThinkingBudgetInputBounds(options.budgetRange.value)
+    if (options.showThinkingBudget) {
+      const thinkingBudgetInputBounds = getThinkingBudgetInputBounds(options.budgetRange)
 
       fields.push({
         key: 'thinkingBudget',
         type: 'input',
         icon: 'lucide:brain',
-        label: t('settings.model.modelConfig.thinkingBudget.label'),
-        description: t('settings.model.modelConfig.thinkingBudget.description'),
+        label: 'Thinking Budget',
+        description: 'Token budget for extended thinking',
         inputType: 'number',
         min: thinkingBudgetInputBounds.min,
         max: thinkingBudgetInputBounds.max,
         step: 128,
-        placeholder: t('settings.model.modelConfig.thinkingBudget.placeholder'),
-        getValue: () => options.thinkingBudget.value,
+        placeholder: 'Auto',
+        getValue: () => options.thinkingBudget,
         setValue: (val) => options.emit('update:thinkingBudget', val as number | undefined),
-        error: () => options.thinkingBudgetError.value,
+        error: () => options.thinkingBudgetError,
         hint: () => {
-          if (options.thinkingBudget.value === undefined) {
-            return t('settings.model.modelConfig.currentUsingModelDefault')
+          if (options.thinkingBudget === undefined) {
+            return 'Using model default'
           }
-          return t('settings.model.modelConfig.thinkingBudget.range', {
-            min: options.budgetRange.value?.min,
-            max: options.budgetRange.value?.max
-          })
+          return `Range: ${options.budgetRange?.min} - ${options.budgetRange?.max}`
         }
       })
     }
 
     return fields
-  })
+  }, [
+    options.showThinkingBudget,
+    options.thinkingBudget,
+    options.budgetRange,
+    options.thinkingBudgetError,
+    options.emit
+  ])
 
-  // === Select Fields ===
-  const selectFields = computed<SelectFieldConfig[]>(() => {
+  const selectFields = useMemo<SelectFieldConfig[]>(() => {
     const fields: SelectFieldConfig[] = []
 
-    // Reasoning Effort
-    if (options.reasoningEffort.value !== undefined) {
+    if (options.reasoningEffort !== undefined) {
       const getReasoningEffortOptions = (): SelectOption[] => {
         if (
-          isReasoningEffort(options.reasoningEffort.value) &&
-          !FALLBACK_REASONING_EFFORT_OPTIONS.includes(options.reasoningEffort.value)
+          isReasoningEffort(options.reasoningEffort) &&
+          !FALLBACK_REASONING_EFFORT_OPTIONS.includes(options.reasoningEffort)
         ) {
           return [
             {
-              value: options.reasoningEffort.value,
-              label: t(
-                `settings.model.modelConfig.reasoningEffort.options.${options.reasoningEffort.value}`
-              )
+              value: options.reasoningEffort,
+              label: options.reasoningEffort
             }
           ]
         }
 
-        // Grok only supports low and high
-        if (options.providerId.value === 'grok') {
+        if (options.providerId === 'grok') {
           return [
-            {
-              value: 'low',
-              label: t('settings.model.modelConfig.reasoningEffort.options.low')
-            },
-            {
-              value: 'high',
-              label: t('settings.model.modelConfig.reasoningEffort.options.high')
-            }
+            { value: 'low', label: 'Low' },
+            { value: 'high', label: 'High' }
           ]
         }
 
-        // Other models support all four
         return FALLBACK_REASONING_EFFORT_OPTIONS.map((value) => ({
           value,
-          label: t(`settings.model.modelConfig.reasoningEffort.options.${value}`)
+          label: value.charAt(0).toUpperCase() + value.slice(1)
         }))
       }
 
@@ -220,41 +196,40 @@ export function useChatConfigFields(options: UseChatConfigFieldsOptions) {
         key: 'reasoningEffort',
         type: 'select',
         icon: 'lucide:brain',
-        label: t('settings.model.modelConfig.reasoningEffort.label'),
-        description: t('settings.model.modelConfig.reasoningEffort.description'),
+        label: 'Reasoning Effort',
+        description: 'Adjust reasoning depth',
         options: getReasoningEffortOptions,
-        placeholder: t('settings.model.modelConfig.reasoningEffort.placeholder'),
-        getValue: () => options.reasoningEffort.value,
+        placeholder: 'Select reasoning effort',
+        getValue: () => options.reasoningEffort,
         setValue: (val) => options.emit('update:reasoningEffort', val as ReasoningEffort)
       })
     }
 
-    // Verbosity（存在该参数即显示）
-    if (options.verbosity.value !== undefined) {
+    if (options.verbosity !== undefined) {
       fields.push({
         key: 'verbosity',
         type: 'select',
         icon: 'lucide:message-square-text',
-        label: t('settings.model.modelConfig.verbosity.label'),
-        description: t('settings.model.modelConfig.verbosity.description'),
+        label: 'Verbosity',
+        description: 'Response verbosity level',
         options: [
-          { value: 'low', label: t('settings.model.modelConfig.verbosity.options.low') },
-          { value: 'medium', label: t('settings.model.modelConfig.verbosity.options.medium') },
-          { value: 'high', label: t('settings.model.modelConfig.verbosity.options.high') }
+          { value: 'low', label: 'Low' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'high', label: 'High' }
         ],
-        placeholder: t('settings.model.modelConfig.verbosity.placeholder'),
-        getValue: () => options.verbosity.value,
+        placeholder: 'Select verbosity',
+        getValue: () => options.verbosity,
         setValue: (val) => options.emit('update:verbosity', val as 'low' | 'medium' | 'high')
       })
     }
 
     return fields
-  })
+  }, [options.reasoningEffort, options.providerId, options.verbosity, options.emit])
 
-  // === All Fields Combined ===
-  const allFields = computed<FieldConfig[]>(() => {
-    return [...sliderFields.value, ...inputFields.value, ...selectFields.value]
-  })
+  const allFields = useMemo<FieldConfig[]>(
+    () => [...sliderFields, ...inputFields, ...selectFields],
+    [sliderFields, inputFields, selectFields]
+  )
 
   return {
     sliderFields,

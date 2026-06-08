@@ -1,4 +1,4 @@
-import { computed, type Ref } from 'vue'
+import { useMemo } from 'react'
 
 interface SearchDefaults {
   forced?: boolean
@@ -6,17 +6,21 @@ interface SearchDefaults {
 }
 
 interface UseSearchConfigOptions {
-  supportsSearch: Ref<boolean | null>
-  searchDefaults: Ref<SearchDefaults | null>
+  supportsSearch: boolean | null
+  searchDefaults: SearchDefaults | null
 }
 
 export function useSearchConfig(options: UseSearchConfigOptions) {
-  const showSearchConfig = computed(() => options.supportsSearch.value === true)
-  const hasForcedSearchOption = computed(
-    () => showSearchConfig.value && typeof options.searchDefaults.value?.forced === 'boolean'
+  const showSearchConfig = useMemo(() => options.supportsSearch === true, [options.supportsSearch])
+
+  const hasForcedSearchOption = useMemo(
+    () => showSearchConfig && typeof options.searchDefaults?.forced === 'boolean',
+    [showSearchConfig, options.searchDefaults]
   )
-  const hasSearchStrategyOption = computed(
-    () => showSearchConfig.value && typeof options.searchDefaults.value?.strategy === 'string'
+
+  const hasSearchStrategyOption = useMemo(
+    () => showSearchConfig && typeof options.searchDefaults?.strategy === 'string',
+    [showSearchConfig, options.searchDefaults]
   )
 
   return {

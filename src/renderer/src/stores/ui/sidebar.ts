@@ -1,20 +1,13 @@
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { Store } from '@tanstack/store'
 
-export const useSidebarStore = defineStore('sidebar', () => {
-  const collapsed = ref(false)
-
-  const toggleSidebar = () => {
-    collapsed.value = !collapsed.value
-  }
-
-  const setCollapsed = (value: boolean) => {
-    collapsed.value = value
-  }
-
-  return {
-    collapsed,
-    toggleSidebar,
-    setCollapsed
-  }
+export const sidebarStore = new Store({
+  collapsed: false
 })
+
+export const toggleSidebar = () => {
+  sidebarStore.setState((prev) => ({ ...prev, collapsed: !prev.collapsed }))
+}
+
+export const setCollapsed = (value: boolean) => {
+  sidebarStore.setState((prev) => ({ ...prev, collapsed: value }))
+}

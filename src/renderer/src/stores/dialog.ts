@@ -1,118 +1,109 @@
+import { Store } from '@tanstack/store'
 import { createDialogClient } from '@api/DialogClient'
 import { DialogRequest, DialogResponse } from '@shared/presenter'
-import { defineStore } from 'pinia'
-import { onMounted, onUnmounted, ref } from 'vue'
 
-export const useDialogStore = defineStore('dialog', () => {
-  const dialogClient = createDialogClient()
-  const dialogRequest = ref<DialogRequest | null>(null)
-  const showDialog = ref(false)
-  const timeoutMilliseconds = ref(0)
-  let unsubscribeDialogRequested: (() => void) | null = null
-  let timer: NodeJS.Timeout | null = null
+interface DialogState {
+  dialogRequest: DialogRequest | null
+  showDialog: boolean
+  timeoutMilliseconds: number
+}
 
-  // Clear the timer
-  const clearTimer = () => {
-    if (timer) {
-      clearInterval(timer)
-      timer = null
-    }
-  }
+const dialogClient = createDialogClient()
+let unsubscribeDialogRequested: (() => void) | null = null
+let timer: NodeJS.Timeout | null = null
 
-  // Start countdown
-  const startCountdown = (timeout: number, defaultResponse: DialogResponse) => {
-    timeoutMilliseconds.value = timeout
-    clearTimer()
-    timer = setInterval(() => {
-      if (timeoutMilliseconds.value > 0) {
-        timeoutMilliseconds.value -= 100
-      } else {
-        clearTimer()
-        handleResponse(defaultResponse)
-      }
-    }, 100)
-  }
-
-  // Listen for dialog request events
-  const setupUpdateListener = () => {
-    unsubscribeDialogRequested = dialogClient.onRequested(async (event: DialogRequest) => {
-      try {
-        if (!event || !event.id || !event.title) {
-          console.error('[DialogStore] Invalid dialog request:', event)
-          return
-        }
-
-        // Clear previous dialog request if exists
-        if (dialogRequest.value) {
-          try {
-            await handleError(dialogRequest.value.id)
-          } catch (error) {
-            console.error('[DialogStore] Failed to clear previous dialog:', error)
-          }
-        }
-
-        // Start countdown if timeout is set and has default button
-        const { timeout, buttons } = event
-        const defaultButton = buttons.find((btn) => btn.default)
-        if (timeout > 0 && buttons && defaultButton) {
-          startCountdown(timeout, {
-            id: event.id,
-            button: defaultButton.key
-          })
-        }
-
-        dialogRequest.value = event
-        showDialog.value = true
-      } catch (error) {
-        console.error('[DialogStore] Error processing dialog request:', error)
-      }
-    })
-  }
-
-  // Remove dialog request listener
-  const removeUpdateListener = () => {
-    clearTimer()
-    unsubscribeDialogRequested?.()
-    unsubscribeDialogRequested = null
-  }
-
-  // Respond to dialog
-  const handleResponse = async (response: DialogResponse) => {
-    try {
-      clearTimer()
-      if (!dialogRequest.value) {
-        console.warn('No dialog request to respond')
-        return
-      }
-      await dialogClient.handleDialogResponse(response)
-    } catch (error) {
-      console.error('[DialogStore] Error handling dialog response:', error)
-    } finally {
-      dialogRequest.value = null
-      showDialog.value = false
-    }
-  }
-
-  // Handle dialog error
-  const handleError = async (id: string) => {
-    try {
-      clearTimer()
-      await dialogClient.handleDialogError(id)
-    } catch (error) {
-      console.error('[DialogStore] Error handling dialog error:', error)
-    } finally {
-      dialogRequest.value = null
-      showDialog.value = false
-    }
-  }
-
-  onMounted(setupUpdateListener)
-  onUnmounted(removeUpdateListener)
-
-  return {
-    timeoutMilliseconds,
-    dialogRequest,
-    showDialog,
-    handleResponse
-  }
+export const dialogStore = new Store<DialogState>({
+  dialogRequest: null,
+  showDialog: false,
+  timeoutMilliseconds: 0
 })
+
+const clearTimer = () => {
+  if (timer) {
+    clearInterval(timer)
+    timer = null
+  }
+}
+
+const startCountdown = (timeout: number, defaultResponse: DialogResponse) => {
+  dialogStore.setState((prev) => ({ ...prev, timeoutMilliseconds: timeout }))
+  clearTimer()
+  timer = setInterval(() => {
+    const current = dialogStore.state.timeoutMilliseconds
+    if (current > 0) {
+      dialogStore.setState((prev) => ({
+        ...prev,
+        timeoutMilliseconds: prev.timeoutMilliseconds - 100
+      }))
+    } else {
+      clearTimer()
+      handleResponse(defaultResponse)
+    }
+  }, 100)
+}
+
+const handleDialogError = async (id: string) => {
+  try {
+    clearTimer()
+    await dialogClient.handleDialogError(id)
+  } catch (error) {
+    console.error('[DialogStore] Error handling dialog error:', error)
+  } finally {
+    dialogStore.setState({ dialogRequest: null, showDialog: false })
+  }
+}
+
+export const handleResponse = async (response: DialogResponse) => {
+  try {
+    clearTimer()
+    if (!dialogStore.state.dialogRequest) {
+      console.warn('No dialog request to respond')
+      return
+    }
+    await dialogClient.handleDialogResponse(response)
+  } catch (error) {
+    console.error('[DialogStore] Error handling dialog response:', error)
+  } finally {
+    dialogStore.setState({ dialogRequest: null, showDialog: false })
+  }
+}
+
+const handleDialogRequested = async (event: DialogRequest) => {
+  try {
+    if (!event || !event.id || !event.title) {
+      console.error('[DialogStore] Invalid dialog request:', event)
+      return
+    }
+
+    if (dialogStore.state.dialogRequest) {
+      try {
+        await handleDialogError(dialogStore.state.dialogRequest.id)
+      } catch (error) {
+        console.error('[DialogStore] Failed to clear previous dialog:', error)
+      }
+    }
+
+    const { timeout, buttons } = event
+    const defaultButton = buttons.find((btn) => btn.default)
+    if (timeout > 0 && buttons && defaultButton) {
+      startCountdown(timeout, {
+        id: event.id,
+        button: defaultButton.key
+      })
+    }
+
+    dialogStore.setState({ dialogRequest: event, showDialog: true })
+  } catch (error) {
+    console.error('[DialogStore] Error processing dialog request:', error)
+  }
+}
+
+export const setupDialogListener = () => {
+  unsubscribeDialogRequested = dialogClient.onRequested(handleDialogRequested)
+}
+
+export const removeDialogListener = () => {
+  clearTimer()
+  unsubscribeDialogRequested?.()
+  unsubscribeDialogRequested = null
+}

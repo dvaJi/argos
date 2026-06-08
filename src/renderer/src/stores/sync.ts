@@ -1,299 +1,231 @@
-import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
+import { Store } from '@tanstack/store'
 import { createDeviceClient } from '@api/DeviceClient'
 import { createSyncClient } from '@api/SyncClient'
 import { createConfigClient } from '../../api/ConfigClient'
-import { useIpcQuery } from '@/composables/useIpcQuery'
-import { useIpcMutation } from '@/composables/useIpcMutation'
-import type { EntryKey, UseQueryReturn } from '@pinia/colada'
 import type { SyncBackupInfo, CloudSyncConfigView, CloudSyncConfigInput } from '@shared/presenter'
 
-export const useSyncStore = defineStore('sync', () => {
-  const syncEnabled = ref(false)
-  const syncFolderPath = ref('')
-  const lastSyncTime = ref(0)
-  const isBackingUp = ref(false)
-  const isImporting = ref(false)
-  const importResult = ref<{
+const configClient = createConfigClient()
+const syncClient = createSyncClient()
+const deviceClient = createDeviceClient()
+let syncEventsRegistered = false
+let syncSettingsListenerRegistered = false
+
+export const syncStore = new Store({
+  syncEnabled: false,
+  syncFolderPath: '',
+  lastSyncTime: 0,
+  isBackingUp: false,
+  isImporting: false,
+  importResult: null as {
     success: boolean
     message: string
     count?: number
     sourceDbType?: 'agent' | 'chat'
     importedSessions?: number
-  } | null>(null)
+  } | null,
+  cloudConfig: null as CloudSyncConfigView | null,
+  isCloudBusy: false,
+  backups: [] as SyncBackupInfo[],
+  backupsLoading: false
+})
 
-  // Cloud sync (S3-compatible) state
-  const cloudConfig = ref<CloudSyncConfigView | null>(null)
-  const isCloudBusy = ref(false)
+export const getSortedBackups = () =>
+  [...syncStore.state.backups].sort((a, b) => b.createdAt - a.createdAt)
 
-  const configClient = createConfigClient()
-  const syncClient = createSyncClient()
-  const deviceClient = createDeviceClient()
-  let syncEventsRegistered = false
-  let syncSettingsListenerRegistered = false
-
-  const backupQueryKey = (): EntryKey => ['sync', 'backups'] as const
-
-  const backupsQuery = useIpcQuery({
-    key: backupQueryKey,
-    query: () => syncClient.listBackups(),
-    staleTime: 60_000,
-    gcTime: 300_000
-  }) as UseQueryReturn<SyncBackupInfo[]>
-
-  const backups = computed(() => {
-    const list = backupsQuery.data.value ?? []
-    return [...list].sort((a, b) => b.createdAt - a.createdAt)
-  })
-
-  const refreshBackups = async () => {
-    try {
-      await backupsQuery.refetch()
-    } catch (error) {
-      console.error('刷新备份列表失败:', error)
-    }
+export const refreshBackups = async () => {
+  syncStore.setState((s) => ({ ...s, backupsLoading: true }))
+  try {
+    const backups = await syncClient.listBackups()
+    syncStore.setState((s) => ({ ...s, backups: backups ?? [], backupsLoading: false }))
+  } catch (error) {
+    console.error('Failed to refresh backup list:', error)
+    syncStore.setState((s) => ({ ...s, backupsLoading: false }))
   }
+}
 
-  const startBackupMutation = useIpcMutation({
-    mutation: () => syncClient.startBackup(),
-    invalidateQueries: () => [backupQueryKey()]
-  })
+export const startBackup = async (): Promise<SyncBackupInfo | null> => {
+  const { syncEnabled, isBackingUp } = syncStore.state
+  if (!syncEnabled || isBackingUp) return null
 
-  const startBackup = async (): Promise<SyncBackupInfo | null> => {
-    if (!syncEnabled.value || isBackingUp.value) return null
-
-    isBackingUp.value = true
-    try {
-      const backupInfo = (await startBackupMutation.mutateAsync([])) as SyncBackupInfo | null
-      if (backupInfo) {
-        await refreshBackups()
-      }
-      return backupInfo
-    } catch (error) {
-      console.error('backup failed:', error)
-      return null
-    } finally {
-      isBackingUp.value = false
-    }
-  }
-
-  const importBackupMutation = useIpcMutation({
-    mutation: (backupFile: string, mode: 'increment' | 'overwrite') =>
-      syncClient.importFromSync(backupFile, mode),
-    invalidateQueries: () => [backupQueryKey()]
-  })
-
-  const importData = async (
-    backupFile: string,
-    mode: 'increment' | 'overwrite' = 'increment'
-  ): Promise<{
-    success: boolean
-    message: string
-    count?: number
-    sourceDbType?: 'agent' | 'chat'
-    importedSessions?: number
-  } | null> => {
-    if (!syncEnabled.value || isImporting.value || !backupFile) return null
-
-    isImporting.value = true
-    try {
-      const result = (await importBackupMutation.mutateAsync([backupFile, mode])) as {
-        success: boolean
-        message: string
-        count?: number
-        sourceDbType?: 'agent' | 'chat'
-        importedSessions?: number
-      }
-      importResult.value = result.success ? null : result
-      return result
-    } catch (error) {
-      console.error('import failed:', error)
-      importResult.value = {
-        success: false,
-        message: 'sync.error.importFailed'
-      }
-      return importResult.value
-    } finally {
-      isImporting.value = false
+  syncStore.setState((s) => ({ ...s, isBackingUp: true }))
+  try {
+    const backupInfo = await syncClient.startBackup()
+    if (backupInfo) {
       await refreshBackups()
     }
+    return backupInfo
+  } catch (error) {
+    console.error('backup failed:', error)
+    return null
+  } finally {
+    syncStore.setState((s) => ({ ...s, isBackingUp: false }))
   }
+}
 
-  const loadCloudConfig = async () => {
-    try {
-      cloudConfig.value = await syncClient.getCloudConfig()
-    } catch (error) {
-      console.error('load cloud config failed:', error)
+export const importData = async (
+  backupFile: string,
+  mode: 'increment' | 'overwrite' = 'increment'
+) => {
+  const { syncEnabled, isImporting } = syncStore.state
+  if (!syncEnabled || isImporting || !backupFile) return null
+
+  syncStore.setState((s) => ({ ...s, isImporting: true }))
+  try {
+    const result = await syncClient.importFromSync(backupFile, mode)
+    const importResult = result.success ? null : result
+    syncStore.setState((s) => ({ ...s, importResult }))
+    return result
+  } catch (error) {
+    console.error('import failed:', error)
+    const importResult = { success: false, message: 'Import failed' }
+    syncStore.setState((s) => ({ ...s, importResult }))
+    return importResult
+  } finally {
+    syncStore.setState((s) => ({ ...s, isImporting: false }))
+    await refreshBackups()
+  }
+}
+
+export const loadCloudConfig = async () => {
+  try {
+    const cloudConfig = await syncClient.getCloudConfig()
+    syncStore.setState((s) => ({ ...s, cloudConfig }))
+    return cloudConfig
+  } catch (error) {
+    console.error('load cloud config failed:', error)
+    return syncStore.state.cloudConfig
+  }
+}
+
+export const saveCloudConfig = async (config: CloudSyncConfigInput) => {
+  if (syncStore.state.isCloudBusy) return syncStore.state.cloudConfig
+  syncStore.setState((s) => ({ ...s, isCloudBusy: true }))
+  try {
+    const cloudConfig = await syncClient.setCloudConfig(config)
+    syncStore.setState((s) => ({ ...s, cloudConfig }))
+    return cloudConfig
+  } finally {
+    syncStore.setState((s) => ({ ...s, isCloudBusy: false }))
+  }
+}
+
+export const testCloud = async () => {
+  if (syncStore.state.isCloudBusy) return null
+  syncStore.setState((s) => ({ ...s, isCloudBusy: true }))
+  try {
+    return await syncClient.testCloudConnection()
+  } finally {
+    syncStore.setState((s) => ({ ...s, isCloudBusy: false }))
+  }
+}
+
+export const uploadToCloud = async () => {
+  if (syncStore.state.isCloudBusy) return null
+  syncStore.setState((s) => ({ ...s, isCloudBusy: true }))
+  try {
+    return await syncClient.uploadToCloud()
+  } finally {
+    syncStore.setState((s) => ({ ...s, isCloudBusy: false }))
+  }
+}
+
+export const pullFromCloud = async (mode: 'increment' | 'overwrite' = 'increment') => {
+  if (syncStore.state.isCloudBusy) return null
+  syncStore.setState((s) => ({ ...s, isCloudBusy: true }))
+  try {
+    const result = await syncClient.pullFromCloud(mode)
+    if (result && !result.success) {
+      syncStore.setState((s) => ({ ...s, importResult: result }))
     }
-    return cloudConfig.value
+    return result
+  } finally {
+    syncStore.setState((s) => ({ ...s, isCloudBusy: false }))
+    await refreshBackups()
   }
+}
 
-  const saveCloudConfig = async (config: CloudSyncConfigInput) => {
-    if (isCloudBusy.value) return cloudConfig.value
-    isCloudBusy.value = true
-    try {
-      cloudConfig.value = await syncClient.setCloudConfig(config)
-      return cloudConfig.value
-    } finally {
-      isCloudBusy.value = false
-    }
+const setupSyncEventListeners = () => {
+  if (syncEventsRegistered) return
+  syncEventsRegistered = true
+
+  syncClient.onBackupStarted(() => {
+    syncStore.setState((s) => ({ ...s, isBackingUp: true }))
+  })
+  syncClient.onBackupCompleted(({ timestamp }) => {
+    syncStore.setState((s) => ({ ...s, isBackingUp: false, lastSyncTime: timestamp }))
+  })
+  syncClient.onBackupError(() => {
+    syncStore.setState((s) => ({ ...s, isBackingUp: false }))
+  })
+  syncClient.onImportStarted(() => {
+    syncStore.setState((s) => ({ ...s, isImporting: true }))
+  })
+  syncClient.onImportCompleted(() => {
+    syncStore.setState((s) => ({ ...s, isImporting: false }))
+  })
+  syncClient.onImportError(() => {
+    syncStore.setState((s) => ({ ...s, isImporting: false }))
+  })
+}
+
+export const setSyncEnabled = async (enabled: boolean) => {
+  syncStore.setState((s) => ({ ...s, syncEnabled: enabled }))
+  await configClient.setSyncEnabled(enabled)
+}
+
+export const setSyncFolderPath = async (path: string) => {
+  syncStore.setState((s) => ({ ...s, syncFolderPath: path }))
+  await configClient.setSyncFolderPath(path)
+  await refreshBackups()
+}
+
+export const selectSyncFolder = async () => {
+  const result = await deviceClient.selectDirectory()
+  if (result && !result.canceled && result.filePaths.length > 0) {
+    await setSyncFolderPath(result.filePaths[0])
   }
+}
 
-  const testCloud = async () => {
-    if (isCloudBusy.value) return null
-    isCloudBusy.value = true
-    try {
-      return await syncClient.testCloudConnection()
-    } finally {
-      isCloudBusy.value = false
-    }
-  }
+export const openSyncFolder = async () => {
+  if (!syncStore.state.syncEnabled) return
+  await syncClient.openSyncFolder()
+}
 
-  const uploadToCloud = async () => {
-    if (isCloudBusy.value) return null
-    isCloudBusy.value = true
-    try {
-      return await syncClient.uploadToCloud()
-    } finally {
-      isCloudBusy.value = false
-    }
-  }
+export const restartApp = async () => {
+  await deviceClient.restartApp()
+}
 
-  const pullFromCloud = async (mode: 'increment' | 'overwrite' = 'increment') => {
-    if (isCloudBusy.value) return null
-    isCloudBusy.value = true
-    try {
-      const result = await syncClient.pullFromCloud(mode)
-      if (result && !result.success) {
-        importResult.value = result
-      }
-      return result
-    } finally {
-      isCloudBusy.value = false
+export const clearImportResult = () => {
+  syncStore.setState((s) => ({ ...s, importResult: null }))
+}
+
+const setupSyncSettingsListener = () => {
+  if (syncSettingsListenerRegistered) return
+  syncSettingsListenerRegistered = true
+  configClient.onSyncSettingsChanged(async ({ enabled, folderPath }) => {
+    const currentPath = syncStore.state.syncFolderPath
+    syncStore.setState((s) => ({ ...s, syncEnabled: enabled, syncFolderPath: folderPath }))
+    if (folderPath !== currentPath) {
       await refreshBackups()
     }
-  }
+  })
+}
 
-  const initialize = async () => {
-    syncEnabled.value = await configClient.getSyncEnabled()
-    syncFolderPath.value = await configClient.getSyncFolderPath()
+export const initializeSync = async () => {
+  const syncEnabled = await configClient.getSyncEnabled()
+  const syncFolderPath = await configClient.getSyncFolderPath()
+  const status = await syncClient.getBackupStatus()
 
-    const status = await syncClient.getBackupStatus()
-    lastSyncTime.value = status.lastBackupTime
-    isBackingUp.value = status.isBackingUp
-
-    await refreshBackups()
-    await loadCloudConfig()
-    setupSyncEventListeners()
-    setupSyncSettingsListener()
-  }
-
-  const setupSyncEventListeners = () => {
-    if (syncEventsRegistered) {
-      return
-    }
-
-    syncEventsRegistered = true
-
-    syncClient.onBackupStarted(() => {
-      isBackingUp.value = true
-    })
-
-    syncClient.onBackupCompleted(({ timestamp }) => {
-      isBackingUp.value = false
-      lastSyncTime.value = timestamp
-    })
-
-    syncClient.onBackupError(() => {
-      isBackingUp.value = false
-    })
-
-    syncClient.onImportStarted(() => {
-      isImporting.value = true
-    })
-
-    syncClient.onImportCompleted(() => {
-      isImporting.value = false
-    })
-
-    syncClient.onImportError(() => {
-      isImporting.value = false
-    })
-  }
-
-  const setSyncEnabled = async (enabled: boolean) => {
-    syncEnabled.value = enabled
-    await configClient.setSyncEnabled(enabled)
-  }
-
-  const setSyncFolderPath = async (path: string) => {
-    syncFolderPath.value = path
-    await configClient.setSyncFolderPath(path)
-    await refreshBackups()
-  }
-
-  const selectSyncFolder = async () => {
-    const result = await deviceClient.selectDirectory()
-    if (result && !result.canceled && result.filePaths.length > 0) {
-      await setSyncFolderPath(result.filePaths[0])
-    }
-  }
-
-  const openSyncFolder = async () => {
-    if (!syncEnabled.value) return
-    await syncClient.openSyncFolder()
-  }
-
-  const restartApp = async () => {
-    await deviceClient.restartApp()
-  }
-
-  const clearImportResult = () => {
-    importResult.value = null
-  }
-
-  const setupSyncSettingsListener = () => {
-    if (syncSettingsListenerRegistered) {
-      return
-    }
-
-    syncSettingsListenerRegistered = true
-    configClient.onSyncSettingsChanged(async ({ enabled, folderPath }) => {
-      syncEnabled.value = enabled
-      if (folderPath !== syncFolderPath.value) {
-        syncFolderPath.value = folderPath
-        await refreshBackups()
-        return
-      }
-      syncFolderPath.value = folderPath
-    })
-  }
-
-  return {
+  syncStore.setState((s) => ({
+    ...s,
     syncEnabled,
     syncFolderPath,
-    lastSyncTime,
-    isBackingUp,
-    isImporting,
-    importResult,
-    backups,
-    cloudConfig,
-    isCloudBusy,
+    lastSyncTime: status.lastBackupTime,
+    isBackingUp: status.isBackingUp
+  }))
 
-    initialize,
-    setSyncEnabled,
-    setSyncFolderPath,
-    selectSyncFolder,
-    openSyncFolder,
-    startBackup,
-    importData,
-    restartApp,
-    clearImportResult,
-    refreshBackups,
-    loadCloudConfig,
-    saveCloudConfig,
-    testCloud,
-    uploadToCloud,
-    pullFromCloud
-  }
-})
+  await refreshBackups()
+  await loadCloudConfig()
+  setupSyncEventListeners()
+  setupSyncSettingsListener()
+}

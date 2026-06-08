@@ -27,7 +27,7 @@
     </div>
 
     <div v-show="expanded" class="w-full relative">
-      <NodeRenderer
+      <SimpleNodeRenderer
         v-if="sanitizedContent"
         class="think-prose w-full max-w-full"
         :isDark="themeStore.isDark"
@@ -50,8 +50,28 @@
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme'
 import { Icon } from '@iconify/vue'
-import { h, computed, watch } from 'vue'
-import NodeRenderer, { setCustomComponents, CodeBlockNode, PreCodeNode } from 'markstream-vue'
+import { defineComponent, h, computed } from 'vue'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
+const SimpleNodeRenderer = defineComponent({
+  name: 'SimpleNodeRenderer',
+  props: {
+    content: { type: String, default: '' },
+    isDark: { type: Boolean, default: false },
+    customId: { type: String, default: '' },
+    deferNodesUntilVisible: { type: Boolean, default: false },
+    maxLiveNodes: { type: Number, default: 0 },
+    liveNodeBuffer: { type: Number, default: 0 }
+  },
+  setup(props) {
+    return () =>
+      h('div', {
+        class: 'think-prose w-full max-w-full prose prose-sm dark:prose-invert',
+        innerHTML: props.content
+      })
+  }
+})
 
 const props = defineProps<{
   label: string
@@ -72,35 +92,6 @@ defineEmits<{
 const customId = 'thinking-content'
 const themeStore = useThemeStore()
 const propsWatchSource = () => [props.label, props.expanded, props.thinking, props.content] as const
-
-watch(propsWatchSource, () => {}, { immediate: true })
-setCustomComponents(customId, {
-  code_block: (_props) => {
-    const isMermaid = _props.node.language === 'mermaid'
-    if (isMermaid) {
-      // 对于 Mermaid 代码块，直接返回 MermaidNode 组件
-      return h(PreCodeNode.vue, {
-        ..._props
-      })
-    }
-    return h(
-      CodeBlockNode,
-      {
-        ..._props,
-        isShowPreview: false,
-        showCopyButton: false,
-        showExpandButton: false,
-        showPreviewButton: false,
-        showFontSizeButtons: false
-      },
-      undefined
-    )
-  },
-  mermaid: (_props) =>
-    h(PreCodeNode.vue, {
-      ..._props
-    })
-})
 </script>
 
 <style scoped>

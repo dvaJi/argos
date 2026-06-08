@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { useState, useRef } from 'react'
 import { isMediaRecorderSupported, useAudioRecorder, type RecorderWindow } from './useAudioRecorder'
 
 export type SpeechRecognitionErrorCode =
@@ -277,20 +277,22 @@ export function useSpeechRecognition(options: {
 }) {
   const speechWindow = options.speechWindow ?? getDefaultSpeechWindow()
   const isSupported = isSpeechRecognitionSupported(speechWindow)
-  const isTranscribing = ref(false)
-  const isDisposed = ref(false)
-  let activeAbortController: AbortController | null = null
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const isTranscribingRef = useRef(false)
+  const isDisposedRef = useRef(false)
+  const activeAbortControllerRef = useRef<AbortController | null>(null)
 
   const recorder = useAudioRecorder({
     recorderWindow: speechWindow,
     onRecorded: async ({ blob }) => {
-      if (isDisposed.value) {
+      if (isDisposedRef.current) {
         return
       }
 
       const abortController = new AbortController()
-      activeAbortController = abortController
-      isTranscribing.value = true
+      activeAbortControllerRef.current = abortController
+      isTranscribingRef.current = true
+      setIsTranscribing(true)
 
       try {
         const wavBlob = await convertAudioBlobToWav(blob, speechWindow)
@@ -329,10 +331,11 @@ export function useSpeechRecognition(options: {
           options.onError?.(code)
         }
       } finally {
-        if (activeAbortController === abortController) {
-          activeAbortController = null
+        if (activeAbortControllerRef.current === abortController) {
+          activeAbortControllerRef.current = null
         }
-        isTranscribing.value = false
+        isTranscribingRef.current = false
+        setIsTranscribing(false)
       }
     },
     onUnsupported: options.onUnsupported,
@@ -340,7 +343,6 @@ export function useSpeechRecognition(options: {
       options.onError?.(normalizeRecorderErrorCode(code))
     }
   })
-  const isListening = computed(() => recorder.isRecording.value)
 
   const start = async (): Promise<boolean> => {
     if (!isSupported) {
@@ -348,7 +350,7 @@ export function useSpeechRecognition(options: {
       return false
     }
 
-    if (recorder.isRecording.value || isTranscribing.value) {
+    if (recorder.isRecording || isTranscribingRef.current) {
       return false
     }
 
@@ -356,16 +358,16 @@ export function useSpeechRecognition(options: {
   }
 
   const stop = () => {
-    if (recorder.isRecording.value) {
+    if (recorder.isRecording) {
       recorder.stop()
       return
     }
 
-    activeAbortController?.abort()
+    activeAbortControllerRef.current?.abort()
   }
 
   const toggle = async () => {
-    if (recorder.isRecording.value || isTranscribing.value) {
+    if (recorder.isRecording || isTranscribingRef.current) {
       stop()
       return false
     }
@@ -374,16 +376,17 @@ export function useSpeechRecognition(options: {
   }
 
   const cleanup = () => {
-    isDisposed.value = true
-    activeAbortController?.abort()
-    activeAbortController = null
+    isDisposedRef.current = true
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = null
     recorder.cleanup()
-    isTranscribing.value = false
+    isTranscribingRef.current = false
+    setIsTranscribing(false)
   }
 
   return {
     isSupported,
-    isListening,
+    isListening: recorder.isRecording,
     isTranscribing,
     start,
     stop,

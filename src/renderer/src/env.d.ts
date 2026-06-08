@@ -1,11 +1,11 @@
 /// <reference types="vite/client" />
 
-declare module '*.vue' {
-  import type { DefineComponent } from 'vue'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type
-  const component: DefineComponent<{}, {}, any>
-  export default component
+declare module '*.svg?react' {
+  import type { ComponentType, SVGProps } from 'react'
+  const Component: ComponentType<SVGProps<SVGSVGElement>>
+  export default Component
 }
+
 interface ImportMetaEnv {
   readonly VITE_GITHUB_CLIENT_ID: string
   readonly VITE_GITHUB_CLIENT_SECRET: string

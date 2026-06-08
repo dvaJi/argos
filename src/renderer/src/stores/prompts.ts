@@ -1,97 +1,58 @@
-import { computed } from 'vue'
-import { defineStore } from 'pinia'
-import { useIpcQuery } from '@/composables/useIpcQuery'
-import { useIpcMutation } from '@/composables/useIpcMutation'
-import { type EntryKey, type UseQueryReturn } from '@pinia/colada'
+import { Store } from '@tanstack/store'
 import type { Prompt } from '@shared/presenter'
 import { createConfigClient } from '../../api/ConfigClient'
 
-export const usePromptsStore = defineStore('prompts', () => {
-  const configClient = createConfigClient()
-  const customPromptsKey: EntryKey = ['config', 'customPrompts'] as const
+const configClient = createConfigClient()
 
-  const promptsQuery = useIpcQuery({
-    key: () => customPromptsKey,
-    query: () => configClient.getCustomPrompts(),
-    staleTime: 60_000,
-    gcTime: 300_000
-  }) as UseQueryReturn<Prompt[]>
-
-  const prompts = computed(() => promptsQuery.data.value ?? [])
-
-  const loadPrompts = async () => {
-    try {
-      await promptsQuery.refetch()
-    } catch (error) {
-      console.error('Failed to load custom prompts:', error)
-    }
-  }
-
-  const invalidateCustomPrompts = (): EntryKey[] => [customPromptsKey]
-
-  const savePromptsMutation = useIpcMutation({
-    mutation: (prompts: Prompt[]) => configClient.setCustomPrompts(prompts),
-    invalidateQueries: () => invalidateCustomPrompts()
-  })
-
-  const savePrompts = async (newPrompts: Prompt[]) => {
-    try {
-      await savePromptsMutation.mutateAsync([newPrompts])
-    } catch (error) {
-      console.error('Failed to save custom prompts:', error)
-      throw error
-    }
-  }
-
-  const addPromptMutation = useIpcMutation({
-    mutation: (prompt: Prompt) => configClient.addCustomPrompt(prompt),
-    invalidateQueries: () => invalidateCustomPrompts()
-  })
-
-  const addPrompt = async (prompt: Prompt) => {
-    try {
-      await addPromptMutation.mutateAsync([prompt])
-    } catch (error) {
-      console.error('Failed to add custom prompt:', error)
-      throw error
-    }
-  }
-
-  const updatePromptMutation = useIpcMutation({
-    mutation: (promptId: string, updates: Partial<Prompt>) =>
-      configClient.updateCustomPrompt(promptId, updates),
-    invalidateQueries: () => invalidateCustomPrompts()
-  })
-
-  const updatePrompt = async (promptId: string, updates: Partial<Prompt>) => {
-    try {
-      await updatePromptMutation.mutateAsync([promptId, updates])
-    } catch (error) {
-      console.error('Failed to update custom prompt:', error)
-      throw error
-    }
-  }
-
-  const deletePromptMutation = useIpcMutation({
-    mutation: (promptId: string) => configClient.deleteCustomPrompt(promptId),
-    invalidateQueries: () => invalidateCustomPrompts()
-  })
-
-  const deletePrompt = async (promptId: string) => {
-    try {
-      await deletePromptMutation.mutateAsync([promptId])
-    } catch (error) {
-      console.error('Failed to delete custom prompt:', error)
-      throw error
-    }
-  }
-
-  return {
-    prompts,
-    loadPrompts,
-    savePrompts,
-    addPrompt,
-    updatePrompt,
-    deletePrompt
-  }
+export const promptsStore = new Store({
+  prompts: [] as Prompt[]
 })
+
+export const loadCustomPrompts = async () => {
+  try {
+    const prompts = await configClient.getCustomPrompts()
+    promptsStore.setState((s) => ({ ...s, prompts: prompts ?? [] }))
+  } catch (error) {
+    console.error('Failed to load custom prompts:', error)
+  }
+}
+
+export const savePrompts = async (newPrompts: Prompt[]) => {
+  try {
+    await configClient.setCustomPrompts(newPrompts)
+    promptsStore.setState((s) => ({ ...s, prompts: newPrompts }))
+  } catch (error) {
+    console.error('Failed to save custom prompts:', error)
+    throw error
+  }
+}
+
+export const addPrompt = async (prompt: Prompt) => {
+  try {
+    await configClient.addCustomPrompt(prompt)
+    await loadCustomPrompts()
+  } catch (error) {
+    console.error('Failed to add custom prompt:', error)
+    throw error
+  }
+}
+
+export const updatePrompt = async (promptId: string, updates: Partial<Prompt>) => {
+  try {
+    await configClient.updateCustomPrompt(promptId, updates)
+    await loadCustomPrompts()
+  } catch (error) {
+    console.error('Failed to update custom prompt:', error)
+    throw error
+  }
+}
+
+export const deletePrompt = async (promptId: string) => {
+  try {
+    await configClient.deleteCustomPrompt(promptId)
+    await loadCustomPrompts()
+  } catch (error) {
+    console.error('Failed to delete custom prompt:', error)
+    throw error
+  }
+}
