@@ -232,8 +232,12 @@ export function useAgentStore() {
   const state = useStore(agentStore)
   return {
     ...state,
-    enabledAgents,
-    selectedAgent,
+    get enabledAgents() {
+      return state.agents.filter((a) => a.enabled)
+    },
+    get selectedAgent() {
+      return agentStore.state.agents.find((a) => a.id === agentStore.state.selectedAgentId) ?? null
+    },
     applyAgents,
     mergeAgents,
     refreshAgentsByType,
