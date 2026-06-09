@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { DeepchatEventPayload } from '@shared/contracts/events'
 
 export type AgentPlanViewSnapshot = DeepchatEventPayload<'chat.plan.updated'>
@@ -51,4 +52,8 @@ export const setCollapsed = (sessionId: string, collapsed: boolean): void => {
 
 export const toggleCollapsed = (sessionId: string): void => {
   setCollapsed(sessionId, !isCollapsed(sessionId))
+}
+
+export function useAgentPlanStore() {
+  return useStore(agentPlanStore)
 }

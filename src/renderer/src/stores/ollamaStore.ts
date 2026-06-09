@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createProviderClient } from '../../api/ProviderClient'
 import { createModelClient } from '../../api/ModelClient'
 import type { OllamaModel } from '@shared/presenter'
@@ -238,4 +239,8 @@ export const ensureProviderReady = async (providerId: string) => {
       initializedProviderIds: new Set(prev.initializedProviderIds).add(providerId)
     }))
   }
+}
+
+export function useOllamaStore() {
+  return useStore(ollamaStore)
 }

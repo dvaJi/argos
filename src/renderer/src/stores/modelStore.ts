@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { MODEL_META, RENDERER_MODEL_META, ModelConfig } from '@shared/presenter'
 import { isChatSelectableModelType, ModelType } from '@shared/model'
 import {
@@ -1373,4 +1374,8 @@ export async function updateCustomModelMutation(
     await refreshCustomModels(providerId)
   }
   return result
+}
+
+export function useModelStore() {
+  return useStore(modelStore)
 }

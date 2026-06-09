@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { SidePanelTab, WorkspaceNavSection, WorkspaceViewMode } from '@shared/presenter'
 
 export interface WorkspaceArtifactContext {
@@ -311,4 +312,8 @@ export const clearDiff = (sessionId: string) => {
       [sessionId]: { ...current, selectedDiffPath: null }
     }
   }))
+}
+
+export function useSidepanelStore() {
+  return useStore(sidepanelStore)
 }

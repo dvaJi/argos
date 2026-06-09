@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createConfigClient } from '../../api/ConfigClient'
 
 const RTL_LIST = ['fa-IR', 'he-IL']
@@ -38,4 +39,8 @@ export const initLanguage = async () => {
 export const updateLanguage = async (newLanguage: string) => {
   await configClient.setLanguage(newLanguage)
   languageStore.setState((s) => ({ ...s, language: newLanguage }))
+}
+
+export function useLanguageStore() {
+  return useStore(languageStore)
 }

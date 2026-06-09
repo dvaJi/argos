@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { ShortcutKeySetting } from '@shared/presenter'
 import { createShortcutRuntime } from '@api/ShortcutRuntime'
 import { createConfigClient } from '../../api/ConfigClient'
@@ -31,4 +32,8 @@ export const enableShortcutKey = () => {
 
 export const disableShortcutKey = () => {
   shortcutRuntime.destroy()
+}
+
+export function useShortcutKeyStore() {
+  return useStore(shortcutKeyStore)
 }

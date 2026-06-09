@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createChatClient } from '../../../api/ChatClient'
 import { createConfigClient } from '../../../api/ConfigClient'
 import { createOnboardingClient } from '../../../api/OnboardingClient'
@@ -1036,3 +1037,7 @@ export function cleanupSessionStore(): void {
 }
 
 void ensureGroupModeLoaded()
+
+export function useSessionStore() {
+  return useStore(sessionStore)
+}

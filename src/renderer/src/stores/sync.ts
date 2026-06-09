@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createDeviceClient } from '@api/DeviceClient'
 import { createSyncClient } from '@api/SyncClient'
 import { createConfigClient } from '../../api/ConfigClient'
@@ -228,4 +229,8 @@ export const initializeSync = async () => {
   await loadCloudConfig()
   setupSyncEventListeners()
   setupSyncSettingsListener()
+}
+
+export function useSyncStore() {
+  return useStore(syncStore)
 }

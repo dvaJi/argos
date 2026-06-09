@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createDialogClient } from '@api/DialogClient'
 import { DialogRequest, DialogResponse } from '@shared/presenter'
 
@@ -106,4 +107,8 @@ export const removeDialogListener = () => {
   clearTimer()
   unsubscribeDialogRequested?.()
   unsubscribeDialogRequested = null
+}
+
+export function useDialogStore() {
+  return useStore(dialogStore)
 }

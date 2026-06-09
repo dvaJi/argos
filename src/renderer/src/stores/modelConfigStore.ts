@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { ModelConfig, IModelConfig } from '@shared/presenter'
 import { createModelClient } from '../../api/ModelClient'
 
@@ -62,4 +63,8 @@ export const importConfigs = async (configs: Record<string, IModelConfig>, overw
 
 export const exportConfigs = async () => {
   return await modelClient.exportModelConfigs()
+}
+
+export function useModelConfigStore() {
+  return useStore(modelConfigStore)
 }

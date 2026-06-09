@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 
 export const sidebarStore = new Store({
   collapsed: false
@@ -10,4 +11,8 @@ export const toggleSidebar = () => {
 
 export const setCollapsed = (value: boolean) => {
   sidebarStore.setState((prev) => ({ ...prev, collapsed: value }))
+}
+
+export function useSidebarStore() {
+  return useStore(sidebarStore)
 }

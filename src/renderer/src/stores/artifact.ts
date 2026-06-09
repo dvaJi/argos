@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { useSidepanelStore } from './ui/sidepanel'
 
 export interface ArtifactState {
@@ -186,4 +187,8 @@ export const completeArtifact = (artifact: ArtifactState, messageId: string, thr
       viewMode: 'preview'
     })
   }
+}
+
+export function useArtifactStore() {
+  return useStore(artifactStore)
 }

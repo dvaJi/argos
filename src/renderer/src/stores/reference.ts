@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { SearchResult } from '@shared/types/core/search'
 
 interface ReferenceState {
@@ -27,4 +28,8 @@ export const hideReference = () => {
     previewRect: undefined,
     showPreview: false
   })
+}
+
+export function useReferenceStore() {
+  return useStore(referenceStore)
 }

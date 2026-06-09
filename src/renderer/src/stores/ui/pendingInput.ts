@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createSessionClient } from '@api/SessionClient'
 import type { PendingSessionInputRecord, SendMessageInput } from '@shared/types/agent-interface'
 
@@ -182,4 +183,8 @@ const unsubscribePendingInputs = sessionClient.onPendingInputsChanged(pendingInp
 
 export const disposePendingInputListeners = () => {
   unsubscribePendingInputs()
+}
+
+export function usePendingInputStore() {
+  return useStore(pendingInputStore)
 }

@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createMcpClient } from '@api/McpClient'
 import { createConfigClient } from '../../api/ConfigClient'
 import type {
@@ -803,3 +804,7 @@ export const getEnabledServerCount = () => getEnabledServers().length
 export const getToolCount = () => getVisibleTools().length
 
 export const getHasTools = () => getToolCount() > 0
+
+export function useMcpStore() {
+  return useStore(mcpStore)
+}

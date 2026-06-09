@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createSettingsClient } from '@api/SettingsClient'
 import { createSessionClient } from '@api/SessionClient'
 import { enabledAgents } from './agent'
@@ -495,4 +496,8 @@ export const executeActiveItem = async () => {
 
 export const clearPendingMessageJump = () => {
   spotlightStore.setState((prev) => ({ ...prev, pendingMessageJump: null }))
+}
+
+export function useSpotlightStore() {
+  return useStore(spotlightStore)
 }

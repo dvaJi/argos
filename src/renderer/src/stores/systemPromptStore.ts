@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { SystemPrompt } from '@shared/presenter'
 import { createConfigClient } from '../../api/ConfigClient'
 
@@ -59,4 +60,8 @@ export const setDefaultSystemPromptId = async (promptId: string) => {
   systemPromptStore.setState((s) => ({ ...s, defaultPromptId: promptId }))
   await configClient.setDefaultSystemPromptId(promptId)
   await loadSystemPrompts()
+}
+
+export function useSystemPromptStore() {
+  return useStore(systemPromptStore)
 }

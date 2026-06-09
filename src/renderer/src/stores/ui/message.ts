@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createSessionClient } from '../../../api/SessionClient'
 import type {
   DisplayAssistantMessageBlock,
@@ -501,4 +502,8 @@ const cleanupIpc = bindMessageStoreIpc({
 
 export function cleanupMessageStore(): void {
   cleanupIpc()
+}
+
+export function useMessageStore() {
+  return useStore(messageStore)
 }

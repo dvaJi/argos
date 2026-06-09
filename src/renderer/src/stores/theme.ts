@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createConfigClient } from '../../api/ConfigClient'
 
 export type ThemeMode = 'dark' | 'light' | 'system'
@@ -66,4 +67,8 @@ export const toggleDark = (isDark?: boolean) => {
   const next = isDark ?? !themeStore.state.isDark
   applyDarkClass(next)
   themeStore.setState((s) => ({ ...s, isDark: next }))
+}
+
+export function useThemeStore() {
+  return useStore(themeStore)
 }

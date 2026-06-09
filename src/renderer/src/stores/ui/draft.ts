@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { normalizeImageGenerationOptions } from '@shared/imageGenerationSettings'
 import { normalizeVideoGenerationOptions } from '@shared/videoGenerationSettings'
 import type {
@@ -196,4 +197,8 @@ export function setPendingStartDeeplink(
 
 export function clearPendingStartDeeplink(): void {
   draftStore.setState((prev) => ({ ...prev, pendingStartDeeplink: null }))
+}
+
+export function useDraftStore() {
+  return useStore(draftStore)
 }

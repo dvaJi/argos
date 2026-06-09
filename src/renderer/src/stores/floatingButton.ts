@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createConfigClient } from '../../api/ConfigClient'
 
 interface FloatingButtonState {
@@ -51,4 +52,8 @@ export const initializeState = async () => {
     console.error('Failed to initialize floating button state:', error)
     floatingButtonStore.setState({ enabled: false })
   }
+}
+
+export function useFloatingButtonStore() {
+  return useStore(floatingButtonStore)
 }

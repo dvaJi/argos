@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createSkillClient } from '@api/SkillClient'
 import type {
   SkillMetadata,
@@ -201,4 +202,8 @@ if (!catalogListenerRegistered) {
   skillClient.onCatalogChanged(() => {
     void loadSkills()
   })
+}
+
+export function useSkillsStore() {
+  return useStore(skillsStore)
 }

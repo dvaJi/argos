@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createConfigClient } from '../../../api/ConfigClient'
 import { createProjectClient } from '@api/ProjectClient'
 import type { EnvironmentSummary, Project } from '@shared/types/agent-interface'
@@ -246,4 +247,8 @@ export async function openFolderPicker(): Promise<void> {
       error: `Failed to open folder picker: ${e}`
     }))
   }
+}
+
+export function useProjectStore() {
+  return useStore(projectStore)
 }

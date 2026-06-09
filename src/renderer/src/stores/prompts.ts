@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { Prompt } from '@shared/presenter'
 import { createConfigClient } from '../../api/ConfigClient'
 
@@ -55,4 +56,8 @@ export const deletePrompt = async (promptId: string) => {
     console.error('Failed to delete custom prompt:', error)
     throw error
   }
+}
+
+export function usePromptsStore() {
+  return useStore(promptsStore)
 }

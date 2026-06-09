@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createMcpClient } from '@api/McpClient'
 import type {
   McpSamplingDecision,
@@ -440,4 +441,8 @@ export const cleanupMcpSampling = () => {
   while (eventCleanups.length > 0) {
     eventCleanups.pop()?.()
   }
+}
+
+export function useMcpSamplingStore() {
+  return useStore(mcpSamplingStore)
 }

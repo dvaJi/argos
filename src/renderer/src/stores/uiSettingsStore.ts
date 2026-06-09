@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import type { SettingsChange, SettingsSnapshotValues } from '@shared/contracts/routes'
 import { buildFontStack, DEFAULT_CODE_FONT_STACK, DEFAULT_TEXT_FONT_STACK } from '@/lib/fontStack'
 import { createSettingsClient } from '../../api/SettingsClient'
@@ -264,4 +265,8 @@ export const initUiSettings = () => {
 export const destroyUiSettings = () => {
   unsubscribeFromSettings?.()
   unsubscribeFromSettings = null
+}
+
+export function useUiSettingsStore() {
+  return useStore(uiSettingsStore)
 }

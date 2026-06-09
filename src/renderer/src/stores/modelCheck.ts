@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 
 interface ModelCheckState {
   isDialogOpen: boolean
@@ -16,4 +17,8 @@ export const openDialog = (providerId: string) => {
 
 export const closeDialog = () => {
   modelCheckStore.setState({ isDialogOpen: false, currentProviderId: '' })
+}
+
+export function useModelCheckStore() {
+  return useStore(modelCheckStore)
 }

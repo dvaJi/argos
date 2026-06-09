@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createProviderClient } from '../../api/ProviderClient'
 import { createConfigClient } from '../../api/ConfigClient'
 import type { AWS_BEDROCK_PROVIDER, LLM_PROVIDER, VERTEX_PROVIDER } from '@shared/presenter'
@@ -431,4 +432,8 @@ function scheduleProviderOrderSync(): void {
       void saveProviderOrder()
     }
   }, 80)
+}
+
+export function useProviderStore() {
+  return useStore(providerStore)
 }
