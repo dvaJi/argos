@@ -14,5 +14,10 @@ export const setCollapsed = (value: boolean) => {
 }
 
 export function useSidebarStore() {
-  return useStore(sidebarStore)
+  const state = useStore(sidebarStore)
+  return {
+    ...state,
+    toggleSidebar,
+    setCollapsed
+  }
 }

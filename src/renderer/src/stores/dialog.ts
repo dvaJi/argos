@@ -110,5 +110,11 @@ export const removeDialogListener = () => {
 }
 
 export function useDialogStore() {
-  return useStore(dialogStore)
+  const state = useStore(dialogStore)
+  return {
+    ...state,
+    handleResponse,
+    setupDialogListener,
+    removeDialogListener
+  }
 }

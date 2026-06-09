@@ -315,5 +315,28 @@ export const clearDiff = (sessionId: string) => {
 }
 
 export function useSidepanelStore() {
-  return useStore(sidepanelStore)
+  const state = useStore(sidepanelStore)
+  return {
+    ...state,
+    getNormalizedWidth,
+    getNavWidth,
+    setNavWidth,
+    setNavCollapsed,
+    toggleNavCollapsed,
+    disposeSidepanel,
+    getSessionState,
+    setWidth,
+    openWorkspace,
+    openBrowser,
+    closePanel,
+    toggleWorkspace,
+    setViewMode,
+    toggleSection,
+    selectArtifact,
+    selectFile,
+    selectDiff,
+    clearArtifact,
+    clearFile,
+    clearDiff
+  }
 }

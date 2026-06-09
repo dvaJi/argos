@@ -1039,5 +1039,32 @@ export function cleanupSessionStore(): void {
 void ensureGroupModeLoaded()
 
 export function useSessionStore() {
-  return useStore(sessionStore)
+  const state = useStore(sessionStore)
+  return {
+    ...state,
+    getState: () => sessionStore.state,
+    fetchSessions,
+    loadNextPage,
+    refreshSessionsByIds,
+    createSession,
+    selectSession,
+    closeSession,
+    startNewConversation,
+    sendMessage,
+    setSessionModel,
+    deleteSession,
+    setSessionSubagentEnabled,
+    setSessionProjectDir,
+    moveSessionToAgent,
+    renameSession,
+    toggleSessionPinned,
+    clearSessionMessages,
+    exportSession,
+    toggleGroupMode,
+    getPinnedSessions,
+    getFilteredGroups,
+    getActiveSession,
+    getHasActiveSession,
+    applyBootstrapShell
+  }
 }

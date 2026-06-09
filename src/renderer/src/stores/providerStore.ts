@@ -435,5 +435,41 @@ function scheduleProviderOrderSync(): void {
 }
 
 export function useProviderStore() {
-  return useStore(providerStore)
+  const state = useStore(providerStore)
+  return {
+    ...state,
+    getEnabledProviders,
+    getDisabledProviders,
+    getSortedProviders,
+    loadProviderOrder,
+    saveProviderOrder,
+    loadProviderTimestamps,
+    saveProviderTimestamps,
+    refreshProviders,
+    ensureDefaultProvidersReady,
+    setupProviderListeners,
+    updateProvider,
+    updateProviderConfig,
+    updateProviderApi,
+    updateProvidersOrder,
+    optimizeProviderOrder,
+    updateProviderStatus,
+    addCustomProvider,
+    removeProvider,
+    updateAwsBedrockProviderConfig,
+    updateVertexProviderConfig,
+    checkProvider,
+    setAzureApiVersion,
+    getAzureApiVersion,
+    setGeminiSafety,
+    getGeminiSafety,
+    setAwsBedrockCredential,
+    getAwsBedrockCredential,
+    getVoiceAIConfig,
+    updateVoiceAIConfig,
+    updateProviderTimestamp,
+    initialize,
+    ensureInitialized,
+    primeProviders
+  }
 }

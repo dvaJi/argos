@@ -499,5 +499,19 @@ export const clearPendingMessageJump = () => {
 }
 
 export function useSpotlightStore() {
-  return useStore(spotlightStore)
+  const state = useStore(spotlightStore)
+  return {
+    ...state,
+    connectSpotlightExternal,
+    hasResults,
+    setQuery,
+    openSpotlight,
+    closeSpotlight,
+    toggleSpotlight,
+    setActiveItem,
+    moveActiveItem,
+    executeItem,
+    executeActiveItem,
+    clearPendingMessageJump
+  }
 }

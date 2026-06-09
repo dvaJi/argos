@@ -1377,5 +1377,26 @@ export async function updateCustomModelMutation(
 }
 
 export function useModelStore() {
-  return useStore(modelStore)
+  const state = useStore(modelStore)
+  return {
+    ...state,
+    refreshProviderModels,
+    refreshAllModels,
+    getActiveEnabledModels,
+    getChatSelectableModelGroups,
+    updateLocalModelStatus,
+    getLocalModelEnabledState,
+    updateModelStatus,
+    addCustomModel,
+    removeCustomModel,
+    updateCustomModel,
+    enableAllModels,
+    disableAllModels,
+    findModelByIdOrName,
+    cleanup,
+    initialize,
+    addCustomModelMutation,
+    removeCustomModelMutation,
+    updateCustomModelMutation
+  }
 }

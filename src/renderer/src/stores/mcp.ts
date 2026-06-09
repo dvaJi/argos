@@ -806,5 +806,52 @@ export const getToolCount = () => getVisibleTools().length
 export const getHasTools = () => getToolCount() > 0
 
 export function useMcpStore() {
-  return useStore(mcpStore)
+  const state = useStore(mcpStore)
+  return {
+    ...state,
+    isPluginOwnedServerName,
+    isVisibleServerName,
+    loadConfig,
+    updateAllServerStatuses,
+    updateServerStatus,
+    loadTools,
+    loadClients,
+    loadPrompts,
+    loadResources,
+    setMcpEnabled,
+    addServer,
+    updateServer,
+    removeServer,
+    toggleServer,
+    updateToolInput,
+    callTool,
+    getPrompt,
+    readResource,
+    initMcp,
+    getNpmRegistryStatus,
+    refreshNpmRegistry,
+    setCustomNpmRegistry,
+    setAutoDetectNpmRegistry,
+    clearNpmRegistryCache,
+    setMcpInstallCache,
+    clearMcpInstallCache,
+    isToolEnabled,
+    setToolEnabled,
+    getVisibleTools,
+    getPluginTools,
+    getVisibleResources,
+    getVisiblePrompts,
+    getToolsLoading,
+    getToolsError,
+    getToolsErrorMessage,
+    getMcpEnabled,
+    getAllServerList,
+    getServerList,
+    getPluginServerList,
+    getEnabledServers,
+    getEnabledPluginServers,
+    getEnabledServerCount,
+    getToolCount,
+    getHasTools
+  }
 }

@@ -66,5 +66,15 @@ export const exportConfigs = async () => {
 }
 
 export function useModelConfigStore() {
-  return useStore(modelConfigStore)
+  const state = useStore(modelConfigStore)
+  return {
+    ...state,
+    getModelConfig,
+    setModelConfig,
+    resetModelConfig,
+    getProviderModelConfigs,
+    hasUserModelConfig,
+    importConfigs,
+    exportConfigs
+  }
 }

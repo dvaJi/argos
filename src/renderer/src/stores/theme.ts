@@ -70,5 +70,12 @@ export const toggleDark = (isDark?: boolean) => {
 }
 
 export function useThemeStore() {
-  return useStore(themeStore)
+  const state = useStore(themeStore)
+  return {
+    ...state,
+    initTheme,
+    setThemeMode,
+    cycleTheme,
+    toggleDark
+  }
 }

@@ -20,5 +20,10 @@ export const closeDialog = () => {
 }
 
 export function useModelCheckStore() {
-  return useStore(modelCheckStore)
+  const state = useStore(modelCheckStore)
+  return {
+    ...state,
+    openDialog,
+    closeDialog
+  }
 }

@@ -505,5 +505,21 @@ export function cleanupMessageStore(): void {
 }
 
 export function useMessageStore() {
-  return useStore(messageStore)
+  const state = useStore(messageStore)
+  return {
+    ...state,
+    getMessages,
+    getAssistantMessageBlocks,
+    getUserMessageContent,
+    getMessageMetadata,
+    setCurrentSessionId,
+    loadMessages,
+    loadOlderMessages,
+    getMessage,
+    addOptimisticUserMessage,
+    clear,
+    clearStreamingState,
+    applyStreamingBlocksToMessage,
+    cleanupMessageStore
+  }
 }

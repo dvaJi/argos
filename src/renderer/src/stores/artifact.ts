@@ -190,5 +190,16 @@ export const completeArtifact = (artifact: ArtifactState, messageId: string, thr
 }
 
 export function useArtifactStore() {
-  return useStore(artifactStore)
+  const state = useStore(artifactStore)
+  return {
+    ...state,
+    isOpen,
+    showArtifact,
+    hideArtifact,
+    dismissArtifact,
+    validateContext,
+    updateArtifactContent,
+    syncArtifact,
+    completeArtifact
+  }
 }

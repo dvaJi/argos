@@ -31,5 +31,10 @@ export const hideReference = () => {
 }
 
 export function useReferenceStore() {
-  return useStore(referenceStore)
+  const state = useStore(referenceStore)
+  return {
+    ...state,
+    showReference,
+    hideReference
+  }
 }

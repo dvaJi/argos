@@ -242,5 +242,25 @@ export const ensureProviderReady = async (providerId: string) => {
 }
 
 export function useOllamaStore() {
-  return useStore(ollamaStore)
+  const state = useStore(ollamaStore)
+  return {
+    ...state,
+    setRunningModels,
+    setLocalModels,
+    updatePullingProgress,
+    getOllamaRunningModels,
+    getOllamaLocalModels,
+    getOllamaPullingModels,
+    syncOllamaRuntimeModels,
+    refreshOllamaModels,
+    pullOllamaModel,
+    handleOllamaModelPullEvent,
+    setupOllamaEventListeners,
+    removeOllamaEventListeners,
+    clearOllamaProviderData,
+    isOllamaModelRunning,
+    isOllamaModelLocal,
+    initialize,
+    ensureProviderReady
+  }
 }

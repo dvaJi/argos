@@ -229,5 +229,17 @@ function initListeners(): void {
 initListeners()
 
 export function useAgentStore() {
-  return useStore(agentStore)
+  const state = useStore(agentStore)
+  return {
+    ...state,
+    enabledAgents,
+    selectedAgent,
+    applyAgents,
+    mergeAgents,
+    refreshAgentsByType,
+    applyBootstrapAgents,
+    fetchAgents,
+    setSelectedAgent,
+    selectAgent
+  }
 }
