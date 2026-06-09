@@ -402,5 +402,26 @@ void syncFromPresenterStatus().catch((error) => {
 })
 
 export function useUpgradeStore() {
-  return useStore(upgradeStore)
+  const state = useStore(upgradeStore)
+  return {
+    ...state,
+    isWindows,
+    hasUpdate,
+    isMockUpdate,
+    getUpdateState,
+    isChecking,
+    isDownloading,
+    isReadyToInstall,
+    shouldShowUpdateNotes,
+    shouldShowTopbarInstallButton,
+    showManualDownloadOptions,
+    syncFromPresenterStatus,
+    applyStatus,
+    checkUpdate,
+    startUpdate,
+    mockDownloadedUpdate,
+    clearMockUpdate,
+    handleUpdate,
+    refreshStatus: syncFromPresenterStatus
+  }
 }
