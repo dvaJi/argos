@@ -137,7 +137,7 @@ export interface SpotlightExternalStore {
   startNewConversation: (opts: { refresh: boolean }) => Promise<void>
 }
 
-let external: SpotlightExternalStore
+let external: SpotlightExternalStore | undefined
 
 export function connectSpotlightExternal(store: SpotlightExternalStore) {
   external = store
@@ -160,20 +160,22 @@ export const spotlightStore = new Store({
 export const hasResults = () => spotlightStore.state.results.length > 0
 
 const buildRecentSessionItems = (): SpotlightItem[] =>
-  [...external.getSessions()]
-    .filter((session) => session.sessionKind !== 'subagent')
-    .sort((left, right) => right.updatedAt - left.updatedAt)
-    .slice(0, 5)
-    .map((session) => ({
-      id: `session:${session.id}`,
-      kind: 'session' as const,
-      icon: 'lucide:message-square',
-      title: session.title,
-      subtitle: session.projectDir || '',
-      sessionId: session.id,
-      score: 0,
-      updatedAt: session.updatedAt
-    }))
+  !external
+    ? []
+    : [...external.getSessions()]
+        .filter((session) => session.sessionKind !== 'subagent')
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+        .slice(0, 5)
+        .map((session) => ({
+          id: `session:${session.id}`,
+          kind: 'session' as const,
+          icon: 'lucide:message-square',
+          title: session.title,
+          subtitle: session.projectDir || '',
+          sessionId: session.id,
+          score: 0,
+          updatedAt: session.updatedAt
+        }))
 
 const buildAgentItems = (): SpotlightItem[] =>
   enabledAgents().map((agent) => ({
@@ -236,29 +238,31 @@ const toHistoryItem = (hit: HistorySearchHit, normalizedQuery: string): Spotligh
 }
 
 const buildProviderMatches = (normalizedQuery: string): SpotlightItem[] =>
-  external
-    .getSortedProviders()
-    .filter((provider) => provider.id !== 'acp')
-    .map((provider) => ({
-      id: `setting:provider:${provider.id}`,
-      kind: 'setting' as const,
-      icon: 'lucide:cloud-cog',
-      title: provider.name,
-      subtitle: provider.apiType,
-      routeName: 'settings-provider' as const,
-      routeParams: { providerId: provider.id },
-      keywords: [provider.id, provider.apiType, provider.baseUrl].filter(
-        (value): value is string => typeof value === 'string' && value.trim().length > 0
-      ),
-      score: scoreTextMatch(
-        normalizedQuery,
-        provider.name,
-        provider.id,
-        provider.apiType,
-        provider.baseUrl
-      )
-    }))
-    .filter((item) => item.score > 0)
+  !external
+    ? []
+    : external
+        .getSortedProviders()
+        .filter((provider) => provider.id !== 'acp')
+        .map((provider) => ({
+          id: `setting:provider:${provider.id}`,
+          kind: 'setting' as const,
+          icon: 'lucide:cloud-cog',
+          title: provider.name,
+          subtitle: provider.apiType,
+          routeName: 'settings-provider' as const,
+          routeParams: { providerId: provider.id },
+          keywords: [provider.id, provider.apiType, provider.baseUrl].filter(
+            (value): value is string => typeof value === 'string' && value.trim().length > 0
+          ),
+          score: scoreTextMatch(
+            normalizedQuery,
+            provider.name,
+            provider.id,
+            provider.apiType,
+            provider.baseUrl
+          )
+        }))
+        .filter((item) => item.score > 0)
 
 const buildSettingMatches = (normalizedQuery: string): SpotlightItem[] =>
   SETTINGS_NAVIGATION_ITEMS.filter((item) => item.routeName !== 'settings-provider')
@@ -441,7 +445,7 @@ export const executeItem = async (item: SpotlightItem | undefined) => {
   closeSpotlight()
 
   if (item.kind === 'session' && item.sessionId) {
-    await external.selectSession(item.sessionId)
+    await external?.selectSession(item.sessionId)
     return
   }
 
@@ -450,13 +454,13 @@ export const executeItem = async (item: SpotlightItem | undefined) => {
       ...prev,
       pendingMessageJump: { sessionId: item.sessionId!, messageId: item.messageId! }
     }))
-    await external.selectSession(item.sessionId)
+    await external?.selectSession(item.sessionId)
     return
   }
 
   if (item.kind === 'agent') {
-    if (external.hasActiveSession()) {
-      await external.closeSession()
+    if (external?.hasActiveSession()) {
+      await external?.closeSession()
     } else {
       goToNewThread()
     }
@@ -471,7 +475,7 @@ export const executeItem = async (item: SpotlightItem | undefined) => {
 
   switch (item.actionId) {
     case 'new-chat':
-      await external.startNewConversation({ refresh: true })
+      await external?.startNewConversation({ refresh: true })
       return
     case 'open-settings':
       await settingsClient.openSettings()
