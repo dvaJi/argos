@@ -10,6 +10,14 @@ import {
   SelectTrigger,
   SelectValue
 } from '@shadcn/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@shadcn/components/ui/dialog'
 import { useModelStore } from '@/stores/modelStore'
 import { useProviderStore } from '@/stores/providerStore'
 
