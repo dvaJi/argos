@@ -1,26 +1,28 @@
 import { useEffect } from 'react'
-import { useUiSettingsStore } from '../stores/uiSettingsStore'
+import {
+  uiSettingsStore,
+  getFormattedFontFamily,
+  getFormattedCodeFontFamily
+} from '../stores/uiSettingsStore'
 
 export function useFontManager() {
-  const uiSettingsStore = useUiSettingsStore()
-
   useEffect(() => {
-    const applyFontVariables = (textFont: string, codeFont: string) => {
-      document.documentElement.style.setProperty('--dc-font-family', textFont)
-      document.documentElement.style.setProperty('--dc-code-font-family', codeFont)
+    const applyFontVariables = () => {
+      document.documentElement.style.setProperty('--dc-font-family', getFormattedFontFamily())
+      document.documentElement.style.setProperty(
+        '--dc-code-font-family',
+        getFormattedCodeFontFamily()
+      )
     }
 
-    applyFontVariables(uiSettingsStore.formattedFontFamily, uiSettingsStore.formattedCodeFontFamily)
+    applyFontVariables()
 
-    const unsubscribe = uiSettingsStore.$subscribe(() => {
-      applyFontVariables(
-        uiSettingsStore.formattedFontFamily,
-        uiSettingsStore.formattedCodeFontFamily
-      )
+    const unsubscribe = uiSettingsStore.subscribe(() => {
+      applyFontVariables()
     })
 
     return () => {
       unsubscribe()
     }
-  }, [uiSettingsStore])
+  }, [])
 }
