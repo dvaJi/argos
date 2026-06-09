@@ -1,0 +1,1866 @@
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle
+} from 'react'
+import { Icon } from '@iconify/react'
+import { Button } from '@shadcn/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@shadcn/components/ui/dropdown-menu'
+import { Input } from '@shadcn/components/ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from '@shadcn/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from '@shadcn/components/ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@shadcn/components/ui/select'
+import { Switch } from '@shadcn/components/ui/switch'
+import type { ModelConfig, RENDERER_MODEL_META, SystemPrompt } from '@shared/presenter'
+import type {
+  DeepChatAgentConfig,
+  PermissionMode,
+  SessionGenerationSettings
+} from '@shared/types/agent-interface'
+import { normalizeDeepChatSubagentConfig } from '@shared/lib/deepchatSubagents'
+import { isNewApiEndpointType, resolveProviderCapabilityProviderId } from '@shared/model'
+import {
+  MOONSHOT_KIMI_THINKING_DISABLED_TEMPERATURE,
+  MOONSHOT_KIMI_THINKING_ENABLED_TEMPERATURE,
+  getMoonshotKimiTemperaturePolicy,
+  resolveMoonshotKimiTemperaturePolicy
+} from '@shared/moonshotKimiPolicy'
+import {
+  ANTHROPIC_REASONING_VISIBILITY_VALUES,
+  DEFAULT_REASONING_EFFORT_OPTIONS as FALLBACK_REASONING_EFFORT_OPTIONS,
+  getReasoningEffectiveEnabledForProvider,
+  hasAnthropicReasoningToggle,
+  isReasoningEffort,
+  isVerbosity,
+  normalizeAnthropicReasoningVisibilityValue,
+  type AnthropicReasoningVisibility,
+  type ReasoningPortrait
+} from '@shared/types/model-db'
+import {
+  normalizeLegacyThinkingBudgetValue,
+  parseFiniteNumericValue,
+  toValidNonNegativeInteger,
+  type GenerationNumericField,
+  type GenerationNumericValidationCode,
+  validateGenerationNumericField
+} from '@shared/utils/generationSettingsValidation'
+import {
+  DEFAULT_MODEL_TIMEOUT,
+  MODEL_TIMEOUT_MAX_MS,
+  MODEL_TIMEOUT_MIN_MS
+} from '@shared/modelConfigDefaults'
+import {
+  normalizeImageGenerationOptions,
+  supportsOpenAIImageGenerationSettings
+} from '@shared/imageGenerationSettings'
+import {
+  normalizeVideoGenerationOptions,
+  supportsOpenAICompatibleVideoGeneration
+} from '@shared/videoGenerationSettings'
+import { resolvePreferredChatModel, type ChatModelSelection } from '@/lib/chatModelSelection'
+import McpIndicator from '@/components/chat-input/McpIndicator'
+import ModelIcon from '@/components/icons/ModelIcon'
+import OpenAIImageGenerationSettingsFields from '@/components/settings/OpenAIImageGenerationSettingsFields'
+import OpenAIVideoGenerationSettingsFields from '@/components/settings/OpenAIVideoGenerationSettingsFields'
+import { createConfigClient } from '@api/ConfigClient'
+import { createModelClient } from '@api/ModelClient'
+import { createOnboardingClient } from '@api/OnboardingClient'
+import { createProviderClient } from '@api/ProviderClient'
+import { createSessionClient } from '@api/SessionClient'
+import { requestGuidedOnboardingResume } from '@/lib/onboardingResume'
+import { useModelStore } from '@/stores/modelStore'
+import { useProviderStore } from '@/stores/providerStore'
+import { useThemeStore } from '@/stores/theme'
+import { useAgentStore } from '@/stores/ui/agent'
+import { useDraftStore } from '@/stores/ui/draft'
+import { useProjectStore } from '@/stores/ui/project'
+import { useSessionStore } from '@/stores/ui/session'
+import { scheduleStartupDeferredTask } from '@/lib/startupDeferred'
+import { useChatStatusBarAcpConfig } from './composables/useChatStatusBarAcpConfig'
+
+type ModelSelection = {
+  providerId: string
+  modelId: string
+}
+
+type ReasoningEffortValue = NonNullable<SessionGenerationSettings['reasoningEffort']>
+type VerbosityValue = NonNullable<SessionGenerationSettings['verbosity']>
+
+const isSameModelSelection = (
+  left: ModelSelection | null | undefined,
+  right: ModelSelection | null | undefined
+): boolean =>
+  Boolean(left && right && left.providerId === right.providerId && left.modelId === right.modelId)
+
+type SystemPromptOption = {
+  id: string
+  label: string
+  content: string
+  disabled?: boolean
+}
+
+type GroupedModelList = {
+  providerId: string
+  providerName: string
+  models: RENDERER_MODEL_META[]
+}
+
+const TEMPERATURE_STEP = 0.1
+const TOP_P_STEP = 0.1
+const TOP_P_MIN = 0.1
+const TOP_P_MAX = 1
+const CONTEXT_LENGTH_STEP = 1024
+const MAX_TOKENS_STEP = 128
+const TIMEOUT_STEP = 1000
+const TIMEOUT_MIN = MODEL_TIMEOUT_MIN_MS
+const TIMEOUT_MAX = MODEL_TIMEOUT_MAX_MS
+const THINKING_BUDGET_STEP = 128
+const DEFAULT_VERBOSITY_OPTIONS: SessionGenerationSettings['verbosity'][] = [
+  'low',
+  'medium',
+  'high'
+]
+
+function normalizeTopP(value: unknown): number | undefined {
+  const numeric = parseFiniteNumericValue(value)
+  return numeric !== undefined && numeric >= 0.1 && numeric <= 1 ? numeric : undefined
+}
+
+interface ChatStatusBarProps {
+  acpDraftSessionId?: string | null
+  maxWidthClass?: string
+}
+
+const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
+  ({ acpDraftSessionId = null, maxWidthClass = 'max-w-2xl' }, ref) => {
+    const themeStore = useThemeStore()
+    const modelStore = useModelStore()
+    const providerStore = useProviderStore()
+    const agentStore = useAgentStore()
+    const sessionStore = useSessionStore()
+    const draftStore = useDraftStore()
+    const projectStore = useProjectStore()
+    const configClient = createConfigClient()
+    const modelClient = createModelClient()
+    const onboardingClient = createOnboardingClient()
+    const providerClient = createProviderClient()
+    const sessionClient = createSessionClient()
+
+    const [draftModelSelection, setDraftModelSelection] = useState<ModelSelection | null>(null)
+    const [permissionMode, setPermissionMode] = useState<PermissionMode>('full_access')
+    const [subagentEnabled, setSubagentEnabled] = useState(false)
+    const [localSettings, setLocalSettings] = useState<SessionGenerationSettings | null>(null)
+    const [loadedSettingsSelection, setLoadedSettingsSelection] = useState<ModelSelection | null>(
+      null
+    )
+    const [systemPromptList, setSystemPromptList] = useState<SystemPrompt[]>([])
+    const [isModelPanelOpen, setIsModelPanelOpen] = useState(false)
+    const [isModelSettingsExpanded, setIsModelSettingsExpanded] = useState(false)
+    const [modelSearchKeyword, setModelSearchKeyword] = useState('')
+    const [modelSettingsSelection, setModelSettingsSelection] = useState<ModelSelection | null>(
+      null
+    )
+    const [modelSettingsTargetConfig, setModelSettingsTargetConfig] = useState<ModelConfig | null>(
+      null
+    )
+    const [modelSettingsTargetConfigSelection, setModelSettingsTargetConfigSelection] =
+      useState<ModelSelection | null>(null)
+    const modelSettingsTargetConfigTokenRef = useRef(0)
+    const [activeNumericInput, setActiveNumericInput] = useState<GenerationNumericField | null>(
+      null
+    )
+    const [numericInputDrafts, setNumericInputDrafts] = useState<
+      Record<GenerationNumericField, string>
+    >({
+      temperature: '',
+      topP: '',
+      contextLength: '',
+      maxTokens: '',
+      timeout: '',
+      thinkingBudget: ''
+    })
+    const [numericInputErrors, setNumericInputErrors] = useState<
+      Record<GenerationNumericField, GenerationNumericValidationCode | null>
+    >({
+      temperature: null,
+      topP: null,
+      contextLength: null,
+      maxTokens: null,
+      timeout: null,
+      thinkingBudget: null
+    })
+    const [capabilitySupportsReasoning, setCapabilitySupportsReasoning] = useState<boolean | null>(
+      null
+    )
+    const [capabilityReasoningPortrait, setCapabilityReasoningPortrait] =
+      useState<ReasoningPortrait | null>(null)
+    const [capabilitySupportsTemperature, setCapabilitySupportsTemperature] = useState<
+      boolean | null
+    >(null)
+    const [capabilityProviderId, setCapabilityProviderId] = useState('')
+    const [isSubagentToggleUpdating, setIsSubagentToggleUpdating] = useState(false)
+
+    const draftModelSyncTokenRef = useRef(0)
+    const permissionSyncTokenRef = useRef(0)
+    const generationSyncTokenRef = useRef(0)
+    const generationPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const pendingGenerationPatchRef = useRef<Partial<SessionGenerationSettings>>({})
+    const generationPersistRequestTokenRef = useRef(0)
+    const generationLocalRevisionRef = useRef(0)
+    const unsubscribeAcpConfigOptionsReadyRef = useRef<(() => void) | null>(null)
+    const cancelAcpConfigSyncTaskRef = useRef<(() => void) | null>(null)
+
+    const hasActiveSession = useMemo(
+      () => sessionStore.hasActiveSession,
+      [sessionStore.hasActiveSession]
+    )
+    const availableAgents = useMemo(
+      () => (Array.isArray(agentStore.agents) ? agentStore.agents : []),
+      [agentStore.agents]
+    )
+
+    const inferAgentType = useCallback(
+      (agentId: string | null | undefined): 'deepchat' | 'acp' | null => {
+        if (!agentId) return null
+        const matchedAgent = availableAgents.find((agent) => agent.id === agentId)
+        const selectedAgent =
+          agentStore.selectedAgent && agentStore.selectedAgent.id === agentId
+            ? agentStore.selectedAgent
+            : null
+        const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? selectedAgent?.type
+        if (explicitType === 'deepchat' || explicitType === 'acp') return explicitType
+        return agentId === 'deepchat' ? 'deepchat' : 'acp'
+      },
+      [availableAgents, agentStore.selectedAgent]
+    )
+
+    const resolveDeepChatAgentConfig = useCallback(
+      async (agentId: string): Promise<DeepChatAgentConfig> => {
+        const config = await configClient.resolveDeepChatAgentConfig(agentId)
+        if (config) return config
+        const defaultSystemPrompt = (await configClient.getDefaultSystemPrompt()) ?? ''
+        return normalizeDeepChatSubagentConfig({
+          defaultModelPreset: undefined,
+          systemPrompt: typeof defaultSystemPrompt === 'string' ? defaultSystemPrompt : '',
+          permissionMode: 'full_access',
+          disabledAgentTools: []
+        })
+      },
+      [configClient]
+    )
+
+    const selectedAgentType = useMemo(
+      () => inferAgentType(agentStore.selectedAgentId),
+      [inferAgentType, agentStore.selectedAgentId]
+    )
+    const selectedDeepChatAgentId = useMemo(() => {
+      if (selectedAgentType === 'acp') return null
+      return agentStore.selectedAgentId ?? 'deepchat'
+    }, [selectedAgentType, agentStore.selectedAgentId])
+
+    const isAcpAgent = useMemo(() => {
+      if (hasActiveSession) return sessionStore.activeSession?.providerId === 'acp'
+      return selectedAgentType === 'acp'
+    }, [hasActiveSession, sessionStore.activeSession?.providerId, selectedAgentType])
+
+    const activeAcpAgentId = useMemo(() => {
+      if (hasActiveSession && sessionStore.activeSession?.providerId === 'acp')
+        return sessionStore.activeSession.modelId || null
+      const selectedId = agentStore.selectedAgentId
+      return selectedAgentType === 'acp' ? selectedId : null
+    }, [
+      hasActiveSession,
+      sessionStore.activeSession,
+      agentStore.selectedAgentId,
+      selectedAgentType
+    ])
+
+    const activeAcpSessionId = useMemo(() => {
+      if (hasActiveSession && sessionStore.activeSession?.providerId === 'acp')
+        return sessionStore.activeSessionId
+      const draftSessionId = acpDraftSessionId?.trim()
+      return draftSessionId ? draftSessionId : null
+    }, [hasActiveSession, sessionStore.activeSession, acpDraftSessionId])
+
+    const acpWorkspacePath = useMemo(() => {
+      if (hasActiveSession && sessionStore.activeSession?.providerId === 'acp')
+        return sessionStore.activeSession.projectDir?.trim() || null
+      return projectStore.selectedProject?.path?.trim() || null
+    }, [hasActiveSession, sessionStore.activeSession, projectStore.selectedProject])
+
+    const lockedAcpModelId = useMemo(() => {
+      if (hasActiveSession && sessionStore.activeSession?.providerId === 'acp')
+        return sessionStore.activeSession.modelId || null
+      const selectedId = agentStore.selectedAgentId
+      return selectedAgentType === 'acp' ? selectedId : null
+    }, [
+      hasActiveSession,
+      sessionStore.activeSession,
+      agentStore.selectedAgentId,
+      selectedAgentType
+    ])
+
+    const isModelSelectionLocked = useMemo(
+      () => isAcpAgent && Boolean(lockedAcpModelId),
+      [isAcpAgent, lockedAcpModelId]
+    )
+    const showModelPopover = useMemo(
+      () => !isAcpAgent || Boolean(activeAcpSessionId || acpWorkspacePath),
+      [isAcpAgent, activeAcpSessionId, acpWorkspacePath]
+    )
+
+    const activeSessionSelection = useMemo<ModelSelection | null>(() => {
+      const active = sessionStore.activeSession
+      if (!active?.providerId || !active?.modelId) return null
+      return { providerId: active.providerId, modelId: active.modelId }
+    }, [sessionStore.activeSession])
+
+    const effectiveModelSelection = useMemo<ModelSelection | null>(() => {
+      if (hasActiveSession) return activeSessionSelection
+      if (isAcpAgent) {
+        const agentId = agentStore.selectedAgentId
+        return selectedAgentType === 'acp' && agentId
+          ? { providerId: 'acp', modelId: agentId }
+          : null
+      }
+      return draftModelSelection
+    }, [
+      hasActiveSession,
+      activeSessionSelection,
+      isAcpAgent,
+      agentStore.selectedAgentId,
+      selectedAgentType,
+      draftModelSelection
+    ])
+
+    const moonshotKimiTemperaturePolicyValue = useMemo(
+      () =>
+        getMoonshotKimiTemperaturePolicy(
+          effectiveModelSelection?.providerId,
+          effectiveModelSelection?.modelId
+        ),
+      [effectiveModelSelection]
+    )
+    const isMoonshotKimiTemperatureLocked = useMemo(
+      () => moonshotKimiTemperaturePolicyValue?.lockTemperatureControl === true,
+      [moonshotKimiTemperaturePolicyValue]
+    )
+    const moonshotKimiTemperatureHint = useMemo(
+      () =>
+        isMoonshotKimiTemperatureLocked
+          ? `Temperature is fixed for this model (${MOONSHOT_KIMI_THINKING_ENABLED_TEMPERATURE.toFixed(1)} / ${MOONSHOT_KIMI_THINKING_DISABLED_TEMPERATURE.toFixed(1)})`
+          : '',
+      [isMoonshotKimiTemperatureLocked]
+    )
+
+    const canSelectPermissionMode = useMemo(() => !isAcpAgent, [isAcpAgent])
+    const showSubagentToggle = useMemo(() => {
+      if (isAcpAgent) return false
+      if (hasActiveSession)
+        return (
+          sessionStore.activeSession?.sessionKind === 'regular' &&
+          inferAgentType(sessionStore.activeSession?.agentId) === 'deepchat'
+        )
+      return selectedAgentType === 'deepchat'
+    }, [
+      isAcpAgent,
+      hasActiveSession,
+      sessionStore.activeSession,
+      inferAgentType,
+      selectedAgentType
+    ])
+
+    const providerNameMap = useMemo(() => {
+      const map = new Map<string, string>()
+      providerStore.sortedProviders.forEach((provider) => map.set(provider.id, provider.name))
+      return map
+    }, [providerStore.sortedProviders])
+
+    const isModelOptionsReady = useMemo(
+      () => isAcpAgent || modelStore.initialized,
+      [isAcpAgent, modelStore.initialized]
+    )
+    const hasModelOptionsError = useMemo(
+      () => !isAcpAgent && !modelStore.initialized && Boolean(modelStore.initializationError),
+      [isAcpAgent, modelStore.initialized, modelStore.initializationError]
+    )
+    const showModelOptionsLoading = useMemo(
+      () => !isAcpAgent && !modelStore.initialized && !hasModelOptionsError,
+      [isAcpAgent, modelStore.initialized, hasModelOptionsError]
+    )
+
+    const resolveProviderApiType = useCallback(
+      (providerId: string): string | undefined =>
+        providerStore.sortedProviders.find((provider) => provider.id === providerId)?.apiType,
+      [providerStore.sortedProviders]
+    )
+
+    const modelGroups = useMemo<GroupedModelList[]>(() => {
+      if (!isModelOptionsReady) return []
+      return modelStore.chatSelectableModelGroups
+    }, [isModelOptionsReady, modelStore.chatSelectableModelGroups])
+
+    const filteredModelGroups = useMemo<GroupedModelList[]>(() => {
+      const keyword = modelSearchKeyword.trim().toLowerCase()
+      if (!keyword) return modelGroups
+      return modelGroups
+        .map((group) => {
+          const providerMatched = `${group.providerName} ${group.providerId}`
+            .toLowerCase()
+            .includes(keyword)
+          return {
+            ...group,
+            models: providerMatched
+              ? group.models
+              : group.models.filter((model) =>
+                  `${model.name} ${model.id}`.toLowerCase().includes(keyword)
+                )
+          }
+        })
+        .filter((group) => group.models.length > 0)
+    }, [modelSearchKeyword, modelGroups])
+
+    const modelSettingsTarget = useMemo<ModelSelection | null>(
+      () => modelSettingsSelection ?? effectiveModelSelection,
+      [modelSettingsSelection, effectiveModelSelection]
+    )
+
+    const findEnabledModelMeta = useCallback(
+      (providerId: string, modelId: string): RENDERER_MODEL_META | null =>
+        modelStore.findChatSelectableModel(providerId, modelId)?.model ?? null,
+      [modelStore]
+    )
+
+    const modelSettingsTargetMeta = useMemo(() => {
+      const target = modelSettingsTarget
+      if (!target) return null
+      return findEnabledModelMeta(target.providerId, target.modelId)
+    }, [modelSettingsTarget, findEnabledModelMeta])
+
+    const modelSettingsTargetResolvedConfig = useMemo(
+      () =>
+        isSameModelSelection(modelSettingsTarget, modelSettingsTargetConfigSelection)
+          ? modelSettingsTargetConfig
+          : null,
+      [modelSettingsTarget, modelSettingsTargetConfigSelection, modelSettingsTargetConfig]
+    )
+
+    const showOpenAIImageGenerationSettings = useMemo(() => {
+      const target = modelSettingsTarget
+      if (!target) return false
+      const modelMeta = modelSettingsTargetMeta
+      const modelConfig = modelSettingsTargetResolvedConfig
+      return supportsOpenAIImageGenerationSettings({
+        providerId: target.providerId,
+        providerApiType: resolveProviderApiType(target.providerId),
+        modelId: target.modelId,
+        apiEndpoint: modelConfig?.apiEndpoint,
+        endpointType: modelConfig?.endpointType ?? modelMeta?.endpointType,
+        supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
+        type: modelConfig?.type ?? modelMeta?.type
+      })
+    }, [
+      modelSettingsTarget,
+      modelSettingsTargetMeta,
+      modelSettingsTargetResolvedConfig,
+      resolveProviderApiType
+    ])
+
+    const showOpenAIVideoGenerationSettings = useMemo(() => {
+      const target = modelSettingsTarget
+      if (!target) return false
+      const modelMeta = modelSettingsTargetMeta
+      const modelConfig = modelSettingsTargetResolvedConfig
+      return supportsOpenAICompatibleVideoGeneration({
+        providerId: target.providerId,
+        providerApiType: resolveProviderApiType(target.providerId),
+        modelId: target.modelId,
+        apiEndpoint: modelConfig?.apiEndpoint,
+        endpointType: modelConfig?.endpointType ?? modelMeta?.endpointType,
+        supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
+        type: modelConfig?.type ?? modelMeta?.type
+      })
+    }, [
+      modelSettingsTarget,
+      modelSettingsTargetMeta,
+      modelSettingsTargetResolvedConfig,
+      resolveProviderApiType
+    ])
+
+    const showOpenAIMediaGenerationSettings = useMemo(
+      () => showOpenAIImageGenerationSettings || showOpenAIVideoGenerationSettings,
+      [showOpenAIImageGenerationSettings, showOpenAIVideoGenerationSettings]
+    )
+
+    const resolveModelIconId = useCallback(
+      (providerId?: string | null, modelId?: string | null): string => {
+        if (providerId === 'acp' && modelId) return modelId
+        return providerId || 'anthropic'
+      },
+      []
+    )
+
+    const resolveModelName = useCallback(
+      (providerId?: string | null, modelId?: string | null): string => {
+        if (!modelId) return ''
+        if (providerId) {
+          const hit = findEnabledModelMeta(providerId, modelId)
+          if (hit) return hit.name
+        }
+        const found = modelStore.findModelByIdOrName(modelId)
+        if (found) return found.model.name
+        return modelId
+      },
+      [findEnabledModelMeta, modelStore]
+    )
+
+    const resolveCapabilityProviderIdForSelection = useCallback(
+      (providerId: string, modelId: string, endpointType?: unknown): string => {
+        const modelMeta = findEnabledModelMeta(providerId, modelId)
+        return resolveProviderCapabilityProviderId(
+          providerId,
+          {
+            endpointType: isNewApiEndpointType(endpointType)
+              ? endpointType
+              : modelMeta?.endpointType,
+            supportedEndpointTypes: modelMeta?.supportedEndpointTypes,
+            type: modelMeta?.type,
+            providerApiType: resolveProviderApiType(providerId)
+          },
+          modelId
+        )
+      },
+      [findEnabledModelMeta, resolveProviderApiType]
+    )
+
+    const {
+      acpConfigState,
+      acpInlineOpenOptionId,
+      acpConfigReadOnly,
+      acpInlineOptions,
+      acpOverflowOptions,
+      acpAgentLabel,
+      acpAgentIconId,
+      isAcpConfigLoading,
+      getAcpOptionDisplayValue,
+      isAcpOptionSaving,
+      syncAcpConfigOptions,
+      handleAcpConfigOptionsReady,
+      onAcpInlineOptionOpenChange,
+      onAcpSelectOption,
+      onAcpBooleanOption
+    } = useChatStatusBarAcpConfig({
+      isAcpAgent,
+      activeAcpAgentId,
+      activeAcpSessionId,
+      acpWorkspacePath,
+      selectedAgentId: useMemo(() => agentStore.selectedAgentId, [agentStore.selectedAgentId]),
+      selectedAgentName: useMemo(
+        () => agentStore.selectedAgent?.name ?? null,
+        [agentStore.selectedAgent]
+      ),
+      providerClient,
+      sessionClient,
+      resolveModelName,
+      resolveModelIconId
+    })
+
+    const permissionModeLabel = useMemo(
+      () => (permissionMode === 'default' ? 'Default' : 'Full Access'),
+      [permissionMode]
+    )
+    const permissionIcon = useMemo(
+      () => (permissionMode === 'full_access' ? 'lucide:shield-alert' : 'lucide:shield'),
+      [permissionMode]
+    )
+    const permissionOptions = useMemo(
+      () => [
+        {
+          value: 'default' as const,
+          label: 'Default',
+          icon: 'lucide:shield',
+          iconClass: 'text-muted-foreground'
+        },
+        {
+          value: 'full_access' as const,
+          label: 'Full Access',
+          icon: 'lucide:shield-alert',
+          iconClass: 'text-orange-500'
+        }
+      ],
+      []
+    )
+
+    const displayIconId = useMemo(() => {
+      if (hasActiveSession)
+        return resolveModelIconId(
+          activeSessionSelection?.providerId || draftModelSelection?.providerId,
+          activeSessionSelection?.modelId || draftModelSelection?.modelId
+        )
+      if (isAcpAgent) return resolveModelIconId('acp', agentStore.selectedAgentId)
+      return resolveModelIconId(draftModelSelection?.providerId, draftModelSelection?.modelId)
+    }, [
+      hasActiveSession,
+      activeSessionSelection,
+      draftModelSelection,
+      isAcpAgent,
+      agentStore.selectedAgentId,
+      resolveModelIconId
+    ])
+
+    const displayModelText = useMemo(() => {
+      if (!isModelOptionsReady) return hasModelOptionsError ? 'Failed to load' : 'Loading...'
+      if (isAcpAgent) return acpAgentLabel
+      if (hasActiveSession) {
+        const selection = activeSessionSelection ?? draftModelSelection
+        if (selection?.modelId) return selection.modelId
+        return 'Select model'
+      }
+      const selection = draftModelSelection
+      if (selection?.modelId) return selection.modelId
+      return 'Select model'
+    }, [
+      isModelOptionsReady,
+      hasModelOptionsError,
+      isAcpAgent,
+      acpAgentLabel,
+      hasActiveSession,
+      activeSessionSelection,
+      draftModelSelection
+    ])
+
+    const isModelSettingsReady = useMemo(() => {
+      if (!isModelSettingsExpanded) return false
+      const target = modelSettingsTarget
+      const effective = effectiveModelSelection
+      if (!target || !effective) return false
+      return (
+        isSameModelSelection(target, effective) &&
+        isSameModelSelection(loadedSettingsSelection, effective) &&
+        Boolean(localSettings)
+      )
+    }, [
+      isModelSettingsExpanded,
+      modelSettingsTarget,
+      effectiveModelSelection,
+      loadedSettingsSelection,
+      localSettings
+    ])
+
+    const modelSettingsModelName = useMemo(
+      () =>
+        resolveModelName(
+          modelSettingsTarget?.providerId ?? null,
+          modelSettingsTarget?.modelId ?? null
+        ),
+      [modelSettingsTarget, resolveModelName]
+    )
+    const modelSettingsProviderText = useMemo(() => {
+      const selection = modelSettingsTarget
+      if (!selection) return ''
+      const providerName = providerNameMap.get(selection.providerId) ?? selection.providerId
+      return `${providerName} / ${selection.modelId}`
+    }, [modelSettingsTarget, providerNameMap])
+
+    const getReasoningEffortOptions = useCallback(
+      (portrait: ReasoningPortrait | null | undefined): ReasoningEffortValue[] => {
+        if (
+          !portrait ||
+          portrait.mode === 'budget' ||
+          portrait.mode === 'level' ||
+          portrait.mode === 'fixed'
+        )
+          return []
+        const options = portrait?.effortOptions?.filter(isReasoningEffort)
+        if (options && options.length > 0) return options
+        if (portrait.mode === 'mixed' || !isReasoningEffort(portrait?.effort)) return []
+        return FALLBACK_REASONING_EFFORT_OPTIONS.includes(portrait.effort)
+          ? [...FALLBACK_REASONING_EFFORT_OPTIONS]
+          : [portrait.effort]
+      },
+      []
+    )
+
+    const getVerbosityOptions = useCallback(
+      (portrait: ReasoningPortrait | null | undefined): VerbosityValue[] => {
+        const options = portrait?.verbosityOptions?.filter(isVerbosity)
+        if (options && options.length > 0) return options
+        return isVerbosity(portrait?.verbosity) ? DEFAULT_VERBOSITY_OPTIONS.filter(isVerbosity) : []
+      },
+      []
+    )
+
+    const getReasoningVisibilityOptions = useCallback(
+      (
+        providerId: string,
+        portrait: ReasoningPortrait | null | undefined
+      ): AnthropicReasoningVisibility[] =>
+        hasAnthropicReasoningToggle(providerId, portrait)
+          ? [...ANTHROPIC_REASONING_VISIBILITY_VALUES]
+          : [],
+      []
+    )
+
+    const supportsReasoningEffortFn = useCallback(
+      (portrait: ReasoningPortrait | null | undefined): boolean =>
+        portrait?.supported !== false && getReasoningEffortOptions(portrait).length > 0,
+      [getReasoningEffortOptions]
+    )
+
+    const supportsVerbosityFn = useCallback(
+      (portrait: ReasoningPortrait | null | undefined): boolean =>
+        portrait?.supported !== false && getVerbosityOptions(portrait).length > 0,
+      [getVerbosityOptions]
+    )
+
+    const hasThinkingBudgetSupportFn = useCallback(
+      (portrait: ReasoningPortrait | null | undefined): boolean =>
+        Boolean(
+          portrait &&
+          portrait.mode !== 'effort' &&
+          portrait.mode !== 'level' &&
+          portrait.mode !== 'fixed' &&
+          portrait.budget &&
+          (portrait.budget.default !== undefined ||
+            portrait.budget.min !== undefined ||
+            portrait.budget.max !== undefined ||
+            portrait.budget.auto !== undefined ||
+            portrait.budget.off !== undefined)
+        ),
+      []
+    )
+
+    const effortOptions = useMemo(
+      () =>
+        getReasoningEffortOptions(capabilityReasoningPortrait).map((value) => ({
+          value,
+          label: value
+        })),
+      [capabilityReasoningPortrait, getReasoningEffortOptions]
+    )
+    const verbosityOptions = useMemo(
+      () =>
+        getVerbosityOptions(capabilityReasoningPortrait).map((value) => ({ value, label: value })),
+      [capabilityReasoningPortrait, getVerbosityOptions]
+    )
+    const reasoningVisibilityOptions = useMemo(
+      () =>
+        getReasoningVisibilityOptions(capabilityProviderId, capabilityReasoningPortrait).map(
+          (value) => ({ value, label: value })
+        ),
+      [capabilityProviderId, capabilityReasoningPortrait, getReasoningVisibilityOptions]
+    )
+
+    const showTemperatureControl = useMemo(
+      () =>
+        (capabilitySupportsTemperature !== false || isMoonshotKimiTemperatureLocked) &&
+        Boolean(localSettings),
+      [capabilitySupportsTemperature, isMoonshotKimiTemperatureLocked, localSettings]
+    )
+    const supportsTopPControl = useMemo(
+      () => capabilityProviderId !== 'anthropic' || capabilitySupportsTemperature !== false,
+      [capabilityProviderId, capabilitySupportsTemperature]
+    )
+    const showTopPControl = useMemo(
+      () => !showOpenAIMediaGenerationSettings && supportsTopPControl && Boolean(localSettings),
+      [showOpenAIMediaGenerationSettings, supportsTopPControl, localSettings]
+    )
+    const showVerbosity = useMemo(
+      () =>
+        !isAcpAgent && supportsVerbosityFn(capabilityReasoningPortrait) && Boolean(localSettings),
+      [isAcpAgent, capabilityReasoningPortrait, supportsVerbosityFn, localSettings]
+    )
+    const showReasoningEffort = useMemo(
+      () =>
+        !isAcpAgent &&
+        supportsReasoningEffortFn(capabilityReasoningPortrait) &&
+        Boolean(localSettings) &&
+        (!hasAnthropicReasoningToggle(capabilityProviderId, capabilityReasoningPortrait) ||
+          localSettings?.reasoningEffort !== undefined),
+      [
+        isAcpAgent,
+        capabilityReasoningPortrait,
+        capabilityProviderId,
+        supportsReasoningEffortFn,
+        localSettings
+      ]
+    )
+    const showReasoningVisibility = useMemo(
+      () =>
+        !isAcpAgent &&
+        Boolean(localSettings) &&
+        getReasoningVisibilityOptions(capabilityProviderId, capabilityReasoningPortrait).length > 0,
+      [
+        isAcpAgent,
+        localSettings,
+        capabilityProviderId,
+        capabilityReasoningPortrait,
+        getReasoningVisibilityOptions
+      ]
+    )
+    const showThinkingBudget = useMemo(
+      () =>
+        localSettings &&
+        capabilitySupportsReasoning === true &&
+        hasThinkingBudgetSupportFn(capabilityReasoningPortrait),
+      [
+        localSettings,
+        capabilitySupportsReasoning,
+        capabilityReasoningPortrait,
+        hasThinkingBudgetSupportFn
+      ]
+    )
+
+    const isThinkingBudgetEnabled = useMemo(
+      () => localSettings?.thinkingBudget !== undefined,
+      [localSettings?.thinkingBudget]
+    )
+    const isInterleavedThinkingEnabled = useMemo(
+      () => localSettings?.forceInterleavedThinkingCompat === true,
+      [localSettings?.forceInterleavedThinkingCompat]
+    )
+    const thinkingBudgetHint = useMemo(
+      () => (!isThinkingBudgetEnabled ? 'Disabled' : ''),
+      [isThinkingBudgetEnabled]
+    )
+
+    const getCommittedNumericInputValue = useCallback(
+      (field: GenerationNumericField): string => {
+        if (!localSettings) return ''
+        switch (field) {
+          case 'temperature':
+            return String(localSettings.temperature)
+          case 'topP': {
+            const v = localSettings.topP
+            return v === undefined ? '' : String(v)
+          }
+          case 'contextLength':
+            return String(localSettings.contextLength)
+          case 'maxTokens':
+            return String(localSettings.maxTokens)
+          case 'timeout':
+            return String(localSettings.timeout)
+          case 'thinkingBudget': {
+            const v = localSettings.thinkingBudget
+            return v === undefined ? '' : String(v)
+          }
+        }
+      },
+      [localSettings]
+    )
+
+    const hasNumericInputError = useCallback(
+      (field: GenerationNumericField): boolean => numericInputErrors[field] !== null,
+      [numericInputErrors]
+    )
+    const getNumericInputErrorMessage = useCallback(
+      (field: GenerationNumericField): string => {
+        const code = numericInputErrors[field]
+        if (!code) return ''
+        switch (code) {
+          case 'finite_number':
+            return 'Must be a valid number'
+          case 'non_negative_integer':
+            return 'Must be a non-negative integer'
+          case 'context_length_below_max_tokens':
+            return 'Context length must be at least max tokens'
+          case 'max_tokens_exceed_context_length':
+            return 'Max tokens must be within context length'
+          case 'timeout_too_small':
+            return 'Timeout is too small'
+          case 'timeout_too_large':
+            return 'Timeout is too large'
+          case 'top_p_out_of_range':
+            return 'Top P must be between 0.1 and 1'
+          default:
+            return ''
+        }
+      },
+      [numericInputErrors]
+    )
+
+    const getNumericInputValue = useCallback(
+      (field: GenerationNumericField): string => {
+        if (activeNumericInput === field || hasNumericInputError(field))
+          return numericInputDrafts[field]
+        return getCommittedNumericInputValue(field)
+      },
+      [activeNumericInput, numericInputDrafts, hasNumericInputError, getCommittedNumericInputValue]
+    )
+
+    const temperatureInputValue = useMemo(
+      () => getNumericInputValue('temperature'),
+      [getNumericInputValue]
+    )
+    const topPInputValue = useMemo(() => getNumericInputValue('topP'), [getNumericInputValue])
+    const topPCommittedValue = useMemo(
+      () => localSettings?.topP ?? TOP_P_MAX,
+      [localSettings?.topP]
+    )
+    const topPDecreaseDisabled = useMemo(
+      () => localSettings?.topP === undefined || topPCommittedValue <= TOP_P_MIN,
+      [localSettings?.topP, topPCommittedValue]
+    )
+    const topPIncreaseDisabled = useMemo(
+      () => localSettings?.topP !== undefined && topPCommittedValue >= TOP_P_MAX,
+      [localSettings?.topP, topPCommittedValue]
+    )
+    const contextLengthInputValue = useMemo(
+      () => getNumericInputValue('contextLength'),
+      [getNumericInputValue]
+    )
+    const maxTokensInputValue = useMemo(
+      () => getNumericInputValue('maxTokens'),
+      [getNumericInputValue]
+    )
+    const timeoutInputValue = useMemo(() => getNumericInputValue('timeout'), [getNumericInputValue])
+    const thinkingBudgetInputValue = useMemo(
+      () => getNumericInputValue('thinkingBudget'),
+      [getNumericInputValue]
+    )
+
+    const systemPromptOptions = useMemo<SystemPromptOption[]>(() => {
+      const presetOptions: SystemPromptOption[] = [
+        { id: 'empty', label: 'Empty', content: '' },
+        ...systemPromptList.map((prompt) => ({
+          id: prompt.id,
+          label: prompt.name,
+          content: prompt.content
+        }))
+      ]
+      const currentPrompt = localSettings?.systemPrompt ?? ''
+      if (!currentPrompt) return presetOptions
+      const matched = presetOptions.find((option) => option.content === currentPrompt)
+      if (matched) return presetOptions
+      return [
+        { id: '__custom__', label: 'Custom prompt', content: currentPrompt, disabled: true },
+        ...presetOptions
+      ]
+    }, [systemPromptList, localSettings?.systemPrompt])
+
+    const systemPromptMenuOptions = useMemo(
+      () =>
+        systemPromptOptions.map((option) => ({
+          id: option.id,
+          label: option.label,
+          disabled: option.disabled
+        })),
+      [systemPromptOptions]
+    )
+
+    const hasLoadedGenerationSettingsForCurrentSelection = useMemo(() => {
+      const loaded = loadedSettingsSelection
+      const effective = effectiveModelSelection
+      return Boolean(
+        localSettings &&
+        loaded &&
+        effective &&
+        loaded.providerId === effective.providerId &&
+        loaded.modelId === effective.modelId
+      )
+    }, [localSettings, loadedSettingsSelection, effectiveModelSelection])
+
+    const selectedSystemPromptId = useMemo(() => {
+      if (!hasLoadedGenerationSettingsForCurrentSelection || !localSettings) return 'empty'
+      const currentPrompt = localSettings.systemPrompt
+      const matched = systemPromptOptions.find((option) => option.content === currentPrompt)
+      return matched?.id ?? 'empty'
+    }, [hasLoadedGenerationSettingsForCurrentSelection, localSettings, systemPromptOptions])
+
+    const showSystemPromptSection = useMemo(
+      () => !isAcpAgent && hasLoadedGenerationSettingsForCurrentSelection,
+      [isAcpAgent, hasLoadedGenerationSettingsForCurrentSelection]
+    )
+
+    const clearPendingGenerationPersist = useCallback(() => {
+      if (generationPersistTimerRef.current) {
+        clearTimeout(generationPersistTimerRef.current)
+        generationPersistTimerRef.current = null
+      }
+      pendingGenerationPatchRef.current = {}
+    }, [])
+
+    useImperativeHandle(ref, () => ({
+      acpConfigState,
+      localSettings,
+      permissionMode,
+      subagentEnabled,
+      showSystemPromptSection,
+      showReasoningEffort,
+      isModelSettingsExpanded,
+      modelSettingsSelection,
+      selectModel: changeModelSelection,
+      openModelSettings
+    }))
+
+    return (
+      <div className={`w-full ${maxWidthClass}`}>
+        <div className="flex w-full items-center justify-between px-1 py-2">
+          <div className="flex min-w-0 items-center gap-1">
+            {isAcpAgent ? (
+              <>
+                <div className="acp-agent-badge flex h-6 min-w-0 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground backdrop-blur-lg">
+                  <ModelIcon
+                    modelId={acpAgentIconId}
+                    customClass="w-3.5 h-3.5 shrink-0"
+                    isDark={themeStore.isDark}
+                  />
+                  <span className="truncate">{acpAgentLabel}</span>
+                  {isAcpConfigLoading && (
+                    <Icon
+                      icon="lucide:loader-2"
+                      className="acp-agent-loading-indicator h-3 w-3 shrink-0 animate-spin"
+                    />
+                  )}
+                </div>
+                {acpInlineOptions.map((option) => (
+                  <Popover
+                    key={option.id}
+                    open={acpInlineOpenOptionId === option.id}
+                    onOpenChange={(open) => onAcpInlineOptionOpenChange(option.id, open)}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={getAcpOptionDisplayValue(option)}
+                        data-option-id={option.id}
+                        className="acp-inline-option h-6 max-w-[9rem] min-w-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                        disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
+                      >
+                        <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
+                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-56 overflow-hidden p-0">
+                      <div className="border-b px-3 py-2">
+                        <div
+                          data-option-id={option.id}
+                          className="acp-inline-option-title text-sm font-medium"
+                        >
+                          {option.label}
+                        </div>
+                      </div>
+                      {(option.options?.length ?? 0) > 0 ? (
+                        <div className="max-h-60 overflow-y-auto px-2 py-2">
+                          {(option.options ?? []).map((entry) => (
+                            <button
+                              key={`${option.id}-${entry.value}`}
+                              type="button"
+                              data-option-id={option.id}
+                              data-value={entry.value}
+                              disabled={
+                                acpConfigReadOnly ||
+                                isAcpOptionSaving(option.id) ||
+                                String(option.currentValue) === entry.value
+                              }
+                              className={`acp-inline-option-item flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-60 ${String(option.currentValue) === entry.value ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}
+                              onClick={() => onAcpSelectOption(option.id, entry.value)}
+                            >
+                              {entry.value}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-3 py-4 text-xs text-muted-foreground">
+                          No options available
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
+                ))}
+              </>
+            ) : showModelPopover ? (
+              <Popover open={isModelPanelOpen} onOpenChange={setIsModelPanelOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    data-testid="app-model-switcher"
+                    data-selected-provider-id={effectiveModelSelection?.providerId ?? ''}
+                    data-selected-model-id={effectiveModelSelection?.modelId ?? ''}
+                    variant="ghost"
+                    size="sm"
+                    className={`h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg ${!isModelOptionsReady ? 'opacity-70' : ''}`}
+                    aria-busy={!isModelOptionsReady}
+                  >
+                    <ModelIcon
+                      modelId={displayIconId}
+                      customClass="w-3.5 h-3.5"
+                      isDark={themeStore.isDark}
+                    />
+                    <span>{displayModelText}</span>
+                    {showModelOptionsLoading ? (
+                      <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Icon icon="lucide:chevron-down" className="w-3 h-3" />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="start"
+                  className={`z-72 max-w-[calc(100vw-1rem)] overflow-hidden p-0 ${isModelSettingsExpanded ? 'w-[38rem]' : 'w-[20rem]'}`}
+                >
+                  <div className="flex max-h-[28rem]">
+                    <div
+                      className={`flex min-w-0 flex-col ${isModelSettingsExpanded ? 'w-[18rem] border-r' : 'w-full'}`}
+                    >
+                      {isModelOptionsReady && (
+                        <div className="border-b px-2.5 py-2">
+                          <Input
+                            data-model-search-input="true"
+                            value={modelSearchKeyword}
+                            onChange={(e) => setModelSearchKeyword(e.target.value)}
+                            className="h-7 border-0 bg-transparent px-3 text-xs shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder="Search models..."
+                          />
+                        </div>
+                      )}
+                      <div className="max-h-[24rem] overflow-y-auto px-2 py-2">
+                        {showModelOptionsLoading && (
+                          <div
+                            data-model-picker-state="loading"
+                            className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground"
+                          >
+                            <div className="flex items-center justify-center gap-2">
+                              <Icon icon="lucide:loader-2" className="h-3.5 w-3.5 animate-spin" />
+                              <span>Loading...</span>
+                            </div>
+                          </div>
+                        )}
+                        {hasModelOptionsError && (
+                          <div
+                            data-model-picker-state="error"
+                            className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground"
+                          >
+                            <div>Failed to load models</div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mt-3 h-7 px-3 text-xs"
+                              onClick={() => void ensureCompleteModelOptionsReady()}
+                            >
+                              Retry
+                            </Button>
+                          </div>
+                        )}
+                        {!showModelOptionsLoading &&
+                          !hasModelOptionsError &&
+                          filteredModelGroups.length === 0 && (
+                            <div className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
+                              No models available
+                            </div>
+                          )}
+                        {!showModelOptionsLoading &&
+                          !hasModelOptionsError &&
+                          filteredModelGroups.length > 0 && (
+                            <div className="space-y-3">
+                              {filteredModelGroups.map((group) => (
+                                <div key={group.providerId} className="space-y-1">
+                                  <div className="px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                    {group.providerName}
+                                  </div>
+                                  <div className="space-y-1">
+                                    {group.models.map((model) => (
+                                      <div
+                                        key={`${group.providerId}-${model.id}`}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <button
+                                          type="button"
+                                          data-testid="model-option"
+                                          data-provider-id={group.providerId}
+                                          data-model-id={model.id}
+                                          className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs transition-colors ${isModelSelected(group.providerId, model.id) ? 'bg-muted/60 text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}
+                                          onClick={() =>
+                                            void handleModelQuickSelect(group.providerId, model.id)
+                                          }
+                                        >
+                                          <ModelIcon
+                                            modelId={resolveModelIconId(group.providerId, model.id)}
+                                            customClass="w-3.5 h-3.5 shrink-0"
+                                            isDark={themeStore.isDark}
+                                          />
+                                          <span className="min-w-0 flex-1 truncate font-medium">
+                                            {model.id}
+                                          </span>
+                                        </button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                                          aria-label="Advanced settings"
+                                          title="Advanced settings"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            void openModelSettings(group.providerId, model.id)
+                                          }}
+                                        >
+                                          <Icon
+                                            icon="lucide:chevron-right"
+                                            className="h-3.5 w-3.5"
+                                          />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+                    {isModelSettingsExpanded && (
+                      <div className="flex w-[21rem] min-w-0 flex-col">
+                        <div className="border-b px-3 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium">Model Settings</div>
+                              <div className="mt-1 truncate text-xs font-medium">
+                                {modelSettingsModelName}
+                              </div>
+                              <div className="truncate text-[11px] text-muted-foreground">
+                                {modelSettingsProviderText}
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                              aria-label="Close"
+                              title="Close"
+                              onClick={collapseModelSettings}
+                            >
+                              <Icon icon="lucide:x" className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="max-h-[24rem] overflow-y-auto px-3 py-3">
+                          {!isModelSettingsReady && (
+                            <div className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
+                              Loading...
+                            </div>
+                          )}
+                          {isModelSettingsReady && localSettings && (
+                            <TooltipProvider delayDuration={200}>
+                              {!showOpenAIMediaGenerationSettings && showTemperatureControl && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-medium">Temperature</label>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0"
+                                      data-setting-control="temperature"
+                                      data-setting-action="decrement"
+                                      disabled={
+                                        isMoonshotKimiTemperatureLocked ||
+                                        hasNumericInputError('temperature')
+                                      }
+                                      onClick={() => stepTemperature(-1)}
+                                    >
+                                      <Icon icon="lucide:minus" className="h-3 w-3" />
+                                    </Button>
+                                    <Input
+                                      className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('temperature') ? 'border-destructive' : ''}`}
+                                      data-setting-control="temperature"
+                                      type="number"
+                                      step={TEMPERATURE_STEP}
+                                      disabled={isMoonshotKimiTemperatureLocked}
+                                      aria-invalid={hasNumericInputError('temperature')}
+                                      value={temperatureInputValue}
+                                      onFocus={() => startNumericInputEdit('temperature')}
+                                      onChange={(e) => onTemperatureInput(e.target.value)}
+                                      onBlur={commitTemperatureInput}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault()
+                                          commitTemperatureInput()
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0"
+                                      data-setting-control="temperature"
+                                      data-setting-action="increment"
+                                      disabled={
+                                        isMoonshotKimiTemperatureLocked ||
+                                        hasNumericInputError('temperature')
+                                      }
+                                      onClick={() => stepTemperature(1)}
+                                    >
+                                      <Icon icon="lucide:plus" className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  {moonshotKimiTemperatureHint && (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      {moonshotKimiTemperatureHint}
+                                    </p>
+                                  )}
+                                  {getNumericInputErrorMessage('temperature') && (
+                                    <p className="text-[11px] text-destructive">
+                                      {getNumericInputErrorMessage('temperature')}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {showTopPControl && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-medium">Top P</label>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0"
+                                      data-setting-control="topP"
+                                      data-setting-action="decrement"
+                                      disabled={
+                                        hasNumericInputError('topP') || topPDecreaseDisabled
+                                      }
+                                      onClick={() => stepTopP(-1)}
+                                    >
+                                      <Icon icon="lucide:minus" className="h-3 w-3" />
+                                    </Button>
+                                    <Input
+                                      className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('topP') ? 'border-destructive' : ''}`}
+                                      data-setting-control="topP"
+                                      type="number"
+                                      step={TOP_P_STEP}
+                                      min={TOP_P_MIN}
+                                      max={TOP_P_MAX}
+                                      aria-invalid={hasNumericInputError('topP')}
+                                      placeholder="Default"
+                                      value={topPInputValue}
+                                      onFocus={() => startNumericInputEdit('topP')}
+                                      onChange={(e) => onTopPInput(e.target.value)}
+                                      onBlur={commitTopPInput}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault()
+                                          commitTopPInput()
+                                        }
+                                      }}
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 shrink-0"
+                                      data-setting-control="topP"
+                                      data-setting-action="increment"
+                                      disabled={
+                                        hasNumericInputError('topP') || topPIncreaseDisabled
+                                      }
+                                      onClick={() => stepTopP(1)}
+                                    >
+                                      <Icon icon="lucide:plus" className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  {getNumericInputErrorMessage('topP') && (
+                                    <p className="text-[11px] text-destructive">
+                                      {getNumericInputErrorMessage('topP')}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {!showOpenAIMediaGenerationSettings && (
+                                <>
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-medium">Context Length</label>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        data-setting-control="contextLength"
+                                        data-setting-action="decrement"
+                                        disabled={
+                                          hasNumericInputError('contextLength') ||
+                                          localSettings.contextLength <= 0
+                                        }
+                                        onClick={() => stepContextLength(-1)}
+                                      >
+                                        <Icon icon="lucide:minus" className="h-3 w-3" />
+                                      </Button>
+                                      <Input
+                                        className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('contextLength') ? 'border-destructive' : ''}`}
+                                        data-setting-control="contextLength"
+                                        type="number"
+                                        step={CONTEXT_LENGTH_STEP}
+                                        aria-invalid={hasNumericInputError('contextLength')}
+                                        value={contextLengthInputValue}
+                                        onFocus={() => startNumericInputEdit('contextLength')}
+                                        onChange={(e) => onContextLengthInput(e.target.value)}
+                                        onBlur={commitContextLengthInput}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            commitContextLengthInput()
+                                          }
+                                        }}
+                                      />
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        data-setting-control="contextLength"
+                                        data-setting-action="increment"
+                                        disabled={hasNumericInputError('contextLength')}
+                                        onClick={() => stepContextLength(1)}
+                                      >
+                                        <Icon icon="lucide:plus" className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    {getNumericInputErrorMessage('contextLength') && (
+                                      <p className="text-[11px] text-destructive">
+                                        {getNumericInputErrorMessage('contextLength')}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-xs font-medium">Max Tokens</label>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        data-setting-control="maxTokens"
+                                        data-setting-action="decrement"
+                                        disabled={
+                                          hasNumericInputError('maxTokens') ||
+                                          localSettings.maxTokens <= 0
+                                        }
+                                        onClick={() => stepMaxTokens(-1)}
+                                      >
+                                        <Icon icon="lucide:minus" className="h-3 w-3" />
+                                      </Button>
+                                      <Input
+                                        className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('maxTokens') ? 'border-destructive' : ''}`}
+                                        data-setting-control="maxTokens"
+                                        type="number"
+                                        step={MAX_TOKENS_STEP}
+                                        aria-invalid={hasNumericInputError('maxTokens')}
+                                        value={maxTokensInputValue}
+                                        onFocus={() => startNumericInputEdit('maxTokens')}
+                                        onChange={(e) => onMaxTokensInput(e.target.value)}
+                                        onBlur={commitMaxTokensInput}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            commitMaxTokensInput()
+                                          }
+                                        }}
+                                      />
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        data-setting-control="maxTokens"
+                                        data-setting-action="increment"
+                                        disabled={hasNumericInputError('maxTokens')}
+                                        onClick={() => stepMaxTokens(1)}
+                                      >
+                                        <Icon icon="lucide:plus" className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    {getNumericInputErrorMessage('maxTokens') && (
+                                      <p className="text-[11px] text-destructive">
+                                        {getNumericInputErrorMessage('maxTokens')}
+                                      </p>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-medium">Timeout</label>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    data-setting-control="timeout"
+                                    data-setting-action="decrement"
+                                    disabled={
+                                      hasNumericInputError('timeout') ||
+                                      (localSettings.timeout ?? 0) <= TIMEOUT_MIN
+                                    }
+                                    onClick={() => stepTimeout(-1)}
+                                  >
+                                    <Icon icon="lucide:minus" className="h-3 w-3" />
+                                  </Button>
+                                  <Input
+                                    className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('timeout') ? 'border-destructive' : ''}`}
+                                    data-setting-control="timeout"
+                                    type="number"
+                                    step={TIMEOUT_STEP}
+                                    min={TIMEOUT_MIN}
+                                    max={TIMEOUT_MAX}
+                                    aria-invalid={hasNumericInputError('timeout')}
+                                    value={timeoutInputValue}
+                                    onFocus={() => startNumericInputEdit('timeout')}
+                                    onChange={(e) => onTimeoutInput(e.target.value)}
+                                    onBlur={commitTimeoutInput}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault()
+                                        commitTimeoutInput()
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0"
+                                    data-setting-control="timeout"
+                                    data-setting-action="increment"
+                                    disabled={
+                                      hasNumericInputError('timeout') ||
+                                      (localSettings.timeout ?? 0) >= TIMEOUT_MAX
+                                    }
+                                    onClick={() => stepTimeout(1)}
+                                  >
+                                    <Icon icon="lucide:plus" className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                {getNumericInputErrorMessage('timeout') && (
+                                  <p className="text-[11px] text-destructive">
+                                    {getNumericInputErrorMessage('timeout')}
+                                  </p>
+                                )}
+                              </div>
+                              {showOpenAIImageGenerationSettings && (
+                                <OpenAIImageGenerationSettingsFields
+                                  density="compact"
+                                  modelValue={localSettings.imageGeneration}
+                                  onUpdateModelValue={onImageGenerationSettingsUpdate}
+                                />
+                              )}
+                              {showOpenAIVideoGenerationSettings && (
+                                <OpenAIVideoGenerationSettingsFields
+                                  density="compact"
+                                  modelValue={localSettings.videoGeneration}
+                                  onUpdateModelValue={onVideoGenerationSettingsUpdate}
+                                />
+                              )}
+                              {!showOpenAIMediaGenerationSettings && showReasoningEffort && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-medium">Reasoning Effort</label>
+                                  <Select
+                                    value={localSettings.reasoningEffort ?? effortOptions[0]?.value}
+                                    onValueChange={(v) => onReasoningEffortSelect(v)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {effortOptions.map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>
+                                          {o.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              {!showOpenAIMediaGenerationSettings && showReasoningVisibility && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-medium">
+                                    Reasoning Visibility
+                                  </label>
+                                  <Select
+                                    value={
+                                      localSettings.reasoningVisibility ??
+                                      reasoningVisibilityOptions[0]?.value
+                                    }
+                                    onValueChange={(v) => onReasoningVisibilitySelect(v)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {reasoningVisibilityOptions.map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>
+                                          {o.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              {!showOpenAIMediaGenerationSettings && showVerbosity && (
+                                <div className="space-y-1.5">
+                                  <label className="text-xs font-medium">Verbosity</label>
+                                  <Select
+                                    value={localSettings.verbosity ?? verbosityOptions[0]?.value}
+                                    onValueChange={(v) => onVerbositySelect(v)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Select..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {verbosityOptions.map((o) => (
+                                        <SelectItem key={o.value} value={o.value}>
+                                          {o.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              {!showOpenAIMediaGenerationSettings && showThinkingBudget && (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium">Thinking Budget</label>
+                                    <div className="flex items-center gap-2">
+                                      {thinkingBudgetHint && (
+                                        <span className="text-[11px] text-muted-foreground">
+                                          {thinkingBudgetHint}
+                                        </span>
+                                      )}
+                                      <Switch
+                                        data-setting-control="thinkingBudget-toggle"
+                                        checked={isThinkingBudgetEnabled}
+                                        onCheckedChange={(v) => onThinkingBudgetToggle(v)}
+                                      />
+                                    </div>
+                                  </div>
+                                  {isThinkingBudgetEnabled && (
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        disabled={
+                                          hasNumericInputError('thinkingBudget') ||
+                                          (localSettings.thinkingBudget ?? 0) <= 0
+                                        }
+                                        onClick={() => stepThinkingBudget(-1)}
+                                      >
+                                        <Icon icon="lucide:minus" className="h-3 w-3" />
+                                      </Button>
+                                      <Input
+                                        className={`h-8 flex-1 text-xs tabular-nums ${hasNumericInputError('thinkingBudget') ? 'border-destructive' : ''}`}
+                                        data-setting-control="thinkingBudget"
+                                        type="number"
+                                        step={THINKING_BUDGET_STEP}
+                                        aria-invalid={hasNumericInputError('thinkingBudget')}
+                                        value={thinkingBudgetInputValue}
+                                        onFocus={() => startNumericInputEdit('thinkingBudget')}
+                                        onChange={(e) => onThinkingBudgetInput(e.target.value)}
+                                        onBlur={commitThinkingBudgetInput}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault()
+                                            commitThinkingBudgetInput()
+                                          }
+                                        }}
+                                      />
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        disabled={hasNumericInputError('thinkingBudget')}
+                                        onClick={() => stepThinkingBudget(1)}
+                                      >
+                                        <Icon icon="lucide:plus" className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                  {getNumericInputErrorMessage('thinkingBudget') && (
+                                    <p className="text-[11px] text-destructive">
+                                      {getNumericInputErrorMessage('thinkingBudget')}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {!showOpenAIMediaGenerationSettings && (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <label className="text-xs font-medium">
+                                        Force Interleaved Thinking
+                                      </label>
+                                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                        Enables interleaved thinking for models that need
+                                        compatibility mode.
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      data-setting-control="forceInterleavedThinkingCompat-toggle"
+                                      checked={isInterleavedThinkingEnabled}
+                                      onCheckedChange={(v) => onInterleavedThinkingToggle(v)}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                disabled
+              >
+                <ModelIcon
+                  modelId={displayIconId}
+                  customClass="w-3.5 h-3.5"
+                  isDark={themeStore.isDark}
+                />
+                <span>{displayModelText}</span>
+              </Button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1">
+            {isAcpAgent && acpOverflowOptions.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="acp-overflow-button h-6 w-6 px-0 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                    title="Advanced settings"
+                    aria-label="Advanced settings"
+                  >
+                    <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[18rem] p-0">
+                  <div className="border-b px-3 py-3">
+                    <div className="text-sm font-medium">Advanced Settings</div>
+                  </div>
+                  <div className="max-h-[24rem] space-y-3 overflow-y-auto px-3 py-3">
+                    {acpOverflowOptions.map((option) => (
+                      <div
+                        key={option.id}
+                        data-option-id={option.id}
+                        className="acp-overflow-option flex items-center justify-between gap-3"
+                      >
+                        <label className="min-w-0 flex-1 truncate text-xs font-medium">
+                          {option.label}
+                        </label>
+                        {option.type === 'select' ? (
+                          <Select
+                            value={String(option.currentValue)}
+                            onValueChange={(v) => onAcpSelectOption(option.id, v)}
+                          >
+                            <SelectTrigger
+                              disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
+                              className="h-8 w-[9rem] text-xs"
+                            >
+                              <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(option.options ?? []).map((entry) => (
+                                <SelectItem key={`${option.id}-${entry.value}`} value={entry.value}>
+                                  {entry.value}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 min-w-[6rem] text-xs"
+                            disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
+                            onClick={() =>
+                              onAcpBooleanOption(option.id, !Boolean(option.currentValue))
+                            }
+                          >
+                            <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            <McpIndicator
+              showSystemPromptSection={showSystemPromptSection}
+              systemPromptOptions={systemPromptMenuOptions}
+              selectedSystemPromptId={selectedSystemPromptId}
+              showCustomSystemPromptBadge={selectedSystemPromptId === '__custom__'}
+              showSubagentToggle={showSubagentToggle}
+              subagentEnabled={subagentEnabled}
+              subagentTogglePending={isSubagentToggleUpdating}
+              onSelectSystemPrompt={onSystemPromptSelect}
+              onOpenChange={handleSessionPanelOpenChange}
+              onToggleSubagents={onSubagentToggle}
+            />
+
+            {!isAcpAgent && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-6 px-2 gap-1.5 text-xs backdrop-blur-lg ${permissionMode === 'full_access' ? 'text-orange-500 hover:text-orange-600' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    <Icon icon={permissionIcon} className="w-3.5 h-3.5" />
+                    <span>{permissionModeLabel}</span>
+                    <Icon icon="lucide:chevron-down" className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                  {permissionOptions.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      className="gap-2 text-xs py-1.5 px-2"
+                      onSelect={() => void selectPermissionMode(option.value)}
+                    >
+                      <Icon
+                        icon={option.icon}
+                        className={`h-3.5 w-3.5 shrink-0 ${option.iconClass}`}
+                      />
+                      <span className="flex-1">{option.label}</span>
+                      {permissionMode === option.value && (
+                        <Icon icon="lucide:check" className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+)
+
+ChatStatusBar.displayName = 'ChatStatusBar'
+
+export default ChatStatusBar

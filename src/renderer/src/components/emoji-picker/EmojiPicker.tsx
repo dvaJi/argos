@@ -1,0 +1,494 @@
+import { Icon } from '@iconify/react'
+import { Button } from '@shadcn/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@shadcn/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@shadcn/components/ui/popover'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger
+} from '@shadcn/components/ui/dropdown-menu'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shadcn/components/ui/tabs'
+import { ScrollArea } from '@shadcn/components/ui/scroll-area'
+import { useState, useMemo } from 'react'
+import type { SkillMetadata } from '@shared/types/skill'
+
+interface EmojiPickerProps {
+  modelValue: string
+  onModelValueChange?: (value: string) => void
+}
+
+const categories = [
+  { id: 'smileys', name: 'Smileys & Emotion', icon: '😀' },
+  { id: 'people', name: 'People & Body', icon: '👨' },
+  { id: 'animals', name: 'Animals & Nature', icon: '🐶' },
+  { id: 'food', name: 'Food & Drink', icon: '🍔' },
+  { id: 'travel', name: 'Travel & Places', icon: '✈️' },
+  { id: 'activities', name: 'Activities', icon: '⚽' },
+  { id: 'objects', name: 'Objects', icon: '💡' },
+  { id: 'symbols', name: 'Symbols', icon: '❤️' }
+]
+
+const emojiData: Record<string, string[]> = {
+  smileys: [
+    '😀',
+    '😃',
+    '😄',
+    '😁',
+    '😆',
+    '😅',
+    '😂',
+    '🤣',
+    '😊',
+    '😇',
+    '🙂',
+    '🙃',
+    '😉',
+    '😌',
+    '😍',
+    '🥰',
+    '😘',
+    '😗',
+    '😙',
+    '😚',
+    '😋',
+    '😛',
+    '😝',
+    '😜',
+    '🤪',
+    '🤨',
+    '🧐',
+    '🤓',
+    '😎',
+    '🤩',
+    '🥳',
+    '😏',
+    '😒',
+    '😞',
+    '😔',
+    '😟',
+    '😕',
+    '🙁',
+    '☹️',
+    '😣',
+    '😖',
+    '😫',
+    '😩',
+    '🥺',
+    '😢',
+    '😭',
+    '😤',
+    '😠',
+    '😡',
+    '🤬',
+    '🤯'
+  ],
+  people: [
+    '👋',
+    '🤚',
+    '✋',
+    '🖐️',
+    '👌',
+    '🤏',
+    '✌️',
+    '🤞',
+    '🤟',
+    '🤘',
+    '🤙',
+    '👈',
+    '👉',
+    '👆',
+    '🖕',
+    '👇',
+    '☝️',
+    '👍',
+    '👎',
+    '✊',
+    '👊',
+    '🤛',
+    '🤜',
+    '👏',
+    '🙌',
+    '👐',
+    '🤲',
+    '🤝',
+    '🙏',
+    '✍️',
+    '💅',
+    '🤳',
+    '💪',
+    '🦾',
+    '🦿',
+    '🦵',
+    '🦶',
+    '👂',
+    '🦻',
+    '👃',
+    '🧠',
+    '🦷',
+    '🦴',
+    '👀',
+    '👁️',
+    '👅',
+    '👄',
+    '💋',
+    '🩸'
+  ],
+  animals: [
+    '🐶',
+    '🐱',
+    '🐭',
+    '🐹',
+    '🐰',
+    '🦊',
+    '🐻',
+    '🐼',
+    '🐨',
+    '🐯',
+    '🦁',
+    '🐮',
+    '🐷',
+    '🐽',
+    '🐸',
+    '🐵',
+    '🙈',
+    '🙉',
+    '🙊',
+    '🐒',
+    '🐔',
+    '🐧',
+    '🐦',
+    '🐤',
+    '🐣',
+    '🐥',
+    '🦆',
+    '🦅',
+    '🦉',
+    '🦇',
+    '🐺',
+    '🐗',
+    '🐴',
+    '🦄',
+    '🐝',
+    '🐛',
+    '🦋',
+    '🐌',
+    '🐞',
+    '🐜',
+    '🦟',
+    '🦗',
+    '🕷️',
+    '🕸️',
+    '🦂',
+    '🦠'
+  ],
+  food: [
+    '🍏',
+    '🍎',
+    '🍐',
+    '🍊',
+    '🍋',
+    '🍌',
+    '🍉',
+    '🍇',
+    '🍓',
+    '🍈',
+    '🍒',
+    '🍑',
+    '🥭',
+    '🍍',
+    '🥥',
+    '🥝',
+    '🍅',
+    '🍆',
+    '🥑',
+    '🥦',
+    '🥬',
+    '🥒',
+    '🌶️',
+    '🌽',
+    '🥕',
+    '🧄',
+    '🧅',
+    '🥔',
+    '🍠',
+    '🥐',
+    '🥯',
+    '🍞',
+    '🥖',
+    '🥨',
+    '🧀',
+    '🥚',
+    '🍳',
+    '🧈',
+    '🥞',
+    '🧇',
+    '🥓',
+    '🥩',
+    '🍗',
+    '🍖',
+    '🦴',
+    '🌭'
+  ],
+  travel: [
+    '🚗',
+    '🚕',
+    '🚙',
+    '🚌',
+    '🚎',
+    '🏎️',
+    '🚓',
+    '🚑',
+    '🚒',
+    '🚐',
+    '🚚',
+    '🚛',
+    '🚜',
+    '🦯',
+    '🦽',
+    '🦼',
+    '🛴',
+    '🚲',
+    '🛵',
+    '🏍️',
+    '🛺',
+    '🚨',
+    '🚔',
+    '🚍',
+    '🚘',
+    '🚖',
+    '🚡',
+    '🚠',
+    '🚟',
+    '🚃',
+    '🚋',
+    '🚞',
+    '🚝',
+    '🚄',
+    '🚅',
+    '🚈',
+    '🚂',
+    '🚆',
+    '🚇',
+    '🚊',
+    '🚉',
+    '✈️',
+    '🛫',
+    '🛬',
+    '🛩️',
+    '💺'
+  ],
+  activities: [
+    '⚽',
+    '🏀',
+    '🏈',
+    '⚾',
+    '🥎',
+    '🎾',
+    '🏐',
+    '🏉',
+    '🥏',
+    '🎱',
+    '🪀',
+    '🏓',
+    '🏸',
+    '🏒',
+    '🏑',
+    '🥍',
+    '🏏',
+    '🥅',
+    '⛳',
+    '🪁',
+    '🏹',
+    '🎣',
+    '🤿',
+    '🥊',
+    '🥋',
+    '🎽',
+    '🛹',
+    '🛼',
+    '🛷',
+    '⛸️',
+    '🥌',
+    '🎿',
+    '⛷️',
+    '🏂',
+    '🪂',
+    '🏋️',
+    '🤼',
+    '🤸',
+    '🤽',
+    '🤾',
+    '🤺',
+    '🏊',
+    '🏄',
+    '🧘'
+  ],
+  objects: [
+    '⌚',
+    '📱',
+    '📲',
+    '💻',
+    '⌨️',
+    '🖥️',
+    '🖨️',
+    '🖱️',
+    '🖲️',
+    '🕹️',
+    '🗜️',
+    '💽',
+    '💾',
+    '💿',
+    '📀',
+    '📼',
+    '📷',
+    '📸',
+    '📹',
+    '🎥',
+    '📽️',
+    '🎞️',
+    '📞',
+    '☎️',
+    '📟',
+    '📠',
+    '📺',
+    '📻',
+    '🎙️',
+    '🎚️',
+    '🎛️',
+    '🧭',
+    '⏱️',
+    '⏲️',
+    '⏰',
+    '🕰️',
+    '⌛',
+    '⏳',
+    '📡',
+    '🔋',
+    '🔌',
+    '💡',
+    '🔦',
+    '🕯️'
+  ],
+  symbols: [
+    '❤️',
+    '🧡',
+    '💛',
+    '💚',
+    '💙',
+    '💜',
+    '🖤',
+    '🤍',
+    '🤎',
+    '💔',
+    '❣️',
+    '💕',
+    '💞',
+    '💓',
+    '💗',
+    '💖',
+    '💘',
+    '💝',
+    '💟',
+    '☮️',
+    '✝️',
+    '☪️',
+    '🕉️',
+    '☸️',
+    '✡️',
+    '🔯',
+    '🕎',
+    '☯️',
+    '☦️',
+    '🛐',
+    '⛎',
+    '♈',
+    '♉',
+    '♊',
+    '♋',
+    '♌',
+    '♍',
+    '♎',
+    '♏',
+    '♐',
+    '♑',
+    '♒',
+    '♓',
+    '🆔',
+    '⚛️'
+  ]
+}
+
+export default function EmojiPicker({ modelValue, onModelValueChange }: EmojiPickerProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [selectedTab, setSelectedTab] = useState('smileys')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredEmojis = useMemo(() => {
+    if (!searchQuery) return emojiData
+    const query = searchQuery.toLowerCase()
+    const result: Record<string, string[]> = {}
+    for (const [category, emojis] of Object.entries(emojiData)) {
+      result[category] = emojis.filter((emoji) => emoji.toLowerCase().includes(query))
+    }
+    return result
+  }, [searchQuery])
+
+  const selectEmoji = (emoji: string) => {
+    onModelValueChange?.(emoji)
+    setIsOpen(false)
+  }
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="w-10 flex items-center justify-center text-sm"
+        >
+          {modelValue || '📁'}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-80 p-0">
+        <div className="p-2">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+            <TabsList className="flex overflow-x-auto w-full justify-between">
+              {categories.map((category) => (
+                <TabsTrigger
+                  key={category.id}
+                  value={category.id}
+                  className="w-0 grow py-1"
+                  title={category.name}
+                >
+                  {category.icon}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {categories.map((category) => (
+              <TabsContent
+                key={category.id}
+                value={category.id}
+                className="mt-2 focus:outline-none"
+              >
+                <ScrollArea className="h-40">
+                  <div className="grid grid-cols-8 gap-1">
+                    {filteredEmojis[category.id]?.map((emoji) => (
+                      <Button
+                        key={emoji}
+                        variant="ghost"
+                        className="p-1 h-8 w-8 flex items-center justify-center"
+                        onClick={() => selectEmoji(emoji)}
+                      >
+                        {emoji}
+                      </Button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

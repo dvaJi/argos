@@ -158,13 +158,13 @@ async function findViolations() {
     path.join(ROOT, 'src/main/presenter/mcpPresenter/toolManager.ts'),
     path.join(ROOT, 'src/main/presenter/syncPresenter/index.ts'),
     path.join(ROOT, 'src/main/presenter/llmProviderPresenter/providers'),
-    path.join(ROOT, 'src/renderer/src/pages/ChatPage.vue'),
-    path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.vue'),
+    path.join(ROOT, 'src/renderer/src/pages/ChatPage.tsx'),
+    path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.tsx'),
     path.join(ROOT, 'src/renderer/src/stores/ui'),
     path.join(ROOT, 'src/renderer/src/components/chat'),
     path.join(ROOT, 'src/renderer/src/components/message'),
     path.join(ROOT, 'src/renderer/src/composables/useArtifacts.ts'),
-    path.join(ROOT, 'src/renderer/src/components/sidepanel/WorkspacePanel.vue')
+    path.join(ROOT, 'src/renderer/src/components/sidepanel/WorkspacePanel.tsx')
   ]
 
   const fileSet = new Set()

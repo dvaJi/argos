@@ -47,22 +47,22 @@ const BRIDGE_REGISTER_PATH = path.join(
 )
 
 const RENDERER_IPC_GUARD_PATHS = [
-  path.join(ROOT, 'src/renderer/src/App.vue'),
+  path.join(ROOT, 'src/renderer/src/App.tsx'),
   path.join(ROOT, 'src/renderer/src/stores/ui/session.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/message.ts'),
   path.join(ROOT, 'src/renderer/src/lib/storeInitializer.ts')
 ]
 
 const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
-  path.join(ROOT, 'src/renderer/src/App.vue'),
+  path.join(ROOT, 'src/renderer/src/App.tsx'),
   path.join(ROOT, 'src/renderer/src/stores/uiSettingsStore.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/session.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/message.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/agent.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/pendingInput.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/pageRouter.ts'),
-  path.join(ROOT, 'src/renderer/src/pages/ChatPage.vue'),
-  path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.vue'),
+  path.join(ROOT, 'src/renderer/src/pages/ChatPage.tsx'),
+  path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.tsx'),
   path.join(ROOT, 'src/main/presenter/windowPresenter'),
   path.join(ROOT, 'src/main/presenter/configPresenter'),
   path.join(ROOT, 'src/main/presenter/agentSessionPresenter'),
@@ -79,7 +79,7 @@ const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
 
 const MIGRATED_RAW_CHANNEL_BASELINE = new Map([
   ['src/main/presenter/windowPresenter/index.ts', 4],
-  ['src/renderer/src/App.vue', 1]
+  ['src/renderer/src/App.tsx', 1]
 ])
 
 const HOT_PATH_FILES = [

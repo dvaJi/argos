@@ -1,1 +1,1 @@
-export { default as ThinkContent } from './ThinkContent.vue'
+export { default as ThinkContent } from './ThinkContent'

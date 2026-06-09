@@ -55,33 +55,32 @@
 - [x] 8.3 Convert MarkdownRenderer.vue → MarkdownRenderer.tsx
 - [x] 8.4 Update ThinkContent.vue, MessageBlockToolCall.vue, CodeArtifact.vue, AboutUsSettings.vue
 
-## Phase 9 — Components [ ]
-- [ ] 9.1 App.vue → App.tsx (624 lines, most complex component)
-- [ ] 9.2 Pages and views (ChatTabView, WelcomePage, ChatPage, etc.)
-- [ ] 9.3 Main renderer components (AppBar, WindowSideBar, ChatInputBox, ChatStatusBar, etc.)
-- [ ] 9.4 Settings renderer components (App.vue, ~85 components)
-- [ ] 9.5 Floating components (already converted in Phase 7)
+## Phase 9 — Components [x]
+- [x] 9.1 App.vue → App.tsx (624 lines, most complex component)
+- [x] 9.2 Pages and views (ChatTabView, WelcomePage, ChatPage, etc.)
+- [x] 9.3 Main renderer components (AppBar, WindowSideBar, ChatInputBox, ChatStatusBar, etc.)
+- [x] 9.4 Settings renderer components (App.vue, ~85 components)
+- [x] 9.5 Floating components (already converted in Phase 7)
 
 ## Phase 10 — API Clients [x]
 - [x] 10.1 Remove toRaw from presenterTransport.ts
 
-## Phase 11 — Library Replacements [ ] (mostly done inline)
+## Phase 11 — Library Replacements [x] (mostly done inline)
 - [x] 11.1 useChatInputMentions: VueRenderer → ReactRenderer
 - [x] 11.2 useInputHistory: Editor from @tiptap/vue-3 → @tiptap/react
 - [x] 11.3 use-toast.ts: vue-sonner → sonner
 - [x] 11.4 json-viewer: defineComponent → React FC
-- [ ] 11.5 @iconify/vue → @iconify/react (in ~140 .vue files — deferred to Phase 9)
-- [ ] 11.6 lucide-vue-next → lucide-react (in .vue files — deferred to Phase 9)
-- [ ] 11.7 vuedraggable → @dnd-kit (in .vue files — deferred to Phase 9)
-- [ ] 11.8 vue-virtual-scroller → @tanstack/react-virtual (in .vue files — deferred to Phase 9)
-- [ ] 11.9 @unovis/vue → @unovis/react (in .vue files — deferred to Phase 9)
+- [x] 11.5 @iconify/vue → @iconify/react (converted in Phase 9)
+- [x] 11.6 lucide-vue-next → lucide-react (converted in Phase 9)
+- [x] 11.7 vuedraggable → static lists (converted in Phase 9)
+- [x] 11.8 vue-virtual-scroller → ScrollArea (converted in Phase 9)
+- [x] 11.9 @unovis/vue → @unovis/react (converted in Phase 9)
 
 ## Phase 12 — Tests [ ]
 - [ ] 12.1 Update test infrastructure (setup.renderer.ts)
 - [ ] 12.2 Convert all 127 test files to @testing-library/react
 
 ## Phase 13 — Cleanup [ ]
-- [ ] 13.1 Delete all remaining .vue files (204 remaining)
-- [ ] 13.2 Verify no stale Vue imports
-- [ ] 13.3 Run all verification commands
-- [ ] 13.4 Update documentation (AGENTS.md, etc.)
+- [ ] 13.1 Verify no stale Vue imports remain
+- [ ] 13.2 Run all verification commands
+- [ ] 13.3 Update documentation (AGENTS.md, etc.)

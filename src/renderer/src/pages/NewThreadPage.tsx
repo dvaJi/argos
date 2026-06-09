@@ -1,0 +1,899 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useStore } from '@tanstack/react-store'
+import { TooltipProvider } from '@shadcn/components/ui/tooltip'
+import { Button } from '@shadcn/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@shadcn/components/ui/dropdown-menu'
+import ChatInputBox from '@/components/chat/ChatInputBox'
+import ChatInputToolbar from '@/components/chat/ChatInputToolbar'
+import ChatStatusBar from '@/components/chat/ChatStatusBar'
+import { useToast } from '@/components/use-toast'
+import GuidedOnboardingOverlay from '@/components/onboarding/GuidedOnboardingOverlay'
+import { useGuidedOnboardingStep } from '@/composables/useGuidedOnboardingStep'
+import {
+  projectStore,
+  selectProject,
+  fetchProjects,
+  loadDefaultProjectPath,
+  openFolderPicker
+} from '@/stores/ui/project'
+import { sessionStore, createSession, selectSession, fetchSessions } from '@/stores/ui/session'
+import { agentStore } from '@/stores/ui/agent'
+import { modelStore } from '@/stores/modelStore'
+import { draftStore } from '@/stores/ui/draft'
+import { createConfigClient } from '@api/ConfigClient'
+import { createFileClient } from '@api/FileClient'
+import { createModelClient } from '@api/ModelClient'
+import { createSessionClient } from '@api/SessionClient'
+import { persistGuidedOnboardingResumeIntent } from '@/lib/onboardingResume'
+import { resolveGuidedOnboardingStepTarget } from '@shared/guidedOnboarding'
+import { normalizeDeepChatSubagentConfig } from '@shared/lib/deepchatSubagents'
+import {
+  resolveChatModelByQuery,
+  resolvePreferredChatModel,
+  type ChatModelSelection
+} from '@/lib/chatModelSelection'
+import { scheduleStartupDeferredTask } from '@/lib/startupDeferred'
+import { isManualCompactionCommand } from '@/components/chat/mentions/utils'
+import { filterUnsupportedAudioAttachments } from '@/lib/audioInputSupport'
+import { cancelChatInputHeroFlight, prepareChatInputHeroFlight } from '@/lib/chatInputHero'
+import type {
+  DeepChatAgentConfig,
+  MessageFile,
+  SessionGenerationSettings
+} from '@shared/types/agent-interface'
+
+const configClient = createConfigClient()
+const fileClient = createFileClient()
+const modelClient = createModelClient()
+const sessionClient = createSessionClient()
+
+type SubmissionModelSelection = { providerId: string; modelId: string }
+
+export function NewThreadPage() {
+  const { toast } = useToast()
+  const projectState = useStore(projectStore)
+  const sessionState = useStore(sessionStore)
+  const agentState = useStore(agentStore)
+  const modelState = useStore(modelStore)
+  const draftState = useStore(draftStore)
+
+  const switchAgentGuide = useGuidedOnboardingStep('switch-agent')
+  const switchModelGuide = useGuidedOnboardingStep('switch-model')
+  const firstChatGuide = useGuidedOnboardingStep('first-chat')
+
+  const [message, setMessage] = useState('')
+  const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([])
+  const [pendingSkills, setPendingSkills] = useState<string[]>([])
+  const guideRootRef = useRef<HTMLDivElement>(null)
+  const agentGuideTargetRef = useRef<HTMLElement | null>(null)
+  const modelGuideTargetRef = useRef<HTMLElement | null>(null)
+  const firstChatGuideHostRef = useRef<HTMLDivElement>(null)
+  const firstChatGuideTargetRef = useRef<HTMLElement | null>(null)
+  const [isVoiceInputEnabled, setIsVoiceInputEnabled] = useState(false)
+  const chatInputRef = useRef<{
+    triggerAttach: () => void
+    insertRecognizedText?: (text: string) => void
+    getPendingSkillsSnapshot?: () => string[]
+    focusInput?: () => void
+  } | null>(null)
+  const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null)
+  const [acpDraftModelSelection, setAcpDraftModelSelection] =
+    useState<SubmissionModelSelection | null>(null)
+  const lastAcpDraftKeyRef = useRef<string | null>(null)
+  const acpDraftRequestSeqRef = useRef(0)
+  const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false)
+  const currentDraftDefaultsTaskRef = useRef<Promise<void> | null>(null)
+  const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null)
+  const voiceInputConfigTokenRef = useRef(0)
+  const attachmentFilterTokenRef = useRef(0)
+  const selectedProjectDirectoryCheckSeqRef = useRef(0)
+  const [selectedProjectDirectoryStatus, setSelectedProjectDirectoryStatus] = useState<
+    'none' | 'checking' | 'valid' | 'invalid'
+  >('none')
+
+  const availableAgents = useMemo(
+    () => (Array.isArray(agentState.agents) ? agentState.agents : []),
+    [agentState.agents]
+  )
+
+  const resolveAgentType = useCallback(
+    (agentId: string | null | undefined): 'deepchat' | 'acp' => {
+      if (!agentId) return 'deepchat'
+      const matchedAgent = availableAgents.find((a) => a.id === agentId)
+      const sel =
+        agentState.selectedAgent && agentState.selectedAgent.id === agentId
+          ? agentState.selectedAgent
+          : null
+      const explicitType = matchedAgent?.agentType ?? matchedAgent?.type ?? sel?.type
+      if (explicitType === 'deepchat' || explicitType === 'acp') return explicitType
+      return agentId === 'deepchat' ? 'deepchat' : 'acp'
+    },
+    [availableAgents, agentState.selectedAgent]
+  )
+
+  const selectedAgent = useMemo(() => {
+    const id = agentState.selectedAgentId ?? 'deepchat'
+    const matched = availableAgents.find((a) => a.id === id)
+    if (matched) return matched
+    if (agentState.selectedAgent && agentState.selectedAgent.id === id)
+      return agentState.selectedAgent
+    return { id, type: resolveAgentType(id) }
+  }, [agentState.selectedAgentId, availableAgents, agentState.selectedAgent, resolveAgentType])
+
+  const isAcpSelectedAgent = selectedAgent.type === 'acp'
+  const isDeepChatSelectedAgent = selectedAgent.type === 'deepchat'
+
+  const normalizeProjectPath = (value: string | null | undefined) => {
+    const n = value?.trim()
+    return n || null
+  }
+
+  const selectedProjectPath = normalizeProjectPath(projectState.selectedProject?.path)
+  const hasExplicitNoProjectSelection =
+    projectState.selectionSource === 'manual' && !projectState.selectedProject?.path?.trim()
+
+  const selectedProjectName = useMemo(() => {
+    if (projectState.selectedProject?.name) return projectState.selectedProject.name
+    return hasExplicitNoProjectSelection ? 'No Project' : 'Select Project'
+  }, [projectState.selectedProject, hasExplicitNoProjectSelection])
+
+  const canClearProjectSelection = Boolean(projectState.selectedProject?.path?.trim())
+
+  const selectedProjectDirectoryInvalid = selectedProjectDirectoryStatus === 'invalid'
+  const selectedProjectUnavailableTooltip = selectedProjectPath
+    ? `Workspace path unavailable: ${selectedProjectPath}`
+    : ''
+
+  const isSelectedInvalidProjectPath = (projectPath: string | null | undefined): boolean =>
+    selectedProjectDirectoryInvalid && normalizeProjectPath(projectPath) === selectedProjectPath
+
+  const isAcpWorkdirMissing = isAcpSelectedAgent && !selectedProjectPath
+  const isAcpWorkdirInvalid =
+    isAcpSelectedAgent && Boolean(selectedProjectPath) && selectedProjectDirectoryInvalid
+  const isAcpWorkdirChecking =
+    isAcpSelectedAgent &&
+    Boolean(selectedProjectPath) &&
+    selectedProjectDirectoryStatus === 'checking'
+  const isAcpWorkdirUnavailable = isAcpWorkdirMissing || isAcpWorkdirInvalid || isAcpWorkdirChecking
+
+  const syncGuideTargets = useCallback(() => {
+    if (typeof document === 'undefined') return
+    agentGuideTargetRef.current =
+      (document.querySelector(
+        '[data-testid="sidebar-agent-button"][data-agent-id="deepchat"]'
+      ) as HTMLElement | null) ??
+      (document.querySelector(
+        '[data-testid="sidebar-agent-button"][data-agent-type="deepchat"]'
+      ) as HTMLElement | null)
+    modelGuideTargetRef.current = document.querySelector(
+      '[data-testid="app-model-switcher"]'
+    ) as HTMLElement | null
+    firstChatGuideTargetRef.current =
+      (firstChatGuideHostRef.current?.querySelector(
+        '[data-testid="chat-input-box"]'
+      ) as HTMLElement | null) ?? firstChatGuideHostRef.current
+  }, [])
+
+  const ensureEnabledModelsReady = async (): Promise<boolean> => {
+    if (modelState.initialized) return true
+    try {
+      await modelStore.initialize()
+      return true
+    } catch (error) {
+      console.warn('[NewThreadPage] Failed to initialize enabled models:', error)
+      return false
+    }
+  }
+
+  const resolveModel = useCallback(async (): Promise<SubmissionModelSelection | null> => {
+    const ready = await ensureEnabledModelsReady()
+    if (!ready) return null
+    const [preferredModel, defaultModel] = await Promise.all([
+      configClient.getSetting('preferredModel') as Promise<ChatModelSelection | undefined>,
+      configClient.getSetting('defaultModel') as Promise<ChatModelSelection | undefined>
+    ])
+    const resolvedModel = resolvePreferredChatModel({
+      modelGroups: modelState.chatSelectableModelGroups,
+      selections: [
+        draftState.providerId && draftState.modelId
+          ? { providerId: draftState.providerId, modelId: draftState.modelId }
+          : null,
+        preferredModel,
+        defaultModel
+      ]
+    })
+    if (resolvedModel)
+      return { providerId: resolvedModel.providerId, modelId: resolvedModel.model.id }
+    return null
+  }, [modelState, draftState])
+
+  const resolveVoiceInputSelection = useCallback((): SubmissionModelSelection | null => {
+    if (isAcpSelectedAgent) return null
+    if (draftState.providerId && draftState.modelId) {
+      return { providerId: draftState.providerId, modelId: draftState.modelId }
+    }
+    return null
+  }, [isAcpSelectedAgent, draftState])
+
+  const resolveSubmissionModelSelection =
+    useCallback(async (): Promise<SubmissionModelSelection | null> => {
+      if (isAcpSelectedAgent) {
+        if (acpDraftModelSelection) return acpDraftModelSelection
+        const agentId = selectedAgent.id?.trim()
+        return agentId ? { providerId: 'acp', modelId: agentId } : null
+      }
+      return await resolveModel()
+    }, [isAcpSelectedAgent, acpDraftModelSelection, selectedAgent.id, resolveModel])
+
+  const shouldIgnoreManualCompactionDraft = (text: string): boolean => {
+    return !isAcpSelectedAgent && isManualCompactionCommand(text)
+  }
+
+  const notifyUnsupportedAudioAttachments = useCallback(
+    (selection: { providerId: string; modelId: string }, rejectedAudioFiles: MessageFile[]) => {
+      if (rejectedAudioFiles.length === 0) return
+      const modelLabel =
+        modelStore.findChatSelectableModel(selection.providerId, selection.modelId)?.model.name ??
+        selection.modelId
+      toast({
+        title: 'Audio Input Not Supported',
+        description: `${rejectedAudioFiles.length} audio file(s) not supported by ${modelLabel}.`
+      })
+    },
+    [toast]
+  )
+
+  const prepareFilesForCurrentModel = useCallback(
+    async (files: MessageFile[]): Promise<MessageFile[]> => {
+      const selection = await resolveSubmissionModelSelection()
+      if (!selection || files.length === 0) return files
+      try {
+        const capabilities = await modelClient.getCapabilities(
+          selection.providerId,
+          selection.modelId
+        )
+        if (capabilities.supportsAudioInput !== false) return files
+        const { acceptedFiles, rejectedAudioFiles } = filterUnsupportedAudioAttachments(
+          files,
+          false
+        )
+        notifyUnsupportedAudioAttachments(selection, rejectedAudioFiles)
+        return acceptedFiles
+      } catch (error) {
+        console.warn('[NewThreadPage] Failed to resolve audio input capability:', error)
+        return files
+      }
+    },
+    [resolveSubmissionModelSelection, notifyUnsupportedAudioAttachments]
+  )
+
+  const submitText = useCallback(
+    async (text: string, files: MessageFile[]) => {
+      if (!text.trim()) return
+      if (isAcpWorkdirUnavailable) return
+
+      const chatInputBoxEl = firstChatGuideHostRef.current?.querySelector(
+        '[data-testid="chat-input-box"]'
+      ) as HTMLElement | null
+      const preparedHeroFlight = prepareChatInputHeroFlight(chatInputBoxEl)
+
+      const agentId = selectedAgent.id
+      const isAcp = isAcpSelectedAgent
+
+      try {
+        if (isAcp && acpDraftSessionId) {
+          await selectSession(acpDraftSessionId)
+          await sessionStore.getState().sendMessage(acpDraftSessionId, { text, files })
+          return
+        }
+
+        let providerId: string | undefined
+        let modelId: string | undefined
+
+        if (isAcp) {
+          providerId = 'acp'
+          modelId = agentId
+        } else {
+          const resolved = await resolveModel()
+          if (!resolved) {
+            console.error('No model available. Please configure a provider and model in settings.')
+            if (preparedHeroFlight) cancelChatInputHeroFlight()
+            return
+          }
+          providerId = resolved.providerId
+          modelId = resolved.modelId
+        }
+
+        const pendingSkillsSnapshot =
+          chatInputRef.current?.getPendingSkillsSnapshot?.() ?? pendingSkills
+        const dedupedPendingSkills = Array.from(new Set(pendingSkillsSnapshot))
+
+        await createSession({
+          message: text,
+          files,
+          projectDir: projectState.selectedProject?.path,
+          agentId,
+          providerId,
+          modelId,
+          permissionMode: draftState.permissionMode,
+          disabledAgentTools: isAcp ? undefined : [...draftState.disabledAgentTools],
+          subagentEnabled: isAcp ? false : draftState.subagentEnabled,
+          generationSettings: draftState.toGenerationSettings?.() ?? {},
+          activeSkills: dedupedPendingSkills.length > 0 ? dedupedPendingSkills : undefined
+        })
+      } catch (error) {
+        if (preparedHeroFlight) cancelChatInputHeroFlight()
+        throw error
+      }
+    },
+    [
+      isAcpWorkdirUnavailable,
+      selectedAgent,
+      isAcpSelectedAgent,
+      acpDraftSessionId,
+      resolveModel,
+      pendingSkills,
+      projectState,
+      draftState
+    ]
+  )
+
+  const onSubmit = useCallback(async () => {
+    if (isAcpWorkdirUnavailable) return
+    const text = message.trim()
+    if (!text) return
+    if (shouldIgnoreManualCompactionDraft(text)) return
+    const files = await prepareFilesForCurrentModel([...attachedFiles])
+    try {
+      await submitText(text, files)
+      setMessage('')
+      setAttachedFiles([])
+    } catch (e) {
+      console.error('[NewThreadPage] submit failed:', e)
+    }
+  }, [isAcpWorkdirUnavailable, message, attachedFiles, prepareFilesForCurrentModel, submitText])
+
+  const onCommandSubmit = useCallback(
+    async (command: string) => {
+      if (isAcpWorkdirUnavailable) return
+      const text = command.trim()
+      if (!text) return
+      if (shouldIgnoreManualCompactionDraft(text)) return
+      const files = await prepareFilesForCurrentModel([...attachedFiles])
+      try {
+        await submitText(text, files)
+        setAttachedFiles([])
+      } catch (e) {
+        console.error('[NewThreadPage] submit failed:', e)
+      }
+    },
+    [isAcpWorkdirUnavailable, attachedFiles, prepareFilesForCurrentModel, submitText]
+  )
+
+  const onFilesChange = useCallback(
+    async (files: MessageFile[]) => {
+      const token = ++attachmentFilterTokenRef.current
+      const filteredFiles = await prepareFilesForCurrentModel(files)
+      if (token !== attachmentFilterTokenRef.current) return
+      setAttachedFiles(filteredFiles)
+    },
+    [prepareFilesForCurrentModel]
+  )
+
+  const onPendingSkillsChange = useCallback((skills: string[]) => {
+    setPendingSkills([...skills])
+  }, [])
+
+  const clearSelectedProject = useCallback(() => {
+    selectProject(null, 'manual')
+  }, [])
+
+  const onAttach = useCallback(() => {
+    chatInputRef.current?.triggerAttach()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedProjectPath) {
+      setSelectedProjectDirectoryStatus('none')
+      return
+    }
+    const seq = ++selectedProjectDirectoryCheckSeqRef.current
+    let cancelled = false
+    setSelectedProjectDirectoryStatus('checking')
+    fileClient
+      .isDirectory(selectedProjectPath)
+      .then((isDir) => {
+        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return
+        setSelectedProjectDirectoryStatus(isDir ? 'valid' : 'invalid')
+      })
+      .catch((error) => {
+        if (cancelled || seq !== selectedProjectDirectoryCheckSeqRef.current) return
+        console.warn('[NewThreadPage] Failed to validate selected project directory:', error)
+        setSelectedProjectDirectoryStatus('invalid')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedProjectPath])
+
+  useEffect(() => {
+    if (
+      !agentState.selectedAgentId ||
+      selectedAgent.type === 'deepchat' ||
+      !selectedProjectPath ||
+      selectedProjectDirectoryStatus !== 'valid'
+    ) {
+      setAcpDraftSessionId(null)
+      setAcpDraftModelSelection(null)
+      lastAcpDraftKeyRef.current = null
+      return
+    }
+
+    const agentId = agentState.selectedAgentId
+    const projectPath = selectedProjectPath
+    const draftKey = `${agentId}::${projectPath}`
+
+    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return
+
+    acpDraftRequestSeqRef.current += 1
+    cancelEnsureDraftTaskRef.current?.()
+    cancelEnsureDraftTaskRef.current = null
+
+    if (lastAcpDraftKeyRef.current !== draftKey) {
+      setAcpDraftSessionId(null)
+      setAcpDraftModelSelection(null)
+      lastAcpDraftKeyRef.current = null
+    }
+
+    cancelEnsureDraftTaskRef.current = scheduleStartupDeferredTask(async () => {
+      await ensureAcpDraftSession(agentId, projectPath)
+    })
+  }, [
+    agentState.selectedAgentId,
+    selectedProjectPath,
+    selectedProjectDirectoryStatus,
+    selectedAgent.type,
+    acpDraftSessionId
+  ])
+
+  const ensureAcpDraftSession = async (agentId: string, projectPath: string) => {
+    const projectDir = projectPath.trim()
+    if (!projectDir) return
+    const draftKey = `${agentId}::${projectDir}`
+    if (lastAcpDraftKeyRef.current === draftKey && acpDraftSessionId) return
+
+    const requestSeq = ++acpDraftRequestSeqRef.current
+    try {
+      const session = await sessionClient.ensureAcpDraftSession({
+        agentId,
+        projectDir,
+        permissionMode: draftState.permissionMode
+      })
+      if (requestSeq !== acpDraftRequestSeqRef.current) return
+      const currentAgentId = agentState.selectedAgentId
+      const currentProjectDir = projectState.selectedProject?.path?.trim()
+      if (currentAgentId !== agentId || currentProjectDir !== projectDir) return
+      const sessionId = typeof session?.id === 'string' ? session.id.trim() : ''
+      if (!sessionId) {
+        setAcpDraftSessionId(null)
+        setAcpDraftModelSelection(null)
+        lastAcpDraftKeyRef.current = null
+        return
+      }
+      setAcpDraftSessionId(sessionId)
+      setAcpDraftModelSelection(
+        typeof session.providerId === 'string' &&
+          session.providerId.trim() &&
+          typeof session.modelId === 'string' &&
+          session.modelId.trim()
+          ? { providerId: session.providerId.trim(), modelId: session.modelId.trim() }
+          : { providerId: 'acp', modelId: agentId }
+      )
+      lastAcpDraftKeyRef.current = draftKey
+    } catch (error) {
+      if (requestSeq !== acpDraftRequestSeqRef.current) return
+      console.warn('[NewThreadPage] Failed to ensure ACP draft session:', error)
+      setAcpDraftSessionId(null)
+      setAcpDraftModelSelection(null)
+      lastAcpDraftKeyRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    const applyDefaults = async () => {
+      const agentId = selectedAgent.id
+      const globalDefault = normalizeProjectPath(projectState.defaultProjectPath)
+      const currentProject = normalizeProjectPath(projectState.selectedProject?.path)
+      draftStore.setState((s) => ({
+        ...s,
+        agentId,
+        providerId: undefined,
+        modelId: undefined,
+        permissionMode: 'full_access',
+        disabledAgentTools: [],
+        subagentEnabled: false,
+        systemPrompt: undefined,
+        temperature: undefined,
+        topP: undefined,
+        contextLength: undefined,
+        maxTokens: undefined,
+        timeout: undefined,
+        thinkingBudget: undefined,
+        reasoningEffort: undefined,
+        reasoningVisibility: undefined,
+        verbosity: undefined,
+        forceInterleavedThinkingCompat: undefined,
+        imageGeneration: undefined,
+        videoGeneration: undefined
+      }))
+
+      if (selectedAgent.type === 'acp') {
+        const resolvedPath = currentProject ?? globalDefault
+        if (!currentProject && globalDefault) selectProject(globalDefault, 'default')
+        draftStore.setState((s) => ({
+          ...s,
+          projectDir: resolvedPath ?? undefined,
+          providerId: 'acp',
+          modelId: agentId,
+          permissionMode: 'full_access',
+          disabledAgentTools: [],
+          subagentEnabled: false
+        }))
+        return
+      }
+
+      const config = await resolveDeepChatAgentConfig(agentId)
+      const agentDefault = normalizeProjectPath(config.defaultProjectPath)
+      const resolvedPath = agentDefault ?? currentProject ?? globalDefault
+      if (agentDefault) {
+        selectProject(agentDefault, agentDefault === globalDefault ? 'default' : 'manual')
+      } else if (!currentProject && globalDefault) {
+        selectProject(globalDefault, 'default')
+      }
+      draftStore.setState((s) => ({
+        ...s,
+        projectDir: resolvedPath ?? undefined,
+        providerId: config.defaultModelPreset?.providerId,
+        modelId: config.defaultModelPreset?.modelId,
+        permissionMode: config.permissionMode === 'default' ? 'default' : 'full_access',
+        disabledAgentTools: [...(config.disabledAgentTools ?? [])],
+        subagentEnabled: config.subagentEnabled === true,
+        systemPrompt: config.systemPrompt ?? ''
+      }))
+    }
+
+    const task = applyDefaults().finally(() => {
+      if (currentDraftDefaultsTaskRef.current === task) {
+        currentDraftDefaultsTaskRef.current = null
+      }
+    })
+    currentDraftDefaultsTaskRef.current = task
+  }, [selectedAgent.id, selectedAgent.type])
+
+  useEffect(() => {
+    draftStore.setState((s) => ({ ...s, projectDir: projectState.selectedProject?.path }))
+  }, [projectState.selectedProject?.path])
+
+  useEffect(() => {
+    const sync = () => {
+      void nextTick(syncGuideTargets)
+    }
+    window.addEventListener('resize', sync)
+    return () => window.removeEventListener('resize', sync)
+  }, [syncGuideTargets])
+
+  useEffect(() => {
+    return () => {
+      cancelEnsureDraftTaskRef.current?.()
+      cancelEnsureDraftTaskRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    void nextTick(syncGuideTargets)
+  }, [
+    switchAgentGuide.showGuide,
+    switchModelGuide.showGuide,
+    firstChatGuide.showGuide,
+    selectedAgent.type,
+    syncGuideTargets
+  ])
+
+  useEffect(() => {
+    if (switchAgentGuide.currentStepId === 'switch-agent' && isDeepChatSelectedAgent) {
+      void completeSwitchAgentStep()
+    }
+  }, [switchAgentGuide.currentStepId, isDeepChatSelectedAgent])
+
+  const completeSwitchAgentStep = async () => {
+    if (isCompletingSwitchAgentGuide || switchAgentGuide.currentStepId !== 'switch-agent') return
+    const stepStatus = switchAgentGuide.stepState?.status
+    if (stepStatus === 'completed' || stepStatus === 'skipped') return
+    setIsCompletingSwitchAgentGuide(true)
+    try {
+      const state = await switchAgentGuide.completeStep()
+      await continueChatGuide(state)
+    } finally {
+      setIsCompletingSwitchAgentGuide(false)
+    }
+  }
+
+  const continueChatGuide = async (state: any) => {
+    const stepId = state?.status === 'completed' ? 'first-chat' : state?.currentStepId
+    const target = resolveGuidedOnboardingStepTarget(stepId)
+    if (target?.surface !== 'settings' || !target.routeName) return
+    persistGuidedOnboardingResumeIntent({ stepId: target.stepId, trigger: 'window-focus' })
+    await configClient.openSettings({ routeName: target.routeName })
+  }
+
+  const activeChatGuide = useMemo(() => {
+    if (switchAgentGuide.showGuide && !isDeepChatSelectedAgent && agentGuideTargetRef.current) {
+      return {
+        key: 'switch-agent' as const,
+        title: 'Switch Agent',
+        description: 'Switch to the DeepChat agent to continue setup.',
+        caption: 'Select the DeepChat agent from the sidebar.',
+        targetEl: agentGuideTargetRef.current,
+        stepIndex: switchAgentGuide.stepIndex ?? 1,
+        totalSteps: switchAgentGuide.totalSteps ?? 1,
+        dismiss: switchAgentGuide.dismissGuide
+      }
+    }
+    if (switchModelGuide.showGuide && modelGuideTargetRef.current) {
+      return {
+        key: 'switch-model' as const,
+        preferredPanelPlacement: 'above' as const,
+        title: 'Switch Model',
+        description: 'Select a model to use for chat.',
+        caption: 'Choose your preferred model.',
+        targetEl: modelGuideTargetRef.current,
+        stepIndex: switchModelGuide.stepIndex ?? 1,
+        totalSteps: switchModelGuide.totalSteps ?? 1,
+        dismiss: switchModelGuide.dismissGuide
+      }
+    }
+    if (firstChatGuide.showGuide && firstChatGuideTargetRef.current) {
+      return {
+        key: 'first-chat' as const,
+        title: 'Start Your First Chat',
+        description: 'Type a message to begin chatting with the AI.',
+        caption: 'Send your first message below.',
+        targetEl: firstChatGuideTargetRef.current,
+        stepIndex: firstChatGuide.stepIndex ?? 1,
+        totalSteps: firstChatGuide.totalSteps ?? 1,
+        dismiss: firstChatGuide.dismissGuide
+      }
+    }
+    return null
+  }, [
+    switchAgentGuide.showGuide,
+    switchModelGuide.showGuide,
+    firstChatGuide.showGuide,
+    isDeepChatSelectedAgent
+  ])
+
+  const activeChatGuidePrimaryLabel =
+    activeChatGuide?.key === 'switch-agent' || activeChatGuide?.key === 'switch-model'
+      ? 'Next'
+      : undefined
+
+  const activeChatGuidePrimaryDisabled =
+    activeChatGuide?.key === 'switch-agent'
+      ? !isDeepChatSelectedAgent
+      : activeChatGuide?.key === 'switch-model'
+        ? !modelGuideTargetRef.current
+        : false
+
+  const handleActiveChatGuideBack = async () => {
+    switch (activeChatGuide?.key) {
+      case 'switch-agent': {
+        const state = await switchAgentGuide.activatePreviousStep()
+        await continueChatGuide(state)
+        break
+      }
+      case 'switch-model': {
+        const state = await switchModelGuide.activatePreviousStep()
+        await continueChatGuide(state)
+        break
+      }
+      case 'first-chat': {
+        const state = await firstChatGuide.activatePreviousStep()
+        await continueChatGuide(state)
+        break
+      }
+    }
+  }
+
+  const handleActiveChatGuideExpert = async () => {
+    switch (activeChatGuide?.key) {
+      case 'switch-agent': {
+        const state = await switchAgentGuide.forceComplete()
+        await continueChatGuide(state)
+        break
+      }
+      case 'switch-model': {
+        const state = await switchModelGuide.forceComplete()
+        await continueChatGuide(state)
+        break
+      }
+      case 'first-chat': {
+        const state = await firstChatGuide.forceComplete()
+        await continueChatGuide(state)
+        break
+      }
+    }
+  }
+
+  const handleActiveChatGuidePrimary = async () => {
+    switch (activeChatGuide?.key) {
+      case 'switch-agent':
+        if (isDeepChatSelectedAgent) await completeSwitchAgentStep()
+        break
+      case 'switch-model': {
+        const state = await switchModelGuide.completeStep()
+        await continueChatGuide(state)
+        break
+      }
+    }
+  }
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div
+        ref={guideRootRef}
+        data-testid="new-thread-page"
+        className="relative h-full w-full flex flex-col"
+      >
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <div className="mb-4">
+            <img
+              src={new URL('@/assets/logo-dark.png', import.meta.url).href}
+              className="w-14 h-14"
+              loading="lazy"
+            />
+          </div>
+
+          <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="new-thread-project-trigger"
+                className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6"
+              >
+                <span>{selectedProjectName}</span>
+                {selectedProjectDirectoryInvalid && (
+                  <span
+                    data-testid="new-thread-project-missing-warning"
+                    title={selectedProjectUnavailableTooltip}
+                  >
+                    ⚠
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="min-w-[200px]">
+              <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
+              <DropdownMenuItem
+                data-testid="new-thread-clear-project"
+                className="gap-2 text-xs py-1.5 px-2"
+                disabled={!canClearProjectSelection}
+                onClick={clearSelectedProject}
+              >
+                <span>No Project</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {projectState.projects.map((project) => (
+                <DropdownMenuItem
+                  key={project.path}
+                  className="gap-2 text-xs py-1.5 px-2"
+                  onClick={() => selectProject(project.path)}
+                >
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="truncate">{project.name}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {project.path}
+                    </span>
+                  </div>
+                  {isSelectedInvalidProjectPath(project.path) && (
+                    <span
+                      data-testid="new-thread-project-menu-missing-warning"
+                      title={selectedProjectUnavailableTooltip}
+                    >
+                      ⚠
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                className="gap-2 text-xs py-1.5 px-2"
+                onClick={() => openFolderPicker()}
+              >
+                <span>Open Folder</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
+            <ChatInputBox
+              ref={chatInputRef}
+              value={message}
+              onChange={setMessage}
+              files={attachedFiles}
+              sessionId={acpDraftSessionId}
+              workspacePath={projectState.selectedProject?.path ?? null}
+              isAcpSession={isAcpSelectedAgent}
+              submitDisabled={isAcpWorkdirUnavailable}
+              onUpdateFiles={onFilesChange}
+              onPendingSkillsChange={onPendingSkillsChange}
+              onCommandSubmit={onCommandSubmit}
+              onSubmit={onSubmit}
+              onToggleVoiceInput={() => {}}
+            >
+              <ChatInputToolbar
+                showVoiceInput={isVoiceInputEnabled}
+                isVoiceInputListening={false}
+                isVoiceInputTranscribing={false}
+                sendDisabled={isAcpWorkdirUnavailable || !message.trim()}
+                onAttach={onAttach}
+                onVoiceInput={() => {}}
+                onSend={onSubmit}
+              />
+            </ChatInputBox>
+          </div>
+
+          <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />
+        </div>
+
+        <GuidedOnboardingOverlay
+          visible={Boolean(activeChatGuide?.targetEl)}
+          containerEl={guideRootRef.current}
+          targetEl={activeChatGuide?.targetEl ?? null}
+          preferredPanelPlacement={activeChatGuide?.preferredPanelPlacement ?? 'auto'}
+          eyebrow="Getting Started"
+          title={activeChatGuide?.title ?? ''}
+          description={activeChatGuide?.description ?? ''}
+          caption={activeChatGuide?.caption}
+          stepIndex={activeChatGuide?.stepIndex ?? 1}
+          totalSteps={activeChatGuide?.totalSteps ?? 1}
+          closeLabel="Close"
+          backLabel={activeChatGuide ? 'Back' : undefined}
+          expertLabel={activeChatGuide ? 'Skip All' : undefined}
+          primaryLabel={activeChatGuidePrimaryLabel}
+          primaryDisabled={activeChatGuidePrimaryDisabled}
+          onClose={() => activeChatGuide?.dismiss()}
+          onBack={() => void handleActiveChatGuideBack()}
+          onExpert={() => void handleActiveChatGuideExpert()}
+          onPrimary={() => void handleActiveChatGuidePrimary()}
+        />
+      </div>
+    </TooltipProvider>
+  )
+}
+
+function nextTick(fn: () => void) {
+  Promise.resolve().then(fn)
+}
+
+async function resolveDeepChatAgentConfig(agentId: string): Promise<DeepChatAgentConfig> {
+  const config = await configClient.resolveDeepChatAgentConfig(agentId)
+  if (config) return config
+  const systemPrompt = await configClient.getSetting('default_system_prompt')
+  return normalizeDeepChatSubagentConfig({
+    defaultModelPreset: undefined,
+    systemPrompt: typeof systemPrompt === 'string' ? systemPrompt : '',
+    permissionMode: 'full_access',
+    disabledAgentTools: []
+  })
+}
+
+export default NewThreadPage

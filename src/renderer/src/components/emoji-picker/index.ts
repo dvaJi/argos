@@ -1,4 +1,4 @@
-import EmojiPicker from './EmojiPicker.vue'
+import EmojiPicker from './EmojiPicker'
 
 export { EmojiPicker }
 export default EmojiPicker

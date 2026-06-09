@@ -6,14 +6,18 @@ import {
   createRoute,
   createRouter,
   createHashHistory,
-  redirect
+  redirect,
+  RouterProvider
 } from '@tanstack/react-router'
 import { getSettingsRouteItems } from '@shared/settingsNavigation'
 import { preloadIcons } from '../src/lib/iconLoader'
+import SettingsApp from './App'
 
 const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform)
 
-const rootRoute = createRootRoute({})
+const rootRoute = createRootRoute({
+  component: SettingsApp
+})
 
 const settingsRoutes = settingsRouteItems
   .map((item) => {

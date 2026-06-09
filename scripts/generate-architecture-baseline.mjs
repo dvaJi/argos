@@ -46,15 +46,15 @@ const HOT_PATH_FILES = [
 ]
 
 const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
-  path.join(ROOT, 'src/renderer/src/App.vue'),
+  path.join(ROOT, 'src/renderer/src/App.tsx'),
   path.join(ROOT, 'src/renderer/src/stores/uiSettingsStore.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/session.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/message.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/agent.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/pendingInput.ts'),
   path.join(ROOT, 'src/renderer/src/stores/ui/pageRouter.ts'),
-  path.join(ROOT, 'src/renderer/src/pages/ChatPage.vue'),
-  path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.vue'),
+  path.join(ROOT, 'src/renderer/src/pages/ChatPage.tsx'),
+  path.join(ROOT, 'src/renderer/src/pages/NewThreadPage.tsx'),
   path.join(ROOT, 'src/main/presenter/windowPresenter'),
   path.join(ROOT, 'src/main/presenter/configPresenter'),
   path.join(ROOT, 'src/main/presenter/agentSessionPresenter'),

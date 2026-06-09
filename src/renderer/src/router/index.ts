@@ -5,8 +5,11 @@ import {
   createHashHistory,
   redirect
 } from '@tanstack/react-router'
+import App from '../App'
 
-const rootRoute = createRootRoute({})
+const rootRoute = createRootRoute({
+  component: App
+})
 
 const chatRoute = createRoute({
   getParentRoute: () => rootRoute,
