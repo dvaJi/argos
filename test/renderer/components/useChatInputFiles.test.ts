@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
-import { ref } from 'vue'
+import { renderHook, act } from '@testing-library/react'
 import type { MessageFile } from '@shared/types/agent-interface'
 import { useChatInputFiles } from '@/components/chat/composables/useChatInputFiles'
 
@@ -89,8 +89,10 @@ describe('useChatInputFiles', () => {
     )
     fileClient.prepareFile.mockResolvedValue(messageFile)
 
-    const files = useChatInputFiles(ref(undefined), emit, t)
-    await files.handleFileSelect({ target } as unknown as Event)
+    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t))
+    await act(async () => {
+      await result.current.handleFileSelect({ target } as unknown as Event)
+    })
 
     expect(fileClient.prepareFile).toHaveBeenCalledWith(
       '/tmp/report.docx',
@@ -111,8 +113,10 @@ describe('useChatInputFiles', () => {
     )
     fileClient.prepareFile.mockRejectedValue(new Error('invalid docx'))
 
-    const files = useChatInputFiles(ref(undefined), emit, t)
-    await files.handleFileSelect({ target } as unknown as Event)
+    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t))
+    await act(async () => {
+      await result.current.handleFileSelect({ target } as unknown as Event)
+    })
 
     expect(emit).not.toHaveBeenCalled()
     expect(toastMock).toHaveBeenCalledWith({

@@ -1,21 +1,18 @@
-import { ref } from 'vue'
 import { describe, it, expect, vi } from 'vitest'
 import { useThinkingBudget, type ThinkingBudgetRange } from '@/composables/useThinkingBudget'
 
-// mock i18n -> return the key so we can assert on it
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (k: string, _p?: any) => k })
 }))
 
 describe('useThinkingBudget', () => {
   it('computes showThinkingBudget only when reasoning supported and range provided', () => {
-    const thinkingBudget = ref<number | undefined>(undefined)
-    const budgetRange = ref<ThinkingBudgetRange | null>({
-      min: 256,
-      max: 4096
-    })
-    const modelReasoning = ref(true)
-    const supportsReasoning = ref<boolean | null>(true)
+    const thinkingBudget = { value: undefined } as { value: number | undefined }
+    const budgetRange = {
+      value: { min: 256, max: 4096 }
+    } as { value: ThinkingBudgetRange | null }
+    const modelReasoning = { value: true } as { value: boolean }
+    const supportsReasoning = { value: true } as { value: boolean | null }
 
     const api = useThinkingBudget({
       thinkingBudget,
@@ -37,13 +34,12 @@ describe('useThinkingBudget', () => {
   })
 
   it('validates ranges and allows provider-db budget sentinels', () => {
-    const thinkingBudget = ref<number | undefined>(128)
-    const budgetRange = ref<ThinkingBudgetRange | null>({
-      min: 256,
-      max: 1024
-    })
-    const modelReasoning = ref(true)
-    const supportsReasoning = ref<boolean | null>(true)
+    const thinkingBudget = { value: 128 } as { value: number | undefined }
+    const budgetRange = {
+      value: { min: 256, max: 1024 }
+    } as { value: ThinkingBudgetRange | null }
+    const modelReasoning = { value: true } as { value: boolean }
+    const supportsReasoning = { value: true } as { value: boolean | null }
 
     const api = useThinkingBudget({
       thinkingBudget,

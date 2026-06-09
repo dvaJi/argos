@@ -76,9 +76,9 @@
 - [x] 11.8 vue-virtual-scroller → ScrollArea (converted in Phase 9)
 - [x] 11.9 @unovis/vue → @unovis/react (converted in Phase 9)
 
-## Phase 12 — Tests [ ]
-- [ ] 12.1 Update test infrastructure (setup.renderer.ts)
-- [ ] 12.2 Convert all 127 test files to @testing-library/react
+## Phase 12 — Tests [x]
+- [x] 12.1 Update test infrastructure (setup.renderer.ts)
+- [x] 12.2 Convert all renderer test files to @testing-library/react
 
 ## Phase 13 — Cleanup [ ]
 - [ ] 13.1 Verify no stale Vue imports remain

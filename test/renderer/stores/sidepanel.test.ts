@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('sidepanel store', () => {
@@ -12,7 +11,7 @@ describe('sidepanel store', () => {
       value: innerWidth
     })
 
-    const storageRef = ref(520)
+    const storageRef = { value: 520 }
 
     vi.doMock('@vueuse/core', () => ({
       useStorage: () => storageRef

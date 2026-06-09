@@ -1,5 +1,5 @@
 import { vi, beforeEach, afterEach } from 'vitest'
-import { config } from '@vue/test-utils'
+import '@testing-library/jest-dom/vitest'
 
 const createDefaultModelConfig = () => ({
   maxTokens: 4096,
@@ -366,53 +366,6 @@ vi.mock('electron', () => ({
   }
 }))
 
-// Mock Vue Router
-vi.mock('vue-router', () => ({
-  createRouter: vi.fn(() => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    go: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-    currentRoute: { value: { path: '/', query: {}, params: {} } }
-  })),
-  createWebHashHistory: vi.fn(),
-  useRouter: vi.fn(() => ({
-    push: vi.fn(),
-    replace: vi.fn(),
-    go: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn()
-  })),
-  useRoute: vi.fn(() => ({
-    path: '/',
-    query: {},
-    params: {},
-    meta: {}
-  }))
-}))
-
-// Mock Vue I18n
-vi.mock('vue-i18n', () => ({
-  createI18n: vi.fn(() => ({
-    global: {
-      t: vi.fn((key) => key),
-      locale: 'zh-CN'
-    }
-  })),
-  useI18n: vi.fn(() => ({
-    t: vi.fn((key) => key),
-    locale: { value: 'zh-CN' }
-  }))
-}))
-
-// Mock Pinia
-vi.mock('pinia', () => ({
-  createPinia: vi.fn(() => ({})),
-  defineStore: vi.fn(() => vi.fn(() => ({}))),
-  storeToRefs: vi.fn((store) => store)
-}))
-
 function startupWorkloadStoreMock() {
   return {
     useStartupWorkloadStore: vi.fn(() => ({
@@ -433,12 +386,9 @@ vi.mock('@/stores/startupWorkloadStore', startupWorkloadStoreMock)
 vi.mock('../src/renderer/src/stores/startupWorkloadStore', startupWorkloadStoreMock)
 
 // Mock @iconify/vue
-vi.mock('@iconify/vue', () => ({
+vi.mock('@iconify/react', () => ({
   addCollection: vi.fn(),
-  Icon: {
-    name: 'Icon',
-    template: '<span></span>'
-  }
+  Icon: () => null
 }))
 
 // Mock window.api (preload exposed APIs)
@@ -519,16 +469,8 @@ Object.defineProperty(window, 'deepchat', {
   writable: true
 })
 
-// Global Vue Test Utils configuration
-config.global.stubs = {
-  // Stub out complex components that don't need testing
-  transition: true,
-  'transition-group': true
-}
-
 // Global test setup
 beforeEach(() => {
-  // Clear all mocks before each test
   vi.clearAllMocks()
 })
 

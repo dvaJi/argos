@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { useModelTypeDetection } from '@/composables/useModelTypeDetection'
 
@@ -26,11 +25,11 @@ describe('useModelTypeDetection', () => {
   })
 
   it('detects provider/model type and loads reasoning flag', async () => {
-    const modelId = ref<string | undefined>('gemini-pro')
-    const providerId = ref<string | undefined>('gemini')
-    const modelType = ref<'chat' | 'imageGeneration' | 'embedding' | 'rerank' | undefined>(
-      'imageGeneration'
-    )
+    const modelId = { value: 'gemini-pro' } as { value: string | undefined }
+    const providerId = { value: 'gemini' } as { value: string | undefined }
+    const modelType = {
+      value: 'imageGeneration'
+    } as { value: 'chat' | 'imageGeneration' | 'embedding' | 'rerank' | undefined }
 
     const api = useModelTypeDetection({ modelId, providerId, modelType })
     expect(api.isImageGenerationModel.value).toBe(true)
@@ -40,9 +39,11 @@ describe('useModelTypeDetection', () => {
   })
 
   it('ignores stale reasoning responses after model changes', async () => {
-    const modelId = ref<string | undefined>('gpt-old')
-    const providerId = ref<string | undefined>('openai')
-    const modelType = ref<'chat' | 'imageGeneration' | 'embedding' | 'rerank' | undefined>('chat')
+    const modelId = { value: 'gpt-old' } as { value: string | undefined }
+    const providerId = { value: 'openai' } as { value: string | undefined }
+    const modelType = {
+      value: 'chat'
+    } as { value: 'chat' | 'imageGeneration' | 'embedding' | 'rerank' | undefined }
     const oldResponse = deferred<{ reasoning: boolean }>()
     const newResponse = deferred<{ reasoning: boolean }>()
 

@@ -1,4 +1,3 @@
-import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
@@ -236,7 +235,7 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
       steps: []
     })
   }
-  const agentStore = reactive({
+  const agentStore = {
     selectedAgentId: options.selectedAgentId ?? null,
     enabledAgents: (options.enabledAgents ?? []).map((agent) => ({
       name: agent.name ?? agent.id,
@@ -247,7 +246,7 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
     setSelectedAgent: vi.fn((id: string | null) => {
       agentStore.selectedAgentId = id
     })
-  })
+  }
   const settings = { ...(options.initialSettings ?? {}) }
   const configClient = {
     getSetting: vi.fn(async <T>(key: string) => {

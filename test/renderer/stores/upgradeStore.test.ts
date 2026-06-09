@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPinia, setActivePinia } from 'pinia'
 
 const upgradeEventHandlers = vi.hoisted(() => ({
   statusChanged: undefined as ((payload: Record<string, unknown>) => void) | undefined,
@@ -82,7 +81,6 @@ const createUpdateInfo = () => ({
 
 describe('useUpgradeStore', () => {
   beforeEach(() => {
-    setActivePinia(createPinia())
     vi.clearAllMocks()
     upgradeEventHandlers.statusChanged = undefined
     upgradeEventHandlers.progress = undefined

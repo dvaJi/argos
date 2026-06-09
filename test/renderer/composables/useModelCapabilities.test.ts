@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 const modelClient = vi.hoisted(() => ({
   getCapabilities: vi.fn()
@@ -25,8 +24,8 @@ describe('useModelCapabilities', () => {
   })
 
   it('fetches capabilities and resets when ids missing', async () => {
-    const providerId = ref<string | undefined>('openai')
-    const modelId = ref<string | undefined>('gpt-4')
+    const providerId = { value: 'openai' } as { value: string | undefined }
+    const modelId = { value: 'gpt-4' } as { value: string | undefined }
     modelClient.getCapabilities.mockResolvedValue({
       supportsAudioInput: false,
       supportsReasoning: true,
@@ -45,7 +44,6 @@ describe('useModelCapabilities', () => {
     })
 
     const api = useModelCapabilities({ providerId, modelId })
-    // initial immediate fetch occurs - wait for isLoading to become false
     await vi.waitFor(() => expect(api.isLoading.value).toBe(false))
     expect(api.supportsReasoning.value).toBe(true)
     expect(api.budgetRange.value?.max).toBe(200)
@@ -56,7 +54,6 @@ describe('useModelCapabilities', () => {
     expect(api.searchDefaults.value?.strategy).toBe('turbo')
     expect(api.supportsTemperatureControl.value).toBe(false)
 
-    // reset path
     providerId.value = undefined
     await vi.waitFor(() => expect(api.isLoading.value).toBe(false))
     expect(api.supportsReasoning.value).toBeNull()
@@ -65,8 +62,8 @@ describe('useModelCapabilities', () => {
   })
 
   it('falls back to temperatureCapability when supportsTemperatureControl is missing', async () => {
-    const providerId = ref<string | undefined>('openai')
-    const modelId = ref<string | undefined>('gpt-5-chat-latest')
+    const providerId = { value: 'openai' } as { value: string | undefined }
+    const modelId = { value: 'gpt-5-chat-latest' } as { value: string | undefined }
     modelClient.getCapabilities.mockResolvedValue({
       supportsAudioInput: false,
       supportsReasoning: false,
@@ -85,8 +82,8 @@ describe('useModelCapabilities', () => {
   })
 
   it('keeps budget range null when capabilities have no budget metadata', async () => {
-    const providerId = ref<string | undefined>('openai')
-    const modelId = ref<string | undefined>('gpt-4o')
+    const providerId = { value: 'openai' } as { value: string | undefined }
+    const modelId = { value: 'gpt-4o' } as { value: string | undefined }
     modelClient.getCapabilities.mockResolvedValue({
       supportsAudioInput: false,
       supportsReasoning: false,
@@ -105,8 +102,8 @@ describe('useModelCapabilities', () => {
   })
 
   it('merges thinking budget range with reasoning portrait sentinels', async () => {
-    const providerId = ref<string | undefined>('openrouter')
-    const modelId = ref<string | undefined>('google/gemini-2.5-flash')
+    const providerId = { value: 'openrouter' } as { value: string | undefined }
+    const modelId = { value: 'google/gemini-2.5-flash' } as { value: string | undefined }
     modelClient.getCapabilities.mockResolvedValue({
       supportsAudioInput: false,
       supportsReasoning: true,
@@ -134,8 +131,8 @@ describe('useModelCapabilities', () => {
   })
 
   it('ignores stale capability responses after model changes', async () => {
-    const providerId = ref<string | undefined>('openai')
-    const modelId = ref<string | undefined>('gpt-old')
+    const providerId = { value: 'openai' } as { value: string | undefined }
+    const modelId = { value: 'gpt-old' } as { value: string | undefined }
     const oldResponse = {
       capabilities: deferred<{
         supportsAudioInput: boolean

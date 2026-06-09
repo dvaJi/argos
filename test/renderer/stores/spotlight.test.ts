@@ -1,6 +1,5 @@
-import { flushPromises } from '@vue/test-utils'
-import { reactive } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
 
 const setupStore = async (options?: {
   hasActiveSession?: boolean
@@ -14,7 +13,7 @@ const setupStore = async (options?: {
   const settingsClient = {
     openSettings: vi.fn().mockResolvedValue({ windowId: 9 })
   }
-  const providerStore = reactive({
+  const providerStore = {
     sortedProviders: [
       {
         id: 'openai',
@@ -29,33 +28,21 @@ const setupStore = async (options?: {
         baseUrl: 'https://acp.example.com'
       }
     ]
-  })
-  const sessionStore = reactive({
+  }
+  const sessionStore = {
     sessions: [],
     hasActiveSession: options?.hasActiveSession ?? false,
     startNewConversation: vi.fn().mockResolvedValue(undefined),
     closeSession: vi.fn().mockResolvedValue(undefined),
     selectSession: vi.fn()
-  })
-  const agentStore = reactive({
+  }
+  const agentStore = {
     enabledAgents: [],
     setSelectedAgent: vi.fn()
-  })
-  const pageRouterStore = reactive({
+  }
+  const pageRouterStore = {
     goToNewThread: vi.fn()
-  })
-
-  vi.doMock('pinia', async () => {
-    const actual = await vi.importActual<typeof import('pinia')>('pinia')
-    return {
-      ...actual,
-      defineStore: (_id: string, setup: () => unknown) => setup
-    }
-  })
-
-  vi.doMock('@vueuse/core', () => ({
-    useDebounceFn: (fn: (...args: unknown[]) => unknown) => fn
-  }))
+  }
 
   vi.doMock('@api/SessionClient', () => ({
     createSessionClient: vi.fn(() => sessionClient)
@@ -134,7 +121,7 @@ describe('spotlightStore new-chat action', () => {
 
     store.setOpen(true)
     store.setQuery('openai')
-    await flushPromises()
+    await act(async () => {})
 
     expect(store.results.value).toEqual(
       expect.arrayContaining([
@@ -180,7 +167,7 @@ describe('spotlightStore new-chat action', () => {
 
     store.setOpen(true)
     store.setQuery('openai')
-    await flushPromises()
+    await act(async () => {})
 
     expect(store.results.value).toEqual(
       expect.arrayContaining([
@@ -238,7 +225,7 @@ describe('spotlightStore new-chat action', () => {
 
     store.setOpen(true)
     store.setQuery('openai')
-    await flushPromises()
+    await act(async () => {})
 
     expect(store.results.value).not.toEqual(
       expect.arrayContaining([
@@ -259,8 +246,8 @@ describe('spotlightStore new-chat action', () => {
       }
     ]
 
-    await flushPromises()
-    await flushPromises()
+    await act(async () => {})
+    await act(async () => {})
 
     expect(store.results.value).toEqual(
       expect.arrayContaining([

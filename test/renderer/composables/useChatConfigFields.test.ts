@@ -1,4 +1,3 @@
-import { computed, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { useChatConfigFields } from '@/composables/useChatConfigFields'
 import type { ThinkingBudgetRange } from '@/composables/useThinkingBudget'
@@ -16,19 +15,19 @@ function createFields(
   } = {}
 ) {
   return useChatConfigFields({
-    temperature: ref(0.7),
-    contextLength: ref(4096),
-    maxTokens: ref(1024),
-    contextLengthLimit: ref(undefined),
-    maxTokensLimit: ref(undefined),
-    thinkingBudget: ref(options.thinkingBudget),
-    reasoningEffort: ref(undefined),
-    verbosity: ref(undefined),
-    providerId: ref('openai'),
-    supportsTemperatureControl: ref(supportsTemperatureControl),
-    showThinkingBudget: computed(() => options.showThinkingBudget ?? false),
-    thinkingBudgetError: computed(() => ''),
-    budgetRange: ref(options.budgetRange ?? null),
+    temperature: { value: 0.7 },
+    contextLength: { value: 4096 },
+    maxTokens: { value: 1024 },
+    contextLengthLimit: { value: undefined },
+    maxTokensLimit: { value: undefined },
+    thinkingBudget: { value: options.thinkingBudget },
+    reasoningEffort: { value: undefined },
+    verbosity: { value: undefined },
+    providerId: { value: 'openai' },
+    supportsTemperatureControl: { value: supportsTemperatureControl },
+    showThinkingBudget: { value: options.showThinkingBudget ?? false },
+    thinkingBudgetError: { value: '' },
+    budgetRange: { value: options.budgetRange ?? null },
     formatSize: (size: number) => String(size),
     emit: vi.fn()
   })

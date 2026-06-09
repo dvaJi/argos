@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest'
-import { reactive, ref } from 'vue'
 import { ModelType } from '../../../src/shared/model'
 
 const createQueryCache = () => {
@@ -7,7 +6,7 @@ const createQueryCache = () => {
     ensure: vi.fn((options: any) => ({
       key: options.key,
       query: options.query,
-      state: ref({ data: undefined })
+      state: { value: { data: undefined } }
     })),
     invalidateQueries: vi.fn(async () => undefined),
     refresh: vi.fn(async (entry: any) => {
@@ -56,7 +55,7 @@ const setupStore = async (overrides?: {
     { id: 'anthropic', enable: true, name: 'Anthropic' },
     { id: 'acp', enable: true, name: 'ACP' }
   ]
-  const providerStore = reactive({
+  const providerStore = {
     providers: providerRecords,
     sortedProviders:
       overrides?.providerStore?.sortedProviders ??
@@ -66,7 +65,7 @@ const setupStore = async (overrides?: {
       })),
     ensureInitialized: vi.fn(async () => undefined),
     ...overrides?.providerStore
-  })
+  }
 
   vi.doMock('pinia', async () => {
     const actual = await vi.importActual<typeof import('pinia')>('pinia')

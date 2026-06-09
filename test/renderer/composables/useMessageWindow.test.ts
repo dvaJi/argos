@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { ref } from 'vue'
 import { useMessageWindow } from '@/composables/message/useMessageWindow'
 import type { MessageListItem, DisplayMessageUsage } from '@/components/chat/messageListItems'
 
@@ -45,7 +44,7 @@ const createMessages = (count: number): MessageListItem[] =>
 
 describe('useMessageWindow', () => {
   it('returns height delta when measurements change', () => {
-    const messages = ref(createMessages(1))
+    const messages = { value: createMessages(1) }
     const window = useMessageWindow({ messages })
 
     const initialEstimate = window.getEntry('message-0')?.estimatedHeight ?? 0
@@ -59,7 +58,7 @@ describe('useMessageWindow', () => {
   })
 
   it('exposes stable layout entries for jump/minimap lookup', () => {
-    const messages = ref(createMessages(3))
+    const messages = { value: createMessages(3) }
     const window = useMessageWindow({ messages })
 
     window.setMeasuredHeight('message-0', 100)
@@ -73,7 +72,7 @@ describe('useMessageWindow', () => {
   })
 
   it('uses estimated heights before measurement', () => {
-    const messages = ref(createMessages(2))
+    const messages = { value: createMessages(2) }
     const window = useMessageWindow({ messages })
 
     const entry0 = window.getEntry('message-0')
@@ -87,7 +86,7 @@ describe('useMessageWindow', () => {
   })
 
   it('clearMeasurements resets to estimated heights', () => {
-    const messages = ref(createMessages(1))
+    const messages = { value: createMessages(1) }
     const window = useMessageWindow({ messages })
 
     const initialEstimate = window.getEntry('message-0')?.estimatedHeight ?? 0
