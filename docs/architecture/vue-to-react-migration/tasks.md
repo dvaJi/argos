@@ -80,7 +80,7 @@
 - [x] 12.1 Update test infrastructure (setup.renderer.ts)
 - [x] 12.2 Convert all renderer test files to @testing-library/react
 
-## Phase 13 — Cleanup [ ]
-- [ ] 13.1 Verify no stale Vue imports remain
-- [ ] 13.2 Run all verification commands
-- [ ] 13.3 Update documentation (AGENTS.md, etc.)
+## Phase 13 — Cleanup [x]
+- [x] 13.1 Verify no stale Vue imports remain
+- [x] 13.2 Run all verification commands
+- [x] 13.3 Update documentation (AGENTS.md, etc.)
