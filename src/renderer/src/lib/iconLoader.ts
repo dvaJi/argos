@@ -40,7 +40,7 @@ export async function ensureIconsLoaded(): Promise<void> {
     try {
       // 动态导入 icon 数据和 addCollection，延迟加载
       const [{ addCollection }, lucideIcons, vscodeIcons, lineMdThemeIcons] = await Promise.all([
-        import('@iconify/vue').then((m) => ({ addCollection: m.addCollection })),
+        import('@iconify/react').then((m) => ({ addCollection: m.addCollection })),
         import('@iconify-json/lucide/icons.json').then((m) => m.default as typeof lucideIconsType),
         import('@iconify-json/vscode-icons/icons.json').then(
           (m) => m.default as typeof vscodeIconsType

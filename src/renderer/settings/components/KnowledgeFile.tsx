@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Icon } from '@iconify/vue'
-import { Icon as ReactIcon } from '@iconify/react'
+import { Icon } from '@iconify/react'
 import { Button } from '@shadcn/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@shadcn/components/ui/dialog'
 import {

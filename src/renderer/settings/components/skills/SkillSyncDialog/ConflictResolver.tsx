@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react'
 import { Icon } from '@iconify/react'
-import { useI18n } from 'vue-i18n'
 import { Button } from '@shadcn/components/ui/button'
 import { Label } from '@shadcn/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@shadcn/components/ui/radio-group'

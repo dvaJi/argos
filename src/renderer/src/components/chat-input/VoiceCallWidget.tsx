@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useI18n } from 'vue-i18n'
 import { Icon } from '@iconify/react'
 import {
   Tooltip,

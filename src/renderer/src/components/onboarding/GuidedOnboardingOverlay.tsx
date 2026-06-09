@@ -1,5 +1,4 @@
-import { useMemo, useRef } from 'react'
-import { useElementBounding } from '@vueuse/core'
+import { useMemo, useRef, useState, useLayoutEffect } from 'react'
 import OnBoardingSpotlight from './OnBoardingSpotlight'
 import { useOnBoarding } from '@/composables/useOnBoarding'
 
@@ -66,7 +65,13 @@ export default function GuidedOnboardingOverlay({
     { visible: () => visible }
   )
 
-  const { height: panelActualHeight } = useElementBounding(panelRef)
+  const [panelActualHeight, setPanelActualHeight] = useState(0)
+  useLayoutEffect(() => {
+    if (panelRef.current) {
+      const rect = panelRef.current.getBoundingClientRect()
+      setPanelActualHeight(rect.height)
+    }
+  })
 
   const panelStyle = useMemo(() => {
     const rect = spotlightRect.value
@@ -75,7 +80,7 @@ export default function GuidedOnboardingOverlay({
     }
 
     const panelWidth = Math.min(320, Math.max(180, viewportWidth.value - 32))
-    const panelHeightEstimate = Math.max(panelActualHeight.value, PANEL_MIN_HEIGHT)
+    const panelHeightEstimate = Math.max(panelActualHeight, PANEL_MIN_HEIGHT)
     const desiredTop = rect.y + rect.height + 18
     const maxPanelTop = Math.max(16, viewportHeight.value - panelHeightEstimate - 16)
     const aboveTop = Math.max(16, rect.y - panelHeightEstimate - 18)
@@ -102,7 +107,7 @@ export default function GuidedOnboardingOverlay({
     spotlightRect.value,
     viewportWidth.value,
     viewportHeight.value,
-    panelActualHeight.value,
+    panelActualHeight,
     preferredPanelPlacement
   ])
 

@@ -9,7 +9,6 @@ import { RadioGroup, RadioGroupItem } from '@shadcn/components/ui/radio-group'
 import { useLegacyPresenter } from '@api/legacy/presenters'
 import { useToast } from '@/components/use-toast'
 import { useSkillsStore } from '@/stores/skillsStore'
-import { storeToRefs } from 'pinia'
 import type { ExternalToolConfig, ExportPreview, KiroInclusionMode } from '@shared/types/skillSync'
 import { ConflictStrategy } from '@shared/types/skillSync'
 import ConflictResolver, { type ConflictItem } from './ConflictResolver'
@@ -30,7 +29,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
   const { toast } = useToast()
   const skillSyncPresenter = useLegacyPresenter('skillSyncPresenter')
   const skillsStore = useSkillsStore()
-  const { skills: localSkills, loading: loadingSkills } = storeToRefs(skillsStore)
+  const localSkills = skillsStore.state.skills
+  const loadingSkills = skillsStore.state.loading
 
   const [scanningTools, setScanningTools] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -46,8 +46,8 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
   const [kiroFilePatterns, setKiroFilePatterns] = useState('')
 
   const allSkillsSelected = useMemo(
-    () => localSkills.value.length > 0 && selectedSkills.length === localSkills.value.length,
-    [localSkills.value, selectedSkills]
+    () => localSkills.length > 0 && selectedSkills.length === localSkills.length,
+    [localSkills, selectedSkills]
   )
 
   const isKiroSelected = useMemo(() => selectedToolId === 'kiro', [selectedToolId])
@@ -135,12 +135,12 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
     if (allSkillsSelected) {
       setSelectedSkills([])
       const newState: Record<string, boolean> = {}
-      for (const skill of localSkills.value) newState[skill.name] = false
+      for (const skill of localSkills) newState[skill.name] = false
       setSkillCheckedState(newState)
     } else {
-      setSelectedSkills(localSkills.value.map((s) => s.name))
+      setSelectedSkills(localSkills.map((s) => s.name))
       const newState: Record<string, boolean> = {}
-      for (const skill of localSkills.value) newState[skill.name] = true
+      for (const skill of localSkills) newState[skill.name] = true
       setSkillCheckedState(newState)
     }
   }
@@ -233,11 +233,11 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
 
   useEffect(() => {
     const newState: Record<string, boolean> = {}
-    for (const skill of localSkills.value) {
+    for (const skill of localSkills) {
       newState[skill.name] = skillCheckedState[skill.name] ?? false
     }
     setSkillCheckedState(newState)
-  }, [localSkills.value])
+  }, [localSkills])
 
   useEffect(() => {
     if (currentStep === 1) {
@@ -278,7 +278,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
         {currentStep === 1 && (
           <div>
             <h3 className="text-sm font-medium mb-4">Select skills to export</h3>
-            {loadingSkills.value ? (
+            {loadingSkills ? (
               <div className="flex items-center justify-center py-8">
                 <Icon
                   icon="lucide:loader-2"
@@ -289,7 +289,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
               <>
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm text-muted-foreground">
-                    Selected {selectedSkills.length} of {localSkills.value.length}
+                    Selected {selectedSkills.length} of {localSkills.length}
                   </div>
                   <Button variant="ghost" size="sm" onClick={toggleAllSkills}>
                     {allSkillsSelected ? 'Deselect All' : 'Select All'}
@@ -297,7 +297,7 @@ export const ExportWizard: React.FC<ExportWizardProps> = ({
                 </div>
                 <ScrollArea className="h-[280px] pr-4">
                   <div className="space-y-2">
-                    {localSkills.value.map((skill) => (
+                    {localSkills.map((skill) => (
                       <div
                         key={skill.name}
                         className="flex items-start gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"

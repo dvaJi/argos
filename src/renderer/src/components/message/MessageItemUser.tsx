@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Icon } from '@iconify/react'
-import { useI18n } from 'vue-i18n'
 import MessageInfo from './MessageInfo'
 import ChatAttachmentItem from '../chat/ChatAttachmentItem'
 import MessageToolbar from './MessageToolbar'

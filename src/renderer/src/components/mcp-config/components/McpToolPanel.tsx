@@ -18,7 +18,18 @@ import {
   SelectValue
 } from '@shadcn/components/ui/select'
 import { useMcpStore } from '@/stores/mcp'
-import { useMediaQuery } from '@vueuse/core'
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [query])
+  return matches
+}
+
 import McpJsonViewer from './McpJsonViewer'
 import type { MCPToolDefinition } from '@shared/presenter'
 

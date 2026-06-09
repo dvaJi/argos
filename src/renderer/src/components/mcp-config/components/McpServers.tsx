@@ -28,7 +28,7 @@ import {
 } from '@shadcn/components/ui/sheet'
 import { useMcpStore } from '@/stores/mcp'
 import { useToast } from '@/components/use-toast'
-import { useRouter } from 'vue-router'
+import { useNavigate } from '@tanstack/react-router'
 import McpServerCard from './McpServerCard'
 import McpServerForm from '../mcpServerForm'
 import McpToolPanel from './McpToolPanel'
@@ -53,7 +53,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
   ({ showFooterAddButton = true, statusBar, footerActionsAfter }, ref) => {
     const mcpStore = useMcpStore()
     const { toast } = useToast()
-    const router = useRouter()
+    const navigate = useNavigate()
 
     const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false)
     const [isEditServerDialogOpen, setIsEditServerDialogOpen] = useState(false)
@@ -174,9 +174,9 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
         builtinKnowledge: 'builtinKnowledge'
       }
       if (specialServers[serverName]) {
-        router.push({
-          name: 'settings-knowledge-base',
-          query: { subtab: specialServers[serverName] }
+        navigate({
+          to: '/settings/knowledge-base',
+          search: { subtab: specialServers[serverName] }
         })
         return
       }
