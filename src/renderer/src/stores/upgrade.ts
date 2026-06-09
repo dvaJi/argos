@@ -1,4 +1,5 @@
 import { Store } from '@tanstack/store'
+import { useStore } from '@tanstack/react-store'
 import { createDeviceClient } from '@api/DeviceClient'
 import { createUpgradeClient } from '@api/UpgradeClient'
 
@@ -399,3 +400,7 @@ setupUpdateListener()
 void syncFromPresenterStatus().catch((error) => {
   console.error('Failed to sync update status:', error)
 })
+
+export function useUpgradeStore() {
+  return useStore(upgradeStore)
+}
