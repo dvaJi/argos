@@ -1,11 +1,11 @@
-import { Database } from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
-import { SQLITE_MESSAGE } from '@shared/presenter'
-import { nanoid } from 'nanoid'
+import { Database } from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
+import { SQLITE_MESSAGE } from "@shared/presenter";
+import { nanoid } from "nanoid";
 
 export class MessagesTable extends BaseTable {
   constructor(db: Database) {
-    super(db, 'messages')
+    super(db, "messages");
   }
 
   getCreateTableSQL(): string {
@@ -29,20 +29,20 @@ export class MessagesTable extends BaseTable {
       CREATE INDEX idx_messages_session ON messages(conversation_id, order_seq);
       CREATE INDEX idx_message_timeline ON messages(created_at DESC);
       CREATE INDEX idx_message_context_edge ON messages(is_context_edge);
-    `
+    `;
   }
 
   getMigrationSQL(_version: number): string | null {
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 0
+    return 0;
   }
 
   createTable(): void {
     if (!this.tableExists()) {
-      this.db.exec(this.getCreateTableSQL())
+      this.db.exec(this.getCreateTableSQL());
     }
   }
 
@@ -51,12 +51,12 @@ export class MessagesTable extends BaseTable {
     content: string,
     role: string,
     parentId: string,
-    metadata: string = '{}',
+    metadata: string = "{}",
     orderSeq: number = 0,
     tokenCount: number = 0,
-    status: string = 'pending',
+    status: string = "pending",
     isContextEdge: number = 0,
-    isVariant: number = 0
+    isVariant: number = 0,
   ): Promise<string> {
     const insert = this.db.prepare(`
       INSERT INTO messages (
@@ -74,8 +74,8 @@ export class MessagesTable extends BaseTable {
         is_variant
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    const msgId = nanoid()
+    `);
+    const msgId = nanoid();
     insert.run(
       msgId,
       conversationId,
@@ -88,53 +88,53 @@ export class MessagesTable extends BaseTable {
       status,
       metadata,
       isContextEdge,
-      isVariant
-    )
-    return msgId
+      isVariant,
+    );
+    return msgId;
   }
 
   async update(
     messageId: string,
     data: {
-      content?: string
-      status?: string
-      metadata?: string
-      isContextEdge?: number
-      tokenCount?: number
-    }
+      content?: string;
+      status?: string;
+      metadata?: string;
+      isContextEdge?: number;
+      tokenCount?: number;
+    },
   ): Promise<void> {
-    const updates: string[] = []
-    const params: (string | number)[] = []
+    const updates: string[] = [];
+    const params: (string | number)[] = [];
 
     if (data.content !== undefined) {
-      updates.push('content = ?')
-      params.push(data.content)
+      updates.push("content = ?");
+      params.push(data.content);
     }
     if (data.status !== undefined) {
-      updates.push('status = ?')
-      params.push(data.status)
+      updates.push("status = ?");
+      params.push(data.status);
     }
     if (data.metadata !== undefined) {
-      updates.push('metadata = ?')
-      params.push(data.metadata)
+      updates.push("metadata = ?");
+      params.push(data.metadata);
     }
     if (data.isContextEdge !== undefined) {
-      updates.push('is_context_edge = ?')
-      params.push(data.isContextEdge)
+      updates.push("is_context_edge = ?");
+      params.push(data.isContextEdge);
     }
     if (data.tokenCount !== undefined) {
-      updates.push('token_count = ?')
-      params.push(data.tokenCount)
+      updates.push("token_count = ?");
+      params.push(data.tokenCount);
     }
 
     if (updates.length > 0) {
       const updateStmt = this.db.prepare(`
         UPDATE messages
-        SET ${updates.join(', ')}
+        SET ${updates.join(", ")}
         WHERE msg_id = ?
-      `)
-      params.push(messageId)
-      updateStmt.run(...params)
+      `);
+      params.push(messageId);
+      updateStmt.run(...params);
     }
   }
 
@@ -143,23 +143,23 @@ export class MessagesTable extends BaseTable {
       UPDATE messages
       SET parent_id = ?
       WHERE msg_id = ?
-    `)
-    updateStmt.run(parentId, messageId)
+    `);
+    updateStmt.run(parentId, messageId);
   }
 
   async delete(messageId: string): Promise<void> {
-    const deleteStmt = this.db.prepare('DELETE FROM messages WHERE msg_id = ?')
-    deleteStmt.run(messageId)
+    const deleteStmt = this.db.prepare("DELETE FROM messages WHERE msg_id = ?");
+    deleteStmt.run(messageId);
   }
 
   async deleteAll(): Promise<void> {
-    const deleteStmt = this.db.prepare('DELETE FROM messages')
-    deleteStmt.run()
+    const deleteStmt = this.db.prepare("DELETE FROM messages");
+    deleteStmt.run();
   }
 
   async deleteAllInConversation(conversationId: string): Promise<void> {
-    const deleteStmt = this.db.prepare('DELETE FROM messages WHERE conversation_id = ?')
-    deleteStmt.run(conversationId)
+    const deleteStmt = this.db.prepare("DELETE FROM messages WHERE conversation_id = ?");
+    deleteStmt.run(conversationId);
   }
 
   async get(messageId: string): Promise<SQLITE_MESSAGE | null> {
@@ -181,14 +181,14 @@ export class MessagesTable extends BaseTable {
           is_variant
         FROM messages
         WHERE msg_id = ?
-      `
+      `,
       )
-      .get(messageId) as SQLITE_MESSAGE | null
+      .get(messageId) as SQLITE_MESSAGE | null;
   }
 
   async getByIds(messageIds: string[]): Promise<SQLITE_MESSAGE[]> {
-    if (messageIds.length === 0) return []
-    const placeholders = messageIds.map(() => '?').join(',')
+    if (messageIds.length === 0) return [];
+    const placeholders = messageIds.map(() => "?").join(",");
     return this.db
       .prepare(
         `
@@ -207,9 +207,9 @@ export class MessagesTable extends BaseTable {
           is_variant
         FROM messages
         WHERE msg_id IN (${placeholders})
-      `
+      `,
       )
-      .all(...messageIds) as SQLITE_MESSAGE[]
+      .all(...messageIds) as SQLITE_MESSAGE[];
   }
 
   async getVariants(messageId: string): Promise<SQLITE_MESSAGE[]> {
@@ -232,16 +232,16 @@ export class MessagesTable extends BaseTable {
         FROM messages
         WHERE parent_id = ?
         ORDER BY created_at ASC
-      `
+      `,
       )
-      .all(messageId) as SQLITE_MESSAGE[]
+      .all(messageId) as SQLITE_MESSAGE[];
   }
 
   async getMaxOrderSeq(conversationId: string): Promise<number> {
     const result = this.db
-      .prepare('SELECT MAX(order_seq) as maxSeq FROM messages WHERE conversation_id = ?')
-      .get(conversationId) as { maxSeq: number }
-    return result.maxSeq || 0
+      .prepare("SELECT MAX(order_seq) as maxSeq FROM messages WHERE conversation_id = ?")
+      .get(conversationId) as { maxSeq: number };
+    return result.maxSeq || 0;
   }
 
   async getLastUserMessage(conversationId: string): Promise<SQLITE_MESSAGE | null> {
@@ -265,9 +265,9 @@ export class MessagesTable extends BaseTable {
         WHERE conversation_id = ? AND role = 'user'
         ORDER BY created_at DESC
         LIMIT 1
-      `
+      `,
       )
-      .get(conversationId) as SQLITE_MESSAGE | null
+      .get(conversationId) as SQLITE_MESSAGE | null;
   }
 
   async getLastAssistantMessage(conversationId: string): Promise<SQLITE_MESSAGE | null> {
@@ -291,15 +291,12 @@ export class MessagesTable extends BaseTable {
         WHERE conversation_id = ? AND role = 'assistant' AND is_variant = 0
         ORDER BY created_at DESC, order_seq DESC
         LIMIT 1
-      `
+      `,
       )
-      .get(conversationId) as SQLITE_MESSAGE | null
+      .get(conversationId) as SQLITE_MESSAGE | null;
   }
 
-  async getMainMessageByParentId(
-    conversationId: string,
-    parentId: string
-  ): Promise<SQLITE_MESSAGE | null> {
+  async getMainMessageByParentId(conversationId: string, parentId: string): Promise<SQLITE_MESSAGE | null> {
     const mainMessage = this.db
       .prepare(
         `
@@ -323,9 +320,9 @@ export class MessagesTable extends BaseTable {
         AND is_variant = 0
         ORDER BY created_at DESC
         LIMIT 1
-      `
+      `,
       )
-      .get(conversationId, parentId) as SQLITE_MESSAGE | null
+      .get(conversationId, parentId) as SQLITE_MESSAGE | null;
 
     if (mainMessage) {
       const variants = this.db
@@ -349,14 +346,14 @@ export class MessagesTable extends BaseTable {
           AND parent_id = ?
           AND is_variant = 1
           ORDER BY created_at ASC
-        `
+        `,
         )
-        .all(conversationId, parentId) as SQLITE_MESSAGE[]
+        .all(conversationId, parentId) as SQLITE_MESSAGE[];
 
-      mainMessage.variants = variants
+      mainMessage.variants = variants;
     }
 
-    return mainMessage
+    return mainMessage;
   }
 
   async query(conversationId: string): Promise<SQLITE_MESSAGE[]> {
@@ -380,9 +377,9 @@ export class MessagesTable extends BaseTable {
         FROM messages
         WHERE conversation_id = ? AND is_variant != 1
         ORDER BY created_at ASC, order_seq ASC
-      `
+      `,
       )
-      .all(conversationId) as SQLITE_MESSAGE[]
+      .all(conversationId) as SQLITE_MESSAGE[];
 
     // 对于每个助手消息，获取其变体
     const getVariants = this.db.prepare(
@@ -403,22 +400,22 @@ export class MessagesTable extends BaseTable {
       FROM messages
       WHERE parent_id = ? AND is_variant = 1
       ORDER BY created_at ASC
-    `
-    )
+    `,
+    );
 
     // 为每个助手消息添加变体
     return mainMessages.map((msg) => {
-      if (msg.role === 'assistant' && msg.parent_id !== '') {
-        const variants = getVariants.all(msg.parent_id) as SQLITE_MESSAGE[]
+      if (msg.role === "assistant" && msg.parent_id !== "") {
+        const variants = getVariants.all(msg.parent_id) as SQLITE_MESSAGE[];
         if (variants.length > 0) {
           return {
             ...msg,
-            variants
-          }
+            variants,
+          };
         }
       }
-      return msg
-    })
+      return msg;
+    });
   }
 
   async queryIds(conversationId: string): Promise<string[]> {
@@ -430,9 +427,9 @@ export class MessagesTable extends BaseTable {
         FROM messages
         WHERE conversation_id = ? AND is_variant != 1
         ORDER BY created_at ASC, order_seq ASC
-      `
+      `,
       )
-      .all(conversationId) as Array<{ id: string }>
-    return rows.map((row) => row.id)
+      .all(conversationId) as Array<{ id: string }>;
+    return rows.map((row) => row.id);
   }
 }

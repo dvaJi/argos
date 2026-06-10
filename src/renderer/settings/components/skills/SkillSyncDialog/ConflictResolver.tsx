@@ -1,68 +1,56 @@
-import React, { useState, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Label } from '@shadcn/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@shadcn/components/ui/radio-group'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { ConflictStrategy } from '@shared/types/skillSync'
+import { type FC, useState, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Label } from "@shadcn/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@shadcn/components/ui/radio-group";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { ConflictStrategy } from "@shared/types/skillSync";
 
 export interface ConflictItem {
-  skillName: string
-  existingName: string
+  skillName: string;
+  existingName: string;
 }
 
 interface ConflictResolverProps {
-  conflicts: ConflictItem[]
-  strategies: Record<string, ConflictStrategy>
-  warnings: string[]
-  onStrategiesChange: (value: Record<string, ConflictStrategy>) => void
+  conflicts: ConflictItem[];
+  strategies: Record<string, ConflictStrategy>;
+  warnings: string[];
+  onStrategiesChange: (value: Record<string, ConflictStrategy>) => void;
 }
 
-export const ConflictResolver: React.FC<ConflictResolverProps> = ({
+export const ConflictResolver: FC<ConflictResolverProps> = ({
   conflicts,
   strategies,
   warnings,
-  onStrategiesChange
+  onStrategiesChange,
 }) => {
   const updateStrategy = (skillName: string, strategy: ConflictStrategy) => {
     onStrategiesChange({
       ...strategies,
-      [skillName]: strategy
-    })
-  }
+      [skillName]: strategy,
+    });
+  };
 
   const setAllStrategies = (strategy: ConflictStrategy) => {
-    const newStrategies: Record<string, ConflictStrategy> = {}
+    const newStrategies: Record<string, ConflictStrategy> = {};
     for (const conflict of conflicts) {
-      newStrategies[conflict.skillName] = strategy
+      newStrategies[conflict.skillName] = strategy;
     }
-    onStrategiesChange(newStrategies)
-  }
+    onStrategiesChange(newStrategies);
+  };
 
   return (
     <div className="space-y-4">
       {conflicts.length > 1 && (
         <div className="flex items-center gap-2 pb-2 border-b">
           <span className="text-sm text-muted-foreground">Batch action:</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAllStrategies(ConflictStrategy.SKIP)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setAllStrategies(ConflictStrategy.SKIP)}>
             Skip All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAllStrategies(ConflictStrategy.OVERWRITE)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setAllStrategies(ConflictStrategy.OVERWRITE)}>
             Overwrite All
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAllStrategies(ConflictStrategy.RENAME)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setAllStrategies(ConflictStrategy.RENAME)}>
             Rename All
           </Button>
         </div>
@@ -76,14 +64,10 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
                 <Icon icon="lucide:alert-triangle" className="w-4 h-4 text-amber-500" />
                 <span className="font-medium">{conflict.skillName}</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Conflicts with existing: {conflict.existingName}
-              </p>
+              <p className="text-xs text-muted-foreground">Conflicts with existing: {conflict.existingName}</p>
               <RadioGroup
-                value={strategies[conflict.skillName] || 'skip'}
-                onValueChange={(value) =>
-                  updateStrategy(conflict.skillName, value as ConflictStrategy)
-                }
+                value={strategies[conflict.skillName] || "skip"}
+                onValueChange={(value) => updateStrategy(conflict.skillName, value as ConflictStrategy)}
                 className="flex gap-4"
               >
                 <div className="flex items-center space-x-2">
@@ -124,7 +108,7 @@ export const ConflictResolver: React.FC<ConflictResolverProps> = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default ConflictResolver
+export default ConflictResolver;

@@ -3,18 +3,18 @@
  * Used to optimize rebuild strategy when provider changes
  */
 
-import type { LLM_PROVIDER } from './presenter'
+import type { LLM_PROVIDER } from "./presenter";
 
 /**
  * Provider update operation type
  */
 export interface ProviderUpdateOperation {
   /** Provider ID */
-  providerId: string
+  providerId: string;
   /** Updated fields */
-  updates: Partial<LLM_PROVIDER>
+  updates: Partial<LLM_PROVIDER>;
   /** Whether provider instance rebuild is required */
-  requiresRebuild: boolean
+  requiresRebuild: boolean;
 }
 
 /**
@@ -22,44 +22,44 @@ export interface ProviderUpdateOperation {
  */
 export interface ProviderChange {
   /** Operation type */
-  operation: 'add' | 'remove' | 'update' | 'reorder'
+  operation: "add" | "remove" | "update" | "reorder";
   /** Provider ID */
-  providerId: string
+  providerId: string;
   /** Whether instance rebuild is required */
-  requiresRebuild: boolean
+  requiresRebuild: boolean;
   /** Update data (only for update operation) */
-  updates?: Partial<LLM_PROVIDER>
+  updates?: Partial<LLM_PROVIDER>;
   /** New provider data (only for add operation) */
-  provider?: LLM_PROVIDER
+  provider?: LLM_PROVIDER;
 }
 
 /**
  * List of fields that require provider instance rebuild
  */
 export const REBUILD_REQUIRED_FIELDS = [
-  'enable',
-  'apiKey',
-  'copilotClientId',
-  'baseUrl',
-  'oauthToken',
-  'accessKeyId', // AWS Bedrock
-  'secretAccessKey', // AWS Bedrock
-  'region', // AWS Bedrock
-  'azureResourceName', // Azure
-  'azureApiVersion', // Azure
-  'projectId', // Vertex AI
-  'location', // Vertex AI
-  'accountPrivateKey', // Vertex AI
-  'accountClientEmail', // Vertex AI
-  'apiVersion', // Vertex AI
-  'endpointMode' // Vertex AI
-] as const
+  "enable",
+  "apiKey",
+  "copilotClientId",
+  "baseUrl",
+  "oauthToken",
+  "accessKeyId", // AWS Bedrock
+  "secretAccessKey", // AWS Bedrock
+  "region", // AWS Bedrock
+  "azureResourceName", // Azure
+  "azureApiVersion", // Azure
+  "projectId", // Vertex AI
+  "location", // Vertex AI
+  "accountPrivateKey", // Vertex AI
+  "accountClientEmail", // Vertex AI
+  "apiVersion", // Vertex AI
+  "endpointMode", // Vertex AI
+] as const;
 
 /**
  * Check if provider update requires instance rebuild
  */
 export function checkRequiresRebuild(updates: Partial<LLM_PROVIDER>): boolean {
-  return REBUILD_REQUIRED_FIELDS.some((field) => field in updates)
+  return REBUILD_REQUIRED_FIELDS.some((field) => field in updates);
 }
 
 /**
@@ -67,7 +67,7 @@ export function checkRequiresRebuild(updates: Partial<LLM_PROVIDER>): boolean {
  */
 export interface ProviderBatchUpdate {
   /** List of change operations */
-  changes: ProviderChange[]
+  changes: ProviderChange[];
   /** New complete provider list (for ordering) */
-  providers: LLM_PROVIDER[]
+  providers: LLM_PROVIDER[];
 }

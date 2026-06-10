@@ -1,59 +1,56 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Button } from '@shadcn/components/ui/button'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import type { UsageDashboardData } from '@shared/types/agent-interface'
-import UsageNostalgiaCard from './control-center/UsageNostalgiaCard'
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Button } from "@shadcn/components/ui/button";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import type { UsageDashboardData } from "@shared/types/agent-interface";
+import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
 
 export interface DashboardSettingsProps {
-  hideNostalgia?: boolean
-  onDashboardLoaded?: (dashboard: UsageDashboardData) => void
+  hideNostalgia?: boolean;
+  onDashboardLoaded?: (dashboard: UsageDashboardData) => void;
 }
 
-export default function DashboardSettings({
-  hideNostalgia = false,
-  onDashboardLoaded
-}: DashboardSettingsProps) {
-  const agentSessionPresenter = useLegacyPresenter('agentSessionPresenter')
-  const [isLoading, setIsLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [dashboard, setDashboard] = useState<UsageDashboardData | null>(null)
-  const isDashboardMountedRef = useRef(true)
-  const refreshTimerRef = useRef<number | null>(null)
+export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
+  const agentSessionPresenter = useLegacyPresenter("agentSessionPresenter");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [dashboard, setDashboard] = useState<UsageDashboardData | null>(null);
+  const isDashboardMountedRef = useRef(true);
+  const refreshTimerRef = useRef<number | null>(null);
 
   const loadDashboard = useCallback(async () => {
-    if (!isDashboardMountedRef.current) return
-    let shouldFinalize = false
+    if (!isDashboardMountedRef.current) return;
+    let shouldFinalize = false;
     try {
-      setIsLoading(true)
-      setErrorMessage('')
-      const nextDashboard = await agentSessionPresenter.getUsageDashboard()
-      if (!isDashboardMountedRef.current) return
-      setDashboard(nextDashboard)
-      onDashboardLoaded?.(nextDashboard)
-      shouldFinalize = true
+      setIsLoading(true);
+      setErrorMessage("");
+      const nextDashboard = await agentSessionPresenter.getUsageDashboard();
+      if (!isDashboardMountedRef.current) return;
+      setDashboard(nextDashboard);
+      onDashboardLoaded?.(nextDashboard);
+      shouldFinalize = true;
     } catch (error) {
-      if (!isDashboardMountedRef.current) return
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load dashboard')
-      shouldFinalize = true
+      if (!isDashboardMountedRef.current) return;
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load dashboard");
+      shouldFinalize = true;
     } finally {
       if (shouldFinalize && isDashboardMountedRef.current) {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
-  }, [agentSessionPresenter, onDashboardLoaded])
+  }, [agentSessionPresenter, onDashboardLoaded]);
 
   useEffect(() => {
-    isDashboardMountedRef.current = true
-    void loadDashboard()
+    isDashboardMountedRef.current = true;
+    void loadDashboard();
     return () => {
-      isDashboardMountedRef.current = false
-      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current)
-    }
-  }, [loadDashboard])
+      isDashboardMountedRef.current = false;
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+    };
+  }, [loadDashboard]);
 
-  const hasData = (dashboard?.summary.messageCount ?? 0) > 0
+  const hasData = (dashboard?.summary.messageCount ?? 0) > 0;
 
   return (
     <ScrollArea className="h-full w-full">
@@ -75,10 +72,7 @@ export default function DashboardSettings({
             disabled={isLoading}
             onClick={() => void loadDashboard()}
           >
-            <Icon
-              icon="lucide:refresh-cw"
-              className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
+            <Icon icon="lucide:refresh-cw" className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
@@ -94,7 +88,7 @@ export default function DashboardSettings({
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div
               className={`h-68 animate-pulse rounded-2xl border border-border bg-muted/40 md:col-span-2 ${
-                hideNostalgia ? 'xl:col-span-4' : 'xl:col-span-3'
+                hideNostalgia ? "xl:col-span-4" : "xl:col-span-3"
               }`}
             />
             {!hideNostalgia && (
@@ -108,10 +102,9 @@ export default function DashboardSettings({
             {hasData ? (
               <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {!hideNostalgia && (
-                  <UsageNostalgiaCard
-                    dashboard={dashboard}
-                    className="md:col-span-2 xl:col-span-1"
-                  />
+                  <div className="md:col-span-2 xl:col-span-1">
+                    <UsageNostalgiaCard dashboard={dashboard} />
+                  </div>
                 )}
               </section>
             ) : (
@@ -121,18 +114,11 @@ export default function DashboardSettings({
               >
                 <div className="mx-auto max-w-xl space-y-3">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
-                    <Icon
-                      icon="lucide:layout-dashboard"
-                      className="h-7 w-7 text-muted-foreground"
-                    />
+                    <Icon icon="lucide:layout-dashboard" className="h-7 w-7 text-muted-foreground" />
                   </div>
                   <h3 className="text-lg font-semibold">No usage data yet</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Start a conversation to see usage statistics here.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Data is collected from your conversation history.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Start a conversation to see usage statistics here.</p>
+                  <p className="text-xs text-muted-foreground">Data is collected from your conversation history.</p>
                 </div>
               </section>
             )}
@@ -140,5 +126,5 @@ export default function DashboardSettings({
         )}
       </div>
     </ScrollArea>
-  )
+  );
 }

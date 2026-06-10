@@ -1,61 +1,58 @@
-import React, { useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import type { AgentPlanItem, AgentPlanStepStatus } from '@shared/types/agent-plan'
-import type { AgentPlanViewSnapshot } from '@/stores/ui/agentPlan'
+import { type FC, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import type { AgentPlanItem, AgentPlanStepStatus } from "@shared/types/agent-plan";
+import type { AgentPlanViewSnapshot } from "@/stores/ui/agentPlan";
 
 interface AgentProgressFloatProps {
-  snapshot: AgentPlanViewSnapshot | null
-  collapsed: boolean
-  embedded?: boolean
-  onToggleCollapse: () => void
-  onDismiss: () => void
+  snapshot: AgentPlanViewSnapshot | null;
+  collapsed: boolean;
+  embedded?: boolean;
+  onToggleCollapse: () => void;
+  onDismiss: () => void;
 }
 
 const getStatusIcon = (status: AgentPlanStepStatus): string => {
-  if (status === 'completed') return 'lucide:circle-check'
-  if (status === 'in_progress') return 'lucide:loader-circle'
-  return 'lucide:circle'
-}
+  if (status === "completed") return "lucide:circle-check";
+  if (status === "in_progress") return "lucide:loader-circle";
+  return "lucide:circle";
+};
 
 const getStatusIconClass = (status: AgentPlanStepStatus): string => {
-  if (status === 'completed') return 'text-emerald-600 dark:text-emerald-400'
-  if (status === 'in_progress') return 'animate-spin text-primary'
-  return 'text-muted-foreground'
-}
+  if (status === "completed") return "text-emerald-600 dark:text-emerald-400";
+  if (status === "in_progress") return "animate-spin text-primary";
+  return "text-muted-foreground";
+};
 
 const getStatusBadgeClass = (status: AgentPlanStepStatus): string => {
-  if (status === 'completed') return 'border-emerald-500/20 bg-emerald-500/10'
-  if (status === 'in_progress') return 'border-primary/25 bg-primary/10'
-  return 'border-border/70'
-}
+  if (status === "completed") return "border-emerald-500/20 bg-emerald-500/10";
+  if (status === "in_progress") return "border-primary/25 bg-primary/10";
+  return "border-border/70";
+};
 
-const AgentProgressFloat: React.FC<AgentProgressFloatProps> = ({
+const AgentProgressFloat: FC<AgentProgressFloatProps> = ({
   snapshot,
   collapsed,
   embedded = false,
   onToggleCollapse,
-  onDismiss
+  onDismiss,
 }) => {
   const entries = useMemo<AgentPlanItem[]>(
     () => (snapshot?.plan ?? []).filter((entry) => entry.step.trim().length > 0),
-    [snapshot?.plan]
-  )
+    [snapshot?.plan],
+  );
 
-  const completedCount = useMemo(
-    () => entries.filter((entry) => entry.status === 'completed').length,
-    [entries]
-  )
+  const completedCount = useMemo(() => entries.filter((entry) => entry.status === "completed").length, [entries]);
 
-  if (!snapshot || entries.length === 0) return null
+  if (!snapshot || entries.length === 0) return null;
 
   return (
     <div
       className={[
-        'pointer-events-auto relative w-full overflow-hidden text-foreground',
+        "pointer-events-auto relative w-full overflow-hidden text-foreground",
         embedded
-          ? ''
-          : 'agent-progress-float ml-auto max-w-[25rem] rounded-[20px] border border-transparent bg-transparent backdrop-blur-[26px]'
-      ].join(' ')}
+          ? ""
+          : "agent-progress-float ml-auto max-w-[25rem] rounded-[20px] border border-transparent bg-transparent backdrop-blur-[26px]",
+      ].join(" ")}
       data-testid="agent-progress-float"
     >
       {!embedded && <div className="agent-progress-float__backdrop" aria-hidden="true" />}
@@ -75,9 +72,7 @@ const AgentProgressFloat: React.FC<AgentProgressFloatProps> = ({
 
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="min-w-0 truncate text-[13px] font-semibold tracking-[0.01em]">
-                Plan
-              </span>
+              <span className="min-w-0 truncate text-[13px] font-semibold tracking-[0.01em]">Plan</span>
               <span className="shrink-0 rounded-full border border-border/70 bg-background/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground dark:bg-background/60">
                 {completedCount}/{entries.length}
               </span>
@@ -95,13 +90,10 @@ const AgentProgressFloat: React.FC<AgentProgressFloatProps> = ({
           <button
             type="button"
             className="agent-progress-action inline-flex h-7 w-7 items-center justify-center text-muted-foreground"
-            aria-label={collapsed ? 'Expand' : 'Collapse'}
+            aria-label={collapsed ? "Expand" : "Collapse"}
             onClick={onToggleCollapse}
           >
-            <Icon
-              icon={collapsed ? 'lucide:chevron-down' : 'lucide:chevron-up'}
-              className="h-3 w-3"
-            />
+            <Icon icon={collapsed ? "lucide:chevron-down" : "lucide:chevron-up"} className="h-3 w-3" />
           </button>
 
           <button
@@ -143,7 +135,7 @@ const AgentProgressFloat: React.FC<AgentProgressFloatProps> = ({
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default AgentProgressFloat
+export default AgentProgressFloat;

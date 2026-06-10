@@ -1,9 +1,9 @@
-import type { DeepchatBridge } from '@shared/contracts/bridge'
+import type { DeepchatBridge } from "@shared/contracts/bridge";
 import {
   browserActivityChangedEvent,
   browserOpenRequestedEvent,
-  browserStatusChangedEvent
-} from '@shared/contracts/events'
+  browserStatusChangedEvent,
+} from "@shared/contracts/events";
 import {
   browserAttachCurrentWindowRoute,
   browserDestroyRoute,
@@ -13,12 +13,12 @@ import {
   browserGoForwardRoute,
   browserLoadUrlRoute,
   browserReloadRoute,
-  browserUpdateCurrentWindowBoundsRoute
-} from '@shared/contracts/routes'
-import type { YoBrowserStatus } from '@shared/types/browser'
-import type { YoBrowserActivityPayload } from '@shared/types/browser'
-import { getDeepchatBridge } from './core'
-import { getRuntimeWindowId, openRuntimeExternal } from './runtime'
+  browserUpdateCurrentWindowBoundsRoute,
+} from "@shared/contracts/routes";
+import type { YoBrowserStatus } from "@shared/types/browser";
+import type { YoBrowserActivityPayload } from "@shared/types/browser";
+import { getDeepchatBridge } from "./core";
+import { getRuntimeWindowId, openRuntimeExternal } from "./runtime";
 
 export function createBrowserClient(bridge: DeepchatBridge = getDeepchatBridge()) {
   function toSerializableBounds(bounds: { x: number; y: number; width: number; height: number }) {
@@ -26,121 +26,111 @@ export function createBrowserClient(bridge: DeepchatBridge = getDeepchatBridge()
       x: Number(bounds.x),
       y: Number(bounds.y),
       width: Number(bounds.width),
-      height: Number(bounds.height)
-    }
+      height: Number(bounds.height),
+    };
   }
 
   async function getStatus(sessionId: string) {
-    const result = await bridge.invoke(browserGetStatusRoute.name, { sessionId })
-    return result.status
+    const result = await bridge.invoke(browserGetStatusRoute.name, { sessionId });
+    return result.status;
   }
 
   async function loadUrl(sessionId: string, url: string, timeoutMs?: number) {
     const result = await bridge.invoke(browserLoadUrlRoute.name, {
       sessionId,
       url,
-      timeoutMs
-    })
-    return result.status
+      timeoutMs,
+    });
+    return result.status;
   }
 
   async function attachCurrentWindow(sessionId: string) {
-    const result = await bridge.invoke(browserAttachCurrentWindowRoute.name, { sessionId })
-    return result.attached
+    const result = await bridge.invoke(browserAttachCurrentWindowRoute.name, { sessionId });
+    return result.attached;
   }
 
   async function updateCurrentWindowBounds(
     sessionId: string,
     bounds: {
-      x: number
-      y: number
-      width: number
-      height: number
+      x: number;
+      y: number;
+      width: number;
+      height: number;
     },
-    visible: boolean
+    visible: boolean,
   ) {
     const result = await bridge.invoke(browserUpdateCurrentWindowBoundsRoute.name, {
       sessionId,
       bounds: toSerializableBounds(bounds),
-      visible
-    })
-    return result.updated
+      visible,
+    });
+    return result.updated;
   }
 
   async function detach(sessionId: string) {
-    const result = await bridge.invoke(browserDetachRoute.name, { sessionId })
-    return result.detached
+    const result = await bridge.invoke(browserDetachRoute.name, { sessionId });
+    return result.detached;
   }
 
   async function destroy(sessionId: string) {
-    const result = await bridge.invoke(browserDestroyRoute.name, { sessionId })
-    return result.destroyed
+    const result = await bridge.invoke(browserDestroyRoute.name, { sessionId });
+    return result.destroyed;
   }
 
   async function goBack(sessionId: string) {
-    const result = await bridge.invoke(browserGoBackRoute.name, { sessionId })
-    return result.status
+    const result = await bridge.invoke(browserGoBackRoute.name, { sessionId });
+    return result.status;
   }
 
   async function goForward(sessionId: string) {
-    const result = await bridge.invoke(browserGoForwardRoute.name, { sessionId })
-    return result.status
+    const result = await bridge.invoke(browserGoForwardRoute.name, { sessionId });
+    return result.status;
   }
 
   async function reload(sessionId: string) {
-    const result = await bridge.invoke(browserReloadRoute.name, { sessionId })
-    return result.status
+    const result = await bridge.invoke(browserReloadRoute.name, { sessionId });
+    return result.status;
   }
 
   async function openExternal(url: string) {
-    await openRuntimeExternal(url)
+    await openRuntimeExternal(url);
   }
 
   function onOpenRequested(
-    listener: (payload: {
-      sessionId: string
-      windowId: number
-      url: string
-      version: number
-    }) => void
+    listener: (payload: { sessionId: string; windowId: number; url: string; version: number }) => void,
   ) {
-    return bridge.on(browserOpenRequestedEvent.name, listener)
+    return bridge.on(browserOpenRequestedEvent.name, listener);
   }
 
   function onOpenRequestedForCurrentWindow(
-    listener: (payload: {
-      sessionId: string
-      windowId: number
-      url: string
-      version: number
-    }) => void
+    listener: (payload: { sessionId: string; windowId: number; url: string; version: number }) => void,
   ) {
-    const currentWindowId = getRuntimeWindowId()
+    const currentWindowId = getRuntimeWindowId();
 
     return onOpenRequested((payload) => {
       if (currentWindowId != null && payload.windowId !== currentWindowId) {
-        return
+        return;
       }
 
-      listener(payload)
-    })
+      listener(payload);
+    });
   }
 
   function onStatusChanged(
     listener: (payload: {
-      sessionId: string
-      reason: 'created' | 'updated' | 'closed' | 'focused' | 'visibility'
-      windowId?: number | null
-      visible?: boolean
-      status: YoBrowserStatus | null
-      version: number
-    }) => void
+      sessionId: string;
+      reason: "created" | "updated" | "closed" | "focused" | "visibility";
+      windowId?: number | null;
+      visible?: boolean;
+      status: YoBrowserStatus | null;
+      version: number;
+    }) => void,
   ) {
-    return bridge.on(browserStatusChangedEvent.name, listener)
+    return bridge.on(browserStatusChangedEvent.name, listener);
   }
 
   function onActivityChanged(listener: (payload: YoBrowserActivityPayload) => void) {
-    return bridge.on(browserActivityChangedEvent.name, listener)
+    return bridge.on(browserActivityChangedEvent.name, listener);
   }
 
   return {
@@ -157,8 +147,8 @@ export function createBrowserClient(bridge: DeepchatBridge = getDeepchatBridge()
     onOpenRequested,
     onOpenRequestedForCurrentWindow,
     onStatusChanged,
-    onActivityChanged
-  }
+    onActivityChanged,
+  };
 }
 
-export type BrowserClient = ReturnType<typeof createBrowserClient>
+export type BrowserClient = ReturnType<typeof createBrowserClient>;

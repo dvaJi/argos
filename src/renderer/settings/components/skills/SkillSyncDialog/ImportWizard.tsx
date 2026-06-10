@@ -1,179 +1,174 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import { useToast } from '@/components/use-toast'
-import type { ScanResult, ImportPreview } from '@shared/types/skillSync'
-import { ConflictStrategy } from '@shared/types/skillSync'
-import ToolSelector from './ToolSelector'
-import SkillSelector from './SkillSelector'
-import ConflictResolver, { type ConflictItem } from './ConflictResolver'
+import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import { useToast } from "@/components/use-toast";
+import type { ScanResult, ImportPreview } from "@shared/types/skillSync";
+import { ConflictStrategy } from "@shared/types/skillSync";
+import ToolSelector from "./ToolSelector";
+import SkillSelector from "./SkillSelector";
+import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
 
 interface ImportWizardProps {
-  currentStep: number
-  onStepChange: (value: number) => void
-  onComplete: () => void
-  onCancel: () => void
+  currentStep: number;
+  onStepChange: (value: number) => void;
+  onComplete: () => void;
+  onCancel: () => void;
 }
 
-export const ImportWizard: React.FC<ImportWizardProps> = ({
-  currentStep,
-  onStepChange,
-  onComplete,
-  onCancel
-}) => {
-  const { toast } = useToast()
-  const skillSyncPresenter = useLegacyPresenter('skillSyncPresenter')
+export const ImportWizard: FC<ImportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
+  const { toast } = useToast();
+  const skillSyncPresenter = useLegacyPresenter("skillSyncPresenter");
 
-  const [scanning, setScanning] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [scanResults, setScanResults] = useState<ScanResult[]>([])
-  const [selectedToolId, setSelectedToolId] = useState<string | null>(null)
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
-  const [importPreviews, setImportPreviews] = useState<ImportPreview[]>([])
-  const [conflictStrategies, setConflictStrategies] = useState<Record<string, ConflictStrategy>>({})
-  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentSkill: '' })
+  const [scanning, setScanning] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
+  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [importPreviews, setImportPreviews] = useState<ImportPreview[]>([]);
+  const [conflictStrategies, setConflictStrategies] = useState<Record<string, ConflictStrategy>>({});
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentSkill: "" });
 
   const selectedTool = useMemo(
     () => scanResults.find((t) => t.toolId === selectedToolId),
-    [scanResults, selectedToolId]
-  )
+    [scanResults, selectedToolId],
+  );
 
   const conflictNames = useMemo(
     () => importPreviews.filter((p) => p.conflict).map((p) => p.skill.name),
-    [importPreviews]
-  )
+    [importPreviews],
+  );
 
   const conflictItems = useMemo((): ConflictItem[] => {
     return importPreviews
       .filter((p) => p.conflict)
       .map((p) => ({
         skillName: p.skill.name,
-        existingName: p.conflict!.existingSkillName
-      }))
-  }, [importPreviews])
+        existingName: p.conflict!.existingSkillName,
+      }));
+  }, [importPreviews]);
 
   const allWarnings = useMemo(() => {
-    const warnings: string[] = []
+    const warnings: string[] = [];
     for (const preview of importPreviews) {
       if (preview.warnings.length > 0) {
-        warnings.push(...preview.warnings.map((w) => `${preview.skill.name}: ${w}`))
+        warnings.push(...preview.warnings.map((w) => `${preview.skill.name}: ${w}`));
       }
     }
-    return warnings
-  }, [importPreviews])
+    return warnings;
+  }, [importPreviews]);
 
   const canProceed = useMemo(() => {
-    if (currentStep === 1) return selectedToolId !== null
-    if (currentStep === 2) return selectedSkills.length > 0
-    return true
-  }, [currentStep, selectedToolId, selectedSkills])
+    if (currentStep === 1) return selectedToolId !== null;
+    if (currentStep === 2) return selectedSkills.length > 0;
+    return true;
+  }, [currentStep, selectedToolId, selectedSkills]);
 
-  const nextButtonText = currentStep === 3 ? 'Import' : 'Next'
+  const nextButtonText = currentStep === 3 ? "Import" : "Next";
 
   const getStepClass = (step: number) => {
-    if (currentStep > step) return 'bg-primary text-primary-foreground'
-    if (currentStep === step) return 'bg-primary text-primary-foreground'
-    return 'bg-muted text-muted-foreground'
-  }
+    if (currentStep > step) return "bg-primary text-primary-foreground";
+    if (currentStep === step) return "bg-primary text-primary-foreground";
+    return "bg-muted text-muted-foreground";
+  };
 
   const handleToolSelect = (tool: ScanResult) => {
-    setSelectedToolId(tool.toolId)
-    setSelectedSkills(tool.skills.map((s) => s.name))
-  }
+    setSelectedToolId(tool.toolId);
+    setSelectedSkills(tool.skills.map((s) => s.name));
+  };
 
   const handleBack = () => {
     if (currentStep === 1) {
-      onCancel()
+      onCancel();
     } else {
-      onStepChange(currentStep - 1)
+      onStepChange(currentStep - 1);
     }
-  }
+  };
 
   const previewImport = async () => {
-    if (!selectedToolId) return
-    setLoading(true)
+    if (!selectedToolId) return;
+    setLoading(true);
     try {
-      const previews = await skillSyncPresenter.previewImport(selectedToolId, selectedSkills)
-      setImportPreviews(previews)
-      const strategies: Record<string, ConflictStrategy> = {}
+      const previews = await skillSyncPresenter.previewImport(selectedToolId, selectedSkills);
+      setImportPreviews(previews);
+      const strategies: Record<string, ConflictStrategy> = {};
       for (const preview of previews) {
         if (preview.conflict) {
-          strategies[preview.skill.name] = ConflictStrategy.SKIP
+          strategies[preview.skill.name] = ConflictStrategy.SKIP;
         }
       }
-      setConflictStrategies(strategies)
+      setConflictStrategies(strategies);
     } catch (error) {
-      console.error('Preview import error:', error)
-      toast({ title: 'Preview Error', description: String(error), variant: 'destructive' })
+      console.error("Preview import error:", error);
+      toast({ title: "Preview Error", description: String(error), variant: "destructive" });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const executeImport = async () => {
-    setImporting(true)
-    setImportProgress({ current: 0, total: importPreviews.length, currentSkill: '' })
+    setImporting(true);
+    setImportProgress({ current: 0, total: importPreviews.length, currentSkill: "" });
     try {
-      const result = await skillSyncPresenter.executeImport(importPreviews, conflictStrategies)
+      const result = await skillSyncPresenter.executeImport(importPreviews, conflictStrategies);
       if (result.success) {
         toast({
-          title: 'Import Successful',
-          description: `Imported ${result.imported} skill(s), skipped ${result.skipped}`
-        })
-        onComplete()
+          title: "Import Successful",
+          description: `Imported ${result.imported} skill(s), skipped ${result.skipped}`,
+        });
+        onComplete();
       } else {
         toast({
-          title: 'Import Partial',
+          title: "Import Partial",
           description: `Imported ${result.imported}, failed ${result.failed.length}`,
-          variant: 'destructive'
-        })
-        onComplete()
+          variant: "destructive",
+        });
+        onComplete();
       }
     } catch (error) {
-      console.error('Import error:', error)
-      toast({ title: 'Import Error', description: String(error), variant: 'destructive' })
+      console.error("Import error:", error);
+      toast({ title: "Import Error", description: String(error), variant: "destructive" });
     } finally {
-      setImporting(false)
+      setImporting(false);
     }
-  }
+  };
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      onStepChange(2)
+      onStepChange(2);
     } else if (currentStep === 2) {
-      await previewImport()
-      onStepChange(3)
+      await previewImport();
+      onStepChange(3);
     } else if (currentStep === 3) {
-      await executeImport()
+      await executeImport();
     }
-  }
+  };
 
   const scanTools = async () => {
-    setScanning(true)
+    setScanning(true);
     try {
-      setScanResults(await skillSyncPresenter.scanExternalTools())
+      setScanResults(await skillSyncPresenter.scanExternalTools());
     } catch (error) {
-      console.error('Scan error:', error)
-      toast({ title: 'Scan Error', description: String(error), variant: 'destructive' })
+      console.error("Scan error:", error);
+      toast({ title: "Scan Error", description: String(error), variant: "destructive" });
     } finally {
-      setScanning(false)
+      setScanning(false);
     }
-  }
+  };
 
   useEffect(() => {
-    void scanTools()
-  }, [])
+    void scanTools();
+  }, []);
 
   useEffect(() => {
     if (currentStep === 1) {
-      setSelectedToolId(null)
-      setSelectedSkills([])
-      setImportPreviews([])
-      setConflictStrategies({})
+      setSelectedToolId(null);
+      setSelectedSkills([]);
+      setImportPreviews([]);
+      setConflictStrategies({});
     }
-  }, [currentStep])
+  }, [currentStep]);
 
   return (
     <div className="flex flex-col h-full">
@@ -182,18 +177,17 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
           <div key={step} className="flex items-center">
             <div
               className={[
-                'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors',
-                getStepClass(step)
-              ].join(' ')}
+                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
+                getStepClass(step),
+              ].join(" ")}
             >
               {currentStep > step ? <Icon icon="lucide:check" className="w-4 h-4" /> : step}
             </div>
             {step < 3 && (
               <div
-                className={[
-                  'w-12 h-0.5 mx-2 transition-colors',
-                  currentStep > step ? 'bg-primary' : 'bg-muted'
-                ].join(' ')}
+                className={["w-12 h-0.5 mx-2 transition-colors", currentStep > step ? "bg-primary" : "bg-muted"].join(
+                  " ",
+                )}
               />
             )}
           </div>
@@ -230,10 +224,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
             <h3 className="text-sm font-medium mb-4">Resolve conflicts</h3>
             {loading && (
               <div className="flex flex-col items-center justify-center py-8">
-                <Icon
-                  icon="lucide:loader-2"
-                  className="w-8 h-8 animate-spin text-muted-foreground mb-2"
-                />
+                <Icon icon="lucide:loader-2" className="w-8 h-8 animate-spin text-muted-foreground mb-2" />
                 <span className="text-sm text-muted-foreground">Previewing...</span>
               </div>
             )}
@@ -243,9 +234,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                 <span className="text-sm text-muted-foreground">
                   Importing {importProgress.current}/{importProgress.total}...
                 </span>
-                <span className="text-xs text-muted-foreground mt-1">
-                  {importProgress.currentSkill}
-                </span>
+                <span className="text-xs text-muted-foreground mt-1">{importProgress.currentSkill}</span>
               </div>
             )}
             {!loading && !importing && (
@@ -262,7 +251,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
       <div className="flex justify-between pt-4 border-t mt-4 flex-shrink-0">
         <Button variant="outline" onClick={handleBack} disabled={importing}>
-          {currentStep === 1 ? 'Cancel' : 'Back'}
+          {currentStep === 1 ? "Cancel" : "Back"}
         </Button>
         <Button onClick={handleNext} disabled={!canProceed || importing}>
           {importing && <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />}
@@ -270,7 +259,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         </Button>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ImportWizard
+export default ImportWizard;

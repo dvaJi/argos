@@ -1,25 +1,25 @@
 interface OnBoardingSpotlightProps {
-  pathD: string
-  cutoutPathD?: string
-  viewportWidth: number
-  viewportHeight: number
-  fillColor?: string
-  fillOpacity?: number
-  borderColor?: string
-  borderWidth?: number
-  onDimClick?: () => void
+  pathD: string;
+  cutoutPathD?: string;
+  viewportWidth: number;
+  viewportHeight: number;
+  fillColor?: string;
+  fillOpacity?: number;
+  borderColor?: string;
+  borderWidth?: number;
+  onDimClick?: () => void;
 }
 
 export default function OnBoardingSpotlight({
   pathD,
-  cutoutPathD = '',
+  cutoutPathD = "",
   viewportWidth,
   viewportHeight,
-  fillColor = 'rgb(15, 23, 42)',
+  fillColor = "rgb(15, 23, 42)",
   fillOpacity = 0.42,
-  borderColor = 'color-mix(in srgb, var(--primary) 70%, transparent)',
+  borderColor = "color-mix(in srgb, var(--primary) 70%, transparent)",
   borderWidth = 1,
-  onDimClick
+  onDimClick,
 }: OnBoardingSpotlightProps) {
   return (
     <svg
@@ -37,9 +37,9 @@ export default function OnBoardingSpotlight({
           fillOpacity={fillOpacity}
           fillRule="evenodd"
           onClick={(e) => {
-            e.stopPropagation()
-            e.preventDefault()
-            onDimClick?.()
+            e.stopPropagation();
+            e.preventDefault();
+            onDimClick?.();
           }}
         />
       )}
@@ -53,5 +53,5 @@ export default function OnBoardingSpotlight({
         />
       )}
     </svg>
-  )
+  );
 }

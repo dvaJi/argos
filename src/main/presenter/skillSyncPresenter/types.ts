@@ -4,18 +4,18 @@
  * Internal types used by SkillSyncPresenter implementation
  */
 
-import type { CanonicalSkill, ConflictStrategy, ExternalSkillInfo } from '@shared/types/skillSync'
+import type { CanonicalSkill, ConflictStrategy, ExternalSkillInfo } from "@shared/types/skillSync";
 
 /**
  * Parsed external skill with full content
  */
 export interface ParsedExternalSkill {
   /** External skill info */
-  info: ExternalSkillInfo
+  info: ExternalSkillInfo;
   /** Parsed canonical skill */
-  skill: CanonicalSkill
+  skill: CanonicalSkill;
   /** Raw file content */
-  rawContent: string
+  rawContent: string;
 }
 
 /**
@@ -23,15 +23,15 @@ export interface ParsedExternalSkill {
  */
 export interface ImportItem {
   /** External skill info */
-  source: ExternalSkillInfo
+  source: ExternalSkillInfo;
   /** Parsed skill */
-  skill: CanonicalSkill
+  skill: CanonicalSkill;
   /** Whether there's a conflict */
-  hasConflict: boolean
+  hasConflict: boolean;
   /** Conflict strategy to apply */
-  strategy?: ConflictStrategy
+  strategy?: ConflictStrategy;
   /** Target skill name (may be different if renamed) */
-  targetName: string
+  targetName: string;
 }
 
 /**
@@ -39,17 +39,17 @@ export interface ImportItem {
  */
 export interface ExportItem {
   /** Skill name */
-  skillName: string
+  skillName: string;
   /** Skill content */
-  skill: CanonicalSkill
+  skill: CanonicalSkill;
   /** Target tool ID */
-  targetToolId: string
+  targetToolId: string;
   /** Target file path */
-  targetPath: string
+  targetPath: string;
   /** Whether there's a conflict */
-  hasConflict: boolean
+  hasConflict: boolean;
   /** Conflict strategy to apply */
-  strategy?: ConflictStrategy
+  strategy?: ConflictStrategy;
 }
 
 /**
@@ -57,7 +57,7 @@ export interface ExportItem {
  */
 export interface SyncContext {
   /** Project root for project-level tools */
-  projectRoot?: string
+  projectRoot?: string;
   /** Current working directory */
-  cwd?: string
+  cwd?: string;
 }

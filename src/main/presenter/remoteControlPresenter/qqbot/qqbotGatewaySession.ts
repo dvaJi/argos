@@ -1,288 +1,282 @@
-import { WebSocket } from 'undici'
-import type { QQBotRuntimeStatusSnapshot } from '../types'
-import { QQBOT_GROUP_AND_C2C_INTENT } from '../types'
-import { QQBotApiRequestError, QQBotClient } from './qqbotClient'
+import { WebSocket } from "undici";
+import type { QQBotRuntimeStatusSnapshot } from "../types";
+import { QQBOT_GROUP_AND_C2C_INTENT } from "../types";
+import { QQBotApiRequestError, QQBotClient } from "./qqbotClient";
 
 type QQBotGatewayPayload = {
-  op: number
-  s?: number | null
-  t?: string | null
-  d?: unknown
-}
+  op: number;
+  s?: number | null;
+  t?: string | null;
+  d?: unknown;
+};
 
 type QQBotReadyPayload = {
-  session_id?: string
-  resume_gateway_url?: string
+  session_id?: string;
+  resume_gateway_url?: string;
   user?: {
-    id?: string | number
-    username?: string
-  }
-}
+    id?: string | number;
+    username?: string;
+  };
+};
 
 export interface QQBotGatewayBotUser {
-  id: string
-  username?: string
+  id: string;
+  username?: string;
 }
 
 type QQBotGatewaySessionDeps = {
-  client: QQBotClient
-  onDispatch: (payload: QQBotGatewayPayload) => Promise<void> | void
-  onStatusChange?: (snapshot: QQBotRuntimeStatusSnapshot) => void
-  onBotUser?: (botUser: QQBotGatewayBotUser) => void
-  onFatalError?: (message: string) => void
-}
+  client: QQBotClient;
+  onDispatch: (payload: QQBotGatewayPayload) => Promise<void> | void;
+  onStatusChange?: (snapshot: QQBotRuntimeStatusSnapshot) => void;
+  onBotUser?: (botUser: QQBotGatewayBotUser) => void;
+  onFatalError?: (message: string) => void;
+};
 
-const QQBOT_HEARTBEAT_OP = 1
-const QQBOT_IDENTIFY_OP = 2
-const QQBOT_RESUME_OP = 6
-const QQBOT_RECONNECT_OP = 7
-const QQBOT_INVALID_SESSION_OP = 9
-const QQBOT_HELLO_OP = 10
-const QQBOT_HEARTBEAT_ACK_OP = 11
-const QQBOT_RECONNECT_BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 20_000] as const
+const QQBOT_HEARTBEAT_OP = 1;
+const QQBOT_IDENTIFY_OP = 2;
+const QQBOT_RESUME_OP = 6;
+const QQBOT_RECONNECT_OP = 7;
+const QQBOT_INVALID_SESSION_OP = 9;
+const QQBOT_HELLO_OP = 10;
+const QQBOT_HEARTBEAT_ACK_OP = 11;
+const QQBOT_RECONNECT_BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 20_000] as const;
 
 const parseGatewayMessage = (input: string): QQBotGatewayPayload => {
-  const payload = JSON.parse(input) as QQBotGatewayPayload
+  const payload = JSON.parse(input) as QQBotGatewayPayload;
   return {
     op: Number(payload.op ?? 0),
-    s: typeof payload.s === 'number' ? payload.s : null,
-    t: typeof payload.t === 'string' ? payload.t : null,
-    d: payload.d
-  }
-}
+    s: typeof payload.s === "number" ? payload.s : null,
+    t: typeof payload.t === "string" ? payload.t : null,
+    d: payload.d,
+  };
+};
 
 const parseWebSocketData = async (data: string | ArrayBuffer | Blob | Buffer): Promise<string> => {
-  if (typeof data === 'string') {
-    return data
+  if (typeof data === "string") {
+    return data;
   }
 
-  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(data)) {
-    return data.toString('utf8')
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(data)) {
+    return data.toString("utf8");
   }
 
   if (data instanceof ArrayBuffer) {
-    return Buffer.from(data).toString('utf8')
+    return Buffer.from(data).toString("utf8");
   }
 
-  if (typeof (data as Blob).text === 'function') {
-    return await (data as Blob).text()
+  if (typeof (data as Blob).text === "function") {
+    return await (data as Blob).text();
   }
 
-  if (typeof (data as Blob).arrayBuffer === 'function') {
-    return Buffer.from(await (data as Blob).arrayBuffer()).toString('utf8')
+  if (typeof (data as Blob).arrayBuffer === "function") {
+    return Buffer.from(await (data as Blob).arrayBuffer()).toString("utf8");
   }
 
-  return ''
-}
+  return "";
+};
 
-const isAbortError = (error: unknown): boolean =>
-  error instanceof Error && error.name === 'AbortError'
+const isAbortError = (error: unknown): boolean => error instanceof Error && error.name === "AbortError";
 
 const isFatalQQBotError = (error: unknown): boolean =>
-  error instanceof QQBotApiRequestError &&
-  error.status >= 400 &&
-  error.status < 500 &&
-  error.status !== 429
+  error instanceof QQBotApiRequestError && error.status >= 400 && error.status < 500 && error.status !== 429;
 
 export class QQBotGatewaySession {
-  private runPromise: Promise<void> | null = null
-  private firstConnectedPromise: Promise<void> | null = null
-  private resolveFirstConnected: (() => void) | null = null
-  private rejectFirstConnected: ((reason?: unknown) => void) | null = null
-  private firstConnectedSettled = false
-  private stopRequested = false
-  private ws: WebSocket | null = null
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null
-  private cancelReconnectDelay: (() => void) | null = null
-  private sessionId: string | null = null
-  private seq: number | null = null
-  private resumeGatewayUrl: string | null = null
-  private startedOnce = false
+  private runPromise: Promise<void> | null = null;
+  private firstConnectedPromise: Promise<void> | null = null;
+  private resolveFirstConnected: (() => void) | null = null;
+  private rejectFirstConnected: ((reason?: unknown) => void) | null = null;
+  private firstConnectedSettled = false;
+  private stopRequested = false;
+  private ws: WebSocket | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private cancelReconnectDelay: (() => void) | null = null;
+  private sessionId: string | null = null;
+  private seq: number | null = null;
+  private resumeGatewayUrl: string | null = null;
+  private startedOnce = false;
 
   constructor(private readonly deps: QQBotGatewaySessionDeps) {}
 
   async start(signal?: AbortSignal): Promise<void> {
     if (signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError')
+      throw new DOMException("Aborted", "AbortError");
     }
 
     if (this.runPromise) {
       if (this.firstConnectedPromise) {
-        return await this.firstConnectedPromise
+        return await this.firstConnectedPromise;
       }
-      return
+      return;
     }
 
-    this.stopRequested = false
-    this.firstConnectedSettled = false
+    this.stopRequested = false;
+    this.firstConnectedSettled = false;
     this.firstConnectedPromise = new Promise<void>((resolve, reject) => {
-      this.resolveFirstConnected = resolve
-      this.rejectFirstConnected = reject
-    })
+      this.resolveFirstConnected = resolve;
+      this.rejectFirstConnected = reject;
+    });
 
     this.runPromise = this.run(signal)
       .catch((error) => {
-        this.rejectPendingFirstConnected(error)
+        this.rejectPendingFirstConnected(error);
       })
       .finally(() => {
-        this.cleanupHeartbeat()
-        this.cancelReconnectDelay = null
-        this.ws = null
-        this.runPromise = null
-        this.firstConnectedPromise = null
-        this.resolveFirstConnected = null
-        this.rejectFirstConnected = null
-      })
+        this.cleanupHeartbeat();
+        this.cancelReconnectDelay = null;
+        this.ws = null;
+        this.runPromise = null;
+        this.firstConnectedPromise = null;
+        this.resolveFirstConnected = null;
+        this.rejectFirstConnected = null;
+      });
 
-    return await this.firstConnectedPromise
+    return await this.firstConnectedPromise;
   }
 
   async stop(): Promise<void> {
-    this.stopRequested = true
-    this.cleanupHeartbeat()
-    this.cancelReconnectDelay?.()
-    this.ws?.close()
-    this.ws = null
-    await this.runPromise
+    this.stopRequested = true;
+    this.cleanupHeartbeat();
+    this.cancelReconnectDelay?.();
+    this.ws?.close();
+    this.ws = null;
+    await this.runPromise;
   }
 
   private async run(signal?: AbortSignal): Promise<void> {
-    let attempt = 0
+    let attempt = 0;
 
     while (!this.stopRequested && !signal?.aborted) {
       try {
-        await this.connectOnce(signal)
-        attempt = 0
+        await this.connectOnce(signal);
+        attempt = 0;
       } catch (error) {
         if (this.stopRequested || signal?.aborted || isAbortError(error)) {
-          this.rejectPendingFirstConnected(new DOMException('Aborted', 'AbortError'))
-          return
+          this.rejectPendingFirstConnected(new DOMException("Aborted", "AbortError"));
+          return;
         }
 
-        const lastError = error instanceof Error ? error.message : String(error)
+        const lastError = error instanceof Error ? error.message : String(error);
         if (isFatalQQBotError(error)) {
           this.emitStatus({
-            state: 'error',
-            lastError
-          })
-          this.rejectFirstConnected?.(error)
-          this.deps.onFatalError?.(lastError)
-          return
+            state: "error",
+            lastError,
+          });
+          this.rejectFirstConnected?.(error);
+          this.deps.onFatalError?.(lastError);
+          return;
         }
 
         if (!this.startedOnce) {
           this.emitStatus({
-            state: 'error',
-            lastError
-          })
-          this.rejectFirstConnected?.(error)
-          throw error
+            state: "error",
+            lastError,
+          });
+          this.rejectFirstConnected?.(error);
+          throw error;
         }
 
-        const delayMs =
-          QQBOT_RECONNECT_BACKOFF_MS[Math.min(attempt, QQBOT_RECONNECT_BACKOFF_MS.length - 1)] ??
-          30_000
-        attempt += 1
+        const delayMs = QQBOT_RECONNECT_BACKOFF_MS[Math.min(attempt, QQBOT_RECONNECT_BACKOFF_MS.length - 1)] ?? 30_000;
+        attempt += 1;
         this.emitStatus({
-          state: 'backoff',
-          lastError
-        })
-        await this.waitForReconnectDelay(delayMs, signal)
+          state: "backoff",
+          lastError,
+        });
+        await this.waitForReconnectDelay(delayMs, signal);
       }
     }
 
-    this.rejectPendingFirstConnected(new DOMException('Aborted', 'AbortError'))
+    this.rejectPendingFirstConnected(new DOMException("Aborted", "AbortError"));
   }
 
   private async connectOnce(signal?: AbortSignal): Promise<void> {
-    const gatewayUrl = this.resumeGatewayUrl?.trim() || (await this.deps.client.getGatewayUrl())
-    const ws = new WebSocket(gatewayUrl)
-    this.ws = ws
+    const gatewayUrl = this.resumeGatewayUrl?.trim() || (await this.deps.client.getGatewayUrl());
+    const ws = new WebSocket(gatewayUrl);
+    this.ws = ws;
 
     await new Promise<void>((resolve, reject) => {
-      let connected = false
-      let finished = false
-      let reconnectRequested = false
-      let invalidSession = false
+      let connected = false;
+      let finished = false;
+      let reconnectRequested = false;
+      let invalidSession = false;
       const closeSocket = () => {
         if (this.ws === ws) {
-          this.ws = null
+          this.ws = null;
         }
 
         try {
           const terminable = ws as WebSocket & {
-            terminate?: () => void
-          }
-          if (typeof terminable.terminate === 'function') {
-            terminable.terminate()
-            return
+            terminate?: () => void;
+          };
+          if (typeof terminable.terminate === "function") {
+            terminable.terminate();
+            return;
           }
         } catch {
           // Fall back to close below.
         }
 
         try {
-          ws.close()
+          ws.close();
         } catch {
           // Ignore close errors during teardown.
         }
-      }
+      };
       const handleAbort = () => {
-        settleReject(new DOMException('Aborted', 'AbortError'))
-      }
+        settleReject(new DOMException("Aborted", "AbortError"));
+      };
 
       const cleanup = () => {
         if (finished) {
-          return
+          return;
         }
 
-        finished = true
-        this.cleanupHeartbeat()
-        ws.removeEventListener('open', handleOpen)
-        ws.removeEventListener('message', handleMessage)
-        ws.removeEventListener('error', handleError)
-        ws.removeEventListener('close', handleClose)
-        signal?.removeEventListener('abort', handleAbort)
-      }
+        finished = true;
+        this.cleanupHeartbeat();
+        ws.removeEventListener("open", handleOpen);
+        ws.removeEventListener("message", handleMessage);
+        ws.removeEventListener("error", handleError);
+        ws.removeEventListener("close", handleClose);
+        signal?.removeEventListener("abort", handleAbort);
+      };
 
       const settleResolve = () => {
-        cleanup()
-        resolve()
-      }
+        cleanup();
+        resolve();
+      };
 
       const settleReject = (error: unknown) => {
-        cleanup()
-        closeSocket()
-        reject(error)
-      }
+        cleanup();
+        closeSocket();
+        reject(error);
+      };
 
       const ensureConnected = () => {
         if (connected) {
-          return
+          return;
         }
 
-        connected = true
-        this.startedOnce = true
+        connected = true;
+        this.startedOnce = true;
         this.emitStatus({
-          state: 'running',
-          lastError: null
-        })
-        this.resolvePendingFirstConnected()
-      }
+          state: "running",
+          lastError: null,
+        });
+        this.resolvePendingFirstConnected();
+      };
 
       const sendPayload = (payload: unknown) => {
-        ws.send(JSON.stringify(payload))
-      }
+        ws.send(JSON.stringify(payload));
+      };
 
       const sendHeartbeat = () => {
         sendPayload({
           op: QQBOT_HEARTBEAT_OP,
-          d: this.seq
-        })
-      }
+          d: this.seq,
+        });
+      };
 
       const identify = async () => {
-        const accessToken = await this.deps.client.getAccessToken()
+        const accessToken = await this.deps.client.getAccessToken();
         sendPayload({
           op: QQBOT_IDENTIFY_OP,
           d: {
@@ -291,219 +285,219 @@ export class QQBotGatewaySession {
             shard: [0, 1],
             properties: {
               $os: process.platform,
-              $browser: 'deepchat',
-              $device: 'deepchat'
-            }
-          }
-        })
-      }
+              $browser: "deepchat",
+              $device: "deepchat",
+            },
+          },
+        });
+      };
 
       const resume = async () => {
-        const accessToken = await this.deps.client.getAccessToken()
+        const accessToken = await this.deps.client.getAccessToken();
         sendPayload({
           op: QQBOT_RESUME_OP,
           d: {
             token: `QQBot ${accessToken}`,
             session_id: this.sessionId,
-            seq: this.seq
-          }
-        })
-      }
+            seq: this.seq,
+          },
+        });
+      };
 
       const handleOpen = () => {
         this.emitStatus({
-          state: this.startedOnce ? 'backoff' : 'starting',
-          lastError: null
-        })
-      }
+          state: this.startedOnce ? "backoff" : "starting",
+          lastError: null,
+        });
+      };
 
       const handleMessage = (event: Event) => {
         void (async () => {
           try {
-            const raw = await parseWebSocketData((event as MessageEvent).data)
-            const payload = parseGatewayMessage(raw)
+            const raw = await parseWebSocketData((event as MessageEvent).data);
+            const payload = parseGatewayMessage(raw);
 
-            if (typeof payload.s === 'number') {
-              this.seq = payload.s
+            if (typeof payload.s === "number") {
+              this.seq = payload.s;
             }
 
             if (payload.op === QQBOT_HELLO_OP) {
               const heartbeatInterval = Number(
-                (payload.d as { heartbeat_interval?: number } | undefined)?.heartbeat_interval ?? 0
-              )
-              this.cleanupHeartbeat()
+                (payload.d as { heartbeat_interval?: number } | undefined)?.heartbeat_interval ?? 0,
+              );
+              this.cleanupHeartbeat();
               if (heartbeatInterval > 0) {
                 this.heartbeatTimer = setInterval(() => {
                   try {
-                    sendHeartbeat()
+                    sendHeartbeat();
                   } catch {
                     // The close handler will take over.
                   }
-                }, heartbeatInterval)
+                }, heartbeatInterval);
               }
 
               if (this.sessionId && this.seq !== null) {
-                await resume()
+                await resume();
               } else {
-                await identify()
+                await identify();
               }
-              return
+              return;
             }
 
             if (payload.op === QQBOT_HEARTBEAT_ACK_OP) {
-              return
+              return;
             }
 
             if (payload.op === QQBOT_RECONNECT_OP) {
-              reconnectRequested = true
-              ws.close()
-              return
+              reconnectRequested = true;
+              ws.close();
+              return;
             }
 
             if (payload.op === QQBOT_INVALID_SESSION_OP) {
-              invalidSession = true
-              this.sessionId = null
-              this.seq = null
-              this.resumeGatewayUrl = null
-              ws.close()
-              return
+              invalidSession = true;
+              this.sessionId = null;
+              this.seq = null;
+              this.resumeGatewayUrl = null;
+              ws.close();
+              return;
             }
 
             if (payload.op !== 0) {
-              return
+              return;
             }
 
-            if (payload.t === 'READY') {
-              const ready = (payload.d ?? {}) as QQBotReadyPayload
-              this.sessionId = ready.session_id?.trim() || null
-              this.resumeGatewayUrl = ready.resume_gateway_url?.trim() || gatewayUrl
+            if (payload.t === "READY") {
+              const ready = (payload.d ?? {}) as QQBotReadyPayload;
+              this.sessionId = ready.session_id?.trim() || null;
+              this.resumeGatewayUrl = ready.resume_gateway_url?.trim() || gatewayUrl;
 
-              const botUserId = ready.user?.id === undefined ? '' : String(ready.user.id).trim()
+              const botUserId = ready.user?.id === undefined ? "" : String(ready.user.id).trim();
               if (botUserId) {
                 this.deps.onBotUser?.({
                   id: botUserId,
-                  username: ready.user?.username?.trim() || undefined
-                })
+                  username: ready.user?.username?.trim() || undefined,
+                });
               }
 
-              ensureConnected()
-              return
+              ensureConnected();
+              return;
             }
 
-            if (payload.t === 'RESUMED') {
-              ensureConnected()
-              return
+            if (payload.t === "RESUMED") {
+              ensureConnected();
+              return;
             }
 
-            ensureConnected()
-            await this.deps.onDispatch(payload)
+            ensureConnected();
+            await this.deps.onDispatch(payload);
           } catch (error) {
-            settleReject(error)
+            settleReject(error);
           }
-        })()
-      }
+        })();
+      };
 
       const handleError = () => {
-        settleReject(new Error('QQBot gateway transport error.'))
-      }
+        settleReject(new Error("QQBot gateway transport error."));
+      };
 
       const handleClose = () => {
         if (this.stopRequested || signal?.aborted) {
-          settleResolve()
-          return
+          settleResolve();
+          return;
         }
 
         if (invalidSession) {
-          settleReject(new Error('QQBot gateway session became invalid.'))
-          return
+          settleReject(new Error("QQBot gateway session became invalid."));
+          return;
         }
 
         if (reconnectRequested || connected) {
-          settleReject(new Error('QQBot gateway connection closed.'))
-          return
+          settleReject(new Error("QQBot gateway connection closed."));
+          return;
         }
 
-        settleReject(new Error('QQBot gateway connection closed before READY.'))
-      }
+        settleReject(new Error("QQBot gateway connection closed before READY."));
+      };
 
-      ws.addEventListener('open', handleOpen)
-      ws.addEventListener('message', handleMessage)
-      ws.addEventListener('error', handleError)
-      ws.addEventListener('close', handleClose)
+      ws.addEventListener("open", handleOpen);
+      ws.addEventListener("message", handleMessage);
+      ws.addEventListener("error", handleError);
+      ws.addEventListener("close", handleClose);
 
-      signal?.addEventListener('abort', handleAbort, { once: true })
-    })
+      signal?.addEventListener("abort", handleAbort, { once: true });
+    });
   }
 
   private resolvePendingFirstConnected(): void {
     if (this.firstConnectedSettled) {
-      return
+      return;
     }
 
-    this.firstConnectedSettled = true
-    this.resolveFirstConnected?.()
+    this.firstConnectedSettled = true;
+    this.resolveFirstConnected?.();
   }
 
   private rejectPendingFirstConnected(reason?: unknown): void {
     if (this.firstConnectedSettled) {
-      return
+      return;
     }
 
-    this.firstConnectedSettled = true
-    this.rejectFirstConnected?.(reason)
+    this.firstConnectedSettled = true;
+    this.rejectFirstConnected?.(reason);
   }
 
   private async waitForReconnectDelay(ms: number, signal?: AbortSignal): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       if (this.stopRequested) {
-        resolve()
-        return
+        resolve();
+        return;
       }
 
       if (signal?.aborted) {
-        reject(new DOMException('Aborted', 'AbortError'))
-        return
+        reject(new DOMException("Aborted", "AbortError"));
+        return;
       }
 
       const finishResolve = () => {
-        cleanup()
-        resolve()
-      }
+        cleanup();
+        resolve();
+      };
       const finishReject = (error: unknown) => {
-        cleanup()
-        reject(error)
-      }
+        cleanup();
+        reject(error);
+      };
       const handleAbort = () => {
-        finishReject(new DOMException('Aborted', 'AbortError'))
-      }
-      const timeout = setTimeout(finishResolve, ms)
+        finishReject(new DOMException("Aborted", "AbortError"));
+      };
+      const timeout = setTimeout(finishResolve, ms);
       const cleanup = () => {
-        clearTimeout(timeout)
-        signal?.removeEventListener('abort', handleAbort)
+        clearTimeout(timeout);
+        signal?.removeEventListener("abort", handleAbort);
         if (this.cancelReconnectDelay === finishResolve) {
-          this.cancelReconnectDelay = null
+          this.cancelReconnectDelay = null;
         }
-      }
+      };
 
-      this.cancelReconnectDelay = finishResolve
-      signal?.addEventListener('abort', handleAbort, { once: true })
-    })
+      this.cancelReconnectDelay = finishResolve;
+      signal?.addEventListener("abort", handleAbort, { once: true });
+    });
   }
 
   private cleanupHeartbeat(): void {
     if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
   private emitStatus(
-    patch: Partial<QQBotRuntimeStatusSnapshot> & { state: QQBotRuntimeStatusSnapshot['state'] }
+    patch: Partial<QQBotRuntimeStatusSnapshot> & { state: QQBotRuntimeStatusSnapshot["state"] },
   ): void {
     this.deps.onStatusChange?.({
       state: patch.state,
       lastError: patch.lastError ?? null,
-      botUser: null
-    })
+      botUser: null,
+    });
   }
 }

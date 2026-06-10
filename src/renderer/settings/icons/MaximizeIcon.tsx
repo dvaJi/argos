@@ -1,8 +1,8 @@
 interface MaximizeIconProps {
-  fill?: string
+  fill?: string;
 }
 
-export default function MaximizeIcon({ fill = 'currentColor' }: MaximizeIconProps) {
+export default function MaximizeIcon({ fill = "currentColor" }: MaximizeIconProps) {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -11,5 +11,5 @@ export default function MaximizeIcon({ fill = 'currentColor' }: MaximizeIconProp
         fillOpacity="0.8956"
       />
     </svg>
-  )
+  );
 }

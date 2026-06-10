@@ -1,246 +1,235 @@
-import type { ChatMessage } from '@shared/presenter'
-import { generateId } from 'ai'
-import { jsonrepair } from 'jsonrepair'
+import type { ChatMessage } from "@shared/presenter";
+import { generateId } from "ai";
+import { jsonrepair } from "jsonrepair";
 
 export interface ParsedLegacyToolCall {
-  id: string
-  type: 'function'
+  id: string;
+  type: "function";
   function: {
-    name: string
-    arguments: string
-  }
+    name: string;
+    arguments: string;
+  };
 }
 
-export function serializeChatMessageContent(content: ChatMessage['content']): string {
+export function serializeChatMessageContent(content: ChatMessage["content"]): string {
   if (content == null) {
-    return ''
+    return "";
   }
 
-  if (typeof content === 'string') {
-    return content
+  if (typeof content === "string") {
+    return content;
   }
 
   return content
     .map((part) => {
-      if (part.type === 'text') {
-        return part.text
+      if (part.type === "text") {
+        return part.text;
       }
 
-      if (part.type === 'image_url') {
-        return part.image_url.url
+      if (part.type === "image_url") {
+        return part.image_url.url;
       }
 
-      return JSON.stringify(part)
+      return JSON.stringify(part);
     })
-    .join('\n')
+    .join("\n");
 }
 
 export function tryParseJson(value: string): unknown {
   try {
-    return JSON.parse(value)
+    return JSON.parse(value);
   } catch {
     try {
-      return JSON.parse(jsonrepair(value))
+      return JSON.parse(jsonrepair(value));
     } catch {
-      return undefined
+      return undefined;
     }
   }
 }
 
-export function parseLegacyFunctionCalls(
-  response: string,
-  fallbackIdPrefix = 'tool-call'
-): ParsedLegacyToolCall[] {
-  const functionCallMatches = [
-    ...response.matchAll(/<function_call>([\s\S]*?)<\/function_call>/g)
-  ].map((match) => match[1])
+export function parseLegacyFunctionCalls(response: string, fallbackIdPrefix = "tool-call"): ParsedLegacyToolCall[] {
+  const functionCallMatches = [...response.matchAll(/<function_call>([\s\S]*?)<\/function_call>/g)].map(
+    (match) => match[1],
+  );
 
-  const trailingOpenTagIndex = response.lastIndexOf('<function_call>')
-  if (
-    trailingOpenTagIndex !== -1 &&
-    response.indexOf('</function_call>', trailingOpenTagIndex) === -1
-  ) {
-    functionCallMatches.push(response.slice(trailingOpenTagIndex + '<function_call>'.length))
+  const trailingOpenTagIndex = response.lastIndexOf("<function_call>");
+  if (trailingOpenTagIndex !== -1 && response.indexOf("</function_call>", trailingOpenTagIndex) === -1) {
+    functionCallMatches.push(response.slice(trailingOpenTagIndex + "<function_call>".length));
   }
 
   if (functionCallMatches.length === 0) {
-    return []
+    return [];
   }
 
   return functionCallMatches
     .map((match, index) => {
-      const content = normalizeLegacyFunctionCallContent(match)
+      const content = normalizeLegacyFunctionCallContent(match);
       if (!content) {
-        return null
+        return null;
       }
 
-      const parsed = tryParseJson(content)
-      if (!parsed || typeof parsed !== 'object') {
-        return null
+      const parsed = tryParseJson(content);
+      if (!parsed || typeof parsed !== "object") {
+        return null;
       }
 
-      const record = parsed as Record<string, unknown>
-      let functionName: string | undefined
-      let functionArgs: unknown
+      const record = parsed as Record<string, unknown>;
+      let functionName: string | undefined;
+      let functionArgs: unknown;
 
-      if (record.function_call && typeof record.function_call === 'object') {
-        const call = record.function_call as Record<string, unknown>
-        functionName = typeof call.name === 'string' ? call.name : undefined
-        functionArgs = call.arguments
-      } else if (typeof record.name === 'string' && record.arguments !== undefined) {
-        functionName = record.name
-        functionArgs = record.arguments
-      } else if (record.function && typeof record.function === 'object') {
-        const call = record.function as Record<string, unknown>
-        functionName = typeof call.name === 'string' ? call.name : undefined
-        functionArgs = call.arguments
+      if (record.function_call && typeof record.function_call === "object") {
+        const call = record.function_call as Record<string, unknown>;
+        functionName = typeof call.name === "string" ? call.name : undefined;
+        functionArgs = call.arguments;
+      } else if (typeof record.name === "string" && record.arguments !== undefined) {
+        functionName = record.name;
+        functionArgs = record.arguments;
+      } else if (record.function && typeof record.function === "object") {
+        const call = record.function as Record<string, unknown>;
+        functionName = typeof call.name === "string" ? call.name : undefined;
+        functionArgs = call.arguments;
       } else {
-        const keys = Object.keys(record)
+        const keys = Object.keys(record);
         if (keys.length === 1) {
-          const inner = record[keys[0]]
-          if (inner && typeof inner === 'object') {
-            const nested = inner as Record<string, unknown>
-            if (typeof nested.name === 'string' && nested.arguments !== undefined) {
-              functionName = nested.name
-              functionArgs = nested.arguments
+          const inner = record[keys[0]];
+          if (inner && typeof inner === "object") {
+            const nested = inner as Record<string, unknown>;
+            if (typeof nested.name === "string" && nested.arguments !== undefined) {
+              functionName = nested.name;
+              functionArgs = nested.arguments;
             }
           }
         }
       }
 
       if (!functionName || functionArgs === undefined) {
-        return null
+        return null;
       }
 
       return {
         id: `${fallbackIdPrefix}-${index}-${generateId()}`,
-        type: 'function' as const,
+        type: "function" as const,
         function: {
           name: functionName,
-          arguments:
-            typeof functionArgs === 'string' ? functionArgs : JSON.stringify(functionArgs ?? {})
-        }
-      }
+          arguments: typeof functionArgs === "string" ? functionArgs : JSON.stringify(functionArgs ?? {}),
+        },
+      };
     })
-    .filter((call): call is ParsedLegacyToolCall => call !== null)
+    .filter((call): call is ParsedLegacyToolCall => call !== null);
 }
 
 function normalizeLegacyFunctionCallContent(content: string): string {
-  let normalized = content.replace(/<\/?function_call>/g, '').trim()
+  let normalized = content.replace(/<\/?function_call>/g, "").trim();
 
-  const fenced = normalized.match(/^```(?:json|JSON)?\s*([\s\S]*?)\s*```$/)
+  const fenced = normalized.match(/^```(?:json|JSON)?\s*([\s\S]*?)\s*```$/);
   if (fenced?.[1]) {
-    normalized = fenced[1].trim()
+    normalized = fenced[1].trim();
   }
 
-  return normalized
+  return normalized;
 }
 
-export function buildFunctionCallRecordContent(
-  name: string,
-  args: unknown,
-  response: unknown
-): string {
+export function buildFunctionCallRecordContent(name: string, args: unknown, response: unknown): string {
   return `<function_call>${JSON.stringify({
     function_call_record: {
       name,
       arguments: args,
-      response
-    }
-  })}</function_call>`
+      response,
+    },
+  })}</function_call>`;
 }
 
 export function splitMergedToolContent(content: string, expectedParts: number): string[] | null {
   if (!content || expectedParts <= 1) {
-    return null
+    return null;
   }
 
-  const trimmed = content.trim()
+  const trimmed = content.trim();
   if (!trimmed) {
-    return null
+    return null;
   }
 
   const splitByDelimiter = (delimiter: RegExp): string[] | null => {
     const parts = trimmed
       .split(delimiter)
       .map((part) => part.trim())
-      .filter((part) => part.length > 0)
+      .filter((part) => part.length > 0);
 
-    return parts.length === expectedParts ? parts : null
-  }
+    return parts.length === expectedParts ? parts : null;
+  };
 
   const tryJsonArray = (): string[] | null => {
-    if (!trimmed.startsWith('[')) {
-      return null
+    if (!trimmed.startsWith("[")) {
+      return null;
     }
 
-    const parsed = tryParseJson(trimmed)
+    const parsed = tryParseJson(trimmed);
     if (!Array.isArray(parsed) || parsed.length !== expectedParts) {
-      return null
+      return null;
     }
 
-    return parsed.map((part) => (typeof part === 'string' ? part : JSON.stringify(part)))
-  }
+    return parsed.map((part) => (typeof part === "string" ? part : JSON.stringify(part)));
+  };
 
   const strategies: Array<() => string[] | null> = [
     tryJsonArray,
     () => splitByDelimiter(/\n-{3,}\n+/g),
     () => splitByDelimiter(/\n={3,}\n+/g),
     () => splitByDelimiter(/\n\*{3,}\n+/g),
-    () => splitByDelimiter(/\n\s*\n+/g)
-  ]
+    () => splitByDelimiter(/\n\s*\n+/g),
+  ];
 
   for (const strategy of strategies) {
-    const parts = strategy()
+    const parts = strategy();
     if (parts) {
-      return parts
+      return parts;
     }
   }
 
-  return null
+  return null;
 }
 
 export function toToolResultOutput(value: unknown): any {
   if (Array.isArray(value)) {
     return {
-      type: 'content',
+      type: "content",
       value: value.map((entry) => {
-        if (typeof entry === 'string') {
+        if (typeof entry === "string") {
           return {
-            type: 'text',
-            text: entry
-          }
+            type: "text",
+            text: entry,
+          };
         }
 
-        if (entry && typeof entry === 'object') {
-          return entry as Record<string, unknown>
+        if (entry && typeof entry === "object") {
+          return entry as Record<string, unknown>;
         }
 
         return {
-          type: 'text',
-          text: JSON.stringify(entry)
-        }
-      })
-    }
+          type: "text",
+          text: JSON.stringify(entry),
+        };
+      }),
+    };
   }
 
-  if (typeof value === 'string') {
-    const parsed = tryParseJson(value)
+  if (typeof value === "string") {
+    const parsed = tryParseJson(value);
     if (parsed !== undefined) {
       return {
-        type: 'json',
-        value: parsed
-      }
+        type: "json",
+        value: parsed,
+      };
     }
 
     return {
-      type: 'text',
-      value
-    }
+      type: "text",
+      value,
+    };
   }
 
   return {
-    type: 'json',
-    value: value ?? null
-  }
+    type: "json",
+    value: value ?? null,
+  };
 }

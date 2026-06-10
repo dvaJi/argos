@@ -1,23 +1,23 @@
-import type * as schema from '@agentclientprotocol/sdk/dist/schema/index.js'
+import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
 
 export function filterMcpServersByTransportSupport(
   servers: schema.McpServer[],
-  mcpCapabilities?: schema.McpCapabilities
+  mcpCapabilities?: schema.McpCapabilities,
 ): schema.McpServer[] {
-  if (!Array.isArray(servers) || servers.length === 0) return []
+  if (!Array.isArray(servers) || servers.length === 0) return [];
 
   return servers.filter((server) => {
-    if ('type' in server) {
-      if (server.type === 'http') {
-        return Boolean(mcpCapabilities?.http)
+    if ("type" in server) {
+      if (server.type === "http") {
+        return Boolean(mcpCapabilities?.http);
       }
-      if (server.type === 'sse') {
-        return Boolean(mcpCapabilities?.sse)
+      if (server.type === "sse") {
+        return Boolean(mcpCapabilities?.sse);
       }
-      return false
+      return false;
     }
 
     // Stdio transport: all agents must support it.
-    return true
-  })
+    return true;
+  });
 }

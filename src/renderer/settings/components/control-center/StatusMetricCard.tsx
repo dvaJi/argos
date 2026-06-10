@@ -1,21 +1,15 @@
-import { Icon } from '@iconify/react'
-import { Badge } from '@shadcn/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@shadcn/components/ui/card'
+import { Icon } from "@iconify/react";
+import { Badge } from "@shadcn/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@shadcn/components/ui/card";
 
 interface StatusMetricCardProps {
-  label: string
-  value: string
-  icon: string
-  description?: string
-  badge?: string
-  interactive?: boolean
-  onSelect?: () => void
+  label: string;
+  value: string;
+  icon: string;
+  description?: string;
+  badge?: string;
+  interactive?: boolean;
+  onSelect?: () => void;
 }
 
 export default function StatusMetricCard({
@@ -25,25 +19,25 @@ export default function StatusMetricCard({
   description,
   badge,
   interactive,
-  onSelect
+  onSelect,
 }: StatusMetricCardProps) {
   const handleSelect = () => {
     if (interactive) {
-      onSelect?.()
+      onSelect?.();
     }
-  }
+  };
 
   return (
     <Card
-      className={`min-w-0${interactive ? ' transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2' : ''}`}
-      role={interactive ? 'button' : undefined}
+      className={`min-w-0${interactive ? " transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" : ""}`}
+      role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={handleSelect}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') handleSelect()
-        if (e.key === ' ') {
-          e.preventDefault()
-          handleSelect()
+        if (e.key === "Enter") handleSelect();
+        if (e.key === " ") {
+          e.preventDefault();
+          handleSelect();
         }
       }}
     >
@@ -67,5 +61,5 @@ export default function StatusMetricCard({
         </CardContent>
       )}
     </Card>
-  )
+  );
 }

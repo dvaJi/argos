@@ -1,26 +1,15 @@
-import type { ReactNode } from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from '@shadcn/components/ui/card'
+import type { ReactNode } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@shadcn/components/ui/card";
 
 interface SettingsSectionCardProps {
-  title?: string
-  description?: string
-  actions?: ReactNode
-  children?: ReactNode
+  title?: string;
+  description?: string;
+  actions?: ReactNode;
+  children?: ReactNode;
 }
 
-export default function SettingsSectionCard({
-  title,
-  description,
-  actions,
-  children
-}: SettingsSectionCardProps) {
-  const showHeader = title || description || actions
+export default function SettingsSectionCard({ title, description, actions, children }: SettingsSectionCardProps) {
+  const showHeader = title || description || actions;
   return (
     <Card>
       {showHeader && (
@@ -36,5 +25,5 @@ export default function SettingsSectionCard({
       )}
       <CardContent>{children}</CardContent>
     </Card>
-  )
+  );
 }

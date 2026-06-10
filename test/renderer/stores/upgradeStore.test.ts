@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const upgradeEventHandlers = vi.hoisted(() => ({
   statusChanged: undefined as ((payload: Record<string, unknown>) => void) | undefined,
   progress: undefined as ((payload: Record<string, unknown>) => void) | undefined,
   willRestart: undefined as ((payload: Record<string, unknown>) => void) | undefined,
-  error: undefined as ((payload: Record<string, unknown>) => void) | undefined
-}))
+  error: undefined as ((payload: Record<string, unknown>) => void) | undefined,
+}));
 
 const upgradePresenterMock = vi.hoisted(() => ({
   checkUpdate: vi.fn().mockResolvedValue(undefined),
@@ -14,27 +14,27 @@ const upgradePresenterMock = vi.hoisted(() => ({
   mockDownloadedUpdate: vi.fn().mockResolvedValue(true),
   clearMockUpdate: vi.fn().mockResolvedValue(true),
   startDownloadUpdate: vi.fn().mockResolvedValue(true),
-  restartToUpdate: vi.fn().mockResolvedValue(true)
-}))
+  restartToUpdate: vi.fn().mockResolvedValue(true),
+}));
 
 const devicePresenterMock = vi.hoisted(() => ({
-  getDeviceInfo: vi.fn().mockResolvedValue({ platform: 'darwin' })
-}))
+  getDeviceInfo: vi.fn().mockResolvedValue({ platform: "darwin" }),
+}));
 
-vi.mock('pinia', async () => {
-  const actual = await vi.importActual<typeof import('pinia')>('pinia')
-  return actual
-})
+vi.mock("pinia", async () => {
+  const actual = await vi.importActual<typeof import("pinia")>("pinia");
+  return actual;
+});
 
-vi.mock('vue', async () => {
-  const actual = await vi.importActual<typeof import('vue')>('vue')
+vi.mock("vue", async () => {
+  const actual = await vi.importActual<typeof import("vue")>("vue");
   return {
     ...actual,
-    onMounted: (callback: () => void) => callback()
-  }
-})
+    onMounted: (callback: () => void) => callback(),
+  };
+});
 
-vi.mock('@api/UpgradeClient', () => ({
+vi.mock("@api/UpgradeClient", () => ({
   createUpgradeClient: vi.fn(() => ({
     checkUpdate: upgradePresenterMock.checkUpdate,
     getUpdateStatus: upgradePresenterMock.getUpdateStatus,
@@ -44,310 +44,310 @@ vi.mock('@api/UpgradeClient', () => ({
     startDownloadUpdate: upgradePresenterMock.startDownloadUpdate,
     restartToUpdate: upgradePresenterMock.restartToUpdate,
     onStatusChanged: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
-      upgradeEventHandlers.statusChanged = listener
-      return () => undefined
+      upgradeEventHandlers.statusChanged = listener;
+      return () => undefined;
     }),
     onProgress: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
-      upgradeEventHandlers.progress = listener
-      return () => undefined
+      upgradeEventHandlers.progress = listener;
+      return () => undefined;
     }),
     onWillRestart: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
-      upgradeEventHandlers.willRestart = listener
-      return () => undefined
+      upgradeEventHandlers.willRestart = listener;
+      return () => undefined;
     }),
     onError: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
-      upgradeEventHandlers.error = listener
-      return () => undefined
-    })
-  }))
-}))
+      upgradeEventHandlers.error = listener;
+      return () => undefined;
+    }),
+  })),
+}));
 
-vi.mock('@api/DeviceClient', () => ({
+vi.mock("@api/DeviceClient", () => ({
   createDeviceClient: vi.fn(() => ({
-    getDeviceInfo: devicePresenterMock.getDeviceInfo
-  }))
-}))
+    getDeviceInfo: devicePresenterMock.getDeviceInfo,
+  })),
+}));
 
-import { useUpgradeStore } from '@/stores/upgrade'
+import { useUpgradeStore } from "@/stores/upgrade";
 
 const createUpdateInfo = () => ({
-  version: '1.0.0-beta.4',
-  releaseDate: '2026-03-19',
-  releaseNotes: '- Added floating window',
-  githubUrl: 'https://github.com/example',
-  downloadUrl: 'https://download.example.com',
-  isMock: false
-})
+  version: "1.0.0-beta.4",
+  releaseDate: "2026-03-19",
+  releaseNotes: "- Added floating window",
+  githubUrl: "https://github.com/example",
+  downloadUrl: "https://download.example.com",
+  isMock: false,
+});
 
-describe('useUpgradeStore', () => {
+describe("useUpgradeStore", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    upgradeEventHandlers.statusChanged = undefined
-    upgradeEventHandlers.progress = undefined
-    upgradeEventHandlers.willRestart = undefined
-    upgradeEventHandlers.error = undefined
+    vi.clearAllMocks();
+    upgradeEventHandlers.statusChanged = undefined;
+    upgradeEventHandlers.progress = undefined;
+    upgradeEventHandlers.willRestart = undefined;
+    upgradeEventHandlers.error = undefined;
 
     upgradePresenterMock.getUpdateStatus.mockResolvedValue({
-      status: 'not-available',
+      status: "not-available",
       progress: null,
       error: null,
-      updateInfo: null
-    })
-  })
+      updateInfo: null,
+    });
+  });
 
-  it('keeps manual checks in available state until install is clicked', async () => {
-    const store = useUpgradeStore()
+  it("keeps manual checks in available state until install is clicked", async () => {
+    const store = useUpgradeStore();
 
     upgradePresenterMock.getUpdateStatus.mockResolvedValue({
-      status: 'available',
+      status: "available",
       progress: null,
       error: null,
-      updateInfo: createUpdateInfo()
-    })
+      updateInfo: createUpdateInfo(),
+    });
 
-    const result = await store.checkUpdate(false)
+    const result = await store.checkUpdate(false);
 
-    expect(result).toBe('available')
-    expect(store.updateState).toBe('available')
-    expect(store.hasUpdate).toBe(true)
-    expect(store.shouldShowTopbarInstallButton).toBe(false)
-    expect(upgradePresenterMock.startDownloadUpdate).not.toHaveBeenCalled()
-  })
+    expect(result).toBe("available");
+    expect(store.updateState).toBe("available");
+    expect(store.hasUpdate).toBe(true);
+    expect(store.shouldShowTopbarInstallButton).toBe(false);
+    expect(upgradePresenterMock.startDownloadUpdate).not.toHaveBeenCalled();
+  });
 
-  it('hydrates downloaded state from async presenter status', async () => {
-    const store = useUpgradeStore()
+  it("hydrates downloaded state from async presenter status", async () => {
+    const store = useUpgradeStore();
 
     upgradePresenterMock.getUpdateStatus.mockResolvedValue({
-      status: 'downloaded',
+      status: "downloaded",
       progress: null,
       error: null,
-      updateInfo: createUpdateInfo()
-    })
+      updateInfo: createUpdateInfo(),
+    });
 
-    const result = await store.refreshStatus()
+    const result = await store.refreshStatus();
 
-    expect(result).toBe('downloaded')
-    expect(store.updateState).toBe('ready_to_install')
-    expect(store.shouldShowTopbarInstallButton).toBe(true)
-    expect(store.hasUpdate).toBe(true)
-  })
+    expect(result).toBe("downloaded");
+    expect(store.updateState).toBe("ready_to_install");
+    expect(store.shouldShowTopbarInstallButton).toBe(true);
+    expect(store.hasUpdate).toBe(true);
+  });
 
-  it('tracks mock downloaded updates and can clear them', async () => {
-    const store = useUpgradeStore()
-    const statusHandler = upgradeEventHandlers.statusChanged
+  it("tracks mock downloaded updates and can clear them", async () => {
+    const store = useUpgradeStore();
+    const statusHandler = upgradeEventHandlers.statusChanged;
 
-    await store.mockDownloadedUpdate()
+    await store.mockDownloadedUpdate();
 
-    expect(upgradePresenterMock.mockDownloadedUpdate).toHaveBeenCalledTimes(1)
+    expect(upgradePresenterMock.mockDownloadedUpdate).toHaveBeenCalledTimes(1);
 
     statusHandler?.({
-      status: 'downloaded',
+      status: "downloaded",
       info: {
         ...createUpdateInfo(),
-        version: '9.9.9-mock',
-        isMock: true
+        version: "9.9.9-mock",
+        isMock: true,
       },
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
 
-    expect(store.isMockUpdate).toBe(true)
-    expect(store.isReadyToInstall).toBe(true)
+    expect(store.isMockUpdate).toBe(true);
+    expect(store.isReadyToInstall).toBe(true);
 
     upgradePresenterMock.getUpdateStatus.mockResolvedValue({
-      status: 'not-available',
+      status: "not-available",
       progress: null,
       error: null,
-      updateInfo: null
-    })
+      updateInfo: null,
+    });
 
-    await store.clearMockUpdate()
-    statusHandler?.({ status: 'not-available', version: Date.now() })
+    await store.clearMockUpdate();
+    statusHandler?.({ status: "not-available", version: Date.now() });
 
-    expect(store.isMockUpdate).toBe(false)
-    expect(store.hasUpdate).toBe(false)
-    expect(upgradePresenterMock.clearMockUpdate).toHaveBeenCalledTimes(1)
-  })
+    expect(store.isMockUpdate).toBe(false);
+    expect(store.hasUpdate).toBe(false);
+    expect(upgradePresenterMock.clearMockUpdate).toHaveBeenCalledTimes(1);
+  });
 
-  it('marks checking immediately and coalesces repeated manual checks before presenter reply', async () => {
-    const store = useUpgradeStore()
-    let resolveCheck: (() => void) | null = null
+  it("marks checking immediately and coalesces repeated manual checks before presenter reply", async () => {
+    const store = useUpgradeStore();
+    let resolveCheck: (() => void) | null = null;
 
     upgradePresenterMock.checkUpdate.mockReturnValueOnce(
       new Promise<void>((resolve) => {
-        resolveCheck = resolve
-      })
-    )
+        resolveCheck = resolve;
+      }),
+    );
 
-    const firstCheck = store.checkUpdate(false)
+    const firstCheck = store.checkUpdate(false);
 
-    expect(store.updateState).toBe('checking')
-    expect(store.isChecking).toBe(true)
+    expect(store.updateState).toBe("checking");
+    expect(store.isChecking).toBe(true);
 
-    const secondCheck = await store.checkUpdate(false)
+    const secondCheck = await store.checkUpdate(false);
 
-    expect(secondCheck).toBe('checking')
-    expect(upgradePresenterMock.checkUpdate).toHaveBeenCalledTimes(1)
+    expect(secondCheck).toBe("checking");
+    expect(upgradePresenterMock.checkUpdate).toHaveBeenCalledTimes(1);
 
-    resolveCheck?.()
+    resolveCheck?.();
 
-    const firstResult = await firstCheck
-    expect(firstResult).toBe('not-available')
-    expect(store.updateState).toBe('idle')
-  })
+    const firstResult = await firstCheck;
+    expect(firstResult).toBe("not-available");
+    expect(store.updateState).toBe("idle");
+  });
 
-  it('hydrates downloading progress from async presenter status', async () => {
-    const store = useUpgradeStore()
+  it("hydrates downloading progress from async presenter status", async () => {
+    const store = useUpgradeStore();
 
     upgradePresenterMock.getUpdateStatus.mockResolvedValue({
-      status: 'downloading',
+      status: "downloading",
       progress: {
         percent: 42,
         bytesPerSecond: 1024,
         transferred: 420,
-        total: 1000
+        total: 1000,
       },
       error: null,
-      updateInfo: createUpdateInfo()
-    })
+      updateInfo: createUpdateInfo(),
+    });
 
-    const result = await store.refreshStatus()
+    const result = await store.refreshStatus();
 
-    expect(result).toBe('downloading')
-    expect(store.updateState).toBe('downloading')
-    expect(store.isDownloading).toBe(true)
+    expect(result).toBe("downloading");
+    expect(store.updateState).toBe("downloading");
+    expect(store.isDownloading).toBe(true);
     expect(store.updateProgress).toEqual({
       percent: 42,
       bytesPerSecond: 1024,
       transferred: 420,
-      total: 1000
-    })
-  })
+      total: 1000,
+    });
+  });
 
-  it('does not let stale sync snapshots overwrite newer progress events', async () => {
-    const store = useUpgradeStore()
-    const statusHandler = upgradeEventHandlers.statusChanged
-    const progressHandler = upgradeEventHandlers.progress
+  it("does not let stale sync snapshots overwrite newer progress events", async () => {
+    const store = useUpgradeStore();
+    const statusHandler = upgradeEventHandlers.statusChanged;
+    const progressHandler = upgradeEventHandlers.progress;
     let resolveSnapshot:
       | ((value: {
-          status: 'downloading'
+          status: "downloading";
           progress: {
-            percent: number
-            bytesPerSecond: number
-            transferred: number
-            total: number
-          }
-          error: null
-          updateInfo: ReturnType<typeof createUpdateInfo>
+            percent: number;
+            bytesPerSecond: number;
+            transferred: number;
+            total: number;
+          };
+          error: null;
+          updateInfo: ReturnType<typeof createUpdateInfo>;
         }) => void)
-      | null = null
+      | null = null;
 
     statusHandler?.({
-      status: 'downloading',
+      status: "downloading",
       info: createUpdateInfo(),
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
     upgradePresenterMock.getUpdateStatus.mockReturnValueOnce(
       new Promise<{
-        status: 'downloading'
+        status: "downloading";
         progress: {
-          percent: number
-          bytesPerSecond: number
-          transferred: number
-          total: number
-        }
-        error: null
-        updateInfo: ReturnType<typeof createUpdateInfo>
+          percent: number;
+          bytesPerSecond: number;
+          transferred: number;
+          total: number;
+        };
+        error: null;
+        updateInfo: ReturnType<typeof createUpdateInfo>;
       }>((resolve) => {
-        resolveSnapshot = resolve
-      })
-    )
+        resolveSnapshot = resolve;
+      }),
+    );
 
-    const refreshPromise = store.refreshStatus()
+    const refreshPromise = store.refreshStatus();
 
     progressHandler?.({
       percent: 75,
       bytesPerSecond: 2048,
       transferred: 750,
       total: 1000,
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
 
     resolveSnapshot?.({
-      status: 'downloading',
+      status: "downloading",
       progress: {
         percent: 42,
         bytesPerSecond: 1024,
         transferred: 420,
-        total: 1000
+        total: 1000,
       },
       error: null,
-      updateInfo: createUpdateInfo()
-    })
+      updateInfo: createUpdateInfo(),
+    });
 
-    const result = await refreshPromise
+    const result = await refreshPromise;
 
-    expect(result).toBe('downloading')
-    expect(store.updateState).toBe('downloading')
+    expect(result).toBe("downloading");
+    expect(store.updateState).toBe("downloading");
     expect(store.updateProgress).toEqual({
       percent: 75,
       bytesPerSecond: 2048,
       transferred: 750,
-      total: 1000
-    })
-  })
+      total: 1000,
+    });
+  });
 
-  it('returns the current state when syncing presenter status fails', async () => {
-    const store = useUpgradeStore()
-    const statusHandler = upgradeEventHandlers.statusChanged
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it("returns the current state when syncing presenter status fails", async () => {
+    const store = useUpgradeStore();
+    const statusHandler = upgradeEventHandlers.statusChanged;
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     statusHandler?.({
-      status: 'downloaded',
+      status: "downloaded",
       info: createUpdateInfo(),
-      version: Date.now()
-    })
-    upgradePresenterMock.getUpdateStatus.mockRejectedValueOnce(new Error('sync failed'))
+      version: Date.now(),
+    });
+    upgradePresenterMock.getUpdateStatus.mockRejectedValueOnce(new Error("sync failed"));
 
-    const result = await store.refreshStatus()
+    const result = await store.refreshStatus();
 
-    expect(result).toBe('downloaded')
-    expect(store.updateState).toBe('ready_to_install')
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to sync update status:', expect.any(Error))
+    expect(result).toBe("downloaded");
+    expect(store.updateState).toBe("ready_to_install");
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Failed to sync update status:", expect.any(Error));
 
-    consoleErrorSpy.mockRestore()
-  })
+    consoleErrorSpy.mockRestore();
+  });
 
-  it('keeps the current state when presenter status snapshot is empty', async () => {
-    const store = useUpgradeStore()
-    const handler = upgradeEventHandlers.statusChanged
+  it("keeps the current state when presenter status snapshot is empty", async () => {
+    const store = useUpgradeStore();
+    const handler = upgradeEventHandlers.statusChanged;
 
     handler?.({
-      status: 'downloaded',
+      status: "downloaded",
       info: createUpdateInfo(),
-      version: Date.now()
-    })
-    upgradePresenterMock.getUpdateStatus.mockResolvedValue(null)
+      version: Date.now(),
+    });
+    upgradePresenterMock.getUpdateStatus.mockResolvedValue(null);
 
-    const result = await store.refreshStatus()
+    const result = await store.refreshStatus();
 
-    expect(result).toBe('downloaded')
-    expect(store.updateState).toBe('ready_to_install')
-    expect(store.shouldShowTopbarInstallButton).toBe(true)
-  })
+    expect(result).toBe("downloaded");
+    expect(store.updateState).toBe("ready_to_install");
+    expect(store.shouldShowTopbarInstallButton).toBe(true);
+  });
 
-  it('exposes manual download fallback when update download fails', () => {
-    const store = useUpgradeStore()
-    const handler = upgradeEventHandlers.statusChanged
+  it("exposes manual download fallback when update download fails", () => {
+    const store = useUpgradeStore();
+    const handler = upgradeEventHandlers.statusChanged;
 
     handler?.({
-      status: 'error',
+      status: "error",
       info: createUpdateInfo(),
-      error: 'network failed',
-      version: Date.now()
-    })
+      error: "network failed",
+      version: Date.now(),
+    });
 
-    expect(store.updateState).toBe('error')
-    expect(store.showManualDownloadOptions).toBe(true)
-    expect(store.updateError).toBe('network failed')
-  })
-})
+    expect(store.updateState).toBe("error");
+    expect(store.showManualDownloadOptions).toBe(true);
+    expect(store.updateError).toBe("network failed");
+  });
+});

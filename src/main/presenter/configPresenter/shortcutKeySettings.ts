@@ -1,6 +1,6 @@
-export const CommandKey = 'CommandOrControl'
+export const CommandKey = "CommandOrControl";
 
-const ShiftKey = 'Shift'
+const ShiftKey = "Shift";
 
 // Register tab number shortcut keys (1-8) -> Fixed CommandKey+1 ~ CommandKey+8 to switch tabs
 // Below are regular shortcut key definitions
@@ -16,20 +16,20 @@ export const rendererShortcutKey = {
   ZoomResume: `${CommandKey}+0`,
   GoSettings: `${CommandKey}+,`,
   CleanChatHistory: `${CommandKey}+L`,
-  DeleteConversation: `${CommandKey}+D`
-}
+  DeleteConversation: `${CommandKey}+D`,
+};
 
 // System-level shortcut keys
 export const systemShortcutKey = {
   ShowHideWindow: `${CommandKey}+O`,
-  Quit: `${CommandKey}+Q`
-}
+  Quit: `${CommandKey}+Q`,
+};
 
 export const defaultShortcutKey = {
   ...rendererShortcutKey,
-  ...systemShortcutKey
-}
+  ...systemShortcutKey,
+};
 
-export type ShortcutKey = keyof typeof defaultShortcutKey
+export type ShortcutKey = keyof typeof defaultShortcutKey;
 
-export type ShortcutKeySetting = Record<ShortcutKey, string>
+export type ShortcutKeySetting = Record<ShortcutKey, string>;

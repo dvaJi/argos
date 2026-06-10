@@ -1,68 +1,68 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
-import type { UsageStatsRecordInput } from '../../usageStats'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
+import type { UsageStatsRecordInput } from "../../usageStats";
 
 export interface DeepChatUsageStatsRow {
-  message_id: string
-  session_id: string
-  usage_date: string
-  provider_id: string
-  model_id: string
-  input_tokens: number
-  output_tokens: number
-  total_tokens: number
-  cached_input_tokens: number
-  cache_write_input_tokens: number
-  estimated_cost_usd: number | null
-  source: 'backfill' | 'live'
-  created_at: number
-  updated_at: number
+  message_id: string;
+  session_id: string;
+  usage_date: string;
+  provider_id: string;
+  model_id: string;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  cached_input_tokens: number;
+  cache_write_input_tokens: number;
+  estimated_cost_usd: number | null;
+  source: "backfill" | "live";
+  created_at: number;
+  updated_at: number;
 }
 
 type AggregateRow = {
-  message_count: number
-  session_count: number
-  input_tokens: number | null
-  output_tokens: number | null
-  total_tokens: number | null
-  cached_input_tokens: number | null
-  estimated_cost_usd: number | null
-  priced_messages: number
-}
+  message_count: number;
+  session_count: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  cached_input_tokens: number | null;
+  estimated_cost_usd: number | null;
+  priced_messages: number;
+};
 
 export interface DeepChatUsageStatsSummary {
-  messageCount: number
-  sessionCount: number
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
-  cachedInputTokens: number
-  estimatedCostUsd: number | null
+  messageCount: number;
+  sessionCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cachedInputTokens: number;
+  estimatedCostUsd: number | null;
 }
 
 export interface DeepChatUsageStatsMostActiveDay {
-  date: string | null
-  messageCount: number
+  date: string | null;
+  messageCount: number;
 }
 
 export interface DeepChatUsageStatsCalendarRow {
-  date: string
-  messageCount: number
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
-  cachedInputTokens: number
-  estimatedCostUsd: number | null
+  date: string;
+  messageCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cachedInputTokens: number;
+  estimatedCostUsd: number | null;
 }
 
 export interface DeepChatUsageStatsBreakdownRow {
-  id: string
-  messageCount: number
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
-  cachedInputTokens: number
-  estimatedCostUsd: number | null
+  id: string;
+  messageCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cachedInputTokens: number;
+  estimatedCostUsd: number | null;
 }
 
 function normalizeAggregate(row: AggregateRow | undefined): DeepChatUsageStatsSummary {
@@ -73,13 +73,13 @@ function normalizeAggregate(row: AggregateRow | undefined): DeepChatUsageStatsSu
     outputTokens: row?.output_tokens ?? 0,
     totalTokens: row?.total_tokens ?? 0,
     cachedInputTokens: row?.cached_input_tokens ?? 0,
-    estimatedCostUsd: row && row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null
-  }
+    estimatedCostUsd: row && row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null,
+  };
 }
 
 export class DeepChatUsageStatsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'deepchat_usage_stats')
+    super(db, "deepchat_usage_stats");
   }
 
   getCreateTableSQL(): string {
@@ -103,21 +103,21 @@ export class DeepChatUsageStatsTable extends BaseTable {
       CREATE INDEX IF NOT EXISTS idx_deepchat_usage_stats_date ON deepchat_usage_stats(usage_date);
       CREATE INDEX IF NOT EXISTS idx_deepchat_usage_stats_provider_date ON deepchat_usage_stats(provider_id, usage_date);
       CREATE INDEX IF NOT EXISTS idx_deepchat_usage_stats_model_date ON deepchat_usage_stats(model_id, usage_date);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
     if (version === 17) {
-      return this.getCreateTableSQL()
+      return this.getCreateTableSQL();
     }
     if (version === 22) {
-      return `ALTER TABLE deepchat_usage_stats ADD COLUMN cache_write_input_tokens INTEGER NOT NULL DEFAULT 0;`
+      return `ALTER TABLE deepchat_usage_stats ADD COLUMN cache_write_input_tokens INTEGER NOT NULL DEFAULT 0;`;
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 22
+    return 22;
   }
 
   upsert(row: UsageStatsRecordInput): void {
@@ -152,7 +152,7 @@ export class DeepChatUsageStatsTable extends BaseTable {
           estimated_cost_usd = excluded.estimated_cost_usd,
           source = excluded.source,
           created_at = excluded.created_at,
-          updated_at = excluded.updated_at`
+          updated_at = excluded.updated_at`,
       )
       .run(
         row.messageId,
@@ -168,32 +168,32 @@ export class DeepChatUsageStatsTable extends BaseTable {
         row.estimatedCostUsd,
         row.source,
         row.createdAt,
-        row.updatedAt
-      )
+        row.updatedAt,
+      );
   }
 
   getByMessageId(messageId: string): DeepChatUsageStatsRow | undefined {
-    return this.db
-      .prepare('SELECT * FROM deepchat_usage_stats WHERE message_id = ?')
-      .get(messageId) as DeepChatUsageStatsRow | undefined
+    return this.db.prepare("SELECT * FROM deepchat_usage_stats WHERE message_id = ?").get(messageId) as
+      | DeepChatUsageStatsRow
+      | undefined;
   }
 
   count(): number {
-    const row = this.db.prepare('SELECT COUNT(*) AS count FROM deepchat_usage_stats').get() as {
-      count: number
-    }
-    return row.count
+    const row = this.db.prepare("SELECT COUNT(*) AS count FROM deepchat_usage_stats").get() as {
+      count: number;
+    };
+    return row.count;
   }
 
   deleteAll(): void {
-    this.db.prepare('DELETE FROM deepchat_usage_stats').run()
+    this.db.prepare("DELETE FROM deepchat_usage_stats").run();
   }
 
   getRecordingStartedAt(): number | null {
-    const row = this.db
-      .prepare('SELECT MIN(created_at) AS started_at FROM deepchat_usage_stats')
-      .get() as { started_at: number | null }
-    return row.started_at ?? null
+    const row = this.db.prepare("SELECT MIN(created_at) AS started_at FROM deepchat_usage_stats").get() as {
+      started_at: number | null;
+    };
+    return row.started_at ?? null;
   }
 
   getSummary(): DeepChatUsageStatsSummary {
@@ -208,11 +208,11 @@ export class DeepChatUsageStatsTable extends BaseTable {
           SUM(cached_input_tokens) AS cached_input_tokens,
           SUM(COALESCE(estimated_cost_usd, 0)) AS estimated_cost_usd,
           COUNT(estimated_cost_usd) AS priced_messages
-        FROM deepchat_usage_stats`
+        FROM deepchat_usage_stats`,
       )
-      .get() as AggregateRow | undefined
+      .get() as AggregateRow | undefined;
 
-    return normalizeAggregate(row)
+    return normalizeAggregate(row);
   }
 
   getMostActiveDay(): DeepChatUsageStatsMostActiveDay {
@@ -224,14 +224,14 @@ export class DeepChatUsageStatsTable extends BaseTable {
         FROM deepchat_usage_stats
         GROUP BY usage_date
         ORDER BY message_count DESC, usage_date ASC
-        LIMIT 1`
+        LIMIT 1`,
       )
-      .get() as { date: string | null; message_count: number | null } | undefined
+      .get() as { date: string | null; message_count: number | null } | undefined;
 
     return {
       date: row?.date ?? null,
-      messageCount: row?.message_count ?? 0
-    }
+      messageCount: row?.message_count ?? 0,
+    };
   }
 
   getDailyCalendarRows(dateFrom: string): DeepChatUsageStatsCalendarRow[] {
@@ -249,9 +249,9 @@ export class DeepChatUsageStatsTable extends BaseTable {
         FROM deepchat_usage_stats
         WHERE usage_date >= ?
         GROUP BY usage_date
-        ORDER BY usage_date ASC`
+        ORDER BY usage_date ASC`,
       )
-      .all(dateFrom) as Array<AggregateRow & { date: string }>
+      .all(dateFrom) as Array<AggregateRow & { date: string }>;
 
     return rows.map((row) => ({
       date: row.date,
@@ -260,8 +260,8 @@ export class DeepChatUsageStatsTable extends BaseTable {
       outputTokens: row.output_tokens ?? 0,
       totalTokens: row.total_tokens ?? 0,
       cachedInputTokens: row.cached_input_tokens ?? 0,
-      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null
-    }))
+      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null,
+    }));
   }
 
   getProviderBreakdownRows(): DeepChatUsageStatsBreakdownRow[] {
@@ -277,9 +277,9 @@ export class DeepChatUsageStatsTable extends BaseTable {
           SUM(COALESCE(estimated_cost_usd, 0)) AS estimated_cost_usd,
           COUNT(estimated_cost_usd) AS priced_messages
         FROM deepchat_usage_stats
-        GROUP BY provider_id`
+        GROUP BY provider_id`,
       )
-      .all() as Array<AggregateRow & { id: string }>
+      .all() as Array<AggregateRow & { id: string }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -288,8 +288,8 @@ export class DeepChatUsageStatsTable extends BaseTable {
       outputTokens: row.output_tokens ?? 0,
       totalTokens: row.total_tokens ?? 0,
       cachedInputTokens: row.cached_input_tokens ?? 0,
-      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null
-    }))
+      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null,
+    }));
   }
 
   getModelBreakdownRows(limit = 10): DeepChatUsageStatsBreakdownRow[] {
@@ -310,9 +310,9 @@ export class DeepChatUsageStatsTable extends BaseTable {
           CASE WHEN COUNT(estimated_cost_usd) > 0 THEN SUM(COALESCE(estimated_cost_usd, 0)) ELSE -1 END DESC,
           SUM(total_tokens) DESC,
           model_id ASC
-        LIMIT ?`
+        LIMIT ?`,
       )
-      .all(limit) as Array<AggregateRow & { id: string }>
+      .all(limit) as Array<AggregateRow & { id: string }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -321,7 +321,7 @@ export class DeepChatUsageStatsTable extends BaseTable {
       outputTokens: row.output_tokens ?? 0,
       totalTokens: row.total_tokens ?? 0,
       cachedInputTokens: row.cached_input_tokens ?? 0,
-      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null
-    }))
+      estimatedCostUsd: row.priced_messages > 0 ? (row.estimated_cost_usd ?? 0) : null,
+    }));
   }
 }

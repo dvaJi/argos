@@ -1,1 +1,1 @@
-export { createLegacyIpcSubscriptionScope as createIpcSubscriptionScope } from '@api/legacy/runtime'
+export { createLegacyIpcSubscriptionScope as createIpcSubscriptionScope } from "@api/legacy/runtime";

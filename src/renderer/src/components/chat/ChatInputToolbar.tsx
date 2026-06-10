@@ -1,26 +1,26 @@
-import React, { useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@shadcn/components/ui/tooltip'
+import { type FC, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@shadcn/components/ui/tooltip";
 
 interface ChatInputToolbarProps {
-  isGenerating?: boolean
-  hasInput?: boolean
-  hasText?: boolean
-  sendDisabled?: boolean
-  queueDisabled?: boolean
-  showVoiceInput?: boolean
-  isVoiceInputListening?: boolean
-  isVoiceInputTranscribing?: boolean
-  onSend: () => void
-  onQueue: () => void
-  onSteer: () => void
-  onAttach: () => void
-  onVoiceInput: () => void
-  onStop: () => void
+  isGenerating?: boolean;
+  hasInput?: boolean;
+  hasText?: boolean;
+  sendDisabled?: boolean;
+  queueDisabled?: boolean;
+  showVoiceInput?: boolean;
+  isVoiceInputListening?: boolean;
+  isVoiceInputTranscribing?: boolean;
+  onSend: () => void;
+  onQueue: () => void;
+  onSteer: () => void;
+  onAttach: () => void;
+  onVoiceInput: () => void;
+  onStop: () => void;
 }
 
-const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
+const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   isGenerating = false,
   hasInput = false,
   hasText = false,
@@ -34,58 +34,58 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   onSteer,
   onAttach,
   onVoiceInput,
-  onStop
+  onStop,
 }) => {
-  const hasActiveInput = useMemo(() => hasInput || hasText, [hasInput, hasText])
+  const hasActiveInput = useMemo(() => hasInput || hasText, [hasInput, hasText]);
 
   const voiceInputButtonClass = useMemo(() => {
     if (isVoiceInputListening) {
-      return 'relative group h-7 w-7 rounded-lg overflow-hidden text-cyan-600 bg-cyan-500/10 ring-1 ring-cyan-500/30 hover:text-red-500 hover:bg-red-500/10 hover:ring-red-500/35 transition-colors duration-200'
+      return "relative group h-7 w-7 rounded-lg overflow-hidden text-cyan-600 bg-cyan-500/10 ring-1 ring-cyan-500/30 hover:text-red-500 hover:bg-red-500/10 hover:ring-red-500/35 transition-colors duration-200";
     }
     if (isVoiceInputTranscribing) {
-      return 'relative group h-7 w-7 rounded-lg text-primary bg-primary/10 ring-1 ring-primary/20 hover:bg-primary/15'
+      return "relative group h-7 w-7 rounded-lg text-primary bg-primary/10 ring-1 ring-primary/20 hover:bg-primary/15";
     }
-    return 'relative group h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground'
-  }, [isVoiceInputListening, isVoiceInputTranscribing])
+    return "relative group h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground";
+  }, [isVoiceInputListening, isVoiceInputTranscribing]);
 
   const voiceInputIcon = useMemo(() => {
-    return isVoiceInputTranscribing ? 'lucide:loader-circle' : 'lucide:mic'
-  }, [isVoiceInputTranscribing])
+    return isVoiceInputTranscribing ? "lucide:loader-circle" : "lucide:mic";
+  }, [isVoiceInputTranscribing]);
 
   const voiceInputIconClass = useMemo(
-    () => `relative z-10 w-4 h-4 ${isVoiceInputTranscribing ? 'animate-spin' : ''}`,
-    [isVoiceInputTranscribing]
-  )
+    () => `relative z-10 w-4 h-4 ${isVoiceInputTranscribing ? "animate-spin" : ""}`,
+    [isVoiceInputTranscribing],
+  );
 
   const voiceInputTooltip = useMemo(() => {
-    if (isVoiceInputTranscribing) return 'Stop'
-    if (isVoiceInputListening) return 'Stop voice input'
-    return 'Voice input'
-  }, [isVoiceInputTranscribing, isVoiceInputListening])
+    if (isVoiceInputTranscribing) return "Stop";
+    if (isVoiceInputListening) return "Stop voice input";
+    return "Voice input";
+  }, [isVoiceInputTranscribing, isVoiceInputListening]);
 
-  const buttonMode = useMemo<'send' | 'queue' | 'stop'>(() => {
-    if (isGenerating && !hasActiveInput) return 'stop'
-    if (isGenerating) return 'queue'
-    return 'send'
-  }, [isGenerating, hasActiveInput])
+  const buttonMode = useMemo<"send" | "queue" | "stop">(() => {
+    if (isGenerating && !hasActiveInput) return "stop";
+    if (isGenerating) return "queue";
+    return "send";
+  }, [isGenerating, hasActiveInput]);
 
   const primaryTooltip = useMemo(() => {
-    if (buttonMode === 'stop') return 'Stop'
-    if (buttonMode === 'queue') return 'Queue'
-    return 'Send'
-  }, [buttonMode])
+    if (buttonMode === "stop") return "Stop";
+    if (buttonMode === "queue") return "Queue";
+    return "Send";
+  }, [buttonMode]);
 
   const handlePrimaryAction = () => {
-    if (buttonMode === 'stop') {
-      onStop()
-      return
+    if (buttonMode === "stop") {
+      onStop();
+      return;
     }
-    if (buttonMode === 'queue') {
-      onQueue()
-      return
+    if (buttonMode === "queue") {
+      onQueue();
+      return;
     }
-    onSend()
-  }
+    onSend();
+  };
 
   return (
     <div className="flex items-center justify-between px-3 py-2">
@@ -121,10 +121,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
                 onClick={onVoiceInput}
               >
                 {isVoiceInputListening && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-lg bg-cyan-500/14 animate-pulse"
-                  />
+                  <span aria-hidden="true" className="absolute inset-0 rounded-lg bg-cyan-500/14 animate-pulse" />
                 )}
                 {isVoiceInputListening ? (
                   <Icon
@@ -165,34 +162,28 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           <TooltipTrigger asChild>
             <Button
               data-testid={
-                buttonMode === 'stop'
-                  ? 'chat-stop-button'
-                  : buttonMode === 'queue'
-                    ? 'chat-queue-button'
-                    : 'chat-send-button'
+                buttonMode === "stop"
+                  ? "chat-stop-button"
+                  : buttonMode === "queue"
+                    ? "chat-queue-button"
+                    : "chat-send-button"
               }
               data-mode={buttonMode}
-              variant={buttonMode === 'stop' ? 'outline' : 'default'}
+              variant={buttonMode === "stop" ? "outline" : "default"}
               size="icon"
               className="h-7 w-7 rounded-full"
-              disabled={
-                buttonMode === 'send'
-                  ? sendDisabled
-                  : buttonMode === 'queue'
-                    ? queueDisabled
-                    : false
-              }
+              disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : false}
               onClick={handlePrimaryAction}
             >
               <Icon
                 icon={
-                  buttonMode === 'stop'
-                    ? 'lucide:square'
-                    : buttonMode === 'queue'
-                      ? 'lucide:list-plus'
-                      : 'lucide:arrow-up'
+                  buttonMode === "stop"
+                    ? "lucide:square"
+                    : buttonMode === "queue"
+                      ? "lucide:list-plus"
+                      : "lucide:arrow-up"
                 }
-                className={buttonMode === 'stop' ? 'w-4 h-4 text-red-500' : 'w-4 h-4'}
+                className={buttonMode === "stop" ? "w-4 h-4 text-red-500" : "w-4 h-4"}
               />
             </Button>
           </TooltipTrigger>
@@ -202,7 +193,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
         </Tooltip>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ChatInputToolbar
+export default ChatInputToolbar;

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const setMcpServerEnabledMutate = vi.hoisted(() => vi.fn())
+const setMcpServerEnabledMutate = vi.hoisted(() => vi.fn());
 
 const mcpClientMock = vi.hoisted(() => ({
   getMcpServers: vi.fn().mockResolvedValue({}),
@@ -11,15 +11,15 @@ const mcpClientMock = vi.hoisted(() => ({
   isServerRunning: vi.fn().mockResolvedValue(false),
   getAllToolDefinitions: vi.fn().mockResolvedValue([]),
   getMcpClients: vi.fn().mockResolvedValue([]),
-  getAllResources: vi.fn().mockResolvedValue([])
-}))
+  getAllResources: vi.fn().mockResolvedValue([]),
+}));
 
 const configPresenterMock = vi.hoisted(() => ({
   getCustomPrompts: vi.fn().mockResolvedValue([]),
   getSetting: vi.fn().mockResolvedValue([]),
   setSetting: vi.fn().mockResolvedValue(undefined),
-  onCustomPromptsChanged: vi.fn(() => vi.fn())
-}))
+  onCustomPromptsChanged: vi.fn(() => vi.fn()),
+}));
 
 const createQueryState = () => ({
   data: { value: undefined },
@@ -27,192 +27,192 @@ const createQueryState = () => ({
   isLoading: { value: false },
   isFetching: { value: false },
   isRefreshing: { value: false },
-  refresh: vi.fn(async () => ({ status: 'success', data: undefined })),
-  refetch: vi.fn(async () => ({ status: 'success', data: undefined }))
-})
+  refresh: vi.fn(async () => ({ status: "success", data: undefined })),
+  refetch: vi.fn(async () => ({ status: "success", data: undefined })),
+});
 
-vi.mock('vue', async () => {
-  const actual = await vi.importActual<typeof import('vue')>('vue')
+vi.mock("vue", async () => {
+  const actual = await vi.importActual<typeof import("vue")>("vue");
   return {
     ...actual,
-    onMounted: vi.fn()
-  }
-})
+    onMounted: vi.fn(),
+  };
+});
 
-vi.mock('@api/McpClient', () => ({
-  createMcpClient: vi.fn(() => mcpClientMock)
-}))
+vi.mock("@api/McpClient", () => ({
+  createMcpClient: vi.fn(() => mcpClientMock),
+}));
 
-vi.mock('../../../src/renderer/api/ConfigClient', () => ({
-  createConfigClient: vi.fn(() => configPresenterMock)
-}))
+vi.mock("../../../src/renderer/api/ConfigClient", () => ({
+  createConfigClient: vi.fn(() => configPresenterMock),
+}));
 
-vi.mock('@/composables/useIpcMutation', () => ({
+vi.mock("@/composables/useIpcMutation", () => ({
   useIpcMutation: (options: { mutation?: (...args: any[]) => unknown }) => ({
-    mutateAsync: options.mutation?.toString().includes('setMcpServerEnabled')
+    mutateAsync: options.mutation?.toString().includes("setMcpServerEnabled")
       ? setMcpServerEnabledMutate
-      : vi.fn().mockResolvedValue(undefined)
-  })
-}))
+      : vi.fn().mockResolvedValue(undefined),
+  }),
+}));
 
-vi.mock('@/composables/useIpcQuery', () => ({
-  useIpcQuery: () => createQueryState()
-}))
+vi.mock("@/composables/useIpcQuery", () => ({
+  useIpcQuery: () => createQueryState(),
+}));
 
-vi.mock('@pinia/colada', () => ({
-  useQuery: () => createQueryState()
-}))
+vi.mock("@pinia/colada", () => ({
+  useQuery: () => createQueryState(),
+}));
 
-vi.mock('vue-i18n', () => ({
+vi.mock("vue-i18n", () => ({
   useI18n: () => ({
-    t: (key: string) => key
-  })
-}))
+    t: (key: string) => key,
+  }),
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   MCP_EVENTS: {
-    SERVER_STARTED: 'server-started',
-    SERVER_STOPPED: 'server-stopped',
-    CONFIG_CHANGED: 'config-changed',
-    SERVER_STATUS_CHANGED: 'server-status-changed',
-    TOOL_CALL_RESULT: 'tool-call-result'
-  }
-}))
+    SERVER_STARTED: "server-started",
+    SERVER_STOPPED: "server-stopped",
+    CONFIG_CHANGED: "config-changed",
+    SERVER_STATUS_CHANGED: "server-status-changed",
+    TOOL_CALL_RESULT: "tool-call-result",
+  },
+}));
 
 const setupStore = async () => {
-  vi.resetModules()
-  vi.doUnmock('pinia')
-  const { createPinia, setActivePinia } = await vi.importActual<typeof import('pinia')>('pinia')
-  setActivePinia(createPinia())
-  const { useMcpStore } = await import('@/stores/mcp')
-  return useMcpStore()
-}
+  vi.resetModules();
+  vi.doUnmock("pinia");
+  const { createPinia, setActivePinia } = await vi.importActual<typeof import("pinia")>("pinia");
+  setActivePinia(createPinia());
+  const { useMcpStore } = await import("@/stores/mcp");
+  return useMcpStore();
+};
 
-describe('useMcpStore toggleServer rollback', () => {
+describe("useMcpStore toggleServer rollback", () => {
   beforeEach(async () => {
-    vi.clearAllMocks()
-    setMcpServerEnabledMutate.mockReset()
-    mcpClientMock.startServer.mockClear()
-    mcpClientMock.stopServer.mockClear()
-  })
+    vi.clearAllMocks();
+    setMcpServerEnabledMutate.mockReset();
+    mcpClientMock.startServer.mockClear();
+    mcpClientMock.stopServer.mockClear();
+  });
 
-  it('restores local state and persisted config when runtime sync fails', async () => {
-    const store = await setupStore()
+  it("restores local state and persisted config when runtime sync fails", async () => {
+    const store = await setupStore();
 
     store.config = {
       mcpServers: {
         demo: {
-          command: 'demo-command',
+          command: "demo-command",
           args: [],
           env: {},
-          descriptions: 'Demo server',
-          icons: 'D',
+          descriptions: "Demo server",
+          icons: "D",
           autoApprove: [],
           disable: false,
-          type: 'stdio',
-          enabled: false
-        }
+          type: "stdio",
+          enabled: false,
+        },
       },
       mcpEnabled: true,
-      ready: true
-    }
+      ready: true,
+    };
 
-    setMcpServerEnabledMutate.mockRejectedValueOnce(new Error('runtime failed'))
-    setMcpServerEnabledMutate.mockResolvedValueOnce(undefined)
+    setMcpServerEnabledMutate.mockRejectedValueOnce(new Error("runtime failed"));
+    setMcpServerEnabledMutate.mockResolvedValueOnce(undefined);
 
-    const result = await store.toggleServer('demo')
+    const result = await store.toggleServer("demo");
 
-    expect(result).toBe(false)
-    expect(store.config.mcpServers.demo.enabled).toBe(false)
-    expect(store.serverLoadingStates.demo).toBe(false)
-    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ['demo', true])
-    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(2, ['demo', false])
-    expect(mcpClientMock.startServer).not.toHaveBeenCalled()
-    expect(mcpClientMock.stopServer).not.toHaveBeenCalled()
-  })
+    expect(result).toBe(false);
+    expect(store.config.mcpServers.demo.enabled).toBe(false);
+    expect(store.serverLoadingStates.demo).toBe(false);
+    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ["demo", true]);
+    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(2, ["demo", false]);
+    expect(mcpClientMock.startServer).not.toHaveBeenCalled();
+    expect(mcpClientMock.stopServer).not.toHaveBeenCalled();
+  });
 
-  it('hides enabled servers when MCP is globally disabled', async () => {
-    const store = await setupStore()
+  it("hides enabled servers when MCP is globally disabled", async () => {
+    const store = await setupStore();
 
     store.config = {
       mcpServers: {
         demo: {
-          command: 'demo-command',
+          command: "demo-command",
           args: [],
           env: {},
-          descriptions: 'Demo server',
-          icons: 'D',
+          descriptions: "Demo server",
+          icons: "D",
           autoApprove: [],
           disable: false,
-          type: 'stdio',
-          enabled: true
-        },
-        'cua-driver': {
-          command: '/mock/cua-driver',
-          args: ['mcp'],
-          env: {},
-          descriptions: 'Computer Use',
-          icons: 'plugin',
-          autoApprove: [],
-          disable: false,
-          type: 'stdio',
+          type: "stdio",
           enabled: true,
-          source: 'plugin',
-          sourceId: 'com.deepchat.plugins.cua',
-          ownerPluginId: 'com.deepchat.plugins.cua'
-        }
+        },
+        "cua-driver": {
+          command: "/mock/cua-driver",
+          args: ["mcp"],
+          env: {},
+          descriptions: "Computer Use",
+          icons: "plugin",
+          autoApprove: [],
+          disable: false,
+          type: "stdio",
+          enabled: true,
+          source: "plugin",
+          sourceId: "com.deepchat.plugins.cua",
+          ownerPluginId: "com.deepchat.plugins.cua",
+        },
       },
       mcpEnabled: false,
-      ready: true
-    }
+      ready: true,
+    };
 
-    expect(store.serverList).toHaveLength(1)
-    expect(store.pluginServerList.map((server) => server.name)).toEqual(['cua-driver'])
-    expect(store.enabledServers).toEqual([])
-    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(['cua-driver'])
-    expect(store.enabledServerCount).toBe(0)
-  })
+    expect(store.serverList).toHaveLength(1);
+    expect(store.pluginServerList.map((server) => server.name)).toEqual(["cua-driver"]);
+    expect(store.enabledServers).toEqual([]);
+    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(["cua-driver"]);
+    expect(store.enabledServerCount).toBe(0);
+  });
 
-  it('hides plugin-owned servers from MCP UI lists', async () => {
-    const store = await setupStore()
+  it("hides plugin-owned servers from MCP UI lists", async () => {
+    const store = await setupStore();
 
     store.config = {
       mcpServers: {
         demo: {
-          command: 'demo-command',
+          command: "demo-command",
           args: [],
           env: {},
-          descriptions: 'Demo server',
-          icons: 'D',
+          descriptions: "Demo server",
+          icons: "D",
           autoApprove: [],
           disable: false,
-          type: 'stdio',
-          enabled: true
-        },
-        'cua-driver': {
-          command: '/Applications/DeepChat Computer Use.app/Contents/MacOS/cua-driver',
-          args: ['mcp'],
-          env: {},
-          descriptions: 'Computer Use',
-          icons: 'plugin',
-          autoApprove: [],
-          disable: false,
-          type: 'stdio',
+          type: "stdio",
           enabled: true,
-          source: 'plugin',
-          sourceId: 'com.deepchat.plugins.cua',
-          ownerPluginId: 'com.deepchat.plugins.cua'
-        }
+        },
+        "cua-driver": {
+          command: "/Applications/DeepChat Computer Use.app/Contents/MacOS/cua-driver",
+          args: ["mcp"],
+          env: {},
+          descriptions: "Computer Use",
+          icons: "plugin",
+          autoApprove: [],
+          disable: false,
+          type: "stdio",
+          enabled: true,
+          source: "plugin",
+          sourceId: "com.deepchat.plugins.cua",
+          ownerPluginId: "com.deepchat.plugins.cua",
+        },
       },
       mcpEnabled: true,
-      ready: true
-    }
+      ready: true,
+    };
 
-    expect(store.serverList.map((server) => server.name)).toEqual(['demo'])
-    expect(store.pluginServerList.map((server) => server.name)).toEqual(['cua-driver'])
-    expect(store.enabledServers.map((server) => server.name)).toEqual(['demo'])
-    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(['cua-driver'])
-    expect(store.enabledServerCount).toBe(1)
-    expect(store.config.mcpServers['cua-driver']).toBeDefined()
-  })
-})
+    expect(store.serverList.map((server) => server.name)).toEqual(["demo"]);
+    expect(store.pluginServerList.map((server) => server.name)).toEqual(["cua-driver"]);
+    expect(store.enabledServers.map((server) => server.name)).toEqual(["demo"]);
+    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(["cua-driver"]);
+    expect(store.enabledServerCount).toBe(1);
+    expect(store.config.mcpServers["cua-driver"]).toBeDefined();
+  });
+});

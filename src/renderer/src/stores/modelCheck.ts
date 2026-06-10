@@ -1,29 +1,29 @@
-import { Store } from '@tanstack/store'
-import { useStore } from '@tanstack/react-store'
+import { Store } from "@tanstack/store";
+import { useStore } from "@tanstack/react-store";
 
 interface ModelCheckState {
-  isDialogOpen: boolean
-  currentProviderId: string
+  isDialogOpen: boolean;
+  currentProviderId: string;
 }
 
 export const modelCheckStore = new Store<ModelCheckState>({
   isDialogOpen: false,
-  currentProviderId: ''
-})
+  currentProviderId: "",
+});
 
 export const openDialog = (providerId: string) => {
-  modelCheckStore.setState({ isDialogOpen: true, currentProviderId: providerId })
-}
+  modelCheckStore.setState((prev) => ({ ...prev, isDialogOpen: true, currentProviderId: providerId }));
+};
 
 export const closeDialog = () => {
-  modelCheckStore.setState({ isDialogOpen: false, currentProviderId: '' })
-}
+  modelCheckStore.setState((prev) => ({ ...prev, isDialogOpen: false, currentProviderId: "" }));
+};
 
 export function useModelCheckStore() {
-  const state = useStore(modelCheckStore)
+  const state = useStore(modelCheckStore);
   return {
     ...state,
     openDialog,
-    closeDialog
-  }
+    closeDialog,
+  };
 }

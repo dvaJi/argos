@@ -1,58 +1,53 @@
-import React from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Switch } from '@shadcn/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
+import type { FC } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Switch } from "@shadcn/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from '@shadcn/components/ui/dropdown-menu'
-import { Separator } from '@shadcn/components/ui/separator'
+  DropdownMenuSeparator,
+} from "@shadcn/components/ui/dropdown-menu";
+import { Separator } from "@shadcn/components/ui/separator";
 
 interface ServerInfo {
-  name: string
-  icons: string
-  descriptions: string
-  command: string
-  args: string[]
-  enabled: boolean
-  isRunning: boolean
-  type?: string
-  baseUrl?: string
-  errorMessage?: string
-  source?: string
-  sourceId?: string
+  name: string;
+  icons: string;
+  descriptions: string;
+  command: string;
+  args: string[];
+  enabled: boolean;
+  isRunning: boolean;
+  type?: string;
+  baseUrl?: string;
+  errorMessage?: string;
+  source?: string;
+  sourceId?: string;
 }
 
 interface McpServerCardProps {
-  server: ServerInfo
-  isBuiltIn?: boolean
-  isManaged?: boolean
-  isLoading?: boolean
-  disabled?: boolean
-  toolsCount?: number
-  promptsCount?: number
-  resourcesCount?: number
-  onToggle?: () => void
-  onEdit?: () => void
-  onRemove?: () => void
-  onViewLogs?: () => void
-  onRestart?: () => void
-  onViewTools?: () => void
-  onViewPrompts?: () => void
-  onViewResources?: () => void
-  onClick?: () => void
+  server: ServerInfo;
+  isBuiltIn?: boolean;
+  isManaged?: boolean;
+  isLoading?: boolean;
+  disabled?: boolean;
+  toolsCount?: number;
+  promptsCount?: number;
+  resourcesCount?: number;
+  onToggle?: () => void;
+  onEdit?: () => void;
+  onRemove?: () => void;
+  onViewLogs?: () => void;
+  onRestart?: () => void;
+  onViewTools?: () => void;
+  onViewPrompts?: () => void;
+  onViewResources?: () => void;
+  onClick?: () => void;
 }
 
-export const McpServerCard: React.FC<McpServerCardProps> = ({
+export const McpServerCard: FC<McpServerCardProps> = ({
   server,
   isBuiltIn = false,
   isManaged = false,
@@ -67,36 +62,36 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
   onViewTools,
   onViewPrompts,
   onViewResources,
-  onClick
+  onClick,
 }) => {
-  const canEdit = !isManaged
-  const hasMenuActions = canEdit || !isBuiltIn
+  const canEdit = !isManaged;
+  const hasMenuActions = canEdit || !isBuiltIn;
 
-  const fullDescription = isBuiltIn ? server.descriptions : server.descriptions
+  const fullDescription = isBuiltIn ? server.descriptions : server.descriptions;
 
   const serverStatus = (() => {
-    if (isLoading) return 'loading'
-    if (server.errorMessage) return 'error'
-    if (server.isRunning) return 'running'
-    return 'stopped'
-  })()
+    if (isLoading) return "loading";
+    if (server.errorMessage) return "error";
+    if (server.isRunning) return "running";
+    return "stopped";
+  })();
 
   const statusConfig = (() => {
     switch (serverStatus) {
-      case 'running':
-        return { dot: 'bg-green-500', text: 'Running', color: 'text-green-600 dark:text-green-400' }
-      case 'loading':
+      case "running":
+        return { dot: "bg-green-500", text: "Running", color: "text-green-600 dark:text-green-400" };
+      case "loading":
         return {
-          dot: 'bg-blue-500 animate-pulse',
-          text: 'Starting',
-          color: 'text-blue-600 dark:text-blue-400'
-        }
-      case 'error':
-        return { dot: 'bg-red-500', text: 'Error', color: 'text-red-600 dark:text-red-400' }
+          dot: "bg-blue-500 animate-pulse",
+          text: "Starting",
+          color: "text-blue-600 dark:text-blue-400",
+        };
+      case "error":
+        return { dot: "bg-red-500", text: "Error", color: "text-red-600 dark:text-red-400" };
       default:
-        return { dot: 'bg-gray-400', text: 'Stopped', color: 'text-muted-foreground' }
+        return { dot: "bg-gray-400", text: "Stopped", color: "text-muted-foreground" };
     }
-  })()
+  })();
 
   return (
     <div
@@ -127,8 +122,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                   <DropdownMenuItem
                     disabled={disabled}
                     onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit?.()
+                      e.stopPropagation();
+                      onEdit?.();
                     }}
                   >
                     <Icon icon="lucide:edit-3" className="h-4 w-4 mr-2" />
@@ -141,8 +136,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
                     disabled={disabled}
                     className="text-red-600 dark:text-red-400/90 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-950/40 dark:focus:text-red-300 [&_svg]:text-current"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      onRemove?.()
+                      e.stopPropagation();
+                      onRemove?.();
                     }}
                   >
                     <Icon icon="lucide:trash-2" className="h-4 w-4 mr-2" />
@@ -156,15 +151,15 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
 
         <p
           className="text-xs text-secondary-foreground overflow-hidden leading-5 break-all mb-2 line-clamp-1"
-          style={{ minHeight: '1rem' }}
+          style={{ minHeight: "1rem" }}
         >
           {fullDescription}
         </p>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
-            <div className={['w-2 h-2 rounded-full', statusConfig.dot].join(' ')} />
-            <span className={['text-xs', statusConfig.color].join(' ')}>{statusConfig.text}</span>
+            <div className={["w-2 h-2 rounded-full", statusConfig.dot].join(" ")} />
+            <span className={["text-xs", statusConfig.color].join(" ")}>{statusConfig.text}</span>
             {server.errorMessage && (
               <TooltipProvider>
                 <Tooltip>
@@ -179,16 +174,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
             )}
           </div>
 
-          <div
-            className="shrink-0"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <Switch
-              checked={server.enabled}
-              disabled={disabled || isLoading}
-              onCheckedChange={onToggle}
-            />
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Switch checked={server.enabled} disabled={disabled || isLoading} onCheckedChange={onToggle} />
           </div>
         </div>
       </div>
@@ -200,8 +187,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
             className="h-full flex-1 text-xs hover:bg-secondary rounded-none"
             disabled={disabled || toolsCount === 0}
             onClick={(e) => {
-              e.stopPropagation()
-              onViewTools?.()
+              e.stopPropagation();
+              onViewTools?.();
             }}
           >
             <Icon icon="lucide:wrench" className="h-3 w-3 mr-1" />
@@ -215,8 +202,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
             className="h-full flex-1 text-xs hover:bg-secondary rounded-none"
             disabled={disabled || promptsCount === 0}
             onClick={(e) => {
-              e.stopPropagation()
-              onViewPrompts?.()
+              e.stopPropagation();
+              onViewPrompts?.();
             }}
           >
             <Icon icon="lucide:message-square-quote" className="h-3 w-3 mr-1" />
@@ -230,8 +217,8 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
             className="h-full flex-1 text-xs hover:bg-secondary rounded-none"
             disabled={disabled || resourcesCount === 0}
             onClick={(e) => {
-              e.stopPropagation()
-              onViewResources?.()
+              e.stopPropagation();
+              onViewResources?.();
             }}
           >
             <Icon icon="lucide:folder" className="h-3 w-3 mr-1" />
@@ -240,7 +227,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default McpServerCard
+export default McpServerCard;

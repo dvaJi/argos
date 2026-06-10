@@ -1,121 +1,115 @@
-import { useState, useEffect, useRef } from 'react'
-import type { LLM_PROVIDER } from '@shared/presenter'
-import { useProviderStore } from '@/stores/providerStore'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Separator } from '@shadcn/components/ui/separator'
-import { Slider } from '@shadcn/components/ui/slider'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { Icon } from '@iconify/react'
+import { useState, useEffect, useRef } from "react";
+import type { LLM_PROVIDER } from "@shared/presenter";
+import { useProviderStore } from "@/stores/providerStore";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Separator } from "@shadcn/components/ui/separator";
+import { Slider } from "@shadcn/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { Icon } from "@iconify/react";
 
 interface VoiceAIProviderConfigProps {
-  provider: LLM_PROVIDER
+  provider: LLM_PROVIDER;
 }
 
 const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English (en)' },
-  { value: 'ca', label: 'Catalan (ca)' },
-  { value: 'sv', label: 'Swedish (sv)' },
-  { value: 'es', label: 'Spanish (es)' },
-  { value: 'fr', label: 'French (fr)' },
-  { value: 'de', label: 'German (de)' },
-  { value: 'it', label: 'Italian (it)' },
-  { value: 'pt', label: 'Portuguese (pt)' },
-  { value: 'pl', label: 'Polish (pl)' },
-  { value: 'ru', label: 'Russian (ru)' },
-  { value: 'nl', label: 'Dutch (nl)' }
-]
+  { value: "en", label: "English (en)" },
+  { value: "ca", label: "Catalan (ca)" },
+  { value: "sv", label: "Swedish (sv)" },
+  { value: "es", label: "Spanish (es)" },
+  { value: "fr", label: "French (fr)" },
+  { value: "de", label: "German (de)" },
+  { value: "it", label: "Italian (it)" },
+  { value: "pt", label: "Portuguese (pt)" },
+  { value: "pl", label: "Polish (pl)" },
+  { value: "ru", label: "Russian (ru)" },
+  { value: "nl", label: "Dutch (nl)" },
+];
 
 type VoiceAIConfigUpdates = {
-  audioFormat?: string
-  model?: string
-  language?: string
-  temperature?: number
-  topP?: number
-  agentId?: string
-}
+  audioFormat?: string;
+  model?: string;
+  language?: string;
+  temperature?: number;
+  topP?: number;
+  agentId?: string;
+};
 
 export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfigProps) {
-  const providerStore = useProviderStore()
+  const providerStore = useProviderStore();
 
-  const [audioFormat, setAudioFormat] = useState('mp3')
-  const [ttsModel, setTtsModel] = useState('voiceai-tts-v1-latest')
-  const [language, setLanguage] = useState('en')
-  const [temperature, setTemperature] = useState(1)
-  const [topP, setTopP] = useState(0.8)
-  const [agentId, setAgentId] = useState('')
-  const [isHydrating, setIsHydrating] = useState(true)
-  const hydratingRef = useRef(true)
+  const [audioFormat, setAudioFormat] = useState("mp3");
+  const [ttsModel, setTtsModel] = useState("voiceai-tts-v1-latest");
+  const [language, setLanguage] = useState("en");
+  const [temperature, setTemperature] = useState(1);
+  const [topP, setTopP] = useState(0.8);
+  const [agentId, setAgentId] = useState("");
+  const [isHydrating, setIsHydrating] = useState(true);
+  const hydratingRef = useRef(true);
 
   const persistUpdates = useRef(
     (() => {
-      let timer: ReturnType<typeof setTimeout> | null = null
+      let timer: ReturnType<typeof setTimeout> | null = null;
       return (updates: VoiceAIConfigUpdates) => {
-        if (timer) clearTimeout(timer)
+        if (timer) clearTimeout(timer);
         timer = setTimeout(async () => {
-          await providerStore.updateVoiceAIConfig(updates)
-        }, 200)
-      }
-    })()
-  )
+          await providerStore.updateVoiceAIConfig(updates);
+        }, 200);
+      };
+    })(),
+  );
 
   const loadConfig = async () => {
-    hydratingRef.current = true
-    setIsHydrating(true)
-    const config = await providerStore.getVoiceAIConfig()
-    setAudioFormat(config.audioFormat)
-    setTtsModel(config.model)
-    setLanguage(config.language)
-    setTemperature(config.temperature)
-    setTopP(config.topP)
-    setAgentId(config.agentId)
-    hydratingRef.current = false
-    setIsHydrating(false)
-  }
+    hydratingRef.current = true;
+    setIsHydrating(true);
+    const config = await providerStore.getVoiceAIConfig();
+    setAudioFormat(config.audioFormat);
+    setTtsModel(config.model);
+    setLanguage(config.language);
+    setTemperature(config.temperature);
+    setTopP(config.topP);
+    setAgentId(config.agentId);
+    hydratingRef.current = false;
+    setIsHydrating(false);
+  };
 
   useEffect(() => {
-    void loadConfig()
-  }, [])
+    void loadConfig();
+  }, []);
 
   useEffect(() => {
-    if (hydratingRef.current) return
-    persistUpdates.current({ audioFormat })
-  }, [audioFormat])
+    if (hydratingRef.current) return;
+    persistUpdates.current({ audioFormat });
+  }, [audioFormat]);
 
   useEffect(() => {
-    if (hydratingRef.current) return
-    persistUpdates.current({ model: ttsModel })
-  }, [ttsModel])
+    if (hydratingRef.current) return;
+    persistUpdates.current({ model: ttsModel });
+  }, [ttsModel]);
 
   useEffect(() => {
-    if (hydratingRef.current) return
-    persistUpdates.current({ language })
-  }, [language])
+    if (hydratingRef.current) return;
+    persistUpdates.current({ language });
+  }, [language]);
 
   useEffect(() => {
-    if (hydratingRef.current) return
-    persistUpdates.current({ agentId })
-  }, [agentId])
+    if (hydratingRef.current) return;
+    persistUpdates.current({ agentId });
+  }, [agentId]);
 
   const onTemperatureChange = (value: number[] | undefined) => {
-    if (!value || value[0] === undefined) return
-    setTemperature(value[0])
-    if (hydratingRef.current) return
-    persistUpdates.current({ temperature: value[0] })
-  }
+    if (!value || value[0] === undefined) return;
+    setTemperature(value[0]);
+    if (hydratingRef.current) return;
+    persistUpdates.current({ temperature: value[0] });
+  };
 
   const onTopPChange = (value: number[] | undefined) => {
-    if (!value || value[0] === undefined) return
-    setTopP(value[0])
-    if (hydratingRef.current) return
-    persistUpdates.current({ topP: value[0] })
-  }
+    if (!value || value[0] === undefined) return;
+    setTopP(value[0]);
+    if (hydratingRef.current) return;
+    persistUpdates.current({ topP: value[0] });
+  };
 
   return (
     <div className="space-y-4">
@@ -126,9 +120,7 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">Text-to-Speech</p>
-            <p className="text-xs text-muted-foreground">
-              Configure voice AI settings for text-to-speech.
-            </p>
+            <p className="text-xs text-muted-foreground">Configure voice AI settings for text-to-speech.</p>
           </div>
         </div>
       </div>
@@ -236,12 +228,10 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
               value={[topP]}
               onValueChange={onTopPChange}
             />
-            <p className="text-xs text-muted-foreground">
-              Controls diversity via nucleus sampling.
-            </p>
+            <p className="text-xs text-muted-foreground">Controls diversity via nucleus sampling.</p>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

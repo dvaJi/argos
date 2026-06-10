@@ -1,46 +1,46 @@
-import { z } from 'zod'
-import { defineRouteContract } from '../common'
-import { DeviceInfoSchema } from '../domainSchemas'
+import { z } from "zod";
+import { defineRouteContract } from "../common";
+import { DeviceInfoSchema } from "../domainSchemas";
 
 export const deviceGetAppVersionRoute = defineRouteContract({
-  name: 'device.getAppVersion',
+  name: "device.getAppVersion",
   input: z.object({}).default({}),
   output: z.object({
-    version: z.string()
-  })
-})
+    version: z.string(),
+  }),
+});
 
 export const deviceGetInfoRoute = defineRouteContract({
-  name: 'device.getInfo',
+  name: "device.getInfo",
   input: z.object({}).default({}),
   output: z.object({
-    info: DeviceInfoSchema
-  })
-})
+    info: DeviceInfoSchema,
+  }),
+});
 
 export const deviceSelectDirectoryRoute = defineRouteContract({
-  name: 'device.selectDirectory',
+  name: "device.selectDirectory",
   input: z.object({}).default({}),
   output: z.object({
     canceled: z.boolean(),
-    filePaths: z.array(z.string())
-  })
-})
+    filePaths: z.array(z.string()),
+  }),
+});
 
 export const deviceRestartAppRoute = defineRouteContract({
-  name: 'device.restartApp',
+  name: "device.restartApp",
   input: z.object({}).default({}),
   output: z.object({
-    restarted: z.boolean()
-  })
-})
+    restarted: z.boolean(),
+  }),
+});
 
 export const deviceSanitizeSvgRoute = defineRouteContract({
-  name: 'device.sanitizeSvg',
+  name: "device.sanitizeSvg",
   input: z.object({
-    svgContent: z.string()
+    svgContent: z.string(),
   }),
   output: z.object({
-    content: z.string().nullable()
-  })
-})
+    content: z.string().nullable(),
+  }),
+});

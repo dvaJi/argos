@@ -42,5 +42,5 @@ export const formatTemplate = (title: string, reactCode: string) => {
      lucide.createIcons();
     </script>
   </body>
-</html>`
-}
+</html>`;
+};

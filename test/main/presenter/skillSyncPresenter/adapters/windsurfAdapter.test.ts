@@ -1,40 +1,40 @@
 /**
  * WindsurfAdapter Unit Tests
  */
-import { describe, it, expect } from 'vitest'
-import { WindsurfAdapter } from '../../../../../src/main/presenter/skillSyncPresenter/adapters/windsurfAdapter'
-import type { CanonicalSkill, ParseContext } from '../../../../../src/shared/types/skillSync'
+import { describe, it, expect } from "vitest";
+import { WindsurfAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/windsurfAdapter";
+import type { CanonicalSkill, ParseContext } from "../../../../../src/shared/types/skillSync";
 
-describe('WindsurfAdapter', () => {
-  const adapter = new WindsurfAdapter()
+describe("WindsurfAdapter", () => {
+  const adapter = new WindsurfAdapter();
 
-  describe('basic properties', () => {
-    it('should have correct id', () => {
-      expect(adapter.id).toBe('windsurf')
-    })
+  describe("basic properties", () => {
+    it("should have correct id", () => {
+      expect(adapter.id).toBe("windsurf");
+    });
 
-    it('should have correct name', () => {
-      expect(adapter.name).toBe('Windsurf')
-    })
-  })
+    it("should have correct name", () => {
+      expect(adapter.name).toBe("Windsurf");
+    });
+  });
 
-  describe('getCapabilities', () => {
-    it('should return correct capabilities', () => {
-      const capabilities = adapter.getCapabilities()
+  describe("getCapabilities", () => {
+    it("should return correct capabilities", () => {
+      const capabilities = adapter.getCapabilities();
 
-      expect(capabilities.hasFrontmatter).toBe(false)
-      expect(capabilities.supportsName).toBe(true)
-      expect(capabilities.supportsDescription).toBe(true)
-      expect(capabilities.supportsTools).toBe(false)
-      expect(capabilities.supportsModel).toBe(false)
-      expect(capabilities.supportsSubfolders).toBe(false)
-      expect(capabilities.supportsReferences).toBe(false)
-      expect(capabilities.supportsScripts).toBe(false)
-    })
-  })
+      expect(capabilities.hasFrontmatter).toBe(false);
+      expect(capabilities.supportsName).toBe(true);
+      expect(capabilities.supportsDescription).toBe(true);
+      expect(capabilities.supportsTools).toBe(false);
+      expect(capabilities.supportsModel).toBe(false);
+      expect(capabilities.supportsSubfolders).toBe(false);
+      expect(capabilities.supportsReferences).toBe(false);
+      expect(capabilities.supportsScripts).toBe(false);
+    });
+  });
 
-  describe('detect', () => {
-    it('should detect workflow with ## Steps section', () => {
+  describe("detect", () => {
+    it("should detect workflow with ## Steps section", () => {
       const content = `# Code Review Workflow
 
 Review code quality.
@@ -47,12 +47,12 @@ Look for issues.
 
 ### 2. Report Findings
 
-Document problems.`
+Document problems.`;
 
-      expect(adapter.detect(content)).toBe(true)
-    })
+      expect(adapter.detect(content)).toBe(true);
+    });
 
-    it('should detect workflow with numbered steps only', () => {
+    it("should detect workflow with numbered steps only", () => {
       const content = `# Build Workflow
 
 Build the project.
@@ -63,12 +63,12 @@ Run npm install.
 
 ### 2. Run Build
 
-Run npm run build.`
+Run npm run build.`;
 
-      expect(adapter.detect(content)).toBe(true)
-    })
+      expect(adapter.detect(content)).toBe(true);
+    });
 
-    it('should not detect content with frontmatter', () => {
+    it("should not detect content with frontmatter", () => {
       const content = `---
 name: workflow
 ---
@@ -77,22 +77,22 @@ name: workflow
 
 ## Steps
 
-### 1. Step One`
+### 1. Step One`;
 
-      expect(adapter.detect(content)).toBe(false)
-    })
+      expect(adapter.detect(content)).toBe(false);
+    });
 
-    it('should not detect plain markdown without steps', () => {
+    it("should not detect plain markdown without steps", () => {
       const content = `# My Command
 
 This is just a command without steps.
 
 ## Guidelines
 
-Some guidelines.`
+Some guidelines.`;
 
-      expect(adapter.detect(content)).toBe(false)
-    })
+      expect(adapter.detect(content)).toBe(false);
+    });
 
     it('should detect content with "### 1." format without ## Steps header', () => {
       const content = `# Test Workflow
@@ -105,19 +105,19 @@ Do prep.
 
 ### 2. Execute
 
-Run it.`
+Run it.`;
 
-      expect(adapter.detect(content)).toBe(true)
-    })
-  })
+      expect(adapter.detect(content)).toBe(true);
+    });
+  });
 
-  describe('parse', () => {
+  describe("parse", () => {
     const baseContext: ParseContext = {
-      toolId: 'windsurf',
-      filePath: '/project/.windsurf/workflows/code-review.md'
-    }
+      toolId: "windsurf",
+      filePath: "/project/.windsurf/workflows/code-review.md",
+    };
 
-    it('should extract name from title and remove Workflow suffix', () => {
+    it("should extract name from title and remove Workflow suffix", () => {
       const content = `# Code Review Workflow
 
 Review code.
@@ -126,14 +126,14 @@ Review code.
 
 ### 1. Review
 
-Look at code.`
+Look at code.`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.name).toBe('code-review')
-    })
+      expect(result.name).toBe("code-review");
+    });
 
-    it('should extract name without Workflow suffix when not present', () => {
+    it("should extract name without Workflow suffix when not present", () => {
       const content = `# Simple Task
 
 Do task.
@@ -142,14 +142,14 @@ Do task.
 
 ### 1. Execute
 
-Run.`
+Run.`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.name).toBe('simple-task')
-    })
+      expect(result.name).toBe("simple-task");
+    });
 
-    it('should extract description from text before ## Steps', () => {
+    it("should extract description from text before ## Steps", () => {
       const content = `# Test Workflow
 
 This is the workflow description.
@@ -158,14 +158,14 @@ This is the workflow description.
 
 ### 1. First
 
-Do first.`
+Do first.`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.description).toBe('This is the workflow description.')
-    })
+      expect(result.description).toBe("This is the workflow description.");
+    });
 
-    it('should extract steps section as instructions', () => {
+    it("should extract steps section as instructions", () => {
       const content = `# My Workflow
 
 Description.
@@ -178,160 +178,159 @@ Do first thing.
 
 ### 2. Second Step
 
-Do second thing.`
+Do second thing.`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.instructions).toContain('## Steps')
-      expect(result.instructions).toContain('### 1. First Step')
-      expect(result.instructions).toContain('### 2. Second Step')
-    })
+      expect(result.instructions).toContain("## Steps");
+      expect(result.instructions).toContain("### 1. First Step");
+      expect(result.instructions).toContain("### 2. Second Step");
+    });
 
-    it('should use full content as instructions if no ## Steps', () => {
+    it("should use full content as instructions if no ## Steps", () => {
       const content = `# Quick Workflow
 
 Just do it.
 
 ### 1. Only Step
 
-Execute.`
+Execute.`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.instructions).toBe(content.trim())
-    })
+      expect(result.instructions).toBe(content.trim());
+    });
 
-    it('should include source information', () => {
+    it("should include source information", () => {
       const content = `# Test
 
 Desc.
 
 ## Steps
 
-### 1. Step`
+### 1. Step`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
       expect(result.source).toEqual({
-        tool: 'windsurf',
-        originalPath: '/project/.windsurf/workflows/code-review.md',
-        originalFormat: 'steps-markdown'
-      })
-    })
+        tool: "windsurf",
+        originalPath: "/project/.windsurf/workflows/code-review.md",
+        originalFormat: "steps-markdown",
+      });
+    });
 
-    it('should use filename as fallback name', () => {
+    it("should use filename as fallback name", () => {
       const content = `No title here.
 
 ## Steps
 
-### 1. Step`
+### 1. Step`;
 
       const context: ParseContext = {
-        toolId: 'windsurf',
-        filePath: '/path/fallback-workflow.md'
-      }
+        toolId: "windsurf",
+        filePath: "/path/fallback-workflow.md",
+      };
 
-      const result = adapter.parse(content, context)
+      const result = adapter.parse(content, context);
 
-      expect(result.name).toBe('fallback-workflow')
-    })
+      expect(result.name).toBe("fallback-workflow");
+    });
 
-    it('should handle empty description', () => {
+    it("should handle empty description", () => {
       const content = `# Workflow
 
 ## Steps
 
-### 1. Do it`
+### 1. Do it`;
 
-      const result = adapter.parse(content, baseContext)
+      const result = adapter.parse(content, baseContext);
 
-      expect(result.description).toBe('')
-    })
-  })
+      expect(result.description).toBe("");
+    });
+  });
 
-  describe('serialize', () => {
-    it('should add Workflow suffix to title', () => {
+  describe("serialize", () => {
+    it("should add Workflow suffix to title", () => {
       const skill: CanonicalSkill = {
-        name: 'code-review',
-        description: 'Review code quality',
-        instructions: '## Steps\n\n### 1. Review\n\nCheck code.'
-      }
+        name: "code-review",
+        description: "Review code quality",
+        instructions: "## Steps\n\n### 1. Review\n\nCheck code.",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
-      expect(result).toContain('# Code Review Workflow')
-    })
+      expect(result).toContain("# Code Review Workflow");
+    });
 
-    it('should include description', () => {
+    it("should include description", () => {
       const skill: CanonicalSkill = {
-        name: 'test',
-        description: 'A test workflow description',
-        instructions: '## Steps\n\n### 1. Step'
-      }
+        name: "test",
+        description: "A test workflow description",
+        instructions: "## Steps\n\n### 1. Step",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
-      expect(result).toContain('A test workflow description')
-    })
+      expect(result).toContain("A test workflow description");
+    });
 
-    it('should preserve existing steps structure', () => {
+    it("should preserve existing steps structure", () => {
       const skill: CanonicalSkill = {
-        name: 'build',
-        description: 'Build project',
-        instructions:
-          '## Steps\n\n### 1. Install\n\nRun npm install.\n\n### 2. Build\n\nRun npm build.'
-      }
+        name: "build",
+        description: "Build project",
+        instructions: "## Steps\n\n### 1. Install\n\nRun npm install.\n\n### 2. Build\n\nRun npm build.",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
-      expect(result).toContain('## Steps')
-      expect(result).toContain('### 1. Install')
-      expect(result).toContain('### 2. Build')
-    })
+      expect(result).toContain("## Steps");
+      expect(result).toContain("### 1. Install");
+      expect(result).toContain("### 2. Build");
+    });
 
-    it('should wrap non-steps content in steps structure', () => {
+    it("should wrap non-steps content in steps structure", () => {
       const skill: CanonicalSkill = {
-        name: 'simple',
-        description: 'Simple workflow',
-        instructions: 'Just do this thing.'
-      }
+        name: "simple",
+        description: "Simple workflow",
+        instructions: "Just do this thing.",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
-      expect(result).toContain('## Steps')
-      expect(result).toContain('### 1. Execute')
-      expect(result).toContain('Just do this thing.')
-    })
+      expect(result).toContain("## Steps");
+      expect(result).toContain("### 1. Execute");
+      expect(result).toContain("Just do this thing.");
+    });
 
     it('should detect "### Step N" format as steps structure', () => {
       const skill: CanonicalSkill = {
-        name: 'test',
-        description: 'Test',
-        instructions: '### Step 1\n\nDo something.\n\n### Step 2\n\nDo more.'
-      }
+        name: "test",
+        description: "Test",
+        instructions: "### Step 1\n\nDo something.\n\n### Step 2\n\nDo more.",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
       // Should not wrap in additional steps
-      expect(result).toContain('### Step 1')
-      expect(result).not.toMatch(/## Steps[\s\S]*### 1. Execute/)
-    })
+      expect(result).toContain("### Step 1");
+      expect(result).not.toMatch(/## Steps[\s\S]*### 1. Execute/);
+    });
 
-    it('should convert kebab-case name to title case', () => {
+    it("should convert kebab-case name to title case", () => {
       const skill: CanonicalSkill = {
-        name: 'multi-word-workflow-name',
-        description: 'Test',
-        instructions: '## Steps\n\n### 1. Step'
-      }
+        name: "multi-word-workflow-name",
+        description: "Test",
+        instructions: "## Steps\n\n### 1. Step",
+      };
 
-      const result = adapter.serialize(skill)
+      const result = adapter.serialize(skill);
 
-      expect(result).toContain('# Multi Word Workflow Name Workflow')
-    })
-  })
+      expect(result).toContain("# Multi Word Workflow Name Workflow");
+    });
+  });
 
-  describe('round-trip conversion', () => {
-    it('should preserve data through parse and serialize cycle', () => {
+  describe("round-trip conversion", () => {
+    it("should preserve data through parse and serialize cycle", () => {
       const original = `# Build And Test Workflow
 
 This workflow builds and tests the project.
@@ -348,23 +347,23 @@ Run npm run build.
 
 ### 3. Run Tests
 
-Run npm test.`
+Run npm test.`;
 
       const context: ParseContext = {
-        toolId: 'windsurf',
-        filePath: '/path/to/workflow.md'
-      }
+        toolId: "windsurf",
+        filePath: "/path/to/workflow.md",
+      };
 
-      const parsed = adapter.parse(original, context)
-      const serialized = adapter.serialize(parsed)
-      const reparsed = adapter.parse(serialized, context)
+      const parsed = adapter.parse(original, context);
+      const serialized = adapter.serialize(parsed);
+      const reparsed = adapter.parse(serialized, context);
 
-      expect(reparsed.name).toBe(parsed.name)
-      expect(reparsed.description).toBe(parsed.description)
-      expect(reparsed.instructions).toContain('## Steps')
-      expect(reparsed.instructions).toContain('### 1.')
-      expect(reparsed.instructions).toContain('### 2.')
-      expect(reparsed.instructions).toContain('### 3.')
-    })
-  })
-})
+      expect(reparsed.name).toBe(parsed.name);
+      expect(reparsed.description).toBe(parsed.description);
+      expect(reparsed.instructions).toContain("## Steps");
+      expect(reparsed.instructions).toContain("### 1.");
+      expect(reparsed.instructions).toContain("### 2.");
+      expect(reparsed.instructions).toContain("### 3.");
+    });
+  });
+});

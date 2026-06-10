@@ -1,10 +1,10 @@
-import type { DeepchatBridge } from '@shared/contracts/bridge'
+import type { DeepchatBridge } from "@shared/contracts/bridge";
 import {
   modelsChangedEvent,
   modelsConfigChangedEvent,
   modelsStatusChangedEvent,
-  modelBatchStatusChangedEvent
-} from '@shared/contracts/events'
+  modelBatchStatusChangedEvent,
+} from "@shared/contracts/events";
 import {
   modelsAddCustomRoute,
   modelsExportConfigsRoute,
@@ -21,201 +21,198 @@ import {
   modelsSetConfigRoute,
   modelsSetStatusRoute,
   modelsTranscribeAudioRoute,
-  modelsUpdateCustomRoute
-} from '@shared/contracts/routes'
-import type { IModelConfig, ModelConfig, RENDERER_MODEL_META } from '@shared/presenter'
-import { getDeepchatBridge } from './core'
+  modelsUpdateCustomRoute,
+} from "@shared/contracts/routes";
+import type { IModelConfig, ModelConfig, RENDERER_MODEL_META } from "@shared/presenter";
+import { getDeepchatBridge } from "./core";
 
 export function createModelClient(bridge: DeepchatBridge = getDeepchatBridge()) {
   async function fetchProviderCatalog(providerId: string) {
-    const result = await bridge.invoke(modelsGetProviderCatalogRoute.name, { providerId })
-    return result.catalog
+    const result = await bridge.invoke(modelsGetProviderCatalogRoute.name, { providerId });
+    return result.catalog;
   }
 
   async function fetchCapabilities(providerId: string, modelId: string) {
     return await bridge.invoke(modelsGetCapabilitiesRoute.name, {
       providerId,
-      modelId
-    })
+      modelId,
+    });
   }
 
-  type ProviderCatalog = Awaited<ReturnType<typeof fetchProviderCatalog>>
+  type ProviderCatalog = Awaited<ReturnType<typeof fetchProviderCatalog>>;
   type ProviderCatalogCacheEntry = {
-    expiresAt: number
-    promise: Promise<ProviderCatalog>
-  }
+    expiresAt: number;
+    promise: Promise<ProviderCatalog>;
+  };
 
-  const catalogCache = new Map<string, ProviderCatalogCacheEntry>()
-  const capabilitiesCache = new Map<string, ReturnType<typeof fetchCapabilities>>()
+  const catalogCache = new Map<string, ProviderCatalogCacheEntry>();
+  const capabilitiesCache = new Map<string, ReturnType<typeof fetchCapabilities>>();
 
   function clearProviderCatalogCache(providerId?: string) {
     if (providerId) {
-      catalogCache.delete(providerId)
-      return
+      catalogCache.delete(providerId);
+      return;
     }
 
-    catalogCache.clear()
+    catalogCache.clear();
   }
 
   async function getProviderCatalog(providerId: string) {
-    const cached = catalogCache.get(providerId)
-    const now = Date.now()
+    const cached = catalogCache.get(providerId);
+    const now = Date.now();
     if (cached && cached.expiresAt > now) {
-      return await cached.promise
+      return await cached.promise;
     }
 
-    const promise = fetchProviderCatalog(providerId)
+    const promise = fetchProviderCatalog(providerId);
     catalogCache.set(providerId, {
       expiresAt: now + 200,
-      promise
-    })
-    return await promise
+      promise,
+    });
+    return await promise;
   }
 
   async function getProviderModels(providerId: string) {
-    const catalog = await getProviderCatalog(providerId)
-    return catalog.providerModels
+    const catalog = await getProviderCatalog(providerId);
+    return catalog.providerModels;
   }
 
   async function getCustomModels(providerId: string) {
-    const catalog = await getProviderCatalog(providerId)
-    return catalog.customModels
+    const catalog = await getProviderCatalog(providerId);
+    return catalog.customModels;
   }
 
   async function getDbProviderModels(providerId: string) {
-    const catalog = await getProviderCatalog(providerId)
-    return catalog.dbProviderModels
+    const catalog = await getProviderCatalog(providerId);
+    return catalog.dbProviderModels;
   }
 
   async function getBatchModelStatus(providerId: string, modelIds: string[]) {
-    const catalog = await getProviderCatalog(providerId)
-    const result: Record<string, boolean> = {}
+    const catalog = await getProviderCatalog(providerId);
+    const result: Record<string, boolean> = {};
     for (const modelId of modelIds) {
-      result[modelId] = catalog.modelStatusMap[modelId] ?? false
+      result[modelId] = catalog.modelStatusMap[modelId] ?? false;
     }
-    return result
+    return result;
   }
 
   async function getModelList(providerId: string) {
-    const result = await bridge.invoke(modelsListRuntimeRoute.name, { providerId })
-    clearProviderCatalogCache(providerId)
-    return result.models
+    const result = await bridge.invoke(modelsListRuntimeRoute.name, { providerId });
+    clearProviderCatalogCache(providerId);
+    return result.models;
   }
 
   async function updateModelStatus(providerId: string, modelId: string, enabled: boolean) {
     const result = await bridge.invoke(modelsSetStatusRoute.name, {
       providerId,
       modelId,
-      enabled
-    })
-    clearProviderCatalogCache(providerId)
-    return result
+      enabled,
+    });
+    clearProviderCatalogCache(providerId);
+    return result;
   }
 
-  async function setBatchModelStatus(
-    providerId: string,
-    updates: { modelId: string; enabled: boolean }[]
-  ) {
+  async function setBatchModelStatus(providerId: string, updates: { modelId: string; enabled: boolean }[]) {
     const result = await bridge.invoke(modelsSetBatchStatusRoute.name, {
       providerId,
-      updates
-    })
-    clearProviderCatalogCache(providerId)
-    return result
+      updates,
+    });
+    clearProviderCatalogCache(providerId);
+    return result;
   }
 
   async function addCustomModel(
     providerId: string,
-    model: Omit<RENDERER_MODEL_META, 'providerId' | 'isCustom' | 'group'>
+    model: Omit<RENDERER_MODEL_META, "providerId" | "isCustom" | "group">,
   ) {
-    const result = await bridge.invoke(modelsAddCustomRoute.name, { providerId, model })
-    clearProviderCatalogCache(providerId)
-    return result.model
+    const result = await bridge.invoke(modelsAddCustomRoute.name, { providerId, model });
+    clearProviderCatalogCache(providerId);
+    return result.model;
   }
 
   async function removeCustomModel(providerId: string, modelId: string) {
-    const result = await bridge.invoke(modelsRemoveCustomRoute.name, { providerId, modelId })
-    clearProviderCatalogCache(providerId)
-    return result.removed
+    const result = await bridge.invoke(modelsRemoveCustomRoute.name, { providerId, modelId });
+    clearProviderCatalogCache(providerId);
+    return result.removed;
   }
 
   async function updateCustomModel(
     providerId: string,
     modelId: string,
-    updates: Partial<RENDERER_MODEL_META> & { enabled?: boolean }
+    updates: Partial<RENDERER_MODEL_META> & { enabled?: boolean },
   ) {
     const result = await bridge.invoke(modelsUpdateCustomRoute.name, {
       providerId,
       modelId,
-      updates
-    })
-    clearProviderCatalogCache(providerId)
-    return result.updated
+      updates,
+    });
+    clearProviderCatalogCache(providerId);
+    return result.updated;
   }
 
   async function getModelConfig(modelId: string, providerId?: string) {
-    const result = await bridge.invoke(modelsGetConfigRoute.name, { modelId, providerId })
-    return result.config
+    const result = await bridge.invoke(modelsGetConfigRoute.name, { modelId, providerId });
+    return result.config;
   }
 
   async function setModelConfig(modelId: string, providerId: string, config: ModelConfig) {
     const result = await bridge.invoke(modelsSetConfigRoute.name, {
       modelId,
       providerId,
-      config: config as any
-    })
-    clearProviderCatalogCache(providerId)
-    return result.config
+      config: config as any,
+    });
+    clearProviderCatalogCache(providerId);
+    return result.config;
   }
 
   async function resetModelConfig(modelId: string, providerId: string) {
     const result = await bridge.invoke(modelsResetConfigRoute.name, {
       modelId,
-      providerId
-    })
-    clearProviderCatalogCache(providerId)
-    return result.reset
+      providerId,
+    });
+    clearProviderCatalogCache(providerId);
+    return result.reset;
   }
 
   async function getProviderModelConfigs(providerId: string) {
-    const result = await bridge.invoke(modelsGetProviderConfigsRoute.name, { providerId })
-    return result.configs
+    const result = await bridge.invoke(modelsGetProviderConfigsRoute.name, { providerId });
+    return result.configs;
   }
 
   async function hasUserModelConfig(modelId: string, providerId: string) {
     const result = await bridge.invoke(modelsHasUserConfigRoute.name, {
       modelId,
-      providerId
-    })
-    return result.hasConfig
+      providerId,
+    });
+    return result.hasConfig;
   }
 
   async function exportModelConfigs() {
-    const result = await bridge.invoke(modelsExportConfigsRoute.name, {})
-    return result.configs
+    const result = await bridge.invoke(modelsExportConfigsRoute.name, {});
+    return result.configs;
   }
 
   async function importModelConfigs(configs: Record<string, IModelConfig>, overwrite = false) {
     return await bridge.invoke(modelsImportConfigsRoute.name, {
       configs: configs as any,
-      overwrite
-    })
+      overwrite,
+    });
   }
 
   async function getCapabilities(providerId: string, modelId: string) {
-    const cacheKey = `${providerId}:${modelId}`
-    const cached = capabilitiesCache.get(cacheKey)
+    const cacheKey = `${providerId}:${modelId}`;
+    const cached = capabilitiesCache.get(cacheKey);
     if (cached) {
-      return (await cached).capabilities
+      return (await cached).capabilities;
     }
 
-    const promise = fetchCapabilities(providerId, modelId)
-    capabilitiesCache.set(cacheKey, promise)
+    const promise = fetchCapabilities(providerId, modelId);
+    capabilitiesCache.set(cacheKey, promise);
 
     try {
-      return (await promise).capabilities
+      return (await promise).capabilities;
     } finally {
-      capabilitiesCache.delete(cacheKey)
+      capabilitiesCache.delete(cacheKey);
     }
   }
 
@@ -224,94 +221,89 @@ export function createModelClient(bridge: DeepchatBridge = getDeepchatBridge()) 
     modelId: string,
     audioBase64: string,
     mimeType: string,
-    filename?: string
+    filename?: string,
   ) {
     const result = await bridge.invoke(modelsTranscribeAudioRoute.name, {
       providerId,
       modelId,
       audioBase64,
       mimeType,
-      ...(filename && { filename })
-    })
-    return result.text
+      ...(filename && { filename }),
+    });
+    return result.text;
   }
 
   async function supportsReasoningCapability(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).supportsReasoning
+    return (await getCapabilities(providerId, modelId)).supportsReasoning;
   }
 
   async function getReasoningPortrait(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).reasoningPortrait
+    return (await getCapabilities(providerId, modelId)).reasoningPortrait;
   }
 
   async function getThinkingBudgetRange(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).thinkingBudgetRange
+    return (await getCapabilities(providerId, modelId)).thinkingBudgetRange;
   }
 
   async function supportsSearchCapability(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).supportsSearch
+    return (await getCapabilities(providerId, modelId)).supportsSearch;
   }
 
   async function getSearchDefaults(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).searchDefaults
+    return (await getCapabilities(providerId, modelId)).searchDefaults;
   }
 
   async function supportsTemperatureControl(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).supportsTemperatureControl
+    return (await getCapabilities(providerId, modelId)).supportsTemperatureControl;
   }
 
   async function getTemperatureCapability(providerId: string, modelId: string) {
-    return (await getCapabilities(providerId, modelId)).temperatureCapability
+    return (await getCapabilities(providerId, modelId)).temperatureCapability;
   }
 
   function onModelsChanged(
     listener: (payload: {
       reason:
-        | 'provider-models'
-        | 'custom-models'
-        | 'provider-db-loaded'
-        | 'provider-db-updated'
-        | 'runtime-refresh'
-        | 'agents'
-      providerId?: string
-      version: number
-    }) => void
+        | "provider-models"
+        | "custom-models"
+        | "provider-db-loaded"
+        | "provider-db-updated"
+        | "runtime-refresh"
+        | "agents";
+      providerId?: string;
+      version: number;
+    }) => void,
   ) {
-    return bridge.on(modelsChangedEvent.name, listener)
+    return bridge.on(modelsChangedEvent.name, listener);
   }
 
   function onModelStatusChanged(
-    listener: (payload: {
-      providerId: string
-      modelId: string
-      enabled: boolean
-      version: number
-    }) => void
+    listener: (payload: { providerId: string; modelId: string; enabled: boolean; version: number }) => void,
   ) {
-    return bridge.on(modelsStatusChangedEvent.name, listener)
+    return bridge.on(modelsStatusChangedEvent.name, listener);
   }
 
   function onModelBatchStatusChanged(
     listener: (payload: {
-      providerId: string
-      updates: { modelId: string; enabled: boolean }[]
-      version: number
-    }) => void
+      providerId: string;
+      updates: { modelId: string; enabled: boolean }[];
+      version: number;
+    }) => void,
   ) {
-    return bridge.on(modelBatchStatusChangedEvent.name, listener)
+    return bridge.on(modelBatchStatusChangedEvent.name, listener);
   }
 
   function onModelConfigChanged(
     listener: (payload: {
-      changeType: 'updated' | 'reset' | 'imported'
-      providerId?: string
-      modelId?: string
-      config?: unknown
-      overwrite?: boolean
-      version: number
-    }) => void
+      changeType: "updated" | "reset" | "imported";
+      providerId?: string;
+      modelId?: string;
+      config?: unknown;
+      overwrite?: boolean;
+      version: number;
+    }) => void,
   ) {
-    return bridge.on(modelsConfigChangedEvent.name, listener)
+    return bridge.on(modelsConfigChangedEvent.name, listener);
   }
 
   return {
@@ -345,8 +337,8 @@ export function createModelClient(bridge: DeepchatBridge = getDeepchatBridge()) 
     onModelsChanged,
     onModelStatusChanged,
     onModelBatchStatusChanged,
-    onModelConfigChanged
-  }
+    onModelConfigChanged,
+  };
 }
 
-export type ModelClient = ReturnType<typeof createModelClient>
+export type ModelClient = ReturnType<typeof createModelClient>;

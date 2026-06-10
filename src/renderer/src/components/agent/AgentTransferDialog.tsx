@@ -1,37 +1,37 @@
-import { useState, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
+import { useState, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import type { AgentTransferImpact, AgentTransferImpactSample } from '@shared/types/agent-interface'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import type { AgentTransferImpact, AgentTransferImpactSample } from "@shared/types/agent-interface";
 
 export type TransferDialogAgent = {
-  id: string
-  name: string
-  type: 'deepchat' | 'acp'
-  enabled?: boolean
-}
+  id: string;
+  name: string;
+  type: "deepchat" | "acp";
+  enabled?: boolean;
+};
 
 interface AgentTransferDialogProps {
-  open: boolean
-  mode: 'delete-agent' | 'move-session'
-  sourceAgentId: string
-  sourceAgentName: string
-  agents: TransferDialogAgent[]
-  impact?: AgentTransferImpact | null
-  sessionTitle?: string
-  loading?: boolean
-  busy?: boolean
-  error?: string | null
-  onOpenChange: (open: boolean) => void
-  onConfirmMove: (payload: { targetAgentId: string }) => void
-  onConfirmDelete: () => void
+  open: boolean;
+  mode: "delete-agent" | "move-session";
+  sourceAgentId: string;
+  sourceAgentName: string;
+  agents: TransferDialogAgent[];
+  impact?: AgentTransferImpact | null;
+  sessionTitle?: string;
+  loading?: boolean;
+  busy?: boolean;
+  error?: string | null;
+  onOpenChange: (open: boolean) => void;
+  onConfirmMove: (payload: { targetAgentId: string }) => void;
+  onConfirmDelete: () => void;
 }
 
 export default function AgentTransferDialog({
@@ -41,81 +41,74 @@ export default function AgentTransferDialog({
   sourceAgentName,
   agents,
   impact = null,
-  sessionTitle = '',
+  sessionTitle = "",
   loading = false,
   busy = false,
   error = null,
   onOpenChange,
   onConfirmMove,
-  onConfirmDelete
+  onConfirmDelete,
 }: AgentTransferDialogProps) {
-  const [action, setAction] = useState<'move' | 'delete'>('move')
-  const [selectedTargetAgentId, setSelectedTargetAgentId] = useState('')
+  const [action, setAction] = useState<"move" | "delete">("move");
+  const [selectedTargetAgentId, setSelectedTargetAgentId] = useState("");
 
   const availableTargets = useMemo(
-    () =>
-      agents.filter(
-        (agent) =>
-          agent.enabled !== false && agent.id !== sourceAgentId && agent.type === 'deepchat'
-      ),
-    [agents, sourceAgentId]
-  )
+    () => agents.filter((agent) => agent.enabled !== false && agent.id !== sourceAgentId && agent.type === "deepchat"),
+    [agents, sourceAgentId],
+  );
 
-  const showTargetPicker = useMemo(
-    () => mode === 'move-session' || action === 'move',
-    [mode, action]
-  )
+  const showTargetPicker = useMemo(() => mode === "move-session" || action === "move", [mode, action]);
 
   const title = useMemo(
-    () => (mode === 'delete-agent' ? `Delete ${sourceAgentName}` : 'Move Conversation'),
-    [mode, sourceAgentName]
-  )
+    () => (mode === "delete-agent" ? `Delete ${sourceAgentName}` : "Move Conversation"),
+    [mode, sourceAgentName],
+  );
 
   const description = useMemo(
     () =>
-      mode === 'delete-agent'
-        ? 'Choose how to handle existing conversations'
-        : 'Select a target agent for this conversation',
-    [mode]
-  )
+      mode === "delete-agent"
+        ? "Choose how to handle existing conversations"
+        : "Select a target agent for this conversation",
+    [mode],
+  );
 
-  const confirmVariant = useMemo(() => (action === 'delete' ? 'destructive' : 'default'), [action])
+  const confirmVariant = useMemo(() => (action === "delete" ? "destructive" : "default"), [action]);
 
   const confirmLabel = useMemo(() => {
-    if (busy) return 'Processing...'
-    if (mode === 'delete-agent' && action === 'delete') return 'Delete Agent & Sessions'
-    if (mode === 'delete-agent') return 'Move & Delete Agent'
-    return 'Move Conversation'
-  }, [busy, mode, action])
+    if (busy) return "Processing...";
+    if (mode === "delete-agent" && action === "delete") return "Delete Agent & Sessions";
+    if (mode === "delete-agent") return "Move & Delete Agent";
+    return "Move Conversation";
+  }, [busy, mode, action]);
 
   const canConfirm = useMemo(() => {
-    if (busy || loading || error) return false
-    if (impact?.blockedSessions) return false
-    if (!showTargetPicker) return true
-    return Boolean(selectedTargetAgentId)
-  }, [busy, loading, error, impact, showTargetPicker, selectedTargetAgentId])
+    if (busy || loading || error) return false;
+    if (impact?.blockedSessions) return false;
+    if (!showTargetPicker) return true;
+    return Boolean(selectedTargetAgentId);
+  }, [busy, loading, error, impact, showTargetPicker, selectedTargetAgentId]);
 
   const handleConfirm = useCallback(() => {
-    if (!canConfirm) return
-    if (mode === 'delete-agent' && action === 'delete') {
-      onConfirmDelete()
-      return
+    if (!canConfirm) return;
+    if (mode === "delete-agent" && action === "delete") {
+      onConfirmDelete();
+      return;
     }
-    onConfirmMove({ targetAgentId: selectedTargetAgentId })
-  }, [canConfirm, mode, action, onConfirmDelete, onConfirmMove, selectedTargetAgentId])
+    onConfirmMove({ targetAgentId: selectedTargetAgentId });
+  }, [canConfirm, mode, action, onConfirmDelete, onConfirmMove, selectedTargetAgentId]);
 
   const getSampleStateLabel = useCallback((sample: AgentTransferImpactSample): string => {
-    if (sample.blockReason) return `Blocked: ${sample.blockReason}`
-    if (sample.isDraft) return 'Draft'
-    if (sample.sessionKind === 'subagent') return 'Sub-agent'
-    return 'Ready'
-  }, [])
+    if (sample.blockReason) return `Blocked: ${sample.blockReason}`;
+    if (sample.isDraft) return "Draft";
+    if (sample.sessionKind === "subagent") return "Sub-agent";
+    return "Ready";
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex w-[calc(100vw-2rem)] max-w-2xl flex-col overflow-hidden p-0"
-        style={{ maxHeight: 'min(720px, calc(100vh - 2rem))' }}
+        style={{ maxHeight: "min(720px, calc(100vh - 2rem))" }}
       >
         <DialogHeader className="border-b px-5 pb-4 pt-5">
           <DialogTitle>{title}</DialogTitle>
@@ -135,7 +128,7 @@ export default function AgentTransferDialog({
             </div>
           ) : (
             <div className="space-y-4">
-              {mode === 'delete-agent' && (
+              {mode === "delete-agent" && (
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="space-y-1">
@@ -158,19 +151,17 @@ export default function AgentTransferDialog({
                 </div>
               )}
 
-              {mode === 'delete-agent' && (
+              {mode === "delete-agent" && (
                 <div className="space-y-2">
                   <label className="flex cursor-pointer gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/40">
                     <input
                       type="radio"
                       className="mt-1"
-                      checked={action === 'move'}
-                      onChange={() => setAction('move')}
+                      checked={action === "move"}
+                      onChange={() => setAction("move")}
                     />
                     <span className="space-y-1">
-                      <span className="block text-sm font-medium">
-                        Move sessions before deleting
-                      </span>
+                      <span className="block text-sm font-medium">Move sessions before deleting</span>
                       <span className="block text-sm text-muted-foreground">
                         Transfer conversations to another agent
                       </span>
@@ -180,14 +171,12 @@ export default function AgentTransferDialog({
                     <input
                       type="radio"
                       className="mt-1"
-                      checked={action === 'delete'}
-                      onChange={() => setAction('delete')}
+                      checked={action === "delete"}
+                      onChange={() => setAction("delete")}
                     />
                     <span className="space-y-1">
                       <span className="block text-sm font-medium">Delete all sessions</span>
-                      <span className="block text-sm text-muted-foreground">
-                        Permanently remove all conversations
-                      </span>
+                      <span className="block text-sm text-muted-foreground">Permanently remove all conversations</span>
                     </span>
                   </label>
                 </div>
@@ -213,13 +202,11 @@ export default function AgentTransferDialog({
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-muted-foreground">
-                    Only DeepChat agents are supported as targets
-                  </p>
+                  <p className="text-xs text-muted-foreground">Only DeepChat agents are supported as targets</p>
                 </div>
               )}
 
-              {mode === 'move-session' && (
+              {mode === "move-session" && (
                 <div className="rounded-lg border bg-muted/30 p-3 text-sm">
                   <div className="font-medium">{sessionTitle}</div>
                   <div className="mt-1 text-muted-foreground">Current agent: {sourceAgentName}</div>
@@ -236,14 +223,12 @@ export default function AgentTransferDialog({
                           <div className="min-w-0">
                             <div className="truncate font-medium">{sample.title}</div>
                             <div className="mt-1 text-xs text-muted-foreground">
-                              {sample.projectDir || 'No project'}
+                              {sample.projectDir || "No project"}
                             </div>
                           </div>
                           <span
                             className={`shrink-0 rounded border px-2 py-0.5 text-xs${
-                              sample.blockReason
-                                ? ' border-destructive/30 text-destructive'
-                                : ' text-muted-foreground'
+                              sample.blockReason ? " border-destructive/30 text-destructive" : " text-muted-foreground"
                             }`}
                           >
                             {getSampleStateLabel(sample)}
@@ -256,9 +241,7 @@ export default function AgentTransferDialog({
               )}
 
               {impact?.blockedSessions ? (
-                <p className="text-sm text-destructive">
-                  Some sessions cannot be moved and will be deleted
-                </p>
+                <p className="text-sm text-destructive">Some sessions cannot be moved and will be deleted</p>
               ) : null}
             </div>
           )}
@@ -274,5 +257,5 @@ export default function AgentTransferDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,9 +1,9 @@
-import { webFrame } from 'electron'
-import { exposeElectronAPI } from '@electron-toolkit/preload'
+import { webFrame } from "electron";
+import { exposeElectronAPI } from "@electron-toolkit/preload";
 
-exposeElectronAPI()
+exposeElectronAPI();
 
-window.addEventListener('DOMContentLoaded', () => {
-  webFrame.setVisualZoomLevelLimits(1, 1)
-  webFrame.setZoomFactor(1)
-})
+window.addEventListener("DOMContentLoaded", () => {
+  webFrame.setVisualZoomLevelLimits(1, 1);
+  webFrame.setZoomFactor(1);
+});

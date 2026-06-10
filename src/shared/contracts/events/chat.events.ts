@@ -1,51 +1,46 @@
-import { z } from 'zod'
-import {
-  AssistantMessageBlockSchema,
-  EntityIdSchema,
-  TimestampMsSchema,
-  defineEventContract
-} from '../common'
+import { z } from "zod";
+import { AssistantMessageBlockSchema, EntityIdSchema, TimestampMsSchema, defineEventContract } from "../common";
 
 const AgentPlanItemSchema = z.object({
   step: z.string(),
-  status: z.enum(['pending', 'in_progress', 'completed'])
-})
+  status: z.enum(["pending", "in_progress", "completed"]),
+});
 
 export const chatStreamUpdatedEvent = defineEventContract({
-  name: 'chat.stream.updated',
+  name: "chat.stream.updated",
   payload: z.object({
-    kind: z.literal('snapshot'),
+    kind: z.literal("snapshot"),
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
     updatedAt: TimestampMsSchema,
-    blocks: z.array(AssistantMessageBlockSchema)
-  })
-})
+    blocks: z.array(AssistantMessageBlockSchema),
+  }),
+});
 
 export const chatStreamCompletedEvent = defineEventContract({
-  name: 'chat.stream.completed',
+  name: "chat.stream.completed",
   payload: z.object({
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
-    completedAt: TimestampMsSchema
-  })
-})
+    completedAt: TimestampMsSchema,
+  }),
+});
 
 export const chatStreamFailedEvent = defineEventContract({
-  name: 'chat.stream.failed',
+  name: "chat.stream.failed",
   payload: z.object({
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
     failedAt: TimestampMsSchema,
-    error: z.string()
-  })
-})
+    error: z.string(),
+  }),
+});
 
 export const chatPlanUpdatedEvent = defineEventContract({
-  name: 'chat.plan.updated',
+  name: "chat.plan.updated",
   payload: z.object({
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
@@ -53,6 +48,6 @@ export const chatPlanUpdatedEvent = defineEventContract({
     plan: z.array(AgentPlanItemSchema),
     explanation: z.string().optional(),
     revision: z.number().int().positive(),
-    updatedAt: z.string()
-  })
-})
+    updatedAt: z.string(),
+  }),
+});

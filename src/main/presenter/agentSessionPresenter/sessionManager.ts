@@ -1,44 +1,42 @@
-import { nanoid } from 'nanoid'
-import type { SQLitePresenter } from '../sqlitePresenter'
+import { nanoid } from "nanoid";
+import type { SQLitePresenter } from "../sqlitePresenter";
 import type {
   DeepChatSubagentMeta,
   SessionKind,
   SessionPageCursor,
-  SessionRecord
-} from '@shared/types/agent-interface'
-import type { SessionListPageCursor } from '../sqlitePresenter/tables/newSessions'
+  SessionRecord,
+} from "@shared/types/agent-interface";
+import type { SessionListPageCursor } from "../sqlitePresenter/tables/newSessions";
 
 const parseSubagentMeta = (raw: string | null | undefined): DeepChatSubagentMeta | null => {
   if (!raw) {
-    return null
+    return null;
   }
 
   try {
-    const parsed = JSON.parse(raw) as Partial<DeepChatSubagentMeta>
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.slotId !== 'string') {
-      return null
+    const parsed = JSON.parse(raw) as Partial<DeepChatSubagentMeta>;
+    if (!parsed || typeof parsed !== "object" || typeof parsed.slotId !== "string") {
+      return null;
     }
 
     return {
       slotId: parsed.slotId,
-      displayName: typeof parsed.displayName === 'string' ? parsed.displayName : parsed.slotId,
+      displayName: typeof parsed.displayName === "string" ? parsed.displayName : parsed.slotId,
       targetAgentId:
-        parsed.targetAgentId === null || typeof parsed.targetAgentId === 'string'
-          ? parsed.targetAgentId
-          : undefined
-    }
+        parsed.targetAgentId === null || typeof parsed.targetAgentId === "string" ? parsed.targetAgentId : undefined,
+    };
   } catch {
-    return null
+    return null;
   }
-}
+};
 
 export class NewSessionManager {
-  private sqlitePresenter: SQLitePresenter
+  private sqlitePresenter: SQLitePresenter;
   // webContentsId → sessionId
-  private windowBindings: Map<number, string | null> = new Map()
+  private windowBindings: Map<number, string | null> = new Map();
 
   constructor(sqlitePresenter: SQLitePresenter) {
-    this.sqlitePresenter = sqlitePresenter
+    this.sqlitePresenter = sqlitePresenter;
   }
 
   create(
@@ -46,82 +44,81 @@ export class NewSessionManager {
     title: string,
     projectDir: string | null,
     options?: {
-      isDraft?: boolean
-      disabledAgentTools?: string[]
-      subagentEnabled?: boolean
-      sessionKind?: SessionKind
-      parentSessionId?: string | null
-      subagentMeta?: DeepChatSubagentMeta | null
-    }
+      isDraft?: boolean;
+      disabledAgentTools?: string[];
+      subagentEnabled?: boolean;
+      sessionKind?: SessionKind;
+      parentSessionId?: string | null;
+      subagentMeta?: DeepChatSubagentMeta | null;
+    },
   ): string {
-    const id = nanoid()
+    const id = nanoid();
     this.sqlitePresenter.newSessionsTable.create(id, agentId, title, projectDir, {
       isDraft: options?.isDraft,
       disabledAgentTools: options?.disabledAgentTools,
       subagentEnabled: options?.subagentEnabled,
       sessionKind: options?.sessionKind,
       parentSessionId: options?.parentSessionId,
-      subagentMetaJson: options?.subagentMeta ? JSON.stringify(options.subagentMeta) : null
-    })
+      subagentMetaJson: options?.subagentMeta ? JSON.stringify(options.subagentMeta) : null,
+    });
     this.sqlitePresenter.deepchatSearchDocumentsTable.upsert({
       documentKey: `session:${id}`,
       sessionId: id,
-      documentKind: 'session',
+      documentKind: "session",
       title,
-      content: '',
-      updatedAt: Date.now()
-    })
-    this.sqlitePresenter.newEnvironmentsTable.syncPath(projectDir)
-    return id
+      content: "",
+      updatedAt: Date.now(),
+    });
+    this.sqlitePresenter.newEnvironmentsTable.syncPath(projectDir);
+    return id;
   }
 
   get(id: string): SessionRecord | null {
-    const row = this.sqlitePresenter.newSessionsTable.get(id)
-    if (!row) return null
-    return this.mapRowToRecord(row)
+    const row = this.sqlitePresenter.newSessionsTable.get(id);
+    if (!row) return null;
+    return this.mapRowToRecord(row);
   }
 
   getMany(ids: string[]): SessionRecord[] {
-    return this.sqlitePresenter.newSessionsTable.getMany(ids).map((row) => this.mapRowToRecord(row))
+    return this.sqlitePresenter.newSessionsTable.getMany(ids).map((row) => this.mapRowToRecord(row));
   }
 
   listPage(options?: {
-    limit?: number
-    cursor?: SessionPageCursor | null
-    agentId?: string
-    includeSubagents?: boolean
-    parentSessionId?: string
+    limit?: number;
+    cursor?: SessionPageCursor | null;
+    agentId?: string;
+    includeSubagents?: boolean;
+    parentSessionId?: string;
   }): {
-    records: SessionRecord[]
-    nextCursor: SessionPageCursor | null
-    hasMore: boolean
+    records: SessionRecord[];
+    nextCursor: SessionPageCursor | null;
+    hasMore: boolean;
   } {
     const page = this.sqlitePresenter.newSessionsTable.listPage({
       limit: options?.limit,
       cursor: options?.cursor as SessionListPageCursor | null | undefined,
       agentId: options?.agentId,
       includeSubagents: options?.includeSubagents,
-      parentSessionId: options?.parentSessionId
-    })
-    const records = page.rows.map((row) => this.mapRowToRecord(row))
-    const lastRecord = records.at(-1)
+      parentSessionId: options?.parentSessionId,
+    });
+    const records = page.rows.map((row) => this.mapRowToRecord(row));
+    const lastRecord = records.at(-1);
 
     return {
       records,
-      nextCursor:
-        page.hasMore && lastRecord ? { updatedAt: lastRecord.updatedAt, id: lastRecord.id } : null,
-      hasMore: page.hasMore
-    }
+      nextCursor: page.hasMore && lastRecord ? { updatedAt: lastRecord.updatedAt, id: lastRecord.id } : null,
+      hasMore: page.hasMore,
+    };
   }
 
   list(filters?: {
-    agentId?: string
-    projectDir?: string
-    includeSubagents?: boolean
-    parentSessionId?: string
+    agentId?: string;
+    projectDir?: string;
+    includeSubagents?: boolean;
+    parentSessionId?: string;
   }): SessionRecord[] {
-    const rows = this.sqlitePresenter.newSessionsTable.list(filters)
-    return rows.map((row) => this.mapRowToRecord(row))
+    const rows = this.sqlitePresenter.newSessionsTable.list(filters);
+    return rows.map((row) => this.mapRowToRecord(row));
   }
 
   update(
@@ -129,116 +126,116 @@ export class NewSessionManager {
     fields: Partial<
       Pick<
         SessionRecord,
-        | 'title'
-        | 'projectDir'
-        | 'isPinned'
-        | 'isDraft'
-        | 'sessionKind'
-        | 'parentSessionId'
-        | 'subagentEnabled'
-        | 'subagentMeta'
+        | "title"
+        | "projectDir"
+        | "isPinned"
+        | "isDraft"
+        | "sessionKind"
+        | "parentSessionId"
+        | "subagentEnabled"
+        | "subagentMeta"
       >
-    >
+    >,
   ): void {
-    const current = this.sqlitePresenter.newSessionsTable.get(id)
+    const current = this.sqlitePresenter.newSessionsTable.get(id);
     if (!current) {
-      return
+      return;
     }
 
-    const affectedPaths = new Set(this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id))
+    const affectedPaths = new Set(this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id));
 
     const dbFields: {
-      title?: string
-      project_dir?: string | null
-      is_pinned?: number
-      is_draft?: number
-      subagent_enabled?: number
-      session_kind?: SessionKind
-      parent_session_id?: string | null
-      subagent_meta_json?: string | null
-    } = {}
-    if (fields.title !== undefined) dbFields.title = fields.title
-    if (fields.projectDir !== undefined) dbFields.project_dir = fields.projectDir
-    if (fields.isPinned !== undefined) dbFields.is_pinned = fields.isPinned ? 1 : 0
-    if (fields.isDraft !== undefined) dbFields.is_draft = fields.isDraft ? 1 : 0
+      title?: string;
+      project_dir?: string | null;
+      is_pinned?: number;
+      is_draft?: number;
+      subagent_enabled?: number;
+      session_kind?: SessionKind;
+      parent_session_id?: string | null;
+      subagent_meta_json?: string | null;
+    } = {};
+    if (fields.title !== undefined) dbFields.title = fields.title;
+    if (fields.projectDir !== undefined) dbFields.project_dir = fields.projectDir;
+    if (fields.isPinned !== undefined) dbFields.is_pinned = fields.isPinned ? 1 : 0;
+    if (fields.isDraft !== undefined) dbFields.is_draft = fields.isDraft ? 1 : 0;
     if (fields.subagentEnabled !== undefined) {
-      dbFields.subagent_enabled = fields.subagentEnabled ? 1 : 0
+      dbFields.subagent_enabled = fields.subagentEnabled ? 1 : 0;
     }
-    if (fields.sessionKind !== undefined) dbFields.session_kind = fields.sessionKind
+    if (fields.sessionKind !== undefined) dbFields.session_kind = fields.sessionKind;
     if (fields.parentSessionId !== undefined) {
-      dbFields.parent_session_id = fields.parentSessionId
+      dbFields.parent_session_id = fields.parentSessionId;
     }
     if (fields.subagentMeta !== undefined) {
-      dbFields.subagent_meta_json = fields.subagentMeta ? JSON.stringify(fields.subagentMeta) : null
+      dbFields.subagent_meta_json = fields.subagentMeta ? JSON.stringify(fields.subagentMeta) : null;
     }
-    this.sqlitePresenter.newSessionsTable.update(id, dbFields)
+    this.sqlitePresenter.newSessionsTable.update(id, dbFields);
     if (fields.title !== undefined) {
-      this.sqlitePresenter.deepchatSearchDocumentsTable.refreshSessionTitle(id, fields.title)
+      this.sqlitePresenter.deepchatSearchDocumentsTable.refreshSessionTitle(id, fields.title);
     }
 
     for (const path of this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id)) {
-      affectedPaths.add(path)
+      affectedPaths.add(path);
     }
 
     for (const path of affectedPaths) {
-      this.sqlitePresenter.newEnvironmentsTable.syncPath(path)
+      this.sqlitePresenter.newEnvironmentsTable.syncPath(path);
     }
   }
 
   delete(id: string): void {
-    const affectedPaths = this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id)
-    this.sqlitePresenter.deepchatSearchDocumentsTable.deleteBySession(id)
-    this.sqlitePresenter.newSessionsTable.delete(id)
+    const affectedPaths = this.sqlitePresenter.newEnvironmentsTable.listPathsForSession(id);
+    this.sqlitePresenter.deepchatSearchDocumentsTable.deleteBySession(id);
+    this.sqlitePresenter.newSessionsTable.delete(id);
     for (const path of affectedPaths) {
-      this.sqlitePresenter.newEnvironmentsTable.syncPath(path)
+      this.sqlitePresenter.newEnvironmentsTable.syncPath(path);
     }
   }
 
   getDisabledAgentTools(id: string): string[] {
-    return this.sqlitePresenter.newSessionsTable.getDisabledAgentTools(id)
+    return this.sqlitePresenter.newSessionsTable.getDisabledAgentTools(id);
   }
 
   updateDisabledAgentTools(id: string, disabledAgentTools: string[]): void {
-    this.sqlitePresenter.newSessionsTable.updateDisabledAgentTools(id, disabledAgentTools)
-    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id)
+    this.sqlitePresenter.newSessionsTable.updateDisabledAgentTools(id, disabledAgentTools);
+    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id);
   }
 
   updateAgentId(id: string, agentId: string): void {
-    const current = this.sqlitePresenter.newSessionsTable.get(id)
+    const current = this.sqlitePresenter.newSessionsTable.get(id);
     if (!current || current.agent_id === agentId) {
-      return
+      return;
     }
 
-    this.sqlitePresenter.newSessionsTable.updateAgentId(id, agentId)
-    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id)
+    this.sqlitePresenter.newSessionsTable.updateAgentId(id, agentId);
+    this.sqlitePresenter.newEnvironmentsTable.syncForSession(id);
   }
 
   // Window binding management
   bindWindow(webContentsId: number, sessionId: string): void {
-    this.windowBindings.set(webContentsId, sessionId)
+    this.windowBindings.set(webContentsId, sessionId);
   }
 
   unbindWindow(webContentsId: number): void {
-    this.windowBindings.set(webContentsId, null)
+    this.windowBindings.set(webContentsId, null);
   }
 
   getActiveSessionId(webContentsId: number): string | null {
-    return this.windowBindings.get(webContentsId) ?? null
+    return this.windowBindings.get(webContentsId) ?? null;
   }
 
   private mapRowToRecord(row: {
-    id: string
-    agent_id: string
-    title: string
-    project_dir: string | null
-    is_pinned: number
-    is_draft: number
-    session_kind: string
-    parent_session_id: string | null
-    subagent_enabled: number
-    subagent_meta_json: string | null
-    created_at: number
-    updated_at: number
+    id: string;
+    agent_id: string;
+    title: string;
+    project_dir: string | null;
+    is_pinned: number;
+    is_draft: number;
+    session_kind: string;
+    parent_session_id: string | null;
+    subagent_enabled: number;
+    subagent_meta_json: string | null;
+    created_at: number;
+    updated_at: number;
   }): SessionRecord {
     return {
       id: row.id,
@@ -247,12 +244,12 @@ export class NewSessionManager {
       projectDir: row.project_dir,
       isPinned: row.is_pinned === 1,
       isDraft: row.is_draft === 1,
-      sessionKind: row.session_kind === 'subagent' ? 'subagent' : 'regular',
+      sessionKind: row.session_kind === "subagent" ? "subagent" : "regular",
       parentSessionId: row.parent_session_id ?? null,
       subagentEnabled: row.subagent_enabled === 1,
       subagentMeta: parseSubagentMeta(row.subagent_meta_json),
       createdAt: row.created_at,
-      updatedAt: row.updated_at
-    }
+      updatedAt: row.updated_at,
+    };
   }
 }

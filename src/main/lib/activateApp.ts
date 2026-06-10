@@ -1,19 +1,19 @@
-import { app } from 'electron'
+import { app } from "electron";
 
 export function ensureRegularAppOnMac(): void {
-  if (process.platform !== 'darwin') {
-    return
+  if (process.platform !== "darwin") {
+    return;
   }
 
-  app.setActivationPolicy('regular')
-  app.dock?.show()
+  app.setActivationPolicy("regular");
+  app.dock?.show();
 }
 
 export function activateAppOnMac(): void {
-  if (process.platform !== 'darwin') {
-    return
+  if (process.platform !== "darwin") {
+    return;
   }
 
-  ensureRegularAppOnMac()
-  app.focus({ steal: true })
+  ensureRegularAppOnMac();
+  app.focus({ steal: true });
 }

@@ -1,329 +1,320 @@
-import fs from 'fs'
-import path from 'path'
-import { app } from 'electron'
-import {
-  ProviderAggregate,
-  ProviderEntry,
-  ProviderModel,
-  sanitizeAggregate
-} from '@shared/types/model-db'
-import { resolveProviderId } from './providerId'
-import { eventBus, SendTarget } from '@/eventbus'
-import { PROVIDER_DB_EVENTS } from '@/events'
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
+import { ProviderAggregate, ProviderEntry, ProviderModel, sanitizeAggregate } from "@shared/types/model-db";
+import { resolveProviderId } from "./providerId";
+import { eventBus, SendTarget } from "@/eventbus";
+import { PROVIDER_DB_EVENTS } from "@/events";
 
 const DEFAULT_PROVIDER_DB_URL =
-  'https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json'
+  "https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json";
 
 type MetaFile = {
-  sourceUrl: string
-  etag?: string
-  lastUpdated: number
-  ttlHours: number
-  lastAttemptedAt?: number
-}
+  sourceUrl: string;
+  etag?: string;
+  lastUpdated: number;
+  ttlHours: number;
+  lastAttemptedAt?: number;
+};
 
 export type ProviderDbRefreshResult = {
-  status: 'updated' | 'not-modified' | 'skipped' | 'error'
-  lastUpdated: number | null
-  providersCount: number
-  message?: string
-}
+  status: "updated" | "not-modified" | "skipped" | "error";
+  lastUpdated: number | null;
+  providersCount: number;
+  message?: string;
+};
 
 export class ProviderDbLoader {
-  private cache: ProviderAggregate | null = null
-  private userDataDir: string
-  private cacheDir: string
-  private cacheFilePath: string
-  private metaFilePath: string
-  private refreshPromise: Promise<ProviderDbRefreshResult> | null = null
-  private privacyModeResolver: () => boolean = () => false
+  private cache: ProviderAggregate | null = null;
+  private userDataDir: string;
+  private cacheDir: string;
+  private cacheFilePath: string;
+  private metaFilePath: string;
+  private refreshPromise: Promise<ProviderDbRefreshResult> | null = null;
+  private privacyModeResolver: () => boolean = () => false;
 
   constructor() {
-    this.userDataDir = app.getPath('userData')
-    this.cacheDir = path.join(this.userDataDir, 'provider-db')
-    this.cacheFilePath = path.join(this.cacheDir, 'providers.json')
-    this.metaFilePath = path.join(this.cacheDir, 'meta.json')
+    this.userDataDir = app.getPath("userData");
+    this.cacheDir = path.join(this.userDataDir, "provider-db");
+    this.cacheFilePath = path.join(this.cacheDir, "providers.json");
+    this.metaFilePath = path.join(this.cacheDir, "meta.json");
 
     try {
-      if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir, { recursive: true })
+      if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir, { recursive: true });
     } catch {}
   }
 
   setPrivacyModeResolver(resolver?: () => boolean): void {
-    this.privacyModeResolver = resolver ?? (() => false)
+    this.privacyModeResolver = resolver ?? (() => false);
   }
 
   // Public: initialize on app start (non-blocking refresh)
   async initialize(): Promise<void> {
     // Load from cache or built-in
-    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn()
+    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn();
     if (this.cache) {
       try {
-        const providersCount = Object.keys(this.cache.providers || {}).length
+        const providersCount = Object.keys(this.cache.providers || {}).length;
         eventBus.send(PROVIDER_DB_EVENTS.LOADED, SendTarget.ALL_WINDOWS, {
-          providersCount
-        })
+          providersCount,
+        });
       } catch {}
     }
 
     if (this.isAutomaticRefreshBlocked()) {
-      return
+      return;
     }
 
     // Always refresh once in the background on startup to pick up upstream updates.
     void this.refreshIfNeeded(true, { automatic: true })
       .then((result) => {
-        if (result.status === 'error') {
-          console.warn('[ProviderDbLoader] Startup refresh failed:', result.message)
+        if (result.status === "error") {
+          console.warn("[ProviderDbLoader] Startup refresh failed:", result.message);
         }
       })
       .catch((error) => {
-        console.warn('[ProviderDbLoader] Startup refresh failed:', error)
-      })
+        console.warn("[ProviderDbLoader] Startup refresh failed:", error);
+      });
   }
 
   getDb(): ProviderAggregate | null {
-    if (this.cache) return this.cache
+    if (this.cache) return this.cache;
     // Lazy try again if not initialized yet
-    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn()
-    return this.cache
+    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn();
+    return this.cache;
   }
 
   getProvider(providerId: string): ProviderEntry | undefined {
-    const db = this.getDb()
-    if (!db) return undefined
-    const resolvedId = resolveProviderId(providerId)
-    return db.providers?.[resolvedId ?? providerId]
+    const db = this.getDb();
+    if (!db) return undefined;
+    const resolvedId = resolveProviderId(providerId);
+    return db.providers?.[resolvedId ?? providerId];
   }
 
   getModel(providerId: string, modelId: string): ProviderModel | undefined {
-    const provider = this.getProvider(providerId)
-    if (!provider) return undefined
-    return provider.models.find((m) => m.id === modelId)
+    const provider = this.getProvider(providerId);
+    if (!provider) return undefined;
+    return provider.models.find((m) => m.id === modelId);
   }
 
   getSourceUrl(): string {
-    return this.readMeta()?.sourceUrl?.trim() || this.getProviderDbUrl()
+    return this.readMeta()?.sourceUrl?.trim() || this.getProviderDbUrl();
   }
 
   private loadFromCache(): ProviderAggregate | null {
     try {
-      if (!fs.existsSync(this.cacheFilePath)) return null
-      const raw = fs.readFileSync(this.cacheFilePath, 'utf-8')
-      const parsed = JSON.parse(raw)
-      const sanitized = sanitizeAggregate(parsed)
-      if (!sanitized) return null
-      return sanitized
+      if (!fs.existsSync(this.cacheFilePath)) return null;
+      const raw = fs.readFileSync(this.cacheFilePath, "utf-8");
+      const parsed = JSON.parse(raw);
+      const sanitized = sanitizeAggregate(parsed);
+      if (!sanitized) return null;
+      return sanitized;
     } catch {
-      return null
+      return null;
     }
   }
 
   private loadFromBuiltIn(): ProviderAggregate | null {
     try {
-      const helperPath = path.join(app.getAppPath(), 'resources', 'model-db', 'providers.json')
-      if (!fs.existsSync(helperPath)) return null
-      const raw = fs.readFileSync(helperPath, 'utf-8')
-      const parsed = JSON.parse(raw)
-      const sanitized = sanitizeAggregate(parsed)
-      return sanitized ?? null
+      const helperPath = path.join(app.getAppPath(), "resources", "model-db", "providers.json");
+      if (!fs.existsSync(helperPath)) return null;
+      const raw = fs.readFileSync(helperPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      const sanitized = sanitizeAggregate(parsed);
+      return sanitized ?? null;
     } catch {
-      return null
+      return null;
     }
   }
 
   private readMeta(): MetaFile | null {
     try {
-      if (!fs.existsSync(this.metaFilePath)) return null
-      const raw = fs.readFileSync(this.metaFilePath, 'utf-8')
-      return JSON.parse(raw)
+      if (!fs.existsSync(this.metaFilePath)) return null;
+      const raw = fs.readFileSync(this.metaFilePath, "utf-8");
+      return JSON.parse(raw);
     } catch {
-      return null
+      return null;
     }
   }
 
   private writeMeta(meta: MetaFile): void {
     try {
-      fs.writeFileSync(this.metaFilePath, JSON.stringify(meta, null, 2), 'utf-8')
+      fs.writeFileSync(this.metaFilePath, JSON.stringify(meta, null, 2), "utf-8");
     } catch {}
   }
 
   private writeCacheAtomically(db: ProviderAggregate): void {
-    const tmp = this.cacheFilePath + '.tmp'
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2))
-    fs.renameSync(tmp, this.cacheFilePath)
+    const tmp = this.cacheFilePath + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
+    fs.renameSync(tmp, this.cacheFilePath);
   }
 
   private now(): number {
-    return Date.now()
+    return Date.now();
   }
 
   private getTtlHours(): number {
-    const env = process.env.PROVIDER_DB_TTL_HOURS
-    const v = env ? Number(env) : 4
-    return Number.isFinite(v) && v > 0 ? v : 4
+    const env = process.env.PROVIDER_DB_TTL_HOURS;
+    const v = env ? Number(env) : 4;
+    return Number.isFinite(v) && v > 0 ? v : 4;
   }
 
   private getProviderDbUrl(): string {
-    const value = import.meta.env.VITE_PROVIDER_DB_URL
-    if (typeof value === 'string') {
-      const trimmed = value.trim()
-      if (trimmed.length > 0) return trimmed
+    const value = import.meta.env.VITE_PROVIDER_DB_URL;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) return trimmed;
     }
 
-    return DEFAULT_PROVIDER_DB_URL
+    return DEFAULT_PROVIDER_DB_URL;
   }
 
   async refreshIfNeeded(
     force = false,
     options: {
-      automatic?: boolean
-    } = {}
+      automatic?: boolean;
+    } = {},
   ): Promise<ProviderDbRefreshResult> {
-    const meta = this.readMeta()
+    const meta = this.readMeta();
     if (options.automatic && this.isAutomaticRefreshBlocked()) {
-      return this.createResult('skipped', meta)
+      return this.createResult("skipped", meta);
     }
 
-    if (this.refreshPromise) return this.refreshPromise
+    if (this.refreshPromise) return this.refreshPromise;
 
-    const ttlHours = this.getTtlHours()
-    const url = this.getProviderDbUrl()
+    const ttlHours = this.getTtlHours();
+    const url = this.getProviderDbUrl();
 
-    const needFirstFetch = !meta || !fs.existsSync(this.cacheFilePath)
-    const freshnessTimestamp = meta?.lastAttemptedAt ?? meta?.lastUpdated ?? 0
-    const expired = meta ? this.now() - freshnessTimestamp > ttlHours * 3600 * 1000 : true
+    const needFirstFetch = !meta || !fs.existsSync(this.cacheFilePath);
+    const freshnessTimestamp = meta?.lastAttemptedAt ?? meta?.lastUpdated ?? 0;
+    const expired = meta ? this.now() - freshnessTimestamp > ttlHours * 3600 * 1000 : true;
 
     if (!force && !needFirstFetch && !expired) {
-      return this.createResult('skipped', meta)
+      return this.createResult("skipped", meta);
     }
 
     this.refreshPromise = this.fetchAndUpdate(url, meta || undefined).finally(() => {
-      this.refreshPromise = null
-    })
+      this.refreshPromise = null;
+    });
 
-    return this.refreshPromise
+    return this.refreshPromise;
   }
 
   private isAutomaticRefreshBlocked(): boolean {
     try {
-      return Boolean(this.privacyModeResolver())
+      return Boolean(this.privacyModeResolver());
     } catch {
-      return false
+      return false;
     }
   }
 
   private createResult(
-    status: ProviderDbRefreshResult['status'],
+    status: ProviderDbRefreshResult["status"],
     meta?: MetaFile | null,
-    message?: string
+    message?: string,
   ): ProviderDbRefreshResult {
-    const db = this.getDb()
-    const providersCount = Object.keys(db?.providers || {}).length
+    const db = this.getDb();
+    const providersCount = Object.keys(db?.providers || {}).length;
     return {
       status,
       lastUpdated: meta?.lastUpdated ?? null,
       providersCount,
-      ...(message ? { message } : {})
-    }
+      ...(message ? { message } : {}),
+    };
   }
 
-  private createAttemptMeta(
-    prevMeta: MetaFile | undefined,
-    url: string,
-    now: number
-  ): MetaFile | null {
-    if (!prevMeta) return null
+  private createAttemptMeta(prevMeta: MetaFile | undefined, url: string, now: number): MetaFile | null {
+    if (!prevMeta) return null;
     return {
       ...prevMeta,
       sourceUrl: url,
       ttlHours: this.getTtlHours(),
-      lastAttemptedAt: now
-    }
+      lastAttemptedAt: now,
+    };
   }
 
   private async fetchAndUpdate(url: string, prevMeta?: MetaFile): Promise<ProviderDbRefreshResult> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-      const headers: Record<string, string> = {}
-      if (prevMeta?.etag) headers['If-None-Match'] = prevMeta.etag
+      const headers: Record<string, string> = {};
+      if (prevMeta?.etag) headers["If-None-Match"] = prevMeta.etag;
 
-      const res = await fetch(url, { headers, signal: controller.signal })
-      const now = this.now()
+      const res = await fetch(url, { headers, signal: controller.signal });
+      const now = this.now();
 
       if (res.status === 304 && prevMeta) {
         const meta: MetaFile = {
           ...prevMeta,
           sourceUrl: url,
           ttlHours: this.getTtlHours(),
-          lastAttemptedAt: now
-        }
-        this.writeMeta(meta)
-        return this.createResult('not-modified', meta)
+          lastAttemptedAt: now,
+        };
+        this.writeMeta(meta);
+        return this.createResult("not-modified", meta);
       }
 
       if (!res.ok) {
-        const meta = this.createAttemptMeta(prevMeta, url, now)
-        if (meta) this.writeMeta(meta)
-        return this.createResult('error', meta, `Request failed with status ${res.status}`)
+        const meta = this.createAttemptMeta(prevMeta, url, now);
+        if (meta) this.writeMeta(meta);
+        return this.createResult("error", meta, `Request failed with status ${res.status}`);
       }
 
-      const text = await res.text()
+      const text = await res.text();
       // Size guard (≈ 5MB)
       if (text.length > 5 * 1024 * 1024) {
-        const meta = this.createAttemptMeta(prevMeta, url, now)
-        if (meta) this.writeMeta(meta)
-        return this.createResult('error', meta, 'Provider DB payload exceeds size limit')
+        const meta = this.createAttemptMeta(prevMeta, url, now);
+        if (meta) this.writeMeta(meta);
+        return this.createResult("error", meta, "Provider DB payload exceeds size limit");
       }
 
-      let parsed: unknown
+      let parsed: unknown;
       try {
-        parsed = JSON.parse(text)
+        parsed = JSON.parse(text);
       } catch {
-        const meta = this.createAttemptMeta(prevMeta, url, now)
-        if (meta) this.writeMeta(meta)
-        return this.createResult('error', meta, 'Provider DB payload is not valid JSON')
+        const meta = this.createAttemptMeta(prevMeta, url, now);
+        if (meta) this.writeMeta(meta);
+        return this.createResult("error", meta, "Provider DB payload is not valid JSON");
       }
 
-      const sanitized = sanitizeAggregate(parsed)
+      const sanitized = sanitizeAggregate(parsed);
       if (!sanitized) {
-        const meta = this.createAttemptMeta(prevMeta, url, now)
-        if (meta) this.writeMeta(meta)
-        return this.createResult('error', meta, 'Provider DB payload failed validation')
+        const meta = this.createAttemptMeta(prevMeta, url, now);
+        if (meta) this.writeMeta(meta);
+        return this.createResult("error", meta, "Provider DB payload failed validation");
       }
 
-      const etag = res.headers.get('etag') || undefined
+      const etag = res.headers.get("etag") || undefined;
       const meta: MetaFile = {
         sourceUrl: url,
         etag,
         lastUpdated: now,
         ttlHours: this.getTtlHours(),
-        lastAttemptedAt: now
-      }
+        lastAttemptedAt: now,
+      };
 
       // Write cache atomically and update in-memory
-      this.writeCacheAtomically(sanitized)
-      this.writeMeta(meta)
-      this.cache = sanitized
+      this.writeCacheAtomically(sanitized);
+      this.writeMeta(meta);
+      this.cache = sanitized;
       try {
-        const providersCount = Object.keys(this.cache.providers || {}).length
+        const providersCount = Object.keys(this.cache.providers || {}).length;
         eventBus.send(PROVIDER_DB_EVENTS.UPDATED, SendTarget.ALL_WINDOWS, {
           providersCount,
-          lastUpdated: meta.lastUpdated
-        })
+          lastUpdated: meta.lastUpdated,
+        });
       } catch {}
-      return this.createResult('updated', meta)
+      return this.createResult("updated", meta);
     } catch (error) {
-      const meta = this.createAttemptMeta(prevMeta, url, this.now())
-      if (meta) this.writeMeta(meta)
-      const message = error instanceof Error ? error.message : 'Unknown provider DB refresh error'
-      return this.createResult('error', meta, message)
+      const meta = this.createAttemptMeta(prevMeta, url, this.now());
+      if (meta) this.writeMeta(meta);
+      const message = error instanceof Error ? error.message : "Unknown provider DB refresh error";
+      return this.createResult("error", meta, message);
     } finally {
-      clearTimeout(timeout)
+      clearTimeout(timeout);
     }
   }
 }
 
 // Shared singleton
-export const providerDbLoader = new ProviderDbLoader()
+export const providerDbLoader = new ProviderDbLoader();

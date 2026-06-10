@@ -1,9 +1,9 @@
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
 
 interface PromptSettingsHeaderProps {
-  onImport: () => void
-  onExport: () => void
+  onImport: () => void;
+  onExport: () => void;
 }
 
 export default function PromptSettingsHeader({ onImport, onExport }: PromptSettingsHeaderProps) {
@@ -21,5 +21,5 @@ export default function PromptSettingsHeader({ onImport, onExport }: PromptSetti
         </Button>
       </div>
     </div>
-  )
+  );
 }

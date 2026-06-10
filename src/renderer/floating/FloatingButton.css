@@ -3,43 +3,35 @@
   --widget-ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
   --widget-ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --transition-collapsed-layer:
-    opacity 260ms ease, transform 620ms var(--widget-ease-smooth),
-    filter 520ms var(--widget-ease-smooth);
+    opacity 260ms ease, transform 620ms var(--widget-ease-smooth), filter 520ms var(--widget-ease-smooth);
   --transition-expanded-shell:
-    opacity 320ms ease, transform 640ms var(--widget-ease-smooth),
-    filter 520ms var(--widget-ease-smooth);
+    opacity 320ms ease, transform 640ms var(--widget-ease-smooth), filter 520ms var(--widget-ease-smooth);
   --transition-panel:
-    opacity 280ms ease, transform 620ms var(--widget-ease-smooth),
-    filter 420ms var(--widget-ease-soft);
+    opacity 280ms ease, transform 620ms var(--widget-ease-smooth), filter 420ms var(--widget-ease-soft);
   --transition-session:
-    opacity 320ms ease, transform 640ms var(--widget-ease-smooth),
-    filter 460ms var(--widget-ease-soft);
+    opacity 320ms ease, transform 640ms var(--widget-ease-smooth), filter 460ms var(--widget-ease-soft);
   --transition-logo-hero:
-    opacity 240ms ease, transform 700ms var(--widget-ease-smooth),
-    filter 560ms var(--widget-ease-smooth), border-color 220ms ease;
-  --transition-logo:
-    opacity 240ms ease, transform 640ms var(--widget-ease-smooth), filter 320ms ease;
+    opacity 240ms ease, transform 700ms var(--widget-ease-smooth), filter 560ms var(--widget-ease-smooth),
+    border-color 220ms ease;
+  --transition-logo: opacity 240ms ease, transform 640ms var(--widget-ease-smooth), filter 320ms ease;
   --transition-status-face:
-    opacity 260ms ease, transform 620ms var(--widget-ease-smooth),
-    filter 420ms var(--widget-ease-soft);
-  --transition-status-logo:
-    opacity 260ms ease, transform 620ms var(--widget-ease-smooth), filter 320ms ease;
+    opacity 260ms ease, transform 620ms var(--widget-ease-smooth), filter 420ms var(--widget-ease-soft);
+  --transition-status-logo: opacity 260ms ease, transform 620ms var(--widget-ease-smooth), filter 320ms ease;
   border-radius: var(--widget-radius);
 }
 
-.widget-stage[data-motion='closing'] {
+.widget-stage[data-motion="closing"] {
   --transition-collapsed-layer: opacity 180ms ease, transform 220ms var(--widget-ease-soft);
   --transition-expanded-shell: opacity 200ms ease, transform 220ms var(--widget-ease-soft);
   --transition-panel: opacity 170ms ease, transform 180ms var(--widget-ease-soft);
   --transition-session: opacity 160ms ease, transform 180ms var(--widget-ease-soft);
-  --transition-logo-hero:
-    opacity 180ms ease, transform 220ms var(--widget-ease-soft), border-color 180ms ease;
+  --transition-logo-hero: opacity 180ms ease, transform 220ms var(--widget-ease-soft), border-color 180ms ease;
   --transition-logo: opacity 160ms ease, transform 180ms var(--widget-ease-soft);
   --transition-status-face: opacity 170ms ease, transform 180ms var(--widget-ease-soft);
   --transition-status-logo: opacity 160ms ease, transform 160ms ease;
 }
 
-.widget-stage[data-theme='dark'] {
+.widget-stage[data-theme="dark"] {
   --collapsed-orb-border: rgba(255, 255, 255, 0.09);
   --collapsed-orb-idle-bg:
     radial-gradient(circle at 30% 24%, rgba(16, 185, 129, 0.18), transparent 36%),
@@ -83,17 +75,12 @@
   --panel-scrollbar-thumb: rgba(255, 255, 255, 0.14);
 }
 
-.widget-stage[data-theme='light'] {
+.widget-stage[data-theme="light"] {
   --collapsed-orb-border: rgba(148, 163, 184, 0.26);
   --collapsed-orb-idle-bg:
     radial-gradient(circle at 26% 22%, rgba(59, 130, 246, 0.22), transparent 34%),
     radial-gradient(circle at 74% 78%, rgba(16, 185, 129, 0.14), transparent 42%),
-    linear-gradient(
-      165deg,
-      rgba(255, 255, 255, 0.99) 0%,
-      rgba(248, 250, 252, 0.99) 42%,
-      #e2e8f0 100%
-    );
+    linear-gradient(165deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.99) 42%, #e2e8f0 100%);
   --collapsed-orb-inner-ring-border: rgba(148, 163, 184, 0.22);
   --collapsed-orb-overlay:
     linear-gradient(180deg, rgba(255, 255, 255, 0.86), transparent 46%),
@@ -167,7 +154,7 @@
   filter: blur(10px);
 }
 
-.widget-stage[data-motion='closing'] .collapsed-layer-hidden {
+.widget-stage[data-motion="closing"] .collapsed-layer-hidden {
   filter: none;
 }
 
@@ -199,7 +186,7 @@
   filter: blur(16px);
 }
 
-.widget-stage[data-motion='closing'] .floating-shell-expanded-hidden {
+.widget-stage[data-motion="closing"] .floating-shell-expanded-hidden {
   filter: none;
 }
 
@@ -215,7 +202,7 @@
 .floating-shell-expanded::after,
 .logo-orb::before,
 .logo-orb::after {
-  content: '';
+  content: "";
   position: absolute;
   pointer-events: none;
 }
@@ -249,7 +236,7 @@
   filter: blur(8px);
 }
 
-.widget-stage[data-motion='closing'] .collapsed-layer-hidden .logo-orb-hero {
+.widget-stage[data-motion="closing"] .collapsed-layer-hidden .logo-orb-hero {
   filter: none;
 }
 
@@ -382,7 +369,7 @@
   filter: blur(8px);
 }
 
-.widget-stage[data-motion='closing'] .floating-shell-expanded-hidden .panel-header {
+.widget-stage[data-motion="closing"] .floating-shell-expanded-hidden .panel-header {
   filter: none;
 }
 
@@ -392,7 +379,7 @@
   filter: blur(10px);
 }
 
-.widget-stage[data-motion='closing'] .floating-shell-expanded-hidden .panel-list {
+.widget-stage[data-motion="closing"] .floating-shell-expanded-hidden .panel-list {
   filter: none;
 }
 
@@ -451,7 +438,7 @@
   filter: blur(8px);
 }
 
-.widget-stage[data-motion='closing'] .floating-shell-expanded-hidden .session-row {
+.widget-stage[data-motion="closing"] .floating-shell-expanded-hidden .session-row {
   filter: none;
 }
 

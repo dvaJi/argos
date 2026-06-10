@@ -1,9 +1,9 @@
-import { BaseTable } from './baseTable'
-import type Database from 'better-sqlite3-multiple-ciphers'
+import { BaseTable } from "./baseTable";
+import type Database from "better-sqlite3-multiple-ciphers";
 
 export class AttachmentsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'attachments')
+    super(db, "attachments");
   }
 
   getCreateTableSQL(): string {
@@ -26,14 +26,14 @@ export class AttachmentsTable extends BaseTable {
       );
       CREATE INDEX idx_attachment_type ON attachments(attachment_type);
       CREATE INDEX idx_attachment_vector ON attachments(vectorized);
-    `
+    `;
   }
 
   getMigrationSQL(): string | null {
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 0
+    return 0;
   }
 }

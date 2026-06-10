@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import type { MessageFile } from '@shared/types/agent-interface'
-import { useChatInputFiles } from '@/components/chat/composables/useChatInputFiles'
+import { describe, expect, it, beforeEach, vi } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import type { MessageFile } from "@shared/types/agent-interface";
+import { useChatInputFiles } from "@/components/chat/composables/useChatInputFiles";
 
 const { toastMock, fileClient } = vi.hoisted(() => ({
   toastMock: vi.fn(),
@@ -14,117 +14,111 @@ const { toastMock, fileClient } = vi.hoisted(() => ({
     writeImageBase64: vi.fn(),
     getPathForFile: vi.fn(),
     toRelativePath: vi.fn(),
-    formatPathForInput: vi.fn()
-  }
-}))
+    formatPathForInput: vi.fn(),
+  },
+}));
 
-vi.mock('@/components/use-toast', () => ({
+vi.mock("@/components/use-toast", () => ({
   useToast: () => ({
-    toast: toastMock
-  })
-}))
+    toast: toastMock,
+  }),
+}));
 
-vi.mock('@api/FileClient', () => ({
-  createFileClient: () => fileClient
-}))
+vi.mock("@api/FileClient", () => ({
+  createFileClient: () => fileClient,
+}));
 
-vi.mock('@/lib/image', () => ({
+vi.mock("@/lib/image", () => ({
   calculateImageTokens: vi.fn(() => 12),
   getClipboardImageInfo: vi.fn(() =>
     Promise.resolve({
       width: 100,
       height: 100,
-      compressedBase64: 'data:image/jpeg;base64,thumb'
-    })
+      compressedBase64: "data:image/jpeg;base64,thumb",
+    }),
   ),
-  imageFileToBase64: vi.fn(() => Promise.resolve('data:image/png;base64,image'))
-}))
+  imageFileToBase64: vi.fn(() => Promise.resolve("data:image/png;base64,image")),
+}));
 
 function createFileList(files: File[]): FileList {
   return {
     ...files,
     length: files.length,
-    item: (index: number) => files[index] ?? null
-  } as unknown as FileList
+    item: (index: number) => files[index] ?? null,
+  } as unknown as FileList;
 }
 
 function t(key: string, params?: Record<string, unknown>): string {
   const messages: Record<string, string> = {
-    'chat.input.fileUploadFailed': 'Attachment failed',
-    'chat.input.fileUploadFailedDesc': 'Could not process {count} files: {names}',
-    'chat.input.fileUploadFailedMore': ' and {count} more',
-    'chat.input.unnamedFile': 'unnamed file'
-  }
+    "chat.input.fileUploadFailed": "Attachment failed",
+    "chat.input.fileUploadFailedDesc": "Could not process {count} files: {names}",
+    "chat.input.fileUploadFailedMore": " and {count} more",
+    "chat.input.unnamedFile": "unnamed file",
+  };
 
-  return (messages[key] ?? key).replace(/\{(\w+)\}/g, (_match, name: string) =>
-    String(params?.[name] ?? '')
-  )
+  return (messages[key] ?? key).replace(/\{(\w+)\}/g, (_match, name: string) => String(params?.[name] ?? ""));
 }
 
-describe('useChatInputFiles', () => {
+describe("useChatInputFiles", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  it('adds selected docx files through the file presenter route', async () => {
+  it("adds selected docx files through the file presenter route", async () => {
     const messageFile: MessageFile = {
-      name: 'report.docx',
-      content: 'Document content',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      name: "report.docx",
+      content: "Document content",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       metadata: {
-        fileName: 'report.docx',
+        fileName: "report.docx",
         fileSize: 42,
-        fileDescription: 'Word Document',
+        fileDescription: "Word Document",
         fileCreated: new Date().toISOString(),
-        fileModified: new Date().toISOString()
+        fileModified: new Date().toISOString(),
       },
       token: 10,
-      path: '/tmp/report.docx'
-    }
-    const emit = vi.fn()
-    const target = { files: createFileList([new File(['docx'], 'report.docx')]), value: 'x' }
-    fileClient.getPathForFile.mockReturnValue('/tmp/report.docx')
-    fileClient.getMimeType.mockResolvedValue(
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    fileClient.prepareFile.mockResolvedValue(messageFile)
+      path: "/tmp/report.docx",
+    };
+    const emit = vi.fn();
+    const target = { files: createFileList([new File(["docx"], "report.docx")]), value: "x" };
+    fileClient.getPathForFile.mockReturnValue("/tmp/report.docx");
+    fileClient.getMimeType.mockResolvedValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    fileClient.prepareFile.mockResolvedValue(messageFile);
 
-    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t))
+    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t));
     await act(async () => {
-      await result.current.handleFileSelect({ target } as unknown as Event)
-    })
+      await result.current.handleFileSelect({ target } as unknown as Event);
+    });
 
     expect(fileClient.prepareFile).toHaveBeenCalledWith(
-      '/tmp/report.docx',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    expect(emit).toHaveBeenCalledWith('file-upload', [messageFile])
-    expect(toastMock).not.toHaveBeenCalled()
-    expect(target.value).toBe('')
-  })
+      "/tmp/report.docx",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    expect(emit).toHaveBeenCalledWith("file-upload", [messageFile]);
+    expect(toastMock).not.toHaveBeenCalled();
+    expect(target.value).toBe("");
+  });
 
-  it('shows a destructive toast when selected files fail processing', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const emit = vi.fn()
-    const target = { files: createFileList([new File(['bad'], 'broken.docx')]), value: 'x' }
-    fileClient.getPathForFile.mockReturnValue('/tmp/broken.docx')
-    fileClient.getMimeType.mockResolvedValue(
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    fileClient.prepareFile.mockRejectedValue(new Error('invalid docx'))
+  it("shows a destructive toast when selected files fail processing", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const emit = vi.fn();
+    const target = { files: createFileList([new File(["bad"], "broken.docx")]), value: "x" };
+    fileClient.getPathForFile.mockReturnValue("/tmp/broken.docx");
+    fileClient.getMimeType.mockResolvedValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    fileClient.prepareFile.mockRejectedValue(new Error("invalid docx"));
 
-    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t))
+    const { result } = renderHook(() => useChatInputFiles(undefined, emit, t));
     await act(async () => {
-      await result.current.handleFileSelect({ target } as unknown as Event)
-    })
+      await result.current.handleFileSelect({ target } as unknown as Event);
+    });
 
-    expect(emit).not.toHaveBeenCalled()
+    expect(emit).not.toHaveBeenCalled();
     expect(toastMock).toHaveBeenCalledWith({
-      title: 'Attachment failed',
-      description: 'Could not process 1 files: broken.docx',
-      variant: 'destructive'
-    })
-    expect(target.value).toBe('')
-    consoleSpy.mockRestore()
-  })
-})
+      title: "Attachment failed",
+      description: "Could not process 1 files: broken.docx",
+      variant: "destructive",
+    });
+    expect(target.value).toBe("");
+    consoleSpy.mockRestore();
+  });
+});

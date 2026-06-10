@@ -1,65 +1,65 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from "vitest";
 import type {
   ChatMessage,
   IConfigPresenter,
   LLM_PROVIDER,
   LLMResponse,
   MCPToolDefinition,
-  ModelConfig
-} from '../../../../src/shared/presenter'
-import { BaseLLMProvider } from '../../../../src/main/presenter/llmProviderPresenter/baseProvider'
+  ModelConfig,
+} from "../../../../src/shared/presenter";
+import { BaseLLMProvider } from "../../../../src/main/presenter/llmProviderPresenter/baseProvider";
 
-vi.mock('@/eventbus', () => ({
+vi.mock("@/eventbus", () => ({
   eventBus: {
     on: vi.fn(),
     sendToRenderer: vi.fn(),
     sendToMain: vi.fn(),
     emit: vi.fn(),
-    send: vi.fn()
+    send: vi.fn(),
   },
   SendTarget: {
-    ALL_WINDOWS: 'ALL_WINDOWS'
-  }
-}))
+    ALL_WINDOWS: "ALL_WINDOWS",
+  },
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   CONFIG_EVENTS: {
-    MODEL_LIST_CHANGED: 'MODEL_LIST_CHANGED'
-  }
-}))
+    MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
+  },
+}));
 
 class TestProvider extends BaseLLMProvider {
   constructor(configPresenter: IConfigPresenter) {
     super(
       {
-        id: 'test-provider',
-        name: 'Test Provider',
+        id: "test-provider",
+        name: "Test Provider",
         enable: true,
-        apiKey: 'test-key',
-        apiHost: '',
-        apiVersion: '',
-        models: []
+        apiKey: "test-key",
+        apiHost: "",
+        apiVersion: "",
+        models: [],
       } as unknown as LLM_PROVIDER,
-      configPresenter
-    )
+      configPresenter,
+    );
   }
 
   public renderToolsXml(tools: MCPToolDefinition[]): string {
-    return this.convertToolsToXml(tools)
+    return this.convertToolsToXml(tools);
   }
 
   public getProviderSnapshot(): LLM_PROVIDER {
-    return this.provider
+    return this.provider;
   }
 
   public onProxyResolved(): void {}
 
   public async check(): Promise<{ isOk: boolean; errorMsg: string | null }> {
-    return { isOk: true, errorMsg: null }
+    return { isOk: true, errorMsg: null };
   }
 
   public async summaryTitles(_messages: ChatMessage[], _modelId: string): Promise<string> {
-    return 'summary'
+    return "summary";
   }
 
   public async completions(
@@ -67,27 +67,27 @@ class TestProvider extends BaseLLMProvider {
     _modelId: string,
     _temperature?: number,
     _maxTokens?: number,
-    _tools?: MCPToolDefinition[]
+    _tools?: MCPToolDefinition[],
   ): Promise<LLMResponse> {
-    return { content: 'ok' }
+    return { content: "ok" };
   }
 
   public async summaries(
     _text: string,
     _modelId: string,
     _temperature?: number,
-    _maxTokens?: number
+    _maxTokens?: number,
   ): Promise<LLMResponse> {
-    return { content: 'ok' }
+    return { content: "ok" };
   }
 
   public async generateText(
     _prompt: string,
     _modelId: string,
     _temperature?: number,
-    _maxTokens?: number
+    _maxTokens?: number,
   ): Promise<LLMResponse> {
-    return { content: 'ok' }
+    return { content: "ok" };
   }
 
   public async *coreStream(
@@ -96,145 +96,143 @@ class TestProvider extends BaseLLMProvider {
     _modelConfig: ModelConfig,
     _temperature: number,
     _maxTokens: number,
-    _tools: MCPToolDefinition[]
+    _tools: MCPToolDefinition[],
   ) {
-    return
+    return;
   }
 
   protected async fetchProviderModels() {
-    return []
+    return [];
   }
 }
 
-describe('BaseLLMProvider tool XML conversion', () => {
+describe("BaseLLMProvider tool XML conversion", () => {
   const configPresenter = {
     getProviderModels: vi.fn().mockReturnValue([]),
     getCustomModels: vi.fn().mockReturnValue([]),
-    getLanguage: vi.fn().mockReturnValue('zh-CN'),
+    getLanguage: vi.fn().mockReturnValue("zh-CN"),
     setProviderModels: vi.fn(),
     getModelStatus: vi.fn().mockReturnValue(false),
-    updateCustomModel: vi.fn()
-  } as unknown as IConfigPresenter
+    updateCustomModel: vi.fn(),
+  } as unknown as IConfigPresenter;
 
-  it('normalizes discriminated union tool schemas before building XML', () => {
-    const provider = new TestProvider(configPresenter)
+  it("normalizes discriminated union tool schemas before building XML", () => {
+    const provider = new TestProvider(configPresenter);
     const tools: MCPToolDefinition[] = [
       {
-        type: 'function',
+        type: "function",
         function: {
-          name: 'skill_manage',
-          description: 'Manage draft skills',
+          name: "skill_manage",
+          description: "Manage draft skills",
           parameters: {
             anyOf: [
               {
-                type: 'object',
+                type: "object",
                 properties: {
-                  action: { type: 'string', const: 'create' },
-                  content: { type: 'string', description: 'Draft content' }
+                  action: { type: "string", const: "create" },
+                  content: { type: "string", description: "Draft content" },
                 },
-                required: ['action', 'content'],
-                additionalProperties: false
+                required: ["action", "content"],
+                additionalProperties: false,
               },
               {
-                type: 'object',
+                type: "object",
                 properties: {
-                  action: { type: 'string', const: 'edit' },
-                  draftId: { type: 'string', description: 'Draft ID' },
-                  content: { type: 'string', description: 'Draft content' }
+                  action: { type: "string", const: "edit" },
+                  draftId: { type: "string", description: "Draft ID" },
+                  content: { type: "string", description: "Draft content" },
                 },
-                required: ['action', 'draftId', 'content'],
-                additionalProperties: false
-              }
-            ]
-          } as unknown as MCPToolDefinition['function']['parameters']
+                required: ["action", "draftId", "content"],
+                additionalProperties: false,
+              },
+            ],
+          } as unknown as MCPToolDefinition["function"]["parameters"],
         },
         server: {
-          name: 'deepchat',
-          icons: 'tool',
-          description: 'DeepChat tools'
-        }
-      }
-    ]
+          name: "deepchat",
+          icons: "tool",
+          description: "DeepChat tools",
+        },
+      },
+    ];
 
-    const xml = provider.renderToolsXml(tools)
+    const xml = provider.renderToolsXml(tools);
 
-    expect(xml).toContain('<tool name="skill_manage" description="Manage draft skills">')
-    expect(xml).toContain('<parameter name="action" required="true" type="string"></parameter>')
+    expect(xml).toContain('<tool name="skill_manage" description="Manage draft skills">');
+    expect(xml).toContain('<parameter name="action" required="true" type="string"></parameter>');
     expect(xml).toContain(
-      '<parameter name="content" required="true" description="Draft content" type="string"></parameter>'
-    )
-    expect(xml).toContain(
-      '<parameter name="draftId" description="Draft ID" type="string"></parameter>'
-    )
-  })
+      '<parameter name="content" required="true" description="Draft content" type="string"></parameter>',
+    );
+    expect(xml).toContain('<parameter name="draftId" description="Draft ID" type="string"></parameter>');
+  });
 
-  it('keeps tools without properties renderable', () => {
-    const provider = new TestProvider(configPresenter)
+  it("keeps tools without properties renderable", () => {
+    const provider = new TestProvider(configPresenter);
     const xml = provider.renderToolsXml([
       {
-        type: 'function',
+        type: "function",
         function: {
-          name: 'noop',
-          description: 'No arguments tool',
+          name: "noop",
+          description: "No arguments tool",
           parameters: {
-            type: 'object',
-            properties: {}
-          }
+            type: "object",
+            properties: {},
+          },
         },
         server: {
-          name: 'deepchat',
-          icons: 'tool',
-          description: 'DeepChat tools'
-        }
-      }
-    ])
+          name: "deepchat",
+          icons: "tool",
+          description: "DeepChat tools",
+        },
+      },
+    ]);
 
-    expect(xml).toContain('<tool name="noop" description="No arguments tool"></tool>')
-  })
+    expect(xml).toContain('<tool name="noop" description="No arguments tool"></tool>');
+  });
 
-  it('escapes XML-sensitive characters in parameter descriptions', () => {
-    const provider = new TestProvider(configPresenter)
+  it("escapes XML-sensitive characters in parameter descriptions", () => {
+    const provider = new TestProvider(configPresenter);
     const xml = provider.renderToolsXml([
       {
-        type: 'function',
+        type: "function",
         function: {
-          name: 'escape_test',
-          description: 'Escape test',
+          name: "escape_test",
+          description: "Escape test",
           parameters: {
-            type: 'object',
+            type: "object",
             properties: {
               query: {
-                type: 'string',
-                description: 'He said "hi" & used <tag> > output'
-              }
-            }
-          }
+                type: "string",
+                description: 'He said "hi" & used <tag> > output',
+              },
+            },
+          },
         },
         server: {
-          name: 'deepchat',
-          icons: 'tool',
-          description: 'DeepChat tools'
-        }
-      }
-    ])
+          name: "deepchat",
+          icons: "tool",
+          description: "DeepChat tools",
+        },
+      },
+    ]);
 
-    expect(xml).toContain('description="He said &quot;hi&quot; &amp; used &lt;tag&gt; &gt; output"')
-  })
+    expect(xml).toContain('description="He said &quot;hi&quot; &amp; used &lt;tag&gt; &gt; output"');
+  });
 
-  it('updates the provider config through the default implementation', () => {
-    const provider = new TestProvider(configPresenter)
+  it("updates the provider config through the default implementation", () => {
+    const provider = new TestProvider(configPresenter);
 
     provider.updateConfig({
       ...provider.getProviderSnapshot(),
-      apiKey: 'updated-key',
-      baseUrl: 'https://example.com'
-    } as unknown as LLM_PROVIDER)
+      apiKey: "updated-key",
+      baseUrl: "https://example.com",
+    } as unknown as LLM_PROVIDER);
 
     expect(provider.getProviderSnapshot()).toEqual(
       expect.objectContaining({
-        apiKey: 'updated-key',
-        baseUrl: 'https://example.com'
-      })
-    )
-  })
-})
+        apiKey: "updated-key",
+        baseUrl: "https://example.com",
+      }),
+    );
+  });
+});

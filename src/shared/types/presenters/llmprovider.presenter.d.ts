@@ -1,10 +1,10 @@
-import { ShowResponse } from 'ollama'
-import type { ChatMessage } from '../core/chat-message'
-import { ModelType } from '../core/model'
-import type { NewApiEndpointType } from '@shared/model'
-import type { ImageGenerationOptions } from '../../imageGenerationSettings'
-import type { VideoGenerationOptions } from '../../videoGenerationSettings'
-import type { AcpDebugRequest, AcpDebugRunResult, AcpWorkdirInfo } from './legacy.presenters'
+import { ShowResponse } from "ollama";
+import type { ChatMessage } from "../core/chat-message";
+import { ModelType } from "../core/model";
+import type { NewApiEndpointType } from "@shared/model";
+import type { ImageGenerationOptions } from "../../imageGenerationSettings";
+import type { VideoGenerationOptions } from "../../videoGenerationSettings";
+import type { AcpDebugRequest, AcpDebugRunResult, AcpWorkdirInfo } from "./legacy.presenters";
 
 /**
  * LLM Provider Presenter Interface
@@ -12,301 +12,285 @@ import type { AcpDebugRequest, AcpDebugRunResult, AcpWorkdirInfo } from './legac
  */
 
 export type RENDERER_MODEL_META = {
-  id: string
-  name: string
-  group: string
-  providerId: string
-  enabled?: boolean
-  isCustom?: boolean
-  vision?: boolean
-  functionCall?: boolean
-  explicitFunctionCall?: boolean
-  reasoning?: boolean
-  enableSearch?: boolean
-  type?: ModelType
-  contextLength?: number
-  maxTokens?: number
-  description?: string
-  supportedEndpointTypes?: NewApiEndpointType[]
-  endpointType?: NewApiEndpointType
-  ownedBy?: string
-}
+  id: string;
+  name: string;
+  group: string;
+  providerId: string;
+  enabled?: boolean;
+  isCustom?: boolean;
+  vision?: boolean;
+  functionCall?: boolean;
+  explicitFunctionCall?: boolean;
+  reasoning?: boolean;
+  enableSearch?: boolean;
+  type?: ModelType;
+  contextLength?: number;
+  maxTokens?: number;
+  description?: string;
+  supportedEndpointTypes?: NewApiEndpointType[];
+  endpointType?: NewApiEndpointType;
+  ownedBy?: string;
+};
 
 export type MODEL_META = {
-  id: string
-  name: string
-  group: string
-  providerId: string
-  enabled?: boolean
-  isCustom?: boolean
-  vision?: boolean
-  functionCall?: boolean
-  reasoning?: boolean
-  enableSearch?: boolean
-  type?: ModelType
-  contextLength?: number
-  maxTokens?: number
-  description?: string
-  supportedEndpointTypes?: NewApiEndpointType[]
-  endpointType?: NewApiEndpointType
-  ownedBy?: string
-}
+  id: string;
+  name: string;
+  group: string;
+  providerId: string;
+  enabled?: boolean;
+  isCustom?: boolean;
+  vision?: boolean;
+  functionCall?: boolean;
+  reasoning?: boolean;
+  enableSearch?: boolean;
+  type?: ModelType;
+  contextLength?: number;
+  maxTokens?: number;
+  description?: string;
+  supportedEndpointTypes?: NewApiEndpointType[];
+  endpointType?: NewApiEndpointType;
+  ownedBy?: string;
+};
 
 export type LLM_PROVIDER = {
-  id: string
-  capabilityProviderId?: string
-  name: string
-  apiType: string
-  apiKey: string
-  copilotClientId?: string
-  baseUrl: string
-  models?: MODEL_META[]
-  customModels?: MODEL_META[]
-  enable: boolean
-  enabledModels?: string[]
-  disabledModels?: string[]
-  custom?: boolean
-  oauthToken?: string
+  id: string;
+  capabilityProviderId?: string;
+  name: string;
+  apiType: string;
+  apiKey: string;
+  copilotClientId?: string;
+  baseUrl: string;
+  models?: MODEL_META[];
+  customModels?: MODEL_META[];
+  enable: boolean;
+  enabledModels?: string[];
+  disabledModels?: string[];
+  custom?: boolean;
+  oauthToken?: string;
   websites?: {
-    official: string
-    apiKey: string
-    name?: string
-    icon?: string
-    docs?: string
-    models?: string
-    defaultBaseUrl?: string
-  }
+    official: string;
+    apiKey: string;
+    name?: string;
+    icon?: string;
+    docs?: string;
+    models?: string;
+    defaultBaseUrl?: string;
+  };
   rateLimit?: {
-    enabled: boolean
-    qpsLimit: number
-  }
+    enabled: boolean;
+    qpsLimit: number;
+  };
   rateLimitConfig?: {
-    enabled: boolean
-    qpsLimit: number
-  }
-}
+    enabled: boolean;
+    qpsLimit: number;
+  };
+};
 
-export type LLM_PROVIDER_BASE = Omit<
-  LLM_PROVIDER,
-  'models' | 'customModels' | 'enabledModels' | 'disabledModels'
-> & {
-  models?: MODEL_META[]
-  customModels?: MODEL_META[]
-  enabledModels?: string[]
-  disabledModels?: string[]
+export type LLM_PROVIDER_BASE = Omit<LLM_PROVIDER, "models" | "customModels" | "enabledModels" | "disabledModels"> & {
+  models?: MODEL_META[];
+  customModels?: MODEL_META[];
+  enabledModels?: string[];
+  disabledModels?: string[];
   websites?: {
-    official: string
-    apiKey: string
-    name?: string
-    icon?: string
-    docs?: string
-    models?: string
-    defaultBaseUrl?: string
-  }
-}
+    official: string;
+    apiKey: string;
+    name?: string;
+    icon?: string;
+    docs?: string;
+    models?: string;
+    defaultBaseUrl?: string;
+  };
+};
 
 export type LLM_EMBEDDING_ATTRS = {
-  dimensions: number
-  normalized: boolean
-}
+  dimensions: number;
+  normalized: boolean;
+};
 
 export type StandaloneImageGenerationResult = {
-  providerId: string
-  modelId: string
-  options?: ImageGenerationOptions
-  images: Array<{ data: string; mimeType: string }>
-}
+  providerId: string;
+  modelId: string;
+  options?: ImageGenerationOptions;
+  images: Array<{ data: string; mimeType: string }>;
+};
 
 export type StandaloneVideoGenerationResult = {
-  providerId: string
-  modelId: string
-  options?: VideoGenerationOptions
-  videos: Array<{ data: string; mimeType: string }>
-}
+  providerId: string;
+  modelId: string;
+  options?: VideoGenerationOptions;
+  videos: Array<{ data: string; mimeType: string }>;
+};
 
 export interface KeyStatus {
-  remainNum?: number
+  remainNum?: number;
   /** Remaining quota */
-  limit_remaining?: string
+  limit_remaining?: string;
   /** Used quota */
-  usage?: string
+  usage?: string;
 }
 
 export interface AwsBedrockCredential {
-  accessKeyId: string
-  secretAccessKey: string
-  region?: string
+  accessKeyId: string;
+  secretAccessKey: string;
+  region?: string;
 }
 
 export type AWS_BEDROCK_PROVIDER = LLM_PROVIDER & {
-  credential?: AwsBedrockCredential
-}
+  credential?: AwsBedrockCredential;
+};
 
 export type VERTEX_PROVIDER = LLM_PROVIDER & {
-  projectId?: string
-  location?: string
-  accountPrivateKey?: string
-  accountClientEmail?: string
-  apiVersion?: 'v1' | 'v1beta1'
-  endpointMode?: 'standard' | 'express'
-}
+  projectId?: string;
+  location?: string;
+  accountPrivateKey?: string;
+  accountClientEmail?: string;
+  apiVersion?: "v1" | "v1beta1";
+  endpointMode?: "standard" | "express";
+};
 
 export interface OllamaModel {
-  name: string
-  model?: string
-  size: number
-  digest: string
-  modified_at: string | Date
+  name: string;
+  model?: string;
+  size: number;
+  digest: string;
+  modified_at: string | Date;
   details: {
-    format: string
-    family: string
-    families?: string[]
-    parameter_size: string
-    quantization_level: string
-  }
+    format: string;
+    family: string;
+    families?: string[];
+    parameter_size: string;
+    quantization_level: string;
+  };
   model_info?: {
-    context_length?: number
-    embedding_length?: number
+    context_length?: number;
+    embedding_length?: number;
     vision?: {
-      embedding_length: number
-    }
+      embedding_length: number;
+    };
     general?: {
-      architecture?: string
-      file_type?: string
-      parameter_count?: number
-      quantization_version?: number
-    }
-  }
-  capabilities?: string[]
+      architecture?: string;
+      file_type?: string;
+      parameter_count?: number;
+      quantization_version?: number;
+    };
+  };
+  capabilities?: string[];
 }
 
 export interface ModelScopeMcpSyncOptions {
-  timeout?: number
-  retryCount?: number
+  timeout?: number;
+  retryCount?: number;
 }
 
 export interface ModelScopeMcpSyncResult {
-  success: boolean
-  message: string
-  synced: number
-  imported: number
-  skipped: number
-  errors: string[]
+  success: boolean;
+  message: string;
+  synced: number;
+  imported: number;
+  skipped: number;
+  errors: string[];
 }
 
 export type RateLimitQueueSnapshot = {
-  providerId: string
-  qpsLimit: number
-  currentQps: number
-  queueLength: number
-  estimatedWaitTime: number
-}
+  providerId: string;
+  qpsLimit: number;
+  currentQps: number;
+  queueLength: number;
+  estimatedWaitTime: number;
+};
 
 export type AcpConfigOptionValue = {
-  value: string
-  label: string
-  description?: string | null
-  groupId?: string | null
-  groupLabel?: string | null
-}
+  value: string;
+  label: string;
+  description?: string | null;
+  groupId?: string | null;
+  groupLabel?: string | null;
+};
 
 export type AcpConfigOption = {
-  id: string
-  label: string
-  description?: string | null
-  type: 'select' | 'boolean'
-  category?: string | null
-  currentValue: string | boolean
-  options?: AcpConfigOptionValue[]
-}
+  id: string;
+  label: string;
+  description?: string | null;
+  type: "select" | "boolean";
+  category?: string | null;
+  currentValue: string | boolean;
+  options?: AcpConfigOptionValue[];
+};
 
 export type AcpConfigState = {
-  source: 'configOptions' | 'legacy'
-  options: AcpConfigOption[]
-}
+  source: "configOptions" | "legacy";
+  options: AcpConfigOption[];
+};
 
 export interface ILlmProviderPresenter {
-  setProviders(provider: LLM_PROVIDER[]): void
-  getProviders(): LLM_PROVIDER[]
-  getProviderById(id: string): LLM_PROVIDER
-  getProviderInstance(providerId: string): unknown
-  getExistingProviderInstance(providerId: string): unknown
-  getModelList(providerId: string): Promise<MODEL_META[]>
-  updateModelStatus(providerId: string, modelId: string, enabled: boolean): Promise<void>
-  batchUpdateModelStatus(
-    providerId: string,
-    updates: { modelId: string; enabled: boolean }[]
-  ): Promise<void>
-  addCustomModel(
-    providerId: string,
-    model: Omit<MODEL_META, 'providerId' | 'isCustom' | 'group'>
-  ): Promise<MODEL_META>
-  removeCustomModel(providerId: string, modelId: string): Promise<boolean>
-  updateCustomModel(
-    providerId: string,
-    modelId: string,
-    updates: Partial<MODEL_META>
-  ): Promise<boolean>
-  getCustomModels(providerId: string): Promise<MODEL_META[]>
+  setProviders(provider: LLM_PROVIDER[]): void;
+  getProviders(): LLM_PROVIDER[];
+  getProviderById(id: string): LLM_PROVIDER;
+  getProviderInstance(providerId: string): unknown;
+  getExistingProviderInstance(providerId: string): unknown;
+  getModelList(providerId: string): Promise<MODEL_META[]>;
+  updateModelStatus(providerId: string, modelId: string, enabled: boolean): Promise<void>;
+  batchUpdateModelStatus(providerId: string, updates: { modelId: string; enabled: boolean }[]): Promise<void>;
+  addCustomModel(providerId: string, model: Omit<MODEL_META, "providerId" | "isCustom" | "group">): Promise<MODEL_META>;
+  removeCustomModel(providerId: string, modelId: string): Promise<boolean>;
+  updateCustomModel(providerId: string, modelId: string, updates: Partial<MODEL_META>): Promise<boolean>;
+  getCustomModels(providerId: string): Promise<MODEL_META[]>;
   generateCompletion(
     providerId: string,
-    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    messages: { role: "system" | "user" | "assistant"; content: string }[],
     modelId: string,
     temperature?: number,
-    maxTokens?: number
-  ): Promise<string>
+    maxTokens?: number,
+  ): Promise<string>;
   generateText(
     providerId: string,
     prompt: string,
     modelId: string,
     temperature?: number,
-    maxTokens?: number
-  ): Promise<{ content: string }>
-  stopStream(eventId: string): Promise<void>
-  check(providerId: string, modelId?: string): Promise<{ isOk: boolean; errorMsg: string | null }>
-  getKeyStatus(providerId: string): Promise<KeyStatus | null>
-  refreshModels(providerId: string): Promise<void>
+    maxTokens?: number,
+  ): Promise<{ content: string }>;
+  stopStream(eventId: string): Promise<void>;
+  check(providerId: string, modelId?: string): Promise<{ isOk: boolean; errorMsg: string | null }>;
+  getKeyStatus(providerId: string): Promise<KeyStatus | null>;
+  refreshModels(providerId: string): Promise<void>;
   summaryTitles(
-    messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+    messages: { role: "system" | "user" | "assistant"; content: string }[],
     providerId: string,
-    modelId: string
-  ): Promise<string>
-  listOllamaModels(providerId: string): Promise<OllamaModel[]>
-  showOllamaModelInfo(providerId: string, modelName: string): Promise<ShowResponse>
-  listOllamaRunningModels(providerId: string): Promise<OllamaModel[]>
-  pullOllamaModels(providerId: string, modelName: string): Promise<boolean>
-  getEmbeddings(providerId: string, modelId: string, texts: string[]): Promise<number[][]>
-  getDimensions(
-    providerId: string,
-    modelId: string
-  ): Promise<{ data: LLM_EMBEDDING_ATTRS; errorMsg?: string }>
-  updateProviderRateLimit(providerId: string, enabled: boolean, qpsLimit: number): void
+    modelId: string,
+  ): Promise<string>;
+  listOllamaModels(providerId: string): Promise<OllamaModel[]>;
+  showOllamaModelInfo(providerId: string, modelName: string): Promise<ShowResponse>;
+  listOllamaRunningModels(providerId: string): Promise<OllamaModel[]>;
+  pullOllamaModels(providerId: string, modelName: string): Promise<boolean>;
+  getEmbeddings(providerId: string, modelId: string, texts: string[]): Promise<number[][]>;
+  getDimensions(providerId: string, modelId: string): Promise<{ data: LLM_EMBEDDING_ATTRS; errorMsg?: string }>;
+  updateProviderRateLimit(providerId: string, enabled: boolean, qpsLimit: number): void;
   getProviderRateLimitStatus(providerId: string): {
-    config: { enabled: boolean; qpsLimit: number }
-    currentQps: number
-    queueLength: number
-    lastRequestTime: number
-  }
+    config: { enabled: boolean; qpsLimit: number };
+    currentQps: number;
+    queueLength: number;
+    lastRequestTime: number;
+  };
   getAllProviderRateLimitStatus(): Record<
     string,
     {
-      config: { enabled: boolean; qpsLimit: number }
-      currentQps: number
-      queueLength: number
-      lastRequestTime: number
+      config: { enabled: boolean; qpsLimit: number };
+      currentQps: number;
+      queueLength: number;
+      lastRequestTime: number;
     }
-  >
+  >;
   executeWithRateLimit(
     providerId: string,
     options?: {
-      signal?: AbortSignal
-      onQueued?: (snapshot: RateLimitQueueSnapshot) => void
-    }
-  ): Promise<void>
+      signal?: AbortSignal;
+      onQueued?: (snapshot: RateLimitQueueSnapshot) => void;
+    },
+  ): Promise<void>;
   syncModelScopeMcpServers(
     providerId: string,
-    syncOptions?: ModelScopeMcpSyncOptions
-  ): Promise<ModelScopeMcpSyncResult>
+    syncOptions?: ModelScopeMcpSyncOptions,
+  ): Promise<ModelScopeMcpSyncResult>;
 
   generateCompletionStandalone(
     providerId: string,
@@ -314,8 +298,8 @@ export interface ILlmProviderPresenter {
     modelId: string,
     temperature?: number,
     maxTokens?: number,
-    options?: { signal?: AbortSignal; swallowErrors?: boolean }
-  ): Promise<string>
+    options?: { signal?: AbortSignal; swallowErrors?: boolean },
+  ): Promise<string>;
 
   transcribeAudioStandalone(
     providerId: string,
@@ -323,60 +307,60 @@ export interface ILlmProviderPresenter {
     audioBase64: string,
     mimeType: string,
     filename?: string,
-    options?: { signal?: AbortSignal }
-  ): Promise<string>
+    options?: { signal?: AbortSignal },
+  ): Promise<string>;
 
   generateImageStandalone(
     providerId: string,
     prompt: string,
     modelId: string,
     imageOptions?: ImageGenerationOptions,
-    options?: { signal?: AbortSignal }
-  ): Promise<StandaloneImageGenerationResult>
+    options?: { signal?: AbortSignal },
+  ): Promise<StandaloneImageGenerationResult>;
 
   generateVideoStandalone(
     providerId: string,
     prompt: string,
     modelId: string,
     videoOptions?: VideoGenerationOptions,
-    options?: { signal?: AbortSignal }
-  ): Promise<StandaloneVideoGenerationResult>
+    options?: { signal?: AbortSignal },
+  ): Promise<StandaloneVideoGenerationResult>;
 
-  getAcpWorkdir(conversationId: string, agentId: string): Promise<AcpWorkdirInfo>
-  setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void>
-  warmupAcpProcess(agentId: string, workdir?: string): Promise<void>
+  getAcpWorkdir(conversationId: string, agentId: string): Promise<AcpWorkdirInfo>;
+  setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void>;
+  warmupAcpProcess(agentId: string, workdir?: string): Promise<void>;
   getAcpProcessModes(
     agentId: string,
-    workdir?: string
+    workdir?: string,
   ): Promise<
     | {
-        availableModes?: Array<{ id: string; name: string; description: string }>
-        currentModeId?: string
+        availableModes?: Array<{ id: string; name: string; description: string }>;
+        currentModeId?: string;
       }
     | undefined
-  >
-  getAcpProcessConfigOptions(agentId: string, workdir?: string): Promise<AcpConfigState | null>
-  setAcpPreferredProcessMode(agentId: string, workdir: string, modeId: string): Promise<void>
-  setAcpSessionMode(conversationId: string, modeId: string): Promise<void>
-  prepareAcpSession(conversationId: string, agentId: string, workdir: string): Promise<void>
+  >;
+  getAcpProcessConfigOptions(agentId: string, workdir?: string): Promise<AcpConfigState | null>;
+  setAcpPreferredProcessMode(agentId: string, workdir: string, modeId: string): Promise<void>;
+  setAcpSessionMode(conversationId: string, modeId: string): Promise<void>;
+  prepareAcpSession(conversationId: string, agentId: string, workdir: string): Promise<void>;
   getAcpSessionModes(conversationId: string): Promise<{
-    current: string
-    available: Array<{ id: string; name: string; description: string }>
-  } | null>
-  getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null>
+    current: string;
+    available: Array<{ id: string; name: string; description: string }>;
+  } | null>;
+  getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null>;
   setAcpSessionConfigOption(
     conversationId: string,
     configId: string,
-    value: string | boolean
-  ): Promise<AcpConfigState | null>
+    value: string | boolean,
+  ): Promise<AcpConfigState | null>;
   getAcpSessionCommands(conversationId: string): Promise<
     Array<{
-      name: string
-      description: string
-      input?: { hint: string } | null
+      name: string;
+      description: string;
+      input?: { hint: string } | null;
     }>
-  >
-  runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult>
-  resolveAgentPermission(requestId: string, granted: boolean): Promise<void>
-  clearAcpSession(conversationId: string): Promise<void>
+  >;
+  runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
+  resolveAgentPermission(requestId: string, granted: boolean): Promise<void>;
+  clearAcpSession(conversationId: string): Promise<void>;
 }

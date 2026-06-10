@@ -1,8 +1,8 @@
 interface MinimizeIconProps {
-  fill?: string
+  fill?: string;
 }
 
-export default function MinimizeIcon({ fill = 'currentColor' }: MinimizeIconProps) {
+export default function MinimizeIcon({ fill = "currentColor" }: MinimizeIconProps) {
   return (
     <svg width="10" height="1" viewBox="0 0 10 1" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -10,5 +10,5 @@ export default function MinimizeIcon({ fill = 'currentColor' }: MinimizeIconProp
         fill={fill}
       />
     </svg>
-  )
+  );
 }

@@ -1,7 +1,7 @@
-import { useStore } from '@tanstack/react-store'
-import { Icon } from '@iconify/react'
-import { Input } from '@shadcn/components/ui/input'
-import { Slider } from '@shadcn/components/ui/slider'
+import { useStore } from "@tanstack/react-store";
+import { Icon } from "@iconify/react";
+import { Input } from "@shadcn/components/ui/input";
+import { Slider } from "@shadcn/components/ui/slider";
 import {
   AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MAX,
   AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MIN,
@@ -11,45 +11,39 @@ import {
   uiSettingsStore,
   setAutoCompactionEnabled,
   setAutoCompactionTriggerThreshold,
-  setAutoCompactionRetainRecentPairs
-} from '@/stores/uiSettingsStore'
-import SettingToggleRow from './SettingToggleRow'
+  setAutoCompactionRetainRecentPairs,
+} from "@/stores/uiSettingsStore";
+import SettingToggleRow from "./SettingToggleRow";
 
 export default function AutoCompactionSettingsSection() {
-  const autoCompactionEnabled = useStore(uiSettingsStore, (s) => s.autoCompactionEnabled)
-  const autoCompactionTriggerThreshold = useStore(
-    uiSettingsStore,
-    (s) => s.autoCompactionTriggerThreshold
-  )
-  const autoCompactionRetainRecentPairs = useStore(
-    uiSettingsStore,
-    (s) => s.autoCompactionRetainRecentPairs
-  )
-  const controlsDisabled = !autoCompactionEnabled
-  const thresholdDisplay = `${autoCompactionTriggerThreshold}%`
+  const autoCompactionEnabled = useStore(uiSettingsStore, (s) => s.autoCompactionEnabled);
+  const autoCompactionTriggerThreshold = useStore(uiSettingsStore, (s) => s.autoCompactionTriggerThreshold);
+  const autoCompactionRetainRecentPairs = useStore(uiSettingsStore, (s) => s.autoCompactionRetainRecentPairs);
+  const controlsDisabled = !autoCompactionEnabled;
+  const thresholdDisplay = `${autoCompactionTriggerThreshold}%`;
 
   const handleEnabledChange = (value: boolean) => {
-    void setAutoCompactionEnabled(value)
-  }
+    void setAutoCompactionEnabled(value);
+  };
 
   const handleThresholdChange = (value: number[] | undefined) => {
-    const nextValue = value?.[0]
-    if (typeof nextValue !== 'number' || Number.isNaN(nextValue)) {
-      return
+    const nextValue = value?.[0];
+    if (typeof nextValue !== "number" || Number.isNaN(nextValue)) {
+      return;
     }
-    void setAutoCompactionTriggerThreshold(nextValue)
-  }
+    void setAutoCompactionTriggerThreshold(nextValue);
+  };
 
   const handleRetainRecentPairsInput = (value: string | number) => {
-    if (value === '') {
-      return
+    if (value === "") {
+      return;
     }
-    const parsed = typeof value === 'string' ? Number(value) : value
+    const parsed = typeof value === "string" ? Number(value) : value;
     if (!Number.isFinite(parsed)) {
-      return
+      return;
     }
-    void setAutoCompactionRetainRecentPairs(parsed)
-  }
+    void setAutoCompactionRetainRecentPairs(parsed);
+  };
 
   return (
     <section className="flex flex-col gap-2 py-2">
@@ -72,10 +66,7 @@ export default function AutoCompactionSettingsSection() {
             Automatically compact conversations to manage context window usage.
           </p>
 
-          <div
-            className="flex flex-col gap-4 pl-6"
-            style={{ opacity: controlsDisabled ? 0.6 : undefined }}
-          >
+          <div className="flex flex-col gap-4 pl-6" style={{ opacity: controlsDisabled ? 0.6 : undefined }}>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium">Compaction threshold</span>
@@ -108,7 +99,7 @@ export default function AutoCompactionSettingsSection() {
                 <span className="text-sm font-medium">Recent pairs to retain</span>
                 <span className="text-xs text-muted-foreground">
                   {autoCompactionRetainRecentPairs} pair
-                  {autoCompactionRetainRecentPairs !== 1 ? 's' : ''}
+                  {autoCompactionRetainRecentPairs !== 1 ? "s" : ""}
                 </span>
               </div>
 
@@ -134,5 +125,5 @@ export default function AutoCompactionSettingsSection() {
         </div>
       </div>
     </section>
-  )
+  );
 }

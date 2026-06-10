@@ -1,5 +1,5 @@
-import { z } from 'zod'
-import { AgentBootstrapItemSchema, TimestampMsSchema, defineRouteContract } from '../common'
+import { z } from "zod";
+import { AgentBootstrapItemSchema, TimestampMsSchema, defineRouteContract } from "../common";
 import {
   AcpAgentConfigSchema,
   BuiltinKnowledgeConfigSchema,
@@ -11,42 +11,42 @@ import {
   PromptSchema,
   ShortcutKeySettingSchema,
   SystemPromptSchema,
-  ThemeModeSchema
-} from '../domainSchemas'
+  ThemeModeSchema,
+} from "../domainSchemas";
 
 const AgentInstallStateSchema = z
   .object({
-    status: z.enum(['not_installed', 'installing', 'installed', 'error']),
-    distributionType: z.enum(['binary', 'npx', 'uvx', 'manual']).nullable().optional(),
+    status: z.enum(["not_installed", "installing", "installed", "error"]),
+    distributionType: z.enum(["binary", "npx", "uvx", "manual"]).nullable().optional(),
     version: z.string().nullable().optional(),
     installedAt: TimestampMsSchema.nullable().optional(),
     lastCheckedAt: TimestampMsSchema.nullable().optional(),
     installDir: z.string().nullable().optional(),
-    error: z.string().nullable().optional()
+    error: z.string().nullable().optional(),
   })
-  .passthrough()
+  .passthrough();
 
 const AgentSchema = AgentBootstrapItemSchema.extend({
   config: DeepChatAgentConfigSchema.nullable().optional(),
-  installState: AgentInstallStateSchema.nullable().optional()
-})
+  installState: AgentInstallStateSchema.nullable().optional(),
+});
 
 export const CONFIG_ENTRY_KEYS = [
-  'init_complete',
-  'preferredModel',
-  'defaultModel',
-  'default_system_prompt',
-  'input_deepThinking',
-  'input_chatMode',
-  'think_collapse',
-  'artifact_think_collapse',
-  'providerOrder',
-  'providerTimestamps',
-  'sidebar_group_mode',
-  'input_enabledMcpTools'
-] as const
+  "init_complete",
+  "preferredModel",
+  "defaultModel",
+  "default_system_prompt",
+  "input_deepThinking",
+  "input_chatMode",
+  "think_collapse",
+  "artifact_think_collapse",
+  "providerOrder",
+  "providerTimestamps",
+  "sidebar_group_mode",
+  "input_enabledMcpTools",
+] as const;
 
-export const ConfigEntryKeySchema = z.enum(CONFIG_ENTRY_KEYS)
+export const ConfigEntryKeySchema = z.enum(CONFIG_ENTRY_KEYS);
 
 export const ConfigEntryValuesSchema = z.object({
   init_complete: z.boolean(),
@@ -60,463 +60,463 @@ export const ConfigEntryValuesSchema = z.object({
   providerOrder: z.array(z.string()),
   providerTimestamps: z.record(z.string(), z.number().int()),
   sidebar_group_mode: z.string(),
-  input_enabledMcpTools: z.array(z.string())
-})
+  input_enabledMcpTools: z.array(z.string()),
+});
 
-export const ConfigEntryChangeSchema = z.discriminatedUnion('key', [
+export const ConfigEntryChangeSchema = z.discriminatedUnion("key", [
   z.object({
-    key: z.literal('init_complete'),
-    value: z.boolean()
+    key: z.literal("init_complete"),
+    value: z.boolean(),
   }),
   z.object({
-    key: z.literal('preferredModel'),
-    value: ModelSelectionSchema
+    key: z.literal("preferredModel"),
+    value: ModelSelectionSchema,
   }),
   z.object({
-    key: z.literal('defaultModel'),
-    value: ModelSelectionSchema
+    key: z.literal("defaultModel"),
+    value: ModelSelectionSchema,
   }),
   z.object({
-    key: z.literal('default_system_prompt'),
-    value: z.string()
+    key: z.literal("default_system_prompt"),
+    value: z.string(),
   }),
   z.object({
-    key: z.literal('input_deepThinking'),
-    value: z.boolean()
+    key: z.literal("input_deepThinking"),
+    value: z.boolean(),
   }),
   z.object({
-    key: z.literal('input_chatMode'),
-    value: z.string()
+    key: z.literal("input_chatMode"),
+    value: z.string(),
   }),
   z.object({
-    key: z.literal('think_collapse'),
-    value: z.boolean()
+    key: z.literal("think_collapse"),
+    value: z.boolean(),
   }),
   z.object({
-    key: z.literal('artifact_think_collapse'),
-    value: z.boolean()
+    key: z.literal("artifact_think_collapse"),
+    value: z.boolean(),
   }),
   z.object({
-    key: z.literal('providerOrder'),
-    value: z.array(z.string())
+    key: z.literal("providerOrder"),
+    value: z.array(z.string()),
   }),
   z.object({
-    key: z.literal('providerTimestamps'),
-    value: z.record(z.string(), z.number().int())
+    key: z.literal("providerTimestamps"),
+    value: z.record(z.string(), z.number().int()),
   }),
   z.object({
-    key: z.literal('sidebar_group_mode'),
-    value: z.string()
+    key: z.literal("sidebar_group_mode"),
+    value: z.string(),
   }),
   z.object({
-    key: z.literal('input_enabledMcpTools'),
-    value: z.array(z.string())
-  })
-])
+    key: z.literal("input_enabledMcpTools"),
+    value: z.array(z.string()),
+  }),
+]);
 
 export const configGetEntriesRoute = defineRouteContract({
-  name: 'config.getEntries',
+  name: "config.getEntries",
   input: z
     .object({
-      keys: z.array(ConfigEntryKeySchema).optional()
+      keys: z.array(ConfigEntryKeySchema).optional(),
     })
     .default({}),
   output: z.object({
     version: TimestampMsSchema,
-    values: ConfigEntryValuesSchema.partial()
-  })
-})
+    values: ConfigEntryValuesSchema.partial(),
+  }),
+});
 
 export const configUpdateEntriesRoute = defineRouteContract({
-  name: 'config.updateEntries',
+  name: "config.updateEntries",
   input: z.object({
-    changes: z.array(ConfigEntryChangeSchema).min(1)
+    changes: z.array(ConfigEntryChangeSchema).min(1),
   }),
   output: z.object({
     version: TimestampMsSchema,
     changedKeys: z.array(ConfigEntryKeySchema).min(1),
-    values: ConfigEntryValuesSchema.partial()
-  })
-})
+    values: ConfigEntryValuesSchema.partial(),
+  }),
+});
 
 export const configGetLanguageRoute = defineRouteContract({
-  name: 'config.getLanguage',
+  name: "config.getLanguage",
   input: z.object({}).default({}),
   output: z.object({
     requestedLanguage: z.string(),
     locale: z.string(),
-    direction: LanguageDirectionSchema
-  })
-})
+    direction: LanguageDirectionSchema,
+  }),
+});
 
 export const configSetLanguageRoute = defineRouteContract({
-  name: 'config.setLanguage',
+  name: "config.setLanguage",
   input: z.object({
-    language: z.string().min(1)
+    language: z.string().min(1),
   }),
   output: z.object({
     requestedLanguage: z.string(),
     locale: z.string(),
-    direction: LanguageDirectionSchema
-  })
-})
+    direction: LanguageDirectionSchema,
+  }),
+});
 
 export const configGetThemeRoute = defineRouteContract({
-  name: 'config.getTheme',
+  name: "config.getTheme",
   input: z.object({}).default({}),
   output: z.object({
     theme: ThemeModeSchema,
-    isDark: z.boolean()
-  })
-})
+    isDark: z.boolean(),
+  }),
+});
 
 export const configSetThemeRoute = defineRouteContract({
-  name: 'config.setTheme',
+  name: "config.setTheme",
   input: z.object({
-    theme: ThemeModeSchema
+    theme: ThemeModeSchema,
   }),
   output: z.object({
     theme: ThemeModeSchema,
-    isDark: z.boolean()
-  })
-})
+    isDark: z.boolean(),
+  }),
+});
 
 export const configGetFloatingButtonRoute = defineRouteContract({
-  name: 'config.getFloatingButton',
-  input: z.object({}).default({}),
-  output: z.object({
-    enabled: z.boolean()
-  })
-})
-
-export const configSetFloatingButtonRoute = defineRouteContract({
-  name: 'config.setFloatingButton',
-  input: z.object({
-    enabled: z.boolean()
-  }),
-  output: z.object({
-    enabled: z.boolean()
-  })
-})
-
-export const configGetSyncSettingsRoute = defineRouteContract({
-  name: 'config.getSyncSettings',
+  name: "config.getFloatingButton",
   input: z.object({}).default({}),
   output: z.object({
     enabled: z.boolean(),
-    folderPath: z.string()
-  })
-})
+  }),
+});
+
+export const configSetFloatingButtonRoute = defineRouteContract({
+  name: "config.setFloatingButton",
+  input: z.object({
+    enabled: z.boolean(),
+  }),
+  output: z.object({
+    enabled: z.boolean(),
+  }),
+});
+
+export const configGetSyncSettingsRoute = defineRouteContract({
+  name: "config.getSyncSettings",
+  input: z.object({}).default({}),
+  output: z.object({
+    enabled: z.boolean(),
+    folderPath: z.string(),
+  }),
+});
 
 export const configUpdateSyncSettingsRoute = defineRouteContract({
-  name: 'config.updateSyncSettings',
+  name: "config.updateSyncSettings",
   input: z
     .object({
       enabled: z.boolean().optional(),
-      folderPath: z.string().optional()
+      folderPath: z.string().optional(),
     })
     .refine((input) => input.enabled !== undefined || input.folderPath !== undefined, {
-      message: 'At least one sync setting must be provided'
+      message: "At least one sync setting must be provided",
     }),
   output: z.object({
     enabled: z.boolean(),
-    folderPath: z.string()
-  })
-})
+    folderPath: z.string(),
+  }),
+});
 
 export const configGetDefaultProjectPathRoute = defineRouteContract({
-  name: 'config.getDefaultProjectPath',
+  name: "config.getDefaultProjectPath",
   input: z.object({}).default({}),
   output: z.object({
-    path: z.string().nullable()
-  })
-})
+    path: z.string().nullable(),
+  }),
+});
 
 export const configSetDefaultProjectPathRoute = defineRouteContract({
-  name: 'config.setDefaultProjectPath',
+  name: "config.setDefaultProjectPath",
   input: z.object({
-    path: z.string().nullable()
+    path: z.string().nullable(),
   }),
   output: z.object({
-    path: z.string().nullable()
-  })
-})
+    path: z.string().nullable(),
+  }),
+});
 
 export const configGetShortcutKeysRoute = defineRouteContract({
-  name: 'config.getShortcutKeys',
+  name: "config.getShortcutKeys",
   input: z.object({}).default({}),
   output: z.object({
-    shortcuts: ShortcutKeySettingSchema
-  })
-})
+    shortcuts: ShortcutKeySettingSchema,
+  }),
+});
 
 export const configSetShortcutKeysRoute = defineRouteContract({
-  name: 'config.setShortcutKeys',
+  name: "config.setShortcutKeys",
   input: z.object({
-    shortcuts: ShortcutKeySettingSchema
+    shortcuts: ShortcutKeySettingSchema,
   }),
   output: z.object({
-    shortcuts: ShortcutKeySettingSchema
-  })
-})
+    shortcuts: ShortcutKeySettingSchema,
+  }),
+});
 
 export const configResetShortcutKeysRoute = defineRouteContract({
-  name: 'config.resetShortcutKeys',
+  name: "config.resetShortcutKeys",
   input: z.object({}).default({}),
   output: z.object({
-    shortcuts: ShortcutKeySettingSchema
-  })
-})
+    shortcuts: ShortcutKeySettingSchema,
+  }),
+});
 
 export const configListCustomPromptsRoute = defineRouteContract({
-  name: 'config.listCustomPrompts',
+  name: "config.listCustomPrompts",
   input: z.object({}).default({}),
   output: z.object({
-    prompts: z.array(PromptSchema)
-  })
-})
+    prompts: z.array(PromptSchema),
+  }),
+});
 
 export const configSetCustomPromptsRoute = defineRouteContract({
-  name: 'config.setCustomPrompts',
+  name: "config.setCustomPrompts",
   input: z.object({
-    prompts: z.array(PromptSchema)
+    prompts: z.array(PromptSchema),
   }),
   output: z.object({
-    prompts: z.array(PromptSchema)
-  })
-})
+    prompts: z.array(PromptSchema),
+  }),
+});
 
 export const configAddCustomPromptRoute = defineRouteContract({
-  name: 'config.addCustomPrompt',
+  name: "config.addCustomPrompt",
   input: z.object({
-    prompt: PromptSchema
+    prompt: PromptSchema,
   }),
   output: z.object({
-    prompts: z.array(PromptSchema)
-  })
-})
+    prompts: z.array(PromptSchema),
+  }),
+});
 
 export const configUpdateCustomPromptRoute = defineRouteContract({
-  name: 'config.updateCustomPrompt',
+  name: "config.updateCustomPrompt",
   input: z.object({
     promptId: z.string().min(1),
-    updates: PromptSchema.partial()
+    updates: PromptSchema.partial(),
   }),
   output: z.object({
-    prompts: z.array(PromptSchema)
-  })
-})
+    prompts: z.array(PromptSchema),
+  }),
+});
 
 export const configDeleteCustomPromptRoute = defineRouteContract({
-  name: 'config.deleteCustomPrompt',
-  input: z.object({
-    promptId: z.string().min(1)
-  }),
-  output: z.object({
-    prompts: z.array(PromptSchema)
-  })
-})
-
-export const configGetSystemPromptsRoute = defineRouteContract({
-  name: 'config.getSystemPrompts',
-  input: z.object({}).default({}),
-  output: z.object({
-    prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configSetSystemPromptsRoute = defineRouteContract({
-  name: 'config.setSystemPrompts',
-  input: z.object({
-    prompts: z.array(SystemPromptSchema)
-  }),
-  output: z.object({
-    prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configAddSystemPromptRoute = defineRouteContract({
-  name: 'config.addSystemPrompt',
-  input: z.object({
-    prompt: SystemPromptSchema
-  }),
-  output: z.object({
-    prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configUpdateSystemPromptRoute = defineRouteContract({
-  name: 'config.updateSystemPrompt',
+  name: "config.deleteCustomPrompt",
   input: z.object({
     promptId: z.string().min(1),
-    updates: SystemPromptSchema.partial()
   }),
+  output: z.object({
+    prompts: z.array(PromptSchema),
+  }),
+});
+
+export const configGetSystemPromptsRoute = defineRouteContract({
+  name: "config.getSystemPrompts",
+  input: z.object({}).default({}),
   output: z.object({
     prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configDeleteSystemPromptRoute = defineRouteContract({
-  name: 'config.deleteSystemPrompt',
-  input: z.object({
-    promptId: z.string().min(1)
+    defaultPromptId: z.string(),
   }),
-  output: z.object({
+});
+
+export const configSetSystemPromptsRoute = defineRouteContract({
+  name: "config.setSystemPrompts",
+  input: z.object({
     prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configGetDefaultSystemPromptRoute = defineRouteContract({
-  name: 'config.getDefaultSystemPrompt',
-  input: z.object({}).default({}),
-  output: z.object({
-    prompt: z.string(),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configSetDefaultSystemPromptRoute = defineRouteContract({
-  name: 'config.setDefaultSystemPrompt',
-  input: z.object({
-    prompt: z.string()
-  }),
-  output: z.object({
-    prompt: z.string(),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configResetDefaultSystemPromptRoute = defineRouteContract({
-  name: 'config.resetDefaultSystemPrompt',
-  input: z.object({}).default({}),
-  output: z.object({
-    prompt: z.string(),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configClearDefaultSystemPromptRoute = defineRouteContract({
-  name: 'config.clearDefaultSystemPrompt',
-  input: z.object({}).default({}),
-  output: z.object({
-    prompt: z.string(),
-    defaultPromptId: z.string()
-  })
-})
-
-export const configSetDefaultSystemPromptIdRoute = defineRouteContract({
-  name: 'config.setDefaultSystemPromptId',
-  input: z.object({
-    promptId: z.string().min(1)
   }),
   output: z.object({
     prompts: z.array(SystemPromptSchema),
     defaultPromptId: z.string(),
-    prompt: z.string()
-  })
-})
+  }),
+});
+
+export const configAddSystemPromptRoute = defineRouteContract({
+  name: "config.addSystemPrompt",
+  input: z.object({
+    prompt: SystemPromptSchema,
+  }),
+  output: z.object({
+    prompts: z.array(SystemPromptSchema),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configUpdateSystemPromptRoute = defineRouteContract({
+  name: "config.updateSystemPrompt",
+  input: z.object({
+    promptId: z.string().min(1),
+    updates: SystemPromptSchema.partial(),
+  }),
+  output: z.object({
+    prompts: z.array(SystemPromptSchema),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configDeleteSystemPromptRoute = defineRouteContract({
+  name: "config.deleteSystemPrompt",
+  input: z.object({
+    promptId: z.string().min(1),
+  }),
+  output: z.object({
+    prompts: z.array(SystemPromptSchema),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configGetDefaultSystemPromptRoute = defineRouteContract({
+  name: "config.getDefaultSystemPrompt",
+  input: z.object({}).default({}),
+  output: z.object({
+    prompt: z.string(),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configSetDefaultSystemPromptRoute = defineRouteContract({
+  name: "config.setDefaultSystemPrompt",
+  input: z.object({
+    prompt: z.string(),
+  }),
+  output: z.object({
+    prompt: z.string(),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configResetDefaultSystemPromptRoute = defineRouteContract({
+  name: "config.resetDefaultSystemPrompt",
+  input: z.object({}).default({}),
+  output: z.object({
+    prompt: z.string(),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configClearDefaultSystemPromptRoute = defineRouteContract({
+  name: "config.clearDefaultSystemPrompt",
+  input: z.object({}).default({}),
+  output: z.object({
+    prompt: z.string(),
+    defaultPromptId: z.string(),
+  }),
+});
+
+export const configSetDefaultSystemPromptIdRoute = defineRouteContract({
+  name: "config.setDefaultSystemPromptId",
+  input: z.object({
+    promptId: z.string().min(1),
+  }),
+  output: z.object({
+    prompts: z.array(SystemPromptSchema),
+    defaultPromptId: z.string(),
+    prompt: z.string(),
+  }),
+});
 
 export const configGetAcpStateRoute = defineRouteContract({
-  name: 'config.getAcpState',
+  name: "config.getAcpState",
   input: z.object({}).default({}),
   output: z.object({
     enabled: z.boolean(),
-    agents: z.array(AcpAgentConfigSchema)
-  })
-})
+    agents: z.array(AcpAgentConfigSchema),
+  }),
+});
 
 export const configListAgentsRoute = defineRouteContract({
-  name: 'config.listAgents',
+  name: "config.listAgents",
   input: z
     .object({
-      agentType: z.enum(['deepchat', 'acp']).optional(),
-      ids: z.array(z.string().min(1)).optional()
+      agentType: z.enum(["deepchat", "acp"]).optional(),
+      ids: z.array(z.string().min(1)).optional(),
     })
     .default({}),
   output: z.object({
-    agents: z.array(AgentSchema)
-  })
-})
+    agents: z.array(AgentSchema),
+  }),
+});
 
 export const configResolveDeepChatAgentConfigRoute = defineRouteContract({
-  name: 'config.resolveDeepChatAgentConfig',
-  input: z.object({
-    agentId: z.string().min(1)
-  }),
-  output: z.object({
-    config: DeepChatAgentConfigSchema
-  })
-})
-
-export const configGetAgentMcpSelectionsRoute = defineRouteContract({
-  name: 'config.getAgentMcpSelections',
-  input: z.object({
-    agentId: z.string().min(1)
-  }),
-  output: z.object({
-    selections: z.array(z.string())
-  })
-})
-
-export const configGetAcpSharedMcpSelectionsRoute = defineRouteContract({
-  name: 'config.getAcpSharedMcpSelections',
-  input: z.object({}).default({}),
-  output: z.object({
-    selections: z.array(z.string())
-  })
-})
-
-export const configSetAcpSharedMcpSelectionsRoute = defineRouteContract({
-  name: 'config.setAcpSharedMcpSelections',
-  input: z.object({
-    selections: z.array(z.string())
-  }),
-  output: z.object({
-    selections: z.array(z.string())
-  })
-})
-
-export const configGetMcpServersRoute = defineRouteContract({
-  name: 'config.getMcpServers',
-  input: z.object({}).default({}),
-  output: z.object({
-    servers: z.record(z.string(), McpServerConfigSchema)
-  })
-})
-
-export const configGetKnowledgeConfigsRoute = defineRouteContract({
-  name: 'config.getKnowledgeConfigs',
-  input: z.object({}).default({}),
-  output: z.object({
-    configs: z.array(BuiltinKnowledgeConfigSchema)
-  })
-})
-
-export const configSetKnowledgeConfigsRoute = defineRouteContract({
-  name: 'config.setKnowledgeConfigs',
-  input: z.object({
-    configs: z.array(BuiltinKnowledgeConfigSchema)
-  }),
-  output: z.object({
-    configs: z.array(BuiltinKnowledgeConfigSchema)
-  })
-})
-
-export const configGetAcpRegistryIconMarkupRoute = defineRouteContract({
-  name: 'config.getAcpRegistryIconMarkup',
+  name: "config.resolveDeepChatAgentConfig",
   input: z.object({
     agentId: z.string().min(1),
-    iconUrl: z.string().min(1)
   }),
   output: z.object({
-    markup: z.string()
-  })
-})
+    config: DeepChatAgentConfigSchema,
+  }),
+});
+
+export const configGetAgentMcpSelectionsRoute = defineRouteContract({
+  name: "config.getAgentMcpSelections",
+  input: z.object({
+    agentId: z.string().min(1),
+  }),
+  output: z.object({
+    selections: z.array(z.string()),
+  }),
+});
+
+export const configGetAcpSharedMcpSelectionsRoute = defineRouteContract({
+  name: "config.getAcpSharedMcpSelections",
+  input: z.object({}).default({}),
+  output: z.object({
+    selections: z.array(z.string()),
+  }),
+});
+
+export const configSetAcpSharedMcpSelectionsRoute = defineRouteContract({
+  name: "config.setAcpSharedMcpSelections",
+  input: z.object({
+    selections: z.array(z.string()),
+  }),
+  output: z.object({
+    selections: z.array(z.string()),
+  }),
+});
+
+export const configGetMcpServersRoute = defineRouteContract({
+  name: "config.getMcpServers",
+  input: z.object({}).default({}),
+  output: z.object({
+    servers: z.record(z.string(), McpServerConfigSchema),
+  }),
+});
+
+export const configGetKnowledgeConfigsRoute = defineRouteContract({
+  name: "config.getKnowledgeConfigs",
+  input: z.object({}).default({}),
+  output: z.object({
+    configs: z.array(BuiltinKnowledgeConfigSchema),
+  }),
+});
+
+export const configSetKnowledgeConfigsRoute = defineRouteContract({
+  name: "config.setKnowledgeConfigs",
+  input: z.object({
+    configs: z.array(BuiltinKnowledgeConfigSchema),
+  }),
+  output: z.object({
+    configs: z.array(BuiltinKnowledgeConfigSchema),
+  }),
+});
+
+export const configGetAcpRegistryIconMarkupRoute = defineRouteContract({
+  name: "config.getAcpRegistryIconMarkup",
+  input: z.object({
+    agentId: z.string().min(1),
+    iconUrl: z.string().min(1),
+  }),
+  output: z.object({
+    markup: z.string(),
+  }),
+});
 
 const VoiceAiConfigSchema = z.object({
   audioFormat: z.string(),
@@ -524,90 +524,90 @@ const VoiceAiConfigSchema = z.object({
   language: z.string(),
   temperature: z.number(),
   topP: z.number(),
-  agentId: z.string()
-})
+  agentId: z.string(),
+});
 
 export const configGetVoiceAiConfigRoute = defineRouteContract({
-  name: 'config.getVoiceAiConfig',
+  name: "config.getVoiceAiConfig",
   input: z.object({}).default({}),
   output: z.object({
-    config: VoiceAiConfigSchema
-  })
-})
+    config: VoiceAiConfigSchema,
+  }),
+});
 
 export const configUpdateVoiceAiConfigRoute = defineRouteContract({
-  name: 'config.updateVoiceAiConfig',
+  name: "config.updateVoiceAiConfig",
   input: z.object({
-    updates: VoiceAiConfigSchema.partial()
+    updates: VoiceAiConfigSchema.partial(),
   }),
   output: z.object({
-    config: VoiceAiConfigSchema
-  })
-})
+    config: VoiceAiConfigSchema,
+  }),
+});
 
 export const configGetGeminiSafetyRoute = defineRouteContract({
-  name: 'config.getGeminiSafety',
+  name: "config.getGeminiSafety",
   input: z.object({
-    key: z.string().min(1)
+    key: z.string().min(1),
   }),
   output: z.object({
-    value: z.string()
-  })
-})
+    value: z.string(),
+  }),
+});
 
 export const configSetGeminiSafetyRoute = defineRouteContract({
-  name: 'config.setGeminiSafety',
+  name: "config.setGeminiSafety",
   input: z.object({
     key: z.string().min(1),
     value: z.enum([
-      'BLOCK_NONE',
-      'BLOCK_ONLY_HIGH',
-      'BLOCK_MEDIUM_AND_ABOVE',
-      'BLOCK_LOW_AND_ABOVE',
-      'HARM_BLOCK_THRESHOLD_UNSPECIFIED'
-    ])
+      "BLOCK_NONE",
+      "BLOCK_ONLY_HIGH",
+      "BLOCK_MEDIUM_AND_ABOVE",
+      "BLOCK_LOW_AND_ABOVE",
+      "HARM_BLOCK_THRESHOLD_UNSPECIFIED",
+    ]),
   }),
   output: z.object({
-    value: z.string()
-  })
-})
+    value: z.string(),
+  }),
+});
 
 export const configGetAzureApiVersionRoute = defineRouteContract({
-  name: 'config.getAzureApiVersion',
+  name: "config.getAzureApiVersion",
   input: z.object({}).default({}),
   output: z.object({
-    version: z.string()
-  })
-})
+    version: z.string(),
+  }),
+});
 
 export const configSetAzureApiVersionRoute = defineRouteContract({
-  name: 'config.setAzureApiVersion',
+  name: "config.setAzureApiVersion",
   input: z.object({
-    version: z.string().min(1)
+    version: z.string().min(1),
   }),
   output: z.object({
-    version: z.string()
-  })
-})
+    version: z.string(),
+  }),
+});
 
 export const configGetAwsBedrockCredentialRoute = defineRouteContract({
-  name: 'config.getAwsBedrockCredential',
+  name: "config.getAwsBedrockCredential",
   input: z.object({}).default({}),
   output: z.object({
-    value: ConfigValueSchema.optional()
-  })
-})
+    value: ConfigValueSchema.optional(),
+  }),
+});
 
 export const configSetAwsBedrockCredentialRoute = defineRouteContract({
-  name: 'config.setAwsBedrockCredential',
+  name: "config.setAwsBedrockCredential",
   input: z.object({
-    credential: ConfigValueSchema
+    credential: ConfigValueSchema,
   }),
   output: z.object({
-    value: ConfigValueSchema.optional()
-  })
-})
+    value: ConfigValueSchema.optional(),
+  }),
+});
 
-export type ConfigEntryKey = z.infer<typeof ConfigEntryKeySchema>
-export type ConfigEntryValues = z.infer<typeof ConfigEntryValuesSchema>
-export type ConfigEntryChange = z.infer<typeof ConfigEntryChangeSchema>
+export type ConfigEntryKey = z.infer<typeof ConfigEntryKeySchema>;
+export type ConfigEntryValues = z.infer<typeof ConfigEntryValuesSchema>;
+export type ConfigEntryChange = z.infer<typeof ConfigEntryChangeSchema>;

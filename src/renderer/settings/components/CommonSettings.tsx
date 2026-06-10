@@ -1,40 +1,34 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import ProxySettingsSection from './common/ProxySettingsSection'
-import LoggingSettingsSection from './common/LoggingSettingsSection'
-import SettingToggleRow from './common/SettingToggleRow'
-import UploadFileSettingsSection from './common/UploadFileSettingsSection'
-import SettingsPageShell from './control-center/SettingsPageShell'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import {
+  useUiSettingsStore,
+  setAutoScrollEnabled,
+  setLaunchAtLoginEnabled,
+  setCopyWithCotEnabled,
+  setTraceDebugEnabled,
+} from "@/stores/uiSettingsStore";
+import ProxySettingsSection from "./common/ProxySettingsSection";
+import LoggingSettingsSection from "./common/LoggingSettingsSection";
+import SettingToggleRow from "./common/SettingToggleRow";
+import UploadFileSettingsSection from "./common/UploadFileSettingsSection";
+import SettingsPageShell from "./control-center/SettingsPageShell";
 
 export default function CommonSettings() {
-  const uiSettingsStore = useUiSettingsStore()
+  const uiSettingsStore = useUiSettingsStore();
 
-  const autoScrollEnabled = useMemo(() => uiSettingsStore.autoScrollEnabled, [uiSettingsStore])
-  const copyWithCotEnabled = useMemo(() => uiSettingsStore.copyWithCotEnabled, [uiSettingsStore])
-  const traceDebugEnabled = useMemo(() => uiSettingsStore.traceDebugEnabled, [uiSettingsStore])
+  const autoScrollEnabled = useMemo(() => uiSettingsStore.autoScrollEnabled, [uiSettingsStore.autoScrollEnabled]);
+  const copyWithCotEnabled = useMemo(() => uiSettingsStore.copyWithCotEnabled, [uiSettingsStore.copyWithCotEnabled]);
+  const traceDebugEnabled = useMemo(() => uiSettingsStore.traceDebugEnabled, [uiSettingsStore.traceDebugEnabled]);
   const launchAtLoginEnabled = useMemo(
     () => uiSettingsStore.launchAtLoginEnabled,
-    [uiSettingsStore]
-  )
+    [uiSettingsStore.launchAtLoginEnabled],
+  );
 
-  const handleAutoScrollChange = useCallback(
-    (value: boolean) => uiSettingsStore.setAutoScrollEnabled(value),
-    [uiSettingsStore]
-  )
-  const handleLaunchAtLoginChange = useCallback(
-    (value: boolean) => uiSettingsStore.setLaunchAtLoginEnabled(value),
-    [uiSettingsStore]
-  )
-  const handleCopyWithCotChange = useCallback(
-    (value: boolean) => uiSettingsStore.setCopyWithCotEnabled(value),
-    [uiSettingsStore]
-  )
-  const handleTraceDebugChange = useCallback(
-    (value: boolean) => uiSettingsStore.setTraceDebugEnabled(value),
-    [uiSettingsStore]
-  )
+  const handleAutoScrollChange = useCallback((value: boolean) => setAutoScrollEnabled(value), []);
+  const handleLaunchAtLoginChange = useCallback((value: boolean) => setLaunchAtLoginEnabled(value), []);
+  const handleCopyWithCotChange = useCallback((value: boolean) => setCopyWithCotEnabled(value), []);
+  const handleTraceDebugChange = useCallback((value: boolean) => setTraceDebugEnabled(value), []);
 
   return (
     <SettingsPageShell title="General" eyebrow="Setup" data-testid="settings-general-page">
@@ -72,5 +66,5 @@ export default function CommonSettings() {
         <LoggingSettingsSection />
       </div>
     </SettingsPageShell>
-  )
+  );
 }

@@ -1,19 +1,15 @@
-import { app } from 'electron'
-import path from 'path'
-import {
-  isDestructiveDatabaseError,
-  repairSQLiteDatabaseFile,
-  SQLitePresenter
-} from '@/presenter/sqlitePresenter'
-import { classifySchemaError } from '@/presenter/sqlitePresenter/schemaErrorClassifier'
+import { app } from "electron";
+import path from "path";
+import { isDestructiveDatabaseError, repairSQLiteDatabaseFile, SQLitePresenter } from "@/presenter/sqlitePresenter";
+import { classifySchemaError } from "@/presenter/sqlitePresenter/schemaErrorClassifier";
 
 /**
  * Database initialization interface
  */
 export interface IDatabaseInitializer {
-  initialize(): Promise<SQLitePresenter>
-  migrate(): Promise<void>
-  validateConnection(): Promise<boolean>
+  initialize(): Promise<SQLitePresenter>;
+  migrate(): Promise<void>;
+  validateConnection(): Promise<boolean>;
 }
 
 /**
@@ -21,59 +17,56 @@ export interface IDatabaseInitializer {
  * separate from presenter construction
  */
 export class DatabaseInitializer implements IDatabaseInitializer {
-  private dbPath: string
-  private password?: string
-  private database?: SQLitePresenter
+  private dbPath: string;
+  private password?: string;
+  private database?: SQLitePresenter;
 
   constructor(options?: { password?: string; dbPath?: string }) {
     // Initialize database path
-    const dbDir = path.join(app.getPath('userData'), 'app_db')
-    this.dbPath = options?.dbPath ?? path.join(dbDir, 'agent.db')
-    this.password = options?.password
+    const dbDir = path.join(app.getPath("userData"), "app_db");
+    this.dbPath = options?.dbPath ?? path.join(dbDir, "agent.db");
+    this.password = options?.password;
   }
 
   /**
    * Initialize the database connection and perform setup
    */
   async initialize(): Promise<SQLitePresenter> {
-    let repairAttempted = false
+    let repairAttempted = false;
 
     try {
-      console.log('DatabaseInitializer: Starting database initialization')
+      console.log("DatabaseInitializer: Starting database initialization");
 
       while (true) {
         try {
-          this.database = new SQLitePresenter(this.dbPath, this.password)
+          this.database = new SQLitePresenter(this.dbPath, this.password);
 
-          const isValid = await this.validateConnection()
+          const isValid = await this.validateConnection();
           if (!isValid) {
-            throw new Error('Database connection validation failed')
+            throw new Error("Database connection validation failed");
           }
 
-          console.log('DatabaseInitializer: Database initialization completed successfully')
-          return this.database
+          console.log("DatabaseInitializer: Database initialization completed successfully");
+          return this.database;
         } catch (error) {
-          this.database?.close()
-          this.database = undefined
+          this.database?.close();
+          this.database = undefined;
 
-          const classified = classifySchemaError(error)
-          const shouldRepair =
-            !repairAttempted && !isDestructiveDatabaseError(error) && classified !== null
+          const classified = classifySchemaError(error);
+          const shouldRepair = !repairAttempted && !isDestructiveDatabaseError(error) && classified !== null;
 
           if (!shouldRepair) {
-            throw error
+            throw error;
           }
 
-          repairAttempted = true
-          console.warn(
-            `DatabaseInitializer: Attempting one-off schema repair for ${classified.dedupeKey}`
-          )
-          repairSQLiteDatabaseFile(this.dbPath, this.password)
+          repairAttempted = true;
+          console.warn(`DatabaseInitializer: Attempting one-off schema repair for ${classified.dedupeKey}`);
+          repairSQLiteDatabaseFile(this.dbPath, this.password);
         }
       }
     } catch (error) {
-      console.error('DatabaseInitializer: Database initialization failed:', error)
-      throw error
+      console.error("DatabaseInitializer: Database initialization failed:", error);
+      throw error;
     }
   }
 
@@ -82,17 +75,17 @@ export class DatabaseInitializer implements IDatabaseInitializer {
    */
   async migrate(): Promise<void> {
     if (!this.database) {
-      throw new Error('Database must be initialized before migration')
+      throw new Error("Database must be initialized before migration");
     }
 
     try {
-      console.log('DatabaseInitializer: Starting database migration')
+      console.log("DatabaseInitializer: Starting database migration");
       // Migration logic is already handled in SQLitePresenter constructor
       // This method is here for future migration needs that might be separate
-      console.log('DatabaseInitializer: Database migration completed')
+      console.log("DatabaseInitializer: Database migration completed");
     } catch (error) {
-      console.error('DatabaseInitializer: Database migration failed:', error)
-      throw error
+      console.error("DatabaseInitializer: Database migration failed:", error);
+      throw error;
     }
   }
 
@@ -101,16 +94,16 @@ export class DatabaseInitializer implements IDatabaseInitializer {
    */
   async validateConnection(): Promise<boolean> {
     if (!this.database) {
-      return false
+      return false;
     }
 
     try {
       // Test basic database functionality without relying on any specific table.
-      await this.database.runTransaction(() => {})
-      return true
+      await this.database.runTransaction(() => {});
+      return true;
     } catch (error) {
-      console.error('DatabaseInitializer: Connection validation failed:', error)
-      return false
+      console.error("DatabaseInitializer: Connection validation failed:", error);
+      return false;
     }
   }
 }

@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { TelegramParser } from '@/presenter/remoteControlPresenter/telegram/telegramParser'
+import { describe, expect, it } from "vitest";
+import { TelegramParser } from "@/presenter/remoteControlPresenter/telegram/telegramParser";
 
-describe('TelegramParser', () => {
-  it('parses text messages and commands', () => {
-    const parser = new TelegramParser()
+describe("TelegramParser", () => {
+  it("parses text messages and commands", () => {
+    const parser = new TelegramParser();
 
     const parsed = parser.parseUpdate({
       update_id: 1,
@@ -12,34 +12,34 @@ describe('TelegramParser', () => {
         message_thread_id: 7,
         chat: {
           id: 100,
-          type: 'private'
+          type: "private",
         },
         from: {
-          id: 123
+          id: 123,
         },
-        text: '/use 2'
-      }
-    })
+        text: "/use 2",
+      },
+    });
 
     expect(parsed).toEqual({
-      kind: 'message',
+      kind: "message",
       updateId: 1,
       chatId: 100,
       messageThreadId: 7,
       messageId: 20,
-      chatType: 'private',
+      chatType: "private",
       fromId: 123,
-      text: '/use 2',
+      text: "/use 2",
       command: {
-        name: 'use',
-        args: '2'
+        name: "use",
+        args: "2",
       },
-      attachments: []
-    })
-  })
+      attachments: [],
+    });
+  });
 
-  it('parses photo messages as image attachments', () => {
-    const parser = new TelegramParser()
+  it("parses photo messages as image attachments", () => {
+    const parser = new TelegramParser();
 
     const parsed = parser.parseUpdate({
       update_id: 3,
@@ -47,76 +47,76 @@ describe('TelegramParser', () => {
         message_id: 21,
         chat: {
           id: 100,
-          type: 'private'
+          type: "private",
         },
         from: {
-          id: 123
+          id: 123,
         },
-        caption: 'look',
+        caption: "look",
         photo: [
           {
-            file_id: 'small-file',
-            file_unique_id: 'small',
-            file_size: 10
+            file_id: "small-file",
+            file_unique_id: "small",
+            file_size: 10,
           },
           {
-            file_id: 'large-file',
-            file_unique_id: 'large',
-            file_size: 20
-          }
-        ]
-      }
-    })
+            file_id: "large-file",
+            file_unique_id: "large",
+            file_size: 20,
+          },
+        ],
+      },
+    });
 
     expect(parsed).toEqual(
       expect.objectContaining({
-        kind: 'message',
-        text: 'look',
+        kind: "message",
+        text: "look",
         attachments: [
           {
-            id: 'large',
-            filename: 'large.jpg',
-            mediaType: 'image/jpeg',
+            id: "large",
+            filename: "large.jpg",
+            mediaType: "image/jpeg",
             size: 20,
-            fileId: 'large-file',
-            resourceType: 'image'
-          }
-        ]
-      })
-    )
-  })
+            fileId: "large-file",
+            resourceType: "image",
+          },
+        ],
+      }),
+    );
+  });
 
-  it('parses callback queries from inline keyboards', () => {
-    const parser = new TelegramParser()
+  it("parses callback queries from inline keyboards", () => {
+    const parser = new TelegramParser();
 
     const parsed = parser.parseUpdate({
       update_id: 2,
       callback_query: {
-        id: 'callback-1',
+        id: "callback-1",
         from: {
-          id: 123
+          id: 123,
         },
-        data: 'model:menu-token:p:0',
+        data: "model:menu-token:p:0",
         message: {
           message_id: 30,
           chat: {
             id: 100,
-            type: 'private'
-          }
-        }
-      }
-    })
+            type: "private",
+          },
+        },
+      },
+    });
 
     expect(parsed).toEqual({
-      kind: 'callback_query',
+      kind: "callback_query",
       updateId: 2,
       chatId: 100,
       messageThreadId: 0,
       messageId: 30,
-      chatType: 'private',
+      chatType: "private",
       fromId: 123,
-      callbackQueryId: 'callback-1',
-      data: 'model:menu-token:p:0'
-    })
-  })
-})
+      callbackQueryId: "callback-1",
+      data: "model:menu-token:p:0",
+    });
+  });
+});

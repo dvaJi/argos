@@ -1,133 +1,126 @@
-import * as path from 'path'
-import * as fs from 'fs'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import { type WebContents, app } from 'electron'
-import type { AcpBuiltinAgentId, AcpAgentConfig, AcpAgentProfile } from '@shared/presenter'
-import { spawn } from 'node-pty'
-import type { IPty } from 'node-pty'
-import { RuntimeHelper } from '@/lib/runtimeHelper'
+import * as path from "path";
+import * as fs from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { type WebContents, app } from "electron";
+import type { AcpBuiltinAgentId, AcpAgentConfig, AcpAgentProfile } from "@shared/presenter";
+import { spawn } from "node-pty";
+import type { IPty } from "node-pty";
+import { RuntimeHelper } from "@/lib/runtimeHelper";
 import {
   getPathEntriesFromEnv,
   getShellEnvironment,
   mergeCommandEnvironment,
-  setPathEntriesOnEnv
-} from '@/lib/agentRuntime/shellEnvHelper'
+  setPathEntriesOnEnv,
+} from "@/lib/agentRuntime/shellEnvHelper";
 
-const execAsync = promisify(exec)
+const execAsync = promisify(exec);
 
 interface InitCommandConfig {
-  commands: string[]
-  description: string
+  commands: string[];
+  description: string;
 }
 
 interface ExternalDependency {
-  name: string
-  description: string
-  platform?: string[]
-  checkCommand?: string
-  checkPaths?: string[]
+  name: string;
+  description: string;
+  platform?: string[];
+  checkCommand?: string;
+  checkPaths?: string[];
   installCommands?: {
-    winget?: string
-    chocolatey?: string
-    scoop?: string
-  }
-  downloadUrl?: string
-  requiredFor?: string[]
+    winget?: string;
+    chocolatey?: string;
+    scoop?: string;
+  };
+  downloadUrl?: string;
+  requiredFor?: string[];
 }
 
 const EXTERNAL_DEPENDENCIES: ExternalDependency[] = [
   {
-    name: 'Git Bash',
-    description: 'Git for Windows includes Git Bash',
-    platform: ['win32'],
-    checkCommand: 'git --version',
-    checkPaths: [
-      'C:\\Program Files\\Git\\bin\\bash.exe',
-      'C:\\Program Files (x86)\\Git\\bin\\bash.exe'
-    ],
+    name: "Git Bash",
+    description: "Git for Windows includes Git Bash",
+    platform: ["win32"],
+    checkCommand: "git --version",
+    checkPaths: ["C:\\Program Files\\Git\\bin\\bash.exe", "C:\\Program Files (x86)\\Git\\bin\\bash.exe"],
     installCommands: {
-      winget: 'winget install Git.Git',
-      chocolatey: 'choco install git',
-      scoop: 'scoop install git'
+      winget: "winget install Git.Git",
+      chocolatey: "choco install git",
+      scoop: "scoop install git",
     },
-    downloadUrl: 'https://git-scm.com/download/win',
-    requiredFor: ['claude-code-acp']
-  }
-]
+    downloadUrl: "https://git-scm.com/download/win",
+    requiredFor: ["claude-code-acp"],
+  },
+];
 
 const BUILTIN_INIT_COMMANDS: Record<AcpBuiltinAgentId, InitCommandConfig> = {
-  'kimi-cli': {
-    commands: ['uv tool install --python 3.13 kimi-cli', 'kimi acp'],
-    description: 'Initialize Kimi CLI'
+  "kimi-cli": {
+    commands: ["uv tool install --python 3.13 kimi-cli", "kimi acp"],
+    description: "Initialize Kimi CLI",
   },
-  'claude-code-acp': {
-    commands: [
-      'npm i -g @zed-industries/claude-code-acp',
-      'npm install -g @anthropic-ai/claude-code',
-      'claude'
-    ],
-    description: 'Initialize Claude Code ACP'
+  "claude-code-acp": {
+    commands: ["npm i -g @zed-industries/claude-code-acp", "npm install -g @anthropic-ai/claude-code", "claude"],
+    description: "Initialize Claude Code ACP",
   },
-  'codex-acp': {
-    commands: ['npm i -g @zed-industries/codex-acp', 'npm install -g @openai/codex', 'codex'],
-    description: 'Initialize Codex CLI ACP'
+  "codex-acp": {
+    commands: ["npm i -g @zed-industries/codex-acp", "npm install -g @openai/codex", "codex"],
+    description: "Initialize Codex CLI ACP",
   },
-  'dimcode-acp': {
-    commands: ['npm i -g dimcode', 'dim'],
-    description: 'Initialize DimCode ACP'
-  }
-}
+  "dimcode-acp": {
+    commands: ["npm i -g dimcode", "dim"],
+    description: "Initialize DimCode ACP",
+  },
+};
 
 class AcpInitHelper {
-  private activeShell: IPty | null = null
-  private readonly runtimeHelper = RuntimeHelper.getInstance()
+  private activeShell: IPty | null = null;
+  private readonly runtimeHelper = RuntimeHelper.getInstance();
 
   constructor() {
-    this.runtimeHelper.initializeRuntimes()
+    this.runtimeHelper.initializeRuntimes();
   }
 
   /**
    * Get or create the temporary directory for ACP agent shell sessions
    */
   private getAcpTempDir(): string {
-    const userDataPath = app.getPath('userData')
-    const acpTempDir = path.join(userDataPath, 'temp', 'acp-agents')
+    const userDataPath = app.getPath("userData");
+    const acpTempDir = path.join(userDataPath, "temp", "acp-agents");
 
     try {
-      fs.mkdirSync(acpTempDir, { recursive: true })
-      console.log('[ACP Init] ACP temp directory:', acpTempDir)
+      fs.mkdirSync(acpTempDir, { recursive: true });
+      console.log("[ACP Init] ACP temp directory:", acpTempDir);
     } catch (error) {
-      console.error('[ACP Init] Failed to create ACP temp directory:', error)
+      console.error("[ACP Init] Failed to create ACP temp directory:", error);
       // Fallback to process.cwd() if directory creation fails
-      return process.cwd()
+      return process.cwd();
     }
 
-    return acpTempDir
+    return acpTempDir;
   }
 
   /**
    * Check if an external dependency is available
    */
   private async checkExternalDependency(dep: ExternalDependency): Promise<boolean> {
-    const platform = process.platform
+    const platform = process.platform;
 
     // Check if dependency supports current platform
     if (dep.platform && !dep.platform.includes(platform)) {
-      console.log(`[ACP Init] Dependency ${dep.name} not required on platform ${platform}`)
-      return true // Not required on this platform, consider it available
+      console.log(`[ACP Init] Dependency ${dep.name} not required on platform ${platform}`);
+      return true; // Not required on this platform, consider it available
     }
 
     // Method 1: Check via command
     if (dep.checkCommand) {
       try {
-        const { stdout } = await execAsync(dep.checkCommand, { timeout: 5000 })
+        const { stdout } = await execAsync(dep.checkCommand, { timeout: 5000 });
         if (stdout && stdout.trim().length > 0) {
-          console.log(`[ACP Init] Dependency ${dep.name} found via command: ${dep.checkCommand}`)
-          return true
+          console.log(`[ACP Init] Dependency ${dep.name} found via command: ${dep.checkCommand}`);
+          return true;
         }
       } catch {
-        console.log(`[ACP Init] Dependency ${dep.name} not found via command: ${dep.checkCommand}`)
+        console.log(`[ACP Init] Dependency ${dep.name} not found via command: ${dep.checkCommand}`);
       }
     }
 
@@ -136,8 +129,8 @@ class AcpInitHelper {
       for (const checkPath of dep.checkPaths) {
         try {
           if (fs.existsSync(checkPath)) {
-            console.log(`[ACP Init] Dependency ${dep.name} found at path: ${checkPath}`)
-            return true
+            console.log(`[ACP Init] Dependency ${dep.name} found at path: ${checkPath}`);
+            return true;
           }
         } catch {
           // Continue checking other paths
@@ -148,56 +141,54 @@ class AcpInitHelper {
     // Method 3: Use system tools to find command
     if (dep.checkCommand) {
       try {
-        const commandName = dep.checkCommand.split(' ')[0]
-        let findCommand: string
+        const commandName = dep.checkCommand.split(" ")[0];
+        let findCommand: string;
 
-        if (platform === 'win32') {
-          findCommand = `where.exe ${commandName}`
+        if (platform === "win32") {
+          findCommand = `where.exe ${commandName}`;
         } else {
-          findCommand = `which ${commandName}`
+          findCommand = `which ${commandName}`;
         }
 
-        const { stdout } = await execAsync(findCommand, { timeout: 5000 })
+        const { stdout } = await execAsync(findCommand, { timeout: 5000 });
         if (stdout && stdout.trim().length > 0) {
-          console.log(`[ACP Init] Dependency ${dep.name} found via system tool: ${findCommand}`)
-          return true
+          console.log(`[ACP Init] Dependency ${dep.name} found via system tool: ${findCommand}`);
+          return true;
         }
       } catch {
         // Command not found
       }
     }
 
-    console.log(`[ACP Init] Dependency ${dep.name} not found`)
-    return false
+    console.log(`[ACP Init] Dependency ${dep.name} not found`);
+    return false;
   }
 
   /**
    * Check required dependencies for an agent
    */
   private async checkRequiredDependencies(agentId: string): Promise<ExternalDependency[]> {
-    const platform = process.platform
-    const missingDeps: ExternalDependency[] = []
+    const platform = process.platform;
+    const missingDeps: ExternalDependency[] = [];
 
     // Find dependencies required for this agent
-    const requiredDeps = EXTERNAL_DEPENDENCIES.filter(
-      (dep) => dep.requiredFor && dep.requiredFor.includes(agentId)
-    )
+    const requiredDeps = EXTERNAL_DEPENDENCIES.filter((dep) => dep.requiredFor && dep.requiredFor.includes(agentId));
 
     console.log(`[ACP Init] Checking dependencies for agent ${agentId}:`, {
       totalDeps: requiredDeps.length,
-      platform
-    })
+      platform,
+    });
 
     // Check each dependency
     for (const dep of requiredDeps) {
-      const isAvailable = await this.checkExternalDependency(dep)
+      const isAvailable = await this.checkExternalDependency(dep);
       if (!isAvailable) {
-        missingDeps.push(dep)
-        console.log(`[ACP Init] Missing dependency: ${dep.name}`)
+        missingDeps.push(dep);
+        console.log(`[ACP Init] Missing dependency: ${dep.name}`);
       }
     }
 
-    return missingDeps
+    return missingDeps;
   }
 
   /**
@@ -209,55 +200,50 @@ class AcpInitHelper {
     useBuiltinRuntime: boolean,
     npmRegistry: string | null,
     uvRegistry: string | null,
-    webContents?: WebContents
+    webContents?: WebContents,
   ): Promise<IPty | null> {
-    console.log('[ACP Init] Initializing builtin agent:', {
+    console.log("[ACP Init] Initializing builtin agent:", {
       agentId,
       useBuiltinRuntime,
       npmRegistry,
       uvRegistry,
       hasWebContents: !!webContents,
-      profileName: profile.name
-    })
+      profileName: profile.name,
+    });
 
     // Check external dependencies before initialization
-    const missingDeps = await this.checkRequiredDependencies(agentId)
+    const missingDeps = await this.checkRequiredDependencies(agentId);
     if (missingDeps.length > 0) {
-      console.log('[ACP Init] Missing dependencies detected, blocking initialization:', {
+      console.log("[ACP Init] Missing dependencies detected, blocking initialization:", {
         agentId,
-        missingCount: missingDeps.length
-      })
+        missingCount: missingDeps.length,
+      });
       if (webContents && !webContents.isDestroyed()) {
-        webContents.send('external-deps-required', {
+        webContents.send("external-deps-required", {
           agentId,
-          missingDeps
-        })
+          missingDeps,
+        });
       }
       // Stop initialization - user must install dependencies first
-      return null
+      return null;
     }
 
-    const initConfig = BUILTIN_INIT_COMMANDS[agentId]
+    const initConfig = BUILTIN_INIT_COMMANDS[agentId];
     if (!initConfig) {
-      console.error('[ACP Init] Unknown builtin agent:', agentId)
-      throw new Error(`Unknown builtin agent: ${agentId}`)
+      console.error("[ACP Init] Unknown builtin agent:", agentId);
+      throw new Error(`Unknown builtin agent: ${agentId}`);
     }
 
-    console.log('[ACP Init] Agent config:', {
+    console.log("[ACP Init] Agent config:", {
       description: initConfig.description,
-      commands: initConfig.commands
-    })
+      commands: initConfig.commands,
+    });
 
-    const envVars = await this.buildEnvironmentVariables(
-      profile,
-      useBuiltinRuntime,
-      npmRegistry,
-      uvRegistry
-    )
+    const envVars = await this.buildEnvironmentVariables(profile, useBuiltinRuntime, npmRegistry, uvRegistry);
 
-    const commands = initConfig.commands
-    console.log('[ACP Init] Starting interactive session with commands:', commands)
-    return this.startInteractiveSession(commands, envVars, webContents)
+    const commands = initConfig.commands;
+    console.log("[ACP Init] Starting interactive session with commands:", commands);
+    return this.startInteractiveSession(commands, envVars, webContents);
   }
 
   /**
@@ -268,64 +254,59 @@ class AcpInitHelper {
     useBuiltinRuntime: boolean,
     npmRegistry: string | null,
     uvRegistry: string | null,
-    webContents?: WebContents
+    webContents?: WebContents,
   ): Promise<IPty | null> {
-    console.log('[ACP Init] Initializing custom agent:', {
+    console.log("[ACP Init] Initializing custom agent:", {
       name: agent.name,
       command: agent.command,
       args: agent.args,
       useBuiltinRuntime,
       npmRegistry,
       uvRegistry,
-      hasWebContents: !!webContents
-    })
+      hasWebContents: !!webContents,
+    });
 
-    const envVars = await this.buildEnvironmentVariables(
-      agent,
-      useBuiltinRuntime,
-      npmRegistry,
-      uvRegistry
-    )
+    const envVars = await this.buildEnvironmentVariables(agent, useBuiltinRuntime, npmRegistry, uvRegistry);
 
     // For custom agents, use the configured command
-    const command = agent.command
-    const args = agent.args || []
-    const fullCommandStr = [command, ...args].join(' ')
+    const command = agent.command;
+    const args = agent.args || [];
+    const fullCommandStr = [command, ...args].join(" ");
 
-    console.log('[ACP Init] Starting interactive session with custom command:', fullCommandStr)
-    return this.startInteractiveSession([fullCommandStr], envVars, webContents)
+    console.log("[ACP Init] Starting interactive session with custom command:", fullCommandStr);
+    return this.startInteractiveSession([fullCommandStr], envVars, webContents);
   }
 
   writeToTerminal(data: string) {
     if (this.activeShell) {
       try {
-        console.log('[ACP Init] Writing to terminal:', {
+        console.log("[ACP Init] Writing to terminal:", {
           dataLength: data.length,
-          dataPreview: data.substring(0, 50)
-        })
-        this.activeShell.write(data)
+          dataPreview: data.substring(0, 50),
+        });
+        this.activeShell.write(data);
       } catch (error) {
-        console.warn('[ACP Init] Cannot write to terminal:', error)
+        console.warn("[ACP Init] Cannot write to terminal:", error);
       }
     } else {
-      console.warn('[ACP Init] Cannot write to terminal - shell not available')
+      console.warn("[ACP Init] Cannot write to terminal - shell not available");
     }
   }
 
   killTerminal() {
     if (this.activeShell) {
-      console.log('[ACP Init] Killing active shell process:', {
-        pid: this.activeShell.pid
-      })
+      console.log("[ACP Init] Killing active shell process:", {
+        pid: this.activeShell.pid,
+      });
       try {
-        this.activeShell.kill()
+        this.activeShell.kill();
       } catch (error) {
-        console.warn('[ACP Init] Error killing shell:', error)
+        console.warn("[ACP Init] Error killing shell:", error);
       }
-      this.activeShell = null
-      console.log('[ACP Init] Shell process killed')
+      this.activeShell = null;
+      console.log("[ACP Init] Shell process killed");
     } else {
-      console.log('[ACP Init] No active shell to kill')
+      console.log("[ACP Init] No active shell to kill");
     }
   }
 
@@ -335,165 +316,165 @@ class AcpInitHelper {
   private startInteractiveSession(
     initCommands: string[],
     envVars: Record<string, string>,
-    webContents?: WebContents
+    webContents?: WebContents,
   ): IPty | null {
-    console.log('[ACP Init] Starting interactive session:', {
+    console.log("[ACP Init] Starting interactive session:", {
       commands: initCommands,
       envVarCount: Object.keys(envVars).length,
-      hasWebContents: !!webContents
-    })
+      hasWebContents: !!webContents,
+    });
 
     if (!webContents || webContents.isDestroyed()) {
-      console.error('[ACP Init] Cannot start session - webContents invalid or destroyed')
-      return null
+      console.error("[ACP Init] Cannot start session - webContents invalid or destroyed");
+      return null;
     }
 
     // Kill existing shell if any
-    this.killTerminal()
+    this.killTerminal();
 
     // Get temporary directory for ACP agent shell session
-    const workDir = this.getAcpTempDir()
+    const workDir = this.getAcpTempDir();
 
-    const platform = process.platform
-    let shell: string
-    let shellArgs: string[] = []
+    const platform = process.platform;
+    let shell: string;
+    let shellArgs: string[] = [];
 
-    if (platform === 'win32') {
-      shell = 'powershell.exe'
-      shellArgs = ['-NoLogo', '-ExecutionPolicy', 'Bypass']
+    if (platform === "win32") {
+      shell = "powershell.exe";
+      shellArgs = ["-NoLogo", "-ExecutionPolicy", "Bypass"];
     } else {
       // Use user's default shell or bash/zsh
-      shell = process.env.SHELL || '/bin/bash'
+      shell = process.env.SHELL || "/bin/bash";
       // Force interactive mode for bash/zsh to get prompt and aliases
-      if (shell.endsWith('bash') || shell.endsWith('zsh')) {
-        shellArgs = ['-i']
+      if (shell.endsWith("bash") || shell.endsWith("zsh")) {
+        shellArgs = ["-i"];
       }
     }
 
-    console.log('[ACP Init] Spawning shell with PTY:', {
+    console.log("[ACP Init] Spawning shell with PTY:", {
       platform,
       shell,
       shellArgs,
-      cwd: workDir
-    })
+      cwd: workDir,
+    });
 
     // Spawn PTY process
     const pty = spawn(shell, shellArgs, {
-      name: 'xterm-color',
+      name: "xterm-color",
       cols: 80,
       rows: 24,
       cwd: workDir,
-      env: { ...process.env, ...envVars } as Record<string, string>
-    })
+      env: { ...process.env, ...envVars } as Record<string, string>,
+    });
 
-    console.log('[ACP Init] PTY process spawned:', {
-      pid: pty.pid
-    })
+    console.log("[ACP Init] PTY process spawned:", {
+      pid: pty.pid,
+    });
 
-    this.activeShell = pty
+    this.activeShell = pty;
 
     // Track shell readiness for command injection
-    let shellReady = false
-    let outputBuffer = ''
-    let commandInjected = false
-    const maxWaitTime = 3000 // Maximum wait time for shell ready (3 seconds)
-    const startTime = Date.now()
+    let shellReady = false;
+    let outputBuffer = "";
+    let commandInjected = false;
+    const maxWaitTime = 3000; // Maximum wait time for shell ready (3 seconds)
+    const startTime = Date.now();
 
     // Handle PTY output (PTY combines stdout and stderr into a single stream)
     pty.onData((data: string) => {
-      outputBuffer += data
+      outputBuffer += data;
 
-      console.log('[ACP Init] PTY data:', {
+      console.log("[ACP Init] PTY data:", {
         length: data.length,
-        preview: data.substring(0, 100).replace(/\n/g, '\\n'),
+        preview: data.substring(0, 100).replace(/\n/g, "\\n"),
         shellReady,
-        commandInjected
-      })
+        commandInjected,
+      });
 
       // Detect shell readiness by looking for prompt patterns or any meaningful output
       if (!shellReady && outputBuffer.length > 0) {
         // Check for common shell prompt patterns or any non-empty output
         const hasPromptPattern =
-          /[$#>]\s*$/.test(outputBuffer) || outputBuffer.includes('\n') || outputBuffer.length > 10
+          /[$#>]\s*$/.test(outputBuffer) || outputBuffer.includes("\n") || outputBuffer.length > 10;
 
         if (hasPromptPattern || Date.now() - startTime > 500) {
-          shellReady = true
-          console.log('[ACP Init] Shell detected as ready, output length:', outputBuffer.length)
+          shellReady = true;
+          console.log("[ACP Init] Shell detected as ready, output length:", outputBuffer.length);
         }
       }
 
       // Send output to renderer (PTY output is treated as stdout)
       if (!webContents.isDestroyed()) {
-        webContents.send('acp-init:output', { type: 'stdout', data })
+        webContents.send("acp-init:output", { type: "stdout", data });
       }
 
       // Inject command once shell is ready
       if (shellReady && !commandInjected && initCommands.length > 0) {
-        commandInjected = true
-        const separator = platform === 'win32' ? ';' : '&&'
-        const initCmd = initCommands.join(` ${separator} `)
+        commandInjected = true;
+        const separator = platform === "win32" ? ";" : "&&";
+        const initCmd = initCommands.join(` ${separator} `);
 
-        console.log('[ACP Init] Injecting initialization command (shell ready):', {
+        console.log("[ACP Init] Injecting initialization command (shell ready):", {
           command: initCmd,
-          outputBufferLength: outputBuffer.length
-        })
+          outputBufferLength: outputBuffer.length,
+        });
 
         // Small delay to ensure shell is fully ready
         setTimeout(() => {
           try {
-            pty.write(initCmd + '\n')
-            console.log('[ACP Init] Command written to PTY')
+            pty.write(initCmd + "\n");
+            console.log("[ACP Init] Command written to PTY");
           } catch (error) {
-            console.warn('[ACP Init] Error writing command to PTY:', error)
+            console.warn("[ACP Init] Error writing command to PTY:", error);
           }
-        }, 100)
+        }, 100);
       }
-    })
+    });
 
     // Handle process exit
     pty.onExit(({ exitCode, signal }) => {
-      console.log('[ACP Init] Process exited:', {
+      console.log("[ACP Init] Process exited:", {
         pid: pty.pid,
         code: exitCode,
         signal,
-        commandInjected
-      })
+        commandInjected,
+      });
       if (!webContents.isDestroyed()) {
-        webContents.send('acp-init:exit', { code: exitCode, signal: signal || null })
+        webContents.send("acp-init:exit", { code: exitCode, signal: signal || null });
       }
       if (this.activeShell === pty) {
-        this.activeShell = null
-        console.log('[ACP Init] Active shell cleared')
+        this.activeShell = null;
+        console.log("[ACP Init] Active shell cleared");
       }
-    })
+    });
 
     // Delay sending start event to ensure renderer listeners are set up
     // Also inject command if shell doesn't become ready within timeout
     setTimeout(() => {
       if (!webContents.isDestroyed()) {
-        console.log('[ACP Init] Sending start event (delayed to ensure listeners ready)')
-        webContents.send('acp-init:start', { command: shell })
+        console.log("[ACP Init] Sending start event (delayed to ensure listeners ready)");
+        webContents.send("acp-init:start", { command: shell });
       }
 
       // Fallback: inject command if shell hasn't become ready yet
       if (!commandInjected && initCommands.length > 0 && Date.now() - startTime < maxWaitTime) {
-        console.log('[ACP Init] Fallback: injecting command after delay (shell may be ready)')
-        commandInjected = true
-        const separator = platform === 'win32' ? ';' : '&&'
-        const initCmd = initCommands.join(` ${separator} `)
+        console.log("[ACP Init] Fallback: injecting command after delay (shell may be ready)");
+        commandInjected = true;
+        const separator = platform === "win32" ? ";" : "&&";
+        const initCmd = initCommands.join(` ${separator} `);
 
         setTimeout(() => {
           try {
-            pty.write(initCmd + '\n')
-            console.log('[ACP Init] Fallback command written to PTY')
+            pty.write(initCmd + "\n");
+            console.log("[ACP Init] Fallback command written to PTY");
           } catch (error) {
-            console.warn('[ACP Init] Error writing fallback command to PTY:', error)
+            console.warn("[ACP Init] Error writing fallback command to PTY:", error);
           }
-        }, 200)
+        }, 200);
       }
-    }, 500) // Delay to ensure renderer listeners are set up
+    }, 500); // Delay to ensure renderer listeners are set up
 
-    return pty
+    return pty;
   }
 
   /**
@@ -503,133 +484,130 @@ class AcpInitHelper {
     profile: AcpAgentProfile | AcpAgentConfig,
     useBuiltinRuntime: boolean,
     npmRegistry: string | null,
-    uvRegistry: string | null
+    uvRegistry: string | null,
   ): Promise<Record<string, string>> {
-    console.log('[ACP Init] Building environment variables:', {
+    console.log("[ACP Init] Building environment variables:", {
       useBuiltinRuntime,
       npmRegistry,
       uvRegistry,
-      hasProfileEnv: !!(profile.env && Object.keys(profile.env).length > 0)
-    })
+      hasProfileEnv: !!(profile.env && Object.keys(profile.env).length > 0),
+    });
 
-    let env = mergeCommandEnvironment()
-    const systemEnvCount = Object.keys(env).length
-    console.log('[ACP Init] Added system environment variables:', systemEnvCount)
+    let env = mergeCommandEnvironment();
+    const systemEnvCount = Object.keys(env).length;
+    console.log("[ACP Init] Added system environment variables:", systemEnvCount);
 
     try {
-      const shellEnv = await getShellEnvironment()
-      env = mergeCommandEnvironment({ shellEnv })
+      const shellEnv = await getShellEnvironment();
+      env = mergeCommandEnvironment({ shellEnv });
     } catch (error) {
-      console.warn('[ACP Init] Failed to merge shell environment variables:', error)
+      console.warn("[ACP Init] Failed to merge shell environment variables:", error);
     }
 
-    const prependPathSources: string[] = []
+    const prependPathSources: string[] = [];
 
     if (useBuiltinRuntime) {
-      const uvRuntimePath = this.runtimeHelper.getUvRuntimePath()
-      const nodeRuntimePath = this.runtimeHelper.getNodeRuntimePath()
+      const uvRuntimePath = this.runtimeHelper.getUvRuntimePath();
+      const nodeRuntimePath = this.runtimeHelper.getNodeRuntimePath();
 
       if (uvRuntimePath) {
-        prependPathSources.push(uvRuntimePath)
-        console.log('[ACP Init] Added UV runtime path:', uvRuntimePath)
+        prependPathSources.push(uvRuntimePath);
+        console.log("[ACP Init] Added UV runtime path:", uvRuntimePath);
       }
 
-      if (process.platform === 'win32') {
+      if (process.platform === "win32") {
         if (nodeRuntimePath) {
-          prependPathSources.push(nodeRuntimePath)
-          console.log('[ACP Init] Added Node runtime path (Windows):', nodeRuntimePath)
+          prependPathSources.push(nodeRuntimePath);
+          console.log("[ACP Init] Added Node runtime path (Windows):", nodeRuntimePath);
         }
       } else if (nodeRuntimePath) {
-        const nodeBinPath = path.join(nodeRuntimePath, 'bin')
-        prependPathSources.push(nodeBinPath)
-        console.log('[ACP Init] Added Node runtime path (Unix):', nodeBinPath)
+        const nodeBinPath = path.join(nodeRuntimePath, "bin");
+        prependPathSources.push(nodeBinPath);
+        console.log("[ACP Init] Added Node runtime path (Unix):", nodeBinPath);
       }
 
       if (prependPathSources.length > 0) {
         setPathEntriesOnEnv(env, [prependPathSources, getPathEntriesFromEnv(env)], {
-          includeDefaultPaths: false
-        })
+          includeDefaultPaths: false,
+        });
       } else {
-        console.warn('[ACP Init] No runtime paths available to add to PATH')
+        console.warn("[ACP Init] No runtime paths available to add to PATH");
       }
     }
 
     if (useBuiltinRuntime) {
-      if (npmRegistry && npmRegistry !== '') {
-        env.npm_config_registry = npmRegistry
-        env.NPM_CONFIG_REGISTRY = npmRegistry
-        console.log('[ACP Init] Set NPM registry:', npmRegistry)
+      if (npmRegistry && npmRegistry !== "") {
+        env.npm_config_registry = npmRegistry;
+        env.NPM_CONFIG_REGISTRY = npmRegistry;
+        console.log("[ACP Init] Set NPM registry:", npmRegistry);
       }
 
-      if (uvRegistry && uvRegistry !== '') {
-        env.UV_DEFAULT_INDEX = uvRegistry
-        env.PIP_INDEX_URL = uvRegistry
-        console.log('[ACP Init] Set UV registry:', uvRegistry)
+      if (uvRegistry && uvRegistry !== "") {
+        env.UV_DEFAULT_INDEX = uvRegistry;
+        env.PIP_INDEX_URL = uvRegistry;
+        console.log("[ACP Init] Set UV registry:", uvRegistry);
       }
 
-      if (process.platform === 'win32' && this.runtimeHelper.isInstalledInSystemDirectory()) {
-        const userNpmPrefix = this.runtimeHelper.getUserNpmPrefix()
+      if (process.platform === "win32" && this.runtimeHelper.isInstalledInSystemDirectory()) {
+        const userNpmPrefix = this.runtimeHelper.getUserNpmPrefix();
 
         if (userNpmPrefix) {
-          env.npm_config_prefix = userNpmPrefix
-          env.NPM_CONFIG_PREFIX = userNpmPrefix
-          console.log(
-            '[ACP Init] Set NPM prefix to user directory (system install detected):',
-            userNpmPrefix
-          )
+          env.npm_config_prefix = userNpmPrefix;
+          env.NPM_CONFIG_PREFIX = userNpmPrefix;
+          console.log("[ACP Init] Set NPM prefix to user directory (system install detected):", userNpmPrefix);
 
-          const userNpmBinPath = userNpmPrefix
+          const userNpmBinPath = userNpmPrefix;
           setPathEntriesOnEnv(env, [userNpmBinPath, getPathEntriesFromEnv(env)], {
-            includeDefaultPaths: false
-          })
+            includeDefaultPaths: false,
+          });
 
-          console.log('[ACP Init] Added user npm bin directory to PATH:', userNpmBinPath)
+          console.log("[ACP Init] Added user npm bin directory to PATH:", userNpmBinPath);
         }
       }
     }
 
     if (profile.env) {
       const customEnvCount = Object.entries(profile.env).filter(
-        ([, value]) => value !== undefined && value !== ''
-      ).length
+        ([, value]) => value !== undefined && value !== "",
+      ).length;
       Object.entries(profile.env).forEach(([key, value]) => {
-        if (value !== undefined && value !== '' && !['PATH', 'Path', 'path'].includes(key)) {
-          env[key] = value
-          console.log('[ACP Init] Added custom env var:', key)
+        if (value !== undefined && value !== "" && !["PATH", "Path", "path"].includes(key)) {
+          env[key] = value;
+          console.log("[ACP Init] Added custom env var:", key);
         }
-      })
+      });
 
-      const customPathEntries = getPathEntriesFromEnv(profile.env)
+      const customPathEntries = getPathEntriesFromEnv(profile.env);
       if (customPathEntries.length > 0) {
         setPathEntriesOnEnv(env, [customPathEntries, getPathEntriesFromEnv(env)], {
-          includeDefaultPaths: false
-        })
-        console.log('[ACP Init] Merged custom PATH from profile:', {
+          includeDefaultPaths: false,
+        });
+        console.log("[ACP Init] Merged custom PATH from profile:", {
           customPath: profile.env.PATH || profile.env.Path || profile.env.path,
-          mergedPathLength: env[process.platform === 'win32' ? 'Path' : 'PATH']?.length || 0
-        })
+          mergedPathLength: env[process.platform === "win32" ? "Path" : "PATH"]?.length || 0,
+        });
       }
 
-      console.log('[ACP Init] Added custom environment variables from profile:', customEnvCount)
+      console.log("[ACP Init] Added custom environment variables from profile:", customEnvCount);
     }
 
-    console.log('[ACP Init] Environment variables built:', {
+    console.log("[ACP Init] Environment variables built:", {
       totalEnvVars: Object.keys(env).length,
-      pathLength: env[process.platform === 'win32' ? 'Path' : 'PATH']?.length || 0
-    })
+      pathLength: env[process.platform === "win32" ? "Path" : "PATH"]?.length || 0,
+    });
 
-    return env
+    return env;
   }
 }
 
 // Export helper functions
-let initHelperInstance: AcpInitHelper | null = null
+let initHelperInstance: AcpInitHelper | null = null;
 
 function getInitHelper(): AcpInitHelper {
   if (!initHelperInstance) {
-    initHelperInstance = new AcpInitHelper()
+    initHelperInstance = new AcpInitHelper();
   }
-  return initHelperInstance
+  return initHelperInstance;
 }
 
 export async function initializeBuiltinAgent(
@@ -638,7 +616,7 @@ export async function initializeBuiltinAgent(
   useBuiltinRuntime: boolean,
   npmRegistry: string | null,
   uvRegistry: string | null,
-  webContents?: WebContents
+  webContents?: WebContents,
 ): Promise<IPty | null> {
   return getInitHelper().initializeBuiltinAgent(
     agentId,
@@ -646,8 +624,8 @@ export async function initializeBuiltinAgent(
     useBuiltinRuntime,
     npmRegistry,
     uvRegistry,
-    webContents
-  )
+    webContents,
+  );
 }
 
 export async function initializeCustomAgent(
@@ -655,21 +633,15 @@ export async function initializeCustomAgent(
   useBuiltinRuntime: boolean,
   npmRegistry: string | null,
   uvRegistry: string | null,
-  webContents?: WebContents
+  webContents?: WebContents,
 ): Promise<IPty | null> {
-  return getInitHelper().initializeCustomAgent(
-    agent,
-    useBuiltinRuntime,
-    npmRegistry,
-    uvRegistry,
-    webContents
-  )
+  return getInitHelper().initializeCustomAgent(agent, useBuiltinRuntime, npmRegistry, uvRegistry, webContents);
 }
 
 export function writeToTerminal(data: string): void {
-  getInitHelper().writeToTerminal(data)
+  getInitHelper().writeToTerminal(data);
 }
 
 export function killTerminal(): void {
-  getInitHelper().killTerminal()
+  getInitHelper().killTerminal();
 }

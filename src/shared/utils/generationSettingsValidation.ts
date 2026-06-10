@@ -1,98 +1,98 @@
-import { MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from '../modelConfigDefaults'
-import type { SessionGenerationSettings } from '../types/agent-interface'
+import { MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from "../modelConfigDefaults";
+import type { SessionGenerationSettings } from "../types/agent-interface";
 
 export type GenerationNumericField =
-  | 'temperature'
-  | 'topP'
-  | 'contextLength'
-  | 'maxTokens'
-  | 'timeout'
-  | 'thinkingBudget'
+  | "temperature"
+  | "topP"
+  | "contextLength"
+  | "maxTokens"
+  | "timeout"
+  | "thinkingBudget";
 
 export type GenerationNumericValidationCode =
-  | 'finite_number'
-  | 'non_negative_integer'
-  | 'context_length_below_max_tokens'
-  | 'max_tokens_exceed_context_length'
-  | 'timeout_too_small'
-  | 'timeout_too_large'
-  | 'top_p_out_of_range'
+  | "finite_number"
+  | "non_negative_integer"
+  | "context_length_below_max_tokens"
+  | "max_tokens_exceed_context_length"
+  | "timeout_too_small"
+  | "timeout_too_large"
+  | "top_p_out_of_range";
 
-type GenerationRelationContext = Pick<SessionGenerationSettings, 'contextLength' | 'maxTokens'>
+type GenerationRelationContext = Pick<SessionGenerationSettings, "contextLength" | "maxTokens">;
 
 export const parseFiniteNumericValue = (value: unknown): number | undefined => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : undefined
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
   }
 
-  if (typeof value !== 'string') {
-    return undefined
+  if (typeof value !== "string") {
+    return undefined;
   }
 
-  const normalized = value.trim()
+  const normalized = value.trim();
   if (!normalized) {
-    return undefined
+    return undefined;
   }
 
-  const numeric = Number(normalized)
-  return Number.isFinite(numeric) ? numeric : undefined
-}
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : undefined;
+};
 
 export const isNonNegativeInteger = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value >= 0
+  typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 0;
 
 export const toValidNonNegativeInteger = (value: unknown): number | undefined => {
-  const numeric = parseFiniteNumericValue(value)
-  return isNonNegativeInteger(numeric) ? numeric : undefined
-}
+  const numeric = parseFiniteNumericValue(value);
+  return isNonNegativeInteger(numeric) ? numeric : undefined;
+};
 
 export const normalizeLegacyThinkingBudgetValue = (value: unknown): number | undefined =>
-  toValidNonNegativeInteger(value)
+  toValidNonNegativeInteger(value);
 
 export const validateGenerationNumericField = (
   field: GenerationNumericField,
   value: unknown,
-  context: Partial<GenerationRelationContext> = {}
+  context: Partial<GenerationRelationContext> = {},
 ): GenerationNumericValidationCode | null => {
-  const numeric = parseFiniteNumericValue(value)
+  const numeric = parseFiniteNumericValue(value);
 
-  if (field === 'temperature') {
-    return numeric === undefined ? 'finite_number' : null
+  if (field === "temperature") {
+    return numeric === undefined ? "finite_number" : null;
   }
 
-  if (field === 'topP') {
+  if (field === "topP") {
     if (numeric === undefined) {
-      return 'finite_number'
+      return "finite_number";
     }
-    return numeric >= 0.1 && numeric <= 1 ? null : 'top_p_out_of_range'
+    return numeric >= 0.1 && numeric <= 1 ? null : "top_p_out_of_range";
   }
 
   if (!isNonNegativeInteger(numeric)) {
-    return 'non_negative_integer'
+    return "non_negative_integer";
   }
 
-  if (field === 'contextLength') {
-    const maxTokens = context.maxTokens
+  if (field === "contextLength") {
+    const maxTokens = context.maxTokens;
     if (isNonNegativeInteger(maxTokens) && numeric < maxTokens) {
-      return 'context_length_below_max_tokens'
+      return "context_length_below_max_tokens";
     }
   }
 
-  if (field === 'maxTokens') {
-    const contextLength = context.contextLength
+  if (field === "maxTokens") {
+    const contextLength = context.contextLength;
     if (isNonNegativeInteger(contextLength) && numeric > contextLength) {
-      return 'max_tokens_exceed_context_length'
+      return "max_tokens_exceed_context_length";
     }
   }
 
-  if (field === 'timeout') {
+  if (field === "timeout") {
     if (numeric < MODEL_TIMEOUT_MIN_MS) {
-      return 'timeout_too_small'
+      return "timeout_too_small";
     }
     if (numeric > MODEL_TIMEOUT_MAX_MS) {
-      return 'timeout_too_large'
+      return "timeout_too_large";
     }
   }
 
-  return null
-}
+  return null;
+};

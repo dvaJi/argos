@@ -1,17 +1,14 @@
-import React from 'react'
-import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer'
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
 interface MarkdownArtifactProps {
-  block: { artifact: { type: string; title: string }; content: string }
-  className?: string
+  block: { artifact: { type: string; title: string }; content: string };
+  className?: string;
 }
 
 export function MarkdownArtifact({ block, className }: MarkdownArtifactProps) {
   return (
-    <div
-      className={`markdown-content-wrapper relative w-full px-4 pb-8 artifact-dialog-content ${className ?? ''}`}
-    >
-      <MarkdownRenderer content={block.content || ''} linkContext={{ source: 'artifact' }} />
+    <div className={`markdown-content-wrapper relative w-full px-4 pb-8 artifact-dialog-content ${className ?? ""}`}>
+      <MarkdownRenderer content={block.content || ""} linkContext={{ source: "artifact" }} />
       <style>{`
         .markdown-content-wrapper {
           line-height: 1.75rem;
@@ -21,5 +18,5 @@ export function MarkdownArtifact({ block, className }: MarkdownArtifactProps) {
         }
       `}</style>
     </div>
-  )
+  );
 }

@@ -27,4 +27,4 @@ When answering, please pay attention to the following points:
 
 # The user's message is:
 {{USER_QUERY}}
-  `
+  `;

@@ -1,51 +1,51 @@
-import { useState } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import type { LLM_PROVIDER } from '@shared/presenter'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+import { useState } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import type { LLM_PROVIDER } from "@shared/presenter";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 
 interface ModelScopeMcpSyncProps {
-  provider: LLM_PROVIDER
+  provider: LLM_PROVIDER;
 }
 
 export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) {
-  const llmP = useLegacyPresenter('llmproviderPresenter')
+  const llmP = useLegacyPresenter("llmproviderPresenter");
 
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [syncResult, setSyncResult] = useState<{
-    imported: number
-    skipped: number
-    errors: string[]
-  } | null>(null)
+    imported: number;
+    skipped: number;
+    errors: string[];
+  } | null>(null);
 
   const [syncOptions, setSyncOptions] = useState({
     page_number: 1,
-    page_size: 50
-  })
+    page_size: 50,
+  });
 
   const handleSync = async () => {
     if (!provider.apiKey) {
-      setErrorMessage('API key is required for sync')
-      return
+      setErrorMessage("API key is required for sync");
+      return;
     }
 
-    setIsSyncing(true)
-    setErrorMessage('')
-    setSyncResult(null)
+    setIsSyncing(true);
+    setErrorMessage("");
+    setSyncResult(null);
 
     try {
-      const result = await llmP.syncModelScopeMcpServers(provider.id, syncOptions)
-      setSyncResult(result)
+      const result = await llmP.syncModelScopeMcpServers(provider.id, syncOptions);
+      setSyncResult(result);
     } catch (error) {
-      console.error('MCP sync error:', error)
-      setErrorMessage(error instanceof Error ? error.message : String(error))
+      console.error("MCP sync error:", error);
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
-      setIsSyncing(false)
+      setIsSyncing(false);
     }
-  }
+  };
 
   return (
     <div className="p-2 border rounded-lg bg-card/70 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm">
@@ -57,17 +57,13 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Sync MCP server configurations from ModelScope
-        </p>
+        <p className="text-xs text-muted-foreground">Sync MCP server configurations from ModelScope</p>
 
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground whitespace-nowrap">Per page</span>
           <select
             value={syncOptions.page_size}
-            onChange={(e) =>
-              setSyncOptions((prev) => ({ ...prev, page_size: Number(e.target.value) }))
-            }
+            onChange={(e) => setSyncOptions((prev) => ({ ...prev, page_size: Number(e.target.value) }))}
             className="w-16 h-6 text-xs px-1 border rounded bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
           >
             <option value="10">10</option>
@@ -78,25 +74,18 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
           <span className="text-muted-foreground whitespace-nowrap">items, page</span>
           <input
             value={syncOptions.page_number}
-            onChange={(e) =>
-              setSyncOptions((prev) => ({ ...prev, page_number: Number(e.target.value) }))
-            }
+            onChange={(e) => setSyncOptions((prev) => ({ ...prev, page_number: Number(e.target.value) }))}
             type="number"
             min={1}
             className="w-16 h-6 text-xs px-1 border rounded bg-background border-border focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing}
-            size="sm"
-            className="h-6 px-2 text-xs ml-auto"
-          >
+          <Button onClick={handleSync} disabled={isSyncing} size="sm" className="h-6 px-2 text-xs ml-auto">
             {isSyncing ? (
               <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin mr-1" />
             ) : (
               <Icon icon="lucide:download" className="h-3 w-3 mr-1" />
             )}
-            {isSyncing ? 'Syncing...' : 'Sync'}
+            {isSyncing ? "Syncing..." : "Sync"}
           </Button>
         </div>
 
@@ -129,10 +118,7 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
             <div className="text-xs font-medium text-destructive">Error details:</div>
             <div className="max-h-20 overflow-y-auto p-1 bg-muted/40 rounded text-xs">
               {syncResult.errors.map((error, index) => (
-                <div
-                  key={index}
-                  className="text-muted-foreground py-0.5 border-b border-border/40 last:border-0"
-                >
+                <div key={index} className="text-muted-foreground py-0.5 border-b border-border/40 last:border-0">
                   {error}
                 </div>
               ))}
@@ -141,5 +127,5 @@ export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) 
         )}
       </div>
     </div>
-  )
+  );
 }

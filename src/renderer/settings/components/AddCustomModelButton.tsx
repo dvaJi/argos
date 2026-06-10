@@ -1,41 +1,37 @@
-import { useState } from 'react'
-import { Button } from '@shadcn/components/ui/button'
-import { Icon } from '@iconify/react'
-import ModelConfigDialog from '@/components/settings/ModelConfigDialog'
+import { useState } from "react";
+import { Button } from "@shadcn/components/ui/button";
+import { Icon } from "@iconify/react";
+import ModelConfigDialog from "@/components/settings/ModelConfigDialog";
 
 interface AddCustomModelButtonProps {
-  modelId?: string
-  modelName?: string
-  providerId?: string
-  mode?: 'create' | 'edit'
-  isCustomModel?: boolean
-  children?: React.ReactNode
-  onSaved?: () => void
+  modelId?: string;
+  modelName?: string;
+  providerId?: string;
+  mode?: "create" | "edit";
+  isCustomModel?: boolean;
+  children?: React.ReactNode;
+  onSaved?: () => void;
 }
 
 export default function AddCustomModelButton({
-  modelId = '',
-  modelName = '',
-  providerId = '',
-  mode = 'create',
+  modelId = "",
+  modelName = "",
+  providerId = "",
+  mode = "create",
   isCustomModel = true,
   children,
-  onSaved
+  onSaved,
 }: AddCustomModelButtonProps) {
-  const [showAddModelDialog, setShowAddModelDialog] = useState(false)
+  const [showAddModelDialog, setShowAddModelDialog] = useState(false);
 
   const handleSaved = () => {
-    setShowAddModelDialog(false)
-    onSaved?.()
-  }
+    setShowAddModelDialog(false);
+    onSaved?.();
+  };
 
   return (
     <div className="inline-flex items-center">
-      <Button
-        variant="outline"
-        className="text-xs text-normal rounded-lg"
-        onClick={() => setShowAddModelDialog(true)}
-      >
+      <Button variant="outline" className="text-xs text-normal rounded-lg" onClick={() => setShowAddModelDialog(true)}>
         {children ?? (
           <>
             <Icon icon="lucide:plus" className="w-4 h-4 text-muted-foreground" />
@@ -54,5 +50,5 @@ export default function AddCustomModelButton({
         onSaved={handleSaved}
       />
     </div>
-  )
+  );
 }

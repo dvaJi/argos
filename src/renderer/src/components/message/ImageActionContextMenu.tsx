@@ -1,41 +1,41 @@
-import React from 'react'
-import { Icon } from '@iconify/react'
+import type { FC, ReactNode } from "react";
+import { Icon } from "@iconify/react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuTrigger
-} from '@shadcn/components/ui/context-menu'
-import { useImageActions } from '@/composables/useImageActions'
+  ContextMenuTrigger,
+} from "@shadcn/components/ui/context-menu";
+import { useImageActions } from "@/composables/useImageActions";
 
 interface ImageActionContextMenuProps {
-  source: string
-  mimeType?: string
-  suggestedName?: string
-  children: React.ReactNode
+  source: string;
+  mimeType?: string;
+  suggestedName?: string;
+  children: ReactNode;
 }
 
-export const ImageActionContextMenu: React.FC<ImageActionContextMenuProps> = ({
+export const ImageActionContextMenu: FC<ImageActionContextMenuProps> = ({
   source,
   mimeType,
   suggestedName,
-  children
+  children,
 }) => {
-  const { copyImage, saveImage } = useImageActions()
+  const { copyImage, saveImage } = useImageActions();
 
   const getImageActionSource = () => ({
     source,
     mimeType,
-    suggestedName
-  })
+    suggestedName,
+  });
 
   const handleCopy = () => {
-    void copyImage(getImageActionSource())
-  }
+    void copyImage(getImageActionSource());
+  };
 
   const handleSave = () => {
-    void saveImage(getImageActionSource())
-  }
+    void saveImage(getImageActionSource());
+  };
 
   return (
     <ContextMenu>
@@ -51,5 +51,5 @@ export const ImageActionContextMenu: React.FC<ImageActionContextMenuProps> = ({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  )
-}
+  );
+};

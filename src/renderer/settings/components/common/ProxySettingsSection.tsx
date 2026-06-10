@@ -1,75 +1,69 @@
-import { useState, useEffect, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { Input } from '@shadcn/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import { languageStore } from '@/stores/language'
+import { useState, useEffect, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { Input } from "@shadcn/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import { languageStore } from "@/stores/language";
 
 const PROXY_MODES = [
-  { value: 'system', label: 'System proxy' },
-  { value: 'none', label: 'No proxy' },
-  { value: 'custom', label: 'Custom proxy' }
-]
+  { value: "system", label: "System proxy" },
+  { value: "none", label: "No proxy" },
+  { value: "custom", label: "Custom proxy" },
+];
 
 const URL_PATTERN =
-  /^(http|https):\/\/(?:([^:@/]+)(?::([^@/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/
+  /^(http|https):\/\/(?:([^:@/]+)(?::([^@/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
 
 export default function ProxySettingsSection() {
-  const configPresenter = useLegacyPresenter('configPresenter')
-  const [selectedProxyMode, setSelectedProxyMode] = useState('system')
-  const [customProxyUrl, setCustomProxyUrl] = useState('')
-  const [showUrlError, setShowUrlError] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const configPresenter = useLegacyPresenter("configPresenter");
+  const [selectedProxyMode, setSelectedProxyMode] = useState("system");
+  const [customProxyUrl, setCustomProxyUrl] = useState("");
+  const [showUrlError, setShowUrlError] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const validateProxyUrl = (url?: string) => {
-    const value = url ?? customProxyUrl
+    const value = url ?? customProxyUrl;
     if (!value.trim()) {
-      setShowUrlError(false)
-      return
+      setShowUrlError(false);
+      return;
     }
-    const isValid = URL_PATTERN.test(value)
-    setShowUrlError(!isValid)
+    const isValid = URL_PATTERN.test(value);
+    setShowUrlError(!isValid);
     if (isValid || !value.trim()) {
-      configPresenter.setCustomProxyUrl(value)
+      configPresenter.setCustomProxyUrl(value);
     }
-  }
+  };
 
   useEffect(() => {
     if (debounceRef.current !== null) {
-      clearTimeout(debounceRef.current)
+      clearTimeout(debounceRef.current);
     }
     debounceRef.current = setTimeout(() => {
-      validateProxyUrl()
-    }, 300)
+      validateProxyUrl();
+    }, 300);
     return () => {
       if (debounceRef.current !== null) {
-        clearTimeout(debounceRef.current)
+        clearTimeout(debounceRef.current);
       }
-    }
-  }, [customProxyUrl])
+    };
+  }, [customProxyUrl]);
 
   useEffect(() => {
-    configPresenter.setProxyMode(selectedProxyMode)
-  }, [selectedProxyMode])
+    configPresenter.setProxyMode(selectedProxyMode);
+  }, [selectedProxyMode]);
 
   useEffect(() => {
     const init = async () => {
-      const mode = await configPresenter.getProxyMode()
-      const url = await configPresenter.getCustomProxyUrl()
-      setSelectedProxyMode(mode)
-      setCustomProxyUrl(url)
-      if (mode === 'custom' && url) {
-        validateProxyUrl(url)
+      const mode = await configPresenter.getProxyMode();
+      const url = await configPresenter.getCustomProxyUrl();
+      setSelectedProxyMode(mode);
+      setCustomProxyUrl(url);
+      if (mode === "custom" && url) {
+        validateProxyUrl(url);
       }
-    }
-    init()
-  }, [])
+    };
+    init();
+  }, []);
 
   return (
     <section className="flex flex-col gap-2">
@@ -97,7 +91,7 @@ export default function ProxySettingsSection() {
         </div>
       </div>
 
-      {selectedProxyMode === 'custom' && (
+      {selectedProxyMode === "custom" && (
         <div className="flex flex-col gap-2 h-10">
           <div className="flex items-center gap-3">
             <span
@@ -113,17 +107,15 @@ export default function ProxySettingsSection() {
                 onChange={(e) => setCustomProxyUrl(e.target.value)}
                 onBlur={() => validateProxyUrl()}
                 placeholder="http://host:port"
-                className={showUrlError ? 'border-red-500' : undefined}
+                className={showUrlError ? "border-red-500" : undefined}
               />
             </div>
           </div>
           {showUrlError && (
-            <div className="text-xs text-red-500 pt-1 lg:pl-[220px] pl-10">
-              Invalid proxy URL format
-            </div>
+            <div className="text-xs text-red-500 pt-1 lg:pl-[220px] pl-10">Invalid proxy URL format</div>
           )}
         </div>
       )}
     </section>
-  )
+  );
 }

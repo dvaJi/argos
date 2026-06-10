@@ -1,43 +1,42 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { nanoid } from 'nanoid'
-import type { AcpAgentProfile } from '@shared/presenter'
-import { useToast } from '@/components/use-toast'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { nanoid } from "nanoid";
+import type { AcpAgentProfile } from "@shared/presenter";
+import { useToast } from "@/components/use-toast";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Button } from '@shadcn/components/ui/button'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Button } from "@shadcn/components/ui/button";
 
-export type AcpProfilePayload = Omit<AcpAgentProfile, 'id'>
+export type AcpProfilePayload = Omit<AcpAgentProfile, "id">;
 
-type EnvRow = { id: string; key: string; value: string }
-type ProfileKind = 'builtin' | 'custom'
+type EnvRow = { id: string; key: string; value: string };
+type ProfileKind = "builtin" | "custom";
 
 interface AcpProfileDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description?: string
-  kind: ProfileKind
-  profile?: AcpProfilePayload | null
-  saving?: boolean
-  confirmLabel?: string
-  onSave: (payload: AcpProfilePayload) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description?: string;
+  kind: ProfileKind;
+  profile?: AcpProfilePayload | null;
+  saving?: boolean;
+  confirmLabel?: string;
+  onSave: (payload: AcpProfilePayload) => void;
 }
 
 const defaultDescription = (kind: ProfileKind) =>
-  kind === 'custom' ? 'Configure a custom agent profile' : 'Configure a built-in agent profile'
+  kind === "custom" ? "Configure a custom agent profile" : "Configure a built-in agent profile";
 
-const nameLabel = (kind: ProfileKind) => (kind === 'custom' ? 'Agent Name' : 'Profile Name')
+const nameLabel = (kind: ProfileKind) => (kind === "custom" ? "Agent Name" : "Profile Name");
 
-const namePlaceholder = (kind: ProfileKind) =>
-  kind === 'custom' ? 'Enter agent name' : 'Enter profile name'
+const namePlaceholder = (kind: ProfileKind) => (kind === "custom" ? "Enter agent name" : "Enter profile name");
 
 export default function AcpProfileDialog({
   open,
@@ -48,99 +47,95 @@ export default function AcpProfileDialog({
   profile,
   saving = false,
   confirmLabel,
-  onSave
+  onSave,
 }: AcpProfileDialogProps) {
-  const { toast } = useToast()
-  const [formName, setFormName] = useState('')
-  const [formCommand, setFormCommand] = useState('')
-  const [formArgsInput, setFormArgsInput] = useState('')
-  const [envRows, setEnvRows] = useState<EnvRow[]>([])
+  const { toast } = useToast();
+  const [formName, setFormName] = useState("");
+  const [formCommand, setFormCommand] = useState("");
+  const [formArgsInput, setFormArgsInput] = useState("");
+  const [envRows, setEnvRows] = useState<EnvRow[]>([]);
 
-  const resolvedDescription = descProp ?? defaultDescription(kind)
-  const confirmText = confirmLabel ?? 'Save'
+  const resolvedDescription = descProp ?? defaultDescription(kind);
+  const confirmText = confirmLabel ?? "Save";
 
   const addEnvRow = useCallback(() => {
-    setEnvRows((prev) => [...prev, { id: nanoid(6), key: '', value: '' }])
-  }, [])
+    setEnvRows((prev) => [...prev, { id: nanoid(6), key: "", value: "" }]);
+  }, []);
 
   const removeEnvRow = useCallback((id: string) => {
     setEnvRows((prev) => {
-      const next = prev.filter((row) => row.id !== id)
+      const next = prev.filter((row) => row.id !== id);
       if (!next.length) {
-        return [{ id: nanoid(6), key: '', value: '' }]
+        return [{ id: nanoid(6), key: "", value: "" }];
       }
-      return next
-    })
-  }, [])
+      return next;
+    });
+  }, []);
 
   const resetForm = useCallback(() => {
-    setFormName('')
-    setFormCommand('')
-    setFormArgsInput('')
-    setEnvRows([])
-    addEnvRow()
-  }, [addEnvRow])
+    setFormName("");
+    setFormCommand("");
+    setFormArgsInput("");
+    setEnvRows([]);
+    addEnvRow();
+  }, [addEnvRow]);
 
   const initForm = useCallback(() => {
     if (!profile) {
-      resetForm()
-      return
+      resetForm();
+      return;
     }
-    setFormName(profile.name)
-    setFormCommand(profile.command)
-    setFormArgsInput(profile.args?.join(' ') ?? '')
-    const rows = profile.env
-      ? Object.entries(profile.env).map(([key, value]) => ({ id: nanoid(6), key, value }))
-      : []
-    setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: '', value: '' }])
-  }, [profile, resetForm])
+    setFormName(profile.name);
+    setFormCommand(profile.command);
+    setFormArgsInput(profile.args?.join(" ") ?? "");
+    const rows = profile.env ? Object.entries(profile.env).map(([key, value]) => ({ id: nanoid(6), key, value })) : [];
+    setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: "", value: "" }]);
+  }, [profile, resetForm]);
 
   useEffect(() => {
     if (open) {
-      initForm()
+      initForm();
     } else {
-      resetForm()
+      resetForm();
     }
-  }, [open])
+  }, [open]);
 
   useEffect(() => {
-    if (open) initForm()
-  }, [profile])
+    if (open) initForm();
+  }, [profile]);
 
   const parseArgs = (input: string): string[] => {
-    const matches = input.match(/"[^"]*"|\S+/g) || []
-    return matches
-      .map((arg) => arg.replace(/^"(.*)"$/, '$1'))
-      .filter((arg) => arg.trim().length > 0)
-  }
+    const matches = input.match(/"[^"]*"|\S+/g) || [];
+    return matches.map((arg) => arg.replace(/^"(.*)"$/, "$1")).filter((arg) => arg.trim().length > 0);
+  };
 
   const buildEnv = (): Record<string, string> | undefined => {
-    const env: Record<string, string> = {}
+    const env: Record<string, string> = {};
     envRows.forEach((row) => {
       if (row.key.trim()) {
-        env[row.key.trim()] = row.value
+        env[row.key.trim()] = row.value;
       }
-    })
-    return Object.keys(env).length ? env : undefined
-  }
+    });
+    return Object.keys(env).length ? env : undefined;
+  };
 
   const handleSave = () => {
     if (!formName.trim() || !formCommand.trim()) {
       toast({
-        title: 'Missing required fields',
-        description: 'Name and command are required.',
-        variant: 'destructive'
-      })
-      return
+        title: "Missing required fields",
+        description: "Name and command are required.",
+        variant: "destructive",
+      });
+      return;
     }
 
     onSave({
       name: formName.trim(),
       command: formCommand.trim(),
       args: parseArgs(formArgsInput),
-      env: buildEnv()
-    })
-  }
+      env: buildEnv(),
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,19 +148,11 @@ export default function AcpProfileDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>{nameLabel(kind)}</Label>
-            <Input
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder={namePlaceholder(kind)}
-            />
+            <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={namePlaceholder(kind)} />
           </div>
           <div className="space-y-2">
             <Label>Command</Label>
-            <Input
-              value={formCommand}
-              onChange={(e) => setFormCommand(e.target.value)}
-              placeholder="Enter command"
-            />
+            <Input value={formCommand} onChange={(e) => setFormCommand(e.target.value)} placeholder="Enter command" />
           </div>
           <div className="space-y-2">
             <Label>Arguments</Label>
@@ -188,9 +175,7 @@ export default function AcpProfileDialog({
                   <Input
                     value={row.key}
                     onChange={(e) =>
-                      setEnvRows((prev) =>
-                        prev.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r))
-                      )
+                      setEnvRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)))
                     }
                     className="col-span-5"
                     placeholder="Key"
@@ -198,19 +183,12 @@ export default function AcpProfileDialog({
                   <Input
                     value={row.value}
                     onChange={(e) =>
-                      setEnvRows((prev) =>
-                        prev.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r))
-                      )
+                      setEnvRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))
                     }
                     className="col-span-6"
                     placeholder="Value"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="col-span-1"
-                    onClick={() => removeEnvRow(row.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeEnvRow(row.id)}>
                     ✕
                   </Button>
                 </div>
@@ -224,10 +202,10 @@ export default function AcpProfileDialog({
             Cancel
           </Button>
           <Button disabled={saving} onClick={handleSave}>
-            {saving ? 'Saving...' : confirmText}
+            {saving ? "Saving..." : confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

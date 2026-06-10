@@ -1,22 +1,16 @@
-import { Icon } from '@iconify/react'
-import { Switch } from '@shadcn/components/ui/switch'
-import { languageStore } from '@/stores/language'
+import { Icon } from "@iconify/react";
+import { Switch } from "@shadcn/components/ui/switch";
+import { languageStore } from "@/stores/language";
 
 interface SettingToggleRowProps {
-  id: string
-  icon: string
-  label: string
-  modelValue: boolean
-  onUpdateModelValue: (value: boolean) => void
+  id: string;
+  icon: string;
+  label: string;
+  modelValue: boolean;
+  onUpdateModelValue: (value: boolean) => void;
 }
 
-export default function SettingToggleRow({
-  id,
-  icon,
-  label,
-  modelValue,
-  onUpdateModelValue
-}: SettingToggleRowProps) {
+export default function SettingToggleRow({ id, icon, label, modelValue, onUpdateModelValue }: SettingToggleRowProps) {
   return (
     <div className="flex items-center gap-3 h-10">
       <span
@@ -30,5 +24,5 @@ export default function SettingToggleRow({
         <Switch id={id} checked={modelValue} onCheckedChange={onUpdateModelValue} />
       </div>
     </div>
-  )
+  );
 }

@@ -2,22 +2,17 @@
  * SplashWindowManager - Manages splash screen display during application initialization
  */
 
-import path from 'path'
-import { BrowserWindow, ipcMain, nativeImage } from 'electron'
-import { eventBus } from '../../eventbus'
-import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from '@/events'
-import { ISplashWindowManager } from '@shared/presenter'
-import { is } from '@electron-toolkit/utils'
-import icon from '../../../../resources/icon.png?asset' // 应用图标 (macOS/Linux)
-import iconWin from '../../../../resources/icon.ico?asset' // 应用图标 (Windows)
-import { LifecyclePhase } from '@shared/lifecycle'
-import {
-  ErrorOccurredEventData,
-  HookExecutedEventData,
-  HookFailedEventData,
-  ProgressUpdatedEventData
-} from './types'
-import { releasePresenterCallErrorStateForWebContents } from '../presenterCallErrorHandler'
+import path from "path";
+import { BrowserWindow, ipcMain, nativeImage } from "electron";
+import { eventBus } from "../../eventbus";
+import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "@/events";
+import { ISplashWindowManager } from "@shared/presenter";
+import { is } from "@electron-toolkit/utils";
+import icon from "../../../../resources/icon.png?asset"; // 应用图标 (macOS/Linux)
+import iconWin from "../../../../resources/icon.ico?asset"; // 应用图标 (Windows)
+import { LifecyclePhase } from "@shared/lifecycle";
+import { ErrorOccurredEventData, HookExecutedEventData, HookFailedEventData, ProgressUpdatedEventData } from "./types";
+import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import {
   DATABASE_UNLOCK_CANCEL_CHANNEL,
   DATABASE_UNLOCK_PROGRESS_CHANNEL,
@@ -25,100 +20,100 @@ import {
   DATABASE_UNLOCK_SUBMIT_CHANNEL,
   type DatabaseUnlockProgressPayload,
   type DatabaseUnlockRequestPayload,
-  type DatabaseUnlockReason
-} from '@shared/contracts/databaseSecurity'
-import { activateAppOnMac } from '@/lib/activateApp'
+  type DatabaseUnlockReason,
+} from "@shared/contracts/databaseSecurity";
+import { activateAppOnMac } from "@/lib/activateApp";
 
-type SplashActivityStatus = 'running' | 'completed' | 'failed'
+type SplashActivityStatus = "running" | "completed" | "failed";
 
 interface SplashActivityItem {
-  key: string
-  name: string
-  status: SplashActivityStatus
-  updatedAt: number
+  key: string;
+  name: string;
+  status: SplashActivityStatus;
+  updatedAt: number;
 }
 
 interface SplashUpdatePayload {
-  activities: Array<Pick<SplashActivityItem, 'key' | 'name' | 'status'>>
+  activities: Array<Pick<SplashActivityItem, "key" | "name" | "status">>;
 }
 
 type WindowCreatedPayload =
   | number
   | {
-      windowId?: number
-      isMainWindow?: boolean
-      windowType?: string
-    }
+      windowId?: number;
+      isMainWindow?: boolean;
+      windowType?: string;
+    };
 
-const MAX_SPLASH_ACTIVITIES = 3
-const SPLASH_SHOW_DELAY_MS = 200
+const MAX_SPLASH_ACTIVITIES = 3;
+const SPLASH_SHOW_DELAY_MS = 200;
 
 export class SplashWindowManager implements ISplashWindowManager {
-  private splashWindow: BrowserWindow | null = null
-  private activities = new Map<string, SplashActivityItem>()
+  private splashWindow: BrowserWindow | null = null;
+  private activities = new Map<string, SplashActivityItem>();
   private unlockRequest: {
-    requestId: string
-    payload: DatabaseUnlockRequestPayload
-    resolve: (password: string | null) => void
-  } | null = null
-  private pendingUnlockProgress: DatabaseUnlockProgressPayload | null = null
-  private splashReadyToShow = false
-  private splashDidFinishLoad = false
-  private splashShowDelayElapsed = false
-  private suppressSplashShow = false
-  private forceShowWhenLoaded = false
-  private splashLoadCanceled = false
-  private splashLoadPromise: Promise<void> | null = null
-  private splashShowDelayTimer: ReturnType<typeof setTimeout> | null = null
+    requestId: string;
+    payload: DatabaseUnlockRequestPayload;
+    resolve: (password: string | null) => void;
+  } | null = null;
+  private pendingUnlockProgress: DatabaseUnlockProgressPayload | null = null;
+  private splashReadyToShow = false;
+  private splashDidFinishLoad = false;
+  private splashShowDelayElapsed = false;
+  private suppressSplashShow = false;
+  private forceShowWhenLoaded = false;
+  private splashLoadCanceled = false;
+  private splashLoadPromise: Promise<void> | null = null;
+  private splashShowDelayTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly onHookExecuted = (data: HookExecutedEventData) => {
     if (!this.isStartupPhase(data.phase)) {
-      return
+      return;
     }
 
-    this.upsertActivity(data.phase, data.name, 'running')
-  }
+    this.upsertActivity(data.phase, data.name, "running");
+  };
   private readonly onHookCompleted = (data: HookExecutedEventData) => {
     if (!this.isStartupPhase(data.phase)) {
-      return
+      return;
     }
 
-    this.upsertActivity(data.phase, data.name, 'completed')
-  }
+    this.upsertActivity(data.phase, data.name, "completed");
+  };
   private readonly onHookFailed = (data: HookFailedEventData) => {
     if (!this.isStartupPhase(data.phase)) {
-      return
+      return;
     }
 
-    this.upsertActivity(data.phase, data.name, 'failed')
-  }
+    this.upsertActivity(data.phase, data.name, "failed");
+  };
   private readonly onErrorOccurred = (data: ErrorOccurredEventData) => {
     if (!this.isStartupPhase(data.phase)) {
-      return
+      return;
     }
 
     this.activities.set(`error:${data.phase}`, {
       key: `error:${data.phase}`,
-      name: 'startup-error',
-      status: 'failed',
-      updatedAt: Date.now()
-    })
-    this.pruneActivities()
-    this.emitState()
-  }
+      name: "startup-error",
+      status: "failed",
+      updatedAt: Date.now(),
+    });
+    this.pruneActivities();
+    this.emitState();
+  };
   private readonly onMainWindowCreated = (payload?: WindowCreatedPayload) => {
     if (!this.shouldSuppressForWindowCreated(payload) || this.isVisible()) {
-      return
+      return;
     }
 
-    this.suppressSplashShow = true
-    this.clearSplashShowDelayTimer()
-    eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated)
-    this.closeHiddenSplashWindow()
-  }
+    this.suppressSplashShow = true;
+    this.clearSplashShowDelayTimer();
+    eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated);
+    this.closeHiddenSplashWindow();
+  };
 
   constructor() {
-    this.setupLifecycleListeners()
-    this.setupDatabaseUnlockListeners()
+    this.setupLifecycleListeners();
+    this.setupDatabaseUnlockListeners();
   }
 
   /**
@@ -126,25 +121,25 @@ export class SplashWindowManager implements ISplashWindowManager {
    */
   async create(): Promise<void> {
     if (this.splashWindow) {
-      return
+      return;
     }
 
-    this.splashReadyToShow = false
-    this.splashDidFinishLoad = false
-    this.splashShowDelayElapsed = false
-    this.suppressSplashShow = false
-    this.forceShowWhenLoaded = false
-    this.splashLoadCanceled = false
-    this.splashLoadPromise = null
-    this.clearSplashShowDelayTimer()
-    eventBus.on(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated)
+    this.splashReadyToShow = false;
+    this.splashDidFinishLoad = false;
+    this.splashShowDelayElapsed = false;
+    this.suppressSplashShow = false;
+    this.forceShowWhenLoaded = false;
+    this.splashLoadCanceled = false;
+    this.splashLoadPromise = null;
+    this.clearSplashShowDelayTimer();
+    eventBus.on(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated);
 
     this.splashShowDelayTimer = setTimeout(() => {
-      this.splashShowDelayElapsed = true
-      this.maybeShowSplash()
-    }, SPLASH_SHOW_DELAY_MS)
+      this.splashShowDelayElapsed = true;
+      this.maybeShowSplash();
+    }, SPLASH_SHOW_DELAY_MS);
 
-    const iconFile = nativeImage.createFromPath(process.platform === 'win32' ? iconWin : icon)
+    const iconFile = nativeImage.createFromPath(process.platform === "win32" ? iconWin : icon);
 
     try {
       this.splashWindow = new BrowserWindow({
@@ -159,56 +154,56 @@ export class SplashWindowManager implements ISplashWindowManager {
         show: false, // 先隐藏窗口，等待 ready-to-show 以避免白屏
         autoHideMenuBar: true,
         skipTaskbar: true,
-        backgroundColor: '#020817',
+        backgroundColor: "#020817",
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
-          preload: path.join(__dirname, '../preload/splash.mjs'),
+          preload: path.join(__dirname, "../preload/splash.mjs"),
           sandbox: false,
-          devTools: is.dev
-        }
-      })
-      const splashWebContentsId = this.splashWindow.webContents.id
+          devTools: is.dev,
+        },
+      });
+      const splashWebContentsId = this.splashWindow.webContents.id;
 
-      this.splashWindow.on('ready-to-show', () => {
-        this.splashReadyToShow = true
-        this.maybeShowSplash()
-      })
+      this.splashWindow.on("ready-to-show", () => {
+        this.splashReadyToShow = true;
+        this.maybeShowSplash();
+      });
 
-      this.splashWindow.webContents.on('destroyed', () => {
-        releasePresenterCallErrorStateForWebContents(splashWebContentsId)
-      })
+      this.splashWindow.webContents.on("destroyed", () => {
+        releasePresenterCallErrorStateForWebContents(splashWebContentsId);
+      });
 
-      this.splashWindow.webContents.on('did-finish-load', () => {
-        this.markSplashLoaded()
-      })
+      this.splashWindow.webContents.on("did-finish-load", () => {
+        this.markSplashLoaded();
+      });
 
       this.splashLoadPromise = this.loadSplashRenderer().catch((error) => {
         if (!this.shouldContinueSplashLoad()) {
-          return
+          return;
         }
-        console.error('Failed to load splash window:', error)
-        this.markSplashLoaded()
-      })
+        console.error("Failed to load splash window:", error);
+        this.markSplashLoaded();
+      });
 
       // Handle window closed event6
-      this.splashWindow.on('closed', () => {
-        this.clearSplashShowDelayTimer()
-        this.splashWindow = null
-        this.splashDidFinishLoad = false
-        this.forceShowWhenLoaded = false
-        this.splashLoadCanceled = true
-        this.splashLoadPromise = null
-      })
+      this.splashWindow.on("closed", () => {
+        this.clearSplashShowDelayTimer();
+        this.splashWindow = null;
+        this.splashDidFinishLoad = false;
+        this.forceShowWhenLoaded = false;
+        this.splashLoadCanceled = true;
+        this.splashLoadPromise = null;
+      });
 
       if (this.suppressSplashShow) {
-        this.closeHiddenSplashWindow()
+        this.closeHiddenSplashWindow();
       }
     } catch (error) {
-      eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated)
-      this.clearSplashShowDelayTimer()
-      console.error('Failed to create splash window:', error)
-      throw error
+      eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated);
+      this.clearSplashShowDelayTimer();
+      console.error("Failed to create splash window:", error);
+      throw error;
     }
   }
 
@@ -217,92 +212,89 @@ export class SplashWindowManager implements ISplashWindowManager {
    */
   updateProgress(phase: LifecyclePhase, progress: number): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
 
     const phaseMessages = {
-      [LifecyclePhase.INIT]: 'Initializing application...',
-      [LifecyclePhase.BEFORE_START]: 'Preparing startup...',
-      [LifecyclePhase.READY]: 'Loading components...',
-      [LifecyclePhase.AFTER_START]: 'Finalizing startup...'
-    }
+      [LifecyclePhase.INIT]: "Initializing application...",
+      [LifecyclePhase.BEFORE_START]: "Preparing startup...",
+      [LifecyclePhase.READY]: "Loading components...",
+      [LifecyclePhase.AFTER_START]: "Finalizing startup...",
+    };
 
-    const message = phaseMessages[phase] || 'Loading...'
-    const clamped = Math.max(0, Math.min(100, progress))
+    const message = phaseMessages[phase] || "Loading...";
+    const clamped = Math.max(0, Math.min(100, progress));
 
     // Emit progress event to both main and renderer processes
     eventBus.sendToMain(LIFECYCLE_EVENTS.PROGRESS_UPDATED, {
       phase,
       progress: clamped,
-      message
-    } as ProgressUpdatedEventData)
+      message,
+    } as ProgressUpdatedEventData);
   }
 
-  showDatabaseUnlockProgress(
-    payload: DatabaseUnlockProgressPayload,
-    options: { skipDelay?: boolean } = {}
-  ): void {
-    this.pendingUnlockProgress = payload
+  showDatabaseUnlockProgress(payload: DatabaseUnlockProgressPayload, options: { skipDelay?: boolean } = {}): void {
+    this.pendingUnlockProgress = payload;
     if (payload.active) {
-      this.forceShowSplash({ skipDelay: options.skipDelay })
+      this.forceShowSplash({ skipDelay: options.skipDelay });
     }
-    this.emitDatabaseUnlockState()
+    this.emitDatabaseUnlockState();
   }
 
   async requestDatabaseUnlock(payload: {
-    reason: DatabaseUnlockReason
-    safeStorageAvailable: boolean
+    reason: DatabaseUnlockReason;
+    safeStorageAvailable: boolean;
   }): Promise<string | null> {
-    this.unlockRequest?.resolve(null)
+    this.unlockRequest?.resolve(null);
 
-    const requestId = `database-unlock-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const requestId = `database-unlock-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const requestPayload: DatabaseUnlockRequestPayload = {
       requestId,
       reason: payload.reason,
-      safeStorageAvailable: payload.safeStorageAvailable
-    }
+      safeStorageAvailable: payload.safeStorageAvailable,
+    };
 
     return await new Promise((resolve) => {
-      this.unlockRequest = { requestId, payload: requestPayload, resolve }
-      this.forceShowSplash({ skipDelay: true })
-      this.emitDatabaseUnlockState()
-    })
+      this.unlockRequest = { requestId, payload: requestPayload, resolve };
+      this.forceShowSplash({ skipDelay: true });
+      this.emitDatabaseUnlockState();
+    });
   }
 
   /**
    * Close the splash window
    */
   async close(): Promise<void> {
-    eventBus.off(LIFECYCLE_EVENTS.HOOK_EXECUTED, this.onHookExecuted)
-    eventBus.off(LIFECYCLE_EVENTS.HOOK_COMPLETED, this.onHookCompleted)
-    eventBus.off(LIFECYCLE_EVENTS.HOOK_FAILED, this.onHookFailed)
-    eventBus.off(LIFECYCLE_EVENTS.ERROR_OCCURRED, this.onErrorOccurred)
-    eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated)
+    eventBus.off(LIFECYCLE_EVENTS.HOOK_EXECUTED, this.onHookExecuted);
+    eventBus.off(LIFECYCLE_EVENTS.HOOK_COMPLETED, this.onHookCompleted);
+    eventBus.off(LIFECYCLE_EVENTS.HOOK_FAILED, this.onHookFailed);
+    eventBus.off(LIFECYCLE_EVENTS.ERROR_OCCURRED, this.onErrorOccurred);
+    eventBus.off(WINDOW_EVENTS.WINDOW_CREATED, this.onMainWindowCreated);
 
-    this.activities.clear()
-    this.unlockRequest?.resolve(null)
-    this.unlockRequest = null
-    this.pendingUnlockProgress = null
-    this.forceShowWhenLoaded = false
-    this.splashLoadCanceled = true
-    this.splashLoadPromise = null
-    this.emitState()
-    this.clearSplashShowDelayTimer()
+    this.activities.clear();
+    this.unlockRequest?.resolve(null);
+    this.unlockRequest = null;
+    this.pendingUnlockProgress = null;
+    this.forceShowWhenLoaded = false;
+    this.splashLoadCanceled = true;
+    this.splashLoadPromise = null;
+    this.emitState();
+    this.clearSplashShowDelayTimer();
 
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
 
     try {
       if (this.splashWindow.isVisible()) {
         // Add a small delay for smooth transition when the splash is actually visible.
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
 
-      this.splashWindow.close()
-      this.splashWindow = null
+      this.splashWindow.close();
+      this.splashWindow = null;
     } catch (error) {
-      console.error('Failed to close splash window:', error)
+      console.error("Failed to close splash window:", error);
     }
   }
 
@@ -310,94 +302,82 @@ export class SplashWindowManager implements ISplashWindowManager {
    * Check if splash window is currently visible
    */
   isVisible(): boolean {
-    return (
-      this.splashWindow !== null &&
-      !this.splashWindow.isDestroyed() &&
-      this.splashWindow.isVisible()
-    )
+    return this.splashWindow !== null && !this.splashWindow.isDestroyed() && this.splashWindow.isVisible();
   }
 
   private setupLifecycleListeners(): void {
-    eventBus.on(LIFECYCLE_EVENTS.HOOK_EXECUTED, this.onHookExecuted)
-    eventBus.on(LIFECYCLE_EVENTS.HOOK_COMPLETED, this.onHookCompleted)
-    eventBus.on(LIFECYCLE_EVENTS.HOOK_FAILED, this.onHookFailed)
-    eventBus.on(LIFECYCLE_EVENTS.ERROR_OCCURRED, this.onErrorOccurred)
+    eventBus.on(LIFECYCLE_EVENTS.HOOK_EXECUTED, this.onHookExecuted);
+    eventBus.on(LIFECYCLE_EVENTS.HOOK_COMPLETED, this.onHookCompleted);
+    eventBus.on(LIFECYCLE_EVENTS.HOOK_FAILED, this.onHookFailed);
+    eventBus.on(LIFECYCLE_EVENTS.ERROR_OCCURRED, this.onErrorOccurred);
   }
 
   private setupDatabaseUnlockListeners(): void {
     ipcMain.on(DATABASE_UNLOCK_SUBMIT_CHANNEL, (event, payload: unknown) => {
       if (!this.isSplashSender(event.sender.id) || !this.unlockRequest) {
-        return
+        return;
       }
-      if (!payload || typeof payload !== 'object') {
-        return
+      if (!payload || typeof payload !== "object") {
+        return;
       }
-      const requestId = (payload as { requestId?: unknown }).requestId
-      const password = (payload as { password?: unknown }).password
-      if (requestId !== this.unlockRequest.requestId || typeof password !== 'string') {
-        return
+      const requestId = (payload as { requestId?: unknown }).requestId;
+      const password = (payload as { password?: unknown }).password;
+      if (requestId !== this.unlockRequest.requestId || typeof password !== "string") {
+        return;
       }
 
-      const current = this.unlockRequest
-      this.unlockRequest = null
-      current.resolve(password)
-    })
+      const current = this.unlockRequest;
+      this.unlockRequest = null;
+      current.resolve(password);
+    });
 
     ipcMain.on(DATABASE_UNLOCK_CANCEL_CHANNEL, (event, payload: unknown) => {
       if (!this.isSplashSender(event.sender.id) || !this.unlockRequest) {
-        return
+        return;
       }
       const requestId =
-        payload && typeof payload === 'object'
-          ? (payload as { requestId?: unknown }).requestId
-          : undefined
+        payload && typeof payload === "object" ? (payload as { requestId?: unknown }).requestId : undefined;
       if (requestId !== this.unlockRequest.requestId) {
-        return
+        return;
       }
 
-      const current = this.unlockRequest
-      this.unlockRequest = null
-      current.resolve(null)
-    })
+      const current = this.unlockRequest;
+      this.unlockRequest = null;
+      current.resolve(null);
+    });
   }
 
   private isSplashSender(webContentsId: number): boolean {
-    return this.splashWindow?.webContents.id === webContentsId
+    return this.splashWindow?.webContents.id === webContentsId;
   }
 
   private isStartupPhase(phase: LifecyclePhase | null): phase is LifecyclePhase {
-    return phase !== null && phase !== LifecyclePhase.BEFORE_QUIT
+    return phase !== null && phase !== LifecyclePhase.BEFORE_QUIT;
   }
 
-  private upsertActivity(
-    phase: LifecyclePhase,
-    hookName: string,
-    status: SplashActivityStatus
-  ): void {
-    const key = `${phase}:${hookName}`
+  private upsertActivity(phase: LifecyclePhase, hookName: string, status: SplashActivityStatus): void {
+    const key = `${phase}:${hookName}`;
 
     this.activities.set(key, {
       key,
       name: hookName,
       status,
-      updatedAt: Date.now()
-    })
+      updatedAt: Date.now(),
+    });
 
-    this.pruneActivities()
-    this.emitState()
+    this.pruneActivities();
+    this.emitState();
   }
 
   private pruneActivities(): void {
-    const sorted = Array.from(this.activities.values()).sort((a, b) => b.updatedAt - a.updatedAt)
+    const sorted = Array.from(this.activities.values()).sort((a, b) => b.updatedAt - a.updatedAt);
 
-    this.activities = new Map(
-      sorted.slice(0, MAX_SPLASH_ACTIVITIES).map((activity) => [activity.key, activity])
-    )
+    this.activities = new Map(sorted.slice(0, MAX_SPLASH_ACTIVITIES).map((activity) => [activity.key, activity]));
   }
 
   private emitState(): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
 
     const payload: SplashUpdatePayload = {
@@ -406,30 +386,24 @@ export class SplashWindowManager implements ISplashWindowManager {
         .map(({ key, name, status }) => ({
           key,
           name,
-          status
-        }))
-    }
+          status,
+        })),
+    };
 
-    this.splashWindow.webContents.send('splash-update', payload)
+    this.splashWindow.webContents.send("splash-update", payload);
   }
 
   private emitDatabaseUnlockState(): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed() || !this.splashDidFinishLoad) {
-      return
+      return;
     }
 
     if (this.pendingUnlockProgress) {
-      this.splashWindow.webContents.send(
-        DATABASE_UNLOCK_PROGRESS_CHANNEL,
-        this.pendingUnlockProgress
-      )
+      this.splashWindow.webContents.send(DATABASE_UNLOCK_PROGRESS_CHANNEL, this.pendingUnlockProgress);
     }
 
     if (this.unlockRequest) {
-      this.splashWindow.webContents.send(
-        DATABASE_UNLOCK_REQUEST_CHANNEL,
-        this.unlockRequest.payload
-      )
+      this.splashWindow.webContents.send(DATABASE_UNLOCK_REQUEST_CHANNEL, this.unlockRequest.payload);
     }
   }
 
@@ -441,104 +415,102 @@ export class SplashWindowManager implements ISplashWindowManager {
       !this.splashReadyToShow ||
       !this.splashShowDelayElapsed
     ) {
-      return
+      return;
     }
 
-    this.showSplashWindow()
+    this.showSplashWindow();
   }
 
   private forceShowSplash(options: { skipDelay?: boolean } = {}): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
-    this.suppressSplashShow = false
-    this.splashShowDelayElapsed = true
+    this.suppressSplashShow = false;
+    this.splashShowDelayElapsed = true;
     if (options.skipDelay) {
-      this.clearSplashShowDelayTimer()
-      this.forceShowWhenLoaded = true
+      this.clearSplashShowDelayTimer();
+      this.forceShowWhenLoaded = true;
       if (this.splashDidFinishLoad || this.splashReadyToShow) {
-        this.showSplashWindow()
-        return
+        this.showSplashWindow();
+        return;
       }
       void this.splashLoadPromise?.finally(() => {
         if (this.forceShowWhenLoaded) {
-          this.showSplashWindow()
+          this.showSplashWindow();
         }
-      })
-      return
+      });
+      return;
     }
     if (this.splashReadyToShow) {
-      this.showSplashWindow()
-      return
+      this.showSplashWindow();
+      return;
     }
-    this.splashWindow.once('ready-to-show', () => {
+    this.splashWindow.once("ready-to-show", () => {
       if (!this.splashWindow?.isDestroyed()) {
-        this.showSplashWindow()
+        this.showSplashWindow();
       }
-    })
+    });
   }
 
   private showSplashWindow(): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
-    this.splashWindow.show()
-    this.splashWindow.focus()
-    activateAppOnMac()
+    this.splashWindow.show();
+    this.splashWindow.focus();
+    activateAppOnMac();
   }
 
   private markSplashLoaded(): void {
     if (this.splashDidFinishLoad) {
-      return
+      return;
     }
-    this.splashDidFinishLoad = true
-    this.emitState()
-    this.emitDatabaseUnlockState()
+    this.splashDidFinishLoad = true;
+    this.emitState();
+    this.emitDatabaseUnlockState();
     if (this.forceShowWhenLoaded) {
-      this.showSplashWindow()
+      this.showSplashWindow();
     }
   }
 
   private async loadSplashRenderer(): Promise<void> {
     if (!this.splashWindow || this.splashWindow.isDestroyed()) {
-      return
+      return;
     }
 
-    const rendererUrl = process.env['ELECTRON_RENDERER_URL']
+    const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
     if (is.dev && rendererUrl) {
       const devUrls = [
-        new URL('/splash/index.html', rendererUrl).toString(),
-        new URL('/splash/', rendererUrl).toString()
-      ]
+        new URL("/splash/index.html", rendererUrl).toString(),
+        new URL("/splash/", rendererUrl).toString(),
+      ];
       for (const devUrl of devUrls) {
-        if (await this.tryLoadSplashUrl(devUrl, 'dev splash URL', { quiet: true })) {
-          return
+        if (await this.tryLoadSplashUrl(devUrl, "dev splash URL", { quiet: true })) {
+          return;
         }
         if (!this.shouldContinueSplashLoad()) {
-          return
+          return;
         }
       }
     }
 
     if (
-      await this.tryLoadSplashFile(path.join(__dirname, '../renderer/splash/index.html'), {
-        quiet: is.dev
+      await this.tryLoadSplashFile(path.join(__dirname, "../renderer/splash/index.html"), {
+        quiet: is.dev,
       })
     ) {
-      return
+      return;
     }
     if (!this.shouldContinueSplashLoad()) {
-      return
+      return;
     }
 
-    if (
-      await this.tryLoadSplashUrl(this.buildInlineFallbackSplashUrl(), 'inline fallback splash')
-    ) {
-      return
+    if (await this.tryLoadSplashUrl(this.buildInlineFallbackSplashUrl(), "inline fallback splash")) {
+      return;
     }
 
-    throw new Error('Unable to load any splash renderer')
+    throw new Error("Unable to load any splash renderer");
   }
 
   private shouldContinueSplashLoad(): boolean {
@@ -546,73 +518,63 @@ export class SplashWindowManager implements ISplashWindowManager {
       this.splashWindow &&
       !this.splashWindow.isDestroyed() &&
       !this.splashLoadCanceled &&
-      (!this.suppressSplashShow || this.forceShowWhenLoaded)
-    )
+      (!this.suppressSplashShow || this.forceShowWhenLoaded),
+    );
   }
 
-  private async tryLoadSplashUrl(
-    url: string,
-    source: string,
-    options: { quiet?: boolean } = {}
-  ): Promise<boolean> {
-    const splashWindow = this.splashWindow
+  private async tryLoadSplashUrl(url: string, source: string, options: { quiet?: boolean } = {}): Promise<boolean> {
+    const splashWindow = this.splashWindow;
     if (!splashWindow || !this.shouldContinueSplashLoad()) {
-      return false
+      return false;
     }
 
     try {
-      await splashWindow.loadURL(url)
+      await splashWindow.loadURL(url);
       if (!this.shouldContinueSplashLoad()) {
-        return false
+        return false;
       }
-      this.markSplashLoaded()
-      return true
+      this.markSplashLoaded();
+      return true;
     } catch (error) {
       if (!this.shouldContinueSplashLoad()) {
-        return false
+        return false;
       }
       if (!options.quiet) {
-        console.warn(`[SplashWindow] Failed to load ${source} (${url}); falling back:`, error)
+        console.warn(`[SplashWindow] Failed to load ${source} (${url}); falling back:`, error);
       }
-      return false
+      return false;
     }
   }
 
-  private async tryLoadSplashFile(
-    filePath: string,
-    options: { quiet?: boolean } = {}
-  ): Promise<boolean> {
-    const splashWindow = this.splashWindow
+  private async tryLoadSplashFile(filePath: string, options: { quiet?: boolean } = {}): Promise<boolean> {
+    const splashWindow = this.splashWindow;
     if (!splashWindow || !this.shouldContinueSplashLoad()) {
-      return false
+      return false;
     }
 
     try {
-      await splashWindow.loadFile(filePath)
+      await splashWindow.loadFile(filePath);
       if (!this.shouldContinueSplashLoad()) {
-        return false
+        return false;
       }
-      this.markSplashLoaded()
-      return true
+      this.markSplashLoaded();
+      return true;
     } catch (error) {
       if (!this.shouldContinueSplashLoad()) {
-        return false
+        return false;
       }
       if (!options.quiet) {
-        console.warn(
-          `[SplashWindow] Failed to load splash file (${filePath}); falling back:`,
-          error
-        )
+        console.warn(`[SplashWindow] Failed to load splash file (${filePath}); falling back:`, error);
       }
-      return false
+      return false;
     }
   }
 
   private buildInlineFallbackSplashUrl(): string {
-    const progressChannel = JSON.stringify(DATABASE_UNLOCK_PROGRESS_CHANNEL)
-    const requestChannel = JSON.stringify(DATABASE_UNLOCK_REQUEST_CHANNEL)
-    const submitChannel = JSON.stringify(DATABASE_UNLOCK_SUBMIT_CHANNEL)
-    const cancelChannel = JSON.stringify(DATABASE_UNLOCK_CANCEL_CHANNEL)
+    const progressChannel = JSON.stringify(DATABASE_UNLOCK_PROGRESS_CHANNEL);
+    const requestChannel = JSON.stringify(DATABASE_UNLOCK_REQUEST_CHANNEL);
+    const submitChannel = JSON.stringify(DATABASE_UNLOCK_SUBMIT_CHANNEL);
+    const cancelChannel = JSON.stringify(DATABASE_UNLOCK_CANCEL_CHANNEL);
     const html = `<!doctype html>
 <html>
   <head>
@@ -706,34 +668,34 @@ export class SplashWindowManager implements ISplashWindowManager {
       })
     </script>
   </body>
-</html>`
-    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
+</html>`;
+    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
   }
 
   private clearSplashShowDelayTimer(): void {
     if (this.splashShowDelayTimer) {
-      clearTimeout(this.splashShowDelayTimer)
-      this.splashShowDelayTimer = null
+      clearTimeout(this.splashShowDelayTimer);
+      this.splashShowDelayTimer = null;
     }
   }
 
   private shouldSuppressForWindowCreated(payload?: WindowCreatedPayload): boolean {
-    if (!payload || typeof payload === 'number') {
-      return false
+    if (!payload || typeof payload === "number") {
+      return false;
     }
 
-    return payload.isMainWindow === true || payload.windowType === 'main'
+    return payload.isMainWindow === true || payload.windowType === "main";
   }
 
   private closeHiddenSplashWindow(): void {
     if (!this.splashWindow || this.splashWindow.isDestroyed() || this.splashWindow.isVisible()) {
-      return
+      return;
     }
 
     try {
-      this.splashWindow.close()
+      this.splashWindow.close();
     } catch (error) {
-      console.error('Failed to close hidden splash window:', error)
+      console.error("Failed to close hidden splash window:", error);
     }
   }
 }

@@ -1,27 +1,21 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Icon } from '@iconify/react'
+import { useState, useEffect, useMemo } from "react";
+import { Icon } from "@iconify/react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { Button } from '@shadcn/components/ui/button'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
-import { Badge } from '@shadcn/components/ui/badge'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { cn } from '@/lib/utils'
-import { createProviderClient } from '@api/ProviderClient'
-import { PROVIDER_IMPORT_CUSTOM_API_TYPES } from '@shared/providerImport'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { Button } from "@shadcn/components/ui/button";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
+import { Badge } from "@shadcn/components/ui/badge";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { cn } from "@/lib/utils";
+import { createProviderClient } from "@api/ProviderClient";
+import { PROVIDER_IMPORT_CUSTOM_API_TYPES } from "@shared/providerImport";
 import type {
   ProviderImportApplyResult,
   ProviderImportApplyResultItem,
@@ -30,384 +24,367 @@ import type {
   ProviderImportScanResult,
   ProviderImportSelection,
   ProviderImportSourceId,
-  ProviderImportSourceScan
-} from '@shared/providerImport'
+  ProviderImportSourceScan,
+} from "@shared/providerImport";
 
-type WizardStep = 'scan' | 'providers' | 'applying' | 'done'
+type WizardStep = "scan" | "providers" | "applying" | "done";
 
 interface ProviderConfigImportDialogProps {
-  open: boolean
-  onOpenChange: (value: boolean) => void
-  onImportComplete?: (result: ProviderImportApplyResult) => void
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  onImportComplete?: (result: ProviderImportApplyResult) => void;
 }
 
 function apiTypeLabel(value: string): string {
   const labels: Record<string, string> = {
-    'openai-completions': 'OpenAI Completions',
-    openai: 'OpenAI Responses',
-    'openai-responses': 'OpenAI Responses',
-    anthropic: 'Anthropic',
-    gemini: 'Gemini',
-    ollama: 'Ollama',
-    mistral: 'Mistral'
-  }
-  return labels[value] ?? value
+    "openai-completions": "OpenAI Completions",
+    openai: "OpenAI Responses",
+    "openai-responses": "OpenAI Responses",
+    anthropic: "Anthropic",
+    gemini: "Gemini",
+    ollama: "Ollama",
+    mistral: "Mistral",
+  };
+  return labels[value] ?? value;
 }
 
 const toCustomApiType = (value: string): ProviderImportCustomApiType =>
   PROVIDER_IMPORT_CUSTOM_API_TYPES.includes(value as ProviderImportCustomApiType)
     ? (value as ProviderImportCustomApiType)
-    : 'openai-completions'
+    : "openai-completions";
 
 export default function ProviderConfigImportDialog({
   open,
   onOpenChange,
-  onImportComplete
+  onImportComplete,
 }: ProviderConfigImportDialogProps) {
-  const providerClient = createProviderClient()
+  const providerClient = createProviderClient();
 
-  const [step, setStep] = useState<WizardStep>('scan')
-  const [scanResult, setScanResult] = useState<ProviderImportScanResult | null>(null)
-  const [applyResult, setApplyResult] = useState<ProviderImportApplyResult | null>(null)
-  const [isScanning, setIsScanning] = useState(false)
-  const [scanError, setScanError] = useState('')
-  const [applyError, setApplyError] = useState('')
-  const [currentSourceIndex, setCurrentSourceIndex] = useState(0)
-  const [selectedSources, setSelectedSources] = useState<Set<ProviderImportSourceId>>(new Set())
-  const [selectedProvidersBySource, setSelectedProvidersBySource] = useState<
-    Record<string, string[]>
-  >({})
-  const [selectedProviderApiTypes, setSelectedProviderApiTypes] = useState<
-    Record<string, ProviderImportCustomApiType>
-  >({})
+  const [step, setStep] = useState<WizardStep>("scan");
+  const [scanResult, setScanResult] = useState<ProviderImportScanResult | null>(null);
+  const [applyResult, setApplyResult] = useState<ProviderImportApplyResult | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState("");
+  const [applyError, setApplyError] = useState("");
+  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+  const [selectedSources, setSelectedSources] = useState<Set<ProviderImportSourceId>>(new Set());
+  const [selectedProvidersBySource, setSelectedProvidersBySource] = useState<Record<string, string[]>>({});
+  const [selectedProviderApiTypes, setSelectedProviderApiTypes] = useState<Record<string, ProviderImportCustomApiType>>(
+    {},
+  );
 
   const customApiTypeOptions = useMemo(
     () => PROVIDER_IMPORT_CUSTOM_API_TYPES.map((value) => ({ value, label: apiTypeLabel(value) })),
-    []
-  )
+    [],
+  );
 
   const orderedSources = useMemo<ProviderImportSourceScan[]>(() => {
-    if (!scanResult) return []
-    const sourceById = new Map(scanResult.sources.map((s) => [s.id, s]))
+    if (!scanResult) return [];
+    const sourceById = new Map(scanResult.sources.map((s) => [s.id, s]));
     return scanResult.sourceOrder.flatMap((sourceId) => {
-      const source = sourceById.get(sourceId)
-      return source ? [source] : []
-    })
-  }, [scanResult])
+      const source = sourceById.get(sourceId);
+      return source ? [source] : [];
+    });
+  }, [scanResult]);
 
   const visibleSources = useMemo<ProviderImportSourceScan[]>(
-    () =>
-      orderedSources.filter((s) => s.status !== 'not_found' && s.status !== 'unsupported_platform'),
-    [orderedSources]
-  )
+    () => orderedSources.filter((s) => s.status !== "not_found" && s.status !== "unsupported_platform"),
+    [orderedSources],
+  );
 
-  const selectableSourceCount = useMemo(
-    () => visibleSources.filter((s) => s.selectable).length,
-    [visibleSources]
-  )
+  const selectableSourceCount = useMemo(() => visibleSources.filter((s) => s.selectable).length, [visibleSources]);
 
   const selectedSourceIds = useMemo(
     () => visibleSources.filter((s) => s.selectable && selectedSources.has(s.id)).map((s) => s.id),
-    [visibleSources, selectedSources]
-  )
+    [visibleSources, selectedSources],
+  );
 
   const currentSource = useMemo(() => {
-    const sourceId = selectedSourceIds[currentSourceIndex]
-    return orderedSources.find((s) => s.id === sourceId) ?? null
-  }, [selectedSourceIds, currentSourceIndex, orderedSources])
+    const sourceId = selectedSourceIds[currentSourceIndex];
+    return orderedSources.find((s) => s.id === sourceId) ?? null;
+  }, [selectedSourceIds, currentSourceIndex, orderedSources]);
 
   const currentSourceProviders = useMemo(
-    () =>
-      currentSource && scanResult
-        ? scanResult.providers.filter((p) => p.sourceId === currentSource.id)
-        : [],
-    [currentSource, scanResult]
-  )
+    () => (currentSource && scanResult ? scanResult.providers.filter((p) => p.sourceId === currentSource.id) : []),
+    [currentSource, scanResult],
+  );
 
   const selectedProviderCount = useMemo(
     () =>
       selectedSourceIds.reduce((count, sourceId) => {
-        return count + (selectedProvidersBySource[sourceId]?.length ?? 0)
+        return count + (selectedProvidersBySource[sourceId]?.length ?? 0);
       }, 0),
-    [selectedSourceIds, selectedProvidersBySource]
-  )
+    [selectedSourceIds, selectedProvidersBySource],
+  );
 
-  const canContinueFromScan = !isScanning && selectedSourceIds.length > 0
+  const canContinueFromScan = !isScanning && selectedSourceIds.length > 0;
   const canContinueFromProviders =
-    step === 'providers' &&
-    (currentSourceIndex < selectedSourceIds.length - 1 || selectedProviderCount > 0)
+    step === "providers" && (currentSourceIndex < selectedSourceIds.length - 1 || selectedProviderCount > 0);
 
-  const providerActionLabel = currentSourceIndex < selectedSourceIds.length - 1 ? 'Next' : 'Import'
+  const providerActionLabel = currentSourceIndex < selectedSourceIds.length - 1 ? "Next" : "Import";
 
   const activeStepKey = useMemo(() => {
-    if (step === 'providers') return `source-${currentSource?.id ?? 'unknown'}`
-    return step
-  }, [step, currentSource])
+    if (step === "providers") return `source-${currentSource?.id ?? "unknown"}`;
+    return step;
+  }, [step, currentSource]);
 
   const visibleSteps = useMemo(() => {
     const sources = selectedSourceIds.map((sourceId) => {
-      const source = orderedSources.find((item) => item.id === sourceId)
-      return { key: `source-${sourceId}`, label: source?.name ?? sourceId }
-    })
-    return [{ key: 'scan', label: 'Scan' }, ...sources, { key: 'done', label: 'Done' }]
-  }, [selectedSourceIds, orderedSources])
+      const source = orderedSources.find((item) => item.id === sourceId);
+      return { key: `source-${sourceId}`, label: source?.name ?? sourceId };
+    });
+    return [{ key: "scan", label: "Scan" }, ...sources, { key: "done", label: "Done" }];
+  }, [selectedSourceIds, orderedSources]);
 
   const summaryMetrics = useMemo(() => {
-    if (!applyResult) return []
+    if (!applyResult) return [];
     return [
-      { key: 'imported', label: 'Imported', value: applyResult.summary.imported },
-      { key: 'created', label: 'Created', value: applyResult.summary.created },
-      { key: 'updated', label: 'Updated', value: applyResult.summary.updated },
-      { key: 'overwritten', label: 'Overwritten', value: applyResult.summary.overwritten },
-      { key: 'skipped', label: 'Skipped', value: applyResult.summary.skipped },
-      { key: 'models', label: 'Models', value: applyResult.summary.models }
-    ]
-  }, [applyResult])
+      { key: "imported", label: "Imported", value: applyResult.summary.imported },
+      { key: "created", label: "Created", value: applyResult.summary.created },
+      { key: "updated", label: "Updated", value: applyResult.summary.updated },
+      { key: "overwritten", label: "Overwritten", value: applyResult.summary.overwritten },
+      { key: "skipped", label: "Skipped", value: applyResult.summary.skipped },
+      { key: "models", label: "Models", value: applyResult.summary.models },
+    ];
+  }, [applyResult]);
 
   useEffect(() => {
     if (open) {
-      void initialize()
+      void initialize();
     }
-  }, [open])
+  }, [open]);
 
   const initialize = async () => {
-    setStep('scan')
-    setApplyResult(null)
-    setApplyError('')
-    setCurrentSourceIndex(0)
-    setSelectedProviderApiTypes({})
-    await runScan()
-  }
+    setStep("scan");
+    setApplyResult(null);
+    setApplyError("");
+    setCurrentSourceIndex(0);
+    setSelectedProviderApiTypes({});
+    await runScan();
+  };
 
   const runScan = async () => {
-    setIsScanning(true)
-    setScanError('')
-    setApplyError('')
-    setSelectedProviderApiTypes({})
+    setIsScanning(true);
+    setScanError("");
+    setApplyError("");
+    setSelectedProviderApiTypes({});
     try {
-      const result = await providerClient.scanProviderImports()
-      setScanResult(result)
-      setSelectedSources(
-        new Set(result.sources.filter((s) => s.selectable && s.defaultSelected).map((s) => s.id))
-      )
-      const bySource: Record<string, string[]> = {}
+      const result = await providerClient.scanProviderImports();
+      setScanResult(result);
+      setSelectedSources(new Set(result.sources.filter((s) => s.selectable && s.defaultSelected).map((s) => s.id)));
+      const bySource: Record<string, string[]> = {};
       result.providers.forEach((p) => {
-        if (!p.defaultSelected) return
-        bySource[p.sourceId] = [...(bySource[p.sourceId] ?? []), p.id]
-      })
-      setSelectedProvidersBySource(bySource)
-      const apiTypes: Record<string, ProviderImportCustomApiType> = {}
+        if (!p.defaultSelected) return;
+        bySource[p.sourceId] = [...(bySource[p.sourceId] ?? []), p.id];
+      });
+      setSelectedProvidersBySource(bySource);
+      const apiTypes: Record<string, ProviderImportCustomApiType> = {};
       result.providers.forEach((p) => {
-        if (p.targetKind !== 'custom') return
-        apiTypes[p.id] = toCustomApiType(p.targetApiType)
-      })
-      setSelectedProviderApiTypes(apiTypes)
+        if (p.targetKind !== "custom") return;
+        apiTypes[p.id] = toCustomApiType(p.targetApiType);
+      });
+      setSelectedProviderApiTypes(apiTypes);
     } catch (error) {
-      setScanResult(null)
-      setScanError(error instanceof Error ? error.message : String(error))
+      setScanResult(null);
+      setScanError(error instanceof Error ? error.message : String(error));
     } finally {
-      setIsScanning(false)
+      setIsScanning(false);
     }
-  }
+  };
 
   const toggleSource = (sourceId: ProviderImportSourceId) => {
     setSelectedSources((prev) => {
-      const next = new Set(prev)
-      if (next.has(sourceId)) next.delete(sourceId)
-      else next.add(sourceId)
-      return next
-    })
-  }
+      const next = new Set(prev);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
+  };
 
   const toggleProvider = (providerId: string) => {
-    const sourceId = currentSource?.id
-    if (!sourceId) return
-    const provider = currentSourceProviders.find((item) => item.id === providerId)
-    if (!provider) return
+    const sourceId = currentSource?.id;
+    if (!sourceId) return;
+    const provider = currentSourceProviders.find((item) => item.id === providerId);
+    if (!provider) return;
     setSelectedProvidersBySource((prev) => {
-      const selected = new Set(prev[sourceId] ?? [])
+      const selected = new Set(prev[sourceId] ?? []);
       if (selected.has(providerId)) {
-        selected.delete(providerId)
+        selected.delete(providerId);
       } else {
-        if (!isProviderSelectable(provider)) return prev
-        selected.add(providerId)
+        if (!isProviderSelectable(provider)) return prev;
+        selected.add(providerId);
       }
-      return { ...prev, [sourceId]: [...selected] }
-    })
-  }
+      return { ...prev, [sourceId]: [...selected] };
+    });
+  };
 
   const isProviderSelected = (providerId: string): boolean => {
-    const sourceId = currentSource?.id
-    return Boolean(sourceId && selectedProvidersBySource[sourceId]?.includes(providerId))
-  }
+    const sourceId = currentSource?.id;
+    return Boolean(sourceId && selectedProvidersBySource[sourceId]?.includes(providerId));
+  };
 
   const selectAllCurrentProviders = () => {
-    const sourceId = currentSource?.id
-    if (!sourceId) return
+    const sourceId = currentSource?.id;
+    if (!sourceId) return;
     setSelectedProvidersBySource((prev) => ({
       ...prev,
-      [sourceId]: currentSourceProviders.filter((p) => isProviderSelectable(p)).map((p) => p.id)
-    }))
-  }
+      [sourceId]: currentSourceProviders.filter((p) => isProviderSelectable(p)).map((p) => p.id),
+    }));
+  };
 
   const clearCurrentProviders = () => {
-    const sourceId = currentSource?.id
-    if (!sourceId) return
-    setSelectedProvidersBySource((prev) => ({ ...prev, [sourceId]: [] }))
-  }
+    const sourceId = currentSource?.id;
+    if (!sourceId) return;
+    setSelectedProvidersBySource((prev) => ({ ...prev, [sourceId]: [] }));
+  };
 
   const goToProviders = () => {
-    setCurrentSourceIndex(0)
-    setStep('providers')
-  }
+    setCurrentSourceIndex(0);
+    setStep("providers");
+  };
 
   const goBack = () => {
-    if (step !== 'providers') return
+    if (step !== "providers") return;
     if (currentSourceIndex === 0) {
-      setStep('scan')
-      return
+      setStep("scan");
+      return;
     }
-    setCurrentSourceIndex((prev) => prev - 1)
-  }
+    setCurrentSourceIndex((prev) => prev - 1);
+  };
 
   const goNextProviderStep = async () => {
     if (currentSourceIndex < selectedSourceIds.length - 1) {
-      setCurrentSourceIndex((prev) => prev + 1)
-      return
+      setCurrentSourceIndex((prev) => prev + 1);
+      return;
     }
-    if (!scanResult || selectedProviderCount === 0) return
+    if (!scanResult || selectedProviderCount === 0) return;
 
-    setStep('applying')
-    setApplyError('')
+    setStep("applying");
+    setApplyError("");
     try {
       const result = await providerClient.applyProviderImports(
         scanResult.sessionId,
         selectedSourceIds.map((sourceId) => ({
           sourceId,
           providerIds: [...(selectedProvidersBySource[sourceId] ?? [])],
-          providerOptions: buildProviderOptions(selectedProvidersBySource[sourceId] ?? [])
-        }))
-      )
-      setApplyResult(result)
-      setStep('done')
-      onImportComplete?.(result)
+          providerOptions: buildProviderOptions(selectedProvidersBySource[sourceId] ?? []),
+        })),
+      );
+      setApplyResult(result);
+      setStep("done");
+      onImportComplete?.(result);
     } catch (error) {
-      setApplyError(error instanceof Error ? error.message : String(error))
-      setStep('providers')
+      setApplyError(error instanceof Error ? error.message : String(error));
+      setStep("providers");
     }
-  }
+  };
 
-  const buildProviderOptions = (
-    providerIds: string[]
-  ): ProviderImportSelection['providerOptions'] => {
-    if (!scanResult) return undefined
-    const selectedIds = new Set(providerIds)
-    const options: NonNullable<ProviderImportSelection['providerOptions']> = {}
+  const buildProviderOptions = (providerIds: string[]): ProviderImportSelection["providerOptions"] => {
+    if (!scanResult) return undefined;
+    const selectedIds = new Set(providerIds);
+    const options: NonNullable<ProviderImportSelection["providerOptions"]> = {};
     for (const provider of scanResult.providers) {
-      if (!selectedIds.has(provider.id) || provider.targetKind !== 'custom') continue
+      if (!selectedIds.has(provider.id) || provider.targetKind !== "custom") continue;
       options[provider.id] = {
-        targetApiType:
-          selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType)
-      }
+        targetApiType: selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType),
+      };
     }
-    return Object.keys(options).length > 0 ? options : undefined
-  }
+    return Object.keys(options).length > 0 ? options : undefined;
+  };
 
   const hasRequiredPreviewCredentials = (
     provider: ProviderImportProviderPreview,
-    apiType = selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType)
+    apiType = selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType),
   ): boolean => {
-    if (provider.targetKind !== 'custom') {
-      return !provider.warnings.includes('missing_api_key')
+    if (provider.targetKind !== "custom") {
+      return !provider.warnings.includes("missing_api_key");
     }
-    if (apiType === 'ollama') return Boolean(provider.baseUrl.trim())
-    return Boolean(provider.apiKeyMasked.trim()) && Boolean(provider.baseUrl.trim())
-  }
+    if (apiType === "ollama") return Boolean(provider.baseUrl.trim());
+    return Boolean(provider.apiKeyMasked.trim()) && Boolean(provider.baseUrl.trim());
+  };
 
   const canEditProviderApiType = (provider: ProviderImportProviderPreview): boolean =>
-    provider.targetKind === 'custom' && Boolean(provider.baseUrl.trim())
+    provider.targetKind === "custom" && Boolean(provider.baseUrl.trim());
 
   const isProviderSelectable = (provider: ProviderImportProviderPreview): boolean => {
-    if (provider.targetKind === 'custom') {
-      return canEditProviderApiType(provider) && hasRequiredPreviewCredentials(provider)
+    if (provider.targetKind === "custom") {
+      return canEditProviderApiType(provider) && hasRequiredPreviewCredentials(provider);
     }
-    return provider.selectable
-  }
+    return provider.selectable;
+  };
 
   const warningTexts = (provider: ProviderImportProviderPreview): string[] => {
-    const warnings = provider.warnings.filter(
-      (w) => w !== 'missing_api_key' || provider.targetKind !== 'custom'
-    )
-    if (provider.targetKind === 'custom' && !hasRequiredPreviewCredentials(provider)) {
-      warnings.push('missing_api_key')
+    const warnings = provider.warnings.filter((w) => w !== "missing_api_key" || provider.targetKind !== "custom");
+    if (provider.targetKind === "custom" && !hasRequiredPreviewCredentials(provider)) {
+      warnings.push("missing_api_key");
     }
     const warningLabels: Record<string, string> = {
-      missing_api_key: 'API key is required',
-      missing_base_url: 'Base URL is required'
-    }
-    return warnings.map((w) => warningLabels[w] ?? w)
-  }
+      missing_api_key: "API key is required",
+      missing_base_url: "Base URL is required",
+    };
+    return warnings.map((w) => warningLabels[w] ?? w);
+  };
 
   const providerTargetKey = (provider: ProviderImportProviderPreview): string => {
-    if (provider.targetKind === 'unsupported' || !provider.targetProviderId) return ''
-    if (provider.targetKind === 'custom') {
-      return `${provider.targetKind}:${provider.targetProviderId}:${provider.baseUrl}:${provider.apiKeyMasked}`
+    if (provider.targetKind === "unsupported" || !provider.targetProviderId) return "";
+    if (provider.targetKind === "custom") {
+      return `${provider.targetKind}:${provider.targetProviderId}:${provider.baseUrl}:${provider.apiKeyMasked}`;
     }
-    return `${provider.targetKind}:${provider.targetProviderId}`
-  }
+    return `${provider.targetKind}:${provider.targetProviderId}`;
+  };
 
   const selectedProviderOrder = useMemo(() => {
-    if (!scanResult) return []
+    if (!scanResult) return [];
     return selectedSourceIds.flatMap((sourceId) => {
-      const selected = new Set(selectedProvidersBySource[sourceId] ?? [])
-      return scanResult!.providers.filter((p) => p.sourceId === sourceId && selected.has(p.id))
-    })
-  }, [scanResult, selectedSourceIds, selectedProvidersBySource])
+      const selected = new Set(selectedProvidersBySource[sourceId] ?? []);
+      return scanResult!.providers.filter((p) => p.sourceId === sourceId && selected.has(p.id));
+    });
+  }, [scanResult, selectedSourceIds, selectedProvidersBySource]);
 
   const selectedProviderConflict = useMemo(() => {
-    const lastByTarget = new Map<string, ProviderImportProviderPreview>()
-    const firstByTarget = new Map<string, ProviderImportProviderPreview>()
+    const lastByTarget = new Map<string, ProviderImportProviderPreview>();
+    const firstByTarget = new Map<string, ProviderImportProviderPreview>();
     for (const provider of selectedProviderOrder) {
-      const key = providerTargetKey(provider)
-      if (!key) continue
-      if (!firstByTarget.has(key)) firstByTarget.set(key, provider)
-      lastByTarget.set(key, provider)
+      const key = providerTargetKey(provider);
+      if (!key) continue;
+      if (!firstByTarget.has(key)) firstByTarget.set(key, provider);
+      lastByTarget.set(key, provider);
     }
-    return { firstByTarget, lastByTarget }
-  }, [selectedProviderOrder])
+    return { firstByTarget, lastByTarget };
+  }, [selectedProviderOrder]);
 
   const selectionConflictText = (provider: ProviderImportProviderPreview): string => {
-    if (!selectedProvidersBySource[provider.sourceId]?.includes(provider.id)) return ''
-    const key = providerTargetKey(provider)
-    if (!key) return ''
-    const first = selectedProviderConflict.firstByTarget.get(key)
-    const last = selectedProviderConflict.lastByTarget.get(key)
-    if (!first || !last || first.id === last.id) return ''
-    if (last.id === provider.id) return 'This will override a previous selection.'
-    return 'This will be overwritten by a later selection.'
-  }
+    if (!selectedProvidersBySource[provider.sourceId]?.includes(provider.id)) return "";
+    const key = providerTargetKey(provider);
+    if (!key) return "";
+    const first = selectedProviderConflict.firstByTarget.get(key);
+    const last = selectedProviderConflict.lastByTarget.get(key);
+    if (!first || !last || first.id === last.id) return "";
+    if (last.id === provider.id) return "This will override a previous selection.";
+    return "This will be overwritten by a later selection.";
+  };
 
-  const resultStatusIcon = (status: ProviderImportApplyResultItem['status']): string => {
+  const resultStatusIcon = (status: ProviderImportApplyResultItem["status"]): string => {
     switch (status) {
-      case 'created':
-        return 'lucide:plus-circle'
-      case 'updated':
-        return 'lucide:check-circle-2'
-      case 'overwritten':
-        return 'lucide:replace'
-      case 'skipped':
-        return 'lucide:circle-slash'
+      case "created":
+        return "lucide:plus-circle";
+      case "updated":
+        return "lucide:check-circle-2";
+      case "overwritten":
+        return "lucide:replace";
+      case "skipped":
+        return "lucide:circle-slash";
     }
-  }
+  };
 
-  const targetKindLabel = (targetKind: ProviderImportProviderPreview['targetKind']): string => {
+  const targetKindLabel = (targetKind: ProviderImportProviderPreview["targetKind"]): string => {
     const labels: Record<string, string> = {
-      builtin: 'Built-in',
-      custom: 'Custom',
-      unsupported: 'Unsupported'
-    }
-    return labels[targetKind] ?? targetKind
-  }
+      builtin: "Built-in",
+      custom: "Custom",
+      unsupported: "Unsupported",
+    };
+    return labels[targetKind] ?? targetKind;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -427,7 +404,7 @@ export default function ProviderConfigImportDialog({
               {visibleSteps.map((s) => (
                 <span
                   key={s.key}
-                  className={`rounded-full px-2 py-1 ${s.key === activeStepKey ? 'bg-background text-foreground' : ''}`}
+                  className={`rounded-full px-2 py-1 ${s.key === activeStepKey ? "bg-background text-foreground" : ""}`}
                 >
                   {s.label}
                 </span>
@@ -437,16 +414,14 @@ export default function ProviderConfigImportDialog({
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-hidden px-6 py-5">
-          {step === 'scan' && (
+          {step === "scan" && (
             <div className="flex h-full min-h-0 flex-col gap-4">
               {isScanning ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3">
                   <Icon icon="lucide:loader-2" className="h-6 w-6 animate-spin text-primary" />
                   <div className="space-y-1 text-center">
                     <div className="text-sm font-medium">Scanning...</div>
-                    <p className="text-xs text-muted-foreground">
-                      Looking for importable provider configurations.
-                    </p>
+                    <p className="text-xs text-muted-foreground">Looking for importable provider configurations.</p>
                   </div>
                 </div>
               ) : scanError ? (
@@ -466,9 +441,7 @@ export default function ProviderConfigImportDialog({
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div className="space-y-1">
                       <div className="text-sm font-medium">Sources</div>
-                      <p className="text-xs text-muted-foreground">
-                        Select sources to import providers from.
-                      </p>
+                      <p className="text-xs text-muted-foreground">Select sources to import providers from.</p>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {selectedSourceIds.length} of {selectableSourceCount} selected
@@ -480,7 +453,7 @@ export default function ProviderConfigImportDialog({
                       <div
                         key={source.id}
                         className={`flex items-start gap-3 border-b px-4 py-3 last:border-b-0 ${
-                          source.selectable ? 'bg-background' : 'bg-muted/20 text-muted-foreground'
+                          source.selectable ? "bg-background" : "bg-muted/20 text-muted-foreground"
                         }`}
                       >
                         <div className="min-w-0 flex-1">
@@ -489,16 +462,10 @@ export default function ProviderConfigImportDialog({
                             <Badge variant="outline" className="text-[11px]">
                               {source.status}
                             </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {source.providerCount} providers
-                            </span>
+                            <span className="text-xs text-muted-foreground">{source.providerCount} providers</span>
                           </div>
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                            {source.configPath}
-                          </p>
-                          {source.message && (
-                            <p className="mt-0.5 text-xs text-destructive">{source.message}</p>
-                          )}
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{source.configPath}</p>
+                          {source.message && <p className="mt-0.5 text-xs text-destructive">{source.message}</p>}
                         </div>
                         <Checkbox
                           className="mt-1 shrink-0"
@@ -523,7 +490,7 @@ export default function ProviderConfigImportDialog({
             </div>
           )}
 
-          {step === 'providers' && currentSource && (
+          {step === "providers" && currentSource && (
             <div className="flex h-full min-h-0 flex-col">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div className="space-y-1">
@@ -552,9 +519,7 @@ export default function ProviderConfigImportDialog({
                 {currentSourceProviders.length === 0 ? (
                   <div className="rounded-lg border p-6 text-center">
                     <div className="text-sm font-medium">No providers</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      No providers found in this source.
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">No providers found in this source.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -563,9 +528,9 @@ export default function ProviderConfigImportDialog({
                         key={provider.id}
                         className={`rounded-lg border p-4 ${cn(
                           !isProviderSelectable(provider) && !canEditProviderApiType(provider)
-                            ? 'bg-muted/20 opacity-75'
-                            : 'bg-background',
-                          isProviderSelected(provider.id) ? 'border-primary/50' : ''
+                            ? "bg-muted/20 opacity-75"
+                            : "bg-background",
+                          isProviderSelected(provider.id) ? "border-primary/50" : "",
                         )}`}
                       >
                         <div className="flex gap-3">
@@ -581,17 +546,15 @@ export default function ProviderConfigImportDialog({
                                 <div className="flex flex-wrap items-center gap-2">
                                   <div className="text-sm font-medium">{provider.name}</div>
                                   <Badge
-                                    variant={provider.configured ? 'secondary' : 'outline'}
+                                    variant={provider.configured ? "secondary" : "outline"}
                                     className="text-[11px]"
                                   >
-                                    {provider.configured ? 'Configured' : provider.sourceType}
+                                    {provider.configured ? "Configured" : provider.sourceType}
                                   </Badge>
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                                   <span>{provider.sourceProviderId}</span>
-                                  {provider.apiKeyMasked && (
-                                    <span>Key: {provider.apiKeyMasked}</span>
-                                  )}
+                                  {provider.apiKeyMasked && <span>Key: {provider.apiKeyMasked}</span>}
                                   {provider.baseUrl && <span>{provider.baseUrl}</span>}
                                 </div>
                               </div>
@@ -606,35 +569,32 @@ export default function ProviderConfigImportDialog({
                                   </span>
                                 </div>
                                 <div className="mt-1 truncate text-[11px] text-muted-foreground">
-                                  {provider.targetKind === 'custom'
+                                  {provider.targetKind === "custom"
                                     ? apiTypeLabel(
                                         selectedProviderApiTypes[provider.id] ||
-                                          toCustomApiType(provider.targetApiType)
+                                          toCustomApiType(provider.targetApiType),
                                       )
                                     : provider.targetApiType || provider.targetProviderId}
                                 </div>
-                                {provider.targetKind === 'custom' && (
+                                {provider.targetKind === "custom" && (
                                   <div className="mt-2">
-                                    <div className="mb-1 text-[11px] text-muted-foreground">
-                                      API Type
-                                    </div>
+                                    <div className="mb-1 text-[11px] text-muted-foreground">API Type</div>
                                     <Select
                                       value={
-                                        selectedProviderApiTypes[provider.id] ||
-                                        toCustomApiType(provider.targetApiType)
+                                        selectedProviderApiTypes[provider.id] || toCustomApiType(provider.targetApiType)
                                       }
                                       disabled={!canEditProviderApiType(provider)}
                                       onValueChange={(value) => {
                                         if (
                                           !PROVIDER_IMPORT_CUSTOM_API_TYPES.includes(
-                                            value as ProviderImportCustomApiType
+                                            value as ProviderImportCustomApiType,
                                           )
                                         )
-                                          return
+                                          return;
                                         setSelectedProviderApiTypes((prev) => ({
                                           ...prev,
-                                          [provider.id]: value as ProviderImportCustomApiType
-                                        }))
+                                          [provider.id]: value as ProviderImportCustomApiType,
+                                        }));
                                       }}
                                     >
                                       <SelectTrigger className="h-8 w-full text-xs">
@@ -655,11 +615,7 @@ export default function ProviderConfigImportDialog({
 
                             <div className="mt-3 flex flex-wrap gap-2">
                               {provider.modelPreview.map((model) => (
-                                <Badge
-                                  key={model}
-                                  variant="secondary"
-                                  className="max-w-[12rem] truncate text-[11px]"
-                                >
+                                <Badge key={model} variant="secondary" className="max-w-[12rem] truncate text-[11px]">
                                   {model}
                                 </Badge>
                               ))}
@@ -680,9 +636,7 @@ export default function ProviderConfigImportDialog({
                                 </p>
                               ))}
                               {selectionConflictText(provider) && (
-                                <p className="text-amber-600 dark:text-amber-400">
-                                  {selectionConflictText(provider)}
-                                </p>
+                                <p className="text-amber-600 dark:text-amber-400">{selectionConflictText(provider)}</p>
                               )}
                             </div>
                           </div>
@@ -695,7 +649,7 @@ export default function ProviderConfigImportDialog({
             </div>
           )}
 
-          {step === 'applying' && (
+          {step === "applying" && (
             <div className="flex h-full min-h-0 flex-col items-center justify-center gap-3">
               <Icon icon="lucide:loader-2" className="h-6 w-6 animate-spin text-primary" />
               <div className="space-y-1 text-center">
@@ -705,7 +659,7 @@ export default function ProviderConfigImportDialog({
             </div>
           )}
 
-          {step === 'done' && applyResult && (
+          {step === "done" && applyResult && (
             <div className="flex h-full min-h-0 flex-col gap-4">
               <div className="space-y-1">
                 <div className="text-sm font-medium">Import complete</div>
@@ -725,14 +679,8 @@ export default function ProviderConfigImportDialog({
 
               <ScrollArea className="h-0 min-h-0 flex-1 rounded-lg border">
                 {applyResult.results.map((result) => (
-                  <div
-                    key={result.id}
-                    className="flex items-start gap-3 border-b p-3 last:border-b-0"
-                  >
-                    <Icon
-                      icon={resultStatusIcon(result.status)}
-                      className="mt-0.5 h-4 w-4 text-muted-foreground"
-                    />
+                  <div key={result.id} className="flex items-start gap-3 border-b p-3 last:border-b-0">
+                    <Icon icon={resultStatusIcon(result.status)} className="mt-0.5 h-4 w-4 text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <div className="text-sm font-medium">{result.name}</div>
@@ -741,12 +689,9 @@ export default function ProviderConfigImportDialog({
                         </Badge>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {result.sourceName} -&gt;{' '}
-                        {result.targetProviderName || result.targetProviderId}
+                        {result.sourceName} -&gt; {result.targetProviderName || result.targetProviderId}
                       </p>
-                      {result.message && (
-                        <p className="mt-1 text-xs text-muted-foreground">{result.message}</p>
-                      )}
+                      {result.message && <p className="mt-1 text-xs text-muted-foreground">{result.message}</p>}
                     </div>
                     <div className="text-xs text-muted-foreground">{result.modelCount} models</div>
                   </div>
@@ -757,34 +702,34 @@ export default function ProviderConfigImportDialog({
         </div>
 
         <DialogFooter className="shrink-0 border-t px-6 py-4">
-          {step === 'scan' && (
+          {step === "scan" && (
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
           )}
-          {step !== 'scan' && step !== 'applying' && step !== 'done' && (
+          {step !== "scan" && step !== "applying" && step !== "done" && (
             <Button variant="outline" onClick={goBack}>
               Back
             </Button>
           )}
-          {step === 'scan' && (
+          {step === "scan" && (
             <Button variant="outline" disabled={isScanning} onClick={() => void runScan()}>
               Rescan
             </Button>
           )}
-          {step === 'scan' && (
+          {step === "scan" && (
             <Button disabled={!canContinueFromScan} onClick={goToProviders}>
               Next
             </Button>
           )}
-          {step === 'providers' && (
+          {step === "providers" && (
             <Button disabled={!canContinueFromProviders} onClick={() => void goNextProviderStep()}>
               {providerActionLabel}
             </Button>
           )}
-          {step === 'done' && <Button onClick={() => onOpenChange(false)}>OK</Button>}
+          {step === "done" && <Button onClick={() => onOpenChange(false)}>OK</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

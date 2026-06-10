@@ -1,19 +1,19 @@
-import { useMemo } from 'react'
-import { Label } from '@shadcn/components/ui/label'
-import type { LLM_PROVIDER, RENDERER_MODEL_META } from '@shared/presenter'
-import ProviderModelList from './ProviderModelList'
+import { useMemo } from "react";
+import { Label } from "@shadcn/components/ui/label";
+import type { LLM_PROVIDER, RENDERER_MODEL_META } from "@shared/presenter";
+import ProviderModelList from "./ProviderModelList";
 
 interface ProviderModelManagerProps {
-  provider: LLM_PROVIDER
-  enabledModels: RENDERER_MODEL_META[]
-  totalModelsCount: number
-  providerModels: RENDERER_MODEL_META[]
-  customModels: RENDERER_MODEL_META[]
-  isModelListLoading?: boolean
-  onDisableAllModels?: () => void
-  onModelEnabledChange?: (model: RENDERER_MODEL_META, enabled: boolean) => void
-  onConfigChanged?: () => void
-  onCustomModelAdded?: () => void
+  provider: LLM_PROVIDER;
+  enabledModels: RENDERER_MODEL_META[];
+  totalModelsCount: number;
+  providerModels: RENDERER_MODEL_META[];
+  customModels: RENDERER_MODEL_META[];
+  isModelListLoading?: boolean;
+  onDisableAllModels?: () => void;
+  onModelEnabledChange?: (model: RENDERER_MODEL_META, enabled: boolean) => void;
+  onConfigChanged?: () => void;
+  onCustomModelAdded?: () => void;
 }
 
 export default function ProviderModelManager({
@@ -25,17 +25,14 @@ export default function ProviderModelManager({
   isModelListLoading,
   onModelEnabledChange,
   onCustomModelAdded,
-  onConfigChanged
+  onConfigChanged,
 }: ProviderModelManagerProps) {
   const providerModelGroups = useMemo(
     () => [{ providerId: provider.id, models: providerModels }],
-    [provider.id, providerModels]
-  )
+    [provider.id, providerModels],
+  );
 
-  const providerOptions = useMemo(
-    () => [{ id: provider.id, name: provider.name }],
-    [provider.id, provider.name]
-  )
+  const providerOptions = useMemo(() => [{ id: provider.id, name: provider.name }], [provider.id, provider.name]);
 
   return (
     <div className="w-full relative">
@@ -63,5 +60,5 @@ export default function ProviderModelManager({
         />
       </div>
     </div>
-  )
+  );
 }

@@ -1,187 +1,187 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TelegramClient } from '@/presenter/remoteControlPresenter/telegram/telegramClient'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { TelegramClient } from "@/presenter/remoteControlPresenter/telegram/telegramClient";
 
-describe('TelegramClient', () => {
+describe("TelegramClient", () => {
   beforeEach(() => {
     vi.stubGlobal(
-      'fetch',
+      "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
         json: vi.fn().mockResolvedValue({
           ok: true,
           result: {
-            message_id: 42
-          }
-        })
-      })
-    )
-  })
+            message_id: 42,
+          },
+        }),
+      }),
+    );
+  });
 
   afterEach(() => {
-    vi.unstubAllGlobals()
-  })
+    vi.unstubAllGlobals();
+  });
 
-  it('sends inline keyboard payloads with sendMessage', async () => {
-    const client = new TelegramClient('token')
+  it("sends inline keyboard payloads with sendMessage", async () => {
+    const client = new TelegramClient("token");
 
     const messageId = await client.sendMessage(
       {
         chatId: 100,
-        messageThreadId: 0
+        messageThreadId: 0,
       },
-      'Choose a provider',
+      "Choose a provider",
       {
         inline_keyboard: [
           [
             {
-              text: 'OpenAI',
-              callback_data: 'model:menu-token:p:0'
-            }
-          ]
-        ]
-      }
-    )
+              text: "OpenAI",
+              callback_data: "model:menu-token:p:0",
+            },
+          ],
+        ],
+      },
+    );
 
-    expect(messageId).toBe(42)
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/sendMessage')
+    expect(messageId).toBe(42);
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/sendMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
       message_thread_id: undefined,
-      text: 'Choose a provider',
+      text: "Choose a provider",
       parse_mode: undefined,
       reply_markup: {
         inline_keyboard: [
           [
             {
-              text: 'OpenAI',
-              callback_data: 'model:menu-token:p:0'
-            }
-          ]
-        ]
-      }
-    })
-  })
+              text: "OpenAI",
+              callback_data: "model:menu-token:p:0",
+            },
+          ],
+        ],
+      },
+    });
+  });
 
-  it('forwards parse_mode option through sendMessage', async () => {
-    const client = new TelegramClient('token')
+  it("forwards parse_mode option through sendMessage", async () => {
+    const client = new TelegramClient("token");
 
     await client.sendMessage(
       {
         chatId: 100,
-        messageThreadId: 0
+        messageThreadId: 0,
       },
-      '<b>hello</b>',
+      "<b>hello</b>",
       undefined,
-      { parseMode: 'HTML' }
-    )
+      { parseMode: "HTML" },
+    );
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/sendMessage')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/sendMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toMatchObject({
-      text: '<b>hello</b>',
-      parse_mode: 'HTML'
-    })
-  })
+      text: "<b>hello</b>",
+      parse_mode: "HTML",
+    });
+  });
 
-  it('forwards parse_mode option through editMessageText', async () => {
-    const client = new TelegramClient('token')
+  it("forwards parse_mode option through editMessageText", async () => {
+    const client = new TelegramClient("token");
 
     await client.editMessageText({
       target: {
         chatId: 100,
-        messageThreadId: 0
+        messageThreadId: 0,
       },
       messageId: 30,
-      text: '<b>hello</b>',
-      parseMode: 'HTML'
-    })
+      text: "<b>hello</b>",
+      parseMode: "HTML",
+    });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/editMessageText')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/editMessageText");
     expect(JSON.parse(fetchCall[1]!.body as string)).toMatchObject({
       chat_id: 100,
       message_id: 30,
-      text: '<b>hello</b>',
-      parse_mode: 'HTML'
-    })
-  })
+      text: "<b>hello</b>",
+      parse_mode: "HTML",
+    });
+  });
 
-  it('clears inline keyboards through editMessageReplyMarkup', async () => {
-    const client = new TelegramClient('token')
+  it("clears inline keyboards through editMessageReplyMarkup", async () => {
+    const client = new TelegramClient("token");
 
     await client.editMessageReplyMarkup({
       target: {
         chatId: 100,
-        messageThreadId: 0
+        messageThreadId: 0,
       },
       messageId: 30,
-      replyMarkup: null
-    })
+      replyMarkup: null,
+    });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/editMessageReplyMarkup')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/editMessageReplyMarkup");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
       message_id: 30,
       reply_markup: {
-        inline_keyboard: []
-      }
-    })
-  })
+        inline_keyboard: [],
+      },
+    });
+  });
 
-  it('deletes messages through deleteMessage', async () => {
-    const client = new TelegramClient('token')
+  it("deletes messages through deleteMessage", async () => {
+    const client = new TelegramClient("token");
 
     await client.deleteMessage({
       target: {
         chatId: 100,
-        messageThreadId: 0
+        messageThreadId: 0,
       },
-      messageId: 31
-    })
+      messageId: 31,
+    });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/deleteMessage')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/deleteMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
-      message_id: 31
-    })
-  })
+      message_id: 31,
+    });
+  });
 
-  it('answers callback queries with alert text', async () => {
-    const client = new TelegramClient('token')
+  it("answers callback queries with alert text", async () => {
+    const client = new TelegramClient("token");
 
     await client.answerCallbackQuery({
-      callbackQueryId: 'callback-1',
-      text: 'Model switched.',
-      showAlert: true
-    })
+      callbackQueryId: "callback-1",
+      text: "Model switched.",
+      showAlert: true,
+    });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/answerCallbackQuery')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/answerCallbackQuery");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
-      callback_query_id: 'callback-1',
-      text: 'Model switched.',
-      show_alert: true
-    })
-  })
+      callback_query_id: "callback-1",
+      text: "Model switched.",
+      show_alert: true,
+    });
+  });
 
-  it('clears reactions by sending an empty reaction list', async () => {
-    const client = new TelegramClient('token')
+  it("clears reactions by sending an empty reaction list", async () => {
+    const client = new TelegramClient("token");
 
     await client.setMessageReaction({
       chatId: 100,
       messageId: 20,
-      emoji: null
-    })
+      emoji: null,
+    });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0]
-    expect(fetchCall[0]).toContain('/setMessageReaction')
+    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    expect(fetchCall[0]).toContain("/setMessageReaction");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
       message_id: 20,
-      reaction: []
-    })
-  })
-})
+      reaction: [],
+    });
+  });
+});

@@ -1,15 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shadcn/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@shadcn/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@shadcn/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,162 +12,156 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
-} from '@shadcn/components/ui/alert-dialog'
-import { useToast } from '@/components/use-toast'
-import { useSkillsStore } from '@/stores/skillsStore'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+  AlertDialogTitle,
+} from "@shadcn/components/ui/alert-dialog";
+import { useToast } from "@/components/use-toast";
+import { useSkillsStore, installFromFolder, installFromZip, installFromUrl } from "@/stores/skillsStore";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 
 interface SkillInstallDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onInstalled: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onInstalled: () => void;
 }
 
-export default function SkillInstallDialog({
-  open,
-  onOpenChange,
-  onInstalled
-}: SkillInstallDialogProps) {
-  const { toast } = useToast()
-  const skillsStore = useSkillsStore()
-  const devicePresenter = useLegacyPresenter('devicePresenter')
+export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: SkillInstallDialogProps) {
+  const { toast } = useToast();
+  const skillsStore = useSkillsStore();
+  const devicePresenter = useLegacyPresenter("devicePresenter");
 
-  const [activeTab, setActiveTab] = useState('folder')
-  const [installUrl, setInstallUrl] = useState('')
-  const [installing, setInstalling] = useState(false)
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false)
-  const [conflictSkillName, setConflictSkillName] = useState('')
-  const [pendingInstallAction, setPendingInstallAction] = useState<(() => Promise<void>) | null>(
-    null
-  )
+  const [activeTab, setActiveTab] = useState("folder");
+  const [installUrl, setInstallUrl] = useState("");
+  const [installing, setInstalling] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [conflictSkillName, setConflictSkillName] = useState("");
+  const [pendingInstallAction, setPendingInstallAction] = useState<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
     if (!open) {
-      setPendingInstallAction(null)
-      setConflictDialogOpen(false)
-      setConflictSkillName('')
+      setPendingInstallAction(null);
+      setConflictDialogOpen(false);
+      setConflictSkillName("");
     }
-  }, [open])
+  }, [open]);
 
   const handleInstallResult = (
     result: { success: boolean; error?: string; skillName?: string },
-    retryWithOverwrite: () => Promise<void>
+    retryWithOverwrite: () => Promise<void>,
   ) => {
     if (result.success) {
       toast({
-        title: 'Installed successfully',
-        description: `Skill "${result.skillName}" installed`
-      })
-      onInstalled()
-      onOpenChange(false)
-    } else if (result.error?.includes('already exists')) {
-      const name = result.error.match(/"([^"]+)"/)?.[1] || ''
-      setConflictSkillName(name)
-      setPendingInstallAction(() => retryWithOverwrite)
-      setConflictDialogOpen(true)
+        title: "Installed successfully",
+        description: `Skill "${result.skillName}" installed`,
+      });
+      onInstalled();
+      onOpenChange(false);
+    } else if (result.error?.includes("already exists")) {
+      const name = result.error.match(/"([^"]+)"/)?.[1] || "";
+      setConflictSkillName(name);
+      setPendingInstallAction(() => retryWithOverwrite);
+      setConflictDialogOpen(true);
     } else {
-      toast({ title: 'Installation failed', description: result.error, variant: 'destructive' })
+      toast({ title: "Installation failed", description: result.error, variant: "destructive" });
     }
-  }
+  };
 
   const selectFolder = async () => {
-    if (installing) return
+    if (installing) return;
     try {
-      const result = await devicePresenter.selectDirectory()
+      const result = await devicePresenter.selectDirectory();
       if (!result.canceled && result.filePaths.length > 0) {
-        await tryInstallFromFolder(result.filePaths[0])
+        await tryInstallFromFolder(result.filePaths[0]);
       }
     } catch (error) {
-      showError(error)
+      showError(error);
     }
-  }
+  };
 
   const tryInstallFromFolder = async (folderPath: string, overwrite = false) => {
-    setInstalling(true)
+    setInstalling(true);
     try {
-      const result = await skillsStore.installFromFolder(folderPath, { overwrite })
-      handleInstallResult(result, () => tryInstallFromFolder(folderPath, true))
+      const result = await installFromFolder(folderPath, { overwrite });
+      handleInstallResult(result, () => tryInstallFromFolder(folderPath, true));
     } finally {
-      setInstalling(false)
+      setInstalling(false);
     }
-  }
+  };
 
   const selectZip = async () => {
-    if (installing) return
+    if (installing) return;
     try {
       const result = await devicePresenter.selectFiles({
-        filters: [{ name: 'ZIP Files', extensions: ['zip'] }]
-      })
+        filters: [{ name: "ZIP Files", extensions: ["zip"] }],
+      });
       if (!result.canceled && result.filePaths.length > 0) {
-        await tryInstallFromZip(result.filePaths[0])
+        await tryInstallFromZip(result.filePaths[0]);
       }
     } catch (error) {
-      showError(error)
+      showError(error);
     }
-  }
+  };
 
   const tryInstallFromZip = async (zipPath: string, overwrite = false) => {
-    setInstalling(true)
+    setInstalling(true);
     try {
-      const result = await skillsStore.installFromZip(zipPath, { overwrite })
-      handleInstallResult(result, () => tryInstallFromZip(zipPath, true))
+      const result = await installFromZip(zipPath, { overwrite });
+      handleInstallResult(result, () => tryInstallFromZip(zipPath, true));
     } finally {
-      setInstalling(false)
+      setInstalling(false);
     }
-  }
+  };
 
   const isValidUrl = (url: string): boolean => {
     try {
-      const parsed = new URL(url)
-      return ['http:', 'https:'].includes(parsed.protocol)
+      const parsed = new URL(url);
+      return ["http:", "https:"].includes(parsed.protocol);
     } catch {
-      return false
+      return false;
     }
-  }
+  };
 
-  const installFromUrl = async () => {
-    if (!installUrl || installing) return
+  const handleInstallFromUrl = async () => {
+    if (!installUrl || installing) return;
     if (!isValidUrl(installUrl)) {
       toast({
-        title: 'Installation failed',
-        description: 'Invalid URL format.',
-        variant: 'destructive'
-      })
-      return
+        title: "Installation failed",
+        description: "Invalid URL format.",
+        variant: "destructive",
+      });
+      return;
     }
-    await tryInstallFromUrl(installUrl)
-  }
+    await tryInstallFromUrl(installUrl);
+  };
 
   const tryInstallFromUrl = async (url: string, overwrite = false) => {
-    setInstalling(true)
+    setInstalling(true);
     try {
-      const result = await skillsStore.installFromUrl(url, { overwrite })
-      handleInstallResult(result, () => tryInstallFromUrl(url, true))
-      if (result.success) setInstallUrl('')
+      const result = await installFromUrl(url, { overwrite });
+      handleInstallResult(result, () => tryInstallFromUrl(url, true));
+      if (result.success) setInstallUrl("");
     } finally {
-      setInstalling(false)
+      setInstalling(false);
     }
-  }
+  };
 
   const handleConflictCancel = () => {
-    setConflictDialogOpen(false)
-    setPendingInstallAction(null)
-    setConflictSkillName('')
-  }
+    setConflictDialogOpen(false);
+    setPendingInstallAction(null);
+    setConflictSkillName("");
+  };
 
   const handleConflictOverwrite = async () => {
-    setConflictDialogOpen(false)
+    setConflictDialogOpen(false);
     if (pendingInstallAction) {
-      await pendingInstallAction()
-      setPendingInstallAction(null)
+      await pendingInstallAction();
+      setPendingInstallAction(null);
     }
-    setConflictSkillName('')
-  }
+    setConflictSkillName("");
+  };
 
   const showError = (error: unknown) => {
-    toast({ title: 'Installation failed', description: String(error), variant: 'destructive' })
-  }
+    toast({ title: "Installation failed", description: String(error), variant: "destructive" });
+  };
 
   return (
     <>
@@ -206,14 +194,12 @@ export default function SkillInstallDialog({
                 onClick={selectFolder}
               >
                 <Icon
-                  icon={installing ? 'lucide:loader-2' : 'lucide:folder-open'}
-                  className={`w-10 h-10 mx-auto text-muted-foreground mb-2 ${installing ? 'animate-spin' : ''}`}
+                  icon={installing ? "lucide:loader-2" : "lucide:folder-open"}
+                  className={`w-10 h-10 mx-auto text-muted-foreground mb-2 ${installing ? "animate-spin" : ""}`}
                 />
                 <p className="text-sm text-muted-foreground">Click to select a skill folder</p>
               </div>
-              <p className="text-xs text-muted-foreground/70 mt-2">
-                Select a folder containing a SKILL.md file
-              </p>
+              <p className="text-xs text-muted-foreground/70 mt-2">Select a folder containing a SKILL.md file</p>
             </TabsContent>
 
             <TabsContent value="zip" className="mt-4">
@@ -222,8 +208,8 @@ export default function SkillInstallDialog({
                 onClick={selectZip}
               >
                 <Icon
-                  icon={installing ? 'lucide:loader-2' : 'lucide:file-archive'}
-                  className={`w-10 h-10 mx-auto text-muted-foreground mb-2 ${installing ? 'animate-spin' : ''}`}
+                  icon={installing ? "lucide:loader-2" : "lucide:file-archive"}
+                  className={`w-10 h-10 mx-auto text-muted-foreground mb-2 ${installing ? "animate-spin" : ""}`}
                 />
                 <p className="text-sm text-muted-foreground">Click to select a ZIP file</p>
               </div>
@@ -237,18 +223,10 @@ export default function SkillInstallDialog({
                   placeholder="https://example.com/skill.zip"
                   disabled={installing}
                 />
-                <p className="text-xs text-muted-foreground/70">
-                  Enter a URL to a skill ZIP file or Git repository
-                </p>
+                <p className="text-xs text-muted-foreground/70">Enter a URL to a skill ZIP file or Git repository</p>
               </div>
-              <Button
-                className="w-full"
-                disabled={!installUrl || installing}
-                onClick={installFromUrl}
-              >
-                {installing && (
-                  <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />
-                )}
+              <Button className="w-full" disabled={!installUrl || installing} onClick={handleInstallFromUrl}>
+                {installing && <Icon icon="lucide:loader-2" className="w-4 h-4 mr-2 animate-spin" />}
                 Install
               </Button>
             </TabsContent>
@@ -280,5 +258,5 @@ export default function SkillInstallDialog({
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }

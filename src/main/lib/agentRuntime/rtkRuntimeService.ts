@@ -1,90 +1,90 @@
-import { spawn } from 'child_process'
-import fs from 'fs'
-import path from 'path'
-import { app } from 'electron'
-import type { IConfigPresenter } from '@shared/presenter'
+import { spawn } from "child_process";
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
+import type { IConfigPresenter } from "@shared/presenter";
 import type {
   RtkFailureStage,
   RtkHealthStatus,
   RtkRuntimeSource,
   UsageDashboardRtkData,
   UsageDashboardRtkDay,
-  UsageDashboardRtkSummary
-} from '@shared/types/agent-interface'
-import logger from '@shared/logger'
-import { getShellEnvironment, mergeCommandEnvironment } from './shellEnvHelper'
-import { RuntimeHelper } from '../runtimeHelper'
+  UsageDashboardRtkSummary,
+} from "@shared/types/agent-interface";
+import logger from "@shared/logger";
+import { getShellEnvironment, mergeCommandEnvironment } from "./shellEnvHelper";
+import { RuntimeHelper } from "../runtimeHelper";
 
-const RTK_ENABLED_SETTING_KEY = 'rtkEnabled'
-const RTK_HEALTH_TIMEOUT_MS = 12000
-const RTK_REWRITE_TIMEOUT_MS = 8000
-const RTK_CIRCUIT_BREAKER_THRESHOLD = 3
+const RTK_ENABLED_SETTING_KEY = "rtkEnabled";
+const RTK_HEALTH_TIMEOUT_MS = 12000;
+const RTK_REWRITE_TIMEOUT_MS = 8000;
+const RTK_CIRCUIT_BREAKER_THRESHOLD = 3;
 
 interface CommandResult {
-  code: number | null
-  stdout: string
-  stderr: string
-  signal: NodeJS.Signals | null
-  timedOut: boolean
+  code: number | null;
+  stdout: string;
+  stderr: string;
+  signal: NodeJS.Signals | null;
+  timedOut: boolean;
 }
 
 interface CommandOptions {
-  cwd?: string
-  env?: Record<string, string>
-  timeoutMs?: number
+  cwd?: string;
+  env?: Record<string, string>;
+  timeoutMs?: number;
 }
 
 interface ResolvedRuntime {
-  command: string
-  source: Exclude<RtkRuntimeSource, 'none'>
+  command: string;
+  source: Exclude<RtkRuntimeSource, "none">;
 }
 
 interface RtkRuntimeHealthState {
-  health: RtkHealthStatus
-  checkedAt: number | null
-  source: RtkRuntimeSource
-  failureStage: RtkFailureStage | null
-  failureMessage: string | null
+  health: RtkHealthStatus;
+  checkedAt: number | null;
+  source: RtkRuntimeSource;
+  failureStage: RtkFailureStage | null;
+  failureMessage: string | null;
 }
 
 interface PrepareShellCommandResult {
-  originalCommand: string
-  command: string
-  env: Record<string, string>
-  rewritten: boolean
-  usedRtk: boolean
-  rtkApplied: boolean
-  rtkMode: 'rewrite' | 'direct' | 'bypass'
-  rtkFallbackReason?: string
+  originalCommand: string;
+  command: string;
+  env: Record<string, string>;
+  rewritten: boolean;
+  usedRtk: boolean;
+  rtkApplied: boolean;
+  rtkMode: "rewrite" | "direct" | "bypass";
+  rtkFallbackReason?: string;
 }
 
 type RtkRewriteResult =
-  | { status: 'rewritten'; command: string }
-  | { status: 'bypass'; message: string }
-  | { status: 'failure'; message: string }
+  | { status: "rewritten"; command: string }
+  | { status: "bypass"; message: string }
+  | { status: "failure"; message: string };
 
 interface RtkRuntimeServiceDeps {
   runtimeHelper?: Pick<
     RuntimeHelper,
-    | 'initializeRuntimes'
-    | 'refreshRuntimes'
-    | 'replaceWithRuntimeCommand'
-    | 'getRtkRuntimePath'
-    | 'prependBundledRuntimeToEnv'
-  >
-  getShellEnvironment?: () => Promise<Record<string, string>>
-  runCommand?: (command: string, args: string[], options?: CommandOptions) => Promise<CommandResult>
-  getPath?: (name: 'userData' | 'temp') => string
-  now?: () => number
+    | "initializeRuntimes"
+    | "refreshRuntimes"
+    | "replaceWithRuntimeCommand"
+    | "getRtkRuntimePath"
+    | "prependBundledRuntimeToEnv"
+  >;
+  getShellEnvironment?: () => Promise<Record<string, string>>;
+  runCommand?: (command: string, args: string[], options?: CommandOptions) => Promise<CommandResult>;
+  getPath?: (name: "userData" | "temp") => string;
+  now?: () => number;
 }
 
 class RtkHealthCheckError extends Error {
   constructor(
-    public readonly stage: Exclude<RtkFailureStage, 'runtime'>,
-    message: string
+    public readonly stage: Exclude<RtkFailureStage, "runtime">,
+    message: string,
   ) {
-    super(message)
-    this.name = 'RtkHealthCheckError'
+    super(message);
+    this.name = "RtkHealthCheckError";
   }
 }
 
@@ -96,258 +96,248 @@ function createEmptyRtkSummary(): UsageDashboardRtkSummary {
     totalSavedTokens: 0,
     avgSavingsPct: 0,
     totalTimeMs: 0,
-    avgTimeMs: 0
-  }
+    avgTimeMs: 0,
+  };
 }
 
 function toNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return error.message
+    return error.message;
   }
-  return String(error)
+  return String(error);
 }
 
 function classifyRtkRewriteResult(result: CommandResult): RtkRewriteResult {
-  const stdout = result.stdout.trim()
-  const stderr = result.stderr.trim()
+  const stdout = result.stdout.trim();
+  const stderr = result.stderr.trim();
 
   if (result.code === 0 && stdout) {
     return {
-      status: 'rewritten',
-      command: stdout
-    }
+      status: "rewritten",
+      command: stdout,
+    };
   }
 
   if (result.code === 3 && stdout && /No hook installed/i.test(stderr)) {
     return {
-      status: 'rewritten',
-      command: stdout
-    }
+      status: "rewritten",
+      command: stdout,
+    };
   }
 
   if (result.code === 1) {
     return {
-      status: 'bypass',
-      message: 'RTK rewrite did not match this command'
-    }
+      status: "bypass",
+      message: "RTK rewrite did not match this command",
+    };
   }
 
   return {
-    status: 'failure',
-    message: stderr || stdout || 'rtk rewrite failed'
-  }
+    status: "failure",
+    message: stderr || stdout || "rtk rewrite failed",
+  };
 }
 
 async function defaultRunCommand(
   command: string,
   args: string[],
-  options: CommandOptions = {}
+  options: CommandOptions = {},
 ): Promise<CommandResult> {
   return await new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
       shell: false,
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
-    let stdout = ''
-    let stderr = ''
-    let timedOut = false
-    let settled = false
-    let timeoutId: NodeJS.Timeout | null = null
-    let killTimeoutId: NodeJS.Timeout | null = null
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    let settled = false;
+    let timeoutId: NodeJS.Timeout | null = null;
+    let killTimeoutId: NodeJS.Timeout | null = null;
 
     const settle = (result: CommandResult) => {
       if (settled) {
-        return
+        return;
       }
-      settled = true
+      settled = true;
       if (timeoutId) {
-        clearTimeout(timeoutId)
+        clearTimeout(timeoutId);
       }
       if (killTimeoutId) {
-        clearTimeout(killTimeoutId)
+        clearTimeout(killTimeoutId);
       }
-      resolve(result)
-    }
+      resolve(result);
+    };
 
-    const timeoutMs = options.timeoutMs ?? RTK_HEALTH_TIMEOUT_MS
+    const timeoutMs = options.timeoutMs ?? RTK_HEALTH_TIMEOUT_MS;
     if (timeoutMs > 0) {
       timeoutId = setTimeout(() => {
-        timedOut = true
+        timedOut = true;
         try {
-          child.kill('SIGTERM')
+          child.kill("SIGTERM");
         } catch {
           // ignore kill failures
         }
         killTimeoutId = setTimeout(() => {
           try {
-            child.kill('SIGKILL')
+            child.kill("SIGKILL");
           } catch {
             // ignore kill failures
           }
-        }, 1000)
-      }, timeoutMs)
+        }, 1000);
+      }, timeoutMs);
     }
 
-    child.stdout?.setEncoding('utf-8')
-    child.stderr?.setEncoding('utf-8')
+    child.stdout?.setEncoding("utf-8");
+    child.stderr?.setEncoding("utf-8");
 
-    child.stdout?.on('data', (chunk: string) => {
-      stdout += chunk
-    })
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
 
-    child.stderr?.on('data', (chunk: string) => {
-      stderr += chunk
-    })
+    child.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
 
-    child.on('error', (error) => {
+    child.on("error", (error) => {
       settle({
         code: null,
         stdout,
         stderr: stderr || getErrorMessage(error),
         signal: null,
-        timedOut
-      })
-    })
+        timedOut,
+      });
+    });
 
-    child.on('close', (code, signal) => {
+    child.on("close", (code, signal) => {
       settle({
         code: code ?? null,
         stdout,
         stderr,
         signal: signal ?? null,
-        timedOut
-      })
-    })
-  })
+        timedOut,
+      });
+    });
+  });
 }
 
 export class RtkRuntimeService {
-  private readonly runtimeHelper
-  private readonly getShellEnvironmentImpl
-  private readonly runCommandImpl
-  private readonly getPathImpl
-  private readonly nowImpl
+  private readonly runtimeHelper;
+  private readonly getShellEnvironmentImpl;
+  private readonly runCommandImpl;
+  private readonly getPathImpl;
+  private readonly nowImpl;
   private healthState: RtkRuntimeHealthState = {
-    health: 'checking',
+    health: "checking",
     checkedAt: null,
-    source: 'none',
+    source: "none",
     failureStage: null,
-    failureMessage: null
-  }
-  private resolvedRuntime: ResolvedRuntime | null = null
-  private healthCheckPromise: Promise<RtkRuntimeHealthState> | null = null
-  private executionFailureCount = 0
+    failureMessage: null,
+  };
+  private resolvedRuntime: ResolvedRuntime | null = null;
+  private healthCheckPromise: Promise<RtkRuntimeHealthState> | null = null;
+  private executionFailureCount = 0;
 
   constructor(deps: RtkRuntimeServiceDeps = {}) {
-    this.runtimeHelper = deps.runtimeHelper ?? RuntimeHelper.getInstance()
-    this.getShellEnvironmentImpl = deps.getShellEnvironment ?? getShellEnvironment
-    this.runCommandImpl = deps.runCommand ?? defaultRunCommand
-    this.getPathImpl = deps.getPath ?? ((name) => app.getPath(name))
-    this.nowImpl = deps.now ?? (() => Date.now())
+    this.runtimeHelper = deps.runtimeHelper ?? RuntimeHelper.getInstance();
+    this.getShellEnvironmentImpl = deps.getShellEnvironment ?? getShellEnvironment;
+    this.runCommandImpl = deps.runCommand ?? defaultRunCommand;
+    this.getPathImpl = deps.getPath ?? ((name) => app.getPath(name));
+    this.nowImpl = deps.now ?? (() => Date.now());
   }
 
   getHealthState(): RtkRuntimeHealthState {
-    return { ...this.healthState }
+    return { ...this.healthState };
   }
 
-  getUserEnabled(configPresenter: Pick<IConfigPresenter, 'getSetting'>): boolean {
-    return configPresenter.getSetting<boolean>(RTK_ENABLED_SETTING_KEY) !== false
+  getUserEnabled(configPresenter: Pick<IConfigPresenter, "getSetting">): boolean {
+    return configPresenter.getSetting<boolean>(RTK_ENABLED_SETTING_KEY) !== false;
   }
 
-  isEffectivelyEnabled(configPresenter: Pick<IConfigPresenter, 'getSetting'>): boolean {
+  isEffectivelyEnabled(configPresenter: Pick<IConfigPresenter, "getSetting">): boolean {
     return (
-      this.getUserEnabled(configPresenter) &&
-      this.healthState.health === 'healthy' &&
-      this.resolvedRuntime !== null
-    )
+      this.getUserEnabled(configPresenter) && this.healthState.health === "healthy" && this.resolvedRuntime !== null
+    );
   }
 
   async startHealthCheck(): Promise<RtkRuntimeHealthState> {
-    return await this.runHealthCheck(false)
+    return await this.runHealthCheck(false);
   }
 
   async retryHealthCheck(): Promise<RtkRuntimeHealthState> {
-    return await this.runHealthCheck(true)
+    return await this.runHealthCheck(true);
   }
 
   getAppTrackingDbPath(): string {
-    return path.join(this.getPathImpl('userData'), 'rtk', 'history.db')
+    return path.join(this.getPathImpl("userData"), "rtk", "history.db");
   }
 
-  async getDashboardData(
-    configPresenter: Pick<IConfigPresenter, 'getSetting'>
-  ): Promise<UsageDashboardRtkData> {
-    const enabled = this.getUserEnabled(configPresenter)
-    const state = this.getHealthState()
+  async getDashboardData(configPresenter: Pick<IConfigPresenter, "getSetting">): Promise<UsageDashboardRtkData> {
+    const enabled = this.getUserEnabled(configPresenter);
+    const state = this.getHealthState();
     const base: UsageDashboardRtkData = {
-      scope: 'deepchat',
+      scope: "deepchat",
       enabled,
       effectiveEnabled: this.isEffectivelyEnabled(configPresenter),
-      available: state.source !== 'none',
+      available: state.source !== "none",
       health: state.health,
       checkedAt: state.checkedAt,
       source: state.source,
       failureStage: state.failureStage,
       failureMessage: state.failureMessage,
       summary: createEmptyRtkSummary(),
-      daily: []
-    }
+      daily: [],
+    };
 
-    const runtime = this.resolvedRuntime
+    const runtime = this.resolvedRuntime;
     if (!runtime) {
-      return base
+      return base;
     }
 
     try {
-      const env = await this.createRuntimeEnv({}, this.getAppTrackingDbPath())
-      const result = await this.runCommandImpl(
-        runtime.command,
-        ['gain', '--all', '--format', 'json'],
-        {
-          env,
-          timeoutMs: RTK_HEALTH_TIMEOUT_MS
-        }
-      )
+      const env = await this.createRuntimeEnv({}, this.getAppTrackingDbPath());
+      const result = await this.runCommandImpl(runtime.command, ["gain", "--all", "--format", "json"], {
+        env,
+        timeoutMs: RTK_HEALTH_TIMEOUT_MS,
+      });
 
       if (result.code !== 0) {
-        throw new Error(result.stderr.trim() || result.stdout.trim() || 'rtk gain failed')
+        throw new Error(result.stderr.trim() || result.stdout.trim() || "rtk gain failed");
       }
 
-      const parsed = this.parseGainJson(result.stdout)
+      const parsed = this.parseGainJson(result.stdout);
       return {
         ...base,
         available: true,
         summary: parsed.summary,
-        daily: parsed.daily
-      }
+        daily: parsed.daily,
+      };
     } catch (error) {
-      logger.warn('[RtkRuntimeService] Failed to load RTK dashboard data', { error })
+      logger.warn("[RtkRuntimeService] Failed to load RTK dashboard data", { error });
       return {
         ...base,
-        failureMessage: base.failureMessage ?? getErrorMessage(error)
-      }
+        failureMessage: base.failureMessage ?? getErrorMessage(error),
+      };
     }
   }
 
   async prepareShellCommand(
     rawCommand: string,
     env: Record<string, string>,
-    configPresenter: Pick<IConfigPresenter, 'getSetting'>
+    configPresenter: Pick<IConfigPresenter, "getSetting">,
   ): Promise<PrepareShellCommandResult> {
-    const preparedEnv = await this.prepareExecutionEnv(env)
+    const preparedEnv = await this.prepareExecutionEnv(env);
 
     if (!this.isEffectivelyEnabled(configPresenter)) {
       return {
@@ -357,12 +347,12 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: false,
         rtkApplied: false,
-        rtkMode: 'bypass',
-        rtkFallbackReason: this.describeBypassReason(configPresenter)
-      }
+        rtkMode: "bypass",
+        rtkFallbackReason: this.describeBypassReason(configPresenter),
+      };
     }
 
-    const runtime = this.resolvedRuntime
+    const runtime = this.resolvedRuntime;
     if (!runtime) {
       return {
         originalCommand: rawCommand,
@@ -371,9 +361,9 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: false,
         rtkApplied: false,
-        rtkMode: 'bypass',
-        rtkFallbackReason: 'RTK runtime is not available'
-      }
+        rtkMode: "bypass",
+        rtkFallbackReason: "RTK runtime is not available",
+      };
     }
 
     if (this.isRtkCommand(rawCommand)) {
@@ -384,11 +374,11 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: true,
         rtkApplied: true,
-        rtkMode: 'direct'
-      }
+        rtkMode: "direct",
+      };
     }
 
-    const bypassReason = this.getRewriteBypassReason(rawCommand)
+    const bypassReason = this.getRewriteBypassReason(rawCommand);
     if (bypassReason) {
       return {
         originalCommand: rawCommand,
@@ -397,20 +387,20 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: false,
         rtkApplied: false,
-        rtkMode: 'bypass',
-        rtkFallbackReason: bypassReason
-      }
+        rtkMode: "bypass",
+        rtkFallbackReason: bypassReason,
+      };
     }
 
     try {
-      const rewriteResult = await this.runCommandImpl(runtime.command, ['rewrite', rawCommand], {
+      const rewriteResult = await this.runCommandImpl(runtime.command, ["rewrite", rawCommand], {
         env: preparedEnv,
-        timeoutMs: RTK_REWRITE_TIMEOUT_MS
-      })
-      const rewrite = classifyRtkRewriteResult(rewriteResult)
+        timeoutMs: RTK_REWRITE_TIMEOUT_MS,
+      });
+      const rewrite = classifyRtkRewriteResult(rewriteResult);
 
-      if (rewrite.status === 'rewritten') {
-        this.recordRuntimeSuccess()
+      if (rewrite.status === "rewritten") {
+        this.recordRuntimeSuccess();
         return {
           originalCommand: rawCommand,
           command: rewrite.command,
@@ -418,12 +408,12 @@ export class RtkRuntimeService {
           rewritten: true,
           usedRtk: true,
           rtkApplied: true,
-          rtkMode: 'rewrite'
-        }
+          rtkMode: "rewrite",
+        };
       }
 
-      if (rewrite.status === 'bypass') {
-        this.recordRuntimeSuccess()
+      if (rewrite.status === "bypass") {
+        this.recordRuntimeSuccess();
         return {
           originalCommand: rawCommand,
           command: rawCommand,
@@ -431,12 +421,12 @@ export class RtkRuntimeService {
           rewritten: false,
           usedRtk: false,
           rtkApplied: false,
-          rtkMode: 'bypass',
-          rtkFallbackReason: rewrite.message
-        }
+          rtkMode: "bypass",
+          rtkFallbackReason: rewrite.message,
+        };
       }
 
-      this.recordRuntimeFailure('rewrite', rewrite.message)
+      this.recordRuntimeFailure("rewrite", rewrite.message);
       return {
         originalCommand: rawCommand,
         command: rawCommand,
@@ -444,12 +434,12 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: false,
         rtkApplied: false,
-        rtkMode: 'bypass',
-        rtkFallbackReason: rewrite.message
-      }
+        rtkMode: "bypass",
+        rtkFallbackReason: rewrite.message,
+      };
     } catch (error) {
-      const failureMessage = getErrorMessage(error)
-      this.recordRuntimeFailure('rewrite', failureMessage)
+      const failureMessage = getErrorMessage(error);
+      this.recordRuntimeFailure("rewrite", failureMessage);
       return {
         originalCommand: rawCommand,
         command: rawCommand,
@@ -457,206 +447,194 @@ export class RtkRuntimeService {
         rewritten: false,
         usedRtk: false,
         rtkApplied: false,
-        rtkMode: 'bypass',
-        rtkFallbackReason: failureMessage
-      }
+        rtkMode: "bypass",
+        rtkFallbackReason: failureMessage,
+      };
     }
   }
 
   async prepareExecutionEnv(
     env: Record<string, string>,
-    options: { includeTrackingDb?: boolean } = {}
+    options: { includeTrackingDb?: boolean } = {},
   ): Promise<Record<string, string>> {
-    const includeTrackingDb = options.includeTrackingDb ?? true
-    return await this.createRuntimeEnv(
-      env,
-      includeTrackingDb ? this.getAppTrackingDbPath() : undefined
-    )
+    const includeTrackingDb = options.includeTrackingDb ?? true;
+    return await this.createRuntimeEnv(env, includeTrackingDb ? this.getAppTrackingDbPath() : undefined);
   }
 
   private async runHealthCheck(force: boolean): Promise<RtkRuntimeHealthState> {
     if (this.healthCheckPromise && !force) {
-      return await this.healthCheckPromise
+      return await this.healthCheckPromise;
     }
 
     this.healthState = {
-      health: 'checking',
+      health: "checking",
       checkedAt: this.healthState.checkedAt,
       source: this.healthState.source,
       failureStage: null,
-      failureMessage: null
-    }
+      failureMessage: null,
+    };
 
     const promise = this.performHealthCheck().finally(() => {
       if (this.healthCheckPromise === promise) {
-        this.healthCheckPromise = null
+        this.healthCheckPromise = null;
       }
-    })
+    });
 
-    this.healthCheckPromise = promise
-    return await promise
+    this.healthCheckPromise = promise;
+    return await promise;
   }
 
   private async performHealthCheck(): Promise<RtkRuntimeHealthState> {
-    this.executionFailureCount = 0
+    this.executionFailureCount = 0;
 
-    const candidates = this.resolveRuntimeCandidates()
+    const candidates = this.resolveRuntimeCandidates();
     if (candidates.length === 0) {
-      this.resolvedRuntime = null
-      this.healthState = this.createUnhealthyState('none', 'resolve', 'RTK binary not found')
-      return this.getHealthState()
+      this.resolvedRuntime = null;
+      this.healthState = this.createUnhealthyState("none", "resolve", "RTK binary not found");
+      return this.getHealthState();
     }
 
-    let lastError: { source: RtkRuntimeSource; stage: RtkFailureStage; message: string } | null =
-      null
+    let lastError: { source: RtkRuntimeSource; stage: RtkFailureStage; message: string } | null = null;
 
     for (const candidate of candidates) {
       try {
-        await this.verifyRuntimeCandidate(candidate)
-        this.resolvedRuntime = candidate
+        await this.verifyRuntimeCandidate(candidate);
+        this.resolvedRuntime = candidate;
         this.healthState = {
-          health: 'healthy',
+          health: "healthy",
           checkedAt: this.nowImpl(),
           source: candidate.source,
           failureStage: null,
-          failureMessage: null
-        }
-        return this.getHealthState()
+          failureMessage: null,
+        };
+        return this.getHealthState();
       } catch (error) {
-        const message = getErrorMessage(error)
-        const stage = error instanceof RtkHealthCheckError ? error.stage : 'version'
+        const message = getErrorMessage(error);
+        const stage = error instanceof RtkHealthCheckError ? error.stage : "version";
         lastError = {
           source: candidate.source,
           stage,
-          message
-        }
-        logger.warn('[RtkRuntimeService] RTK health check failed for candidate', {
+          message,
+        };
+        logger.warn("[RtkRuntimeService] RTK health check failed for candidate", {
           candidate,
           stage,
-          error
-        })
+          error,
+        });
       }
     }
 
-    this.resolvedRuntime = null
+    this.resolvedRuntime = null;
     this.healthState = this.createUnhealthyState(
-      lastError?.source ?? 'none',
-      lastError?.stage ?? 'resolve',
-      lastError?.message ?? 'RTK health check failed'
-    )
-    return this.getHealthState()
+      lastError?.source ?? "none",
+      lastError?.stage ?? "resolve",
+      lastError?.message ?? "RTK health check failed",
+    );
+    return this.getHealthState();
   }
 
   private resolveRuntimeCandidates(): ResolvedRuntime[] {
-    if (typeof this.runtimeHelper.refreshRuntimes === 'function') {
-      this.runtimeHelper.refreshRuntimes()
+    if (typeof this.runtimeHelper.refreshRuntimes === "function") {
+      this.runtimeHelper.refreshRuntimes();
     } else {
-      this.runtimeHelper.initializeRuntimes()
+      this.runtimeHelper.initializeRuntimes();
     }
 
-    const candidates: ResolvedRuntime[] = []
-    const bundledRuntimePath = this.runtimeHelper.getRtkRuntimePath()
+    const candidates: ResolvedRuntime[] = [];
+    const bundledRuntimePath = this.runtimeHelper.getRtkRuntimePath();
     if (bundledRuntimePath) {
-      const bundledCommand = this.runtimeHelper.replaceWithRuntimeCommand('rtk', true, true)
-      if (bundledCommand !== 'rtk') {
+      const bundledCommand = this.runtimeHelper.replaceWithRuntimeCommand("rtk", true, true);
+      if (bundledCommand !== "rtk") {
         candidates.push({
           command: bundledCommand,
-          source: 'bundled'
-        })
+          source: "bundled",
+        });
       } else {
-        const fallbackBinary = path.join(
-          bundledRuntimePath,
-          process.platform === 'win32' ? 'rtk.exe' : 'rtk'
-        )
+        const fallbackBinary = path.join(bundledRuntimePath, process.platform === "win32" ? "rtk.exe" : "rtk");
         candidates.push({
           command: fallbackBinary,
-          source: 'bundled'
-        })
+          source: "bundled",
+        });
       }
     }
 
     candidates.push({
-      command: 'rtk',
-      source: 'system'
-    })
+      command: "rtk",
+      source: "system",
+    });
 
-    return candidates
+    return candidates;
   }
 
   private async verifyRuntimeCandidate(candidate: ResolvedRuntime): Promise<void> {
-    const baseEnv = await this.createRuntimeEnv({}, undefined)
+    const baseEnv = await this.createRuntimeEnv({}, undefined);
 
-    const version = await this.runCommandImpl(candidate.command, ['--version'], {
+    const version = await this.runCommandImpl(candidate.command, ["--version"], {
       env: baseEnv,
-      timeoutMs: RTK_HEALTH_TIMEOUT_MS
-    })
+      timeoutMs: RTK_HEALTH_TIMEOUT_MS,
+    });
     if (version.code !== 0) {
       throw new RtkHealthCheckError(
-        'version',
-        version.stderr.trim() || version.stdout.trim() || 'rtk --version failed'
-      )
+        "version",
+        version.stderr.trim() || version.stdout.trim() || "rtk --version failed",
+      );
     }
 
-    const resolvedRtk = await this.runCommandImpl('rtk', ['--version'], {
+    const resolvedRtk = await this.runCommandImpl("rtk", ["--version"], {
       env: baseEnv,
-      timeoutMs: RTK_HEALTH_TIMEOUT_MS
-    })
+      timeoutMs: RTK_HEALTH_TIMEOUT_MS,
+    });
     if (resolvedRtk.code !== 0) {
       throw new RtkHealthCheckError(
-        'version',
-        resolvedRtk.stderr.trim() ||
-          resolvedRtk.stdout.trim() ||
-          'rtk is not resolvable via injected PATH'
-      )
+        "version",
+        resolvedRtk.stderr.trim() || resolvedRtk.stdout.trim() || "rtk is not resolvable via injected PATH",
+      );
     }
   }
 
-  private async createRuntimeEnv(
-    baseEnv: Record<string, string>,
-    dbPath?: string
-  ): Promise<Record<string, string>> {
-    const shellEnv = await this.getShellEnvironmentImpl()
+  private async createRuntimeEnv(baseEnv: Record<string, string>, dbPath?: string): Promise<Record<string, string>> {
+    const shellEnv = await this.getShellEnvironmentImpl();
     const env = this.runtimeHelper.prependBundledRuntimeToEnv(
       mergeCommandEnvironment({
         shellEnv,
-        overrides: baseEnv
-      })
-    )
+        overrides: baseEnv,
+      }),
+    );
 
     if (dbPath) {
-      fs.mkdirSync(path.dirname(dbPath), { recursive: true })
-      env.RTK_DB_PATH = dbPath
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+      env.RTK_DB_PATH = dbPath;
     }
 
-    return env
+    return env;
   }
 
   private parseGainJson(output: string): {
-    summary: UsageDashboardRtkSummary
-    daily: UsageDashboardRtkDay[]
+    summary: UsageDashboardRtkSummary;
+    daily: UsageDashboardRtkDay[];
   } {
-    const parsed = asRecord(JSON.parse(output))
+    const parsed = asRecord(JSON.parse(output));
     if (!parsed) {
-      throw new Error('Invalid RTK gain JSON output')
+      throw new Error("Invalid RTK gain JSON output");
     }
 
-    const summaryRecord = asRecord(parsed.summary) ?? {}
+    const summaryRecord = asRecord(parsed.summary) ?? {};
     const daily = Array.isArray(parsed.daily)
       ? parsed.daily
           .map((entry) => asRecord(entry))
           .filter((entry): entry is Record<string, unknown> => entry !== null)
           .map((entry) => ({
-            date: typeof entry.date === 'string' ? entry.date : '',
+            date: typeof entry.date === "string" ? entry.date : "",
             commands: toNumber(entry.commands),
             inputTokens: toNumber(entry.input_tokens),
             outputTokens: toNumber(entry.output_tokens),
             savedTokens: toNumber(entry.saved_tokens),
             savingsPct: toNumber(entry.savings_pct),
             totalTimeMs: toNumber(entry.total_time_ms),
-            avgTimeMs: toNumber(entry.avg_time_ms)
+            avgTimeMs: toNumber(entry.avg_time_ms),
           }))
           .filter((entry) => entry.date)
-      : []
+      : [];
 
     return {
       summary: {
@@ -666,62 +644,59 @@ export class RtkRuntimeService {
         totalSavedTokens: toNumber(summaryRecord.total_saved),
         avgSavingsPct: toNumber(summaryRecord.avg_savings_pct),
         totalTimeMs: toNumber(summaryRecord.total_time_ms),
-        avgTimeMs: toNumber(summaryRecord.avg_time_ms)
+        avgTimeMs: toNumber(summaryRecord.avg_time_ms),
       },
-      daily
-    }
+      daily,
+    };
   }
 
   private recordRuntimeSuccess(): void {
-    this.executionFailureCount = 0
+    this.executionFailureCount = 0;
   }
 
-  private recordRuntimeFailure(
-    stage: Extract<RtkFailureStage, 'rewrite' | 'runtime'>,
-    message: string
-  ): void {
-    this.executionFailureCount += 1
+  private recordRuntimeFailure(stage: Extract<RtkFailureStage, "rewrite" | "runtime">, message: string): void {
+    this.executionFailureCount += 1;
 
-    logger.warn('[RtkRuntimeService] RTK execution failed', {
+    logger.warn("[RtkRuntimeService] RTK execution failed", {
       stage,
       failureCount: this.executionFailureCount,
-      message
-    })
+      message,
+    });
 
     if (this.executionFailureCount >= RTK_CIRCUIT_BREAKER_THRESHOLD) {
-      this.healthState = this.createUnhealthyState(this.healthState.source, 'runtime', message)
+      this.healthState = this.createUnhealthyState(this.healthState.source, "runtime", message);
     }
   }
 
   private createUnhealthyState(
     source: RtkRuntimeSource,
     stage: RtkFailureStage,
-    message: string
+    message: string,
   ): RtkRuntimeHealthState {
     return {
-      health: 'unhealthy',
+      health: "unhealthy",
       checkedAt: this.nowImpl(),
       source,
       failureStage: stage,
-      failureMessage: message
-    }
+      failureMessage: message,
+    };
   }
 
   private isRtkCommand(command: string): boolean {
-    const trimmed = command.trim()
+    const trimmed = command.trim();
     if (!trimmed) {
-      return false
+      return false;
     }
 
-    const token = trimmed.match(/^(?:"([^"]+)"|'([^']+)'|(\S+))/)
-    const firstToken = token?.[1] || token?.[2] || token?.[3] || ''
-    const normalized = path.basename(firstToken).toLowerCase()
-    return normalized === 'rtk' || normalized === 'rtk.exe'
+    const token = trimmed.match(/^(?:"([^"]+)"|'([^']+)'|(\S+))/);
+    const firstToken = token?.[1] || token?.[2] || token?.[3] || "";
+    const normalized = path.basename(firstToken).toLowerCase();
+    return normalized === "rtk" || normalized === "rtk.exe";
   }
 
   private getRewriteBypassReason(command: string): string | undefined {
     if (!/\bfind(?:\.exe)?\b/i.test(command)) {
-      return undefined
+      return undefined;
     }
 
     const unsupportedPatterns = [
@@ -730,37 +705,35 @@ export class RtkRuntimeService {
       /\\\)/,
       /(^|[\s(])!(?=$|\s|[|)&;])/,
       /(^|[\s(])-not(?=$|\s|[|)&;])/,
-      /(^|[\s(])-(?:exec|delete|printf|print0)(?=$|\s|[|)&;])/
-    ]
+      /(^|[\s(])-(?:exec|delete|printf|print0)(?=$|\s|[|)&;])/,
+    ];
 
     if (!unsupportedPatterns.some((pattern) => pattern.test(command))) {
-      return undefined
+      return undefined;
     }
 
-    return 'Bypassed RTK rewrite: unsupported find compound predicates or actions'
+    return "Bypassed RTK rewrite: unsupported find compound predicates or actions";
   }
 
-  private describeBypassReason(
-    configPresenter: Pick<IConfigPresenter, 'getSetting'>
-  ): string | undefined {
+  private describeBypassReason(configPresenter: Pick<IConfigPresenter, "getSetting">): string | undefined {
     if (!this.getUserEnabled(configPresenter)) {
-      return 'RTK is disabled in settings'
+      return "RTK is disabled in settings";
     }
 
-    if (this.healthState.health === 'unhealthy') {
-      return this.healthState.failureMessage || 'RTK is unhealthy in the current session'
+    if (this.healthState.health === "unhealthy") {
+      return this.healthState.failureMessage || "RTK is unhealthy in the current session";
     }
 
-    if (this.healthState.health === 'checking') {
-      return 'RTK health check is still running'
+    if (this.healthState.health === "checking") {
+      return "RTK health check is still running";
     }
 
     if (!this.resolvedRuntime) {
-      return 'RTK runtime is not available'
+      return "RTK runtime is not available";
     }
 
-    return undefined
+    return undefined;
   }
 }
 
-export const rtkRuntimeService = new RtkRuntimeService()
+export const rtkRuntimeService = new RtkRuntimeService();

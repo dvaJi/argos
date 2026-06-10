@@ -1,26 +1,23 @@
-import { createNodeScheduler } from '@/routes/scheduler'
+import { createNodeScheduler } from "@/routes/scheduler";
 
-describe('createNodeScheduler', () => {
-  it('times out long-running tasks', async () => {
-    const scheduler = createNodeScheduler()
+describe("createNodeScheduler", () => {
+  it("times out long-running tasks", async () => {
+    const scheduler = createNodeScheduler();
 
     await expect(
       scheduler.timeout({
         task: new Promise<void>(() => {}),
         ms: 10,
-        reason: 'scheduler-timeout'
-      })
+        reason: "scheduler-timeout",
+      }),
     ).rejects.toMatchObject({
-      name: 'TimeoutError'
-    })
-  })
+      name: "TimeoutError",
+    });
+  });
 
-  it('retries until the task succeeds', async () => {
-    const scheduler = createNodeScheduler()
-    const task = vi
-      .fn<[], Promise<string>>()
-      .mockRejectedValueOnce(new Error('first'))
-      .mockResolvedValueOnce('ok')
+  it("retries until the task succeeds", async () => {
+    const scheduler = createNodeScheduler();
+    const task = vi.fn<[], Promise<string>>().mockRejectedValueOnce(new Error("first")).mockResolvedValueOnce("ok");
 
     await expect(
       scheduler.retry({
@@ -28,19 +25,19 @@ describe('createNodeScheduler', () => {
         maxAttempts: 2,
         initialDelayMs: 1,
         backoff: 1,
-        reason: 'scheduler-retry'
-      })
-    ).resolves.toBe('ok')
+        reason: "scheduler-retry",
+      }),
+    ).resolves.toBe("ok");
 
-    expect(task).toHaveBeenCalledTimes(2)
-  })
+    expect(task).toHaveBeenCalledTimes(2);
+  });
 
-  it('does not start a retry attempt when the signal is already aborted', async () => {
-    const scheduler = createNodeScheduler()
-    const controller = new AbortController()
-    const task = vi.fn<[], Promise<string>>().mockResolvedValue('ok')
+  it("does not start a retry attempt when the signal is already aborted", async () => {
+    const scheduler = createNodeScheduler();
+    const controller = new AbortController();
+    const task = vi.fn<[], Promise<string>>().mockResolvedValue("ok");
 
-    controller.abort()
+    controller.abort();
 
     await expect(
       scheduler.retry({
@@ -48,13 +45,13 @@ describe('createNodeScheduler', () => {
         maxAttempts: 2,
         initialDelayMs: 1,
         backoff: 1,
-        reason: 'scheduler-retry-aborted',
-        signal: controller.signal
-      })
+        reason: "scheduler-retry-aborted",
+        signal: controller.signal,
+      }),
     ).rejects.toMatchObject({
-      name: 'AbortError'
-    })
+      name: "AbortError",
+    });
 
-    expect(task).not.toHaveBeenCalled()
-  })
-})
+    expect(task).not.toHaveBeenCalled();
+  });
+});

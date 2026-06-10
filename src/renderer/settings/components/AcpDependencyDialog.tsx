@@ -1,69 +1,65 @@
-import { useCallback } from 'react'
+import { useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { Button } from '@shadcn/components/ui/button'
-import { Label } from '@shadcn/components/ui/label'
-import { Icon } from '@iconify/react'
-import { useToast } from '@/components/use-toast'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { Button } from "@shadcn/components/ui/button";
+import { Label } from "@shadcn/components/ui/label";
+import { Icon } from "@iconify/react";
+import { useToast } from "@/components/use-toast";
 
 interface ExternalDependency {
-  name: string
-  description: string
-  platform?: string[]
-  checkCommand?: string
-  checkPaths?: string[]
+  name: string;
+  description: string;
+  platform?: string[];
+  checkCommand?: string;
+  checkPaths?: string[];
   installCommands?: {
-    winget?: string
-    chocolatey?: string
-    scoop?: string
-  }
-  downloadUrl?: string
-  requiredFor?: string[]
+    winget?: string;
+    chocolatey?: string;
+    scoop?: string;
+  };
+  downloadUrl?: string;
+  requiredFor?: string[];
 }
 
 interface AcpDependencyDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  dependencies: ExternalDependency[]
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  dependencies: ExternalDependency[];
 }
 
-const hasInstallCommands = (commands: ExternalDependency['installCommands']): boolean => {
-  if (!commands) return false
-  return Boolean(commands.winget || commands.chocolatey || commands.scoop)
-}
+const hasInstallCommands = (commands: ExternalDependency["installCommands"]): boolean => {
+  if (!commands) return false;
+  return Boolean(commands.winget || commands.chocolatey || commands.scoop);
+};
 
-export default function AcpDependencyDialog({
-  open,
-  onOpenChange,
-  dependencies
-}: AcpDependencyDialogProps) {
-  const { toast } = useToast()
+export default function AcpDependencyDialog({ open, onOpenChange, dependencies }: AcpDependencyDialogProps) {
+  const { toast } = useToast();
 
   const copyToClipboard = useCallback(
     async (text: string) => {
       try {
         if (window.api?.copyText) {
-          window.api.copyText(text)
-          toast({ title: 'Copied to clipboard', duration: 2000 })
+          window.api.copyText(text);
+          toast({ title: "Copied to clipboard", duration: 2000 });
         } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(text)
-          toast({ title: 'Copied to clipboard', duration: 2000 })
+          await navigator.clipboard.writeText(text);
+          toast({ title: "Copied to clipboard", duration: 2000 });
         } else {
-          console.warn('[AcpDependencyDialog] Clipboard API not available')
+          console.warn("[AcpDependencyDialog] Clipboard API not available");
         }
       } catch (error) {
-        console.error('[AcpDependencyDialog] Failed to copy to clipboard:', error)
-        toast({ title: 'Failed to copy', variant: 'destructive' })
+        console.error("[AcpDependencyDialog] Failed to copy to clipboard:", error);
+        toast({ title: "Failed to copy", variant: "destructive" });
       }
     },
-    [toast]
-  )
+    [toast],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,10 +73,7 @@ export default function AcpDependencyDialog({
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-2">
           {dependencies.map((dep, index) => (
-            <div
-              key={index}
-              className="border rounded-lg p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900"
-            >
+            <div key={index} className="border rounded-lg p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900">
               <div>
                 <h3 className="font-semibold text-lg text-foreground">{dep.name}</h3>
                 <p className="text-sm text-muted-foreground mt-1">{dep.description}</p>
@@ -94,9 +87,7 @@ export default function AcpDependencyDialog({
                       command ? (
                         <div key={cmdType} className="flex items-center gap-2">
                           <div className="flex-1 flex items-center gap-2 bg-background border rounded-md p-2">
-                            <code className="flex-1 text-sm font-mono text-foreground break-all">
-                              {command}
-                            </code>
+                            <code className="flex-1 text-sm font-mono text-foreground break-all">{command}</code>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -108,7 +99,7 @@ export default function AcpDependencyDialog({
                             </Button>
                           </div>
                         </div>
-                      ) : null
+                      ) : null,
                     )}
                   </div>
                 </div>
@@ -147,5 +138,5 @@ export default function AcpDependencyDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

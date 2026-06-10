@@ -1,24 +1,19 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Switch } from '@shadcn/components/ui/switch'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Switch } from "@shadcn/components/ui/switch";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { Collapsible, CollapsibleContent } from '@shadcn/components/ui/collapsible'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { Collapsible, CollapsibleContent } from "@shadcn/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,82 +23,96 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger
-} from '@shadcn/components/ui/alert-dialog'
-import { useMcpStore } from '@/stores/mcp'
-import { useToast } from '@/components/use-toast'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import type { BuiltinKnowledgeConfig } from '@shared/presenter'
+  AlertDialogTrigger,
+} from "@shadcn/components/ui/alert-dialog";
+import { useMcpStore } from "@/stores/mcp";
+import { useToast } from "@/components/use-toast";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import type { BuiltinKnowledgeConfig } from "@shared/presenter";
 
 interface BuiltinKnowledgeSettingsProps {
-  onShowDetail: (detail: BuiltinKnowledgeConfig) => void
+  onShowDetail: (detail: BuiltinKnowledgeConfig) => void;
 }
 
 export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowledgeSettingsProps) {
-  const mcpStore = useMcpStore()
-  const { toast } = useToast()
-  const knowledgePresenter = useLegacyPresenter('knowledgePresenter')
+  const mcpStore = useMcpStore();
+  const { toast } = useToast();
+  const knowledgePresenter = useLegacyPresenter("configPresenter");
 
-  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false)
-  const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([])
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [editingConfig, setEditingConfig] = useState<BuiltinKnowledgeConfig | null>(null)
-  const [isMcpEnabled, setIsMcpEnabled] = useState(false)
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
+  const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<BuiltinKnowledgeConfig | null>(null);
+  const [isMcpEnabled, setIsMcpEnabled] = useState(false);
 
   const loadConfigs = useCallback(async () => {
     try {
-      const list = await knowledgePresenter.listBuiltinKnowledge()
-      setConfigs(list || [])
+      const list = await knowledgePresenter.getKnowledgeConfigs();
+      setConfigs(list || []);
     } catch {}
-  }, [knowledgePresenter])
+  }, [knowledgePresenter]);
 
   const toggleMcpServer = async () => {
-    if (!mcpStore.mcpEnabled) return
-    await mcpStore.toggleServer('builtinKnowledge')
-  }
+    if (!mcpStore.mcpEnabled) return;
+    await mcpStore.toggleServer("builtinKnowledge");
+  };
 
   useEffect(() => {
-    setIsMcpEnabled(mcpStore.serverStatuses['builtinKnowledge'] || false)
-  }, [mcpStore.serverStatuses])
+    setIsMcpEnabled(mcpStore.serverStatuses["builtinKnowledge"] || false);
+  }, [mcpStore.serverStatuses]);
 
   useEffect(() => {
-    if (mcpStore.config.ready) loadConfigs()
-  }, [mcpStore.config.ready, loadConfigs])
+    if (mcpStore.config.ready) loadConfigs();
+  }, [mcpStore.config.ready, loadConfigs]);
 
   const handleSetting = (config: BuiltinKnowledgeConfig) => {
-    onShowDetail(config)
-  }
+    onShowDetail(config);
+  };
 
-  const handleCreate = async (name: string, description: string, embeddingModel: string) => {
+  const handleCreate = async (_name: string, description: string, embeddingModel: string) => {
     try {
-      await knowledgePresenter.createBuiltinKnowledge({ name, description, embeddingModel })
-      toast({ title: 'Created successfully' })
-      setIsCreateDialogOpen(false)
-      loadConfigs()
+      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
+      const newConfig: BuiltinKnowledgeConfig = {
+        id: `kb_${Date.now()}`,
+        description,
+        enabled: true,
+        embedding: { modelId: embeddingModel, providerId: "" },
+        dimensions: 1536,
+        normalized: true,
+        fragmentsNumber: 1,
+      };
+      await knowledgePresenter.setKnowledgeConfigs([...currentConfigs, newConfig]);
+      toast({ title: "Created successfully" });
+      setIsCreateDialogOpen(false);
+      loadConfigs();
     } catch (error) {
-      toast({ title: 'Creation failed', description: String(error), variant: 'destructive' })
+      toast({ title: "Creation failed", description: String(error), variant: "destructive" });
     }
-  }
+  };
 
   const handleDelete = async (index: number) => {
-    const config = configs[index]
+    const config = configs[index];
     try {
-      await knowledgePresenter.deleteBuiltinKnowledge(config.id)
-      toast({ title: 'Deleted successfully' })
-      loadConfigs()
+      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
+      await knowledgePresenter.setKnowledgeConfigs(currentConfigs.filter((c) => c.id !== config.id));
+      toast({ title: "Deleted successfully" });
+      loadConfigs();
     } catch (error) {
-      toast({ title: 'Deletion failed', description: String(error), variant: 'destructive' })
+      toast({ title: "Deletion failed", description: String(error), variant: "destructive" });
     }
-  }
+  };
 
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
-    const config = configs[index]
+    const config = configs[index];
     try {
-      await knowledgePresenter.updateBuiltinKnowledge(config.id, { enabled })
-      loadConfigs()
+      const currentConfigs = await knowledgePresenter.getKnowledgeConfigs();
+      await knowledgePresenter.setKnowledgeConfigs(
+        currentConfigs.map((c) => (c.id === config.id ? { ...c, enabled } : c)),
+      );
+      loadConfigs();
     } catch {}
-  }
+  };
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -122,11 +131,7 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
           <TooltipProvider>
             <Tooltip delayDuration={200}>
               <TooltipTrigger>
-                <Switch
-                  checked={isMcpEnabled}
-                  disabled={!mcpStore.mcpEnabled}
-                  onCheckedChange={toggleMcpServer}
-                />
+                <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
               </TooltipTrigger>
               {!mcpStore.mcpEnabled && (
                 <TooltipContent>
@@ -135,10 +140,7 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
               )}
             </Tooltip>
           </TooltipProvider>
-          <Icon
-            icon={isConfigPanelOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'}
-            className="w-4 h-4"
-          />
+          <Icon icon={isConfigPanelOpen ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
         </div>
       </div>
 
@@ -148,21 +150,15 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
             {configs.map((config, index) => (
               <div key={index} className="p-3 border rounded-md relative">
                 <div className="absolute top-2 right-2 flex gap-2">
-                  <Switch
-                    checked={config.enabled === true}
-                    onCheckedChange={(v) => toggleConfigEnabled(index, v)}
-                  />
-                  <button
-                    className="text-muted-foreground hover:text-primary"
-                    onClick={() => handleSetting(config)}
-                  >
+                  <Switch checked={config.enabled === true} onCheckedChange={(v) => toggleConfigEnabled(index, v)} />
+                  <button className="text-muted-foreground hover:text-primary" onClick={() => handleSetting(config)}>
                     <Icon icon="lucide:file-diff" className="h-4 w-4" />
                   </button>
                   <button
                     className="text-muted-foreground hover:text-primary"
                     onClick={() => {
-                      setEditingConfig(config)
-                      setIsEditDialogOpen(true)
+                      setEditingConfig(config);
+                      setIsEditDialogOpen(true);
                     }}
                   >
                     <Icon icon="lucide:edit" className="h-4 w-4" />
@@ -182,31 +178,22 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(index)}>
-                          Confirm
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={() => handleDelete(index)}>Confirm</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
                 </div>
                 <div className="grid gap-2">
-                  <span className="font-medium text-sm w-[calc(100%-120px)]">
-                    {config.description}
-                  </span>
+                  <span className="font-medium text-sm w-[calc(100%-120px)]">{config.description}</span>
                   <div className="text-xs text-muted-foreground">
-                    Model: {config.embedding.modelId} | Dimension: {config.embedding.dimension}
+                    Model: {config.embedding.modelId} | Dimension: {config.dimensions}
                   </div>
                 </div>
               </div>
             ))}
 
             <div className="flex justify-center">
-              <Button
-                size="sm"
-                className="w-full"
-                variant="outline"
-                onClick={() => setIsCreateDialogOpen(true)}
-              >
+              <Button size="sm" className="w-full" variant="outline" onClick={() => setIsCreateDialogOpen(true)}>
                 <Icon icon="lucide:plus" className="w-4 h-4 mr-1" />
                 Add Knowledge Base
               </Button>
@@ -215,33 +202,29 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
         </CollapsibleContent>
       </Collapsible>
 
-      <CreateKnowledgeDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-        onCreate={handleCreate}
-      />
+      <CreateKnowledgeDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} onCreate={handleCreate} />
     </div>
-  )
+  );
 }
 
 function CreateKnowledgeDialog({
   open,
   onOpenChange,
-  onCreate
+  onCreate,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onCreate: (name: string, description: string, model: string) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreate: (name: string, description: string, model: string) => void;
 }) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
 
   const handleSave = () => {
-    if (!name.trim()) return
-    onCreate(name.trim(), description.trim(), 'default')
-    setName('')
-    setDescription('')
-  }
+    if (!name.trim()) return;
+    onCreate(name.trim(), description.trim(), "default");
+    setName("");
+    setDescription("");
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -253,19 +236,11 @@ function CreateKnowledgeDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Name</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Knowledge base name"
-            />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Knowledge base name" />
           </div>
           <div className="space-y-2">
             <Label>Description</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description"
-            />
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
           </div>
         </div>
         <DialogFooter>
@@ -278,5 +253,5 @@ function CreateKnowledgeDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

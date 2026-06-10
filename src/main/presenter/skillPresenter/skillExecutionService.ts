@@ -1,168 +1,145 @@
-import fs from 'fs'
-import path from 'path'
-import { spawn } from 'child_process'
-import logger from '@shared/logger'
-import type { IConfigPresenter } from '@shared/presenter'
+import fs from "fs";
+import path from "path";
+import { spawn } from "child_process";
+import logger from "@shared/logger";
+import type { IConfigPresenter } from "@shared/presenter";
 import type {
   ISkillPresenter,
   SkillExtensionConfig,
   SkillRuntimePreference,
-  SkillScriptDescriptor
-} from '@shared/types/skill'
-import { backgroundExecSessionManager } from '@/lib/agentRuntime/backgroundExecSessionManager'
-import { rtkRuntimeService } from '@/lib/agentRuntime/rtkRuntimeService'
-import {
-  getShellEnvironment,
-  getUserShell,
-  mergeCommandEnvironment
-} from '@/lib/agentRuntime/shellEnvHelper'
+  SkillScriptDescriptor,
+} from "@shared/types/skill";
+import { backgroundExecSessionManager } from "@/lib/agentRuntime/backgroundExecSessionManager";
+import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
+import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@/lib/agentRuntime/shellEnvHelper";
 import {
   createUtf8OutputDecoderPair,
   prepareProcessEnvForUtf8Output,
-  prepareShellCommandForUtf8Output
-} from '@/lib/agentRuntime/shellOutputEncoding'
-import { resolveSessionDir } from '@/lib/agentRuntime/sessionPaths'
-import { RuntimeHelper } from '@/lib/runtimeHelper'
+  prepareShellCommandForUtf8Output,
+} from "@/lib/agentRuntime/shellOutputEncoding";
+import { resolveSessionDir } from "@/lib/agentRuntime/sessionPaths";
+import { RuntimeHelper } from "@/lib/runtimeHelper";
 
-const DEFAULT_TIMEOUT_MS = 120000
-const FOREGROUND_OFFLOAD_THRESHOLD = 10000
-const FOREGROUND_PREVIEW_CHARS = 12000
-const FOREGROUND_KILL_GRACE_MS = 2000
-const FOREGROUND_FORCE_SETTLE_MS = 500
+const DEFAULT_TIMEOUT_MS = 120000;
+const FOREGROUND_OFFLOAD_THRESHOLD = 10000;
+const FOREGROUND_PREVIEW_CHARS = 12000;
+const FOREGROUND_KILL_GRACE_MS = 2000;
+const FOREGROUND_FORCE_SETTLE_MS = 500;
 
 export interface SkillRunRequest {
-  skill: string
-  script: string
-  args?: string[]
-  stdin?: string
-  background?: boolean
-  timeoutMs?: number
+  skill: string;
+  script: string;
+  args?: string[];
+  stdin?: string;
+  background?: boolean;
+  timeoutMs?: number;
 }
 
 export interface SkillRunOptions {
-  conversationId: string
+  conversationId: string;
 }
 
 interface SkillExecutionServiceOptions {
-  resolveConversationWorkdir?: (conversationId: string) => Promise<string | null>
+  resolveConversationWorkdir?: (conversationId: string) => Promise<string | null>;
 }
 
 interface SkillExecutionResult {
-  output: string | { status: 'running'; sessionId: string }
-  rtkApplied: boolean
-  rtkMode: 'rewrite' | 'direct' | 'bypass'
-  rtkFallbackReason?: string
+  output: string | { status: "running"; sessionId: string };
+  rtkApplied: boolean;
+  rtkMode: "rewrite" | "direct" | "bypass";
+  rtkFallbackReason?: string;
 }
 
 interface RuntimeCommand {
-  command: string
-  argsPrefix?: string[]
-  mode: 'uv' | 'python' | 'node' | 'shell'
+  command: string;
+  argsPrefix?: string[];
+  mode: "uv" | "python" | "node" | "shell";
 }
 
 interface SpawnPlan {
-  command: string
-  args: string[]
-  cwd: string
-  env: Record<string, string>
-  shellCommand: string
-  outputPrefix: string
-  spawnMode: 'direct' | 'shell'
+  command: string;
+  args: string[];
+  cwd: string;
+  env: Record<string, string>;
+  shellCommand: string;
+  outputPrefix: string;
+  spawnMode: "direct" | "shell";
 }
 
 export class SkillExecutionService {
-  private readonly runtimeHelper = RuntimeHelper.getInstance()
-  private readonly configPresenter?: Pick<IConfigPresenter, 'getSetting'>
-  private readonly resolveConversationWorkdir?: (conversationId: string) => Promise<string | null>
+  private readonly runtimeHelper = RuntimeHelper.getInstance();
+  private readonly configPresenter?: Pick<IConfigPresenter, "getSetting">;
+  private readonly resolveConversationWorkdir?: (conversationId: string) => Promise<string | null>;
 
   constructor(
     private readonly skillPresenter: ISkillPresenter,
     configPresenter: IConfigPresenter,
-    options: SkillExecutionServiceOptions = {}
+    options: SkillExecutionServiceOptions = {},
   ) {
-    this.configPresenter = configPresenter
-    this.resolveConversationWorkdir = options.resolveConversationWorkdir
-    this.runtimeHelper.initializeRuntimes()
+    this.configPresenter = configPresenter;
+    this.resolveConversationWorkdir = options.resolveConversationWorkdir;
+    this.runtimeHelper.initializeRuntimes();
   }
 
   async execute(input: SkillRunRequest, options: SkillRunOptions): Promise<SkillExecutionResult> {
-    const plan = await this.preparePlanForExecution(
-      await this.buildSpawnPlan(input, options.conversationId)
-    )
-    const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    const plan = await this.preparePlanForExecution(await this.buildSpawnPlan(input, options.conversationId));
+    const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
     if (input.background) {
-      const result = await backgroundExecSessionManager.start(
-        options.conversationId,
-        plan.shellCommand,
-        plan.cwd,
-        {
-          timeout: timeoutMs,
-          env: plan.env
-        }
-      )
+      const result = await backgroundExecSessionManager.start(options.conversationId, plan.shellCommand, plan.cwd, {
+        timeout: timeoutMs,
+        env: plan.env,
+      });
 
       if (input.stdin) {
-        await backgroundExecSessionManager.write(
-          options.conversationId,
-          result.sessionId,
-          input.stdin,
-          true
-        )
+        await backgroundExecSessionManager.write(options.conversationId, result.sessionId, input.stdin, true);
       }
 
       return {
-        output: { status: 'running', sessionId: result.sessionId },
-        rtkApplied: plan.spawnMode === 'shell',
-        rtkMode: plan.spawnMode === 'shell' ? 'rewrite' : 'bypass'
-      }
+        output: { status: "running", sessionId: result.sessionId },
+        rtkApplied: plan.spawnMode === "shell",
+        rtkMode: plan.spawnMode === "shell" ? "rewrite" : "bypass",
+      };
     }
 
     return {
       output: await this.runForeground(plan, timeoutMs, options.conversationId, input.stdin),
-      rtkApplied: plan.spawnMode === 'shell',
-      rtkMode: plan.spawnMode === 'shell' ? 'rewrite' : 'bypass'
-    }
+      rtkApplied: plan.spawnMode === "shell",
+      rtkMode: plan.spawnMode === "shell" ? "rewrite" : "bypass",
+    };
   }
 
   private async buildSpawnPlan(input: SkillRunRequest, conversationId: string): Promise<SpawnPlan> {
-    const activeSkills = await this.skillPresenter.getActiveSkills(conversationId)
+    const activeSkills = await this.skillPresenter.getActiveSkills(conversationId);
     if (!activeSkills.includes(input.skill)) {
-      throw new Error(`Skill "${input.skill}" is not pinned in this conversation`)
+      throw new Error(`Skill "${input.skill}" is not pinned in this conversation`);
     }
 
-    const metadata = (await this.skillPresenter.getMetadataList()).find(
-      (item) => item.name === input.skill
-    )
+    const metadata = (await this.skillPresenter.getMetadataList()).find((item) => item.name === input.skill);
     if (!metadata) {
-      throw new Error(`Skill "${input.skill}" not found`)
+      throw new Error(`Skill "${input.skill}" not found`);
     }
 
-    const scripts = await this.skillPresenter.listSkillScripts(input.skill)
-    const script = this.resolveRequestedScript(input.script, scripts)
+    const scripts = await this.skillPresenter.listSkillScripts(input.skill);
+    const script = this.resolveRequestedScript(input.script, scripts);
     if (!script.enabled) {
-      throw new Error(`Skill script "${script.relativePath}" is disabled`)
+      throw new Error(`Skill script "${script.relativePath}" is disabled`);
     }
 
-    const extension = await this.skillPresenter.getSkillExtension(input.skill)
-    const shellEnv = await getShellEnvironment()
-    const executionCwd = await this.resolveExecutionCwd(conversationId, metadata.skillRoot)
+    const extension = await this.skillPresenter.getSkillExtension(input.skill);
+    const shellEnv = await getShellEnvironment();
+    const executionCwd = await this.resolveExecutionCwd(conversationId, metadata.skillRoot);
     const mergedEnv = mergeCommandEnvironment({
       shellEnv,
       overrides: {
         ...extension.env,
         SKILL_ROOT: metadata.skillRoot,
-        DEEPCHAT_SKILL_ROOT: metadata.skillRoot
-      }
-    })
+        DEEPCHAT_SKILL_ROOT: metadata.skillRoot,
+      },
+    });
 
-    const runtime = await this.resolveRuntimeCommand(
-      script,
-      extension,
-      metadata.skillRoot,
-      mergedEnv
-    )
-    const args = this.buildRuntimeArgs(runtime, script, metadata.skillRoot, input.args ?? [])
+    const runtime = await this.resolveRuntimeCommand(script, extension, metadata.skillRoot, mergedEnv);
+    const args = this.buildRuntimeArgs(runtime, script, metadata.skillRoot, input.args ?? []);
 
     return {
       command: runtime.command,
@@ -170,559 +147,531 @@ export class SkillExecutionService {
       cwd: executionCwd,
       env: mergedEnv,
       shellCommand: this.buildShellCommand(runtime.command, args),
-      outputPrefix: `skillrun_${input.skill.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
-      spawnMode: 'direct'
-    }
+      outputPrefix: `skillrun_${input.skill.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+      spawnMode: "direct",
+    };
   }
 
   private async resolveExecutionCwd(conversationId: string, skillRoot: string): Promise<string> {
-    const normalizedSkillRoot = path.resolve(skillRoot)
+    const normalizedSkillRoot = path.resolve(skillRoot);
     if (!this.resolveConversationWorkdir) {
-      return normalizedSkillRoot
+      return normalizedSkillRoot;
     }
 
     try {
-      const resolvedWorkdir = await this.resolveConversationWorkdir(conversationId)
-      const normalizedWorkdir = resolvedWorkdir?.trim()
+      const resolvedWorkdir = await this.resolveConversationWorkdir(conversationId);
+      const normalizedWorkdir = resolvedWorkdir?.trim();
       if (normalizedWorkdir) {
-        const resolvedPath = path.resolve(normalizedWorkdir)
+        const resolvedPath = path.resolve(normalizedWorkdir);
         try {
-          const stat = await fs.promises.stat(resolvedPath)
+          const stat = await fs.promises.stat(resolvedPath);
           if (stat.isDirectory()) {
-            return resolvedPath
+            return resolvedPath;
           }
-          logger.warn(
-            '[SkillExecutionService] Conversation workdir is not a directory, falling back to skill root',
-            {
-              conversationId,
-              invalidWorkdir: resolvedPath
-            }
-          )
+          logger.warn("[SkillExecutionService] Conversation workdir is not a directory, falling back to skill root", {
+            conversationId,
+            invalidWorkdir: resolvedPath,
+          });
         } catch (error) {
-          logger.warn(
-            '[SkillExecutionService] Conversation workdir is invalid, falling back to skill root',
-            {
-              conversationId,
-              invalidWorkdir: resolvedPath,
-              error
-            }
-          )
+          logger.warn("[SkillExecutionService] Conversation workdir is invalid, falling back to skill root", {
+            conversationId,
+            invalidWorkdir: resolvedPath,
+            error,
+          });
         }
       }
     } catch (error) {
-      logger.warn('[SkillExecutionService] Failed to resolve conversation workdir', {
+      logger.warn("[SkillExecutionService] Failed to resolve conversation workdir", {
         conversationId,
-        error
-      })
+        error,
+      });
     }
 
-    logger.warn(
-      '[SkillExecutionService] Missing conversation workdir, falling back to skill root',
-      {
-        conversationId,
-        skillRoot: normalizedSkillRoot
-      }
-    )
-    return normalizedSkillRoot
+    logger.warn("[SkillExecutionService] Missing conversation workdir, falling back to skill root", {
+      conversationId,
+      skillRoot: normalizedSkillRoot,
+    });
+    return normalizedSkillRoot;
   }
 
-  private resolveRequestedScript(
-    requestedScript: string,
-    scripts: SkillScriptDescriptor[]
-  ): SkillScriptDescriptor {
-    const normalized = requestedScript.trim().replace(/\\/g, '/')
+  private resolveRequestedScript(requestedScript: string, scripts: SkillScriptDescriptor[]): SkillScriptDescriptor {
+    const normalized = requestedScript.trim().replace(/\\/g, "/");
     if (!normalized) {
-      throw new Error('script is required')
+      throw new Error("script is required");
     }
 
-    const exact = scripts.find((script) => script.relativePath.replace(/\\/g, '/') === normalized)
+    const exact = scripts.find((script) => script.relativePath.replace(/\\/g, "/") === normalized);
     if (exact) {
-      return exact
+      return exact;
     }
 
-    const prefixed = scripts.find(
-      (script) => script.relativePath.replace(/\\/g, '/') === `scripts/${normalized}`
-    )
+    const prefixed = scripts.find((script) => script.relativePath.replace(/\\/g, "/") === `scripts/${normalized}`);
     if (prefixed) {
-      return prefixed
+      return prefixed;
     }
 
-    const byName = scripts.filter((script) => script.name === path.basename(normalized))
+    const byName = scripts.filter((script) => script.name === path.basename(normalized));
     if (byName.length === 1) {
-      return byName[0]
+      return byName[0];
     }
     if (byName.length > 1) {
-      throw new Error(`Multiple scripts match "${requestedScript}". Use the full relative path.`)
+      throw new Error(`Multiple scripts match "${requestedScript}". Use the full relative path.`);
     }
 
-    throw new Error(`Skill script "${requestedScript}" not found`)
+    throw new Error(`Skill script "${requestedScript}" not found`);
   }
 
   private async resolveRuntimeCommand(
     script: SkillScriptDescriptor,
     extension: SkillExtensionConfig,
     skillRoot: string,
-    env: Record<string, string>
+    env: Record<string, string>,
   ): Promise<RuntimeCommand> {
-    if (script.runtime === 'shell') {
-      if (process.platform === 'win32') {
-        throw new Error('Shell skill scripts are not supported on Windows')
+    if (script.runtime === "shell") {
+      if (process.platform === "win32") {
+        throw new Error("Shell skill scripts are not supported on Windows");
       }
-      const { shell } = getUserShell()
-      return { command: shell, mode: 'shell' }
+      const { shell } = getUserShell();
+      return { command: shell, mode: "shell" };
     }
 
-    if (script.runtime === 'node') {
-      return await this.resolveNodeRuntime(extension.runtimePolicy.node, env)
+    if (script.runtime === "node") {
+      return await this.resolveNodeRuntime(extension.runtimePolicy.node, env);
     }
 
-    return await this.resolvePythonRuntime(extension.runtimePolicy.python, env, skillRoot)
+    return await this.resolvePythonRuntime(extension.runtimePolicy.python, env, skillRoot);
   }
 
   private async resolvePythonRuntime(
     preference: SkillRuntimePreference,
     env: Record<string, string>,
-    _skillRoot: string
+    _skillRoot: string,
   ): Promise<RuntimeCommand> {
-    if (preference === 'builtin') {
-      const bundledUv = this.getBundledRuntimeCommand('uv')
+    if (preference === "builtin") {
+      const bundledUv = this.getBundledRuntimeCommand("uv");
       if (!bundledUv) {
-        throw new Error('Bundled uv runtime is not available')
+        throw new Error("Bundled uv runtime is not available");
       }
-      return { command: bundledUv, mode: 'uv' }
+      return { command: bundledUv, mode: "uv" };
     }
 
-    if (preference === 'system') {
-      const system = await this.findSystemPythonRuntime(env)
+    if (preference === "system") {
+      const system = await this.findSystemPythonRuntime(env);
       if (!system) {
-        throw new Error('No compatible system Python runtime found for this skill')
+        throw new Error("No compatible system Python runtime found for this skill");
       }
-      return system
+      return system;
     }
 
-    if (await this.hasCommand('uv', ['--version'], env)) {
-      return { command: 'uv', mode: 'uv' }
+    if (await this.hasCommand("uv", ["--version"], env)) {
+      return { command: "uv", mode: "uv" };
     }
 
-    const bundledUv = this.getBundledRuntimeCommand('uv')
+    const bundledUv = this.getBundledRuntimeCommand("uv");
     if (bundledUv) {
-      return { command: bundledUv, mode: 'uv' }
+      return { command: bundledUv, mode: "uv" };
     }
 
-    const fallback = await this.findSystemPythonRuntime(env)
+    const fallback = await this.findSystemPythonRuntime(env);
     if (!fallback) {
-      throw new Error('No compatible Python runtime found for this skill')
+      throw new Error("No compatible Python runtime found for this skill");
     }
-    return fallback
+    return fallback;
   }
 
   private async resolveNodeRuntime(
     preference: SkillRuntimePreference,
-    env: Record<string, string>
+    env: Record<string, string>,
   ): Promise<RuntimeCommand> {
-    if (preference === 'builtin') {
-      const bundledNode = this.getBundledRuntimeCommand('node')
+    if (preference === "builtin") {
+      const bundledNode = this.getBundledRuntimeCommand("node");
       if (!bundledNode) {
-        throw new Error('Bundled node runtime is not available')
+        throw new Error("Bundled node runtime is not available");
       }
-      return { command: bundledNode, mode: 'node' }
+      return { command: bundledNode, mode: "node" };
     }
 
-    if (preference === 'system') {
-      if (!(await this.hasCommand('node', ['--version'], env))) {
-        throw new Error('System node runtime is not available')
+    if (preference === "system") {
+      if (!(await this.hasCommand("node", ["--version"], env))) {
+        throw new Error("System node runtime is not available");
       }
-      return { command: 'node', mode: 'node' }
+      return { command: "node", mode: "node" };
     }
 
-    if (await this.hasCommand('node', ['--version'], env)) {
-      return { command: 'node', mode: 'node' }
+    if (await this.hasCommand("node", ["--version"], env)) {
+      return { command: "node", mode: "node" };
     }
 
-    const bundledNode = this.getBundledRuntimeCommand('node')
+    const bundledNode = this.getBundledRuntimeCommand("node");
     if (!bundledNode) {
-      throw new Error('No compatible node runtime found for this skill')
+      throw new Error("No compatible node runtime found for this skill");
     }
-    return { command: bundledNode, mode: 'node' }
+    return { command: bundledNode, mode: "node" };
   }
 
-  private async findSystemPythonRuntime(
-    env: Record<string, string>
-  ): Promise<RuntimeCommand | null> {
+  private async findSystemPythonRuntime(env: Record<string, string>): Promise<RuntimeCommand | null> {
     const candidates: Array<{ command: string; probeArgs: string[]; argsPrefix?: string[] }> =
-      process.platform === 'win32'
+      process.platform === "win32"
         ? [
-            { command: 'python', probeArgs: ['--version'] },
-            { command: 'py', probeArgs: ['-3', '--version'], argsPrefix: ['-3'] }
+            { command: "python", probeArgs: ["--version"] },
+            { command: "py", probeArgs: ["-3", "--version"], argsPrefix: ["-3"] },
           ]
         : [
-            { command: 'python3', probeArgs: ['--version'] },
-            { command: 'python', probeArgs: ['--version'] }
-          ]
+            { command: "python3", probeArgs: ["--version"] },
+            { command: "python", probeArgs: ["--version"] },
+          ];
 
     for (const candidate of candidates) {
       if (await this.hasCommand(candidate.command, candidate.probeArgs, env)) {
         return {
           command: candidate.command,
           argsPrefix: candidate.argsPrefix,
-          mode: 'python'
-        }
+          mode: "python",
+        };
       }
     }
 
-    return null
+    return null;
   }
 
   private buildRuntimeArgs(
     runtime: RuntimeCommand,
     script: SkillScriptDescriptor,
     skillRoot: string,
-    args: string[]
+    args: string[],
   ): string[] {
-    if (runtime.mode === 'uv') {
-      const commandArgs = ['run']
-      if (fs.existsSync(path.join(skillRoot, 'pyproject.toml'))) {
-        commandArgs.push('--project', skillRoot)
+    if (runtime.mode === "uv") {
+      const commandArgs = ["run"];
+      if (fs.existsSync(path.join(skillRoot, "pyproject.toml"))) {
+        commandArgs.push("--project", skillRoot);
       }
-      commandArgs.push(script.absolutePath, ...args)
-      return commandArgs
+      commandArgs.push(script.absolutePath, ...args);
+      return commandArgs;
     }
 
-    if (runtime.mode === 'python') {
-      return [...(runtime.argsPrefix ?? []), script.absolutePath, ...args]
+    if (runtime.mode === "python") {
+      return [...(runtime.argsPrefix ?? []), script.absolutePath, ...args];
     }
 
-    if (runtime.mode === 'node') {
-      return [script.absolutePath, ...args]
+    if (runtime.mode === "node") {
+      return [script.absolutePath, ...args];
     }
 
-    return [script.absolutePath, ...args]
+    return [script.absolutePath, ...args];
   }
 
   private async runForeground(
     plan: SpawnPlan,
     timeoutMs: number,
     conversationId: string,
-    stdin?: string
+    stdin?: string,
   ): Promise<string> {
-    const outputFilePath = this.createForegroundOutputPath(conversationId, plan.outputPrefix)
+    const outputFilePath = this.createForegroundOutputPath(conversationId, plan.outputPrefix);
 
     return await new Promise((resolve, reject) => {
-      const shellRuntime = plan.spawnMode === 'shell' ? getUserShell() : null
-      const command = shellRuntime ? shellRuntime.shell : plan.command
+      const shellRuntime = plan.spawnMode === "shell" ? getUserShell() : null;
+      const command = shellRuntime ? shellRuntime.shell : plan.command;
       const shellCommand = shellRuntime
         ? prepareShellCommandForUtf8Output(shellRuntime.shell, plan.shellCommand)
-        : plan.shellCommand
-      const args = shellRuntime ? [...shellRuntime.args, shellCommand] : plan.args
-      const env = shellRuntime ? plan.env : prepareProcessEnvForUtf8Output(plan.env)
+        : plan.shellCommand;
+      const args = shellRuntime ? [...shellRuntime.args, shellCommand] : plan.args;
+      const env = shellRuntime ? plan.env : prepareProcessEnvForUtf8Output(plan.env);
       const child = spawn(command, args, {
         cwd: plan.cwd,
         env,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: false
-      })
+        stdio: ["pipe", "pipe", "pipe"],
+        shell: false,
+      });
 
-      let outputBuffer = ''
-      let totalOutputLength = 0
-      let offloaded = false
-      let offloadDisabled = outputFilePath === null
-      let activeOutputFilePath = outputFilePath
-      let timedOut = false
-      let outputWriteQueue = Promise.resolve()
-      let timeoutId: NodeJS.Timeout | null = null
-      let killTimeoutId: NodeJS.Timeout | null = null
-      let forceSettleTimeoutId: NodeJS.Timeout | null = null
-      let settled = false
+      let outputBuffer = "";
+      let totalOutputLength = 0;
+      let offloaded = false;
+      let offloadDisabled = outputFilePath === null;
+      let activeOutputFilePath = outputFilePath;
+      let timedOut = false;
+      let outputWriteQueue = Promise.resolve();
+      let timeoutId: NodeJS.Timeout | null = null;
+      let killTimeoutId: NodeJS.Timeout | null = null;
+      let forceSettleTimeoutId: NodeJS.Timeout | null = null;
+      let settled = false;
 
-      const outputDecoders = createUtf8OutputDecoderPair((data) => appendOutput(data))
+      const outputDecoders = createUtf8OutputDecoderPair((data) => appendOutput(data));
 
       const cleanupTimers = () => {
         if (timeoutId) {
-          clearTimeout(timeoutId)
-          timeoutId = null
+          clearTimeout(timeoutId);
+          timeoutId = null;
         }
         if (killTimeoutId) {
-          clearTimeout(killTimeoutId)
-          killTimeoutId = null
+          clearTimeout(killTimeoutId);
+          killTimeoutId = null;
         }
         if (forceSettleTimeoutId) {
-          clearTimeout(forceSettleTimeoutId)
-          forceSettleTimeoutId = null
+          clearTimeout(forceSettleTimeoutId);
+          forceSettleTimeoutId = null;
         }
-      }
+      };
 
       const settleProcess = async (code: number | null, error?: Error) => {
         if (settled) {
-          return
+          return;
         }
-        settled = true
-        cleanupTimers()
-        child.removeAllListeners('error')
-        child.removeAllListeners('close')
-        outputDecoders.flush()
+        settled = true;
+        cleanupTimers();
+        child.removeAllListeners("error");
+        child.removeAllListeners("close");
+        outputDecoders.flush();
 
         try {
-          await outputWriteQueue
+          await outputWriteQueue;
         } catch {
           // Already logged when the queue failed.
         }
 
         if (error) {
-          reject(error)
-          return
+          reject(error);
+          return;
         }
 
         const preview =
           offloaded && activeOutputFilePath
             ? this.readLastCharsFromFile(activeOutputFilePath, FOREGROUND_PREVIEW_CHARS)
-            : outputBuffer
+            : outputBuffer;
 
-        const lines: string[] = []
+        const lines: string[] = [];
         if (preview.trim()) {
-          lines.push(preview.trimEnd())
+          lines.push(preview.trimEnd());
         }
-        lines.push(`Exit Code: ${code ?? 'null'}`)
+        lines.push(`Exit Code: ${code ?? "null"}`);
         if (timedOut) {
-          lines.push('Timed out')
+          lines.push("Timed out");
         }
         if (offloaded && activeOutputFilePath) {
-          lines.push(`Output offloaded: ${activeOutputFilePath}`)
+          lines.push(`Output offloaded: ${activeOutputFilePath}`);
         }
-        resolve(lines.join('\n'))
-      }
+        resolve(lines.join("\n"));
+      };
 
       const appendToOutputBuffer = (data: string) => {
         if (!data) {
-          return
+          return;
         }
 
-        outputBuffer += data
+        outputBuffer += data;
         if (outputBuffer.length > FOREGROUND_PREVIEW_CHARS) {
-          outputBuffer = outputBuffer.slice(-FOREGROUND_PREVIEW_CHARS)
+          outputBuffer = outputBuffer.slice(-FOREGROUND_PREVIEW_CHARS);
         }
-      }
+      };
 
       const disableOffload = (data: string) => {
         const filePreview =
           offloaded && activeOutputFilePath
             ? this.readLastCharsFromFile(activeOutputFilePath, FOREGROUND_PREVIEW_CHARS)
-            : ''
+            : "";
 
-        offloaded = false
-        offloadDisabled = true
-        activeOutputFilePath = null
-        outputBuffer = ''
-        appendToOutputBuffer(filePreview)
-        appendToOutputBuffer(data)
-      }
+        offloaded = false;
+        offloadDisabled = true;
+        activeOutputFilePath = null;
+        outputBuffer = "";
+        appendToOutputBuffer(filePreview);
+        appendToOutputBuffer(data);
+      };
 
       const queueOutputWrite = (data: string) => {
         if (offloadDisabled || !activeOutputFilePath || !data) {
-          offloaded = false
-          appendToOutputBuffer(data)
-          return
+          offloaded = false;
+          appendToOutputBuffer(data);
+          return;
         }
 
-        const targetOutputFilePath = activeOutputFilePath
+        const targetOutputFilePath = activeOutputFilePath;
         outputWriteQueue = outputWriteQueue
           .then(async () => {
-            if (
-              !targetOutputFilePath ||
-              offloadDisabled ||
-              activeOutputFilePath !== targetOutputFilePath
-            ) {
-              appendToOutputBuffer(data)
-              return
+            if (!targetOutputFilePath || offloadDisabled || activeOutputFilePath !== targetOutputFilePath) {
+              appendToOutputBuffer(data);
+              return;
             }
 
-            await fs.promises.appendFile(targetOutputFilePath, data, 'utf-8')
+            await fs.promises.appendFile(targetOutputFilePath, data, "utf-8");
           })
           .catch((error) => {
-            logger.warn('[SkillExecutionService] Failed to flush foreground output', {
+            logger.warn("[SkillExecutionService] Failed to flush foreground output", {
               outputFilePath: targetOutputFilePath,
-              error
-            })
-            disableOffload(data)
-          })
-      }
+              error,
+            });
+            disableOffload(data);
+          });
+      };
 
       const appendOutput = (data: string) => {
-        totalOutputLength += data.length
+        totalOutputLength += data.length;
         const shouldOffload =
           !offloadDisabled &&
           activeOutputFilePath !== null &&
-          (offloaded || totalOutputLength > FOREGROUND_OFFLOAD_THRESHOLD)
+          (offloaded || totalOutputLength > FOREGROUND_OFFLOAD_THRESHOLD);
 
         if (!shouldOffload) {
-          appendToOutputBuffer(data)
-          return
+          appendToOutputBuffer(data);
+          return;
         }
 
-        offloaded = true
-        const chunk = outputBuffer + data
-        outputBuffer = ''
-        queueOutputWrite(chunk)
-      }
+        offloaded = true;
+        const chunk = outputBuffer + data;
+        outputBuffer = "";
+        queueOutputWrite(chunk);
+      };
 
-      child.stdout?.on('data', (data: Buffer | string) => outputDecoders.writeStdout(data))
-      child.stderr?.on('data', (data: Buffer | string) => outputDecoders.writeStderr(data))
+      child.stdout?.on("data", (data: Buffer | string) => outputDecoders.writeStdout(data));
+      child.stderr?.on("data", (data: Buffer | string) => outputDecoders.writeStderr(data));
 
       if (stdin !== undefined) {
-        child.stdin?.write(stdin)
+        child.stdin?.write(stdin);
       }
-      child.stdin?.end()
+      child.stdin?.end();
 
       timeoutId = setTimeout(() => {
-        timedOut = true
+        timedOut = true;
         try {
-          child.kill('SIGTERM')
+          child.kill("SIGTERM");
         } catch {
           // ignore kill errors
         }
 
         killTimeoutId = setTimeout(() => {
           try {
-            child.kill('SIGKILL')
+            child.kill("SIGKILL");
           } catch {
             // ignore kill errors
           }
 
           forceSettleTimeoutId = setTimeout(() => {
-            child.stdout?.destroy()
-            child.stderr?.destroy()
-            child.stdin?.destroy()
-            if (typeof child.unref === 'function') {
-              child.unref()
+            child.stdout?.destroy();
+            child.stderr?.destroy();
+            child.stdin?.destroy();
+            if (typeof child.unref === "function") {
+              child.unref();
             }
-            void settleProcess(null)
-          }, FOREGROUND_FORCE_SETTLE_MS)
-        }, FOREGROUND_KILL_GRACE_MS)
-      }, timeoutMs)
+            void settleProcess(null);
+          }, FOREGROUND_FORCE_SETTLE_MS);
+        }, FOREGROUND_KILL_GRACE_MS);
+      }, timeoutMs);
 
-      child.on('error', (error) => {
-        void settleProcess(null, error)
-      })
+      child.on("error", (error) => {
+        void settleProcess(null, error);
+      });
 
-      child.on('close', async (code) => {
-        void settleProcess(code ?? null)
-      })
-    })
+      child.on("close", async (code) => {
+        void settleProcess(code ?? null);
+      });
+    });
   }
 
   private async preparePlanForExecution(plan: SpawnPlan): Promise<SpawnPlan> {
-    if (!this.configPresenter || typeof this.configPresenter.getSetting !== 'function') {
-      return plan
+    if (!this.configPresenter || typeof this.configPresenter.getSetting !== "function") {
+      return plan;
     }
 
-    const prepared = await rtkRuntimeService.prepareShellCommand(
-      plan.shellCommand,
-      plan.env,
-      this.configPresenter
-    )
+    const prepared = await rtkRuntimeService.prepareShellCommand(plan.shellCommand, plan.env, this.configPresenter);
 
     if (!prepared.rewritten) {
       return {
         ...plan,
-        env: prepared.env
-      }
+        env: prepared.env,
+      };
     }
 
     return {
       ...plan,
       env: prepared.env,
       shellCommand: prepared.command,
-      spawnMode: 'shell'
-    }
+      spawnMode: "shell",
+    };
   }
 
   private buildShellCommand(command: string, args: string[]): string {
-    return [command, ...args].map((token) => this.quoteForShell(token)).join(' ')
+    return [command, ...args].map((token) => this.quoteForShell(token)).join(" ");
   }
 
   private quoteForShell(token: string): string {
-    if (process.platform === 'win32') {
-      return `"${token.replace(/%/g, '%%').replace(/"/g, '\\"')}"`
+    if (process.platform === "win32") {
+      return `"${token.replace(/%/g, "%%").replace(/"/g, '\\"')}"`;
     }
-    return `'${token.replace(/'/g, `'\\''`)}'`
+    return `'${token.replace(/'/g, `'\\''`)}'`;
   }
 
-  private getBundledRuntimeCommand(command: 'uv' | 'node'): string | null {
-    this.runtimeHelper.initializeRuntimes()
+  private getBundledRuntimeCommand(command: "uv" | "node"): string | null {
+    this.runtimeHelper.initializeRuntimes();
 
-    if (command === 'uv' && !this.runtimeHelper.getUvRuntimePath()) {
-      return null
+    if (command === "uv" && !this.runtimeHelper.getUvRuntimePath()) {
+      return null;
     }
-    if (command === 'node' && !this.runtimeHelper.getNodeRuntimePath()) {
-      return null
+    if (command === "node" && !this.runtimeHelper.getNodeRuntimePath()) {
+      return null;
     }
 
-    const resolved = this.runtimeHelper.replaceWithRuntimeCommand(command, true, true)
-    return resolved === command ? null : resolved
+    const resolved = this.runtimeHelper.replaceWithRuntimeCommand(command, true, true);
+    return resolved === command ? null : resolved;
   }
 
-  private async hasCommand(
-    command: string,
-    args: string[],
-    env: Record<string, string>
-  ): Promise<boolean> {
+  private async hasCommand(command: string, args: string[], env: Record<string, string>): Promise<boolean> {
     return await new Promise((resolve) => {
       const child = spawn(command, args, {
         env,
-        stdio: 'ignore',
-        shell: false
-      })
+        stdio: "ignore",
+        shell: false,
+      });
 
-      child.on('error', () => resolve(false))
-      child.on('close', (code) => resolve(code === 0))
-    })
+      child.on("error", () => resolve(false));
+      child.on("close", (code) => resolve(code === 0));
+    });
   }
 
   private createForegroundOutputPath(conversationId: string, prefix: string): string | null {
-    const sessionDir = resolveSessionDir(conversationId)
+    const sessionDir = resolveSessionDir(conversationId);
     if (!sessionDir) {
-      return null
+      return null;
     }
 
     try {
-      fs.mkdirSync(sessionDir, { recursive: true })
-      return path.join(sessionDir, `${prefix}_${Date.now()}.log`)
+      fs.mkdirSync(sessionDir, { recursive: true });
+      return path.join(sessionDir, `${prefix}_${Date.now()}.log`);
     } catch (error) {
-      logger.warn('[SkillExecutionService] Failed to create session directory for output offload', {
+      logger.warn("[SkillExecutionService] Failed to create session directory for output offload", {
         conversationId,
-        error
-      })
-      return null
+        error,
+      });
+      return null;
     }
   }
 
   private readLastCharsFromFile(filePath: string, maxChars: number): string {
     try {
-      const stats = fs.statSync(filePath)
-      const fileSize = stats.size
-      const bytesToRead = Math.min(maxChars * 4, fileSize)
-      const startPosition = Math.max(0, fileSize - bytesToRead)
-      const fd = fs.openSync(filePath, 'r')
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      const bytesToRead = Math.min(maxChars * 4, fileSize);
+      const startPosition = Math.max(0, fileSize - bytesToRead);
+      const fd = fs.openSync(filePath, "r");
 
       try {
-        const buffer = Buffer.alloc(bytesToRead)
-        fs.readSync(fd, buffer, 0, bytesToRead, startPosition)
-        const content = buffer.toString('utf-8')
+        const buffer = Buffer.alloc(bytesToRead);
+        fs.readSync(fd, buffer, 0, bytesToRead, startPosition);
+        const content = buffer.toString("utf-8");
         if (startPosition > 0) {
-          const firstNewline = content.indexOf('\n')
+          const firstNewline = content.indexOf("\n");
           if (firstNewline > 0) {
-            return content.slice(firstNewline + 1)
+            return content.slice(firstNewline + 1);
           }
         }
-        return content
+        return content;
       } finally {
-        fs.closeSync(fd)
+        fs.closeSync(fd);
       }
     } catch (error) {
-      logger.warn('[SkillExecutionService] Failed to read preview from offloaded output', {
+      logger.warn("[SkillExecutionService] Failed to read preview from offloaded output", {
         filePath,
-        error
-      })
-      return ''
+        error,
+      });
+      return "";
     }
   }
 }

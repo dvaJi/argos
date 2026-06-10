@@ -1,45 +1,45 @@
-import logger from '@shared/logger'
-import type { SkillMetadata } from '@shared/types/skill'
-import { runInlineJsonWorker } from '@/lib/runInlineJsonWorker'
+import logger from "@shared/logger";
+import type { SkillMetadata } from "@shared/types/skill";
+import { runInlineJsonWorker } from "@/lib/runInlineJsonWorker";
 
 type SkillDiscoveryWarning =
   | {
-      type: 'scan-skip'
-      currentDir: string
-      error: string
+      type: "scan-skip";
+      currentDir: string;
+      error: string;
     }
   | {
-      type: 'parse-failed'
-      skillPath: string
-      error: string
+      type: "parse-failed";
+      skillPath: string;
+      error: string;
     }
   | {
-      type: 'duplicate-skill-name'
-      name: string
-      path: string
+      type: "duplicate-skill-name";
+      name: string;
+      path: string;
     }
   | {
-      type: 'invalid-frontmatter'
-      dirName: string
-      skillPath: string
+      type: "invalid-frontmatter";
+      dirName: string;
+      skillPath: string;
     }
   | {
-      type: 'name-mismatch'
-      dirName: string
-      declaredName: string
-      skillPath: string
-    }
+      type: "name-mismatch";
+      dirName: string;
+      declaredName: string;
+      skillPath: string;
+    };
 
 type SkillDiscoveryWorkerInput = {
-  skillsDir: string
-  sidecarDirName: string
-  maxDepth: number
-}
+  skillsDir: string;
+  sidecarDirName: string;
+  maxDepth: number;
+};
 
 type SkillDiscoveryWorkerOutput = {
-  skills: SkillMetadata[]
-  warnings: SkillDiscoveryWarning[]
-}
+  skills: SkillMetadata[];
+  warnings: SkillDiscoveryWarning[];
+};
 
 const DISCOVERY_WORKER_SOURCE = String.raw`
 const requireFromBundle = globalThis.__inlineWorkerRequire || require
@@ -212,53 +212,48 @@ try {
     }
   })
 }
-`
+`;
 
 export async function discoverSkillMetadataInWorker(
   input: SkillDiscoveryWorkerInput,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<SkillDiscoveryWorkerOutput> {
   return await runInlineJsonWorker<SkillDiscoveryWorkerInput, SkillDiscoveryWorkerOutput>({
-    name: 'skill-discovery',
+    name: "skill-discovery",
     source: DISCOVERY_WORKER_SOURCE,
     input,
-    signal
-  })
+    signal,
+  });
 }
 
 export function logSkillDiscoveryWorkerWarnings(warnings: SkillDiscoveryWarning[]): void {
   for (const warning of warnings) {
     switch (warning.type) {
-      case 'scan-skip':
-        logger.warn('[SkillPresenter] Failed to scan skill directory, skipping subtree', {
+      case "scan-skip":
+        logger.warn("[SkillPresenter] Failed to scan skill directory, skipping subtree", {
           currentDir: warning.currentDir,
-          error: new Error(warning.error)
-        })
-        break
-      case 'parse-failed':
-        console.error(
-          `[SkillPresenter] Failed to parse skill at ${warning.skillPath}:`,
-          warning.error
-        )
-        break
-      case 'duplicate-skill-name':
-        logger.warn('[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.', {
+          error: new Error(warning.error),
+        });
+        break;
+      case "parse-failed":
+        console.error(`[SkillPresenter] Failed to parse skill at ${warning.skillPath}:`, warning.error);
+        break;
+      case "duplicate-skill-name":
+        logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
           name: warning.name,
-          path: warning.path
-        })
-        break
-      case 'invalid-frontmatter':
+          path: warning.path,
+        });
+        break;
+      case "invalid-frontmatter":
+        console.warn(`[SkillPresenter] Skill ${warning.dirName} missing required frontmatter fields`);
+        break;
+      case "name-mismatch":
         console.warn(
-          `[SkillPresenter] Skill ${warning.dirName} missing required frontmatter fields`
-        )
-        break
-      case 'name-mismatch':
-        console.warn(
-          `[SkillPresenter] Skill name "${warning.declaredName}" doesn't match directory "${warning.dirName}"`
-        )
-        break
+          `[SkillPresenter] Skill name "${warning.declaredName}" doesn't match directory "${warning.dirName}"`,
+        );
+        break;
       default:
-        break
+        break;
     }
   }
 }

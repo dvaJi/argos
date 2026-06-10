@@ -28,25 +28,16 @@
     "composite": false,
     "declaration": false,
     "emitDeclarationOnly": false,
+    "noUnusedLocals": false,
     "noEmit": true,
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./src/renderer/src/*"
-      ],
-      "@api/*": [
-        "./src/renderer/api/*"
-      ],
-      "@browser/*": [
-        "./src/renderer/browser/*"
-      ],
-      "@shared/*": [
-        "./src/shared/*"
-      ],
-      "@shadcn/*": [
-        "./src/shadcn/*"
-      ]
+      "@/*": ["./src/renderer/src/*"],
+      "@api/*": ["./src/renderer/api/*"],
+      "@browser/*": ["./src/renderer/browser/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@shadcn/*": ["./src/shadcn/*"]
     }
   }
 }

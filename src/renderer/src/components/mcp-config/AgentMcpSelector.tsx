@@ -1,105 +1,103 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { createConfigClient } from '@api/ConfigClient'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
-import { useToast } from '@/components/use-toast'
+import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { createConfigClient } from "@api/ConfigClient";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
+import { useToast } from "@/components/use-toast";
 
 type AgentMcpServerConfig = {
-  type?: string
-  source?: string
-  ownerPluginId?: string
-}
+  type?: string;
+  source?: string;
+  ownerPluginId?: string;
+};
 
 interface AgentMcpSelectorProps {
-  onUpdateSelections?: (selections: string[]) => void
+  onUpdateSelections?: (selections: string[]) => void;
 }
 
-export const AgentMcpSelector: React.FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
-  const { toast } = useToast()
-  const configClient = createConfigClient()
+export const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
+  const { toast } = useToast();
+  const configClient = createConfigClient();
 
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [availableServers, setAvailableServers] = useState<
-    Array<{ name: string; config: AgentMcpServerConfig }>
-  >([])
-  const [selections, setSelections] = useState<string[]>([])
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [availableServers, setAvailableServers] = useState<Array<{ name: string; config: AgentMcpServerConfig }>>([]);
+  const [selections, setSelections] = useState<string[]>([]);
 
   const isPluginOwnedServerConfig = (config: AgentMcpServerConfig): boolean =>
-    Boolean(config.ownerPluginId || config.source === 'plugin')
+    Boolean(config.ownerPluginId || config.source === "plugin");
 
   const selectableServers = useMemo(
-    () => availableServers.filter((server) => server.config.type !== 'inmemory'),
-    [availableServers]
-  )
+    () => availableServers.filter((server) => server.config.type !== "inmemory"),
+    [availableServers],
+  );
 
-  const selectionSet = useMemo(() => new Set(selections), [selections])
+  const selectionSet = useMemo(() => new Set(selections), [selections]);
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const [servers, currentSelections] = await Promise.all([
         configClient.getMcpServers(),
-        configClient.getAcpSharedMcpSelections()
-      ])
+        configClient.getAcpSharedMcpSelections(),
+      ]);
 
       const filtered = Object.entries(servers ?? {})
         .filter(([, config]) => !isPluginOwnedServerConfig(config))
-        .map(([name, config]) => ({ name, config }))
+        .map(([name, config]) => ({ name, config }));
 
-      setAvailableServers(filtered)
+      setAvailableServers(filtered);
 
-      const visibleServerNames = new Set(filtered.map((server) => server.name))
+      const visibleServerNames = new Set(filtered.map((server) => server.name));
       const next = Array.isArray(currentSelections)
         ? currentSelections.filter((serverName) => visibleServerNames.has(serverName))
-        : []
-      setSelections(next)
+        : [];
+      setSelections(next);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [configClient])
+  }, [configClient]);
 
   const persist = useCallback(
     async (nextSelections: string[], previousSelections: string[] = selections) => {
-      setSaving(true)
+      setSaving(true);
       try {
-        await configClient.setAcpSharedMcpSelections(nextSelections)
-        onUpdateSelections?.(nextSelections)
+        await configClient.setAcpSharedMcpSelections(nextSelections);
+        onUpdateSelections?.(nextSelections);
       } catch (error) {
-        setSelections(previousSelections)
-        onUpdateSelections?.(previousSelections)
+        setSelections(previousSelections);
+        onUpdateSelections?.(previousSelections);
         toast({
-          title: 'Operation failed',
-          description: 'Request failed',
-          variant: 'destructive'
-        })
-        throw error
+          title: "Operation failed",
+          description: "Request failed",
+          variant: "destructive",
+        });
+        throw error;
       } finally {
-        setSaving(false)
+        setSaving(false);
       }
     },
-    [selections, configClient, onUpdateSelections, toast]
-  )
+    [selections, configClient, onUpdateSelections, toast],
+  );
 
   const toggleServer = useCallback(
     async (serverName: string, checked: boolean) => {
-      const prev = [...selections]
+      const prev = [...selections];
       const next = checked
         ? Array.from(new Set([...selections, serverName]))
-        : selections.filter((name) => name !== serverName)
-      setSelections(next)
+        : selections.filter((name) => name !== serverName);
+      setSelections(next);
       try {
-        await persist(next, prev)
+        await persist(next, prev);
       } catch (error) {
-        setSelections(prev)
-        throw error
+        setSelections(prev);
+        throw error;
       }
     },
-    [selections, persist]
-  )
+    [selections, persist],
+  );
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-2">
@@ -115,10 +113,7 @@ export const AgentMcpSelector: React.FC<AgentMcpSelectorProps> = ({ onUpdateSele
         <div className="max-h-56 overflow-y-auto pr-1">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {selectableServers.map((server) => (
-              <div
-                key={server.name}
-                className="flex items-center gap-2 rounded-md border px-3 py-2"
-              >
+              <div key={server.name} className="flex items-center gap-2 rounded-md border px-3 py-2">
                 <Checkbox
                   checked={selectionSet.has(server.name)}
                   disabled={saving}
@@ -133,7 +128,7 @@ export const AgentMcpSelector: React.FC<AgentMcpSelectorProps> = ({ onUpdateSele
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default AgentMcpSelector
+export default AgentMcpSelector;

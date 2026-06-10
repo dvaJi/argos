@@ -1,108 +1,107 @@
-import { useState, useEffect } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { useToast } from '@/components/use-toast'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+import { useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { useToast } from "@/components/use-toast";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 
 export default function NowledgeMemSettings() {
-  const exporterPresenter = useLegacyPresenter('exporter')
-  const { toast } = useToast()
+  const exporterPresenter = useLegacyPresenter("exporter");
+  const { toast } = useToast();
 
-  const [testingConnection, setTestingConnection] = useState(false)
-  const [savingConfig, setSavingConfig] = useState(false)
-  const [showApiKey, setShowApiKey] = useState(false)
-  const [showConfigPanel, setShowConfigPanel] = useState(false)
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showConfigPanel, setShowConfigPanel] = useState(false);
 
   const [config, setConfig] = useState({
-    baseUrl: 'http://127.0.0.1:14242',
-    apiKey: '',
-    timeout: 30000
-  })
+    baseUrl: "http://127.0.0.1:14242",
+    apiKey: "",
+    timeout: 30000,
+  });
 
-  const [isEditingTimeout, setIsEditingTimeout] = useState(false)
+  const [isEditingTimeout, setIsEditingTimeout] = useState(false);
 
-  const minTimeoutSeconds = 5
-  const maxTimeoutSeconds = 120
-  const timeoutStep = 5
+  const minTimeoutSeconds = 5;
+  const maxTimeoutSeconds = 120;
+  const timeoutStep = 5;
 
-  const timeoutSeconds = Math.round(config.timeout / 1000)
+  const timeoutSeconds = Math.round(config.timeout / 1000);
 
   const handleTimeoutChange = (value: string | number) => {
-    const numericValue = typeof value === 'string' ? parseInt(value, 10) : value
-    if (isNaN(numericValue)) return
-    const clampedValue = Math.min(Math.max(numericValue, minTimeoutSeconds), maxTimeoutSeconds)
-    setConfig((prev) => ({ ...prev, timeout: clampedValue * 1000 }))
-  }
+    const numericValue = typeof value === "string" ? parseInt(value, 10) : value;
+    if (isNaN(numericValue)) return;
+    const clampedValue = Math.min(Math.max(numericValue, minTimeoutSeconds), maxTimeoutSeconds);
+    setConfig((prev) => ({ ...prev, timeout: clampedValue * 1000 }));
+  };
 
   const loadConfiguration = async () => {
     try {
-      const savedConfig = exporterPresenter.getNowledgeMemConfig()
+      const savedConfig = exporterPresenter.getNowledgeMemConfig();
       if (savedConfig) {
         setConfig((prev) => ({
           ...prev,
           ...savedConfig,
-          timeout:
-            savedConfig.timeout && !isNaN(savedConfig.timeout) ? savedConfig.timeout : prev.timeout
-        }))
+          timeout: savedConfig.timeout && !isNaN(savedConfig.timeout) ? savedConfig.timeout : prev.timeout,
+        }));
       }
     } catch (error) {
-      console.error('Failed to load nowledge-mem config:', error)
+      console.error("Failed to load nowledge-mem config:", error);
     }
-  }
+  };
 
   useEffect(() => {
-    loadConfiguration()
-  }, [])
+    loadConfiguration();
+  }, []);
 
   const testConnection = async () => {
-    setTestingConnection(true)
+    setTestingConnection(true);
     try {
-      const result = await exporterPresenter.testNowledgeMemConnection()
+      const result = await exporterPresenter.testNowledgeMemConnection();
       toast({
-        title: 'Test Connection',
-        description: result.message || 'Connection successful'
-      })
+        title: "Test Connection",
+        description: result.message || "Connection successful",
+      });
     } catch (error) {
       toast({
-        title: 'Test Connection',
-        description: error instanceof Error ? error.message : 'Connection test failed',
-        variant: 'destructive'
-      })
+        title: "Test Connection",
+        description: error instanceof Error ? error.message : "Connection test failed",
+        variant: "destructive",
+      });
     } finally {
-      setTestingConnection(false)
+      setTestingConnection(false);
     }
-  }
+  };
 
   const saveConfiguration = async () => {
-    setSavingConfig(true)
+    setSavingConfig(true);
     try {
       await exporterPresenter.updateNowledgeMemConfig({
         baseUrl: config.baseUrl,
         apiKey: config.apiKey,
-        timeout: config.timeout
-      })
+        timeout: config.timeout,
+      });
     } catch (error) {
-      console.error('Failed to save nowledge-mem config:', error)
+      console.error("Failed to save nowledge-mem config:", error);
     } finally {
-      setSavingConfig(false)
+      setSavingConfig(false);
     }
-  }
+  };
 
   const resetConfiguration = async () => {
     try {
       const defaultConfig = {
-        baseUrl: 'http://127.0.0.1:14242',
-        apiKey: '',
-        timeout: 30000
-      }
-      await exporterPresenter.updateNowledgeMemConfig(defaultConfig)
-      setConfig(defaultConfig)
+        baseUrl: "http://127.0.0.1:14242",
+        apiKey: "",
+        timeout: 30000,
+      };
+      await exporterPresenter.updateNowledgeMemConfig(defaultConfig);
+      setConfig(defaultConfig);
     } catch (error) {
-      console.error('Failed to reset nowledge-mem config:', error)
+      console.error("Failed to reset nowledge-mem config:", error);
     }
-  }
+  };
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -112,16 +111,10 @@ export default function NowledgeMemSettings() {
       >
         <div className="flex-1">
           <div className="flex items-center">
-            <img
-              src={'/src/renderer/src/assets/images/nowledge-mem.png'}
-              className="h-5 mr-2"
-              alt=""
-            />
+            <img src={"/src/renderer/src/assets/images/nowledge-mem.png"} className="h-5 mr-2" alt="" />
             <span className="text-base font-medium">Nowledge-Mem</span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Local knowledge base powered by Nowledge-Mem
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">Local knowledge base powered by Nowledge-Mem</p>
         </div>
       </div>
       {showConfigPanel && (
@@ -147,9 +140,9 @@ export default function NowledgeMemSettings() {
                   id="apiKey"
                   value={config.apiKey}
                   onChange={(e) => setConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
-                  type={showApiKey ? 'text' : 'password'}
+                  type={showApiKey ? "text" : "password"}
                   placeholder="Your API key (optional)"
-                  style={{ paddingRight: '2.5rem' }}
+                  style={{ paddingRight: "2.5rem" }}
                 />
                 <Button
                   variant="ghost"
@@ -158,7 +151,7 @@ export default function NowledgeMemSettings() {
                   onClick={() => setShowApiKey(!showApiKey)}
                 >
                   <Icon
-                    icon={showApiKey ? 'lucide:eye-off' : 'lucide:eye'}
+                    icon={showApiKey ? "lucide:eye-off" : "lucide:eye"}
                     className="w-4 h-4 text-muted-foreground hover:text-foreground"
                   />
                 </Button>
@@ -213,7 +206,7 @@ export default function NowledgeMemSettings() {
                 size="sm"
                 className="text-xs"
               >
-                {savingConfig ? 'Saving...' : 'Save Configuration'}
+                {savingConfig ? "Saving..." : "Save Configuration"}
               </Button>
               <Button onClick={resetConfiguration} variant="outline" size="sm" className="text-xs">
                 Reset
@@ -225,12 +218,12 @@ export default function NowledgeMemSettings() {
                 size="sm"
                 className="text-xs"
               >
-                {testingConnection ? 'Testing...' : 'Test Connection'}
+                {testingConnection ? "Testing..." : "Test Connection"}
               </Button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,115 +1,115 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createThrottle } from '@shared/utils/throttle'
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createThrottle } from "@shared/utils/throttle";
 
-describe('createThrottle', () => {
+describe("createThrottle", () => {
   beforeEach(() => {
-    vi.useFakeTimers()
-  })
+    vi.useFakeTimers();
+  });
 
   afterEach(() => {
-    vi.useRealTimers()
-  })
+    vi.useRealTimers();
+  });
 
-  it('executes immediately on first call', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("executes immediately on first call", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled()
+    throttled();
 
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 
-  it('throttles subsequent calls within interval', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("throttles subsequent calls within interval", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled() // immediate
-    throttled() // scheduled
-    throttled() // ignored (already scheduled)
+    throttled(); // immediate
+    throttled(); // scheduled
+    throttled(); // ignored (already scheduled)
 
-    expect(fn).toHaveBeenCalledTimes(1)
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(100);
 
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 
-  it('allows execution after interval has passed', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("allows execution after interval has passed", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled()
-    expect(fn).toHaveBeenCalledTimes(1)
+    throttled();
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(100)
+    vi.advanceTimersByTime(100);
 
-    throttled()
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
+    throttled();
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 
-  it('flush() runs immediately regardless of interval', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("flush() runs immediately regardless of interval", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled() // immediate
-    throttled() // scheduled
+    throttled(); // immediate
+    throttled(); // scheduled
 
-    expect(fn).toHaveBeenCalledTimes(1)
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    throttled.flush()
+    throttled.flush();
 
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 
-  it('flush() clears pending timer', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("flush() clears pending timer", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled() // immediate
-    throttled() // scheduled
+    throttled(); // immediate
+    throttled(); // scheduled
 
-    throttled.flush() // runs + clears pending
+    throttled.flush(); // runs + clears pending
 
-    vi.advanceTimersByTime(200)
+    vi.advanceTimersByTime(200);
 
     // Should not fire again (timer was cleared by flush)
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
 
-  it('cancel() prevents pending execution', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("cancel() prevents pending execution", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled() // immediate
-    throttled() // scheduled
+    throttled(); // immediate
+    throttled(); // scheduled
 
-    throttled.cancel()
+    throttled.cancel();
 
-    vi.advanceTimersByTime(200)
+    vi.advanceTimersByTime(200);
 
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
 
-  it('reschedule() resets the trailing timer from now', () => {
-    const fn = vi.fn()
-    const throttled = createThrottle(fn, 100)
+  it("reschedule() resets the trailing timer from now", () => {
+    const fn = vi.fn();
+    const throttled = createThrottle(fn, 100);
 
-    throttled() // immediate
-    throttled() // schedule original trailing timer at +100ms
+    throttled(); // immediate
+    throttled(); // schedule original trailing timer at +100ms
 
-    vi.advanceTimersByTime(40)
-    throttled.reschedule()
+    vi.advanceTimersByTime(40);
+    throttled.reschedule();
 
-    vi.advanceTimersByTime(59)
-    expect(fn).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(59);
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(1)
-    expect(fn).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(1);
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(39)
-    expect(fn).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(39);
+    expect(fn).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(1)
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
-})
+    vi.advanceTimersByTime(1);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+});

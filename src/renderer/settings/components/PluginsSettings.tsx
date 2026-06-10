@@ -1,87 +1,86 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { createPluginClient } from '@api/PluginClient'
-import type { PluginActionResult, PluginListItem, PluginRuntimeState } from '@shared/types/plugin'
-import SettingsPageShell from './control-center/SettingsPageShell'
+import { useState, useEffect, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { createPluginClient } from "@api/PluginClient";
+import type { PluginActionResult, PluginListItem, PluginRuntimeState } from "@shared/types/plugin";
+import SettingsPageShell from "./control-center/SettingsPageShell";
 
-const pluginClient = createPluginClient()
+const pluginClient = createPluginClient();
 
 function formatRuntimeState(state?: PluginRuntimeState): string {
-  if (!state) return '-'
+  if (!state) return "-";
   const labels: Record<PluginRuntimeState, string> = {
-    running: 'Running',
-    stopped: 'Stopped',
-    error: 'Error'
-  }
-  return labels[state] ?? state
+    missing: "Missing",
+    running: "Running",
+    installed: "Installed",
+    error: "Error",
+  };
+  return labels[state] ?? state;
 }
 
 function getPluginMcpErrors(plugin: PluginListItem): string[] {
   return (plugin.mcpServers ?? [])
     .filter((server) => Boolean(server.lastError))
-    .map((server) => `${server.serverId}: ${server.lastError}`)
+    .map((server) => `${server.serverId}: ${server.lastError}`);
 }
 
 export default function PluginsSettings() {
-  const [plugins, setPlugins] = useState<PluginListItem[]>([])
-  const [loading, setLoading] = useState(false)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [pendingPluginId, setPendingPluginId] = useState<string | null>(null)
+  const [plugins, setPlugins] = useState<PluginListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [pendingPluginId, setPendingPluginId] = useState<string | null>(null);
 
   const loadPlugins = useCallback(async () => {
-    setLoading(true)
-    setErrorMessage('')
+    setLoading(true);
+    setErrorMessage("");
     try {
-      const result = await pluginClient.listPlugins()
-      setPlugins(result)
+      const result = await pluginClient.listPlugins();
+      setPlugins(result);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load plugins')
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load plugins");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   const runPluginAction = useCallback(
     async (pluginId: string, action: () => Promise<PluginActionResult>) => {
-      setPendingPluginId(pluginId)
-      setErrorMessage('')
+      setPendingPluginId(pluginId);
+      setErrorMessage("");
       try {
-        const result = await action()
+        const result = await action();
         if (!result.ok) {
-          throw new Error(result.error || 'Action failed')
+          throw new Error(result.error || "Action failed");
         }
-        await loadPlugins()
+        await loadPlugins();
       } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : 'Action failed')
+        setErrorMessage(error instanceof Error ? error.message : "Action failed");
       } finally {
-        setPendingPluginId(null)
+        setPendingPluginId(null);
       }
     },
-    [loadPlugins]
-  )
+    [loadPlugins],
+  );
 
   const enablePlugin = useCallback(
     (pluginId: string) => runPluginAction(pluginId, () => pluginClient.enablePlugin(pluginId)),
-    [runPluginAction]
-  )
+    [runPluginAction],
+  );
 
   const disablePlugin = useCallback(
     (pluginId: string) => runPluginAction(pluginId, () => pluginClient.disablePlugin(pluginId)),
-    [runPluginAction]
-  )
+    [runPluginAction],
+  );
 
   const openSettings = useCallback(
     (pluginId: string) =>
-      runPluginAction(pluginId, () =>
-        pluginClient.invokeAction({ pluginId, actionId: 'settings.open' })
-      ),
-    [runPluginAction]
-  )
+      runPluginAction(pluginId, () => pluginClient.invokeAction({ pluginId, actionId: "settings.open" })),
+    [runPluginAction],
+  );
 
   useEffect(() => {
-    void loadPlugins()
-  }, [loadPlugins])
+    void loadPlugins();
+  }, [loadPlugins]);
 
   return (
     <SettingsPageShell
@@ -103,9 +102,7 @@ export default function PluginsSettings() {
       }
     >
       {errorMessage && (
-        <div className="rounded-lg border border-destructive/40 px-3 py-2 text-sm text-destructive">
-          {errorMessage}
-        </div>
+        <div className="rounded-lg border border-destructive/40 px-3 py-2 text-sm text-destructive">{errorMessage}</div>
       )}
 
       <div className="space-y-3">
@@ -124,10 +121,7 @@ export default function PluginsSettings() {
         )}
 
         {plugins.map((plugin) => (
-          <article
-            key={plugin.id}
-            className="flex flex-col gap-4 rounded-lg border border-border bg-background p-4"
-          >
+          <article key={plugin.id} className="flex flex-col gap-4 rounded-lg border border-border bg-background p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -142,12 +136,10 @@ export default function PluginsSettings() {
               </div>
               <span
                 className={`shrink-0 rounded border px-2 py-1 text-xs ${
-                  plugin.enabled
-                    ? 'border-emerald-500/40 text-emerald-600'
-                    : 'border-border text-muted-foreground'
+                  plugin.enabled ? "border-emerald-500/40 text-emerald-600" : "border-border text-muted-foreground"
                 }`}
               >
-                {plugin.enabled ? 'Enabled' : 'Disabled'}
+                {plugin.enabled ? "Enabled" : "Disabled"}
               </span>
             </div>
 
@@ -155,14 +147,12 @@ export default function PluginsSettings() {
               <dt className="text-muted-foreground">Runtime</dt>
               <dd>{formatRuntimeState(plugin.runtime?.state)}</dd>
               <dt className="text-muted-foreground">Version</dt>
-              <dd>{plugin.runtime?.version || '-'}</dd>
+              <dd>{plugin.runtime?.version || "-"}</dd>
               <dt className="text-muted-foreground">Command</dt>
-              <dd className="truncate font-mono text-xs">{plugin.runtime?.command || '-'}</dd>
+              <dd className="truncate font-mono text-xs">{plugin.runtime?.command || "-"}</dd>
             </dl>
 
-            {plugin.runtime?.lastError && (
-              <div className="text-xs text-destructive">{plugin.runtime.lastError}</div>
-            )}
+            {plugin.runtime?.lastError && <div className="text-xs text-destructive">{plugin.runtime.lastError}</div>}
 
             {getPluginMcpErrors(plugin).length > 0 && (
               <div className="space-y-1 text-xs text-destructive">
@@ -213,5 +203,5 @@ export default function PluginsSettings() {
         ))}
       </div>
     </SettingsPageShell>
-  )
+  );
 }

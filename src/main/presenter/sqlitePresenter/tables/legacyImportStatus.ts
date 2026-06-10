@@ -1,24 +1,24 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
-export type LegacyImportState = 'idle' | 'running' | 'completed' | 'failed' | 'skipped'
+export type LegacyImportState = "idle" | "running" | "completed" | "failed" | "skipped";
 
 export interface LegacyImportStatusRow {
-  import_key: string
-  status: LegacyImportState
-  source_db_path: string
-  started_at: number | null
-  finished_at: number | null
-  imported_sessions: number
-  imported_messages: number
-  imported_search_results: number
-  error: string | null
-  updated_at: number
+  import_key: string;
+  status: LegacyImportState;
+  source_db_path: string;
+  started_at: number | null;
+  finished_at: number | null;
+  imported_sessions: number;
+  imported_messages: number;
+  imported_search_results: number;
+  error: string | null;
+  updated_at: number;
 }
 
 export class LegacyImportStatusTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'legacy_import_status')
+    super(db, "legacy_import_status");
   }
 
   getCreateTableSQL(): string {
@@ -35,38 +35,38 @@ export class LegacyImportStatusTable extends BaseTable {
         error TEXT DEFAULT NULL,
         updated_at INTEGER NOT NULL
       );
-    `
+    `;
   }
 
   getMigrationSQL(_version: number): string | null {
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 0
+    return 0;
   }
 
   get(importKey: string): LegacyImportStatusRow | undefined {
-    return this.db
-      .prepare('SELECT * FROM legacy_import_status WHERE import_key = ?')
-      .get(importKey) as LegacyImportStatusRow | undefined
+    return this.db.prepare("SELECT * FROM legacy_import_status WHERE import_key = ?").get(importKey) as
+      | LegacyImportStatusRow
+      | undefined;
   }
 
   upsert(
     importKey: string,
     data: {
-      status: LegacyImportState
-      sourceDbPath: string
-      startedAt?: number | null
-      finishedAt?: number | null
-      importedSessions?: number
-      importedMessages?: number
-      importedSearchResults?: number
-      error?: string | null
-      updatedAt?: number
-    }
+      status: LegacyImportState;
+      sourceDbPath: string;
+      startedAt?: number | null;
+      finishedAt?: number | null;
+      importedSessions?: number;
+      importedMessages?: number;
+      importedSearchResults?: number;
+      error?: string | null;
+      updatedAt?: number;
+    },
   ): void {
-    const now = data.updatedAt ?? Date.now()
+    const now = data.updatedAt ?? Date.now();
     this.db
       .prepare(
         `
@@ -92,7 +92,7 @@ export class LegacyImportStatusTable extends BaseTable {
           imported_search_results = excluded.imported_search_results,
           error = excluded.error,
           updated_at = excluded.updated_at
-      `
+      `,
       )
       .run(
         importKey,
@@ -104,7 +104,7 @@ export class LegacyImportStatusTable extends BaseTable {
         data.importedMessages ?? 0,
         data.importedSearchResults ?? 0,
         data.error ?? null,
-        now
-      )
+        now,
+      );
   }
 }

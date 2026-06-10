@@ -1,4 +1,4 @@
-import type { IConfigPresenter, PairableRemoteChannel, RemoteChannel } from '@shared/presenter'
+import type { IConfigPresenter, PairableRemoteChannel, RemoteChannel } from "@shared/presenter";
 import {
   REMOTE_CONTROL_SETTING_KEY,
   TELEGRAM_AGENT_MENU_TTL_MS,
@@ -31,158 +31,154 @@ import {
   type TelegramPairingState,
   type TelegramRemoteRuntimeConfig,
   type WeixinIlinkAccountRuntimeConfig,
-  type WeixinIlinkRemoteRuntimeConfig
-} from '../types'
+  type WeixinIlinkRemoteRuntimeConfig,
+} from "../types";
 
 export interface RemoteDeliveryState {
-  sourceMessageId: string
+  sourceMessageId: string;
   segments: Array<{
-    key: string
-    kind: 'process' | 'answer' | 'terminal'
-    messageIds: Array<string | number | null>
-    lastText: string
-  }>
+    key: string;
+    kind: "process" | "answer" | "terminal";
+    messageIds: Array<string | number | null>;
+    lastText: string;
+  }>;
 }
 
 export class RemoteBindingStore {
-  private readonly activeEvents = new Map<string, string>()
-  private readonly sessionSnapshots = new Map<string, string[]>()
-  private readonly modelMenuStates = new Map<string, TelegramModelMenuState>()
-  private readonly agentMenuStates = new Map<string, TelegramAgentMenuState>()
-  private readonly pendingInteractionStates = new Map<string, TelegramPendingInteractionState>()
-  private readonly remoteDeliveryStates = new Map<string, RemoteDeliveryState>()
+  private readonly activeEvents = new Map<string, string>();
+  private readonly sessionSnapshots = new Map<string, string[]>();
+  private readonly modelMenuStates = new Map<string, TelegramModelMenuState>();
+  private readonly agentMenuStates = new Map<string, TelegramAgentMenuState>();
+  private readonly pendingInteractionStates = new Map<string, TelegramPendingInteractionState>();
+  private readonly remoteDeliveryStates = new Map<string, RemoteDeliveryState>();
 
   constructor(private readonly configPresenter: IConfigPresenter) {}
 
   getConfig(): RemoteControlConfig {
     return normalizeRemoteControlConfig(
-      this.configPresenter.getSetting<RemoteControlConfig>(REMOTE_CONTROL_SETTING_KEY)
-    )
+      this.configPresenter.getSetting<RemoteControlConfig>(REMOTE_CONTROL_SETTING_KEY),
+    );
   }
 
-  getChannelConfig(channel: 'telegram'): TelegramRemoteRuntimeConfig
-  getChannelConfig(channel: 'feishu'): FeishuRemoteRuntimeConfig
-  getChannelConfig(channel: 'qqbot'): QQBotRemoteRuntimeConfig
-  getChannelConfig(channel: 'discord'): DiscordRemoteRuntimeConfig
-  getChannelConfig(channel: 'weixin-ilink'): WeixinIlinkRemoteRuntimeConfig
+  getChannelConfig(channel: "telegram"): TelegramRemoteRuntimeConfig;
+  getChannelConfig(channel: "feishu"): FeishuRemoteRuntimeConfig;
+  getChannelConfig(channel: "qqbot"): QQBotRemoteRuntimeConfig;
+  getChannelConfig(channel: "discord"): DiscordRemoteRuntimeConfig;
+  getChannelConfig(channel: "weixin-ilink"): WeixinIlinkRemoteRuntimeConfig;
   getChannelConfig(
-    channel: RemoteChannel
+    channel: RemoteChannel,
   ):
     | TelegramRemoteRuntimeConfig
     | FeishuRemoteRuntimeConfig
     | QQBotRemoteRuntimeConfig
     | DiscordRemoteRuntimeConfig
-    | WeixinIlinkRemoteRuntimeConfig
+    | WeixinIlinkRemoteRuntimeConfig;
   getChannelConfig(channel: RemoteChannel) {
-    const config = this.getConfig()
-    return channel === 'weixin-ilink' ? config.weixinIlink : config[channel]
+    const config = this.getConfig();
+    return channel === "weixin-ilink" ? config.weixinIlink : config[channel];
   }
 
   getTelegramConfig(): TelegramRemoteRuntimeConfig {
-    return this.getChannelConfig('telegram')
+    return this.getChannelConfig("telegram");
   }
 
   getFeishuConfig(): FeishuRemoteRuntimeConfig {
-    return this.getChannelConfig('feishu')
+    return this.getChannelConfig("feishu");
   }
 
   getQQBotConfig(): QQBotRemoteRuntimeConfig {
-    return this.getChannelConfig('qqbot')
+    return this.getChannelConfig("qqbot");
   }
 
   getDiscordConfig(): DiscordRemoteRuntimeConfig {
-    return this.getChannelConfig('discord')
+    return this.getChannelConfig("discord");
   }
 
   getWeixinIlinkConfig(): WeixinIlinkRemoteRuntimeConfig {
-    return this.getChannelConfig('weixin-ilink')
+    return this.getChannelConfig("weixin-ilink");
   }
 
   updateTelegramConfig(
-    updater: (config: TelegramRemoteRuntimeConfig) => TelegramRemoteRuntimeConfig
+    updater: (config: TelegramRemoteRuntimeConfig) => TelegramRemoteRuntimeConfig,
   ): TelegramRemoteRuntimeConfig {
-    const current = this.getConfig()
+    const current = this.getConfig();
     const next = normalizeRemoteControlConfig({
       ...current,
-      telegram: updater(current.telegram)
-    })
-    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next)
-    return next.telegram
+      telegram: updater(current.telegram),
+    });
+    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next);
+    return next.telegram;
   }
 
   updateFeishuConfig(
-    updater: (config: FeishuRemoteRuntimeConfig) => FeishuRemoteRuntimeConfig
+    updater: (config: FeishuRemoteRuntimeConfig) => FeishuRemoteRuntimeConfig,
   ): FeishuRemoteRuntimeConfig {
-    const current = this.getConfig()
+    const current = this.getConfig();
     const next = normalizeRemoteControlConfig({
       ...current,
-      feishu: updater(current.feishu)
-    })
-    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next)
-    return next.feishu
+      feishu: updater(current.feishu),
+    });
+    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next);
+    return next.feishu;
   }
 
-  updateQQBotConfig(
-    updater: (config: QQBotRemoteRuntimeConfig) => QQBotRemoteRuntimeConfig
-  ): QQBotRemoteRuntimeConfig {
-    const current = this.getConfig()
+  updateQQBotConfig(updater: (config: QQBotRemoteRuntimeConfig) => QQBotRemoteRuntimeConfig): QQBotRemoteRuntimeConfig {
+    const current = this.getConfig();
     const next = normalizeRemoteControlConfig({
       ...current,
-      qqbot: updater(current.qqbot)
-    })
-    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next)
-    return next.qqbot
+      qqbot: updater(current.qqbot),
+    });
+    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next);
+    return next.qqbot;
   }
 
   updateDiscordConfig(
-    updater: (config: DiscordRemoteRuntimeConfig) => DiscordRemoteRuntimeConfig
+    updater: (config: DiscordRemoteRuntimeConfig) => DiscordRemoteRuntimeConfig,
   ): DiscordRemoteRuntimeConfig {
-    const current = this.getConfig()
+    const current = this.getConfig();
     const next = normalizeRemoteControlConfig({
       ...current,
-      discord: updater(current.discord)
-    })
-    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next)
-    return next.discord
+      discord: updater(current.discord),
+    });
+    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next);
+    return next.discord;
   }
 
   updateWeixinIlinkConfig(
-    updater: (config: WeixinIlinkRemoteRuntimeConfig) => WeixinIlinkRemoteRuntimeConfig
+    updater: (config: WeixinIlinkRemoteRuntimeConfig) => WeixinIlinkRemoteRuntimeConfig,
   ): WeixinIlinkRemoteRuntimeConfig {
-    const current = this.getConfig()
+    const current = this.getConfig();
     const next = normalizeRemoteControlConfig({
       ...current,
-      weixinIlink: updater(current.weixinIlink)
-    })
-    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next)
-    return next.weixinIlink
+      weixinIlink: updater(current.weixinIlink),
+    });
+    this.configPresenter.setSetting(REMOTE_CONTROL_SETTING_KEY, next);
+    return next.weixinIlink;
   }
 
-  getEndpointKey(
-    target: { chatId: number; messageThreadId?: number } | TelegramInboundEvent
-  ): string {
-    return buildTelegramEndpointKey(target.chatId, target.messageThreadId ?? 0)
+  getEndpointKey(target: { chatId: number; messageThreadId?: number } | TelegramInboundEvent): string {
+    return buildTelegramEndpointKey(target.chatId, target.messageThreadId ?? 0);
   }
 
   getBinding(endpointKey: string): RemoteEndpointBinding | null {
-    const channel = this.resolveChannelFromEndpointKey(endpointKey)
+    const channel = this.resolveChannelFromEndpointKey(endpointKey);
     if (!channel) {
-      return null
+      return null;
     }
 
-    return this.getChannelBindings(channel)[endpointKey] ?? null
+    return this.getChannelBindings(channel)[endpointKey] ?? null;
   }
 
   setBinding(endpointKey: string, sessionId: string, meta?: RemoteEndpointBindingMeta): void {
-    const resolvedChannel = this.resolveChannelFromEndpointKey(endpointKey)
+    const resolvedChannel = this.resolveChannelFromEndpointKey(endpointKey);
     if (!resolvedChannel) {
-      return
+      return;
     }
 
-    if (resolvedChannel === 'weixin-ilink') {
-      const parsed = parseWeixinIlinkEndpointKey(endpointKey)
+    if (resolvedChannel === "weixin-ilink") {
+      const parsed = parseWeixinIlinkEndpointKey(endpointKey);
       if (!parsed) {
-        return
+        return;
       }
 
       this.updateWeixinIlinkAccount(parsed.accountId, (account) => ({
@@ -195,19 +191,19 @@ export class RemoteBindingStore {
             meta: meta
               ? {
                   ...meta,
-                  channel: resolvedChannel
+                  channel: resolvedChannel,
                 }
               : account.bindings[endpointKey]?.meta
                 ? {
                     ...account.bindings[endpointKey].meta,
-                    channel: resolvedChannel
+                    channel: resolvedChannel,
                   }
-                : undefined
-          }
-        }
-      }))
-      this.clearTransientStateForEndpoint(endpointKey)
-      return
+                : undefined,
+          },
+        },
+      }));
+      this.clearTransientStateForEndpoint(endpointKey);
+      return;
     }
 
     this.updateBindings(resolvedChannel, (bindings) => ({
@@ -218,593 +214,573 @@ export class RemoteBindingStore {
         meta: meta
           ? {
               ...meta,
-              channel: resolvedChannel
+              channel: resolvedChannel,
             }
           : bindings[endpointKey]?.meta
             ? {
                 ...bindings[endpointKey].meta,
-                channel: resolvedChannel
+                channel: resolvedChannel,
               }
-            : undefined
-      }
-    }))
-    this.activeEvents.delete(endpointKey)
-    this.clearModelMenuStatesForEndpoint(endpointKey)
-    this.clearAgentMenuStatesForEndpoint(endpointKey)
-    this.clearPendingInteractionStatesForEndpoint(endpointKey)
-    this.clearRemoteDeliveryState(endpointKey)
+            : undefined,
+      },
+    }));
+    this.activeEvents.delete(endpointKey);
+    this.clearModelMenuStatesForEndpoint(endpointKey);
+    this.clearAgentMenuStatesForEndpoint(endpointKey);
+    this.clearPendingInteractionStatesForEndpoint(endpointKey);
+    this.clearRemoteDeliveryState(endpointKey);
   }
 
   clearBinding(endpointKey: string): void {
-    const channel = this.resolveChannelFromEndpointKey(endpointKey)
+    const channel = this.resolveChannelFromEndpointKey(endpointKey);
     if (!channel) {
-      return
+      return;
     }
 
-    if (channel === 'weixin-ilink') {
-      const parsed = parseWeixinIlinkEndpointKey(endpointKey)
+    if (channel === "weixin-ilink") {
+      const parsed = parseWeixinIlinkEndpointKey(endpointKey);
       if (!parsed) {
-        return
+        return;
       }
 
       this.updateWeixinIlinkAccount(parsed.accountId, (account) => {
-        const nextBindings = { ...account.bindings }
-        delete nextBindings[endpointKey]
+        const nextBindings = { ...account.bindings };
+        delete nextBindings[endpointKey];
         return {
           ...account,
-          bindings: nextBindings
-        }
-      })
-      this.clearTransientStateForEndpoint(endpointKey)
-      return
+          bindings: nextBindings,
+        };
+      });
+      this.clearTransientStateForEndpoint(endpointKey);
+      return;
     }
 
     this.updateBindings(channel, (bindings) => {
-      const nextBindings = { ...bindings }
-      delete nextBindings[endpointKey]
-      return nextBindings
-    })
-    this.clearTransientStateForEndpoint(endpointKey)
+      const nextBindings = { ...bindings };
+      delete nextBindings[endpointKey];
+      return nextBindings;
+    });
+    this.clearTransientStateForEndpoint(endpointKey);
   }
 
   listBindings(channel?: RemoteChannel): Array<{
-    endpointKey: string
-    binding: RemoteEndpointBinding
+    endpointKey: string;
+    binding: RemoteEndpointBinding;
   }> {
     const configs =
       channel === undefined
-        ? (['telegram', 'feishu', 'qqbot', 'discord', 'weixin-ilink'] as const).map(
-            (key) => [key, this.getChannelBindings(key)] as const
+        ? (["telegram", "feishu", "qqbot", "discord", "weixin-ilink"] as const).map(
+            (key) => [key, this.getChannelBindings(key)] as const,
           )
-        : ([[channel, this.getChannelBindings(channel)]] as const)
+        : ([[channel, this.getChannelBindings(channel)]] as const);
 
     return configs.flatMap((entry) => {
-      const bindings = entry[1]
+      const bindings = entry[1];
       return Object.entries(bindings).map(([endpointKey, binding]) => ({
         endpointKey,
-        binding
-      }))
-    })
+        binding,
+      }));
+    });
   }
 
   clearBindings(channel?: RemoteChannel): number {
-    const entries = this.listBindings(channel)
-    if (channel === 'telegram') {
+    const entries = this.listBindings(channel);
+    if (channel === "telegram") {
       this.updateTelegramConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
-    } else if (channel === 'feishu') {
+        bindings: {},
+      }));
+    } else if (channel === "feishu") {
       this.updateFeishuConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
-    } else if (channel === 'qqbot') {
+        bindings: {},
+      }));
+    } else if (channel === "qqbot") {
       this.updateQQBotConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
-    } else if (channel === 'discord') {
+        bindings: {},
+      }));
+    } else if (channel === "discord") {
       this.updateDiscordConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
-    } else if (channel === 'weixin-ilink') {
+        bindings: {},
+      }));
+    } else if (channel === "weixin-ilink") {
       this.updateWeixinIlinkConfig((config) => ({
         ...config,
         accounts: config.accounts.map((account) => ({
           ...account,
-          bindings: {}
-        }))
-      }))
+          bindings: {},
+        })),
+      }));
     } else {
       this.updateTelegramConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
+        bindings: {},
+      }));
       this.updateFeishuConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
+        bindings: {},
+      }));
       this.updateQQBotConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
+        bindings: {},
+      }));
       this.updateDiscordConfig((config) => ({
         ...config,
-        bindings: {}
-      }))
+        bindings: {},
+      }));
       this.updateWeixinIlinkConfig((config) => ({
         ...config,
         accounts: config.accounts.map((account) => ({
           ...account,
-          bindings: {}
-        }))
-      }))
+          bindings: {},
+        })),
+      }));
     }
 
     for (const { endpointKey } of entries) {
-      this.clearTransientStateForEndpoint(endpointKey)
+      this.clearTransientStateForEndpoint(endpointKey);
     }
 
     if (channel === undefined) {
-      this.modelMenuStates.clear()
-      this.agentMenuStates.clear()
+      this.modelMenuStates.clear();
+      this.agentMenuStates.clear();
     }
 
-    return entries.length
+    return entries.length;
   }
 
   countBindings(channel?: RemoteChannel): number {
-    return this.listBindings(channel).length
+    return this.listBindings(channel).length;
   }
 
   getPollOffset(): number {
-    return this.getTelegramConfig().pollOffset
+    return this.getTelegramConfig().pollOffset;
   }
 
   setPollOffset(offset: number): void {
     this.updateTelegramConfig((config) => ({
       ...config,
-      pollOffset: Math.max(0, Math.trunc(offset))
-    }))
+      pollOffset: Math.max(0, Math.trunc(offset)),
+    }));
   }
 
   getAllowedUserIds(): number[] {
-    return this.getTelegramConfig().allowlist
+    return this.getTelegramConfig().allowlist;
   }
 
   getTelegramDefaultAgentId(): string {
-    return this.getTelegramConfig().defaultAgentId
+    return this.getTelegramConfig().defaultAgentId;
   }
 
   getTelegramDefaultWorkdir(): string {
-    return this.getTelegramConfig().defaultWorkdir
+    return this.getTelegramConfig().defaultWorkdir;
   }
 
   getDefaultAgentId(): string {
-    return this.getTelegramDefaultAgentId()
+    return this.getTelegramDefaultAgentId();
   }
 
   getFeishuDefaultAgentId(): string {
-    return this.getFeishuConfig().defaultAgentId
+    return this.getFeishuConfig().defaultAgentId;
   }
 
   getFeishuDefaultWorkdir(): string {
-    return this.getFeishuConfig().defaultWorkdir
+    return this.getFeishuConfig().defaultWorkdir;
   }
 
   getQQBotDefaultAgentId(): string {
-    return this.getQQBotConfig().defaultAgentId
+    return this.getQQBotConfig().defaultAgentId;
   }
 
   getQQBotDefaultWorkdir(): string {
-    return this.getQQBotConfig().defaultWorkdir
+    return this.getQQBotConfig().defaultWorkdir;
   }
 
   getDiscordDefaultAgentId(): string {
-    return this.getDiscordConfig().defaultAgentId
+    return this.getDiscordConfig().defaultAgentId;
   }
 
   getDiscordDefaultWorkdir(): string {
-    return this.getDiscordConfig().defaultWorkdir
+    return this.getDiscordConfig().defaultWorkdir;
   }
 
   getWeixinIlinkDefaultAgentId(): string {
-    return this.getWeixinIlinkConfig().defaultAgentId
+    return this.getWeixinIlinkConfig().defaultAgentId;
   }
 
   getWeixinIlinkDefaultWorkdir(): string {
-    return this.getWeixinIlinkConfig().defaultWorkdir
+    return this.getWeixinIlinkConfig().defaultWorkdir;
   }
 
   getWeixinIlinkAccounts(): WeixinIlinkAccountRuntimeConfig[] {
     return this.getWeixinIlinkConfig().accounts.map((account) => ({
       ...account,
-      bindings: { ...account.bindings }
-    }))
+      bindings: { ...account.bindings },
+    }));
   }
 
   getWeixinIlinkAccount(accountId: string): WeixinIlinkAccountRuntimeConfig | null {
-    const normalizedAccountId = accountId.trim()
+    const normalizedAccountId = accountId.trim();
     if (!normalizedAccountId) {
-      return null
+      return null;
     }
 
-    const account = this.getWeixinIlinkConfig().accounts.find(
-      (entry) => entry.accountId === normalizedAccountId
-    )
+    const account = this.getWeixinIlinkConfig().accounts.find((entry) => entry.accountId === normalizedAccountId);
     return account
       ? {
           ...account,
-          bindings: { ...account.bindings }
+          bindings: { ...account.bindings },
         }
-      : null
+      : null;
   }
 
   upsertWeixinIlinkAccount(
-    input: Pick<
-      WeixinIlinkAccountRuntimeConfig,
-      'accountId' | 'ownerUserId' | 'baseUrl' | 'botToken'
-    > &
-      Partial<
-        Pick<
-          WeixinIlinkAccountRuntimeConfig,
-          'enabled' | 'syncCursor' | 'lastFatalError' | 'bindings'
-        >
-      >
+    input: Pick<WeixinIlinkAccountRuntimeConfig, "accountId" | "ownerUserId" | "baseUrl" | "botToken"> &
+      Partial<Pick<WeixinIlinkAccountRuntimeConfig, "enabled" | "syncCursor" | "lastFatalError" | "bindings">>,
   ): WeixinIlinkAccountRuntimeConfig {
-    const normalizedAccountId = input.accountId.trim()
-    const normalizedOwnerUserId = input.ownerUserId.trim()
+    const normalizedAccountId = input.accountId.trim();
+    const normalizedOwnerUserId = input.ownerUserId.trim();
     if (!normalizedAccountId || !normalizedOwnerUserId) {
-      throw new Error('Weixin iLink accountId and ownerUserId are required.')
+      throw new Error("Weixin iLink accountId and ownerUserId are required.");
     }
 
-    let nextAccount: WeixinIlinkAccountRuntimeConfig | null = null
+    let nextAccount: WeixinIlinkAccountRuntimeConfig | null = null;
     this.updateWeixinIlinkConfig((config) => {
-      const accounts = [...config.accounts]
-      const existingIndex = accounts.findIndex(
-        (account) => account.accountId === normalizedAccountId
-      )
-      const existing = existingIndex >= 0 ? accounts[existingIndex] : null
+      const accounts = [...config.accounts];
+      const existingIndex = accounts.findIndex((account) => account.accountId === normalizedAccountId);
+      const existing = existingIndex >= 0 ? accounts[existingIndex] : null;
       const merged: WeixinIlinkAccountRuntimeConfig = {
         accountId: normalizedAccountId,
         ownerUserId: normalizedOwnerUserId,
-        baseUrl: input.baseUrl.trim() || existing?.baseUrl || 'https://ilinkai.weixin.qq.com',
-        botToken: input.botToken.trim() || existing?.botToken || '',
+        baseUrl: input.baseUrl.trim() || existing?.baseUrl || "https://ilinkai.weixin.qq.com",
+        botToken: input.botToken.trim() || existing?.botToken || "",
         enabled: input.enabled ?? existing?.enabled ?? true,
-        syncCursor: input.syncCursor ?? existing?.syncCursor ?? '',
+        syncCursor: input.syncCursor ?? existing?.syncCursor ?? "",
         lastFatalError: input.lastFatalError ?? existing?.lastFatalError ?? null,
-        bindings: input.bindings ?? existing?.bindings ?? {}
-      }
+        bindings: input.bindings ?? existing?.bindings ?? {},
+      };
 
       if (existingIndex >= 0) {
-        accounts[existingIndex] = merged
+        accounts[existingIndex] = merged;
       } else {
-        accounts.push(merged)
+        accounts.push(merged);
       }
 
-      nextAccount = merged
+      nextAccount = merged;
       return {
         ...config,
-        accounts: accounts.sort((left, right) => left.accountId.localeCompare(right.accountId))
-      }
-    })
+        accounts: accounts.sort((left, right) => left.accountId.localeCompare(right.accountId)),
+      };
+    });
 
-    return nextAccount!
+    return nextAccount!;
   }
 
   updateWeixinIlinkAccount(
     accountId: string,
-    updater: (account: WeixinIlinkAccountRuntimeConfig) => WeixinIlinkAccountRuntimeConfig
+    updater: (account: WeixinIlinkAccountRuntimeConfig) => WeixinIlinkAccountRuntimeConfig,
   ): WeixinIlinkAccountRuntimeConfig | null {
-    const normalizedAccountId = accountId.trim()
+    const normalizedAccountId = accountId.trim();
     if (!normalizedAccountId) {
-      return null
+      return null;
     }
 
-    let updatedAccount: WeixinIlinkAccountRuntimeConfig | null = null
+    let updatedAccount: WeixinIlinkAccountRuntimeConfig | null = null;
     this.updateWeixinIlinkConfig((config) => {
-      const index = config.accounts.findIndex(
-        (account) => account.accountId === normalizedAccountId
-      )
+      const index = config.accounts.findIndex((account) => account.accountId === normalizedAccountId);
       if (index < 0) {
-        return config
+        return config;
       }
 
-      const nextAccounts = [...config.accounts]
-      const nextAccount = updater(nextAccounts[index])
-      updatedAccount = nextAccount
-      nextAccounts[index] = nextAccount
+      const nextAccounts = [...config.accounts];
+      const nextAccount = updater(nextAccounts[index]);
+      updatedAccount = nextAccount;
+      nextAccounts[index] = nextAccount;
       return {
         ...config,
-        accounts: nextAccounts.sort((left, right) => left.accountId.localeCompare(right.accountId))
-      }
-    })
+        accounts: nextAccounts.sort((left, right) => left.accountId.localeCompare(right.accountId)),
+      };
+    });
 
-    return updatedAccount
+    return updatedAccount;
   }
 
   removeWeixinIlinkAccount(accountId: string): void {
-    const normalizedAccountId = accountId.trim()
+    const normalizedAccountId = accountId.trim();
     if (!normalizedAccountId) {
-      return
+      return;
     }
 
-    const bindings = this.getWeixinIlinkBindingsForAccount(normalizedAccountId)
+    const bindings = this.getWeixinIlinkBindingsForAccount(normalizedAccountId);
 
     this.updateWeixinIlinkConfig((config) => ({
       ...config,
-      accounts: config.accounts.filter((account) => account.accountId !== normalizedAccountId)
-    }))
+      accounts: config.accounts.filter((account) => account.accountId !== normalizedAccountId),
+    }));
 
     for (const [endpointKey] of Object.entries(bindings)) {
-      this.clearTransientStateForEndpoint(endpointKey)
+      this.clearTransientStateForEndpoint(endpointKey);
     }
   }
 
   isAllowedUser(userId: number | null | undefined): boolean {
     if (!userId) {
-      return false
+      return false;
     }
-    return this.getAllowedUserIds().includes(userId)
+    return this.getAllowedUserIds().includes(userId);
   }
 
   addAllowedUser(userId: number): void {
     this.updateTelegramConfig((config) => ({
       ...config,
-      allowlist: Array.from(new Set([...config.allowlist, userId])).sort(
-        (left, right) => left - right
-      )
-    }))
+      allowlist: Array.from(new Set([...config.allowlist, userId])).sort((left, right) => left - right),
+    }));
   }
 
   removeAllowedUser(userId: number): void {
     this.updateTelegramConfig((config) => ({
       ...config,
-      allowlist: config.allowlist.filter((entry) => entry !== userId)
-    }))
+      allowlist: config.allowlist.filter((entry) => entry !== userId),
+    }));
   }
 
   getFeishuPairedUserOpenIds(): string[] {
-    return this.getFeishuConfig().pairedUserOpenIds
+    return this.getFeishuConfig().pairedUserOpenIds;
   }
 
   isFeishuPairedUser(openId: string | null | undefined): boolean {
     if (!openId) {
-      return false
+      return false;
     }
-    return this.getFeishuPairedUserOpenIds().includes(openId.trim())
+    return this.getFeishuPairedUserOpenIds().includes(openId.trim());
   }
 
   addFeishuPairedUser(openId: string): void {
-    const normalized = openId.trim()
+    const normalized = openId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateFeishuConfig((config) => ({
       ...config,
-      pairedUserOpenIds: Array.from(new Set([...config.pairedUserOpenIds, normalized])).sort(
-        (left, right) => left.localeCompare(right)
-      )
-    }))
+      pairedUserOpenIds: Array.from(new Set([...config.pairedUserOpenIds, normalized])).sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    }));
   }
 
   removeFeishuPairedUser(openId: string): void {
-    const normalized = openId.trim()
+    const normalized = openId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateFeishuConfig((config) => ({
       ...config,
-      pairedUserOpenIds: config.pairedUserOpenIds.filter((entry) => entry !== normalized)
-    }))
+      pairedUserOpenIds: config.pairedUserOpenIds.filter((entry) => entry !== normalized),
+    }));
   }
 
   getQQBotPairedUserIds(): string[] {
-    return this.getQQBotConfig().pairedUserIds
+    return this.getQQBotConfig().pairedUserIds;
   }
 
   getQQBotPairedGroupIds(): string[] {
-    return this.getQQBotConfig().pairedGroupIds
+    return this.getQQBotConfig().pairedGroupIds;
   }
 
   isQQBotPairedUser(userId: string | null | undefined): boolean {
     if (!userId) {
-      return false
+      return false;
     }
 
-    return this.getQQBotPairedUserIds().includes(userId.trim())
+    return this.getQQBotPairedUserIds().includes(userId.trim());
   }
 
   isQQBotPairedGroup(groupId: string | null | undefined): boolean {
     if (!groupId) {
-      return false
+      return false;
     }
 
-    return this.getQQBotPairedGroupIds().includes(groupId.trim())
+    return this.getQQBotPairedGroupIds().includes(groupId.trim());
   }
 
   addQQBotPairedUser(userId: string): void {
-    const normalized = userId.trim()
+    const normalized = userId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateQQBotConfig((config) => ({
       ...config,
-      pairedUserIds: Array.from(new Set([...config.pairedUserIds, normalized])).sort((a, b) =>
-        a.localeCompare(b)
-      )
-    }))
+      pairedUserIds: Array.from(new Set([...config.pairedUserIds, normalized])).sort((a, b) => a.localeCompare(b)),
+    }));
   }
 
   removeQQBotPairedUser(userId: string): void {
-    const normalized = userId.trim()
+    const normalized = userId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateQQBotConfig((config) => ({
       ...config,
-      pairedUserIds: config.pairedUserIds.filter((entry) => entry !== normalized)
-    }))
+      pairedUserIds: config.pairedUserIds.filter((entry) => entry !== normalized),
+    }));
   }
 
   addQQBotPairedGroup(groupId: string): void {
-    const normalized = groupId.trim()
+    const normalized = groupId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateQQBotConfig((config) => ({
       ...config,
-      pairedGroupIds: Array.from(new Set([...config.pairedGroupIds, normalized])).sort((a, b) =>
-        a.localeCompare(b)
-      )
-    }))
+      pairedGroupIds: Array.from(new Set([...config.pairedGroupIds, normalized])).sort((a, b) => a.localeCompare(b)),
+    }));
   }
 
   getDiscordPairedChannelIds(): string[] {
-    return this.getDiscordConfig().pairedChannelIds
+    return this.getDiscordConfig().pairedChannelIds;
   }
 
   isDiscordPairedChannel(channelId: string | null | undefined): boolean {
     if (!channelId) {
-      return false
+      return false;
     }
 
-    return this.getDiscordPairedChannelIds().includes(channelId.trim())
+    return this.getDiscordPairedChannelIds().includes(channelId.trim());
   }
 
   addDiscordPairedChannel(channelId: string): void {
-    const normalized = channelId.trim()
+    const normalized = channelId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateDiscordConfig((config) => ({
       ...config,
       pairedChannelIds: Array.from(new Set([...config.pairedChannelIds, normalized])).sort((a, b) =>
-        a.localeCompare(b)
-      )
-    }))
+        a.localeCompare(b),
+      ),
+    }));
   }
 
   removeDiscordPairedChannel(channelId: string): void {
-    const normalized = channelId.trim()
+    const normalized = channelId.trim();
     if (!normalized) {
-      return
+      return;
     }
 
     this.updateDiscordConfig((config) => ({
       ...config,
-      pairedChannelIds: config.pairedChannelIds.filter((entry) => entry !== normalized)
-    }))
+      pairedChannelIds: config.pairedChannelIds.filter((entry) => entry !== normalized),
+    }));
   }
 
   getTelegramPairingState(): TelegramPairingState {
-    return this.getTelegramConfig().pairing
+    return this.getTelegramConfig().pairing;
   }
 
   getPairingState(): TelegramPairingState {
-    return this.getTelegramPairingState()
+    return this.getTelegramPairingState();
   }
 
   getFeishuPairingState(): FeishuPairingState {
-    return this.getFeishuConfig().pairing
+    return this.getFeishuConfig().pairing;
   }
 
   getQQBotPairingState(): QQBotPairingState {
-    return this.getQQBotConfig().pairing
+    return this.getQQBotConfig().pairing;
   }
 
   getDiscordPairingState(): DiscordPairingState {
-    return this.getDiscordConfig().pairing
+    return this.getDiscordConfig().pairing;
   }
 
   getTelegramPairingSnapshot() {
-    return buildTelegramPairingSnapshot(this.getTelegramConfig())
+    return buildTelegramPairingSnapshot(this.getTelegramConfig());
   }
 
   getFeishuPairingSnapshot() {
-    return buildFeishuPairingSnapshot(this.getFeishuConfig())
+    return buildFeishuPairingSnapshot(this.getFeishuConfig());
   }
 
   getQQBotPairingSnapshot() {
-    return buildQQBotPairingSnapshot(this.getQQBotConfig())
+    return buildQQBotPairingSnapshot(this.getQQBotConfig());
   }
 
   getDiscordPairingSnapshot() {
-    return buildDiscordPairingSnapshot(this.getDiscordConfig())
+    return buildDiscordPairingSnapshot(this.getDiscordConfig());
   }
 
-  createPairCode(channel: PairableRemoteChannel = 'telegram'): { code: string; expiresAt: number } {
-    const pairing = createPairCode()
-    if (channel === 'telegram') {
+  createPairCode(channel: PairableRemoteChannel = "telegram"): { code: string; expiresAt: number } {
+    const pairing = createPairCode();
+    if (channel === "telegram") {
       this.updateTelegramConfig((config) => ({
         ...config,
-        pairing
-      }))
-    } else if (channel === 'feishu') {
+        pairing,
+      }));
+    } else if (channel === "feishu") {
       this.updateFeishuConfig((config) => ({
         ...config,
-        pairing
-      }))
-    } else if (channel === 'qqbot') {
+        pairing,
+      }));
+    } else if (channel === "qqbot") {
       this.updateQQBotConfig((config) => ({
         ...config,
-        pairing
-      }))
+        pairing,
+      }));
     } else {
       this.updateDiscordConfig((config) => ({
         ...config,
-        pairing
-      }))
+        pairing,
+      }));
     }
     return {
       code: pairing.code!,
-      expiresAt: pairing.expiresAt!
-    }
+      expiresAt: pairing.expiresAt!,
+    };
   }
 
-  clearPairCode(channel: PairableRemoteChannel = 'telegram'): void {
-    if (channel === 'telegram') {
+  clearPairCode(channel: PairableRemoteChannel = "telegram"): void {
+    if (channel === "telegram") {
       this.updateTelegramConfig((config) => ({
         ...config,
         pairing: {
           code: null,
           expiresAt: null,
-          failedAttempts: 0
-        }
-      }))
-      return
+          failedAttempts: 0,
+        },
+      }));
+      return;
     }
 
-    if (channel === 'feishu') {
+    if (channel === "feishu") {
       this.updateFeishuConfig((config) => ({
         ...config,
         pairing: {
           code: null,
           expiresAt: null,
-          failedAttempts: 0
-        }
-      }))
-      return
+          failedAttempts: 0,
+        },
+      }));
+      return;
     }
 
-    if (channel === 'qqbot') {
+    if (channel === "qqbot") {
       this.updateQQBotConfig((config) => ({
         ...config,
         pairing: {
           code: null,
           expiresAt: null,
-          failedAttempts: 0
-        }
-      }))
-      return
+          failedAttempts: 0,
+        },
+      }));
+      return;
     }
 
     this.updateDiscordConfig((config) => ({
@@ -812,28 +788,25 @@ export class RemoteBindingStore {
       pairing: {
         code: null,
         expiresAt: null,
-        failedAttempts: 0
-      }
-    }))
+        failedAttempts: 0,
+      },
+    }));
   }
 
-  recordPairCodeFailure(
-    channel: PairableRemoteChannel,
-    maxAttempts: number
-  ): { attempts: number; exhausted: boolean } {
+  recordPairCodeFailure(channel: PairableRemoteChannel, maxAttempts: number): { attempts: number; exhausted: boolean } {
     let result = {
       attempts: 0,
-      exhausted: false
-    }
+      exhausted: false,
+    };
 
-    if (channel === 'telegram') {
+    if (channel === "telegram") {
       this.updateTelegramConfig((config) => {
-        const attempts = config.pairing.failedAttempts + 1
-        const exhausted = attempts >= maxAttempts
+        const attempts = config.pairing.failedAttempts + 1;
+        const exhausted = attempts >= maxAttempts;
         result = {
           attempts,
-          exhausted
-        }
+          exhausted,
+        };
 
         return {
           ...config,
@@ -841,22 +814,22 @@ export class RemoteBindingStore {
             ? {
                 code: null,
                 expiresAt: null,
-                failedAttempts: 0
+                failedAttempts: 0,
               }
             : {
                 ...config.pairing,
-                failedAttempts: attempts
-              }
-        }
-      })
-    } else if (channel === 'feishu') {
+                failedAttempts: attempts,
+              },
+        };
+      });
+    } else if (channel === "feishu") {
       this.updateFeishuConfig((config) => {
-        const attempts = config.pairing.failedAttempts + 1
-        const exhausted = attempts >= maxAttempts
+        const attempts = config.pairing.failedAttempts + 1;
+        const exhausted = attempts >= maxAttempts;
         result = {
           attempts,
-          exhausted
-        }
+          exhausted,
+        };
 
         return {
           ...config,
@@ -864,22 +837,22 @@ export class RemoteBindingStore {
             ? {
                 code: null,
                 expiresAt: null,
-                failedAttempts: 0
+                failedAttempts: 0,
               }
             : {
                 ...config.pairing,
-                failedAttempts: attempts
-              }
-        }
-      })
-    } else if (channel === 'qqbot') {
+                failedAttempts: attempts,
+              },
+        };
+      });
+    } else if (channel === "qqbot") {
       this.updateQQBotConfig((config) => {
-        const attempts = config.pairing.failedAttempts + 1
-        const exhausted = attempts >= maxAttempts
+        const attempts = config.pairing.failedAttempts + 1;
+        const exhausted = attempts >= maxAttempts;
         result = {
           attempts,
-          exhausted
-        }
+          exhausted,
+        };
 
         return {
           ...config,
@@ -887,22 +860,22 @@ export class RemoteBindingStore {
             ? {
                 code: null,
                 expiresAt: null,
-                failedAttempts: 0
+                failedAttempts: 0,
               }
             : {
                 ...config.pairing,
-                failedAttempts: attempts
-              }
-        }
-      })
+                failedAttempts: attempts,
+              },
+        };
+      });
     } else {
       this.updateDiscordConfig((config) => {
-        const attempts = config.pairing.failedAttempts + 1
-        const exhausted = attempts >= maxAttempts
+        const attempts = config.pairing.failedAttempts + 1;
+        const exhausted = attempts >= maxAttempts;
         result = {
           attempts,
-          exhausted
-        }
+          exhausted,
+        };
 
         return {
           ...config,
@@ -910,29 +883,29 @@ export class RemoteBindingStore {
             ? {
                 code: null,
                 expiresAt: null,
-                failedAttempts: 0
+                failedAttempts: 0,
               }
             : {
                 ...config.pairing,
-                failedAttempts: attempts
-              }
-        }
-      })
+                failedAttempts: attempts,
+              },
+        };
+      });
     }
 
-    return result
+    return result;
   }
 
   rememberActiveEvent(endpointKey: string, eventId: string): void {
-    this.activeEvents.set(endpointKey, eventId)
+    this.activeEvents.set(endpointKey, eventId);
   }
 
   getActiveEvent(endpointKey: string): string | null {
-    return this.activeEvents.get(endpointKey) ?? null
+    return this.activeEvents.get(endpointKey) ?? null;
   }
 
   clearActiveEvent(endpointKey: string): void {
-    this.activeEvents.delete(endpointKey)
+    this.activeEvents.delete(endpointKey);
   }
 
   rememberRemoteDeliveryState(endpointKey: string, state: RemoteDeliveryState): void {
@@ -942,15 +915,15 @@ export class RemoteBindingStore {
         key: segment.key,
         kind: segment.kind,
         messageIds: [...segment.messageIds],
-        lastText: segment.lastText
-      }))
-    })
+        lastText: segment.lastText,
+      })),
+    });
   }
 
   getRemoteDeliveryState(endpointKey: string): RemoteDeliveryState | null {
-    const state = this.remoteDeliveryStates.get(endpointKey)
+    const state = this.remoteDeliveryStates.get(endpointKey);
     if (!state) {
-      return null
+      return null;
     }
 
     return {
@@ -959,267 +932,255 @@ export class RemoteBindingStore {
         key: segment.key,
         kind: segment.kind,
         messageIds: [...segment.messageIds],
-        lastText: segment.lastText
-      }))
-    }
+        lastText: segment.lastText,
+      })),
+    };
   }
 
   clearRemoteDeliveryState(endpointKey: string): void {
-    this.remoteDeliveryStates.delete(endpointKey)
+    this.remoteDeliveryStates.delete(endpointKey);
   }
 
   rememberSessionSnapshot(endpointKey: string, sessionIds: string[]): void {
-    this.sessionSnapshots.set(endpointKey, [...sessionIds])
+    this.sessionSnapshots.set(endpointKey, [...sessionIds]);
   }
 
   getSessionSnapshot(endpointKey: string): string[] {
-    return this.sessionSnapshots.get(endpointKey) ?? []
+    return this.sessionSnapshots.get(endpointKey) ?? [];
   }
 
-  createModelMenuState(
-    endpointKey: string,
-    sessionId: string,
-    providers: TelegramModelMenuState['providers']
-  ): string {
-    this.clearExpiredModelMenuStates()
-    this.clearModelMenuStatesForEndpoint(endpointKey)
-    const token = createTelegramCallbackToken()
+  createModelMenuState(endpointKey: string, sessionId: string, providers: TelegramModelMenuState["providers"]): string {
+    this.clearExpiredModelMenuStates();
+    this.clearModelMenuStatesForEndpoint(endpointKey);
+    const token = createTelegramCallbackToken();
     this.modelMenuStates.set(token, {
       endpointKey,
       sessionId,
       createdAt: Date.now(),
       providers: providers.map((provider) => ({
         ...provider,
-        models: provider.models.map((model) => ({ ...model }))
-      }))
-    })
-    return token
+        models: provider.models.map((model) => ({ ...model })),
+      })),
+    });
+    return token;
   }
 
   getModelMenuState(token: string, ttlMs: number): TelegramModelMenuState | null {
-    this.clearExpiredModelMenuStates()
-    const state = this.modelMenuStates.get(token)
+    this.clearExpiredModelMenuStates();
+    const state = this.modelMenuStates.get(token);
     if (!state) {
-      return null
+      return null;
     }
 
     if (Date.now() - state.createdAt > ttlMs) {
-      this.modelMenuStates.delete(token)
-      return null
+      this.modelMenuStates.delete(token);
+      return null;
     }
 
     return {
       ...state,
       providers: state.providers.map((provider) => ({
         ...provider,
-        models: provider.models.map((model) => ({ ...model }))
-      }))
-    }
+        models: provider.models.map((model) => ({ ...model })),
+      })),
+    };
   }
 
   clearModelMenuState(token: string): void {
-    this.modelMenuStates.delete(token)
+    this.modelMenuStates.delete(token);
   }
 
-  createAgentMenuState(
-    endpointKey: string,
-    sessionId: string,
-    agents: TelegramAgentOption[]
-  ): string {
-    this.clearExpiredAgentMenuStates()
-    this.clearAgentMenuStatesForEndpoint(endpointKey)
-    const token = createTelegramCallbackToken()
+  createAgentMenuState(endpointKey: string, sessionId: string, agents: TelegramAgentOption[]): string {
+    this.clearExpiredAgentMenuStates();
+    this.clearAgentMenuStatesForEndpoint(endpointKey);
+    const token = createTelegramCallbackToken();
     this.agentMenuStates.set(token, {
       endpointKey,
       sessionId,
       createdAt: Date.now(),
-      agents: agents.map((agent) => ({ ...agent }))
-    })
-    return token
+      agents: agents.map((agent) => ({ ...agent })),
+    });
+    return token;
   }
 
   getAgentMenuState(token: string, ttlMs: number): TelegramAgentMenuState | null {
-    this.clearExpiredAgentMenuStates()
-    const state = this.agentMenuStates.get(token)
+    this.clearExpiredAgentMenuStates();
+    const state = this.agentMenuStates.get(token);
     if (!state) {
-      return null
+      return null;
     }
 
     if (Date.now() - state.createdAt > ttlMs) {
-      this.agentMenuStates.delete(token)
-      return null
+      this.agentMenuStates.delete(token);
+      return null;
     }
 
     return {
       ...state,
-      agents: state.agents.map((agent) => ({ ...agent }))
-    }
+      agents: state.agents.map((agent) => ({ ...agent })),
+    };
   }
 
   clearAgentMenuState(token: string): void {
-    this.agentMenuStates.delete(token)
+    this.agentMenuStates.delete(token);
   }
 
   setChannelDefaultAgentId(endpointKey: string, agentId: string): void {
-    const channel = this.resolveChannelFromEndpointKey(endpointKey)
+    const channel = this.resolveChannelFromEndpointKey(endpointKey);
     if (!channel) {
-      return
+      return;
     }
 
-    if (channel === 'telegram') {
-      this.updateTelegramConfig((config) => ({ ...config, defaultAgentId: agentId }))
-    } else if (channel === 'feishu') {
-      this.updateFeishuConfig((config) => ({ ...config, defaultAgentId: agentId }))
-    } else if (channel === 'qqbot') {
-      this.updateQQBotConfig((config) => ({ ...config, defaultAgentId: agentId }))
-    } else if (channel === 'discord') {
-      this.updateDiscordConfig((config) => ({ ...config, defaultAgentId: agentId }))
-    } else if (channel === 'weixin-ilink') {
-      this.updateWeixinIlinkConfig((config) => ({ ...config, defaultAgentId: agentId }))
+    if (channel === "telegram") {
+      this.updateTelegramConfig((config) => ({ ...config, defaultAgentId: agentId }));
+    } else if (channel === "feishu") {
+      this.updateFeishuConfig((config) => ({ ...config, defaultAgentId: agentId }));
+    } else if (channel === "qqbot") {
+      this.updateQQBotConfig((config) => ({ ...config, defaultAgentId: agentId }));
+    } else if (channel === "discord") {
+      this.updateDiscordConfig((config) => ({ ...config, defaultAgentId: agentId }));
+    } else if (channel === "weixin-ilink") {
+      this.updateWeixinIlinkConfig((config) => ({ ...config, defaultAgentId: agentId }));
     }
   }
 
   createPendingInteractionState(
     endpointKey: string,
-    interaction: Pick<RemotePendingInteraction, 'messageId' | 'toolCallId'>
+    interaction: Pick<RemotePendingInteraction, "messageId" | "toolCallId">,
   ): string {
-    this.clearExpiredPendingInteractionStates()
-    this.clearPendingInteractionStatesForEndpoint(endpointKey)
-    const token = createTelegramCallbackToken()
+    this.clearExpiredPendingInteractionStates();
+    this.clearPendingInteractionStatesForEndpoint(endpointKey);
+    const token = createTelegramCallbackToken();
     this.pendingInteractionStates.set(token, {
       endpointKey,
       createdAt: Date.now(),
       messageId: interaction.messageId,
-      toolCallId: interaction.toolCallId
-    })
-    return token
+      toolCallId: interaction.toolCallId,
+    });
+    return token;
   }
 
   getPendingInteractionState(token: string, ttlMs: number = TELEGRAM_INTERACTION_CALLBACK_TTL_MS) {
-    this.clearExpiredPendingInteractionStates()
-    const state = this.pendingInteractionStates.get(token)
+    this.clearExpiredPendingInteractionStates();
+    const state = this.pendingInteractionStates.get(token);
     if (!state) {
-      return null
+      return null;
     }
 
     if (Date.now() - state.createdAt > ttlMs) {
-      this.pendingInteractionStates.delete(token)
-      return null
+      this.pendingInteractionStates.delete(token);
+      return null;
     }
 
     return {
-      ...state
-    }
+      ...state,
+    };
   }
 
   clearPendingInteractionState(token: string): void {
-    this.pendingInteractionStates.delete(token)
+    this.pendingInteractionStates.delete(token);
   }
 
   private getChannelBindings(channel: RemoteChannel): Record<string, RemoteEndpointBinding> {
-    if (channel === 'weixin-ilink') {
+    if (channel === "weixin-ilink") {
       return this.getWeixinIlinkAccounts().reduce<Record<string, RemoteEndpointBinding>>(
         (bindings, account) => ({
           ...bindings,
-          ...account.bindings
+          ...account.bindings,
         }),
-        {}
-      )
+        {},
+      );
     }
 
-    if (channel === 'telegram') {
-      return this.getTelegramConfig().bindings
+    if (channel === "telegram") {
+      return this.getTelegramConfig().bindings;
     }
 
-    if (channel === 'feishu') {
-      return this.getFeishuConfig().bindings
+    if (channel === "feishu") {
+      return this.getFeishuConfig().bindings;
     }
 
-    if (channel === 'qqbot') {
-      return this.getQQBotConfig().bindings
+    if (channel === "qqbot") {
+      return this.getQQBotConfig().bindings;
     }
 
-    return this.getDiscordConfig().bindings
+    return this.getDiscordConfig().bindings;
   }
 
   private updateBindings(
     channel: RemoteChannel,
-    updater: (
-      bindings: Record<string, RemoteEndpointBinding>
-    ) => Record<string, RemoteEndpointBinding>
+    updater: (bindings: Record<string, RemoteEndpointBinding>) => Record<string, RemoteEndpointBinding>,
   ): void {
-    if (channel === 'telegram') {
+    if (channel === "telegram") {
       this.updateTelegramConfig((config) => ({
         ...config,
-        bindings: updater(config.bindings)
-      }))
-      return
+        bindings: updater(config.bindings),
+      }));
+      return;
     }
 
-    if (channel === 'feishu') {
+    if (channel === "feishu") {
       this.updateFeishuConfig((config) => ({
         ...config,
-        bindings: updater(config.bindings)
-      }))
-      return
+        bindings: updater(config.bindings),
+      }));
+      return;
     }
 
-    if (channel === 'qqbot') {
+    if (channel === "qqbot") {
       this.updateQQBotConfig((config) => ({
         ...config,
-        bindings: updater(config.bindings)
-      }))
-      return
+        bindings: updater(config.bindings),
+      }));
+      return;
     }
 
-    if (channel === 'discord') {
+    if (channel === "discord") {
       this.updateDiscordConfig((config) => ({
         ...config,
-        bindings: updater(config.bindings)
-      }))
-      return
+        bindings: updater(config.bindings),
+      }));
+      return;
     }
   }
 
   private resolveChannelFromEndpointKey(endpointKey: string): RemoteChannel | null {
-    if (endpointKey.startsWith('telegram:')) {
-      return 'telegram'
+    if (endpointKey.startsWith("telegram:")) {
+      return "telegram";
     }
-    if (endpointKey.startsWith('feishu:')) {
-      return 'feishu'
+    if (endpointKey.startsWith("feishu:")) {
+      return "feishu";
     }
-    if (endpointKey.startsWith('qqbot:')) {
-      return 'qqbot'
+    if (endpointKey.startsWith("qqbot:")) {
+      return "qqbot";
     }
-    if (endpointKey.startsWith('discord:')) {
-      return 'discord'
+    if (endpointKey.startsWith("discord:")) {
+      return "discord";
     }
-    if (endpointKey.startsWith('weixin-ilink:')) {
-      return 'weixin-ilink'
+    if (endpointKey.startsWith("weixin-ilink:")) {
+      return "weixin-ilink";
     }
-    return null
+    return null;
   }
 
-  private getWeixinIlinkBindingsForAccount(
-    accountId: string
-  ): Record<string, RemoteEndpointBinding> {
-    return this.getWeixinIlinkAccount(accountId)?.bindings ?? {}
+  private getWeixinIlinkBindingsForAccount(accountId: string): Record<string, RemoteEndpointBinding> {
+    return this.getWeixinIlinkAccount(accountId)?.bindings ?? {};
   }
 
   private clearTransientStateForEndpoint(endpointKey: string): void {
-    this.activeEvents.delete(endpointKey)
-    this.sessionSnapshots.delete(endpointKey)
-    this.clearModelMenuStatesForEndpoint(endpointKey)
-    this.clearAgentMenuStatesForEndpoint(endpointKey)
-    this.clearPendingInteractionStatesForEndpoint(endpointKey)
-    this.clearRemoteDeliveryState(endpointKey)
+    this.activeEvents.delete(endpointKey);
+    this.sessionSnapshots.delete(endpointKey);
+    this.clearModelMenuStatesForEndpoint(endpointKey);
+    this.clearAgentMenuStatesForEndpoint(endpointKey);
+    this.clearPendingInteractionStatesForEndpoint(endpointKey);
+    this.clearRemoteDeliveryState(endpointKey);
   }
 
   private clearExpiredModelMenuStates(): void {
-    const now = Date.now()
+    const now = Date.now();
     for (const [token, state] of this.modelMenuStates.entries()) {
       if (now - state.createdAt > TELEGRAM_MODEL_MENU_TTL_MS) {
-        this.modelMenuStates.delete(token)
+        this.modelMenuStates.delete(token);
       }
     }
   }
@@ -1227,16 +1188,16 @@ export class RemoteBindingStore {
   private clearModelMenuStatesForEndpoint(endpointKey: string): void {
     for (const [token, state] of this.modelMenuStates.entries()) {
       if (state.endpointKey === endpointKey) {
-        this.modelMenuStates.delete(token)
+        this.modelMenuStates.delete(token);
       }
     }
   }
 
   private clearExpiredAgentMenuStates(): void {
-    const now = Date.now()
+    const now = Date.now();
     for (const [token, state] of this.agentMenuStates.entries()) {
       if (now - state.createdAt > TELEGRAM_AGENT_MENU_TTL_MS) {
-        this.agentMenuStates.delete(token)
+        this.agentMenuStates.delete(token);
       }
     }
   }
@@ -1244,16 +1205,16 @@ export class RemoteBindingStore {
   private clearAgentMenuStatesForEndpoint(endpointKey: string): void {
     for (const [token, state] of this.agentMenuStates.entries()) {
       if (state.endpointKey === endpointKey) {
-        this.agentMenuStates.delete(token)
+        this.agentMenuStates.delete(token);
       }
     }
   }
 
   private clearExpiredPendingInteractionStates(): void {
-    const now = Date.now()
+    const now = Date.now();
     for (const [token, state] of this.pendingInteractionStates.entries()) {
       if (now - state.createdAt > TELEGRAM_INTERACTION_CALLBACK_TTL_MS) {
-        this.pendingInteractionStates.delete(token)
+        this.pendingInteractionStates.delete(token);
       }
     }
   }
@@ -1261,7 +1222,7 @@ export class RemoteBindingStore {
   private clearPendingInteractionStatesForEndpoint(endpointKey: string): void {
     for (const [token, state] of this.pendingInteractionStates.entries()) {
       if (state.endpointKey === endpointKey) {
-        this.pendingInteractionStates.delete(token)
+        this.pendingInteractionStates.delete(token);
       }
     }
   }

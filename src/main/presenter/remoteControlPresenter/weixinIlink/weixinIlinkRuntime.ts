@@ -3,198 +3,194 @@ import {
   buildWeixinIlinkEndpointKey,
   type RemoteDeliverySegment,
   type WeixinIlinkInboundMessage,
-  type WeixinIlinkRuntimeStatusSnapshot
-} from '../types'
-import { RemoteBindingStore } from '../services/remoteBindingStore'
-import type { RemoteConversationExecution } from '../services/remoteConversationRunner'
-import type { WeixinIlinkCommandRouteResult } from '../services/weixinIlinkCommandRouter'
-import { WeixinIlinkCommandRouter } from '../services/weixinIlinkCommandRouter'
-import { REMOTE_NO_RESPONSE_TEXT } from '../services/remoteBlockRenderer'
-import {
-  WeixinIlinkApiError,
-  WeixinIlinkClient,
-  type WeixinIlinkGetUpdatesResponse
-} from './weixinIlinkClient'
-import { WeixinIlinkParser } from './weixinIlinkParser'
+  type WeixinIlinkRuntimeStatusSnapshot,
+} from "../types";
+import { RemoteBindingStore } from "../services/remoteBindingStore";
+import type { RemoteConversationExecution } from "../services/remoteConversationRunner";
+import type { WeixinIlinkCommandRouteResult } from "../services/weixinIlinkCommandRouter";
+import { WeixinIlinkCommandRouter } from "../services/weixinIlinkCommandRouter";
+import { REMOTE_NO_RESPONSE_TEXT } from "../services/remoteBlockRenderer";
+import { WeixinIlinkApiError, WeixinIlinkClient, type WeixinIlinkGetUpdatesResponse } from "./weixinIlinkClient";
+import { WeixinIlinkParser } from "./weixinIlinkParser";
 
-const WEIXIN_SESSION_EXPIRED_ERRCODE = -14
-const WEIXIN_INBOUND_DEDUP_LIMIT = 500
-const WEIXIN_INBOUND_DEDUP_TTL_MS = 10 * 60 * 1000
-const WEIXIN_INTERNAL_ERROR_REPLY = 'An internal error occurred while processing your request.'
-const WEIXIN_LOG_TEXT_PREVIEW_LIMIT = 120
-const WEIXIN_TRACE_LOG_ENABLED = process.env.DEEPCHAT_WEIXIN_TRACE === '1'
+const WEIXIN_SESSION_EXPIRED_ERRCODE = -14;
+const WEIXIN_INBOUND_DEDUP_LIMIT = 500;
+const WEIXIN_INBOUND_DEDUP_TTL_MS = 10 * 60 * 1000;
+const WEIXIN_INTERNAL_ERROR_REPLY = "An internal error occurred while processing your request.";
+const WEIXIN_LOG_TEXT_PREVIEW_LIMIT = 120;
+const WEIXIN_TRACE_LOG_ENABLED = process.env.DEEPCHAT_WEIXIN_TRACE === "1";
 
 const sleep = async (ms: number): Promise<void> => {
-  await new Promise((resolve) => setTimeout(resolve, ms))
-}
+  await new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 type WeixinIlinkRuntimeDeps = {
-  accountId: string
-  ownerUserId: string
-  baseUrl: string
-  client: WeixinIlinkClient
-  parser: WeixinIlinkParser
-  router: WeixinIlinkCommandRouter
-  bindingStore: RemoteBindingStore
+  accountId: string;
+  ownerUserId: string;
+  baseUrl: string;
+  client: WeixinIlinkClient;
+  parser: WeixinIlinkParser;
+  router: WeixinIlinkCommandRouter;
+  bindingStore: RemoteBindingStore;
   logger?: {
-    info?: (...params: unknown[]) => void
-    warn?: (...params: unknown[]) => void
-    error: (...params: unknown[]) => void
-  }
-  onStatusChange?: (snapshot: WeixinIlinkRuntimeStatusSnapshot) => void
-  onFatalError?: (message: string) => void
-}
+    info?: (...params: unknown[]) => void;
+    warn?: (...params: unknown[]) => void;
+    error: (...params: unknown[]) => void;
+  };
+  onStatusChange?: (snapshot: WeixinIlinkRuntimeStatusSnapshot) => void;
+  onFatalError?: (message: string) => void;
+};
 
 type WeixinIlinkProcessedInboundEntry = {
-  receivedAt: number
-}
+  receivedAt: number;
+};
 
 type WeixinIlinkSendContext = {
-  userId: string
-  contextToken: string | null
-}
+  userId: string;
+  contextToken: string | null;
+};
 
 type WeixinIlinkRemoteDeliveryState = {
-  sourceMessageId: string
+  sourceMessageId: string;
   segments: Array<{
-    key: string
-    kind: 'process' | 'answer' | 'terminal'
-    messageIds: Array<string | null>
-    lastText: string
-  }>
-}
+    key: string;
+    kind: "process" | "answer" | "terminal";
+    messageIds: Array<string | null>;
+    lastText: string;
+  }>;
+};
 
 const isFatalWeixinError = (error: unknown): boolean =>
   error instanceof WeixinIlinkApiError &&
-  ((typeof error.status === 'number' && [401, 403].includes(error.status)) ||
-    error.errcode === WEIXIN_SESSION_EXPIRED_ERRCODE)
+  ((typeof error.status === "number" && [401, 403].includes(error.status)) ||
+    error.errcode === WEIXIN_SESSION_EXPIRED_ERRCODE);
 
 export class WeixinIlinkRuntime {
-  private runId = 0
-  private started = false
-  private stopRequested = false
-  private readonly processedInboundByMessage = new Map<string, WeixinIlinkProcessedInboundEntry>()
-  private readonly endpointOperations = new Map<string, Promise<void>>()
-  private statusSnapshot: WeixinIlinkRuntimeStatusSnapshot
+  private runId = 0;
+  private started = false;
+  private stopRequested = false;
+  private readonly processedInboundByMessage = new Map<string, WeixinIlinkProcessedInboundEntry>();
+  private readonly endpointOperations = new Map<string, Promise<void>>();
+  private statusSnapshot: WeixinIlinkRuntimeStatusSnapshot;
 
   constructor(private readonly deps: WeixinIlinkRuntimeDeps) {
     this.statusSnapshot = {
-      state: 'stopped',
+      state: "stopped",
       lastError: null,
       botUser: {
         accountId: deps.accountId,
         ownerUserId: deps.ownerUserId,
-        baseUrl: deps.baseUrl
-      }
-    }
+        baseUrl: deps.baseUrl,
+      },
+    };
   }
 
   async start(): Promise<void> {
     if (this.started) {
-      this.logInfo('Skipped runtime start because it is already running.', {
+      this.logInfo("Skipped runtime start because it is already running.", {
         accountId: this.deps.accountId,
-        runId: this.runId
-      })
-      return
+        runId: this.runId,
+      });
+      return;
     }
 
-    this.runId += 1
-    this.started = true
-    this.stopRequested = false
-    this.logInfo('Starting Weixin iLink runtime.', {
+    this.runId += 1;
+    this.started = true;
+    this.stopRequested = false;
+    this.logInfo("Starting Weixin iLink runtime.", {
       accountId: this.deps.accountId,
       ownerUserId: this.deps.ownerUserId,
-      runId: this.runId
-    })
+      runId: this.runId,
+    });
     this.setStatus({
-      state: 'starting',
-      lastError: null
-    })
+      state: "starting",
+      lastError: null,
+    });
 
-    void this.runLoop(this.runId)
+    void this.runLoop(this.runId);
   }
 
   async stop(): Promise<void> {
-    this.logInfo('Stopping Weixin iLink runtime.', {
+    this.logInfo("Stopping Weixin iLink runtime.", {
       accountId: this.deps.accountId,
-      runId: this.runId
-    })
-    this.stopRequested = true
-    this.started = false
-    this.runId += 1
-    this.endpointOperations.clear()
-    this.processedInboundByMessage.clear()
+      runId: this.runId,
+    });
+    this.stopRequested = true;
+    this.started = false;
+    this.runId += 1;
+    this.endpointOperations.clear();
+    this.processedInboundByMessage.clear();
     this.setStatus({
-      state: 'stopped',
-      lastError: null
-    })
+      state: "stopped",
+      lastError: null,
+    });
   }
 
   getStatusSnapshot(): WeixinIlinkRuntimeStatusSnapshot {
     return {
       ...this.statusSnapshot,
-      botUser: this.statusSnapshot.botUser ? { ...this.statusSnapshot.botUser } : null
-    }
+      botUser: this.statusSnapshot.botUser ? { ...this.statusSnapshot.botUser } : null,
+    };
   }
 
   private async runLoop(runId: number): Promise<void> {
-    let backoffMs = 1_000
+    let backoffMs = 1_000;
     while (this.isCurrentRun(runId)) {
       try {
-        const account = this.deps.bindingStore.getWeixinIlinkAccount(this.deps.accountId)
-        const cursor = account?.syncCursor ?? ''
-        const response = await this.deps.client.getUpdates(cursor)
+        const account = this.deps.bindingStore.getWeixinIlinkAccount(this.deps.accountId);
+        const cursor = account?.syncCursor ?? "";
+        const response = await this.deps.client.getUpdates(cursor);
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        const fatalError = this.extractFatalResponseError(response)
+        const fatalError = this.extractFatalResponseError(response);
         if (fatalError) {
           this.setStatus({
-            state: 'error',
-            lastError: fatalError
-          })
-          this.deps.onFatalError?.(fatalError)
-          this.started = false
-          return
+            state: "error",
+            lastError: fatalError,
+          });
+          this.deps.onFatalError?.(fatalError);
+          this.started = false;
+          return;
         }
 
         if ((response.ret ?? 0) !== 0) {
-          const message = response.errmsg?.trim() || 'Weixin iLink long poll failed.'
+          const message = response.errmsg?.trim() || "Weixin iLink long poll failed.";
           this.setStatus({
-            state: 'backoff',
-            lastError: message
-          })
-          await sleep(backoffMs)
-          backoffMs = Math.min(backoffMs * 2, 30_000)
-          continue
+            state: "backoff",
+            lastError: message,
+          });
+          await sleep(backoffMs);
+          backoffMs = Math.min(backoffMs * 2, 30_000);
+          continue;
         }
 
-        backoffMs = 1_000
+        backoffMs = 1_000;
         this.setStatus({
-          state: 'running',
-          lastError: null
-        })
+          state: "running",
+          lastError: null,
+        });
 
-        const nextCursor = response.get_updates_buf?.trim()
+        const nextCursor = response.get_updates_buf?.trim();
         if (nextCursor !== undefined && nextCursor !== cursor) {
           this.deps.bindingStore.updateWeixinIlinkAccount(this.deps.accountId, (current) => ({
             ...current,
-            syncCursor: nextCursor
-          }))
+            syncCursor: nextCursor,
+          }));
         }
 
         for (const rawMessage of response.msgs ?? []) {
           if (!this.isCurrentRun(runId)) {
-            return
+            return;
           }
 
-          const parsed = this.deps.parser.parseMessage(this.deps.accountId, rawMessage)
+          const parsed = this.deps.parser.parseMessage(this.deps.accountId, rawMessage);
           if (!parsed || this.rememberInboundMessage(parsed)) {
-            continue
+            continue;
           }
 
-          this.logInfo('Accepted inbound Weixin iLink message.', {
+          this.logInfo("Accepted inbound Weixin iLink message.", {
             accountId: parsed.accountId,
             userId: parsed.userId,
             messageId: parsed.messageId,
@@ -202,163 +198,156 @@ export class WeixinIlinkRuntime {
             command: parsed.command?.name ?? null,
             hasContextToken: Boolean(parsed.contextToken),
             textLength: parsed.text.length,
-            textPreview: this.getTextPreview(parsed.text)
-          })
+            textPreview: this.getTextPreview(parsed.text),
+          });
 
-          const endpointKey = buildWeixinIlinkEndpointKey(parsed.accountId, parsed.userId)
-          if (parsed.command?.name === 'stop') {
-            await this.processInboundMessage(parsed, runId)
-            continue
+          const endpointKey = buildWeixinIlinkEndpointKey(parsed.accountId, parsed.userId);
+          if (parsed.command?.name === "stop") {
+            await this.processInboundMessage(parsed, runId);
+            continue;
           }
 
           this.enqueueEndpointOperation(endpointKey, runId, async () => {
-            await this.processInboundMessage(parsed, runId)
-          })
+            await this.processInboundMessage(parsed, runId);
+          });
         }
       } catch (error) {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        const lastError = error instanceof Error ? error.message : String(error)
+        const lastError = error instanceof Error ? error.message : String(error);
         if (isFatalWeixinError(error)) {
           this.setStatus({
-            state: 'error',
-            lastError
-          })
-          this.deps.onFatalError?.(lastError)
-          this.started = false
-          return
+            state: "error",
+            lastError,
+          });
+          this.deps.onFatalError?.(lastError);
+          this.started = false;
+          return;
         }
 
         this.setStatus({
-          state: 'backoff',
-          lastError
-        })
-        await sleep(backoffMs)
-        backoffMs = Math.min(backoffMs * 2, 30_000)
+          state: "backoff",
+          lastError,
+        });
+        await sleep(backoffMs);
+        backoffMs = Math.min(backoffMs * 2, 30_000);
       }
     }
   }
 
   private extractFatalResponseError(response: WeixinIlinkGetUpdatesResponse): string | null {
     if (response.errcode === WEIXIN_SESSION_EXPIRED_ERRCODE) {
-      return response.errmsg?.trim() || 'The Weixin iLink session expired. Please log in again.'
+      return response.errmsg?.trim() || "The Weixin iLink session expired. Please log in again.";
     }
 
-    return null
+    return null;
   }
 
   private isCurrentRun(runId: number): boolean {
-    return this.runId === runId && this.started && !this.stopRequested
+    return this.runId === runId && this.started && !this.stopRequested;
   }
 
   private rememberInboundMessage(message: WeixinIlinkInboundMessage): boolean {
-    const now = Date.now()
-    this.pruneProcessedInbound(now)
+    const now = Date.now();
+    this.pruneProcessedInbound(now);
 
-    const messageKey = `${message.accountId}:${message.userId}:${message.messageId}`
+    const messageKey = `${message.accountId}:${message.userId}:${message.messageId}`;
     if (this.processedInboundByMessage.has(messageKey)) {
-      this.logInfo('Dropped duplicate inbound Weixin iLink message.', {
+      this.logInfo("Dropped duplicate inbound Weixin iLink message.", {
         accountId: message.accountId,
         userId: message.userId,
         messageId: message.messageId,
-        messageKey
-      })
-      return true
+        messageKey,
+      });
+      return true;
     }
 
     this.processedInboundByMessage.set(messageKey, {
-      receivedAt: now
-    })
+      receivedAt: now,
+    });
 
     while (this.processedInboundByMessage.size > WEIXIN_INBOUND_DEDUP_LIMIT) {
-      const oldestKey = this.processedInboundByMessage.keys().next().value
+      const oldestKey = this.processedInboundByMessage.keys().next().value;
       if (!oldestKey) {
-        break
+        break;
       }
-      this.processedInboundByMessage.delete(oldestKey)
+      this.processedInboundByMessage.delete(oldestKey);
     }
 
-    return false
+    return false;
   }
 
   private pruneProcessedInbound(now: number): void {
     for (const [messageKey, entry] of this.processedInboundByMessage.entries()) {
       if (now - entry.receivedAt <= WEIXIN_INBOUND_DEDUP_TTL_MS) {
-        break
+        break;
       }
-      this.processedInboundByMessage.delete(messageKey)
+      this.processedInboundByMessage.delete(messageKey);
     }
   }
 
-  private enqueueEndpointOperation(
-    endpointKey: string,
-    runId: number,
-    operation: () => Promise<void>
-  ): void {
-    const previous = this.endpointOperations.get(endpointKey) ?? Promise.resolve()
+  private enqueueEndpointOperation(endpointKey: string, runId: number, operation: () => Promise<void>): void {
+    const previous = this.endpointOperations.get(endpointKey) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
       .then(async () => {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        await operation()
+        await operation();
       })
       .finally(() => {
         if (this.endpointOperations.get(endpointKey) === next) {
-          this.endpointOperations.delete(endpointKey)
+          this.endpointOperations.delete(endpointKey);
         }
-      })
+      });
 
-    this.endpointOperations.set(endpointKey, next)
+    this.endpointOperations.set(endpointKey, next);
   }
 
-  private async processInboundMessage(
-    message: WeixinIlinkInboundMessage,
-    runId: number
-  ): Promise<void> {
+  private async processInboundMessage(message: WeixinIlinkInboundMessage, runId: number): Promise<void> {
     if (!this.isCurrentRun(runId)) {
-      return
+      return;
     }
 
     const sendContext: WeixinIlinkSendContext = {
       userId: message.userId,
-      contextToken: message.contextToken
-    }
+      contextToken: message.contextToken,
+    };
 
     try {
-      const routed = await this.deps.router.handleMessage(message)
+      const routed = await this.deps.router.handleMessage(message);
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      this.logInfo('Resolved inbound Weixin iLink route.', {
+      this.logInfo("Resolved inbound Weixin iLink route.", {
         accountId: message.accountId,
         userId: message.userId,
         messageId: message.messageId,
         command: message.command?.name ?? null,
         repliesCount: routed.replies.length,
-        hasConversation: Boolean(routed.conversation)
-      })
+        hasConversation: Boolean(routed.conversation),
+      });
 
-      await this.dispatchRouteResult(message, sendContext, routed, runId)
+      await this.dispatchRouteResult(message, sendContext, routed, runId);
     } catch (error) {
       if (this.deps.logger?.error) {
         this.deps.logger.error(error, {
           accountId: message.accountId,
           userId: message.userId,
-          messageId: message.messageId
-        })
+          messageId: message.messageId,
+        });
       }
 
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      await this.sendText(sendContext, WEIXIN_INTERNAL_ERROR_REPLY).catch(() => undefined)
+      await this.sendText(sendContext, WEIXIN_INTERNAL_ERROR_REPLY).catch(() => undefined);
     }
   }
 
@@ -366,116 +355,112 @@ export class WeixinIlinkRuntime {
     message: WeixinIlinkInboundMessage,
     sendContext: WeixinIlinkSendContext,
     routed: WeixinIlinkCommandRouteResult,
-    runId: number
+    runId: number,
   ): Promise<void> {
     for (const reply of routed.replies) {
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      await this.sendText(sendContext, reply, 'reply', {
+      await this.sendText(sendContext, reply, "reply", {
         accountId: message.accountId,
         userId: message.userId,
-        inboundMessageId: message.messageId
-      })
+        inboundMessageId: message.messageId,
+      });
     }
 
     if (!routed.conversation) {
-      return
+      return;
     }
 
-    await this.deliverConversation(message, sendContext, routed.conversation, runId)
+    await this.deliverConversation(message, sendContext, routed.conversation, runId);
   }
 
   private async deliverConversation(
     message: WeixinIlinkInboundMessage,
     sendContext: WeixinIlinkSendContext,
     execution: RemoteConversationExecution,
-    runId: number
+    runId: number,
   ): Promise<void> {
-    const startedAt = Date.now()
-    const endpointKey = buildWeixinIlinkEndpointKey(message.accountId, message.userId)
+    const startedAt = Date.now();
+    const endpointKey = buildWeixinIlinkEndpointKey(message.accountId, message.userId);
 
     while (this.isCurrentRun(runId)) {
-      const snapshot = await execution.getSnapshot()
+      const snapshot = await execution.getSnapshot();
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null
-      let deliveryState = this.getStoredDeliveryState(endpointKey)
-      deliveryState = await this.prepareDeliveryStateForSource(
-        endpointKey,
-        sourceMessageId,
-        deliveryState
-      )
-      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId)
+      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null;
+      let deliveryState = this.getStoredDeliveryState(endpointKey);
+      deliveryState = await this.prepareDeliveryStateForSource(endpointKey, sourceMessageId, deliveryState);
+      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId);
 
       if (sourceMessageId) {
-        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId)
+        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId);
       }
 
       if (snapshot.completed) {
-        const finalText = this.getFinalDeliveryText(snapshot)
-        const processSegments = deliverySegments.filter((segment) => segment.kind === 'process')
+        const finalText = this.getFinalDeliveryText(snapshot);
+        const processSegments = deliverySegments.filter((segment) => segment.kind === "process");
 
         if (deliveryState && processSegments.length > 0) {
-          await this.syncDeliverySegments(deliveryState, endpointKey, sendContext, processSegments)
+          await this.syncDeliverySegments(deliveryState, endpointKey, sendContext, processSegments);
         }
 
         if (snapshot.pendingInteraction) {
-          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-          return
+          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+          return;
         }
 
         if (finalText.trim()) {
-          this.logInfo('Sending Weixin iLink final fallback text without delivery state.', {
+          this.logInfo("Sending Weixin iLink final fallback text without delivery state.", {
             accountId: message.accountId,
             userId: message.userId,
             inboundMessageId: message.messageId,
             endpointKey,
             sourceMessageId,
             textLength: finalText.trim().length,
-            textPreview: this.getTextPreview(finalText)
-          })
-          await this.sendText(sendContext, finalText, 'final-fallback', {
+            textPreview: this.getTextPreview(finalText),
+          });
+          await this.sendText(sendContext, finalText, "final-fallback", {
             accountId: message.accountId,
             userId: message.userId,
             inboundMessageId: message.messageId,
             endpointKey,
-            sourceMessageId
-          })
+            sourceMessageId,
+          });
         }
-        await this.sendGeneratedImages(sendContext, snapshot)
+        await this.sendGeneratedImages(sendContext, snapshot);
 
-        this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-        return
+        this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+        return;
       }
 
-      const liveSegments = deliverySegments.filter((segment) => segment.kind === 'process')
+      const liveSegments = deliverySegments.filter((segment) => segment.kind === "process");
       if (deliveryState && liveSegments.length > 0) {
-        await this.syncDeliverySegments(deliveryState, endpointKey, sendContext, liveSegments)
+        await this.syncDeliverySegments(deliveryState, endpointKey, sendContext, liveSegments);
       }
 
       if (Date.now() - startedAt >= 5 * 60_000) {
-        return
+        return;
       }
 
-      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS)
+      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS);
     }
   }
 
   private createDeliveryState(sourceMessageId: string): WeixinIlinkRemoteDeliveryState {
     return {
       sourceMessageId,
-      segments: []
-    }
+      segments: [],
+    };
   }
 
   private getStoredDeliveryState(endpointKey: string): WeixinIlinkRemoteDeliveryState | null {
-    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey)
+    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey);
     if (!state) {
-      return null
+      return null;
     }
 
     return {
@@ -483,104 +468,100 @@ export class WeixinIlinkRuntime {
       segments: state.segments.map((segment) => ({
         key: segment.key,
         kind: segment.kind,
-        messageIds: segment.messageIds.map((messageId) =>
-          messageId === null ? null : String(messageId)
-        ),
-        lastText: segment.lastText
-      }))
-    }
+        messageIds: segment.messageIds.map((messageId) => (messageId === null ? null : String(messageId))),
+        lastText: segment.lastText,
+      })),
+    };
   }
 
   private async prepareDeliveryStateForSource(
     endpointKey: string,
     sourceMessageId: string | null,
-    state: WeixinIlinkRemoteDeliveryState | null
+    state: WeixinIlinkRemoteDeliveryState | null,
   ): Promise<WeixinIlinkRemoteDeliveryState | null> {
     if (!sourceMessageId) {
-      return state
+      return state;
     }
 
     if (!state || state.sourceMessageId === sourceMessageId) {
-      return state
+      return state;
     }
 
-    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-    return null
+    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+    return null;
   }
 
   private getSnapshotDeliverySegments(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>,
-    sourceMessageId: string | null
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
+    sourceMessageId: string | null,
   ): RemoteDeliverySegment[] {
     if (snapshot.deliverySegments && snapshot.deliverySegments.length > 0) {
-      return snapshot.deliverySegments
+      return snapshot.deliverySegments;
     }
 
     if (!snapshot.text.trim()) {
-      return []
+      return [];
     }
 
     return [
       {
-        key: `${sourceMessageId ?? 'unknown'}:${snapshot.completed ? 'terminal' : 'answer'}`,
-        kind: snapshot.completed ? 'terminal' : 'answer',
+        key: `${sourceMessageId ?? "unknown"}:${snapshot.completed ? "terminal" : "answer"}`,
+        kind: snapshot.completed ? "terminal" : "answer",
         text: snapshot.text,
-        sourceMessageId: sourceMessageId ?? 'unknown'
-      }
-    ]
+        sourceMessageId: sourceMessageId ?? "unknown",
+      },
+    ];
   }
 
   appendTerminalDeliverySegment(
     segments: RemoteDeliverySegment[],
     sourceMessageId: string | null,
-    finalText: string
+    finalText: string,
   ): RemoteDeliverySegment[] {
-    const normalized = finalText.trim()
+    const normalized = finalText.trim();
     if (!normalized) {
-      return segments
+      return segments;
     }
 
-    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === 'answer')
+    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === "answer");
     if (lastAnswerSegment?.text.trim() === normalized) {
-      return segments
+      return segments;
     }
 
     if (normalized === REMOTE_NO_RESPONSE_TEXT && segments.length > 0) {
-      return segments
+      return segments;
     }
 
-    const terminalKey = `${sourceMessageId ?? 'unknown'}:terminal`
+    const terminalKey = `${sourceMessageId ?? "unknown"}:terminal`;
     if (segments.some((segment) => segment.key === terminalKey)) {
-      return segments
+      return segments;
     }
 
     return [
       ...segments,
       {
         key: terminalKey,
-        kind: 'terminal',
+        kind: "terminal",
         text: normalized,
-        sourceMessageId: sourceMessageId ?? 'unknown'
-      }
-    ]
+        sourceMessageId: sourceMessageId ?? "unknown",
+      },
+    ];
   }
 
-  private getFinalDeliveryText(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
-  ): string {
-    const finalText = snapshot.finalText?.trim() ?? ''
+  private getFinalDeliveryText(snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>): string {
+    const finalText = snapshot.finalText?.trim() ?? "";
     if (finalText) {
-      return finalText
+      return finalText;
     }
     if ((snapshot.generatedImages?.length ?? 0) > 0) {
-      return ''
+      return "";
     }
-    return snapshot.fullText?.trim() || snapshot.text.trim() || REMOTE_NO_RESPONSE_TEXT
+    return snapshot.fullText?.trim() || snapshot.text.trim() || REMOTE_NO_RESPONSE_TEXT;
   }
 
   private async sendGeneratedImages(
     sendContext: WeixinIlinkSendContext,
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
   ): Promise<void> {
     for (const asset of snapshot.generatedImages ?? []) {
       try {
@@ -588,19 +569,15 @@ export class WeixinIlinkRuntime {
           toUserId: sendContext.userId,
           contextToken: sendContext.contextToken,
           imagePath: asset.path,
-          mimeType: asset.mimeType
-        })
+          mimeType: asset.mimeType,
+        });
       } catch (error) {
-        this.logInfo('Failed to send Weixin iLink generated image; using local copy fallback.', {
+        this.logInfo("Failed to send Weixin iLink generated image; using local copy fallback.", {
           accountId: this.deps.accountId,
           path: asset.path,
-          error: error instanceof Error ? error.message : String(error)
-        })
-        await this.sendText(
-          sendContext,
-          '[Image] Delivery failed - see local copy in the app.',
-          'image-fallback'
-        )
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await this.sendText(sendContext, "[Image] Delivery failed - see local copy in the app.", "image-fallback");
       }
     }
   }
@@ -609,19 +586,19 @@ export class WeixinIlinkRuntime {
     deliveryState: WeixinIlinkRemoteDeliveryState,
     endpointKey: string,
     sendContext: WeixinIlinkSendContext,
-    segments: RemoteDeliverySegment[]
+    segments: RemoteDeliverySegment[],
   ): Promise<WeixinIlinkRemoteDeliveryState> {
-    let changed = false
-    const nextSegments = [...deliveryState.segments]
+    let changed = false;
+    const nextSegments = [...deliveryState.segments];
 
     for (const segment of segments) {
-      const existing = nextSegments.find((item) => item.key === segment.key)
-      const nextText = segment.text.trim()
+      const existing = nextSegments.find((item) => item.key === segment.key);
+      const nextText = segment.text.trim();
       if (!nextText || existing?.lastText === nextText) {
-        continue
+        continue;
       }
 
-      this.logInfo('Sending Weixin iLink delivery segment.', {
+      this.logInfo("Sending Weixin iLink delivery segment.", {
         accountId: this.deps.accountId,
         endpointKey,
         sourceMessageId: deliveryState.sourceMessageId,
@@ -629,34 +606,34 @@ export class WeixinIlinkRuntime {
         segmentKind: segment.kind,
         textLength: nextText.length,
         textPreview: this.getTextPreview(nextText),
-        previousTextLength: existing?.lastText.length ?? 0
-      })
+        previousTextLength: existing?.lastText.length ?? 0,
+      });
 
       await this.sendText(sendContext, nextText, `delivery:${segment.kind}`, {
         accountId: this.deps.accountId,
         endpointKey,
         sourceMessageId: deliveryState.sourceMessageId,
         segmentKey: segment.key,
-        segmentKind: segment.kind
-      })
-      changed = true
+        segmentKind: segment.kind,
+      });
+      changed = true;
       if (existing) {
-        existing.lastText = nextText
-        existing.messageIds = [...existing.messageIds, null]
+        existing.lastText = nextText;
+        existing.messageIds = [...existing.messageIds, null];
       } else {
         nextSegments.push({
           key: segment.key,
           kind: segment.kind,
           messageIds: [null],
-          lastText: nextText
-        })
+          lastText: nextText,
+        });
       }
     }
 
     const nextState: WeixinIlinkRemoteDeliveryState = {
       sourceMessageId: deliveryState.sourceMessageId,
-      segments: nextSegments
-    }
+      segments: nextSegments,
+    };
 
     if (changed) {
       this.deps.bindingStore.rememberRemoteDeliveryState(endpointKey, {
@@ -665,57 +642,57 @@ export class WeixinIlinkRuntime {
           key: segment.key,
           kind: segment.kind,
           messageIds: [...segment.messageIds],
-          lastText: segment.lastText
-        }))
-      })
+          lastText: segment.lastText,
+        })),
+      });
     }
 
-    return nextState
+    return nextState;
   }
 
   private async sendText(
     sendContext: WeixinIlinkSendContext,
     text: string,
-    reason: string = 'message',
-    context?: Record<string, unknown>
+    reason: string = "message",
+    context?: Record<string, unknown>,
   ): Promise<void> {
-    const normalizedText = text.trim()
+    const normalizedText = text.trim();
     if (!normalizedText) {
-      return
+      return;
     }
 
-    this.logInfo('Sending Weixin iLink text message.', {
+    this.logInfo("Sending Weixin iLink text message.", {
       accountId: this.deps.accountId,
       toUserId: sendContext.userId,
       hasContextToken: Boolean(sendContext.contextToken),
       reason,
       textLength: normalizedText.length,
       textPreview: this.getTextPreview(normalizedText),
-      ...context
-    })
+      ...context,
+    });
 
     await this.deps.client.sendTextMessage({
       toUserId: sendContext.userId,
       text: normalizedText,
-      contextToken: sendContext.contextToken
-    })
+      contextToken: sendContext.contextToken,
+    });
   }
 
   private getTextPreview(value: string): string {
-    const normalized = value.replace(/\s+/g, ' ').trim()
+    const normalized = value.replace(/\s+/g, " ").trim();
     if (normalized.length <= WEIXIN_LOG_TEXT_PREVIEW_LIMIT) {
-      return normalized
+      return normalized;
     }
 
-    return `${normalized.slice(0, WEIXIN_LOG_TEXT_PREVIEW_LIMIT)}...`
+    return `${normalized.slice(0, WEIXIN_LOG_TEXT_PREVIEW_LIMIT)}...`;
   }
 
   private logInfo(message: string, context?: Record<string, unknown>): void {
     if (!WEIXIN_TRACE_LOG_ENABLED) {
-      return
+      return;
     }
 
-    this.deps.logger?.info?.(`[WeixinIlinkRuntime] ${message}`, context)
+    this.deps.logger?.info?.(`[WeixinIlinkRuntime] ${message}`, context);
   }
 
   private setStatus(next: Partial<WeixinIlinkRuntimeStatusSnapshot>): void {
@@ -727,9 +704,9 @@ export class WeixinIlinkRuntime {
         : {
             accountId: this.deps.accountId,
             ownerUserId: this.deps.ownerUserId,
-            baseUrl: this.deps.baseUrl
-          }
-    }
-    this.deps.onStatusChange?.(this.getStatusSnapshot())
+            baseUrl: this.deps.baseUrl,
+          },
+    };
+    this.deps.onStatusChange?.(this.getStatusSnapshot());
   }
 }

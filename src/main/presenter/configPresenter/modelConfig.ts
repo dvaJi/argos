@@ -1,21 +1,16 @@
-import {
-  ApiEndpointType,
-  ModelType,
-  isNewApiEndpointType,
-  resolveProviderCapabilityProviderId
-} from '@shared/model'
-import { IModelConfig, ModelConfig, ModelConfigSource } from '@shared/presenter'
+import { ApiEndpointType, ModelType, isNewApiEndpointType, resolveProviderCapabilityProviderId } from "@shared/model";
+import { IModelConfig, ModelConfig, ModelConfigSource } from "@shared/presenter";
 import {
   DEFAULT_MODEL_TIMEOUT,
   DEFAULT_MODEL_CAPABILITY_FALLBACKS,
   resolveDerivedModelMaxTokens,
   resolveModelContextLength,
-  resolveModelFunctionCall
-} from '@shared/modelConfigDefaults'
-import { applyMoonshotKimiReasoningTemperaturePolicy } from '@shared/moonshotKimiPolicy'
-import { resolveVideoGenerationCompatType } from '@shared/videoGenerationSettings'
-import ElectronStore from 'electron-store'
-import { providerDbLoader } from './providerDbLoader'
+  resolveModelFunctionCall,
+} from "@shared/modelConfigDefaults";
+import { applyMoonshotKimiReasoningTemperaturePolicy } from "@shared/moonshotKimiPolicy";
+import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
+import ElectronStore from "electron-store";
+import { providerDbLoader } from "./providerDbLoader";
 import {
   hasAnthropicReasoningToggle,
   isImageInputSupported,
@@ -25,80 +20,75 @@ import {
   ProviderModel,
   ReasoningPortrait,
   isVerbosity,
-  type Verbosity
-} from '@shared/types/model-db'
-import { resolveProviderId } from './providerId'
-import { modelCapabilities } from './modelCapabilities'
-import type { StoreLike } from './storeLike'
+  type Verbosity,
+} from "@shared/types/model-db";
+import { resolveProviderId } from "./providerId";
+import { modelCapabilities } from "./modelCapabilities";
+import type { StoreLike } from "./storeLike";
 
-const SPECIAL_CONCAT_CHAR = '-_-'
+const SPECIAL_CONCAT_CHAR = "-_-";
 
-const MODEL_CONFIG_META_KEY = '__meta__'
+const MODEL_CONFIG_META_KEY = "__meta__";
 
-const normalizeVerbosityValue = (
-  portrait: ReasoningPortrait | null,
-  value: unknown
-): Verbosity | undefined => {
+const normalizeVerbosityValue = (portrait: ReasoningPortrait | null, value: unknown): Verbosity | undefined => {
   if (!isVerbosity(value)) {
-    return undefined
+    return undefined;
   }
 
-  const options = portrait?.verbosityOptions?.filter(isVerbosity)
+  const options = portrait?.verbosityOptions?.filter(isVerbosity);
   if (!options || options.length === 0) {
-    return value
+    return value;
   }
 
   if (options.includes(value)) {
-    return value
+    return value;
   }
 
-  return isVerbosity(portrait?.verbosity) && options.includes(portrait.verbosity)
-    ? portrait.verbosity
-    : undefined
-}
+  return isVerbosity(portrait?.verbosity) && options.includes(portrait.verbosity) ? portrait.verbosity : undefined;
+};
 
 interface ModelConfigStoreMeta {
-  lastRefreshVersion?: string
-  userConfigKeys: string[]
+  lastRefreshVersion?: string;
+  userConfigKeys: string[];
 }
 
-type ModelConfigStoreSchema = Record<string, IModelConfig | ModelConfigStoreMeta>
+type ModelConfigStoreSchema = Record<string, IModelConfig | ModelConfigStoreMeta>;
 
 export class ModelConfigHelper {
-  private modelConfigStore: StoreLike<ModelConfigStoreSchema>
-  private memoryCache: Map<string, IModelConfig> = new Map()
-  private cacheInitialized: boolean = false
-  private currentVersion: string
+  private modelConfigStore: StoreLike<ModelConfigStoreSchema>;
+  private memoryCache: Map<string, IModelConfig> = new Map();
+  private cacheInitialized: boolean = false;
+  private currentVersion: string;
 
-  constructor(appVersion: string = '0.0.0') {
+  constructor(appVersion: string = "0.0.0") {
     this.modelConfigStore = new ElectronStore<ModelConfigStoreSchema>({
-      name: 'model-config'
-    })
-    this.currentVersion = appVersion
-    this.ensureStoreSynced()
+      name: "model-config",
+    });
+    this.currentVersion = appVersion;
+    this.ensureStoreSynced();
   }
 
   setStore(store: StoreLike<ModelConfigStoreSchema>): void {
-    this.modelConfigStore = store
-    this.memoryCache.clear()
-    this.cacheInitialized = false
-    this.ensureStoreSynced()
+    this.modelConfigStore = store;
+    this.memoryCache.clear();
+    this.cacheInitialized = false;
+    this.ensureStoreSynced();
   }
 
   private ensureStoreSynced(): void {
-    const meta = this.getStoreMeta()
+    const meta = this.getStoreMeta();
     if (!meta) {
-      this.initializeMetaFromLegacyStore()
-      return
+      this.initializeMetaFromLegacyStore();
+      return;
     }
 
     if (meta.lastRefreshVersion !== this.currentVersion) {
-      this.refreshDerivedConfigs(meta)
+      this.refreshDerivedConfigs(meta);
     }
   }
 
   private resolveProviderId(providerId: string | undefined): string | undefined {
-    return resolveProviderId(providerId)
+    return resolveProviderId(providerId);
   }
 
   /**
@@ -109,75 +99,67 @@ export class ModelConfigHelper {
     const videoGenerationType = resolveVideoGenerationCompatType({
       modelId: model.id,
       type: model.type,
-      modalities: model.modalities
-    })
+      modalities: model.modalities,
+    });
     if (videoGenerationType) {
-      return videoGenerationType
+      return videoGenerationType;
     }
 
     // Priority 1: Output modality indicates image generation
-    if (Array.isArray(model.modalities?.output) && model.modalities.output.includes('image')) {
-      return ModelType.ImageGeneration
+    if (Array.isArray(model.modalities?.output) && model.modalities.output.includes("image")) {
+      return ModelType.ImageGeneration;
     }
 
     // Priority 2: Use type from provider.json if present and valid
     if (model.type) {
       switch (model.type) {
-        case 'chat':
-          return ModelType.Chat
-        case 'embedding':
-          return ModelType.Embedding
-        case 'rerank':
-          return ModelType.Rerank
-        case 'imageGeneration':
-          return ModelType.ImageGeneration
-        case 'videoGeneration':
-          return ModelType.VideoGeneration
-        case 'tts':
-          return ModelType.TTS
+        case "chat":
+          return ModelType.Chat;
+        case "embedding":
+          return ModelType.Embedding;
+        case "rerank":
+          return ModelType.Rerank;
+        case "imageGeneration":
+          return ModelType.ImageGeneration;
+        case "videoGeneration":
+          return ModelType.VideoGeneration;
+        case "tts":
+          return ModelType.TTS;
         default:
           // Invalid type, fall through to default
-          break
+          break;
       }
     }
 
     // Priority 3: Default to Chat
-    return ModelType.Chat
+    return ModelType.Chat;
   }
 
   private applyProviderSpecificPolicies(
     providerId: string | undefined,
     modelId: string,
-    config: ModelConfig
+    config: ModelConfig,
   ): ModelConfig {
     if (!providerId) {
-      return config
+      return config;
     }
 
-    return applyMoonshotKimiReasoningTemperaturePolicy(providerId, modelId, config)
+    return applyMoonshotKimiReasoningTemperaturePolicy(providerId, modelId, config);
   }
 
   private buildConfigFromProviderModel(model: ProviderModel, providerId: string): ModelConfig {
-    const modelType = this.inferModelType(model)
-    const portrait = modelCapabilities.getReasoningPortrait(providerId, model.id)
-    const capabilityProviderId = resolveProviderCapabilityProviderId(providerId, null, model.id)
-    const reasoningEnabled =
-      portrait?.defaultEnabled ?? model.reasoning?.default ?? portrait?.supported ?? false
-    const thinkingBudget =
-      portrait?.budget?.default ?? model.reasoning?.budget?.default ?? undefined
-    const forceInterleavedThinkingCompat = portrait?.interleaved === true ? true : undefined
-    const reasoningEffort = normalizeReasoningEffortValue(
-      portrait,
-      portrait?.effort ?? model.reasoning?.effort
-    )
+    const modelType = this.inferModelType(model);
+    const portrait = modelCapabilities.getReasoningPortrait(providerId, model.id);
+    const capabilityProviderId = resolveProviderCapabilityProviderId(providerId, null, model.id);
+    const reasoningEnabled = portrait?.defaultEnabled ?? model.reasoning?.default ?? portrait?.supported ?? false;
+    const thinkingBudget = portrait?.budget?.default ?? model.reasoning?.budget?.default ?? undefined;
+    const forceInterleavedThinkingCompat = portrait?.interleaved === true ? true : undefined;
+    const reasoningEffort = normalizeReasoningEffortValue(portrait, portrait?.effort ?? model.reasoning?.effort);
     const reasoningVisibility = hasAnthropicReasoningToggle(capabilityProviderId, portrait)
       ? (normalizeAnthropicReasoningVisibilityValue(portrait?.visibility) ??
         normalizeReasoningVisibilityValue(portrait?.visibility))
-      : normalizeReasoningVisibilityValue(portrait?.visibility)
-    const verbosity = normalizeVerbosityValue(
-      portrait,
-      portrait?.verbosity ?? model.reasoning?.verbosity
-    )
+      : normalizeReasoningVisibilityValue(portrait?.visibility);
+    const verbosity = normalizeVerbosityValue(portrait, portrait?.verbosity ?? model.reasoning?.verbosity);
 
     return this.applyProviderSpecificPolicies(providerId, model.id, {
       maxTokens: resolveDerivedModelMaxTokens(model.limit?.output),
@@ -205,124 +187,121 @@ export class ModelConfigHelper {
       verbosity,
       enableSearch: Boolean(model.search?.supported ?? false),
       forcedSearch: Boolean(model.search?.forced_search ?? false),
-      searchStrategy: (model.search?.search_strategy ?? 'turbo') as
-        | 'turbo'
-        | 'balanced'
-        | 'precise',
-      maxCompletionTokens: undefined
-    })
+      searchStrategy: (model.search?.search_strategy ?? "turbo") as "turbo" | "balanced" | "precise",
+      maxCompletionTokens: undefined,
+    });
   }
 
   private initializeMetaFromLegacyStore(): void {
-    const legacyEntries = this.modelConfigStore.store
-    const userKeys: Set<string> = new Set()
+    const legacyEntries = this.modelConfigStore.store;
+    const userKeys: Set<string> = new Set();
 
     Object.entries(legacyEntries).forEach(([key, value]) => {
       if (this.isMetaKey(key)) {
-        return
+        return;
       }
 
-      const entry = value as IModelConfig | undefined
+      const entry = value as IModelConfig | undefined;
       if (entry && this.isEntryUserDefined(entry)) {
-        userKeys.add(key)
+        userKeys.add(key);
         const updatedEntry: IModelConfig = {
           ...entry,
-          source: 'user',
+          source: "user",
           config: {
             ...entry.config,
-            isUserDefined: true
-          }
-        }
-        this.modelConfigStore.set(key, updatedEntry)
+            isUserDefined: true,
+          },
+        };
+        this.modelConfigStore.set(key, updatedEntry);
       } else {
-        this.modelConfigStore.delete(key)
+        this.modelConfigStore.delete(key);
       }
-    })
+    });
 
-    this.memoryCache.clear()
-    this.cacheInitialized = false
+    this.memoryCache.clear();
+    this.cacheInitialized = false;
 
     this.updateStoreMeta({
       lastRefreshVersion: this.currentVersion,
-      userConfigKeys: Array.from(userKeys)
-    })
+      userConfigKeys: Array.from(userKeys),
+    });
   }
 
   private refreshDerivedConfigs(meta: ModelConfigStoreMeta): void {
-    const userKeySet = new Set(meta.userConfigKeys || [])
+    const userKeySet = new Set(meta.userConfigKeys || []);
 
     Object.keys(this.modelConfigStore.store).forEach((key) => {
       if (this.isMetaKey(key)) {
-        return
+        return;
       }
 
       if (userKeySet.has(key)) {
-        return
+        return;
       }
 
-      this.modelConfigStore.delete(key)
-      this.memoryCache.delete(key)
-    })
+      this.modelConfigStore.delete(key);
+      this.memoryCache.delete(key);
+    });
 
-    this.cacheInitialized = false
+    this.cacheInitialized = false;
 
     this.updateStoreMeta({
       lastRefreshVersion: this.currentVersion,
-      userConfigKeys: Array.from(userKeySet)
-    })
+      userConfigKeys: Array.from(userKeySet),
+    });
   }
 
   private getStoreMeta(): ModelConfigStoreMeta | undefined {
-    const meta = this.modelConfigStore.get(MODEL_CONFIG_META_KEY)
-    return meta as ModelConfigStoreMeta | undefined
+    const meta = this.modelConfigStore.get(MODEL_CONFIG_META_KEY);
+    return meta as ModelConfigStoreMeta | undefined;
   }
 
   private updateStoreMeta(meta: ModelConfigStoreMeta): void {
-    this.modelConfigStore.set(MODEL_CONFIG_META_KEY, meta)
+    this.modelConfigStore.set(MODEL_CONFIG_META_KEY, meta);
   }
 
   private getOrCreateMeta(): ModelConfigStoreMeta {
-    let meta = this.getStoreMeta()
+    let meta = this.getStoreMeta();
     if (!meta) {
-      this.initializeMetaFromLegacyStore()
-      meta = this.getStoreMeta()
+      this.initializeMetaFromLegacyStore();
+      meta = this.getStoreMeta();
     }
     if (!meta) {
       meta = {
         lastRefreshVersion: this.currentVersion,
-        userConfigKeys: []
-      }
-      this.updateStoreMeta(meta)
+        userConfigKeys: [],
+      };
+      this.updateStoreMeta(meta);
     }
-    return meta
+    return meta;
   }
 
   private isMetaKey(key: string): boolean {
-    return key === MODEL_CONFIG_META_KEY
+    return key === MODEL_CONFIG_META_KEY;
   }
 
   private isEntryUserDefined(entry: IModelConfig | undefined): boolean {
-    if (!entry) return false
+    if (!entry) return false;
     if (entry.source) {
-      return entry.source === 'user'
+      return entry.source === "user";
     }
-    return entry.config?.isUserDefined === true
+    return entry.config?.isUserDefined === true;
   }
 
   private updateUserConfigKeys(cacheKey: string, source: ModelConfigSource): void {
-    const meta = this.getOrCreateMeta()
-    const userKeys = new Set(meta.userConfigKeys || [])
+    const meta = this.getOrCreateMeta();
+    const userKeys = new Set(meta.userConfigKeys || []);
 
-    if (source === 'user') {
-      userKeys.add(cacheKey)
+    if (source === "user") {
+      userKeys.add(cacheKey);
     } else {
-      userKeys.delete(cacheKey)
+      userKeys.delete(cacheKey);
     }
 
     this.updateStoreMeta({
       lastRefreshVersion: this.currentVersion,
-      userConfigKeys: Array.from(userKeys)
-    })
+      userConfigKeys: Array.from(userKeys),
+    });
   }
 
   /**
@@ -335,17 +314,17 @@ export class ModelConfigHelper {
     // Replace dots and other problematic characters that could interfere with electron-store's key parsing
     const sanitizeString = (str: string): string => {
       return str
-        .replace(/\./g, '_DOT_') // Replace dots with _DOT_
-        .replace(/\[/g, '_LBRACKET_') // Replace [ with _LBRACKET_
-        .replace(/\]/g, '_RBRACKET_') // Replace ] with _RBRACKET_
-        .replace(/"/g, '_QUOTE_') // Replace " with _QUOTE_
-        .replace(/'/g, '_SQUOTE_') // Replace ' with _SQUOTE_
-    }
+        .replace(/\./g, "_DOT_") // Replace dots with _DOT_
+        .replace(/\[/g, "_LBRACKET_") // Replace [ with _LBRACKET_
+        .replace(/\]/g, "_RBRACKET_") // Replace ] with _RBRACKET_
+        .replace(/"/g, "_QUOTE_") // Replace " with _QUOTE_
+        .replace(/'/g, "_SQUOTE_"); // Replace ' with _SQUOTE_
+    };
 
-    const sanitizedProviderId = sanitizeString(providerId)
-    const sanitizedModelId = sanitizeString(modelId)
+    const sanitizedProviderId = sanitizeString(providerId);
+    const sanitizedModelId = sanitizeString(modelId);
 
-    return sanitizedProviderId + SPECIAL_CONCAT_CHAR + sanitizedModelId
+    return sanitizedProviderId + SPECIAL_CONCAT_CHAR + sanitizedModelId;
   }
 
   /**
@@ -355,11 +334,11 @@ export class ModelConfigHelper {
    */
   private desanitizeString(sanitizedString: string): string {
     return sanitizedString
-      .replace(/_DOT_/g, '.')
-      .replace(/_LBRACKET_/g, '[')
-      .replace(/_RBRACKET_/g, ']')
+      .replace(/_DOT_/g, ".")
+      .replace(/_LBRACKET_/g, "[")
+      .replace(/_RBRACKET_/g, "]")
       .replace(/_QUOTE_/g, '"')
-      .replace(/_SQUOTE_/g, "'")
+      .replace(/_SQUOTE_/g, "'");
   }
 
   /**
@@ -368,11 +347,11 @@ export class ModelConfigHelper {
    * @returns Object with providerId and modelId
    */
   private parseCacheKey(cacheKey: string): { providerId: string; modelId: string } {
-    const [sanitizedProviderId, sanitizedModelId] = cacheKey.split(SPECIAL_CONCAT_CHAR)
+    const [sanitizedProviderId, sanitizedModelId] = cacheKey.split(SPECIAL_CONCAT_CHAR);
     return {
       providerId: this.desanitizeString(sanitizedProviderId),
-      modelId: this.desanitizeString(sanitizedModelId)
-    }
+      modelId: this.desanitizeString(sanitizedModelId),
+    };
   }
 
   /**
@@ -380,14 +359,14 @@ export class ModelConfigHelper {
    * This is called lazily on first access
    */
   private initializeCache(): void {
-    if (this.cacheInitialized) return
+    if (this.cacheInitialized) return;
 
-    const allConfigs = this.modelConfigStore.store
+    const allConfigs = this.modelConfigStore.store;
     Object.entries(allConfigs).forEach(([key, value]) => {
-      if (this.isMetaKey(key) || !value) return
-      this.memoryCache.set(key, value as IModelConfig)
-    })
-    this.cacheInitialized = true
+      if (this.isMetaKey(key) || !value) return;
+      this.memoryCache.set(key, value as IModelConfig);
+    });
+    this.cacheInitialized = true;
   }
 
   /**
@@ -395,91 +374,86 @@ export class ModelConfigHelper {
    * 严格匹配要求 providerId 与 modelId 全等；不再做模糊匹配。
    */
   getModelConfig(modelId: string, providerId?: string): ModelConfig {
-    this.initializeCache()
+    this.initializeCache();
 
-    let storedConfig: ModelConfig | null = null
-    let storedSource: ModelConfigSource | undefined
+    let storedConfig: ModelConfig | null = null;
+    let storedSource: ModelConfigSource | undefined;
 
     // 统一小写用于 DB 严格匹配；用户配置读取先原样，再尝试小写键
-    const normModelIdRaw = modelId ? modelId.toLowerCase() : modelId
+    const normModelIdRaw = modelId ? modelId.toLowerCase() : modelId;
     // 兼容 Google Gemini SDK 返回的 `models/` 前缀模型ID
-    const normModelId = normModelIdRaw ? normModelIdRaw.replace(/^models\//, '') : normModelIdRaw
-    const normProviderId = providerId ? providerId.toLowerCase() : providerId
+    const normModelId = normModelIdRaw ? normModelIdRaw.replace(/^models\//, "") : normModelIdRaw;
+    const normProviderId = providerId ? providerId.toLowerCase() : providerId;
 
     if (providerId) {
-      const cacheKey = this.generateCacheKey(providerId, modelId)
+      const cacheKey = this.generateCacheKey(providerId, modelId);
       const cachedEntry = this.memoryCache.has(cacheKey)
         ? (this.memoryCache.get(cacheKey) as IModelConfig | undefined)
-        : undefined
+        : undefined;
 
       if (cachedEntry?.config) {
-        storedConfig = cachedEntry.config
-        storedSource = cachedEntry.source ?? (cachedEntry.config.isUserDefined ? 'user' : undefined)
+        storedConfig = cachedEntry.config;
+        storedSource = cachedEntry.source ?? (cachedEntry.config.isUserDefined ? "user" : undefined);
       } else if (normProviderId && normModelId) {
         // 二次尝试：小写键（兼容历史大小写不一致的存储键）
-        const normKey = this.generateCacheKey(normProviderId, normModelId)
+        const normKey = this.generateCacheKey(normProviderId, normModelId);
         const normCached = this.memoryCache.has(normKey)
           ? (this.memoryCache.get(normKey) as IModelConfig | undefined)
-          : undefined
+          : undefined;
         if (normCached?.config) {
-          storedConfig = normCached.config
-          storedSource = normCached.source ?? (normCached.config.isUserDefined ? 'user' : undefined)
+          storedConfig = normCached.config;
+          storedSource = normCached.source ?? (normCached.config.isUserDefined ? "user" : undefined);
         }
       }
     }
 
-    const isUserConfig = storedSource === 'user'
+    const isUserConfig = storedSource === "user";
 
     if (storedConfig && isUserConfig) {
       const finalUserConfig = this.applyProviderSpecificPolicies(providerId, modelId, {
-        ...storedConfig
-      })
-      finalUserConfig.isUserDefined = true
-      return finalUserConfig
+        ...storedConfig,
+      });
+      finalUserConfig.isUserDefined = true;
+      return finalUserConfig;
     }
 
-    let finalConfig: ModelConfig | null = null
+    let finalConfig: ModelConfig | null = null;
 
     // 严格匹配：仅当提供 providerId 时从 Provider DB 查找
-    const db = providerDbLoader.getDb()
-    const providers = db?.providers
-    const resolvedProviderId = normProviderId ? this.resolveProviderId(normProviderId) : undefined
-    const providerEntry = resolvedProviderId ? providers?.[resolvedProviderId] : undefined
-    const providerFound = Boolean(providerEntry)
+    const db = providerDbLoader.getDb();
+    const providers = db?.providers;
+    const resolvedProviderId = normProviderId ? this.resolveProviderId(normProviderId) : undefined;
+    const providerEntry = resolvedProviderId ? providers?.[resolvedProviderId] : undefined;
+    const providerFound = Boolean(providerEntry);
 
-    if (
-      normProviderId &&
-      resolvedProviderId &&
-      providerEntry &&
-      Array.isArray(providerEntry.models)
-    ) {
+    if (normProviderId && resolvedProviderId && providerEntry && Array.isArray(providerEntry.models)) {
       for (let i = 0; i < providerEntry.models.length; i += 1) {
-        const candidate = providerEntry.models[i]
+        const candidate = providerEntry.models[i];
         if (candidate && candidate.id === normModelId) {
-          finalConfig = this.buildConfigFromProviderModel(candidate, resolvedProviderId)
-          break
+          finalConfig = this.buildConfigFromProviderModel(candidate, resolvedProviderId);
+          break;
         }
       }
     }
 
     if (!finalConfig && normProviderId && !providerFound && providers && normModelId) {
       for (const key in providers) {
-        if (!Object.prototype.hasOwnProperty.call(providers, key)) continue
-        const candidateProvider = providers[key]
+        if (!Object.prototype.hasOwnProperty.call(providers, key)) continue;
+        const candidateProvider = providers[key];
         if (!candidateProvider || !Array.isArray(candidateProvider.models)) {
-          continue
+          continue;
         }
 
         for (let j = 0; j < candidateProvider.models.length; j += 1) {
-          const candidateModel = candidateProvider.models[j]
+          const candidateModel = candidateProvider.models[j];
           if (candidateModel && candidateModel.id === normModelId) {
-            finalConfig = this.buildConfigFromProviderModel(candidateModel, candidateProvider.id)
-            break
+            finalConfig = this.buildConfigFromProviderModel(candidateModel, candidateProvider.id);
+            break;
           }
         }
 
         if (finalConfig) {
-          break
+          break;
         }
       }
     }
@@ -499,13 +473,13 @@ export class ModelConfigHelper {
         verbosity: undefined,
         enableSearch: false,
         forcedSearch: false,
-        searchStrategy: 'turbo',
+        searchStrategy: "turbo",
         maxCompletionTokens: undefined,
-        ownedBy: undefined
-      }
+        ownedBy: undefined,
+      };
     }
 
-    if (storedConfig && storedSource && storedSource !== 'user') {
+    if (storedConfig && storedSource && storedSource !== "user") {
       finalConfig = {
         ...finalConfig,
         maxTokens:
@@ -534,16 +508,16 @@ export class ModelConfigHelper {
         thinkingBudget: finalConfig.thinkingBudget,
         forceInterleavedThinkingCompat: finalConfig.forceInterleavedThinkingCompat,
         reasoningEffort: finalConfig.reasoningEffort,
-        verbosity: finalConfig.verbosity
-      }
+        verbosity: finalConfig.verbosity,
+      };
     }
 
     const normalizedFinalConfig = this.applyProviderSpecificPolicies(providerId, modelId, {
       ...finalConfig!,
-      isUserDefined: false
-    })
-    normalizedFinalConfig.isUserDefined = false
-    return normalizedFinalConfig
+      isUserDefined: false,
+    });
+    normalizedFinalConfig.isUserDefined = false;
+    return normalizedFinalConfig;
   }
 
   /**
@@ -556,37 +530,35 @@ export class ModelConfigHelper {
     modelId: string,
     providerId: string,
     config: ModelConfig,
-    options?: { source?: ModelConfigSource }
+    options?: { source?: ModelConfigSource },
   ): ModelConfig {
-    const cacheKey = this.generateCacheKey(providerId, modelId)
-    const source: ModelConfigSource = options?.source ?? 'user'
+    const cacheKey = this.generateCacheKey(providerId, modelId);
+    const source: ModelConfigSource = options?.source ?? "user";
     const normalizedMaxTokens =
-      source === 'provider'
-        ? resolveDerivedModelMaxTokens(config.maxTokens)
-        : (config.maxTokens ?? undefined)
+      source === "provider" ? resolveDerivedModelMaxTokens(config.maxTokens) : (config.maxTokens ?? undefined);
     const normalizedTimeout =
-      typeof config.timeout === 'number' && Number.isFinite(config.timeout) && config.timeout > 0
+      typeof config.timeout === "number" && Number.isFinite(config.timeout) && config.timeout > 0
         ? Math.round(config.timeout)
-        : undefined
+        : undefined;
     const storedConfig: ModelConfig = this.applyProviderSpecificPolicies(providerId, modelId, {
       ...config,
       ...(normalizedMaxTokens !== undefined ? { maxTokens: normalizedMaxTokens } : {}),
       ...(normalizedTimeout !== undefined ? { timeout: normalizedTimeout } : {}),
-      isUserDefined: source === 'user'
-    })
+      isUserDefined: source === "user",
+    });
     const configData: IModelConfig = {
       id: modelId,
       providerId: providerId,
       config: storedConfig,
-      source
-    }
+      source,
+    };
 
     // Update both store and cache
-    this.modelConfigStore.set(cacheKey, configData)
-    this.memoryCache.set(cacheKey, configData)
-    this.updateUserConfigKeys(cacheKey, source)
+    this.modelConfigStore.set(cacheKey, configData);
+    this.memoryCache.set(cacheKey, configData);
+    this.updateUserConfigKeys(cacheKey, source);
 
-    return storedConfig
+    return storedConfig;
   }
 
   /**
@@ -595,12 +567,12 @@ export class ModelConfigHelper {
    * @param providerId - The provider ID
    */
   resetModelConfig(modelId: string, providerId: string): void {
-    const cacheKey = this.generateCacheKey(providerId, modelId)
+    const cacheKey = this.generateCacheKey(providerId, modelId);
 
     // Remove from both store and cache
-    this.modelConfigStore.delete(cacheKey)
-    this.memoryCache.delete(cacheKey)
-    this.updateUserConfigKeys(cacheKey, 'provider')
+    this.modelConfigStore.delete(cacheKey);
+    this.memoryCache.delete(cacheKey);
+    this.updateUserConfigKeys(cacheKey, "provider");
   }
 
   /**
@@ -609,15 +581,15 @@ export class ModelConfigHelper {
    */
   getAllModelConfigs(): Record<string, IModelConfig> {
     // Initialize cache if not already done
-    this.initializeCache()
+    this.initializeCache();
 
     // Return data from cache for better performance
-    const result: Record<string, IModelConfig> = {}
+    const result: Record<string, IModelConfig> = {};
     this.memoryCache.forEach((value, key) => {
-      if (this.isMetaKey(key)) return
-      result[key] = value
-    })
-    return result
+      if (this.isMetaKey(key)) return;
+      result[key] = value;
+    });
+    return result;
   }
 
   /**
@@ -626,20 +598,20 @@ export class ModelConfigHelper {
    * @returns Array of model configurations
    */
   getProviderModelConfigs(providerId: string): Array<{ modelId: string; config: ModelConfig }> {
-    const allConfigs = this.getAllModelConfigs()
-    const result: Array<{ modelId: string; config: ModelConfig }> = []
+    const allConfigs = this.getAllModelConfigs();
+    const result: Array<{ modelId: string; config: ModelConfig }> = [];
 
     Object.entries(allConfigs).forEach(([key, value]) => {
-      const { providerId: keyProviderId, modelId: keyModelId } = this.parseCacheKey(key)
+      const { providerId: keyProviderId, modelId: keyModelId } = this.parseCacheKey(key);
       if (keyProviderId === providerId) {
         result.push({
           modelId: keyModelId,
-          config: value.config
-        })
+          config: value.config,
+        });
       }
-    })
+    });
 
-    return result
+    return result;
   }
 
   /**
@@ -650,28 +622,28 @@ export class ModelConfigHelper {
    */
   hasUserConfig(modelId: string, providerId: string): boolean {
     // Initialize cache if not already done
-    this.initializeCache()
+    this.initializeCache();
 
-    const cacheKey = this.generateCacheKey(providerId, modelId)
+    const cacheKey = this.generateCacheKey(providerId, modelId);
 
     // Check cache first
-    const cachedEntry = this.memoryCache.get(cacheKey)
+    const cachedEntry = this.memoryCache.get(cacheKey);
     if (cachedEntry) {
-      const source = cachedEntry.source ?? (cachedEntry.config.isUserDefined ? 'user' : undefined)
-      if (source === 'user') {
-        return true
+      const source = cachedEntry.source ?? (cachedEntry.config.isUserDefined ? "user" : undefined);
+      if (source === "user") {
+        return true;
       }
     }
 
     // If not in cache, check store and update cache if found
-    const storeEntry = this.modelConfigStore.get(cacheKey) as IModelConfig | undefined
+    const storeEntry = this.modelConfigStore.get(cacheKey) as IModelConfig | undefined;
     if (storeEntry) {
-      this.memoryCache.set(cacheKey, storeEntry)
-      const source = storeEntry.source ?? (storeEntry.config.isUserDefined ? 'user' : undefined)
-      return source === 'user'
+      this.memoryCache.set(cacheKey, storeEntry);
+      const source = storeEntry.source ?? (storeEntry.config.isUserDefined ? "user" : undefined);
+      return source === "user";
     }
 
-    return false
+    return false;
   }
 
   /**
@@ -682,47 +654,47 @@ export class ModelConfigHelper {
   importConfigs(configs: Record<string, IModelConfig>, overwrite: boolean = false): void {
     if (overwrite) {
       // Clear existing configs from both store and cache
-      this.clearStore()
-      this.memoryCache.clear()
-      this.cacheInitialized = false
+      this.clearStore();
+      this.memoryCache.clear();
+      this.cacheInitialized = false;
     }
 
-    const meta = this.getOrCreateMeta()
-    const userKeySet = overwrite ? new Set<string>() : new Set<string>(meta.userConfigKeys || [])
+    const meta = this.getOrCreateMeta();
+    const userKeySet = overwrite ? new Set<string>() : new Set<string>(meta.userConfigKeys || []);
 
     Object.entries(configs).forEach(([key, value]) => {
-      if (this.isMetaKey(key) || !value) return
+      if (this.isMetaKey(key) || !value) return;
 
       if (!overwrite && this.hasStoreEntry(key)) {
-        return
+        return;
       }
 
-      const entry = value as IModelConfig
-      const source = entry.source ?? (entry.config?.isUserDefined ? 'user' : 'provider')
+      const entry = value as IModelConfig;
+      const source = entry.source ?? (entry.config?.isUserDefined ? "user" : "provider");
       const storedEntry: IModelConfig = {
         ...entry,
         source,
         config: {
           ...entry.config,
-          isUserDefined: source === 'user'
-        }
-      }
+          isUserDefined: source === "user",
+        },
+      };
 
-      this.modelConfigStore.set(key, storedEntry)
-      this.memoryCache.set(key, storedEntry)
+      this.modelConfigStore.set(key, storedEntry);
+      this.memoryCache.set(key, storedEntry);
 
-      if (source === 'user') {
-        userKeySet.add(key)
+      if (source === "user") {
+        userKeySet.add(key);
       } else {
-        userKeySet.delete(key)
+        userKeySet.delete(key);
       }
-    })
+    });
 
-    this.cacheInitialized = false
+    this.cacheInitialized = false;
     this.updateStoreMeta({
       lastRefreshVersion: this.currentVersion,
-      userConfigKeys: Array.from(userKeySet)
-    })
+      userConfigKeys: Array.from(userKeySet),
+    });
   }
 
   /**
@@ -730,20 +702,20 @@ export class ModelConfigHelper {
    * @returns Object containing all configurations
    */
   exportConfigs(): Record<string, IModelConfig> {
-    return this.getAllModelConfigs()
+    return this.getAllModelConfigs();
   }
 
   /**
    * Clear all configurations
    */
   clearAllConfigs(): void {
-    this.clearStore()
-    this.memoryCache.clear()
-    this.cacheInitialized = false
+    this.clearStore();
+    this.memoryCache.clear();
+    this.cacheInitialized = false;
     this.updateStoreMeta({
       lastRefreshVersion: this.currentVersion,
-      userConfigKeys: []
-    })
+      userConfigKeys: [],
+    });
   }
 
   /**
@@ -751,32 +723,32 @@ export class ModelConfigHelper {
    * @returns Store file path
    */
   getStorePath(): string {
-    return this.modelConfigStore.path ?? ''
+    return this.modelConfigStore.path ?? "";
   }
 
   /**
    * Clear memory cache (useful for testing or memory management)
    */
   clearMemoryCache(): void {
-    this.memoryCache.clear()
-    this.cacheInitialized = false
+    this.memoryCache.clear();
+    this.cacheInitialized = false;
   }
 
   private hasStoreEntry(key: string): boolean {
-    if (typeof this.modelConfigStore.has === 'function') {
-      return this.modelConfigStore.has(key)
+    if (typeof this.modelConfigStore.has === "function") {
+      return this.modelConfigStore.has(key);
     }
-    return this.modelConfigStore.get(key) !== undefined
+    return this.modelConfigStore.get(key) !== undefined;
   }
 
   private clearStore(): void {
-    if (typeof this.modelConfigStore.clear === 'function') {
-      this.modelConfigStore.clear()
-      return
+    if (typeof this.modelConfigStore.clear === "function") {
+      this.modelConfigStore.clear();
+      return;
     }
 
     Object.keys(this.modelConfigStore.store).forEach((key) => {
-      this.modelConfigStore.delete(key)
-    })
+      this.modelConfigStore.delete(key);
+    });
   }
 }

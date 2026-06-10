@@ -1,31 +1,31 @@
-import { IWindowPresenter, ITabPresenter } from '@shared/presenter'
-import EventEmitter from 'events'
+import { IWindowPresenter, ITabPresenter } from "@shared/presenter";
+import EventEmitter from "events";
 
 export enum SendTarget {
-  ALL_WINDOWS = 'all_windows',
-  DEFAULT_WINDOW = 'default_window',
-  DEFAULT_TAB = 'default_tab'
+  ALL_WINDOWS = "all_windows",
+  DEFAULT_WINDOW = "default_window",
+  DEFAULT_TAB = "default_tab",
 }
 
 export class EventBus extends EventEmitter {
-  private windowPresenter: IWindowPresenter | null = null
+  private windowPresenter: IWindowPresenter | null = null;
 
   constructor() {
-    super()
+    super();
   }
   /**
    * 仅向主进程发送事件
    */
   sendToMain(eventName: string, ...args: unknown[]) {
-    super.emit(eventName, ...args)
+    super.emit(eventName, ...args);
   }
 
   sendToWindow(eventName: string, windowId: number, ...args: unknown[]) {
     if (!this.windowPresenter) {
-      console.warn('WindowPresenter not available, cannot send to window')
-      return
+      console.warn("WindowPresenter not available, cannot send to window");
+      return;
     }
-    this.windowPresenter.sendToWindow(windowId, eventName, ...args)
+    this.windowPresenter.sendToWindow(windowId, eventName, ...args);
   }
   /**
    * 向渲染进程发送事件
@@ -33,17 +33,13 @@ export class EventBus extends EventEmitter {
    * @param target 发送目标：所有窗口或默认窗口
    * @param args 事件参数
    */
-  sendToRenderer(
-    eventName: string,
-    target: SendTarget = SendTarget.ALL_WINDOWS,
-    ...args: unknown[]
-  ) {
+  sendToRenderer(eventName: string, target: SendTarget = SendTarget.ALL_WINDOWS, ...args: unknown[]) {
     if (!this.windowPresenter) {
-      console.warn('WindowPresenter not available, cannot send to renderer')
-      return
+      console.warn("WindowPresenter not available, cannot send to renderer");
+      return;
     }
 
-    this.dispatchToRenderer(this.windowPresenter, eventName, target, ...args)
+    this.dispatchToRenderer(this.windowPresenter, eventName, target, ...args);
   }
 
   /**
@@ -56,11 +52,11 @@ export class EventBus extends EventEmitter {
     ...args: unknown[]
   ): boolean {
     if (!this.windowPresenter) {
-      return false
+      return false;
     }
 
-    this.dispatchToRenderer(this.windowPresenter, eventName, target, ...args)
-    return true
+    this.dispatchToRenderer(this.windowPresenter, eventName, target, ...args);
+    return true;
   }
 
   private dispatchToRenderer(
@@ -71,16 +67,16 @@ export class EventBus extends EventEmitter {
   ) {
     switch (target) {
       case SendTarget.ALL_WINDOWS:
-        windowPresenter.sendToAllWindows(eventName, ...args)
-        break
+        windowPresenter.sendToAllWindows(eventName, ...args);
+        break;
       case SendTarget.DEFAULT_WINDOW:
-        windowPresenter.sendToDefaultWindow(eventName, true, ...args)
-        break
+        windowPresenter.sendToDefaultWindow(eventName, true, ...args);
+        break;
       case SendTarget.DEFAULT_TAB:
-        windowPresenter.sendToDefaultTab(eventName, true, ...args)
-        break
+        windowPresenter.sendToDefaultTab(eventName, true, ...args);
+        break;
       default:
-        windowPresenter.sendToAllWindows(eventName, ...args)
+        windowPresenter.sendToAllWindows(eventName, ...args);
     }
   }
 
@@ -92,17 +88,17 @@ export class EventBus extends EventEmitter {
    */
   send(eventName: string, target: SendTarget = SendTarget.ALL_WINDOWS, ...args: unknown[]) {
     // 发送到主进程
-    this.sendToMain(eventName, ...args)
+    this.sendToMain(eventName, ...args);
 
     // 发送到渲染进程（启动早期没有窗口时静默跳过）
-    this.sendToRendererIfAvailable(eventName, target, ...args)
+    this.sendToRendererIfAvailable(eventName, target, ...args);
   }
 
   /**
    * 设置窗口展示器（用于向渲染进程发送消息）
    */
   setWindowPresenter(windowPresenter: IWindowPresenter) {
-    this.windowPresenter = windowPresenter
+    this.windowPresenter = windowPresenter;
   }
 
   /**
@@ -120,22 +116,20 @@ export class EventBus extends EventEmitter {
    */
   sendToWebContents(webContentsId: number, eventName: string, ...args: unknown[]) {
     if (!this.windowPresenter) {
-      console.warn('WindowPresenter not available, cannot send to specific webContents')
-      return
+      console.warn("WindowPresenter not available, cannot send to specific webContents");
+      return;
     }
 
     this.windowPresenter
       .sendToWebContents(webContentsId, eventName, ...args)
       .then((sent) => {
         if (!sent) {
-          console.warn(
-            `webContents ${webContentsId} not found or destroyed, cannot send event ${eventName}`
-          )
+          console.warn(`webContents ${webContentsId} not found or destroyed, cannot send event ${eventName}`);
         }
       })
       .catch((error) => {
-        console.error(`Error sending event ${eventName} to webContents ${webContentsId}:`, error)
-      })
+        console.error(`Error sending event ${eventName} to webContents ${webContentsId}:`, error);
+      });
   }
 
   /**
@@ -146,20 +140,20 @@ export class EventBus extends EventEmitter {
    */
   sendToActiveTab(windowId: number, eventName: string, ...args: unknown[]) {
     if (!this.windowPresenter) {
-      console.warn('WindowPresenter not available, cannot send to active window content')
-      return
+      console.warn("WindowPresenter not available, cannot send to active window content");
+      return;
     }
 
     this.windowPresenter
       .sendToActiveTab(windowId, eventName, ...args)
       .then((sent) => {
         if (!sent) {
-          console.warn(`No active content found for window ${windowId}`)
+          console.warn(`No active content found for window ${windowId}`);
         }
       })
       .catch((error) => {
-        console.error(`Error getting active content for window ${windowId}:`, error)
-      })
+        console.error(`Error getting active content for window ${windowId}:`, error);
+      });
   }
 
   /**
@@ -169,19 +163,17 @@ export class EventBus extends EventEmitter {
    * @param args 事件参数
    */
   broadcastToWebContents(webContentsIds: number[], eventName: string, ...args: unknown[]) {
-    webContentsIds.forEach((webContentsId) =>
-      this.sendToWebContents(webContentsId, eventName, ...args)
-    )
+    webContentsIds.forEach((webContentsId) => this.sendToWebContents(webContentsId, eventName, ...args));
   }
 
   sendToTab(tabId: number, eventName: string, ...args: unknown[]) {
-    this.sendToWebContents(tabId, eventName, ...args)
+    this.sendToWebContents(tabId, eventName, ...args);
   }
 
   broadcastToTabs(tabIds: number[], eventName: string, ...args: unknown[]) {
-    this.broadcastToWebContents(tabIds, eventName, ...args)
+    this.broadcastToWebContents(tabIds, eventName, ...args);
   }
 }
 
 // 创建全局事件总线实例
-export const eventBus = new EventBus()
+export const eventBus = new EventBus();

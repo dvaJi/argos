@@ -1,79 +1,77 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@shadcn/components/ui/dialog'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@shadcn/components/ui/tooltip'
-import type { ToolCallImagePreview } from '@shared/types/core/mcp'
-import { ImageActionContextMenu } from './ImageActionContextMenu'
-import { useImageActions } from '@/composables/useImageActions'
+import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@shadcn/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import type { ToolCallImagePreview } from "@shared/types/core/mcp";
+import { ImageActionContextMenu } from "./ImageActionContextMenu";
+import { useImageActions } from "@/composables/useImageActions";
 
 interface MessageBlockToolCallImagePreviewProps {
-  previews: ToolCallImagePreview[]
+  previews: ToolCallImagePreview[];
 }
 
 const resolveImageSrc = (preview: ToolCallImagePreview): string => {
-  const data = preview.data?.trim() ?? ''
+  const data = preview.data?.trim() ?? "";
   const hasSafeScheme =
-    data.startsWith('data:image/') ||
-    data.startsWith('imgcache://') ||
-    data.startsWith('http://') ||
-    data.startsWith('https://')
+    data.startsWith("data:image/") ||
+    data.startsWith("imgcache://") ||
+    data.startsWith("http://") ||
+    data.startsWith("https://");
 
-  if (hasSafeScheme) return data
-  if (preview.mimeType === 'deepchat/image-url') return ''
-  return `data:${preview.mimeType || 'image/png'};base64,${data}`
-}
+  if (hasSafeScheme) return data;
+  if (preview.mimeType === "deepchat/image-url") return "";
+  return `data:${preview.mimeType || "image/png"};base64,${data}`;
+};
 
-export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImagePreviewProps> = ({
-  previews
-}) => {
-  const { saveImage } = useImageActions()
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
+export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePreviewProps> = ({ previews }) => {
+  const { saveImage } = useImageActions();
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const selectedPreview = useMemo(
     () => (selectedIndex === null ? null : (previews[selectedIndex] ?? null)),
-    [selectedIndex, previews]
-  )
+    [selectedIndex, previews],
+  );
 
   const selectedPreviewSrc = useMemo(
-    () => (selectedPreview ? resolveImageSrc(selectedPreview) : ''),
-    [selectedPreview]
-  )
+    () => (selectedPreview ? resolveImageSrc(selectedPreview) : ""),
+    [selectedPreview],
+  );
 
   const selectedPreviewMimeType = useMemo(() => {
-    const mimeType = selectedPreview?.mimeType
-    return mimeType === 'deepchat/image-url' ? undefined : mimeType
-  }, [selectedPreview])
+    const mimeType = selectedPreview?.mimeType;
+    return mimeType === "deepchat/image-url" ? undefined : mimeType;
+  }, [selectedPreview]);
 
   const openPreview = (index: number) => {
-    const preview = previews[index]
-    if (!preview || failedImages.has(preview.id || String(index))) return
-    setSelectedIndex(index)
-  }
+    const preview = previews[index];
+    if (!preview || failedImages.has(preview.id || String(index))) return;
+    setSelectedIndex(index);
+  };
 
   const handleDialogOpenChange = (open: boolean) => {
-    if (!open) setSelectedIndex(null)
-  }
+    if (!open) setSelectedIndex(null);
+  };
 
   const handleImageError = (id: string) => {
     setFailedImages((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
-  }
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   const handleImageDialogOpenAutoFocus = (event: Event) => {
-    event.preventDefault()
-    const target = event.target as HTMLElement | null
-    target?.focus()
-  }
+    event.preventDefault();
+    const target = event.target as HTMLElement | null;
+    target?.focus();
+  };
 
   const handleSaveSelectedPreview = () => {
-    if (!selectedPreview || !selectedPreviewSrc) return
-    void saveImage({ source: selectedPreviewSrc, mimeType: selectedPreviewMimeType })
-  }
+    if (!selectedPreview || !selectedPreviewSrc) return;
+    void saveImage({ source: selectedPreviewSrc, mimeType: selectedPreviewMimeType });
+  };
 
   return (
     <div data-testid="tool-call-image-preview" className="space-y-2 flex-1 min-w-0">
@@ -89,7 +87,7 @@ export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImag
           <ImageActionContextMenu
             key={preview.id || index}
             source={resolveImageSrc(preview)}
-            mimeType={preview.mimeType === 'deepchat/image-url' ? undefined : preview.mimeType}
+            mimeType={preview.mimeType === "deepchat/image-url" ? undefined : preview.mimeType}
           >
             <button
               type="button"
@@ -100,16 +98,13 @@ export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImag
               <div className="flex aspect-video items-center justify-center bg-muted/40">
                 <img
                   src={resolveImageSrc(preview)}
-                  alt={preview.title || 'Image Preview'}
+                  alt={preview.title || "Image Preview"}
                   className="max-h-full max-w-full object-contain"
                   onError={() => handleImageError(preview.id || String(index))}
                 />
               </div>
               {preview.title && (
-                <div
-                  className="truncate border-t px-2 py-1.5 text-[11px] text-muted-foreground"
-                  title={preview.title}
-                >
+                <div className="truncate border-t px-2 py-1.5 text-[11px] text-muted-foreground" title={preview.title}>
                   {preview.title}
                 </div>
               )}
@@ -126,7 +121,7 @@ export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImag
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center justify-between gap-2 pr-8">
-                <span>{selectedPreview?.title || 'Image Preview'}</span>
+                <span>{selectedPreview?.title || "Image Preview"}</span>
                 {selectedPreview && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -147,13 +142,10 @@ export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImag
           </DialogHeader>
           <div className="flex items-center justify-center">
             {selectedPreview && (
-              <ImageActionContextMenu
-                source={selectedPreviewSrc}
-                mimeType={selectedPreviewMimeType}
-              >
+              <ImageActionContextMenu source={selectedPreviewSrc} mimeType={selectedPreviewMimeType}>
                 <img
                   src={selectedPreviewSrc}
-                  alt={selectedPreview.title || 'Image Preview'}
+                  alt={selectedPreview.title || "Image Preview"}
                   className="rounded-md max-h-[80vh] max-w-full object-contain"
                 />
               </ImageActionContextMenu>
@@ -162,5 +154,5 @@ export const MessageBlockToolCallImagePreview: React.FC<MessageBlockToolCallImag
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
+  );
+};

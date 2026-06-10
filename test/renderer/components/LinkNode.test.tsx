@@ -1,224 +1,221 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
-import type { MarkdownLinkContext } from '@/components/markdown/linkTypes'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
 
-describe('LinkNode', () => {
+describe("LinkNode", () => {
   const setup = async (options: { href: string; linkContext?: MarkdownLinkContext }) => {
-    vi.resetModules()
+    vi.resetModules();
 
     const sidepanelStore = {
       openBrowser: vi.fn(),
-      selectFile: vi.fn()
-    }
+      selectFile: vi.fn(),
+    };
 
     const sessionStore = {
       sessions: [
         {
-          id: 'session-1',
-          projectDir: '/repo'
-        }
+          id: "session-1",
+          projectDir: "/repo",
+        },
       ],
-      activeSessionId: 'session-1',
+      activeSessionId: "session-1",
       activeSession: {
-        id: 'session-1',
-        projectDir: '/repo'
-      }
-    }
+        id: "session-1",
+        projectDir: "/repo",
+      },
+    };
 
-    vi.doMock('@/stores/ui/sidepanel', () => ({
-      useSidepanelStore: () => sidepanelStore
-    }))
+    vi.doMock("@/stores/ui/sidepanel", () => ({
+      useSidepanelStore: () => sidepanelStore,
+    }));
 
-    vi.doMock('@/stores/ui/session', () => ({
-      useSessionStore: () => sessionStore
-    }))
+    vi.doMock("@/stores/ui/session", () => ({
+      useSessionStore: () => sessionStore,
+    }));
 
-    vi.doMock('@api/legacy/presenters', () => ({
-      useLegacyPresenter: () => ({})
-    }))
+    vi.doMock("@api/legacy/presenters", () => ({
+      useLegacyPresenter: () => ({}),
+    }));
 
-    const LinkNode = (await import('@/components/markdown/LinkNode')).default
+    const LinkNode = (await import("@/components/markdown/LinkNode")).default;
     const result = render(
       <LinkNode
         node={{
-          href: options.href
+          href: options.href,
         }}
         linkContext={
           options.linkContext ??
           ({
-            source: 'chat',
-            sessionId: 'session-1'
+            source: "chat",
+            sessionId: "session-1",
           } satisfies MarkdownLinkContext)
         }
       >
         Open link
-      </LinkNode>
-    )
+      </LinkNode>,
+    );
 
     return {
       ...result,
       sidepanelStore,
-      sessionStore
-    }
-  }
+      sessionStore,
+    };
+  };
 
   beforeEach(() => {
     window.api = {
       ...window.api,
-      openExternal: vi.fn().mockResolvedValue(undefined)
-    }
-  })
+      openExternal: vi.fn().mockResolvedValue(undefined),
+    };
+  });
 
   afterEach(() => {
-    document.body.innerHTML = ''
-  })
+    document.body.innerHTML = "";
+  });
 
-  it('opens http links in YoBrowser by default', async () => {
+  it("opens http links in YoBrowser by default", async () => {
     const { sidepanelStore } = await setup({
-      href: 'https://example.com'
-    })
+      href: "https://example.com",
+    });
 
-    await fireEvent.click(screen.getByRole('link'))
+    await fireEvent.click(screen.getByRole("link"));
 
-    expect(sidepanelStore.openBrowser).toHaveBeenCalledTimes(1)
+    expect(sidepanelStore.openBrowser).toHaveBeenCalledTimes(1);
     expect(window.deepchat.invoke).toHaveBeenCalledWith(
-      'browser.loadUrl',
+      "browser.loadUrl",
       expect.objectContaining({
-        sessionId: 'session-1',
-        url: 'https://example.com'
-      })
-    )
-    expect(window.api.openExternal).not.toHaveBeenCalled()
-  })
+        sessionId: "session-1",
+        url: "https://example.com",
+      }),
+    );
+    expect(window.api.openExternal).not.toHaveBeenCalled();
+  });
 
-  it('falls back to node text when markstream does not provide a slot', async () => {
-    vi.resetModules()
+  it("falls back to node text when markstream does not provide a slot", async () => {
+    vi.resetModules();
 
     const sidepanelStore = {
       openBrowser: vi.fn(),
-      selectFile: vi.fn()
-    }
+      selectFile: vi.fn(),
+    };
 
-    vi.doMock('@/stores/ui/sidepanel', () => ({
-      useSidepanelStore: () => sidepanelStore
-    }))
+    vi.doMock("@/stores/ui/sidepanel", () => ({
+      useSidepanelStore: () => sidepanelStore,
+    }));
 
-    vi.doMock('@/stores/ui/session', () => ({
+    vi.doMock("@/stores/ui/session", () => ({
       useSessionStore: () => ({
         sessions: [],
         activeSessionId: null,
-        activeSession: undefined
-      })
-    }))
+        activeSession: undefined,
+      }),
+    }));
 
-    vi.doMock('@api/legacy/presenters', () => ({
-      useLegacyPresenter: () => ({})
-    }))
+    vi.doMock("@api/legacy/presenters", () => ({
+      useLegacyPresenter: () => ({}),
+    }));
 
-    const LinkNode = (await import('@/components/markdown/LinkNode')).default
+    const LinkNode = (await import("@/components/markdown/LinkNode")).default;
     render(
       <LinkNode
         node={{
-          href: './docs/README.md',
-          text: 'README.md'
+          href: "./docs/README.md",
+          text: "README.md",
         }}
         linkContext={{
-          source: 'workspace',
-          sessionId: 'session-1',
-          sourceFilePath: '/repo/guide.md'
+          source: "workspace",
+          sessionId: "session-1",
+          sourceFilePath: "/repo/guide.md",
         }}
-      />
-    )
+      />,
+    );
 
-    expect(screen.getByRole('link').textContent).toBe('README.md')
-  })
+    expect(screen.getByRole("link").textContent).toBe("README.md");
+  });
 
-  it('opens http links in the system browser on Alt click', async () => {
+  it("opens http links in the system browser on Alt click", async () => {
     const { sidepanelStore } = await setup({
-      href: 'https://example.com'
-    })
+      href: "https://example.com",
+    });
 
-    await fireEvent.click(screen.getByRole('link'), { altKey: true })
+    await fireEvent.click(screen.getByRole("link"), { altKey: true });
 
-    expect(window.api.openExternal).toHaveBeenCalledWith('https://example.com')
-    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled()
-    expect(window.deepchat.invoke).not.toHaveBeenCalledWith('browser.loadUrl', expect.anything())
-  })
+    expect(window.api.openExternal).toHaveBeenCalledWith("https://example.com");
+    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled();
+    expect(window.deepchat.invoke).not.toHaveBeenCalledWith("browser.loadUrl", expect.anything());
+  });
 
-  it('opens mailto links externally without using YoBrowser', async () => {
+  it("opens mailto links externally without using YoBrowser", async () => {
     const { sidepanelStore } = await setup({
-      href: 'mailto:test@example.com'
-    })
+      href: "mailto:test@example.com",
+    });
 
-    await fireEvent.click(screen.getByRole('link'))
+    await fireEvent.click(screen.getByRole("link"));
 
-    expect(window.api.openExternal).toHaveBeenCalledWith('mailto:test@example.com')
-    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled()
-    expect(window.deepchat.invoke).not.toHaveBeenCalledWith('browser.loadUrl', expect.anything())
-  })
+    expect(window.api.openExternal).toHaveBeenCalledWith("mailto:test@example.com");
+    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled();
+    expect(window.deepchat.invoke).not.toHaveBeenCalledWith("browser.loadUrl", expect.anything());
+  });
 
-  it('opens local markdown links in the workspace preview', async () => {
-    const deepchatInvoke = window.deepchat.invoke as ReturnType<typeof vi.fn>
+  it("opens local markdown links in the workspace preview", async () => {
+    const deepchatInvoke = window.deepchat.invoke as ReturnType<typeof vi.fn>;
     deepchatInvoke.mockImplementation((routeName: string) => {
-      if (routeName === 'workspace.resolveMarkdownLinkedFile') {
+      if (routeName === "workspace.resolveMarkdownLinkedFile") {
         return Promise.resolve({
           resolution: {
-            path: '/repo/docs/README.md',
-            name: 'README.md',
-            relativePath: 'docs/README.md',
-            workspaceRoot: '/repo'
-          }
-        })
+            path: "/repo/docs/README.md",
+            name: "README.md",
+            relativePath: "docs/README.md",
+            workspaceRoot: "/repo",
+          },
+        });
       }
 
-      return Promise.resolve({})
-    })
+      return Promise.resolve({});
+    });
 
     const { sidepanelStore } = await setup({
-      href: './docs/README.md',
+      href: "./docs/README.md",
       linkContext: {
-        source: 'workspace',
-        sessionId: 'session-1',
-        sourceFilePath: '/repo/guide.md'
-      }
-    })
+        source: "workspace",
+        sessionId: "session-1",
+        sourceFilePath: "/repo/guide.md",
+      },
+    });
 
-    await fireEvent.click(screen.getByRole('link'))
+    await fireEvent.click(screen.getByRole("link"));
 
-    expect(window.deepchat.invoke).toHaveBeenCalledWith('workspace.resolveMarkdownLinkedFile', {
-      workspacePath: '/repo',
-      href: './docs/README.md',
-      sourceFilePath: '/repo/guide.md'
-    })
-    expect(sidepanelStore.selectFile).toHaveBeenCalledWith('session-1', '/repo/docs/README.md', {
+    expect(window.deepchat.invoke).toHaveBeenCalledWith("workspace.resolveMarkdownLinkedFile", {
+      workspacePath: "/repo",
+      href: "./docs/README.md",
+      sourceFilePath: "/repo/guide.md",
+    });
+    expect(sidepanelStore.selectFile).toHaveBeenCalledWith("session-1", "/repo/docs/README.md", {
       open: true,
-      viewMode: 'preview'
-    })
-  })
+      viewMode: "preview",
+    });
+  });
 
-  it('keeps same-document fragments inside the current document', async () => {
-    const scrollIntoView = vi.fn()
-    const target = document.createElement('div')
-    target.id = 'details'
-    Object.defineProperty(target, 'scrollIntoView', {
+  it("keeps same-document fragments inside the current document", async () => {
+    const scrollIntoView = vi.fn();
+    const target = document.createElement("div");
+    target.id = "details";
+    Object.defineProperty(target, "scrollIntoView", {
       value: scrollIntoView,
-      writable: true
-    })
-    document.body.appendChild(target)
+      writable: true,
+    });
+    document.body.appendChild(target);
 
     const { sidepanelStore } = await setup({
-      href: '#details'
-    })
+      href: "#details",
+    });
 
-    await fireEvent.click(screen.getByRole('link'))
+    await fireEvent.click(screen.getByRole("link"));
 
-    expect(scrollIntoView).toHaveBeenCalled()
-    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled()
-    expect(window.deepchat.invoke).not.toHaveBeenCalledWith('browser.loadUrl', expect.anything())
-    expect(window.deepchat.invoke).not.toHaveBeenCalledWith(
-      'workspace.resolveMarkdownLinkedFile',
-      expect.anything()
-    )
-    expect(window.api.openExternal).not.toHaveBeenCalled()
-  })
-})
+    expect(scrollIntoView).toHaveBeenCalled();
+    expect(sidepanelStore.openBrowser).not.toHaveBeenCalled();
+    expect(window.deepchat.invoke).not.toHaveBeenCalledWith("browser.loadUrl", expect.anything());
+    expect(window.deepchat.invoke).not.toHaveBeenCalledWith("workspace.resolveMarkdownLinkedFile", expect.anything());
+    expect(window.api.openExternal).not.toHaveBeenCalled();
+  });
+});

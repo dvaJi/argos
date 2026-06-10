@@ -1,431 +1,406 @@
-import type {
-  AWS_BEDROCK_PROVIDER,
-  IConfigPresenter,
-  LLM_PROVIDER,
-  VERTEX_PROVIDER
-} from '@shared/presenter'
-import { wrapLanguageModel } from 'ai'
-import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { createAzure } from '@ai-sdk/azure'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
-import { createVertex } from '@ai-sdk/google-vertex'
-import { createOpenAI } from '@ai-sdk/openai'
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import { ProxyAgent } from 'undici'
-import { proxyConfig } from '../../proxyConfig'
-import { createReasoningMiddleware } from './middlewares/reasoningMiddleware'
+import type { AWS_BEDROCK_PROVIDER, IConfigPresenter, LLM_PROVIDER, VERTEX_PROVIDER } from "@shared/presenter";
+import { wrapLanguageModel } from "ai";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAzure } from "@ai-sdk/azure";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createVertex } from "@ai-sdk/google-vertex";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { ProxyAgent } from "undici";
+import { proxyConfig } from "../../proxyConfig";
+import { createReasoningMiddleware } from "./middlewares/reasoningMiddleware";
 
 export type AiSdkProviderKind =
-  | 'openai-compatible'
-  | 'openai-responses'
-  | 'azure'
-  | 'anthropic'
-  | 'gemini'
-  | 'vertex'
-  | 'aws-bedrock'
+  | "openai-compatible"
+  | "openai-responses"
+  | "azure"
+  | "anthropic"
+  | "gemini"
+  | "vertex"
+  | "aws-bedrock";
 
 export interface CreateAiSdkProviderContextParams {
-  providerKind: AiSdkProviderKind
-  provider: LLM_PROVIDER
-  configPresenter: IConfigPresenter
-  defaultHeaders: Record<string, string>
-  modelId: string
-  cleanHeaders?: boolean
-  wrapThinkReasoning?: boolean
+  providerKind: AiSdkProviderKind;
+  provider: LLM_PROVIDER;
+  configPresenter: IConfigPresenter;
+  defaultHeaders: Record<string, string>;
+  modelId: string;
+  cleanHeaders?: boolean;
+  wrapThinkReasoning?: boolean;
 }
 
 export interface AiSdkProviderContext {
-  providerOptionsKey: string
-  apiType:
-    | 'openai_chat'
-    | 'openai_responses'
-    | 'azure_responses'
-    | 'anthropic'
-    | 'google'
-    | 'vertex'
-    | 'bedrock'
-  model: any
-  embeddingModel?: any
-  imageModel?: any
-  endpoint: string
-  imageEndpoint?: string
-  embeddingEndpoint?: string
-  resolvedModelId?: string
+  providerOptionsKey: string;
+  apiType: "openai_chat" | "openai_responses" | "azure_responses" | "anthropic" | "google" | "vertex" | "bedrock";
+  model: any;
+  embeddingModel?: any;
+  imageModel?: any;
+  endpoint: string;
+  imageEndpoint?: string;
+  embeddingEndpoint?: string;
+  resolvedModelId?: string;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 const VERTEX_SCHEMA_TYPE_MAP: Record<string, string> = {
-  string: 'STRING',
-  number: 'NUMBER',
-  integer: 'INTEGER',
-  boolean: 'BOOLEAN',
-  object: 'OBJECT',
-  array: 'ARRAY',
-  null: 'NULL'
-}
+  string: "STRING",
+  number: "NUMBER",
+  integer: "INTEGER",
+  boolean: "BOOLEAN",
+  object: "OBJECT",
+  array: "ARRAY",
+  null: "NULL",
+};
 
 function normalizeVertexSchemaNode(node: unknown): unknown {
   if (Array.isArray(node)) {
-    return node.map((item) => normalizeVertexSchemaNode(item))
+    return node.map((item) => normalizeVertexSchemaNode(item));
   }
 
   if (!isObjectRecord(node)) {
-    return node
+    return node;
   }
 
-  const normalized: Record<string, unknown> = {}
+  const normalized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(node)) {
-    if (key === 'type' && typeof value === 'string') {
-      normalized[key] = VERTEX_SCHEMA_TYPE_MAP[value.toLowerCase()] ?? value
-      continue
+    if (key === "type" && typeof value === "string") {
+      normalized[key] = VERTEX_SCHEMA_TYPE_MAP[value.toLowerCase()] ?? value;
+      continue;
     }
 
-    normalized[key] = normalizeVertexSchemaNode(value)
+    normalized[key] = normalizeVertexSchemaNode(value);
   }
 
-  return normalized
+  return normalized;
 }
 
 export function normalizeVertexRequestBody(body: unknown): unknown {
   if (!isObjectRecord(body)) {
-    return body
+    return body;
   }
 
-  const nextBody: Record<string, unknown> = { ...body }
-  const systemInstruction = nextBody.systemInstruction
+  const nextBody: Record<string, unknown> = { ...body };
+  const systemInstruction = nextBody.systemInstruction;
 
-  if (isObjectRecord(systemInstruction) && !('role' in systemInstruction)) {
+  if (isObjectRecord(systemInstruction) && !("role" in systemInstruction)) {
     nextBody.systemInstruction = {
-      role: 'user',
-      ...systemInstruction
-    }
+      role: "user",
+      ...systemInstruction,
+    };
   }
 
   if (Array.isArray(nextBody.tools)) {
     nextBody.tools = nextBody.tools.map((tool) => {
       if (!isObjectRecord(tool) || !Array.isArray(tool.functionDeclarations)) {
-        return tool
+        return tool;
       }
 
       return {
         ...tool,
         functionDeclarations: tool.functionDeclarations.map((declaration) => {
           if (!isObjectRecord(declaration)) {
-            return declaration
+            return declaration;
           }
 
           return {
             ...declaration,
-            ...(declaration.parameters
-              ? { parameters: normalizeVertexSchemaNode(declaration.parameters) }
-              : {})
-          }
-        })
-      }
-    })
+            ...(declaration.parameters ? { parameters: normalizeVertexSchemaNode(declaration.parameters) } : {}),
+          };
+        }),
+      };
+    });
   }
 
-  const toolConfig = nextBody.toolConfig
+  const toolConfig = nextBody.toolConfig;
 
   if (!isObjectRecord(toolConfig)) {
-    return nextBody
+    return nextBody;
   }
 
-  const functionCallingConfig = toolConfig.functionCallingConfig
+  const functionCallingConfig = toolConfig.functionCallingConfig;
   if (!isObjectRecord(functionCallingConfig)) {
-    return nextBody
+    return nextBody;
   }
 
   const hasOnlyAutoMode =
-    functionCallingConfig.mode === 'AUTO' &&
+    functionCallingConfig.mode === "AUTO" &&
     Object.keys(functionCallingConfig).length === 1 &&
-    Object.keys(toolConfig).length === 1
+    Object.keys(toolConfig).length === 1;
 
   if (hasOnlyAutoMode) {
-    delete nextBody.toolConfig
+    delete nextBody.toolConfig;
   }
 
-  return nextBody
+  return nextBody;
 }
 
 export function normalizeGeminiBaseUrl(baseUrl: string | undefined): string {
-  const normalized = (baseUrl || '').trim().replace(/\/+$/, '')
+  const normalized = (baseUrl || "").trim().replace(/\/+$/, "");
 
   if (!normalized) {
-    return 'https://generativelanguage.googleapis.com/v1beta'
+    return "https://generativelanguage.googleapis.com/v1beta";
   }
 
   if (/\/v1beta1$/i.test(normalized) || /\/v1beta$/i.test(normalized)) {
-    return normalized
+    return normalized;
   }
 
   if (/\/v1$/i.test(normalized)) {
-    return normalized.replace(/\/v1$/i, '/v1beta')
+    return normalized.replace(/\/v1$/i, "/v1beta");
   }
 
-  return `${normalized}/v1beta`
+  return `${normalized}/v1beta`;
 }
 
-const DEFAULT_OLLAMA_BASE_URL = 'http://127.0.0.1:11434'
+const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 
 function normalizeOllamaInputBaseUrl(baseUrl: string | undefined): URL | null {
-  const normalized = (baseUrl || DEFAULT_OLLAMA_BASE_URL).trim()
+  const normalized = (baseUrl || DEFAULT_OLLAMA_BASE_URL).trim();
   if (!normalized) {
-    return new URL(DEFAULT_OLLAMA_BASE_URL)
+    return new URL(DEFAULT_OLLAMA_BASE_URL);
   }
 
   try {
-    if (normalized.startsWith(':')) {
-      return new URL(`http://127.0.0.1${normalized}`)
+    if (normalized.startsWith(":")) {
+      return new URL(`http://127.0.0.1${normalized}`);
     }
 
-    return new URL(normalized.includes('://') ? normalized : `http://${normalized}`)
+    return new URL(normalized.includes("://") ? normalized : `http://${normalized}`);
   } catch {
-    return null
+    return null;
   }
 }
 
 function stripOllamaEndpointSuffix(pathname: string): string {
-  return pathname.replace(/\/+$/, '').replace(/\/(?:api|v1)$/i, '') || '/'
+  return pathname.replace(/\/+$/, "").replace(/\/(?:api|v1)$/i, "") || "/";
 }
 
 export function normalizeOllamaSdkHost(baseUrl: string | undefined): string {
-  const parsed = normalizeOllamaInputBaseUrl(baseUrl)
+  const parsed = normalizeOllamaInputBaseUrl(baseUrl);
   if (!parsed) {
-    const fallback = (baseUrl || DEFAULT_OLLAMA_BASE_URL).trim().replace(/\/+$/, '')
-    return fallback.replace(/\/(?:api|v1)$/i, '') || DEFAULT_OLLAMA_BASE_URL
+    const fallback = (baseUrl || DEFAULT_OLLAMA_BASE_URL).trim().replace(/\/+$/, "");
+    return fallback.replace(/\/(?:api|v1)$/i, "") || DEFAULT_OLLAMA_BASE_URL;
   }
 
-  parsed.search = ''
-  parsed.hash = ''
-  parsed.pathname = stripOllamaEndpointSuffix(parsed.pathname)
+  parsed.search = "";
+  parsed.hash = "";
+  parsed.pathname = stripOllamaEndpointSuffix(parsed.pathname);
 
-  return parsed.toString().replace(/\/+$/, '')
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 export function normalizeOllamaOpenAIBaseUrl(baseUrl: string | undefined): string {
-  const parsed = normalizeOllamaInputBaseUrl(baseUrl)
+  const parsed = normalizeOllamaInputBaseUrl(baseUrl);
   if (!parsed) {
-    const fallback = normalizeOllamaSdkHost(baseUrl)
-    return `${fallback.replace(/\/+$/, '')}/v1`
+    const fallback = normalizeOllamaSdkHost(baseUrl);
+    return `${fallback.replace(/\/+$/, "")}/v1`;
   }
 
-  parsed.search = ''
-  parsed.hash = ''
-  parsed.pathname = `${stripOllamaEndpointSuffix(parsed.pathname).replace(/\/+$/, '')}/v1`
+  parsed.search = "";
+  parsed.hash = "";
+  parsed.pathname = `${stripOllamaEndpointSuffix(parsed.pathname).replace(/\/+$/, "")}/v1`;
 
-  return parsed.toString().replace(/\/+$/, '')
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 function normalizeRequestBody(
   provider: LLM_PROVIDER,
   requestUrl: string,
-  body: RequestInit['body'] | null | undefined
-): RequestInit['body'] | null | undefined {
-  if (body == null || typeof body !== 'string') {
-    return body
+  body: RequestInit["body"] | null | undefined,
+): RequestInit["body"] | null | undefined {
+  if (body == null || typeof body !== "string") {
+    return body;
   }
 
   const isVertexRequest =
-    provider.apiType === 'vertex' ||
-    requestUrl.includes(':generateContent') ||
-    requestUrl.includes(':streamGenerateContent')
+    provider.apiType === "vertex" ||
+    requestUrl.includes(":generateContent") ||
+    requestUrl.includes(":streamGenerateContent");
 
   if (!isVertexRequest) {
-    return body
+    return body;
   }
 
   try {
-    const parsed = JSON.parse(body)
-    const normalized = normalizeVertexRequestBody(parsed)
-    return JSON.stringify(normalized)
+    const parsed = JSON.parse(body);
+    const normalized = normalizeVertexRequestBody(parsed);
+    return JSON.stringify(normalized);
   } catch {
-    return body
+    return body;
   }
 }
 
 function shouldUseGeminiApiKeyHeader(provider: LLM_PROVIDER): boolean {
-  return provider.apiType === 'gemini'
+  return provider.apiType === "gemini";
 }
 
-function createFetchMiddleware(
-  provider: LLM_PROVIDER,
-  defaultHeaders: Record<string, string>,
-  cleanHeaders = false
-) {
-  const proxyUrl = proxyConfig.getProxyUrl()
-  const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined
+function createFetchMiddleware(provider: LLM_PROVIDER, defaultHeaders: Record<string, string>, cleanHeaders = false) {
+  const proxyUrl = proxyConfig.getProxyUrl();
+  const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
 
   return async (url: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    const requestUrl = typeof url === 'string' ? url : url instanceof URL ? url.toString() : url.url
+    const requestUrl = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
     const nextInit: RequestInit & { dispatcher?: ProxyAgent } = {
-      ...init
-    }
+      ...init,
+    };
 
     if (dispatcher) {
-      nextInit.dispatcher = dispatcher
+      nextInit.dispatcher = dispatcher;
     }
 
-    const headers = new Headers(init?.headers ?? {})
-    Object.entries(defaultHeaders).forEach(([key, value]) => headers.set(key, value))
-    const shouldUseGeminiHeader = shouldUseGeminiApiKeyHeader(provider)
+    const headers = new Headers(init?.headers ?? {});
+    Object.entries(defaultHeaders).forEach(([key, value]) => headers.set(key, value));
+    const shouldUseGeminiHeader = shouldUseGeminiApiKeyHeader(provider);
 
     if (cleanHeaders) {
-      const allowedHeaders = new Set([
-        'authorization',
-        'content-type',
-        'accept',
-        'http-referer',
-        'x-title'
-      ])
+      const allowedHeaders = new Set(["authorization", "content-type", "accept", "http-referer", "x-title"]);
 
-      const sanitized = new Headers()
+      const sanitized = new Headers();
       headers.forEach((value, key) => {
-        const normalized = key.toLowerCase()
+        const normalized = key.toLowerCase();
         if (
           allowedHeaders.has(normalized) ||
-          (!normalized.startsWith('x-stainless-') &&
-            !normalized.includes('user-agent') &&
-            !normalized.includes('openai-'))
+          (!normalized.startsWith("x-stainless-") &&
+            !normalized.includes("user-agent") &&
+            !normalized.includes("openai-"))
         ) {
-          sanitized.set(key, value)
+          sanitized.set(key, value);
         }
-      })
+      });
 
-      if (!shouldUseGeminiHeader && !sanitized.has('Authorization') && provider.apiKey) {
-        sanitized.set('Authorization', `Bearer ${provider.apiKey}`)
+      if (!shouldUseGeminiHeader && !sanitized.has("Authorization") && provider.apiKey) {
+        sanitized.set("Authorization", `Bearer ${provider.apiKey}`);
       }
 
-      nextInit.headers = sanitized
+      nextInit.headers = sanitized;
     } else {
-      nextInit.headers = headers
+      nextInit.headers = headers;
     }
 
-    nextInit.body = normalizeRequestBody(provider, requestUrl, nextInit.body)
-    return fetch(url, nextInit)
-  }
+    nextInit.body = normalizeRequestBody(provider, requestUrl, nextInit.body);
+    return fetch(url, nextInit);
+  };
 }
 
 function buildOpenAIEndpoint(baseUrl: string, path: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}${path}`
+  return `${baseUrl.replace(/\/+$/, "")}${path}`;
 }
 
 function isOllamaProvider(provider: LLM_PROVIDER): boolean {
-  return provider.id === 'ollama' || provider.apiType === 'ollama'
+  return provider.id === "ollama" || provider.apiType === "ollama";
 }
 
-const DEFAULT_AZURE_V1_API_VERSION = 'v1'
-const DEFAULT_AZURE_DEPLOYMENT_API_VERSION = '2024-02-01'
+const DEFAULT_AZURE_V1_API_VERSION = "v1";
+const DEFAULT_AZURE_DEPLOYMENT_API_VERSION = "2024-02-01";
 
 export interface NormalizedAzureBaseUrl {
-  baseURL?: string
-  apiVersion: string
-  useDeploymentBasedUrls: boolean
-  deploymentName?: string
+  baseURL?: string;
+  apiVersion: string;
+  useDeploymentBasedUrls: boolean;
+  deploymentName?: string;
 }
 
 export function normalizeAnthropicBaseUrl(baseUrl: string | undefined): string {
-  const normalized = (baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '')
+  const normalized = (baseUrl || "https://api.anthropic.com").replace(/\/+$/, "");
 
-  if (normalized.endsWith('/v1/messages')) {
-    return normalized.slice(0, -'/messages'.length)
+  if (normalized.endsWith("/v1/messages")) {
+    return normalized.slice(0, -"/messages".length);
   }
 
-  if (normalized.endsWith('/messages')) {
-    return normalized.slice(0, -'/messages'.length)
+  if (normalized.endsWith("/messages")) {
+    return normalized.slice(0, -"/messages".length);
   }
 
-  if (normalized.endsWith('/v1')) {
-    return normalized
+  if (normalized.endsWith("/v1")) {
+    return normalized;
   }
 
-  return `${normalized}/v1`
+  return `${normalized}/v1`;
 }
 
 export function normalizeVertexBaseUrl(
   baseUrl: string | undefined,
   apiKey: string | undefined,
-  apiVersion: 'v1' | 'v1beta1' = 'v1'
+  apiVersion: "v1" | "v1beta1" = "v1",
 ): string | undefined {
-  const normalized = baseUrl?.trim().replace(/\/+$/, '')
+  const normalized = baseUrl?.trim().replace(/\/+$/, "");
   if (!normalized) {
-    return undefined
+    return undefined;
   }
 
   if (!apiKey) {
-    return normalized
+    return normalized;
   }
 
   if (/\/publishers\/google$/i.test(normalized)) {
-    return normalized
+    return normalized;
   }
 
-  if (new RegExp(`/${apiVersion}$`, 'i').test(normalized)) {
-    return `${normalized}/publishers/google`
+  if (new RegExp(`/${apiVersion}$`, "i").test(normalized)) {
+    return `${normalized}/publishers/google`;
   }
 
-  return `${normalized}/${apiVersion}/publishers/google`
+  return `${normalized}/${apiVersion}/publishers/google`;
 }
 
 export function normalizeAzureBaseUrl(
   baseUrl: string | undefined,
-  apiVersion: string | undefined
+  apiVersion: string | undefined,
 ): NormalizedAzureBaseUrl {
-  const normalizedBaseUrl = baseUrl?.trim()
-  const normalizedApiVersion = apiVersion?.trim()
+  const normalizedBaseUrl = baseUrl?.trim();
+  const normalizedApiVersion = apiVersion?.trim();
 
   if (!normalizedBaseUrl) {
     return {
       apiVersion: normalizedApiVersion || DEFAULT_AZURE_V1_API_VERSION,
-      useDeploymentBasedUrls: false
-    }
+      useDeploymentBasedUrls: false,
+    };
   }
 
   try {
-    const url = new URL(normalizedBaseUrl)
-    url.search = ''
-    url.hash = ''
+    const url = new URL(normalizedBaseUrl);
+    url.search = "";
+    url.hash = "";
 
-    let pathname = url.pathname.replace(/\/+$/, '')
-    let deploymentName: string | undefined
+    let pathname = url.pathname.replace(/\/+$/, "");
+    let deploymentName: string | undefined;
 
-    const deploymentMatch = pathname.match(/\/openai\/deployments\/([^/]+)(?:\/.*)?$/i)
+    const deploymentMatch = pathname.match(/\/openai\/deployments\/([^/]+)(?:\/.*)?$/i);
     if (deploymentMatch?.[1]) {
-      deploymentName = decodeURIComponent(deploymentMatch[1])
-      pathname = pathname.slice(0, deploymentMatch.index ?? pathname.length) || '/openai'
+      deploymentName = decodeURIComponent(deploymentMatch[1]);
+      pathname = pathname.slice(0, deploymentMatch.index ?? pathname.length) || "/openai";
     } else if (/\/openai\/v1$/i.test(pathname)) {
-      pathname = pathname.replace(/\/openai\/v1$/i, '/openai')
+      pathname = pathname.replace(/\/openai\/v1$/i, "/openai");
     } else if (!/\/openai$/i.test(pathname)) {
-      pathname = pathname ? `${pathname}/openai` : '/openai'
+      pathname = pathname ? `${pathname}/openai` : "/openai";
     }
 
-    url.pathname = pathname || '/openai'
+    url.pathname = pathname || "/openai";
 
     return {
-      baseURL: url.toString().replace(/\/+$/, ''),
+      baseURL: url.toString().replace(/\/+$/, ""),
       apiVersion:
-        normalizedApiVersion ||
-        (deploymentName ? DEFAULT_AZURE_DEPLOYMENT_API_VERSION : DEFAULT_AZURE_V1_API_VERSION),
+        normalizedApiVersion || (deploymentName ? DEFAULT_AZURE_DEPLOYMENT_API_VERSION : DEFAULT_AZURE_V1_API_VERSION),
       useDeploymentBasedUrls: Boolean(deploymentName),
-      deploymentName
-    }
+      deploymentName,
+    };
   } catch {
-    const fallbackBaseUrl = normalizedBaseUrl.replace(/\/+$/, '')
+    const fallbackBaseUrl = normalizedBaseUrl.replace(/\/+$/, "");
 
     return {
-      baseURL: fallbackBaseUrl.endsWith('/openai')
+      baseURL: fallbackBaseUrl.endsWith("/openai")
         ? fallbackBaseUrl
-        : fallbackBaseUrl.endsWith('/openai/v1')
-          ? fallbackBaseUrl.slice(0, -'/v1'.length)
+        : fallbackBaseUrl.endsWith("/openai/v1")
+          ? fallbackBaseUrl.slice(0, -"/v1".length)
           : `${fallbackBaseUrl}/openai`,
       apiVersion: normalizedApiVersion || DEFAULT_AZURE_V1_API_VERSION,
-      useDeploymentBasedUrls: false
-    }
+      useDeploymentBasedUrls: false,
+    };
   }
 }
 
@@ -434,182 +409,176 @@ function buildAzureEndpoint(
   path: string,
   apiVersion: string,
   deploymentName: string,
-  useDeploymentBasedUrls: boolean
+  useDeploymentBasedUrls: boolean,
 ): string {
-  const basePath = (baseURL || '').replace(/\/+$/, '')
+  const basePath = (baseURL || "").replace(/\/+$/, "");
   const endpoint = useDeploymentBasedUrls
     ? `${basePath}/deployments/${deploymentName}${path}`
-    : `${basePath}/v1${path}`
+    : `${basePath}/v1${path}`;
 
-  return `${endpoint}?api-version=${encodeURIComponent(apiVersion)}`
+  return `${endpoint}?api-version=${encodeURIComponent(apiVersion)}`;
 }
 
-export function createAiSdkProviderContext(
-  params: CreateAiSdkProviderContextParams
-): AiSdkProviderContext {
-  const baseUrl = params.provider.baseUrl || ''
-  const fetch = createFetchMiddleware(
-    params.provider,
-    params.defaultHeaders,
-    params.cleanHeaders === true
-  )
+export function createAiSdkProviderContext(params: CreateAiSdkProviderContextParams): AiSdkProviderContext {
+  const baseUrl = params.provider.baseUrl || "";
+  const fetch = createFetchMiddleware(params.provider, params.defaultHeaders, params.cleanHeaders === true);
   const maybeWrapModel = (model: any): any =>
     params.wrapThinkReasoning === false
       ? model
       : wrapLanguageModel({
           model,
-          middleware: createReasoningMiddleware()
-        })
+          middleware: createReasoningMiddleware(),
+        });
 
   switch (params.providerKind) {
-    case 'openai-responses': {
+    case "openai-responses": {
       const provider = createOpenAI({
         baseURL: baseUrl,
         apiKey: params.provider.apiKey,
         headers: params.defaultHeaders,
-        fetch
-      })
+        fetch,
+      });
 
       return {
-        providerOptionsKey: 'openai',
-        apiType: 'openai_responses',
+        providerOptionsKey: "openai",
+        apiType: "openai_responses",
         model: maybeWrapModel(provider.responses(params.modelId) as any),
         embeddingModel: provider.embedding(params.modelId),
         imageModel: provider.image(params.modelId),
-        endpoint: buildOpenAIEndpoint(baseUrl || 'https://api.openai.com/v1', '/responses')
-      }
+        endpoint: buildOpenAIEndpoint(baseUrl || "https://api.openai.com/v1", "/responses"),
+      };
     }
 
-    case 'azure': {
-      const azureApiVersion = params.configPresenter.getSetting<string>('azureApiVersion')
-      const azureConfig = normalizeAzureBaseUrl(baseUrl || undefined, azureApiVersion)
-      const deploymentName = azureConfig.deploymentName || params.modelId
+    case "azure": {
+      const azureApiVersion = params.configPresenter.getSetting<string>("azureApiVersion");
+      const azureConfig = normalizeAzureBaseUrl(baseUrl || undefined, azureApiVersion);
+      const deploymentName = azureConfig.deploymentName || params.modelId;
       const provider = createAzure({
         baseURL: azureConfig.baseURL,
         apiKey: params.provider.apiKey || undefined,
         headers: params.defaultHeaders,
         fetch,
         apiVersion: azureConfig.apiVersion,
-        useDeploymentBasedUrls: azureConfig.useDeploymentBasedUrls
-      })
+        useDeploymentBasedUrls: azureConfig.useDeploymentBasedUrls,
+      });
 
       return {
-        providerOptionsKey: 'azure',
-        apiType: 'azure_responses',
+        providerOptionsKey: "azure",
+        apiType: "azure_responses",
         model: maybeWrapModel(provider.responses(deploymentName) as any),
         embeddingModel: provider.embedding(deploymentName),
         imageModel: provider.image(deploymentName),
         endpoint: buildAzureEndpoint(
           azureConfig.baseURL,
-          '/responses',
+          "/responses",
           azureConfig.apiVersion,
           deploymentName,
-          azureConfig.useDeploymentBasedUrls
+          azureConfig.useDeploymentBasedUrls,
         ),
         imageEndpoint: buildAzureEndpoint(
           azureConfig.baseURL,
-          '/images/generations',
+          "/images/generations",
           azureConfig.apiVersion,
           deploymentName,
-          azureConfig.useDeploymentBasedUrls
+          azureConfig.useDeploymentBasedUrls,
         ),
         embeddingEndpoint: buildAzureEndpoint(
           azureConfig.baseURL,
-          '/embeddings',
+          "/embeddings",
           azureConfig.apiVersion,
           deploymentName,
-          azureConfig.useDeploymentBasedUrls
+          azureConfig.useDeploymentBasedUrls,
         ),
-        resolvedModelId: deploymentName
-      }
+        resolvedModelId: deploymentName,
+      };
     }
 
-    case 'openai-compatible': {
-      if (params.provider.id === 'openai') {
+    case "openai-compatible": {
+      if (params.provider.id === "openai") {
         const provider = createOpenAI({
           baseURL: baseUrl,
           apiKey: params.provider.apiKey,
           headers: params.defaultHeaders,
-          fetch
-        })
+          fetch,
+        });
 
         return {
-          providerOptionsKey: 'openai',
-          apiType: 'openai_chat',
+          providerOptionsKey: "openai",
+          apiType: "openai_chat",
           model: maybeWrapModel(provider.chat(params.modelId) as any),
           embeddingModel: provider.embedding(params.modelId),
           imageModel: provider.image(params.modelId),
-          endpoint: buildOpenAIEndpoint(baseUrl || 'https://api.openai.com/v1', '/chat/completions')
-        }
+          endpoint: buildOpenAIEndpoint(baseUrl || "https://api.openai.com/v1", "/chat/completions"),
+        };
       }
 
       const openAICompatibleBaseUrl = isOllamaProvider(params.provider)
         ? normalizeOllamaOpenAIBaseUrl(baseUrl)
-        : baseUrl
+        : baseUrl;
       const provider = createOpenAICompatible({
         name: params.provider.id,
         baseURL: openAICompatibleBaseUrl,
         apiKey: params.provider.apiKey,
         headers: params.defaultHeaders,
         fetch,
-        includeUsage: true
-      })
+        includeUsage: true,
+      });
 
       return {
         providerOptionsKey: params.provider.id,
-        apiType: 'openai_chat',
+        apiType: "openai_chat",
         model: maybeWrapModel(provider.chatModel(params.modelId) as any),
         embeddingModel: provider.embeddingModel(params.modelId),
         imageModel: provider.imageModel(params.modelId),
-        endpoint: buildOpenAIEndpoint(openAICompatibleBaseUrl, '/chat/completions')
-      }
+        endpoint: buildOpenAIEndpoint(openAICompatibleBaseUrl, "/chat/completions"),
+      };
     }
 
-    case 'anthropic': {
-      const anthropicBaseUrl = normalizeAnthropicBaseUrl(baseUrl)
+    case "anthropic": {
+      const anthropicBaseUrl = normalizeAnthropicBaseUrl(baseUrl);
       const provider = createAnthropic({
         baseURL: anthropicBaseUrl,
         apiKey: params.provider.apiKey || process.env.ANTHROPIC_API_KEY,
         headers: params.defaultHeaders,
         fetch,
-        name: 'anthropic'
-      })
+        name: "anthropic",
+      });
 
       return {
-        providerOptionsKey: 'anthropic',
-        apiType: 'anthropic',
+        providerOptionsKey: "anthropic",
+        apiType: "anthropic",
         model: maybeWrapModel(provider.messages(params.modelId) as any),
-        endpoint: `${anthropicBaseUrl}/messages`
-      }
+        endpoint: `${anthropicBaseUrl}/messages`,
+      };
     }
 
-    case 'gemini': {
-      const geminiBaseUrl = normalizeGeminiBaseUrl(baseUrl || undefined)
+    case "gemini": {
+      const geminiBaseUrl = normalizeGeminiBaseUrl(baseUrl || undefined);
       const provider = createGoogleGenerativeAI({
         baseURL: geminiBaseUrl,
         apiKey: params.provider.apiKey || process.env.GEMINI_API_KEY,
         headers: params.defaultHeaders,
-        fetch
-      })
+        fetch,
+      });
 
       return {
-        providerOptionsKey: 'google',
-        apiType: 'google',
+        providerOptionsKey: "google",
+        apiType: "google",
         model: maybeWrapModel(provider.languageModel(params.modelId) as any),
         embeddingModel: provider.embeddingModel(params.modelId),
         imageModel: provider.imageModel(params.modelId),
-        endpoint: geminiBaseUrl
-      }
+        endpoint: geminiBaseUrl,
+      };
     }
 
-    case 'vertex': {
-      const vertexProvider = params.provider as VERTEX_PROVIDER
-      const vertexApiVersion = (vertexProvider.apiVersion as 'v1' | 'v1beta1') || 'v1'
+    case "vertex": {
+      const vertexProvider = params.provider as VERTEX_PROVIDER;
+      const vertexApiVersion = (vertexProvider.apiVersion as "v1" | "v1beta1") || "v1";
       const vertexBaseUrl = normalizeVertexBaseUrl(
         vertexProvider.baseUrl,
         vertexProvider.apiKey || undefined,
-        vertexApiVersion
-      )
+        vertexApiVersion,
+      );
       const provider = createVertex({
         apiKey: vertexProvider.apiKey || undefined,
         baseURL: vertexBaseUrl,
@@ -622,43 +591,42 @@ export function createAiSdkProviderContext(
             ? {
                 credentials: {
                   client_email: vertexProvider.accountClientEmail,
-                  private_key: vertexProvider.accountPrivateKey
-                }
+                  private_key: vertexProvider.accountPrivateKey,
+                },
               }
-            : undefined
-      })
+            : undefined,
+      });
 
       return {
-        providerOptionsKey: 'vertex',
-        apiType: 'vertex',
+        providerOptionsKey: "vertex",
+        apiType: "vertex",
         model: maybeWrapModel(provider.languageModel(params.modelId) as any),
         embeddingModel: provider.embeddingModel(params.modelId),
         imageModel: provider.imageModel(params.modelId),
-        endpoint: vertexBaseUrl || 'https://aiplatform.googleapis.com/v1/publishers/google'
-      }
+        endpoint: vertexBaseUrl || "https://aiplatform.googleapis.com/v1/publishers/google",
+      };
     }
 
-    case 'aws-bedrock': {
-      const bedrockProvider = params.provider as AWS_BEDROCK_PROVIDER
+    case "aws-bedrock": {
+      const bedrockProvider = params.provider as AWS_BEDROCK_PROVIDER;
       const provider = createAmazonBedrock({
         apiKey: bedrockProvider.apiKey || undefined,
         baseURL: bedrockProvider.baseUrl || undefined,
-        region: bedrockProvider.credential?.region || process.env.AWS_REGION || 'us-east-1',
+        region: bedrockProvider.credential?.region || process.env.AWS_REGION || "us-east-1",
         accessKeyId: bedrockProvider.credential?.accessKeyId || process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey:
-          bedrockProvider.credential?.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY,
+        secretAccessKey: bedrockProvider.credential?.secretAccessKey || process.env.AWS_SECRET_ACCESS_KEY,
         headers: params.defaultHeaders,
-        fetch
-      })
+        fetch,
+      });
 
       return {
-        providerOptionsKey: 'bedrock',
-        apiType: 'bedrock',
+        providerOptionsKey: "bedrock",
+        apiType: "bedrock",
         model: maybeWrapModel(provider.languageModel(params.modelId) as any),
         embeddingModel: (provider as any).embeddingModel?.(params.modelId),
         imageModel: (provider as any).imageModel?.(params.modelId),
-        endpoint: bedrockProvider.baseUrl || 'https://bedrock-runtime.amazonaws.com'
-      }
+        endpoint: bedrockProvider.baseUrl || "https://bedrock-runtime.amazonaws.com",
+      };
     }
   }
 }

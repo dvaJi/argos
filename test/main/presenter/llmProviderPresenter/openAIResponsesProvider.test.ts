@@ -1,74 +1,71 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from '../../../../src/shared/presenter'
-import { AiSdkProvider } from '../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "../../../../src/shared/presenter";
+import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
-const {
-  mockRunAiSdkCoreStream,
-  mockRunAiSdkDimensions,
-  mockRunAiSdkEmbeddings,
-  mockRunAiSdkGenerateText
-} = vi.hoisted(() => ({
-  mockRunAiSdkCoreStream: vi.fn(),
-  mockRunAiSdkDimensions: vi.fn(),
-  mockRunAiSdkEmbeddings: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn()
-}))
+const { mockRunAiSdkCoreStream, mockRunAiSdkDimensions, mockRunAiSdkEmbeddings, mockRunAiSdkGenerateText } = vi.hoisted(
+  () => ({
+    mockRunAiSdkCoreStream: vi.fn(),
+    mockRunAiSdkDimensions: vi.fn(),
+    mockRunAiSdkEmbeddings: vi.fn(),
+    mockRunAiSdkGenerateText: vi.fn(),
+  }),
+);
 
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => 'DeepChat'),
-    getVersion: vi.fn(() => '0.0.0-test'),
-    getPath: vi.fn(() => '/mock/path'),
+    getName: vi.fn(() => "DeepChat"),
+    getVersion: vi.fn(() => "0.0.0-test"),
+    getPath: vi.fn(() => "/mock/path"),
     isReady: vi.fn(() => true),
-    on: vi.fn()
-  }
-}))
+    on: vi.fn(),
+  },
+}));
 
-vi.mock('@/eventbus', () => ({
+vi.mock("@/eventbus", () => ({
   eventBus: {
     on: vi.fn(),
-    sendToRenderer: vi.fn()
+    sendToRenderer: vi.fn(),
   },
   SendTarget: {
-    ALL_WINDOWS: 'ALL_WINDOWS'
-  }
-}))
+    ALL_WINDOWS: "ALL_WINDOWS",
+  },
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   CONFIG_EVENTS: {
-    MODEL_LIST_CHANGED: 'MODEL_LIST_CHANGED'
+    MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },
   PROVIDER_DB_EVENTS: {
-    LOADED: 'LOADED',
-    UPDATED: 'UPDATED'
+    LOADED: "LOADED",
+    UPDATED: "UPDATED",
   },
   NOTIFICATION_EVENTS: {
-    SHOW_ERROR: 'SHOW_ERROR'
-  }
-}))
+    SHOW_ERROR: "SHOW_ERROR",
+  },
+}));
 
-vi.mock('../../../../src/main/presenter/proxyConfig', () => ({
+vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null)
-  }
-}))
+    getProxyUrl: vi.fn().mockReturnValue(null),
+  },
+}));
 
-vi.mock('../../../../src/main/presenter/llmProviderPresenter/aiSdk', () => ({
+vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
   runAiSdkCoreStream: mockRunAiSdkCoreStream,
   runAiSdkDimensions: mockRunAiSdkDimensions,
   runAiSdkEmbeddings: mockRunAiSdkEmbeddings,
-  runAiSdkGenerateText: mockRunAiSdkGenerateText
-}))
+  runAiSdkGenerateText: mockRunAiSdkGenerateText,
+}));
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
-  id: 'openai',
-  name: 'OpenAI',
-  apiType: 'openai-responses',
-  apiKey: 'test-key',
-  baseUrl: 'https://api.openai.com/v1',
+  id: "openai",
+  name: "OpenAI",
+  apiType: "openai-responses",
+  apiKey: "test-key",
+  baseUrl: "https://api.openai.com/v1",
   enable: false,
-  ...overrides
-})
+  ...overrides,
+});
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
@@ -77,146 +74,146 @@ const createConfigPresenter = (): IConfigPresenter =>
     getModelConfig: vi.fn().mockReturnValue(undefined),
     getSetting: vi.fn().mockReturnValue(undefined),
     setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true)
-  }) as unknown as IConfigPresenter
+    getModelStatus: vi.fn().mockReturnValue(true),
+  }) as unknown as IConfigPresenter;
 
-describe('OpenAIResponsesProvider', () => {
+describe("OpenAIResponsesProvider", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.clearAllMocks();
     mockRunAiSdkCoreStream.mockReturnValue({
       async *[Symbol.asyncIterator]() {
-        yield { type: 'stop', stop_reason: 'complete' }
-      }
-    })
-  })
+        yield { type: "stop", stop_reason: "complete" };
+      },
+    });
+  });
 
-  it('uses the responses runtime for official OpenAI providers', async () => {
-    const provider = new AiSdkProvider(createProvider(), createConfigPresenter())
-    ;(provider as any).isInitialized = true
+  it("uses the responses runtime for official OpenAI providers", async () => {
+    const provider = new AiSdkProvider(createProvider(), createConfigPresenter());
+    (provider as any).isInitialized = true;
 
     try {
       for await (const _event of provider.coreStream(
-        [{ role: 'user', content: 'hello' }],
-        'gpt-4o',
+        [{ role: "user", content: "hello" }],
+        "gpt-4o",
         {
           maxTokens: 1024,
           contextLength: 8192,
           vision: false,
           functionCall: false,
           reasoning: false,
-          type: 'chat'
+          type: "chat",
         } as ModelConfig,
         0.7,
         256,
-        []
+        [],
       )) {
-        break
+        break;
       }
     } catch {}
 
-    const context = mockRunAiSdkCoreStream.mock.calls.at(-1)?.[0]
+    const context = mockRunAiSdkCoreStream.mock.calls.at(-1)?.[0];
 
-    expect(context.providerKind).toBe('openai-responses')
-    expect(context.shouldUseImageGeneration('gpt-image-1', {} as ModelConfig)).toBe(true)
+    expect(context.providerKind).toBe("openai-responses");
+    expect(context.shouldUseImageGeneration("gpt-image-1", {} as ModelConfig)).toBe(true);
     expect(
-      context.shouldUseImageGeneration('custom-image-model', {
-        type: 'imageGeneration'
-      } as ModelConfig)
-    ).toBe(true)
-    expect(context.shouldUseImageGeneration('gpt-4o', {} as ModelConfig)).toBe(false)
-  })
+      context.shouldUseImageGeneration("custom-image-model", {
+        type: "imageGeneration",
+      } as ModelConfig),
+    ).toBe(true);
+    expect(context.shouldUseImageGeneration("gpt-4o", {} as ModelConfig)).toBe(false);
+  });
 
-  it('uses azure runtime semantics for azure-openai responses providers', async () => {
+  it("uses azure runtime semantics for azure-openai responses providers", async () => {
     const provider = new AiSdkProvider(
       createProvider({
-        id: 'azure-openai',
-        name: 'Azure OpenAI',
-        baseUrl: 'https://example.openai.azure.com/openai'
+        id: "azure-openai",
+        name: "Azure OpenAI",
+        baseUrl: "https://example.openai.azure.com/openai",
       }),
-      createConfigPresenter()
-    )
-    ;(provider as any).isInitialized = true
+      createConfigPresenter(),
+    );
+    (provider as any).isInitialized = true;
 
     try {
       for await (const _event of provider.coreStream(
-        [{ role: 'user', content: 'paint' }],
-        'gpt-image-1',
+        [{ role: "user", content: "paint" }],
+        "gpt-image-1",
         {
-          apiEndpoint: 'image',
+          apiEndpoint: "image",
           maxTokens: 1024,
           contextLength: 8192,
           vision: false,
           functionCall: false,
           reasoning: false,
-          type: 'chat'
+          type: "chat",
         } as ModelConfig,
         0.7,
         256,
-        []
+        [],
       )) {
-        break
+        break;
       }
     } catch {}
 
-    const context = mockRunAiSdkCoreStream.mock.calls.at(-1)?.[0]
+    const context = mockRunAiSdkCoreStream.mock.calls.at(-1)?.[0];
 
-    expect(context.providerKind).toBe('azure')
+    expect(context.providerKind).toBe("azure");
     expect(context.buildTraceHeaders()).toMatchObject({
-      'Content-Type': 'application/json',
-      'api-key': 'test-key'
-    })
+      "Content-Type": "application/json",
+      "api-key": "test-key",
+    });
     expect(
-      context.shouldUseImageGeneration('gpt-image-1', {
-        apiEndpoint: 'image'
-      } as ModelConfig)
-    ).toBe(true)
+      context.shouldUseImageGeneration("gpt-image-1", {
+        apiEndpoint: "image",
+      } as ModelConfig),
+    ).toBe(true);
     expect(
-      context.shouldUseImageGeneration('custom-image-model', {
-        type: 'imageGeneration'
-      } as ModelConfig)
-    ).toBe(false)
-    expect(context.shouldUseImageGeneration('gpt-image-1', {} as ModelConfig)).toBe(false)
-  })
+      context.shouldUseImageGeneration("custom-image-model", {
+        type: "imageGeneration",
+      } as ModelConfig),
+    ).toBe(false);
+    expect(context.shouldUseImageGeneration("gpt-image-1", {} as ModelConfig)).toBe(false);
+  });
 
-  it('submits audio transcriptions to the OpenAI audio endpoint', async () => {
+  it("submits audio transcriptions to the OpenAI audio endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({ text: 'transcribed text' })
-    })
-    vi.stubGlobal('fetch', fetchMock)
+      json: vi.fn().mockResolvedValue({ text: "transcribed text" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
-    const provider = new AiSdkProvider(createProvider(), createConfigPresenter())
-    ;(provider as any).isInitialized = true
+    const provider = new AiSdkProvider(createProvider(), createConfigPresenter());
+    (provider as any).isInitialized = true;
 
-    const text = await provider.transcribeAudio('gpt-4o-mini-transcribe', 'AQID', 'audio/wav')
+    const text = await provider.transcribeAudio("gpt-4o-mini-transcribe", "AQID", "audio/wav");
 
-    expect(text).toBe('transcribed text')
+    expect(text).toBe("transcribed text");
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.openai.com/v1/audio/transcriptions',
+      "https://api.openai.com/v1/audio/transcriptions",
       expect.objectContaining({
-        method: 'POST',
+        method: "POST",
         headers: expect.objectContaining({
-          Authorization: 'Bearer test-key'
-        })
-      })
-    )
-  })
+          Authorization: "Bearer test-key",
+        }),
+      }),
+    );
+  });
 
-  it('surfaces official OpenAI audio transcription errors', async () => {
+  it("surfaces official OpenAI audio transcription errors", async () => {
     vi.stubGlobal(
-      'fetch',
+      "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
         status: 500,
-        text: vi.fn().mockResolvedValue('openai transcription failed')
-      })
-    )
+        text: vi.fn().mockResolvedValue("openai transcription failed"),
+      }),
+    );
 
-    const provider = new AiSdkProvider(createProvider(), createConfigPresenter())
-    ;(provider as any).isInitialized = true
+    const provider = new AiSdkProvider(createProvider(), createConfigPresenter());
+    (provider as any).isInitialized = true;
 
-    await expect(
-      provider.transcribeAudio('gpt-4o-mini-transcribe', 'AQID', 'audio/wav')
-    ).rejects.toThrow('openai transcription failed')
-  })
-})
+    await expect(provider.transcribeAudio("gpt-4o-mini-transcribe", "AQID", "audio/wav")).rejects.toThrow(
+      "openai transcription failed",
+    );
+  });
+});

@@ -13,4 +13,4 @@
  * @see https://www.npmjs.com/package/@langchain/textsplitters/v/0.1.0
  * @version 0.1.0
  */
-export * from './text_splitter'
+export * from "./text_splitter";

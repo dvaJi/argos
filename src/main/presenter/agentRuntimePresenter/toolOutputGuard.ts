@@ -1,424 +1,397 @@
-import fs from 'fs/promises'
-import path from 'path'
-import type { ChatMessage } from '@shared/types/core/chat-message'
-import type { MCPToolDefinition } from '@shared/types/core/mcp'
-import { resolveToolOffloadPath } from '@/lib/agentRuntime/sessionPaths'
-import { preflightRequestContext } from './contextBudget'
+import fs from "fs/promises";
+import path from "path";
+import type { ChatMessage } from "@shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@shared/types/core/mcp";
+import { resolveToolOffloadPath } from "@/lib/agentRuntime/sessionPaths";
+import { preflightRequestContext } from "./contextBudget";
 
-const TOOL_OUTPUT_OFFLOAD_THRESHOLD = 5000
-const TOOL_OUTPUT_PREVIEW_LENGTH = 1024
-const TOOLS_REQUIRING_OFFLOAD = new Set(['exec', 'ls', 'find', 'grep', 'cdp_send'])
+const TOOL_OUTPUT_OFFLOAD_THRESHOLD = 5000;
+const TOOL_OUTPUT_PREVIEW_LENGTH = 1024;
+const TOOLS_REQUIRING_OFFLOAD = new Set(["exec", "ls", "find", "grep", "cdp_send"]);
 
-type ToolMessageUpdateMode = 'append' | 'replace'
+type ToolMessageUpdateMode = "append" | "replace";
 
 export interface ToolBatchOutputCandidate {
-  toolCallId: string
-  toolName: string
-  responseText: string
-  isError: boolean
-  offloadPath?: string
+  toolCallId: string;
+  toolName: string;
+  responseText: string;
+  isError: boolean;
+  offloadPath?: string;
 }
 
 export interface ToolBatchOutputFitItem extends ToolBatchOutputCandidate {
-  contextResponseText: string
-  downgraded: boolean
+  contextResponseText: string;
+  downgraded: boolean;
 }
 
 export type PreparedToolOutputResult =
   | {
-      kind: 'ok'
-      content: string
-      offloaded: boolean
-      offloadPath?: string
+      kind: "ok";
+      content: string;
+      offloaded: boolean;
+      offloadPath?: string;
     }
   | {
-      kind: 'tool_error'
-      message: string
-    }
+      kind: "tool_error";
+      message: string;
+    };
 
 export type ToolOutputGuardResult =
   | {
-      kind: 'ok'
-      content: string
-      offloaded: boolean
-      offloadPath?: string
+      kind: "ok";
+      content: string;
+      offloaded: boolean;
+      offloadPath?: string;
     }
   | {
-      kind: 'tool_error'
-      message: string
+      kind: "tool_error";
+      message: string;
     }
   | {
-      kind: 'terminal_error'
-      message: string
-    }
+      kind: "terminal_error";
+      message: string;
+    };
 
 export type ToolBatchOutputFitResult =
   | {
-      kind: 'ok'
-      results: ToolBatchOutputFitItem[]
+      kind: "ok";
+      results: ToolBatchOutputFitItem[];
     }
   | {
-      kind: 'terminal_error'
-      message: string
-      results: ToolBatchOutputFitItem[]
-    }
+      kind: "terminal_error";
+      message: string;
+      results: ToolBatchOutputFitItem[];
+    };
 
 interface PrepareToolOutputParams {
-  sessionId: string
-  toolCallId: string
-  toolName: string
-  rawContent: string
+  sessionId: string;
+  toolCallId: string;
+  toolName: string;
+  rawContent: string;
 }
 
 interface GuardToolOutputParams extends PrepareToolOutputParams {
-  conversationMessages: ChatMessage[]
-  toolDefinitions: MCPToolDefinition[]
-  contextLength: number
-  maxTokens: number
+  conversationMessages: ChatMessage[];
+  toolDefinitions: MCPToolDefinition[];
+  contextLength: number;
+  maxTokens: number;
 }
 
 interface ContextBudgetParams {
-  conversationMessages: ChatMessage[]
-  toolDefinitions: MCPToolDefinition[]
-  contextLength: number
-  maxTokens: number
+  conversationMessages: ChatMessage[];
+  toolDefinitions: MCPToolDefinition[];
+  contextLength: number;
+  maxTokens: number;
 }
 
 interface FitToolErrorParams extends ContextBudgetParams {
-  toolCallId: string
-  toolName: string
-  errorMessage: string
-  mode?: ToolMessageUpdateMode
+  toolCallId: string;
+  toolName: string;
+  errorMessage: string;
+  mode?: ToolMessageUpdateMode;
 }
 
 interface FitToolBatchOutputsParams extends ContextBudgetParams {
-  results: ToolBatchOutputCandidate[]
+  results: ToolBatchOutputCandidate[];
 }
 
 export class ToolOutputGuard {
   async prepareToolOutput(params: PrepareToolOutputParams): Promise<PreparedToolOutputResult> {
-    const { sessionId, toolCallId, toolName, rawContent } = params
+    const { sessionId, toolCallId, toolName, rawContent } = params;
 
     if (!this.requiresOffload(toolName) || rawContent.length <= TOOL_OUTPUT_OFFLOAD_THRESHOLD) {
       return {
-        kind: 'ok',
+        kind: "ok",
         content: rawContent,
         offloaded: false,
-        offloadPath: undefined
-      }
+        offloadPath: undefined,
+      };
     }
 
-    const filePath = resolveToolOffloadPath(sessionId, toolCallId)
+    const filePath = resolveToolOffloadPath(sessionId, toolCallId);
     if (!filePath) {
       return {
-        kind: 'tool_error',
-        message: this.buildOffloadFailureMessage(toolCallId, toolName)
-      }
+        kind: "tool_error",
+        message: this.buildOffloadFailureMessage(toolCallId, toolName),
+      };
     }
 
     try {
-      await fs.mkdir(path.dirname(filePath), { recursive: true })
-      await fs.writeFile(filePath, rawContent, 'utf-8')
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, rawContent, "utf-8");
     } catch (error) {
-      console.warn('[ToolOutputGuard] Failed to offload tool output:', error)
+      console.warn("[ToolOutputGuard] Failed to offload tool output:", error);
       return {
-        kind: 'tool_error',
-        message: this.buildOffloadFailureMessage(toolCallId, toolName)
-      }
+        kind: "tool_error",
+        message: this.buildOffloadFailureMessage(toolCallId, toolName),
+      };
     }
 
     return {
-      kind: 'ok',
+      kind: "ok",
       content: this.buildOffloadStub(rawContent, filePath),
       offloaded: true,
-      offloadPath: filePath
-    }
+      offloadPath: filePath,
+    };
   }
 
   async guardToolOutput(params: GuardToolOutputParams): Promise<ToolOutputGuardResult> {
-    const prepared = await this.prepareToolOutput(params)
-    if (prepared.kind === 'tool_error') {
+    const prepared = await this.prepareToolOutput(params);
+    if (prepared.kind === "tool_error") {
       return this.fitToolError({
         ...params,
-        errorMessage: prepared.message
-      })
+        errorMessage: prepared.message,
+      });
     }
 
     const nextMessages = this.withToolMessage(
       params.conversationMessages,
       params.toolCallId,
       prepared.content,
-      'append'
-    )
+      "append",
+    );
     if (
       this.hasContextBudget({
         conversationMessages: nextMessages,
         toolDefinitions: params.toolDefinitions,
         contextLength: params.contextLength,
-        maxTokens: params.maxTokens
+        maxTokens: params.maxTokens,
       })
     ) {
-      return prepared
+      return prepared;
     }
 
     const overflowResult = this.fitToolError({
       ...params,
-      errorMessage: this.buildContextOverflowMessage(params.toolCallId, params.toolName)
-    })
-    await this.cleanupOffloadedOutput(prepared.offloadPath)
-    return overflowResult
+      errorMessage: this.buildContextOverflowMessage(params.toolCallId, params.toolName),
+    });
+    await this.cleanupOffloadedOutput(prepared.offloadPath);
+    return overflowResult;
   }
 
   async fitToolBatchOutputs(params: FitToolBatchOutputsParams): Promise<ToolBatchOutputFitResult> {
     if (params.results.length === 0) {
       return {
-        kind: 'ok',
-        results: []
-      }
+        kind: "ok",
+        results: [],
+      };
     }
 
     const fittedResults: ToolBatchOutputFitItem[] = params.results.map((result) => ({
       ...result,
       contextResponseText: result.responseText,
-      downgraded: false
-    }))
+      downgraded: false,
+    }));
 
     if (
       this.hasContextBudget({
-        conversationMessages: this.withToolBatchMessages(
-          params.conversationMessages,
-          fittedResults
-        ),
+        conversationMessages: this.withToolBatchMessages(params.conversationMessages, fittedResults),
         toolDefinitions: params.toolDefinitions,
         contextLength: params.contextLength,
-        maxTokens: params.maxTokens
+        maxTokens: params.maxTokens,
       })
     ) {
       return {
-        kind: 'ok',
-        results: fittedResults
-      }
+        kind: "ok",
+        results: fittedResults,
+      };
     }
 
     for (let index = fittedResults.length - 1; index >= 0; index -= 1) {
-      const current = fittedResults[index]
-      const displayResponseText = this.buildTerminalErrorMessage(
-        current.toolCallId,
-        current.toolName
-      )
+      const current = fittedResults[index];
+      const displayResponseText = this.buildTerminalErrorMessage(current.toolCallId, current.toolName);
       const downgradedBase: ToolBatchOutputFitItem = {
         ...current,
         responseText: displayResponseText,
-        contextResponseText: '',
+        contextResponseText: "",
         isError: true,
-        downgraded: true
-      }
+        downgraded: true,
+      };
 
-      const contextResponseCandidates = this.buildBatchFailureContextCandidates(
-        current.toolCallId,
-        current.toolName
-      )
+      const contextResponseCandidates = this.buildBatchFailureContextCandidates(current.toolCallId, current.toolName);
 
       for (const contextResponseText of contextResponseCandidates) {
         fittedResults[index] = {
           ...downgradedBase,
-          contextResponseText
-        }
+          contextResponseText,
+        };
 
         if (
           this.hasContextBudget({
-            conversationMessages: this.withToolBatchMessages(
-              params.conversationMessages,
-              fittedResults
-            ),
+            conversationMessages: this.withToolBatchMessages(params.conversationMessages, fittedResults),
             toolDefinitions: params.toolDefinitions,
             contextLength: params.contextLength,
-            maxTokens: params.maxTokens
+            maxTokens: params.maxTokens,
           })
         ) {
-          await this.cleanupOffloadedResults(fittedResults.filter((result) => result.downgraded))
+          await this.cleanupOffloadedResults(fittedResults.filter((result) => result.downgraded));
           return {
-            kind: 'ok',
+            kind: "ok",
             results: fittedResults.map((result) =>
-              result.downgraded ? { ...result, offloadPath: undefined } : result
-            )
-          }
+              result.downgraded ? { ...result, offloadPath: undefined } : result,
+            ),
+          };
         }
       }
 
-      fittedResults[index] = downgradedBase
+      fittedResults[index] = downgradedBase;
     }
 
-    await this.cleanupOffloadedResults(fittedResults)
+    await this.cleanupOffloadedResults(fittedResults);
 
     return {
-      kind: 'terminal_error',
-      message: this.buildTerminalErrorMessage(
-        fittedResults[0].toolCallId,
-        fittedResults[0].toolName
-      ),
+      kind: "terminal_error",
+      message: this.buildTerminalErrorMessage(fittedResults[0].toolCallId, fittedResults[0].toolName),
       results: fittedResults.map((result) => ({
         ...result,
-        offloadPath: undefined
-      }))
-    }
+        offloadPath: undefined,
+      })),
+    };
   }
 
   hasContextBudget(params: ContextBudgetParams): boolean {
-    const { conversationMessages, toolDefinitions, contextLength, maxTokens } = params
+    const { conversationMessages, toolDefinitions, contextLength, maxTokens } = params;
     return preflightRequestContext({
       messages: conversationMessages,
       tools: toolDefinitions,
       contextLength,
-      requestedMaxTokens: maxTokens
-    }).fitsWithinContext
+      requestedMaxTokens: maxTokens,
+    }).fitsWithinContext;
   }
 
   fitToolError(params: FitToolErrorParams): ToolOutputGuardResult {
-    const mode = params.mode ?? 'append'
+    const mode = params.mode ?? "append";
     const errorMessages = this.withToolMessage(
       params.conversationMessages,
       params.toolCallId,
       params.errorMessage,
-      mode
-    )
+      mode,
+    );
     if (
       this.hasContextBudget({
         conversationMessages: errorMessages,
         toolDefinitions: params.toolDefinitions,
         contextLength: params.contextLength,
-        maxTokens: params.maxTokens
+        maxTokens: params.maxTokens,
       })
     ) {
       return {
-        kind: 'tool_error',
-        message: params.errorMessage
-      }
+        kind: "tool_error",
+        message: params.errorMessage,
+      };
     }
     return {
-      kind: 'terminal_error',
-      message: this.buildTerminalErrorMessage(params.toolCallId, params.toolName)
-    }
+      kind: "terminal_error",
+      message: this.buildTerminalErrorMessage(params.toolCallId, params.toolName),
+    };
   }
 
-  replaceToolMessageContent(
-    conversationMessages: ChatMessage[],
-    toolCallId: string,
-    content: string
-  ): ChatMessage[] {
-    return this.withToolMessage(conversationMessages, toolCallId, content, 'replace')
+  replaceToolMessageContent(conversationMessages: ChatMessage[], toolCallId: string, content: string): ChatMessage[] {
+    return this.withToolMessage(conversationMessages, toolCallId, content, "replace");
   }
 
   async cleanupOffloadedOutput(offloadPath?: string): Promise<void> {
     if (!offloadPath) {
-      return
+      return;
     }
 
     try {
-      await fs.rm(offloadPath, { force: true })
+      await fs.rm(offloadPath, { force: true });
     } catch (error) {
-      console.warn('[ToolOutputGuard] Failed to delete offloaded tool output:', error)
+      console.warn("[ToolOutputGuard] Failed to delete offloaded tool output:", error);
     }
   }
 
   buildContextOverflowMessage(toolCallId: string, toolName: string): string {
-    return `The tool call with ID ${toolCallId} and name ${toolName} could not be injected into the conversation because the remaining context window is insufficient. Treat this tool call as failed and continue without its result.`
+    return `The tool call with ID ${toolCallId} and name ${toolName} could not be injected into the conversation because the remaining context window is insufficient. Treat this tool call as failed and continue without its result.`;
   }
 
   private requiresOffload(toolName: string): boolean {
-    return TOOLS_REQUIRING_OFFLOAD.has(toolName)
+    return TOOLS_REQUIRING_OFFLOAD.has(toolName);
   }
 
   private withToolMessage(
     conversationMessages: ChatMessage[],
     toolCallId: string,
     content: string,
-    mode: ToolMessageUpdateMode
+    mode: ToolMessageUpdateMode,
   ): ChatMessage[] {
-    if (mode === 'replace') {
-      let replaced = false
+    if (mode === "replace") {
+      let replaced = false;
       const nextMessages = conversationMessages.map((message) => {
-        if (replaced || message.role !== 'tool' || message.tool_call_id !== toolCallId) {
-          return message
+        if (replaced || message.role !== "tool" || message.tool_call_id !== toolCallId) {
+          return message;
         }
-        replaced = true
+        replaced = true;
         return {
           ...message,
-          content
-        }
-      })
+          content,
+        };
+      });
       if (replaced) {
-        return nextMessages
+        return nextMessages;
       }
       return [
         ...nextMessages,
         {
-          role: 'tool',
+          role: "tool",
           tool_call_id: toolCallId,
-          content
-        }
-      ]
+          content,
+        },
+      ];
     }
 
     return [
       ...conversationMessages,
       {
-        role: 'tool',
+        role: "tool",
         tool_call_id: toolCallId,
-        content
-      }
-    ]
+        content,
+      },
+    ];
   }
 
-  private withToolBatchMessages(
-    conversationMessages: ChatMessage[],
-    results: ToolBatchOutputFitItem[]
-  ): ChatMessage[] {
+  private withToolBatchMessages(conversationMessages: ChatMessage[], results: ToolBatchOutputFitItem[]): ChatMessage[] {
     if (results.length === 0) {
-      return conversationMessages
+      return conversationMessages;
     }
 
     return [
       ...conversationMessages,
       ...results.map((result) => ({
-        role: 'tool' as const,
+        role: "tool" as const,
         tool_call_id: result.toolCallId,
-        content: result.contextResponseText
-      }))
-    ]
+        content: result.contextResponseText,
+      })),
+    ];
   }
 
   private async cleanupOffloadedResults(results: ToolBatchOutputCandidate[]): Promise<void> {
-    await Promise.all(results.map((result) => this.cleanupOffloadedOutput(result.offloadPath)))
+    await Promise.all(results.map((result) => this.cleanupOffloadedOutput(result.offloadPath)));
   }
 
   private buildOffloadStub(rawContent: string, filePath: string): string {
-    const preview = rawContent.slice(0, TOOL_OUTPUT_PREVIEW_LENGTH)
+    const preview = rawContent.slice(0, TOOL_OUTPUT_PREVIEW_LENGTH);
     return [
-      '[Tool output offloaded]',
+      "[Tool output offloaded]",
       `Total characters: ${rawContent.length}`,
       `Offload file: ${path.basename(filePath)}`,
       `first ${preview.length} chars:`,
-      preview
-    ].join('\n')
+      preview,
+    ].join("\n");
   }
 
   private buildOffloadFailureMessage(toolCallId: string, toolName: string): string {
-    return `The tool call with ID ${toolCallId} and name ${toolName} produced a large result, but offloading that result to disk failed. Treat this tool call as failed and continue without its result.`
+    return `The tool call with ID ${toolCallId} and name ${toolName} produced a large result, but offloading that result to disk failed. Treat this tool call as failed and continue without its result.`;
   }
 
   private buildTerminalErrorMessage(toolCallId: string, toolName: string): string {
-    return `The tool call with ID ${toolCallId} and name ${toolName} failed because the remaining context window is too small to continue this turn.`
+    return `The tool call with ID ${toolCallId} and name ${toolName} failed because the remaining context window is too small to continue this turn.`;
   }
 
   private buildBatchFailureContextCandidates(toolCallId: string, toolName: string): string[] {
     return Array.from(
-      new Set([
-        this.buildTerminalErrorMessage(toolCallId, toolName),
-        'Error: context window too small.',
-        'Error',
-        ''
-      ])
-    )
+      new Set([this.buildTerminalErrorMessage(toolCallId, toolName), "Error: context window too small.", "Error", ""]),
+    );
   }
 }

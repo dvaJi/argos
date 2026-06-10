@@ -42,7 +42,7 @@ function Calendar({
           date.toLocaleString("default", { month: "short" }),
         ...formatters,
       }}
-      classNames={{
+      classNames={({
         root: cn("w-fit", defaultClassNames.root),
         months: cn(
           "relative flex flex-col gap-4 md:flex-row",
@@ -86,7 +86,6 @@ function Calendar({
             : "flex h-8 items-center gap-1 rounded-md pr-1 pl-2 text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
           defaultClassNames.caption_label
         ),
-        table: "w-full border-collapse",
         weekdays: cn("flex", defaultClassNames.weekdays),
         weekday: cn(
           "flex-1 rounded-md text-[0.8rem] font-normal text-muted-foreground select-none",
@@ -115,20 +114,18 @@ function Calendar({
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("rounded-r-md bg-accent", defaultClassNames.range_end),
         today: cn(
-          "rounded-md bg-accent text-accent-foreground data-[selected=true]:rounded-none",
+          "text-sm",
+          "[&[data-today=true]_button]:after:pointer-events-none [&[data-today=true]_button]:after:mx-auto [&[data-today=true]_button]:after:mt-[2px] [&[data-today=true]_button]:after:block [&[data-today=true]_button]:after:h-0.5 [&[data-today=true]_button]:after:w-3.5 [&[data-today=true]_button]:after:rounded-full [&[data-today=true]_button]:after:bg-primary [&[data-today=true]_button]:after:content-['']",
           defaultClassNames.today
         ),
+        selected: cn("bg-primary text-primary-foreground", defaultClassNames.selected),
         outside: cn(
-          "text-muted-foreground aria-selected:text-muted-foreground",
+          "text-muted-foreground aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
           defaultClassNames.outside
         ),
-        disabled: cn(
-          "text-muted-foreground opacity-50",
-          defaultClassNames.disabled
-        ),
         hidden: cn("invisible", defaultClassNames.hidden),
-        ...classNames,
-      }}
+        table: "w-full border-collapse",
+      } as any)}
       components={{
         Root: ({ className, rootRef, ...props }) => {
           return (

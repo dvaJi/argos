@@ -1,137 +1,122 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Icon } from '@iconify/react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
-import { Button } from '@shadcn/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { useProviderStore } from '@/stores/providerStore'
+import { useState, useCallback, useEffect } from "react";
+import { Icon } from "@iconify/react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import { Button } from "@shadcn/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@shadcn/components/ui/dialog";
+import { useProviderStore } from "@/stores/providerStore";
 
 interface VoiceCallWidgetProps {
-  variant: 'chat' | 'newThread'
-  activeProviderId?: string | null
-  isStreaming?: boolean
-  onActiveChange?: (value: boolean) => void
+  variant: "chat" | "newThread";
+  activeProviderId?: string | null;
+  isStreaming?: boolean;
+  onActiveChange?: (value: boolean) => void;
 }
 
 export default function VoiceCallWidget({
   variant,
   activeProviderId = null,
   isStreaming = false,
-  onActiveChange
+  onActiveChange,
 }: VoiceCallWidgetProps) {
-  const providerStore = useProviderStore()
+  const providerStore = useProviderStore();
 
-  const [voiceAIAgentId, setVoiceAIAgentId] = useState('')
-  const [callDialogOpen, setCallDialogOpen] = useState(false)
-  const [callWidgetKey, setCallWidgetKey] = useState(0)
-  const [voiceWidgetReady, setVoiceWidgetReady] = useState(false)
-  const [voiceWidgetLoading, setVoiceWidgetLoading] = useState(false)
+  const [voiceAIAgentId, setVoiceAIAgentId] = useState("");
+  const [callDialogOpen, setCallDialogOpen] = useState(false);
+  const [callWidgetKey, setCallWidgetKey] = useState(0);
+  const [voiceWidgetReady, setVoiceWidgetReady] = useState(false);
+  const [voiceWidgetLoading, setVoiceWidgetLoading] = useState(false);
 
-  const isCallActive = callDialogOpen
+  const isCallActive = callDialogOpen;
 
-  const voiceAIApiKey =
-    providerStore.providers.find((provider) => provider.id === 'voiceai')?.apiKey || ''
+  const voiceAIApiKey = providerStore.providers.find((provider) => provider.id === "voiceai")?.apiKey || "";
 
   const shouldShowVoiceCall =
-    variant === 'chat' &&
-    activeProviderId === 'voiceai' &&
-    voiceAIAgentId.length > 0 &&
-    voiceAIApiKey.length > 0
+    variant === "chat" && activeProviderId === "voiceai" && voiceAIAgentId.length > 0 && voiceAIApiKey.length > 0;
 
   const loadVoiceAIConfig = useCallback(async () => {
-    const config = await providerStore.getVoiceAIConfig()
-    setVoiceAIAgentId(config.agentId?.trim() || '')
-  }, [providerStore])
+    const config = await providerStore.getVoiceAIConfig();
+    setVoiceAIAgentId(config.agentId?.trim() || "");
+  }, [providerStore]);
 
   const hasVoiceWidgetDefinition = useCallback(() => {
-    return typeof window !== 'undefined' && !!window.customElements?.get('voice-agent-widget')
-  }, [])
+    return typeof window !== "undefined" && !!window.customElements?.get("voice-agent-widget");
+  }, []);
 
   const ensureVoiceAIWidgetScript = useCallback(() => {
     if (hasVoiceWidgetDefinition()) {
-      setVoiceWidgetReady(true)
-      setVoiceWidgetLoading(false)
-      return Promise.resolve()
+      setVoiceWidgetReady(true);
+      setVoiceWidgetLoading(false);
+      return Promise.resolve();
     }
 
-    setVoiceWidgetLoading(true)
+    setVoiceWidgetLoading(true);
 
     return new Promise<void>((resolve) => {
-      let settled = false
+      let settled = false;
       const finalize = (ready: boolean) => {
-        if (settled) return
-        settled = true
-        setVoiceWidgetReady(ready)
-        setVoiceWidgetLoading(false)
-        if (!ready) resolve()
-      }
+        if (settled) return;
+        settled = true;
+        setVoiceWidgetReady(ready);
+        setVoiceWidgetLoading(false);
+        if (!ready) resolve();
+      };
 
-      const handleLoad = () => finalize(hasVoiceWidgetDefinition())
-      const handleError = () => finalize(false)
-      const fallbackTimer = setTimeout(() => finalize(hasVoiceWidgetDefinition()), 4000)
+      const handleLoad = () => finalize(hasVoiceWidgetDefinition());
+      const handleError = () => finalize(false);
+      const fallbackTimer = setTimeout(() => finalize(hasVoiceWidgetDefinition()), 4000);
 
-      const script = document.createElement('script')
-      script.id = 'voice-ai-widget-script'
-      script.src = 'https://voice.ai/app/voice-agent-widget.js'
-      script.async = true
+      const script = document.createElement("script");
+      script.id = "voice-ai-widget-script";
+      script.src = "https://voice.ai/app/voice-agent-widget.js";
+      script.async = true;
       script.addEventListener(
-        'load',
+        "load",
         () => {
-          clearTimeout(fallbackTimer)
-          handleLoad()
+          clearTimeout(fallbackTimer);
+          handleLoad();
         },
-        { once: true }
-      )
+        { once: true },
+      );
       script.addEventListener(
-        'error',
+        "error",
         () => {
-          clearTimeout(fallbackTimer)
-          handleError()
+          clearTimeout(fallbackTimer);
+          handleError();
         },
-        { once: true }
-      )
-      document.head.appendChild(script)
-    })
-  }, [hasVoiceWidgetDefinition])
+        { once: true },
+      );
+      document.head.appendChild(script);
+    });
+  }, [hasVoiceWidgetDefinition]);
 
   const startVoiceCall = useCallback(async () => {
-    await loadVoiceAIConfig()
-    if (!voiceAIAgentId || !voiceAIApiKey) return
-    void ensureVoiceAIWidgetScript()
-    setCallWidgetKey((k) => k + 1)
-    setCallDialogOpen(true)
-  }, [loadVoiceAIConfig, voiceAIAgentId, voiceAIApiKey, ensureVoiceAIWidgetScript])
+    await loadVoiceAIConfig();
+    if (!voiceAIAgentId || !voiceAIApiKey) return;
+    void ensureVoiceAIWidgetScript();
+    setCallWidgetKey((k) => k + 1);
+    setCallDialogOpen(true);
+  }, [loadVoiceAIConfig, voiceAIAgentId, voiceAIApiKey, ensureVoiceAIWidgetScript]);
 
   useEffect(() => {
-    if (activeProviderId === 'voiceai') {
-      void loadVoiceAIConfig()
-      void ensureVoiceAIWidgetScript()
+    if (activeProviderId === "voiceai") {
+      void loadVoiceAIConfig();
+      void ensureVoiceAIWidgetScript();
     }
-  }, [activeProviderId])
+  }, [activeProviderId]);
 
   useEffect(() => {
-    const agentId = providerStore.voiceAIConfig?.agentId
-    setVoiceAIAgentId(agentId?.trim() || '')
-  }, [providerStore.voiceAIConfig?.agentId])
+    const agentId = providerStore.voiceAIConfig?.agentId;
+    setVoiceAIAgentId(agentId?.trim() || "");
+  }, [providerStore.voiceAIConfig?.agentId]);
 
   useEffect(() => {
-    onActiveChange?.(callDialogOpen)
+    onActiveChange?.(callDialogOpen);
     if (callDialogOpen) {
-      void ensureVoiceAIWidgetScript()
+      void ensureVoiceAIWidgetScript();
     } else {
-      setCallWidgetKey((k) => k + 1)
+      setCallWidgetKey((k) => k + 1);
     }
-  }, [callDialogOpen])
+  }, [callDialogOpen]);
 
   return (
     <>
@@ -160,6 +145,7 @@ export default function VoiceCallWidget({
           </DialogHeader>
           <div className="w-full max-w-105">
             {callDialogOpen && (
+              // @ts-ignore
               <voice-agent-widget
                 key={callWidgetKey}
                 api-key={voiceAIApiKey}
@@ -177,5 +163,5 @@ export default function VoiceCallWidget({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

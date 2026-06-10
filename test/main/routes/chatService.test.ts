@@ -1,41 +1,41 @@
-import { ChatService } from '@/routes/chat/chatService'
+import { ChatService } from "@/routes/chat/chatService";
 
-describe('ChatService', () => {
+describe("ChatService", () => {
   const createScheduler = () => ({
     sleep: vi.fn(),
     timeout: vi.fn(async <T>({ task }: { task: Promise<T> }) => await task),
-    retry: vi.fn()
-  })
+    retry: vi.fn(),
+  });
 
-  it('sends messages through the scheduler after resolving the session owner', async () => {
-    const scheduler = createScheduler()
+  it("sends messages through the scheduler after resolving the session owner", async () => {
+    const scheduler = createScheduler();
     const sessionRepository = {
       get: vi.fn().mockResolvedValue({
-        id: 'session-1',
-        agentId: 'deepchat'
-      })
-    }
+        id: "session-1",
+        agentId: "deepchat",
+      }),
+    };
     const messageRepository = {
       listBySession: vi.fn(),
-      get: vi.fn()
-    }
+      get: vi.fn(),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn().mockResolvedValue({
         requestId: null,
-        messageId: null
+        messageId: null,
       }),
       steerActiveTurn: vi.fn().mockResolvedValue(undefined),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
       respondToolInteraction: vi.fn().mockResolvedValue({
-        resumed: true
-      })
-    }
+        resumed: true,
+      }),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue('deepchat')
-    }
+      getAgentType: vi.fn().mockResolvedValue("deepchat"),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn()
-    }
+      clearSessionPermissions: vi.fn(),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -43,90 +43,90 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    await expect(service.sendMessage('session-1', 'hello')).resolves.toEqual({
+    await expect(service.sendMessage("session-1", "hello")).resolves.toEqual({
       accepted: true,
       requestId: null,
-      messageId: null
-    })
+      messageId: null,
+    });
 
-    expect(sessionRepository.get).toHaveBeenCalledWith('session-1')
-    expect(providerCatalogPort.getAgentType).toHaveBeenCalledWith('deepchat')
-    expect(providerExecutionPort.sendMessage).toHaveBeenCalledWith('session-1', 'hello')
-    expect(messageRepository.listBySession).not.toHaveBeenCalled()
-    expect(scheduler.timeout).toHaveBeenCalledTimes(3)
-  })
+    expect(sessionRepository.get).toHaveBeenCalledWith("session-1");
+    expect(providerCatalogPort.getAgentType).toHaveBeenCalledWith("deepchat");
+    expect(providerExecutionPort.sendMessage).toHaveBeenCalledWith("session-1", "hello");
+    expect(messageRepository.listBySession).not.toHaveBeenCalled();
+    expect(scheduler.timeout).toHaveBeenCalledTimes(3);
+  });
 
-  it('steers the active turn without claiming the normal send lock', async () => {
-    const scheduler = createScheduler()
+  it("steers the active turn without claiming the normal send lock", async () => {
+    const scheduler = createScheduler();
     const sessionRepository = {
       get: vi.fn().mockResolvedValue({
-        id: 'session-1',
-        agentId: 'deepchat'
-      })
-    }
+        id: "session-1",
+        agentId: "deepchat",
+      }),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn(),
       steerActiveTurn: vi.fn().mockResolvedValue(undefined),
       cancelGeneration: vi.fn(),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
       messageRepository: {
         listBySession: vi.fn(),
-        get: vi.fn()
+        get: vi.fn(),
       } as any,
       providerExecutionPort,
       providerCatalogPort: {
-        getAgentType: vi.fn()
+        getAgentType: vi.fn(),
       } as any,
       sessionPermissionPort: {
-        clearSessionPermissions: vi.fn()
+        clearSessionPermissions: vi.fn(),
       },
-      scheduler
-    })
+      scheduler,
+    });
 
-    await expect(service.steerActiveTurn('session-1', 'refine this')).resolves.toEqual({
-      accepted: true
-    })
+    await expect(service.steerActiveTurn("session-1", "refine this")).resolves.toEqual({
+      accepted: true,
+    });
 
-    expect(sessionRepository.get).toHaveBeenCalledWith('session-1')
-    expect(providerExecutionPort.steerActiveTurn).toHaveBeenCalledWith('session-1', 'refine this')
+    expect(sessionRepository.get).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.steerActiveTurn).toHaveBeenCalledWith("session-1", "refine this");
     expect(scheduler.timeout).toHaveBeenCalledWith(
       expect.objectContaining({
-        reason: 'chat.steerActiveTurn:session-1'
-      })
-    )
-  })
+        reason: "chat.steerActiveTurn:session-1",
+      }),
+    );
+  });
 
-  it('resolves stopStream by request id and clears permissions before cancelling', async () => {
-    const scheduler = createScheduler()
+  it("resolves stopStream by request id and clears permissions before cancelling", async () => {
+    const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn()
-    }
+      get: vi.fn(),
+    };
     const messageRepository = {
       listBySession: vi.fn(),
       get: vi.fn().mockResolvedValue({
-        id: 'message-1',
-        sessionId: 'session-1'
-      })
-    }
+        id: "message-1",
+        sessionId: "session-1",
+      }),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn(),
       steerActiveTurn: vi.fn(),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn()
-    }
+      getAgentType: vi.fn(),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn()
-    }
+      clearSessionPermissions: vi.fn(),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -134,41 +134,41 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    await expect(service.stopStream({ requestId: 'message-1' })).resolves.toEqual({
-      stopped: true
-    })
-    expect(messageRepository.get).toHaveBeenCalledWith('message-1')
-    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith('session-1')
-    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith('session-1')
-  })
+    await expect(service.stopStream({ requestId: "message-1" })).resolves.toEqual({
+      stopped: true,
+    });
+    expect(messageRepository.get).toHaveBeenCalledWith("message-1");
+    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith("session-1");
+  });
 
-  it('attempts both stopStream cleanups even if clearing permissions fails', async () => {
-    const scheduler = createScheduler()
+  it("attempts both stopStream cleanups even if clearing permissions fails", async () => {
+    const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn()
-    }
+      get: vi.fn(),
+    };
     const messageRepository = {
       listBySession: vi.fn(),
       get: vi.fn().mockResolvedValue({
-        id: 'message-1',
-        sessionId: 'session-1'
-      })
-    }
+        id: "message-1",
+        sessionId: "session-1",
+      }),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn(),
       steerActiveTurn: vi.fn(),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn()
-    }
+      getAgentType: vi.fn(),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockRejectedValue(new Error('permission cleanup failed'))
-    }
+      clearSessionPermissions: vi.fn().mockRejectedValue(new Error("permission cleanup failed")),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -176,105 +176,100 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    await expect(service.stopStream({ requestId: 'message-1' })).resolves.toEqual({
-      stopped: true
-    })
-    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith('session-1')
-    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith('session-1')
-  })
+    await expect(service.stopStream({ requestId: "message-1" })).resolves.toEqual({
+      stopped: true,
+    });
+    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith("session-1");
+  });
 
-  it('responds to tool interactions through the provider execution port', async () => {
-    const scheduler = createScheduler()
+  it("responds to tool interactions through the provider execution port", async () => {
+    const scheduler = createScheduler();
     const providerExecutionPort = {
       sendMessage: vi.fn(),
       steerActiveTurn: vi.fn(),
       cancelGeneration: vi.fn(),
       respondToolInteraction: vi.fn().mockResolvedValue({
         resumed: true,
-        waitingForUserMessage: false
-      })
-    }
+        waitingForUserMessage: false,
+      }),
+    };
 
     const service = new ChatService({
       sessionRepository: {
-        get: vi.fn()
+        get: vi.fn(),
       } as any,
       messageRepository: {
         listBySession: vi.fn(),
-        get: vi.fn()
+        get: vi.fn(),
       } as any,
       providerExecutionPort,
       providerCatalogPort: {
-        getAgentType: vi.fn()
+        getAgentType: vi.fn(),
       } as any,
       sessionPermissionPort: {
-        clearSessionPermissions: vi.fn()
+        clearSessionPermissions: vi.fn(),
       },
-      scheduler
-    })
+      scheduler,
+    });
 
     await expect(
       service.respondToolInteraction({
-        sessionId: 'session-1',
-        messageId: 'message-1',
-        toolCallId: 'tool-1',
+        sessionId: "session-1",
+        messageId: "message-1",
+        toolCallId: "tool-1",
         response: {
-          kind: 'permission',
-          granted: true
-        }
-      })
+          kind: "permission",
+          granted: true,
+        },
+      }),
     ).resolves.toEqual({
       accepted: true,
       resumed: true,
-      waitingForUserMessage: false
-    })
+      waitingForUserMessage: false,
+    });
 
-    expect(providerExecutionPort.respondToolInteraction).toHaveBeenCalledWith(
-      'session-1',
-      'message-1',
-      'tool-1',
-      {
-        kind: 'permission',
-        granted: true
-      }
-    )
+    expect(providerExecutionPort.respondToolInteraction).toHaveBeenCalledWith("session-1", "message-1", "tool-1", {
+      kind: "permission",
+      granted: true,
+    });
     expect(scheduler.timeout).toHaveBeenCalledWith(
       expect.objectContaining({
         ms: 30 * 60 * 1_000,
-        reason: 'chat.respondToolInteraction:session-1:tool-1'
-      })
-    )
-  })
+        reason: "chat.respondToolInteraction:session-1:tool-1",
+      }),
+    );
+  });
 
-  it('attempts both timeout cleanups even if clearing permissions fails', async () => {
-    const scheduler = createScheduler()
-    const timeoutError = new Error('timed out')
-    timeoutError.name = 'TimeoutError'
+  it("attempts both timeout cleanups even if clearing permissions fails", async () => {
+    const scheduler = createScheduler();
+    const timeoutError = new Error("timed out");
+    timeoutError.name = "TimeoutError";
     const sessionRepository = {
       get: vi.fn().mockResolvedValue({
-        id: 'session-1',
-        agentId: 'deepchat'
-      })
-    }
+        id: "session-1",
+        agentId: "deepchat",
+      }),
+    };
     const messageRepository = {
       listBySession: vi.fn().mockResolvedValue([]),
-      get: vi.fn()
-    }
+      get: vi.fn(),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn().mockRejectedValue(timeoutError),
       steerActiveTurn: vi.fn(),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue('deepchat')
-    }
+      getAgentType: vi.fn().mockResolvedValue("deepchat"),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockRejectedValue(new Error('permission cleanup failed'))
-    }
+      clearSessionPermissions: vi.fn().mockRejectedValue(new Error("permission cleanup failed")),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -282,84 +277,76 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    await expect(service.sendMessage('session-1', 'hello')).rejects.toBe(timeoutError)
+    await expect(service.sendMessage("session-1", "hello")).rejects.toBe(timeoutError);
 
-    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith('session-1')
-    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith('session-1')
-  })
+    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith("session-1");
+  });
 
-  it('aborts a pending send when stopStream races during preflight', async () => {
+  it("aborts a pending send when stopStream races during preflight", async () => {
     const createAbortError = (reason: string) => {
-      const error = new Error(reason)
-      error.name = 'AbortError'
-      return error
-    }
+      const error = new Error(reason);
+      error.name = "AbortError";
+      return error;
+    };
     const scheduler = {
       sleep: vi.fn(),
       timeout: vi.fn(
-        async <T>({
-          task,
-          signal,
-          reason
-        }: {
-          task: Promise<T>
-          signal?: AbortSignal
-          reason: string
-        }) => {
+        async <T>({ task, signal, reason }: { task: Promise<T>; signal?: AbortSignal; reason: string }) => {
           if (signal?.aborted) {
-            throw createAbortError(reason)
+            throw createAbortError(reason);
           }
 
           return await new Promise<T>((resolve, reject) => {
             const onAbort = () => {
-              signal?.removeEventListener('abort', onAbort)
-              reject(createAbortError(reason))
-            }
+              signal?.removeEventListener("abort", onAbort);
+              reject(createAbortError(reason));
+            };
 
-            signal?.addEventListener('abort', onAbort, { once: true })
+            signal?.addEventListener("abort", onAbort, { once: true });
             task.then(
               (value) => {
-                signal?.removeEventListener('abort', onAbort)
-                resolve(value)
+                signal?.removeEventListener("abort", onAbort);
+                resolve(value);
               },
               (error) => {
-                signal?.removeEventListener('abort', onAbort)
-                reject(error)
-              }
-            )
-          })
-        }
+                signal?.removeEventListener("abort", onAbort);
+                reject(error);
+              },
+            );
+          });
+        },
       ),
-      retry: vi.fn()
-    }
-    let resolveSession!: (value: { id: string; agentId: string }) => void
+      retry: vi.fn(),
+    };
+    let resolveSession!: (value: { id: string; agentId: string }) => void;
     const sessionRepository = {
       get: vi.fn().mockImplementation(
         async () =>
           await new Promise<{ id: string; agentId: string }>((resolve) => {
-            resolveSession = resolve
-          })
-      )
-    }
+            resolveSession = resolve;
+          }),
+      ),
+    };
     const messageRepository = {
       listBySession: vi.fn().mockResolvedValue([]),
-      get: vi.fn()
-    }
+      get: vi.fn(),
+    };
     const providerExecutionPort = {
       sendMessage: vi.fn().mockResolvedValue(undefined),
       steerActiveTurn: vi.fn().mockResolvedValue(undefined),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue('deepchat')
-    }
+      getAgentType: vi.fn().mockResolvedValue("deepchat"),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockResolvedValue(undefined)
-    }
+      clearSessionPermissions: vi.fn().mockResolvedValue(undefined),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -367,64 +354,64 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    const pendingSend = service.sendMessage('session-1', 'hello')
-    await Promise.resolve()
+    const pendingSend = service.sendMessage("session-1", "hello");
+    await Promise.resolve();
 
-    await expect(service.stopStream({ sessionId: 'session-1' })).resolves.toEqual({
-      stopped: true
-    })
+    await expect(service.stopStream({ sessionId: "session-1" })).resolves.toEqual({
+      stopped: true,
+    });
 
     resolveSession({
-      id: 'session-1',
-      agentId: 'deepchat'
-    })
+      id: "session-1",
+      agentId: "deepchat",
+    });
 
     await expect(pendingSend).rejects.toMatchObject({
-      name: 'AbortError'
-    })
-    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith('session-1')
-    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith('session-1')
-  })
+      name: "AbortError",
+    });
+    expect(sessionPermissionPort.clearSessionPermissions).toHaveBeenCalledWith("session-1");
+    expect(providerExecutionPort.cancelGeneration).toHaveBeenCalledWith("session-1");
+  });
 
-  it('rejects a new send while another stream is still active for the session', async () => {
-    const scheduler = createScheduler()
+  it("rejects a new send while another stream is still active for the session", async () => {
+    const scheduler = createScheduler();
     const sessionRepository = {
       get: vi.fn().mockResolvedValue({
-        id: 'session-1',
-        agentId: 'deepchat'
-      })
-    }
+        id: "session-1",
+        agentId: "deepchat",
+      }),
+    };
     const messageRepository = {
       listBySession: vi.fn(),
-      get: vi.fn()
-    }
-    let resolveFirstSend!: (value: { requestId: string; messageId: string }) => void
+      get: vi.fn(),
+    };
+    let resolveFirstSend!: (value: { requestId: string; messageId: string }) => void;
     const providerExecutionPort = {
       sendMessage: vi
         .fn()
         .mockImplementationOnce(
           async () =>
             await new Promise<{ requestId: string; messageId: string }>((resolve) => {
-              resolveFirstSend = resolve
-            })
+              resolveFirstSend = resolve;
+            }),
         )
         .mockResolvedValue({
-          requestId: 'assistant-1',
-          messageId: 'assistant-1'
+          requestId: "assistant-1",
+          messageId: "assistant-1",
         }),
       steerActiveTurn: vi.fn().mockResolvedValue(undefined),
       cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn()
-    }
+      respondToolInteraction: vi.fn(),
+    };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue('deepchat')
-    }
+      getAgentType: vi.fn().mockResolvedValue("deepchat"),
+    };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn()
-    }
+      clearSessionPermissions: vi.fn(),
+    };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
@@ -432,23 +419,23 @@ describe('ChatService', () => {
       providerExecutionPort,
       providerCatalogPort,
       sessionPermissionPort,
-      scheduler
-    })
+      scheduler,
+    });
 
-    const firstSend = service.sendMessage('session-1', 'hello')
+    const firstSend = service.sendMessage("session-1", "hello");
 
-    await expect(service.sendMessage('session-1', 'again')).rejects.toThrow(
-      'A stream is already active for session session-1'
-    )
+    await expect(service.sendMessage("session-1", "again")).rejects.toThrow(
+      "A stream is already active for session session-1",
+    );
 
     resolveFirstSend({
-      requestId: 'assistant-1',
-      messageId: 'assistant-1'
-    })
+      requestId: "assistant-1",
+      messageId: "assistant-1",
+    });
     await expect(firstSend).resolves.toEqual({
       accepted: true,
-      requestId: 'assistant-1',
-      messageId: 'assistant-1'
-    })
-  })
-})
+      requestId: "assistant-1",
+      messageId: "assistant-1",
+    });
+  });
+});

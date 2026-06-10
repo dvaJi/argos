@@ -11,33 +11,33 @@
  * - No description field (can be embedded as blockquote)
  */
 
-import matter from 'gray-matter'
+import matter from "gray-matter";
 import type {
   IFormatAdapter,
   CanonicalSkill,
   ParseContext,
   FormatCapabilities,
-  KiroExportOptions
-} from '@shared/types/skillSync'
+  KiroExportOptions,
+} from "@shared/types/skillSync";
 
 /**
  * Kiro format adapter
  */
 export class KiroAdapter implements IFormatAdapter {
-  readonly id = 'kiro'
-  readonly name = 'Kiro'
+  readonly id = "kiro";
+  readonly name = "Kiro";
 
   /**
    * Parse Kiro steering file format to CanonicalSkill
    */
   parse(content: string, context: ParseContext): CanonicalSkill {
-    const { data, content: body } = matter(content)
+    const { data, content: body } = matter(content);
 
     // Extract name from title or filename
-    const name = this.extractName(data, context)
+    const name = this.extractName(data, context);
 
     // Kiro has no description field, try to extract from blockquote at start
-    const { description, instructions } = this.extractDescriptionAndInstructions(body)
+    const { description, instructions } = this.extractDescriptionAndInstructions(body);
 
     // Store Kiro-specific metadata in source
     const skill: CanonicalSkill = {
@@ -47,55 +47,55 @@ export class KiroAdapter implements IFormatAdapter {
       source: {
         tool: this.id,
         originalPath: context.filePath,
-        originalFormat: 'kiro-steering'
-      }
-    }
+        originalFormat: "kiro-steering",
+      },
+    };
 
     // Embed Kiro-specific info in instructions as comments if present
     if (data.inclusion || data.file_patterns) {
-      const kiroMeta = this.buildKiroMetaComment(data)
-      skill.instructions = kiroMeta + instructions.trim()
+      const kiroMeta = this.buildKiroMetaComment(data);
+      skill.instructions = kiroMeta + instructions.trim();
     }
 
-    return skill
+    return skill;
   }
 
   /**
    * Serialize CanonicalSkill to Kiro steering file format
    */
   serialize(skill: CanonicalSkill, options?: Record<string, unknown>): string {
-    const frontmatter: Record<string, unknown> = {}
-    const kiroOptions = options as KiroExportOptions | undefined
+    const frontmatter: Record<string, unknown> = {};
+    const kiroOptions = options as KiroExportOptions | undefined;
 
     // Convert name to title
-    const title = this.nameToTitle(skill.name)
-    frontmatter.title = title
+    const title = this.nameToTitle(skill.name);
+    frontmatter.title = title;
 
     // Set inclusion mode
     if (kiroOptions?.inclusion) {
-      frontmatter.inclusion = kiroOptions.inclusion
+      frontmatter.inclusion = kiroOptions.inclusion;
 
       // Add file_patterns for conditional inclusion
-      if (kiroOptions.inclusion === 'conditional' && kiroOptions.filePatterns?.length) {
-        frontmatter.file_patterns = kiroOptions.filePatterns
+      if (kiroOptions.inclusion === "conditional" && kiroOptions.filePatterns?.length) {
+        frontmatter.file_patterns = kiroOptions.filePatterns;
       }
     }
 
     // Process instructions - remove Kiro meta comments if present
-    let instructions = this.removeKiroMetaComments(skill.instructions)
+    let instructions = this.removeKiroMetaComments(skill.instructions);
 
     // Embed description as blockquote at the start
     if (skill.description) {
-      instructions = `> ${skill.description}\n\n${instructions}`
+      instructions = `> ${skill.description}\n\n${instructions}`;
     }
 
     // Generate output
     if (Object.keys(frontmatter).length > 0) {
-      const yamlContent = this.serializeFrontmatter(frontmatter)
-      return `---\n${yamlContent}---\n\n${instructions.trim()}`
+      const yamlContent = this.serializeFrontmatter(frontmatter);
+      return `---\n${yamlContent}---\n\n${instructions.trim()}`;
     }
 
-    return instructions.trim()
+    return instructions.trim();
   }
 
   /**
@@ -103,27 +103,26 @@ export class KiroAdapter implements IFormatAdapter {
    */
   detect(content: string): boolean {
     // Kiro format: optional frontmatter with specific fields
-    if (!content.trim().startsWith('---')) {
-      return false
+    if (!content.trim().startsWith("---")) {
+      return false;
     }
 
     try {
-      const { data } = matter(content)
+      const { data } = matter(content);
 
       // Check for Kiro-specific fields
       const hasKiroFields =
-        typeof data.title === 'string' ||
-        data.inclusion === 'always' ||
-        data.inclusion === 'conditional' ||
-        Array.isArray(data.file_patterns)
+        typeof data.title === "string" ||
+        data.inclusion === "always" ||
+        data.inclusion === "conditional" ||
+        Array.isArray(data.file_patterns);
 
       // Should NOT have Claude Code specific fields
-      const hasClaudeCodeFields =
-        typeof data.name === 'string' && typeof data.description === 'string'
+      const hasClaudeCodeFields = typeof data.name === "string" && typeof data.description === "string";
 
-      return hasKiroFields && !hasClaudeCodeFields
+      return hasKiroFields && !hasClaudeCodeFields;
     } catch {
-      return false
+      return false;
     }
   }
 
@@ -139,90 +138,90 @@ export class KiroAdapter implements IFormatAdapter {
       supportsModel: false,
       supportsSubfolders: false,
       supportsReferences: false,
-      supportsScripts: false
-    }
+      supportsScripts: false,
+    };
   }
 
   /**
    * Extract name from title or filename
    */
   private extractName(data: Record<string, unknown>, context: ParseContext): string {
-    if (typeof data.title === 'string' && data.title.trim()) {
-      return this.titleToName(data.title.trim())
+    if (typeof data.title === "string" && data.title.trim()) {
+      return this.titleToName(data.title.trim());
     }
 
     // Fallback: use filename without extension
-    const filename = context.filePath.split('/').pop() || ''
-    return filename.replace('.md', '')
+    const filename = context.filePath.split("/").pop() || "";
+    return filename.replace(".md", "");
   }
 
   /**
    * Extract description from blockquote and remaining instructions
    */
   private extractDescriptionAndInstructions(body: string): {
-    description: string
-    instructions: string
+    description: string;
+    instructions: string;
   } {
-    const lines = body.split('\n')
-    let description = ''
-    let instructionsStartIndex = 0
+    const lines = body.split("\n");
+    let description = "";
+    let instructionsStartIndex = 0;
 
     // Check if body starts with a blockquote (>)
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim()
+      const line = lines[i].trim();
 
-      if (line === '') {
-        continue
+      if (line === "") {
+        continue;
       }
 
-      if (line.startsWith('> ')) {
+      if (line.startsWith("> ")) {
         // Extract blockquote content as description
-        description = line.slice(2).trim()
-        instructionsStartIndex = i + 1
+        description = line.slice(2).trim();
+        instructionsStartIndex = i + 1;
 
         // Continue collecting multi-line blockquote
         for (let j = i + 1; j < lines.length; j++) {
-          const nextLine = lines[j].trim()
-          if (nextLine.startsWith('> ')) {
-            description += ' ' + nextLine.slice(2).trim()
-            instructionsStartIndex = j + 1
-          } else if (nextLine === '') {
-            instructionsStartIndex = j + 1
-            break
+          const nextLine = lines[j].trim();
+          if (nextLine.startsWith("> ")) {
+            description += " " + nextLine.slice(2).trim();
+            instructionsStartIndex = j + 1;
+          } else if (nextLine === "") {
+            instructionsStartIndex = j + 1;
+            break;
           } else {
-            break
+            break;
           }
         }
-        break
+        break;
       } else {
         // No blockquote, all content is instructions
-        break
+        break;
       }
     }
 
-    const instructions = lines.slice(instructionsStartIndex).join('\n')
-    return { description, instructions }
+    const instructions = lines.slice(instructionsStartIndex).join("\n");
+    return { description, instructions };
   }
 
   /**
    * Build Kiro meta comment for embedding in instructions
    */
   private buildKiroMetaComment(data: Record<string, unknown>): string {
-    const parts: string[] = []
+    const parts: string[] = [];
 
     if (data.inclusion) {
-      parts.push(`<!-- Kiro inclusion: ${data.inclusion} -->`)
+      parts.push(`<!-- Kiro inclusion: ${data.inclusion} -->`);
     }
 
     if (Array.isArray(data.file_patterns) && data.file_patterns.length > 0) {
-      parts.push(`<!-- file_patterns: ${data.file_patterns.join(', ')} -->`)
+      parts.push(`<!-- file_patterns: ${data.file_patterns.join(", ")} -->`);
     }
 
     if (parts.length > 0) {
-      return parts.join('\n') + '\n\n'
+      return parts.join("\n") + "\n\n";
     }
 
-    return ''
+    return "";
   }
 
   /**
@@ -230,9 +229,9 @@ export class KiroAdapter implements IFormatAdapter {
    */
   private removeKiroMetaComments(instructions: string): string {
     return instructions
-      .replace(/<!-- Kiro inclusion: \w+ -->\n?/g, '')
-      .replace(/<!-- file_patterns: [^>]+ -->\n?/g, '')
-      .trim()
+      .replace(/<!-- Kiro inclusion: \w+ -->\n?/g, "")
+      .replace(/<!-- file_patterns: [^>]+ -->\n?/g, "")
+      .trim();
   }
 
   /**
@@ -241,10 +240,10 @@ export class KiroAdapter implements IFormatAdapter {
   private titleToName(title: string): string {
     return title
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
   }
 
   /**
@@ -252,42 +251,42 @@ export class KiroAdapter implements IFormatAdapter {
    */
   private nameToTitle(name: string): string {
     return name
-      .split('-')
+      .split("-")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
+      .join(" ");
   }
 
   /**
    * Serialize frontmatter object to YAML string
    */
   private serializeFrontmatter(data: Record<string, unknown>): string {
-    const lines: string[] = []
+    const lines: string[] = [];
 
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined || value === null) {
-        continue
+        continue;
       }
 
       if (Array.isArray(value)) {
         if (value.length === 0) {
-          continue
+          continue;
         }
         // Use inline array format
-        const items = value.map((v) => `"${v}"`).join(', ')
-        lines.push(`${key}: [${items}]`)
-      } else if (typeof value === 'string') {
+        const items = value.map((v) => `"${v}"`).join(", ");
+        lines.push(`${key}: [${items}]`);
+      } else if (typeof value === "string") {
         // Check if value needs quoting
         if (this.needsQuoting(value)) {
-          lines.push(`${key}: "${this.escapeYamlString(value)}"`)
+          lines.push(`${key}: "${this.escapeYamlString(value)}"`);
         } else {
-          lines.push(`${key}: ${value}`)
+          lines.push(`${key}: ${value}`);
         }
       } else {
-        lines.push(`${key}: ${value}`)
+        lines.push(`${key}: ${value}`);
       }
     }
 
-    return lines.join('\n') + '\n'
+    return lines.join("\n") + "\n";
   }
 
   /**
@@ -295,20 +294,20 @@ export class KiroAdapter implements IFormatAdapter {
    */
   private needsQuoting(value: string): boolean {
     return (
-      value.includes(':') ||
-      value.includes('#') ||
+      value.includes(":") ||
+      value.includes("#") ||
       value.includes("'") ||
       value.includes('"') ||
-      value.includes('\n') ||
-      value.startsWith(' ') ||
-      value.endsWith(' ')
-    )
+      value.includes("\n") ||
+      value.startsWith(" ") ||
+      value.endsWith(" ")
+    );
   }
 
   /**
    * Escape special characters in YAML string
    */
   private escapeYamlString(value: string): string {
-    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
   }
 }

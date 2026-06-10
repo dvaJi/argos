@@ -1,17 +1,17 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
 export interface NewSessionDisabledAgentToolRow {
-  session_id: string
-  ordinal: number
-  tool_name: string
+  session_id: string;
+  ordinal: number;
+  tool_name: string;
 }
 
-const NORMALIZATION_SCHEMA_VERSION = 26
+const NORMALIZATION_SCHEMA_VERSION = 26;
 
 export class NewSessionDisabledAgentToolsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'new_session_disabled_agent_tools')
+    super(db, "new_session_disabled_agent_tools");
   }
 
   getCreateTableSQL(): string {
@@ -24,18 +24,18 @@ export class NewSessionDisabledAgentToolsTable extends BaseTable {
       );
       CREATE INDEX IF NOT EXISTS idx_new_session_disabled_agent_tools_session
         ON new_session_disabled_agent_tools(session_id, ordinal);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
     if (version === NORMALIZATION_SCHEMA_VERSION) {
-      return this.getCreateTableSQL()
+      return this.getCreateTableSQL();
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return NORMALIZATION_SCHEMA_VERSION
+    return NORMALIZATION_SCHEMA_VERSION;
   }
 
   replaceForSession(sessionId: string, toolNames: string[]): void {
@@ -44,15 +44,15 @@ export class NewSessionDisabledAgentToolsTable extends BaseTable {
         session_id,
         ordinal,
         tool_name
-      ) VALUES (?, ?, ?)`
-    )
+      ) VALUES (?, ?, ?)`,
+    );
 
     this.db.transaction(() => {
-      this.deleteBySession(sessionId)
+      this.deleteBySession(sessionId);
       toolNames.forEach((toolName, index) => {
-        insert.run(sessionId, index, toolName)
-      })
-    })()
+        insert.run(sessionId, index, toolName);
+      });
+    })();
   }
 
   listBySession(sessionId: string): NewSessionDisabledAgentToolRow[] {
@@ -60,14 +60,12 @@ export class NewSessionDisabledAgentToolsTable extends BaseTable {
       .prepare(
         `SELECT * FROM new_session_disabled_agent_tools
          WHERE session_id = ?
-         ORDER BY ordinal`
+         ORDER BY ordinal`,
       )
-      .all(sessionId) as NewSessionDisabledAgentToolRow[]
+      .all(sessionId) as NewSessionDisabledAgentToolRow[];
   }
 
   deleteBySession(sessionId: string): void {
-    this.db
-      .prepare('DELETE FROM new_session_disabled_agent_tools WHERE session_id = ?')
-      .run(sessionId)
+    this.db.prepare("DELETE FROM new_session_disabled_agent_tools WHERE session_id = ?").run(sessionId);
   }
 }

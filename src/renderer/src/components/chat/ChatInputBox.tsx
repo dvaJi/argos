@@ -1,73 +1,77 @@
-import React, {
+import {
+  type ReactNode,
+  type KeyboardEvent,
+  type ClipboardEvent,
+  type DragEvent,
   useEffect,
   useRef,
   useState,
   useMemo,
   useCallback,
   useImperativeHandle,
-  forwardRef
-} from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
-import type { Editor } from '@tiptap/core'
-import Mention from '@tiptap/extension-mention'
-import Document from '@tiptap/extension-document'
-import Paragraph from '@tiptap/extension-paragraph'
-import Text from '@tiptap/extension-text'
-import Placeholder from '@tiptap/extension-placeholder'
-import HardBreak from '@tiptap/extension-hard-break'
-import History from '@tiptap/extension-history'
-import { TextSelection } from '@tiptap/pm/state'
-import { Icon } from '@iconify/react'
-import type { MessageFile } from '@shared/types/agent-interface'
+  forwardRef,
+} from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/core";
+import Mention from "@tiptap/extension-mention";
+import Document from "@tiptap/extension-document";
+import Paragraph from "@tiptap/extension-paragraph";
+import Text from "@tiptap/extension-text";
+import Placeholder from "@tiptap/extension-placeholder";
+import HardBreak from "@tiptap/extension-hard-break";
+import History from "@tiptap/extension-history";
+import { TextSelection } from "@tiptap/pm/state";
+import { Icon } from "@iconify/react";
+import type { MessageFile } from "@shared/types/agent-interface";
 import {
   buildChatInputWorkspaceReferenceText,
-  getChatInputWorkspaceItemDragData
-} from '@/lib/chatInputWorkspaceReference'
-import { extractPlainUrlFromClipboard } from '@/lib/clipboardUrlPaste'
-import { useChatInputMentions } from './composables/useChatInputMentions'
-import { useChatInputFiles } from './composables/useChatInputFiles'
-import { useSkillsData } from '@/components/chat-input/composables/useSkillsData'
-import CommandInputDialog from './mentions/CommandInputDialog'
-import ChatAttachmentItem from './ChatAttachmentItem'
+  getChatInputWorkspaceItemDragData,
+} from "@/lib/chatInputWorkspaceReference";
+import { extractPlainUrlFromClipboard } from "@/lib/clipboardUrlPaste";
+import { useChatInputMentions } from "./composables/useChatInputMentions";
+import { useChatInputFiles } from "./composables/useChatInputFiles";
+import { useSkillsData } from "@/components/chat-input/composables/useSkillsData";
+import CommandInputDialog from "./mentions/CommandInputDialog";
+import ChatAttachmentItem from "./ChatAttachmentItem";
 
-const SlashMention = Mention.extend({ name: 'slashMention' })
+const SlashMention = Mention.extend({ name: "slashMention" });
 
 interface ChatInputBoxProps {
-  modelValue?: string
-  placeholder?: string
-  sessionId?: string | null
-  workspacePath?: string | null
-  isAcpSession?: boolean
-  isGenerating?: boolean
-  submitDisabled?: boolean
-  queueSubmitEnabled?: boolean
-  queueSubmitDisabled?: boolean
-  maxWidthClass?: string
-  files?: MessageFile[]
-  onUpdateModelValue?: (value: string) => void
-  onSubmit?: () => void
-  onQueueSubmit?: () => void
-  onUpdateFiles?: (files: MessageFile[]) => void
-  onCommandSubmit?: (command: string) => void
-  onPendingSkillsChange?: (skills: string[]) => void
-  onToggleVoiceInput?: () => void
-  toolbar?: React.ReactNode
+  modelValue?: string;
+  placeholder?: string;
+  sessionId?: string | null;
+  workspacePath?: string | null;
+  isAcpSession?: boolean;
+  isGenerating?: boolean;
+  submitDisabled?: boolean;
+  queueSubmitEnabled?: boolean;
+  queueSubmitDisabled?: boolean;
+  maxWidthClass?: string;
+  files?: MessageFile[];
+  onUpdateModelValue?: (value: string) => void;
+  onSubmit?: () => void;
+  onQueueSubmit?: () => void;
+  onUpdateFiles?: (files: MessageFile[]) => void;
+  onCommandSubmit?: (command: string) => void;
+  onPendingSkillsChange?: (skills: string[]) => void;
+  onToggleVoiceInput?: () => void;
+  toolbar?: ReactNode;
 }
 
 const ChatInputBox = forwardRef<
   {
-    triggerAttach: () => void
-    insertRecognizedText: (text: string) => void
-    insertWorkspaceReference: (targetPath: string) => boolean
-    getPendingSkillsSnapshot: () => string[]
-    focusInput: () => void
+    triggerAttach: () => void;
+    insertRecognizedText: (text: string) => void;
+    insertWorkspaceReference: (targetPath: string) => boolean;
+    getPendingSkillsSnapshot: () => string[];
+    focusInput: () => void;
   },
   ChatInputBoxProps
 >(
   (
     {
-      modelValue = '',
-      placeholder = '',
+      modelValue = "",
+      placeholder = "",
       sessionId = null,
       workspacePath = null,
       isAcpSession = false,
@@ -75,7 +79,7 @@ const ChatInputBox = forwardRef<
       submitDisabled = false,
       queueSubmitEnabled = false,
       queueSubmitDisabled = false,
-      maxWidthClass = 'max-w-2xl',
+      maxWidthClass = "max-w-2xl",
       files: externalFiles = [],
       onUpdateModelValue,
       onSubmit,
@@ -84,70 +88,63 @@ const ChatInputBox = forwardRef<
       onCommandSubmit,
       onPendingSkillsChange,
       onToggleVoiceInput,
-      toolbar
+      toolbar,
     },
-    ref
+    ref,
   ) => {
-    const [isComposing, setIsComposing] = useState(false)
-    const fileInputRef = useRef<HTMLInputElement>(null)
-    const resolvedPlaceholder = placeholder?.trim() || 'Type a message...'
+    const [isComposing, setIsComposing] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const resolvedPlaceholder = placeholder?.trim() || "Type a message...";
 
     const toEditorDoc = (text: string) => {
-      const lines = text.replace(/\r/g, '').split('\n')
+      const lines = text.replace(/\r/g, "").split("\n");
       return {
-        type: 'doc' as const,
+        type: "doc" as const,
         content: lines.map((line) => ({
-          type: 'paragraph' as const,
-          content: line ? [{ type: 'text' as const, text: line }] : []
-        }))
-      }
-    }
+          type: "paragraph" as const,
+          content: line ? [{ type: "text" as const, text: line }] : [],
+        })),
+      };
+    };
 
     const getEditorText = (ed: Editor): string => {
-      return ed.getText({ blockSeparator: '\n' })
-    }
+      return ed.getText({ blockSeparator: "\n" });
+    };
 
     const setCaretToEnd = (ed: Editor) => {
-      const end = TextSelection.atEnd(ed.state.doc)
-      ed.view.dispatch(ed.state.tr.setSelection(end))
-    }
+      const end = TextSelection.atEnd(ed.state.doc);
+      ed.view.dispatch(ed.state.tr.setSelection(end));
+    };
 
-    const conversationId = useMemo(() => sessionId, [sessionId])
-    const skillsData = useSkillsData(conversationId)
-    const activeSkillNames = useMemo(
-      () => skillsData.activeSkills.value,
-      [skillsData.activeSkills.value]
-    )
+    const conversationId = useMemo(() => sessionId, [sessionId]);
+    const skillsData = useSkillsData(conversationId);
+    const activeSkillNames = useMemo(() => skillsData.activeSkills, [skillsData.activeSkills]);
 
-    const editorRef = useRef<Editor | null>(null)
+    const editorRef = useRef<Editor | null>(null);
 
     const mentions = useChatInputMentions({
       getEditor: () => editorRef.current,
-      workspacePath: useMemo(() => computed(() => workspacePath), [workspacePath]),
-      sessionId: useMemo(() => computed(() => sessionId), [sessionId]),
-      isAcpSession: useMemo(() => computed(() => isAcpSession), [isAcpSession]),
-      isGenerating: useMemo(() => computed(() => isGenerating), [isGenerating]),
-      compactCommandDescription: useMemo(() => computed(() => 'Compact conversation'), []),
+      workspacePath,
+      sessionId,
+      isAcpSession,
+      isGenerating,
+      compactCommandDescription: "Compact conversation",
       onCommandSubmit: (command: string) => onCommandSubmit?.(command),
       onActivateSkill: async (skillName: string) => {
-        await skillsData.activateSkill(skillName)
-      }
-    })
-
-    const dialogState = mentions.dialogState
-
-    const fileInputProxy = useRef<HTMLInputElement | null>(null)
-    useEffect(() => {
-      fileInputProxy.current = fileInputRef.current
-    })
-
-    const filesHelper = useChatInputFiles(
-      fileInputProxy as any,
-      (_event: any, nextFiles: MessageFile[]) => {
-        onUpdateFiles?.([...nextFiles])
+        await skillsData.activateSkill(skillName);
       },
-      (key: string) => key
-    )
+    });
+
+    const dialogState = mentions.dialogState;
+
+    const fileInputProxy = useRef<HTMLInputElement | null>(null);
+    useEffect(() => {
+      fileInputProxy.current = fileInputRef.current;
+    });
+
+    const filesHelper = useChatInputFiles(fileInputProxy as any, (_event: any, nextFiles: MessageFile[]) => {
+      onUpdateFiles?.([...nextFiles]);
+    });
 
     const editor = useEditor({
       extensions: [
@@ -157,191 +154,188 @@ const ChatInputBox = forwardRef<
         History,
         Mention.configure({
           suggestion: mentions.atSuggestion as any,
-          deleteTriggerWithBackspace: true
+          deleteTriggerWithBackspace: true,
         }),
         SlashMention.configure({
           suggestion: mentions.slashSuggestion as any,
-          deleteTriggerWithBackspace: true
+          deleteTriggerWithBackspace: true,
         }),
         Placeholder.configure({
-          placeholder: () => resolvedPlaceholder
+          placeholder: () => resolvedPlaceholder,
         }),
         HardBreak.extend({
           addKeyboardShortcuts() {
             return {
-              'Shift-Enter': () => this.editor.chain().setHardBreak().scrollIntoView().run()
-            }
-          }
-        })
+              "Shift-Enter": () => this.editor.chain().setHardBreak().scrollIntoView().run(),
+            };
+          },
+        }),
       ],
-      content: toEditorDoc(modelValue || ''),
+      content: toEditorDoc(modelValue || ""),
       onUpdate: ({ editor: ed }) => {
-        const text = getEditorText(ed)
-        if (text !== (modelValue || '')) {
-          onUpdateModelValue?.(text)
+        const text = getEditorText(ed);
+        if (text !== (modelValue || "")) {
+          onUpdateModelValue?.(text);
         }
-      }
-    })
+      },
+    });
 
     useEffect(() => {
       if (editor) {
-        editorRef.current = editor
+        editorRef.current = editor;
       }
-    }, [editor])
+    }, [editor]);
 
     useEffect(() => {
-      if (!editor) return
-      const next = modelValue || ''
-      const current = getEditorText(editor)
-      if (next === current) return
-      editor.commands.setContent(toEditorDoc(next), false)
-      setCaretToEnd(editor)
-    }, [modelValue, editor])
+      if (!editor) return;
+      const next = modelValue || "";
+      const current = getEditorText(editor);
+      if (next === current) return;
+      editor.commands.setContent(toEditorDoc(next), { emitUpdate: false });
+      setCaretToEnd(editor);
+    }, [modelValue, editor]);
 
     useEffect(() => {
-      if (!editor) return
-      editor.view.updateState(editor.state)
-    }, [resolvedPlaceholder, editor])
+      if (!editor) return;
+      editor.view.updateState(editor.state);
+    }, [resolvedPlaceholder, editor]);
 
     const sameFiles = (a: MessageFile[], b: MessageFile[]) => {
-      if (a.length !== b.length) return false
+      if (a.length !== b.length) return false;
       for (let i = 0; i < a.length; i += 1) {
-        if (a[i].name !== b[i].name) return false
-        if ((a[i].path || '') !== (b[i].path || '')) return false
-        if ((a[i].mimeType || '') !== (b[i].mimeType || '')) return false
+        if (a[i].name !== b[i].name) return false;
+        if ((a[i].path || "") !== (b[i].path || "")) return false;
+        if ((a[i].mimeType || "") !== (b[i].mimeType || "")) return false;
       }
-      return true
-    }
+      return true;
+    };
 
     useEffect(() => {
-      if (sameFiles(externalFiles, filesHelper.selectedFiles.value)) return
-      filesHelper.selectedFiles.value = [...externalFiles]
-    }, [externalFiles])
+      if (sameFiles(externalFiles, filesHelper.selectedFiles)) return;
+      filesHelper.selectedFiles = [...externalFiles];
+    }, [externalFiles]);
 
     useEffect(() => {
       if (!sessionId) {
-        onPendingSkillsChange?.([...skillsData.pendingSkills.value])
+        onPendingSkillsChange?.([...skillsData.pendingSkills]);
       }
-    }, [skillsData.pendingSkills.value])
+    }, [skillsData.pendingSkills]);
 
     useEffect(() => {
       if (sessionId) {
-        if (skillsData.pendingSkills.value.length > 0) {
-          void skillsData.applyPendingSkillsToConversation(sessionId)
+        if (skillsData.pendingSkills.length > 0) {
+          void skillsData.applyPendingSkillsToConversation(sessionId);
         }
-        onPendingSkillsChange?.([])
-        return
+        onPendingSkillsChange?.([]);
+        return;
       }
-      onPendingSkillsChange?.([...skillsData.pendingSkills.value])
-    }, [sessionId])
+      onPendingSkillsChange?.([...skillsData.pendingSkills]);
+    }, [sessionId]);
 
     function removeSkill(skillName: string) {
-      void skillsData.deactivateSkill(skillName)
+      void skillsData.deactivateSkill(skillName);
     }
 
-    function handleKeydown(e: React.KeyboardEvent) {
-      const isVoiceShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'm'
+    function handleKeydown(e: KeyboardEvent) {
+      const isVoiceShortcut = (e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "m";
       if (isVoiceShortcut) {
-        e.preventDefault()
-        onToggleVoiceInput?.()
-        return
+        e.preventDefault();
+        onToggleVoiceInput?.();
+        return;
       }
 
-      const isPlainTab = e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
+      const isPlainTab = e.key === "Tab" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey;
       if (isPlainTab && queueSubmitEnabled && !queueSubmitDisabled) {
-        if (mentions.isSuggestionMenuOpen.value || mentions.shouldSuppressSubmit()) return
-        e.preventDefault()
-        onQueueSubmit?.()
-        return
+        if (mentions.isSuggestionMenuOpen || mentions.shouldSuppressSubmit()) return;
+        e.preventDefault();
+        onQueueSubmit?.();
+        return;
       }
 
-      if (e.key !== 'Enter' || e.shiftKey) return
-      if (mentions.isSuggestionMenuOpen.value || mentions.shouldSuppressSubmit()) return
+      if (e.key !== "Enter" || e.shiftKey) return;
+      if (mentions.isSuggestionMenuOpen || mentions.shouldSuppressSubmit()) return;
       if (submitDisabled) {
-        e.preventDefault()
-        return
+        e.preventDefault();
+        return;
       }
 
-      const isImeComposing =
-        isComposing || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229
-      if (isImeComposing) return
+      const isImeComposing = isComposing || e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229;
+      if (isImeComposing) return;
 
-      e.preventDefault()
-      onSubmit?.()
+      e.preventDefault();
+      onSubmit?.();
     }
 
     function onDialogOpenChange(open: boolean) {
-      if (!open) mentions.closeDialog()
+      if (!open) mentions.closeDialog();
     }
 
-    function onPaste(event: React.ClipboardEvent) {
-      void filesHelper.handlePaste(event.nativeEvent as any, true)
+    function onPaste(event: ClipboardEvent) {
+      void filesHelper.handlePaste(event.nativeEvent as any, true);
 
-      const clipboardData = event.nativeEvent.clipboardData
-      if (clipboardData?.files && clipboardData.files.length > 0) return
+      const clipboardData = event.nativeEvent.clipboardData;
+      if (clipboardData?.files && clipboardData.files.length > 0) return;
 
-      const pastedUrl = extractPlainUrlFromClipboard(clipboardData)
-      if (!pastedUrl) return
+      const pastedUrl = extractPlainUrlFromClipboard(clipboardData);
+      if (!pastedUrl) return;
 
-      event.preventDefault()
-      event.stopPropagation()
-      editor?.chain().focus().insertContent(pastedUrl).run()
+      event.preventDefault();
+      event.stopPropagation();
+      editor?.chain().focus().insertContent(pastedUrl).run();
     }
 
-    function onDragOver(event: React.DragEvent) {
-      event.preventDefault()
+    function onDragOver(event: DragEvent) {
+      event.preventDefault();
       if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = 'copy'
+        event.dataTransfer.dropEffect = "copy";
       }
     }
 
     function insertWorkspaceReference(targetPath: string): boolean {
-      if (!editor) return false
+      if (!editor) return false;
       const referenceText = buildChatInputWorkspaceReferenceText(
         targetPath,
         workspacePath,
-        targetPath.split(/[/\\]/).pop()
-      )
-      if (!referenceText) return false
+        targetPath.split(/[/\\]/).pop(),
+      );
+      if (!referenceText) return false;
 
-      const { from, to } = editor.state.selection
-      const docSize = editor.state.doc.content.size
-      const before =
-        from > 0 ? editor.state.doc.textBetween(Math.max(0, from - 1), from, '\n', '\n') : ''
-      const after =
-        to < docSize ? editor.state.doc.textBetween(to, Math.min(docSize, to + 1), '\n', '\n') : ''
-      const prefix = before && !/\s/.test(before) ? ' ' : ''
-      const suffix = after && /\s/.test(after) ? '' : ' '
+      const { from, to } = editor.state.selection;
+      const docSize = editor.state.doc.content.size;
+      const before = from > 0 ? editor.state.doc.textBetween(Math.max(0, from - 1), from, "\n", "\n") : "";
+      const after = to < docSize ? editor.state.doc.textBetween(to, Math.min(docSize, to + 1), "\n", "\n") : "";
+      const prefix = before && !/\s/.test(before) ? " " : "";
+      const suffix = after && /\s/.test(after) ? "" : " ";
 
-      editor.chain().focus().insertContent(`${prefix}${referenceText}${suffix}`).run()
-      return true
+      editor.chain().focus().insertContent(`${prefix}${referenceText}${suffix}`).run();
+      return true;
     }
 
-    function onDrop(event: React.DragEvent) {
-      event.preventDefault()
-      const workspaceItem = getChatInputWorkspaceItemDragData(event.dataTransfer)
-      if (workspaceItem && insertWorkspaceReference(workspaceItem.path)) return
-      if (!event.dataTransfer?.files || event.dataTransfer.files.length === 0) return
-      void filesHelper.handleDrop(event.dataTransfer.files)
+    function onDrop(event: DragEvent) {
+      event.preventDefault();
+      const workspaceItem = getChatInputWorkspaceItemDragData(event.dataTransfer);
+      if (workspaceItem && insertWorkspaceReference(workspaceItem.path)) return;
+      if (!event.dataTransfer?.files || event.dataTransfer.files.length === 0) return;
+      void filesHelper.handleDrop(event.dataTransfer.files);
     }
 
     function triggerAttach() {
-      filesHelper.openFilePicker()
+      filesHelper.openFilePicker();
     }
 
     function insertRecognizedText(text: string) {
-      const normalizedText = text.trim()
-      if (!normalizedText) return
-      editor?.chain().focus().insertContent(normalizedText).run()
+      const normalizedText = text.trim();
+      if (!normalizedText) return;
+      editor?.chain().focus().insertContent(normalizedText).run();
     }
 
     function getPendingSkillsSnapshot(): string[] {
-      return Array.from(new Set(skillsData.pendingSkills.value))
+      return Array.from(new Set(skillsData.pendingSkills));
     }
 
     function focusInput() {
-      editor?.chain().focus().scrollIntoView().run()
-      if (editor) setCaretToEnd(editor)
+      editor?.chain().focus().scrollIntoView().run();
+      if (editor) setCaretToEnd(editor);
     }
 
     useImperativeHandle(
@@ -351,10 +345,10 @@ const ChatInputBox = forwardRef<
         insertRecognizedText,
         insertWorkspaceReference,
         getPendingSkillsSnapshot,
-        focusInput
+        focusInput,
       }),
-      [editor]
-    )
+      [editor],
+    );
 
     return (
       <div
@@ -392,11 +386,9 @@ const ChatInputBox = forwardRef<
           </div>
         )}
 
-        {filesHelper.selectedFiles.value.length > 0 && (
-          <div
-            className={`flex flex-wrap gap-2 px-4 ${activeSkillNames.length > 0 ? 'pt-2' : 'pt-3'}`}
-          >
-            {filesHelper.selectedFiles.value.map((file: MessageFile, index: number) => (
+        {filesHelper.selectedFiles.length > 0 && (
+          <div className={`flex flex-wrap gap-2 px-4 ${activeSkillNames.length > 0 ? "pt-2" : "pt-3"}`}>
+            {filesHelper.selectedFiles.map((file: MessageFile, index: number) => (
               <ChatAttachmentItem
                 key={file.path || `${file.name}-${index}`}
                 file={file}
@@ -428,7 +420,7 @@ const ChatInputBox = forwardRef<
         {dialogState && (
           <CommandInputDialog
             open={Boolean(dialogState)}
-            title={dialogState?.title || ''}
+            title={dialogState?.title || ""}
             description={dialogState?.description}
             confirmText={dialogState?.confirmText}
             fields={dialogState?.fields || []}
@@ -437,10 +429,10 @@ const ChatInputBox = forwardRef<
           />
         )}
       </div>
-    )
-  }
-)
+    );
+  },
+);
 
-ChatInputBox.displayName = 'ChatInputBox'
+ChatInputBox.displayName = "ChatInputBox";
 
-export default ChatInputBox
+export default ChatInputBox;

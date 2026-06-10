@@ -1,188 +1,188 @@
-import { ProviderBatchUpdate, ProviderChange } from '@shared/provider-operations'
-import { LLM_PROVIDER } from '@shared/presenter'
-import { BaseLLMProvider } from '../baseProvider'
-import { GithubCopilotProvider } from '../providers/githubCopilotProvider'
-import { OllamaProvider } from '../providers/ollamaProvider'
-import { AcpProvider } from '../providers/acpProvider'
-import { VoiceAIProvider } from '../providers/voiceAIProvider'
-import { AiSdkProvider } from '../providers/aiSdkProvider'
-import { RateLimitManager } from './rateLimitManager'
-import { StreamState } from '../types'
-import { AcpSessionPersistence } from '../acp'
-import type { ProviderMcpRuntimePort } from '../runtimePorts'
-import { resolveAiSdkProviderDefinition } from '../providerRegistry'
+import { ProviderBatchUpdate, ProviderChange } from "@shared/provider-operations";
+import { LLM_PROVIDER } from "@shared/presenter";
+import { BaseLLMProvider } from "../baseProvider";
+import { GithubCopilotProvider } from "../providers/githubCopilotProvider";
+import { OllamaProvider } from "../providers/ollamaProvider";
+import { AcpProvider } from "../providers/acpProvider";
+import { VoiceAIProvider } from "../providers/voiceAIProvider";
+import { AiSdkProvider } from "../providers/aiSdkProvider";
+import { RateLimitManager } from "./rateLimitManager";
+import { StreamState } from "../types";
+import { AcpSessionPersistence } from "../acp";
+import type { ProviderMcpRuntimePort } from "../runtimePorts";
+import { resolveAiSdkProviderDefinition } from "../providerRegistry";
 
 interface ProviderInstanceManagerOptions {
-  configPresenter: import('@shared/presenter').IConfigPresenter
-  activeStreams: Map<string, StreamState>
-  rateLimitManager: RateLimitManager
-  getCurrentProviderId: () => string | null
-  setCurrentProviderId: (providerId: string | null) => void
-  acpSessionPersistence?: AcpSessionPersistence
-  mcpRuntime?: ProviderMcpRuntimePort
+  configPresenter: import("@shared/presenter").IConfigPresenter;
+  activeStreams: Map<string, StreamState>;
+  rateLimitManager: RateLimitManager;
+  getCurrentProviderId: () => string | null;
+  setCurrentProviderId: (providerId: string | null) => void;
+  acpSessionPersistence?: AcpSessionPersistence;
+  mcpRuntime?: ProviderMcpRuntimePort;
 }
 
 export class ProviderInstanceManager {
-  private readonly providers: Map<string, LLM_PROVIDER> = new Map()
-  private readonly providerInstances: Map<string, BaseLLMProvider> = new Map()
+  private readonly providers: Map<string, LLM_PROVIDER> = new Map();
+  private readonly providerInstances: Map<string, BaseLLMProvider> = new Map();
 
   constructor(private readonly options: ProviderInstanceManagerOptions) {}
 
   init(): void {
-    this.replaceProviders(this.options.configPresenter.getProviders())
+    this.replaceProviders(this.options.configPresenter.getProviders());
   }
 
   setProviders(providers: LLM_PROVIDER[]): void {
-    this.replaceProviders(providers)
+    this.replaceProviders(providers);
   }
 
   handleProviderBatchUpdate(batchUpdate: ProviderBatchUpdate): void {
-    console.log(`Handling batch provider update with ${batchUpdate.changes.length} changes`)
+    console.log(`Handling batch provider update with ${batchUpdate.changes.length} changes`);
 
-    this.providers.clear()
+    this.providers.clear();
     batchUpdate.providers.forEach((provider) => {
-      this.providers.set(provider.id, provider)
-    })
+      this.providers.set(provider.id, provider);
+    });
 
     for (const change of batchUpdate.changes) {
-      this.handleProviderAtomicUpdate(change)
+      this.handleProviderAtomicUpdate(change);
     }
 
-    this.onProvidersUpdated(batchUpdate.providers)
+    this.onProvidersUpdated(batchUpdate.providers);
   }
 
   handleProviderAtomicUpdate(change: ProviderChange): void {
     switch (change.operation) {
-      case 'add':
-        this.handleProviderAdd(change)
-        break
-      case 'remove':
-        this.handleProviderRemove(change)
-        break
-      case 'update':
-        this.handleProviderUpdate(change)
-        break
-      case 'reorder':
-        this.handleProviderReorder(change)
-        break
+      case "add":
+        this.handleProviderAdd(change);
+        break;
+      case "remove":
+        this.handleProviderRemove(change);
+        break;
+      case "update":
+        this.handleProviderUpdate(change);
+        break;
+      case "reorder":
+        this.handleProviderReorder(change);
+        break;
     }
   }
 
   handleProxyResolved(): void {
     for (const provider of this.providerInstances.values()) {
-      provider.onProxyResolved()
+      provider.onProxyResolved();
     }
   }
 
   getExistingProviderInstance(providerId: string): BaseLLMProvider | undefined {
-    return this.providerInstances.get(providerId)
+    return this.providerInstances.get(providerId);
   }
 
   getProviders(): LLM_PROVIDER[] {
-    return Array.from(this.providers.values())
+    return Array.from(this.providers.values());
   }
 
   getProviderById(id: string): LLM_PROVIDER {
-    const provider = this.providers.get(id)
+    const provider = this.providers.get(id);
     if (!provider) {
-      throw new Error(`Provider ${id} not found`)
+      throw new Error(`Provider ${id} not found`);
     }
-    return provider
+    return provider;
   }
 
   getProviderInstance(providerId: string): BaseLLMProvider {
-    let instance = this.providerInstances.get(providerId)
+    let instance = this.providerInstances.get(providerId);
     if (!instance) {
-      const provider = this.getProviderById(providerId)
-      instance = this.createProviderInstance(provider)
+      const provider = this.getProviderById(providerId);
+      instance = this.createProviderInstance(provider);
       if (!instance) {
-        throw new Error(`Failed to create provider instance for ${providerId}`)
+        throw new Error(`Failed to create provider instance for ${providerId}`);
       }
-      this.providerInstances.set(providerId, instance)
+      this.providerInstances.set(providerId, instance);
     }
-    return instance
+    return instance;
   }
 
   private handleProviderAdd(change: ProviderChange): void {
-    if (!change.provider) return
+    if (!change.provider) return;
 
-    this.providers.set(change.providerId, change.provider)
+    this.providers.set(change.providerId, change.provider);
 
     if (change.provider.enable && change.requiresRebuild) {
       try {
-        console.log(`Creating new provider instance: ${change.providerId}`)
-        this.getProviderInstance(change.providerId)
+        console.log(`Creating new provider instance: ${change.providerId}`);
+        this.getProviderInstance(change.providerId);
       } catch (error) {
-        console.error(`Failed to create provider instance ${change.providerId}:`, error)
+        console.error(`Failed to create provider instance ${change.providerId}:`, error);
       }
     }
   }
 
   private handleProviderRemove(change: ProviderChange): void {
-    this.providers.delete(change.providerId)
+    this.providers.delete(change.providerId);
 
     if (change.requiresRebuild) {
-      this.cleanupProviderInstance(change.providerId)
+      this.cleanupProviderInstance(change.providerId);
     }
   }
 
   private handleProviderUpdate(change: ProviderChange): void {
-    if (!change.updates) return
+    if (!change.updates) return;
 
-    const currentProvider = this.providers.get(change.providerId)
-    if (!currentProvider) return
+    const currentProvider = this.providers.get(change.providerId);
+    if (!currentProvider) return;
 
-    const updatedProvider = { ...currentProvider, ...change.updates }
-    this.providers.set(change.providerId, updatedProvider)
+    const updatedProvider = { ...currentProvider, ...change.updates };
+    this.providers.set(change.providerId, updatedProvider);
 
-    const wasEnabled = currentProvider.enable
-    const isEnabled = updatedProvider.enable
-    const enableStatusChanged = 'enable' in change.updates && wasEnabled !== isEnabled
+    const wasEnabled = currentProvider.enable;
+    const isEnabled = updatedProvider.enable;
+    const enableStatusChanged = "enable" in change.updates && wasEnabled !== isEnabled;
 
     if (change.requiresRebuild) {
-      console.log(`Rebuilding provider instance: ${change.providerId}`)
-      this.providerInstances.delete(change.providerId)
+      console.log(`Rebuilding provider instance: ${change.providerId}`);
+      this.providerInstances.delete(change.providerId);
 
       if (updatedProvider.enable) {
         try {
-          const instance = this.getProviderInstance(change.providerId)
+          const instance = this.getProviderInstance(change.providerId);
           // For ACP provider, trigger model loading when enabled
-          if (change.providerId === 'acp' && instance && 'handleEnableStateChange' in instance) {
-            console.log(`[ACP] Provider rebuilt and enabled, triggering model loading`)
-            void (instance as any).handleEnableStateChange()
+          if (change.providerId === "acp" && instance && "handleEnableStateChange" in instance) {
+            console.log(`[ACP] Provider rebuilt and enabled, triggering model loading`);
+            void (instance as any).handleEnableStateChange();
           }
         } catch (error) {
-          console.error(`Failed to rebuild provider instance ${change.providerId}:`, error)
+          console.error(`Failed to rebuild provider instance ${change.providerId}:`, error);
         }
       } else if (enableStatusChanged && !isEnabled) {
-        console.log(`Provider ${change.providerId} disabled, cleaning up instance`)
-        this.cleanupProviderInstance(change.providerId)
+        console.log(`Provider ${change.providerId} disabled, cleaning up instance`);
+        this.cleanupProviderInstance(change.providerId);
       }
     } else {
       if (enableStatusChanged) {
         if (!isEnabled) {
-          console.log(`Provider ${change.providerId} disabled, cleaning up instance`)
-          this.cleanupProviderInstance(change.providerId)
+          console.log(`Provider ${change.providerId} disabled, cleaning up instance`);
+          this.cleanupProviderInstance(change.providerId);
         } else {
           try {
-            console.log(`Provider ${change.providerId} enabled, creating instance`)
-            const instance = this.getProviderInstance(change.providerId)
+            console.log(`Provider ${change.providerId} enabled, creating instance`);
+            const instance = this.getProviderInstance(change.providerId);
             // For ACP provider, trigger model loading when enabled
-            if (change.providerId === 'acp' && instance && 'handleEnableStateChange' in instance) {
-              console.log(`[ACP] Provider enabled, triggering model loading`)
-              void (instance as any).handleEnableStateChange()
+            if (change.providerId === "acp" && instance && "handleEnableStateChange" in instance) {
+              console.log(`[ACP] Provider enabled, triggering model loading`);
+              void (instance as any).handleEnableStateChange();
             }
           } catch (error) {
-            console.error(`Failed to create provider instance ${change.providerId}:`, error)
+            console.error(`Failed to create provider instance ${change.providerId}:`, error);
           }
         }
       } else {
-        const instance = this.providerInstances.get(change.providerId)
+        const instance = this.providerInstances.get(change.providerId);
         if (instance) {
           try {
-            instance.updateConfig(updatedProvider)
+            instance.updateConfig(updatedProvider);
           } catch (error) {
-            console.error(`Failed to update provider config ${change.providerId}:`, error)
+            console.error(`Failed to update provider config ${change.providerId}:`, error);
           }
         }
       }
@@ -190,87 +190,87 @@ export class ProviderInstanceManager {
   }
 
   private handleProviderReorder(_change: ProviderChange): void {
-    console.log(`Provider reorder completed, no instance rebuild required`)
+    console.log(`Provider reorder completed, no instance rebuild required`);
   }
 
   private cleanupProviderInstance(providerId: string): void {
     const activeStreamsToStop = Array.from(this.options.activeStreams.entries()).filter(
-      ([, streamState]) => streamState.providerId === providerId
-    )
+      ([, streamState]) => streamState.providerId === providerId,
+    );
 
     for (const [eventId, streamState] of activeStreamsToStop) {
-      console.log(`Stopping active stream for disabled provider ${providerId}: ${eventId}`)
+      console.log(`Stopping active stream for disabled provider ${providerId}: ${eventId}`);
       try {
-        streamState.abortController.abort()
+        streamState.abortController.abort();
       } catch (error) {
-        console.error(`Failed to abort stream ${eventId}:`, error)
+        console.error(`Failed to abort stream ${eventId}:`, error);
       }
-      this.options.activeStreams.delete(eventId)
+      this.options.activeStreams.delete(eventId);
     }
 
-    const instance = this.providerInstances.get(providerId)
+    const instance = this.providerInstances.get(providerId);
     if (instance) {
-      console.log(`Removing provider instance: ${providerId}`)
-      this.providerInstances.delete(providerId)
+      console.log(`Removing provider instance: ${providerId}`);
+      this.providerInstances.delete(providerId);
 
-      if ('cleanup' in instance && typeof (instance as any).cleanup === 'function') {
+      if ("cleanup" in instance && typeof (instance as any).cleanup === "function") {
         try {
-          ;(instance as any).cleanup()
+          (instance as any).cleanup();
         } catch (error) {
-          console.error(`Failed to cleanup provider instance ${providerId}:`, error)
+          console.error(`Failed to cleanup provider instance ${providerId}:`, error);
         }
       }
     }
 
-    this.options.rateLimitManager.cleanupProviderRateLimit(providerId)
+    this.options.rateLimitManager.cleanupProviderRateLimit(providerId);
 
-    const currentProviderId = this.options.getCurrentProviderId()
+    const currentProviderId = this.options.getCurrentProviderId();
     if (currentProviderId === providerId) {
-      console.log(`Clearing current provider as it was disabled: ${providerId}`)
-      this.options.setCurrentProviderId(null)
+      console.log(`Clearing current provider as it was disabled: ${providerId}`);
+      this.options.setCurrentProviderId(null);
     }
   }
 
   private onProvidersUpdated(providers: LLM_PROVIDER[]): void {
-    this.options.rateLimitManager.syncProviders(providers)
+    this.options.rateLimitManager.syncProviders(providers);
   }
 
   private replaceProviders(providers: LLM_PROVIDER[]): void {
-    const nextProviders = new Map(providers.map((provider) => [provider.id, provider]))
+    const nextProviders = new Map(providers.map((provider) => [provider.id, provider]));
 
     for (const providerId of Array.from(this.providerInstances.keys())) {
-      const nextProvider = nextProviders.get(providerId)
+      const nextProvider = nextProviders.get(providerId);
       if (!nextProvider || !nextProvider.enable) {
-        this.cleanupProviderInstance(providerId)
+        this.cleanupProviderInstance(providerId);
       }
     }
 
-    this.providers.clear()
+    this.providers.clear();
     providers.forEach((provider) => {
-      this.providers.set(provider.id, provider)
-    })
+      this.providers.set(provider.id, provider);
+    });
 
     for (const provider of providers) {
-      const instance = this.providerInstances.get(provider.id)
+      const instance = this.providerInstances.get(provider.id);
       if (instance) {
         try {
-          instance.updateConfig(provider)
+          instance.updateConfig(provider);
         } catch (error) {
-          console.error(`Failed to update provider config ${provider.id}:`, error)
+          console.error(`Failed to update provider config ${provider.id}:`, error);
         }
       }
     }
 
-    this.onProvidersUpdated(providers)
+    this.onProvidersUpdated(providers);
 
-    const currentProviderId = this.options.getCurrentProviderId()
+    const currentProviderId = this.options.getCurrentProviderId();
     if (!currentProviderId) {
-      return
+      return;
     }
 
-    const currentProvider = nextProviders.get(currentProviderId)
+    const currentProvider = nextProviders.get(currentProviderId);
     if (!currentProvider || !currentProvider.enable) {
-      this.options.setCurrentProviderId(null)
+      this.options.setCurrentProviderId(null);
     }
   }
 
@@ -280,40 +280,40 @@ export class ProviderInstanceManager {
    */
   private createProviderInstance(provider: LLM_PROVIDER): BaseLLMProvider | undefined {
     try {
-      if (provider.id === 'acp') {
+      if (provider.id === "acp") {
         if (!this.options.acpSessionPersistence) {
-          throw new Error('ACP session persistence is not configured')
+          throw new Error("ACP session persistence is not configured");
         }
         return new AcpProvider(
           provider,
           this.options.configPresenter,
           this.options.acpSessionPersistence,
-          this.options.mcpRuntime
-        )
+          this.options.mcpRuntime,
+        );
       }
 
-      if (provider.id === 'github-copilot') {
-        return new GithubCopilotProvider(provider, this.options.configPresenter)
+      if (provider.id === "github-copilot") {
+        return new GithubCopilotProvider(provider, this.options.configPresenter);
       }
 
-      if (provider.id === 'voiceai') {
-        return new VoiceAIProvider(provider, this.options.configPresenter)
+      if (provider.id === "voiceai") {
+        return new VoiceAIProvider(provider, this.options.configPresenter);
       }
 
-      if (provider.id === 'ollama' || provider.apiType === 'ollama') {
-        return new OllamaProvider(provider, this.options.configPresenter, this.options.mcpRuntime)
+      if (provider.id === "ollama" || provider.apiType === "ollama") {
+        return new OllamaProvider(provider, this.options.configPresenter, this.options.mcpRuntime);
       }
 
-      const definition = resolveAiSdkProviderDefinition(provider)
+      const definition = resolveAiSdkProviderDefinition(provider);
       if (!definition) {
-        console.warn(`Unknown provider type: ${provider.apiType} for provider id: ${provider.id}`)
-        return undefined
+        console.warn(`Unknown provider type: ${provider.apiType} for provider id: ${provider.id}`);
+        return undefined;
       }
 
-      return new AiSdkProvider(provider, this.options.configPresenter, this.options.mcpRuntime)
+      return new AiSdkProvider(provider, this.options.configPresenter, this.options.mcpRuntime);
     } catch (error) {
-      console.error(`Failed to create provider instance for ${provider.id}:`, error)
-      return undefined
+      console.error(`Failed to create provider instance for ${provider.id}:`, error);
+      return undefined;
     }
   }
 }

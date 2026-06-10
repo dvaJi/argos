@@ -1,11 +1,11 @@
-import { DERIVED_MODEL_MAX_TOKENS_CAP } from '@shared/modelConfigDefaults'
+import { DERIVED_MODEL_MAX_TOKENS_CAP } from "@shared/modelConfigDefaults";
 
-const GLOBAL_OUTPUT_TOKEN_MAX = DERIVED_MODEL_MAX_TOKENS_CAP
+const GLOBAL_OUTPUT_TOKEN_MAX = DERIVED_MODEL_MAX_TOKENS_CAP;
 
 interface CalculateSafeDefaultOptions {
-  modelMaxTokens: number
-  thinkingBudget?: number
-  reasoningSupported: boolean
+  modelMaxTokens: number;
+  thinkingBudget?: number;
+  reasoningSupported: boolean;
 }
 
 /**
@@ -17,17 +17,17 @@ interface CalculateSafeDefaultOptions {
 export function calculateSafeDefaultMaxTokens({
   modelMaxTokens,
   thinkingBudget,
-  reasoningSupported
+  reasoningSupported,
 }: CalculateSafeDefaultOptions): number {
-  const modelCap = Math.min(modelMaxTokens, GLOBAL_OUTPUT_TOKEN_MAX)
+  const modelCap = Math.min(modelMaxTokens, GLOBAL_OUTPUT_TOKEN_MAX);
 
   if (reasoningSupported && thinkingBudget !== undefined && thinkingBudget > 0) {
-    const safeThinkingBudget = Math.max(0, thinkingBudget)
-    const textTokens = Math.max(0, modelCap - safeThinkingBudget)
-    return textTokens
+    const safeThinkingBudget = Math.max(0, thinkingBudget);
+    const textTokens = Math.max(0, modelCap - safeThinkingBudget);
+    return textTokens;
   }
 
-  return modelCap
+  return modelCap;
 }
 
-export { GLOBAL_OUTPUT_TOKEN_MAX }
+export { GLOBAL_OUTPUT_TOKEN_MAX };

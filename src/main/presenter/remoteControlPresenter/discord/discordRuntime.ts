@@ -6,84 +6,80 @@ import {
   type DiscordInboundMessage,
   type DiscordRuntimeStatusSnapshot,
   type DiscordTransportTarget,
-  type RemoteDeliverySegment
-} from '../types'
-import { RemoteBindingStore } from '../services/remoteBindingStore'
-import type { DiscordCommandRouteResult } from '../services/discordCommandRouter'
-import { DiscordCommandRouter } from '../services/discordCommandRouter'
-import type { RemoteConversationExecution } from '../services/remoteConversationRunner'
-import { REMOTE_NO_RESPONSE_TEXT } from '../services/remoteBlockRenderer'
-import { buildFeishuPendingInteractionText } from '../feishu/feishuInteractionPrompt'
-import {
-  DiscordClient,
-  type DiscordBotIdentity,
-  type DiscordSlashCommandDefinition
-} from './discordClient'
-import { DiscordGatewaySession, type DiscordGatewayBotUser } from './discordGatewaySession'
-import { DiscordParser } from './discordParser'
+  type RemoteDeliverySegment,
+} from "../types";
+import { RemoteBindingStore } from "../services/remoteBindingStore";
+import type { DiscordCommandRouteResult } from "../services/discordCommandRouter";
+import { DiscordCommandRouter } from "../services/discordCommandRouter";
+import type { RemoteConversationExecution } from "../services/remoteConversationRunner";
+import { REMOTE_NO_RESPONSE_TEXT } from "../services/remoteBlockRenderer";
+import { buildFeishuPendingInteractionText } from "../feishu/feishuInteractionPrompt";
+import { DiscordClient, type DiscordBotIdentity, type DiscordSlashCommandDefinition } from "./discordClient";
+import { DiscordGatewaySession, type DiscordGatewayBotUser } from "./discordGatewaySession";
+import { DiscordParser } from "./discordParser";
 
-const DISCORD_INBOUND_DEDUP_LIMIT = 500
-const DISCORD_INBOUND_DEDUP_TTL_MS = 10 * 60 * 1000
-const DISCORD_OUTBOUND_TEXT_LIMIT = 1_900
-const DISCORD_STREAM_EDIT_INTERVAL_MS = 700
-const DISCORD_INTERNAL_ERROR_REPLY = 'An internal error occurred while processing your request.'
+const DISCORD_INBOUND_DEDUP_LIMIT = 500;
+const DISCORD_INBOUND_DEDUP_TTL_MS = 10 * 60 * 1000;
+const DISCORD_OUTBOUND_TEXT_LIMIT = 1_900;
+const DISCORD_STREAM_EDIT_INTERVAL_MS = 700;
+const DISCORD_INTERNAL_ERROR_REPLY = "An internal error occurred while processing your request.";
 
 const sleep = async (ms: number): Promise<void> => {
-  await new Promise((resolve) => setTimeout(resolve, ms))
-}
+  await new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 type DiscordRuntimeDeps = {
-  client: DiscordClient
-  parser: DiscordParser
-  router: DiscordCommandRouter
-  bindingStore: RemoteBindingStore
+  client: DiscordClient;
+  parser: DiscordParser;
+  router: DiscordCommandRouter;
+  bindingStore: RemoteBindingStore;
   logger?: {
-    error: (...params: unknown[]) => void
-  }
-  onStatusChange?: (snapshot: DiscordRuntimeStatusSnapshot) => void
-  onFatalError?: (message: string) => void
-}
+    error: (...params: unknown[]) => void;
+  };
+  onStatusChange?: (snapshot: DiscordRuntimeStatusSnapshot) => void;
+  onFatalError?: (message: string) => void;
+};
 
 type DiscordProcessedInboundEntry = {
-  receivedAt: number
-}
+  receivedAt: number;
+};
 
 type DiscordRemoteDeliveryState = {
-  sourceMessageId: string
+  sourceMessageId: string;
   segments: Array<{
-    key: string
-    kind: 'process' | 'answer' | 'terminal'
-    messageIds: string[]
-    lastText: string
-  }>
-}
+    key: string;
+    kind: "process" | "answer" | "terminal";
+    messageIds: string[];
+    lastText: string;
+  }>;
+};
 
 const chunkDiscordText = (text: string, limit: number = DISCORD_OUTBOUND_TEXT_LIMIT): string[] => {
-  const normalized = text.trim() || '(No text output)'
+  const normalized = text.trim() || "(No text output)";
   if (normalized.length <= limit) {
-    return [normalized]
+    return [normalized];
   }
 
-  const chunks: string[] = []
-  let remaining = normalized
+  const chunks: string[] = [];
+  let remaining = normalized;
 
   while (remaining.length > limit) {
-    const window = remaining.slice(0, limit)
-    const splitIndex = Math.max(window.lastIndexOf('\n\n'), window.lastIndexOf('\n'))
-    const nextIndex = splitIndex > Math.floor(limit * 0.55) ? splitIndex : limit
-    chunks.push(remaining.slice(0, nextIndex).trim())
-    remaining = remaining.slice(nextIndex).trim()
+    const window = remaining.slice(0, limit);
+    const splitIndex = Math.max(window.lastIndexOf("\n\n"), window.lastIndexOf("\n"));
+    const nextIndex = splitIndex > Math.floor(limit * 0.55) ? splitIndex : limit;
+    chunks.push(remaining.slice(0, nextIndex).trim());
+    remaining = remaining.slice(nextIndex).trim();
   }
 
   if (remaining) {
-    chunks.push(remaining)
+    chunks.push(remaining);
   }
 
-  return chunks
-}
+  return chunks;
+};
 
 const discordSlashCommands = (): DiscordSlashCommandDefinition[] => {
-  const commandsWithArgs = new Set(['pair', 'new', 'use', 'model'])
+  const commandsWithArgs = new Set(["pair", "new", "use", "model"]);
   return DISCORD_REMOTE_COMMANDS.map((command) => ({
     name: command.command,
     description: command.description,
@@ -92,245 +88,238 @@ const discordSlashCommands = (): DiscordSlashCommandDefinition[] => {
           options: [
             {
               type: 3 as const,
-              name: 'args',
-              description: 'Command arguments',
-              required: false
-            }
-          ]
+              name: "args",
+              description: "Command arguments",
+              required: false,
+            },
+          ],
         }
-      : {})
-  }))
-}
+      : {}),
+  }));
+};
 
 export class DiscordRuntime {
-  private runId = 0
-  private started = false
-  private stopRequested = false
-  private readonly gateway: DiscordGatewaySession
+  private runId = 0;
+  private started = false;
+  private stopRequested = false;
+  private readonly gateway: DiscordGatewaySession;
   private statusSnapshot: DiscordRuntimeStatusSnapshot = {
-    state: 'stopped',
+    state: "stopped",
     lastError: null,
-    botUser: null
-  }
-  private readonly processedInboundByMessage = new Map<string, DiscordProcessedInboundEntry>()
-  private readonly endpointOperations = new Map<string, Promise<void>>()
-  private applicationId: string | null = null
-  private lastEditAt = 0
+    botUser: null,
+  };
+  private readonly processedInboundByMessage = new Map<string, DiscordProcessedInboundEntry>();
+  private readonly endpointOperations = new Map<string, Promise<void>>();
+  private applicationId: string | null = null;
+  private lastEditAt = 0;
 
   constructor(private readonly deps: DiscordRuntimeDeps) {
     this.gateway = new DiscordGatewaySession({
       client: this.deps.client,
       onDispatch: async (payload) => {
-        await this.acceptDispatch(payload, this.runId)
+        await this.acceptDispatch(payload, this.runId);
       },
       onStatusChange: (snapshot) => {
-        this.handleGatewayStatusChange(snapshot)
+        this.handleGatewayStatusChange(snapshot);
       },
       onBotUser: (botUser) => {
-        this.setBotUser(botUser)
+        this.setBotUser(botUser);
       },
       onApplicationId: (applicationId) => {
-        this.applicationId = applicationId
+        this.applicationId = applicationId;
       },
       onFatalError: (message) => {
         this.setStatus({
-          state: 'error',
-          lastError: message
-        })
-        this.deps.onFatalError?.(message)
-      }
-    })
+          state: "error",
+          lastError: message,
+        });
+        this.deps.onFatalError?.(message);
+      },
+    });
   }
 
   async start(): Promise<void> {
     if (this.started) {
-      return
+      return;
     }
 
-    const runId = ++this.runId
-    this.started = true
-    this.stopRequested = false
-    this.applicationId = null
+    const runId = ++this.runId;
+    this.started = true;
+    this.stopRequested = false;
+    this.applicationId = null;
     this.setStatus({
-      state: 'starting',
-      lastError: null
-    })
+      state: "starting",
+      lastError: null,
+    });
 
     try {
-      const botUser = await this.deps.client.probeBot()
+      const botUser = await this.deps.client.probeBot();
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      this.setBotUser(botUser)
-      await this.gateway.start()
+      this.setBotUser(botUser);
+      await this.gateway.start();
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
       if (!this.applicationId) {
-        throw new Error('Discord application ID is missing from the READY payload.')
+        throw new Error("Discord application ID is missing from the READY payload.");
       }
 
-      await this.deps.client.registerCommands(this.applicationId, discordSlashCommands())
+      await this.deps.client.registerCommands(this.applicationId, discordSlashCommands());
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
       this.setStatus({
-        state: 'running',
-        lastError: null
-      })
+        state: "running",
+        lastError: null,
+      });
     } catch (error) {
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      this.started = false
+      this.started = false;
       this.setStatus({
-        state: 'error',
-        lastError: error instanceof Error ? error.message : String(error)
-      })
-      throw error
+        state: "error",
+        lastError: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 
   async stop(): Promise<void> {
-    this.stopRequested = true
-    this.started = false
-    this.runId += 1
-    this.applicationId = null
-    await this.gateway.stop()
-    this.endpointOperations.clear()
-    this.processedInboundByMessage.clear()
+    this.stopRequested = true;
+    this.started = false;
+    this.runId += 1;
+    this.applicationId = null;
+    await this.gateway.stop();
+    this.endpointOperations.clear();
+    this.processedInboundByMessage.clear();
     this.setStatus({
-      state: 'stopped'
-    })
+      state: "stopped",
+    });
   }
 
   getStatusSnapshot(): DiscordRuntimeStatusSnapshot {
-    return { ...this.statusSnapshot }
+    return { ...this.statusSnapshot };
   }
 
   private isCurrentRun(runId: number): boolean {
-    return this.runId === runId && this.started && !this.stopRequested
+    return this.runId === runId && this.started && !this.stopRequested;
   }
 
-  private async acceptDispatch(
-    payload: Parameters<DiscordParser['parseDispatch']>[0],
-    runId: number
-  ): Promise<void> {
+  private async acceptDispatch(payload: Parameters<DiscordParser["parseDispatch"]>[0], runId: number): Promise<void> {
     if (!this.isCurrentRun(runId)) {
-      return
+      return;
     }
 
-    const parsed = this.deps.parser.parseDispatch(payload, this.statusSnapshot.botUser?.id)
+    const parsed = this.deps.parser.parseDispatch(payload, this.statusSnapshot.botUser?.id);
     if (!parsed) {
-      return
+      return;
     }
 
     if (this.rememberInboundMessage(parsed)) {
-      return
+      return;
     }
 
-    const endpointKey = buildDiscordEndpointKey(parsed.chatType, parsed.chatId)
-    if (parsed.command?.name === 'stop') {
-      await this.processInboundMessage(parsed, runId)
-      return
+    const endpointKey = buildDiscordEndpointKey(parsed.chatType, parsed.chatId);
+    if (parsed.command?.name === "stop") {
+      await this.processInboundMessage(parsed, runId);
+      return;
     }
 
     this.enqueueEndpointOperation(endpointKey, runId, async () => {
-      await this.processInboundMessage(parsed, runId)
-    })
+      await this.processInboundMessage(parsed, runId);
+    });
   }
 
   private rememberInboundMessage(message: DiscordInboundMessage): boolean {
-    const now = Date.now()
-    this.pruneProcessedInbound(now)
+    const now = Date.now();
+    this.pruneProcessedInbound(now);
 
-    const messageKey = `${message.kind}:${message.chatType}:${message.chatId}:${message.messageId}`
+    const messageKey = `${message.kind}:${message.chatType}:${message.chatId}:${message.messageId}`;
     if (this.processedInboundByMessage.has(messageKey)) {
-      return true
+      return true;
     }
 
     this.processedInboundByMessage.set(messageKey, {
-      receivedAt: now
-    })
+      receivedAt: now,
+    });
 
     while (this.processedInboundByMessage.size > DISCORD_INBOUND_DEDUP_LIMIT) {
-      const oldestKey = this.processedInboundByMessage.keys().next().value
+      const oldestKey = this.processedInboundByMessage.keys().next().value;
       if (!oldestKey) {
-        break
+        break;
       }
-      this.processedInboundByMessage.delete(oldestKey)
+      this.processedInboundByMessage.delete(oldestKey);
     }
 
-    return false
+    return false;
   }
 
   private pruneProcessedInbound(now: number): void {
     for (const [messageKey, entry] of this.processedInboundByMessage.entries()) {
       if (now - entry.receivedAt <= DISCORD_INBOUND_DEDUP_TTL_MS) {
-        break
+        break;
       }
-      this.processedInboundByMessage.delete(messageKey)
+      this.processedInboundByMessage.delete(messageKey);
     }
   }
 
-  private enqueueEndpointOperation(
-    endpointKey: string,
-    runId: number,
-    operation: () => Promise<void>
-  ): void {
-    const previous = this.endpointOperations.get(endpointKey) ?? Promise.resolve()
+  private enqueueEndpointOperation(endpointKey: string, runId: number, operation: () => Promise<void>): void {
+    const previous = this.endpointOperations.get(endpointKey) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
       .then(async () => {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        await operation()
+        await operation();
       })
       .finally(() => {
         if (this.endpointOperations.get(endpointKey) === next) {
-          this.endpointOperations.delete(endpointKey)
+          this.endpointOperations.delete(endpointKey);
         }
-      })
+      });
 
-    this.endpointOperations.set(endpointKey, next)
+    this.endpointOperations.set(endpointKey, next);
   }
 
   private async processInboundMessage(parsed: DiscordInboundMessage, runId: number): Promise<void> {
     if (!this.isCurrentRun(runId)) {
-      return
+      return;
     }
 
     try {
-      const routed = await this.deps.router.handleMessage(parsed)
+      const routed = await this.deps.router.handleMessage(parsed);
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      if (parsed.kind === 'interaction') {
-        await this.dispatchInteractionRouteResult(parsed, routed, runId)
-        return
+      if (parsed.kind === "interaction") {
+        await this.dispatchInteractionRouteResult(parsed, routed, runId);
+        return;
       }
 
       const target: DiscordTransportTarget = {
         chatType: parsed.chatType,
-        channelId: parsed.chatId
-      }
+        channelId: parsed.chatId,
+      };
 
       for (const reply of routed.replies) {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
-        await this.deps.client.sendMessage(target.channelId, reply)
+        await this.deps.client.sendMessage(target.channelId, reply);
       }
 
       if (routed.conversation) {
-        await this.deliverConversation(target, routed.conversation, runId)
+        await this.deliverConversation(target, routed.conversation, runId);
       }
     } catch (error) {
       const diagnostics = {
@@ -339,182 +328,146 @@ export class DiscordRuntime {
         chatType: parsed.chatType,
         messageId: parsed.messageId,
         eventId: parsed.eventId,
-        kind: parsed.kind
-      }
+        kind: parsed.kind,
+      };
 
       if (this.deps.logger?.error) {
-        this.deps.logger.error(error, diagnostics)
+        this.deps.logger.error(error, diagnostics);
       } else {
-        console.error('[DiscordRuntime] Failed to handle dispatch:', error, diagnostics)
+        console.error("[DiscordRuntime] Failed to handle dispatch:", error, diagnostics);
       }
 
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      if (parsed.kind === 'interaction') {
-        await this.safeRespondToInteraction(parsed, [DISCORD_INTERNAL_ERROR_REPLY])
-        return
+      if (parsed.kind === "interaction") {
+        await this.safeRespondToInteraction(parsed, [DISCORD_INTERNAL_ERROR_REPLY]);
+        return;
       }
 
-      await this.deps.client
-        .sendMessage(parsed.chatId, DISCORD_INTERNAL_ERROR_REPLY)
-        .catch(() => undefined)
+      await this.deps.client.sendMessage(parsed.chatId, DISCORD_INTERNAL_ERROR_REPLY).catch(() => undefined);
     }
   }
 
   private async dispatchInteractionRouteResult(
     message: DiscordInboundMessage,
     routed: DiscordCommandRouteResult,
-    runId: number
+    runId: number,
   ): Promise<void> {
     if (!message.interactionId || !message.interactionToken || !message.applicationId) {
-      return
+      return;
     }
 
-    await this.deps.client.deferInteractionResponse(message.interactionId, message.interactionToken)
+    await this.deps.client.deferInteractionResponse(message.interactionId, message.interactionToken);
     if (!this.isCurrentRun(runId)) {
-      return
+      return;
     }
 
     if (routed.conversation) {
       await this.safeRespondToInteraction(message, [
-        'Slash commands do not support free-form prompts. Send a regular message to chat with DeepChat.'
-      ])
-      return
+        "Slash commands do not support free-form prompts. Send a regular message to chat with DeepChat.",
+      ]);
+      return;
     }
 
-    const replies = routed.replies.length > 0 ? routed.replies : ['Done.']
-    await this.safeRespondToInteraction(message, replies)
+    const replies = routed.replies.length > 0 ? routed.replies : ["Done."];
+    await this.safeRespondToInteraction(message, replies);
   }
 
-  private async safeRespondToInteraction(
-    message: DiscordInboundMessage,
-    replies: string[]
-  ): Promise<void> {
+  private async safeRespondToInteraction(message: DiscordInboundMessage, replies: string[]): Promise<void> {
     if (!message.applicationId || !message.interactionToken) {
-      return
+      return;
     }
 
-    const [firstReply, ...restReplies] = replies
-    await this.deps.client.editOriginalInteractionResponse(
-      message.applicationId,
-      message.interactionToken,
-      firstReply
-    )
+    const [firstReply, ...restReplies] = replies;
+    await this.deps.client.editOriginalInteractionResponse(message.applicationId, message.interactionToken, firstReply);
 
     for (const reply of restReplies) {
-      await this.deps.client.sendInteractionFollowup(
-        message.applicationId,
-        message.interactionToken,
-        reply
-      )
+      await this.deps.client.sendInteractionFollowup(message.applicationId, message.interactionToken, reply);
     }
   }
 
   private async deliverConversation(
     target: DiscordTransportTarget,
     execution: RemoteConversationExecution,
-    runId: number
+    runId: number,
   ): Promise<void> {
-    const startedAt = Date.now()
-    const endpointKey = buildDiscordEndpointKey(target.chatType, target.channelId)
+    const startedAt = Date.now();
+    const endpointKey = buildDiscordEndpointKey(target.chatType, target.channelId);
 
     while (this.isCurrentRun(runId)) {
-      const snapshot = await execution.getSnapshot()
+      const snapshot = await execution.getSnapshot();
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
 
-      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null
-      let deliveryState = this.getStoredDeliveryState(endpointKey)
-      deliveryState = await this.prepareDeliveryStateForSource(
-        endpointKey,
-        sourceMessageId,
-        deliveryState
-      )
-      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId)
+      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null;
+      let deliveryState = this.getStoredDeliveryState(endpointKey);
+      deliveryState = await this.prepareDeliveryStateForSource(endpointKey, sourceMessageId, deliveryState);
+      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId);
 
       if (sourceMessageId) {
-        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId)
+        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId);
       }
 
       if (snapshot.completed) {
         if (snapshot.pendingInteraction) {
           if (deliveryState && deliverySegments.length > 0) {
-            deliveryState = await this.syncDeliverySegments(
-              target,
-              endpointKey,
-              deliveryState,
-              deliverySegments
-            )
+            deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
           }
 
           await this.deps.client.sendMessage(
             target.channelId,
-            buildFeishuPendingInteractionText(snapshot.pendingInteraction)
-          )
-          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-          return
+            buildFeishuPendingInteractionText(snapshot.pendingInteraction),
+          );
+          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+          return;
         }
 
-        const finalText = this.getFinalDeliveryText(snapshot)
-        deliverySegments = this.appendTerminalDeliverySegment(
-          deliverySegments,
-          sourceMessageId,
-          finalText
-        )
+        const finalText = this.getFinalDeliveryText(snapshot);
+        deliverySegments = this.appendTerminalDeliverySegment(deliverySegments, sourceMessageId, finalText);
 
         if (deliveryState) {
           if (deliverySegments.length > 0) {
-            deliveryState = await this.syncDeliverySegments(
-              target,
-              endpointKey,
-              deliveryState,
-              deliverySegments
-            )
+            deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
           }
-          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
+          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
         } else if (finalText) {
-          await this.deps.client.sendMessage(target.channelId, finalText)
+          await this.deps.client.sendMessage(target.channelId, finalText);
         }
-        await this.sendGeneratedImages(target, snapshot)
-        return
+        await this.sendGeneratedImages(target, snapshot);
+        return;
       }
 
       if (Date.now() - startedAt >= FEISHU_CONVERSATION_POLL_TIMEOUT_MS) {
-        const timeoutText = 'The current conversation timed out before finishing. Please try again.'
+        const timeoutText = "The current conversation timed out before finishing. Please try again.";
         if (deliveryState) {
           deliveryState = await this.syncDeliverySegments(
             target,
             endpointKey,
             deliveryState,
-            this.appendTerminalDeliverySegment(deliverySegments, sourceMessageId, timeoutText)
-          )
-          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
+            this.appendTerminalDeliverySegment(deliverySegments, sourceMessageId, timeoutText),
+          );
+          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
         } else {
-          await this.deps.client.sendMessage(target.channelId, timeoutText)
+          await this.deps.client.sendMessage(target.channelId, timeoutText);
         }
-        return
+        return;
       }
 
       if (deliveryState && deliverySegments.length > 0) {
-        deliveryState = await this.syncDeliverySegments(
-          target,
-          endpointKey,
-          deliveryState,
-          deliverySegments
-        )
+        deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
       }
 
-      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS)
+      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS);
     }
   }
 
   private getStoredDeliveryState(endpointKey: string): DiscordRemoteDeliveryState | null {
-    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey)
+    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey);
     if (!state) {
-      return null
+      return null;
     }
 
     return {
@@ -523,117 +476,108 @@ export class DiscordRuntime {
         key: segment.key,
         kind: segment.kind,
         messageIds: segment.messageIds.filter(
-          (messageId): messageId is string =>
-            typeof messageId === 'string' && messageId.trim().length > 0
+          (messageId): messageId is string => typeof messageId === "string" && messageId.trim().length > 0,
         ),
-        lastText: segment.lastText
-      }))
-    }
+        lastText: segment.lastText,
+      })),
+    };
   }
 
-  private rememberDeliveryState(
-    endpointKey: string,
-    state: DiscordRemoteDeliveryState
-  ): DiscordRemoteDeliveryState {
-    this.deps.bindingStore.rememberRemoteDeliveryState(endpointKey, state)
-    return state
+  private rememberDeliveryState(endpointKey: string, state: DiscordRemoteDeliveryState): DiscordRemoteDeliveryState {
+    this.deps.bindingStore.rememberRemoteDeliveryState(endpointKey, state);
+    return state;
   }
 
   private createDeliveryState(sourceMessageId: string): DiscordRemoteDeliveryState {
     return {
       sourceMessageId,
-      segments: []
-    }
+      segments: [],
+    };
   }
 
   private async prepareDeliveryStateForSource(
     endpointKey: string,
     sourceMessageId: string | null,
-    state: DiscordRemoteDeliveryState | null
+    state: DiscordRemoteDeliveryState | null,
   ): Promise<DiscordRemoteDeliveryState | null> {
     if (!state) {
-      return sourceMessageId ? this.createDeliveryState(sourceMessageId) : null
+      return sourceMessageId ? this.createDeliveryState(sourceMessageId) : null;
     }
 
     if (sourceMessageId && state.sourceMessageId === sourceMessageId) {
-      return state
+      return state;
     }
 
-    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
+    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
 
     if (!sourceMessageId) {
-      return null
+      return null;
     }
 
-    return this.createDeliveryState(sourceMessageId)
+    return this.createDeliveryState(sourceMessageId);
   }
 
   private getSnapshotDeliverySegments(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>,
-    sourceMessageId: string | null
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
+    sourceMessageId: string | null,
   ): RemoteDeliverySegment[] {
     if (snapshot.deliverySegments !== undefined) {
-      return snapshot.deliverySegments.filter((segment) => segment.text.trim().length > 0)
+      return snapshot.deliverySegments.filter((segment) => segment.text.trim().length > 0);
     }
 
     if (!sourceMessageId) {
-      return []
+      return [];
     }
 
-    const segments: RemoteDeliverySegment[] = []
-    const traceText = snapshot.traceText?.trim() || ''
-    const answerText = snapshot.text?.trim() || ''
+    const segments: RemoteDeliverySegment[] = [];
+    const traceText = snapshot.traceText?.trim() || "";
+    const answerText = snapshot.text?.trim() || "";
 
     if (traceText) {
       segments.push({
         key: `${sourceMessageId}:legacy:process`,
-        kind: 'process',
+        kind: "process",
         text: traceText,
-        sourceMessageId
-      })
+        sourceMessageId,
+      });
     }
 
     if (answerText) {
       segments.push({
         key: `${sourceMessageId}:legacy:answer`,
-        kind: 'answer',
+        kind: "answer",
         text: answerText,
-        sourceMessageId
-      })
+        sourceMessageId,
+      });
     }
 
-    return segments
+    return segments;
   }
 
-  private getFinalDeliveryText(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
-  ): string {
-    const finalText = snapshot.finalText?.trim() ?? ''
+  private getFinalDeliveryText(snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>): string {
+    const finalText = snapshot.finalText?.trim() ?? "";
     if (finalText) {
-      return finalText
+      return finalText;
     }
     if ((snapshot.generatedImages?.length ?? 0) > 0) {
-      return ''
+      return "";
     }
-    return (snapshot.fullText ?? snapshot.text).trim()
+    return (snapshot.fullText ?? snapshot.text).trim();
   }
 
   private async sendGeneratedImages(
     target: DiscordTransportTarget,
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
   ): Promise<void> {
     for (const asset of snapshot.generatedImages ?? []) {
       try {
-        await this.deps.client.sendImage(target.channelId, asset.path)
+        await this.deps.client.sendImage(target.channelId, asset.path);
       } catch (error) {
-        console.warn('[DiscordRuntime] Failed to send generated image:', {
+        console.warn("[DiscordRuntime] Failed to send generated image:", {
           path: asset.path,
-          error
-        })
-        await this.deps.client.sendMessage(
-          target.channelId,
-          '[Image] Delivery failed - see local copy in the app.'
-        )
+          error,
+        });
+        await this.deps.client.sendMessage(target.channelId, "[Image] Delivery failed - see local copy in the app.");
       }
     }
   }
@@ -641,90 +585,83 @@ export class DiscordRuntime {
   private appendTerminalDeliverySegment(
     segments: RemoteDeliverySegment[],
     sourceMessageId: string | null,
-    finalText: string
+    finalText: string,
   ): RemoteDeliverySegment[] {
-    const normalized = finalText.trim()
+    const normalized = finalText.trim();
     if (!sourceMessageId || !normalized) {
-      return segments
+      return segments;
     }
 
-    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === 'answer')
+    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === "answer");
     if (lastAnswerSegment?.text === normalized) {
-      return segments
+      return segments;
     }
 
     if (normalized === REMOTE_NO_RESPONSE_TEXT && segments.length > 0) {
-      return segments
+      return segments;
     }
 
     return [
       ...segments,
       {
         key: `${sourceMessageId}:terminal`,
-        kind: 'terminal',
+        kind: "terminal",
         text: normalized,
-        sourceMessageId
-      }
-    ]
+        sourceMessageId,
+      },
+    ];
   }
 
-  private isDeliveryStateCompatible(
-    state: DiscordRemoteDeliveryState,
-    segments: RemoteDeliverySegment[]
-  ): boolean {
+  private isDeliveryStateCompatible(state: DiscordRemoteDeliveryState, segments: RemoteDeliverySegment[]): boolean {
     if (segments.length < state.segments.length) {
-      return false
+      return false;
     }
 
-    return state.segments.every((segment, index) => segments[index]?.key === segment.key)
+    return state.segments.every((segment, index) => segments[index]?.key === segment.key);
   }
 
   private async syncDeliverySegments(
     target: DiscordTransportTarget,
     endpointKey: string,
     state: DiscordRemoteDeliveryState,
-    segments: RemoteDeliverySegment[]
+    segments: RemoteDeliverySegment[],
   ): Promise<DiscordRemoteDeliveryState> {
     if (segments.length === 0) {
-      return state
+      return state;
     }
 
-    let nextState = state
+    let nextState = state;
     if (!this.isDeliveryStateCompatible(nextState, segments)) {
-      this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-      nextState = this.createDeliveryState(state.sourceMessageId)
+      this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+      nextState = this.createDeliveryState(state.sourceMessageId);
     }
 
-    const syncedSegments: DiscordRemoteDeliveryState['segments'] = []
+    const syncedSegments: DiscordRemoteDeliveryState["segments"] = [];
     for (const [index, segment] of segments.entries()) {
-      const syncedSegment = await this.syncDeliverySegment(
-        target,
-        nextState.segments[index] ?? null,
-        segment
-      )
-      syncedSegments.push(syncedSegment)
+      const syncedSegment = await this.syncDeliverySegment(target, nextState.segments[index] ?? null, segment);
+      syncedSegments.push(syncedSegment);
     }
 
     return this.rememberDeliveryState(endpointKey, {
       sourceMessageId: nextState.sourceMessageId,
-      segments: syncedSegments
-    })
+      segments: syncedSegments,
+    });
   }
 
   private async syncDeliverySegment(
     target: DiscordTransportTarget,
-    existing: DiscordRemoteDeliveryState['segments'][number] | null,
-    segment: RemoteDeliverySegment
-  ): Promise<DiscordRemoteDeliveryState['segments'][number]> {
-    const normalized = segment.text.trim()
-    const nextChunks = chunkDiscordText(normalized)
+    existing: DiscordRemoteDeliveryState["segments"][number] | null,
+    segment: RemoteDeliverySegment,
+  ): Promise<DiscordRemoteDeliveryState["segments"][number]> {
+    const normalized = segment.text.trim();
+    const nextChunks = chunkDiscordText(normalized);
 
     if (!existing) {
-      const messageIds: string[] = []
+      const messageIds: string[] = [];
       for (const chunk of nextChunks) {
-        const messageId = await this.deps.client.sendMessage(target.channelId, chunk)
+        const messageId = await this.deps.client.sendMessage(target.channelId, chunk);
         if (messageId) {
-          messageIds.push(messageId)
+          messageIds.push(messageId);
         }
       }
 
@@ -732,11 +669,11 @@ export class DiscordRuntime {
         key: segment.key,
         kind: segment.kind,
         messageIds,
-        lastText: normalized
-      }
+        lastText: normalized,
+      };
     }
 
-    const previousChunks = existing.lastText ? chunkDiscordText(existing.lastText) : []
+    const previousChunks = existing.lastText ? chunkDiscordText(existing.lastText) : [];
     if (
       nextChunks.length < existing.messageIds.length ||
       previousChunks.length < existing.messageIds.length ||
@@ -745,14 +682,14 @@ export class DiscordRuntime {
         .some((chunk, index) => chunk !== nextChunks[index])
     ) {
       for (const messageId of existing.messageIds) {
-        await this.deps.client.deleteMessage(target.channelId, messageId).catch(() => undefined)
+        await this.deps.client.deleteMessage(target.channelId, messageId).catch(() => undefined);
       }
 
-      const messageIds: string[] = []
+      const messageIds: string[] = [];
       for (const chunk of nextChunks) {
-        const messageId = await this.deps.client.sendMessage(target.channelId, chunk)
+        const messageId = await this.deps.client.sendMessage(target.channelId, chunk);
         if (messageId) {
-          messageIds.push(messageId)
+          messageIds.push(messageId);
         }
       }
 
@@ -760,32 +697,32 @@ export class DiscordRuntime {
         key: segment.key,
         kind: segment.kind,
         messageIds,
-        lastText: normalized
-      }
+        lastText: normalized,
+      };
     }
 
-    const messageIds = [...existing.messageIds]
-    const editableIndex = Math.max(0, messageIds.length - 1)
-    const retainedCount = Math.min(messageIds.length, nextChunks.length)
+    const messageIds = [...existing.messageIds];
+    const editableIndex = Math.max(0, messageIds.length - 1);
+    const retainedCount = Math.min(messageIds.length, nextChunks.length);
 
     for (let index = editableIndex; index < retainedCount; index += 1) {
       if (previousChunks[index] === nextChunks[index]) {
-        continue
+        continue;
       }
 
-      const messageId = messageIds[index]
+      const messageId = messageIds[index];
       if (!messageId) {
-        continue
+        continue;
       }
 
-      await this.throttleEdit()
-      await this.deps.client.updateMessage(target.channelId, messageId, nextChunks[index])
+      await this.throttleEdit();
+      await this.deps.client.updateMessage(target.channelId, messageId, nextChunks[index]);
     }
 
     for (let index = messageIds.length; index < nextChunks.length; index += 1) {
-      const messageId = await this.deps.client.sendMessage(target.channelId, nextChunks[index])
+      const messageId = await this.deps.client.sendMessage(target.channelId, nextChunks[index]);
       if (messageId) {
-        messageIds.push(messageId)
+        messageIds.push(messageId);
       }
     }
 
@@ -793,17 +730,17 @@ export class DiscordRuntime {
       key: segment.key,
       kind: segment.kind,
       messageIds,
-      lastText: normalized
-    }
+      lastText: normalized,
+    };
   }
 
   private async throttleEdit(): Promise<void> {
-    const now = Date.now()
-    const elapsed = now - this.lastEditAt
+    const now = Date.now();
+    const elapsed = now - this.lastEditAt;
     if (elapsed < DISCORD_STREAM_EDIT_INTERVAL_MS) {
-      await sleep(DISCORD_STREAM_EDIT_INTERVAL_MS - elapsed)
+      await sleep(DISCORD_STREAM_EDIT_INTERVAL_MS - elapsed);
     }
-    this.lastEditAt = Date.now()
+    this.lastEditAt = Date.now();
   }
 
   private setBotUser(botUser: DiscordBotIdentity | DiscordGatewayBotUser): void {
@@ -811,29 +748,29 @@ export class DiscordRuntime {
       botUser: {
         id: botUser.id,
         username: botUser.username,
-        displayName: 'displayName' in botUser ? botUser.displayName : undefined
-      }
-    })
+        displayName: "displayName" in botUser ? botUser.displayName : undefined,
+      },
+    });
   }
 
   private handleGatewayStatusChange(snapshot: DiscordRuntimeStatusSnapshot): void {
     if (!this.started || this.stopRequested) {
-      return
+      return;
     }
 
     this.setStatus({
       state: snapshot.state,
-      lastError: snapshot.lastError
-    })
+      lastError: snapshot.lastError,
+    });
   }
 
   private setStatus(
-    patch: Partial<DiscordRuntimeStatusSnapshot> & { state?: DiscordRuntimeStatusSnapshot['state'] }
+    patch: Partial<DiscordRuntimeStatusSnapshot> & { state?: DiscordRuntimeStatusSnapshot["state"] },
   ): void {
     this.statusSnapshot = {
       ...this.statusSnapshot,
-      ...patch
-    }
-    this.deps.onStatusChange?.({ ...this.statusSnapshot })
+      ...patch,
+    };
+    this.deps.onStatusChange?.({ ...this.statusSnapshot });
   }
 }

@@ -1,5 +1,5 @@
-import fs from 'node:fs'
-import path from 'node:path'
+import fs from "node:fs";
+import path from "node:path";
 
 import {
   IConfigPresenter,
@@ -7,63 +7,63 @@ import {
   BuiltinKnowledgeConfig,
   KnowledgeFileMessage,
   QueryResult,
-  KnowledgeFileResult
-} from '@shared/presenter'
-import { FileValidationResult } from '../filePresenter/FileValidationService'
-import { eventBus } from '@/eventbus'
-import { MCP_EVENTS } from '@/events'
-import { KnowledgeConfHelper } from '../configPresenter/knowledgeConfHelper'
-import { DuckDBPresenter } from './database/duckdbPresenter'
-import { KnowledgeStorePresenter } from './knowledgeStorePresenter'
-import { KnowledgeTaskPresenter } from './knowledgeTaskPresenter'
-import { getMetric } from '@/utils/vector'
-import { presenter } from '..'
-import { IFilePresenter } from '@shared/presenter'
-import { DIALOG_WARN } from '@shared/dialog'
+  KnowledgeFileResult,
+} from "@shared/presenter";
+import { FileValidationResult } from "../filePresenter/FileValidationService";
+import { eventBus } from "@/eventbus";
+import { MCP_EVENTS } from "@/events";
+import { KnowledgeConfHelper } from "../configPresenter/knowledgeConfHelper";
+import { DuckDBPresenter } from "./database/duckdbPresenter";
+import { KnowledgeStorePresenter } from "./knowledgeStorePresenter";
+import { KnowledgeTaskPresenter } from "./knowledgeTaskPresenter";
+import { getMetric } from "@/utils/vector";
+import { presenter } from "..";
+import { IFilePresenter } from "@shared/presenter";
+import { DIALOG_WARN } from "@shared/dialog";
 import {
   RecursiveCharacterTextSplitter,
   SupportedTextSplitterLanguages,
-  type SupportedTextSplitterLanguage
-} from '@/lib/textsplitters'
+  type SupportedTextSplitterLanguage,
+} from "@/lib/textsplitters";
 
 export class KnowledgePresenter implements IKnowledgePresenter {
   /**
    * 知识库存储目录
    */
-  private readonly storageDir
+  private readonly storageDir;
 
-  private readonly configP: IConfigPresenter
+  private readonly configP: IConfigPresenter;
 
   /**
    * File presenter for validation operations
    */
-  private readonly filePresenter: IFilePresenter
+  private readonly filePresenter: IFilePresenter;
 
   /**
    * 全局任务调度器
    */
-  private readonly taskP: KnowledgeTaskPresenter
+  private readonly taskP: KnowledgeTaskPresenter;
 
   /**
    * 缓存 RAG 应用实例
    */
-  private readonly storePresenterCache: Map<string, KnowledgeStorePresenter>
-  private readonly storePresenterInitTasks: Map<string, Promise<KnowledgeStorePresenter>>
+  private readonly storePresenterCache: Map<string, KnowledgeStorePresenter>;
+  private readonly storePresenterInitTasks: Map<string, Promise<KnowledgeStorePresenter>>;
 
-  private knowledgeConfigSnapshot: BuiltinKnowledgeConfig[]
+  private knowledgeConfigSnapshot: BuiltinKnowledgeConfig[];
 
   constructor(configP: IConfigPresenter, dbDir: string, filePresenter: IFilePresenter) {
-    console.log('[RAG] Initializing Built-in Knowledge Presenter')
-    this.configP = configP
-    this.filePresenter = filePresenter
-    this.storageDir = path.join(dbDir, 'KnowledgeBase')
-    this.taskP = new KnowledgeTaskPresenter()
-    this.storePresenterCache = new Map()
-    this.storePresenterInitTasks = new Map()
-    this.knowledgeConfigSnapshot = this.configP.getKnowledgeConfigs() ?? []
+    console.log("[RAG] Initializing Built-in Knowledge Presenter");
+    this.configP = configP;
+    this.filePresenter = filePresenter;
+    this.storageDir = path.join(dbDir, "KnowledgeBase");
+    this.taskP = new KnowledgeTaskPresenter();
+    this.storePresenterCache = new Map();
+    this.storePresenterInitTasks = new Map();
+    this.knowledgeConfigSnapshot = this.configP.getKnowledgeConfigs() ?? [];
 
-    this.initStorageDir()
-    this.setupEventBus()
+    this.initStorageDir();
+    this.setupEventBus();
   }
 
   /**
@@ -71,67 +71,61 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   private initStorageDir = (): void => {
     if (!fs.existsSync(this.storageDir)) {
-      fs.mkdirSync(this.storageDir, { recursive: true })
+      fs.mkdirSync(this.storageDir, { recursive: true });
     }
-  }
+  };
 
   private setupEventBus = (): void => {
     // 监听知识库相关事件
     eventBus.on(MCP_EVENTS.CONFIG_CHANGED, () => {
       void this.syncKnowledgeConfigChanges().catch((error) => {
-        console.error('[RAG] Error syncing knowledge configs:', error)
-      })
-    })
-  }
+        console.error("[RAG] Error syncing knowledge configs:", error);
+      });
+    });
+  };
 
   private syncKnowledgeConfigChanges = async (): Promise<void> => {
-    const configs = this.configP.getKnowledgeConfigs() ?? []
-    const diffs = KnowledgeConfHelper.diffKnowledgeConfigs(this.knowledgeConfigSnapshot, configs)
-    this.knowledgeConfigSnapshot = configs
+    const configs = this.configP.getKnowledgeConfigs() ?? [];
+    const diffs = KnowledgeConfHelper.diffKnowledgeConfigs(this.knowledgeConfigSnapshot, configs);
+    this.knowledgeConfigSnapshot = configs;
 
     if (diffs.deleted.length > 0) {
-      await Promise.all(diffs.deleted.map((config) => this.delete(config.id)))
+      await Promise.all(diffs.deleted.map((config) => this.delete(config.id)));
     }
 
     if (diffs.added.length > 0) {
       diffs.added.forEach((config) => {
-        console.log(`[RAG] New knowledge config added: ${config.id}`)
-      })
+        console.log(`[RAG] New knowledge config added: ${config.id}`);
+      });
     }
 
     if (diffs.updated.length > 0) {
       await Promise.all(
         diffs.updated.map((config) => {
-          console.log(`[RAG] Knowledge config updated: ${config.id}`)
-          return this.update(config)
-        })
-      )
+          console.log(`[RAG] Knowledge config updated: ${config.id}`);
+          return this.update(config);
+        }),
+      );
     }
-  }
+  };
 
   /**
    * Supported operating systems
    */
-  private static readonly SUPPORTED_OS = [
-    'win32-x64',
-    'linux-x64',
-    'linux-arm64',
-    'darwin-arm64',
-    'darwin-x64'
-  ]
+  private static readonly SUPPORTED_OS = ["win32-x64", "linux-x64", "linux-arm64", "darwin-arm64", "darwin-x64"];
 
   isSupported = async (): Promise<boolean> => {
-    const os = `${process.platform}-${process.arch}`
-    return KnowledgePresenter.SUPPORTED_OS.includes(os)
-  }
+    const os = `${process.platform}-${process.arch}`;
+    return KnowledgePresenter.SUPPORTED_OS.includes(os);
+  };
 
   /**
    * Create a knowledge base (initialize RAG application)
    * @param config Knowledge base configuration
    */
   create = async (config: BuiltinKnowledgeConfig): Promise<void> => {
-    await this.createStorePresenter(config)
-  }
+    await this.createStorePresenter(config);
+  };
 
   /**
    * Update a knowledge base configuration
@@ -140,23 +134,21 @@ export class KnowledgePresenter implements IKnowledgePresenter {
   update = async (config: BuiltinKnowledgeConfig): Promise<void> => {
     if (config.enabled) {
       // 如果启用且缓存中存在，则更新配置
-      const rag = this.getStorePresenter(config.id)
+      const rag = this.getStorePresenter(config.id);
       if (rag) {
-        rag.updateConfig(config)
-        return
+        rag.updateConfig(config);
+        return;
       }
 
-      const initializingRag = await this.storePresenterInitTasks
-        .get(config.id)
-        ?.catch(() => undefined)
+      const initializingRag = await this.storePresenterInitTasks.get(config.id)?.catch(() => undefined);
       if (initializingRag) {
-        initializingRag.updateConfig(config)
+        initializingRag.updateConfig(config);
       }
     } else {
       // 如果禁用且缓存中存在，关闭实例
-      await this.closeStorePresenterIfExists(config.id)
+      await this.closeStorePresenterIfExists(config.id);
     }
-  }
+  };
 
   /**
    * Delete a knowledge base (remove local storage)
@@ -164,83 +156,74 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   delete = async (id: string): Promise<void> => {
     try {
-      const initializingRag = await this.storePresenterInitTasks.get(id)?.catch(() => undefined)
-      this.storePresenterInitTasks.delete(id)
-      const cachedRag = this.getStorePresenter(id)
-      const rag = cachedRag ?? initializingRag
+      const initializingRag = await this.storePresenterInitTasks.get(id)?.catch(() => undefined);
+      this.storePresenterInitTasks.delete(id);
+      const cachedRag = this.getStorePresenter(id);
+      const rag = cachedRag ?? initializingRag;
 
       if (rag) {
-        await rag.destroy()
-        return
+        await rag.destroy();
+        return;
       }
 
-      const dbPath = path.join(this.storageDir, id)
+      const dbPath = path.join(this.storageDir, id);
       if (fs.existsSync(dbPath)) {
-        fs.rmSync(dbPath, { recursive: true })
+        fs.rmSync(dbPath, { recursive: true });
       }
-      if (fs.existsSync(dbPath + '.wal')) {
-        fs.rmSync(dbPath + '.wal', { recursive: true })
+      if (fs.existsSync(dbPath + ".wal")) {
+        fs.rmSync(dbPath + ".wal", { recursive: true });
       }
     } finally {
-      this.storePresenterCache.delete(id)
-      this.storePresenterInitTasks.delete(id)
+      this.storePresenterCache.delete(id);
+      this.storePresenterInitTasks.delete(id);
     }
-  }
+  };
 
   /**
    * 创建 RAG 应用实例
    * @param params BuiltinKnowledgeConfig
    * @returns KnowledgeStorePresenter
    */
-  private createStorePresenter = async (
-    config: BuiltinKnowledgeConfig
-  ): Promise<KnowledgeStorePresenter> => {
-    const cachedRag = this.getStorePresenter(config.id)
+  private createStorePresenter = async (config: BuiltinKnowledgeConfig): Promise<KnowledgeStorePresenter> => {
+    const cachedRag = this.getStorePresenter(config.id);
     if (cachedRag) {
-      cachedRag.updateConfig(config)
-      return cachedRag
+      cachedRag.updateConfig(config);
+      return cachedRag;
     }
 
-    const initializingRag = this.storePresenterInitTasks.get(config.id)
+    const initializingRag = this.storePresenterInitTasks.get(config.id);
     if (initializingRag) {
-      const rag = await initializingRag
-      rag.updateConfig(config)
-      return rag
+      const rag = await initializingRag;
+      rag.updateConfig(config);
+      return rag;
     }
 
     const initTask = (async () => {
-      const db = await this.getVectorDatabasePresenter(
-        config.id,
-        config.dimensions,
-        config.normalized
-      )
+      const db = await this.getVectorDatabasePresenter(config.id, config.dimensions, config.normalized);
       try {
-        const rag = new KnowledgeStorePresenter(db, config, this.taskP)
-        this.storePresenterCache.set(config.id, rag)
-        return rag
+        const rag = new KnowledgeStorePresenter(db, config, this.taskP);
+        this.storePresenterCache.set(config.id, rag);
+        return rag;
       } catch (e) {
         try {
-          await db.close()
+          await db.close();
         } catch (closeError) {
-          console.error(
-            '[RAG] Failed to close vector database after storePresenter error:',
-            closeError
-          )
+          console.error("[RAG] Failed to close vector database after storePresenter error:", closeError);
         }
-        throw e
+        throw e;
       }
-    })()
+    })();
 
-    this.storePresenterInitTasks.set(config.id, initTask)
+    this.storePresenterInitTasks.set(config.id, initTask);
 
     try {
-      return await initTask
+      return await initTask;
     } finally {
       if (this.storePresenterInitTasks.get(config.id) === initTask) {
-        this.storePresenterInitTasks.delete(config.id)
+        this.storePresenterInitTasks.delete(config.id);
       }
     }
-  }
+  };
 
   /**
    * 获取知识库实例
@@ -249,10 +232,10 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   private getStorePresenter = (id: string): KnowledgeStorePresenter | null => {
     if (this.storePresenterCache.has(id)) {
-      return this.storePresenterCache.get(id) as KnowledgeStorePresenter
+      return this.storePresenterCache.get(id) as KnowledgeStorePresenter;
     }
-    return null
-  }
+    return null;
+  };
 
   /**
    * 获取 RAG 应用实例
@@ -261,17 +244,17 @@ export class KnowledgePresenter implements IKnowledgePresenter {
   private getOrCreateStorePresenter = async (id: string): Promise<KnowledgeStorePresenter> => {
     // 缓存命中直接返回
     if (this.storePresenterCache.has(id)) {
-      return this.storePresenterCache.get(id) as KnowledgeStorePresenter
+      return this.storePresenterCache.get(id) as KnowledgeStorePresenter;
     }
     // 获取配置
-    const configs = this.configP.getKnowledgeConfigs()
-    const config = configs.find((cfg) => cfg.id === id)
+    const configs = this.configP.getKnowledgeConfigs();
+    const config = configs.find((cfg) => cfg.id === id);
     if (!config) {
-      throw new Error(`Knowledge config not found for id: ${id}`)
+      throw new Error(`Knowledge config not found for id: ${id}`);
     }
 
-    return await this.createStorePresenter(config)
-  }
+    return await this.createStorePresenter(config);
+  };
 
   /**
    * 关闭 RAG 应用实例
@@ -279,16 +262,16 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    * @returns void
    */
   private closeStorePresenterIfExists = async (id: string): Promise<void> => {
-    const initializingRag = await this.storePresenterInitTasks.get(id)?.catch(() => undefined)
-    const rag = this.getStorePresenter(id) ?? initializingRag
+    const initializingRag = await this.storePresenterInitTasks.get(id)?.catch(() => undefined);
+    const rag = this.getStorePresenter(id) ?? initializingRag;
     try {
       if (rag) {
-        await rag.close()
+        await rag.close();
       }
     } finally {
-      this.storePresenterCache.delete(id)
+      this.storePresenterCache.delete(id);
     }
-  }
+  };
 
   /**
    * 获取向量数据库实例
@@ -299,135 +282,133 @@ export class KnowledgePresenter implements IKnowledgePresenter {
   private getVectorDatabasePresenter = async (
     id: string,
     dimensions: number,
-    normalized: boolean
+    normalized: boolean,
   ): Promise<DuckDBPresenter> => {
-    const dbPath = path.join(this.storageDir, id)
+    const dbPath = path.join(this.storageDir, id);
     if (fs.existsSync(dbPath)) {
-      const db = new DuckDBPresenter(dbPath)
-      await db.open()
-      return db
+      const db = new DuckDBPresenter(dbPath);
+      await db.open();
+      return db;
     }
     // 如果数据库不存在，则初始化
-    const db = new DuckDBPresenter(dbPath)
+    const db = new DuckDBPresenter(dbPath);
     await db.initialize(dimensions, {
-      metric: getMetric(normalized)
-    })
-    return db
-  }
+      metric: getMetric(normalized),
+    });
+    return db;
+  };
 
   async addFile(id: string, filePath: string): Promise<KnowledgeFileResult> {
     try {
-      const rag = await this.getOrCreateStorePresenter(id)
-      return await rag.addFile(filePath)
+      const rag = await this.getOrCreateStorePresenter(id);
+      return await rag.addFile(filePath);
     } catch (err) {
       return {
-        error: `添加文件失败: ${err instanceof Error ? err.message : String(err)}`
-      }
+        error: `添加文件失败: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
 
   async deleteFile(id: string, fileId: string): Promise<void> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    await rag.deleteFile(fileId)
+    const rag = await this.getOrCreateStorePresenter(id);
+    await rag.deleteFile(fileId);
   }
 
   async reAddFile(id: string, fileId: string): Promise<KnowledgeFileResult> {
     try {
-      const rag = await this.getOrCreateStorePresenter(id)
-      return await rag.reAddFile(fileId)
+      const rag = await this.getOrCreateStorePresenter(id);
+      return await rag.reAddFile(fileId);
     } catch (err) {
       return {
-        error: `重新添加文件失败: ${err instanceof Error ? err.message : String(err)}`
-      }
+        error: `重新添加文件失败: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
   }
 
   async queryFile(id: string, fileId: string): Promise<KnowledgeFileMessage | null> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    return await rag.queryFile(fileId)
+    const rag = await this.getOrCreateStorePresenter(id);
+    return await rag.queryFile(fileId);
   }
 
   async listFiles(id: string): Promise<KnowledgeFileMessage[]> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    return await rag.listFiles()
+    const rag = await this.getOrCreateStorePresenter(id);
+    return await rag.listFiles();
   }
 
   async closeAll(): Promise<void> {
-    const initializingRags = await Promise.allSettled(this.storePresenterInitTasks.values())
-    const stores = new Set<KnowledgeStorePresenter>(this.storePresenterCache.values())
+    const initializingRags = await Promise.allSettled(this.storePresenterInitTasks.values());
+    const stores = new Set<KnowledgeStorePresenter>(this.storePresenterCache.values());
 
     for (const result of initializingRags) {
-      if (result.status === 'fulfilled') {
-        stores.add(result.value)
+      if (result.status === "fulfilled") {
+        stores.add(result.value);
       }
     }
 
-    await Promise.all(Array.from(stores).map((rag) => rag.close()))
-    this.storePresenterCache.clear()
-    this.storePresenterInitTasks.clear()
+    await Promise.all(Array.from(stores).map((rag) => rag.close()));
+    this.storePresenterCache.clear();
+    this.storePresenterInitTasks.clear();
   }
 
   /**
    * @returns return true if user confirmed to destroy knowledge, otherwise false
    */
   async beforeDestroy(): Promise<boolean> {
-    const status = this.taskP.getStatus()
+    const status = this.taskP.getStatus();
     if (status.totalTasks === 0) {
-      return true
+      return true;
     }
     const choice = await presenter.dialogPresenter.showDialog({
-      title: 'settings.knowledgeBase.dialog.beforequit.title',
-      description: 'settings.knowledgeBase.dialog.beforequit.description',
+      title: "settings.knowledgeBase.dialog.beforequit.title",
+      description: "settings.knowledgeBase.dialog.beforequit.description",
       icon: DIALOG_WARN,
       buttons: [
-        { key: 'cancel', label: 'settings.knowledgeBase.dialog.beforequit.cancel' },
-        { key: 'confirm', label: 'settings.knowledgeBase.dialog.beforequit.confirm', default: true }
+        { key: "cancel", label: "settings.knowledgeBase.dialog.beforequit.cancel" },
+        { key: "confirm", label: "settings.knowledgeBase.dialog.beforequit.confirm", default: true },
       ],
       timeout: 10000,
-      i18n: true
-    })
-    return choice === 'confirm'
+      i18n: true,
+    });
+    return choice === "confirm";
   }
 
   async destroy(): Promise<void> {
-    await this.closeAll()
+    await this.closeAll();
   }
 
   async similarityQuery(id: string, key: string): Promise<QueryResult[]> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    return await rag.similarityQuery(key)
+    const rag = await this.getOrCreateStorePresenter(id);
+    return await rag.similarityQuery(key);
   }
 
   /**
    * 获取知识库任务队列状态
    */
   async getTaskQueueStatus() {
-    return this.taskP.getStatus()
+    return this.taskP.getStatus();
   }
 
   async pauseAllRunningTasks(id: string): Promise<void> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    await rag.pauseAllRunningTasks()
+    const rag = await this.getOrCreateStorePresenter(id);
+    await rag.pauseAllRunningTasks();
   }
 
   async resumeAllPausedTasks(id: string): Promise<void> {
-    const rag = await this.getOrCreateStorePresenter(id)
-    await rag.resumeAllPausedTasks()
+    const rag = await this.getOrCreateStorePresenter(id);
+    await rag.resumeAllPausedTasks();
   }
 
   async getSupportedLanguages(): Promise<string[]> {
-    return [...SupportedTextSplitterLanguages]
+    return [...SupportedTextSplitterLanguages];
   }
 
-  separators: string[] = ['\n\n', '\n', ' ', '']
+  separators: string[] = ["\n\n", "\n", " ", ""];
 
   async getSeparatorsForLanguage(language: string): Promise<string[]> {
     try {
-      return RecursiveCharacterTextSplitter.getSeparatorsForLanguage(
-        language as SupportedTextSplitterLanguage
-      )
+      return RecursiveCharacterTextSplitter.getSeparatorsForLanguage(language as SupportedTextSplitterLanguage);
     } catch {
-      return this.separators
+      return this.separators;
     }
   }
 
@@ -438,27 +419,25 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   async validateFile(filePath: string): Promise<FileValidationResult> {
     try {
-      console.log(`[RAG] Validating file for knowledge base: ${filePath}`)
-      const result = await this.filePresenter.validateFileForKnowledgeBase(filePath)
+      console.log(`[RAG] Validating file for knowledge base: ${filePath}`);
+      const result = await this.filePresenter.validateFileForKnowledgeBase(filePath);
 
       if (!result.isSupported) {
-        console.warn(`[RAG] File validation failed for ${filePath}: ${result.error}`)
+        console.warn(`[RAG] File validation failed for ${filePath}: ${result.error}`);
       } else {
-        console.log(
-          `[RAG] File validation successful for ${filePath}, MIME type: ${result.mimeType}`
-        )
+        console.log(`[RAG] File validation successful for ${filePath}, MIME type: ${result.mimeType}`);
       }
 
-      return result
+      return result;
     } catch (error) {
-      const errorMessage = `File validation error: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error(`[RAG] ${errorMessage}`, error)
+      const errorMessage = `File validation error: ${error instanceof Error ? error.message : "Unknown error"}`;
+      console.error(`[RAG] ${errorMessage}`, error);
 
       return {
         isSupported: false,
         error: errorMessage,
-        suggestedExtensions: await this.getSupportedFileExtensions()
-      }
+        suggestedExtensions: await this.getSupportedFileExtensions(),
+      };
     }
   }
 
@@ -468,41 +447,41 @@ export class KnowledgePresenter implements IKnowledgePresenter {
    */
   async getSupportedFileExtensions(): Promise<string[]> {
     try {
-      console.log('[RAG] Getting supported file extensions')
-      const extensions = this.filePresenter.getSupportedExtensions()
-      console.log(`[RAG] Retrieved ${extensions.length} supported extensions`)
-      return extensions
+      console.log("[RAG] Getting supported file extensions");
+      const extensions = this.filePresenter.getSupportedExtensions();
+      console.log(`[RAG] Retrieved ${extensions.length} supported extensions`);
+      return extensions;
     } catch (error) {
-      const errorMessage = `Error getting supported extensions: ${error instanceof Error ? error.message : 'Unknown error'}`
-      console.error(`[RAG] ${errorMessage}`, error)
+      const errorMessage = `Error getting supported extensions: ${error instanceof Error ? error.message : "Unknown error"}`;
+      console.error(`[RAG] ${errorMessage}`, error);
 
       // Return fallback extensions if service fails
       const fallbackExtensions = [
-        'txt',
-        'md',
-        'markdown',
-        'pdf',
-        'docx',
-        'pptx',
-        'xlsx',
-        'csv',
-        'json',
-        'yaml',
-        'yml',
-        'xml',
-        'js',
-        'ts',
-        'py',
-        'java',
-        'cpp',
-        'c',
-        'h',
-        'css',
-        'html'
-      ].sort()
+        "txt",
+        "md",
+        "markdown",
+        "pdf",
+        "docx",
+        "pptx",
+        "xlsx",
+        "csv",
+        "json",
+        "yaml",
+        "yml",
+        "xml",
+        "js",
+        "ts",
+        "py",
+        "java",
+        "cpp",
+        "c",
+        "h",
+        "css",
+        "html",
+      ].sort();
 
-      console.warn(`[RAG] Using fallback extensions: ${fallbackExtensions.join(', ')}`)
-      return fallbackExtensions
+      console.warn(`[RAG] Using fallback extensions: ${fallbackExtensions.join(", ")}`);
+      return fallbackExtensions;
     }
   }
 }

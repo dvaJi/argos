@@ -1,10 +1,10 @@
-import { dialogRequestSchema } from '../routes/dialog.routes'
-import { defineEventContract } from '../common'
-import { z } from 'zod'
+import { dialogRequestSchema } from "../routes/dialog.routes";
+import { defineEventContract } from "../common";
+import { z } from "zod";
 
 export const dialogRequestedEvent = defineEventContract({
-  name: 'dialog.requested',
+  name: "dialog.requested",
   payload: dialogRequestSchema.extend({
-    version: z.number().int()
-  })
-})
+    version: z.number().int(),
+  }),
+});

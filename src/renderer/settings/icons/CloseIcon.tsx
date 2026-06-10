@@ -1,8 +1,8 @@
 interface CloseIconProps {
-  fill?: string
+  fill?: string;
 }
 
-export default function CloseIcon({ fill = 'currentColor' }: CloseIconProps) {
+export default function CloseIcon({ fill = "currentColor" }: CloseIconProps) {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
@@ -10,5 +10,5 @@ export default function CloseIcon({ fill = 'currentColor' }: CloseIconProps) {
         fill={fill}
       />
     </svg>
-  )
+  );
 }

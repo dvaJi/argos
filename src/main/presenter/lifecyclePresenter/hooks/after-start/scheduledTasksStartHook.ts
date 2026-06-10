@@ -7,32 +7,32 @@
  * scheduler arms timers and backfills missed one-shot tasks.
  */
 
-import { LifecycleHook, LifecycleContext } from '@shared/presenter'
-import { presenter, getMainKernelRouteRuntime } from '@/presenter'
-import { LifecyclePhase } from '@shared/lifecycle'
+import { LifecycleHook, LifecycleContext } from "@shared/presenter";
+import { presenter, getMainKernelRouteRuntime } from "@/presenter";
+import { LifecyclePhase } from "@shared/lifecycle";
 
 export const scheduledTasksStartHook: LifecycleHook = {
-  name: 'scheduled-tasks-start',
+  name: "scheduled-tasks-start",
   phase: LifecyclePhase.AFTER_START,
   priority: 20,
   critical: false,
   execute: async (_context: LifecycleContext) => {
     if (!presenter) {
-      throw new Error('scheduledTasksStartHook: Presenter not initialized')
+      throw new Error("scheduledTasksStartHook: Presenter not initialized");
     }
 
     // Touch the route runtime so the session creator gets wired up before
     // the scheduler fires anything.
     try {
-      getMainKernelRouteRuntime()
+      getMainKernelRouteRuntime();
     } catch (error) {
       console.warn(
-        '[scheduledTasksStartHook] Failed to prime route runtime; auto-send may degrade to draft mode:',
-        error
-      )
+        "[scheduledTasksStartHook] Failed to prime route runtime; auto-send may degrade to draft mode:",
+        error,
+      );
     }
 
-    presenter.scheduledTasks.start()
-    console.log('scheduledTasksStartHook: Scheduler started')
-  }
-}
+    presenter.scheduledTasks.start();
+    console.log("scheduledTasksStartHook: Scheduler started");
+  },
+};

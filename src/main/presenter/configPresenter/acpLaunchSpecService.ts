@@ -1,453 +1,445 @@
-import fs from 'fs'
-import os from 'os'
-import path from 'path'
-import { execFileSync } from 'child_process'
-import { unzipSync } from 'fflate'
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { execFileSync } from "child_process";
+import { unzipSync } from "fflate";
 import type {
   AcpAgentConfig,
   AcpAgentInstallState,
   AcpManualAgent,
   AcpRegistryAgent,
   AcpRegistryBinaryDistribution,
-  AcpResolvedLaunchSpec
-} from '@shared/presenter'
+  AcpResolvedLaunchSpec,
+} from "@shared/presenter";
 
 type RegistryDistributionSelection =
   | {
-      type: 'binary'
-      targetKey: string
-      binary: AcpRegistryBinaryDistribution
+      type: "binary";
+      targetKey: string;
+      binary: AcpRegistryBinaryDistribution;
     }
   | {
-      type: 'npx' | 'uvx'
+      type: "npx" | "uvx";
       runner: {
-        package: string
-        args?: string[]
-        env?: Record<string, string>
-      }
-    }
+        package: string;
+        args?: string[];
+        env?: Record<string, string>;
+      };
+    };
 
-const SAFE_INSTALL_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/
+const SAFE_INSTALL_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 const sanitizeRelativePath = (input: string): string => {
-  const trimmed = input.replace(/^\.\/+/, '').trim()
-  const normalized = path.posix.normalize(trimmed.replace(/\\/g, '/'))
-  if (!normalized || normalized.startsWith('..') || path.posix.isAbsolute(normalized)) {
-    throw new Error(`Unsafe archive path: ${input}`)
+  const trimmed = input.replace(/^\.\/+/, "").trim();
+  const normalized = path.posix.normalize(trimmed.replace(/\\/g, "/"));
+  if (!normalized || normalized.startsWith("..") || path.posix.isAbsolute(normalized)) {
+    throw new Error(`Unsafe archive path: ${input}`);
   }
-  return normalized
-}
+  return normalized;
+};
 
 const sanitizeInstallSegment = (value: string, label: string): string => {
-  const trimmed = value.trim()
+  const trimmed = value.trim();
   if (!trimmed || !SAFE_INSTALL_SEGMENT_PATTERN.test(trimmed)) {
-    throw new Error(`Unsafe ACP registry ${label}: ${value}`)
+    throw new Error(`Unsafe ACP registry ${label}: ${value}`);
   }
-  return trimmed
-}
+  return trimmed;
+};
 
 const ensureDir = (dir: string): void => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
+    fs.mkdirSync(dir, { recursive: true });
   }
-}
+};
 
 const isPathWithinRoot = (candidatePath: string, rootPath: string, allowEqual = false): boolean => {
-  const relative = path.relative(rootPath, candidatePath)
+  const relative = path.relative(rootPath, candidatePath);
   if (!relative) {
-    return allowEqual
+    return allowEqual;
   }
 
-  return !relative.startsWith('..') && !path.isAbsolute(relative)
-}
+  return !relative.startsWith("..") && !path.isAbsolute(relative);
+};
 
 const listFilesRecursive = (root: string): string[] => {
   if (!fs.existsSync(root)) {
-    return []
+    return [];
   }
 
-  const entries = fs.readdirSync(root, { withFileTypes: true })
-  const files: string[] = []
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  const files: string[] = [];
   for (const entry of entries) {
-    const fullPath = path.join(root, entry.name)
+    const fullPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
-      files.push(...listFilesRecursive(fullPath))
-      continue
+      files.push(...listFilesRecursive(fullPath));
+      continue;
     }
-    files.push(fullPath)
+    files.push(fullPath);
   }
-  return files
-}
+  return files;
+};
 
 export class AcpLaunchSpecService {
-  private readonly installRoot: string
+  private readonly installRoot: string;
 
   constructor(registryRoot: string) {
-    this.installRoot = path.join(registryRoot, 'agents')
-    ensureDir(this.installRoot)
+    this.installRoot = path.join(registryRoot, "agents");
+    ensureDir(this.installRoot);
   }
 
-  buildRegistryPreview(agent: AcpRegistryAgent): Pick<AcpAgentConfig, 'command' | 'args'> {
-    const selection = this.selectRegistryDistribution(agent)
+  buildRegistryPreview(agent: AcpRegistryAgent): Pick<AcpAgentConfig, "command" | "args"> {
+    const selection = this.selectRegistryDistribution(agent);
     if (!selection) {
       return {
-        command: 'unsupported',
-        args: []
-      }
+        command: "unsupported",
+        args: [],
+      };
     }
 
-    if (selection.type === 'binary') {
+    if (selection.type === "binary") {
       return {
         command: selection.binary.cmd,
-        args: selection.binary.args ?? []
-      }
+        args: selection.binary.args ?? [],
+      };
     }
 
     return {
       command: selection.type,
       args:
-        selection.type === 'npx'
-          ? ['-y', selection.runner.package, ...(selection.runner.args ?? [])]
-          : [selection.runner.package, ...(selection.runner.args ?? [])]
-    }
+        selection.type === "npx"
+          ? ["-y", selection.runner.package, ...(selection.runner.args ?? [])]
+          : [selection.runner.package, ...(selection.runner.args ?? [])],
+    };
   }
 
   selectRegistryDistribution(agent: AcpRegistryAgent): RegistryDistributionSelection | null {
-    const platformKey = this.getPlatformKey()
+    const platformKey = this.getPlatformKey();
 
     if (platformKey && agent.distribution.binary?.[platformKey]) {
       return {
-        type: 'binary',
+        type: "binary",
         targetKey: platformKey,
-        binary: agent.distribution.binary[platformKey]
-      }
+        binary: agent.distribution.binary[platformKey],
+      };
     }
 
     if (agent.distribution.npx) {
       return {
-        type: 'npx',
-        runner: agent.distribution.npx
-      }
+        type: "npx",
+        runner: agent.distribution.npx,
+      };
     }
 
     if (agent.distribution.uvx) {
       return {
-        type: 'uvx',
-        runner: agent.distribution.uvx
-      }
+        type: "uvx",
+        runner: agent.distribution.uvx,
+      };
     }
 
-    return null
+    return null;
   }
 
   async ensureRegistryAgentInstalled(
     agent: AcpRegistryAgent,
     currentState: AcpAgentInstallState | null,
-    options?: { repair?: boolean }
+    options?: { repair?: boolean },
   ): Promise<AcpAgentInstallState> {
-    const selection = this.selectRegistryDistribution(agent)
-    const lastCheckedAt = Date.now()
+    const selection = this.selectRegistryDistribution(agent);
+    const lastCheckedAt = Date.now();
 
     if (!selection) {
       return {
-        status: 'error',
+        status: "error",
         version: agent.version,
         distributionType: null,
         lastCheckedAt,
-        error: `No compatible distribution found for ${process.platform}/${process.arch}`
-      }
+        error: `No compatible distribution found for ${process.platform}/${process.arch}`,
+      };
     }
 
-    if (selection.type !== 'binary') {
+    if (selection.type !== "binary") {
       return {
-        status: 'installed',
+        status: "installed",
         distributionType: selection.type,
         version: agent.version,
         lastCheckedAt,
         installedAt: currentState?.installedAt ?? lastCheckedAt,
         installDir: null,
-        error: null
-      }
+        error: null,
+      };
     }
 
-    const binaryConfig = selection.binary
-    const installDir = this.getBinaryInstallDir(agent)
-    const commandPath = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd)
+    const binaryConfig = selection.binary;
+    const installDir = this.getBinaryInstallDir(agent);
+    const commandPath = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd);
 
     if (!options?.repair && commandPath) {
       return {
-        status: 'installed',
-        distributionType: 'binary',
+        status: "installed",
+        distributionType: "binary",
         version: agent.version,
         lastCheckedAt,
         installedAt: currentState?.installedAt ?? lastCheckedAt,
         installDir,
-        error: null
-      }
+        error: null,
+      };
     }
 
     try {
       if (options?.repair && fs.existsSync(installDir)) {
-        fs.rmSync(installDir, { recursive: true, force: true })
+        fs.rmSync(installDir, { recursive: true, force: true });
       }
-      ensureDir(installDir)
+      ensureDir(installDir);
 
-      const archivePath = await this.downloadArchive(binaryConfig.archive, agent)
-      await this.extractArchive(archivePath, installDir)
-      fs.rmSync(archivePath, { force: true })
+      const archivePath = await this.downloadArchive(binaryConfig.archive, agent);
+      await this.extractArchive(archivePath, installDir);
+      fs.rmSync(archivePath, { force: true });
 
-      const installedCommand = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd)
+      const installedCommand = this.resolveInstalledBinaryPath(installDir, binaryConfig.cmd);
       if (!installedCommand) {
-        throw new Error(`Installed archive does not contain ${binaryConfig.cmd}`)
+        throw new Error(`Installed archive does not contain ${binaryConfig.cmd}`);
       }
 
-      if (process.platform !== 'win32') {
-        fs.chmodSync(installedCommand, 0o755)
+      if (process.platform !== "win32") {
+        fs.chmodSync(installedCommand, 0o755);
       }
 
       return {
-        status: 'installed',
-        distributionType: 'binary',
+        status: "installed",
+        distributionType: "binary",
         version: agent.version,
         lastCheckedAt,
         installedAt: lastCheckedAt,
         installDir,
-        error: null
-      }
+        error: null,
+      };
     } catch (error) {
       return {
-        status: 'error',
-        distributionType: 'binary',
+        status: "error",
+        distributionType: "binary",
         version: agent.version,
         lastCheckedAt,
         installedAt: currentState?.installedAt ?? null,
         installDir,
-        error: error instanceof Error ? error.message : String(error)
-      }
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
-  async uninstallRegistryAgent(
-    agent: AcpRegistryAgent,
-    installState: AcpAgentInstallState | null
-  ): Promise<void> {
-    const selection = this.selectRegistryDistribution(agent)
-    if (selection?.type !== 'binary') {
-      return
+  async uninstallRegistryAgent(agent: AcpRegistryAgent, installState: AcpAgentInstallState | null): Promise<void> {
+    const selection = this.selectRegistryDistribution(agent);
+    if (selection?.type !== "binary") {
+      return;
     }
 
-    const candidateDirs = new Set<string>()
-    if (typeof installState?.installDir === 'string' && installState.installDir.trim()) {
-      candidateDirs.add(path.resolve(installState.installDir))
+    const candidateDirs = new Set<string>();
+    if (typeof installState?.installDir === "string" && installState.installDir.trim()) {
+      candidateDirs.add(path.resolve(installState.installDir));
     }
-    candidateDirs.add(this.getBinaryInstallDir(agent))
+    candidateDirs.add(this.getBinaryInstallDir(agent));
 
     for (const installDir of candidateDirs) {
-      this.removeInstallDir(installDir)
+      this.removeInstallDir(installDir);
     }
 
-    this.pruneEmptyAgentInstallRoot(agent.id)
+    this.pruneEmptyAgentInstallRoot(agent.id);
   }
 
   async resolveRegistryLaunchSpec(
     agent: AcpRegistryAgent,
-    installState: AcpAgentInstallState | null
+    installState: AcpAgentInstallState | null,
   ): Promise<AcpResolvedLaunchSpec> {
-    const selection = this.selectRegistryDistribution(agent)
+    const selection = this.selectRegistryDistribution(agent);
     if (!selection) {
-      throw new Error(
-        `ACP registry agent ${agent.id} does not support ${process.platform}/${process.arch}`
-      )
+      throw new Error(`ACP registry agent ${agent.id} does not support ${process.platform}/${process.arch}`);
     }
 
-    if (selection.type === 'binary') {
-      const ensuredState = await this.ensureRegistryAgentInstalled(agent, installState)
-      if (ensuredState.status !== 'installed' || !ensuredState.installDir) {
-        throw new Error(ensuredState.error || `Failed to install ACP agent ${agent.id}`)
+    if (selection.type === "binary") {
+      const ensuredState = await this.ensureRegistryAgentInstalled(agent, installState);
+      if (ensuredState.status !== "installed" || !ensuredState.installDir) {
+        throw new Error(ensuredState.error || `Failed to install ACP agent ${agent.id}`);
       }
 
-      const installedCommand = this.resolveInstalledBinaryPath(
-        ensuredState.installDir,
-        selection.binary.cmd
-      )
+      const installedCommand = this.resolveInstalledBinaryPath(ensuredState.installDir, selection.binary.cmd);
       if (!installedCommand) {
-        throw new Error(`Installed binary for ${agent.id} is missing`)
+        throw new Error(`Installed binary for ${agent.id} is missing`);
       }
 
       return {
         agentId: agent.id,
-        source: 'registry',
-        distributionType: 'binary',
+        source: "registry",
+        distributionType: "binary",
         version: agent.version,
         command: installedCommand,
         args: selection.binary.args ?? [],
         env: selection.binary.env ?? {},
-        installDir: ensuredState.installDir
-      }
+        installDir: ensuredState.installDir,
+      };
     }
 
     return {
       agentId: agent.id,
-      source: 'registry',
+      source: "registry",
       distributionType: selection.type,
       version: agent.version,
       command: selection.type,
       args:
-        selection.type === 'npx'
-          ? ['-y', selection.runner.package, ...(selection.runner.args ?? [])]
+        selection.type === "npx"
+          ? ["-y", selection.runner.package, ...(selection.runner.args ?? [])]
           : [selection.runner.package, ...(selection.runner.args ?? [])],
       env: selection.runner.env ?? {},
-      installDir: null
-    }
+      installDir: null,
+    };
   }
 
   resolveManualLaunchSpec(agent: AcpManualAgent): AcpResolvedLaunchSpec {
     return {
       agentId: agent.id,
-      source: 'manual',
-      distributionType: 'manual',
+      source: "manual",
+      distributionType: "manual",
       command: agent.command,
       args: agent.args ?? [],
       env: agent.env ?? {},
-      installDir: null
-    }
+      installDir: null,
+    };
   }
 
   private getBinaryInstallDir(agent: AcpRegistryAgent): string {
-    const safeAgentId = sanitizeInstallSegment(agent.id, 'agent id')
-    const safeVersion = sanitizeInstallSegment(agent.version, 'agent version')
-    const installDir = path.join(this.installRoot, safeAgentId, safeVersion)
-    const resolvedInstallDir = path.resolve(installDir)
-    const resolvedInstallRoot = path.resolve(this.installRoot)
+    const safeAgentId = sanitizeInstallSegment(agent.id, "agent id");
+    const safeVersion = sanitizeInstallSegment(agent.version, "agent version");
+    const installDir = path.join(this.installRoot, safeAgentId, safeVersion);
+    const resolvedInstallDir = path.resolve(installDir);
+    const resolvedInstallRoot = path.resolve(this.installRoot);
 
     if (!isPathWithinRoot(resolvedInstallDir, resolvedInstallRoot)) {
-      throw new Error(`Unsafe ACP install directory for ${agent.id}@${agent.version}`)
+      throw new Error(`Unsafe ACP install directory for ${agent.id}@${agent.version}`);
     }
 
-    return resolvedInstallDir
+    return resolvedInstallDir;
   }
 
   private resolveInstalledBinaryPath(installDir: string, cmd: string): string | null {
-    const normalized = sanitizeRelativePath(cmd)
-    const directPath = path.join(installDir, normalized)
+    const normalized = sanitizeRelativePath(cmd);
+    const directPath = path.join(installDir, normalized);
     if (fs.existsSync(directPath)) {
-      return directPath
+      return directPath;
     }
 
-    const basename = path.basename(normalized)
-    return listFilesRecursive(installDir).find((file) => path.basename(file) === basename) ?? null
+    const basename = path.basename(normalized);
+    return listFilesRecursive(installDir).find((file) => path.basename(file) === basename) ?? null;
   }
 
   private removeInstallDir(installDir: string): void {
-    const resolvedInstallDir = path.resolve(installDir)
-    const resolvedInstallRoot = path.resolve(this.installRoot)
+    const resolvedInstallDir = path.resolve(installDir);
+    const resolvedInstallRoot = path.resolve(this.installRoot);
 
     if (!isPathWithinRoot(resolvedInstallDir, resolvedInstallRoot)) {
-      throw new Error(`Unsafe ACP install directory for uninstall: ${installDir}`)
+      throw new Error(`Unsafe ACP install directory for uninstall: ${installDir}`);
     }
 
     if (!fs.existsSync(resolvedInstallDir)) {
-      return
+      return;
     }
 
-    fs.rmSync(resolvedInstallDir, { recursive: true, force: true })
+    fs.rmSync(resolvedInstallDir, { recursive: true, force: true });
   }
 
   private pruneEmptyAgentInstallRoot(agentId: string): void {
-    const safeAgentId = sanitizeInstallSegment(agentId, 'agent id')
-    const agentRoot = path.resolve(path.join(this.installRoot, safeAgentId))
-    const resolvedInstallRoot = path.resolve(this.installRoot)
+    const safeAgentId = sanitizeInstallSegment(agentId, "agent id");
+    const agentRoot = path.resolve(path.join(this.installRoot, safeAgentId));
+    const resolvedInstallRoot = path.resolve(this.installRoot);
 
     if (!isPathWithinRoot(agentRoot, resolvedInstallRoot) || !fs.existsSync(agentRoot)) {
-      return
+      return;
     }
 
-    const remainingEntries = fs.readdirSync(agentRoot)
+    const remainingEntries = fs.readdirSync(agentRoot);
     if (remainingEntries.length === 0) {
-      fs.rmSync(agentRoot, { recursive: true, force: true })
+      fs.rmSync(agentRoot, { recursive: true, force: true });
     }
   }
 
   private getPlatformKey(): string | null {
     const platformMap: Record<string, string> = {
-      darwin: 'darwin',
-      linux: 'linux',
-      win32: 'windows'
-    }
+      darwin: "darwin",
+      linux: "linux",
+      win32: "windows",
+    };
     const archMap: Record<string, string> = {
-      arm64: 'aarch64',
-      x64: 'x86_64'
-    }
+      arm64: "aarch64",
+      x64: "x86_64",
+    };
 
-    const platform = platformMap[process.platform]
-    const arch = archMap[process.arch]
+    const platform = platformMap[process.platform];
+    const arch = archMap[process.arch];
 
     if (!platform || !arch) {
-      return null
+      return null;
     }
 
-    return `${platform}-${arch}`
+    return `${platform}-${arch}`;
   }
 
   private async downloadArchive(url: string, agent: AcpRegistryAgent): Promise<string> {
-    const safeAgentId = sanitizeInstallSegment(agent.id, 'agent id')
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `deepchat-acp-${safeAgentId}-`))
-    const archivePath = path.join(tempDir, path.basename(new URL(url).pathname))
-    const response = await fetch(url)
+    const safeAgentId = sanitizeInstallSegment(agent.id, "agent id");
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), `deepchat-acp-${safeAgentId}-`));
+    const archivePath = path.join(tempDir, path.basename(new URL(url).pathname));
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to download archive: ${response.status} ${response.statusText}`)
+      throw new Error(`Failed to download archive: ${response.status} ${response.statusText}`);
     }
 
-    const arrayBuffer = await response.arrayBuffer()
-    fs.writeFileSync(archivePath, Buffer.from(arrayBuffer))
-    return archivePath
+    const arrayBuffer = await response.arrayBuffer();
+    fs.writeFileSync(archivePath, Buffer.from(arrayBuffer));
+    return archivePath;
   }
 
   private async extractArchive(archivePath: string, targetDir: string): Promise<void> {
-    const lowerName = archivePath.toLowerCase()
+    const lowerName = archivePath.toLowerCase();
 
-    if (lowerName.endsWith('.zip')) {
-      const archive = unzipSync(new Uint8Array(fs.readFileSync(archivePath)))
+    if (lowerName.endsWith(".zip")) {
+      const archive = unzipSync(new Uint8Array(fs.readFileSync(archivePath)));
       Object.entries(archive).forEach(([entryPath, content]) => {
-        const normalized = sanitizeRelativePath(entryPath)
-        const outputPath = path.join(targetDir, normalized)
-        if (entryPath.endsWith('/')) {
-          ensureDir(outputPath)
-          return
+        const normalized = sanitizeRelativePath(entryPath);
+        const outputPath = path.join(targetDir, normalized);
+        if (entryPath.endsWith("/")) {
+          ensureDir(outputPath);
+          return;
         }
-        ensureDir(path.dirname(outputPath))
-        fs.writeFileSync(outputPath, Buffer.from(content))
-      })
-      return
+        ensureDir(path.dirname(outputPath));
+        fs.writeFileSync(outputPath, Buffer.from(content));
+      });
+      return;
     }
 
-    this.validateTarEntries(archivePath)
-    execFileSync('tar', ['-xf', archivePath, '-C', targetDir], {
-      stdio: 'ignore'
-    })
+    this.validateTarEntries(archivePath);
+    execFileSync("tar", ["-xf", archivePath, "-C", targetDir], {
+      stdio: "ignore",
+    });
   }
 
   private validateTarEntries(archivePath: string): void {
-    const listed = execFileSync('tar', ['-tf', archivePath], {
-      encoding: 'utf-8'
-    })
-    const verboseListed = execFileSync('tar', ['-tvf', archivePath], {
-      encoding: 'utf-8'
-    })
+    const listed = execFileSync("tar", ["-tf", archivePath], {
+      encoding: "utf-8",
+    });
+    const verboseListed = execFileSync("tar", ["-tvf", archivePath], {
+      encoding: "utf-8",
+    });
 
-    const entries = listed.split(/\r?\n/).filter((entry) => entry.trim().length > 0)
-    const verboseEntries = verboseListed.split(/\r?\n/).filter((entry) => entry.trim().length > 0)
+    const entries = listed.split(/\r?\n/).filter((entry) => entry.trim().length > 0);
+    const verboseEntries = verboseListed.split(/\r?\n/).filter((entry) => entry.trim().length > 0);
 
     if (entries.length !== verboseEntries.length) {
-      throw new Error('Failed to validate tar archive entries')
+      throw new Error("Failed to validate tar archive entries");
     }
 
     entries.forEach((entry, index) => {
-      const type = verboseEntries[index]?.[0]
-      if (type !== '-' && type !== 'd') {
-        throw new Error(`Unsupported tar entry type for ${entry}`)
+      const type = verboseEntries[index]?.[0];
+      if (type !== "-" && type !== "d") {
+        throw new Error(`Unsupported tar entry type for ${entry}`);
       }
-      sanitizeRelativePath(entry)
-    })
+      sanitizeRelativePath(entry);
+    });
   }
 }

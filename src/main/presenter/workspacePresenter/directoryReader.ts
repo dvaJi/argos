@@ -1,26 +1,26 @@
-import fs from 'fs/promises'
-import path from 'path'
-import type { WorkspaceFileNode } from '@shared/presenter'
+import fs from "fs/promises";
+import path from "path";
+import type { WorkspaceFileNode } from "@shared/presenter";
 
 // Ignored directory/file patterns
 const IGNORED_PATTERNS = [
-  'node_modules',
-  '.git',
-  '.DS_Store',
-  'dist',
-  'build',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.idea',
-  '.vscode',
-  '.cache',
-  'coverage',
-  '.next',
-  '.nuxt',
-  'out',
-  '.turbo'
-]
+  "node_modules",
+  ".git",
+  ".DS_Store",
+  "dist",
+  "build",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".idea",
+  ".vscode",
+  ".cache",
+  "coverage",
+  ".next",
+  ".nuxt",
+  "out",
+  ".turbo",
+];
 
 /**
  * Read directory structure shallowly (only first level)
@@ -29,46 +29,46 @@ const IGNORED_PATTERNS = [
  */
 export async function readDirectoryShallow(dirPath: string): Promise<WorkspaceFileNode[]> {
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true })
-    const nodes: WorkspaceFileNode[] = []
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const nodes: WorkspaceFileNode[] = [];
 
     for (const entry of entries) {
       // Skip ignored files/directories
       if (IGNORED_PATTERNS.includes(entry.name)) {
-        continue
+        continue;
       }
 
       // Skip hidden files (starting with .)
-      if (entry.name.startsWith('.')) {
-        continue
+      if (entry.name.startsWith(".")) {
+        continue;
       }
 
-      const fullPath = path.join(dirPath, entry.name)
+      const fullPath = path.join(dirPath, entry.name);
       const node: WorkspaceFileNode = {
         name: entry.name,
         path: fullPath,
-        isDirectory: entry.isDirectory()
-      }
+        isDirectory: entry.isDirectory(),
+      };
 
       // For directories, leave children as undefined (lazy load)
       if (entry.isDirectory()) {
-        node.expanded = false
+        node.expanded = false;
         // children is intentionally undefined - will be loaded on expand
       }
 
-      nodes.push(node)
+      nodes.push(node);
     }
 
     // Sort: directories first, files second, same type sorted by name
     return nodes.sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) {
-        return a.isDirectory ? -1 : 1
+        return a.isDirectory ? -1 : 1;
       }
-      return a.name.localeCompare(b.name)
-    })
+      return a.name.localeCompare(b.name);
+    });
   } catch (error) {
-    console.error(`[Workspace] Failed to read directory ${dirPath}:`, error)
-    return []
+    console.error(`[Workspace] Failed to read directory ${dirPath}:`, error);
+    return [];
   }
 }
 
@@ -81,53 +81,53 @@ export async function readDirectoryShallow(dirPath: string): Promise<WorkspaceFi
 export async function readDirectoryTree(
   dirPath: string,
   currentDepth: number = 0,
-  maxDepth: number = 3
+  maxDepth: number = 3,
 ): Promise<WorkspaceFileNode[]> {
   // Boundary check: depth limit
   if (currentDepth >= maxDepth) {
-    return []
+    return [];
   }
 
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true })
-    const nodes: WorkspaceFileNode[] = []
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const nodes: WorkspaceFileNode[] = [];
 
     for (const entry of entries) {
       // Skip ignored files/directories
       if (IGNORED_PATTERNS.includes(entry.name)) {
-        continue
+        continue;
       }
 
       // Skip hidden files (starting with .)
-      if (entry.name.startsWith('.')) {
-        continue
+      if (entry.name.startsWith(".")) {
+        continue;
       }
 
-      const fullPath = path.join(dirPath, entry.name)
+      const fullPath = path.join(dirPath, entry.name);
       const node: WorkspaceFileNode = {
         name: entry.name,
         path: fullPath,
-        isDirectory: entry.isDirectory()
-      }
+        isDirectory: entry.isDirectory(),
+      };
 
       // Recursively read subdirectories
       if (entry.isDirectory()) {
-        node.children = await readDirectoryTree(fullPath, currentDepth + 1, maxDepth)
-        node.expanded = false // Default collapsed
+        node.children = await readDirectoryTree(fullPath, currentDepth + 1, maxDepth);
+        node.expanded = false; // Default collapsed
       }
 
-      nodes.push(node)
+      nodes.push(node);
     }
 
     // Sort: directories first, files second, same type sorted by name
     return nodes.sort((a, b) => {
       if (a.isDirectory !== b.isDirectory) {
-        return a.isDirectory ? -1 : 1
+        return a.isDirectory ? -1 : 1;
       }
-      return a.name.localeCompare(b.name)
-    })
+      return a.name.localeCompare(b.name);
+    });
   } catch (error) {
-    console.error(`[Workspace] Failed to read directory ${dirPath}:`, error)
-    return []
+    console.error(`[Workspace] Failed to read directory ${dirPath}:`, error);
+    return [];
   }
 }

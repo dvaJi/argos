@@ -1,38 +1,33 @@
-import type {
-  ExternalToolConfig,
-  NewDiscovery,
-  ScanCache,
-  ScanResult
-} from '@shared/types/skillSync'
-import { runInlineJsonWorker } from '@/lib/runInlineJsonWorker'
+import type { ExternalToolConfig, NewDiscovery, ScanCache, ScanResult } from "@shared/types/skillSync";
+import { runInlineJsonWorker } from "@/lib/runInlineJsonWorker";
 
 type WorkerExternalSkillInfo = {
-  name: string
-  description?: string
-  path: string
-  format: string
-  lastModified: string
-}
+  name: string;
+  description?: string;
+  path: string;
+  format: string;
+  lastModified: string;
+};
 
-type WorkerScanResult = Omit<ScanResult, 'skills'> & {
-  skills: WorkerExternalSkillInfo[]
-}
+type WorkerScanResult = Omit<ScanResult, "skills"> & {
+  skills: WorkerExternalSkillInfo[];
+};
 
-type WorkerNewDiscovery = Omit<NewDiscovery, 'newSkills'> & {
-  newSkills: WorkerExternalSkillInfo[]
-}
+type WorkerNewDiscovery = Omit<NewDiscovery, "newSkills"> & {
+  newSkills: WorkerExternalSkillInfo[];
+};
 
 type SkillSyncWorkerInput = {
-  tools: ExternalToolConfig[]
-  projectRoot?: string
-  cache?: ScanCache | null
-  existingSkillNames?: string[]
-}
+  tools: ExternalToolConfig[];
+  projectRoot?: string;
+  cache?: ScanCache | null;
+  existingSkillNames?: string[];
+};
 
 type SkillSyncWorkerOutput = {
-  scanResults: WorkerScanResult[]
-  discoveries: WorkerNewDiscovery[]
-}
+  scanResults: WorkerScanResult[];
+  discoveries: WorkerNewDiscovery[];
+};
 
 const SCAN_WORKER_SOURCE = String.raw`
 const requireFromBundle = globalThis.__inlineWorkerRequire || require
@@ -349,56 +344,56 @@ try {
     }
   })
 }
-`
+`;
 
 const toScanResults = (results: WorkerScanResult[]): ScanResult[] =>
   results.map((result) => ({
     ...result,
     skills: result.skills.map((skill) => ({
       ...skill,
-      lastModified: new Date(skill.lastModified)
-    }))
-  }))
+      lastModified: new Date(skill.lastModified),
+    })),
+  }));
 
 const toDiscoveries = (discoveries: WorkerNewDiscovery[]): NewDiscovery[] =>
   discoveries.map((discovery) => ({
     ...discovery,
     newSkills: discovery.newSkills.map((skill) => ({
       ...skill,
-      lastModified: new Date(skill.lastModified)
-    }))
-  }))
+      lastModified: new Date(skill.lastModified),
+    })),
+  }));
 
 export async function scanExternalToolsInWorker(
-  input: Pick<SkillSyncWorkerInput, 'tools' | 'projectRoot'>,
-  signal?: AbortSignal
+  input: Pick<SkillSyncWorkerInput, "tools" | "projectRoot">,
+  signal?: AbortSignal,
 ): Promise<ScanResult[]> {
   const output = await runInlineJsonWorker<SkillSyncWorkerInput, SkillSyncWorkerOutput>({
-    name: 'skill-sync-scan',
+    name: "skill-sync-scan",
     source: SCAN_WORKER_SOURCE,
     input: {
       tools: input.tools,
-      projectRoot: input.projectRoot
+      projectRoot: input.projectRoot,
     },
-    signal
-  })
+    signal,
+  });
 
-  return toScanResults(output.scanResults)
+  return toScanResults(output.scanResults);
 }
 
 export async function scanAndDetectDiscoveriesInWorker(
   input: SkillSyncWorkerInput,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ scanResults: ScanResult[]; discoveries: NewDiscovery[] }> {
   const output = await runInlineJsonWorker<SkillSyncWorkerInput, SkillSyncWorkerOutput>({
-    name: 'skill-sync-discovery',
+    name: "skill-sync-discovery",
     source: SCAN_WORKER_SOURCE,
     input,
-    signal
-  })
+    signal,
+  });
 
   return {
     scanResults: toScanResults(output.scanResults),
-    discoveries: toDiscoveries(output.discoveries)
-  }
+    discoveries: toDiscoveries(output.discoveries),
+  };
 }

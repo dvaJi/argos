@@ -1,71 +1,64 @@
-type ClipboardTextReader = Pick<DataTransfer, 'getData'>
+type ClipboardTextReader = Pick<DataTransfer, "getData">;
 
-const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i
+const HTTP_URL_PATTERN = /^https?:\/\/\S+$/i;
 
 function readClipboardText(data: ClipboardTextReader, format: string) {
   try {
-    return data.getData(format) || ''
+    return data.getData(format) || "";
   } catch {
-    return ''
+    return "";
   }
 }
 
 function stripAngleBrackets(value: string) {
-  const trimmed = value.trim()
-  if (trimmed.startsWith('<') && trimmed.endsWith('>')) {
-    return trimmed.slice(1, -1).trim()
+  const trimmed = value.trim();
+  if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+    return trimmed.slice(1, -1).trim();
   }
-  return trimmed
+  return trimmed;
 }
 
 export function normalizeSingleHttpUrl(value: string): string | null {
-  const candidate = stripAngleBrackets(value.split('\u0000').join(''))
+  const candidate = stripAngleBrackets(value.split("\u0000").join(""));
 
-  if (
-    !candidate ||
-    /\s/.test(candidate) ||
-    /[<>]/.test(candidate) ||
-    !HTTP_URL_PATTERN.test(candidate)
-  ) {
-    return null
+  if (!candidate || /\s/.test(candidate) || /[<>]/.test(candidate) || !HTTP_URL_PATTERN.test(candidate)) {
+    return null;
   }
 
   try {
-    const url = new URL(candidate)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      return null
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
     }
-    return candidate
+    return candidate;
   } catch {
-    return null
+    return null;
   }
 }
 
 function extractSingleUriListUrl(value: string) {
   const entries = value
-    .replace(/\r/g, '\n')
-    .split('\n')
+    .replace(/\r/g, "\n")
+    .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'))
+    .filter((line) => line && !line.startsWith("#"));
 
   if (entries.length !== 1) {
-    return null
+    return null;
   }
 
-  return normalizeSingleHttpUrl(entries[0])
+  return normalizeSingleHttpUrl(entries[0]);
 }
 
-export function extractPlainUrlFromClipboard(
-  data: ClipboardTextReader | null | undefined
-): string | null {
+export function extractPlainUrlFromClipboard(data: ClipboardTextReader | null | undefined): string | null {
   if (!data) {
-    return null
+    return null;
   }
 
-  const plainText = readClipboardText(data, 'text/plain')
+  const plainText = readClipboardText(data, "text/plain");
   if (plainText.trim()) {
-    return normalizeSingleHttpUrl(plainText)
+    return normalizeSingleHttpUrl(plainText);
   }
 
-  return extractSingleUriListUrl(readClipboardText(data, 'text/uri-list'))
+  return extractSingleUriListUrl(readClipboardText(data, "text/uri-list"));
 }

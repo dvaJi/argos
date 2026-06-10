@@ -1,22 +1,16 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import ConfigFieldHeader from './ConfigFieldHeader'
-import type { SelectOption } from './types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import ConfigFieldHeader from "./ConfigFieldHeader";
+import type { SelectOption } from "./types";
 
 interface ConfigSelectFieldProps {
-  icon: string
-  label: string
-  description?: string
-  modelValue: string | undefined
-  options: SelectOption[]
-  placeholder?: string
-  hint?: string
-  onModelValueChange?: (value: string) => void
+  icon: string;
+  label: string;
+  description?: string;
+  modelValue: string | undefined;
+  options: SelectOption[];
+  placeholder?: string;
+  hint?: string;
+  onModelValueChange?: (value: string) => void;
 }
 
 export default function ConfigSelectField({
@@ -27,7 +21,7 @@ export default function ConfigSelectField({
   options,
   placeholder,
   hint,
-  onModelValueChange
+  onModelValueChange,
 }: ConfigSelectFieldProps) {
   return (
     <div className="space-y-4 px-2">
@@ -46,5 +40,5 @@ export default function ConfigSelectField({
       </Select>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
-  )
+  );
 }

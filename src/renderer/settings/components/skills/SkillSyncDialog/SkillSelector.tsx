@@ -1,68 +1,68 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { Button } from '@shadcn/components/ui/button'
-import { Badge } from '@shadcn/components/ui/badge'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import type { ExternalSkillInfo } from '@shared/types/skillSync'
+import { type FC, useState, useMemo, useEffect, useCallback } from "react";
+import { Button } from "@shadcn/components/ui/button";
+import { Badge } from "@shadcn/components/ui/badge";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import type { ExternalSkillInfo } from "@shared/types/skillSync";
 
 interface SkillSelectorProps {
-  skills: ExternalSkillInfo[]
-  selectedSkills: string[]
-  conflicts: string[]
-  onSelectedSkillsChange: (value: string[]) => void
+  skills: ExternalSkillInfo[];
+  selectedSkills: string[];
+  conflicts: string[];
+  onSelectedSkillsChange: (value: string[]) => void;
 }
 
-export const SkillSelector: React.FC<SkillSelectorProps> = ({
+export const SkillSelector: FC<SkillSelectorProps> = ({
   skills,
   selectedSkills,
   conflicts,
-  onSelectedSkillsChange
+  onSelectedSkillsChange,
 }) => {
-  const [skillCheckedState, setSkillCheckedState] = useState<Record<string, boolean>>({})
+  const [skillCheckedState, setSkillCheckedState] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const newState: Record<string, boolean> = {}
+    const newState: Record<string, boolean> = {};
     for (const skill of skills) {
-      newState[skill.name] = selectedSkills.includes(skill.name)
+      newState[skill.name] = selectedSkills.includes(skill.name);
     }
-    setSkillCheckedState(newState)
-  }, [skills, selectedSkills])
+    setSkillCheckedState(newState);
+  }, [skills, selectedSkills]);
 
   const updateSkillChecked = useCallback(
     (skillName: string, checked: boolean) => {
-      setSkillCheckedState((prev) => ({ ...prev, [skillName]: checked }))
+      setSkillCheckedState((prev) => ({ ...prev, [skillName]: checked }));
       const newSelected = checked
         ? [...selectedSkills.filter((n) => n !== skillName), skillName]
-        : selectedSkills.filter((n) => n !== skillName)
-      onSelectedSkillsChange(newSelected)
+        : selectedSkills.filter((n) => n !== skillName);
+      onSelectedSkillsChange(newSelected);
     },
-    [selectedSkills, onSelectedSkillsChange]
-  )
+    [selectedSkills, onSelectedSkillsChange],
+  );
 
   const allSelected = useMemo(
     () => skills.length > 0 && selectedSkills.length === skills.length,
-    [skills, selectedSkills]
-  )
+    [skills, selectedSkills],
+  );
 
   const toggleAll = () => {
-    const newState: Record<string, boolean> = {}
-    const selectAll = !allSelected
+    const newState: Record<string, boolean> = {};
+    const selectAll = !allSelected;
     for (const skill of skills) {
-      newState[skill.name] = selectAll
+      newState[skill.name] = selectAll;
     }
-    setSkillCheckedState(newState)
-    onSelectedSkillsChange(selectAll ? skills.map((s) => s.name) : [])
-  }
+    setSkillCheckedState(newState);
+    onSelectedSkillsChange(selectAll ? skills.map((s) => s.name) : []);
+  };
 
-  const hasConflict = (name: string): boolean => conflicts.includes(name)
+  const hasConflict = (name: string): boolean => conflicts.includes(name);
 
   const formatDate = (date: Date): string => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -71,7 +71,7 @@ export const SkillSelector: React.FC<SkillSelectorProps> = ({
           Selected {selectedSkills.length} of {skills.length}
         </div>
         <Button variant="ghost" size="sm" onClick={toggleAll}>
-          {allSelected ? 'Deselect All' : 'Select All'}
+          {allSelected ? "Deselect All" : "Select All"}
         </Button>
       </div>
 
@@ -97,20 +97,16 @@ export const SkillSelector: React.FC<SkillSelectorProps> = ({
                   )}
                 </div>
                 {skill.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                    {skill.description}
-                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{skill.description}</p>
                 )}
-                <div className="text-xs text-muted-foreground/70 mt-1">
-                  {formatDate(skill.lastModified)}
-                </div>
+                <div className="text-xs text-muted-foreground/70 mt-1">{formatDate(skill.lastModified)}</div>
               </div>
             </div>
           ))}
         </div>
       </ScrollArea>
     </div>
-  )
-}
+  );
+};
 
-export default SkillSelector
+export default SkillSelector;

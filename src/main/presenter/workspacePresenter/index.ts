@@ -1,23 +1,23 @@
-import path from 'path'
-import fs from 'fs'
-import { execFile } from 'child_process'
-import { fileURLToPath } from 'url'
-import { promisify } from 'util'
-import { shell } from 'electron'
-import { FSWatcher, watch } from 'chokidar'
-import { eventBus, SendTarget } from '@/eventbus'
-import { WORKSPACE_EVENTS } from '@/events'
-import { publishDeepchatEvent } from '@/routes/publishDeepchatEvent'
-import { readDirectoryShallow } from './directoryReader'
-import { searchWorkspaceFiles } from './workspaceFileSearch'
+import path from "path";
+import fs from "fs";
+import { execFile } from "child_process";
+import { fileURLToPath } from "url";
+import { promisify } from "util";
+import { shell } from "electron";
+import { FSWatcher, watch } from "chokidar";
+import { eventBus, SendTarget } from "@/eventbus";
+import { WORKSPACE_EVENTS } from "@/events";
+import { publishDeepchatEvent } from "@/routes/publishDeepchatEvent";
+import { readDirectoryShallow } from "./directoryReader";
+import { searchWorkspaceFiles } from "./workspaceFileSearch";
 import {
   createWorkspacePreviewFileUrl,
   createWorkspacePreviewUrl,
   registerWorkspacePreviewFile,
   registerWorkspacePreviewRoot,
   unregisterWorkspacePreviewFile,
-  unregisterWorkspacePreviewRoot
-} from './workspacePreviewProtocol'
+  unregisterWorkspacePreviewRoot,
+} from "./workspacePreviewProtocol";
 import type {
   IFilePresenter,
   IWorkspacePresenter,
@@ -31,68 +31,68 @@ import type {
   WorkspaceInvalidationEvent,
   WorkspaceInvalidationKind,
   WorkspaceInvalidationSource,
-  WorkspaceLinkedFileResolution
-} from '@shared/presenter'
+  WorkspaceLinkedFileResolution,
+} from "@shared/presenter";
 
-const execFileAsync = promisify(execFile)
+const execFileAsync = promisify(execFile);
 
 const TEXT_LIKE_MIME_TYPES = new Set([
-  'application/json',
-  'application/ld+json',
-  'application/javascript',
-  'application/typescript',
-  'application/xml',
-  'application/x-yaml',
-  'application/yaml',
-  'application/x-sh',
-  'application/x-httpd-php'
-])
+  "application/json",
+  "application/ld+json",
+  "application/javascript",
+  "application/typescript",
+  "application/xml",
+  "application/x-yaml",
+  "application/yaml",
+  "application/x-sh",
+  "application/x-httpd-php",
+]);
 
 const WATCH_IGNORED_DIRS = [
-  'node_modules',
-  'dist',
-  'build',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.idea',
-  '.vscode',
-  '.cache',
-  'coverage',
-  '.next',
-  '.nuxt',
-  'out',
-  '.turbo'
-] as const
+  "node_modules",
+  "dist",
+  "build",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".idea",
+  ".vscode",
+  ".cache",
+  "coverage",
+  ".next",
+  ".nuxt",
+  "out",
+  ".turbo",
+] as const;
 
-const WATCH_DEBOUNCE_MS = 120
-const WATCH_STABILITY_THRESHOLD_MS = 250
-const WATCH_POLL_INTERVAL_MS = 100
+const WATCH_DEBOUNCE_MS = 120;
+const WATCH_STABILITY_THRESHOLD_MS = 250;
+const WATCH_POLL_INTERVAL_MS = 100;
 
 type WorkspaceWatchRuntime = {
-  workspacePath: string
-  refCount: number
-  contentWatcher: FSWatcher
-  gitWatcher: FSWatcher | null
-  gitWatchKey: string | null
-  debounceTimer: NodeJS.Timeout | null
-  pendingKind: WorkspaceInvalidationKind | null
-  pendingSource: WorkspaceInvalidationSource | null
-  disposed: boolean
-}
+  workspacePath: string;
+  refCount: number;
+  contentWatcher: FSWatcher;
+  gitWatcher: FSWatcher | null;
+  gitWatchKey: string | null;
+  debounceTimer: NodeJS.Timeout | null;
+  pendingKind: WorkspaceInvalidationKind | null;
+  pendingSource: WorkspaceInvalidationSource | null;
+  disposed: boolean;
+};
 
 const getInvalidationPriority = (kind: WorkspaceInvalidationKind): number => {
   switch (kind) {
-    case 'full':
-      return 3
-    case 'fs':
-      return 2
-    case 'git':
-      return 1
+    case "full":
+      return 3;
+    case "fs":
+      return 2;
+    case "git":
+      return 1;
     default:
-      return 0
+      return 0;
   }
-}
+};
 
 /**
  * Workspace lifecycle contract:
@@ -102,46 +102,46 @@ const getInvalidationPriority = (kind: WorkspaceInvalidationKind): number => {
  * - `registerWorkspace` remains a pure security boundary; `watchWorkspace` controls watcher lifetime.
  */
 export class WorkspacePresenter implements IWorkspacePresenter {
-  private readonly allowedPaths = new Set<string>()
-  private readonly allowedExactPaths = new Set<string>()
-  private readonly filePresenter: IFilePresenter
-  private readonly watchRuntimes = new Map<string, WorkspaceWatchRuntime>()
+  private readonly allowedPaths = new Set<string>();
+  private readonly allowedExactPaths = new Set<string>();
+  private readonly filePresenter: IFilePresenter;
+  private readonly watchRuntimes = new Map<string, WorkspaceWatchRuntime>();
 
   constructor(filePresenter: IFilePresenter) {
-    this.filePresenter = filePresenter
+    this.filePresenter = filePresenter;
   }
 
   async registerWorkspace(workspacePath: string): Promise<void> {
-    const normalized = path.resolve(workspacePath)
-    this.allowedPaths.add(normalized)
-    registerWorkspacePreviewRoot(normalized)
+    const normalized = path.resolve(workspacePath);
+    this.allowedPaths.add(normalized);
+    registerWorkspacePreviewRoot(normalized);
   }
 
   async registerWorkdir(workdir: string): Promise<void> {
-    await this.registerWorkspace(workdir)
+    await this.registerWorkspace(workdir);
   }
 
   async unregisterWorkspace(workspacePath: string): Promise<void> {
-    const normalized = path.resolve(workspacePath)
-    this.allowedPaths.delete(normalized)
-    unregisterWorkspacePreviewRoot(normalized)
+    const normalized = path.resolve(workspacePath);
+    this.allowedPaths.delete(normalized);
+    unregisterWorkspacePreviewRoot(normalized);
   }
 
   async unregisterWorkdir(workdir: string): Promise<void> {
-    await this.unregisterWorkspace(workdir)
+    await this.unregisterWorkspace(workdir);
   }
 
   async watchWorkspace(workspacePath: string): Promise<void> {
-    const normalized = path.resolve(workspacePath)
+    const normalized = path.resolve(workspacePath);
     if (!this.isPathAllowed(normalized)) {
-      console.warn(`[Workspace] Blocked watch attempt for unauthorized path: ${workspacePath}`)
-      return
+      console.warn(`[Workspace] Blocked watch attempt for unauthorized path: ${workspacePath}`);
+      return;
     }
 
-    const existing = this.watchRuntimes.get(normalized)
+    const existing = this.watchRuntimes.get(normalized);
     if (existing) {
-      existing.refCount += 1
-      return
+      existing.refCount += 1;
+      return;
     }
 
     const runtime: WorkspaceWatchRuntime = {
@@ -153,40 +153,40 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       debounceTimer: null,
       pendingKind: null,
       pendingSource: null,
-      disposed: false
-    }
+      disposed: false,
+    };
 
-    this.watchRuntimes.set(normalized, runtime)
-    await this.refreshGitWatcher(runtime)
+    this.watchRuntimes.set(normalized, runtime);
+    await this.refreshGitWatcher(runtime);
   }
 
   async unwatchWorkspace(workspacePath: string): Promise<void> {
-    const normalized = path.resolve(workspacePath)
-    const runtime = this.watchRuntimes.get(normalized)
+    const normalized = path.resolve(workspacePath);
+    const runtime = this.watchRuntimes.get(normalized);
     if (!runtime) {
-      return
+      return;
     }
 
-    runtime.refCount -= 1
+    runtime.refCount -= 1;
     if (runtime.refCount > 0) {
-      return
+      return;
     }
 
-    this.watchRuntimes.delete(normalized)
-    await this.disposeRuntime(runtime)
+    this.watchRuntimes.delete(normalized);
+    await this.disposeRuntime(runtime);
   }
 
   destroy(): void {
-    const runtimes = Array.from(this.watchRuntimes.values())
-    this.watchRuntimes.clear()
+    const runtimes = Array.from(this.watchRuntimes.values());
+    this.watchRuntimes.clear();
     for (const runtime of runtimes) {
-      void this.disposeRuntime(runtime)
+      void this.disposeRuntime(runtime);
     }
 
     for (const exactPath of this.allowedExactPaths) {
-      unregisterWorkspacePreviewFile(exactPath)
+      unregisterWorkspacePreviewFile(exactPath);
     }
-    this.allowedExactPaths.clear()
+    this.allowedExactPaths.clear();
   }
 
   private createContentWatcher(workspacePath: string): FSWatcher {
@@ -197,122 +197,117 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       ignored: (watchPath) => this.shouldIgnoreContentWatchPath(watchPath),
       awaitWriteFinish: {
         stabilityThreshold: WATCH_STABILITY_THRESHOLD_MS,
-        pollInterval: WATCH_POLL_INTERVAL_MS
-      }
-    })
+        pollInterval: WATCH_POLL_INTERVAL_MS,
+      },
+    });
 
-    watcher.on('all', (_eventName, targetPath) => {
-      const runtime = this.watchRuntimes.get(workspacePath)
+    watcher.on("all", (_eventName, targetPath) => {
+      const runtime = this.watchRuntimes.get(workspacePath);
       if (!runtime || runtime.disposed) {
-        return
+        return;
       }
 
       if (this.isGitDirectoryEvent(targetPath)) {
-        void this.refreshGitWatcher(runtime)
-        this.scheduleInvalidation(runtime, 'full', 'watcher')
-        return
+        void this.refreshGitWatcher(runtime);
+        this.scheduleInvalidation(runtime, "full", "watcher");
+        return;
       }
 
-      this.scheduleInvalidation(runtime, 'fs', 'watcher')
-    })
+      this.scheduleInvalidation(runtime, "fs", "watcher");
+    });
 
-    watcher.on('error', (error) => {
-      console.error(`[Workspace] Content watcher error for ${workspacePath}:`, error)
-    })
+    watcher.on("error", (error) => {
+      console.error(`[Workspace] Content watcher error for ${workspacePath}:`, error);
+    });
 
-    return watcher
+    return watcher;
   }
 
   private shouldIgnoreContentWatchPath(watchPath: string): boolean {
-    const normalizedPath = path.normalize(watchPath)
+    const normalizedPath = path.normalize(watchPath);
     if (normalizedPath.includes(`${path.sep}.git${path.sep}`)) {
-      return true
+      return true;
     }
 
-    const baseName = path.basename(normalizedPath)
+    const baseName = path.basename(normalizedPath);
     if (WATCH_IGNORED_DIRS.includes(baseName as (typeof WATCH_IGNORED_DIRS)[number])) {
-      return true
+      return true;
     }
 
-    return WATCH_IGNORED_DIRS.some((segment) =>
-      normalizedPath.includes(`${path.sep}${segment}${path.sep}`)
-    )
+    return WATCH_IGNORED_DIRS.some((segment) => normalizedPath.includes(`${path.sep}${segment}${path.sep}`));
   }
 
   private isGitDirectoryEvent(targetPath: string): boolean {
-    return path.basename(path.normalize(targetPath)) === '.git'
+    return path.basename(path.normalize(targetPath)) === ".git";
   }
 
   private scheduleInvalidation(
     runtime: WorkspaceWatchRuntime,
     kind: WorkspaceInvalidationKind,
-    source: WorkspaceInvalidationSource
+    source: WorkspaceInvalidationSource,
   ): void {
     if (runtime.disposed) {
-      return
+      return;
     }
 
-    if (
-      !runtime.pendingKind ||
-      getInvalidationPriority(kind) >= getInvalidationPriority(runtime.pendingKind)
-    ) {
-      runtime.pendingKind = kind
-      runtime.pendingSource = source
+    if (!runtime.pendingKind || getInvalidationPriority(kind) >= getInvalidationPriority(runtime.pendingKind)) {
+      runtime.pendingKind = kind;
+      runtime.pendingSource = source;
     }
 
     if (runtime.debounceTimer) {
-      clearTimeout(runtime.debounceTimer)
+      clearTimeout(runtime.debounceTimer);
     }
 
     runtime.debounceTimer = setTimeout(() => {
-      runtime.debounceTimer = null
+      runtime.debounceTimer = null;
 
-      const currentRuntime = this.watchRuntimes.get(runtime.workspacePath)
+      const currentRuntime = this.watchRuntimes.get(runtime.workspacePath);
       if (!currentRuntime || currentRuntime !== runtime || runtime.disposed) {
-        return
+        return;
       }
 
       const payload: WorkspaceInvalidationEvent = {
         workspacePath: runtime.workspacePath,
         kind: runtime.pendingKind ?? kind,
-        source: runtime.pendingSource ?? source
-      }
-      runtime.pendingKind = null
-      runtime.pendingSource = null
-      this.emitInvalidation(payload)
-    }, WATCH_DEBOUNCE_MS)
+        source: runtime.pendingSource ?? source,
+      };
+      runtime.pendingKind = null;
+      runtime.pendingSource = null;
+      this.emitInvalidation(payload);
+    }, WATCH_DEBOUNCE_MS);
   }
 
   private emitInvalidation(payload: WorkspaceInvalidationEvent): void {
-    eventBus.sendToRenderer(WORKSPACE_EVENTS.INVALIDATED, SendTarget.ALL_WINDOWS, payload)
-    publishDeepchatEvent('workspace.invalidated', {
+    eventBus.sendToRenderer(WORKSPACE_EVENTS.INVALIDATED, SendTarget.ALL_WINDOWS, payload);
+    publishDeepchatEvent("workspace.invalidated", {
       ...payload,
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
   }
 
   private async refreshGitWatcher(runtime: WorkspaceWatchRuntime): Promise<void> {
-    const metadata = await this.resolveGitWatchMetadata(runtime.workspacePath)
+    const metadata = await this.resolveGitWatchMetadata(runtime.workspacePath);
 
     if (runtime.disposed || this.watchRuntimes.get(runtime.workspacePath) !== runtime) {
-      return
+      return;
     }
 
-    const nextWatchKey = metadata ? metadata.paths.join('\0') : null
+    const nextWatchKey = metadata ? metadata.paths.join("\0") : null;
     if (runtime.gitWatchKey === nextWatchKey) {
-      return
+      return;
     }
 
-    const previousWatcher = runtime.gitWatcher
-    runtime.gitWatcher = null
-    runtime.gitWatchKey = nextWatchKey
+    const previousWatcher = runtime.gitWatcher;
+    runtime.gitWatcher = null;
+    runtime.gitWatchKey = nextWatchKey;
 
     if (previousWatcher) {
-      await previousWatcher.close()
+      await previousWatcher.close();
     }
 
     if (!metadata) {
-      return
+      return;
     }
 
     const gitWatcher = watch(metadata.paths, {
@@ -321,90 +316,86 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       followSymlinks: false,
       awaitWriteFinish: {
         stabilityThreshold: WATCH_STABILITY_THRESHOLD_MS,
-        pollInterval: WATCH_POLL_INTERVAL_MS
-      }
-    })
+        pollInterval: WATCH_POLL_INTERVAL_MS,
+      },
+    });
 
-    gitWatcher.on('all', () => {
-      const currentRuntime = this.watchRuntimes.get(runtime.workspacePath)
+    gitWatcher.on("all", () => {
+      const currentRuntime = this.watchRuntimes.get(runtime.workspacePath);
       if (!currentRuntime || currentRuntime !== runtime || runtime.disposed) {
-        return
+        return;
       }
-      this.scheduleInvalidation(runtime, 'git', 'watcher')
-    })
+      this.scheduleInvalidation(runtime, "git", "watcher");
+    });
 
-    gitWatcher.on('error', (error) => {
-      console.error(`[Workspace] Git watcher error for ${runtime.workspacePath}:`, error)
-    })
+    gitWatcher.on("error", (error) => {
+      console.error(`[Workspace] Git watcher error for ${runtime.workspacePath}:`, error);
+    });
 
     if (runtime.disposed || this.watchRuntimes.get(runtime.workspacePath) !== runtime) {
-      await gitWatcher.close()
-      return
+      await gitWatcher.close();
+      return;
     }
 
-    runtime.gitWatcher = gitWatcher
+    runtime.gitWatcher = gitWatcher;
   }
 
-  private async resolveGitWatchMetadata(
-    workspacePath: string
-  ): Promise<{ repoRoot: string; paths: string[] } | null> {
-    const repoRoot = await this.resolveGitWorkspace(workspacePath)
+  private async resolveGitWatchMetadata(workspacePath: string): Promise<{ repoRoot: string; paths: string[] } | null> {
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
     if (!repoRoot) {
-      return null
+      return null;
     }
 
     const [headPath, indexPath, packedRefsPath, refsPath] = await Promise.all([
-      this.resolveGitPath(workspacePath, 'HEAD'),
-      this.resolveGitPath(workspacePath, 'index'),
-      this.resolveGitPath(workspacePath, 'packed-refs'),
-      this.resolveGitPath(workspacePath, 'refs')
-    ])
+      this.resolveGitPath(workspacePath, "HEAD"),
+      this.resolveGitPath(workspacePath, "index"),
+      this.resolveGitPath(workspacePath, "packed-refs"),
+      this.resolveGitPath(workspacePath, "refs"),
+    ]);
 
     const paths = Array.from(
       new Set(
-        [headPath, indexPath, packedRefsPath, refsPath].filter(
-          (value): value is string => typeof value === 'string'
-        )
-      )
-    )
+        [headPath, indexPath, packedRefsPath, refsPath].filter((value): value is string => typeof value === "string"),
+      ),
+    );
     if (paths.length === 0) {
-      return null
+      return null;
     }
 
-    return { repoRoot, paths }
+    return { repoRoot, paths };
   }
 
   private async resolveGitPath(workspacePath: string, key: string): Promise<string | null> {
     try {
-      const value = await this.runGitCommand(workspacePath, ['rev-parse', '--git-path', key])
-      const resolved = value?.split(/\r?\n/)[0]?.trim()
+      const value = await this.runGitCommand(workspacePath, ["rev-parse", "--git-path", key]);
+      const resolved = value?.split(/\r?\n/)[0]?.trim();
       if (!resolved) {
-        return null
+        return null;
       }
 
       return path.isAbsolute(resolved)
         ? path.normalize(resolved)
-        : path.normalize(path.resolve(workspacePath, resolved))
+        : path.normalize(path.resolve(workspacePath, resolved));
     } catch {
-      return null
+      return null;
     }
   }
 
   private async disposeRuntime(runtime: WorkspaceWatchRuntime): Promise<void> {
-    runtime.disposed = true
+    runtime.disposed = true;
 
     if (runtime.debounceTimer) {
-      clearTimeout(runtime.debounceTimer)
-      runtime.debounceTimer = null
+      clearTimeout(runtime.debounceTimer);
+      runtime.debounceTimer = null;
     }
 
-    const closures: Array<Promise<void>> = [runtime.contentWatcher.close()]
+    const closures: Array<Promise<void>> = [runtime.contentWatcher.close()];
     if (runtime.gitWatcher) {
-      closures.push(runtime.gitWatcher.close())
-      runtime.gitWatcher = null
+      closures.push(runtime.gitWatcher.close());
+      runtime.gitWatcher = null;
     }
 
-    await Promise.allSettled(closures)
+    await Promise.allSettled(closures);
   }
 
   /**
@@ -412,381 +403,366 @@ export class WorkspacePresenter implements IWorkspacePresenter {
    * Uses realpathSync when possible and falls back to resolved paths for deleted files.
    */
   private isPathAllowed(targetPath: string): boolean {
-    const normalizedTarget = this.normalizePathForAccess(targetPath)
-    const targetWithSep = normalizedTarget.endsWith(path.sep)
-      ? normalizedTarget
-      : `${normalizedTarget}${path.sep}`
+    const normalizedTarget = this.normalizePathForAccess(targetPath);
+    const targetWithSep = normalizedTarget.endsWith(path.sep) ? normalizedTarget : `${normalizedTarget}${path.sep}`;
 
     if (this.allowedExactPaths.has(normalizedTarget)) {
-      return true
+      return true;
     }
 
     for (const workspace of this.allowedPaths) {
-      const normalizedWorkspace = this.normalizePathForAccess(workspace)
+      const normalizedWorkspace = this.normalizePathForAccess(workspace);
       const workspaceWithSep = normalizedWorkspace.endsWith(path.sep)
         ? normalizedWorkspace
-        : `${normalizedWorkspace}${path.sep}`
+        : `${normalizedWorkspace}${path.sep}`;
 
       if (normalizedTarget === normalizedWorkspace || targetWithSep.startsWith(workspaceWithSep)) {
-        return true
+        return true;
       }
     }
 
-    return false
+    return false;
   }
 
   private normalizePathForAccess(targetPath: string): string {
     try {
-      return path.normalize(fs.realpathSync(targetPath))
+      return path.normalize(fs.realpathSync(targetPath));
     } catch {
-      return path.normalize(path.resolve(targetPath))
+      return path.normalize(path.resolve(targetPath));
     }
   }
 
   private getWorkspaceRootForPath(targetPath: string): string | null {
-    const normalizedTarget = this.normalizePathForAccess(targetPath)
+    const normalizedTarget = this.normalizePathForAccess(targetPath);
 
     for (const workspace of this.allowedPaths) {
-      const normalizedWorkspace = this.normalizePathForAccess(workspace)
-      const relativePath = path.relative(normalizedWorkspace, normalizedTarget)
+      const normalizedWorkspace = this.normalizePathForAccess(workspace);
+      const relativePath = path.relative(normalizedWorkspace, normalizedTarget);
       if (
         normalizedTarget === normalizedWorkspace ||
-        (relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath))
+        (relativePath && !relativePath.startsWith("..") && !path.isAbsolute(relativePath))
       ) {
-        return normalizedWorkspace
+        return normalizedWorkspace;
       }
     }
 
-    return null
+    return null;
   }
 
   private toRelativeWorkspacePath(workspaceRoot: string, targetPath: string): string {
-    const normalizedTarget = path.resolve(targetPath)
-    const relativePath = path.relative(workspaceRoot, normalizedTarget)
-    return relativePath.split(path.sep).join('/')
+    const normalizedTarget = path.resolve(targetPath);
+    const relativePath = path.relative(workspaceRoot, normalizedTarget);
+    return relativePath.split(path.sep).join("/");
   }
 
   private resolvePreviewKind(mimeType: string, filePath: string): WorkspaceFilePreviewKind {
-    const extension = path.extname(filePath).toLowerCase()
+    const extension = path.extname(filePath).toLowerCase();
 
-    if (mimeType === 'text/markdown' || ['.md', '.markdown', '.mdx'].includes(extension)) {
-      return 'markdown'
+    if (mimeType === "text/markdown" || [".md", ".markdown", ".mdx"].includes(extension)) {
+      return "markdown";
     }
 
-    if (mimeType === 'text/html' || mimeType === 'application/xhtml+xml') {
-      return 'html'
+    if (mimeType === "text/html" || mimeType === "application/xhtml+xml") {
+      return "html";
     }
 
-    if (mimeType === 'application/pdf') {
-      return 'pdf'
+    if (mimeType === "application/pdf") {
+      return "pdf";
     }
 
-    if (mimeType === 'image/svg+xml') {
-      return 'svg'
+    if (mimeType === "image/svg+xml") {
+      return "svg";
     }
 
-    if (mimeType.startsWith('image/')) {
-      return 'image'
+    if (mimeType.startsWith("image/")) {
+      return "image";
     }
 
     if (
-      mimeType === 'text/code' ||
-      mimeType.startsWith('text/') ||
+      mimeType === "text/code" ||
+      mimeType.startsWith("text/") ||
       TEXT_LIKE_MIME_TYPES.has(mimeType) ||
-      mimeType.endsWith('+json') ||
-      mimeType.endsWith('+xml')
+      mimeType.endsWith("+json") ||
+      mimeType.endsWith("+xml")
     ) {
-      return 'text'
+      return "text";
     }
 
-    return 'binary'
+    return "binary";
   }
 
   private inferLanguage(filePath: string, kind: WorkspaceFilePreviewKind): string | null {
-    if (kind === 'markdown') return 'markdown'
-    if (kind === 'html') return 'html'
-    if (kind === 'svg') return 'svg'
-    if (kind !== 'text') return null
+    if (kind === "markdown") return "markdown";
+    if (kind === "html") return "html";
+    if (kind === "svg") return "svg";
+    if (kind !== "text") return null;
 
-    const extension = path.extname(filePath).slice(1).toLowerCase()
-    return extension || null
+    const extension = path.extname(filePath).slice(1).toLowerCase();
+    return extension || null;
   }
 
   private resolvePreviewUrl(
     workspaceRoot: string | null,
     filePath: string,
-    kind: WorkspaceFilePreviewKind
+    kind: WorkspaceFilePreviewKind,
   ): string | undefined {
-    if (kind !== 'html' && kind !== 'pdf' && kind !== 'svg') {
-      return undefined
+    if (kind !== "html" && kind !== "pdf" && kind !== "svg") {
+      return undefined;
     }
 
     if (workspaceRoot) {
-      return createWorkspacePreviewUrl(workspaceRoot, filePath) ?? undefined
+      return createWorkspacePreviewUrl(workspaceRoot, filePath) ?? undefined;
     }
 
-    return createWorkspacePreviewFileUrl(filePath)
+    return createWorkspacePreviewFileUrl(filePath);
   }
 
   private authorizeExactFile(filePath: string): string {
-    const normalizedFilePath = this.normalizePathForAccess(filePath)
-    this.allowedExactPaths.add(normalizedFilePath)
-    registerWorkspacePreviewFile(normalizedFilePath)
-    return normalizedFilePath
+    const normalizedFilePath = this.normalizePathForAccess(filePath);
+    this.allowedExactPaths.add(normalizedFilePath);
+    registerWorkspacePreviewFile(normalizedFilePath);
+    return normalizedFilePath;
   }
 
   private stripMarkdownLinkDecorators(href: string): string {
-    const trimmedHref = href.trim()
-    const queryIndex = trimmedHref.indexOf('?')
-    const hashIndex = trimmedHref.indexOf('#')
+    const trimmedHref = href.trim();
+    const queryIndex = trimmedHref.indexOf("?");
+    const hashIndex = trimmedHref.indexOf("#");
     const firstDecoratorIndex = [queryIndex, hashIndex]
       .filter((index) => index >= 0)
-      .sort((left, right) => left - right)[0]
+      .sort((left, right) => left - right)[0];
 
     if (firstDecoratorIndex == null) {
-      return trimmedHref
+      return trimmedHref;
     }
 
-    return trimmedHref.slice(0, firstDecoratorIndex)
+    return trimmedHref.slice(0, firstDecoratorIndex);
   }
 
   private isAbsoluteWindowsPath(value: string): boolean {
-    return /^[a-zA-Z]:[\\/]/.test(value)
+    return /^[a-zA-Z]:[\\/]/.test(value);
   }
 
   private isAbsoluteMarkdownPath(value: string): boolean {
-    return value.startsWith('/') || this.isAbsoluteWindowsPath(value)
+    return value.startsWith("/") || this.isAbsoluteWindowsPath(value);
   }
 
   private resolveMarkdownLinkedPath(input: ResolveMarkdownLinkedFileInput): string | null {
-    const rawHref = this.stripMarkdownLinkDecorators(input.href)
+    const rawHref = this.stripMarkdownLinkDecorators(input.href);
     if (!rawHref) {
-      return null
+      return null;
     }
 
-    if (rawHref.startsWith('file://')) {
+    if (rawHref.startsWith("file://")) {
       try {
-        return this.normalizePathForAccess(fileURLToPath(rawHref))
+        return this.normalizePathForAccess(fileURLToPath(rawHref));
       } catch {
-        return null
+        return null;
       }
     }
 
     if (this.isAbsoluteMarkdownPath(rawHref)) {
-      return this.normalizePathForAccess(rawHref)
+      return this.normalizePathForAccess(rawHref);
     }
 
-    const sourceFilePath = input.sourceFilePath?.trim() || null
-    const workspacePath = input.workspacePath?.trim() || null
-    const baseDir = sourceFilePath
-      ? path.dirname(sourceFilePath)
-      : workspacePath
-        ? workspacePath
-        : null
+    const sourceFilePath = input.sourceFilePath?.trim() || null;
+    const workspacePath = input.workspacePath?.trim() || null;
+    const baseDir = sourceFilePath ? path.dirname(sourceFilePath) : workspacePath ? workspacePath : null;
 
     if (!baseDir) {
-      return null
+      return null;
     }
 
-    return this.normalizePathForAccess(path.resolve(baseDir, rawHref))
+    return this.normalizePathForAccess(path.resolve(baseDir, rawHref));
   }
 
   private async runGitCommand(workspacePath: string, args: string[]): Promise<string | null> {
     try {
-      const result = await execFileAsync('git', args, {
+      const result = await execFileAsync("git", args, {
         cwd: workspacePath,
         windowsHide: true,
-        maxBuffer: 8 * 1024 * 1024
-      })
-      return result.stdout.trimEnd()
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      return result.stdout.trimEnd();
     } catch (error) {
       if (
-        typeof error === 'object' &&
+        typeof error === "object" &&
         error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code === 'ENOENT'
+        "code" in error &&
+        (error as { code?: string }).code === "ENOENT"
       ) {
-        return null
+        return null;
       }
 
-      throw error
+      throw error;
     }
   }
 
   private async resolveGitWorkspace(workspacePath: string): Promise<string | null> {
     try {
-      const repoRoot = await this.runGitCommand(workspacePath, ['rev-parse', '--show-toplevel'])
-      return repoRoot?.split(/\r?\n/)[0]?.trim() || null
+      const repoRoot = await this.runGitCommand(workspacePath, ["rev-parse", "--show-toplevel"]);
+      return repoRoot?.split(/\r?\n/)[0]?.trim() || null;
     } catch {
-      return null
+      return null;
     }
   }
 
   private normalizeGitPath(value: string): string {
-    const trimmed = value.trim()
+    const trimmed = value.trim();
     if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
       try {
-        return JSON.parse(trimmed) as string
+        return JSON.parse(trimmed) as string;
       } catch {
-        return trimmed.slice(1, -1)
+        return trimmed.slice(1, -1);
       }
     }
-    return trimmed
+    return trimmed;
   }
 
-  private resolveGitChangeType(
-    stagedStatus: string | null,
-    unstagedStatus: string | null
-  ): WorkspaceGitChangeType {
-    const status = stagedStatus || unstagedStatus || '?'
+  private resolveGitChangeType(stagedStatus: string | null, unstagedStatus: string | null): WorkspaceGitChangeType {
+    const status = stagedStatus || unstagedStatus || "?";
 
     switch (status) {
-      case 'A':
-        return 'added'
-      case 'D':
-        return 'deleted'
-      case 'R':
-        return 'renamed'
-      case 'C':
-        return 'copied'
-      case '?':
-        return 'untracked'
-      case '!':
-        return 'ignored'
-      case 'U':
-        return 'unmerged'
+      case "A":
+        return "added";
+      case "D":
+        return "deleted";
+      case "R":
+        return "renamed";
+      case "C":
+        return "copied";
+      case "?":
+        return "untracked";
+      case "!":
+        return "ignored";
+      case "U":
+        return "unmerged";
       default:
-        return 'modified'
+        return "modified";
     }
   }
 
   private parseBranchSummary(summary: string): {
-    branch: string | null
-    ahead: number
-    behind: number
+    branch: string | null;
+    ahead: number;
+    behind: number;
   } {
-    const trimmed = summary.replace(/^##\s*/, '').trim()
+    const trimmed = summary.replace(/^##\s*/, "").trim();
     if (!trimmed) {
-      return { branch: null, ahead: 0, behind: 0 }
+      return { branch: null, ahead: 0, behind: 0 };
     }
 
-    const branchToken = trimmed.split(' ')[0] || ''
-    const branchName = branchToken.split('...')[0]
-    const aheadMatch = trimmed.match(/ahead (\d+)/)
-    const behindMatch = trimmed.match(/behind (\d+)/)
+    const branchToken = trimmed.split(" ")[0] || "";
+    const branchName = branchToken.split("...")[0];
+    const aheadMatch = trimmed.match(/ahead (\d+)/);
+    const behindMatch = trimmed.match(/behind (\d+)/);
 
     return {
-      branch: branchName === 'HEAD' || branchName === '(no' ? null : branchName,
+      branch: branchName === "HEAD" || branchName === "(no" ? null : branchName,
       ahead: aheadMatch ? Number(aheadMatch[1]) : 0,
-      behind: behindMatch ? Number(behindMatch[1]) : 0
-    }
+      behind: behindMatch ? Number(behindMatch[1]) : 0,
+    };
   }
 
   async readDirectory(dirPath: string): Promise<WorkspaceFileNode[]> {
     if (!this.isPathAllowed(dirPath)) {
-      console.warn(`[Workspace] Blocked read attempt for unauthorized path: ${dirPath}`)
-      return []
+      console.warn(`[Workspace] Blocked read attempt for unauthorized path: ${dirPath}`);
+      return [];
     }
-    return readDirectoryShallow(dirPath)
+    return readDirectoryShallow(dirPath);
   }
 
   async expandDirectory(dirPath: string): Promise<WorkspaceFileNode[]> {
     if (!this.isPathAllowed(dirPath)) {
-      console.warn(`[Workspace] Blocked expand attempt for unauthorized path: ${dirPath}`)
-      return []
+      console.warn(`[Workspace] Blocked expand attempt for unauthorized path: ${dirPath}`);
+      return [];
     }
-    return readDirectoryShallow(dirPath)
+    return readDirectoryShallow(dirPath);
   }
 
   async revealFileInFolder(filePath: string): Promise<void> {
     if (!this.isPathAllowed(filePath)) {
-      console.warn(`[Workspace] Blocked reveal attempt for unauthorized path: ${filePath}`)
-      return
+      console.warn(`[Workspace] Blocked reveal attempt for unauthorized path: ${filePath}`);
+      return;
     }
 
-    const normalizedPath = path.resolve(filePath)
+    const normalizedPath = path.resolve(filePath);
 
     try {
-      shell.showItemInFolder(normalizedPath)
+      shell.showItemInFolder(normalizedPath);
     } catch (error) {
-      console.error(`[Workspace] Failed to reveal path: ${normalizedPath}`, error)
+      console.error(`[Workspace] Failed to reveal path: ${normalizedPath}`, error);
     }
   }
 
   async openFile(filePath: string): Promise<void> {
     if (!this.isPathAllowed(filePath)) {
-      console.warn(`[Workspace] Blocked open attempt for unauthorized path: ${filePath}`)
-      return
+      console.warn(`[Workspace] Blocked open attempt for unauthorized path: ${filePath}`);
+      return;
     }
 
-    const normalizedPath = path.resolve(filePath)
+    const normalizedPath = path.resolve(filePath);
 
     try {
-      const errorMessage = await shell.openPath(normalizedPath)
+      const errorMessage = await shell.openPath(normalizedPath);
       if (errorMessage) {
-        console.error(`[Workspace] Failed to open path: ${normalizedPath}`, errorMessage)
+        console.error(`[Workspace] Failed to open path: ${normalizedPath}`, errorMessage);
       }
     } catch (error) {
-      console.error(`[Workspace] Failed to open path: ${normalizedPath}`, error)
+      console.error(`[Workspace] Failed to open path: ${normalizedPath}`, error);
     }
   }
 
   async resolveMarkdownLinkedFile(
-    input: ResolveMarkdownLinkedFileInput
+    input: ResolveMarkdownLinkedFileInput,
   ): Promise<WorkspaceLinkedFileResolution | null> {
-    const resolvedPath = this.resolveMarkdownLinkedPath(input)
+    const resolvedPath = this.resolveMarkdownLinkedPath(input);
     if (!resolvedPath) {
-      return null
+      return null;
     }
 
-    let stat: fs.Stats
+    let stat: fs.Stats;
     try {
-      stat = fs.statSync(resolvedPath)
+      stat = fs.statSync(resolvedPath);
     } catch {
-      return null
+      return null;
     }
 
     if (!stat.isFile()) {
-      return null
+      return null;
     }
 
-    const normalizedPath = this.authorizeExactFile(resolvedPath)
-    const workspaceRoot = this.getWorkspaceRootForPath(normalizedPath)
+    const normalizedPath = this.authorizeExactFile(resolvedPath);
+    const workspaceRoot = this.getWorkspaceRootForPath(normalizedPath);
 
     return {
       path: normalizedPath,
       name: path.basename(normalizedPath),
-      relativePath: workspaceRoot
-        ? this.toRelativeWorkspacePath(workspaceRoot, normalizedPath)
-        : normalizedPath,
-      workspaceRoot
-    }
+      relativePath: workspaceRoot ? this.toRelativeWorkspacePath(workspaceRoot, normalizedPath) : normalizedPath,
+      workspaceRoot,
+    };
   }
 
   async readFilePreview(filePath: string): Promise<WorkspaceFilePreview | null> {
     if (!this.isPathAllowed(filePath)) {
-      console.warn(`[Workspace] Blocked preview attempt for unauthorized path: ${filePath}`)
-      return null
+      console.warn(`[Workspace] Blocked preview attempt for unauthorized path: ${filePath}`);
+      return null;
     }
 
     try {
-      const stats = fs.statSync(filePath)
+      const stats = fs.statSync(filePath);
       if (!stats.isFile()) {
-        return null
+        return null;
       }
     } catch {
-      return null
+      return null;
     }
 
     try {
-      const preparedFile = await this.filePresenter.prepareFileCompletely(
-        filePath,
-        undefined,
-        'origin'
-      )
-      const normalizedPreparedPath = this.normalizePathForAccess(preparedFile.path)
-      const workspaceRoot = this.getWorkspaceRootForPath(normalizedPreparedPath)
-      const kind = this.resolvePreviewKind(preparedFile.mimeType, normalizedPreparedPath)
+      const preparedFile = await this.filePresenter.prepareFileCompletely(filePath, undefined, "origin");
+      const normalizedPreparedPath = this.normalizePathForAccess(preparedFile.path);
+      const workspaceRoot = this.getWorkspaceRootForPath(normalizedPreparedPath);
+      const kind = this.resolvePreviewKind(preparedFile.mimeType, normalizedPreparedPath);
 
       return {
         path: normalizedPreparedPath,
@@ -796,55 +772,51 @@ export class WorkspacePresenter implements IWorkspacePresenter {
         name: preparedFile.name,
         mimeType: preparedFile.mimeType,
         kind,
-        content: kind === 'image' ? (preparedFile.thumbnail ?? '') : (preparedFile.content ?? ''),
+        content: kind === "image" ? (preparedFile.thumbnail ?? "") : (preparedFile.content ?? ""),
         previewUrl: this.resolvePreviewUrl(workspaceRoot, normalizedPreparedPath, kind),
         thumbnail: preparedFile.thumbnail,
         language: this.inferLanguage(normalizedPreparedPath, kind),
         metadata: {
-          ...preparedFile.metadata
-        }
-      }
+          ...preparedFile.metadata,
+        },
+      };
     } catch (error) {
-      console.error(`[Workspace] Failed to read file preview: ${filePath}`, error)
-      return null
+      console.error(`[Workspace] Failed to read file preview: ${filePath}`, error);
+      return null;
     }
   }
 
   async getGitStatus(workspacePath: string): Promise<WorkspaceGitState | null> {
     if (!this.isPathAllowed(workspacePath)) {
-      console.warn(`[Workspace] Blocked git status attempt for unauthorized path: ${workspacePath}`)
-      return null
+      console.warn(`[Workspace] Blocked git status attempt for unauthorized path: ${workspacePath}`);
+      return null;
     }
 
-    const repoRoot = await this.resolveGitWorkspace(workspacePath)
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
     if (!repoRoot) {
-      return null
+      return null;
     }
 
     try {
-      const output = await this.runGitCommand(workspacePath, [
-        'status',
-        '--porcelain=v1',
-        '--branch'
-      ])
+      const output = await this.runGitCommand(workspacePath, ["status", "--porcelain=v1", "--branch"]);
       if (output == null) {
-        return null
+        return null;
       }
 
-      const lines = output.split(/\r?\n/).filter(Boolean)
-      const branchLine = lines.find((line) => line.startsWith('##'))
-      const branchSummary = this.parseBranchSummary(branchLine ?? '')
+      const lines = output.split(/\r?\n/).filter(Boolean);
+      const branchLine = lines.find((line) => line.startsWith("##"));
+      const branchSummary = this.parseBranchSummary(branchLine ?? "");
       const changes = lines
-        .filter((line) => !line.startsWith('##'))
+        .filter((line) => !line.startsWith("##"))
         .map((line) => {
-          const stagedStatus = line[0] && line[0] !== ' ' ? line[0] : null
-          const unstagedStatus = line[1] && line[1] !== ' ' ? line[1] : null
-          const rawPath = line.slice(3)
-          const [previousPathPart, currentPathPart] = rawPath.includes(' -> ')
-            ? rawPath.split(' -> ')
-            : [null, rawPath]
-          const currentRelativePath = this.normalizeGitPath(currentPathPart ?? rawPath)
-          const previousPath = previousPathPart ? this.normalizeGitPath(previousPathPart) : null
+          const stagedStatus = line[0] && line[0] !== " " ? line[0] : null;
+          const unstagedStatus = line[1] && line[1] !== " " ? line[1] : null;
+          const rawPath = line.slice(3);
+          const [previousPathPart, currentPathPart] = rawPath.includes(" -> ")
+            ? rawPath.split(" -> ")
+            : [null, rawPath];
+          const currentRelativePath = this.normalizeGitPath(currentPathPart ?? rawPath);
+          const previousPath = previousPathPart ? this.normalizeGitPath(previousPathPart) : null;
 
           return {
             path: path.resolve(repoRoot, currentRelativePath),
@@ -852,51 +824,51 @@ export class WorkspacePresenter implements IWorkspacePresenter {
             previousPath,
             stagedStatus,
             unstagedStatus,
-            type: this.resolveGitChangeType(stagedStatus, unstagedStatus)
-          }
-        })
+            type: this.resolveGitChangeType(stagedStatus, unstagedStatus),
+          };
+        });
 
       return {
         workspacePath: repoRoot,
         branch: branchSummary.branch,
         ahead: branchSummary.ahead,
         behind: branchSummary.behind,
-        changes
-      }
+        changes,
+      };
     } catch (error) {
-      console.warn(`[Workspace] Failed to read git status for ${workspacePath}`, error)
-      return null
+      console.warn(`[Workspace] Failed to read git status for ${workspacePath}`, error);
+      return null;
     }
   }
 
   async getGitDiff(workspacePath: string, filePath?: string): Promise<WorkspaceGitDiff | null> {
     if (!this.isPathAllowed(workspacePath)) {
-      console.warn(`[Workspace] Blocked git diff attempt for unauthorized path: ${workspacePath}`)
-      return null
+      console.warn(`[Workspace] Blocked git diff attempt for unauthorized path: ${workspacePath}`);
+      return null;
     }
 
     if (filePath && !this.isPathAllowed(filePath)) {
-      console.warn(`[Workspace] Blocked git diff file attempt for unauthorized path: ${filePath}`)
-      return null
+      console.warn(`[Workspace] Blocked git diff file attempt for unauthorized path: ${filePath}`);
+      return null;
     }
 
-    const repoRoot = await this.resolveGitWorkspace(workspacePath)
+    const repoRoot = await this.resolveGitWorkspace(workspacePath);
     if (!repoRoot) {
-      return null
+      return null;
     }
 
-    const relativePath = filePath ? this.toRelativeWorkspacePath(repoRoot, filePath) : null
-    const fileArgs = relativePath ? ['--', relativePath] : []
+    const relativePath = filePath ? this.toRelativeWorkspacePath(repoRoot, filePath) : null;
+    const fileArgs = relativePath ? ["--", relativePath] : [];
 
     try {
       // `--find-renames` keeps renames as a single rename hunk instead of an
       // unrelated delete + add pair.
       const [staged, unstaged] = await Promise.all([
-        this.runGitCommand(workspacePath, ['diff', '--cached', '--find-renames', ...fileArgs]),
-        this.runGitCommand(workspacePath, ['diff', '--find-renames', ...fileArgs])
-      ])
+        this.runGitCommand(workspacePath, ["diff", "--cached", "--find-renames", ...fileArgs]),
+        this.runGitCommand(workspacePath, ["diff", "--find-renames", ...fileArgs]),
+      ]);
 
-      let resolvedUnstaged = unstaged ?? ''
+      let resolvedUnstaged = unstaged ?? "";
 
       // Untracked (newly added) files produce no output from `git diff`, so the
       // panel would show an empty diff. Synthesize an "added" diff against an
@@ -905,15 +877,15 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       // wrongly render unchanged tracked files as fully added.
       if (relativePath && !staged && !resolvedUnstaged) {
         const untracked = await this.runGitCommand(workspacePath, [
-          'ls-files',
-          '--others',
-          '--exclude-standard',
-          '--',
-          relativePath
-        ])
+          "ls-files",
+          "--others",
+          "--exclude-standard",
+          "--",
+          relativePath,
+        ]);
 
         if (untracked && untracked.trim()) {
-          resolvedUnstaged = await this.runGitDiffNoIndex(workspacePath, relativePath)
+          resolvedUnstaged = await this.runGitDiffNoIndex(workspacePath, relativePath);
         }
       }
 
@@ -921,12 +893,12 @@ export class WorkspacePresenter implements IWorkspacePresenter {
         workspacePath: repoRoot,
         filePath: filePath ? path.resolve(filePath) : null,
         relativePath,
-        staged: staged ?? '',
-        unstaged: resolvedUnstaged
-      }
+        staged: staged ?? "",
+        unstaged: resolvedUnstaged,
+      };
     } catch (error) {
-      console.warn(`[Workspace] Failed to read git diff for ${workspacePath}`, error)
-      return null
+      console.warn(`[Workspace] Failed to read git diff for ${workspacePath}`, error);
+      return null;
     }
   }
 
@@ -936,38 +908,34 @@ export class WorkspacePresenter implements IWorkspacePresenter {
   // that and return the captured stdout.
   private async runGitDiffNoIndex(workspacePath: string, relativePath: string): Promise<string> {
     try {
-      const result = await execFileAsync(
-        'git',
-        ['diff', '--no-index', '--', '/dev/null', relativePath],
-        {
-          cwd: workspacePath,
-          windowsHide: true,
-          maxBuffer: 8 * 1024 * 1024
-        }
-      )
-      return result.stdout.trimEnd()
+      const result = await execFileAsync("git", ["diff", "--no-index", "--", "/dev/null", relativePath], {
+        cwd: workspacePath,
+        windowsHide: true,
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      return result.stdout.trimEnd();
     } catch (error) {
       if (
-        typeof error === 'object' &&
+        typeof error === "object" &&
         error !== null &&
-        'code' in error &&
+        "code" in error &&
         (error as { code?: number }).code === 1 &&
-        'stdout' in error &&
-        typeof (error as { stdout?: unknown }).stdout === 'string'
+        "stdout" in error &&
+        typeof (error as { stdout?: unknown }).stdout === "string"
       ) {
-        return (error as { stdout: string }).stdout.trimEnd()
+        return (error as { stdout: string }).stdout.trimEnd();
       }
 
-      console.warn(`[Workspace] Failed to build untracked diff for ${relativePath}`, error)
-      return ''
+      console.warn(`[Workspace] Failed to build untracked diff for ${relativePath}`, error);
+      return "";
     }
   }
 
   async searchFiles(workspacePath: string, query: string): Promise<WorkspaceFileNode[]> {
     if (!this.isPathAllowed(workspacePath)) {
-      console.warn(`[Workspace] Blocked search attempt for unauthorized path: ${workspacePath}`)
-      return []
+      console.warn(`[Workspace] Blocked search attempt for unauthorized path: ${workspacePath}`);
+      return [];
     }
-    return await searchWorkspaceFiles(workspacePath, query)
+    return await searchWorkspaceFiles(workspacePath, query);
   }
 }

@@ -1,148 +1,144 @@
-import { app } from 'electron'
-import path from 'path'
-import fs from 'fs'
-import Database from 'better-sqlite3-multiple-ciphers'
-import type { SQLitePresenter } from '../sqlitePresenter'
-import type {
-  AssistantMessageBlock,
-  LegacyImportStatus,
-  UserMessageContent
-} from '@shared/types/agent-interface'
-import type { SearchResult } from '@shared/types/core/search'
-import { resolveAcpAgentAlias } from '@/presenter/configPresenter/acpRegistryConstants'
-import { DeepChatMessageStore } from '../agentRuntimePresenter/messageStore'
+import { app } from "electron";
+import path from "path";
+import fs from "fs";
+import Database from "better-sqlite3-multiple-ciphers";
+import type { SQLitePresenter } from "../sqlitePresenter";
+import type { AssistantMessageBlock, LegacyImportStatus, UserMessageContent } from "@shared/types/agent-interface";
+import type { SearchResult } from "@shared/types/core/search";
+import { resolveAcpAgentAlias } from "@/presenter/configPresenter/acpRegistryConstants";
+import { DeepChatMessageStore } from "../agentRuntimePresenter/messageStore";
 
-type LegacyRow = Record<string, unknown>
+type LegacyRow = Record<string, unknown>;
 
-const IMPORT_KEY = 'legacy_chat_db_import_v1'
-const SKILL_REPAIR_KEY = 'legacy_chat_skill_repair_v1'
+const IMPORT_KEY = "legacy_chat_db_import_v1";
+const SKILL_REPAIR_KEY = "legacy_chat_skill_repair_v1";
 
 const DEFAULT_USER_CONTENT: UserMessageContent = {
-  text: '',
+  text: "",
   files: [],
   links: [],
   search: false,
-  think: false
-}
+  think: false,
+};
 
 export class LegacyChatImportService {
-  private readonly sqlitePresenter: SQLitePresenter
-  private readonly messageStore: DeepChatMessageStore
-  private readonly sourceDbPath: string
-  private runningPromise: Promise<LegacyImportStatus> | null = null
-  private skillRepairPromise: Promise<void> | null = null
+  private readonly sqlitePresenter: SQLitePresenter;
+  private readonly messageStore: DeepChatMessageStore;
+  private readonly sourceDbPath: string;
+  private runningPromise: Promise<LegacyImportStatus> | null = null;
+  private skillRepairPromise: Promise<void> | null = null;
 
   constructor(sqlitePresenter: SQLitePresenter, sourceDbPath?: string) {
-    this.sqlitePresenter = sqlitePresenter
-    this.messageStore = new DeepChatMessageStore(sqlitePresenter)
-    this.sourceDbPath = sourceDbPath ?? path.join(app.getPath('userData'), 'app_db', 'chat.db')
+    this.sqlitePresenter = sqlitePresenter;
+    this.messageStore = new DeepChatMessageStore(sqlitePresenter);
+    this.sourceDbPath = sourceDbPath ?? path.join(app.getPath("userData"), "app_db", "chat.db");
   }
 
   startInBackground(force: boolean = false): void {
     void this.start(force).catch((error) => {
-      console.error('[LegacyChatImport] Background import failed:', error)
-    })
+      console.error("[LegacyChatImport] Background import failed:", error);
+    });
   }
 
   async start(force: boolean = false): Promise<LegacyImportStatus> {
     if (this.runningPromise) {
-      return this.runningPromise
+      return this.runningPromise;
     }
 
     this.runningPromise = this.runImport(force).finally(() => {
-      this.runningPromise = null
-    })
+      this.runningPromise = null;
+    });
 
-    return this.runningPromise
+    return this.runningPromise;
   }
 
   async retry(): Promise<LegacyImportStatus> {
-    return this.start(true)
+    return this.start(true);
   }
 
   async repairImportedLegacySessionSkills(sessionId: string): Promise<string[]> {
-    const normalizedSessionId = sessionId?.trim()
-    if (!normalizedSessionId.startsWith('legacy-session-')) {
-      return this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId)
+    const normalizedSessionId = sessionId?.trim();
+    if (!normalizedSessionId.startsWith("legacy-session-")) {
+      return this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId);
     }
 
-    const currentSkills = this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId)
+    const currentSkills = this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId);
     if (currentSkills.length > 0) {
-      return currentSkills
+      return currentSkills;
     }
 
-    await this.ensureImportedLegacySkillRepair()
-    return this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId)
+    await this.ensureImportedLegacySkillRepair();
+    return this.sqlitePresenter.newSessionsTable.getActiveSkills(normalizedSessionId);
   }
 
   async importFromSourceDb(
     sourceDbPath: string,
-    mode: 'increment' | 'overwrite' = 'increment'
+    mode: "increment" | "overwrite" = "increment",
   ): Promise<{
-    importedSessions: number
-    importedMessages: number
-    importedSearchResults: number
+    importedSessions: number;
+    importedMessages: number;
+    importedSearchResults: number;
   }> {
-    const normalizedPath = sourceDbPath?.trim()
+    const normalizedPath = sourceDbPath?.trim();
     if (!normalizedPath) {
-      throw new Error('Legacy source database path is required')
+      throw new Error("Legacy source database path is required");
     }
 
     if (!fs.existsSync(normalizedPath)) {
-      throw new Error(`Legacy source database not found: ${normalizedPath}`)
+      throw new Error(`Legacy source database not found: ${normalizedPath}`);
     }
 
-    let legacyDb: Database.Database | null = null
+    let legacyDb: Database.Database | null = null;
     const closeLegacyDb = () => {
-      if (!legacyDb) return
+      if (!legacyDb) return;
       try {
-        legacyDb.close()
+        legacyDb.close();
       } catch (error) {
-        console.warn('[LegacyChatImport] Failed to close source database handle:', error)
+        console.warn("[LegacyChatImport] Failed to close source database handle:", error);
       } finally {
-        legacyDb = null
+        legacyDb = null;
       }
-    }
+    };
 
     try {
-      legacyDb = new Database(normalizedPath, { readonly: true, fileMustExist: true })
-      legacyDb.pragma('query_only = TRUE')
+      legacyDb = new Database(normalizedPath, { readonly: true, fileMustExist: true });
+      legacyDb.pragma("query_only = TRUE");
 
-      const conversations = this.readTableRows(legacyDb, 'conversations')
-      const messageRows = this.readTableRows(legacyDb, 'messages')
-      const attachmentRows = this.readTableRows(legacyDb, 'message_attachments')
-      const acpSessionRows = this.readTableRows(legacyDb, 'acp_sessions')
-      closeLegacyDb()
+      const conversations = this.readTableRows(legacyDb, "conversations");
+      const messageRows = this.readTableRows(legacyDb, "messages");
+      const attachmentRows = this.readTableRows(legacyDb, "message_attachments");
+      const acpSessionRows = this.readTableRows(legacyDb, "acp_sessions");
+      closeLegacyDb();
 
-      if (mode === 'overwrite') {
-        await this.sqlitePresenter.clearNewAgentData()
+      if (mode === "overwrite") {
+        await this.sqlitePresenter.clearNewAgentData();
       }
 
       if (conversations.length === 0) {
         return {
           importedSessions: 0,
           importedMessages: 0,
-          importedSearchResults: 0
-        }
+          importedSearchResults: 0,
+        };
       }
 
       return await this.importRows({
         conversations,
         messageRows,
         attachmentRows,
-        acpSessionRows
-      })
+        acpSessionRows,
+      });
     } finally {
-      closeLegacyDb()
-      this.cleanupSidecarFiles(normalizedPath)
+      closeLegacyDb();
+      this.cleanupSidecarFiles(normalizedPath);
     }
   }
 
   getStatus(): LegacyImportStatus {
-    const row = this.sqlitePresenter.legacyImportStatusTable.get(IMPORT_KEY)
+    const row = this.sqlitePresenter.legacyImportStatusTable.get(IMPORT_KEY);
     if (!row) {
       return {
-        status: 'idle',
+        status: "idle",
         sourceDbPath: this.sourceDbPath,
         startedAt: null,
         finishedAt: null,
@@ -150,8 +146,8 @@ export class LegacyChatImportService {
         importedMessages: 0,
         importedSearchResults: 0,
         error: null,
-        updatedAt: Date.now()
-      }
+        updatedAt: Date.now(),
+      };
     }
     return {
       status: row.status,
@@ -162,20 +158,20 @@ export class LegacyChatImportService {
       importedMessages: row.imported_messages,
       importedSearchResults: row.imported_search_results,
       error: row.error,
-      updatedAt: row.updated_at
-    }
+      updatedAt: row.updated_at,
+    };
   }
 
   private async runImport(force: boolean): Promise<LegacyImportStatus> {
-    const current = this.sqlitePresenter.legacyImportStatusTable.get(IMPORT_KEY)
-    if (!force && current?.status === 'completed') {
-      return this.getStatus()
+    const current = this.sqlitePresenter.legacyImportStatusTable.get(IMPORT_KEY);
+    if (!force && current?.status === "completed") {
+      return this.getStatus();
     }
 
     if (!fs.existsSync(this.sourceDbPath)) {
-      const now = Date.now()
+      const now = Date.now();
       this.sqlitePresenter.legacyImportStatusTable.upsert(IMPORT_KEY, {
-        status: 'skipped',
+        status: "skipped",
         sourceDbPath: this.sourceDbPath,
         startedAt: now,
         finishedAt: now,
@@ -183,14 +179,14 @@ export class LegacyChatImportService {
         importedMessages: 0,
         importedSearchResults: 0,
         error: null,
-        updatedAt: now
-      })
-      return this.getStatus()
+        updatedAt: now,
+      });
+      return this.getStatus();
     }
 
-    const startedAt = Date.now()
+    const startedAt = Date.now();
     this.sqlitePresenter.legacyImportStatusTable.upsert(IMPORT_KEY, {
-      status: 'running',
+      status: "running",
       sourceDbPath: this.sourceDbPath,
       startedAt,
       finishedAt: null,
@@ -198,31 +194,31 @@ export class LegacyChatImportService {
       importedMessages: 0,
       importedSearchResults: 0,
       error: null,
-      updatedAt: startedAt
-    })
+      updatedAt: startedAt,
+    });
 
-    let legacyDb: Database.Database | null = null
+    let legacyDb: Database.Database | null = null;
     const closeLegacyDb = () => {
       if (!legacyDb) {
-        return
+        return;
       }
       try {
-        legacyDb.close()
+        legacyDb.close();
       } catch (error) {
-        console.warn('[LegacyChatImport] Failed to close legacy database handle:', error)
+        console.warn("[LegacyChatImport] Failed to close legacy database handle:", error);
       } finally {
-        legacyDb = null
+        legacyDb = null;
       }
-    }
+    };
     try {
-      legacyDb = new Database(this.sourceDbPath, { readonly: true, fileMustExist: true })
-      legacyDb.pragma('query_only = TRUE')
+      legacyDb = new Database(this.sourceDbPath, { readonly: true, fileMustExist: true });
+      legacyDb.pragma("query_only = TRUE");
 
-      const conversations = this.readTableRows(legacyDb, 'conversations')
+      const conversations = this.readTableRows(legacyDb, "conversations");
       if (conversations.length === 0) {
-        const finishedAt = Date.now()
+        const finishedAt = Date.now();
         this.sqlitePresenter.legacyImportStatusTable.upsert(IMPORT_KEY, {
-          status: 'completed',
+          status: "completed",
           sourceDbPath: this.sourceDbPath,
           startedAt,
           finishedAt,
@@ -230,28 +226,28 @@ export class LegacyChatImportService {
           importedMessages: 0,
           importedSearchResults: 0,
           error: null,
-          updatedAt: finishedAt
-        })
-        return this.getStatus()
+          updatedAt: finishedAt,
+        });
+        return this.getStatus();
       }
 
-      const messageRows = this.readTableRows(legacyDb, 'messages')
-      const attachmentRows = this.readTableRows(legacyDb, 'message_attachments')
-      const acpSessionRows = this.readTableRows(legacyDb, 'acp_sessions')
+      const messageRows = this.readTableRows(legacyDb, "messages");
+      const attachmentRows = this.readTableRows(legacyDb, "message_attachments");
+      const acpSessionRows = this.readTableRows(legacyDb, "acp_sessions");
       // Release legacy database handle immediately after snapshot read.
       // Import write path below may be long-running.
-      closeLegacyDb()
+      closeLegacyDb();
 
       const summary = await this.importRows({
         conversations,
         messageRows,
         attachmentRows,
-        acpSessionRows
-      })
+        acpSessionRows,
+      });
 
-      const finishedAt = Date.now()
+      const finishedAt = Date.now();
       this.sqlitePresenter.legacyImportStatusTable.upsert(IMPORT_KEY, {
-        status: 'completed',
+        status: "completed",
         sourceDbPath: this.sourceDbPath,
         startedAt,
         finishedAt,
@@ -259,13 +255,13 @@ export class LegacyChatImportService {
         importedMessages: summary.importedMessages,
         importedSearchResults: summary.importedSearchResults,
         error: null,
-        updatedAt: finishedAt
-      })
-      return this.getStatus()
+        updatedAt: finishedAt,
+      });
+      return this.getStatus();
     } catch (error) {
-      const finishedAt = Date.now()
+      const finishedAt = Date.now();
       this.sqlitePresenter.legacyImportStatusTable.upsert(IMPORT_KEY, {
-        status: 'failed',
+        status: "failed",
         sourceDbPath: this.sourceDbPath,
         startedAt,
         finishedAt,
@@ -273,127 +269,119 @@ export class LegacyChatImportService {
         importedMessages: 0,
         importedSearchResults: 0,
         error: error instanceof Error ? error.message : String(error),
-        updatedAt: finishedAt
-      })
-      return this.getStatus()
+        updatedAt: finishedAt,
+      });
+      return this.getStatus();
     } finally {
-      closeLegacyDb()
-      this.cleanupSidecarFiles(this.sourceDbPath)
+      closeLegacyDb();
+      this.cleanupSidecarFiles(this.sourceDbPath);
     }
   }
 
   private cleanupSidecarFiles(dbPath: string): void {
-    const walPath = `${dbPath}-wal`
-    const shmPath = `${dbPath}-shm`
+    const walPath = `${dbPath}-wal`;
+    const shmPath = `${dbPath}-shm`;
 
     if (fs.existsSync(walPath)) {
       try {
-        const walStat = fs.statSync(walPath)
+        const walStat = fs.statSync(walPath);
         // Non-empty WAL may still contain committed frames; do not delete it.
         if (walStat.size > 0) {
-          return
+          return;
         }
-        fs.unlinkSync(walPath)
+        fs.unlinkSync(walPath);
       } catch (error) {
-        console.warn('[LegacyChatImport] Failed to cleanup WAL sidecar:', error)
+        console.warn("[LegacyChatImport] Failed to cleanup WAL sidecar:", error);
       }
     }
 
     if (fs.existsSync(shmPath)) {
       try {
-        fs.unlinkSync(shmPath)
+        fs.unlinkSync(shmPath);
       } catch (error) {
-        console.warn('[LegacyChatImport] Failed to cleanup SHM sidecar:', error)
+        console.warn("[LegacyChatImport] Failed to cleanup SHM sidecar:", error);
       }
     }
   }
 
   private async importRows(payload: {
-    conversations: LegacyRow[]
-    messageRows: LegacyRow[]
-    attachmentRows: LegacyRow[]
-    acpSessionRows: LegacyRow[]
+    conversations: LegacyRow[];
+    messageRows: LegacyRow[];
+    attachmentRows: LegacyRow[];
+    acpSessionRows: LegacyRow[];
   }): Promise<{
-    importedSessions: number
-    importedMessages: number
-    importedSearchResults: number
+    importedSessions: number;
+    importedMessages: number;
+    importedSearchResults: number;
   }> {
-    let importedSessions = 0
-    let importedMessages = 0
-    let importedSearchResults = 0
+    let importedSessions = 0;
+    let importedMessages = 0;
+    let importedSearchResults = 0;
 
-    const rowsByConversation = new Map<string, LegacyRow[]>()
+    const rowsByConversation = new Map<string, LegacyRow[]>();
     for (const row of payload.messageRows) {
-      const conversationId = this.pickString(row, ['conversation_id'])
-      if (!conversationId) continue
-      const list = rowsByConversation.get(conversationId) ?? []
-      list.push(row)
-      rowsByConversation.set(conversationId, list)
+      const conversationId = this.pickString(row, ["conversation_id"]);
+      if (!conversationId) continue;
+      const list = rowsByConversation.get(conversationId) ?? [];
+      list.push(row);
+      rowsByConversation.set(conversationId, list);
     }
 
-    const attachmentRowsByMessage = new Map<string, LegacyRow[]>()
+    const attachmentRowsByMessage = new Map<string, LegacyRow[]>();
     for (const row of payload.attachmentRows) {
-      const type = this.pickString(row, ['type'])?.toLowerCase() ?? ''
-      if (type !== 'search_result' && type !== 'search_results') {
-        continue
+      const type = this.pickString(row, ["type"])?.toLowerCase() ?? "";
+      if (type !== "search_result" && type !== "search_results") {
+        continue;
       }
-      const messageId = this.pickString(row, ['message_id'])
-      if (!messageId) continue
-      const list = attachmentRowsByMessage.get(messageId) ?? []
-      list.push(row)
-      attachmentRowsByMessage.set(messageId, list)
+      const messageId = this.pickString(row, ["message_id"]);
+      if (!messageId) continue;
+      const list = attachmentRowsByMessage.get(messageId) ?? [];
+      list.push(row);
+      attachmentRowsByMessage.set(messageId, list);
     }
 
-    const acpWorkdirByConversationAndAgent = new Map<string, string>()
+    const acpWorkdirByConversationAndAgent = new Map<string, string>();
     for (const row of payload.acpSessionRows) {
-      const conversationId = this.pickString(row, ['conversation_id'])
-      const rawAgentId = this.pickString(row, ['agent_id'])
-      const workdir = this.pickString(row, ['workdir'])
-      if (!conversationId || !rawAgentId || !workdir) continue
-      const agentId = resolveAcpAgentAlias(rawAgentId)
-      acpWorkdirByConversationAndAgent.set(`${conversationId}::${agentId}`, workdir)
+      const conversationId = this.pickString(row, ["conversation_id"]);
+      const rawAgentId = this.pickString(row, ["agent_id"]);
+      const workdir = this.pickString(row, ["workdir"]);
+      if (!conversationId || !rawAgentId || !workdir) continue;
+      const agentId = resolveAcpAgentAlias(rawAgentId);
+      acpWorkdirByConversationAndAgent.set(`${conversationId}::${agentId}`, workdir);
     }
 
     await this.sqlitePresenter.runTransaction(() => {
       for (const conversation of payload.conversations) {
-        const oldConversationId = this.pickString(conversation, ['conv_id', 'id'])
+        const oldConversationId = this.pickString(conversation, ["conv_id", "id"]);
         if (!oldConversationId) {
-          continue
+          continue;
         }
 
-        const sessionId = this.toLegacySessionId(oldConversationId)
-        const title = this.pickString(conversation, ['title']) || 'Imported Chat'
-        const providerId = this.pickString(conversation, ['provider_id']) || 'openai'
-        const rawModelId = this.pickString(conversation, ['model_id']) || 'gpt-4'
-        const modelId = providerId === 'acp' ? resolveAcpAgentAlias(rawModelId) : rawModelId
-        const agentId = providerId === 'acp' && modelId ? modelId : 'deepchat'
-        const isPinned = this.pickNumber(conversation, ['is_pinned']) === 1
-        const createdAt = this.pickNumber(conversation, ['created_at']) ?? Date.now()
-        const updatedAt = this.pickNumber(conversation, ['updated_at']) ?? createdAt
-        const importedActiveSkills = this.parseStringArray(
-          this.pickString(conversation, ['active_skills']) ?? ''
-        )
+        const sessionId = this.toLegacySessionId(oldConversationId);
+        const title = this.pickString(conversation, ["title"]) || "Imported Chat";
+        const providerId = this.pickString(conversation, ["provider_id"]) || "openai";
+        const rawModelId = this.pickString(conversation, ["model_id"]) || "gpt-4";
+        const modelId = providerId === "acp" ? resolveAcpAgentAlias(rawModelId) : rawModelId;
+        const agentId = providerId === "acp" && modelId ? modelId : "deepchat";
+        const isPinned = this.pickNumber(conversation, ["is_pinned"]) === 1;
+        const createdAt = this.pickNumber(conversation, ["created_at"]) ?? Date.now();
+        const updatedAt = this.pickNumber(conversation, ["updated_at"]) ?? createdAt;
+        const importedActiveSkills = this.parseStringArray(this.pickString(conversation, ["active_skills"]) ?? "");
 
-        let projectDir = this.pickString(conversation, ['agent_workspace_path', 'workdir']) ?? null
-        if (!projectDir && agentId !== 'deepchat') {
-          const workdirMap = this.parseJsonRecord(
-            this.pickString(conversation, ['acp_workdir_map']) ?? ''
-          )
+        let projectDir = this.pickString(conversation, ["agent_workspace_path", "workdir"]) ?? null;
+        if (!projectDir && agentId !== "deepchat") {
+          const workdirMap = this.parseJsonRecord(this.pickString(conversation, ["acp_workdir_map"]) ?? "");
           if (workdirMap) {
             for (const [legacyAgentId, legacyWorkdir] of Object.entries(workdirMap)) {
-              if (
-                resolveAcpAgentAlias(legacyAgentId) === agentId &&
-                typeof legacyWorkdir === 'string'
-              ) {
-                projectDir = legacyWorkdir
-                break
+              if (resolveAcpAgentAlias(legacyAgentId) === agentId && typeof legacyWorkdir === "string") {
+                projectDir = legacyWorkdir;
+                break;
               }
             }
           }
         }
-        if (!projectDir && agentId !== 'deepchat') {
-          projectDir =
-            acpWorkdirByConversationAndAgent.get(`${oldConversationId}::${agentId}`) ?? null
+        if (!projectDir && agentId !== "deepchat") {
+          projectDir = acpWorkdirByConversationAndAgent.get(`${oldConversationId}::${agentId}`) ?? null;
         }
 
         if (!this.sqlitePresenter.newSessionsTable.get(sessionId)) {
@@ -402,434 +390,408 @@ export class LegacyChatImportService {
             isDraft: false,
             activeSkills: importedActiveSkills,
             createdAt,
-            updatedAt
-          })
-          importedSessions += 1
+            updatedAt,
+          });
+          importedSessions += 1;
         }
 
         if (!this.sqlitePresenter.deepchatSessionsTable.get(sessionId)) {
-          this.sqlitePresenter.deepchatSessionsTable.create(
-            sessionId,
-            providerId,
-            modelId,
-            'full_access',
-            {
-              systemPrompt: this.pickString(conversation, ['system_prompt']) ?? undefined,
-              temperature: this.pickNumber(conversation, ['temperature']) ?? undefined,
-              contextLength: this.pickNumber(conversation, ['context_length']) ?? undefined,
-              maxTokens: this.pickNumber(conversation, ['max_tokens']) ?? undefined,
-              thinkingBudget: this.pickNumber(conversation, ['thinking_budget']) ?? undefined,
-              reasoningEffort:
-                this.pickString(conversation, ['reasoning_effort']) === 'minimal' ||
-                this.pickString(conversation, ['reasoning_effort']) === 'low' ||
-                this.pickString(conversation, ['reasoning_effort']) === 'medium' ||
-                this.pickString(conversation, ['reasoning_effort']) === 'high'
-                  ? (this.pickString(conversation, ['reasoning_effort']) as
-                      | 'minimal'
-                      | 'low'
-                      | 'medium'
-                      | 'high')
-                  : undefined,
-              verbosity:
-                this.pickString(conversation, ['verbosity']) === 'low' ||
-                this.pickString(conversation, ['verbosity']) === 'medium' ||
-                this.pickString(conversation, ['verbosity']) === 'high'
-                  ? (this.pickString(conversation, ['verbosity']) as 'low' | 'medium' | 'high')
-                  : undefined
-            }
-          )
+          this.sqlitePresenter.deepchatSessionsTable.create(sessionId, providerId, modelId, "full_access", {
+            systemPrompt: this.pickString(conversation, ["system_prompt"]) ?? undefined,
+            temperature: this.pickNumber(conversation, ["temperature"]) ?? undefined,
+            contextLength: this.pickNumber(conversation, ["context_length"]) ?? undefined,
+            maxTokens: this.pickNumber(conversation, ["max_tokens"]) ?? undefined,
+            thinkingBudget: this.pickNumber(conversation, ["thinking_budget"]) ?? undefined,
+            reasoningEffort:
+              this.pickString(conversation, ["reasoning_effort"]) === "minimal" ||
+              this.pickString(conversation, ["reasoning_effort"]) === "low" ||
+              this.pickString(conversation, ["reasoning_effort"]) === "medium" ||
+              this.pickString(conversation, ["reasoning_effort"]) === "high"
+                ? (this.pickString(conversation, ["reasoning_effort"]) as "minimal" | "low" | "medium" | "high")
+                : undefined,
+            verbosity:
+              this.pickString(conversation, ["verbosity"]) === "low" ||
+              this.pickString(conversation, ["verbosity"]) === "medium" ||
+              this.pickString(conversation, ["verbosity"]) === "high"
+                ? (this.pickString(conversation, ["verbosity"]) as "low" | "medium" | "high")
+                : undefined,
+          });
         }
 
         const messageRows = (rowsByConversation.get(oldConversationId) ?? []).sort((a, b) =>
-          this.compareMessageRows(a, b)
-        )
-        const variantByParent = new Map<string, LegacyRow>()
+          this.compareMessageRows(a, b),
+        );
+        const variantByParent = new Map<string, LegacyRow>();
         for (const row of messageRows) {
-          const isVariant = this.pickNumber(row, ['is_variant']) === 1
-          const role = this.pickString(row, ['role'])
-          const parentId = this.pickString(row, ['parent_id'])
-          if (isVariant && role === 'assistant' && parentId) {
-            variantByParent.set(parentId, row)
+          const isVariant = this.pickNumber(row, ["is_variant"]) === 1;
+          const role = this.pickString(row, ["role"]);
+          const parentId = this.pickString(row, ["parent_id"]);
+          if (isVariant && role === "assistant" && parentId) {
+            variantByParent.set(parentId, row);
           }
         }
 
-        const oldToNewMessageId = new Map<string, string>()
-        const messageToSession = new Map<string, string>()
-        let nextOrderSeq = 1
+        const oldToNewMessageId = new Map<string, string>();
+        const messageToSession = new Map<string, string>();
+        let nextOrderSeq = 1;
 
         for (const row of messageRows) {
-          if (this.pickNumber(row, ['is_variant']) === 1) {
-            continue
+          if (this.pickNumber(row, ["is_variant"]) === 1) {
+            continue;
           }
 
-          const role = this.pickString(row, ['role'])
-          if (role !== 'user' && role !== 'assistant') {
-            continue
+          const role = this.pickString(row, ["role"]);
+          if (role !== "user" && role !== "assistant") {
+            continue;
           }
 
-          const oldMessageId = this.pickString(row, ['msg_id', 'id'])
+          const oldMessageId = this.pickString(row, ["msg_id", "id"]);
           if (!oldMessageId) {
-            continue
+            continue;
           }
 
-          const parentId = this.pickString(row, ['parent_id']) || ''
-          const selectedVariant =
-            role === 'assistant' && parentId ? (variantByParent.get(parentId) ?? row) : row
-          const selectedVariantId =
-            this.pickString(selectedVariant, ['msg_id', 'id']) || oldMessageId
-          const messageId = this.toLegacyMessageId(oldMessageId)
+          const parentId = this.pickString(row, ["parent_id"]) || "";
+          const selectedVariant = role === "assistant" && parentId ? (variantByParent.get(parentId) ?? row) : row;
+          const selectedVariantId = this.pickString(selectedVariant, ["msg_id", "id"]) || oldMessageId;
+          const messageId = this.toLegacyMessageId(oldMessageId);
 
-          oldToNewMessageId.set(oldMessageId, messageId)
-          oldToNewMessageId.set(selectedVariantId, messageId)
-          messageToSession.set(messageId, sessionId)
+          oldToNewMessageId.set(oldMessageId, messageId);
+          oldToNewMessageId.set(selectedVariantId, messageId);
+          messageToSession.set(messageId, sessionId);
 
           if (this.sqlitePresenter.deepchatMessagesTable.get(messageId)) {
-            nextOrderSeq += 1
-            continue
+            nextOrderSeq += 1;
+            continue;
           }
 
           const normalizedContent =
-            role === 'user'
-              ? this.normalizeUserContent(this.pickString(selectedVariant, ['content']) || '')
-              : this.normalizeAssistantContent(this.pickString(selectedVariant, ['content']) || '')
+            role === "user"
+              ? this.normalizeUserContent(this.pickString(selectedVariant, ["content"]) || "")
+              : this.normalizeAssistantContent(this.pickString(selectedVariant, ["content"]) || "");
 
-          const status = this.normalizeMessageStatus(
-            this.pickString(selectedVariant, ['status']) || 'sent'
-          )
+          const status = this.normalizeMessageStatus(this.pickString(selectedVariant, ["status"]) || "sent");
           const createdAt =
-            this.pickNumber(selectedVariant, ['created_at']) ??
-            this.pickNumber(row, ['created_at']) ??
-            Date.now()
+            this.pickNumber(selectedVariant, ["created_at"]) ?? this.pickNumber(row, ["created_at"]) ?? Date.now();
 
           this.sqlitePresenter.deepchatMessagesTable.insert({
             id: messageId,
             sessionId,
             orderSeq: nextOrderSeq,
-            role: role as 'user' | 'assistant',
+            role: role as "user" | "assistant",
             content: normalizedContent,
             status,
-            isContextEdge: this.pickNumber(selectedVariant, ['is_context_edge']) === 1 ? 1 : 0,
-            metadata: this.normalizeMetadata(
-              this.pickString(selectedVariant, ['metadata']) || '{}'
-            ),
+            isContextEdge: this.pickNumber(selectedVariant, ["is_context_edge"]) === 1 ? 1 : 0,
+            metadata: this.normalizeMetadata(this.pickString(selectedVariant, ["metadata"]) || "{}"),
             createdAt,
-            updatedAt: createdAt
-          })
+            updatedAt: createdAt,
+          });
           this.messageStore.backfillMessageRow({
             id: messageId,
             session_id: sessionId,
             order_seq: nextOrderSeq,
-            role: role as 'user' | 'assistant',
+            role: role as "user" | "assistant",
             content: normalizedContent,
             status,
-            is_context_edge: this.pickNumber(selectedVariant, ['is_context_edge']) === 1 ? 1 : 0,
-            metadata: this.normalizeMetadata(
-              this.pickString(selectedVariant, ['metadata']) || '{}'
-            ),
+            is_context_edge: this.pickNumber(selectedVariant, ["is_context_edge"]) === 1 ? 1 : 0,
+            metadata: this.normalizeMetadata(this.pickString(selectedVariant, ["metadata"]) || "{}"),
             created_at: createdAt,
-            updated_at: createdAt
-          })
+            updated_at: createdAt,
+          });
 
-          importedMessages += 1
-          nextOrderSeq += 1
+          importedMessages += 1;
+          nextOrderSeq += 1;
         }
 
         for (const [oldMessageId, attachmentRows] of attachmentRowsByMessage.entries()) {
-          const messageId = oldToNewMessageId.get(oldMessageId)
+          const messageId = oldToNewMessageId.get(oldMessageId);
           if (!messageId) {
-            continue
+            continue;
           }
-          const bindSessionId = messageToSession.get(messageId)
+          const bindSessionId = messageToSession.get(messageId);
           if (!bindSessionId) {
-            continue
+            continue;
           }
 
           for (const attachmentRow of attachmentRows) {
-            const raw = this.pickString(attachmentRow, ['content']) || ''
-            const parsedResults = this.parseSearchResults(raw)
+            const raw = this.pickString(attachmentRow, ["content"]) || "";
+            const parsedResults = this.parseSearchResults(raw);
             for (const result of parsedResults) {
               const inserted = this.sqlitePresenter.deepchatMessageSearchResultsTable.add({
                 sessionId: bindSessionId,
                 messageId,
                 searchId: result.searchId ?? null,
-                rank: typeof result.rank === 'number' ? result.rank : null,
-                content: JSON.stringify(result)
-              })
+                rank: typeof result.rank === "number" ? result.rank : null,
+                content: JSON.stringify(result),
+              });
               if (inserted) {
-                importedSearchResults += 1
+                importedSearchResults += 1;
               }
             }
           }
         }
       }
-    })
+    });
     try {
       // newEnvironmentsTable.rebuildFromSessions only refreshes derived environment metadata.
-      this.sqlitePresenter.newEnvironmentsTable.rebuildFromSessions()
+      this.sqlitePresenter.newEnvironmentsTable.rebuildFromSessions();
     } catch (error) {
-      console.error('[LegacyChatImport] Failed to rebuild environments after import:', {
+      console.error("[LegacyChatImport] Failed to rebuild environments after import:", {
         error,
-        message: error instanceof Error ? error.message : String(error)
-      })
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     return {
       importedSessions,
       importedMessages,
-      importedSearchResults
-    }
+      importedSearchResults,
+    };
   }
 
   private parseSearchResults(raw: string): SearchResult[] {
     if (!raw.trim()) {
-      return []
+      return [];
     }
 
     try {
-      const parsed = JSON.parse(raw) as unknown
+      const parsed = JSON.parse(raw) as unknown;
       if (Array.isArray(parsed)) {
         return parsed
           .map((item) => this.normalizeSearchResult(item))
-          .filter((item): item is SearchResult => item !== null)
+          .filter((item): item is SearchResult => item !== null);
       }
-      const normalized = this.normalizeSearchResult(parsed)
-      return normalized ? [normalized] : []
+      const normalized = this.normalizeSearchResult(parsed);
+      return normalized ? [normalized] : [];
     } catch (error) {
-      console.warn('[LegacyChatImport] Failed to parse search attachment payload:', error)
-      return []
+      console.warn("[LegacyChatImport] Failed to parse search attachment payload:", error);
+      return [];
     }
   }
 
   private normalizeSearchResult(value: unknown): SearchResult | null {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return null
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
     }
-    const row = value as Record<string, unknown>
-    const url = typeof row.url === 'string' ? row.url.trim() : ''
+    const row = value as Record<string, unknown>;
+    const url = typeof row.url === "string" ? row.url.trim() : "";
     if (!url) {
-      return null
+      return null;
     }
 
     return {
-      title: typeof row.title === 'string' ? row.title : '',
+      title: typeof row.title === "string" ? row.title : "",
       url,
       snippet:
-        typeof row.snippet === 'string'
+        typeof row.snippet === "string"
           ? row.snippet
-          : typeof row.description === 'string'
+          : typeof row.description === "string"
             ? row.description
             : undefined,
-      content: typeof row.content === 'string' ? row.content : undefined,
-      description: typeof row.description === 'string' ? row.description : undefined,
-      icon: typeof row.icon === 'string' ? row.icon : undefined,
-      favicon: typeof row.favicon === 'string' ? row.favicon : undefined,
-      rank: typeof row.rank === 'number' ? row.rank : undefined,
-      searchId: typeof row.searchId === 'string' ? row.searchId : undefined
-    }
+      content: typeof row.content === "string" ? row.content : undefined,
+      description: typeof row.description === "string" ? row.description : undefined,
+      icon: typeof row.icon === "string" ? row.icon : undefined,
+      favicon: typeof row.favicon === "string" ? row.favicon : undefined,
+      rank: typeof row.rank === "number" ? row.rank : undefined,
+      searchId: typeof row.searchId === "string" ? row.searchId : undefined,
+    };
   }
 
   private normalizeUserContent(raw: string): string {
     if (!raw.trim()) {
-      return JSON.stringify(DEFAULT_USER_CONTENT)
+      return JSON.stringify(DEFAULT_USER_CONTENT);
     }
 
     try {
-      const parsed = JSON.parse(raw) as unknown
-      if (typeof parsed === 'string') {
+      const parsed = JSON.parse(raw) as unknown;
+      if (typeof parsed === "string") {
         return JSON.stringify({
           ...DEFAULT_USER_CONTENT,
-          text: parsed
-        })
+          text: parsed,
+        });
       }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        return JSON.stringify(DEFAULT_USER_CONTENT)
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return JSON.stringify(DEFAULT_USER_CONTENT);
       }
 
-      const row = parsed as Record<string, unknown>
+      const row = parsed as Record<string, unknown>;
       const normalized: UserMessageContent & { content?: unknown } = {
         ...DEFAULT_USER_CONTENT,
-        text: typeof row.text === 'string' ? row.text : '',
-        files: Array.isArray(row.files) ? (row.files as UserMessageContent['files']) : [],
-        links: Array.isArray(row.links)
-          ? row.links.filter((item): item is string => typeof item === 'string')
-          : [],
+        text: typeof row.text === "string" ? row.text : "",
+        files: Array.isArray(row.files) ? (row.files as UserMessageContent["files"]) : [],
+        links: Array.isArray(row.links) ? row.links.filter((item): item is string => typeof item === "string") : [],
         search: row.search === true,
-        think: row.think === true
-      }
+        think: row.think === true,
+      };
 
       if (Array.isArray(row.content)) {
-        normalized.content = row.content
+        normalized.content = row.content;
       }
 
-      return JSON.stringify(normalized)
+      return JSON.stringify(normalized);
     } catch {
       return JSON.stringify({
         ...DEFAULT_USER_CONTENT,
-        text: raw
-      })
+        text: raw,
+      });
     }
   }
 
   private normalizeAssistantContent(raw: string): string {
     const buildTextBlock = (content: string): AssistantMessageBlock[] => [
       {
-        type: 'content',
+        type: "content",
         content,
-        status: 'success',
-        timestamp: Date.now()
-      }
-    ]
+        status: "success",
+        timestamp: Date.now(),
+      },
+    ];
 
     if (!raw.trim()) {
-      return JSON.stringify([])
+      return JSON.stringify([]);
     }
 
     try {
-      const parsed = JSON.parse(raw) as unknown
-      if (typeof parsed === 'string') {
-        return JSON.stringify(buildTextBlock(parsed))
+      const parsed = JSON.parse(raw) as unknown;
+      if (typeof parsed === "string") {
+        return JSON.stringify(buildTextBlock(parsed));
       }
       if (Array.isArray(parsed)) {
-        return JSON.stringify(parsed)
+        return JSON.stringify(parsed);
       }
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return JSON.stringify([parsed])
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return JSON.stringify([parsed]);
       }
-      return JSON.stringify(buildTextBlock(raw))
+      return JSON.stringify(buildTextBlock(raw));
     } catch {
-      return JSON.stringify(buildTextBlock(raw))
+      return JSON.stringify(buildTextBlock(raw));
     }
   }
 
   private normalizeMetadata(raw: string): string {
     if (!raw.trim()) {
-      return '{}'
+      return "{}";
     }
     try {
-      const parsed = JSON.parse(raw) as unknown
-      if (parsed && typeof parsed === 'object') {
-        return JSON.stringify(parsed)
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object") {
+        return JSON.stringify(parsed);
       }
-      return '{}'
+      return "{}";
     } catch {
-      return '{}'
+      return "{}";
     }
   }
 
-  private normalizeMessageStatus(status: string): 'pending' | 'sent' | 'error' {
-    if (status === 'pending' || status === 'sent' || status === 'error') {
-      return status
+  private normalizeMessageStatus(status: string): "pending" | "sent" | "error" {
+    if (status === "pending" || status === "sent" || status === "error") {
+      return status;
     }
-    return 'sent'
+    return "sent";
   }
 
   private toLegacySessionId(oldConversationId: string): string {
-    return `legacy-session-${oldConversationId}`
+    return `legacy-session-${oldConversationId}`;
   }
 
   private toLegacyMessageId(oldMessageId: string): string {
-    return `legacy-msg-${oldMessageId}`
+    return `legacy-msg-${oldMessageId}`;
   }
 
   private compareMessageRows(a: LegacyRow, b: LegacyRow): number {
-    const orderSeqA = this.pickNumber(a, ['order_seq']) ?? 0
-    const orderSeqB = this.pickNumber(b, ['order_seq']) ?? 0
+    const orderSeqA = this.pickNumber(a, ["order_seq"]) ?? 0;
+    const orderSeqB = this.pickNumber(b, ["order_seq"]) ?? 0;
     if (orderSeqA !== orderSeqB) {
-      return orderSeqA - orderSeqB
+      return orderSeqA - orderSeqB;
     }
 
-    const createdAtA = this.pickNumber(a, ['created_at']) ?? 0
-    const createdAtB = this.pickNumber(b, ['created_at']) ?? 0
+    const createdAtA = this.pickNumber(a, ["created_at"]) ?? 0;
+    const createdAtB = this.pickNumber(b, ["created_at"]) ?? 0;
     if (createdAtA !== createdAtB) {
-      return createdAtA - createdAtB
+      return createdAtA - createdAtB;
     }
 
-    const idA = this.pickString(a, ['msg_id', 'id']) ?? ''
-    const idB = this.pickString(b, ['msg_id', 'id']) ?? ''
-    return idA.localeCompare(idB)
+    const idA = this.pickString(a, ["msg_id", "id"]) ?? "";
+    const idB = this.pickString(b, ["msg_id", "id"]) ?? "";
+    return idA.localeCompare(idB);
   }
 
   private readTableRows(db: Database.Database, tableName: string): LegacyRow[] {
-    const exists = db
-      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(tableName)
+    const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
     if (!exists) {
-      return []
+      return [];
     }
-    return db.prepare(`SELECT * FROM "${tableName}"`).all() as LegacyRow[]
+    return db.prepare(`SELECT * FROM "${tableName}"`).all() as LegacyRow[];
   }
 
   private parseJsonRecord(raw: string): Record<string, unknown> | null {
     if (!raw.trim()) {
-      return null
+      return null;
     }
     try {
-      const parsed = JSON.parse(raw) as unknown
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
       }
-      return null
+      return null;
     } catch {
-      return null
+      return null;
     }
   }
 
   private pickString(row: LegacyRow, keys: string[]): string | null {
     for (const key of keys) {
-      const value = row[key]
-      if (typeof value === 'string') {
-        return value
+      const value = row[key];
+      if (typeof value === "string") {
+        return value;
       }
     }
-    return null
+    return null;
   }
 
   private pickNumber(row: LegacyRow, keys: string[]): number | null {
     for (const key of keys) {
-      const value = row[key]
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return value
+      const value = row[key];
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
       }
-      if (typeof value === 'string' && value.trim()) {
-        const parsed = Number(value)
+      if (typeof value === "string" && value.trim()) {
+        const parsed = Number(value);
         if (Number.isFinite(parsed)) {
-          return parsed
+          return parsed;
         }
       }
     }
-    return null
+    return null;
   }
 
   private parseStringArray(raw: string): string[] {
     if (!raw.trim()) {
-      return []
+      return [];
     }
 
     try {
-      const parsed = JSON.parse(raw) as unknown
-      return Array.isArray(parsed)
-        ? parsed.filter((item): item is string => typeof item === 'string')
-        : []
+      const parsed = JSON.parse(raw) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
     } catch {
-      return []
+      return [];
     }
   }
 
   private async ensureImportedLegacySkillRepair(): Promise<void> {
-    const status = this.sqlitePresenter.legacyImportStatusTable.get(SKILL_REPAIR_KEY)
-    if (status?.status === 'completed') {
-      return
+    const status = this.sqlitePresenter.legacyImportStatusTable.get(SKILL_REPAIR_KEY);
+    if (status?.status === "completed") {
+      return;
     }
 
     if (this.skillRepairPromise) {
-      await this.skillRepairPromise
-      return
+      await this.skillRepairPromise;
+      return;
     }
 
     this.skillRepairPromise = (async () => {
-      const startedAt = status?.started_at ?? Date.now()
+      const startedAt = status?.started_at ?? Date.now();
       this.sqlitePresenter.legacyImportStatusTable.upsert(SKILL_REPAIR_KEY, {
-        status: 'running',
+        status: "running",
         sourceDbPath: this.sourceDbPath,
         startedAt,
         finishedAt: null,
@@ -837,14 +799,14 @@ export class LegacyChatImportService {
         importedMessages: 0,
         importedSearchResults: 0,
         error: null,
-        updatedAt: Date.now()
-      })
+        updatedAt: Date.now(),
+      });
 
       try {
-        const repairedSessions = await this.backfillImportedLegacySessionSkills()
-        const finishedAt = Date.now()
+        const repairedSessions = await this.backfillImportedLegacySessionSkills();
+        const finishedAt = Date.now();
         this.sqlitePresenter.legacyImportStatusTable.upsert(SKILL_REPAIR_KEY, {
-          status: 'completed',
+          status: "completed",
           sourceDbPath: this.sourceDbPath,
           startedAt,
           finishedAt,
@@ -852,12 +814,12 @@ export class LegacyChatImportService {
           importedMessages: 0,
           importedSearchResults: 0,
           error: null,
-          updatedAt: finishedAt
-        })
+          updatedAt: finishedAt,
+        });
       } catch (error) {
-        const finishedAt = Date.now()
+        const finishedAt = Date.now();
         this.sqlitePresenter.legacyImportStatusTable.upsert(SKILL_REPAIR_KEY, {
-          status: 'failed',
+          status: "failed",
           sourceDbPath: this.sourceDbPath,
           startedAt,
           finishedAt,
@@ -865,65 +827,63 @@ export class LegacyChatImportService {
           importedMessages: 0,
           importedSearchResults: 0,
           error: error instanceof Error ? error.message : String(error),
-          updatedAt: finishedAt
-        })
-        throw error
+          updatedAt: finishedAt,
+        });
+        throw error;
       }
     })().finally(() => {
-      this.skillRepairPromise = null
-    })
+      this.skillRepairPromise = null;
+    });
 
-    await this.skillRepairPromise
+    await this.skillRepairPromise;
   }
 
   private async backfillImportedLegacySessionSkills(): Promise<number> {
     try {
-      const total = await this.sqlitePresenter.getConversationCount()
+      const total = await this.sqlitePresenter.getConversationCount();
       if (total <= 0) {
-        return 0
+        return 0;
       }
 
-      const pageSize = 200
-      const totalPages = Math.ceil(total / pageSize)
-      let repairedSessions = 0
+      const pageSize = 200;
+      const totalPages = Math.ceil(total / pageSize);
+      let repairedSessions = 0;
 
       for (let page = 1; page <= totalPages; page += 1) {
-        const { list } = await this.sqlitePresenter.getConversationList(page, pageSize)
+        const { list } = await this.sqlitePresenter.getConversationList(page, pageSize);
         await this.sqlitePresenter.runTransaction(() => {
           for (const conversation of list) {
             const legacySkills = Array.isArray(conversation.settings?.activeSkills)
-              ? conversation.settings.activeSkills.filter(
-                  (item): item is string => typeof item === 'string'
-                )
-              : []
+              ? conversation.settings.activeSkills.filter((item): item is string => typeof item === "string")
+              : [];
             if (legacySkills.length === 0) {
-              continue
+              continue;
             }
 
-            const sessionId = this.toLegacySessionId(conversation.id)
-            const sessionRow = this.sqlitePresenter.newSessionsTable.get(sessionId)
+            const sessionId = this.toLegacySessionId(conversation.id);
+            const sessionRow = this.sqlitePresenter.newSessionsTable.get(sessionId);
             if (!sessionRow) {
-              continue
+              continue;
             }
 
-            const currentSkills = this.sqlitePresenter.newSessionsTable.getActiveSkills(sessionId)
+            const currentSkills = this.sqlitePresenter.newSessionsTable.getActiveSkills(sessionId);
             if (currentSkills.length > 0) {
-              continue
+              continue;
             }
 
-            this.sqlitePresenter.newSessionsTable.updateActiveSkills(sessionId, legacySkills)
-            repairedSessions += 1
+            this.sqlitePresenter.newSessionsTable.updateActiveSkills(sessionId, legacySkills);
+            repairedSessions += 1;
           }
-        })
+        });
       }
 
-      return repairedSessions
+      return repairedSessions;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      if (message.includes('no such table')) {
-        return 0
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("no such table")) {
+        return 0;
       }
-      throw error
+      throw error;
     }
   }
 }

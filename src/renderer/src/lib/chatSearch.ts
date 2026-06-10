@@ -1,185 +1,178 @@
-const HIGHLIGHT_SELECTOR = '[data-chat-search-match]'
-const ACTIVE_HIGHLIGHT_SELECTOR = '[data-chat-search-active]'
+const HIGHLIGHT_SELECTOR = "[data-chat-search-match]";
+const ACTIVE_HIGHLIGHT_SELECTOR = "[data-chat-search-active]";
 
-export type ChatSearchMatch = HTMLElement
+export type ChatSearchMatch = HTMLElement;
 
 const isIgnoredElement = (element: HTMLElement | null): boolean =>
-  Boolean(
-    element?.closest(
-      'input, textarea, select, button, [contenteditable="true"], [data-chat-search-match]'
-    )
-  )
+  Boolean(element?.closest('input, textarea, select, button, [contenteditable="true"], [data-chat-search-match]'));
 
 const isElementVisible = (element: HTMLElement | null): boolean => {
-  let currentElement = element
+  let currentElement = element;
 
   while (currentElement) {
-    if (currentElement.hidden || currentElement.getAttribute('aria-hidden') === 'true') {
-      return false
+    if (currentElement.hidden || currentElement.getAttribute("aria-hidden") === "true") {
+      return false;
     }
 
-    const style = window.getComputedStyle(currentElement)
+    const style = window.getComputedStyle(currentElement);
     if (
-      style.display === 'none' ||
-      style.visibility === 'hidden' ||
-      style.visibility === 'collapse' ||
-      style.contentVisibility === 'hidden' ||
-      style.opacity === '0'
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      style.visibility === "collapse" ||
+      style.contentVisibility === "hidden" ||
+      style.opacity === "0"
     ) {
-      return false
+      return false;
     }
 
-    currentElement = currentElement.parentElement
+    currentElement = currentElement.parentElement;
   }
 
-  return true
-}
+  return true;
+};
 
 const collectSearchableTextNodes = (root: ParentNode): Text[] => {
-  if (typeof document === 'undefined') {
-    return []
+  if (typeof document === "undefined") {
+    return [];
   }
 
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (!(node instanceof Text)) {
-        return NodeFilter.FILTER_REJECT
+        return NodeFilter.FILTER_REJECT;
       }
 
       if (!node.nodeValue?.trim()) {
-        return NodeFilter.FILTER_REJECT
+        return NodeFilter.FILTER_REJECT;
       }
 
-      const parentElement = node.parentElement
+      const parentElement = node.parentElement;
       if (!parentElement || isIgnoredElement(parentElement) || !isElementVisible(parentElement)) {
-        return NodeFilter.FILTER_REJECT
+        return NodeFilter.FILTER_REJECT;
       }
 
-      return NodeFilter.FILTER_ACCEPT
-    }
-  })
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
 
-  const nodes: Text[] = []
-  let currentNode = walker.nextNode()
+  const nodes: Text[] = [];
+  let currentNode = walker.nextNode();
   while (currentNode) {
     if (currentNode instanceof Text) {
-      nodes.push(currentNode)
+      nodes.push(currentNode);
     }
-    currentNode = walker.nextNode()
+    currentNode = walker.nextNode();
   }
 
-  return nodes
-}
+  return nodes;
+};
 
 const buildHighlightedFragment = (value: string, query: string): DocumentFragment | null => {
-  const fragment = document.createDocumentFragment()
-  const lowerValue = value.toLowerCase()
-  const lowerQuery = query.toLowerCase()
-  let searchIndex = 0
-  let matchIndex = lowerValue.indexOf(lowerQuery)
-  let hasMatch = false
+  const fragment = document.createDocumentFragment();
+  const lowerValue = value.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  let searchIndex = 0;
+  let matchIndex = lowerValue.indexOf(lowerQuery);
+  let hasMatch = false;
 
   while (matchIndex !== -1) {
-    hasMatch = true
+    hasMatch = true;
 
     if (matchIndex > searchIndex) {
-      fragment.appendChild(document.createTextNode(value.slice(searchIndex, matchIndex)))
+      fragment.appendChild(document.createTextNode(value.slice(searchIndex, matchIndex)));
     }
 
-    const highlight = document.createElement('mark')
-    highlight.dataset.chatSearchMatch = 'true'
-    highlight.className = 'chat-search-highlight'
-    highlight.textContent = value.slice(matchIndex, matchIndex + query.length)
-    fragment.appendChild(highlight)
+    const highlight = document.createElement("mark");
+    highlight.dataset.chatSearchMatch = "true";
+    highlight.className = "chat-search-highlight";
+    highlight.textContent = value.slice(matchIndex, matchIndex + query.length);
+    fragment.appendChild(highlight);
 
-    searchIndex = matchIndex + query.length
-    matchIndex = lowerValue.indexOf(lowerQuery, searchIndex)
+    searchIndex = matchIndex + query.length;
+    matchIndex = lowerValue.indexOf(lowerQuery, searchIndex);
   }
 
   if (!hasMatch) {
-    return null
+    return null;
   }
 
   if (searchIndex < value.length) {
-    fragment.appendChild(document.createTextNode(value.slice(searchIndex)))
+    fragment.appendChild(document.createTextNode(value.slice(searchIndex)));
   }
 
-  return fragment
-}
+  return fragment;
+};
 
 export const clearChatSearchHighlights = (root: ParentNode | null | undefined): void => {
   if (!root) {
-    return
+    return;
   }
 
-  const highlights = root.querySelectorAll<HTMLElement>(HIGHLIGHT_SELECTOR)
+  const highlights = root.querySelectorAll<HTMLElement>(HIGHLIGHT_SELECTOR);
   highlights.forEach((highlight) => {
-    const parent = highlight.parentNode
+    const parent = highlight.parentNode;
     if (!parent) {
-      return
+      return;
     }
 
-    parent.replaceChild(document.createTextNode(highlight.textContent ?? ''), highlight)
-    parent.normalize()
-  })
+    parent.replaceChild(document.createTextNode(highlight.textContent ?? ""), highlight);
+    parent.normalize();
+  });
 
   root.querySelectorAll<HTMLElement>(ACTIVE_HIGHLIGHT_SELECTOR).forEach((highlight) => {
-    highlight.removeAttribute('data-chat-search-active')
-  })
-}
+    highlight.removeAttribute("data-chat-search-active");
+  });
+};
 
-export const applyChatSearchHighlights = (
-  root: ParentNode | null | undefined,
-  query: string
-): ChatSearchMatch[] => {
+export const applyChatSearchHighlights = (root: ParentNode | null | undefined, query: string): ChatSearchMatch[] => {
   if (!root) {
-    return []
+    return [];
   }
 
-  clearChatSearchHighlights(root)
+  clearChatSearchHighlights(root);
 
-  const normalizedQuery = query.trim()
+  const normalizedQuery = query.trim();
   if (!normalizedQuery) {
-    return []
+    return [];
   }
 
-  const searchableNodes = collectSearchableTextNodes(root)
+  const searchableNodes = collectSearchableTextNodes(root);
   searchableNodes.forEach((node) => {
-    const value = node.nodeValue ?? ''
-    const fragment = buildHighlightedFragment(value, normalizedQuery)
+    const value = node.nodeValue ?? "";
+    const fragment = buildHighlightedFragment(value, normalizedQuery);
     if (!fragment || !node.parentNode) {
-      return
+      return;
     }
 
-    node.parentNode.replaceChild(fragment, node)
-  })
+    node.parentNode.replaceChild(fragment, node);
+  });
 
-  return Array.from(root.querySelectorAll<HTMLElement>(HIGHLIGHT_SELECTOR))
-}
+  return Array.from(root.querySelectorAll<HTMLElement>(HIGHLIGHT_SELECTOR));
+};
 
 export const setActiveChatSearchMatch = (
   matches: ChatSearchMatch[],
   index: number,
-  options: { scroll?: boolean; behavior?: ScrollBehavior } = {}
+  options: { scroll?: boolean; behavior?: ScrollBehavior } = {},
 ): ChatSearchMatch | null => {
   matches.forEach((match, matchIndex) => {
     if (matchIndex === index) {
-      match.dataset.chatSearchActive = 'true'
-      match.classList.add('chat-search-highlight--active')
+      match.dataset.chatSearchActive = "true";
+      match.classList.add("chat-search-highlight--active");
     } else {
-      match.removeAttribute('data-chat-search-active')
-      match.classList.remove('chat-search-highlight--active')
+      match.removeAttribute("data-chat-search-active");
+      match.classList.remove("chat-search-highlight--active");
     }
-  })
+  });
 
-  const activeMatch = matches[index] ?? null
+  const activeMatch = matches[index] ?? null;
   if (activeMatch && options.scroll !== false) {
     activeMatch.scrollIntoView({
-      block: 'center',
-      inline: 'nearest',
-      behavior: options.behavior ?? 'auto'
-    })
+      block: "center",
+      inline: "nearest",
+      behavior: options.behavior ?? "auto",
+    });
   }
 
-  return activeMatch
-}
+  return activeMatch;
+};

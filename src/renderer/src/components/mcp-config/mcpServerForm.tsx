@@ -1,34 +1,28 @@
-import React, { useState, useMemo, useEffect, useCallback, watch } from 'react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Textarea } from '@shadcn/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { MCPServerConfig } from '@shared/presenter'
-import { EmojiPicker } from '@/components/emoji-picker'
-import { useToast } from '@/components/use-toast'
-import { Icon } from '@iconify/react'
-import { X } from 'lucide-react'
-import { createDeviceClient } from '@api/DeviceClient'
-import { nanoid } from 'nanoid'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
+import { type FC, type FormEvent, useState, useMemo, useEffect, useCallback } from "react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Textarea } from "@shadcn/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { MCPServerConfig } from "@shared/presenter";
+import { EmojiPicker } from "@/components/emoji-picker";
+import { useToast } from "@/components/use-toast";
+import { Icon } from "@iconify/react";
+import { X } from "lucide-react";
+import { createDeviceClient } from "@api/DeviceClient";
+import { nanoid } from "nanoid";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
 
-type MCPServerTypeOption = 'sse' | 'stdio' | 'inmemory' | 'http'
-const VALID_MCP_TYPES: MCPServerTypeOption[] = ['stdio', 'sse', 'http', 'inmemory']
+type MCPServerTypeOption = "sse" | "stdio" | "inmemory" | "http";
+const VALID_MCP_TYPES: MCPServerTypeOption[] = ["stdio", "sse", "http", "inmemory"];
 
 interface McpServerFormProps {
-  serverName?: string
-  initialConfig?: MCPServerConfig
-  editMode?: boolean
-  defaultJsonConfig?: string
-  onSubmit: (serverName: string, config: MCPServerConfig) => void
+  serverName?: string;
+  initialConfig?: MCPServerConfig;
+  editMode?: boolean;
+  defaultJsonConfig?: string;
+  onSubmit: (serverName: string, config: MCPServerConfig) => void;
 }
 
 const placeholder = `MCP config example:
@@ -39,332 +33,289 @@ const placeholder = `MCP config example:
       "args": ["-y", ...]
     }
   }
-}`
+}`;
 
 const customHeadersPlaceholder = `Authorization=Bearer your_token
-HTTP-Referer=deepchatai.cn`
+HTTP-Referer=deepchatai.cn`;
 
-export const McpServerForm: React.FC<McpServerFormProps> = ({
+export const McpServerForm: FC<McpServerFormProps> = ({
   serverName: serverNameProp,
   initialConfig,
   editMode = false,
   defaultJsonConfig,
-  onSubmit
+  onSubmit,
 }) => {
-  const { toast } = useToast()
-  const deviceClient = createDeviceClient()
+  const { toast } = useToast();
+  const deviceClient = createDeviceClient();
 
-  const [name, setName] = useState(serverNameProp || '')
-  const [command, setCommand] = useState(initialConfig?.command || 'npx')
-  const [args, setArgs] = useState(initialConfig?.args?.join('\n') || '')
-  const [env, setEnv] = useState(JSON.stringify(initialConfig?.env || {}, null, 2))
-  const [descriptions, setDescriptions] = useState(initialConfig?.descriptions || '')
-  const [icons, setIcons] = useState(initialConfig?.icons || '📁')
+  const [name, setName] = useState(serverNameProp || "");
+  const [command, setCommand] = useState(initialConfig?.command || "npx");
+  const [args, setArgs] = useState(initialConfig?.args?.join("\n") || "");
+  const [env, setEnv] = useState(JSON.stringify(initialConfig?.env || {}, null, 2));
+  const [descriptions, setDescriptions] = useState(initialConfig?.descriptions || "");
+  const [icons, setIcons] = useState(initialConfig?.icons || "📁");
   const [type, setType] = useState<MCPServerTypeOption>(
-    (initialConfig?.type as MCPServerTypeOption | undefined) || 'stdio'
-  )
-  const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || '')
-  const [customHeaders, setCustomHeaders] = useState('')
-  const [customHeadersFocused, setCustomHeadersFocused] = useState(false)
-  const [customHeadersDisplayValue, setCustomHeadersDisplayValue] = useState('')
-  const [npmRegistry, setNpmRegistry] = useState(initialConfig?.customNpmRegistry || '')
-  const [autoApproveAll, setAutoApproveAll] = useState(
-    initialConfig?.autoApprove?.includes('all') || false
-  )
+    (initialConfig?.type as MCPServerTypeOption | undefined) || "stdio",
+  );
+  const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "");
+  const [customHeaders, setCustomHeaders] = useState("");
+  const [customHeadersFocused, setCustomHeadersFocused] = useState(false);
+  const [customHeadersDisplayValue, setCustomHeadersDisplayValue] = useState("");
+  const [npmRegistry, setNpmRegistry] = useState(initialConfig?.customNpmRegistry || "");
+  const [autoApproveAll, setAutoApproveAll] = useState(initialConfig?.autoApprove?.includes("all") || false);
   const [autoApproveRead, setAutoApproveRead] = useState(
-    initialConfig?.autoApprove?.includes('read') ||
-      initialConfig?.autoApprove?.includes('all') ||
-      false
-  )
+    initialConfig?.autoApprove?.includes("read") || initialConfig?.autoApprove?.includes("all") || false,
+  );
   const [autoApproveWrite, setAutoApproveWrite] = useState(
-    initialConfig?.autoApprove?.includes('write') ||
-      initialConfig?.autoApprove?.includes('all') ||
-      false
-  )
-  const [currentStep, setCurrentStep] = useState(editMode ? 'detailed' : 'simple')
-  const [jsonConfig, setJsonConfig] = useState('')
-  const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>([])
-  const [foldersList, setFoldersList] = useState<string[]>([])
+    initialConfig?.autoApprove?.includes("write") || initialConfig?.autoApprove?.includes("all") || false,
+  );
+  const [currentStep, setCurrentStep] = useState(editMode ? "detailed" : "simple");
+  const [jsonConfig, setJsonConfig] = useState("");
+  const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>([]);
+  const [foldersList, setFoldersList] = useState<string[]>([]);
 
-  const isInMemoryType = useMemo(() => type === 'inmemory', [type])
-  const isBuildInFileSystem = useMemo(
-    () => isInMemoryType && name === 'buildInFileSystem',
-    [isInMemoryType, name]
-  )
-  const isHttpTransportType = useMemo(() => type === 'http', [type])
-  const isRemoteType = useMemo(
-    () => type === 'sse' || isHttpTransportType,
-    [type, isHttpTransportType]
-  )
-  const isFieldReadOnly = useMemo(() => editMode && isInMemoryType, [editMode, isInMemoryType])
-  const showBaseUrl = useMemo(() => isRemoteType, [isRemoteType])
-  const showCommandFields = useMemo(() => type === 'stdio', [type])
+  const isInMemoryType = useMemo(() => type === "inmemory", [type]);
+  const isBuildInFileSystem = useMemo(() => isInMemoryType && name === "buildInFileSystem", [isInMemoryType, name]);
+  const isHttpTransportType = useMemo(() => type === "http", [type]);
+  const isRemoteType = useMemo(() => type === "sse" || isHttpTransportType, [type, isHttpTransportType]);
+  const isFieldReadOnly = useMemo(() => editMode && isInMemoryType, [editMode, isInMemoryType]);
+  const showBaseUrl = useMemo(() => isRemoteType, [isRemoteType]);
+  const showCommandFields = useMemo(() => type === "stdio", [type]);
   const showArgsInput = useMemo(
     () => showCommandFields || (isInMemoryType && !isBuildInFileSystem),
-    [showCommandFields, isInMemoryType, isBuildInFileSystem]
-  )
-  const showFolderSelector = useMemo(() => isBuildInFileSystem, [isBuildInFileSystem])
+    [showCommandFields, isInMemoryType, isBuildInFileSystem],
+  );
+  const showFolderSelector = useMemo(() => isBuildInFileSystem, [isBuildInFileSystem]);
   const showNpmRegistryInput = useMemo(
-    () => type === 'stdio' && ['npx', 'node'].includes(command.toLowerCase()),
-    [type, command]
-  )
+    () => type === "stdio" && ["npx", "node"].includes(command.toLowerCase()),
+    [type, command],
+  );
 
   const formatJsonHeaders = (headers: Record<string, string>): string =>
     Object.entries(headers)
       .map(([key, value]) => `${key}=${value}`)
-      .join('\n')
+      .join("\n");
 
   const parseKeyValueHeaders = (text: string): Record<string, string> => {
-    const headers: Record<string, string> = {}
-    if (!text) return headers
-    for (const line of text.split('\n')) {
-      const trimmedLine = line.trim()
-      if (!trimmedLine) continue
-      const separatorIndex = trimmedLine.indexOf('=')
+    const headers: Record<string, string> = {};
+    if (!text) return headers;
+    for (const line of text.split("\n")) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+      const separatorIndex = trimmedLine.indexOf("=");
       if (separatorIndex > 0) {
-        const key = trimmedLine.substring(0, separatorIndex).trim()
-        const value = trimmedLine.substring(separatorIndex + 1).trim()
-        if (key) headers[key] = value
+        const key = trimmedLine.substring(0, separatorIndex).trim();
+        const value = trimmedLine.substring(separatorIndex + 1).trim();
+        if (key) headers[key] = value;
       }
     }
-    return headers
-  }
+    return headers;
+  };
 
-  const createArgsRows = (values: string[]) => values.map((v) => ({ id: nanoid(), value: v }))
+  const createArgsRows = (values: string[]) => values.map((v) => ({ id: nanoid(), value: v }));
 
   const syncArgsRowsFromString = (value: string) => {
-    const parsedValues = value ? value.split(/\r?\n/) : []
-    const currentValues = argsRows.map((row) => row.value)
-    if (
-      parsedValues.length === currentValues.length &&
-      parsedValues.every((val, i) => val === currentValues[i])
-    )
-      return
-    setArgsRows(createArgsRows(parsedValues))
-  }
+    const parsedValues = value ? value.split(/\r?\n/) : [];
+    const currentValues = argsRows.map((row) => row.value);
+    if (parsedValues.length === currentValues.length && parsedValues.every((val, i) => val === currentValues[i]))
+      return;
+    setArgsRows(createArgsRows(parsedValues));
+  };
 
-  const addArgsRow = () => setArgsRows((prev) => [...prev, { id: nanoid(), value: '' }])
-  const removeArgsRow = (id: string) => setArgsRows((prev) => prev.filter((row) => row.id !== id))
+  const addArgsRow = () => setArgsRows((prev) => [...prev, { id: nanoid(), value: "" }]);
+  const removeArgsRow = (id: string) => setArgsRows((prev) => prev.filter((row) => row.id !== id));
 
   const addFolder = async () => {
     try {
-      const result = await deviceClient.selectDirectory()
+      const result = await deviceClient.selectDirectory();
       if (!result.canceled && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0]
+        const selectedPath = result.filePaths[0];
         if (!foldersList.includes(selectedPath)) {
-          setFoldersList((prev) => [...prev, selectedPath])
+          setFoldersList((prev) => [...prev, selectedPath]);
         }
       }
     } catch (error) {
-      console.error('Folder select error:', error)
-      toast({ title: 'Select Folder Error', description: String(error), variant: 'destructive' })
+      console.error("Folder select error:", error);
+      toast({ title: "Select Folder Error", description: String(error), variant: "destructive" });
     }
-  }
+  };
 
-  const removeFolder = (index: number) =>
-    setFoldersList((prev) => prev.filter((_, i) => i !== index))
+  const removeFolder = (index: number) => setFoldersList((prev) => prev.filter((_, i) => i !== index));
 
   useEffect(() => {
     if (isBuildInFileSystem) {
       if (args) {
-        setFoldersList(args.split(/\r?\n/).filter((item) => item.trim().length > 0))
+        setFoldersList(args.split(/\r?\n/).filter((item) => item.trim().length > 0));
       } else {
-        setFoldersList([])
+        setFoldersList([]);
       }
     } else {
-      syncArgsRowsFromString(args || '')
+      syncArgsRowsFromString(args || "");
     }
-  }, [args])
+  }, [args]);
 
   useEffect(() => {
-    if (isBuildInFileSystem) return
-    const joinedArgs = argsRows.map((row) => row.value).join('\n')
-    if (args !== joinedArgs) setArgs(joinedArgs)
-  }, [argsRows])
+    if (isBuildInFileSystem) return;
+    const joinedArgs = argsRows.map((row) => row.value).join("\n");
+    if (args !== joinedArgs) setArgs(joinedArgs);
+  }, [argsRows]);
 
   useEffect(() => {
     if (isBuildInFileSystem) {
-      setArgs(foldersList.join('\n'))
+      setArgs(foldersList.join("\n"));
     }
-  }, [foldersList])
+  }, [foldersList]);
 
   const validateKeyValueHeaders = (text: string): boolean => {
-    if (!text.trim()) return true
-    for (const line of text.split('\n')) {
-      const trimmedLine = line.trim()
-      if (!trimmedLine) continue
-      const parts = trimmedLine.split('=')
-      if (parts.length < 2 || !parts[0].trim()) return false
+    if (!text.trim()) return true;
+    for (const line of text.split("\n")) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) continue;
+      const parts = trimmedLine.split("=");
+      if (parts.length < 2 || !parts[0].trim()) return false;
     }
-    return true
-  }
+    return true;
+  };
 
-  const isNameValid = useMemo(() => name.trim().length > 0, [name])
+  const isNameValid = useMemo(() => name.trim().length > 0, [name]);
   const isCommandValid = useMemo(() => {
-    if (isRemoteType) return true
-    if (type === 'stdio' || isInMemoryType) return command.trim().length > 0
-    return true
-  }, [isRemoteType, type, isInMemoryType, command])
+    if (isRemoteType) return true;
+    if (type === "stdio" || isInMemoryType) return command.trim().length > 0;
+    return true;
+  }, [isRemoteType, type, isInMemoryType, command]);
   const isEnvValid = useMemo(() => {
     try {
-      if (!env.trim()) return true
-      JSON.parse(env)
-      return true
+      if (!env.trim()) return true;
+      JSON.parse(env);
+      return true;
     } catch {
-      return false
+      return false;
     }
-  }, [env])
-  const isBaseUrlValid = useMemo(
-    () => !isRemoteType || baseUrl.trim().length > 0,
-    [isRemoteType, baseUrl]
-  )
-  const isCustomHeadersFormatValid = useMemo(
-    () => validateKeyValueHeaders(customHeaders),
-    [customHeaders]
-  )
+  }, [env]);
+  const isBaseUrlValid = useMemo(() => !isRemoteType || baseUrl.trim().length > 0, [isRemoteType, baseUrl]);
+  const isCustomHeadersFormatValid = useMemo(() => validateKeyValueHeaders(customHeaders), [customHeaders]);
   const isFormValid = useMemo(() => {
-    if (!isNameValid) return false
-    if (isRemoteType) return isNameValid && isBaseUrlValid && isCustomHeadersFormatValid
-    return isNameValid && isCommandValid && isEnvValid
-  }, [
-    isNameValid,
-    isRemoteType,
-    isBaseUrlValid,
-    isCustomHeadersFormatValid,
-    isCommandValid,
-    isEnvValid
-  ])
+    if (!isNameValid) return false;
+    if (isRemoteType) return isNameValid && isBaseUrlValid && isCustomHeadersFormatValid;
+    return isNameValid && isCommandValid && isEnvValid;
+  }, [isNameValid, isRemoteType, isBaseUrlValid, isCustomHeadersFormatValid, isCommandValid, isEnvValid]);
 
   const maskSensitiveValue = (value: string): string =>
     value.replace(/=(.+)/g, (_, val) => {
-      const trimmedVal = val.trim()
-      if (trimmedVal.length <= 4) return '=' + '*'.repeat(trimmedVal.length)
-      if (trimmedVal.length <= 12) return '=' + trimmedVal.substring(0, 1) + '*'.repeat(6)
-      return (
-        '=' +
-        trimmedVal.substring(0, 2) +
-        '*'.repeat(8) +
-        trimmedVal.substring(trimmedVal.length - 2)
-      )
-    })
+      const trimmedVal = val.trim();
+      if (trimmedVal.length <= 4) return "=" + "*".repeat(trimmedVal.length);
+      if (trimmedVal.length <= 12) return "=" + trimmedVal.substring(0, 1) + "*".repeat(6);
+      return "=" + trimmedVal.substring(0, 2) + "*".repeat(8) + trimmedVal.substring(trimmedVal.length - 2);
+    });
 
   const updateCustomHeadersDisplay = useCallback(() => {
     if (customHeadersFocused || !customHeaders.trim()) {
-      setCustomHeadersDisplayValue(customHeaders)
+      setCustomHeadersDisplayValue(customHeaders);
     } else {
       setCustomHeadersDisplayValue(
         customHeaders
-          .split('\n')
+          .split("\n")
           .map((line) => {
-            const trimmedLine = line.trim()
-            if (!trimmedLine || !trimmedLine.includes('=')) return line
-            return maskSensitiveValue(line)
+            const trimmedLine = line.trim();
+            if (!trimmedLine || !trimmedLine.includes("=")) return line;
+            return maskSensitiveValue(line);
           })
-          .join('\n')
-      )
+          .join("\n"),
+      );
     }
-  }, [customHeaders, customHeadersFocused])
+  }, [customHeaders, customHeadersFocused]);
 
   useEffect(() => {
-    updateCustomHeadersDisplay()
-  }, [updateCustomHeadersDisplay])
+    updateCustomHeadersDisplay();
+  }, [updateCustomHeadersDisplay]);
 
   useEffect(() => {
     if (defaultJsonConfig) {
-      setJsonConfig(defaultJsonConfig)
+      setJsonConfig(defaultJsonConfig);
     }
-  }, [defaultJsonConfig])
+  }, [defaultJsonConfig]);
 
   useEffect(() => {
     if (initialConfig && editMode && !defaultJsonConfig) {
-      setCommand(initialConfig.command || 'npx')
-      setEnv(JSON.stringify(initialConfig.env || {}, null, 2))
-      setDescriptions(initialConfig.descriptions || '')
-      setIcons(initialConfig.icons || '📁')
-      setType(initialConfig.type || 'stdio')
-      setBaseUrl(initialConfig.baseUrl || '')
-      setNpmRegistry(initialConfig.customNpmRegistry || '')
-      const incomingArgs = Array.isArray(initialConfig.args) ? initialConfig.args : []
+      setCommand(initialConfig.command || "npx");
+      setEnv(JSON.stringify(initialConfig.env || {}, null, 2));
+      setDescriptions(initialConfig.descriptions || "");
+      setIcons(initialConfig.icons || "📁");
+      setType(initialConfig.type || "stdio");
+      setBaseUrl(initialConfig.baseUrl || "");
+      setNpmRegistry(initialConfig.customNpmRegistry || "");
+      const incomingArgs = Array.isArray(initialConfig.args) ? initialConfig.args : [];
       if (isBuildInFileSystem) {
-        setFoldersList(incomingArgs)
-        setArgs(incomingArgs.join('\n'))
+        setFoldersList(incomingArgs);
+        setArgs(incomingArgs.join("\n"));
       } else {
-        syncArgsRowsFromString(incomingArgs.join('\n'))
+        syncArgsRowsFromString(incomingArgs.join("\n"));
       }
       if (initialConfig.customHeaders) {
-        setCustomHeaders(formatJsonHeaders(initialConfig.customHeaders))
+        setCustomHeaders(formatJsonHeaders(initialConfig.customHeaders));
       } else {
-        setCustomHeaders('')
+        setCustomHeaders("");
       }
-      setAutoApproveAll(initialConfig.autoApprove?.includes('all') || false)
+      setAutoApproveAll(initialConfig.autoApprove?.includes("all") || false);
       setAutoApproveRead(
-        initialConfig.autoApprove?.includes('read') ||
-          initialConfig.autoApprove?.includes('all') ||
-          false
-      )
+        initialConfig.autoApprove?.includes("read") || initialConfig.autoApprove?.includes("all") || false,
+      );
       setAutoApproveWrite(
-        initialConfig.autoApprove?.includes('write') ||
-          initialConfig.autoApprove?.includes('all') ||
-          false
-      )
-      setCurrentStep('detailed')
+        initialConfig.autoApprove?.includes("write") || initialConfig.autoApprove?.includes("all") || false,
+      );
+      setCurrentStep("detailed");
     }
-  }, [initialConfig, editMode, defaultJsonConfig])
+  }, [initialConfig, editMode, defaultJsonConfig]);
 
   const parseJsonConfig = () => {
     try {
-      const parsedConfig = JSON.parse(jsonConfig)
-      if (!parsedConfig.mcpServers || typeof parsedConfig.mcpServers !== 'object')
-        throw new Error('Invalid format')
-      const serverEntries = Object.entries(parsedConfig.mcpServers)
-      if (serverEntries.length === 0) throw new Error('No servers found')
-      const [serverName, serverConfig] = serverEntries[0] as [string, any]
-      setName(serverName)
-      setCommand(serverConfig.command || 'npx')
-      setEnv(JSON.stringify(serverConfig.env || {}, null, 2))
-      setDescriptions(serverConfig.descriptions || '')
-      setIcons(serverConfig.icons || '📁')
-      const incomingArgs = Array.isArray(serverConfig.args) ? serverConfig.args : []
-      const incomingType = serverConfig.type as MCPServerTypeOption | undefined
-      const url = serverConfig.url || serverConfig.baseUrl || ''
-      setBaseUrl(url)
-      const fallbackType: MCPServerTypeOption = url ? 'http' : 'stdio'
-      setType(incomingType && VALID_MCP_TYPES.includes(incomingType) ? incomingType : fallbackType)
-      const headersFromConfig = serverConfig.customHeaders || serverConfig.headers
-      setCustomHeaders(headersFromConfig ? formatJsonHeaders(headersFromConfig) : '')
-      setAutoApproveAll(serverConfig.autoApprove?.includes('all') || false)
+      const parsedConfig = JSON.parse(jsonConfig);
+      if (!parsedConfig.mcpServers || typeof parsedConfig.mcpServers !== "object") throw new Error("Invalid format");
+      const serverEntries = Object.entries(parsedConfig.mcpServers);
+      if (serverEntries.length === 0) throw new Error("No servers found");
+      const [serverName, serverConfig] = serverEntries[0] as [string, any];
+      setName(serverName);
+      setCommand(serverConfig.command || "npx");
+      setEnv(JSON.stringify(serverConfig.env || {}, null, 2));
+      setDescriptions(serverConfig.descriptions || "");
+      setIcons(serverConfig.icons || "📁");
+      const incomingArgs = Array.isArray(serverConfig.args) ? serverConfig.args : [];
+      const incomingType = serverConfig.type as MCPServerTypeOption | undefined;
+      const url = serverConfig.url || serverConfig.baseUrl || "";
+      setBaseUrl(url);
+      const fallbackType: MCPServerTypeOption = url ? "http" : "stdio";
+      setType(incomingType && VALID_MCP_TYPES.includes(incomingType) ? incomingType : fallbackType);
+      const headersFromConfig = serverConfig.customHeaders || serverConfig.headers;
+      setCustomHeaders(headersFromConfig ? formatJsonHeaders(headersFromConfig) : "");
+      setAutoApproveAll(serverConfig.autoApprove?.includes("all") || false);
       setAutoApproveRead(
-        serverConfig.autoApprove?.includes('read') ||
-          serverConfig.autoApprove?.includes('all') ||
-          false
-      )
+        serverConfig.autoApprove?.includes("read") || serverConfig.autoApprove?.includes("all") || false,
+      );
       setAutoApproveWrite(
-        serverConfig.autoApprove?.includes('write') ||
-          serverConfig.autoApprove?.includes('all') ||
-          false
-      )
-      setCurrentStep('detailed')
-      toast({ title: 'Parse Success', description: 'Configuration imported' })
+        serverConfig.autoApprove?.includes("write") || serverConfig.autoApprove?.includes("all") || false,
+      );
+      setCurrentStep("detailed");
+      toast({ title: "Parse Success", description: "Configuration imported" });
     } catch (error) {
-      console.error('Parse error:', error)
+      console.error("Parse error:", error);
       toast({
-        title: 'Parse Error',
+        title: "Parse Error",
         description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      })
+        variant: "destructive",
+      });
     }
-  }
+  };
 
-  const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault()
-    if (!isFormValid) return
+  const handleSubmit = (e?: FormEvent) => {
+    e?.preventDefault();
+    if (!isFormValid) return;
 
-    const autoApprove: string[] = []
+    const autoApprove: string[] = [];
     if (autoApproveAll) {
-      autoApprove.push('all')
+      autoApprove.push("all");
     } else {
-      if (autoApproveRead) autoApprove.push('read')
-      if (autoApproveWrite) autoApprove.push('write')
+      if (autoApproveRead) autoApprove.push("read");
+      if (autoApproveWrite) autoApprove.push("write");
     }
 
     const baseConfig = {
@@ -372,67 +323,66 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
       icons: icons.trim(),
       autoApprove,
       type,
-      enabled: initialConfig?.enabled ?? false
-    }
+      enabled: initialConfig?.enabled ?? false,
+    };
 
-    let parsedEnv = {}
+    let parsedEnv = {};
     try {
-      if ((type === 'stdio' || isInMemoryType) && env.trim()) parsedEnv = JSON.parse(env)
+      if ((type === "stdio" || isInMemoryType) && env.trim()) parsedEnv = JSON.parse(env);
     } catch (error) {
-      toast({ title: 'JSON Parse Error', description: String(error), variant: 'destructive' })
-      return
+      toast({ title: "JSON Parse Error", description: String(error), variant: "destructive" });
+      return;
     }
 
-    let parsedCustomHeaders = {}
+    let parsedCustomHeaders = {};
     try {
-      if (isRemoteType && customHeaders.trim())
-        parsedCustomHeaders = parseKeyValueHeaders(customHeaders)
+      if (isRemoteType && customHeaders.trim()) parsedCustomHeaders = parseKeyValueHeaders(customHeaders);
     } catch (error) {
       toast({
-        title: 'Parse Error',
-        description: 'Invalid headers: ' + String(error),
-        variant: 'destructive'
-      })
-      return
+        title: "Parse Error",
+        description: "Invalid headers: " + String(error),
+        variant: "destructive",
+      });
+      return;
     }
 
-    let serverConfig: MCPServerConfig
+    let serverConfig: MCPServerConfig;
     if (isRemoteType) {
       serverConfig = {
         ...baseConfig,
-        command: '',
+        command: "",
         args: [],
         env: {},
         baseUrl: baseUrl.trim(),
-        customHeaders: parsedCustomHeaders
-      }
+        customHeaders: parsedCustomHeaders,
+      };
     } else {
       const normalizedArgs = isBuildInFileSystem
         ? foldersList.filter((folder) => folder.trim().length > 0)
-        : argsRows.map((row) => row.value.trim()).filter((value) => value.length > 0)
+        : argsRows.map((row) => row.value.trim()).filter((value) => value.length > 0);
       serverConfig = {
         ...baseConfig,
         command: command.trim(),
         args: normalizedArgs,
         env: parsedEnv,
-        baseUrl: baseUrl.trim()
-      }
+        baseUrl: baseUrl.trim(),
+      };
     }
 
     if (serverConfig.customHeaders) {
-      setCustomHeaders(formatJsonHeaders(serverConfig.customHeaders))
+      setCustomHeaders(formatJsonHeaders(serverConfig.customHeaders));
     }
 
     if (showNpmRegistryInput && npmRegistry.trim()) {
-      serverConfig.customNpmRegistry = npmRegistry.trim()
+      serverConfig.customNpmRegistry = npmRegistry.trim();
     } else {
-      serverConfig.customNpmRegistry = ''
+      serverConfig.customNpmRegistry = "";
     }
 
-    onSubmit(name.trim(), serverConfig)
-  }
+    onSubmit(name.trim(), serverConfig);
+  };
 
-  if (currentStep === 'simple') {
+  if (currentStep === "simple") {
     return (
       <form className="space-y-4 h-full flex flex-col">
         <ScrollArea className="h-0 grow">
@@ -453,12 +403,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
           </div>
         </ScrollArea>
         <div className="flex justify-between pt-2 border-t px-4">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentStep('detailed')}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => setCurrentStep("detailed")}>
             Manual Setup
           </Button>
           <Button type="button" size="sm" onClick={parseJsonConfig}>
@@ -466,7 +411,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
           </Button>
         </div>
       </form>
-    )
+    );
   }
 
   return (
@@ -492,7 +437,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
               Icon
             </Label>
             <div className="flex items-center space-x-2">
-              <EmojiPicker value={icons} onChange={setIcons} disabled={isFieldReadOnly} />
+              <EmojiPicker modelValue={icons} onModelValueChange={setIcons} />
             </div>
           </div>
 
@@ -500,11 +445,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
             <Label className="text-xs text-muted-foreground" htmlFor="server-type">
               Type
             </Label>
-            <Select
-              value={type}
-              onValueChange={(v) => setType(v as MCPServerTypeOption)}
-              disabled={isFieldReadOnly}
-            >
+            <Select value={type} onValueChange={(v) => setType(v as MCPServerTypeOption)} disabled={isFieldReadOnly}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
@@ -512,9 +453,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                 <SelectItem value="stdio">stdio</SelectItem>
                 <SelectItem value="sse">SSE</SelectItem>
                 <SelectItem value="http">HTTP</SelectItem>
-                {editMode && initialConfig?.type === 'inmemory' && (
-                  <SelectItem value="inmemory">In-Memory</SelectItem>
-                )}
+                {editMode && initialConfig?.type === "inmemory" && <SelectItem value="inmemory">In-Memory</SelectItem>}
               </SelectContent>
             </Select>
           </div>
@@ -584,9 +523,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                   <Icon icon="lucide:folder-plus" className="h-4 w-4" /> Add Folder
                 </Button>
                 {foldersList.length === 0 && (
-                  <div className="text-xs text-muted-foreground text-center py-4">
-                    No folders selected
-                  </div>
+                  <div className="text-xs text-muted-foreground text-center py-4">No folders selected</div>
                 )}
               </div>
             </div>
@@ -608,10 +545,8 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                     <Input
                       value={row.value}
                       onChange={(e) => {
-                        const val = e.target.value
-                        setArgsRows((prev) =>
-                          prev.map((r) => (r.id === row.id ? { ...r, value: val } : r))
-                        )
+                        const val = e.target.value;
+                        setArgsRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, value: val } : r)));
                       }}
                       className="col-span-11"
                       placeholder="Argument value"
@@ -628,12 +563,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                   </div>
                 ))}
               </div>
-              <Input
-                id="server-args"
-                value={args}
-                onChange={(e) => setArgs(e.target.value)}
-                className="hidden"
-              />
+              <Input id="server-args" value={args} onChange={(e) => setArgs(e.target.value)} className="hidden" />
             </div>
           )}
 
@@ -648,7 +578,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                 onChange={(e) => setEnv(e.target.value)}
                 rows={5}
                 placeholder='{"KEY": "value"}'
-                className={!isEnvValid ? 'border-red-500' : ''}
+                className={!isEnvValid ? "border-red-500" : ""}
               />
             </div>
           )}
@@ -688,11 +618,11 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                   id="auto-approve-all"
                   checked={autoApproveAll}
                   onCheckedChange={(checked) => {
-                    const val = Boolean(checked)
-                    setAutoApproveAll(val)
+                    const val = Boolean(checked);
+                    setAutoApproveAll(val);
                     if (val) {
-                      setAutoApproveRead(true)
-                      setAutoApproveWrite(true)
+                      setAutoApproveRead(true);
+                      setAutoApproveWrite(true);
                     }
                   }}
                 />
@@ -744,9 +674,9 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                   rows={5}
                   placeholder={customHeadersPlaceholder}
                   className={[
-                    'transition-opacity duration-200',
-                    !isCustomHeadersFormatValid ? 'border-red-500' : ''
-                  ].join(' ')}
+                    "transition-opacity duration-200",
+                    !isCustomHeadersFormatValid ? "border-red-500" : "",
+                  ].join(" ")}
                   disabled={isFieldReadOnly}
                   onFocus={() => setCustomHeadersFocused(true)}
                   onBlur={() => setCustomHeadersFocused(false)}
@@ -754,22 +684,20 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
                 {!customHeadersFocused && customHeaders.trim() && (
                   <div
                     className={[
-                      'absolute inset-0 bg-background rounded-md border pointer-events-none',
-                      !isCustomHeadersFormatValid ? 'border-red-500' : ''
-                    ].join(' ')}
+                      "absolute inset-0 bg-background rounded-md border pointer-events-none",
+                      !isCustomHeadersFormatValid ? "border-red-500" : "",
+                    ].join(" ")}
                   >
                     <div
                       className="p-3 text-sm font-mono whitespace-pre-wrap text-muted-foreground select-none overflow-hidden break-all"
-                      style={{ lineHeight: 1.4, wordBreak: 'break-all' }}
+                      style={{ lineHeight: 1.4, wordBreak: "break-all" }}
                     >
                       {customHeadersDisplayValue}
                     </div>
                   </div>
                 )}
               </div>
-              {!isCustomHeadersFormatValid && (
-                <p className="text-xs text-red-500">Invalid Key=Value format</p>
-              )}
+              {!isCustomHeadersFormatValid && <p className="text-xs text-red-500">Invalid Key=Value format</p>}
               {!customHeadersFocused && customHeaders.trim() && (
                 <p className="text-xs text-muted-foreground">Click to edit and view full content</p>
               )}
@@ -784,7 +712,7 @@ export const McpServerForm: React.FC<McpServerFormProps> = ({
         </Button>
       </div>
     </form>
-  )
-}
+  );
+};
 
-export default McpServerForm
+export default McpServerForm;

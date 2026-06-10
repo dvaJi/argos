@@ -10,32 +10,27 @@
  * - Single file per workflow (no subfolder support)
  */
 
-import matter from 'gray-matter'
-import type {
-  IFormatAdapter,
-  CanonicalSkill,
-  ParseContext,
-  FormatCapabilities
-} from '@shared/types/skillSync'
+import matter from "gray-matter";
+import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@shared/types/skillSync";
 
 /**
  * Antigravity format adapter
  */
 export class AntigravityAdapter implements IFormatAdapter {
-  readonly id = 'antigravity'
-  readonly name = 'Antigravity'
+  readonly id = "antigravity";
+  readonly name = "Antigravity";
 
   /**
    * Parse Antigravity workflow format to CanonicalSkill
    */
   parse(content: string, context: ParseContext): CanonicalSkill {
-    const { data, content: body } = matter(content)
+    const { data, content: body } = matter(content);
 
     // Extract name from filename
-    const name = this.extractName(context)
+    const name = this.extractName(context);
 
     // Extract description from frontmatter
-    const description = typeof data.description === 'string' ? data.description : ''
+    const description = typeof data.description === "string" ? data.description : "";
 
     return {
       name,
@@ -44,31 +39,31 @@ export class AntigravityAdapter implements IFormatAdapter {
       source: {
         tool: this.id,
         originalPath: context.filePath,
-        originalFormat: 'antigravity-workflow'
-      }
-    }
+        originalFormat: "antigravity-workflow",
+      },
+    };
   }
 
   /**
    * Serialize CanonicalSkill to Antigravity workflow format
    */
   serialize(skill: CanonicalSkill, _options?: Record<string, unknown>): string {
-    let output = ''
+    let output = "";
 
     // Add frontmatter with description if present
     if (skill.description) {
-      output += `---\ndescription: ${this.formatYamlValue(skill.description)}\n---\n\n`
+      output += `---\ndescription: ${this.formatYamlValue(skill.description)}\n---\n\n`;
     }
 
     // Check if instructions already have steps structure
     if (this.hasStepsStructure(skill.instructions)) {
-      output += skill.instructions
+      output += skill.instructions;
     } else {
       // Wrap instructions in steps structure
-      output += `## Steps\n\n### 1. Execute\n\n${skill.instructions}`
+      output += `## Steps\n\n### 1. Execute\n\n${skill.instructions}`;
     }
 
-    return output.trim()
+    return output.trim();
   }
 
   /**
@@ -77,31 +72,26 @@ export class AntigravityAdapter implements IFormatAdapter {
   detect(content: string): boolean {
     // Antigravity format: optional frontmatter with description only
     // and ## Steps structure
-    const hasFrontmatter = content.trim().startsWith('---')
+    const hasFrontmatter = content.trim().startsWith("---");
 
     if (hasFrontmatter) {
       try {
-        const { data, content: body } = matter(content)
+        const { data, content: body } = matter(content);
 
         // Antigravity frontmatter only has description (no name, tools, etc.)
         const hasDescriptionOnly =
-          typeof data.description === 'string' &&
-          !data.name &&
-          !data.tools &&
-          !data.title &&
-          !data.inclusion
+          typeof data.description === "string" && !data.name && !data.tools && !data.title && !data.inclusion;
 
         // Should have steps structure
-        const hasStepsStructure =
-          body.includes('## Steps') || /^### \d+\./m.test(body) || /^### Step \d+/im.test(body)
+        const hasStepsStructure = body.includes("## Steps") || /^### \d+\./m.test(body) || /^### Step \d+/im.test(body);
 
-        return hasDescriptionOnly && hasStepsStructure
+        return hasDescriptionOnly && hasStepsStructure;
       } catch {
-        return false
+        return false;
       }
     }
 
-    return false
+    return false;
   }
 
   /**
@@ -116,24 +106,24 @@ export class AntigravityAdapter implements IFormatAdapter {
       supportsModel: false,
       supportsSubfolders: false,
       supportsReferences: false,
-      supportsScripts: false
-    }
+      supportsScripts: false,
+    };
   }
 
   /**
    * Extract name from filename
    */
   private extractName(context: ParseContext): string {
-    const filename = context.filePath.split('/').pop() || ''
-    return filename.replace('.md', '')
+    const filename = context.filePath.split("/").pop() || "";
+    return filename.replace(".md", "");
   }
 
   /**
    * Check if content already has steps structure
    */
   private hasStepsStructure(content: string): boolean {
-    const patterns = [/^## Steps/m, /^### \d+\./m, /^### Step \d+/im]
-    return patterns.some((p) => p.test(content))
+    const patterns = [/^## Steps/m, /^### \d+\./m, /^### Step \d+/im];
+    return patterns.some((p) => p.test(content));
   }
 
   /**
@@ -142,16 +132,16 @@ export class AntigravityAdapter implements IFormatAdapter {
   private formatYamlValue(value: string): string {
     // Check if value needs quoting
     if (
-      value.includes(':') ||
-      value.includes('#') ||
+      value.includes(":") ||
+      value.includes("#") ||
       value.includes("'") ||
       value.includes('"') ||
-      value.includes('\n') ||
-      value.startsWith(' ') ||
-      value.endsWith(' ')
+      value.includes("\n") ||
+      value.startsWith(" ") ||
+      value.endsWith(" ")
     ) {
-      return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')}"`
+      return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
     }
-    return value
+    return value;
   }
 }

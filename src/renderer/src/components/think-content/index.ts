@@ -1,1 +1,1 @@
-export { default as ThinkContent } from './ThinkContent'
+export { default as ThinkContent } from "./ThinkContent";

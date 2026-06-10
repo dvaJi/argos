@@ -1,131 +1,131 @@
-import { describe, expect, it } from 'vitest'
-import { DiscordParser } from '@/presenter/remoteControlPresenter/discord/discordParser'
+import { describe, expect, it } from "vitest";
+import { DiscordParser } from "@/presenter/remoteControlPresenter/discord/discordParser";
 
-describe('DiscordParser', () => {
-  it('parses mentioned guild messages and strips the leading bot mention', () => {
-    const parser = new DiscordParser()
+describe("DiscordParser", () => {
+  it("parses mentioned guild messages and strips the leading bot mention", () => {
+    const parser = new DiscordParser();
 
     const parsed = parser.parseDispatch(
       {
-        t: 'MESSAGE_CREATE',
+        t: "MESSAGE_CREATE",
         d: {
-          id: 'msg-1',
-          channel_id: 'channel-1',
-          guild_id: 'guild-1',
-          content: '<@12345> /pair 654321',
+          id: "msg-1",
+          channel_id: "channel-1",
+          guild_id: "guild-1",
+          content: "<@12345> /pair 654321",
           author: {
-            id: 'user-1',
-            username: 'alice'
+            id: "user-1",
+            username: "alice",
           },
           mentions: [
             {
-              id: '12345',
-              username: 'deepchat'
-            }
-          ]
-        }
+              id: "12345",
+              username: "deepchat",
+            },
+          ],
+        },
       },
-      '12345'
-    )
+      "12345",
+    );
 
     expect(parsed).toEqual(
       expect.objectContaining({
-        kind: 'message',
-        chatType: 'channel',
-        chatId: 'channel-1',
-        senderUserId: 'user-1',
-        text: '/pair 654321',
+        kind: "message",
+        chatType: "channel",
+        chatId: "channel-1",
+        senderUserId: "user-1",
+        text: "/pair 654321",
         mentionedBot: true,
         command: {
-          name: 'pair',
-          args: '654321'
-        }
-      })
-    )
-  })
+          name: "pair",
+          args: "654321",
+        },
+      }),
+    );
+  });
 
-  it('parses slash command interactions into remote commands', () => {
-    const parser = new DiscordParser()
+  it("parses slash command interactions into remote commands", () => {
+    const parser = new DiscordParser();
 
     const parsed = parser.parseDispatch({
-      t: 'INTERACTION_CREATE',
+      t: "INTERACTION_CREATE",
       d: {
-        id: 'interaction-1',
-        token: 'interaction-token',
-        channel_id: 'dm-1',
-        application_id: 'app-1',
+        id: "interaction-1",
+        token: "interaction-token",
+        channel_id: "dm-1",
+        application_id: "app-1",
         data: {
-          name: 'model',
+          name: "model",
           options: [
             {
-              name: 'args',
-              value: 'openai gpt-5'
-            }
-          ]
+              name: "args",
+              value: "openai gpt-5",
+            },
+          ],
         },
         user: {
-          id: 'user-1',
-          username: 'alice'
-        }
-      }
-    })
+          id: "user-1",
+          username: "alice",
+        },
+      },
+    });
 
     expect(parsed).toEqual(
       expect.objectContaining({
-        kind: 'interaction',
-        chatType: 'dm',
-        chatId: 'dm-1',
-        interactionId: 'interaction-1',
-        interactionToken: 'interaction-token',
-        applicationId: 'app-1',
-        text: '/model openai gpt-5',
+        kind: "interaction",
+        chatType: "dm",
+        chatId: "dm-1",
+        interactionId: "interaction-1",
+        interactionToken: "interaction-token",
+        applicationId: "app-1",
+        text: "/model openai gpt-5",
         command: {
-          name: 'model',
-          args: 'openai gpt-5'
-        }
-      })
-    )
-  })
+          name: "model",
+          args: "openai gpt-5",
+        },
+      }),
+    );
+  });
 
-  it('parses image attachments from message payloads', () => {
-    const parser = new DiscordParser()
+  it("parses image attachments from message payloads", () => {
+    const parser = new DiscordParser();
 
     const parsed = parser.parseDispatch({
-      t: 'MESSAGE_CREATE',
+      t: "MESSAGE_CREATE",
       d: {
-        id: 'msg-2',
-        channel_id: 'dm-1',
-        content: '',
+        id: "msg-2",
+        channel_id: "dm-1",
+        content: "",
         author: {
-          id: 'user-1',
-          username: 'alice'
+          id: "user-1",
+          username: "alice",
         },
         attachments: [
           {
-            id: 'attachment-1',
-            filename: 'image.png',
-            content_type: 'image/png',
+            id: "attachment-1",
+            filename: "image.png",
+            content_type: "image/png",
             size: 123,
-            url: 'https://cdn.discordapp.com/image.png'
-          }
-        ]
-      }
-    })
+            url: "https://cdn.discordapp.com/image.png",
+          },
+        ],
+      },
+    });
 
     expect(parsed).toEqual(
       expect.objectContaining({
-        kind: 'message',
-        text: 'Attachments:\nimage.png: https://cdn.discordapp.com/image.png',
+        kind: "message",
+        text: "Attachments:\nimage.png: https://cdn.discordapp.com/image.png",
         attachments: [
           {
-            id: 'attachment-1',
-            filename: 'image.png',
-            contentType: 'image/png',
+            id: "attachment-1",
+            filename: "image.png",
+            contentType: "image/png",
             size: 123,
-            url: 'https://cdn.discordapp.com/image.png'
-          }
-        ]
-      })
-    )
-  })
-})
+            url: "https://cdn.discordapp.com/image.png",
+          },
+        ],
+      }),
+    );
+  });
+});

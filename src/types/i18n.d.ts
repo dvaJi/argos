@@ -1,2965 +1,2965 @@
-declare module 'vue-i18n' {
+declare module "vue-i18n" {
   interface DefineLocaleMessage {
-    title: string
-    description: string
-    website: string
-    disclaimerButton: string
-    feedbackButton: string
-    disclaimerTitle: string
-    checkUpdateButton: string
-    mockUpdateButton: string
-    clearMockUpdateButton: string
-    mockOnboardingButton: string
-    updateChannel: string
-    stableChannel: string
-    betaChannel: string
+    title: string;
+    description: string;
+    website: string;
+    disclaimerButton: string;
+    feedbackButton: string;
+    disclaimerTitle: string;
+    checkUpdateButton: string;
+    mockUpdateButton: string;
+    clearMockUpdateButton: string;
+    mockOnboardingButton: string;
+    updateChannel: string;
+    stableChannel: string;
+    betaChannel: string;
     deviceInfo: {
-      title: string
-      platform: string
-      arch: string
-      cpuModel: string
-      totalMemory: string
-      osVersion: string
-    }
-    clickToOpen: string
-    codeSnippet: string
-    function: string
-    class: string
-    reactComponent: string
-    moduleImport: string
-    variableDefinition: string
-    markdownDocument: string
-    htmlDocument: string
-    svgImage: string
-    flowchart: string
-    sequenceDiagram: string
-    classDiagram: string
-    stateDiagram: string
-    erDiagram: string
-    ganttChart: string
-    pieChart: string
-    mermaidDiagram: string
-    flowchartOf: string
-    sequenceDiagramBetween: string
-    classDiagramOf: string
-    stateDiagramOf: string
-    erDiagramOf: string
-    pieChartOf: string
-    unknownDocument: string
-    preview: string
-    code: string
+      title: string;
+      platform: string;
+      arch: string;
+      cpuModel: string;
+      totalMemory: string;
+      osVersion: string;
+    };
+    clickToOpen: string;
+    codeSnippet: string;
+    function: string;
+    class: string;
+    reactComponent: string;
+    moduleImport: string;
+    variableDefinition: string;
+    markdownDocument: string;
+    htmlDocument: string;
+    svgImage: string;
+    flowchart: string;
+    sequenceDiagram: string;
+    classDiagram: string;
+    stateDiagram: string;
+    erDiagram: string;
+    ganttChart: string;
+    pieChart: string;
+    mermaidDiagram: string;
+    flowchartOf: string;
+    sequenceDiagramBetween: string;
+    classDiagramOf: string;
+    stateDiagramOf: string;
+    erDiagramOf: string;
+    pieChartOf: string;
+    unknownDocument: string;
+    preview: string;
+    code: string;
     export: {
-      failed: string
-      failedDesc: string
-      nowledgeMemSubmitFailed: string
-      nowledgeMemSubmitFailedDesc: string
-      nowledgeMemSubmitPrompt: string
-      nowledgeMemSubmitSuccess: string
-      nowledgeMemSubmitSuccessDesc: string
-      nowledgeMemSuccessDesc: string
-      success: string
-      nowledgeMemSuccess: string
-      successDesc: string
-    }
-    htmlPreviewTitle: string
-    svgPreviewTitle: string
-    copy: string
-    copyAsImage: string
-    copyImageSuccessDesc: string
-    copyImageFailedDesc: string
-    copySuccess: string
-    copySuccessDesc: string
-    copyFailed: string
-    copyFailedDesc: string
-    desktop: string
-    tablet: string
-    mobile: string
-    responsive: string
-    width: string
-    height: string
-    sanitizingSvg: string
-    svgSanitizationFailed: string
-    noSvgContent: string
+      failed: string;
+      failedDesc: string;
+      nowledgeMemSubmitFailed: string;
+      nowledgeMemSubmitFailedDesc: string;
+      nowledgeMemSubmitPrompt: string;
+      nowledgeMemSubmitSuccess: string;
+      nowledgeMemSubmitSuccessDesc: string;
+      nowledgeMemSuccessDesc: string;
+      success: string;
+      nowledgeMemSuccess: string;
+      successDesc: string;
+    };
+    htmlPreviewTitle: string;
+    svgPreviewTitle: string;
+    copy: string;
+    copyAsImage: string;
+    copyImageSuccessDesc: string;
+    copyImageFailedDesc: string;
+    copySuccess: string;
+    copySuccessDesc: string;
+    copyFailed: string;
+    copyFailedDesc: string;
+    desktop: string;
+    tablet: string;
+    mobile: string;
+    responsive: string;
+    width: string;
+    height: string;
+    sanitizingSvg: string;
+    svgSanitizationFailed: string;
+    noSvgContent: string;
     mermaid: {
-      renderError: string
-    }
+      renderError: string;
+    };
     input: {
-      placeholder: string
-      fileArea: string
-      inputArea: string
-      functionSwitch: string
-      attach: string
-      voiceInput: string
-      voiceInputStop: string
-      voiceRecognitionUnsupportedTitle: string
-      voiceRecognitionUnsupportedDescription: string
-      voiceRecognitionPermissionDeniedTitle: string
-      voiceRecognitionPermissionDeniedDescription: string
-      voiceRecognitionErrorTitle: string
-      voiceRecognitionErrorDescription: string
-      send: string
-      steer: string
-      queue: string
-      stop: string
-      fileSelect: string
-      pasteFiles: string
-      dropFiles: string
-      promptFilesAdded: string
-      promptFilesAddedDesc: string
-      promptFilesError: string
-      promptFilesErrorDesc: string
-      historyPlaceholder: string
-      rateLimitQueue: string
-      rateLimitWait: string
-      rateLimitQueueTooltip: string
-      rateLimitReadyTooltip: string
-      rateLimitWaitingTooltip: string
-      acpWorkdir: string
-      acpWorkdirTooltip: string
-      acpWorkdirSelect: string
-      acpWorkdirCurrent: string
-      acpMode: string
-      acpModeTooltip: string
-      agentWorkspaceTooltip: string
-      agentWorkspaceSelect: string
-      agentWorkspaceCurrent: string
-      workspaceUnavailableTooltip: string
+      placeholder: string;
+      fileArea: string;
+      inputArea: string;
+      functionSwitch: string;
+      attach: string;
+      voiceInput: string;
+      voiceInputStop: string;
+      voiceRecognitionUnsupportedTitle: string;
+      voiceRecognitionUnsupportedDescription: string;
+      voiceRecognitionPermissionDeniedTitle: string;
+      voiceRecognitionPermissionDeniedDescription: string;
+      voiceRecognitionErrorTitle: string;
+      voiceRecognitionErrorDescription: string;
+      send: string;
+      steer: string;
+      queue: string;
+      stop: string;
+      fileSelect: string;
+      pasteFiles: string;
+      dropFiles: string;
+      promptFilesAdded: string;
+      promptFilesAddedDesc: string;
+      promptFilesError: string;
+      promptFilesErrorDesc: string;
+      historyPlaceholder: string;
+      rateLimitQueue: string;
+      rateLimitWait: string;
+      rateLimitQueueTooltip: string;
+      rateLimitReadyTooltip: string;
+      rateLimitWaitingTooltip: string;
+      acpWorkdir: string;
+      acpWorkdirTooltip: string;
+      acpWorkdirSelect: string;
+      acpWorkdirCurrent: string;
+      acpMode: string;
+      acpModeTooltip: string;
+      agentWorkspaceTooltip: string;
+      agentWorkspaceSelect: string;
+      agentWorkspaceCurrent: string;
+      workspaceUnavailableTooltip: string;
       mcp: {
-        badge: string
-        title: string
-        empty: string
-        openSettings: string
-      }
+        badge: string;
+        title: string;
+        empty: string;
+        openSettings: string;
+      };
       tools: {
-        badge: string
-        title: string
-        mcpSection: string
-        pluginSection: string
-        builtinSection: string
-        loading: string
-        builtinEmpty: string
+        badge: string;
+        title: string;
+        mcpSection: string;
+        pluginSection: string;
+        builtinSection: string;
+        loading: string;
+        builtinEmpty: string;
         groups: {
-          agentFilesystem: string
-          agentCore: string
-          agentImageGeneration: string
-          agentSkills: string
-          deepchatSettings: string
-          yobrowser: string
-        }
-      }
-      fileUploadFailed: string
-      fileUploadFailedDesc: string
-      fileUploadFailedMore: string
-      unnamedFile: string
-      audioInputUnsupportedTitle: string
-      audioInputUnsupportedDescription: string
-    }
+          agentFilesystem: string;
+          agentCore: string;
+          agentImageGeneration: string;
+          agentSkills: string;
+          deepchatSettings: string;
+          yobrowser: string;
+        };
+      };
+      fileUploadFailed: string;
+      fileUploadFailedDesc: string;
+      fileUploadFailedMore: string;
+      unnamedFile: string;
+      audioInputUnsupportedTitle: string;
+      audioInputUnsupportedDescription: string;
+    };
     pendingInput: {
-      steer: string
-      queueCount: string
-      resumeQueue: string
-      toSteer: string
-      locked: string
-      reorder: string
-      files: string
-      attachmentsOnly: string
-      empty: string
-      limitReached: string
-    }
+      steer: string;
+      queueCount: string;
+      resumeQueue: string;
+      toSteer: string;
+      locked: string;
+      reorder: string;
+      files: string;
+      attachmentsOnly: string;
+      empty: string;
+      limitReached: string;
+    };
     features: {
-      webSearch: string
-      thoughtForSeconds: string
-      thoughtForSecondsLoading: string
-      artifactThinking: string
-      modeChanged: string
-    }
+      webSearch: string;
+      thoughtForSeconds: string;
+      thoughtForSecondsLoading: string;
+      artifactThinking: string;
+      modeChanged: string;
+    };
     search: {
-      results: string
-      searching: string
-      title: string
-      description: string
-      optimizing: string
-      reading: string
-      error: string
-      placeholder: string
-    }
+      results: string;
+      searching: string;
+      title: string;
+      description: string;
+      optimizing: string;
+      reading: string;
+      error: string;
+      placeholder: string;
+    };
     messages: {
-      thinking: string
-      rateLimitWaiting: string
-      rateLimitCompactLoading: string
-      rateLimitTitle: string
-      rateLimitQueue: string
-      rateLimitEstimated: string
-      rateLimitQuickSettings: string
-      rateLimitSwitchProvider: string
-      rateLimitImmediately: string
-      rateLimitSeconds: string
-      rateLimitMinutes: string
-    }
+      thinking: string;
+      rateLimitWaiting: string;
+      rateLimitCompactLoading: string;
+      rateLimitTitle: string;
+      rateLimitQueue: string;
+      rateLimitEstimated: string;
+      rateLimitQuickSettings: string;
+      rateLimitSwitchProvider: string;
+      rateLimitImmediately: string;
+      rateLimitSeconds: string;
+      rateLimitMinutes: string;
+    };
     compaction: {
-      compacting: string
-      compacted: string
-      commandDescription: string
-      noopTitle: string
-      noopDescription: string
-      failedTitle: string
-    }
+      compacting: string;
+      compacted: string;
+      commandDescription: string;
+      noopTitle: string;
+      noopDescription: string;
+      failedTitle: string;
+    };
     rateLimit: {
-      queueTooltip: string
-      readyTooltip: string
-      waitingTooltip: string
-      title: string
-      description: string
-      intervalLimit: string
-      intervalUnit: string
-      intervalHelper: string
-      lastRequestTime: string
-      queueLength: string
-      nextAllowedTime: string
-      never: string
-      justNow: string
-      secondsAgo: string
-      minutesAgo: string
-      immediately: string
-      secondsLater: string
-      confirmDisableTitle: string
-      confirmDisableMessage: string
-      confirmDisable: string
-      disabled: string
-      disabledDescription: string
-    }
+      queueTooltip: string;
+      readyTooltip: string;
+      waitingTooltip: string;
+      title: string;
+      description: string;
+      intervalLimit: string;
+      intervalUnit: string;
+      intervalHelper: string;
+      lastRequestTime: string;
+      queueLength: string;
+      nextAllowedTime: string;
+      never: string;
+      justNow: string;
+      secondsAgo: string;
+      minutesAgo: string;
+      immediately: string;
+      secondsLater: string;
+      confirmDisableTitle: string;
+      confirmDisableMessage: string;
+      confirmDisable: string;
+      disabled: string;
+      disabledDescription: string;
+    };
     notify: {
-      generationComplete: string
-      generationError: string
-    }
+      generationComplete: string;
+      generationError: string;
+    };
     toolCall: {
-      title: string
-      calling: string
-      response: string
-      end: string
-      error: string
-      clickToView: string
-      functionName: string
-      params: string
-      responseData: string
+      title: string;
+      calling: string;
+      response: string;
+      end: string;
+      error: string;
+      clickToView: string;
+      functionName: string;
+      params: string;
+      responseData: string;
       subagents: {
-        summary: string
-        unnamedTask: string
+        summary: string;
+        unnamedTask: string;
         mode: {
-          parallel: string
-          chain: string
-        }
+          parallel: string;
+          chain: string;
+        };
         status: {
-          queued: string
-          running: string
-          completed: string
-          error: string
-          cancelled: string
-          waiting_permission: string
-          waiting_question: string
-        }
-      }
-    }
+          queued: string;
+          running: string;
+          completed: string;
+          error: string;
+          cancelled: string;
+          waiting_permission: string;
+          waiting_question: string;
+        };
+      };
+    };
     mode: {
-      current: string
-      agent: string
-      acpAgent: string
-    }
+      current: string;
+      agent: string;
+      acpAgent: string;
+    };
     topbar: {
-      backToParent: string
-      share: string
-      more: string
-    }
+      backToParent: string;
+      share: string;
+      more: string;
+    };
     subagents: {
-      label: string
-    }
+      label: string;
+    };
     advancedSettings: {
-      button: string
-      title: string
-      closeHint: string
-      systemPrompt: string
-      systemPromptPlaceholder: string
-      temperature: string
-      temperatureFixedMoonshotKimi: string
-      topP: string
-      topPDescription: string
-      contextLength: string
-      maxTokens: string
-      thinkingBudget: string
-      verbosity: string
-      forceInterleavedThinkingCompat: string
-      forceInterleavedThinkingCompatDescription: string
-      verbosityPlaceholder: string
-      currentCustomPrompt: string
-      useDefault: string
-      decreaseValue: string
-      increaseValue: string
-      toggleValue: string
+      button: string;
+      title: string;
+      closeHint: string;
+      systemPrompt: string;
+      systemPromptPlaceholder: string;
+      temperature: string;
+      temperatureFixedMoonshotKimi: string;
+      topP: string;
+      topPDescription: string;
+      contextLength: string;
+      maxTokens: string;
+      thinkingBudget: string;
+      verbosity: string;
+      forceInterleavedThinkingCompat: string;
+      forceInterleavedThinkingCompatDescription: string;
+      verbosityPlaceholder: string;
+      currentCustomPrompt: string;
+      useDefault: string;
+      decreaseValue: string;
+      increaseValue: string;
+      toggleValue: string;
       validation: {
-        finiteNumber: string
-        nonNegativeInteger: string
-        contextLengthAtLeastMaxTokens: string
-        maxTokensWithinContextLength: string
-        topPRange: string
-      }
-    }
+        finiteNumber: string;
+        nonNegativeInteger: string;
+        contextLengthAtLeastMaxTokens: string;
+        maxTokensWithinContextLength: string;
+        topPRange: string;
+      };
+    };
     modelPicker: {
-      empty: string
-      audioInputSupported: string
-    }
+      empty: string;
+      audioInputSupported: string;
+    };
     audio: {
-      play: string
-      pause: string
-    }
+      play: string;
+      pause: string;
+    };
     call: {
-      title: string
-      description: string
-      start: string
-      stop: string
-      end: string
-    }
+      title: string;
+      description: string;
+      start: string;
+      stop: string;
+      end: string;
+    };
     skills: {
       indicator: {
-        active: string
-        none: string
-      }
+        active: string;
+        none: string;
+      };
       panel: {
-        title: string
-        manage: string
-        empty: string
-      }
-      title: string
-      description: string
+        title: string;
+        manage: string;
+        empty: string;
+      };
+      title: string;
+      description: string;
       draftSuggestions: {
-        title: string
-        description: string
-      }
-      openFolder: string
-      addSkill: string
-      empty: string
-      emptyHint: string
-      noResults: string
-      search: string
-      count: string
+        title: string;
+        description: string;
+      };
+      openFolder: string;
+      addSkill: string;
+      empty: string;
+      emptyHint: string;
+      noResults: string;
+      search: string;
+      count: string;
       install: {
-        title: string
-        description: string
-        tabFolder: string
-        tabZip: string
-        tabUrl: string
-        fromFolder: string
-        selectFolder: string
-        folderHint: string
-        folderTip: string
-        zipHint: string
-        urlPlaceholder: string
-        urlHint: string
-        installButton: string
-        installing: string
-        success: string
-        successMessage: string
-        failed: string
-        dragNotSupported: string
-      }
+        title: string;
+        description: string;
+        tabFolder: string;
+        tabZip: string;
+        tabUrl: string;
+        fromFolder: string;
+        selectFolder: string;
+        folderHint: string;
+        folderTip: string;
+        zipHint: string;
+        urlPlaceholder: string;
+        urlHint: string;
+        installButton: string;
+        installing: string;
+        success: string;
+        successMessage: string;
+        failed: string;
+        dragNotSupported: string;
+      };
       delete: {
-        title: string
-        description: string
-        success: string
-        successMessage: string
-        failed: string
-      }
+        title: string;
+        description: string;
+        success: string;
+        successMessage: string;
+        failed: string;
+      };
       card: {
-        scripts: string
-        env: string
-        pythonShort: string
-        nodeShort: string
-      }
+        scripts: string;
+        env: string;
+        pythonShort: string;
+        nodeShort: string;
+      };
       edit: {
-        title: string
-        placeholder: string
-        readFailed: string
-        success: string
-        failed: string
-        name: string
-        namePlaceholder: string
-        nameHint: string
-        description: string
-        descriptionPlaceholder: string
-        allowedTools: string
-        allowedToolsPlaceholder: string
-        allowedToolsHint: string
-        content: string
-        runtimeTitle: string
-        runtimeHint: string
-        pythonRuntime: string
-        nodeRuntime: string
-        envTitle: string
-        envWarning: string
-        scriptsTitle: string
-        scriptsHint: string
-        noScripts: string
-        scriptEnabled: string
-        scriptDescription: string
-        scriptDescriptionPlaceholder: string
+        title: string;
+        placeholder: string;
+        readFailed: string;
+        success: string;
+        failed: string;
+        name: string;
+        namePlaceholder: string;
+        nameHint: string;
+        description: string;
+        descriptionPlaceholder: string;
+        allowedTools: string;
+        allowedToolsPlaceholder: string;
+        allowedToolsHint: string;
+        content: string;
+        runtimeTitle: string;
+        runtimeHint: string;
+        pythonRuntime: string;
+        nodeRuntime: string;
+        envTitle: string;
+        envWarning: string;
+        scriptsTitle: string;
+        scriptsHint: string;
+        noScripts: string;
+        scriptEnabled: string;
+        scriptDescription: string;
+        scriptDescriptionPlaceholder: string;
         runtime: {
-          auto: string
-          system: string
-          builtin: string
-        }
-        files: string
-        noFiles: string
-      }
+          auto: string;
+          system: string;
+          builtin: string;
+        };
+        files: string;
+        noFiles: string;
+      };
       conflict: {
-        title: string
-        description: string
-        overwrite: string
-      }
+        title: string;
+        description: string;
+        overwrite: string;
+      };
       sync: {
-        title: string
-        import: string
-        export: string
-        importTitle: string
-        exportTitle: string
-        importDescription: string
-        exportDescription: string
-        step1Title: string
-        step2Title: string
-        step3Title: string
-        exportStep1Title: string
-        exportStep2Title: string
-        exportStep3Title: string
-        scanning: string
-        noToolsFound: string
-        skillCount: string
-        notInstalled: string
-        selectedCount: string
-        selectAll: string
-        deselectAll: string
-        conflict: string
-        conflictDescription: string
-        batchAction: string
-        skip: string
-        skipAll: string
-        overwrite: string
-        overwriteAll: string
-        rename: string
-        renameAll: string
-        warnings: string
-        previewing: string
-        importing: string
-        exporting: string
-        importButton: string
-        exportButton: string
-        exportWarnings: string
-        noConflicts: string
-        readyToExport: string
-        kiroOptions: string
-        kiroInclusion: string
-        kiroOnDemand: string
-        kiroOnDemandDesc: string
-        kiroAlways: string
-        kiroAlwaysDesc: string
-        kiroConditional: string
-        kiroConditionalDesc: string
-        kiroFilePatterns: string
-        kiroFilePatternsPlaceholder: string
-        kiroFilePatternsHint: string
-        scanError: string
-        previewError: string
-        loadToolsError: string
-        importSuccess: string
-        importSuccessMessage: string
-        importPartial: string
-        importPartialMessage: string
-        importError: string
-        exportSuccess: string
-        exportSuccessMessage: string
-        exportPartial: string
-        exportPartialMessage: string
-        exportError: string
-        resultSuccess: string
-        resultPartial: string
-        imported: string
-        exported: string
-        skipped: string
-        failed: string
-        failedItems: string
-      }
+        title: string;
+        import: string;
+        export: string;
+        importTitle: string;
+        exportTitle: string;
+        importDescription: string;
+        exportDescription: string;
+        step1Title: string;
+        step2Title: string;
+        step3Title: string;
+        exportStep1Title: string;
+        exportStep2Title: string;
+        exportStep3Title: string;
+        scanning: string;
+        noToolsFound: string;
+        skillCount: string;
+        notInstalled: string;
+        selectedCount: string;
+        selectAll: string;
+        deselectAll: string;
+        conflict: string;
+        conflictDescription: string;
+        batchAction: string;
+        skip: string;
+        skipAll: string;
+        overwrite: string;
+        overwriteAll: string;
+        rename: string;
+        renameAll: string;
+        warnings: string;
+        previewing: string;
+        importing: string;
+        exporting: string;
+        importButton: string;
+        exportButton: string;
+        exportWarnings: string;
+        noConflicts: string;
+        readyToExport: string;
+        kiroOptions: string;
+        kiroInclusion: string;
+        kiroOnDemand: string;
+        kiroOnDemandDesc: string;
+        kiroAlways: string;
+        kiroAlwaysDesc: string;
+        kiroConditional: string;
+        kiroConditionalDesc: string;
+        kiroFilePatterns: string;
+        kiroFilePatternsPlaceholder: string;
+        kiroFilePatternsHint: string;
+        scanError: string;
+        previewError: string;
+        loadToolsError: string;
+        importSuccess: string;
+        importSuccessMessage: string;
+        importPartial: string;
+        importPartialMessage: string;
+        importError: string;
+        exportSuccess: string;
+        exportSuccessMessage: string;
+        exportPartial: string;
+        exportPartialMessage: string;
+        exportError: string;
+        resultSuccess: string;
+        resultPartial: string;
+        imported: string;
+        exported: string;
+        skipped: string;
+        failed: string;
+        failedItems: string;
+      };
       syncStatus: {
-        title: string
-        description: string
-        scanning: string
-        noToolsFound: string
-        skillCount: string
-        notInstalled: string
-        notAvailable: string
-        noSkills: string
-        import: string
-        syncing: string
-      }
+        title: string;
+        description: string;
+        scanning: string;
+        noToolsFound: string;
+        skillCount: string;
+        notInstalled: string;
+        notAvailable: string;
+        noSkills: string;
+        import: string;
+        syncing: string;
+      };
       syncPrompt: {
-        title: string
-        description: string
-        dontShowAgain: string
-        skip: string
-        importSelected: string
-      }
-    }
+        title: string;
+        description: string;
+        dontShowAgain: string;
+        skip: string;
+        importSelected: string;
+      };
+    };
     workspace: {
-      title: string
-      collapse: string
+      title: string;
+      collapse: string;
       sections: {
-        files: string
-        git: string
-        artifacts: string
-        subagents: string
-      }
+        files: string;
+        git: string;
+        artifacts: string;
+        subagents: string;
+      };
       plan: {
-        section: string
-        empty: string
-        itemAriaLabel: string
+        section: string;
+        empty: string;
+        itemAriaLabel: string;
         status: {
-          pending: string
-          in_progress: string
-          completed: string
-          failed: string
-          skipped: string
-        }
-      }
+          pending: string;
+          in_progress: string;
+          completed: string;
+          failed: string;
+          skipped: string;
+        };
+      };
       files: {
-        section: string
-        empty: string
-        loading: string
+        section: string;
+        empty: string;
+        loading: string;
         noWorkspace: {
-          title: string
-          description: string
-          button: string
-        }
+          title: string;
+          description: string;
+          button: string;
+        };
         contextMenu: {
-          openFile: string
-          revealInFolder: string
-          insertPath: string
-        }
-      }
+          openFile: string;
+          revealInFolder: string;
+          insertPath: string;
+        };
+      };
       git: {
-        empty: string
-        clean: string
-        staged: string
-        unstaged: string
-      }
+        empty: string;
+        clean: string;
+        staged: string;
+        unstaged: string;
+      };
       subagents: {
-        empty: string
-        self: string
+        empty: string;
+        self: string;
         status: {
-          working: string
-          error: string
-          idle: string
-        }
-      }
+          working: string;
+          error: string;
+          idle: string;
+        };
+      };
       browser: {
-        section: string
-        empty: string
-      }
+        section: string;
+        empty: string;
+      };
       terminal: {
-        section: string
-        empty: string
+        section: string;
+        empty: string;
         contextMenu: {
-          terminate: string
-          delete: string
-          expand: string
-          collapse: string
-        }
+          terminate: string;
+          delete: string;
+          expand: string;
+          collapse: string;
+        };
         output: {
-          truncated: string
-        }
-        noOutput: string
+          truncated: string;
+        };
+        noOutput: string;
         status: {
-          running: string
-          completed: string
-          failed: string
-          timed_out: string
-          aborted: string
-        }
-      }
-    }
+          running: string;
+          completed: string;
+          failed: string;
+          timed_out: string;
+          aborted: string;
+        };
+      };
+    };
     newThread: {
-      title: string
-    }
+      title: string;
+    };
     floatingWidget: {
-      title: string
-      collapse: string
-      empty: string
-      executing: string
-      sessionCount: string
-      untitled: string
+      title: string;
+      collapse: string;
+      empty: string;
+      executing: string;
+      sessionCount: string;
+      untitled: string;
       status: {
-        inProgress: string
-        done: string
-        error: string
-      }
-    }
+        inProgress: string;
+        done: string;
+        error: string;
+      };
+    };
     permissionMode: {
-      default: string
-      fullAccess: string
-    }
+      default: string;
+      fullAccess: string;
+    };
     sidebar: {
-      allAgents: string
-      expandSidebar: string
-      collapseSidebar: string
-      remoteControlDisabled: string
+      allAgents: string;
+      expandSidebar: string;
+      collapseSidebar: string;
+      remoteControlDisabled: string;
       remoteControlStatus: {
-        disabled: string
-        stopped: string
-        starting: string
-        running: string
-        backoff: string
-        error: string
-      }
-      groupByDate: string
-      groupByProject: string
-      pinned: string
-      emptyTitle: string
-      emptyDescription: string
-      searchPlaceholder: string
-      searchAriaLabel: string
-      searchEmptyTitle: string
-      searchEmptyDescription: string
-    }
+        disabled: string;
+        stopped: string;
+        starting: string;
+        running: string;
+        backoff: string;
+        error: string;
+      };
+      groupByDate: string;
+      groupByProject: string;
+      pinned: string;
+      emptyTitle: string;
+      emptyDescription: string;
+      searchPlaceholder: string;
+      searchAriaLabel: string;
+      searchEmptyTitle: string;
+      searchEmptyDescription: string;
+    };
     spotlight: {
-      placeholder: string
-      searching: string
-      emptyTitle: string
-      emptyDescription: string
-      hints: string
+      placeholder: string;
+      searching: string;
+      emptyTitle: string;
+      emptyDescription: string;
+      hints: string;
       kind: {
-        session: string
-        message: string
-        agent: string
-        setting: string
-        action: string
-      }
-    }
+        session: string;
+        message: string;
+        agent: string;
+        setting: string;
+        action: string;
+      };
+    };
     inlineSearch: {
-      placeholder: string
-      ariaLabel: string
-      previous: string
-      next: string
-      close: string
-    }
+      placeholder: string;
+      ariaLabel: string;
+      previous: string;
+      next: string;
+      close: string;
+    };
     onboarding: {
       agentSwitch: {
-        title: string
-        description: string
-        caption: string
-      }
+        title: string;
+        description: string;
+        caption: string;
+      };
       switchModel: {
-        description: string
-        caption: string
-      }
+        description: string;
+        caption: string;
+      };
       firstChat: {
-        description: string
-        caption: string
-      }
-    }
-    loading: string
-    copied: string
-    paste: string
-    copyImageSuccess: string
-    copyCode: string
-    newChat: string
-    newTopic: string
-    cancel: string
-    confirm: string
-    next: string
-    back: string
-    enabled: string
-    disabled: string
-    disclaimer: string
-    close: string
-    open: string
-    image: string
-    noContent: string
-    source: string
-    more: string
-    decrease: string
-    increase: string
-    fontSmaller: string
-    fontReset: string
-    fontLarger: string
-    zoomIn: string
-    zoomOut: string
-    resetZoom: string
-    error: string
-    resetDataConfirmTitle: string
-    resetDataConfirmDescription: string
-    resetData: string
-    language: string
-    languageSelect: string
-    searchEngine: string
-    searchEngineSelect: string
-    searchPreview: string
-    searchAssistantModel: string
-    selectModel: string
-    proxyMode: string
-    proxyModeSelect: string
-    proxyModeSystem: string
-    proxyModeNone: string
-    proxyModeCustom: string
-    customProxyUrl: string
-    customProxyUrlPlaceholder: string
-    invalidProxyUrl: string
-    languageSystem: string
-    watermarkTip: string
-    collapse: string
-    expand: string
+        description: string;
+        caption: string;
+      };
+    };
+    loading: string;
+    copied: string;
+    paste: string;
+    copyImageSuccess: string;
+    copyCode: string;
+    newChat: string;
+    newTopic: string;
+    cancel: string;
+    confirm: string;
+    next: string;
+    back: string;
+    enabled: string;
+    disabled: string;
+    disclaimer: string;
+    close: string;
+    open: string;
+    image: string;
+    noContent: string;
+    source: string;
+    more: string;
+    decrease: string;
+    increase: string;
+    fontSmaller: string;
+    fontReset: string;
+    fontLarger: string;
+    zoomIn: string;
+    zoomOut: string;
+    resetZoom: string;
+    error: string;
+    resetDataConfirmTitle: string;
+    resetDataConfirmDescription: string;
+    resetData: string;
+    language: string;
+    languageSelect: string;
+    searchEngine: string;
+    searchEngineSelect: string;
+    searchPreview: string;
+    searchAssistantModel: string;
+    selectModel: string;
+    proxyMode: string;
+    proxyModeSelect: string;
+    proxyModeSystem: string;
+    proxyModeNone: string;
+    proxyModeCustom: string;
+    customProxyUrl: string;
+    customProxyUrlPlaceholder: string;
+    invalidProxyUrl: string;
+    languageSystem: string;
+    watermarkTip: string;
+    collapse: string;
+    expand: string;
     add: {
-      namePlaceholder: string
-      idPlaceholder: string
-      contextLengthPlaceholder: string
-      maxTokensPlaceholder: string
-    }
-    reset: string
-    format: string
-    edit: string
+      namePlaceholder: string;
+      idPlaceholder: string;
+      contextLengthPlaceholder: string;
+      maxTokensPlaceholder: string;
+    };
+    reset: string;
+    format: string;
+    edit: string;
     delete: {
-      title: string
-      description: string
-      confirm: string
-    }
-    save: string
-    clear: string
-    saved: string
-    unknownError: string
-    testing: string
-    saving: string
-    scrollLeft: string
-    scrollRight: string
-    history: string
-    minimize: string
-    maximize: string
-    restore: string
+      title: string;
+      description: string;
+      confirm: string;
+    };
+    save: string;
+    clear: string;
+    saved: string;
+    unknownError: string;
+    testing: string;
+    saving: string;
+    scrollLeft: string;
+    scrollRight: string;
+    history: string;
+    minimize: string;
+    maximize: string;
+    restore: string;
     browser: {
-      back: string
-      forward: string
-      reload: string
-      addressLabel: string
-      addressPlaceholder: string
-      enterUrlToStart: string
-      enterUrlDescription: string
-      name: string
-    }
+      back: string;
+      forward: string;
+      reload: string;
+      addressLabel: string;
+      addressPlaceholder: string;
+      enterUrlToStart: string;
+      enterUrlDescription: string;
+      name: string;
+    };
     size: {
-      bytes: string
-    }
+      bytes: string;
+    };
     time: {
-      today: string
-      yesterday: string
-      lastWeek: string
-      older: string
-    }
+      today: string;
+      yesterday: string;
+      lastWeek: string;
+      older: string;
+    };
     project: {
-      select: string
-      none: string
-      recent: string
-      openFolder: string
-    }
+      select: string;
+      none: string;
+      recent: string;
+      openFolder: string;
+    };
     emojiPicker: {
-      search: string
-      smileys: string
-      people: string
-      animals: string
-      food: string
-      travel: string
-      activities: string
-      objects: string
-      symbols: string
-      flags: string
-    }
+      search: string;
+      smileys: string;
+      people: string;
+      animals: string;
+      food: string;
+      travel: string;
+      activities: string;
+      objects: string;
+      symbols: string;
+      flags: string;
+    };
     messageBlockAction: {
-      continue: string
-      continued: string
-    }
+      continue: string;
+      continued: string;
+    };
     messageBlockPermissionRequest: {
-      title: string
-      allow: string
-      allowOnce: string
-      allowForSession: string
-      allowOnceTooltip: string
-      allowForSessionTooltip: string
-      deny: string
-      rememberChoice: string
-      granted: string
-      denied: string
-      riskLabel: string
+      title: string;
+      allow: string;
+      allowOnce: string;
+      allowForSession: string;
+      allowOnceTooltip: string;
+      allowForSessionTooltip: string;
+      deny: string;
+      rememberChoice: string;
+      granted: string;
+      denied: string;
+      riskLabel: string;
       type: {
-        read: string
-        write: string
-        all: string
-        command: string
-      }
+        read: string;
+        write: string;
+        all: string;
+        command: string;
+      };
       description: {
-        read: string
-        write: string
-        all: string
-        command: string
-        commandWithRisk: string
-      }
+        read: string;
+        write: string;
+        all: string;
+        command: string;
+        commandWithRisk: string;
+      };
       riskLevel: {
-        low: string
-        medium: string
-        high: string
-        critical: string
-      }
+        low: string;
+        medium: string;
+        high: string;
+        critical: string;
+      };
       suggestion: {
-        low: string
-        medium: string
-        high: string
-        critical: string
-      }
-    }
+        low: string;
+        medium: string;
+        high: string;
+        critical: string;
+      };
+    };
     promptParamsDialog: {
-      title: string
-      description: string
-      required: string
-    }
+      title: string;
+      description: string;
+      required: string;
+    };
     messageBlockQuestionRequest: {
-      title: string
-      send: string
-      reject: string
-      selected: string
-      rejected: string
-      customPlaceholder: string
-      answerLabel: string
-    }
+      title: string;
+      send: string;
+      reject: string;
+      selected: string;
+      rejected: string;
+      customPlaceholder: string;
+      answerLabel: string;
+    };
     translate: {
-      title: string
-      original: string
-      translated: string
-      error: string
-    }
+      title: string;
+      original: string;
+      translated: string;
+      error: string;
+    };
     askAI: {
-      title: string
-      question: string
-      answer: string
-      error: string
-    }
-    cut: string
-    ok: string
+      title: string;
+      question: string;
+      answer: string;
+      error: string;
+    };
+    cut: string;
+    ok: string;
     rename: {
-      title: string
-      description: string
-    }
+      title: string;
+      description: string;
+    };
     cleanMessages: {
-      title: string
-      description: string
-      confirm: string
-    }
+      title: string;
+      description: string;
+      confirm: string;
+    };
     fork: {
-      title: string
-      description: string
-      confirm: string
-      tag: string
-    }
+      title: string;
+      description: string;
+      confirm: string;
+      tag: string;
+    };
     mutualExclusive: {
       title: {
-        reasoning: string
-        functionCall: string
-      }
+        reasoning: string;
+        functionCall: string;
+      };
       message: {
-        reasoning: string
-        functionCall: string
-      }
+        reasoning: string;
+        functionCall: string;
+      };
       warningText: {
-        reasoning: string
-        functionCall: string
-      }
-      confirmEnable: string
-    }
-    loadError: string
-    saveAs: string
-    saveSuccess: string
-    saveFailed: string
-    enabledTitle: string
-    enabledDescription: string
-    enableToAccess: string
+        reasoning: string;
+        functionCall: string;
+      };
+      confirmEnable: string;
+    };
+    loadError: string;
+    saveAs: string;
+    saveSuccess: string;
+    saveFailed: string;
+    enabledTitle: string;
+    enabledDescription: string;
+    enableToAccess: string;
     errors: {
-      loadConfigFailed: string
-      setEnabledFailed: string
-      getServerStatusFailed: string
-      addServerFailed: string
-      updateServerFailed: string
-      removeServerFailed: string
-      maxDefaultServersReached: string
-      toggleDefaultServerFailed: string
-      resetToDefaultFailed: string
-      toggleServerFailed: string
-      loadToolsFailed: string
-      loadClientsFailed: string
-      loadPromptsFailed: string
-      loadResourcesFailed: string
-      callToolFailed: string
-      toolCallError: string
-      mcpDisabled: string
-      getPromptFailed: string
-      readResourceFailed: string
-      promptNotFound: string
-      emptyPromptContent: string
-      missingParameters: string
-      invalidParameters: string
-    }
+      loadConfigFailed: string;
+      setEnabledFailed: string;
+      getServerStatusFailed: string;
+      addServerFailed: string;
+      updateServerFailed: string;
+      removeServerFailed: string;
+      maxDefaultServersReached: string;
+      toggleDefaultServerFailed: string;
+      resetToDefaultFailed: string;
+      toggleServerFailed: string;
+      loadToolsFailed: string;
+      loadClientsFailed: string;
+      loadPromptsFailed: string;
+      loadResourcesFailed: string;
+      callToolFailed: string;
+      toolCallError: string;
+      mcpDisabled: string;
+      getPromptFailed: string;
+      readResourceFailed: string;
+      promptNotFound: string;
+      emptyPromptContent: string;
+      missingParameters: string;
+      invalidParameters: string;
+    };
     tabs: {
-      servers: string
-      tools: string
-    }
-    serverList: string
-    addServer: string
-    running: string
-    stopped: string
-    stopServer: string
-    startServer: string
-    noServersFound: string
+      servers: string;
+      tools: string;
+    };
+    serverList: string;
+    addServer: string;
+    running: string;
+    stopped: string;
+    stopServer: string;
+    startServer: string;
+    noServersFound: string;
     addServerDialog: {
-      title: string
-      description: string
-    }
+      title: string;
+      description: string;
+    };
     editServerDialog: {
-      title: string
-      description: string
-    }
+      title: string;
+      description: string;
+    };
     serverForm: {
-      name: string
-      namePlaceholder: string
-      nameRequired: string
-      type: string
-      typePlaceholder: string
-      typeStdio: string
-      typeSse: string
-      typeInMemory: string
-      baseUrl: string
-      baseUrlPlaceholder: string
-      command: string
-      commandPlaceholder: string
-      commandRequired: string
-      args: string
-      argsPlaceholder: string
-      addArg: string
-      argPlaceholder: string
-      argsRequired: string
-      env: string
-      envPlaceholder: string
-      envInvalid: string
-      description: string
-      descriptionPlaceholder: string
-      descriptions: string
-      descriptionsPlaceholder: string
-      icon: string
-      iconPlaceholder: string
-      icons: string
-      iconsPlaceholder: string
-      autoApprove: string
-      autoApproveAll: string
-      autoApproveRead: string
-      autoApproveWrite: string
-      autoApproveHelp: string
-      submit: string
-      add: string
-      update: string
-      cancel: string
-      jsonConfigIntro: string
-      jsonConfig: string
-      jsonConfigPlaceholder: string
-      jsonConfigExample: string
-      parseSuccess: string
-      configImported: string
-      parseError: string
-      skipToManual: string
-      parseAndContinue: string
-      folders: string
-      addFolder: string
-      selectFolder: string
-      selectFolderError: string
-      noFoldersSelected: string
-    }
-    deleteServer: string
-    editServer: string
-    setDefault: string
-    removeDefault: string
-    isDefault: string
-    default: string
-    setAsDefault: string
-    removeServer: string
-    confirmRemoveServer: string
+      name: string;
+      namePlaceholder: string;
+      nameRequired: string;
+      type: string;
+      typePlaceholder: string;
+      typeStdio: string;
+      typeSse: string;
+      typeInMemory: string;
+      baseUrl: string;
+      baseUrlPlaceholder: string;
+      command: string;
+      commandPlaceholder: string;
+      commandRequired: string;
+      args: string;
+      argsPlaceholder: string;
+      addArg: string;
+      argPlaceholder: string;
+      argsRequired: string;
+      env: string;
+      envPlaceholder: string;
+      envInvalid: string;
+      description: string;
+      descriptionPlaceholder: string;
+      descriptions: string;
+      descriptionsPlaceholder: string;
+      icon: string;
+      iconPlaceholder: string;
+      icons: string;
+      iconsPlaceholder: string;
+      autoApprove: string;
+      autoApproveAll: string;
+      autoApproveRead: string;
+      autoApproveWrite: string;
+      autoApproveHelp: string;
+      submit: string;
+      add: string;
+      update: string;
+      cancel: string;
+      jsonConfigIntro: string;
+      jsonConfig: string;
+      jsonConfigPlaceholder: string;
+      jsonConfigExample: string;
+      parseSuccess: string;
+      configImported: string;
+      parseError: string;
+      skipToManual: string;
+      parseAndContinue: string;
+      folders: string;
+      addFolder: string;
+      selectFolder: string;
+      selectFolderError: string;
+      noFoldersSelected: string;
+    };
+    deleteServer: string;
+    editServer: string;
+    setDefault: string;
+    removeDefault: string;
+    isDefault: string;
+    default: string;
+    setAsDefault: string;
+    removeServer: string;
+    confirmRemoveServer: string;
     removeServerDialog: {
-      title: string
-    }
-    confirmDelete: string
-    resetToDefault: string
-    resetConfirmTitle: string
-    resetConfirmDescription: string
-    resetConfirm: string
+      title: string;
+    };
+    confirmDelete: string;
+    resetToDefault: string;
+    resetConfirmTitle: string;
+    resetConfirmDescription: string;
+    resetConfirm: string;
     tools: {
-      searchPlaceholder: string
-      noToolsAvailable: string
-      selectToolToDebug: string
-      dialogDescription: string
-      toolsCount: string
-      availableTools: string
-      toolList: string
-      functionDescription: string
-      invalidJson: string
-      inputHint: string
-      required: string
-      noDescription: string
-      input: string
-      path: string
-      pathPlaceholder: string
-      searchPattern: string
-      searchPatternPlaceholder: string
-      filePattern: string
-      filePatternPlaceholder: string
-      executeButton: string
-      resultTitle: string
-      runningTool: string
-      loading: string
-      error: string
-      available: string
-      none: string
-      title: string
-      description: string
-      loadError: string
-      parameters: string
-      refresh: string
-      disabled: string
-      enableToUse: string
-      enabled: string
-      enabledDescription: string
-      acpManagedHint: string
-      acpServersSelected: string
-      acpServersNone: string
-      jsonInputPlaceholder: string
-      type: string
-      annotations: string
-      empty: string
-      invalidJsonFormat: string
-      allowedValues: string
-      arrayItemValues: string
-    }
+      searchPlaceholder: string;
+      noToolsAvailable: string;
+      selectToolToDebug: string;
+      dialogDescription: string;
+      toolsCount: string;
+      availableTools: string;
+      toolList: string;
+      functionDescription: string;
+      invalidJson: string;
+      inputHint: string;
+      required: string;
+      noDescription: string;
+      input: string;
+      path: string;
+      pathPlaceholder: string;
+      searchPattern: string;
+      searchPatternPlaceholder: string;
+      filePattern: string;
+      filePatternPlaceholder: string;
+      executeButton: string;
+      resultTitle: string;
+      runningTool: string;
+      loading: string;
+      error: string;
+      available: string;
+      none: string;
+      title: string;
+      description: string;
+      loadError: string;
+      parameters: string;
+      refresh: string;
+      disabled: string;
+      enableToUse: string;
+      enabled: string;
+      enabledDescription: string;
+      acpManagedHint: string;
+      acpServersSelected: string;
+      acpServersNone: string;
+      jsonInputPlaceholder: string;
+      type: string;
+      annotations: string;
+      empty: string;
+      invalidJsonFormat: string;
+      allowedValues: string;
+      arrayItemValues: string;
+    };
     inmemory: {
       bochaSearch: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       buildInFileSystem: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       Artifacts: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       braveSearch: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       difyKnowledge: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       ragflowKnowledge: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       fastGptKnowledge: {
-        name: string
-        desc: string
-      }
+        name: string;
+        desc: string;
+      };
       builtinKnowledge: {
-        name: string
-        desc: string
-      }
-      'deepchat-inmemory/custom-prompts-server': {
-        name: string
-        desc: string
-      }
-      'deepchat-inmemory/deep-research-server': {
-        name: string
-        desc: string
-      }
-      'deepchat-inmemory/auto-prompting-server': {
-        name: string
-        desc: string
-      }
-      'deepchat-inmemory/conversation-search-server': {
-        name: string
-        desc: string
-      }
-      'deepchat/apple-server': {
-        name: string
-        desc: string
-      }
-    }
+        name: string;
+        desc: string;
+      };
+      "deepchat-inmemory/custom-prompts-server": {
+        name: string;
+        desc: string;
+      };
+      "deepchat-inmemory/deep-research-server": {
+        name: string;
+        desc: string;
+      };
+      "deepchat-inmemory/auto-prompting-server": {
+        name: string;
+        desc: string;
+      };
+      "deepchat-inmemory/conversation-search-server": {
+        name: string;
+        desc: string;
+      };
+      "deepchat/apple-server": {
+        name: string;
+        desc: string;
+      };
+    };
     prompts: {
-      noPromptsAvailable: string
-      noDescription: string
-      selectPrompt: string
-      parameters: string
-      required: string
-      input: string
-      runningPrompt: string
-      executeButton: string
-      resultTitle: string
-      resetToDefault: string
-      invalidJson: string
-      parametersHint: string
-      dialogDescription: string
-    }
+      noPromptsAvailable: string;
+      noDescription: string;
+      selectPrompt: string;
+      parameters: string;
+      required: string;
+      input: string;
+      runningPrompt: string;
+      executeButton: string;
+      resultTitle: string;
+      resetToDefault: string;
+      invalidJson: string;
+      parametersHint: string;
+      dialogDescription: string;
+    };
     resources: {
-      noResourcesAvailable: string
-      selectResource: string
-      loading: string
-      loadContent: string
-      pleaseSelect: string
-      dialogDescription: string
-    }
+      noResourcesAvailable: string;
+      selectResource: string;
+      loading: string;
+      loadContent: string;
+      pleaseSelect: string;
+      dialogDescription: string;
+    };
     market: {
-      browseBuiltin: string
-      builtinTitle: string
-      poweredBy: string
-      keyGuide: string
-      keyHelpText: string
-      keyHelpEnd: string
-      apiKeyPlaceholder: string
-      apiKeyRequiredTitle: string
-      apiKeyRequiredDesc: string
-      install: string
-      installed: string
-      installSuccess: string
-      installFailed: string
-      noMore: string
-      empty: string
-      loadMore: string
-      pullDownToLoad: string
-    }
+      browseBuiltin: string;
+      builtinTitle: string;
+      poweredBy: string;
+      keyGuide: string;
+      keyHelpText: string;
+      keyHelpEnd: string;
+      apiKeyPlaceholder: string;
+      apiKeyRequiredTitle: string;
+      apiKeyRequiredDesc: string;
+      install: string;
+      installed: string;
+      installSuccess: string;
+      installFailed: string;
+      noMore: string;
+      empty: string;
+      loadMore: string;
+      pullDownToLoad: string;
+    };
     sampling: {
-      approve: string
-      confirming: string
-      confirm: string
-      sendResponse: string
-      selectModel: string
-      respondWith: string
-      maxTokensInfo: string
+      approve: string;
+      confirming: string;
+      confirm: string;
+      sendResponse: string;
+      selectModel: string;
+      respondWith: string;
+      maxTokensInfo: string;
       contentType: {
-        audio: string
-        image: string
-        text: string
-      }
-      description: string
-      imageAlt: string
-      messagesTitle: string
-      noModels: string
-      noVisionModels: string
+        audio: string;
+        image: string;
+        text: string;
+      };
+      description: string;
+      imageAlt: string;
+      messagesTitle: string;
+      noModels: string;
+      noVisionModels: string;
       preference: {
-        cost: string
-        hints: string
-        intelligence: string
-        speed: string
-      }
-      preferencesTitle: string
-      reject: string
-      selectedModelLabel: string
-      systemPrompt: string
-      title: string
-      unknownHint: string
-      unknownMime: string
-      unknownServer: string
-      unsupportedMessage: string
-      visionWarning: string
-      autoApproving: string
-      autoApproveIn: string
-      reviewRequest: string
-      sessionActive: string
-    }
+        cost: string;
+        hints: string;
+        intelligence: string;
+        speed: string;
+      };
+      preferencesTitle: string;
+      reject: string;
+      selectedModelLabel: string;
+      systemPrompt: string;
+      title: string;
+      unknownHint: string;
+      unknownMime: string;
+      unknownServer: string;
+      unsupportedMessage: string;
+      visionWarning: string;
+      autoApproving: string;
+      autoApproveIn: string;
+      reviewRequest: string;
+      sessionActive: string;
+    };
     type: {
-      custom: string
-      official: string
-    }
+      custom: string;
+      official: string;
+    };
     actions: {
-      add: string
-      enableAll: string
-      disableAll: string
-      rename: string
-      delete: string
-      cleanMessages: string
-      pin: string
-      unpin: string
-      export: string
-      exportText: string
-      exportNowledgeMem: string
-    }
+      add: string;
+      enableAll: string;
+      disableAll: string;
+      rename: string;
+      delete: string;
+      cleanMessages: string;
+      pin: string;
+      unpin: string;
+      export: string;
+      exportText: string;
+      exportNowledgeMem: string;
+    };
     sort: {
-      status: string
-      name: string
-    }
+      status: string;
+      name: string;
+    };
     filter: {
-      label: string
-      clearAll: string
-      visibleCount: string
-      capabilities: string
-      types: string
+      label: string;
+      clearAll: string;
+      visibleCount: string;
+      capabilities: string;
+      types: string;
       capabilityOptions: {
-        vision: string
-        functionCall: string
-        reasoning: string
-        search: string
-      }
+        vision: string;
+        functionCall: string;
+        reasoning: string;
+        search: string;
+      };
       typeOptions: {
-        chat: string
-        embedding: string
-        rerank: string
-        imageGeneration: string
-        videoGeneration: string
-      }
-    }
+        chat: string;
+        embedding: string;
+        rerank: string;
+        imageGeneration: string;
+        videoGeneration: string;
+      };
+    };
     tags: {
-      reasoning: string
-      chat: string
-      code: string
-      writing: string
-      analysis: string
-    }
-    completed: string
-    addTitle: string
-    addDescription: string
-    editTitle: string
-    editDescription: string
-    name: string
-    namePlaceholder: string
-    descriptionPlaceholder: string
-    promptContent: string
-    contentPlaceholder: string
-    basicInfo: string
-    contentTip: string
-    noPrompt: string
-    noPromptDesc: string
-    active: string
-    noDescription: string
-    customDate: string
-    showMore: string
-    showLess: string
-    import: string
-    exportSuccess: string
-    exportFailed: string
-    importSuccess: string
-    importFailed: string
-    importStats: string
-    parameters: string
-    addParameter: string
-    noParameters: string
-    noParametersDesc: string
-    parameterName: string
-    parameterDescription: string
-    parameterNamePlaceholder: string
-    parameterDescriptionPlaceholder: string
-    required: string
-    characters: string
-    fileManagement: string
-    uploadFromDevice: string
-    uploadFromDeviceDesc: string
-    uploadedFiles: string
-    noFiles: string
-    noFilesUploadDesc: string
-    uploadSuccess: string
-    uploadFailed: string
-    uploadedCount: string
-    confirmDeleteDescription: string
-    confirmDeleteSystemPrompt: string
-    confirmDeleteSystemPromptDescription: string
-    deleteSuccess: string
-    deleteFailed: string
-    inactive: string
-    clickToEnable: string
-    clickToDisable: string
-    enableSuccess: string
-    disableSuccess: string
-    toggleFailed: string
-    enablePrompt: string
-    sourceLocal: string
-    sourceImported: string
-    sourceBuiltin: string
-    defaultSystemPrompt: string
-    defaultSystemPromptPlaceholder: string
-    defaultSystemPromptDescription: string
-    typing: string
-    saveDefaultPromptFailed: string
-    systemPrompts: string
-    customPrompts: string
-    addSystemPrompt: string
-    addCustomPrompt: string
-    editSystemPrompt: string
-    addSystemPromptDesc: string
-    editSystemPromptDesc: string
-    selectSystemPrompt: string
-    systemPromptDescription: string
-    emptySystemPromptOption: string
-    emptySystemPromptDescription: string
-    systemPromptChanged: string
-    systemPromptChangeFailed: string
-    systemPromptAdded: string
-    systemPromptAddedAndSwitched: string
-    systemPromptUpdated: string
-    systemPromptSaveFailed: string
-    systemPromptDeleted: string
-    systemPromptDeleteFailed: string
-    systemPromptEditTip: string
-    resetToDefaultSuccess: string
-    resetToDefaultFailed: string
-    parameterRequired: string
-    chat: string
-    welcome: string
-    settings: string
-    'settings-common': string
-    'settings-provider': string
-    'settings-mcp': string
-    'settings-deepchat-agents': string
-    'settings-database': string
-    'settings-about': string
-    'settings-shortcut': string
-    'settings-display': string
-    'settings-knowledge-base': string
-    'settings-prompt': string
-    'settings-mcp-market': string
-    'settings-acp': string
-    'settings-skills': string
-    'settings-notifications-hooks': string
-    'settings-scheduled-tasks': string
-    'settings-dashboard': string
-    'settings-environments': string
-    'settings-remote': string
-    'settings-plugins': string
-    'settings-overview': string
+      reasoning: string;
+      chat: string;
+      code: string;
+      writing: string;
+      analysis: string;
+    };
+    completed: string;
+    addTitle: string;
+    addDescription: string;
+    editTitle: string;
+    editDescription: string;
+    name: string;
+    namePlaceholder: string;
+    descriptionPlaceholder: string;
+    promptContent: string;
+    contentPlaceholder: string;
+    basicInfo: string;
+    contentTip: string;
+    noPrompt: string;
+    noPromptDesc: string;
+    active: string;
+    noDescription: string;
+    customDate: string;
+    showMore: string;
+    showLess: string;
+    import: string;
+    exportSuccess: string;
+    exportFailed: string;
+    importSuccess: string;
+    importFailed: string;
+    importStats: string;
+    parameters: string;
+    addParameter: string;
+    noParameters: string;
+    noParametersDesc: string;
+    parameterName: string;
+    parameterDescription: string;
+    parameterNamePlaceholder: string;
+    parameterDescriptionPlaceholder: string;
+    required: string;
+    characters: string;
+    fileManagement: string;
+    uploadFromDevice: string;
+    uploadFromDeviceDesc: string;
+    uploadedFiles: string;
+    noFiles: string;
+    noFilesUploadDesc: string;
+    uploadSuccess: string;
+    uploadFailed: string;
+    uploadedCount: string;
+    confirmDeleteDescription: string;
+    confirmDeleteSystemPrompt: string;
+    confirmDeleteSystemPromptDescription: string;
+    deleteSuccess: string;
+    deleteFailed: string;
+    inactive: string;
+    clickToEnable: string;
+    clickToDisable: string;
+    enableSuccess: string;
+    disableSuccess: string;
+    toggleFailed: string;
+    enablePrompt: string;
+    sourceLocal: string;
+    sourceImported: string;
+    sourceBuiltin: string;
+    defaultSystemPrompt: string;
+    defaultSystemPromptPlaceholder: string;
+    defaultSystemPromptDescription: string;
+    typing: string;
+    saveDefaultPromptFailed: string;
+    systemPrompts: string;
+    customPrompts: string;
+    addSystemPrompt: string;
+    addCustomPrompt: string;
+    editSystemPrompt: string;
+    addSystemPromptDesc: string;
+    editSystemPromptDesc: string;
+    selectSystemPrompt: string;
+    systemPromptDescription: string;
+    emptySystemPromptOption: string;
+    emptySystemPromptDescription: string;
+    systemPromptChanged: string;
+    systemPromptChangeFailed: string;
+    systemPromptAdded: string;
+    systemPromptAddedAndSwitched: string;
+    systemPromptUpdated: string;
+    systemPromptSaveFailed: string;
+    systemPromptDeleted: string;
+    systemPromptDeleteFailed: string;
+    systemPromptEditTip: string;
+    resetToDefaultSuccess: string;
+    resetToDefaultFailed: string;
+    parameterRequired: string;
+    chat: string;
+    welcome: string;
+    settings: string;
+    "settings-common": string;
+    "settings-provider": string;
+    "settings-mcp": string;
+    "settings-deepchat-agents": string;
+    "settings-database": string;
+    "settings-about": string;
+    "settings-shortcut": string;
+    "settings-display": string;
+    "settings-knowledge-base": string;
+    "settings-prompt": string;
+    "settings-mcp-market": string;
+    "settings-acp": string;
+    "settings-skills": string;
+    "settings-notifications-hooks": string;
+    "settings-scheduled-tasks": string;
+    "settings-dashboard": string;
+    "settings-environments": string;
+    "settings-remote": string;
+    "settings-plugins": string;
+    "settings-overview": string;
     common: {
-      title: string
-      resetData: string
-      language: string
-      languageSelect: string
-      searchEngine: string
-      searchEngineSelect: string
-      searchPreview: string
-      launchAtLoginEnabled: string
-      autoScrollEnabled: string
-      privacyMode: string
-      privacyModeDescription: string
-      privacyModeAutoUpdate: string
-      privacyModeProviderDb: string
-      privacyModeAcpRegistry: string
-      privacyModeNpmRegistry: string
-      privacyModeManualActions: string
-      privacyModeIntegrations: string
+      title: string;
+      resetData: string;
+      language: string;
+      languageSelect: string;
+      searchEngine: string;
+      searchEngineSelect: string;
+      searchPreview: string;
+      launchAtLoginEnabled: string;
+      autoScrollEnabled: string;
+      privacyMode: string;
+      privacyModeDescription: string;
+      privacyModeAutoUpdate: string;
+      privacyModeProviderDb: string;
+      privacyModeAcpRegistry: string;
+      privacyModeNpmRegistry: string;
+      privacyModeManualActions: string;
+      privacyModeIntegrations: string;
       autoCompaction: {
-        title: string
-        enabled: string
-        description: string
-        thresholdLabel: string
-        thresholdMin: string
-        thresholdMax: string
-        thresholdDescription: string
-        retainPairsLabel: string
-        retainPairsValue: string
-        retainPairsDescription: string
-      }
-      searchAssistantModel: string
-      selectModel: string
-      proxyMode: string
-      proxyModeSelect: string
-      proxyModeSystem: string
-      proxyModeNone: string
-      proxyModeCustom: string
-      customProxyUrl: string
-      customProxyUrlPlaceholder: string
-      invalidProxyUrl: string
-      addCustomSearchEngine: string
-      addCustomSearchEngineDesc: string
-      searchEngineName: string
-      searchEngineNamePlaceholder: string
-      searchEngineUrl: string
-      searchEngineUrlPlaceholder: string
-      searchEngineUrlError: string
-      deleteCustomSearchEngine: string
-      deleteCustomSearchEngineDesc: string
-      testSearchEngine: string
-      testSearchEngineDesc: string
-      testSearchEngineNote: string
-      theme: string
-      themeSelect: string
-      themeLight: string
-      themeDark: string
-      themeSystem: string
-      closeToQuit: string
+        title: string;
+        enabled: string;
+        description: string;
+        thresholdLabel: string;
+        thresholdMin: string;
+        thresholdMax: string;
+        thresholdDescription: string;
+        retainPairsLabel: string;
+        retainPairsValue: string;
+        retainPairsDescription: string;
+      };
+      searchAssistantModel: string;
+      selectModel: string;
+      proxyMode: string;
+      proxyModeSelect: string;
+      proxyModeSystem: string;
+      proxyModeNone: string;
+      proxyModeCustom: string;
+      customProxyUrl: string;
+      customProxyUrlPlaceholder: string;
+      invalidProxyUrl: string;
+      addCustomSearchEngine: string;
+      addCustomSearchEngineDesc: string;
+      searchEngineName: string;
+      searchEngineNamePlaceholder: string;
+      searchEngineUrl: string;
+      searchEngineUrlPlaceholder: string;
+      searchEngineUrlError: string;
+      deleteCustomSearchEngine: string;
+      deleteCustomSearchEngineDesc: string;
+      testSearchEngine: string;
+      testSearchEngineDesc: string;
+      testSearchEngineNote: string;
+      theme: string;
+      themeSelect: string;
+      themeLight: string;
+      themeDark: string;
+      themeSystem: string;
+      closeToQuit: string;
       shortcut: {
-        title: string
-        newChat: string
-      }
-      contentProtection: string
-      contentProtectionDialogTitle: string
-      contentProtectionEnableDesc: string
-      contentProtectionDisableDesc: string
-      contentProtectionRestartNotice: string
-      copyWithCotEnabled: string
-      traceDebugEnabled: string
-      loggingEnabled: string
-      loggingDialogTitle: string
-      loggingEnableDesc: string
-      loggingDisableDesc: string
-      charactersUnit: string
-      loggingRestartNotice: string
-      openLogFolder: string
-      notifications: string
-      notificationsDesc: string
-      fileMaxSize: string
-      fileMaxSizeHint: string
+        title: string;
+        newChat: string;
+      };
+      contentProtection: string;
+      contentProtectionDialogTitle: string;
+      contentProtectionEnableDesc: string;
+      contentProtectionDisableDesc: string;
+      contentProtectionRestartNotice: string;
+      copyWithCotEnabled: string;
+      traceDebugEnabled: string;
+      loggingEnabled: string;
+      loggingDialogTitle: string;
+      loggingEnableDesc: string;
+      loggingDisableDesc: string;
+      charactersUnit: string;
+      loggingRestartNotice: string;
+      openLogFolder: string;
+      notifications: string;
+      notificationsDesc: string;
+      fileMaxSize: string;
+      fileMaxSizeHint: string;
       defaultModel: {
-        title: string
-        chatModel: string
-      }
-    }
+        title: string;
+        chatModel: string;
+      };
+    };
     deepchatAgents: {
-      title: string
-      description: string
-      builtIn: string
-      editTitle: string
-      createTitle: string
-      unnamed: string
-      name: string
-      namePlaceholder: string
-      enabledLabel: string
-      descriptionLabel: string
-      descriptionPlaceholder: string
-      avatarTitle: string
-      avatarDefault: string
-      avatarDefaultDesc: string
-      avatarLucide: string
-      avatarLucideDesc: string
-      avatarMonogram: string
-      avatarMonogramDesc: string
-      lucideIcon: string
-      lightColor: string
-      darkColor: string
-      monogramText: string
-      monogramPlaceholder: string
-      backgroundColor: string
-      modelsTitle: string
-      chatModel: string
-      assistantModel: string
-      visionModel: string
-      imageGenerationModel: string
-      temperature: string
-      contextLength: string
-      maxTokens: string
-      thinkingBudget: string
-      reasoningEffort: string
-      verbosity: string
-      interleaved: string
-      systemPrompt: string
-      systemPromptPlaceholder: string
-      defaultProjectPath: string
-      defaultProjectPathPlaceholder: string
-      permissionMode: string
-      permissionFullAccess: string
-      permissionDefault: string
-      subagentsTitle: string
-      subagentsDescription: string
-      subagentsEnabled: string
-      subagentTargetType: string
-      subagentTargetSelf: string
-      subagentTargetAgent: string
-      subagentDisplayName: string
-      subagentDescription: string
-      subagentTargetAgentLabel: string
-      subagentLimit: string
-      addSubagentSlot: string
-      toolsTitle: string
-      compactionTitle: string
-      compactionEnabled: string
-      compactionDescription: string
-      compactionThreshold: string
-      compactionRetainPairs: string
-      deleteConfirm: string
-    }
+      title: string;
+      description: string;
+      builtIn: string;
+      editTitle: string;
+      createTitle: string;
+      unnamed: string;
+      name: string;
+      namePlaceholder: string;
+      enabledLabel: string;
+      descriptionLabel: string;
+      descriptionPlaceholder: string;
+      avatarTitle: string;
+      avatarDefault: string;
+      avatarDefaultDesc: string;
+      avatarLucide: string;
+      avatarLucideDesc: string;
+      avatarMonogram: string;
+      avatarMonogramDesc: string;
+      lucideIcon: string;
+      lightColor: string;
+      darkColor: string;
+      monogramText: string;
+      monogramPlaceholder: string;
+      backgroundColor: string;
+      modelsTitle: string;
+      chatModel: string;
+      assistantModel: string;
+      visionModel: string;
+      imageGenerationModel: string;
+      temperature: string;
+      contextLength: string;
+      maxTokens: string;
+      thinkingBudget: string;
+      reasoningEffort: string;
+      verbosity: string;
+      interleaved: string;
+      systemPrompt: string;
+      systemPromptPlaceholder: string;
+      defaultProjectPath: string;
+      defaultProjectPathPlaceholder: string;
+      permissionMode: string;
+      permissionFullAccess: string;
+      permissionDefault: string;
+      subagentsTitle: string;
+      subagentsDescription: string;
+      subagentsEnabled: string;
+      subagentTargetType: string;
+      subagentTargetSelf: string;
+      subagentTargetAgent: string;
+      subagentDisplayName: string;
+      subagentDescription: string;
+      subagentTargetAgentLabel: string;
+      subagentLimit: string;
+      addSubagentSlot: string;
+      toolsTitle: string;
+      compactionTitle: string;
+      compactionEnabled: string;
+      compactionDescription: string;
+      compactionThreshold: string;
+      compactionRetainPairs: string;
+      deleteConfirm: string;
+    };
     notificationsHooks: {
-      title: string
-      description: string
+      title: string;
+      description: string;
       events: {
-        title: string
-        SessionStart: string
-        UserPromptSubmit: string
-        PreToolUse: string
-        PostToolUse: string
-        PostToolUseFailure: string
-        PermissionRequest: string
-        Stop: string
-        SessionEnd: string
-      }
+        title: string;
+        SessionStart: string;
+        UserPromptSubmit: string;
+        PreToolUse: string;
+        PostToolUse: string;
+        PostToolUseFailure: string;
+        PermissionRequest: string;
+        Stop: string;
+        SessionEnd: string;
+      };
       commands: {
-        title: string
-        description: string
-        hint: string
-        commandPlaceholder: string
-        commandLabel: string
-        name: string
-        namePlaceholder: string
-        newHook: string
-        empty: string
-        defaultName: string
-        guideTitle: string
-        guideDescription: string
-        deliveryTitle: string
-        deliveryStdin: string
-        deliveryPlaceholder: string
-        deliveryEnv: string
-        metadataOnly: string
-        stdinPreviewLabel: string
-        placeholdersTitle: string
-        placeholdersDescription: string
-        envTitle: string
-        examplesTitle: string
-        exampleNodeLabel: string
-        examplePythonLabel: string
-        examplePowerShellLabel: string
+        title: string;
+        description: string;
+        hint: string;
+        commandPlaceholder: string;
+        commandLabel: string;
+        name: string;
+        namePlaceholder: string;
+        newHook: string;
+        empty: string;
+        defaultName: string;
+        guideTitle: string;
+        guideDescription: string;
+        deliveryTitle: string;
+        deliveryStdin: string;
+        deliveryPlaceholder: string;
+        deliveryEnv: string;
+        metadataOnly: string;
+        stdinPreviewLabel: string;
+        placeholdersTitle: string;
+        placeholdersDescription: string;
+        envTitle: string;
+        examplesTitle: string;
+        exampleNodeLabel: string;
+        examplePythonLabel: string;
+        examplePowerShellLabel: string;
         fields: {
-          event: string
-          time: string
-          isTest: string
-          conversationId: string
-          workdir: string
-          agentId: string
-          providerId: string
-          modelId: string
-          messageId: string
-          toolName: string
-          toolCallId: string
-        }
-      }
+          event: string;
+          time: string;
+          isTest: string;
+          conversationId: string;
+          workdir: string;
+          agentId: string;
+          providerId: string;
+          modelId: string;
+          messageId: string;
+          toolName: string;
+          toolCallId: string;
+        };
+      };
       test: {
-        button: string
-        testing: string
-        success: string
-        failed: string
-        duration: string
-        statusCode: string
-        exitCode: string
-        retryAfter: string
-        stdout: string
-        stderr: string
-      }
-    }
+        button: string;
+        testing: string;
+        success: string;
+        failed: string;
+        duration: string;
+        statusCode: string;
+        exitCode: string;
+        retryAfter: string;
+        stdout: string;
+        stderr: string;
+      };
+    };
     data: {
-      title: string
-      syncEnable: string
-      syncFolder: string
-      openSyncFolder: string
-      lastSyncTime: string
-      never: string
-      startBackup: string
-      backingUp: string
-      importData: string
-      incrementImport: string
-      overwriteImport: string
-      backupSelectLabel: string
-      backupSelectDescription: string
-      selectBackupPlaceholder: string
-      noBackupsAvailable: string
-      importConfirmTitle: string
-      importConfirmDescription: string
-      importing: string
-      confirmImport: string
-      importSuccessTitle: string
-      importErrorTitle: string
-      resetData: string
-      resetConfirmTitle: string
-      resetConfirmDescription: string
-      resetChatData: string
-      resetChatDataDesc: string
-      resetKnowledgeData: string
-      resetKnowledgeDataDesc: string
-      resetConfig: string
-      resetConfigDesc: string
-      resetAll: string
-      resetAllDesc: string
-      resetting: string
-      confirmReset: string
-      resetCompleteDevTitle: string
-      resetCompleteDevMessage: string
+      title: string;
+      syncEnable: string;
+      syncFolder: string;
+      openSyncFolder: string;
+      lastSyncTime: string;
+      never: string;
+      startBackup: string;
+      backingUp: string;
+      importData: string;
+      incrementImport: string;
+      overwriteImport: string;
+      backupSelectLabel: string;
+      backupSelectDescription: string;
+      selectBackupPlaceholder: string;
+      noBackupsAvailable: string;
+      importConfirmTitle: string;
+      importConfirmDescription: string;
+      importing: string;
+      confirmImport: string;
+      importSuccessTitle: string;
+      importErrorTitle: string;
+      resetData: string;
+      resetConfirmTitle: string;
+      resetConfirmDescription: string;
+      resetChatData: string;
+      resetChatDataDesc: string;
+      resetKnowledgeData: string;
+      resetKnowledgeDataDesc: string;
+      resetConfig: string;
+      resetConfigDesc: string;
+      resetAll: string;
+      resetAllDesc: string;
+      resetting: string;
+      confirmReset: string;
+      resetCompleteDevTitle: string;
+      resetCompleteDevMessage: string;
       toast: {
-        backupSuccessTitle: string
-        backupSuccessMessage: string
-      }
-      syncSectionTitle: string
-      operationsSectionTitle: string
-      resetDataDescription: string
+        backupSuccessTitle: string;
+        backupSuccessMessage: string;
+      };
+      syncSectionTitle: string;
+      operationsSectionTitle: string;
+      resetDataDescription: string;
       databaseRepair: {
-        title: string
-        description: string
-        button: string
-        running: string
-        lastResultLabel: string
-        summaryHealthy: string
-        summaryRepaired: string
-        summaryRepairedWithManual: string
-        summaryManualOnly: string
-        manualHint: string
-        toastSuggestedTitle: string
-        toastSuggestedDescription: string
-        toastAction: string
-        toastHealthyTitle: string
-        toastHealthyDescription: string
-        toastCompletedTitle: string
-        toastRepairedDescription: string
-        toastManualDescription: string
-        toastFailedTitle: string
-        toastFailedDescription: string
+        title: string;
+        description: string;
+        button: string;
+        running: string;
+        lastResultLabel: string;
+        summaryHealthy: string;
+        summaryRepaired: string;
+        summaryRepairedWithManual: string;
+        summaryManualOnly: string;
+        manualHint: string;
+        toastSuggestedTitle: string;
+        toastSuggestedDescription: string;
+        toastAction: string;
+        toastHealthyTitle: string;
+        toastHealthyDescription: string;
+        toastCompletedTitle: string;
+        toastRepairedDescription: string;
+        toastManualDescription: string;
+        toastFailedTitle: string;
+        toastFailedDescription: string;
         reasons: {
-          'missing-table': string
-          'missing-column': string
-          'column-count-mismatch': string
-          'type-mismatch': string
-        }
-      }
+          "missing-table": string;
+          "missing-column": string;
+          "column-count-mismatch": string;
+          "type-mismatch": string;
+        };
+      };
       databaseEncryption: {
-        title: string
-        description: string
-        enabled: string
-        disabled: string
-        cipher: string
-        systemUnlock: string
-        startupUnlock: string
-        lastMigration: string
-        loading: string
-        never: string
-        notRequired: string
-        systemUnlockAvailable: string
-        systemUnlockUnavailable: string
-        systemUnlockMode: string
-        manualUnlock: string
-        currentPassword: string
-        newPassword: string
-        confirmPassword: string
-        passwordMismatch: string
-        systemCredentialStore: string
-        safeStorageUnavailable: string
-        enableButton: string
-        changeButton: string
-        disableButton: string
-        enabledTitle: string
-        changedTitle: string
-        disabledTitle: string
-        failedTitle: string
-        failedDescription: string
-        setPasswordButton: string
-        enableDialogTitle: string
-        changeDialogTitle: string
-        disableDialogTitle: string
-        enableDialogDescription: string
-        changeDialogDescription: string
-        disableDialogDescription: string
-        cancelButton: string
-        unknown: string
-      }
+        title: string;
+        description: string;
+        enabled: string;
+        disabled: string;
+        cipher: string;
+        systemUnlock: string;
+        startupUnlock: string;
+        lastMigration: string;
+        loading: string;
+        never: string;
+        notRequired: string;
+        systemUnlockAvailable: string;
+        systemUnlockUnavailable: string;
+        systemUnlockMode: string;
+        manualUnlock: string;
+        currentPassword: string;
+        newPassword: string;
+        confirmPassword: string;
+        passwordMismatch: string;
+        systemCredentialStore: string;
+        safeStorageUnavailable: string;
+        enableButton: string;
+        changeButton: string;
+        disableButton: string;
+        enabledTitle: string;
+        changedTitle: string;
+        disabledTitle: string;
+        failedTitle: string;
+        failedDescription: string;
+        setPasswordButton: string;
+        enableDialogTitle: string;
+        changeDialogTitle: string;
+        disableDialogTitle: string;
+        enableDialogDescription: string;
+        changeDialogDescription: string;
+        disableDialogDescription: string;
+        cancelButton: string;
+        unknown: string;
+      };
       modelConfigUpdate: {
-        title: string
-        descriptionPrefix: string
-        linkLabel: string
-        descriptionSuffix: string
-        button: string
-        updating: string
-        updatedTitle: string
-        updatedDescription: string
-        upToDateTitle: string
-        upToDateDescription: string
-        failedTitle: string
-        failedDescription: string
-      }
+        title: string;
+        descriptionPrefix: string;
+        linkLabel: string;
+        descriptionSuffix: string;
+        button: string;
+        updating: string;
+        updatedTitle: string;
+        updatedDescription: string;
+        upToDateTitle: string;
+        upToDateDescription: string;
+        failedTitle: string;
+        failedDescription: string;
+      };
       yoBrowser: {
-        title: string
-        description: string
-        clearButton: string
-        confirmTitle: string
-        confirmDescription: string
-        confirmAction: string
-        clearing: string
-        clearedTitle: string
-        clearedDescription: string
-        clearFailedTitle: string
-        clearFailedDescription: string
-      }
-      privacyTitle: string
-      privacyDescription: string
+        title: string;
+        description: string;
+        clearButton: string;
+        confirmTitle: string;
+        confirmDescription: string;
+        confirmAction: string;
+        clearing: string;
+        clearedTitle: string;
+        clearedDescription: string;
+        clearFailedTitle: string;
+        clearFailedDescription: string;
+      };
+      privacyTitle: string;
+      privacyDescription: string;
       dangerZone: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       providerImport: {
-        entryTitle: string
-        entryDescription: string
-        entryButton: string
-        dialogTitle: string
-        dialogDescription: string
-        toastTitle: string
-        toastDescription: string
+        entryTitle: string;
+        entryDescription: string;
+        entryButton: string;
+        dialogTitle: string;
+        dialogDescription: string;
+        toastTitle: string;
+        toastDescription: string;
         steps: {
-          scan: string
-          providers: string
-          done: string
-        }
-        scanningTitle: string
-        scanningDescription: string
-        scanFailedTitle: string
-        sourcesTitle: string
-        sourcesDescription: string
-        selectedSources: string
-        noSourcesTitle: string
-        noSourcesDescription: string
-        providersFound: string
-        sourceProgress: string
-        overwriteNote: string
-        noProvidersTitle: string
-        noProvidersDescription: string
-        apiKey: string
-        noModels: string
-        modelsImported: string
-        importingTitle: string
-        importingDescription: string
-        doneTitle: string
-        doneDescription: string
+          scan: string;
+          providers: string;
+          done: string;
+        };
+        scanningTitle: string;
+        scanningDescription: string;
+        scanFailedTitle: string;
+        sourcesTitle: string;
+        sourcesDescription: string;
+        selectedSources: string;
+        noSourcesTitle: string;
+        noSourcesDescription: string;
+        providersFound: string;
+        sourceProgress: string;
+        overwriteNote: string;
+        noProvidersTitle: string;
+        noProvidersDescription: string;
+        apiKey: string;
+        noModels: string;
+        modelsImported: string;
+        importingTitle: string;
+        importingDescription: string;
+        doneTitle: string;
+        doneDescription: string;
         badges: {
-          configured: string
-        }
+          configured: string;
+        };
         sourceStatus: {
-          found: string
-          not_found: string
-          error: string
-          unsupported_platform: string
-        }
+          found: string;
+          not_found: string;
+          error: string;
+          unsupported_platform: string;
+        };
         targetKind: {
-          builtin: string
-          custom: string
-          unsupported: string
-        }
+          builtin: string;
+          custom: string;
+          unsupported: string;
+        };
         warnings: {
-          already_configured: string
-          missing_api_key: string
-          unsupported_provider: string
-          overwrites_previous_selection: string
-          credential_only_import: string
-        }
+          already_configured: string;
+          missing_api_key: string;
+          unsupported_provider: string;
+          overwrites_previous_selection: string;
+          credential_only_import: string;
+        };
         conflicts: {
-          overridesPrevious: string
-          overwrittenByLater: string
-        }
+          overridesPrevious: string;
+          overwrittenByLater: string;
+        };
         summary: {
-          imported: string
-          created: string
-          updated: string
-          overwritten: string
-          models: string
-          skipped: string
-        }
+          imported: string;
+          created: string;
+          updated: string;
+          overwritten: string;
+          models: string;
+          skipped: string;
+        };
         resultStatus: {
-          created: string
-          updated: string
-          skipped: string
-          overwritten: string
-        }
+          created: string;
+          updated: string;
+          skipped: string;
+          overwritten: string;
+        };
         actions: {
-          rescan: string
-          selectAll: string
-          clearSelected: string
-          import: string
-        }
+          rescan: string;
+          selectAll: string;
+          clearSelected: string;
+          import: string;
+        };
         apiTypes: {
-          openaiCompletions: string
-          openai: string
-          openaiResponses: string
-          anthropic: string
-          gemini: string
-          ollama: string
-          mistral: string
-        }
-        applyFailed: string
-      }
-    }
+          openaiCompletions: string;
+          openai: string;
+          openaiResponses: string;
+          anthropic: string;
+          gemini: string;
+          ollama: string;
+          mistral: string;
+        };
+        applyFailed: string;
+      };
+    };
     dashboard: {
-      badge: string
-      title: string
-      description: string
+      badge: string;
+      title: string;
+      description: string;
       actions: {
-        refresh: string
-      }
+        refresh: string;
+      };
       backfill: {
-        runningTitle: string
-        runningDescription: string
-        failedTitle: string
-        failedDescription: string
-      }
+        runningTitle: string;
+        runningDescription: string;
+        failedTitle: string;
+        failedDescription: string;
+      };
       error: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       empty: {
-        title: string
-        description: string
-        historyNote: string
-      }
+        title: string;
+        description: string;
+        historyNote: string;
+      };
       summary: {
-        totalTokens: string
-        totalTokensDescription: string
-        inputTokensLabel: string
-        outputTokensLabel: string
-        cachedTokens: string
-        cachedTokensDescription: string
-        cachedTokensCachedLabel: string
-        cachedTokensUncachedLabel: string
-        cacheHitRate: string
-        cacheHitRateDescription: string
-        estimatedCost: string
-        estimatedCostDescription: string
-        estimatedCostTrendLabel: string
-        estimatedCostTrendEmpty: string
-        recordingStartedAt: string
-        recordingStartedAtDescription: string
-        withDeepChatDaysLabel: string
-        withDeepChatDaysValue: string
-        withDeepChatDaysSentence: string
-        withDeepChatDaysDescription: string
-        withDeepChatDaysDescriptionUnavailable: string
-        tokenUsage: string
-        nostalgiaLabel: string
-        nostalgiaDaysValue: string
-        nostalgiaSessionsValue: string
-        nostalgiaMessagesValue: string
-        nostalgiaDaysDetailLabel: string
-        nostalgiaDaysDetail: string
-        nostalgiaSessionsDetailLabel: string
-        nostalgiaSessionsDetail: string
-        nostalgiaMessagesDetailLabel: string
-        nostalgiaMessagesDetail: string
-        nostalgiaMostActiveDayLabel: string
-        nostalgiaMostActiveDayDetail: string
-      }
+        totalTokens: string;
+        totalTokensDescription: string;
+        inputTokensLabel: string;
+        outputTokensLabel: string;
+        cachedTokens: string;
+        cachedTokensDescription: string;
+        cachedTokensCachedLabel: string;
+        cachedTokensUncachedLabel: string;
+        cacheHitRate: string;
+        cacheHitRateDescription: string;
+        estimatedCost: string;
+        estimatedCostDescription: string;
+        estimatedCostTrendLabel: string;
+        estimatedCostTrendEmpty: string;
+        recordingStartedAt: string;
+        recordingStartedAtDescription: string;
+        withDeepChatDaysLabel: string;
+        withDeepChatDaysValue: string;
+        withDeepChatDaysSentence: string;
+        withDeepChatDaysDescription: string;
+        withDeepChatDaysDescriptionUnavailable: string;
+        tokenUsage: string;
+        nostalgiaLabel: string;
+        nostalgiaDaysValue: string;
+        nostalgiaSessionsValue: string;
+        nostalgiaMessagesValue: string;
+        nostalgiaDaysDetailLabel: string;
+        nostalgiaDaysDetail: string;
+        nostalgiaSessionsDetailLabel: string;
+        nostalgiaSessionsDetail: string;
+        nostalgiaMessagesDetailLabel: string;
+        nostalgiaMessagesDetail: string;
+        nostalgiaMostActiveDayLabel: string;
+        nostalgiaMostActiveDayDetail: string;
+      };
       calendar: {
-        title: string
-        description: string
-        legend: string
-        tooltip: string
-      }
+        title: string;
+        description: string;
+        legend: string;
+        tooltip: string;
+      };
       breakdown: {
-        providerTitle: string
-        providerDescription: string
-        modelTitle: string
-        modelDescription: string
-        messages: string
-        empty: string
-      }
+        providerTitle: string;
+        providerDescription: string;
+        modelTitle: string;
+        modelDescription: string;
+        messages: string;
+        empty: string;
+      };
       rtk: {
-        title: string
-        description: string
+        title: string;
+        description: string;
         actions: {
-          retry: string
-        }
+          retry: string;
+        };
         status: {
-          disabled: string
-          checking: string
-          healthy: string
-          unhealthy: string
-        }
-        descriptionDisabled: string
-        descriptionChecking: string
-        descriptionHealthy: string
-        descriptionUnhealthy: string
-        sourceLabel: string
+          disabled: string;
+          checking: string;
+          healthy: string;
+          unhealthy: string;
+        };
+        descriptionDisabled: string;
+        descriptionChecking: string;
+        descriptionHealthy: string;
+        descriptionUnhealthy: string;
+        sourceLabel: string;
         source: {
-          bundled: string
-          system: string
-          none: string
-        }
+          bundled: string;
+          system: string;
+          none: string;
+        };
         summary: {
-          savedTokens: string
-          commands: string
-          avgSavingsPct: string
-          outputTokens: string
-        }
-      }
-      unavailable: string
-    }
+          savedTokens: string;
+          commands: string;
+          avgSavingsPct: string;
+          outputTokens: string;
+        };
+      };
+      unavailable: string;
+    };
     modelConfigItem: {
-      chatFallbackWarning: string
-    }
-    model: string
+      chatFallbackWarning: string;
+    };
+    model: string;
     provider: {
-      select: string
-      apiUrl: string
-      apiKey: string
-      verifyLink: string
-    }
+      select: string;
+      apiUrl: string;
+      apiKey: string;
+      verifyLink: string;
+    };
     knowledgeBase: {
-      title: string
-      addKnowledgeBase: string
-      selectKnowledgeBaseType: string
-      difyDescription: string
-      comingSoon: string
-      featureNotAvailable: string
-      addDifyConfig: string
-      apiKey: string
-      datasetId: string
-      endpoint: string
-      configAdded: string
-      configAddedDesc: string
-      addConfig: string
-      moreComingSoon: string
-      configUpdated: string
-      configUpdatedDesc: string
-      descriptionPlaceholder: string
-      ragflowTitle: string
-      ragflowDescription: string
-      addRagflowConfig: string
-      editRagflowConfig: string
-      dify: string
-      editDifyConfig: string
-      fastgptTitle: string
-      fastgptDescription: string
-      addFastGptConfig: string
-      editFastGptConfig: string
-      builtInKnowledgeTitle: string
-      builtInKnowledgeDescription: string
-      addBuiltinKnowledgeConfig: string
-      editBuiltinKnowledgeConfig: string
-      descriptionDesc: string
-      embeddingModel: string
-      selectEmbeddingModel: string
-      selectEmbeddingModelHelper: string
-      rerankModel: string
-      selectRerankModel: string
-      chunkSize: string
-      chunkOverlap: string
-      fragmentsNumber: string
-      chunkSizeHelper: string
-      chunkOverlapHelper: string
-      fragmentsNumberHelper: string
-      modelNotFound: string
-      modelNotFoundDesc: string
-      removeBuiltinKnowledgeConfirmTitle: string
-      removeBuiltinKnowledgeConfirmDesc: string
-      advanced: string
-      dimensions: string
-      dimensionsPlaceholder: string
-      autoDetectDimensions: string
-      autoDetectHelper: string
-      dimensionsHelper: string
-      autoDetectDimensionsError: string
-      normalized: string
-      normalizedHelper: string
-      chunkSizePlaceholder: string
-      chunkOverlapPlaceholder: string
-      return: string
-      uploadHelper: string
-      fileSupport: string
-      searchKnowledge: string
-      searchKnowledgePlaceholder: string
-      noData: string
-      file: string
-      uploadProcessing: string
-      uploadCompleted: string
-      reAdd: string
-      uploadError: string
-      processing: string
-      paused: string
-      unknown: string
-      delete: string
-      reason: string
-      deleteSuccess: string
-      copy: string
-      copySuccess: string
-      source: string
-      resumeAllPausedTasks: string
-      pauseAllRunningTasks: string
+      title: string;
+      addKnowledgeBase: string;
+      selectKnowledgeBaseType: string;
+      difyDescription: string;
+      comingSoon: string;
+      featureNotAvailable: string;
+      addDifyConfig: string;
+      apiKey: string;
+      datasetId: string;
+      endpoint: string;
+      configAdded: string;
+      configAddedDesc: string;
+      addConfig: string;
+      moreComingSoon: string;
+      configUpdated: string;
+      configUpdatedDesc: string;
+      descriptionPlaceholder: string;
+      ragflowTitle: string;
+      ragflowDescription: string;
+      addRagflowConfig: string;
+      editRagflowConfig: string;
+      dify: string;
+      editDifyConfig: string;
+      fastgptTitle: string;
+      fastgptDescription: string;
+      addFastGptConfig: string;
+      editFastGptConfig: string;
+      builtInKnowledgeTitle: string;
+      builtInKnowledgeDescription: string;
+      addBuiltinKnowledgeConfig: string;
+      editBuiltinKnowledgeConfig: string;
+      descriptionDesc: string;
+      embeddingModel: string;
+      selectEmbeddingModel: string;
+      selectEmbeddingModelHelper: string;
+      rerankModel: string;
+      selectRerankModel: string;
+      chunkSize: string;
+      chunkOverlap: string;
+      fragmentsNumber: string;
+      chunkSizeHelper: string;
+      chunkOverlapHelper: string;
+      fragmentsNumberHelper: string;
+      modelNotFound: string;
+      modelNotFoundDesc: string;
+      removeBuiltinKnowledgeConfirmTitle: string;
+      removeBuiltinKnowledgeConfirmDesc: string;
+      advanced: string;
+      dimensions: string;
+      dimensionsPlaceholder: string;
+      autoDetectDimensions: string;
+      autoDetectHelper: string;
+      dimensionsHelper: string;
+      autoDetectDimensionsError: string;
+      normalized: string;
+      normalizedHelper: string;
+      chunkSizePlaceholder: string;
+      chunkOverlapPlaceholder: string;
+      return: string;
+      uploadHelper: string;
+      fileSupport: string;
+      searchKnowledge: string;
+      searchKnowledgePlaceholder: string;
+      noData: string;
+      file: string;
+      uploadProcessing: string;
+      uploadCompleted: string;
+      reAdd: string;
+      uploadError: string;
+      processing: string;
+      paused: string;
+      unknown: string;
+      delete: string;
+      reason: string;
+      deleteSuccess: string;
+      copy: string;
+      copySuccess: string;
+      source: string;
+      resumeAllPausedTasks: string;
+      pauseAllRunningTasks: string;
       reAddFile: {
-        title: string
-        content: string
-      }
+        title: string;
+        content: string;
+      };
       deleteFile: {
-        title: string
-        content: string
-      }
+        title: string;
+        content: string;
+      };
       dialog: {
         beforequit: {
-          title: string
-          description: string
-          cancel: string
-          confirm: string
-        }
-      }
-      searchError: string
-      separators: string
-      separatorsHelper: string
-      invalidSeparators: string
-      selectLanguage: string
-      separatorsPreset: string
+          title: string;
+          description: string;
+          cancel: string;
+          confirm: string;
+        };
+      };
+      searchError: string;
+      separators: string;
+      separatorsHelper: string;
+      invalidSeparators: string;
+      selectLanguage: string;
+      separatorsPreset: string;
       nowledgeMem: {
-        apiKey: string
-        apiKeyHint: string
-        baseUrl: string
-        configuration: string
-        description: string
-        resetConfig: string
-        saveConfig: string
-        seconds: string
-        testConnection: string
-        timeout: string
-        title: string
-      }
-    }
+        apiKey: string;
+        apiKeyHint: string;
+        baseUrl: string;
+        configuration: string;
+        description: string;
+        resetConfig: string;
+        saveConfig: string;
+        seconds: string;
+        testConnection: string;
+        timeout: string;
+        title: string;
+      };
+    };
     mcp: {
-      title: string
-      description: string
-      enabledTitle: string
-      enabledDescription: string
-      enableToAccess: string
-      marketplace: string
+      title: string;
+      description: string;
+      enabledTitle: string;
+      enabledDescription: string;
+      enableToAccess: string;
+      marketplace: string;
       marketMenu: {
-        higress: string
-      }
-      technicalDetails: string
-      httpServer: string
-      localProcess: string
-      restartServer: string
-      viewLogs: string
-      starting: string
-      error: string
+        higress: string;
+      };
+      technicalDetails: string;
+      httpServer: string;
+      localProcess: string;
+      restartServer: string;
+      viewLogs: string;
+      starting: string;
+      error: string;
       tabs: {
-        servers: string
-        tools: string
-        prompts: string
-        resources: string
-      }
-      serverList: string
-      addServer: string
-      running: string
-      stopped: string
-      stopServer: string
-      startServer: string
-      noServersFound: string
-      noServersDescription: string
+        servers: string;
+        tools: string;
+        prompts: string;
+        resources: string;
+      };
+      serverList: string;
+      addServer: string;
+      running: string;
+      stopped: string;
+      stopServer: string;
+      startServer: string;
+      noServersFound: string;
+      noServersDescription: string;
       addServerDialog: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       editServerDialog: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       serverForm: {
-        name: string
-        namePlaceholder: string
-        nameRequired: string
-        type: string
-        typePlaceholder: string
-        typeStdio: string
-        typeSse: string
-        typeInMemory: string
-        typeHttp: string
-        baseUrl: string
-        baseUrlPlaceholder: string
-        command: string
-        commandPlaceholder: string
-        commandRequired: string
-        args: string
-        argsPlaceholder: string
-        addArg: string
-        argPlaceholder: string
-        argsRequired: string
-        env: string
-        envPlaceholder: string
-        envInvalid: string
-        description: string
-        descriptionPlaceholder: string
-        descriptions: string
-        descriptionsPlaceholder: string
-        icon: string
-        iconPlaceholder: string
-        icons: string
-        iconsPlaceholder: string
-        autoApprove: string
-        autoApproveAll: string
-        autoApproveRead: string
-        autoApproveWrite: string
-        autoApproveHelp: string
-        submit: string
-        add: string
-        update: string
-        cancel: string
-        jsonConfigIntro: string
-        jsonConfig: string
-        jsonConfigPlaceholder: string
-        jsonConfigExample: string
-        parseSuccess: string
-        configImported: string
-        parseError: string
-        skipToManual: string
-        parseAndContinue: string
-        jsonParseError: string
-        browseMarketplace: string
-        imageModel: string
-        customHeadersParseError: string
-        customHeaders: string
-        clickToEdit: string
-        invalidKeyValueFormat: string
-        npmRegistry: string
-        npmRegistryPlaceholder: string
-        browseHigress: string
-        selectFolderError: string
-        folders: string
-        addFolder: string
-        noFoldersSelected: string
-        useE2B: string
-        e2bDescription: string
-        e2bApiKey: string
-        e2bApiKeyPlaceholder: string
-        e2bApiKeyHelp: string
-        e2bApiKeyRequired: string
-      }
-      deleteServer: string
-      editServer: string
-      setDefault: string
-      removeDefault: string
-      isDefault: string
-      default: string
-      setAsDefault: string
-      removeServer: string
-      autoStart: string
-      confirmRemoveServer: string
+        name: string;
+        namePlaceholder: string;
+        nameRequired: string;
+        type: string;
+        typePlaceholder: string;
+        typeStdio: string;
+        typeSse: string;
+        typeInMemory: string;
+        typeHttp: string;
+        baseUrl: string;
+        baseUrlPlaceholder: string;
+        command: string;
+        commandPlaceholder: string;
+        commandRequired: string;
+        args: string;
+        argsPlaceholder: string;
+        addArg: string;
+        argPlaceholder: string;
+        argsRequired: string;
+        env: string;
+        envPlaceholder: string;
+        envInvalid: string;
+        description: string;
+        descriptionPlaceholder: string;
+        descriptions: string;
+        descriptionsPlaceholder: string;
+        icon: string;
+        iconPlaceholder: string;
+        icons: string;
+        iconsPlaceholder: string;
+        autoApprove: string;
+        autoApproveAll: string;
+        autoApproveRead: string;
+        autoApproveWrite: string;
+        autoApproveHelp: string;
+        submit: string;
+        add: string;
+        update: string;
+        cancel: string;
+        jsonConfigIntro: string;
+        jsonConfig: string;
+        jsonConfigPlaceholder: string;
+        jsonConfigExample: string;
+        parseSuccess: string;
+        configImported: string;
+        parseError: string;
+        skipToManual: string;
+        parseAndContinue: string;
+        jsonParseError: string;
+        browseMarketplace: string;
+        imageModel: string;
+        customHeadersParseError: string;
+        customHeaders: string;
+        clickToEdit: string;
+        invalidKeyValueFormat: string;
+        npmRegistry: string;
+        npmRegistryPlaceholder: string;
+        browseHigress: string;
+        selectFolderError: string;
+        folders: string;
+        addFolder: string;
+        noFoldersSelected: string;
+        useE2B: string;
+        e2bDescription: string;
+        e2bApiKey: string;
+        e2bApiKeyPlaceholder: string;
+        e2bApiKeyHelp: string;
+        e2bApiKeyRequired: string;
+      };
+      deleteServer: string;
+      editServer: string;
+      setDefault: string;
+      removeDefault: string;
+      isDefault: string;
+      default: string;
+      setAsDefault: string;
+      removeServer: string;
+      autoStart: string;
+      confirmRemoveServer: string;
       removeServerDialog: {
-        title: string
-      }
+        title: string;
+      };
       confirmDelete: {
-        title: string
-        description: string
-        confirm: string
-        cancel: string
-      }
-      resetToDefault: string
-      resetConfirmTitle: string
-      resetConfirmDescription: string
-      resetConfirm: string
-      builtInServers: string
-      customServers: string
-      builtIn: string
-      cannotRemoveBuiltIn: string
-      builtInServerCannotBeRemoved: string
-      maxDefaultServersReached: string
-      removeDefaultFirst: string
-      higressMarket: string
-      totalServers: string
+        title: string;
+        description: string;
+        confirm: string;
+        cancel: string;
+      };
+      resetToDefault: string;
+      resetConfirmTitle: string;
+      resetConfirmDescription: string;
+      resetConfirm: string;
+      builtInServers: string;
+      customServers: string;
+      builtIn: string;
+      cannotRemoveBuiltIn: string;
+      builtInServerCannotBeRemoved: string;
+      maxDefaultServersReached: string;
+      removeDefaultFirst: string;
+      higressMarket: string;
+      totalServers: string;
       npmRegistry: {
-        title: string
-        currentSource: string
-        cached: string
-        lastChecked: string
-        refresh: string
-        advanced: string
-        advancedSettings: string
-        advancedSettingsDesc: string
-        autoDetect: string
-        autoDetectDesc: string
-        customSource: string
-        customSourcePlaceholder: string
-        currentCustom: string
-        justNow: string
-        minutesAgo: string
-        hoursAgo: string
-        daysAgo: string
-        refreshSuccess: string
-        refreshSuccessDesc: string
-        refreshFailed: string
-        autoDetectUpdated: string
-        autoDetectEnabled: string
-        autoDetectDisabled: string
-        updateFailed: string
-        customSourceSet: string
-        customSourceSetDesc: string
-        customSourceCleared: string
-        customSourceClearedDesc: string
-        invalidUrl: string
-        invalidUrlDesc: string
-        testing: string
-        testingDesc: string
-        testFailed: string
-        testFailedDesc: string
-        redetectingOptimal: string
-        redetectComplete: string
-        redetectCompleteDesc: string
-        redetectFailed: string
-        redetectFailedDesc: string
-      }
-      managedServerReadOnly: string
-      managedServerReadOnlyDesc: string
+        title: string;
+        currentSource: string;
+        cached: string;
+        lastChecked: string;
+        refresh: string;
+        advanced: string;
+        advancedSettings: string;
+        advancedSettingsDesc: string;
+        autoDetect: string;
+        autoDetectDesc: string;
+        customSource: string;
+        customSourcePlaceholder: string;
+        currentCustom: string;
+        justNow: string;
+        minutesAgo: string;
+        hoursAgo: string;
+        daysAgo: string;
+        refreshSuccess: string;
+        refreshSuccessDesc: string;
+        refreshFailed: string;
+        autoDetectUpdated: string;
+        autoDetectEnabled: string;
+        autoDetectDisabled: string;
+        updateFailed: string;
+        customSourceSet: string;
+        customSourceSetDesc: string;
+        customSourceCleared: string;
+        customSourceClearedDesc: string;
+        invalidUrl: string;
+        invalidUrlDesc: string;
+        testing: string;
+        testingDesc: string;
+        testFailed: string;
+        testFailedDesc: string;
+        redetectingOptimal: string;
+        redetectComplete: string;
+        redetectCompleteDesc: string;
+        redetectFailed: string;
+        redetectFailedDesc: string;
+      };
+      managedServerReadOnly: string;
+      managedServerReadOnlyDesc: string;
       center: {
-        title: string
-        running: string
-        builtIn: string
-        custom: string
-        searchPlaceholder: string
-        noResults: string
-        command: string
+        title: string;
+        running: string;
+        builtIn: string;
+        custom: string;
+        searchPlaceholder: string;
+        noResults: string;
+        command: string;
         filters: {
-          all: string
-          running: string
-          stopped: string
-          builtIn: string
-          custom: string
-        }
-      }
-    }
+          all: string;
+          running: string;
+          stopped: string;
+          builtIn: string;
+          custom: string;
+        };
+      };
+    };
     scheduledTasks: {
-      title: string
-      description: string
-      hint: string
-      newTask: string
-      empty: string
-      namePlaceholder: string
-      fireNow: string
-      fireNowSuccess: string
+      title: string;
+      description: string;
+      hint: string;
+      newTask: string;
+      empty: string;
+      namePlaceholder: string;
+      fireNow: string;
+      fireNowSuccess: string;
       defaults: {
-        name: string
-        title: string
-        body: string
-      }
+        name: string;
+        title: string;
+        body: string;
+      };
       trigger: {
-        title: string
-        kind: string
-        kindOnce: string
-        kindDaily: string
-        kindWeekly: string
-        firesAt: string
-        dayOfWeek: string
-        time: string
-        description: string
-      }
+        title: string;
+        kind: string;
+        kindOnce: string;
+        kindDaily: string;
+        kindWeekly: string;
+        firesAt: string;
+        dayOfWeek: string;
+        time: string;
+        description: string;
+      };
       action: {
-        title: string
-        kind: string
-        kindNotify: string
-        kindPrompt: string
-        titleField: string
-        titlePlaceholder: string
-        body: string
-        message: string
-        agentId: string
-        agentIdPlaceholder: string
-        modelId: string
-        modelIdPlaceholder: string
-        systemPrompt: string
-        autoSend: string
-        description: string
-      }
+        title: string;
+        kind: string;
+        kindNotify: string;
+        kindPrompt: string;
+        titleField: string;
+        titlePlaceholder: string;
+        body: string;
+        message: string;
+        agentId: string;
+        agentIdPlaceholder: string;
+        modelId: string;
+        modelIdPlaceholder: string;
+        systemPrompt: string;
+        autoSend: string;
+        description: string;
+      };
       weekday: {
-        sun: string
-        mon: string
-        tue: string
-        wed: string
-        thu: string
-        fri: string
-        sat: string
-      }
-      listTitle: string
-      listDescription: string
+        sun: string;
+        mon: string;
+        tue: string;
+        wed: string;
+        thu: string;
+        fri: string;
+        sat: string;
+      };
+      listTitle: string;
+      listDescription: string;
       summary: {
-        task: string
-        once: string
-        daily: string
-        weekly: string
-      }
-    }
+        task: string;
+        once: string;
+        daily: string;
+        weekly: string;
+      };
+    };
     about: {
-      title: string
-      version: string
-      checkUpdate: string
-      checking: string
-      latestVersion: string
-    }
+      title: string;
+      version: string;
+      checkUpdate: string;
+      checking: string;
+      latestVersion: string;
+    };
     display: {
-      fontTitle: string
-      fontFamily: string
-      fontFamilyDesc: string
-      codeFontFamily: string
-      codeFontFamilyDesc: string
-      fontDefaultLabel: string
-      fontSearchPlaceholder: string
-      fontSearchEmpty: string
-      fontReset: string
-      fontSystemLoading: string
-      fontUsageHint: string
-      fontSize: string
-      'text-sm': string
-      'text-base': string
-      'text-lg': string
-      'text-xl': string
-      'text-2xl': string
-      floatingButton: string
-      floatingButtonDesc: string
-    }
+      fontTitle: string;
+      fontFamily: string;
+      fontFamilyDesc: string;
+      codeFontFamily: string;
+      codeFontFamilyDesc: string;
+      fontDefaultLabel: string;
+      fontSearchPlaceholder: string;
+      fontSearchEmpty: string;
+      fontReset: string;
+      fontSystemLoading: string;
+      fontUsageHint: string;
+      fontSize: string;
+      "text-sm": string;
+      "text-base": string;
+      "text-lg": string;
+      "text-xl": string;
+      "text-2xl": string;
+      floatingButton: string;
+      floatingButtonDesc: string;
+    };
     shortcuts: {
-      title: string
-      pressKeys: string
-      pressEnterToSave: string
-      noModifierOnly: string
-      keyConflict: string
-      clearShortcut: string
-      zoomIn: string
-      zoomOut: string
-      zoomReset: string
-      goSettings: string
-      cleanHistory: string
-      deleteConversation: string
-      hideWindow: string
-      quitApp: string
-      toggleSidebar: string
-      toggleWorkspace: string
-      newWindow: string
-      showHideWindow: string
-      newConversation: string
-      quickSearch: string
-      closeWindow: string
-    }
+      title: string;
+      pressKeys: string;
+      pressEnterToSave: string;
+      noModifierOnly: string;
+      keyConflict: string;
+      clearShortcut: string;
+      zoomIn: string;
+      zoomOut: string;
+      zoomReset: string;
+      goSettings: string;
+      cleanHistory: string;
+      deleteConversation: string;
+      hideWindow: string;
+      quitApp: string;
+      toggleSidebar: string;
+      toggleWorkspace: string;
+      newWindow: string;
+      showHideWindow: string;
+      newConversation: string;
+      quickSearch: string;
+      closeWindow: string;
+    };
     acp: {
-      title: string
-      description: string
-      enabledTitle: string
-      enabledDescription: string
-      useBuiltinRuntimeTitle: string
-      useBuiltinRuntimeDescription: string
-      enableToAccess: string
-      registryInstallEntry: string
-      registryInstallEntryDescription: string
-      addCustomAgent: string
-      customEmpty: string
-      customDeleteConfirm: string
-      builtinSectionTitle: string
-      builtinSectionDescription: string
-      builtinHint: string
-      disabledBadge: string
-      manageProfiles: string
-      addProfile: string
-      activeProfile: string
-      profilePlaceholder: string
-      profileSwitched: string
-      customSectionTitle: string
-      customSectionDescription: string
-      mcpAccessTitle: string
-      mcpAccessEmpty: string
-      mcpAccessBadge: string
-      sharedMcpTitle: string
-      sharedMcpDescription: string
-      installedSectionTitle: string
-      installedSectionDescription: string
-      installedCount: string
-      installedEmptyTitle: string
-      installedEmptyDescription: string
-      registryCount: string
-      registryEmpty: string
-      registryOverlayEmpty: string
-      registryRefresh: string
-      registryRepair: string
-      registryInstallAction: string
-      registryUninstallAction: string
-      registryUninstallConfirm: string
-      registryUninstallDescription: string
-      registryUninstallFailed: string
-      registryInstallTitle: string
-      registryInstallDescription: string
-      registryLearnMore: string
-      registryRepository: string
-      registrySearchPlaceholder: string
+      title: string;
+      description: string;
+      enabledTitle: string;
+      enabledDescription: string;
+      useBuiltinRuntimeTitle: string;
+      useBuiltinRuntimeDescription: string;
+      enableToAccess: string;
+      registryInstallEntry: string;
+      registryInstallEntryDescription: string;
+      addCustomAgent: string;
+      customEmpty: string;
+      customDeleteConfirm: string;
+      builtinSectionTitle: string;
+      builtinSectionDescription: string;
+      builtinHint: string;
+      disabledBadge: string;
+      manageProfiles: string;
+      addProfile: string;
+      activeProfile: string;
+      profilePlaceholder: string;
+      profileSwitched: string;
+      customSectionTitle: string;
+      customSectionDescription: string;
+      mcpAccessTitle: string;
+      mcpAccessEmpty: string;
+      mcpAccessBadge: string;
+      sharedMcpTitle: string;
+      sharedMcpDescription: string;
+      installedSectionTitle: string;
+      installedSectionDescription: string;
+      installedCount: string;
+      installedEmptyTitle: string;
+      installedEmptyDescription: string;
+      registryCount: string;
+      registryEmpty: string;
+      registryOverlayEmpty: string;
+      registryRefresh: string;
+      registryRepair: string;
+      registryInstallAction: string;
+      registryUninstallAction: string;
+      registryUninstallConfirm: string;
+      registryUninstallDescription: string;
+      registryUninstallFailed: string;
+      registryInstallTitle: string;
+      registryInstallDescription: string;
+      registryLearnMore: string;
+      registryRepository: string;
+      registrySearchPlaceholder: string;
       installFilters: {
-        all: string
-        installed: string
-        notInstalled: string
-      }
+        all: string;
+        installed: string;
+        notInstalled: string;
+      };
       filters: {
-        all: string
-        enabled: string
-        installed: string
-        attention: string
-      }
-      envOverrideTitle: string
-      envOverridePlaceholder: string
+        all: string;
+        enabled: string;
+        installed: string;
+        attention: string;
+      };
+      envOverrideTitle: string;
+      envOverridePlaceholder: string;
       installState: {
-        installed: string
-        installing: string
-        error: string
-        notInstalled: string
-      }
-      loading: string
-      none: string
-      saveSuccess: string
-      saveFailed: string
-      deleteSuccess: string
-      initialize: string
-      initializing: string
-      initializeDescription: string
-      initializeSuccess: string
-      initializeFailed: string
-      missingFieldsTitle: string
-      missingFieldsDesc: string
-      command: string
-      commandPlaceholder: string
-      args: string
-      argsPlaceholder: string
-      env: string
-      addEnv: string
-      envKeyPlaceholder: string
-      envValuePlaceholder: string
+        installed: string;
+        installing: string;
+        error: string;
+        notInstalled: string;
+      };
+      loading: string;
+      none: string;
+      saveSuccess: string;
+      saveFailed: string;
+      deleteSuccess: string;
+      initialize: string;
+      initializing: string;
+      initializeDescription: string;
+      initializeSuccess: string;
+      initializeFailed: string;
+      missingFieldsTitle: string;
+      missingFieldsDesc: string;
+      command: string;
+      commandPlaceholder: string;
+      args: string;
+      argsPlaceholder: string;
+      env: string;
+      addEnv: string;
+      envKeyPlaceholder: string;
+      envValuePlaceholder: string;
       profileDialog: {
-        addBuiltinTitle: string
-        editBuiltinTitle: string
-        addCustomTitle: string
-        editCustomTitle: string
-        builtinHint: string
-        customHint: string
-        profileName: string
-        profileNamePlaceholder: string
-        agentName: string
-        agentNamePlaceholder: string
-      }
+        addBuiltinTitle: string;
+        editBuiltinTitle: string;
+        addCustomTitle: string;
+        editCustomTitle: string;
+        builtinHint: string;
+        customHint: string;
+        profileName: string;
+        profileNamePlaceholder: string;
+        agentName: string;
+        agentNamePlaceholder: string;
+      };
       profileManager: {
-        title: string
-        description: string
-        count: string
-        empty: string
-        active: string
-        setActive: string
-        deleteConfirm: string
-        cannotDeleteTitle: string
-        cannotDeleteDesc: string
-        noAgent: string
-      }
+        title: string;
+        description: string;
+        count: string;
+        empty: string;
+        active: string;
+        setActive: string;
+        deleteConfirm: string;
+        cannotDeleteTitle: string;
+        cannotDeleteDesc: string;
+        noAgent: string;
+      };
       terminal: {
-        title: string
-        waiting: string
-        starting: string
-        close: string
-        closing: string
-        exitSuccess: string
-        exitError: string
-        processError: string
-        paste: string
-        pasteError: string
+        title: string;
+        waiting: string;
+        starting: string;
+        close: string;
+        closing: string;
+        exitSuccess: string;
+        exitError: string;
+        processError: string;
+        paste: string;
+        pasteError: string;
         status: {
-          idle: string
-          running: string
-          completed: string
-          error: string
-        }
-      }
+          idle: string;
+          running: string;
+          completed: string;
+          error: string;
+        };
+      };
       dependency: {
-        title: string
-        description: string
-        installCommands: string
-        downloadUrl: string
-        copy: string
-        copied: string
-        copyFailed: string
-      }
+        title: string;
+        description: string;
+        installCommands: string;
+        downloadUrl: string;
+        copy: string;
+        copied: string;
+        copyFailed: string;
+      };
       debug: {
-        title: string
-        description: string
-        entry: string
-        healthCheck: string
-        healthChecking: string
-        healthCheckFailed: string
-        workdirPlaceholder: string
-        close: string
-        customMethod: string
-        customMethodPlaceholder: string
-        payloadHint: string
-        format: string
-        resetTemplate: string
-        clearHistory: string
-        send: string
-        sending: string
-        processReady: string
-        processNotReady: string
-        needInitialize: string
-        events: string
-        eventCount: string
-        empty: string
-        parseError: string
-        customMethodRequired: string
-        requestFailed: string
+        title: string;
+        description: string;
+        entry: string;
+        healthCheck: string;
+        healthChecking: string;
+        healthCheckFailed: string;
+        workdirPlaceholder: string;
+        close: string;
+        customMethod: string;
+        customMethodPlaceholder: string;
+        payloadHint: string;
+        format: string;
+        resetTemplate: string;
+        clearHistory: string;
+        send: string;
+        sending: string;
+        processReady: string;
+        processNotReady: string;
+        needInitialize: string;
+        events: string;
+        eventCount: string;
+        empty: string;
+        parseError: string;
+        customMethodRequired: string;
+        requestFailed: string;
         methods: {
-          initialize: string
-          newSession: string
-          loadSession: string
-          prompt: string
-          cancel: string
-          setSessionMode: string
-          setSessionModel: string
-          extMethod: string
-          extNotification: string
-        }
+          initialize: string;
+          newSession: string;
+          loadSession: string;
+          prompt: string;
+          cancel: string;
+          setSessionMode: string;
+          setSessionModel: string;
+          extMethod: string;
+          extNotification: string;
+        };
         eventKinds: {
-          request: string
-          response: string
-          notification: string
-          permission: string
-          lifecycle: string
-          stderr: string
-          error: string
-        }
-      }
-    }
+          request: string;
+          response: string;
+          notification: string;
+          permission: string;
+          lifecycle: string;
+          stderr: string;
+          error: string;
+        };
+      };
+    };
     promptSetting: {
-      resetToDefault: string
-      resetToDefaultSuccess: string
-      resetToDefaultFailed: string
-    }
+      resetToDefault: string;
+      resetToDefaultSuccess: string;
+      resetToDefaultFailed: string;
+    };
     environments: {
-      title: string
-      description: string
+      title: string;
+      description: string;
       default: {
-        title: string
-        description: string
-        empty: string
-      }
+        title: string;
+        description: string;
+        empty: string;
+      };
       history: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       temp: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       actions: {
-        refresh: string
-        showMissing: string
-        open: string
-        setDefault: string
-        clearDefault: string
-        showTemp: string
-        hideTemp: string
-      }
+        refresh: string;
+        showMissing: string;
+        open: string;
+        setDefault: string;
+        clearDefault: string;
+        showTemp: string;
+        hideTemp: string;
+      };
       badges: {
-        default: string
-        temp: string
-        missing: string
-        notInHistory: string
-      }
+        default: string;
+        temp: string;
+        missing: string;
+        notInHistory: string;
+      };
       meta: {
-        sessions: string
-        lastUsed: string
-        never: string
-      }
+        sessions: string;
+        lastUsed: string;
+        never: string;
+      };
       empty: {
-        regular: string
-        temp: string
-      }
+        regular: string;
+        temp: string;
+      };
       errors: {
-        openTitle: string
-      }
-    }
+        openTitle: string;
+      };
+    };
     remote: {
-      title: string
-      description: string
+      title: string;
+      description: string;
       telegram: {
-        title: string
-        description: string
-        botToken: string
-        botTokenPlaceholder: string
-        botTokenDescription: string
-      }
+        title: string;
+        description: string;
+        botToken: string;
+        botTokenPlaceholder: string;
+        botTokenDescription: string;
+      };
       feishu: {
-        title: string
-        description: string
-        brand: string
-        brandFeishu: string
-        brandLark: string
-        appId: string
-        appIdPlaceholder: string
-        appSecret: string
-        appSecretPlaceholder: string
-        verificationToken: string
-        verificationTokenPlaceholder: string
-        encryptKey: string
-        encryptKeyPlaceholder: string
-        botUser: string
-        bindings: string
-        pairedUserOpenIds: string
-        pairedUserOpenIdsPlaceholder: string
-        accessRulesDescription: string
-        accessRule1: string
-        accessRule2: string
-      }
+        title: string;
+        description: string;
+        brand: string;
+        brandFeishu: string;
+        brandLark: string;
+        appId: string;
+        appIdPlaceholder: string;
+        appSecret: string;
+        appSecretPlaceholder: string;
+        verificationToken: string;
+        verificationTokenPlaceholder: string;
+        encryptKey: string;
+        encryptKeyPlaceholder: string;
+        botUser: string;
+        bindings: string;
+        pairedUserOpenIds: string;
+        pairedUserOpenIdsPlaceholder: string;
+        accessRulesDescription: string;
+        accessRule1: string;
+        accessRule2: string;
+      };
       discord: {
-        title: string
-        description: string
-        botToken: string
-        botTokenPlaceholder: string
-        remoteControlDescription: string
-        accessRule1: string
-        accessRule2: string
-      }
+        title: string;
+        description: string;
+        botToken: string;
+        botTokenPlaceholder: string;
+        remoteControlDescription: string;
+        accessRule1: string;
+        accessRule2: string;
+      };
       sections: {
-        credentials: string
-        remoteControl: string
-        notifications: string
-        accessRules: string
-      }
+        credentials: string;
+        remoteControl: string;
+        notifications: string;
+        accessRules: string;
+      };
       remoteControl: {
-        description: string
-        allowedUserIds: string
-        allowedUserIdsPlaceholder: string
-        defaultAgent: string
-        defaultAgentPlaceholder: string
-        defaultWorkdir: string
-        defaultWorkdirPlaceholder: string
-        defaultWorkdirHelper: string
-        openPairDialog: string
-        manageBindings: string
-        pairCode: string
-        noPairCode: string
-        pairCodeExpiresAt: string
-        pairDialogTitle: string
-        pairDialogDescription: string
-        pairDialogInstructionTelegram: string
-        pairDialogInstructionFeishu: string
-        pairDialogInstructionDiscord: string
-        bindingsDialogTitle: string
-        bindingsDialogDescription: string
-        bindingsEmpty: string
-        pairingSuccessTitle: string
-        pairingSuccessDescription: string
-        pairDialogInstructionQQBot: string
-        authorizedPrincipalsTitle: string
-        authorizedPrincipalsDescription: string
-        authorizedPrincipalsEmpty: string
-        sessionBindingsTitle: string
-        sessionBindingsDescription: string
-      }
+        description: string;
+        allowedUserIds: string;
+        allowedUserIdsPlaceholder: string;
+        defaultAgent: string;
+        defaultAgentPlaceholder: string;
+        defaultWorkdir: string;
+        defaultWorkdirPlaceholder: string;
+        defaultWorkdirHelper: string;
+        openPairDialog: string;
+        manageBindings: string;
+        pairCode: string;
+        noPairCode: string;
+        pairCodeExpiresAt: string;
+        pairDialogTitle: string;
+        pairDialogDescription: string;
+        pairDialogInstructionTelegram: string;
+        pairDialogInstructionFeishu: string;
+        pairDialogInstructionDiscord: string;
+        bindingsDialogTitle: string;
+        bindingsDialogDescription: string;
+        bindingsEmpty: string;
+        pairingSuccessTitle: string;
+        pairingSuccessDescription: string;
+        pairDialogInstructionQQBot: string;
+        authorizedPrincipalsTitle: string;
+        authorizedPrincipalsDescription: string;
+        authorizedPrincipalsEmpty: string;
+        sessionBindingsTitle: string;
+        sessionBindingsDescription: string;
+      };
       hooks: {
-        title: string
-        description: string
-        chatId: string
-        chatIdPlaceholder: string
-        threadId: string
-        threadIdPlaceholder: string
-      }
+        title: string;
+        description: string;
+        chatId: string;
+        chatIdPlaceholder: string;
+        threadId: string;
+        threadIdPlaceholder: string;
+      };
       status: {
-        title: string
-        botUser: string
-        bindings: string
+        title: string;
+        botUser: string;
+        bindings: string;
         states: {
-          disabled: string
-          stopped: string
-          starting: string
-          running: string
-          backoff: string
-          error: string
-        }
-        bindingOnly: string
-      }
+          disabled: string;
+          stopped: string;
+          starting: string;
+          running: string;
+          backoff: string;
+          error: string;
+        };
+        bindingOnly: string;
+      };
       overview: {
-        telegram: string
-        feishu: string
-        hooksOn: string
-        hooksOff: string
-        qqbot: string
-        discord: string
-        weixinIlink: string
-      }
+        telegram: string;
+        feishu: string;
+        hooksOn: string;
+        hooksOff: string;
+        qqbot: string;
+        discord: string;
+        weixinIlink: string;
+      };
       bindingKinds: {
-        dm: string
-        group: string
-        topic: string
-      }
+        dm: string;
+        group: string;
+        topic: string;
+      };
       qqbot: {
-        title: string
-        description: string
-        appId: string
-        appIdPlaceholder: string
-        clientSecret: string
-        clientSecretPlaceholder: string
-        remoteControlDescription: string
-        pairedUserIds: string
-        pairedUserIdsPlaceholder: string
-      }
+        title: string;
+        description: string;
+        appId: string;
+        appIdPlaceholder: string;
+        clientSecret: string;
+        clientSecretPlaceholder: string;
+        remoteControlDescription: string;
+        pairedUserIds: string;
+        pairedUserIdsPlaceholder: string;
+      };
       weixinIlink: {
-        title: string
-        description: string
-        loginDescription: string
-        ownerOnlyNotice: string
-        connectButton: string
-        refreshQrCode: string
-        loginDialogTitle: string
-        loginDialogDescription: string
-        loginFailed: string
-        loginSuccessTitle: string
-        loginSuccessDescription: string
-        accountsTitle: string
-        accountsDescription: string
-        noAccounts: string
-        ownerUserId: string
-        baseUrl: string
-        accountBindings: string
-        remoteControlDescription: string
-        removeAccount: string
-        restartAccount: string
-        statusSummary: string
-        qrcodeAlt: string
-        loginWindowOpened: string
-        loginSessionExpired: string
-        loginResponseIncomplete: string
-        loginTimedOut: string
-        loginConnected: string
-      }
-    }
+        title: string;
+        description: string;
+        loginDescription: string;
+        ownerOnlyNotice: string;
+        connectButton: string;
+        refreshQrCode: string;
+        loginDialogTitle: string;
+        loginDialogDescription: string;
+        loginFailed: string;
+        loginSuccessTitle: string;
+        loginSuccessDescription: string;
+        accountsTitle: string;
+        accountsDescription: string;
+        noAccounts: string;
+        ownerUserId: string;
+        baseUrl: string;
+        accountBindings: string;
+        remoteControlDescription: string;
+        removeAccount: string;
+        restartAccount: string;
+        statusSummary: string;
+        qrcodeAlt: string;
+        loginWindowOpened: string;
+        loginSessionExpired: string;
+        loginResponseIncomplete: string;
+        loginTimedOut: string;
+        loginConnected: string;
+      };
+    };
     plugins: {
-      title: string
-      officialOnly: string
-      refresh: string
-      empty: string
-      emptyTitle: string
-      emptyDescription: string
-      loadFailed: string
-      actionFailed: string
-      install: string
-      installFromFile: string
-      openRelease: string
-      enable: string
-      disable: string
-      openSettings: string
-      runtime: string
-      version: string
-      command: string
+      title: string;
+      officialOnly: string;
+      refresh: string;
+      empty: string;
+      emptyTitle: string;
+      emptyDescription: string;
+      loadFailed: string;
+      actionFailed: string;
+      install: string;
+      installFromFile: string;
+      openRelease: string;
+      enable: string;
+      disable: string;
+      openSettings: string;
+      runtime: string;
+      version: string;
+      command: string;
       status: {
-        enabled: string
-        disabled: string
-        available: string
-      }
+        enabled: string;
+        disabled: string;
+        available: string;
+      };
       runtimeStates: {
-        missing: string
-        installed: string
-        running: string
-        error: string
-      }
-    }
+        missing: string;
+        installed: string;
+        running: string;
+        error: string;
+      };
+    };
     controlCenter: {
       groups: {
-        overview: string
-        setup: string
-        models: string
-        tools: string
-        knowledge: string
-        system: string
-      }
+        overview: string;
+        setup: string;
+        models: string;
+        tools: string;
+        knowledge: string;
+        system: string;
+      };
       overview: {
-        title: string
-        description: string
-        searchPlaceholder: string
-        providers: string
-        mcp: string
-        deepchatAgents: string
-        data: string
-        enabledCount: string
-        runningCount: string
-        enabledAgentCount: string
-        providersDescription: string
-        deepchatAgentsDescription: string
-        mcpOn: string
-        mcpOff: string
-        syncOn: string
-        syncOff: string
-        backupNever: string
-      }
+        title: string;
+        description: string;
+        searchPlaceholder: string;
+        providers: string;
+        mcp: string;
+        deepchatAgents: string;
+        data: string;
+        enabledCount: string;
+        runningCount: string;
+        enabledAgentCount: string;
+        providersDescription: string;
+        deepchatAgentsDescription: string;
+        mcpOn: string;
+        mcpOff: string;
+        syncOn: string;
+        syncOff: string;
+        backupNever: string;
+      };
       quickStart: {
-        title: string
-        addApiKey: string
-        addApiKeyDesc: string
-        enableModel: string
-        enableModelDesc: string
-        startMcp: string
-        startMcpDesc: string
-        backupNow: string
-        backupNowDesc: string
-      }
+        title: string;
+        addApiKey: string;
+        addApiKeyDesc: string;
+        enableModel: string;
+        enableModelDesc: string;
+        startMcp: string;
+        startMcpDesc: string;
+        backupNow: string;
+        backupNowDesc: string;
+      };
       needsAttention: {
-        title: string
-        empty: string
-        noModels: string
-        privacyOff: string
-        backupNever: string
-      }
+        title: string;
+        empty: string;
+        noModels: string;
+        privacyOff: string;
+        backupNever: string;
+      };
       activity: {
-        title: string
-        description: string
-        when: string
-        category: string
-        change: string
-        empty: string
-        emptyDescription: string
-        settingUpdated: string
-        providerUpdated: string
-        providerCreated: string
-        providerRemoved: string
-        providerModelsRefreshed: string
-        modelStatusChanged: string
-        modelBatchUpdated: string
-        mcpServerCreated: string
-        mcpServerUpdated: string
-        mcpServerRemoved: string
-        mcpServerStatusChanged: string
-        mcpGlobalStatusChanged: string
-        mcpServerStarted: string
-        mcpServerStopped: string
-        mcpRegistryRefreshed: string
-        backupCreated: string
-        backupImported: string
-        databaseRepaired: string
-      }
-    }
-    success: string
+        title: string;
+        description: string;
+        when: string;
+        category: string;
+        change: string;
+        empty: string;
+        emptyDescription: string;
+        settingUpdated: string;
+        providerUpdated: string;
+        providerCreated: string;
+        providerRemoved: string;
+        providerModelsRefreshed: string;
+        modelStatusChanged: string;
+        modelBatchUpdated: string;
+        mcpServerCreated: string;
+        mcpServerUpdated: string;
+        mcpServerRemoved: string;
+        mcpServerStatusChanged: string;
+        mcpGlobalStatusChanged: string;
+        mcpServerStarted: string;
+        mcpServerStopped: string;
+        mcpRegistryRefreshed: string;
+        backupCreated: string;
+        backupImported: string;
+        databaseRepaired: string;
+      };
+    };
+    success: string;
     message: {
       toolbar: {
-        save: string
-      }
-    }
+        save: string;
+      };
+    };
     toolbar: {
-      save: string
-      cancel: string
-      previousVariant: string
-      nextVariant: string
-      copy: string
-      copyImage: string
-      copyImageWithLongPress: string
-      copyFromTopSuccess: string
-      capturing: string
-      retry: string
-      fork: string
-      edit: string
-      delete: string
-      trace: string
-    }
-    calling: string
-    response: string
-    end: string
-    clickToView: string
-    functionName: string
-    permission: string
-    params: string
-    responseData: string
-    imagePreview: string
-    imagePreviewCount: string
-    terminalOutput: string
+      save: string;
+      cancel: string;
+      previousVariant: string;
+      nextVariant: string;
+      copy: string;
+      copyImage: string;
+      copyImageWithLongPress: string;
+      copyFromTopSuccess: string;
+      capturing: string;
+      retry: string;
+      fork: string;
+      edit: string;
+      delete: string;
+      trace: string;
+    };
+    calling: string;
+    response: string;
+    end: string;
+    clickToView: string;
+    functionName: string;
+    permission: string;
+    params: string;
+    responseData: string;
+    imagePreview: string;
+    imagePreviewCount: string;
+    terminalOutput: string;
     badge: {
-      rtk: string
-    }
-    replacementsCount: string
-    fileOperation: string
-    fileRead: string
-    fileWrite: string
-    filePath: string
-    failed: string
-    endpoint: string
-    headers: string
-    body: string
-    copyJson: string
-    errorDesc: string
-    notImplemented: string
-    notImplementedDesc: string
-    mayNotMatch: string
-    newVersion: string
-    version: string
-    releaseDate: string
-    releaseNotes: string
-    later: string
-    githubDownload: string
-    officialDownload: string
-    checkUpdate: string
-    downloading: string
-    installNow: string
-    installUpdate: string
-    versionAvailable: string
-    autoUpdateFailed: string
-    topbarButton: string
-    autoUpdate: string
-    restarting: string
-    alreadyUpToDate: string
-    alreadyUpToDateDesc: string
+      rtk: string;
+    };
+    replacementsCount: string;
+    fileOperation: string;
+    fileRead: string;
+    fileWrite: string;
+    filePath: string;
+    failed: string;
+    endpoint: string;
+    headers: string;
+    body: string;
+    copyJson: string;
+    errorDesc: string;
+    notImplemented: string;
+    notImplementedDesc: string;
+    mayNotMatch: string;
+    newVersion: string;
+    version: string;
+    releaseDate: string;
+    releaseNotes: string;
+    later: string;
+    githubDownload: string;
+    officialDownload: string;
+    checkUpdate: string;
+    downloading: string;
+    installNow: string;
+    installUpdate: string;
+    versionAvailable: string;
+    autoUpdateFailed: string;
+    topbarButton: string;
+    autoUpdate: string;
+    restarting: string;
+    alreadyUpToDate: string;
+    alreadyUpToDateDesc: string;
     steps: {
       welcome: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       provider: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       configuration: {
-        title: string
-        description: string
-      }
+        title: string;
+        description: string;
+      };
       complete: {
-        title: string
-        description: string
-      }
-    }
+        title: string;
+        description: string;
+      };
+    };
     complete: {
-      title: string
-      description: string
-    }
+      title: string;
+      description: string;
+    };
     buttons: {
-      getStarted: string
-      next: string
-      back: string
-    }
+      getStarted: string;
+      next: string;
+      back: string;
+    };
     page: {
-      title: string
-      description: string
+      title: string;
+      description: string;
       guide: {
-        title: string
-        description: string
-        or: string
-        coreProgress: string
-        optional: string
+        title: string;
+        description: string;
+        or: string;
+        coreProgress: string;
+        optional: string;
         actions: {
-          continueSetup: string
-          goToChat: string
-        }
+          continueSetup: string;
+          goToChat: string;
+        };
         steps: {
-          provider: string
-          'first-chat': string
-          'switch-model': string
-          mcp: string
-          skills: string
-          plugins: string
-        }
-      }
-      browseProviders: string
-      connectAgent: string
-      acpTitle: string
-      acpDescription: string
+          provider: string;
+          "first-chat": string;
+          "switch-model": string;
+          mcp: string;
+          skills: string;
+          plugins: string;
+        };
+      };
+      browseProviders: string;
+      connectAgent: string;
+      acpTitle: string;
+      acpDescription: string;
       providers: {
-        claude: string
-        openai: string
-        deepseek: string
-        gemini: string
-        ollama: string
-        openrouter: string
-      }
-      importProviders: string
-    }
+        claude: string;
+        openai: string;
+        deepseek: string;
+        gemini: string;
+        ollama: string;
+        openrouter: string;
+      };
+      importProviders: string;
+    };
     agentPage: {
-      title: string
-      deepchatType: string
-      acpType: string
-      manageAgents: string
-    }
+      title: string;
+      deepchatType: string;
+      acpType: string;
+      manageAgents: string;
+    };
   }
 }

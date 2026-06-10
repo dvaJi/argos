@@ -1,150 +1,150 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FeishuRuntimeStatusSnapshot } from '@/presenter/remoteControlPresenter/types'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FeishuRuntimeStatusSnapshot } from "@/presenter/remoteControlPresenter/types";
 
 type MockRuntimeDeps = {
-  onStatusChange?: (snapshot: FeishuRuntimeStatusSnapshot) => void
-  onFatalError?: (message: string) => void
-}
+  onStatusChange?: (snapshot: FeishuRuntimeStatusSnapshot) => void;
+  onFatalError?: (message: string) => void;
+};
 
 const runtimeInstances: Array<{
-  start: ReturnType<typeof vi.fn>
-  stop: ReturnType<typeof vi.fn>
-  getStatusSnapshot: ReturnType<typeof vi.fn>
-  deps: MockRuntimeDeps
-}> = []
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+  getStatusSnapshot: ReturnType<typeof vi.fn>;
+  deps: MockRuntimeDeps;
+}> = [];
 const clientInstances: Array<{
-  sendText: ReturnType<typeof vi.fn>
-  sendImage: ReturnType<typeof vi.fn>
-}> = []
+  sendText: ReturnType<typeof vi.fn>;
+  sendImage: ReturnType<typeof vi.fn>;
+}> = [];
 
-vi.mock('@/presenter/remoteControlPresenter/feishu/feishuRuntime', () => ({
+vi.mock("@/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
   FeishuRuntime: class MockFeishuRuntime {
     readonly start = vi.fn(async () => {
       this.deps.onStatusChange?.({
-        state: 'running',
+        state: "running",
         lastError: null,
         botUser: {
-          openId: 'ou_bot',
-          name: 'DeepChat Bot'
-        }
-      })
-    })
-    readonly stop = vi.fn().mockResolvedValue(undefined)
+          openId: "ou_bot",
+          name: "DeepChat Bot",
+        },
+      });
+    });
+    readonly stop = vi.fn().mockResolvedValue(undefined);
     readonly getStatusSnapshot = vi.fn().mockReturnValue({
-      state: 'stopped',
+      state: "stopped",
       lastError: null,
-      botUser: null
-    })
+      botUser: null,
+    });
 
     constructor(readonly deps: MockRuntimeDeps) {
-      runtimeInstances.push(this)
+      runtimeInstances.push(this);
     }
-  }
-}))
+  },
+}));
 
-vi.mock('@/presenter/remoteControlPresenter/feishu/feishuClient', () => ({
+vi.mock("@/presenter/remoteControlPresenter/feishu/feishuClient", () => ({
   FeishuClient: class MockFeishuClient {
-    readonly sendText = vi.fn().mockResolvedValue('om_1')
-    readonly sendImage = vi.fn().mockResolvedValue('om_image_1')
+    readonly sendText = vi.fn().mockResolvedValue("om_1");
+    readonly sendImage = vi.fn().mockResolvedValue("om_image_1");
 
     constructor(_credentials: unknown) {
-      clientInstances.push(this)
+      clientInstances.push(this);
     }
-  }
-}))
+  },
+}));
 
-import { FeishuAdapter } from '@/presenter/remoteControlPresenter/adapters/feishu/FeishuAdapter'
+import { FeishuAdapter } from "@/presenter/remoteControlPresenter/adapters/feishu/FeishuAdapter";
 
-describe('FeishuAdapter', () => {
+describe("FeishuAdapter", () => {
   beforeEach(() => {
-    runtimeInstances.length = 0
-    clientInstances.length = 0
-  })
+    runtimeInstances.length = 0;
+    clientInstances.length = 0;
+  });
 
-  it('starts the wrapped feishu runtime', async () => {
+  it("starts the wrapped feishu runtime", async () => {
     const adapter = new FeishuAdapter(
       {
-        channelId: 'default',
-        channelType: 'feishu',
-        agentId: 'deepchat',
+        channelId: "default",
+        channelType: "feishu",
+        agentId: "deepchat",
         channelConfig: {
-          appId: 'cli_a',
-          appSecret: 'secret',
-          verificationToken: 'verify',
-          encryptKey: 'encrypt'
+          appId: "cli_a",
+          appSecret: "secret",
+          verificationToken: "verify",
+          encryptKey: "encrypt",
         },
-        configSignature: 'feishu:test'
-      },
-      {
-        bindingStore: {} as any,
-        createConversationRunner: () => ({}) as any
-      }
-    )
-
-    await adapter.connect()
-
-    expect(runtimeInstances).toHaveLength(1)
-    expect(runtimeInstances[0].start).toHaveBeenCalledTimes(1)
-    expect(adapter.getStatusSnapshot()).toEqual(
-      expect.objectContaining({
-        connected: true,
-        state: 'running'
-      })
-    )
-  })
-
-  it('forwards fatal errors from the wrapped runtime', async () => {
-    const onFatalError = vi.fn().mockResolvedValue(undefined)
-    const adapter = new FeishuAdapter(
-      {
-        channelId: 'default',
-        channelType: 'feishu',
-        agentId: 'deepchat',
-        channelConfig: {
-          appId: 'cli_a',
-          appSecret: 'secret',
-          verificationToken: 'verify',
-          encryptKey: 'encrypt'
-        },
-        configSignature: 'feishu:test'
+        configSignature: "feishu:test",
       },
       {
         bindingStore: {} as any,
         createConversationRunner: () => ({}) as any,
-        onFatalError
-      }
-    )
+      },
+    );
 
-    await adapter.connect()
-    runtimeInstances[0].deps.onFatalError?.('fatal feishu error')
+    await adapter.connect();
 
-    expect(onFatalError).toHaveBeenCalledWith('fatal feishu error')
-  })
+    expect(runtimeInstances).toHaveLength(1);
+    expect(runtimeInstances[0].start).toHaveBeenCalledTimes(1);
+    expect(adapter.getStatusSnapshot()).toEqual(
+      expect.objectContaining({
+        connected: true,
+        state: "running",
+      }),
+    );
+  });
 
-  it('returns Feishu image message ids from sendImage', async () => {
+  it("forwards fatal errors from the wrapped runtime", async () => {
+    const onFatalError = vi.fn().mockResolvedValue(undefined);
     const adapter = new FeishuAdapter(
       {
-        channelId: 'default',
-        channelType: 'feishu',
-        agentId: 'deepchat',
+        channelId: "default",
+        channelType: "feishu",
+        agentId: "deepchat",
         channelConfig: {
-          appId: 'cli_a',
-          appSecret: 'secret',
-          verificationToken: 'verify',
-          encryptKey: 'encrypt'
+          appId: "cli_a",
+          appSecret: "secret",
+          verificationToken: "verify",
+          encryptKey: "encrypt",
         },
-        configSignature: 'feishu:test'
+        configSignature: "feishu:test",
       },
       {
         bindingStore: {} as any,
-        createConversationRunner: () => ({}) as any
-      }
-    )
+        createConversationRunner: () => ({}) as any,
+        onFatalError,
+      },
+    );
 
-    await adapter.connect()
-    const messageId = await adapter.sendImage('oc_1:root', '/tmp/generated.png')
+    await adapter.connect();
+    runtimeInstances[0].deps.onFatalError?.("fatal feishu error");
 
-    expect(messageId).toBe('om_image_1')
-    expect(clientInstances[0].sendImage).toHaveBeenCalled()
-  })
-})
+    expect(onFatalError).toHaveBeenCalledWith("fatal feishu error");
+  });
+
+  it("returns Feishu image message ids from sendImage", async () => {
+    const adapter = new FeishuAdapter(
+      {
+        channelId: "default",
+        channelType: "feishu",
+        agentId: "deepchat",
+        channelConfig: {
+          appId: "cli_a",
+          appSecret: "secret",
+          verificationToken: "verify",
+          encryptKey: "encrypt",
+        },
+        configSignature: "feishu:test",
+      },
+      {
+        bindingStore: {} as any,
+        createConversationRunner: () => ({}) as any,
+      },
+    );
+
+    await adapter.connect();
+    const messageId = await adapter.sendImage("oc_1:root", "/tmp/generated.png");
+
+    expect(messageId).toBe("om_image_1");
+    expect(clientInstances[0].sendImage).toHaveBeenCalled();
+  });
+});

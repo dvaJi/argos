@@ -1,54 +1,46 @@
-import React, { useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import type { MessageFile } from '@shared/types/agent-interface'
-import type { PendingSessionInputRecord } from '@shared/types/agent-interface'
+import { type FC, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import type { MessageFile } from "@shared/types/agent-interface";
+import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
 
 interface PendingInputLaneProps {
-  steerItems: PendingSessionInputRecord[]
-  queueItems: PendingSessionInputRecord[]
-  activeLimit?: number
-  disableSteerAction?: boolean
-  showResumeQueue?: boolean
-  onUpdateQueue: (payload: { itemId: string; text: string }) => void
-  onMoveQueue: (payload: { itemId: string; toIndex: number }) => void
-  onDeleteQueue: (itemId: string) => void
-  onResumeQueue: () => void
+  steerItems: PendingSessionInputRecord[];
+  queueItems: PendingSessionInputRecord[];
+  activeLimit?: number;
+  disableSteerAction?: boolean;
+  showResumeQueue?: boolean;
+
+  onDeleteQueue: (itemId: string) => void;
+  onResumeQueue: () => void;
 }
 
 const formatPayloadText = (item: PendingSessionInputRecord): string => {
-  const text = item.payload.text?.trim()
-  if (text) return text
-  const fileCount = item.payload.files?.length ?? 0
-  if (fileCount > 0) return `${fileCount} attachment(s)`
-  return '(empty)'
-}
+  const text = item.payload.text?.trim();
+  if (text) return text;
+  const fileCount = item.payload.files?.length ?? 0;
+  if (fileCount > 0) return `${fileCount} attachment(s)`;
+  return "(empty)";
+};
 
-const PendingInputLane: React.FC<PendingInputLaneProps> = ({
+const PendingInputLane: FC<PendingInputLaneProps> = ({
   steerItems,
   queueItems,
   activeLimit = 5,
   disableSteerAction = false,
   showResumeQueue = false,
-  onUpdateQueue,
-  onMoveQueue,
-  onDeleteQueue,
-  onResumeQueue
-}) => {
-  const showLane = useMemo(
-    () => steerItems.length > 0 || queueItems.length > 0,
-    [steerItems, queueItems]
-  )
 
-  if (!showLane) return null
+  onDeleteQueue,
+  onResumeQueue,
+}) => {
+  const showLane = useMemo(() => steerItems.length > 0 || queueItems.length > 0, [steerItems, queueItems]);
+
+  if (!showLane) return null;
 
   return (
     <div className="w-full max-w-4xl" data-testid="pending-rail">
       <div className="rounded-xl border border-border/70 bg-card/55 px-2.5 py-2 shadow-sm backdrop-blur-lg">
-        <div
-          className="mb-1.5 flex items-center justify-between gap-2"
-          data-testid="pending-rail-header"
-        >
+        <div className="mb-1.5 flex items-center justify-between gap-2" data-testid="pending-rail-header">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {steerItems.length > 0 && (
               <span className="inline-flex items-center rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -73,11 +65,7 @@ const PendingInputLane: React.FC<PendingInputLaneProps> = ({
           )}
         </div>
 
-        <div
-          className="space-y-1 overflow-visible"
-          data-testid="pending-rail-list"
-          data-scrollable="false"
-        >
+        <div className="space-y-1 overflow-visible" data-testid="pending-rail-list" data-scrollable="false">
           {steerItems.map((item) => (
             <div
               key={item.id}
@@ -85,15 +73,9 @@ const PendingInputLane: React.FC<PendingInputLaneProps> = ({
               data-mode="steer"
               className="group flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/65 px-1.5 py-1 transition hover:border-border/80 hover:bg-background/80"
             >
-              <Icon
-                icon="lucide:corner-down-right"
-                className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80"
-              />
+              <Icon icon="lucide:corner-down-right" className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
               <div className="min-w-0 flex-1">
-                <div
-                  className="truncate text-[13px] leading-5 text-foreground"
-                  title={formatPayloadText(item)}
-                >
+                <div className="truncate text-[13px] leading-5 text-foreground" title={formatPayloadText(item)}>
                   {formatPayloadText(item)}
                 </div>
               </div>
@@ -152,8 +134,8 @@ const PendingInputLane: React.FC<PendingInputLaneProps> = ({
                     size="icon"
                     className="h-6 w-6 rounded-full text-muted-foreground"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      onDeleteQueue(element.id)
+                      e.stopPropagation();
+                      onDeleteQueue(element.id);
                     }}
                   >
                     <Icon icon="lucide:x" className="h-3.5 w-3.5" />
@@ -165,13 +147,11 @@ const PendingInputLane: React.FC<PendingInputLaneProps> = ({
         </div>
 
         {disableSteerAction && (
-          <div className="mt-1.5 text-[11px] text-muted-foreground">
-            Limit reached (max {activeLimit})
-          </div>
+          <div className="mt-1.5 text-[11px] text-muted-foreground">Limit reached (max {activeLimit})</div>
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default PendingInputLane
+export default PendingInputLane;

@@ -1,215 +1,197 @@
-import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useImperativeHandle,
-  forwardRef
-} from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
+import { type ReactNode, useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogDescription
-} from '@shadcn/components/ui/dialog'
-import { Badge } from '@shadcn/components/ui/badge'
-import { Input } from '@shadcn/components/ui/input'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle
-} from '@shadcn/components/ui/sheet'
-import { useMcpStore } from '@/stores/mcp'
-import { useToast } from '@/components/use-toast'
-import { useNavigate } from '@tanstack/react-router'
-import McpServerCard from './McpServerCard'
-import McpServerForm from '../mcpServerForm'
-import McpToolPanel from './McpToolPanel'
-import McpPromptPanel from './McpPromptPanel'
-import McpResourceViewer from './McpResourceViewer'
-import type { MCPServerConfig } from '@shared/presenter'
+  DialogDescription,
+} from "@shadcn/components/ui/dialog";
+import { Badge } from "@shadcn/components/ui/badge";
+import { Input } from "@shadcn/components/ui/input";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@shadcn/components/ui/sheet";
+import { useMcpStore } from "@/stores/mcp";
+import { useToast } from "@/components/use-toast";
+import { useNavigate } from "@tanstack/react-router";
+import McpServerCard from "./McpServerCard";
+import McpServerForm from "../mcpServerForm";
+import McpToolPanel from "./McpToolPanel";
+import McpPromptPanel from "./McpPromptPanel";
+import McpResourceViewer from "./McpResourceViewer";
+import type { MCPServerConfig } from "@shared/presenter";
 
 interface McpServersProps {
-  showFooterAddButton?: boolean
-  statusBar?: React.ReactNode
-  footerActionsAfter?: React.ReactNode
+  showFooterAddButton?: boolean;
+  statusBar?: ReactNode;
+  footerActionsAfter?: ReactNode;
 }
 
 export interface McpServersRef {
-  openAddServerDialog: () => void
+  openAddServerDialog: () => void;
 }
 
-const MCP_FILTERS = ['all', 'running', 'stopped'] as const
-type McpFilter = (typeof MCP_FILTERS)[number]
+const MCP_FILTERS = ["all", "running", "stopped"] as const;
+type McpFilter = (typeof MCP_FILTERS)[number];
 
 export const McpServers = forwardRef<McpServersRef, McpServersProps>(
   ({ showFooterAddButton = true, statusBar, footerActionsAfter }, ref) => {
-    const mcpStore = useMcpStore()
-    const { toast } = useToast()
-    const navigate = useNavigate()
+    const mcpStore = useMcpStore();
+    const { toast } = useToast();
+    const navigate = useNavigate();
 
-    const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false)
-    const [isEditServerDialogOpen, setIsEditServerDialogOpen] = useState(false)
-    const [isRemoveConfirmDialogOpen, setIsRemoveConfirmDialogOpen] = useState(false)
-    const [isToolPanelOpen, setIsToolPanelOpen] = useState(false)
-    const [isPromptPanelOpen, setIsPromptPanelOpen] = useState(false)
-    const [isResourceViewerOpen, setIsResourceViewerOpen] = useState(false)
-    const [selectedServer, setSelectedServer] = useState('')
-    const [selectedServerForTools, setSelectedServerForTools] = useState('')
-    const [selectedServerForPrompts, setSelectedServerForPrompts] = useState('')
-    const [selectedServerForResources, setSelectedServerForResources] = useState('')
-    const [selectedDetailServerName, setSelectedDetailServerName] = useState('')
-    const [searchQuery, setSearchQuery] = useState('')
-    const [activeFilter, setActiveFilter] = useState<McpFilter>('all')
+    const [isAddServerDialogOpen, setIsAddServerDialogOpen] = useState(false);
+    const [isEditServerDialogOpen, setIsEditServerDialogOpen] = useState(false);
+    const [isRemoveConfirmDialogOpen, setIsRemoveConfirmDialogOpen] = useState(false);
+    const [isToolPanelOpen, setIsToolPanelOpen] = useState(false);
+    const [isPromptPanelOpen, setIsPromptPanelOpen] = useState(false);
+    const [isResourceViewerOpen, setIsResourceViewerOpen] = useState(false);
+    const [selectedServer, setSelectedServer] = useState("");
+    const [selectedServerForTools, setSelectedServerForTools] = useState("");
+    const [selectedServerForPrompts, setSelectedServerForPrompts] = useState("");
+    const [selectedServerForResources, setSelectedServerForResources] = useState("");
+    const [selectedDetailServerName, setSelectedDetailServerName] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [activeFilter, setActiveFilter] = useState<McpFilter>("all");
 
     useEffect(() => {
       if (mcpStore.mcpInstallCache) {
-        setIsAddServerDialogOpen(true)
+        setIsAddServerDialogOpen(true);
       }
-    }, [mcpStore.mcpInstallCache])
+    }, [mcpStore.mcpInstallCache]);
 
     useEffect(() => {
       if (!isAddServerDialogOpen) {
-        mcpStore.clearMcpInstallCache()
+        mcpStore.clearMcpInstallCache();
       }
-    }, [isAddServerDialogOpen])
+    }, [isAddServerDialogOpen]);
 
-    const isDeepChatManagedServer = (config?: MCPServerConfig) => config?.source === 'deepchat'
+    const isDeepChatManagedServer = (config?: MCPServerConfig) => config?.source === "deepchat";
 
     const isBuiltInServer = (serverName: string) => {
-      const config = mcpStore.config.mcpServers[serverName]
-      return config?.type === 'inmemory' || isDeepChatManagedServer(config)
-    }
+      const config = mcpStore.config.mcpServers[serverName];
+      return config?.type === "inmemory" || isDeepChatManagedServer(config);
+    };
 
     const filteredServers = useMemo(() => {
-      const query = searchQuery.trim().toLowerCase()
+      const query = searchQuery.trim().toLowerCase();
       return mcpStore.serverList.filter((server) => {
         const matchesQuery =
-          !query ||
-          server.name.toLowerCase().includes(query) ||
-          server.descriptions?.toLowerCase().includes(query)
+          !query || server.name.toLowerCase().includes(query) || server.descriptions?.toLowerCase().includes(query);
         const matchesFilter =
-          activeFilter === 'all' ||
-          (activeFilter === 'running' && server.isRunning) ||
-          (activeFilter === 'stopped' && !server.isRunning)
-        return matchesQuery && matchesFilter
-      })
-    }, [searchQuery, activeFilter, mcpStore.serverList])
+          activeFilter === "all" ||
+          (activeFilter === "running" && server.isRunning) ||
+          (activeFilter === "stopped" && !server.isRunning);
+        return matchesQuery && matchesFilter;
+      });
+    }, [searchQuery, activeFilter, mcpStore.serverList]);
 
     const selectedDetailServer = useMemo(
       () => mcpStore.serverList.find((server) => server.name === selectedDetailServerName),
-      [mcpStore.serverList, selectedDetailServerName]
-    )
+      [mcpStore.serverList, selectedDetailServerName],
+    );
 
     const getServerToolsCount = (serverName: string) =>
-      mcpStore.visibleTools.filter((tool) => tool.server.name === serverName).length
+      mcpStore.getVisibleTools().filter((tool) => tool.server.name === serverName).length;
 
     const getServerPromptsCount = (serverName: string) =>
-      mcpStore.visiblePrompts.filter((prompt) => prompt.client.name === serverName).length
+      mcpStore.getVisiblePrompts().filter((prompt) => prompt.client.name === serverName).length;
 
     const getServerResourcesCount = (serverName: string) =>
-      mcpStore.visibleResources.filter((resource) => resource.client.name === serverName).length
+      mcpStore.getVisibleResources().filter((resource) => resource.client.name === serverName).length;
 
     const handleAddServer = async (serverName: string, serverConfig: MCPServerConfig) => {
-      const result = await mcpStore.addServer(serverName, serverConfig)
-      if (result.success) setIsAddServerDialogOpen(false)
-    }
+      const result = await mcpStore.addServer(serverName, serverConfig);
+      if (result.success) setIsAddServerDialogOpen(false);
+    };
 
-    const openAddServerDialog = () => setIsAddServerDialogOpen(true)
+    const openAddServerDialog = () => setIsAddServerDialogOpen(true);
 
-    useImperativeHandle(ref, () => ({ openAddServerDialog }))
+    useImperativeHandle(ref, () => ({ openAddServerDialog }));
 
     const handleEditServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
-      const success = await mcpStore.updateServer(serverName, serverConfig)
+      const success = await mcpStore.updateServer(serverName, serverConfig);
       if (success) {
-        setIsEditServerDialogOpen(false)
-        setSelectedServer('')
+        setIsEditServerDialogOpen(false);
+        setSelectedServer("");
       }
-    }
+    };
 
     const handleRemoveServer = async (serverName: string) => {
-      const config = mcpStore.config.mcpServers[serverName]
-      if (config?.type === 'inmemory' || isDeepChatManagedServer(config)) {
+      const config = mcpStore.config.mcpServers[serverName];
+      if (config?.type === "inmemory" || isDeepChatManagedServer(config)) {
         toast({
-          title: 'Cannot Remove',
-          description: 'Built-in servers cannot be removed',
-          variant: 'destructive'
-        })
-        return
+          title: "Cannot Remove",
+          description: "Built-in servers cannot be removed",
+          variant: "destructive",
+        });
+        return;
       }
-      setSelectedServer(serverName)
-      setIsRemoveConfirmDialogOpen(true)
-    }
+      setSelectedServer(serverName);
+      setIsRemoveConfirmDialogOpen(true);
+    };
 
     const confirmRemoveServer = async () => {
-      await mcpStore.removeServer(selectedServer)
-      setIsRemoveConfirmDialogOpen(false)
-    }
+      await mcpStore.removeServer(selectedServer);
+      setIsRemoveConfirmDialogOpen(false);
+    };
 
     const handleToggleServer = async (serverName: string) => {
-      const config = mcpStore.config.mcpServers[serverName]
+      const config = mcpStore.config.mcpServers[serverName];
       if (isDeepChatManagedServer(config)) {
-        toast({ title: 'Read Only', description: 'Managed servers are read-only' })
-        return
+        toast({ title: "Read Only", description: "Managed servers are read-only" });
+        return;
       }
-      if (mcpStore.serverLoadingStates[serverName]) return
-      const success = await mcpStore.toggleServer(serverName)
+      if (mcpStore.serverLoadingStates[serverName]) return;
+      const success = await mcpStore.toggleServer(serverName);
       if (!success) {
-        toast({ title: 'Operation Failed', description: 'Request failed', variant: 'destructive' })
+        toast({ title: "Operation Failed", description: "Request failed", variant: "destructive" });
       }
-    }
+    };
 
     const openEditServerDialog = (serverName: string) => {
       const specialServers: Record<string, string> = {
-        difyKnowledge: 'dify',
-        ragflowKnowledge: 'ragflow',
-        fastGptKnowledge: 'fastgpt',
-        builtinKnowledge: 'builtinKnowledge'
-      }
+        difyKnowledge: "dify",
+        ragflowKnowledge: "ragflow",
+        fastGptKnowledge: "fastgpt",
+        builtinKnowledge: "builtinKnowledge",
+      };
       if (specialServers[serverName]) {
-        navigate({
-          to: '/settings/knowledge-base',
-          search: { subtab: specialServers[serverName] }
-        })
-        return
+        window.location.href = `/settings/knowledge-base?subtab=${specialServers[serverName]}`;
+        return;
       }
-      const config = mcpStore.config.mcpServers[serverName]
+      const config = mcpStore.config.mcpServers[serverName];
       if (isDeepChatManagedServer(config)) {
-        toast({ title: 'Read Only', description: 'Managed servers are read-only' })
-        return
+        toast({ title: "Read Only", description: "Managed servers are read-only" });
+        return;
       }
-      setSelectedServer(serverName)
-      setIsEditServerDialogOpen(true)
-    }
+      setSelectedServer(serverName);
+      setIsEditServerDialogOpen(true);
+    };
 
     const handleViewTools = async (serverName: string) => {
-      setSelectedServerForTools(serverName)
-      await mcpStore.loadTools()
-      setIsToolPanelOpen(true)
-    }
+      setSelectedServerForTools(serverName);
+      await mcpStore.loadTools();
+      setIsToolPanelOpen(true);
+    };
 
     const handleViewPrompts = async (serverName: string) => {
-      setSelectedServerForPrompts(serverName)
-      await mcpStore.loadPrompts()
-      setIsPromptPanelOpen(true)
-    }
+      setSelectedServerForPrompts(serverName);
+      await mcpStore.loadPrompts();
+      setIsPromptPanelOpen(true);
+    };
 
     const handleViewResources = async (serverName: string) => {
-      setSelectedServerForResources(serverName)
-      await mcpStore.loadResources()
-      setIsResourceViewerOpen(true)
-    }
+      setSelectedServerForResources(serverName);
+      await mcpStore.loadResources();
+      setIsResourceViewerOpen(true);
+    };
 
     const closeDetail = (open: boolean) => {
-      if (!open) setSelectedDetailServerName('')
-    }
+      if (!open) setSelectedDetailServerName("");
+    };
 
     return (
       <div className="h-full min-h-0 flex flex-col">
@@ -217,10 +199,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
           {mcpStore.configLoading && (
             <div className="flex justify-center py-8">
               <div className="text-center">
-                <Icon
-                  icon="lucide:loader"
-                  className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground"
-                />
+                <Icon icon="lucide:loader" className="h-6 w-6 animate-spin mx-auto mb-2 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Loading...</p>
               </div>
             </div>
@@ -232,9 +211,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                 <Icon icon="lucide:server-off" className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="text-base font-medium text-foreground mb-2">No Servers Found</h3>
-              <p className="text-xs text-muted-foreground mb-3 px-4">
-                Add an MCP server to get started
-              </p>
+              <p className="text-xs text-muted-foreground mb-3 px-4">Add an MCP server to get started</p>
             </div>
           )}
 
@@ -252,7 +229,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                     <Button
                       key={filter}
                       size="sm"
-                      variant={activeFilter === filter ? 'default' : 'outline'}
+                      variant={activeFilter === filter ? "default" : "outline"}
                       onClick={() => setActiveFilter(filter)}
                     >
                       {filter.charAt(0).toUpperCase() + filter.slice(1)}
@@ -267,7 +244,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                     key={server.name}
                     server={server}
                     isBuiltIn={isBuiltInServer(server.name)}
-                    isManaged={mcpStore.config.mcpServers[server.name]?.source === 'deepchat'}
+                    isManaged={mcpStore.config.mcpServers[server.name]?.source === "deepchat"}
                     isLoading={mcpStore.serverLoadingStates[server.name]}
                     disabled={mcpStore.configLoading}
                     toolsCount={getServerToolsCount(server.name)}
@@ -298,9 +275,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-1">
                     <Icon icon="lucide:server" className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      Total: {mcpStore.serverList.length}
-                    </span>
+                    <span className="text-xs text-muted-foreground">Total: {mcpStore.serverList.length}</span>
                   </div>
                   {mcpStore.serverList.length > 0 && (
                     <div className="flex items-center space-x-1">
@@ -327,14 +302,9 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                 <DialogContent className="w-[95vw] max-w-[500px] px-0 h-[85vh] max-h-[500px] flex flex-col">
                   <DialogHeader className="px-3 shrink-0 pb-2">
                     <DialogTitle className="text-base">Add MCP Server</DialogTitle>
-                    <DialogDescription className="text-sm">
-                      Configure a new MCP server
-                    </DialogDescription>
+                    <DialogDescription className="text-sm">Configure a new MCP server</DialogDescription>
                   </DialogHeader>
-                  <McpServerForm
-                    defaultJsonConfig={mcpStore.mcpInstallCache || undefined}
-                    onSubmit={handleAddServer}
-                  />
+                  <McpServerForm defaultJsonConfig={mcpStore.mcpInstallCache || undefined} onSubmit={handleAddServer} />
                 </DialogContent>
               </Dialog>
               {footerActionsAfter}
@@ -351,12 +321,8 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
             {selectedDetailServer && (
               <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">
-                    {selectedDetailServer.isRunning ? 'Running' : 'Stopped'}
-                  </Badge>
-                  <Badge variant="outline">
-                    {isBuiltInServer(selectedDetailServer.name) ? 'Built-in' : 'Custom'}
-                  </Badge>
+                  <Badge variant="secondary">{selectedDetailServer.isRunning ? "Running" : "Stopped"}</Badge>
+                  <Badge variant="outline">{isBuiltInServer(selectedDetailServer.name) ? "Built-in" : "Custom"}</Badge>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-3">
@@ -388,23 +354,15 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
 
                 <div className="rounded-lg border border-border p-3">
                   <div className="text-xs font-medium text-muted-foreground">Command</div>
-                  <div className="mt-1 break-all font-mono text-xs">
-                    {selectedDetailServer.command || '-'}
-                  </div>
+                  <div className="mt-1 break-all font-mono text-xs">{selectedDetailServer.command || "-"}</div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => openEditServerDialog(selectedDetailServer.name)}
-                  >
+                  <Button variant="outline" onClick={() => openEditServerDialog(selectedDetailServer.name)}>
                     <Icon icon="lucide:settings" className="size-4" /> Edit
                   </Button>
                   {!isBuiltInServer(selectedDetailServer.name) && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => handleRemoveServer(selectedDetailServer.name)}
-                    >
+                    <Button variant="destructive" onClick={() => handleRemoveServer(selectedDetailServer.name)}>
                       <Icon icon="lucide:trash-2" className="size-4" /> Remove
                     </Button>
                   )}
@@ -448,23 +406,14 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
               >
                 Cancel
               </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="min-w-24"
-                onClick={confirmRemoveServer}
-              >
+              <Button variant="destructive" size="sm" className="min-w-24" onClick={confirmRemoveServer}>
                 Confirm
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
-        <McpToolPanel
-          open={isToolPanelOpen}
-          onOpenChange={setIsToolPanelOpen}
-          serverName={selectedServerForTools}
-        />
+        <McpToolPanel open={isToolPanelOpen} onOpenChange={setIsToolPanelOpen} serverName={selectedServerForTools} />
         <McpPromptPanel
           open={isPromptPanelOpen}
           onOpenChange={setIsPromptPanelOpen}
@@ -476,10 +425,10 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
           serverName={selectedServerForResources}
         />
       </div>
-    )
-  }
-)
+    );
+  },
+);
 
-McpServers.displayName = 'McpServers'
+McpServers.displayName = "McpServers";
 
-export default McpServers
+export default McpServers;

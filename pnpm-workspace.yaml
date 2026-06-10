@@ -5,4 +5,21 @@ supportedArchitectures:
     - current
 
 publicHoistPattern:
-  - '@img/sharp-*'
+  - "@img/sharp-*"
+
+allowBuilds:
+  "@tailwindcss/oxide": true
+  "classic-level": true
+  "electron": true
+  "electron-winstaller": true
+  "lzo": true
+  "simple-git-hooks": true
+  "node-pty": false
+  "better-sqlite3-multiple-ciphers": false
+  "esbuild": false
+  "maplibre-gl": false
+  "sharp": false
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@oxlint/*"

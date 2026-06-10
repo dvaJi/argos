@@ -1,23 +1,24 @@
-import { Store } from '@tanstack/store'
-import type { ProviderInstallPreview } from '@shared/presenter'
+import { Store } from "@tanstack/store";
+import type { ProviderInstallPreview } from "@shared/presenter";
 
 interface ProviderDeeplinkImportState {
-  preview: ProviderInstallPreview | null
-  previewToken: number
+  preview: ProviderInstallPreview | null;
+  previewToken: number;
 }
 
 export const providerDeeplinkImportStore = new Store<ProviderDeeplinkImportState>({
   preview: null,
-  previewToken: 0
-})
+  previewToken: 0,
+});
 
 export const openPreview = (nextPreview: ProviderInstallPreview) => {
   providerDeeplinkImportStore.setState((prev) => ({
+    ...prev,
     previewToken: prev.previewToken + 1,
-    preview: { ...nextPreview }
-  }))
-}
+    preview: { ...nextPreview },
+  }));
+};
 
 export const clearPreview = () => {
-  providerDeeplinkImportStore.setState({ preview: null })
-}
+  providerDeeplinkImportStore.setState((prev) => ({ ...prev, preview: null }));
+};

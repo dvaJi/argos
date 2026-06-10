@@ -1,61 +1,67 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Switch } from '@shadcn/components/ui/switch'
-import { useToast } from '@/components/use-toast'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import { useProjectStore } from '@/stores/ui/project'
-import type { EnvironmentSummary } from '@shared/types/agent-interface'
-import SettingsPageShell from './control-center/SettingsPageShell'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Switch } from "@shadcn/components/ui/switch";
+import { useToast } from "@/components/use-toast";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import {
+  useProjectStore,
+  refreshEnvironmentData,
+  openDirectory,
+  setDefaultProject,
+  clearDefaultProject,
+} from "@/stores/ui/project";
+import type { EnvironmentSummary } from "@shared/types/agent-interface";
+import SettingsPageShell from "./control-center/SettingsPageShell";
 
 type EnvironmentListItem = EnvironmentSummary & {
-  isSyntheticDefault?: boolean
-}
+  isSyntheticDefault?: boolean;
+};
 
 export default function EnvironmentsSettings() {
-  const { toast } = useToast()
-  const projectStore = useProjectStore()
-  const projectPresenter = useLegacyPresenter('projectPresenter', { safeCall: false })
+  const { toast } = useToast();
+  const projectStore = useProjectStore();
+  const projectPresenter = useLegacyPresenter("projectPresenter", { safeCall: false });
 
-  const [isLoading, setIsLoading] = useState(false)
-  const [showMissing, setShowMissing] = useState(false)
-  const [syntheticDefaultExists, setSyntheticDefaultExists] = useState(true)
+  const [isLoading, setIsLoading] = useState(false);
+  const [showMissing, setShowMissing] = useState(false);
+  const [syntheticDefaultExists, setSyntheticDefaultExists] = useState(true);
 
-  const defaultProjectPath = projectStore.defaultProjectPath
+  const defaultProjectPath = projectStore.defaultProjectPath;
 
   const sortEnvironments = useCallback(
     (list: EnvironmentListItem[]) =>
       [...list].sort((left, right) => {
-        const leftDefault = left.path === defaultProjectPath
-        const rightDefault = right.path === defaultProjectPath
-        if (leftDefault !== rightDefault) return leftDefault ? -1 : 1
-        return right.lastUsedAt - left.lastUsedAt
+        const leftDefault = left.path === defaultProjectPath;
+        const rightDefault = right.path === defaultProjectPath;
+        if (leftDefault !== rightDefault) return leftDefault ? -1 : 1;
+        return right.lastUsedAt - left.lastUsedAt;
       }),
-    [defaultProjectPath]
-  )
+    [defaultProjectPath],
+  );
 
   const syncSyntheticDefaultExists = useCallback(async () => {
     if (!defaultProjectPath) {
-      setSyntheticDefaultExists(true)
-      return
+      setSyntheticDefaultExists(true);
+      return;
     }
-    const matched = projectStore.environments.find((e) => e.path === defaultProjectPath)
+    const matched = projectStore.environments.find((e) => e.path === defaultProjectPath);
     if (matched) {
-      setSyntheticDefaultExists(matched.exists)
-      return
+      setSyntheticDefaultExists(matched.exists);
+      return;
     }
     try {
-      const exists = await projectPresenter.pathExists(defaultProjectPath)
-      setSyntheticDefaultExists(exists)
+      const exists = await projectPresenter.pathExists(defaultProjectPath);
+      setSyntheticDefaultExists(exists);
     } catch {
-      setSyntheticDefaultExists(true)
+      setSyntheticDefaultExists(true);
     }
-  }, [defaultProjectPath, projectStore.environments, projectPresenter])
+  }, [defaultProjectPath, projectStore.environments, projectPresenter]);
 
   const syntheticDefaultEnvironment = useMemo<EnvironmentListItem | null>(() => {
-    if (!defaultProjectPath) return null
-    const matched = projectStore.environments.some((e) => e.path === defaultProjectPath)
-    if (matched) return null
+    if (!defaultProjectPath) return null;
+    const matched = projectStore.environments.some((e) => e.path === defaultProjectPath);
+    if (matched) return null;
     return {
       path: defaultProjectPath,
       name: defaultProjectPath.split(/[/\\]/).pop() ?? defaultProjectPath,
@@ -63,77 +69,68 @@ export default function EnvironmentsSettings() {
       lastUsedAt: 0,
       isTemp: false,
       exists: syntheticDefaultExists,
-      isSyntheticDefault: true
-    }
-  }, [defaultProjectPath, projectStore.environments, syntheticDefaultExists])
+      isSyntheticDefault: true,
+    };
+  }, [defaultProjectPath, projectStore.environments, syntheticDefaultExists]);
 
   const visibleEnvironments = useMemo(() => {
     const shouldShow = (e: EnvironmentListItem) =>
-      (!e.isTemp || e.path === defaultProjectPath) && (showMissing || e.exists)
+      (!e.isTemp || e.path === defaultProjectPath) && (showMissing || e.exists);
     return sortEnvironments(
-      [
-        ...projectStore.environments,
-        ...(syntheticDefaultEnvironment ? [syntheticDefaultEnvironment] : [])
-      ].filter(shouldShow)
-    )
-  }, [
-    projectStore.environments,
-    syntheticDefaultEnvironment,
-    showMissing,
-    defaultProjectPath,
-    sortEnvironments
-  ])
+      [...projectStore.environments, ...(syntheticDefaultEnvironment ? [syntheticDefaultEnvironment] : [])].filter(
+        shouldShow,
+      ),
+    );
+  }, [projectStore.environments, syntheticDefaultEnvironment, showMissing, defaultProjectPath, sortEnvironments]);
 
   const formatDate = useCallback((timestamp: number) => {
-    if (!timestamp) return 'Never'
-    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-      new Date(timestamp)
-    )
-  }, [])
+    if (!timestamp) return "Never";
+    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
+  }, []);
 
   const refreshData = useCallback(async () => {
     try {
-      setIsLoading(true)
-      await projectStore.refreshEnvironmentData()
+      setIsLoading(true);
+      await refreshEnvironmentData();
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [projectStore])
+  }, [projectStore]);
 
   const handleOpen = useCallback(
     async (path: string) => {
       try {
-        await projectStore.openDirectory(path)
+        await openDirectory(path);
       } catch (error) {
         toast({
-          title: 'Failed to open',
+          title: "Failed to open",
           description: error instanceof Error ? error.message : String(error),
-          variant: 'destructive'
-        })
+          variant: "destructive",
+        });
       }
     },
-    [projectStore, toast]
-  )
+    [projectStore, toast],
+  );
 
   const handleSetDefault = useCallback(
     async (environment: EnvironmentListItem) => {
-      if (!environment.exists) return
-      await projectStore.setDefaultProject(environment.path)
+      if (!environment.exists) return;
+      await setDefaultProject(environment.path);
     },
-    [projectStore]
-  )
+    [projectStore],
+  );
 
   const handleClearDefault = useCallback(async () => {
-    await projectStore.clearDefaultProject()
-  }, [projectStore])
+    await clearDefaultProject();
+  }, [projectStore]);
 
   useEffect(() => {
-    void refreshData()
-  }, [refreshData])
+    void refreshData();
+  }, [refreshData]);
 
   useEffect(() => {
-    void syncSyntheticDefaultExists()
-  }, [syncSyntheticDefaultExists, projectStore.environments])
+    void syncSyntheticDefaultExists();
+  }, [syncSyntheticDefaultExists, projectStore.environments]);
 
   return (
     <SettingsPageShell
@@ -143,10 +140,7 @@ export default function EnvironmentsSettings() {
       data-testid="settings-environments-page"
       actions={
         <Button variant="outline" size="sm" disabled={isLoading} onClick={() => void refreshData()}>
-          <Icon
-            icon="lucide:refresh-cw"
-            className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-          />
+          <Icon icon="lucide:refresh-cw" className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       }
@@ -158,11 +152,7 @@ export default function EnvironmentsSettings() {
             Show missing
           </span>
           <div className="ml-auto">
-            <Switch
-              data-testid="missing-toggle"
-              checked={showMissing}
-              onCheckedChange={setShowMissing}
-            />
+            <Switch data-testid="missing-toggle" checked={showMissing} onCheckedChange={setShowMissing} />
           </div>
         </div>
 
@@ -185,30 +175,20 @@ export default function EnvironmentsSettings() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="text-sm font-medium text-foreground">
-                          {environment.name}
-                        </div>
+                        <div className="text-sm font-medium text-foreground">{environment.name}</div>
                         {environment.path === defaultProjectPath && (
-                          <span
-                            className="text-xs font-medium text-primary"
-                            data-testid="environment-badge-default"
-                          >
+                          <span className="text-xs font-medium text-primary" data-testid="environment-badge-default">
                             Default
                           </span>
                         )}
-                        {!environment.exists && (
-                          <span className="text-xs text-destructive">Missing</span>
-                        )}
+                        {!environment.exists && <span className="text-xs text-destructive">Missing</span>}
                         {environment.isSyntheticDefault && (
                           <span className="text-xs text-muted-foreground">Not in history</span>
                         )}
                       </div>
-                      <p className="mt-1 break-all text-xs text-muted-foreground">
-                        {environment.path}
-                      </p>
+                      <p className="mt-1 break-all text-xs text-muted-foreground">{environment.path}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {environment.sessionCount} sessions · Last used:{' '}
-                        {formatDate(environment.lastUsedAt)}
+                        {environment.sessionCount} sessions · Last used: {formatDate(environment.lastUsedAt)}
                       </p>
                     </div>
                   </div>
@@ -249,5 +229,5 @@ export default function EnvironmentsSettings() {
         )}
       </div>
     </SettingsPageShell>
-  )
+  );
 }

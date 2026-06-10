@@ -1,86 +1,86 @@
-import { IDevicePresenter, DeviceInfo, MemoryInfo, DiskInfo } from '../../../shared/presenter'
-import os from 'os'
-import { exec } from 'child_process'
-import { promisify } from 'util'
-import fs from 'fs'
-import path from 'path'
-import { app, dialog } from 'electron'
-import { nanoid } from 'nanoid'
-import axios from 'axios'
-import { is } from '@electron-toolkit/utils'
-import { eventBus, SendTarget } from '../../eventbus'
-import { NOTIFICATION_EVENTS } from '../../events'
-import { svgSanitizer } from '../../lib/svgSanitizer'
-import { presenter } from '../index'
-const execAsync = promisify(exec)
+import { IDevicePresenter, DeviceInfo, MemoryInfo, DiskInfo } from "../../../shared/presenter";
+import os from "os";
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs";
+import path from "path";
+import { app, dialog } from "electron";
+import { nanoid } from "nanoid";
+import axios from "axios";
+import { is } from "@electron-toolkit/utils";
+import { eventBus, SendTarget } from "../../eventbus";
+import { NOTIFICATION_EVENTS } from "../../events";
+import { svgSanitizer } from "../../lib/svgSanitizer";
+import { presenter } from "../index";
+const execAsync = promisify(exec);
 
 function toMimeType(value: unknown): string {
-  if (typeof value === 'string') {
-    return value
+  if (typeof value === "string") {
+    return value;
   }
 
   if (Array.isArray(value)) {
-    return value.find((item): item is string => typeof item === 'string') ?? ''
+    return value.find((item): item is string => typeof item === "string") ?? "";
   }
 
-  return ''
+  return "";
 }
 
 function getImageExtensionFromMimeType(value: unknown): string {
-  const mimeType = toMimeType(value).toLowerCase()
+  const mimeType = toMimeType(value).toLowerCase();
 
-  if (mimeType.includes('png')) {
-    return 'png'
+  if (mimeType.includes("png")) {
+    return "png";
   }
-  if (mimeType.includes('gif')) {
-    return 'gif'
+  if (mimeType.includes("gif")) {
+    return "gif";
   }
-  if (mimeType.includes('webp')) {
-    return 'webp'
+  if (mimeType.includes("webp")) {
+    return "webp";
   }
-  if (mimeType.includes('svg')) {
-    return 'svg'
+  if (mimeType.includes("svg")) {
+    return "svg";
   }
 
-  return 'jpg'
+  return "jpg";
 }
 
 export class DevicePresenter implements IDevicePresenter {
   static getDefaultHeaders(): Record<string, string> {
-    const version = app.getVersion()
+    const version = app.getVersion();
     return {
-      'HTTP-Referer': 'https://deepchatai.cn',
-      'X-Title': 'DeepChat',
-      'User-Agent': `DeepChat/${version}`
-    }
+      "HTTP-Referer": "https://deepchatai.cn",
+      "X-Title": "DeepChat",
+      "User-Agent": `DeepChat/${version}`,
+    };
   }
   async getAppVersion(): Promise<string> {
-    return app.getVersion()
+    return app.getVersion();
   }
 
   async getDeviceInfo(): Promise<DeviceInfo> {
-    const platform = process.platform
-    const osVersion = os.release()
+    const platform = process.platform;
+    const osVersion = os.release();
 
     // Build version metadata based on current platform
-    let osVersionMetadata: Array<{ name: string; build: number }> = []
+    let osVersionMetadata: Array<{ name: string; build: number }> = [];
 
-    if (platform === 'win32') {
+    if (platform === "win32") {
       osVersionMetadata = [
-        { name: 'Windows 11', build: 22000 },
-        { name: 'Windows 10', build: 10240 },
-        { name: 'Windows 8.1', build: 9600 },
-        { name: 'Windows 8', build: 9200 }
-      ]
-    } else if (platform === 'darwin') {
+        { name: "Windows 11", build: 22000 },
+        { name: "Windows 10", build: 10240 },
+        { name: "Windows 8.1", build: 9600 },
+        { name: "Windows 8", build: 9200 },
+      ];
+    } else if (platform === "darwin") {
       osVersionMetadata = [
-        { name: 'macOS Tahoe', build: 25 },
-        { name: 'macOS Sequoia', build: 24 },
-        { name: 'macOS Sonoma', build: 23 },
-        { name: 'macOS Ventura', build: 22 },
-        { name: 'macOS Monterey', build: 21 },
-        { name: 'macOS Big Sur', build: 20 }
-      ]
+        { name: "macOS Tahoe", build: 25 },
+        { name: "macOS Sequoia", build: 24 },
+        { name: "macOS Sonoma", build: 23 },
+        { name: "macOS Ventura", build: 22 },
+        { name: "macOS Monterey", build: 21 },
+        { name: "macOS Big Sur", build: 20 },
+      ];
     }
 
     return {
@@ -89,79 +89,74 @@ export class DevicePresenter implements IDevicePresenter {
       cpuModel: os.cpus()[0].model,
       totalMemory: os.totalmem(),
       osVersion,
-      osVersionMetadata
-    }
+      osVersionMetadata,
+    };
   }
 
   async getCPUUsage(): Promise<number> {
-    const startMeasure = os.cpus().map((cpu) => cpu.times)
+    const startMeasure = os.cpus().map((cpu) => cpu.times);
 
     // Wait for 100ms to get a meaningful CPU usage measurement
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const endMeasure = os.cpus().map((cpu) => cpu.times)
+    const endMeasure = os.cpus().map((cpu) => cpu.times);
 
     const idleDifferences = endMeasure.map((end, i) => {
-      const start = startMeasure[i]
-      const idle = end.idle - start.idle
+      const start = startMeasure[i];
+      const idle = end.idle - start.idle;
       const total =
-        end.user -
-        start.user +
-        (end.nice - start.nice) +
-        (end.sys - start.sys) +
-        (end.irq - start.irq) +
-        idle
-      return 1 - idle / total
-    })
+        end.user - start.user + (end.nice - start.nice) + (end.sys - start.sys) + (end.irq - start.irq) + idle;
+      return 1 - idle / total;
+    });
 
     // Return average CPU usage across all cores
-    return (idleDifferences.reduce((sum, idle) => sum + idle, 0) / idleDifferences.length) * 100
+    return (idleDifferences.reduce((sum, idle) => sum + idle, 0) / idleDifferences.length) * 100;
   }
 
   async getMemoryUsage(): Promise<MemoryInfo> {
-    const total = os.totalmem()
-    const free = os.freemem()
-    const used = total - free
+    const total = os.totalmem();
+    const free = os.freemem();
+    const used = total - free;
 
     return {
       total,
       free,
-      used
-    }
+      used,
+    };
   }
 
   async getDiskSpace(): Promise<DiskInfo> {
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       // Windows implementation
-      const { stdout } = await execAsync('wmic logicaldisk get size,freespace')
-      const lines = stdout.trim().split('\n').slice(1)
-      let total = 0
-      let free = 0
+      const { stdout } = await execAsync("wmic logicaldisk get size,freespace");
+      const lines = stdout.trim().split("\n").slice(1);
+      let total = 0;
+      let free = 0;
 
       lines.forEach((line) => {
-        const [freeSpace, size] = line.trim().split(/\s+/).map(Number)
+        const [freeSpace, size] = line.trim().split(/\s+/).map(Number);
         if (!isNaN(freeSpace) && !isNaN(size)) {
-          free += freeSpace
-          total += size
+          free += freeSpace;
+          total += size;
         }
-      })
+      });
 
       return {
         total,
         free,
-        used: total - free
-      }
+        used: total - free,
+      };
     } else {
       // Unix-like systems implementation
-      const { stdout } = await execAsync('df -k /')
-      const [, line] = stdout.trim().split('\n')
-      const [, total, , used, free] = line.split(/\s+/)
+      const { stdout } = await execAsync("df -k /");
+      const [, line] = stdout.trim().split("\n");
+      const [, total, , used, free] = line.split(/\s+/);
 
       return {
         total: parseInt(total) * 1024,
         free: parseInt(free) * 1024,
-        used: parseInt(used) * 1024
-      }
+        used: parseInt(used) * 1024,
+      };
     }
   }
 
@@ -172,31 +167,31 @@ export class DevicePresenter implements IDevicePresenter {
    */
   async cacheImage(imageData: string): Promise<string> {
     // 如果已经是imgcache协议，直接返回
-    if (imageData.startsWith('imgcache://')) {
-      return imageData
+    if (imageData.startsWith("imgcache://")) {
+      return imageData;
     }
 
     // 创建缓存目录
-    const cacheDir = path.join(app.getPath('userData'), 'images')
+    const cacheDir = path.join(app.getPath("userData"), "images");
     if (!fs.existsSync(cacheDir)) {
-      fs.mkdirSync(cacheDir, { recursive: true })
+      fs.mkdirSync(cacheDir, { recursive: true });
     }
 
     // 生成唯一的文件名
-    const timestamp = Date.now()
-    const uniqueId = nanoid(8)
-    const fileName = `img_${timestamp}_${uniqueId}`
+    const timestamp = Date.now();
+    const uniqueId = nanoid(8);
+    const fileName = `img_${timestamp}_${uniqueId}`;
 
     // 判断图片类型
-    if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
+    if (imageData.startsWith("http://") || imageData.startsWith("https://")) {
       // 处理URL图片
-      return this.cacheImageFromUrl(imageData, cacheDir, fileName)
-    } else if (imageData.startsWith('data:image/')) {
+      return this.cacheImageFromUrl(imageData, cacheDir, fileName);
+    } else if (imageData.startsWith("data:image/")) {
       // 处理Base64图片
-      return this.cacheImageFromBase64(imageData, cacheDir, fileName)
+      return this.cacheImageFromBase64(imageData, cacheDir, fileName);
     } else {
-      console.warn('不支持的图片格式')
-      return imageData // 返回原始数据
+      console.warn("不支持的图片格式");
+      return imageData; // 返回原始数据
     }
   }
 
@@ -207,35 +202,31 @@ export class DevicePresenter implements IDevicePresenter {
    * @param fileName 文件名(不含扩展名)
    * @returns 返回imgcache协议URL或原始URL（下载失败时）
    */
-  private async cacheImageFromUrl(
-    url: string,
-    cacheDir: string,
-    fileName: string
-  ): Promise<string> {
+  private async cacheImageFromUrl(url: string, cacheDir: string, fileName: string): Promise<string> {
     try {
       // 使用axios下载图片
       const response = await axios({
-        method: 'get',
+        method: "get",
         url: url,
-        responseType: 'arraybuffer',
-        timeout: 10000 // 10秒超时
-      })
+        responseType: "arraybuffer",
+        timeout: 10000, // 10秒超时
+      });
 
       // Handle string or string[] content-type headers consistently.
-      const extension = getImageExtensionFromMimeType(response.headers['content-type'])
+      const extension = getImageExtensionFromMimeType(response.headers["content-type"]);
 
-      const saveFileName = `${fileName}.${extension}`
-      const fullPath = path.join(cacheDir, saveFileName)
+      const saveFileName = `${fileName}.${extension}`;
+      const fullPath = path.join(cacheDir, saveFileName);
 
       // 将下载的数据写入文件
-      await fs.promises.writeFile(fullPath, Buffer.from(response.data))
+      await fs.promises.writeFile(fullPath, Buffer.from(response.data));
 
       // 返回imgcache协议URL
-      return `imgcache://${saveFileName}`
+      return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error('下载图片失败:', error)
+      console.error("下载图片失败:", error);
       // 下载失败时返回原始URL
-      return url
+      return url;
     }
   }
 
@@ -246,236 +237,232 @@ export class DevicePresenter implements IDevicePresenter {
    * @param fileName 文件名(不含扩展名)
    * @returns 返回imgcache协议URL或原始数据（处理失败时）
    */
-  private async cacheImageFromBase64(
-    base64Data: string,
-    cacheDir: string,
-    fileName: string
-  ): Promise<string> {
+  private async cacheImageFromBase64(base64Data: string, cacheDir: string, fileName: string): Promise<string> {
     try {
       // 解析MIME类型和实际的Base64数据
-      const matches = base64Data.match(/^data:([^;]+);base64,(.*)$/)
+      const matches = base64Data.match(/^data:([^;]+);base64,(.*)$/);
       if (!matches || matches.length !== 3) {
-        console.warn('无效的Base64图片数据')
-        return base64Data
+        console.warn("无效的Base64图片数据");
+        return base64Data;
       }
 
-      const mimeType = matches[1]
-      const base64Content = matches[2]
+      const mimeType = matches[1];
+      const base64Content = matches[2];
 
       // 根据MIME类型确定文件扩展名
-      const extension = getImageExtensionFromMimeType(mimeType)
+      const extension = getImageExtensionFromMimeType(mimeType);
 
-      const saveFileName = `${fileName}.${extension}`
-      const fullPath = path.join(cacheDir, saveFileName)
+      const saveFileName = `${fileName}.${extension}`;
+      const fullPath = path.join(cacheDir, saveFileName);
 
       // 将Base64数据转换为Buffer并保存为图片文件
-      const imageBuffer = Buffer.from(base64Content, 'base64')
-      await fs.promises.writeFile(fullPath, imageBuffer)
+      const imageBuffer = Buffer.from(base64Content, "base64");
+      await fs.promises.writeFile(fullPath, imageBuffer);
 
       // 返回imgcache协议URL
-      return `imgcache://${saveFileName}`
+      return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error('保存Base64图片失败:', error)
-      return base64Data // 出错时返回原始数据
+      console.error("保存Base64图片失败:", error);
+      return base64Data; // 出错时返回原始数据
     }
   }
 
   async resetData(): Promise<void> {
     return new Promise((resolve, reject) => {
       const response = dialog.showMessageBoxSync({
-        type: 'warning',
-        buttons: ['确认', '取消'],
+        type: "warning",
+        buttons: ["确认", "取消"],
         defaultId: 0,
-        message: '清除本地的所有数据',
-        detail: '注意本操作会导致本地记录彻底删除，你确定么？'
-      })
+        message: "清除本地的所有数据",
+        detail: "注意本操作会导致本地记录彻底删除，你确定么？",
+      });
       if (response === 0) {
         try {
-          const dbPath = path.join(app.getPath('userData'), 'app_db')
+          const dbPath = path.join(app.getPath("userData"), "app_db");
           const removeDirectory = (dirPath: string): void => {
             if (fs.existsSync(dirPath)) {
               fs.readdirSync(dirPath).forEach((file) => {
-                const currentPath = path.join(dirPath, file)
+                const currentPath = path.join(dirPath, file);
                 if (fs.lstatSync(currentPath).isDirectory()) {
-                  removeDirectory(currentPath)
+                  removeDirectory(currentPath);
                 } else {
-                  fs.unlinkSync(currentPath)
+                  fs.unlinkSync(currentPath);
                 }
-              })
-              fs.rmdirSync(dirPath)
+              });
+              fs.rmdirSync(dirPath);
             }
-          }
-          removeDirectory(dbPath)
+          };
+          removeDirectory(dbPath);
 
-          app.relaunch()
-          app.exit()
-          resolve()
+          app.relaunch();
+          app.exit();
+          resolve();
         } catch (err) {
-          console.error('softReset failed')
-          reject(err)
-          return
+          console.error("softReset failed");
+          reject(err);
+          return;
         }
       }
-    })
+    });
   }
 
   /**
    * 根据类型重置数据
    * @param resetType 重置类型：'chat' | 'knowledge' | 'config' | 'all'
    */
-  async resetDataByType(resetType: 'chat' | 'knowledge' | 'config' | 'all'): Promise<void> {
+  async resetDataByType(resetType: "chat" | "knowledge" | "config" | "all"): Promise<void> {
     try {
-      const userDataPath = app.getPath('userData')
+      const userDataPath = app.getPath("userData");
 
       const removeDirectory = (dirPath: string): void => {
         if (fs.existsSync(dirPath)) {
           fs.readdirSync(dirPath).forEach((file) => {
-            const currentPath = path.join(dirPath, file)
+            const currentPath = path.join(dirPath, file);
             if (fs.lstatSync(currentPath).isDirectory()) {
-              removeDirectory(currentPath)
+              removeDirectory(currentPath);
             } else {
-              fs.unlinkSync(currentPath)
+              fs.unlinkSync(currentPath);
             }
-          })
-          fs.rmdirSync(dirPath)
+          });
+          fs.rmdirSync(dirPath);
         }
-      }
+      };
 
       const removeFile = (filePath: string): void => {
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath)
+          fs.unlinkSync(filePath);
         }
-      }
+      };
 
       switch (resetType) {
-        case 'chat': {
+        case "chat": {
           // 删除聊天数据
-          console.log('Resetting chat data...')
+          console.log("Resetting chat data...");
           try {
             if (presenter.sqlitePresenter) {
-              presenter.sqlitePresenter.close()
-              console.log('SQLite database connection closed')
+              presenter.sqlitePresenter.close();
+              console.log("SQLite database connection closed");
             }
-            await new Promise((resolve) => setTimeout(resolve, 500))
+            await new Promise((resolve) => setTimeout(resolve, 500));
           } catch (closeError) {
-            console.warn('Error closing SQLite connection:', closeError)
+            console.warn("Error closing SQLite connection:", closeError);
           }
-          const appDbPath = path.join(userDataPath, 'app_db')
-          const mainDbFile = path.join(appDbPath, 'agent.db')
+          const appDbPath = path.join(userDataPath, "app_db");
+          const mainDbFile = path.join(appDbPath, "agent.db");
           try {
-            removeFile(mainDbFile)
-            console.log('Removed chat database file')
+            removeFile(mainDbFile);
+            console.log("Removed chat database file");
           } catch (error) {
-            console.warn('Failed to remove chat database file:', error)
+            console.warn("Failed to remove chat database file:", error);
           }
-          const auxiliaryFiles = ['agent.db-wal', 'agent.db-shm']
+          const auxiliaryFiles = ["agent.db-wal", "agent.db-shm"];
           auxiliaryFiles.forEach((fileName) => {
-            const filePath = path.join(appDbPath, fileName)
+            const filePath = path.join(appDbPath, fileName);
             if (fs.existsSync(filePath)) {
               try {
-                removeFile(filePath)
-                console.log('Cleaned up auxiliary file:', fileName)
+                removeFile(filePath);
+                console.log("Cleaned up auxiliary file:", fileName);
               } catch (error) {
-                console.warn('Failed to clean auxiliary file:', fileName, error)
+                console.warn("Failed to clean auxiliary file:", fileName, error);
               }
             }
-          })
-          break
+          });
+          break;
         }
 
-        case 'knowledge': {
+        case "knowledge": {
           // 删除知识库数据
-          console.log('Resetting knowledge base data...')
+          console.log("Resetting knowledge base data...");
           try {
             if (presenter.knowledgePresenter) {
-              await presenter.knowledgePresenter.destroy()
-              console.log('Knowledge database connections closed')
+              await presenter.knowledgePresenter.destroy();
+              console.log("Knowledge database connections closed");
             }
-            await new Promise((resolve) => setTimeout(resolve, 500))
+            await new Promise((resolve) => setTimeout(resolve, 500));
           } catch (closeError) {
-            console.warn('Error closing knowledge database connections:', closeError)
+            console.warn("Error closing knowledge database connections:", closeError);
           }
-          const knowledgeDbPath = path.join(userDataPath, 'app_db', 'KnowledgeBase')
-          console.log('Removing knowledge base directory:', knowledgeDbPath)
-          removeDirectory(knowledgeDbPath)
-          break
+          const knowledgeDbPath = path.join(userDataPath, "app_db", "KnowledgeBase");
+          console.log("Removing knowledge base directory:", knowledgeDbPath);
+          removeDirectory(knowledgeDbPath);
+          break;
         }
 
-        case 'config': {
+        case "config": {
           // 删除配置文件
-          console.log('Resetting configuration files')
+          console.log("Resetting configuration files");
           const configFiles = [
-            path.join(userDataPath, 'app-settings.json'),
-            path.join(userDataPath, 'mcp-settings.json'),
-            path.join(userDataPath, 'model-config.json'),
-            path.join(userDataPath, 'custom_prompts.json')
-          ]
+            path.join(userDataPath, "app-settings.json"),
+            path.join(userDataPath, "mcp-settings.json"),
+            path.join(userDataPath, "model-config.json"),
+            path.join(userDataPath, "custom_prompts.json"),
+          ];
 
           configFiles.forEach((filePath) => {
             try {
-              removeFile(filePath)
-              console.log('Removed config file:', filePath)
+              removeFile(filePath);
+              console.log("Removed config file:", filePath);
             } catch (error) {
-              console.warn('Failed to remove config file:', filePath, error)
+              console.warn("Failed to remove config file:", filePath, error);
             }
-          })
+          });
 
           try {
-            removeDirectory(path.join(userDataPath, 'provider_models'))
-            console.log('Removed provider_models directory')
+            removeDirectory(path.join(userDataPath, "provider_models"));
+            console.log("Removed provider_models directory");
           } catch (error) {
-            console.warn('Failed to remove provider_models directory:', error)
+            console.warn("Failed to remove provider_models directory:", error);
           }
-          break
+          break;
         }
 
-        case 'all': {
+        case "all": {
           // 删除整个用户数据目录
-          console.log('Performing complete reset of user data...')
+          console.log("Performing complete reset of user data...");
           try {
             if (presenter.sqlitePresenter) {
-              presenter.sqlitePresenter.close()
-              console.log('SQLite database connection closed')
+              presenter.sqlitePresenter.close();
+              console.log("SQLite database connection closed");
             }
             if (presenter.knowledgePresenter) {
-              await presenter.knowledgePresenter.destroy()
-              console.log('Knowledge database connections closed')
+              await presenter.knowledgePresenter.destroy();
+              console.log("Knowledge database connections closed");
             }
-            await new Promise((resolve) => setTimeout(resolve, 1000))
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           } catch (closeError) {
-            console.warn('Error closing database connections:', closeError)
+            console.warn("Error closing database connections:", closeError);
           }
-          console.log('Removing user data directory:', userDataPath)
-          removeDirectory(userDataPath)
-          break
+          console.log("Removing user data directory:", userDataPath);
+          removeDirectory(userDataPath);
+          break;
         }
 
         default:
-          throw new Error(`Unknown reset type: ${resetType}`)
+          throw new Error(`Unknown reset type: ${resetType}`);
       }
 
-      this.restartAppWithDelay()
+      this.restartAppWithDelay();
     } catch (error) {
-      console.error('resetDataByType failed:', error)
-      throw error
+      console.error("resetDataByType failed:", error);
+      throw error;
     }
   }
 
   private restartAppWithDelay(): void {
     try {
       if (is.dev) {
-        console.log('开发环境下数据重置完成，发送通知到渲染进程')
-        eventBus.sendToRenderer(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, SendTarget.ALL_WINDOWS)
-        return
+        console.log("开发环境下数据重置完成，发送通知到渲染进程");
+        eventBus.sendToRenderer(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, SendTarget.ALL_WINDOWS);
+        return;
       }
 
       setTimeout(() => {
-        app.relaunch()
-        app.exit()
-      }, 1000)
+        app.relaunch();
+        app.exit();
+      }, 1000);
     } catch (error) {
-      console.error('重启失败:', error)
-      throw error
+      console.error("重启失败:", error);
+      throw error;
     }
   }
 
@@ -485,8 +472,8 @@ export class DevicePresenter implements IDevicePresenter {
    */
   async selectDirectory(): Promise<{ canceled: boolean; filePaths: string[] }> {
     return dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory']
-    })
+      properties: ["openDirectory", "createDirectory"],
+    });
   }
 
   /**
@@ -495,27 +482,27 @@ export class DevicePresenter implements IDevicePresenter {
    * @returns 返回所选文件的路径，如果用户取消则返回空数组
    */
   async selectFiles(options?: {
-    filters?: { name: string; extensions: string[] }[]
-    multiple?: boolean
+    filters?: { name: string; extensions: string[] }[];
+    multiple?: boolean;
   }): Promise<{ canceled: boolean; filePaths: string[] }> {
-    const properties: ('openFile' | 'multiSelections')[] = ['openFile']
+    const properties: ("openFile" | "multiSelections")[] = ["openFile"];
     if (options?.multiple) {
-      properties.push('multiSelections')
+      properties.push("multiSelections");
     }
     return dialog.showOpenDialog({
       properties,
-      filters: options?.filters
-    })
+      filters: options?.filters,
+    });
   }
 
   /**
    * 重启应用程序
    */
   restartApp(): Promise<void> {
-    console.log('restartApp')
-    app.relaunch()
-    app.exit()
-    return Promise.resolve()
+    console.log("restartApp");
+    app.relaunch();
+    app.exit();
+    return Promise.resolve();
   }
 
   /**
@@ -525,27 +512,27 @@ export class DevicePresenter implements IDevicePresenter {
    */
   async sanitizeSvgContent(svgContent: string): Promise<string | null> {
     try {
-      console.log('Sanitizing SVG content, length:', svgContent.length)
+      console.log("Sanitizing SVG content, length:", svgContent.length);
       // Debug: 显示SVG前100个字符
-      console.log('SVG preview:', svgContent.substring(0, 100) + '...')
+      console.log("SVG preview:", svgContent.substring(0, 100) + "...");
 
       // 使用SVG净化器处理内容
-      const sanitizedContent = svgSanitizer.sanitize(svgContent)
+      const sanitizedContent = svgSanitizer.sanitize(svgContent);
 
       if (sanitizedContent) {
-        console.log('SVG content sanitized successfully, output length:', sanitizedContent.length)
-        console.log('Comments preserved:', /<!--/.test(sanitizedContent))
-        return sanitizedContent
+        console.log("SVG content sanitized successfully, output length:", sanitizedContent.length);
+        console.log("Comments preserved:", /<!--/.test(sanitizedContent));
+        return sanitizedContent;
       } else {
-        console.warn('SVG content was rejected by sanitizer')
+        console.warn("SVG content was rejected by sanitizer");
         // Debug: 检查具体是哪一步失败了
-        console.log('Debug: SVG starts with <svg:', svgContent.trim().startsWith('<svg'))
-        console.log('Debug: SVG contains dangerous content:', svgContent.includes('<script'))
-        return null
+        console.log("Debug: SVG starts with <svg:", svgContent.trim().startsWith("<svg"));
+        console.log("Debug: SVG contains dangerous content:", svgContent.includes("<script"));
+        return null;
       }
     } catch (error) {
-      console.error('Error sanitizing SVG content:', error)
-      return null
+      console.error("Error sanitizing SVG content:", error);
+      return null;
     }
   }
 }

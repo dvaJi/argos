@@ -1,42 +1,42 @@
-import React, { useMemo, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import type { SearchResult } from '@shared/types/core/search'
+import { type FC, useMemo, useRef } from "react";
+import { Icon } from "@iconify/react";
+import type { SearchResult } from "@shared/types/core/search";
 
 interface ReferencePreviewProps {
-  show: boolean
-  content: SearchResult | undefined
-  rect?: DOMRect
+  show: boolean;
+  content: SearchResult | undefined;
+  rect?: DOMRect;
 }
 
-export const ReferencePreview: React.FC<ReferencePreviewProps> = ({ show, content, rect }) => {
-  const previewEl = useRef<HTMLDivElement>(null)
+export const ReferencePreview: FC<ReferencePreviewProps> = ({ show, content, rect }) => {
+  const previewEl = useRef<HTMLDivElement>(null);
 
   const positionStyle = useMemo(() => {
-    if (!rect) return {}
+    if (!rect) return {};
 
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const previewWidth = 384
-    const previewHeight = previewEl.current?.offsetHeight || 200
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const previewWidth = 384;
+    const previewHeight = previewEl.current?.offsetHeight || 200;
 
-    let top = rect.bottom + window.scrollY + 8
-    let left = rect.left + window.scrollX
+    let top = rect.bottom + window.scrollY + 8;
+    let left = rect.left + window.scrollX;
 
     if (left + previewWidth > viewportWidth) {
-      left = viewportWidth - previewWidth - 16
+      left = viewportWidth - previewWidth - 16;
     }
 
     if (top + previewHeight > viewportHeight + window.scrollY) {
-      top = rect.top + window.scrollY - previewHeight - 8
+      top = rect.top + window.scrollY - previewHeight - 8;
     }
 
     return {
       top: `${top}px`,
-      left: `${left}px`
-    }
-  }, [rect, content])
+      left: `${left}px`,
+    };
+  }, [rect, content]);
 
-  if (!show) return null
+  if (!show) return null;
 
   return (
     <div
@@ -47,11 +47,7 @@ export const ReferencePreview: React.FC<ReferencePreviewProps> = ({ show, conten
       <div className="space-y-1.5 sm:space-y-2">
         <div className="flex items-center gap-1.5 sm:gap-2">
           {content?.icon ? (
-            <img
-              src={content.icon}
-              className="w-3 h-3 sm:w-4 sm:h-4 rounded"
-              alt={content?.title}
-            />
+            <img src={content.icon} className="w-3 h-3 sm:w-4 sm:h-4 rounded" alt={content?.title} />
           ) : (
             <Icon icon="lucide:globe" className="w-3 h-3 sm:w-4 sm:h-4" />
           )}
@@ -68,5 +64,5 @@ export const ReferencePreview: React.FC<ReferencePreviewProps> = ({ show, conten
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

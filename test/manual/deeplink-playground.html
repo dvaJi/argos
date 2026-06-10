@@ -26,7 +26,7 @@
 
       body {
         margin: 0;
-        font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+        font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
         color: var(--text);
         background:
           radial-gradient(circle at top left, rgba(255, 217, 182, 0.8), transparent 34%),
@@ -231,7 +231,7 @@
       .deeplink-box,
       input,
       select {
-        font-family: 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+        font-family: "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
       }
 
       pre,
@@ -326,8 +326,8 @@
         <div class="hero-card">
           <h1>DeepChat Deeplink Playground</h1>
           <p>
-            这个页面用于手工验证当前仓库支持的 deeplink。它会展示原始 JSON、Base64
-            编码后的参数，以及最终 `deepchat://...` 链接。
+            这个页面用于手工验证当前仓库支持的 deeplink。它会展示原始 JSON、Base64 编码后的参数，以及最终
+            `deepchat://...` 链接。
           </p>
           <div class="quick-nav">
             <a class="chip" href="#start-section">start</a>
@@ -391,23 +391,16 @@
         <div class="section-header">
           <div>
             <h2 class="section-title">provider/install</h2>
-            <p class="section-desc">
-              built-in 用 `id` 匹配并覆盖；custom 用 `name + type` 新增。列表已排除 `acp`。
-            </p>
+            <p class="section-desc">built-in 用 `id` 匹配并覆盖；custom 用 `name + type` 新增。列表已排除 `acp`。</p>
           </div>
           <div class="section-note">
-            built-in <span id="builtin-count">0</span> 条 / custom
-            <span id="custom-count">0</span> 条
+            built-in <span id="builtin-count">0</span> 条 / custom <span id="custom-count">0</span> 条
           </div>
         </div>
         <div class="toolbar" style="margin-bottom: 16px">
           <div class="search-row">
             <span class="pill">Filter</span>
-            <input
-              id="provider-filter"
-              type="text"
-              placeholder="按 id / type / name 过滤 provider 示例"
-            />
+            <input id="provider-filter" type="text" placeholder="按 id / type / name 过滤 provider 示例" />
           </div>
         </div>
         <div class="grid-2">
@@ -431,8 +424,7 @@
           <div>
             <h2 class="section-title">provider/install builder</h2>
             <p class="section-desc">
-              这里可以临时改 `id / name / type / baseUrl / apiKey`，实时生成符合应用解析格式的
-              deeplink。
+              这里可以临时改 `id / name / type / baseUrl / apiKey`，实时生成符合应用解析格式的 deeplink。
             </p>
           </div>
         </div>
@@ -490,228 +482,222 @@
       </section>
 
       <div class="footer">
-        Generated for manual verification in repository test assets. No real secrets are stored
-        here.
+        Generated for manual verification in repository test assets. No real secrets are stored here.
       </div>
     </div>
 
     <script>
       const builtinProviderIds = [
-        'ollama',
-        'deepseek',
-        'qiniu',
-        'silicon',
-        'ppio',
-        'jiekou',
-        'zenmux',
-        'tokenflux',
-        'burncloud',
-        'openai-responses',
-        'cherryin',
-        'openai',
-        'voiceai',
-        'gemini',
-        'vertex',
-        'anthropic',
-        'openrouter',
-        'poe',
-        '302ai',
-        'vercel-ai-gateway',
-        'together',
-        'github',
-        'github-copilot',
-        'doubao',
-        'minimax',
-        'fireworks',
-        'zhipu',
-        'moonshot',
-        'dashscope',
-        'lmstudio',
-        'groq',
-        'mistral',
-        'grok',
-        'aihubmix',
-        'hunyuan',
-        'azure-openai',
-        'modelscope',
-        'aws-bedrock',
-        'xiaomi',
-        'o3fan',
-        'novita'
-      ]
+        "ollama",
+        "deepseek",
+        "qiniu",
+        "silicon",
+        "ppio",
+        "jiekou",
+        "zenmux",
+        "tokenflux",
+        "burncloud",
+        "openai-responses",
+        "cherryin",
+        "openai",
+        "voiceai",
+        "gemini",
+        "vertex",
+        "anthropic",
+        "openrouter",
+        "poe",
+        "302ai",
+        "vercel-ai-gateway",
+        "together",
+        "github",
+        "github-copilot",
+        "doubao",
+        "minimax",
+        "fireworks",
+        "zhipu",
+        "moonshot",
+        "dashscope",
+        "lmstudio",
+        "groq",
+        "mistral",
+        "grok",
+        "aihubmix",
+        "hunyuan",
+        "azure-openai",
+        "modelscope",
+        "aws-bedrock",
+        "xiaomi",
+        "o3fan",
+        "novita",
+      ];
 
       const customProviderTypes = [
-        'minimax',
-        'deepseek',
-        'silicon',
-        'siliconcloud',
-        'dashscope',
-        'ppio',
-        'gemini',
-        'vertex',
-        'zhipu',
-        'github',
-        'github-copilot',
-        'ollama',
-        'anthropic',
-        'doubao',
-        'openai',
-        'openai-completions',
-        'voiceai',
-        'openai-compatible',
-        'openai-responses',
-        'lmstudio',
-        'mistral',
-        'together',
-        'groq',
-        'grok',
-        'vercel-ai-gateway',
-        'poe',
-        'aws-bedrock',
-        'jiekou',
-        'zenmux',
-        'o3fan'
-      ]
+        "minimax",
+        "deepseek",
+        "silicon",
+        "siliconcloud",
+        "dashscope",
+        "ppio",
+        "gemini",
+        "vertex",
+        "zhipu",
+        "github",
+        "github-copilot",
+        "ollama",
+        "anthropic",
+        "doubao",
+        "openai",
+        "openai-completions",
+        "voiceai",
+        "openai-compatible",
+        "openai-responses",
+        "lmstudio",
+        "mistral",
+        "together",
+        "groq",
+        "grok",
+        "vercel-ai-gateway",
+        "poe",
+        "aws-bedrock",
+        "jiekou",
+        "zenmux",
+        "o3fan",
+      ];
 
       const startExamples = [
         {
-          title: 'Basic start',
-          description: '只传消息文本，验证应用唤起与默认新会话。',
+          title: "Basic start",
+          description: "只传消息文本，验证应用唤起与默认新会话。",
           payload: {
-            msg: '你好，DeepChat',
-            model: '',
-            system: '',
-            mentions: ''
-          }
+            msg: "你好，DeepChat",
+            model: "",
+            system: "",
+            mentions: "",
+          },
         },
         {
-          title: 'Full start payload',
-          description: '带上模型、system prompt 和 mentions。',
+          title: "Full start payload",
+          description: "带上模型、system prompt 和 mentions。",
           payload: {
-            msg: '帮我总结一下这周的迭代状态',
-            model: 'deepseek-chat',
-            system: 'You are a concise project assistant.',
-            mentions: 'README.md,docs/specs/provider-deeplink-import/spec.md'
-          }
-        }
-      ]
+            msg: "帮我总结一下这周的迭代状态",
+            model: "deepseek-chat",
+            system: "You are a concise project assistant.",
+            mentions: "README.md,docs/specs/provider-deeplink-import/spec.md",
+          },
+        },
+      ];
 
       const mcpExamples = [
         {
-          title: 'stdio MCP install',
-          description: '安装一个 stdio MCP server。',
+          title: "stdio MCP install",
+          description: "安装一个 stdio MCP server。",
           payload: {
             mcpServers: {
-              'demo-filesystem': {
-                command: 'npx',
-                args: ['-y', '@modelcontextprotocol/server-filesystem', 'C:/workspace/demo'],
+              "demo-filesystem": {
+                command: "npx",
+                args: ["-y", "@modelcontextprotocol/server-filesystem", "C:/workspace/demo"],
                 env: {
-                  NODE_ENV: 'development'
+                  NODE_ENV: "development",
                 },
-                autoApprove: ['all']
-              }
-            }
-          }
+                autoApprove: ["all"],
+              },
+            },
+          },
         },
         {
-          title: 'sse MCP install',
-          description: '安装一个 sse MCP server。',
+          title: "sse MCP install",
+          description: "安装一个 sse MCP server。",
           payload: {
             mcpServers: {
-              'demo-search': {
-                url: 'https://mcp.example.com/sse',
-                type: 'sse',
-                description: 'Example SSE MCP server',
-                autoApprove: ['search_web']
-              }
-            }
-          }
-        }
-      ]
+              "demo-search": {
+                url: "https://mcp.example.com/sse",
+                type: "sse",
+                description: "Example SSE MCP server",
+                autoApprove: ["search_web"],
+              },
+            },
+          },
+        },
+      ];
 
       const providerBuiltinExamples = builtinProviderIds.map((id) => ({
         title: id,
-        description: 'Built-in provider import',
+        description: "Built-in provider import",
         payload: {
           id,
           baseUrl: `https://${id}.example.com/v1`,
-          apiKey: `sk-${id.replace(/[^a-z0-9]/gi, '-')}-demo-key`
-        }
-      }))
+          apiKey: `sk-${id.replace(/[^a-z0-9]/gi, "-")}-demo-key`,
+        },
+      }));
 
       const providerCustomExamples = customProviderTypes.map((type) => ({
         title: type,
-        description: 'Custom provider import',
+        description: "Custom provider import",
         payload: {
           name: `${type} Proxy`,
           type,
-          baseUrl: type === 'ollama' ? 'http://localhost:11434' : `https://${type}.example.com/v1`,
-          apiKey:
-            type === 'ollama' ? 'ollama-demo-key' : `sk-${type.replace(/[^a-z0-9]/gi, '-')}-custom`
-        }
-      }))
+          baseUrl: type === "ollama" ? "http://localhost:11434" : `https://${type}.example.com/v1`,
+          apiKey: type === "ollama" ? "ollama-demo-key" : `sk-${type.replace(/[^a-z0-9]/gi, "-")}-custom`,
+        },
+      }));
 
       const escapeHtml = (value) =>
-        value
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')
-          .replaceAll('>', '&gt;')
-          .replaceAll('"', '&quot;')
+        value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
       const toBase64 = (value) => {
-        const bytes = new TextEncoder().encode(value)
-        let binary = ''
+        const bytes = new TextEncoder().encode(value);
+        let binary = "";
         for (const byte of bytes) {
-          binary += String.fromCharCode(byte)
+          binary += String.fromCharCode(byte);
         }
-        return btoa(binary)
-      }
+        return btoa(binary);
+      };
 
       const encodeQuery = (payload) =>
         Object.entries(payload)
-          .filter(([, value]) => value !== '')
+          .filter(([, value]) => value !== "")
           .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-          .join('&')
+          .join("&");
 
-      const buildStartLink = (payload) => `deepchat://start?${encodeQuery(payload)}`
+      const buildStartLink = (payload) => `deepchat://start?${encodeQuery(payload)}`;
 
       const buildMcpLink = (payload) =>
-        `deepchat://mcp/install?code=${encodeURIComponent(toBase64(JSON.stringify(payload)))}`
+        `deepchat://mcp/install?code=${encodeURIComponent(toBase64(JSON.stringify(payload)))}`;
 
       const buildProviderLink = (payload) =>
-        `deepchat://provider/install?v=1&data=${encodeURIComponent(toBase64(JSON.stringify(payload)))}`
+        `deepchat://provider/install?v=1&data=${encodeURIComponent(toBase64(JSON.stringify(payload)))}`;
 
       const openDeepLink = (href) => {
-        window.location.href = href
-      }
+        window.location.href = href;
+      };
 
       const copyText = async (text) => {
         try {
           if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(text)
-            return
+            await navigator.clipboard.writeText(text);
+            return;
           }
         } catch (error) {
-          console.warn('Clipboard API failed, fallback to textarea copy.', error)
+          console.warn("Clipboard API failed, fallback to textarea copy.", error);
         }
 
-        const textarea = document.createElement('textarea')
-        textarea.value = text
-        textarea.setAttribute('readonly', 'readonly')
-        textarea.style.position = 'fixed'
-        textarea.style.opacity = '0'
-        document.body.appendChild(textarea)
-        textarea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "readonly");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      };
 
       const createCard = ({ title, description, payload, linkBuilder }) => {
-        const card = document.createElement('article')
-        card.className = 'card'
+        const card = document.createElement("article");
+        card.className = "card";
 
-        const json = JSON.stringify(payload, null, 2)
-        const deeplink = linkBuilder(payload)
+        const json = JSON.stringify(payload, null, 2);
+        const deeplink = linkBuilder(payload);
 
         card.innerHTML = `
           <div class="card-head">
@@ -732,136 +718,136 @@
             <div class="code-label">DeepLink</div>
             <div class="deeplink-box">${escapeHtml(deeplink)}</div>
           </div>
-        `
+        `;
 
-        const [openButton, copyButton] = card.querySelectorAll('button')
-        openButton.addEventListener('click', () => openDeepLink(deeplink))
-        copyButton.addEventListener('click', async () => {
-          await copyText(deeplink)
-          copyButton.textContent = 'Copied'
+        const [openButton, copyButton] = card.querySelectorAll("button");
+        openButton.addEventListener("click", () => openDeepLink(deeplink));
+        copyButton.addEventListener("click", async () => {
+          await copyText(deeplink);
+          copyButton.textContent = "Copied";
           window.setTimeout(() => {
-            copyButton.textContent = 'Copy'
-          }, 1200)
-        })
+            copyButton.textContent = "Copy";
+          }, 1200);
+        });
 
-        return card
-      }
+        return card;
+      };
 
       const renderExamples = (containerId, examples, linkBuilder) => {
-        const container = document.getElementById(containerId)
-        container.innerHTML = ''
+        const container = document.getElementById(containerId);
+        container.innerHTML = "";
         examples.forEach((example) => {
           container.appendChild(
             createCard({
               ...example,
-              linkBuilder
-            })
-          )
-        })
-      }
+              linkBuilder,
+            }),
+          );
+        });
+      };
 
-      const renderProviderExamples = (filterText = '') => {
-        const normalized = filterText.trim().toLowerCase()
+      const renderProviderExamples = (filterText = "") => {
+        const normalized = filterText.trim().toLowerCase();
         const builtin = providerBuiltinExamples.filter((example) =>
-          `${example.title} ${JSON.stringify(example.payload)}`.toLowerCase().includes(normalized)
-        )
+          `${example.title} ${JSON.stringify(example.payload)}`.toLowerCase().includes(normalized),
+        );
         const custom = providerCustomExamples.filter((example) =>
-          `${example.title} ${JSON.stringify(example.payload)}`.toLowerCase().includes(normalized)
-        )
+          `${example.title} ${JSON.stringify(example.payload)}`.toLowerCase().includes(normalized),
+        );
 
-        renderExamples('builtin-grid', builtin, buildProviderLink)
-        renderExamples('custom-grid', custom, buildProviderLink)
+        renderExamples("builtin-grid", builtin, buildProviderLink);
+        renderExamples("custom-grid", custom, buildProviderLink);
 
-        document.getElementById('builtin-count').textContent = String(builtin.length)
-        document.getElementById('custom-count').textContent = String(custom.length)
-      }
+        document.getElementById("builtin-count").textContent = String(builtin.length);
+        document.getElementById("custom-count").textContent = String(custom.length);
+      };
 
       const builderElements = {
-        mode: document.getElementById('builder-mode'),
-        idField: document.getElementById('builder-id-field'),
-        id: document.getElementById('builder-id'),
-        nameField: document.getElementById('builder-name-field'),
-        name: document.getElementById('builder-name'),
-        typeField: document.getElementById('builder-type-field'),
-        type: document.getElementById('builder-type'),
-        url: document.getElementById('builder-url'),
-        key: document.getElementById('builder-key'),
-        json: document.getElementById('builder-json'),
-        base64: document.getElementById('builder-base64'),
-        link: document.getElementById('builder-link'),
-        open: document.getElementById('builder-open'),
-        copy: document.getElementById('builder-copy')
-      }
+        mode: document.getElementById("builder-mode"),
+        idField: document.getElementById("builder-id-field"),
+        id: document.getElementById("builder-id"),
+        nameField: document.getElementById("builder-name-field"),
+        name: document.getElementById("builder-name"),
+        typeField: document.getElementById("builder-type-field"),
+        type: document.getElementById("builder-type"),
+        url: document.getElementById("builder-url"),
+        key: document.getElementById("builder-key"),
+        json: document.getElementById("builder-json"),
+        base64: document.getElementById("builder-base64"),
+        link: document.getElementById("builder-link"),
+        open: document.getElementById("builder-open"),
+        copy: document.getElementById("builder-copy"),
+      };
 
       const fillSelect = (element, values) => {
-        element.innerHTML = ''
+        element.innerHTML = "";
         values.forEach((value) => {
-          const option = document.createElement('option')
-          option.value = value
-          option.textContent = value
-          element.appendChild(option)
-        })
-      }
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value;
+          element.appendChild(option);
+        });
+      };
 
       const updateBuilder = () => {
-        const isBuiltin = builderElements.mode.value === 'builtin'
-        builderElements.idField.style.display = isBuiltin ? 'grid' : 'none'
-        builderElements.nameField.style.display = isBuiltin ? 'none' : 'grid'
-        builderElements.typeField.style.display = isBuiltin ? 'none' : 'grid'
+        const isBuiltin = builderElements.mode.value === "builtin";
+        builderElements.idField.style.display = isBuiltin ? "grid" : "none";
+        builderElements.nameField.style.display = isBuiltin ? "none" : "grid";
+        builderElements.typeField.style.display = isBuiltin ? "none" : "grid";
 
         const payload = isBuiltin
           ? {
               id: builderElements.id.value,
               baseUrl: builderElements.url.value,
-              apiKey: builderElements.key.value
+              apiKey: builderElements.key.value,
             }
           : {
               name: builderElements.name.value,
               type: builderElements.type.value,
               baseUrl: builderElements.url.value,
-              apiKey: builderElements.key.value
-            }
+              apiKey: builderElements.key.value,
+            };
 
-        const json = JSON.stringify(payload, null, 2)
-        const base64 = toBase64(json)
-        const deeplink = `deepchat://provider/install?v=1&data=${encodeURIComponent(base64)}`
+        const json = JSON.stringify(payload, null, 2);
+        const base64 = toBase64(json);
+        const deeplink = `deepchat://provider/install?v=1&data=${encodeURIComponent(base64)}`;
 
-        builderElements.json.textContent = json
-        builderElements.base64.textContent = base64
-        builderElements.link.textContent = deeplink
-        builderElements.open.onclick = () => openDeepLink(deeplink)
+        builderElements.json.textContent = json;
+        builderElements.base64.textContent = base64;
+        builderElements.link.textContent = deeplink;
+        builderElements.open.onclick = () => openDeepLink(deeplink);
         builderElements.copy.onclick = async () => {
-          await copyText(deeplink)
-          builderElements.copy.textContent = 'Copied'
+          await copyText(deeplink);
+          builderElements.copy.textContent = "Copied";
           window.setTimeout(() => {
-            builderElements.copy.textContent = 'Copy'
-          }, 1200)
-        }
-      }
+            builderElements.copy.textContent = "Copy";
+          }, 1200);
+        };
+      };
 
-      fillSelect(builderElements.id, builtinProviderIds)
-      fillSelect(builderElements.type, customProviderTypes)
+      fillSelect(builderElements.id, builtinProviderIds);
+      fillSelect(builderElements.type, customProviderTypes);
 
-      renderExamples('start-grid', startExamples, buildStartLink)
-      renderExamples('mcp-grid', mcpExamples, buildMcpLink)
-      renderProviderExamples()
+      renderExamples("start-grid", startExamples, buildStartLink);
+      renderExamples("mcp-grid", mcpExamples, buildMcpLink);
+      renderProviderExamples();
 
-      document.getElementById('start-count').textContent = String(startExamples.length)
-      document.getElementById('mcp-count').textContent = String(mcpExamples.length)
+      document.getElementById("start-count").textContent = String(startExamples.length);
+      document.getElementById("mcp-count").textContent = String(mcpExamples.length);
 
-      document.getElementById('provider-filter').addEventListener('input', (event) => {
-        renderProviderExamples(event.target.value)
-      })
-      ;[
+      document.getElementById("provider-filter").addEventListener("input", (event) => {
+        renderProviderExamples(event.target.value);
+      });
+      [
         builderElements.mode,
         builderElements.id,
         builderElements.name,
         builderElements.type,
         builderElements.url,
-        builderElements.key
-      ].forEach((element) => element.addEventListener('input', updateBuilder))
+        builderElements.key,
+      ].forEach((element) => element.addEventListener("input", updateBuilder));
 
-      updateBuilder()
+      updateBuilder();
     </script>
   </body>
 </html>

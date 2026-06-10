@@ -3,55 +3,55 @@
  * These types define the structure of data passed with lifecycle events
  */
 
-import { LifecyclePhase } from '@shared/lifecycle'
+import { LifecyclePhase } from "@shared/lifecycle";
 
 /**
  * Base interface for all lifecycle events
  */
 export interface BaseLifecycleEvent {
-  phase: LifecyclePhase
+  phase: LifecyclePhase;
 }
 
 /**
  * Data structure for phase started events
  */
 export interface PhaseStartedEventData extends BaseLifecycleEvent {
-  hookCount: number
+  hookCount: number;
 }
 
 /**
  * Data structure for phase completed events
  */
 export interface PhaseCompletedEventData extends BaseLifecycleEvent {
-  duration: number
+  duration: number;
 }
 
 /**
  * Data structure for hook execution events
  */
 export interface HookExecutedEventData extends BaseLifecycleEvent {
-  name: string // Descriptive name for logging and debugging
-  critical: boolean // If true, failure halts the phase (default: false)
-  priority: number // Lower numbers execute first (default: 100)
+  name: string; // Descriptive name for logging and debugging
+  critical: boolean; // If true, failure halts the phase (default: false)
+  priority: number; // Lower numbers execute first (default: 100)
 }
 /**
  * Data structure for hook failed events
  */
 export interface HookFailedEventData extends HookExecutedEventData {
-  error: string
+  error: string;
 }
 
 /**
  * Data structure for error events
  */
 export interface ErrorOccurredEventData extends BaseLifecycleEvent {
-  reason: string
+  reason: string;
 }
 
 /**
  * Data structure for progress update events
  */
 export interface ProgressUpdatedEventData extends BaseLifecycleEvent {
-  progress: number
-  message?: string
+  progress: number;
+  message?: string;
 }

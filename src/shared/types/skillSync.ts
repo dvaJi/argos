@@ -14,11 +14,11 @@
  */
 export interface SkillReference {
   /** File name */
-  name: string
+  name: string;
   /** File content */
-  content: string
+  content: string;
   /** Relative path within skill folder */
-  relativePath: string
+  relativePath: string;
 }
 
 /**
@@ -26,11 +26,11 @@ export interface SkillReference {
  */
 export interface SkillScript {
   /** Script name */
-  name: string
+  name: string;
   /** Script content */
-  content: string
+  content: string;
   /** Relative path within skill folder */
-  relativePath: string
+  relativePath: string;
 }
 
 /**
@@ -38,11 +38,11 @@ export interface SkillScript {
  */
 export interface SkillSource {
   /** Source tool identifier */
-  tool: string
+  tool: string;
   /** Original file/folder path */
-  originalPath: string
+  originalPath: string;
   /** Original format type */
-  originalFormat: string
+  originalFormat: string;
 }
 
 /**
@@ -52,31 +52,31 @@ export interface SkillSource {
 export interface CanonicalSkill {
   // Basic metadata
   /** Unique identifier */
-  name: string
+  name: string;
   /** Description text */
-  description: string
+  description: string;
 
   // Content
   /** Main instruction content (Markdown) */
-  instructions: string
+  instructions: string;
 
   // Optional metadata
   /** Tool restrictions */
-  allowedTools?: string[]
+  allowedTools?: string[];
   /** Specified model */
-  model?: string
+  model?: string;
   /** Tags/categories */
-  tags?: string[]
+  tags?: string[];
 
   // Attached resources
   /** Reference documents */
-  references?: SkillReference[]
+  references?: SkillReference[];
   /** Script files */
-  scripts?: SkillScript[]
+  scripts?: SkillScript[];
 
   // Source information
   /** Original source info (for imported skills) */
-  source?: SkillSource
+  source?: SkillSource;
 }
 
 // ============================================================================
@@ -88,21 +88,21 @@ export interface CanonicalSkill {
  */
 export interface FormatCapabilities {
   /** Has YAML frontmatter */
-  hasFrontmatter: boolean
+  hasFrontmatter: boolean;
   /** Supports name field */
-  supportsName: boolean
+  supportsName: boolean;
   /** Supports description field */
-  supportsDescription: boolean
+  supportsDescription: boolean;
   /** Supports tool restrictions */
-  supportsTools: boolean
+  supportsTools: boolean;
   /** Supports model specification */
-  supportsModel: boolean
+  supportsModel: boolean;
   /** Supports subfolder structure (references/, scripts/) */
-  supportsSubfolders: boolean
+  supportsSubfolders: boolean;
   /** Supports references/ folder */
-  supportsReferences: boolean
+  supportsReferences: boolean;
   /** Supports scripts/ folder */
-  supportsScripts: boolean
+  supportsScripts: boolean;
 }
 
 /**
@@ -111,19 +111,19 @@ export interface FormatCapabilities {
  */
 export interface ExternalToolConfig {
   /** Tool unique identifier */
-  id: string
+  id: string;
   /** Display name */
-  name: string
+  name: string;
   /** Skills directory path (relative to HOME or project root) */
-  skillsDir: string
+  skillsDir: string;
   /** File matching pattern (glob) */
-  filePattern: string
+  filePattern: string;
   /** Format type identifier */
-  format: string
+  format: string;
   /** Format capabilities */
-  capabilities: FormatCapabilities
+  capabilities: FormatCapabilities;
   /** Whether this is a project-level tool (vs user-level) */
-  isProjectLevel?: boolean
+  isProjectLevel?: boolean;
 }
 
 // ============================================================================
@@ -135,15 +135,15 @@ export interface ExternalToolConfig {
  */
 export interface ExternalSkillInfo {
   /** Skill name */
-  name: string
+  name: string;
   /** Skill description (if available) */
-  description?: string
+  description?: string;
   /** File or folder path */
-  path: string
+  path: string;
   /** Detected format type */
-  format: string
+  format: string;
   /** Last modified time */
-  lastModified: Date
+  lastModified: Date;
 }
 
 /**
@@ -151,17 +151,17 @@ export interface ExternalSkillInfo {
  */
 export interface ScanResult {
   /** Tool identifier */
-  toolId: string
+  toolId: string;
   /** Tool display name */
-  toolName: string
+  toolName: string;
   /** Whether the directory exists */
-  available: boolean
+  available: boolean;
   /** Full path to skills directory */
-  skillsDir: string
+  skillsDir: string;
   /** Discovered skills */
-  skills: ExternalSkillInfo[]
+  skills: ExternalSkillInfo[];
   /** Scan error (if any) */
-  error?: string
+  error?: string;
 }
 
 /**
@@ -169,13 +169,13 @@ export interface ScanResult {
  */
 export enum ConflictStrategy {
   /** Skip the conflicting item */
-  SKIP = 'skip',
+  SKIP = "skip",
   /** Overwrite the existing item */
-  OVERWRITE = 'overwrite',
+  OVERWRITE = "overwrite",
   /** Rename with suffix */
-  RENAME = 'rename',
+  RENAME = "rename",
   /** Merge (only for specific scenarios) */
-  MERGE = 'merge'
+  MERGE = "merge",
 }
 
 /**
@@ -183,18 +183,18 @@ export enum ConflictStrategy {
  */
 export interface ImportPreview {
   /** Converted skill */
-  skill: CanonicalSkill
+  skill: CanonicalSkill;
   /** Source information */
-  source: ExternalSkillInfo
+  source: ExternalSkillInfo;
   /** Conflict information (if any) */
   conflict?: {
     /** Existing skill with same name */
-    existingSkillName: string
+    existingSkillName: string;
     /** Suggested strategy */
-    strategy: ConflictStrategy
-  }
+    strategy: ConflictStrategy;
+  };
   /** Conversion warnings (e.g., lost features) */
-  warnings: string[]
+  warnings: string[];
 }
 
 /**
@@ -202,24 +202,24 @@ export interface ImportPreview {
  */
 export interface ExportPreview {
   /** Skill name to export */
-  skillName: string
+  skillName: string;
   /** Target tool identifier */
-  targetTool: string
+  targetTool: string;
   /** Target file path */
-  targetPath: string
+  targetPath: string;
   /** Converted content preview */
-  convertedContent: string
+  convertedContent: string;
   /** Conversion warnings */
-  warnings: string[]
+  warnings: string[];
   /** Conflict information (if any) */
   conflict?: {
     /** Existing file path */
-    existingPath: string
+    existingPath: string;
     /** Suggested strategy */
-    strategy: ConflictStrategy
-  }
+    strategy: ConflictStrategy;
+  };
   /** Tool-specific export options (e.g., KiroExportOptions) */
-  exportOptions?: Record<string, unknown>
+  exportOptions?: Record<string, unknown>;
 }
 
 /**
@@ -227,18 +227,18 @@ export interface ExportPreview {
  */
 export interface SyncResult {
   /** Whether the operation succeeded */
-  success: boolean
+  success: boolean;
   /** Number of successfully imported items */
-  imported: number
+  imported: number;
   /** Number of successfully exported items */
-  exported: number
+  exported: number;
   /** Number of skipped items */
-  skipped: number
+  skipped: number;
   /** Failed items with reasons */
   failed: Array<{
-    skill: string
-    reason: string
-  }>
+    skill: string;
+    reason: string;
+  }>;
 }
 
 // ============================================================================
@@ -248,16 +248,16 @@ export interface SyncResult {
 /**
  * Kiro inclusion mode
  */
-export type KiroInclusionMode = 'always' | 'conditional' | 'on-demand'
+export type KiroInclusionMode = "always" | "conditional" | "on-demand";
 
 /**
  * Kiro-specific export options
  */
 export interface KiroExportOptions {
   /** Inclusion mode */
-  inclusion?: KiroInclusionMode
+  inclusion?: KiroInclusionMode;
   /** File patterns for conditional inclusion */
-  filePatterns?: string[]
+  filePatterns?: string[];
 }
 
 // ============================================================================
@@ -269,11 +269,11 @@ export interface KiroExportOptions {
  */
 export interface ParseContext {
   /** Tool identifier */
-  toolId: string
+  toolId: string;
   /** File path being parsed */
-  filePath: string
+  filePath: string;
   /** Folder path (for tools with subfolder support) */
-  folderPath?: string
+  folderPath?: string;
 }
 
 /**
@@ -281,29 +281,29 @@ export interface ParseContext {
  */
 export interface IFormatAdapter {
   /** Adapter identifier */
-  readonly id: string
+  readonly id: string;
   /** Adapter display name */
-  readonly name: string
+  readonly name: string;
 
   /**
    * Parse external format to CanonicalSkill
    */
-  parse(content: string, context: ParseContext): CanonicalSkill
+  parse(content: string, context: ParseContext): CanonicalSkill;
 
   /**
    * Serialize CanonicalSkill to external format
    */
-  serialize(skill: CanonicalSkill, options?: Record<string, unknown>): string
+  serialize(skill: CanonicalSkill, options?: Record<string, unknown>): string;
 
   /**
    * Detect if content matches this format
    */
-  detect(content: string): boolean
+  detect(content: string): boolean;
 
   /**
    * Get format capabilities
    */
-  getCapabilities(): FormatCapabilities
+  getCapabilities(): FormatCapabilities;
 }
 
 // ============================================================================
@@ -315,9 +315,9 @@ export interface IFormatAdapter {
  */
 export interface CachedSkillInfo {
   /** Skill name */
-  name: string
+  name: string;
   /** Last modified timestamp (ISO string) */
-  lastModified: string
+  lastModified: string;
 }
 
 /**
@@ -325,11 +325,11 @@ export interface CachedSkillInfo {
  */
 export interface CachedToolScan {
   /** Tool identifier */
-  toolId: string
+  toolId: string;
   /** Whether the directory existed */
-  available: boolean
+  available: boolean;
   /** List of skills found */
-  skills: CachedSkillInfo[]
+  skills: CachedSkillInfo[];
 }
 
 /**
@@ -337,9 +337,9 @@ export interface CachedToolScan {
  */
 export interface ScanCache {
   /** When this cache was created (ISO string) */
-  timestamp: string
+  timestamp: string;
   /** Cached results per tool */
-  tools: CachedToolScan[]
+  tools: CachedToolScan[];
 }
 
 /**
@@ -347,11 +347,11 @@ export interface ScanCache {
  */
 export interface NewDiscovery {
   /** Tool identifier */
-  toolId: string
+  toolId: string;
   /** Tool display name */
-  toolName: string
+  toolName: string;
   /** Newly discovered skills (not in cache and not in DeepChat) */
-  newSkills: ExternalSkillInfo[]
+  newSkills: ExternalSkillInfo[];
 }
 
 // ============================================================================
@@ -367,58 +367,55 @@ export interface ISkillSyncPresenter {
   /**
    * Initialize the sync presenter runtime and caches.
    */
-  initialize(): Promise<void>
+  initialize(): Promise<void>;
 
   // Scanning
   /**
    * Scan all registered external tools
    */
-  scanExternalTools(): Promise<ScanResult[]>
+  scanExternalTools(): Promise<ScanResult[]>;
 
   /**
    * Scan a specific external tool
    */
-  scanTool(toolId: string): Promise<ScanResult>
+  scanTool(toolId: string): Promise<ScanResult>;
 
   // Cache and Discovery
   /**
    * Get cached scan results
    */
-  getScanCache(): Promise<ScanCache | null>
+  getScanCache(): Promise<ScanCache | null>;
 
   /**
    * Run a full discovery scan and return newly discovered skills.
    */
-  scanAndDetectNewDiscoveries(): Promise<NewDiscovery[]>
+  scanAndDetectNewDiscoveries(): Promise<NewDiscovery[]>;
 
   /**
    * Get new discoveries (skills not in cache and not in DeepChat)
    */
-  getNewDiscoveries(): Promise<NewDiscovery[]>
+  getNewDiscoveries(): Promise<NewDiscovery[]>;
 
   /**
    * Get both scan results and new discoveries in a single call
    */
-  getToolsAndDiscoveries(): Promise<{ tools: ScanResult[]; discoveries: NewDiscovery[] }>
+  getToolsAndDiscoveries(): Promise<{ tools: ScanResult[]; discoveries: NewDiscovery[] }>;
 
   /**
    * Mark current discoveries as acknowledged (update cache)
    */
-  acknowledgeDiscoveries(): Promise<void>
+  acknowledgeDiscoveries(): Promise<void>;
 
   // Import (External Tool → DeepChat)
   /**
    * Preview import operation
    */
-  previewImport(toolId: string, skillNames: string[]): Promise<ImportPreview[]>
+  previewImport(toolId: string, skillNames: string[]): Promise<ImportPreview[]>;
 
   /**
    * Execute import operation
    */
-  executeImport(
-    previews: ImportPreview[],
-    strategies: Record<string, ConflictStrategy>
-  ): Promise<SyncResult>
+  executeImport(previews: ImportPreview[], strategies: Record<string, ConflictStrategy>): Promise<SyncResult>;
 
   // Export (DeepChat → External Tool)
   /**
@@ -427,25 +424,22 @@ export interface ISkillSyncPresenter {
   previewExport(
     skillNames: string[],
     targetToolId: string,
-    options?: Record<string, unknown>
-  ): Promise<ExportPreview[]>
+    options?: Record<string, unknown>,
+  ): Promise<ExportPreview[]>;
 
   /**
    * Execute export operation
    */
-  executeExport(
-    previews: ExportPreview[],
-    strategies: Record<string, ConflictStrategy>
-  ): Promise<SyncResult>
+  executeExport(previews: ExportPreview[], strategies: Record<string, ConflictStrategy>): Promise<SyncResult>;
 
   // Tool configuration
   /**
    * Get all registered external tools
    */
-  getRegisteredTools(): ExternalToolConfig[]
+  getRegisteredTools(): ExternalToolConfig[];
 
   /**
    * Check if a tool's directory exists
    */
-  isToolAvailable(toolId: string): Promise<boolean>
+  isToolAvailable(toolId: string): Promise<boolean>;
 }

@@ -1,98 +1,88 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter
-} from '@shadcn/components/ui/dialog'
-import { useModelStore } from '@/stores/modelStore'
-import { useProviderStore } from '@/stores/providerStore'
+  DialogFooter,
+} from "@shadcn/components/ui/dialog";
+import { useModelStore } from "@/stores/modelStore";
+import { useProviderStore } from "@/stores/providerStore";
 
 interface ModelCheckDialogProps {
-  open: boolean
-  providerId: string
-  onOpenChange: (value: boolean) => void
+  open: boolean;
+  providerId: string;
+  onOpenChange: (value: boolean) => void;
 }
 
-export default function ModelCheckDialog({
-  open,
-  providerId,
-  onOpenChange
-}: ModelCheckDialogProps) {
-  const modelStore = useModelStore()
-  const providerStore = useProviderStore()
+export default function ModelCheckDialog({ open, providerId, onOpenChange }: ModelCheckDialogProps) {
+  const modelStore = useModelStore();
+  const providerStore = useProviderStore();
 
-  const [isOpen, setIsOpen] = useState(open)
-  const [isChecking, setIsChecking] = useState(false)
-  const [selectedModelId, setSelectedModelId] = useState('')
-  const [result, setResult] = useState<{ isOk: boolean; errorMsg: string | null } | null>(null)
+  const [isOpen, setIsOpen] = useState(open);
+  const [isChecking, setIsChecking] = useState(false);
+  const [selectedModelId, setSelectedModelId] = useState("");
+  const [result, setResult] = useState<{ isOk: boolean; errorMsg: string | null } | null>(null);
 
   const availableModels = useMemo(() => {
-    const providerModels = modelStore.allProviderModels.find((p) => p.providerId === providerId)
-    return providerModels?.models || []
-  }, [modelStore.allProviderModels, providerId])
+    const providerModels = modelStore.allProviderModels.find((p) => p.providerId === providerId);
+    return providerModels?.models || [];
+  }, [modelStore.allProviderModels, providerId]);
 
-  const hasModels = useMemo(() => availableModels.length > 0, [availableModels])
+  const hasModels = useMemo(() => availableModels.length > 0, [availableModels]);
 
   useEffect(() => {
     if (open && !isOpen) {
-      resetDialog()
+      resetDialog();
     }
-    setIsOpen(open)
-  }, [open])
+    setIsOpen(open);
+  }, [open]);
 
   useEffect(() => {
-    onOpenChange(isOpen)
-  }, [isOpen])
+    onOpenChange(isOpen);
+  }, [isOpen]);
 
   const resetDialog = useCallback(() => {
-    setSelectedModelId('')
-    setResult(null)
-    setIsChecking(false)
-  }, [])
+    setSelectedModelId("");
+    setResult(null);
+    setIsChecking(false);
+  }, []);
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
-      setIsOpen(value)
-      if (!value) resetDialog()
+      setIsOpen(value);
+      if (!value) resetDialog();
     },
-    [resetDialog]
-  )
+    [resetDialog],
+  );
 
   const closeDialog = useCallback(() => {
-    setIsOpen(false)
-  }, [])
+    setIsOpen(false);
+  }, []);
 
   const handleCheck = useCallback(async () => {
-    if (!selectedModelId) return
+    if (!selectedModelId) return;
 
     try {
-      setIsChecking(true)
-      setResult(null)
-      const checkResult = await providerStore.checkProvider(providerId, selectedModelId)
-      setResult(checkResult)
+      setIsChecking(true);
+      setResult(null);
+      const checkResult = await providerStore.checkProvider(providerId, selectedModelId);
+      setResult(checkResult);
     } catch (error) {
       setResult({
         isOk: false,
-        errorMsg: error instanceof Error ? error.message : 'Unknown error occurred'
-      })
+        errorMsg: error instanceof Error ? error.message : "Unknown error occurred",
+      });
     } finally {
-      setIsChecking(false)
+      setIsChecking(false);
     }
-  }, [selectedModelId, providerId, providerStore])
+  }, [selectedModelId, providerId, providerStore]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -114,10 +104,7 @@ export default function ModelCheckDialog({
                 className="p-4 bg-green-50 border border-green-200 rounded-lg"
               >
                 <div className="flex items-center">
-                  <Icon
-                    icon="lucide:check-circle"
-                    className="w-5 h-5 text-green-600 mr-2 shrink-0"
-                  />
+                  <Icon icon="lucide:check-circle" className="w-5 h-5 text-green-600 mr-2 shrink-0" />
                   <span className="text-green-800 font-medium">Connection successful</span>
                 </div>
               </div>
@@ -128,10 +115,7 @@ export default function ModelCheckDialog({
                 className="p-4 bg-red-50 border border-red-200 rounded-lg"
               >
                 <div className="flex items-start">
-                  <Icon
-                    icon="lucide:x-circle"
-                    className="w-5 h-5 text-red-600 mr-2 mt-0.5 shrink-0"
-                  />
+                  <Icon icon="lucide:x-circle" className="w-5 h-5 text-red-600 mr-2 mt-0.5 shrink-0" />
                   <div className="text-red-800 min-w-0 flex-1">
                     <div className="font-medium">Connection failed</div>
                     <div className="text-sm mt-1 break-words whitespace-pre-wrap overflow-y-auto max-h-40">
@@ -193,7 +177,7 @@ export default function ModelCheckDialog({
 
         <DialogFooter className="shrink-0">
           <Button type="button" variant="outline" onClick={closeDialog}>
-            {result ? 'Close' : 'Cancel'}
+            {result ? "Close" : "Cancel"}
           </Button>
           {!result && hasModels && (
             <Button
@@ -202,14 +186,12 @@ export default function ModelCheckDialog({
               disabled={!selectedModelId || isChecking}
               onClick={handleCheck}
             >
-              {isChecking && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-              )}
-              {isChecking ? 'Checking...' : 'Test Connection'}
+              {isChecking && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />}
+              {isChecking ? "Checking..." : "Test Connection"}
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

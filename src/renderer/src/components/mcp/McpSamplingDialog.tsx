@@ -1,87 +1,93 @@
-import { useState, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
+import { useState, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Button } from '@shadcn/components/ui/button'
-import { Badge } from '@shadcn/components/ui/badge'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Button } from "@shadcn/components/ui/button";
+import { Badge } from "@shadcn/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@shadcn/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@shadcn/components/ui/popover";
+import ModelChooser from "@/components/ModelChooser";
+import ModelIcon from "@/components/icons/ModelIcon";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@shadcn/components/ui/collapsible'
-import { Popover, PopoverContent, PopoverTrigger } from '@shadcn/components/ui/popover'
-import ModelChooser from '@/components/ModelChooser'
-import ModelIcon from '@/components/icons/ModelIcon'
-import { useMcpSamplingStore } from '@/stores/mcpSampling'
-import type { RENDERER_MODEL_META } from '@shared/presenter'
+  useMcpSamplingStore,
+  dismissRequest,
+  getHasEligibleModel,
+  getRequiresVision,
+  getSelectedModelSupportsVision,
+  selectModel,
+  rejectRequest,
+  confirmApproval,
+  retryPrepareModels,
+} from "@/stores/mcpSampling";
+import type { RENDERER_MODEL_META } from "@shared/presenter";
 
 export default function McpSamplingDialog() {
-  const store = useMcpSamplingStore()
-  const [modelSelectOpen, setModelSelectOpen] = useState(false)
+  const store = useMcpSamplingStore();
+  const [modelSelectOpen, setModelSelectOpen] = useState(false);
 
   const preferenceSummary = useMemo(() => {
-    const prefs = store.request?.modelPreferences
-    if (!prefs) return [] as Array<{ key: string; label: string; value: string }>
+    const prefs = store.request?.modelPreferences;
+    if (!prefs) return [] as Array<{ key: string; label: string; value: string }>;
 
-    const entries: Array<{ key: string; label: string; value: string }> = []
-    if (typeof prefs.costPriority === 'number') {
-      entries.push({ key: 'cost', label: 'Cost Priority', value: prefs.costPriority.toFixed(2) })
+    const entries: Array<{ key: string; label: string; value: string }> = [];
+    if (typeof prefs.costPriority === "number") {
+      entries.push({ key: "cost", label: "Cost Priority", value: prefs.costPriority.toFixed(2) });
     }
-    if (typeof prefs.speedPriority === 'number') {
-      entries.push({ key: 'speed', label: 'Speed Priority', value: prefs.speedPriority.toFixed(2) })
+    if (typeof prefs.speedPriority === "number") {
+      entries.push({ key: "speed", label: "Speed Priority", value: prefs.speedPriority.toFixed(2) });
     }
-    if (typeof prefs.intelligencePriority === 'number') {
+    if (typeof prefs.intelligencePriority === "number") {
       entries.push({
-        key: 'intelligence',
-        label: 'Intelligence Priority',
-        value: prefs.intelligencePriority.toFixed(2)
-      })
+        key: "intelligence",
+        label: "Intelligence Priority",
+        value: prefs.intelligencePriority.toFixed(2),
+      });
     }
     if (Array.isArray(prefs.hints) && prefs.hints.length > 0) {
       entries.push({
-        key: 'hints',
-        label: 'Model Hints',
-        value: prefs.hints.map((hint) => hint?.name ?? 'Unknown').join(', ')
-      })
+        key: "hints",
+        label: "Model Hints",
+        value: prefs.hints.map((hint) => hint?.name ?? "Unknown").join(", "),
+      });
     }
-    return entries
-  }, [store.request?.modelPreferences])
+    return entries;
+  }, [store.request?.modelPreferences]);
 
   const onModelUpdate = useCallback(
     (model: RENDERER_MODEL_META, providerId: string) => {
-      store.selectModel(model, providerId)
-      setModelSelectOpen(false)
+      selectModel(model, providerId);
+      setModelSelectOpen(false);
     },
-    [store]
-  )
+    [store],
+  );
 
   const onReject = useCallback(() => {
-    void store.rejectRequest()
-  }, [store])
+    void rejectRequest();
+  }, [store]);
 
   const onConfirm = useCallback(() => {
-    void store.confirmApproval()
-  }, [store])
+    void confirmApproval();
+  }, [store]);
 
   const onRetryModels = useCallback(() => {
-    void store.retryPrepareModels()
-  }, [store])
+    void retryPrepareModels();
+  }, [store]);
 
   const onDialogToggle = useCallback(
     (open: boolean) => {
       if (!open && !store.isSubmitting) {
-        void store.dismissRequest()
+        void dismissRequest();
       }
     },
-    [store]
-  )
+    [store],
+  );
 
   return (
     <Dialog open={store.isOpen} onOpenChange={onDialogToggle}>
@@ -89,8 +95,7 @@ export default function McpSamplingDialog() {
         <div className="flex h-full max-h-[85vh] flex-col">
           <DialogHeader className="px-6 pt-6">
             <DialogTitle>
-              MCP Sampling Request -{' '}
-              {store.request?.serverLabel || store.request?.serverName || 'Unknown Server'}
+              MCP Sampling Request - {store.request?.serverLabel || store.request?.serverName || "Unknown Server"}
             </DialogTitle>
             <DialogDescription>An MCP server is requesting to use the LLM</DialogDescription>
           </DialogHeader>
@@ -110,9 +115,7 @@ export default function McpSamplingDialog() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-3 pr-2">
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {store.request.systemPrompt}
-                      </p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{store.request.systemPrompt}</p>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
@@ -130,12 +133,10 @@ export default function McpSamplingDialog() {
                           </Badge>
                           <span className="text-xs text-muted-foreground">{message.type}</span>
                         </div>
-                        {message.type === 'text' && (
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                            {message.text}
-                          </p>
+                        {message.type === "text" && (
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.text}</p>
                         )}
-                        {message.type === 'image' && (
+                        {message.type === "image" && (
                           <div className="flex flex-col items-start gap-2">
                             {message.dataUrl && (
                               <img
@@ -145,28 +146,24 @@ export default function McpSamplingDialog() {
                               />
                             )}
                             <span className="text-xs text-muted-foreground">
-                              {message.mimeType || 'Unknown MIME type'}
+                              {message.mimeType || "Unknown MIME type"}
                             </span>
                           </div>
                         )}
-                        {message.type === 'audio' && (
+                        {message.type === "audio" && (
                           <div className="flex flex-col items-start gap-2">
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Icon icon="lucide:music" className="w-4 h-4" />
                               <span>Audio content</span>
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              {message.mimeType || 'Unknown MIME type'}
+                              {message.mimeType || "Unknown MIME type"}
                             </span>
                           </div>
                         )}
-                        {message.type !== 'text' &&
-                          message.type !== 'image' &&
-                          message.type !== 'audio' && (
-                            <p className="text-sm text-muted-foreground">
-                              Unsupported message type
-                            </p>
-                          )}
+                        {message.type !== "text" && message.type !== "image" && message.type !== "audio" && (
+                          <p className="text-sm text-muted-foreground">Unsupported message type</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -177,9 +174,7 @@ export default function McpSamplingDialog() {
                 <Collapsible>
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between py-2 hover:bg-muted/20 rounded-md px-3 -mx-3">
-                      <h4 className="text-sm font-semibold text-muted-foreground">
-                        Model Preferences
-                      </h4>
+                      <h4 className="text-sm font-semibold text-muted-foreground">Model Preferences</h4>
                       <Icon
                         icon="lucide:chevron-right"
                         className="w-4 h-4 text-muted-foreground transition-transform duration-200"
@@ -235,48 +230,34 @@ export default function McpSamplingDialog() {
                           variant="ghost"
                           className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                           size="sm"
-                          disabled={!store.hasEligibleModel}
+                          disabled={!getHasEligibleModel()}
                         >
-                          {store.selectedModel && (
-                            <ModelIcon modelId={store.selectedProviderId ?? ''} isDark={true} />
-                          )}
+                          {store.selectedModel && <ModelIcon modelId={store.selectedProviderId ?? ""} isDark={true} />}
                           <span className="text-xs font-semibold truncate max-w-[140px] text-foreground">
-                            {store.selectedModel?.name || 'Select model'}
+                            {store.selectedModel?.name || "Select model"}
                           </span>
-                          <Icon
-                            icon="lucide:chevron-right"
-                            className="w-4 h-4 text-muted-foreground"
-                          />
+                          <Icon icon="lucide:chevron-right" className="w-4 h-4 text-muted-foreground" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent
-                        align="start"
-                        className="w-80 border-none bg-transparent p-0 shadow-none"
-                      >
+                      <PopoverContent align="start" className="w-80 border-none bg-transparent p-0 shadow-none">
                         <ModelChooser
-                          requiresVision={store.requiresVision}
-                          selectedProviderId={store.selectedProviderId ?? ''}
-                          selectedModelId={store.selectedModel?.id ?? ''}
+                          requiresVision={getRequiresVision()}
+                          selectedProviderId={store.selectedProviderId ?? ""}
+                          selectedModelId={store.selectedModel?.id ?? ""}
                           onUpdateModel={onModelUpdate}
                         />
                       </PopoverContent>
                     </Popover>
                   </div>
 
-                  {!store.hasEligibleModel && (
+                  {!getHasEligibleModel() && (
                     <div className="text-sm text-destructive">
-                      {store.requiresVision
-                        ? 'No vision-capable models available'
-                        : 'No models available'}
+                      {getRequiresVision() ? "No vision-capable models available" : "No models available"}
                     </div>
                   )}
-                  {store.hasEligibleModel &&
-                    store.requiresVision &&
-                    !store.selectedModelSupportsVision && (
-                      <div className="text-sm text-destructive">
-                        Selected model does not support vision
-                      </div>
-                    )}
+                  {getHasEligibleModel() && getRequiresVision() && !getSelectedModelSupportsVision() && (
+                    <div className="text-sm text-destructive">Selected model does not support vision</div>
+                  )}
                 </>
               )}
             </div>
@@ -284,12 +265,7 @@ export default function McpSamplingDialog() {
 
           <DialogFooter className="border-t border-border/60 bg-card/60 px-6 py-4">
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                variant="outline"
-                className="sm:min-w-[96px]"
-                disabled={store.isSubmitting}
-                onClick={onReject}
-              >
+              <Button variant="outline" className="sm:min-w-[96px]" disabled={store.isSubmitting} onClick={onReject}>
                 Reject
               </Button>
               <Button
@@ -299,19 +275,17 @@ export default function McpSamplingDialog() {
                   store.isPreparingModels ||
                   Boolean(store.modelPreparationError) ||
                   !store.selectedModel ||
-                  !store.hasEligibleModel
+                  !getHasEligibleModel()
                 }
                 onClick={onConfirm}
               >
-                {store.isSubmitting && (
-                  <Icon icon="lucide:loader-2" className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {store.isSubmitting ? 'Confirming...' : 'Send Response'}
+                {store.isSubmitting && <Icon icon="lucide:loader-2" className="mr-2 h-4 w-4 animate-spin" />}
+                {store.isSubmitting ? "Confirming..." : "Send Response"}
               </Button>
             </div>
           </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

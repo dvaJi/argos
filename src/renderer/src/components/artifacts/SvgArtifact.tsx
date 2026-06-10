@@ -1,48 +1,48 @@
-import React, { useEffect, useState } from 'react'
-import { Icon } from '@iconify/react'
-import { createDeviceClient } from '@api/DeviceClient'
+import { useEffect, useState } from "react";
+import { Icon } from "@iconify/react";
+import { createDeviceClient } from "@api/DeviceClient";
 
 interface SvgArtifactProps {
-  block: { artifact: { type: string; title: string }; content: string }
-  className?: string
+  block: { artifact: { type: string; title: string }; content: string };
+  className?: string;
 }
 
 export function SvgArtifact({ block, className }: SvgArtifactProps) {
-  const deviceClient = createDeviceClient()
-  const [sanitizedContent, setSanitizedContent] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasError, setHasError] = useState(false)
+  const deviceClient = createDeviceClient();
+  const [sanitizedContent, setSanitizedContent] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   const sanitizeSvgContent = async (content: string) => {
     if (!content) {
-      setSanitizedContent('')
-      return
+      setSanitizedContent("");
+      return;
     }
-    setIsLoading(true)
-    setHasError(false)
+    setIsLoading(true);
+    setHasError(false);
     try {
-      const result = await deviceClient.sanitizeSvgContent(content)
-      setSanitizedContent(result || '')
+      const result = await deviceClient.sanitizeSvgContent(content);
+      setSanitizedContent(result || "");
       if (!result) {
-        setHasError(true)
-        console.warn('SVG content was rejected by sanitizer')
+        setHasError(true);
+        console.warn("SVG content was rejected by sanitizer");
       }
     } catch (error) {
-      console.error('SVG sanitization failed:', error)
-      setSanitizedContent('')
-      setHasError(true)
+      console.error("SVG sanitization failed:", error);
+      setSanitizedContent("");
+      setHasError(true);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    sanitizeSvgContent(block.content)
-  }, [block.content])
+    sanitizeSvgContent(block.content);
+  }, [block.content]);
 
   return (
     <div
-      className={`artifact-dialog-content flex h-full min-h-0 w-full items-stretch justify-center overflow-auto p-4 ${className ?? ''}`}
+      className={`artifact-dialog-content flex h-full min-h-0 w-full items-stretch justify-center overflow-auto p-4 ${className ?? ""}`}
       data-testid="svg-artifact-root"
     >
       {isLoading && (
@@ -71,5 +71,5 @@ export function SvgArtifact({ block, className }: SvgArtifactProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

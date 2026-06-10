@@ -1,113 +1,113 @@
-import React, { useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
+import { type FC, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
 
 interface McpJsonViewerProps {
-  content: string
-  loading?: boolean
-  title?: string
-  readonly?: boolean
-  onCopy?: () => void
-  onFormat?: () => void
+  content: string;
+  loading?: boolean;
+  title?: string;
+  readonly?: boolean;
+  onCopy?: () => void;
+  onFormat?: () => void;
 }
 
-export const McpJsonViewer: React.FC<McpJsonViewerProps> = ({
+export const McpJsonViewer: FC<McpJsonViewerProps> = ({
   content,
   loading = false,
   title,
   readonly = false,
   onCopy,
-  onFormat
+  onFormat,
 }) => {
   const isJsonContent = useMemo(() => {
-    if (!content) return false
+    if (!content) return false;
     try {
-      JSON.parse(content)
-      return true
+      JSON.parse(content);
+      return true;
     } catch {
-      return false
+      return false;
     }
-  }, [content])
+  }, [content]);
 
   const jsonParts = useMemo(() => {
-    if (!isJsonContent || !content) return []
+    if (!isJsonContent || !content) return [];
 
     try {
-      const formattedJson = JSON.stringify(JSON.parse(content), null, 2)
-      const parts: Array<{ type: string; content: string }> = []
-      const regex = /"([^"]+)":|"([^"]+)"|-?\d+\.?\d*|true|false|null|[[\]{}:,]/g
-      let match
-      let lastIndex = 0
+      const formattedJson = JSON.stringify(JSON.parse(content), null, 2);
+      const parts: Array<{ type: string; content: string }> = [];
+      const regex = /"([^"]+)":|"([^"]+)"|-?\d+\.?\d*|true|false|null|[[\]{}:,]/g;
+      let match;
+      let lastIndex = 0;
 
       while ((match = regex.exec(formattedJson)) !== null) {
         if (match.index > lastIndex) {
           parts.push({
-            type: 'whitespace',
-            content: formattedJson.substring(lastIndex, match.index)
-          })
+            type: "whitespace",
+            content: formattedJson.substring(lastIndex, match.index),
+          });
         }
 
-        const value = match[0]
+        const value = match[0];
 
-        if (value.endsWith(':')) {
-          parts.push({ type: 'key', content: value })
+        if (value.endsWith(":")) {
+          parts.push({ type: "key", content: value });
         } else if (value.startsWith('"')) {
-          parts.push({ type: 'string', content: value })
+          parts.push({ type: "string", content: value });
         } else if (/^-?\d+\.?\d*$/.test(value)) {
-          parts.push({ type: 'number', content: value })
-        } else if (value === 'true' || value === 'false') {
-          parts.push({ type: 'boolean', content: value })
-        } else if (value === 'null') {
-          parts.push({ type: 'null', content: value })
+          parts.push({ type: "number", content: value });
+        } else if (value === "true" || value === "false") {
+          parts.push({ type: "boolean", content: value });
+        } else if (value === "null") {
+          parts.push({ type: "null", content: value });
         } else if (/^[[\]{}:,]$/.test(value)) {
-          parts.push({ type: 'bracket', content: value })
+          parts.push({ type: "bracket", content: value });
         } else {
-          parts.push({ type: 'other', content: value })
+          parts.push({ type: "other", content: value });
         }
 
-        lastIndex = regex.lastIndex
+        lastIndex = regex.lastIndex;
       }
 
       if (lastIndex < formattedJson.length) {
         parts.push({
-          type: 'whitespace',
-          content: formattedJson.substring(lastIndex)
-        })
+          type: "whitespace",
+          content: formattedJson.substring(lastIndex),
+        });
       }
 
-      return parts
+      return parts;
     } catch {
-      return [{ type: 'text', content }]
+      return [{ type: "text", content }];
     }
-  }, [content, isJsonContent])
+  }, [content, isJsonContent]);
 
   const getJsonPartClass = (type: string): string => {
     switch (type) {
-      case 'key':
-        return 'json-key'
-      case 'string':
-        return 'json-string'
-      case 'number':
-        return 'json-number'
-      case 'boolean':
-        return 'json-boolean'
-      case 'null':
-        return 'json-null'
-      case 'bracket':
-        return 'json-bracket'
+      case "key":
+        return "json-key";
+      case "string":
+        return "json-string";
+      case "number":
+        return "json-number";
+      case "boolean":
+        return "json-boolean";
+      case "null":
+        return "json-null";
+      case "bracket":
+        return "json-bracket";
       default:
-        return ''
+        return "";
     }
-  }
+  };
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(content)
-      onCopy?.()
+      await navigator.clipboard.writeText(content);
+      onCopy?.();
     } catch (err) {
-      console.error('Copy failed:', err)
+      console.error("Copy failed:", err);
     }
-  }
+  };
 
   return (
     <div className="w-full">
@@ -153,11 +153,11 @@ export const McpJsonViewer: React.FC<McpJsonViewerProps> = ({
               <div
                 className="json-viewer p-4"
                 style={{
-                  fontFamily: 'var(--dc-code-font-family)',
+                  fontFamily: "var(--dc-code-font-family)",
                   lineHeight: 1.6,
-                  fontSize: '13px',
-                  whiteSpace: 'pre',
-                  background: 'transparent'
+                  fontSize: "13px",
+                  whiteSpace: "pre",
+                  background: "transparent",
                 }}
               >
                 {jsonParts.map((part, index) => (
@@ -172,10 +172,10 @@ export const McpJsonViewer: React.FC<McpJsonViewerProps> = ({
               <pre
                 className="text-content p-4 whitespace-pre-wrap break-words text-sm font-mono"
                 style={{
-                  fontFamily: 'var(--dc-code-font-family)',
+                  fontFamily: "var(--dc-code-font-family)",
                   lineHeight: 1.6,
-                  color: 'var(--foreground)',
-                  background: 'transparent'
+                  color: "var(--foreground)",
+                  background: "transparent",
                 }}
               >
                 {content}
@@ -197,7 +197,7 @@ export const McpJsonViewer: React.FC<McpJsonViewerProps> = ({
         :global(.dark) .json-boolean { color: hsl(221, 68%, 68%); }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default McpJsonViewer
+export default McpJsonViewer;

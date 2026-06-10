@@ -5,151 +5,142 @@ import type {
   UserMessageCodeBlock,
   UserMessageContent,
   UserMessageMentionBlock,
-  UserMessageTextBlock
-} from '@shared/chat'
-import type { ChatMessage, ChatMessageContent } from '@shared/presenter'
-import { nanoid } from 'nanoid'
+  UserMessageTextBlock,
+} from "@shared/chat";
+import type { ChatMessage, ChatMessageContent } from "@shared/presenter";
+import { nanoid } from "nanoid";
 
-const FILE_CONTENT_MAX_CHARS = 8000
-const FILE_CONTENT_TRUNCATION_SUFFIX = '…(truncated)'
+const FILE_CONTENT_MAX_CHARS = 8000;
+const FILE_CONTENT_TRUNCATION_SUFFIX = "…(truncated)";
 
-type VisionUserMessageContent = UserMessageContent & { images?: string[] }
+type VisionUserMessageContent = UserMessageContent & { images?: string[] };
 
-function parseProviderOptionsJson(
-  value: unknown
-): Record<string, Record<string, unknown>> | undefined {
-  if (typeof value !== 'string' || !value) {
-    return undefined
+function parseProviderOptionsJson(value: unknown): Record<string, Record<string, unknown>> | undefined {
+  if (typeof value !== "string" || !value) {
+    return undefined;
   }
 
   try {
-    const parsed = JSON.parse(value)
+    const parsed = JSON.parse(value);
     if (isRecord(parsed) && !Array.isArray(parsed)) {
-      return parsed as Record<string, Record<string, unknown>>
+      return parsed as Record<string, Record<string, unknown>>;
     }
   } catch {}
 
-  return undefined
+  return undefined;
 }
 
-function getBlockProviderOptions(
-  block: AssistantMessageBlock
-): Record<string, Record<string, unknown>> | undefined {
-  return parseProviderOptionsJson(block.extra?.providerOptionsJson)
+function getBlockProviderOptions(block: AssistantMessageBlock): Record<string, Record<string, unknown>> | undefined {
+  return parseProviderOptionsJson(block.extra?.providerOptionsJson);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+  return typeof value === "object" && value !== null;
 }
 
-function isTextBlock(content: unknown): content is { type: 'text'; text: string } {
-  return isRecord(content) && content.type === 'text' && typeof content.text === 'string'
+function isTextBlock(content: unknown): content is { type: "text"; text: string } {
+  return isRecord(content) && content.type === "text" && typeof content.text === "string";
 }
 
 function extractPromptMessageText(message: unknown): string {
   if (!isRecord(message)) {
-    return ''
+    return "";
   }
 
-  const content = message.content
+  const content = message.content;
 
-  if (typeof content === 'string') {
-    return content
+  if (typeof content === "string") {
+    return content;
   }
 
   if (isTextBlock(content)) {
-    return content.text
+    return content.text;
   }
 
-  if (isRecord(content) && typeof content.type === 'string') {
-    return `[${content.type}]`
+  if (isRecord(content) && typeof content.type === "string") {
+    return `[${content.type}]`;
   }
 
-  return '[content]'
+  return "[content]";
 }
 
 function truncateFileContent(content: string): string {
   if (content.length <= FILE_CONTENT_MAX_CHARS) {
-    return content
+    return content;
   }
 
-  return `${content.slice(0, FILE_CONTENT_MAX_CHARS)}${FILE_CONTENT_TRUNCATION_SUFFIX}`
+  return `${content.slice(0, FILE_CONTENT_MAX_CHARS)}${FILE_CONTENT_TRUNCATION_SUFFIX}`;
 }
 
 function escapeTagContent(value: string): string {
   /* eslint-disable no-control-regex */
   return String(value).replace(/[&<>\u0000-\u001F]/g, (ch) => {
     switch (ch) {
-      case '&':
-        return '&amp;'
-      case '<':
-        return '&lt;'
-      case '>':
-        return '&gt;'
-      case '\n':
-        return '&#10;'
-      case '\r':
-        return '&#13;'
-      case '\t':
-        return '&#9;'
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "\n":
+        return "&#10;";
+      case "\r":
+        return "&#13;";
+      case "\t":
+        return "&#9;";
       default:
-        return ''
+        return "";
     }
-  })
+  });
 }
 
-export type UserMessageRichBlock =
-  | UserMessageTextBlock
-  | UserMessageMentionBlock
-  | UserMessageCodeBlock
+export type UserMessageRichBlock = UserMessageTextBlock | UserMessageMentionBlock | UserMessageCodeBlock;
 
 export function formatUserMessageContent(msgContentBlock: UserMessageRichBlock[]): string {
   if (!Array.isArray(msgContentBlock)) {
-    return ''
+    return "";
   }
 
   return msgContentBlock
     .map((block) => {
-      if (block.type === 'mention') {
-        if (block.category === 'resources') {
-          return `@${block.content}`
-        } else if (block.category === 'tools') {
-          return `@${block.id}`
-        } else if (block.category === 'files') {
-          return `@${block.id}`
-        } else if (block.category === 'context') {
-          return block.content
-        } else if (block.category === 'prompts') {
+      if (block.type === "mention") {
+        if (block.category === "resources") {
+          return `@${block.content}`;
+        } else if (block.category === "tools") {
+          return `@${block.id}`;
+        } else if (block.category === "files") {
+          return `@${block.id}`;
+        } else if (block.category === "context") {
+          return block.content;
+        } else if (block.category === "prompts") {
           try {
-            const promptData = JSON.parse(block.content)
+            const promptData = JSON.parse(block.content);
             if (isRecord(promptData) && Array.isArray(promptData.messages)) {
-              const messageTexts = promptData.messages
-                .map(extractPromptMessageText)
-                .filter((text) => text)
+              const messageTexts = promptData.messages.map(extractPromptMessageText).filter((text) => text);
               const escapedContent = messageTexts.length
-                ? messageTexts.map(escapeTagContent).join('\n')
-                : escapeTagContent(block.content ?? '')
-              return `@${block.id} <prompts>${escapedContent}</prompts>`
+                ? messageTexts.map(escapeTagContent).join("\n")
+                : escapeTagContent(block.content ?? "");
+              return `@${block.id} <prompts>${escapedContent}</prompts>`;
             }
           } catch (e) {
-            console.warn('Failed to parse prompt content:', e)
+            console.warn("Failed to parse prompt content:", e);
           }
-          return `@${block.id} <prompts>${escapeTagContent(block.content ?? '')}</prompts>`
+          return `@${block.id} <prompts>${escapeTagContent(block.content ?? "")}</prompts>`;
         }
-        return `@${block.id}`
-      } else if (block.type === 'text') {
-        return block.content
-      } else if (block.type === 'code') {
-        return `\`\`\`${block.content}\`\`\``
+        return `@${block.id}`;
+      } else if (block.type === "text") {
+        return block.content;
+      } else if (block.type === "code") {
+        return `\`\`\`${block.content}\`\`\``;
       }
-      return ''
+      return "";
     })
-    .join('')
+    .join("");
 }
 
 export function getFileContext(files?: MessageFile[]): string {
   if (!files || files.length === 0) {
-    return ''
+    return "";
   }
 
   return `
@@ -157,42 +148,40 @@ export function getFileContext(files?: MessageFile[]): string {
     ${files
       .map(
         (file) => `<file>
-      <name>${file.name ?? ''}</name>
-      <mimeType>${file.mimeType ?? ''}</mimeType>
+      <name>${file.name ?? ""}</name>
+      <mimeType>${file.mimeType ?? ""}</mimeType>
       <size>${file.metadata?.fileSize ?? 0}</size>
       <content>${
-        file.mimeType && !file.mimeType.startsWith('image')
-          ? truncateFileContent(String(file.content ?? ''))
-          : ''
+        file.mimeType && !file.mimeType.startsWith("image") ? truncateFileContent(String(file.content ?? "")) : ""
       }</content>
-    </file>`
+    </file>`,
       )
-      .join('\n')}
+      .join("\n")}
   </files>
-  `
+  `;
 }
 
 export function getNormalizedUserMessageText(content: UserMessageContent | undefined): string {
   if (!content) {
-    return ''
+    return "";
   }
 
   if (content.content && Array.isArray(content.content) && content.content.length > 0) {
-    return formatUserMessageContent(content.content)
+    return formatUserMessageContent(content.content);
   }
 
-  return content.text || ''
+  return content.text || "";
 }
 
 export function buildUserMessageContext(content: UserMessageContent | undefined): string {
   if (!content) {
-    return ''
+    return "";
   }
 
-  const messageText = getNormalizedUserMessageText(content)
-  const fileContext = getFileContext(content.files)
+  const messageText = getNormalizedUserMessageText(content);
+  const fileContext = getFileContext(content.files);
 
-  return `${messageText}${fileContext}`
+  return `${messageText}${fileContext}`;
 }
 
 export function formatMessagesForCompletion(
@@ -203,305 +192,302 @@ export function formatMessagesForCompletion(
   enrichedUserMessage: string,
   imageFiles: MessageFile[],
   vision: boolean,
-  supportsFunctionCall: boolean
+  supportsFunctionCall: boolean,
 ): ChatMessage[] {
-  const formattedMessages: ChatMessage[] = []
+  const formattedMessages: ChatMessage[] = [];
 
-  formattedMessages.push(...addContextMessages(contextMessages, vision, supportsFunctionCall))
+  formattedMessages.push(...addContextMessages(contextMessages, vision, supportsFunctionCall));
 
   if (systemPrompt) {
     formattedMessages.unshift({
-      role: 'system',
-      content: systemPrompt
-    })
+      role: "system",
+      content: systemPrompt,
+    });
   }
 
-  let finalContent = userContent
+  let finalContent = userContent;
   if (enrichedUserMessage) {
-    finalContent += enrichedUserMessage
+    finalContent += enrichedUserMessage;
   }
 
   if (artifacts === 1) {
-    console.debug('Artifacts are provided by MCP; this is a backward-compatibility placeholder')
+    console.debug("Artifacts are provided by MCP; this is a backward-compatibility placeholder");
   }
 
   if (vision && imageFiles.length > 0) {
-    formattedMessages.push(addImageFiles(finalContent, imageFiles))
+    formattedMessages.push(addImageFiles(finalContent, imageFiles));
   } else {
     formattedMessages.push({
-      role: 'user',
-      content: finalContent.trim()
-    })
+      role: "user",
+      content: finalContent.trim(),
+    });
   }
 
-  return formattedMessages
+  return formattedMessages;
 }
 
 export function addContextMessages(
   contextMessages: Message[],
   vision: boolean,
-  supportsFunctionCall: boolean
+  supportsFunctionCall: boolean,
 ): ChatMessage[] {
-  const resultMessages: ChatMessage[] = []
+  const resultMessages: ChatMessage[] = [];
 
   if (supportsFunctionCall) {
     contextMessages.forEach((msg) => {
-      if (msg.role === 'user') {
-        const msgContent = msg.content as VisionUserMessageContent
-        const finalUserContext = buildUserMessageContext(msgContent)
+      if (msg.role === "user") {
+        const msgContent = msg.content as VisionUserMessageContent;
+        const finalUserContext = buildUserMessageContext(msgContent);
         if (vision && msgContent.images && msgContent.images.length > 0) {
           resultMessages.push({
-            role: 'user',
+            role: "user",
             content: [
               ...msgContent.images.map((image) => ({
-                type: 'image_url' as const,
-                image_url: { url: image, detail: 'auto' as const }
+                type: "image_url" as const,
+                image_url: { url: image, detail: "auto" as const },
               })),
-              { type: 'text' as const, text: finalUserContext }
-            ]
-          })
+              { type: "text" as const, text: finalUserContext },
+            ],
+          });
         } else {
           resultMessages.push({
-            role: 'user',
-            content: finalUserContext
-          })
+            role: "user",
+            content: finalUserContext,
+          });
         }
-      } else if (msg.role === 'assistant') {
-        const content = msg.content as AssistantMessageBlock[]
-        const messageContent: ChatMessageContent[] = []
-        const toolCalls: ChatMessage['tool_calls'] = []
-        const toolResponses: { id: string; response: string }[] = []
+      } else if (msg.role === "assistant") {
+        const content = msg.content as AssistantMessageBlock[];
+        const messageContent: ChatMessageContent[] = [];
+        const toolCalls: ChatMessage["tool_calls"] = [];
+        const toolResponses: { id: string; response: string }[] = [];
 
         content.forEach((block) => {
-          if (block.type === 'tool_call' && block.tool_call) {
+          if (block.type === "tool_call" && block.tool_call) {
             if (block.tool_call.response) {
-              const toolCallId = block.tool_call.id || nanoid(8)
-              const providerOptions = getBlockProviderOptions(block)
+              const toolCallId = block.tool_call.id || nanoid(8);
+              const providerOptions = getBlockProviderOptions(block);
               toolCalls.push({
                 id: toolCallId,
-                type: 'function',
+                type: "function",
                 function: {
                   name: block.tool_call.name,
-                  arguments: block.tool_call.params || ''
+                  arguments: block.tool_call.params || "",
                 },
-                ...(providerOptions ? { provider_options: providerOptions } : {})
-              })
+                ...(providerOptions ? { provider_options: providerOptions } : {}),
+              });
               toolResponses.push({
                 id: toolCallId,
-                response: block.tool_call.response
-              })
+                response: block.tool_call.response,
+              });
             }
-          } else if (block.type === 'content' && block.content) {
-            const providerOptions = getBlockProviderOptions(block)
+          } else if (block.type === "content" && block.content) {
+            const providerOptions = getBlockProviderOptions(block);
             messageContent.push({
-              type: 'text',
+              type: "text",
               text: block.content,
-              ...(providerOptions ? { provider_options: providerOptions } : {})
-            })
+              ...(providerOptions ? { provider_options: providerOptions } : {}),
+            });
           }
-        })
+        });
 
         if (toolCalls.length > 0) {
           const assistantMessage: ChatMessage = {
-            role: 'assistant',
+            role: "assistant",
             content:
               messageContent.length > 0
-                ? messageContent.some((part) => part.type === 'text' && part.provider_options)
+                ? messageContent.some((part) => part.type === "text" && part.provider_options)
                   ? messageContent
-                  : messageContent.map((part) => ('text' in part ? part.text : '')).join('')
+                  : messageContent.map((part) => ("text" in part ? part.text : "")).join("")
                 : undefined,
-            tool_calls: toolCalls
-          }
-          resultMessages.push(assistantMessage)
+            tool_calls: toolCalls,
+          };
+          resultMessages.push(assistantMessage);
 
           toolResponses.forEach((toolResp) => {
             resultMessages.push({
-              role: 'tool',
+              role: "tool",
               content: toolResp.response,
-              tool_call_id: toolResp.id
-            })
-          })
+              tool_call_id: toolResp.id,
+            });
+          });
         } else if (messageContent.length > 0) {
           const assistantMessage: ChatMessage = {
-            role: 'assistant',
-            content: messageContent.some((part) => part.type === 'text' && part.provider_options)
+            role: "assistant",
+            content: messageContent.some((part) => part.type === "text" && part.provider_options)
               ? messageContent
-              : messageContent.map((part) => ('text' in part ? part.text : '')).join('')
-          }
-          resultMessages.push(assistantMessage)
+              : messageContent.map((part) => ("text" in part ? part.text : "")).join(""),
+          };
+          resultMessages.push(assistantMessage);
         }
       } else {
         resultMessages.push({
           role: msg.role,
-          content: JSON.stringify(msg.content)
-        })
+          content: JSON.stringify(msg.content),
+        });
       }
-    })
+    });
 
-    return resultMessages
+    return resultMessages;
   }
 
   contextMessages.forEach((msg) => {
-    if (msg.role === 'user') {
-      const msgContent = msg.content as VisionUserMessageContent
-      const finalUserContext = buildUserMessageContext(msgContent)
+    if (msg.role === "user") {
+      const msgContent = msg.content as VisionUserMessageContent;
+      const finalUserContext = buildUserMessageContext(msgContent);
       if (vision && msgContent.images && msgContent.images.length > 0) {
         resultMessages.push({
-          role: 'user',
+          role: "user",
           content: [
             ...msgContent.images.map((image) => ({
-              type: 'image_url' as const,
-              image_url: { url: image, detail: 'auto' as const }
+              type: "image_url" as const,
+              image_url: { url: image, detail: "auto" as const },
             })),
-            { type: 'text' as const, text: finalUserContext }
-          ]
-        })
+            { type: "text" as const, text: finalUserContext },
+          ],
+        });
       } else {
         resultMessages.push({
-          role: 'user',
-          content: finalUserContext
-        })
+          role: "user",
+          content: finalUserContext,
+        });
       }
-    } else if (msg.role === 'assistant') {
-      const content = msg.content as AssistantMessageBlock[]
+    } else if (msg.role === "assistant") {
+      const content = msg.content as AssistantMessageBlock[];
       const textContent = content
-        .filter((block) => block.type === 'content' && block.content)
+        .filter((block) => block.type === "content" && block.content)
         .map((block) => block.content)
-        .join('\n')
+        .join("\n");
 
       const legacyToolCalls = content
-        .filter((block) => block.type === 'tool_call' && block.tool_call?.response)
-        .map((block) => buildLegacyFunctionCallRecord(block.tool_call))
+        .filter((block) => block.type === "tool_call" && block.tool_call?.response)
+        .map((block) => buildLegacyFunctionCallRecord(block.tool_call));
 
-      const combinedText = [textContent, ...legacyToolCalls].filter(Boolean).join('\n')
+      const combinedText = [textContent, ...legacyToolCalls].filter(Boolean).join("\n");
 
       if (combinedText) {
         resultMessages.push({
-          role: 'assistant',
-          content: combinedText
-        })
+          role: "assistant",
+          content: combinedText,
+        });
       }
     } else {
       resultMessages.push({
         role: msg.role,
-        content: JSON.stringify(msg.content)
-      })
+        content: JSON.stringify(msg.content),
+      });
     }
-  })
+  });
 
-  return resultMessages
+  return resultMessages;
 }
 
 export function mergeConsecutiveMessages(messages: ChatMessage[]): ChatMessage[] {
   if (!messages || messages.length === 0) {
-    return []
+    return [];
   }
 
-  const mergedResult: ChatMessage[] = []
-  mergedResult.push(JSON.parse(JSON.stringify(messages[0])))
+  const mergedResult: ChatMessage[] = [];
+  mergedResult.push(JSON.parse(JSON.stringify(messages[0])));
 
   for (let i = 1; i < messages.length; i++) {
-    const currentMessage = JSON.parse(JSON.stringify(messages[i])) as ChatMessage
-    const lastPushedMessage = mergedResult[mergedResult.length - 1]
+    const currentMessage = JSON.parse(JSON.stringify(messages[i])) as ChatMessage;
+    const lastPushedMessage = mergedResult[mergedResult.length - 1];
 
-    let allowMessagePropertiesMerge = false
+    let allowMessagePropertiesMerge = false;
 
     if (lastPushedMessage.role === currentMessage.role) {
-      if (currentMessage.role === 'tool') {
-        allowMessagePropertiesMerge = false
-      } else if (currentMessage.role === 'assistant') {
+      if (currentMessage.role === "tool") {
+        allowMessagePropertiesMerge = false;
+      } else if (currentMessage.role === "assistant") {
         if (!lastPushedMessage.tool_calls && !currentMessage.tool_calls) {
-          allowMessagePropertiesMerge = true
+          allowMessagePropertiesMerge = true;
         }
       } else {
-        allowMessagePropertiesMerge = true
+        allowMessagePropertiesMerge = true;
       }
     }
 
     if (allowMessagePropertiesMerge) {
-      const lastContent = lastPushedMessage.content
-      const currentContent = currentMessage.content
+      const lastContent = lastPushedMessage.content;
+      const currentContent = currentMessage.content;
 
-      let newCombinedContent: string | ChatMessageContent[] | undefined = undefined
-      let contentTypesCompatible = false
+      let newCombinedContent: string | ChatMessageContent[] | undefined = undefined;
+      let contentTypesCompatible = false;
 
       if (lastContent === undefined && currentContent === undefined) {
-        newCombinedContent = undefined
-        contentTypesCompatible = true
+        newCombinedContent = undefined;
+        contentTypesCompatible = true;
       } else if (
-        typeof lastContent === 'string' &&
-        (typeof currentContent === 'string' || currentContent === undefined)
+        typeof lastContent === "string" &&
+        (typeof currentContent === "string" || currentContent === undefined)
       ) {
-        const previous = lastContent || ''
-        const current = currentContent || ''
+        const previous = lastContent || "";
+        const current = currentContent || "";
         if (previous && current) {
-          newCombinedContent = `${previous}\n${current}`
+          newCombinedContent = `${previous}\n${current}`;
         } else {
-          newCombinedContent = previous || current
+          newCombinedContent = previous || current;
         }
-        if (newCombinedContent === '') {
-          newCombinedContent = undefined
+        if (newCombinedContent === "") {
+          newCombinedContent = undefined;
         }
-        contentTypesCompatible = true
-      } else if (
-        Array.isArray(lastContent) &&
-        (Array.isArray(currentContent) || currentContent === undefined)
-      ) {
-        const prevArray = lastContent
-        const currArray = currentContent || []
-        newCombinedContent = [...prevArray, ...currArray]
+        contentTypesCompatible = true;
+      } else if (Array.isArray(lastContent) && (Array.isArray(currentContent) || currentContent === undefined)) {
+        const prevArray = lastContent;
+        const currArray = currentContent || [];
+        newCombinedContent = [...prevArray, ...currArray];
         if (newCombinedContent.length === 0) {
-          newCombinedContent = undefined
+          newCombinedContent = undefined;
         }
-        contentTypesCompatible = true
+        contentTypesCompatible = true;
       } else if (lastContent === undefined && currentContent !== undefined) {
-        newCombinedContent = currentContent
-        contentTypesCompatible = true
+        newCombinedContent = currentContent;
+        contentTypesCompatible = true;
       } else if (lastContent !== undefined && currentContent === undefined) {
-        newCombinedContent = lastContent
-        contentTypesCompatible = true
+        newCombinedContent = lastContent;
+        contentTypesCompatible = true;
       }
 
       if (contentTypesCompatible) {
-        lastPushedMessage.content = newCombinedContent
+        lastPushedMessage.content = newCombinedContent;
       } else {
-        mergedResult.push(currentMessage)
+        mergedResult.push(currentMessage);
       }
     } else {
-      mergedResult.push(currentMessage)
+      mergedResult.push(currentMessage);
     }
   }
 
-  return mergedResult
+  return mergedResult;
 }
 
 function addImageFiles(finalContent: string, imageFiles: MessageFile[]): ChatMessage {
   return {
-    role: 'user',
+    role: "user",
     content: [
       ...imageFiles.flatMap((file) => [
         {
-          type: 'text' as const,
-          text: `File path for tool calls: ${file.path}`
+          type: "text" as const,
+          text: `File path for tool calls: ${file.path}`,
         },
         {
-          type: 'image_url' as const,
-          image_url: { url: file.content, detail: 'auto' as const }
-        }
+          type: "image_url" as const,
+          image_url: { url: file.content, detail: "auto" as const },
+        },
       ]),
-      { type: 'text' as const, text: finalContent.trim() }
-    ]
-  }
+      { type: "text" as const, text: finalContent.trim() },
+    ],
+  };
 }
 
-function buildLegacyFunctionCallRecord(toolCall: AssistantMessageBlock['tool_call']): string {
+function buildLegacyFunctionCallRecord(toolCall: AssistantMessageBlock["tool_call"]): string {
   const record = {
     function_call_record: {
-      name: toolCall?.name || '',
-      arguments: toolCall?.params || '',
-      response: toolCall?.response || ''
-    }
-  }
+      name: toolCall?.name || "",
+      arguments: toolCall?.params || "",
+      response: toolCall?.response || "",
+    },
+  };
 
-  return `<function_call>${JSON.stringify(record)}</function_call>`
+  return `<function_call>${JSON.stringify(record)}</function_call>`;
 }

@@ -1,149 +1,140 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Label } from '@shadcn/components/ui/label'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Input } from '@shadcn/components/ui/input'
-import { Textarea } from '@shadcn/components/ui/textarea'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
+import { useState, useEffect, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Label } from "@shadcn/components/ui/label";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Input } from "@shadcn/components/ui/input";
+import { Textarea } from "@shadcn/components/ui/textarea";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle
-} from '@shadcn/components/ui/sheet'
-import { useToast } from '@/components/use-toast'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import { nanoid } from 'nanoid'
-import { getMimeTypeIcon } from '@/lib/utils'
-import type { FileItem } from '@shared/presenter'
-import type { MessageFile } from '@shared/chat'
+  SheetTitle,
+} from "@shadcn/components/ui/sheet";
+import { useToast } from "@/components/use-toast";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import { nanoid } from "nanoid";
+import { getMimeTypeIcon } from "@/lib/utils";
+import type { FileItem } from "@shared/presenter";
+import type { MessageFile } from "@shared/chat";
 
 interface PromptParameter {
-  name: string
-  description: string
-  required: boolean
+  name: string;
+  description: string;
+  required: boolean;
 }
 
 export interface PromptForm {
-  id: string
-  name: string
-  description: string
-  content: string
-  parameters: PromptParameter[]
-  files: FileItem[]
-  enabled: boolean
-  source: 'local' | 'imported' | 'builtin'
-  createdAt?: number
-  updatedAt?: number
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  parameters: PromptParameter[];
+  files: FileItem[];
+  enabled: boolean;
+  source: "local" | "imported" | "builtin";
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface PromptEditorSheetProps {
-  open: boolean
-  prompt: PromptForm | null
-  onUpdateOpen: (open: boolean) => void
-  onSubmit: (value: PromptForm) => void
+  open: boolean;
+  prompt: PromptForm | null;
+  onUpdateOpen: (open: boolean) => void;
+  onSubmit: (value: PromptForm) => void;
 }
 
 const defaultForm: PromptForm = {
-  id: '',
-  name: '',
-  description: '',
-  content: '',
+  id: "",
+  name: "",
+  description: "",
+  content: "",
   parameters: [],
   files: [],
   enabled: true,
-  source: 'local',
+  source: "local",
   createdAt: undefined,
-  updatedAt: undefined
-}
+  updatedAt: undefined,
+};
 
-export default function PromptEditorSheet({
-  open,
-  prompt,
-  onUpdateOpen,
-  onSubmit
-}: PromptEditorSheetProps) {
-  const { toast } = useToast()
-  const filePresenter = useLegacyPresenter('filePresenter')
+export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit }: PromptEditorSheetProps) {
+  const { toast } = useToast();
+  const filePresenter = useLegacyPresenter("filePresenter");
 
-  const [form, setForm] = useState<PromptForm>({ ...defaultForm })
+  const [form, setForm] = useState<PromptForm>({ ...defaultForm });
 
-  const isEditing = Boolean(form.id)
+  const isEditing = Boolean(form.id);
 
   const resetForm = useCallback(() => {
-    setForm({ ...defaultForm })
-  }, [])
+    setForm({ ...defaultForm });
+  }, []);
 
   const applyPrompt = useCallback((p: PromptForm | null) => {
     if (!p) {
-      setForm({ ...defaultForm })
-      return
+      setForm({ ...defaultForm });
+      return;
     }
     setForm({
       ...p,
       parameters: p.parameters?.map((param) => ({ ...param })) || [],
       files: p.files ? [...p.files] : [],
       enabled: p.enabled ?? true,
-      source: p.source ?? 'local'
-    })
-  }, [])
+      source: p.source ?? "local",
+    });
+  }, []);
 
   useEffect(() => {
     if (!open) {
-      resetForm()
-      return
+      resetForm();
+      return;
     }
-    applyPrompt(prompt)
-  }, [open, prompt, resetForm, applyPrompt])
+    applyPrompt(prompt);
+  }, [open, prompt, resetForm, applyPrompt]);
 
   const handleOpenChange = (value: boolean) => {
-    onUpdateOpen(value)
-    if (!value) resetForm()
-  }
+    onUpdateOpen(value);
+    if (!value) resetForm();
+  };
 
   const addParameter = () => {
     setForm((prev) => ({
       ...prev,
-      parameters: [...prev.parameters, { name: '', description: '', required: true }]
-    }))
-  }
+      parameters: [...prev.parameters, { name: "", description: "", required: true }],
+    }));
+  };
 
   const removeParameter = (index: number) => {
     setForm((prev) => ({
       ...prev,
-      parameters: prev.parameters.filter((_, i) => i !== index)
-    }))
-  }
+      parameters: prev.parameters.filter((_, i) => i !== index),
+    }));
+  };
 
-  const updateParameter = (
-    index: number,
-    field: keyof PromptParameter,
-    value: string | boolean
-  ) => {
+  const updateParameter = (index: number, field: keyof PromptParameter, value: string | boolean) => {
     setForm((prev) => ({
       ...prev,
-      parameters: prev.parameters.map((p, i) => (i === index ? { ...p, [field]: value } : p))
-    }))
-  }
+      parameters: prev.parameters.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
+    }));
+  };
 
   const uploadFile = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.multiple = true
-    input.accept = '.txt,.md,.csv,.json,.xml,.pdf,.doc,.docx'
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = ".txt,.md,.csv,.json,.xml,.pdf,.doc,.docx";
     input.onchange = async (event) => {
-      const files = (event.target as HTMLInputElement).files
-      if (!files) return
+      const files = (event.target as HTMLInputElement).files;
+      if (!files) return;
       try {
-        const newFiles: FileItem[] = []
+        const newFiles: FileItem[] = [];
         await Promise.all(
           Array.from(files).map(async (file) => {
-            const path = window.api.getPathForFile(file)
-            const mimeType = await filePresenter.getMimeType(path)
-            const fileInfo: MessageFile = await filePresenter.prepareFile(path, mimeType)
+            const path = window.api.getPathForFile(file);
+            const mimeType = await filePresenter.getMimeType(path);
+            const fileInfo: MessageFile = await filePresenter.prepareFile(path, mimeType);
             newFiles.push({
               id: nanoid(8),
               name: fileInfo.name,
@@ -152,59 +143,53 @@ export default function PromptEditorSheet({
               path: fileInfo.path,
               description: fileInfo.metadata.fileDescription,
               content: fileInfo.content,
-              createdAt: Date.now()
-            })
-          })
-        )
-        setForm((prev) => ({ ...prev, files: [...prev.files, ...newFiles] }))
-        toast({ title: 'Upload successful', description: `${files.length} file(s) uploaded` })
+              createdAt: Date.now(),
+            });
+          }),
+        );
+        setForm((prev) => ({ ...prev, files: [...prev.files, ...newFiles] }));
+        toast({ title: "Upload successful", description: `${files.length} file(s) uploaded` });
       } catch (error) {
-        console.error('Failed to upload prompt attachments:', error)
-        toast({ title: 'Upload failed', variant: 'destructive' })
+        console.error("Failed to upload prompt attachments:", error);
+        toast({ title: "Upload failed", variant: "destructive" });
       }
-    }
-    input.click()
-  }
+    };
+    input.click();
+  };
 
   const removeFile = (index: number) => {
     setForm((prev) => ({
       ...prev,
-      files: prev.files.filter((_, i) => i !== index)
-    }))
-  }
+      files: prev.files.filter((_, i) => i !== index),
+    }));
+  };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-  }
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  };
 
   const submit = () => {
     onSubmit({
       ...form,
       parameters: [...form.parameters],
-      files: [...form.files]
-    })
-  }
+      files: [...form.files],
+    });
+  };
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex h-screen w-[75vw]! max-w-[95vw]! flex-col bg-background p-0"
-      >
+      <SheetContent side="right" className="flex h-screen w-[75vw]! max-w-[95vw]! flex-col bg-background p-0">
         <SheetHeader className="shrink-0 border-b bg-card/50 px-6 py-4">
           <SheetTitle className="flex items-center gap-2">
-            <Icon
-              icon={isEditing ? 'lucide:edit-3' : 'lucide:plus-circle'}
-              className="h-5 w-5 text-primary"
-            />
-            <span>{isEditing ? 'Edit Prompt' : 'Add Prompt'}</span>
+            <Icon icon={isEditing ? "lucide:edit-3" : "lucide:plus-circle"} className="h-5 w-5 text-primary" />
+            <span>{isEditing ? "Edit Prompt" : "Add Prompt"}</span>
           </SheetTitle>
           <SheetDescription>
-            {isEditing ? 'Modify your custom prompt.' : 'Create a new custom prompt.'}
+            {isEditing ? "Modify your custom prompt." : "Create a new custom prompt."}
           </SheetDescription>
         </SheetHeader>
 
@@ -238,9 +223,7 @@ export default function PromptEditorSheet({
                 <Checkbox
                   id="prompt-enabled"
                   checked={form.enabled}
-                  onCheckedChange={(value) =>
-                    setForm((prev) => ({ ...prev, enabled: value === true }))
-                  }
+                  onCheckedChange={(value) => setForm((prev) => ({ ...prev, enabled: value === true }))}
                 />
                 <Label htmlFor="prompt-enabled" className="text-sm">
                   Enable this prompt
@@ -259,9 +242,7 @@ export default function PromptEditorSheet({
                 placeholder="Enter your prompt content here..."
                 onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Use {'{parameterName}'} for dynamic parameters.
-              </p>
+              <p className="mt-2 text-xs text-muted-foreground">Use {"{parameterName}"} for dynamic parameters.</p>
             </div>
 
             <div className="space-y-4">
@@ -299,21 +280,16 @@ export default function PromptEditorSheet({
                               value={param.name}
                               placeholder="Parameter name"
                               className="mt-2"
-                              onChange={(e) => updateParameter(index, 'name', e.target.value)}
+                              onChange={(e) => updateParameter(index, "name", e.target.value)}
                             />
                           </div>
                           <div className="flex items-center gap-2">
                             <Checkbox
                               id={`parameter-required-${index}`}
                               checked={param.required}
-                              onCheckedChange={(value) =>
-                                updateParameter(index, 'required', value === true)
-                              }
+                              onCheckedChange={(value) => updateParameter(index, "required", value === true)}
                             />
-                            <Label
-                              htmlFor={`parameter-required-${index}`}
-                              className="whitespace-nowrap text-sm"
-                            >
+                            <Label htmlFor={`parameter-required-${index}`} className="whitespace-nowrap text-sm">
                               Required
                             </Label>
                           </div>
@@ -324,7 +300,7 @@ export default function PromptEditorSheet({
                             value={param.description}
                             placeholder="Parameter description"
                             className="mt-2"
-                            onChange={(e) => updateParameter(index, 'description', e.target.value)}
+                            onChange={(e) => updateParameter(index, "description", e.target.value)}
                           />
                         </div>
                       </div>
@@ -352,9 +328,7 @@ export default function PromptEditorSheet({
                     </div>
                     <div>
                       <p className="text-sm font-medium">Upload from device</p>
-                      <p className="text-xs text-muted-foreground">
-                        Attach files to use with this prompt
-                      </p>
+                      <p className="text-xs text-muted-foreground">Attach files to use with this prompt</p>
                     </div>
                   </div>
                 </div>
@@ -379,10 +353,7 @@ export default function PromptEditorSheet({
                           <div className="pr-8">
                             <div className="mb-2 flex items-center gap-2">
                               <div className="rounded bg-primary/10 p-1.5">
-                                <Icon
-                                  icon={getMimeTypeIcon(file.type)}
-                                  className="h-4 w-4 text-primary"
-                                />
+                                <Icon icon={getMimeTypeIcon(file.type)} className="h-4 w-4 text-primary" />
                               </div>
                               <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium" title={file.name}>
@@ -392,7 +363,7 @@ export default function PromptEditorSheet({
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <span className="flex-1 truncate whitespace-nowrap rounded bg-muted px-2 py-0.5 text-ellipsis">
-                                {file.type || 'unknown'}
+                                {file.type || "unknown"}
                               </span>
                               <span className="shrink-0">{formatFileSize(file.size)}</span>
                             </div>
@@ -405,9 +376,7 @@ export default function PromptEditorSheet({
                   <div className="rounded-lg border-2 border-dashed border-muted bg-muted/20 py-12 text-center text-muted-foreground">
                     <Icon icon="lucide:folder-open" className="mx-auto mb-3 h-12 w-12 opacity-50" />
                     <p className="text-sm">No files attached</p>
-                    <p className="mt-1 text-xs text-muted-foreground/70">
-                      Upload files to include with this prompt
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground/70">Upload files to include with this prompt</p>
                   </div>
                 )}
               </div>
@@ -423,7 +392,7 @@ export default function PromptEditorSheet({
                 Cancel
               </Button>
               <Button disabled={!form.name || !form.content} onClick={submit}>
-                <Icon icon={isEditing ? 'lucide:save' : 'lucide:plus'} className="mr-1 h-4 w-4" />
+                <Icon icon={isEditing ? "lucide:save" : "lucide:plus"} className="mr-1 h-4 w-4" />
                 Confirm
               </Button>
             </div>
@@ -431,5 +400,5 @@ export default function PromptEditorSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
+  );
 }

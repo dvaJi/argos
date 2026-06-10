@@ -1,11 +1,11 @@
-import crypto from 'crypto'
+import crypto from "crypto";
 
-const ALGORITHM = 'aes-256-cbc'
-const KEY_LENGTH = 32 // 256 bits
-const IV_LENGTH = 16 // 128 bits
-const SALT_LENGTH = 64
-const ITERATIONS = 10000
-const DIGEST = 'sha512'
+const ALGORITHM = "aes-256-cbc";
+const KEY_LENGTH = 32; // 256 bits
+const IV_LENGTH = 16; // 128 bits
+const SALT_LENGTH = 64;
+const ITERATIONS = 10000;
+const DIGEST = "sha512";
 
 export class AESHelper {
   /**
@@ -13,7 +13,7 @@ export class AESHelper {
    * @returns Salt value in hexadecimal format
    */
   static generateSalt(): string {
-    return crypto.randomBytes(SALT_LENGTH).toString('hex')
+    return crypto.randomBytes(SALT_LENGTH).toString("hex");
   }
 
   /**
@@ -23,7 +23,7 @@ export class AESHelper {
    * @returns Derived key Buffer
    */
   static deriveKey(password: string, salt: string): Buffer {
-    return crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, DIGEST)
+    return crypto.pbkdf2Sync(password, salt, ITERATIONS, KEY_LENGTH, DIGEST);
   }
 
   /**
@@ -36,26 +36,24 @@ export class AESHelper {
   static encrypt(
     plainText: string,
     key: Buffer,
-    iv?: Buffer
+    iv?: Buffer,
   ): {
-    cipherText: string
-    iv: string
+    cipherText: string;
+    iv: string;
   } {
     try {
-      const usedIv = iv || crypto.randomBytes(IV_LENGTH)
-      const cipher = crypto.createCipheriv(ALGORITHM, key, usedIv)
+      const usedIv = iv || crypto.randomBytes(IV_LENGTH);
+      const cipher = crypto.createCipheriv(ALGORITHM, key, usedIv);
 
-      let encrypted = cipher.update(plainText, 'utf8', 'hex')
-      encrypted += cipher.final('hex')
+      let encrypted = cipher.update(plainText, "utf8", "hex");
+      encrypted += cipher.final("hex");
 
       return {
         cipherText: encrypted,
-        iv: usedIv.toString('hex')
-      }
+        iv: usedIv.toString("hex"),
+      };
     } catch (error) {
-      throw new Error(
-        `Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      )
+      throw new Error(`Encryption failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
 
@@ -68,17 +66,17 @@ export class AESHelper {
    */
   static decrypt(cipherText: string, key: Buffer, iv: string): string {
     try {
-      const ivBuffer = Buffer.from(iv, 'hex')
-      const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer)
+      const ivBuffer = Buffer.from(iv, "hex");
+      const decipher = crypto.createDecipheriv(ALGORITHM, key, ivBuffer);
 
-      let decrypted = decipher.update(cipherText, 'hex', 'utf8')
-      decrypted += decipher.final('utf8')
+      let decrypted = decipher.update(cipherText, "hex", "utf8");
+      decrypted += decipher.final("utf8");
 
-      return decrypted
+      return decrypted;
     } catch (error) {
       throw new Error(
-        `Decryption failed: ${error instanceof Error ? error.message : 'Ciphertext may be tampered or key is incorrect'}`
-      )
+        `Decryption failed: ${error instanceof Error ? error.message : "Ciphertext may be tampered or key is incorrect"}`,
+      );
     }
   }
 
@@ -87,6 +85,6 @@ export class AESHelper {
    * @returns IV in hexadecimal format
    */
   static generateIV(): string {
-    return crypto.randomBytes(IV_LENGTH).toString('hex')
+    return crypto.randomBytes(IV_LENGTH).toString("hex");
   }
 }

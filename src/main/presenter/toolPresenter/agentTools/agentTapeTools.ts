@@ -1,19 +1,19 @@
-import { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
-import type { MCPToolDefinition } from '@shared/presenter'
-import { createAgentToolSuccessResult } from '@shared/lib/agentToolResultEnvelope'
-import type { AgentToolRuntimePort } from '../runtimePorts'
-import type { AgentToolCallResult } from './agentToolManager'
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import type { MCPToolDefinition } from "@shared/presenter";
+import { createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
+import type { AgentToolRuntimePort } from "../runtimePorts";
+import type { AgentToolCallResult } from "./agentToolManager";
 
-export const AGENT_TAPE_TOOL_SERVER_NAME = 'agent-tape'
+export const AGENT_TAPE_TOOL_SERVER_NAME = "agent-tape";
 export const TAPE_TOOL_NAMES = {
-  info: 'tape_info',
-  search: 'tape_search',
-  anchors: 'tape_anchors',
-  handoff: 'tape_handoff'
-} as const
+  info: "tape_info",
+  search: "tape_search",
+  anchors: "tape_anchors",
+  handoff: "tape_handoff",
+} as const;
 
-const tapeInfoSchema = z.object({})
+const tapeInfoSchema = z.object({});
 
 const tapeAnchorsSchema = z.object({
   limit: z
@@ -22,44 +22,41 @@ const tapeAnchorsSchema = z.object({
     .min(1)
     .max(50)
     .optional()
-    .describe('Maximum number of recent anchors to return. Defaults to 20.')
-})
+    .describe("Maximum number of recent anchors to return. Defaults to 20."),
+});
 
-const tapeEntryKindSchema = z.enum(['event', 'anchor', 'message', 'tool_call', 'tool_result'])
+const tapeEntryKindSchema = z.enum(["event", "anchor", "message", "tool_call", "tool_result"]);
 
 function isTapeSearchBoundary(value: string): boolean {
-  const trimmed = value.trim()
-  return Number.isFinite(Number(trimmed)) || Number.isFinite(Date.parse(trimmed))
+  const trimmed = value.trim();
+  return Number.isFinite(Number(trimmed)) || Number.isFinite(Date.parse(trimmed));
 }
 
 const tapeSearchSchema = z.object({
-  query: z.string().trim().min(1).describe('Text to search within this session tape.'),
+  query: z.string().trim().min(1).describe("Text to search within this session tape."),
   limit: z
     .number()
     .int()
     .min(1)
     .max(50)
     .optional()
-    .describe('Maximum number of matching tape entries to return. Defaults to 20.'),
-  kinds: z
-    .array(tapeEntryKindSchema)
-    .optional()
-    .describe('Optional entry kind filter for this session tape search.'),
+    .describe("Maximum number of matching tape entries to return. Defaults to 20."),
+  kinds: z.array(tapeEntryKindSchema).optional().describe("Optional entry kind filter for this session tape search."),
   start: z
     .string()
     .trim()
     .min(1)
-    .refine(isTapeSearchBoundary, 'Expected an ISO date/time or millisecond timestamp.')
+    .refine(isTapeSearchBoundary, "Expected an ISO date/time or millisecond timestamp.")
     .optional()
-    .describe('Optional inclusive ISO date/time or millisecond timestamp lower bound.'),
+    .describe("Optional inclusive ISO date/time or millisecond timestamp lower bound."),
   end: z
     .string()
     .trim()
     .min(1)
-    .refine(isTapeSearchBoundary, 'Expected an ISO date/time or millisecond timestamp.')
+    .refine(isTapeSearchBoundary, "Expected an ISO date/time or millisecond timestamp.")
     .optional()
-    .describe('Optional inclusive ISO date/time or millisecond timestamp upper bound.')
-})
+    .describe("Optional inclusive ISO date/time or millisecond timestamp upper bound."),
+});
 
 const tapeHandoffSchema = z
   .object({
@@ -68,61 +65,48 @@ const tapeHandoffSchema = z
       .trim()
       .min(1)
       .optional()
-      .describe('Handoff name. Values without a prefix are normalized to handoff/<name>.'),
-    summary: z
-      .string()
-      .trim()
-      .optional()
-      .default('')
-      .describe('Compact durable summary for the handoff anchor.')
+      .describe("Handoff name. Values without a prefix are normalized to handoff/<name>."),
+    summary: z.string().trim().optional().default("").describe("Compact durable summary for the handoff anchor."),
   })
-  .strict()
+  .strict();
 
 const tapeToolSchemas = {
   [TAPE_TOOL_NAMES.info]: tapeInfoSchema,
   [TAPE_TOOL_NAMES.search]: tapeSearchSchema,
   [TAPE_TOOL_NAMES.anchors]: tapeAnchorsSchema,
-  [TAPE_TOOL_NAMES.handoff]: tapeHandoffSchema
-}
+  [TAPE_TOOL_NAMES.handoff]: tapeHandoffSchema,
+};
 
-type TapeToolName = (typeof TAPE_TOOL_NAMES)[keyof typeof TAPE_TOOL_NAMES]
+type TapeToolName = (typeof TAPE_TOOL_NAMES)[keyof typeof TAPE_TOOL_NAMES];
 
 type TapeAnchorOverview = {
-  name: string | null
-  entryId: number
-  createdAt: number
-}
+  name: string | null;
+  entryId: number;
+  createdAt: number;
+};
 
-function buildToolDefinition(
-  name: TapeToolName,
-  description: string,
-  schema: z.ZodTypeAny
-): MCPToolDefinition {
+function buildToolDefinition(name: TapeToolName, description: string, schema: z.ZodTypeAny): MCPToolDefinition {
   return {
-    type: 'function',
+    type: "function",
     function: {
       name,
       description,
       parameters: zodToJsonSchema(schema) as {
-        type: string
-        properties: Record<string, unknown>
-        required?: string[]
-      }
+        type: string;
+        properties: Record<string, unknown>;
+        required?: string[];
+      },
     },
     server: {
       name: AGENT_TAPE_TOOL_SERVER_NAME,
-      icons: 'T',
-      description: 'DeepChat session tape tools'
-    }
-  }
+      icons: "T",
+      description: "DeepChat session tape tools",
+    },
+  };
 }
 
-function createTapeResult(
-  toolName: TapeToolName,
-  result: unknown,
-  summary: string
-): AgentToolCallResult {
-  const content = JSON.stringify(result, null, 2)
+function createTapeResult(toolName: TapeToolName, result: unknown, summary: string): AgentToolCallResult {
+  const content = JSON.stringify(result, null, 2);
   return {
     content,
     rawData: {
@@ -130,40 +114,36 @@ function createTapeResult(
       isError: false,
       toolResult: createAgentToolSuccessResult(toolName, result, {
         summary,
-        data: result
-      })
-    }
-  }
+        data: result,
+      }),
+    },
+  };
 }
 
-function toTapeAnchorOverview(anchor: {
-  name: string | null
-  entryId: number
-  createdAt: number
-}): TapeAnchorOverview {
+function toTapeAnchorOverview(anchor: { name: string | null; entryId: number; createdAt: number }): TapeAnchorOverview {
   return {
     name: anchor.name,
     entryId: anchor.entryId,
-    createdAt: anchor.createdAt
-  }
+    createdAt: anchor.createdAt,
+  };
 }
 
 function parseTapeHandoffArgs(rawArgs: Record<string, unknown>): z.infer<typeof tapeHandoffSchema> {
-  const parsed = tapeHandoffSchema.safeParse(rawArgs)
+  const parsed = tapeHandoffSchema.safeParse(rawArgs);
   if (parsed.success) {
-    return parsed.data
+    return parsed.data;
   }
 
   throw new Error(
-    `Invalid arguments for ${TAPE_TOOL_NAMES.handoff}. Use only {"name"?: string, "summary"?: string}; do not pass "state" or arbitrary fields. Validation details: ${parsed.error.message}`
-  )
+    `Invalid arguments for ${TAPE_TOOL_NAMES.handoff}. Use only {"name"?: string, "summary"?: string}; do not pass "state" or arbitrary fields. Validation details: ${parsed.error.message}`,
+  );
 }
 
 export class AgentTapeToolHandler {
   constructor(private readonly runtimePort: AgentToolRuntimePort) {}
 
   isTapeTool(toolName: string): toolName is TapeToolName {
-    return Object.values(TAPE_TOOL_NAMES).includes(toolName as TapeToolName)
+    return Object.values(TAPE_TOOL_NAMES).includes(toolName as TapeToolName);
   }
 
   async canUse(conversationId?: string): Promise<boolean> {
@@ -174,97 +154,93 @@ export class AgentTapeToolHandler {
       !this.runtimePort.listTapeAnchors ||
       !this.runtimePort.handoffTape
     ) {
-      return false
+      return false;
     }
 
-    const session = await this.runtimePort.resolveConversationSessionInfo(conversationId)
-    return session?.agentType === 'deepchat'
+    const session = await this.runtimePort.resolveConversationSessionInfo(conversationId);
+    return session?.agentType === "deepchat";
   }
 
   getToolDefinitions(): MCPToolDefinition[] {
     return [
       buildToolDefinition(
         TAPE_TOOL_NAMES.info,
-        'Inspect this DeepChat-scoped append-only tape subset inspired by bub tape.info. Returns entry counts, anchor state, token usage, and migration status for the current session.',
-        tapeInfoSchema
+        "Inspect this DeepChat-scoped append-only tape subset inspired by bub tape.info. Returns entry counts, anchor state, token usage, and migration status for the current session.",
+        tapeInfoSchema,
       ),
       buildToolDefinition(
         TAPE_TOOL_NAMES.search,
-        'Search this DeepChat-scoped append-only tape subset inspired by bub tape.search. Supports text query plus optional kind and created-at filters for the current session.',
-        tapeSearchSchema
+        "Search this DeepChat-scoped append-only tape subset inspired by bub tape.search. Supports text query plus optional kind and created-at filters for the current session.",
+        tapeSearchSchema,
       ),
       buildToolDefinition(
         TAPE_TOOL_NAMES.anchors,
-        'List recent bub-style anchors for this DeepChat session tape. Use this before handoff when you need to inspect recent phase transitions or reconstruction checkpoints.',
-        tapeAnchorsSchema
+        "List recent bub-style anchors for this DeepChat session tape. Use this before handoff when you need to inspect recent phase transitions or reconstruction checkpoints.",
+        tapeAnchorsSchema,
       ),
       buildToolDefinition(
         TAPE_TOOL_NAMES.handoff,
-        'Write a bub-style phase-transition anchor to this DeepChat session tape. The anchor becomes the durable reconstruction marker for later context builds; include a compact summary when earlier history should be carried forward.',
-        tapeHandoffSchema
-      )
-    ]
+        "Write a bub-style phase-transition anchor to this DeepChat session tape. The anchor becomes the durable reconstruction marker for later context builds; include a compact summary when earlier history should be carried forward.",
+        tapeHandoffSchema,
+      ),
+    ];
   }
 
   async call(
     toolName: string,
     rawArgs: Record<string, unknown>,
-    conversationId?: string
+    conversationId?: string,
   ): Promise<AgentToolCallResult> {
     if (!this.isTapeTool(toolName)) {
-      throw new Error(`Unknown tape tool: ${toolName}`)
+      throw new Error(`Unknown tape tool: ${toolName}`);
     }
     if (!conversationId) {
-      throw new Error(`${toolName} requires a conversation ID.`)
+      throw new Error(`${toolName} requires a conversation ID.`);
     }
 
     if (toolName === TAPE_TOOL_NAMES.info) {
       if (!this.runtimePort.getTapeInfo) {
-        throw new Error('Tape info is not available.')
+        throw new Error("Tape info is not available.");
       }
-      tapeToolSchemas[toolName].parse(rawArgs)
-      const info = await this.runtimePort.getTapeInfo(conversationId)
-      return createTapeResult(toolName, info, `Tape has ${info.entries} entries.`)
+      tapeToolSchemas[toolName].parse(rawArgs);
+      const info = await this.runtimePort.getTapeInfo(conversationId);
+      return createTapeResult(toolName, info, `Tape has ${info.entries} entries.`);
     }
 
     if (toolName === TAPE_TOOL_NAMES.search) {
       if (!this.runtimePort.searchTape) {
-        throw new Error('Tape search is not available.')
+        throw new Error("Tape search is not available.");
       }
-      const args = tapeToolSchemas[toolName].parse(rawArgs)
+      const args = tapeToolSchemas[toolName].parse(rawArgs);
       const results = await this.runtimePort.searchTape(conversationId, args.query, {
         limit: args.limit,
         kinds: args.kinds,
         start: args.start,
-        end: args.end
-      })
-      return createTapeResult(toolName, results, `Found ${results.length} tape entries.`)
+        end: args.end,
+      });
+      return createTapeResult(toolName, results, `Found ${results.length} tape entries.`);
     }
 
     if (toolName === TAPE_TOOL_NAMES.anchors) {
       if (!this.runtimePort.listTapeAnchors) {
-        throw new Error('Tape anchors are not available.')
+        throw new Error("Tape anchors are not available.");
       }
-      const args = tapeToolSchemas[toolName].parse(rawArgs)
+      const args = tapeToolSchemas[toolName].parse(rawArgs);
       const anchors = await this.runtimePort.listTapeAnchors(conversationId, {
-        limit: args.limit
-      })
-      const overview = anchors.map(toTapeAnchorOverview)
-      return createTapeResult(toolName, overview, `Found ${overview.length} tape anchors.`)
+        limit: args.limit,
+      });
+      const overview = anchors.map(toTapeAnchorOverview);
+      return createTapeResult(toolName, overview, `Found ${overview.length} tape anchors.`);
     }
 
     if (!this.runtimePort.handoffTape) {
-      throw new Error('Tape handoff is not available.')
+      throw new Error("Tape handoff is not available.");
     }
-    const args = parseTapeHandoffArgs(rawArgs)
-    const handoff = await this.runtimePort.handoffTape(conversationId, args.name ?? 'manual', {
-      summary: args.summary
-    })
-    const overview = toTapeAnchorOverview(handoff)
-    return createTapeResult(
-      toolName,
-      overview,
-      `Wrote tape handoff anchor ${overview.name ?? 'unknown'}.`
-    )
+    const args = parseTapeHandoffArgs(rawArgs);
+    const handoff = await this.runtimePort.handoffTape(conversationId, args.name ?? "manual", {
+      summary: args.summary,
+    });
+    const overview = toTapeAnchorOverview(handoff);
+    return createTapeResult(toolName, overview, `Wrote tape handoff anchor ${overview.name ?? "unknown"}.`);
   }
 }

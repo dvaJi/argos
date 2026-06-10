@@ -1,44 +1,38 @@
-import { useMemo, useEffect, useState } from 'react'
-import { Icon } from '@iconify/react'
-import { Label } from '@shadcn/components/ui/label'
-import { Textarea } from '@shadcn/components/ui/textarea'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
-import ConfigSliderField from './ChatConfig/ConfigSliderField'
-import ConfigInputField from './ChatConfig/ConfigInputField'
-import ConfigSelectField from './ChatConfig/ConfigSelectField'
-import { useModelCapabilities } from '@/composables/useModelCapabilities'
-import { useThinkingBudget } from '@/composables/useThinkingBudget'
-import { useModelTypeDetection } from '@/composables/useModelTypeDetection'
-import { useChatConfigFields } from '@/composables/useChatConfigFields'
-import type { ReasoningEffort, Verbosity } from '@shared/types/model-db'
-import { useLanguageStore } from '@/stores/language'
+import { useMemo, useEffect, useState } from "react";
+import { Icon } from "@iconify/react";
+import { Label } from "@shadcn/components/ui/label";
+import { Textarea } from "@shadcn/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import ConfigSliderField from "./ChatConfig/ConfigSliderField";
+import ConfigInputField from "./ChatConfig/ConfigInputField";
+import ConfigSelectField from "./ChatConfig/ConfigSelectField";
+import { useModelCapabilities } from "@/composables/useModelCapabilities";
+import { useThinkingBudget } from "@/composables/useThinkingBudget";
+import { useModelTypeDetection } from "@/composables/useModelTypeDetection";
+import { useChatConfigFields } from "@/composables/useChatConfigFields";
+import type { ReasoningEffort, Verbosity } from "@shared/types/model-db";
+import { useLanguageStore } from "@/stores/language";
 
 interface ChatConfigProps {
-  contextLengthLimit?: number
-  maxTokensLimit?: number
-  temperature: number
-  contextLength: number
-  maxTokens: number
-  artifacts: number
-  thinkingBudget?: number
-  modelId?: string
-  providerId?: string
-  reasoningEffort?: ReasoningEffort
-  verbosity?: Verbosity
-  modelType?: 'chat' | 'imageGeneration' | 'videoGeneration' | 'tts' | 'embedding' | 'rerank'
-  systemPrompt: string
-  onSystemPromptChange: (value: string) => void
-  onUpdateTemperature: (value: number) => void
-  onUpdateContextLength: (value: number) => void
-  onUpdateMaxTokens: (value: number) => void
-  onUpdateThinkingBudget: (value: number | undefined) => void
-  onUpdateReasoningEffort: (value: ReasoningEffort) => void
-  onUpdateVerbosity: (value: Verbosity) => void
+  contextLengthLimit?: number;
+  maxTokensLimit?: number;
+  temperature: number;
+  contextLength: number;
+  maxTokens: number;
+  thinkingBudget?: number;
+  modelId?: string;
+  providerId?: string;
+  reasoningEffort?: ReasoningEffort;
+  verbosity?: Verbosity;
+  modelType?: "chat" | "imageGeneration" | "videoGeneration" | "tts" | "embedding" | "rerank";
+  systemPrompt: string;
+  onSystemPromptChange: (value: string) => void;
+  onUpdateTemperature: (value: number) => void;
+  onUpdateContextLength: (value: number) => void;
+  onUpdateMaxTokens: (value: number) => void;
+  onUpdateThinkingBudget: (value: number | undefined) => void;
+  onUpdateReasoningEffort: (value: ReasoningEffort) => void;
+  onUpdateVerbosity: (value: Verbosity) => void;
 }
 
 export default function ChatConfig({
@@ -47,7 +41,6 @@ export default function ChatConfig({
   temperature,
   contextLength,
   maxTokens,
-  artifacts,
   thinkingBudget,
   modelId,
   providerId,
@@ -61,81 +54,88 @@ export default function ChatConfig({
   onUpdateMaxTokens,
   onUpdateThinkingBudget,
   onUpdateReasoningEffort,
-  onUpdateVerbosity
+  onUpdateVerbosity,
 }: ChatConfigProps) {
-  const langStore = useLanguageStore()
+  const langStore = useLanguageStore();
 
   const modelTypeDetection = useModelTypeDetection({
-    modelId: () => modelId,
-    providerId: () => providerId,
-    modelType: () => modelType
-  })
+    modelId,
+    providerId,
+    modelType,
+  });
 
   const capabilities = useModelCapabilities({
-    providerId: () => providerId,
-    modelId: () => modelId
-  })
+    providerId,
+    modelId,
+  });
 
   const thinkingBudgetResult = useThinkingBudget({
-    thinkingBudget: () => thinkingBudget,
+    thinkingBudget,
     budgetRange: capabilities.budgetRange,
     modelReasoning: modelTypeDetection.modelReasoning,
-    supportsReasoning: capabilities.supportsReasoning
-  })
+    supportsReasoning: capabilities.supportsReasoning,
+  });
 
   const formatSize = (size: number): string => {
-    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)}M`
-    if (size >= 1024) return `${(size / 1024).toFixed(1)}K`
-    return `${size}`
-  }
+    if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)}M`;
+    if (size >= 1024) return `${(size / 1024).toFixed(1)}K`;
+    return `${size}`;
+  };
 
   const emit = {
-    'update:temperature': onUpdateTemperature,
-    'update:contextLength': onUpdateContextLength,
-    'update:maxTokens': onUpdateMaxTokens,
-    'update:thinkingBudget': onUpdateThinkingBudget,
-    'update:reasoningEffort': onUpdateReasoningEffort,
-    'update:verbosity': onUpdateVerbosity
-  }
+    "update:temperature": (value: number) => onUpdateTemperature(value),
+    "update:contextLength": (value: number) => onUpdateContextLength(value),
+    "update:maxTokens": (value: number) => onUpdateMaxTokens(value),
+    "update:thinkingBudget": (value: number | undefined) => onUpdateThinkingBudget(value),
+    "update:reasoningEffort": (value: ReasoningEffort) => onUpdateReasoningEffort(value),
+    "update:verbosity": (value: Verbosity) => onUpdateVerbosity(value),
+  } as unknown as {
+    (e: "update:temperature", value: number): void;
+    (e: "update:contextLength", value: number): void;
+    (e: "update:maxTokens", value: number): void;
+    (e: "update:thinkingBudget", value: number | undefined): void;
+    (e: "update:reasoningEffort", value: ReasoningEffort): void;
+    (e: "update:verbosity", value: Verbosity): void;
+  };
 
   const { sliderFields, inputFields, selectFields } = useChatConfigFields({
-    temperature: () => temperature,
-    contextLength: () => contextLength,
-    maxTokens: () => maxTokens,
-    contextLengthLimit: () => contextLengthLimit,
-    maxTokensLimit: () => maxTokensLimit,
-    thinkingBudget: () => thinkingBudget,
-    reasoningEffort: () => reasoningEffort,
-    verbosity: () => verbosity,
-    providerId: () => providerId,
+    temperature,
+    contextLength,
+    maxTokens,
+    contextLengthLimit,
+    maxTokensLimit,
+    thinkingBudget,
+    reasoningEffort,
+    verbosity,
+    providerId,
     supportsTemperatureControl: capabilities.supportsTemperatureControl,
     showThinkingBudget: thinkingBudgetResult.showThinkingBudget,
     thinkingBudgetError: thinkingBudgetResult.validationError,
     budgetRange: capabilities.budgetRange,
     formatSize,
-    emit
-  })
+    emit,
+  });
 
   useEffect(() => {
-    if ((modelType === 'imageGeneration' || modelType === 'videoGeneration') && systemPrompt) {
-      onSystemPromptChange('')
+    if ((modelType === "imageGeneration" || modelType === "videoGeneration") && systemPrompt) {
+      onSystemPromptChange("");
     }
-  }, [modelType])
+  }, [modelType]);
 
   const modelTypeIcon = useMemo(() => {
     const icons: Record<string, string> = {
-      chat: 'lucide:message-circle',
-      imageGeneration: 'lucide:image',
-      videoGeneration: 'lucide:clapperboard',
-      tts: 'lucide:volume-2',
-      embedding: 'lucide:layers',
-      rerank: 'lucide:arrow-up-down'
-    }
-    return icons[modelType || 'chat']
-  }, [modelType])
+      chat: "lucide:message-circle",
+      imageGeneration: "lucide:image",
+      videoGeneration: "lucide:clapperboard",
+      tts: "lucide:volume-2",
+      embedding: "lucide:layers",
+      rerank: "lucide:arrow-up-down",
+    };
+    return icons[modelType || "chat"];
+  }, [modelType]);
 
-  const isImageGen = modelTypeDetection.isImageGenerationModel
-  const isVideoGen = modelTypeDetection.isVideoGenerationModel
+  const isImageGen = modelTypeDetection.isImageGenerationModel;
+  const isVideoGen = modelTypeDetection.isVideoGenerationModel;
 
   return (
     <div className="pt-2 pb-6 px-2" dir={langStore.dir}>
@@ -150,7 +150,7 @@ export default function ChatConfig({
             <div className="flex items-center space-x-2 py-1.5">
               <Icon icon="lucide:terminal" className="w-4 h-4 text-muted-foreground" />
               <Label className="text-xs font-medium">System Prompt</Label>
-              <TooltipProvider ignoreNonKeyboardFocus delayDuration={200}>
+              <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger>
                     <Icon icon="lucide:help-circle" className="w-4 h-4 text-muted-foreground" />
@@ -175,12 +175,12 @@ export default function ChatConfig({
             modelValue={field.getValue()}
             icon={field.icon}
             label={field.label}
-            description={field.description || ''}
+            description={field.description || ""}
             min={field.min}
             max={field.max}
             step={field.step}
             formatter={field.formatter}
-            onUpdateModelValue={field.setValue}
+            onModelValueChange={field.setValue}
           />
         ))}
 
@@ -198,7 +198,7 @@ export default function ChatConfig({
             placeholder={field.placeholder}
             error={field.error?.()}
             hint={field.hint?.()}
-            onUpdateModelValue={field.setValue}
+            onModelValueChange={field.setValue}
           />
         ))}
 
@@ -209,13 +209,13 @@ export default function ChatConfig({
             icon={field.icon}
             label={field.label}
             description={field.description}
-            options={typeof field.options === 'function' ? field.options() : field.options}
+            options={typeof field.options === "function" ? field.options() : field.options}
             placeholder={field.placeholder}
             hint={field.hint}
-            onUpdateModelValue={field.setValue}
+            onModelValueChange={field.setValue}
           />
         ))}
       </div>
     </div>
-  )
+  );
 }

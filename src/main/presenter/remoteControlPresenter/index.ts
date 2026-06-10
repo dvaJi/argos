@@ -1,5 +1,5 @@
-import { BrowserWindow } from 'electron'
-import logger from '@shared/logger'
+import { BrowserWindow } from "electron";
+import logger from "@shared/logger";
 import type {
   ChannelSettingsMap,
   DiscordPairingSnapshot,
@@ -23,8 +23,8 @@ import type {
   TelegramPairingSnapshot,
   TelegramRemoteBindingSummary,
   TelegramRemoteSettings,
-  TelegramRemoteStatus
-} from '@shared/presenter'
+  TelegramRemoteStatus,
+} from "@shared/presenter";
 import {
   DISCORD_REMOTE_DEFAULT_AGENT_ID,
   QQBOT_REMOTE_DEFAULT_AGENT_ID,
@@ -42,68 +42,68 @@ import {
   type FeishuRuntimeStatusSnapshot,
   type QQBotRuntimeStatusSnapshot,
   type TelegramPollerStatusSnapshot,
-  type WeixinIlinkRuntimeStatusSnapshot
-} from './types'
-import type { ChannelAdapterConfig } from './types/channel'
-import { resolveAcpAgentAlias } from '../configPresenter/acpRegistryConstants'
-import { REMOTE_CONTROL_ERROR_MESSAGES } from '@shared/contracts/remoteControlErrors'
-import type { RemoteControlPresenterDeps } from './interface'
-import { RemoteBindingStore } from './services/remoteBindingStore'
-import { RemoteConversationRunner } from './services/remoteConversationRunner'
-import { TelegramClient } from './telegram/telegramClient'
-import { ChannelManager } from './channelManager'
-import { TelegramAdapter } from './adapters/telegram/TelegramAdapter'
-import { DiscordAdapter } from './adapters/discord/DiscordAdapter'
-import { FeishuAdapter } from './adapters/feishu/FeishuAdapter'
-import { QQBotAdapter } from './adapters/qqbot/QQBotAdapter'
-import { WeixinIlinkAdapter } from './adapters/weixinIlink/WeixinIlinkAdapter'
-import { WeixinIlinkClient } from './weixinIlink/weixinIlinkClient'
+  type WeixinIlinkRuntimeStatusSnapshot,
+} from "./types";
+import type { ChannelAdapterConfig } from "./types/channel";
+import { resolveAcpAgentAlias } from "../configPresenter/acpRegistryConstants";
+import { REMOTE_CONTROL_ERROR_MESSAGES } from "@shared/contracts/remoteControlErrors";
+import type { RemoteControlPresenterDeps } from "./interface";
+import { RemoteBindingStore } from "./services/remoteBindingStore";
+import { RemoteConversationRunner } from "./services/remoteConversationRunner";
+import { TelegramClient } from "./telegram/telegramClient";
+import { ChannelManager } from "./channelManager";
+import { TelegramAdapter } from "./adapters/telegram/TelegramAdapter";
+import { DiscordAdapter } from "./adapters/discord/DiscordAdapter";
+import { FeishuAdapter } from "./adapters/feishu/FeishuAdapter";
+import { QQBotAdapter } from "./adapters/qqbot/QQBotAdapter";
+import { WeixinIlinkAdapter } from "./adapters/weixinIlink/WeixinIlinkAdapter";
+import { WeixinIlinkClient } from "./weixinIlink/weixinIlinkClient";
 
-const DEFAULT_CHANNEL_ID = 'default'
-const WEIXIN_TRACE_LOG_ENABLED = process.env.DEEPCHAT_WEIXIN_TRACE === '1'
+const DEFAULT_CHANNEL_ID = "default";
+const WEIXIN_TRACE_LOG_ENABLED = process.env.DEEPCHAT_WEIXIN_TRACE === "1";
 
 const DEFAULT_TELEGRAM_POLLER_STATUS: TelegramPollerStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 const DEFAULT_FEISHU_RUNTIME_STATUS: FeishuRuntimeStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 const DEFAULT_QQBOT_RUNTIME_STATUS: QQBotRuntimeStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 const DEFAULT_DISCORD_RUNTIME_STATUS: DiscordRuntimeStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 const DEFAULT_WEIXIN_ILINK_RUNTIME_STATUS: WeixinIlinkRuntimeStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 export class RemoteControlPresenter {
-  private readonly bindingStore: RemoteBindingStore
-  private readonly channelManager: ChannelManager
-  private runtimeOperation: Promise<void> = Promise.resolve()
-  private weixinIlinkLoginWindow: BrowserWindow | null = null
-  private weixinIlinkLoginWindowUrl: string | null = null
-  private readonly weixinIlinkLoginWaits = new Map<string, Promise<WeixinIlinkLoginResult>>()
+  private readonly bindingStore: RemoteBindingStore;
+  private readonly channelManager: ChannelManager;
+  private runtimeOperation: Promise<void> = Promise.resolve();
+  private weixinIlinkLoginWindow: BrowserWindow | null = null;
+  private weixinIlinkLoginWindowUrl: string | null = null;
+  private readonly weixinIlinkLoginWaits = new Map<string, Promise<WeixinIlinkLoginResult>>();
 
   constructor(private readonly deps: RemoteControlPresenterDeps) {
-    this.bindingStore = new RemoteBindingStore(this.deps.configPresenter)
-    this.channelManager = new ChannelManager()
-    this.registerBuiltInFactories()
+    this.bindingStore = new RemoteBindingStore(this.deps.configPresenter);
+    this.channelManager = new ChannelManager();
+    this.registerBuiltInFactories();
   }
 
   async initialize(): Promise<void> {
@@ -113,32 +113,32 @@ export class RemoteControlPresenter {
         this.rebuildFeishuRuntime(),
         this.rebuildQQBotRuntime(),
         this.rebuildDiscordRuntime(),
-        this.rebuildWeixinIlinkRuntimes()
-      ])
-    })
+        this.rebuildWeixinIlinkRuntimes(),
+      ]);
+    });
   }
 
   async destroy(): Promise<void> {
     await this.enqueueRuntimeOperation(async () => {
-      await this.channelManager.unregisterAll()
-    })
-    this.weixinIlinkLoginWaits.clear()
-    this.closeWeixinIlinkLoginWindow()
+      await this.channelManager.unregisterAll();
+    });
+    this.weixinIlinkLoginWaits.clear();
+    this.closeWeixinIlinkLoginWindow();
   }
 
   buildTelegramSettingsSnapshot(): TelegramRemoteSettings {
-    const remoteConfig = this.bindingStore.getTelegramConfig()
+    const remoteConfig = this.bindingStore.getTelegramConfig();
 
     return {
       botToken: remoteConfig.botToken,
       remoteEnabled: remoteConfig.enabled,
       defaultAgentId: remoteConfig.defaultAgentId,
-      defaultWorkdir: remoteConfig.defaultWorkdir
-    }
+      defaultWorkdir: remoteConfig.defaultWorkdir,
+    };
   }
 
   buildFeishuSettingsSnapshot(): FeishuRemoteSettings {
-    const remoteConfig = this.bindingStore.getFeishuConfig()
+    const remoteConfig = this.bindingStore.getFeishuConfig();
     return {
       brand: remoteConfig.brand,
       appId: remoteConfig.appId,
@@ -148,35 +148,35 @@ export class RemoteControlPresenter {
       remoteEnabled: remoteConfig.enabled,
       defaultAgentId: remoteConfig.defaultAgentId,
       defaultWorkdir: remoteConfig.defaultWorkdir,
-      pairedUserOpenIds: [...remoteConfig.pairedUserOpenIds]
-    }
+      pairedUserOpenIds: [...remoteConfig.pairedUserOpenIds],
+    };
   }
 
   buildQQBotSettingsSnapshot(): QQBotRemoteSettings {
-    const remoteConfig = this.bindingStore.getQQBotConfig()
+    const remoteConfig = this.bindingStore.getQQBotConfig();
     return {
       appId: remoteConfig.appId,
       clientSecret: remoteConfig.clientSecret,
       remoteEnabled: remoteConfig.enabled,
       defaultAgentId: remoteConfig.defaultAgentId,
       defaultWorkdir: remoteConfig.defaultWorkdir,
-      pairedUserIds: [...remoteConfig.pairedUserIds]
-    }
+      pairedUserIds: [...remoteConfig.pairedUserIds],
+    };
   }
 
   buildDiscordSettingsSnapshot(): DiscordRemoteSettings {
-    const remoteConfig = this.bindingStore.getDiscordConfig()
+    const remoteConfig = this.bindingStore.getDiscordConfig();
     return {
       botToken: remoteConfig.botToken,
       remoteEnabled: remoteConfig.enabled,
       defaultAgentId: remoteConfig.defaultAgentId,
       defaultWorkdir: remoteConfig.defaultWorkdir,
-      pairedChannelIds: [...remoteConfig.pairedChannelIds]
-    }
+      pairedChannelIds: [...remoteConfig.pairedChannelIds],
+    };
   }
 
   buildWeixinIlinkSettingsSnapshot(): WeixinIlinkRemoteSettings {
-    const remoteConfig = this.bindingStore.getWeixinIlinkConfig()
+    const remoteConfig = this.bindingStore.getWeixinIlinkConfig();
     return {
       remoteEnabled: remoteConfig.enabled,
       defaultAgentId: remoteConfig.defaultAgentId,
@@ -185,134 +185,128 @@ export class RemoteControlPresenter {
         accountId: account.accountId,
         ownerUserId: account.ownerUserId,
         baseUrl: account.baseUrl,
-        enabled: account.enabled
-      }))
-    }
+        enabled: account.enabled,
+      })),
+    };
   }
 
   async listRemoteChannels(): Promise<RemoteChannelDescriptor[]> {
     return [
       {
-        id: 'telegram',
-        type: 'builtin',
+        id: "telegram",
+        type: "builtin",
         implemented: true,
-        titleKey: 'settings.remote.telegram.title',
-        descriptionKey: 'settings.remote.telegram.description',
+        titleKey: "settings.remote.telegram.title",
+        descriptionKey: "settings.remote.telegram.description",
         supportsPairing: true,
-        supportsNotifications: false
+        supportsNotifications: false,
       },
       {
-        id: 'feishu',
-        type: 'builtin',
+        id: "feishu",
+        type: "builtin",
         implemented: true,
-        titleKey: 'settings.remote.feishu.title',
-        descriptionKey: 'settings.remote.feishu.description',
+        titleKey: "settings.remote.feishu.title",
+        descriptionKey: "settings.remote.feishu.description",
         supportsPairing: true,
-        supportsNotifications: false
+        supportsNotifications: false,
       },
       {
-        id: 'qqbot',
-        type: 'builtin',
+        id: "qqbot",
+        type: "builtin",
         implemented: true,
-        titleKey: 'settings.remote.qqbot.title',
-        descriptionKey: 'settings.remote.qqbot.description',
+        titleKey: "settings.remote.qqbot.title",
+        descriptionKey: "settings.remote.qqbot.description",
         supportsPairing: true,
-        supportsNotifications: false
+        supportsNotifications: false,
       },
       {
-        id: 'discord',
-        type: 'builtin',
+        id: "discord",
+        type: "builtin",
         implemented: true,
-        titleKey: 'settings.remote.discord.title',
-        descriptionKey: 'settings.remote.discord.description',
+        titleKey: "settings.remote.discord.title",
+        descriptionKey: "settings.remote.discord.description",
         supportsPairing: true,
-        supportsNotifications: false
+        supportsNotifications: false,
       },
       {
-        id: 'weixin-ilink',
-        type: 'builtin',
+        id: "weixin-ilink",
+        type: "builtin",
         implemented: true,
-        titleKey: 'settings.remote.weixinIlink.title',
-        descriptionKey: 'settings.remote.weixinIlink.description',
+        titleKey: "settings.remote.weixinIlink.title",
+        descriptionKey: "settings.remote.weixinIlink.description",
         supportsPairing: false,
-        supportsNotifications: false
-      }
-    ]
+        supportsNotifications: false,
+      },
+    ];
   }
 
   async getChannelSettings<T extends RemoteChannel>(channel: T): Promise<ChannelSettingsMap[T]> {
-    if (channel === 'telegram') {
-      return (await this.getTelegramSettings()) as ChannelSettingsMap[T]
+    if (channel === "telegram") {
+      return (await this.getTelegramSettings()) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'feishu') {
-      return (await this.getFeishuSettings()) as ChannelSettingsMap[T]
+    if (channel === "feishu") {
+      return (await this.getFeishuSettings()) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'qqbot') {
-      return (await this.getQQBotSettings()) as ChannelSettingsMap[T]
+    if (channel === "qqbot") {
+      return (await this.getQQBotSettings()) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'discord') {
-      return (await this.getDiscordSettings()) as ChannelSettingsMap[T]
+    if (channel === "discord") {
+      return (await this.getDiscordSettings()) as ChannelSettingsMap[T];
     }
 
-    return (await this.getWeixinIlinkSettings()) as ChannelSettingsMap[T]
+    return (await this.getWeixinIlinkSettings()) as ChannelSettingsMap[T];
   }
 
   async saveChannelSettings<T extends RemoteChannel>(
     channel: T,
-    input: ChannelSettingsMap[T]
+    input: ChannelSettingsMap[T],
   ): Promise<ChannelSettingsMap[T]> {
-    if (channel === 'telegram') {
-      return (await this.saveTelegramSettings(
-        input as TelegramRemoteSettings
-      )) as ChannelSettingsMap[T]
+    if (channel === "telegram") {
+      return (await this.saveTelegramSettings(input as TelegramRemoteSettings)) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'feishu') {
-      return (await this.saveFeishuSettings(input as FeishuRemoteSettings)) as ChannelSettingsMap[T]
+    if (channel === "feishu") {
+      return (await this.saveFeishuSettings(input as FeishuRemoteSettings)) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'qqbot') {
-      return (await this.saveQQBotSettings(input as QQBotRemoteSettings)) as ChannelSettingsMap[T]
+    if (channel === "qqbot") {
+      return (await this.saveQQBotSettings(input as QQBotRemoteSettings)) as ChannelSettingsMap[T];
     }
 
-    if (channel === 'discord') {
-      return (await this.saveDiscordSettings(
-        input as DiscordRemoteSettings
-      )) as ChannelSettingsMap[T]
+    if (channel === "discord") {
+      return (await this.saveDiscordSettings(input as DiscordRemoteSettings)) as ChannelSettingsMap[T];
     }
 
-    return (await this.saveWeixinIlinkSettings(
-      input as WeixinIlinkRemoteSettings
-    )) as ChannelSettingsMap[T]
+    return (await this.saveWeixinIlinkSettings(input as WeixinIlinkRemoteSettings)) as ChannelSettingsMap[T];
   }
 
-  async getChannelStatus(channel: 'telegram'): Promise<TelegramRemoteStatus>
-  async getChannelStatus(channel: 'feishu'): Promise<FeishuRemoteStatus>
-  async getChannelStatus(channel: 'qqbot'): Promise<QQBotRemoteStatus>
-  async getChannelStatus(channel: 'discord'): Promise<DiscordRemoteStatus>
-  async getChannelStatus(channel: 'weixin-ilink'): Promise<WeixinIlinkRemoteStatus>
-  async getChannelStatus(channel: RemoteChannel): Promise<RemoteChannelStatus>
+  async getChannelStatus(channel: "telegram"): Promise<TelegramRemoteStatus>;
+  async getChannelStatus(channel: "feishu"): Promise<FeishuRemoteStatus>;
+  async getChannelStatus(channel: "qqbot"): Promise<QQBotRemoteStatus>;
+  async getChannelStatus(channel: "discord"): Promise<DiscordRemoteStatus>;
+  async getChannelStatus(channel: "weixin-ilink"): Promise<WeixinIlinkRemoteStatus>;
+  async getChannelStatus(channel: RemoteChannel): Promise<RemoteChannelStatus>;
   async getChannelStatus(channel: RemoteChannel): Promise<RemoteChannelStatus> {
-    if (channel === 'telegram') {
-      return await this.getTelegramStatus()
+    if (channel === "telegram") {
+      return await this.getTelegramStatus();
     }
 
-    if (channel === 'feishu') {
-      return await this.getFeishuStatus()
+    if (channel === "feishu") {
+      return await this.getFeishuStatus();
     }
 
-    if (channel === 'qqbot') {
-      return await this.getQQBotStatus()
+    if (channel === "qqbot") {
+      return await this.getQQBotStatus();
     }
 
-    if (channel === 'discord') {
-      return await this.getDiscordStatus()
+    if (channel === "discord") {
+      return await this.getDiscordStatus();
     }
 
-    return await this.getWeixinIlinkStatus()
+    return await this.getWeixinIlinkStatus();
   }
 
   async getChannelBindings(channel: RemoteChannel): Promise<RemoteBindingSummary[]> {
@@ -320,107 +314,103 @@ export class RemoteControlPresenter {
       .listBindings(channel)
       .map(({ endpointKey, binding }) => buildBindingSummary(endpointKey, binding))
       .filter((binding): binding is RemoteBindingSummary => binding !== null)
-      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
   async removeChannelBinding(channel: RemoteChannel, endpointKey: string): Promise<void> {
     if (!endpointKey.startsWith(`${channel}:`)) {
-      return
+      return;
     }
 
-    this.bindingStore.clearBinding(endpointKey)
+    this.bindingStore.clearBinding(endpointKey);
   }
 
   async removeChannelPrincipal(channel: PairableRemoteChannel, principalId: string): Promise<void> {
-    const normalizedPrincipalId = principalId.trim()
+    const normalizedPrincipalId = principalId.trim();
     if (!normalizedPrincipalId) {
-      return
+      return;
     }
 
-    if (channel === 'telegram') {
-      const parsedUserId = Number.parseInt(normalizedPrincipalId, 10)
+    if (channel === "telegram") {
+      const parsedUserId = Number.parseInt(normalizedPrincipalId, 10);
       if (!Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-        return
+        return;
       }
 
-      this.bindingStore.removeAllowedUser(parsedUserId)
-      return
+      this.bindingStore.removeAllowedUser(parsedUserId);
+      return;
     }
 
-    if (channel === 'feishu') {
-      this.bindingStore.removeFeishuPairedUser(normalizedPrincipalId)
-      return
+    if (channel === "feishu") {
+      this.bindingStore.removeFeishuPairedUser(normalizedPrincipalId);
+      return;
     }
 
-    if (channel === 'qqbot') {
-      this.bindingStore.removeQQBotPairedUser(normalizedPrincipalId)
-      return
+    if (channel === "qqbot") {
+      this.bindingStore.removeQQBotPairedUser(normalizedPrincipalId);
+      return;
     }
 
-    this.bindingStore.removeDiscordPairedChannel(normalizedPrincipalId)
+    this.bindingStore.removeDiscordPairedChannel(normalizedPrincipalId);
   }
 
-  async getChannelPairingSnapshot(channel: 'telegram'): Promise<TelegramPairingSnapshot>
-  async getChannelPairingSnapshot(channel: 'feishu'): Promise<FeishuPairingSnapshot>
-  async getChannelPairingSnapshot(channel: 'qqbot'): Promise<QQBotPairingSnapshot>
-  async getChannelPairingSnapshot(channel: 'discord'): Promise<DiscordPairingSnapshot>
+  async getChannelPairingSnapshot(channel: "telegram"): Promise<TelegramPairingSnapshot>;
+  async getChannelPairingSnapshot(channel: "feishu"): Promise<FeishuPairingSnapshot>;
+  async getChannelPairingSnapshot(channel: "qqbot"): Promise<QQBotPairingSnapshot>;
+  async getChannelPairingSnapshot(channel: "discord"): Promise<DiscordPairingSnapshot>;
   async getChannelPairingSnapshot(
-    channel: 'telegram' | 'feishu' | 'qqbot' | 'discord'
-  ): Promise<
-    TelegramPairingSnapshot | FeishuPairingSnapshot | QQBotPairingSnapshot | DiscordPairingSnapshot
-  >
+    channel: "telegram" | "feishu" | "qqbot" | "discord",
+  ): Promise<TelegramPairingSnapshot | FeishuPairingSnapshot | QQBotPairingSnapshot | DiscordPairingSnapshot>;
   async getChannelPairingSnapshot(
-    channel: 'telegram' | 'feishu' | 'qqbot' | 'discord'
-  ): Promise<
-    TelegramPairingSnapshot | FeishuPairingSnapshot | QQBotPairingSnapshot | DiscordPairingSnapshot
-  > {
-    if (channel === 'telegram') {
-      return this.bindingStore.getTelegramPairingSnapshot()
+    channel: "telegram" | "feishu" | "qqbot" | "discord",
+  ): Promise<TelegramPairingSnapshot | FeishuPairingSnapshot | QQBotPairingSnapshot | DiscordPairingSnapshot> {
+    if (channel === "telegram") {
+      return this.bindingStore.getTelegramPairingSnapshot();
     }
 
-    if (channel === 'feishu') {
-      return this.bindingStore.getFeishuPairingSnapshot()
+    if (channel === "feishu") {
+      return this.bindingStore.getFeishuPairingSnapshot();
     }
 
-    if (channel === 'qqbot') {
-      return this.bindingStore.getQQBotPairingSnapshot()
+    if (channel === "qqbot") {
+      return this.bindingStore.getQQBotPairingSnapshot();
     }
 
-    return this.bindingStore.getDiscordPairingSnapshot()
+    return this.bindingStore.getDiscordPairingSnapshot();
   }
 
   async createChannelPairCode(
-    channel: 'telegram' | 'feishu' | 'qqbot' | 'discord'
+    channel: "telegram" | "feishu" | "qqbot" | "discord",
   ): Promise<{ code: string; expiresAt: number }> {
-    return this.bindingStore.createPairCode(channel)
+    return this.bindingStore.createPairCode(channel);
   }
 
-  async clearChannelPairCode(channel: 'telegram' | 'feishu' | 'qqbot' | 'discord'): Promise<void> {
-    this.bindingStore.clearPairCode(channel)
+  async clearChannelPairCode(channel: "telegram" | "feishu" | "qqbot" | "discord"): Promise<void> {
+    this.bindingStore.clearPairCode(channel);
   }
 
   async clearChannelBindings(channel: RemoteChannel): Promise<number> {
-    return this.bindingStore.clearBindings(channel)
+    return this.bindingStore.clearBindings(channel);
   }
 
   async getTelegramSettings(): Promise<TelegramRemoteSettings> {
-    const snapshot = this.buildTelegramSettingsSnapshot()
-    const defaultAgentId = await this.sanitizeDefaultAgentId('telegram', snapshot.defaultAgentId)
+    const snapshot = this.buildTelegramSettingsSnapshot();
+    const defaultAgentId = await this.sanitizeDefaultAgentId("telegram", snapshot.defaultAgentId);
     return {
       ...snapshot,
-      defaultAgentId
-    }
+      defaultAgentId,
+    };
   }
 
   async saveTelegramSettings(input: TelegramRemoteSettings): Promise<TelegramRemoteSettings> {
-    const normalized = normalizeTelegramSettingsInput(input)
-    const defaultAgentId = await this.sanitizeDefaultAgentId('telegram', normalized.defaultAgentId)
-    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir)
-    const currentRemoteConfig = this.bindingStore.getTelegramConfig()
+    const normalized = normalizeTelegramSettingsInput(input);
+    const defaultAgentId = await this.sanitizeDefaultAgentId("telegram", normalized.defaultAgentId);
+    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir);
+    const currentRemoteConfig = this.bindingStore.getTelegramConfig();
     const shouldClearFatalError =
       currentRemoteConfig.enabled !== normalized.remoteEnabled ||
       currentRemoteConfig.botToken !== normalized.botToken ||
-      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir
+      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir;
 
     this.bindingStore.updateTelegramConfig((config) => ({
       ...config,
@@ -430,42 +420,42 @@ export class RemoteControlPresenter {
       defaultWorkdir: normalized.defaultWorkdir,
       streamMode: currentRemoteConfig.streamMode,
       lastFatalError: shouldClearFatalError ? null : config.lastFatalError,
-      pairing: config.pairing
-    }))
+      pairing: config.pairing,
+    }));
 
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildTelegramRuntime()
-    })
-    return await this.getTelegramSettings()
+      await this.rebuildTelegramRuntime();
+    });
+    return await this.getTelegramSettings();
   }
 
   async getTelegramStatus(): Promise<TelegramRemoteStatus> {
-    const remoteConfig = this.bindingStore.getTelegramConfig()
+    const remoteConfig = this.bindingStore.getTelegramConfig();
     const runtimeStatus = this.getEffectiveTelegramStatus(
       remoteConfig.botToken,
       remoteConfig.enabled,
-      remoteConfig.lastFatalError
-    )
+      remoteConfig.lastFatalError,
+    );
 
     return {
-      channel: 'telegram',
+      channel: "telegram",
       enabled: remoteConfig.enabled,
       state: runtimeStatus.state,
       pollOffset: remoteConfig.pollOffset,
       bindingCount: Object.keys(remoteConfig.bindings).length,
       allowedUserCount: remoteConfig.allowlist.length,
       lastError: runtimeStatus.lastError,
-      botUser: runtimeStatus.botUser
-    }
+      botUser: runtimeStatus.botUser,
+    };
   }
 
   async getTelegramBindings(): Promise<TelegramRemoteBindingSummary[]> {
     return this.bindingStore
-      .listBindings('telegram')
+      .listBindings("telegram")
       .map(({ endpointKey, binding }) => {
-        const endpoint = parseTelegramEndpointKey(endpointKey)
+        const endpoint = parseTelegramEndpointKey(endpointKey);
         if (!endpoint) {
-          return null
+          return null;
         }
 
         return {
@@ -473,47 +463,47 @@ export class RemoteControlPresenter {
           sessionId: binding.sessionId,
           chatId: endpoint.chatId,
           messageThreadId: endpoint.messageThreadId,
-          updatedAt: binding.updatedAt
-        }
+          updatedAt: binding.updatedAt,
+        };
       })
       .filter((binding): binding is TelegramRemoteBindingSummary => binding !== null)
-      .sort((left, right) => right.updatedAt - left.updatedAt)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
   async removeTelegramBinding(endpointKey: string): Promise<void> {
-    await this.removeChannelBinding('telegram', endpointKey)
+    await this.removeChannelBinding("telegram", endpointKey);
   }
 
   async getTelegramPairingSnapshot(): Promise<TelegramPairingSnapshot> {
-    return this.bindingStore.getTelegramPairingSnapshot()
+    return this.bindingStore.getTelegramPairingSnapshot();
   }
 
   async createTelegramPairCode(): Promise<{ code: string; expiresAt: number }> {
-    return await this.createChannelPairCode('telegram')
+    return await this.createChannelPairCode("telegram");
   }
 
   async clearTelegramPairCode(): Promise<void> {
-    await this.clearChannelPairCode('telegram')
+    await this.clearChannelPairCode("telegram");
   }
 
   async clearTelegramBindings(): Promise<number> {
-    return await this.clearChannelBindings('telegram')
+    return await this.clearChannelBindings("telegram");
   }
 
   async getFeishuSettings(): Promise<FeishuRemoteSettings> {
-    const snapshot = this.buildFeishuSettingsSnapshot()
-    const defaultAgentId = await this.sanitizeDefaultAgentId('feishu', snapshot.defaultAgentId)
+    const snapshot = this.buildFeishuSettingsSnapshot();
+    const defaultAgentId = await this.sanitizeDefaultAgentId("feishu", snapshot.defaultAgentId);
     return {
       ...snapshot,
-      defaultAgentId
-    }
+      defaultAgentId,
+    };
   }
 
   async saveFeishuSettings(input: FeishuRemoteSettings): Promise<FeishuRemoteSettings> {
-    const normalized = normalizeFeishuSettingsInput(input)
-    const defaultAgentId = await this.sanitizeDefaultAgentId('feishu', normalized.defaultAgentId)
-    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir)
-    const currentRemoteConfig = this.bindingStore.getFeishuConfig()
+    const normalized = normalizeFeishuSettingsInput(input);
+    const defaultAgentId = await this.sanitizeDefaultAgentId("feishu", normalized.defaultAgentId);
+    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir);
+    const currentRemoteConfig = this.bindingStore.getFeishuConfig();
     const shouldClearFatalError =
       currentRemoteConfig.brand !== normalized.brand ||
       currentRemoteConfig.enabled !== normalized.remoteEnabled ||
@@ -521,7 +511,7 @@ export class RemoteControlPresenter {
       currentRemoteConfig.appSecret !== normalized.appSecret ||
       currentRemoteConfig.verificationToken !== normalized.verificationToken ||
       currentRemoteConfig.encryptKey !== normalized.encryptKey ||
-      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir
+      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir;
 
     this.bindingStore.updateFeishuConfig((config) => ({
       ...config,
@@ -535,54 +525,54 @@ export class RemoteControlPresenter {
       defaultWorkdir: normalized.defaultWorkdir,
       pairedUserOpenIds: config.pairedUserOpenIds,
       lastFatalError: shouldClearFatalError ? null : config.lastFatalError,
-      pairing: config.pairing
-    }))
+      pairing: config.pairing,
+    }));
 
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildFeishuRuntime()
-    })
-    return await this.getFeishuSettings()
+      await this.rebuildFeishuRuntime();
+    });
+    return await this.getFeishuSettings();
   }
 
   async getFeishuStatus(): Promise<FeishuRemoteStatus> {
-    const remoteConfig = this.bindingStore.getFeishuConfig()
+    const remoteConfig = this.bindingStore.getFeishuConfig();
     const runtimeStatus = this.getEffectiveFeishuStatus(
       remoteConfig.enabled,
       remoteConfig.lastFatalError,
       remoteConfig.appId,
-      remoteConfig.appSecret
-    )
+      remoteConfig.appSecret,
+    );
 
     return {
-      channel: 'feishu',
+      channel: "feishu",
       enabled: remoteConfig.enabled,
       state: runtimeStatus.state,
       bindingCount: Object.keys(remoteConfig.bindings).length,
       pairedUserCount: remoteConfig.pairedUserOpenIds.length,
       lastError: runtimeStatus.lastError,
-      botUser: runtimeStatus.botUser
-    }
+      botUser: runtimeStatus.botUser,
+    };
   }
 
   async getQQBotSettings(): Promise<QQBotRemoteSettings> {
-    const snapshot = this.buildQQBotSettingsSnapshot()
-    const defaultAgentId = await this.sanitizeDefaultAgentId('qqbot', snapshot.defaultAgentId)
+    const snapshot = this.buildQQBotSettingsSnapshot();
+    const defaultAgentId = await this.sanitizeDefaultAgentId("qqbot", snapshot.defaultAgentId);
     return {
       ...snapshot,
-      defaultAgentId
-    }
+      defaultAgentId,
+    };
   }
 
   async saveQQBotSettings(input: QQBotRemoteSettings): Promise<QQBotRemoteSettings> {
-    const normalized = normalizeQQBotSettingsInput(input)
-    const defaultAgentId = await this.sanitizeDefaultAgentId('qqbot', normalized.defaultAgentId)
-    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir)
-    const currentRemoteConfig = this.bindingStore.getQQBotConfig()
+    const normalized = normalizeQQBotSettingsInput(input);
+    const defaultAgentId = await this.sanitizeDefaultAgentId("qqbot", normalized.defaultAgentId);
+    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir);
+    const currentRemoteConfig = this.bindingStore.getQQBotConfig();
     const shouldClearFatalError =
       currentRemoteConfig.enabled !== normalized.remoteEnabled ||
       currentRemoteConfig.appId !== normalized.appId ||
       currentRemoteConfig.clientSecret !== normalized.clientSecret ||
-      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir
+      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir;
 
     this.bindingStore.updateQQBotConfig((config) => ({
       ...config,
@@ -593,53 +583,53 @@ export class RemoteControlPresenter {
       defaultWorkdir: normalized.defaultWorkdir,
       pairedUserIds: normalized.pairedUserIds,
       lastFatalError: shouldClearFatalError ? null : config.lastFatalError,
-      pairing: config.pairing
-    }))
+      pairing: config.pairing,
+    }));
 
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildQQBotRuntime()
-    })
-    return await this.getQQBotSettings()
+      await this.rebuildQQBotRuntime();
+    });
+    return await this.getQQBotSettings();
   }
 
   async getQQBotStatus(): Promise<QQBotRemoteStatus> {
-    const remoteConfig = this.bindingStore.getQQBotConfig()
+    const remoteConfig = this.bindingStore.getQQBotConfig();
     const runtimeStatus = this.getEffectiveQQBotStatus(
       remoteConfig.enabled,
       remoteConfig.lastFatalError,
       remoteConfig.appId,
-      remoteConfig.clientSecret
-    )
+      remoteConfig.clientSecret,
+    );
 
     return {
-      channel: 'qqbot',
+      channel: "qqbot",
       enabled: remoteConfig.enabled,
       state: runtimeStatus.state,
       bindingCount: Object.keys(remoteConfig.bindings).length,
       pairedUserCount: remoteConfig.pairedUserIds.length,
       lastError: runtimeStatus.lastError,
-      botUser: runtimeStatus.botUser
-    }
+      botUser: runtimeStatus.botUser,
+    };
   }
 
   async getDiscordSettings(): Promise<DiscordRemoteSettings> {
-    const snapshot = this.buildDiscordSettingsSnapshot()
-    const defaultAgentId = await this.sanitizeDefaultAgentId('discord', snapshot.defaultAgentId)
+    const snapshot = this.buildDiscordSettingsSnapshot();
+    const defaultAgentId = await this.sanitizeDefaultAgentId("discord", snapshot.defaultAgentId);
     return {
       ...snapshot,
-      defaultAgentId
-    }
+      defaultAgentId,
+    };
   }
 
   async saveDiscordSettings(input: DiscordRemoteSettings): Promise<DiscordRemoteSettings> {
-    const normalized = normalizeDiscordSettingsInput(input)
-    const defaultAgentId = await this.sanitizeDefaultAgentId('discord', normalized.defaultAgentId)
-    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir)
-    const currentRemoteConfig = this.bindingStore.getDiscordConfig()
+    const normalized = normalizeDiscordSettingsInput(input);
+    const defaultAgentId = await this.sanitizeDefaultAgentId("discord", normalized.defaultAgentId);
+    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir);
+    const currentRemoteConfig = this.bindingStore.getDiscordConfig();
     const shouldClearFatalError =
       currentRemoteConfig.enabled !== normalized.remoteEnabled ||
       currentRemoteConfig.botToken !== normalized.botToken ||
-      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir
+      currentRemoteConfig.defaultWorkdir !== normalized.defaultWorkdir;
 
     this.bindingStore.updateDiscordConfig((config) => ({
       ...config,
@@ -649,59 +639,51 @@ export class RemoteControlPresenter {
       defaultWorkdir: normalized.defaultWorkdir,
       pairedChannelIds: normalized.pairedChannelIds,
       lastFatalError: shouldClearFatalError ? null : config.lastFatalError,
-      pairing: config.pairing
-    }))
+      pairing: config.pairing,
+    }));
 
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildDiscordRuntime()
-    })
-    return await this.getDiscordSettings()
+      await this.rebuildDiscordRuntime();
+    });
+    return await this.getDiscordSettings();
   }
 
   async getDiscordStatus(): Promise<DiscordRemoteStatus> {
-    const remoteConfig = this.bindingStore.getDiscordConfig()
+    const remoteConfig = this.bindingStore.getDiscordConfig();
     const runtimeStatus = this.getEffectiveDiscordStatus(
       remoteConfig.enabled,
       remoteConfig.lastFatalError,
-      remoteConfig.botToken
-    )
+      remoteConfig.botToken,
+    );
 
     return {
-      channel: 'discord',
+      channel: "discord",
       enabled: remoteConfig.enabled,
       state: runtimeStatus.state,
       bindingCount: Object.keys(remoteConfig.bindings).length,
       pairedChannelCount: remoteConfig.pairedChannelIds.length,
       lastError: runtimeStatus.lastError,
-      botUser: runtimeStatus.botUser
-    }
+      botUser: runtimeStatus.botUser,
+    };
   }
 
   async getWeixinIlinkSettings(): Promise<WeixinIlinkRemoteSettings> {
-    const snapshot = this.buildWeixinIlinkSettingsSnapshot()
-    const defaultAgentId = await this.sanitizeDefaultAgentId(
-      'weixin-ilink',
-      snapshot.defaultAgentId
-    )
+    const snapshot = this.buildWeixinIlinkSettingsSnapshot();
+    const defaultAgentId = await this.sanitizeDefaultAgentId("weixin-ilink", snapshot.defaultAgentId);
     return {
       ...snapshot,
-      defaultAgentId
-    }
+      defaultAgentId,
+    };
   }
 
-  async saveWeixinIlinkSettings(
-    input: WeixinIlinkRemoteSettings
-  ): Promise<WeixinIlinkRemoteSettings> {
-    const normalized = normalizeWeixinIlinkSettingsInput(input)
-    const defaultAgentId = await this.sanitizeDefaultAgentId(
-      'weixin-ilink',
-      normalized.defaultAgentId
-    )
-    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir)
-    const currentRemoteConfig = this.bindingStore.getWeixinIlinkConfig()
+  async saveWeixinIlinkSettings(input: WeixinIlinkRemoteSettings): Promise<WeixinIlinkRemoteSettings> {
+    const normalized = normalizeWeixinIlinkSettingsInput(input);
+    const defaultAgentId = await this.sanitizeDefaultAgentId("weixin-ilink", normalized.defaultAgentId);
+    await this.assertAcpDefaultWorkdir(defaultAgentId, normalized.defaultWorkdir);
+    const currentRemoteConfig = this.bindingStore.getWeixinIlinkConfig();
     const currentAccountsById = new Map(
-      currentRemoteConfig.accounts.map((account) => [account.accountId, account] as const)
-    )
+      currentRemoteConfig.accounts.map((account) => [account.accountId, account] as const),
+    );
 
     this.bindingStore.updateWeixinIlinkConfig((config) => ({
       ...config,
@@ -709,109 +691,106 @@ export class RemoteControlPresenter {
       defaultAgentId,
       defaultWorkdir: normalized.defaultWorkdir,
       accounts: normalized.accounts.map((account) => {
-        const existing = currentAccountsById.get(account.accountId)
+        const existing = currentAccountsById.get(account.accountId);
         return {
           accountId: account.accountId,
           ownerUserId: account.ownerUserId,
           baseUrl: account.baseUrl,
-          botToken: existing?.botToken ?? '',
+          botToken: existing?.botToken ?? "",
           enabled: account.enabled,
-          syncCursor: existing?.syncCursor ?? '',
+          syncCursor: existing?.syncCursor ?? "",
           lastFatalError: existing?.lastFatalError ?? null,
-          bindings: existing?.bindings ?? {}
-        }
-      })
-    }))
+          bindings: existing?.bindings ?? {},
+        };
+      }),
+    }));
 
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildWeixinIlinkRuntimes()
-    })
-    return await this.getWeixinIlinkSettings()
+      await this.rebuildWeixinIlinkRuntimes();
+    });
+    return await this.getWeixinIlinkSettings();
   }
 
   async getWeixinIlinkStatus(): Promise<WeixinIlinkRemoteStatus> {
-    const remoteConfig = this.bindingStore.getWeixinIlinkConfig()
+    const remoteConfig = this.bindingStore.getWeixinIlinkConfig();
     const accounts = remoteConfig.accounts.map((account) => {
-      const runtimeStatus = this.getEffectiveWeixinIlinkAccountStatus(remoteConfig.enabled, account)
+      const runtimeStatus = this.getEffectiveWeixinIlinkAccountStatus(remoteConfig.enabled, account);
       return {
         accountId: account.accountId,
         ownerUserId: account.ownerUserId,
         baseUrl: account.baseUrl,
         enabled: account.enabled,
         state: runtimeStatus.state,
-        connected: runtimeStatus.state === 'running',
+        connected: runtimeStatus.state === "running",
         bindingCount: Object.keys(account.bindings).length,
-        lastError: runtimeStatus.lastError
-      }
-    })
+        lastError: runtimeStatus.lastError,
+      };
+    });
 
-    const connectedAccountCount = accounts.filter((account) => account.connected).length
+    const connectedAccountCount = accounts.filter((account) => account.connected).length;
     const aggregateState = this.resolveWeixinIlinkAggregateState(
       remoteConfig.enabled,
-      accounts.map((account) => account.state)
-    )
+      accounts.map((account) => account.state),
+    );
     const aggregateLastError =
       accounts.find((account) => account.lastError)?.lastError ??
       (!remoteConfig.enabled
         ? null
-        : (remoteConfig.accounts.find((account) => account.lastFatalError)?.lastFatalError ?? null))
+        : (remoteConfig.accounts.find((account) => account.lastFatalError)?.lastFatalError ?? null));
 
     return {
-      channel: 'weixin-ilink',
+      channel: "weixin-ilink",
       enabled: remoteConfig.enabled,
       state: aggregateState,
       bindingCount: accounts.reduce((total, account) => total + account.bindingCount, 0),
       accountCount: accounts.length,
       connectedAccountCount,
       lastError: aggregateLastError,
-      accounts
-    }
+      accounts,
+    };
   }
 
   async startWeixinIlinkLogin(input?: { force?: boolean }): Promise<WeixinIlinkLoginSession> {
     const result = await WeixinIlinkClient.startLogin({
-      force: input?.force
-    })
-    this.openWeixinIlinkLoginWindow(result.loginUrl)
+      force: input?.force,
+    });
+    this.openWeixinIlinkLoginWindow(result.loginUrl);
     return {
       sessionKey: result.sessionKey,
       loginUrl: result.loginUrl,
       message: result.message,
-      messageKey: result.messageKey
-    }
+      messageKey: result.messageKey,
+    };
   }
 
-  async waitForWeixinIlinkLogin(input: {
-    sessionKey: string
-    timeoutMs?: number
-  }): Promise<WeixinIlinkLoginResult> {
-    const sessionKey = input.sessionKey.trim()
+  async waitForWeixinIlinkLogin(input: { sessionKey: string; timeoutMs?: number }): Promise<WeixinIlinkLoginResult> {
+    const sessionKey = input.sessionKey.trim();
     if (!sessionKey) {
       return {
         connected: false,
         account: null,
-        messageKey: 'settings.remote.weixinIlink.loginFailed'
-      }
+        messageKey: "settings.remote.weixinIlink.loginFailed",
+      };
     }
 
-    const existingWait = this.weixinIlinkLoginWaits.get(sessionKey)
+    const existingWait = this.weixinIlinkLoginWaits.get(sessionKey);
     if (existingWait) {
-      return await existingWait
+      return await existingWait;
     }
 
     const waitPromise = (async () => {
       const result = await WeixinIlinkClient.waitForLogin({
         ...input,
-        sessionKey
-      })
-      this.closeWeixinIlinkLoginWindow()
+        sessionKey,
+      });
+      this.closeWeixinIlinkLoginWindow();
       if (!result.connected || !result.accountId || !result.ownerUserId || !result.botToken) {
         return {
           connected: false,
           account: null,
           message: result.message,
-          messageKey: result.messageKey
-        }
+          messageKey: result.messageKey,
+        };
       }
 
       this.bindingStore.upsertWeixinIlinkAccount({
@@ -820,12 +799,12 @@ export class RemoteControlPresenter {
         baseUrl: result.baseUrl?.trim() || WeixinIlinkClient.DEFAULT_BASE_URL,
         botToken: result.botToken,
         enabled: true,
-        lastFatalError: null
-      })
+        lastFatalError: null,
+      });
 
       await this.enqueueRuntimeOperation(async () => {
-        await this.rebuildWeixinIlinkRuntimes()
-      })
+        await this.rebuildWeixinIlinkRuntimes();
+      });
 
       return {
         connected: true,
@@ -833,300 +812,291 @@ export class RemoteControlPresenter {
           accountId: result.accountId,
           ownerUserId: result.ownerUserId,
           baseUrl: result.baseUrl?.trim() || WeixinIlinkClient.DEFAULT_BASE_URL,
-          enabled: true
+          enabled: true,
         },
         message: result.message,
-        messageKey: result.messageKey
-      }
+        messageKey: result.messageKey,
+      };
     })().finally(() => {
       if (this.weixinIlinkLoginWaits.get(sessionKey) === waitPromise) {
-        this.weixinIlinkLoginWaits.delete(sessionKey)
+        this.weixinIlinkLoginWaits.delete(sessionKey);
       }
-    })
+    });
 
-    this.weixinIlinkLoginWaits.set(sessionKey, waitPromise)
-    return await waitPromise
+    this.weixinIlinkLoginWaits.set(sessionKey, waitPromise);
+    return await waitPromise;
   }
 
   async removeWeixinIlinkAccount(accountId: string): Promise<void> {
-    const normalizedAccountId = accountId.trim()
+    const normalizedAccountId = accountId.trim();
     if (!normalizedAccountId) {
-      return
+      return;
     }
 
-    this.bindingStore.removeWeixinIlinkAccount(normalizedAccountId)
+    this.bindingStore.removeWeixinIlinkAccount(normalizedAccountId);
     await this.enqueueRuntimeOperation(async () => {
-      await this.channelManager.unregisterAdapter('weixin-ilink', normalizedAccountId)
-    })
+      await this.channelManager.unregisterAdapter("weixin-ilink", normalizedAccountId);
+    });
   }
 
   async restartWeixinIlinkAccount(accountId: string): Promise<void> {
     await this.enqueueRuntimeOperation(async () => {
-      await this.rebuildWeixinIlinkAccountRuntime(accountId)
-    })
+      await this.rebuildWeixinIlinkAccountRuntime(accountId);
+    });
   }
 
   private registerBuiltInFactories(): void {
     this.channelManager.registerFactory({
-      source: 'builtin',
-      channelType: 'telegram',
+      source: "builtin",
+      channelType: "telegram",
       create: (config) =>
         new TelegramAdapter(config, {
           bindingStore: this.bindingStore,
-          createConversationRunner: () => this.createConversationRunner('telegram'),
+          createConversationRunner: () => this.createConversationRunner("telegram"),
           registerTelegramCommands: async (client) => {
-            await this.registerTelegramCommands(client)
+            await this.registerTelegramCommands(client);
           },
           onFatalError: async (message) => {
             await this.enqueueRuntimeOperation(async () => {
-              await this.disableTelegramRuntimeForFatalError(config.configSignature ?? '', message)
-            })
+              await this.disableTelegramRuntimeForFatalError(config.configSignature ?? "", message);
+            });
           },
-          configSignature: config.configSignature
-        })
-    })
+          configSignature: config.configSignature,
+        }),
+    });
 
     this.channelManager.registerFactory({
-      source: 'builtin',
-      channelType: 'feishu',
+      source: "builtin",
+      channelType: "feishu",
       create: (config) =>
         new FeishuAdapter(config, {
           bindingStore: this.bindingStore,
-          createConversationRunner: () => this.createConversationRunner('feishu'),
+          createConversationRunner: () => this.createConversationRunner("feishu"),
           onFatalError: async (message) => {
             await this.enqueueRuntimeOperation(async () => {
-              await this.disableFeishuRuntimeForFatalError(config.configSignature ?? '', message)
-            })
+              await this.disableFeishuRuntimeForFatalError(config.configSignature ?? "", message);
+            });
           },
-          configSignature: config.configSignature
-        })
-    })
+          configSignature: config.configSignature,
+        }),
+    });
 
     this.channelManager.registerFactory({
-      source: 'builtin',
-      channelType: 'qqbot',
+      source: "builtin",
+      channelType: "qqbot",
       create: (config) =>
         new QQBotAdapter(config, {
           bindingStore: this.bindingStore,
-          createConversationRunner: () => this.createConversationRunner('qqbot'),
+          createConversationRunner: () => this.createConversationRunner("qqbot"),
           onFatalError: async (message) => {
             await this.enqueueRuntimeOperation(async () => {
-              await this.disableQQBotRuntimeForFatalError(config.configSignature ?? '', message)
-            })
+              await this.disableQQBotRuntimeForFatalError(config.configSignature ?? "", message);
+            });
           },
-          configSignature: config.configSignature
-        })
-    })
+          configSignature: config.configSignature,
+        }),
+    });
 
     this.channelManager.registerFactory({
-      source: 'builtin',
-      channelType: 'discord',
+      source: "builtin",
+      channelType: "discord",
       create: (config) =>
         new DiscordAdapter(config, {
           bindingStore: this.bindingStore,
-          createConversationRunner: () => this.createConversationRunner('discord'),
+          createConversationRunner: () => this.createConversationRunner("discord"),
           onFatalError: async (message) => {
             await this.enqueueRuntimeOperation(async () => {
-              await this.disableDiscordRuntimeForFatalError(config.configSignature ?? '', message)
-            })
+              await this.disableDiscordRuntimeForFatalError(config.configSignature ?? "", message);
+            });
           },
-          configSignature: config.configSignature
-        })
-    })
+          configSignature: config.configSignature,
+        }),
+    });
 
     this.channelManager.registerFactory({
-      source: 'builtin',
-      channelType: 'weixin-ilink',
+      source: "builtin",
+      channelType: "weixin-ilink",
       create: (config) =>
         new WeixinIlinkAdapter(config, {
           bindingStore: this.bindingStore,
-          createConversationRunner: () => this.createConversationRunner('weixin-ilink'),
+          createConversationRunner: () => this.createConversationRunner("weixin-ilink"),
           onFatalError: async (accountId, message) => {
             await this.enqueueRuntimeOperation(async () => {
-              await this.disableWeixinIlinkRuntimeForFatalError(
-                accountId,
-                config.configSignature ?? '',
-                message
-              )
-            })
+              await this.disableWeixinIlinkRuntimeForFatalError(accountId, config.configSignature ?? "", message);
+            });
           },
-          configSignature: config.configSignature
-        })
-    })
+          configSignature: config.configSignature,
+        }),
+    });
   }
 
   private async rebuildTelegramRuntime(): Promise<void> {
-    const settings = this.buildTelegramSettingsSnapshot()
-    const botToken = settings.botToken.trim()
+    const settings = this.buildTelegramSettingsSnapshot();
+    const botToken = settings.botToken.trim();
 
     if (!settings.remoteEnabled || !botToken) {
-      await this.channelManager.unregisterAdapter('telegram', DEFAULT_CHANNEL_ID)
-      return
+      await this.channelManager.unregisterAdapter("telegram", DEFAULT_CHANNEL_ID);
+      return;
     }
 
-    const configSignature = this.buildTelegramAdapterSignature(settings)
-    const existing = this.channelManager.getAdapter('telegram', DEFAULT_CHANNEL_ID)
+    const configSignature = this.buildTelegramAdapterSignature(settings);
+    const existing = this.channelManager.getAdapter("telegram", DEFAULT_CHANNEL_ID);
     if (existing?.configSignature === configSignature && existing.connected) {
-      return
+      return;
     }
 
-    await this.channelManager.unregisterAdapter('telegram', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("telegram", DEFAULT_CHANNEL_ID);
 
     const adapter = await this.channelManager.createAdapter(
       await this.buildChannelAdapterConfig(
-        'telegram',
+        "telegram",
         {
-          botToken
+          botToken,
         },
-        configSignature
-      )
-    )
-    this.channelManager.registerAdapter(adapter)
+        configSignature,
+      ),
+    );
+    this.channelManager.registerAdapter(adapter);
 
     try {
-      await adapter.connect()
+      await adapter.connect();
     } catch {
       // The adapter status snapshot already captures the failure.
     }
   }
 
   private async rebuildFeishuRuntime(): Promise<void> {
-    const settings = this.buildFeishuSettingsSnapshot()
+    const settings = this.buildFeishuSettingsSnapshot();
 
     if (!settings.remoteEnabled || !settings.appId.trim() || !settings.appSecret.trim()) {
-      await this.channelManager.unregisterAdapter('feishu', DEFAULT_CHANNEL_ID)
-      return
+      await this.channelManager.unregisterAdapter("feishu", DEFAULT_CHANNEL_ID);
+      return;
     }
 
-    const configSignature = this.buildFeishuAdapterSignature(settings)
-    const existing = this.channelManager.getAdapter('feishu', DEFAULT_CHANNEL_ID)
+    const configSignature = this.buildFeishuAdapterSignature(settings);
+    const existing = this.channelManager.getAdapter("feishu", DEFAULT_CHANNEL_ID);
     if (existing?.configSignature === configSignature && existing.connected) {
-      return
+      return;
     }
 
-    await this.channelManager.unregisterAdapter('feishu', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("feishu", DEFAULT_CHANNEL_ID);
 
     const adapter = await this.channelManager.createAdapter(
       await this.buildChannelAdapterConfig(
-        'feishu',
+        "feishu",
         {
           brand: settings.brand,
           appId: settings.appId.trim(),
           appSecret: settings.appSecret.trim(),
           verificationToken: settings.verificationToken.trim(),
-          encryptKey: settings.encryptKey.trim()
+          encryptKey: settings.encryptKey.trim(),
         },
-        configSignature
-      )
-    )
-    this.channelManager.registerAdapter(adapter)
+        configSignature,
+      ),
+    );
+    this.channelManager.registerAdapter(adapter);
 
     try {
-      await adapter.connect()
+      await adapter.connect();
     } catch {
       // The adapter status snapshot already captures the failure.
     }
   }
 
   private async rebuildQQBotRuntime(): Promise<void> {
-    const settings = this.buildQQBotSettingsSnapshot()
+    const settings = this.buildQQBotSettingsSnapshot();
 
     if (!settings.remoteEnabled || !settings.appId.trim() || !settings.clientSecret.trim()) {
-      await this.channelManager.unregisterAdapter('qqbot', DEFAULT_CHANNEL_ID)
-      return
+      await this.channelManager.unregisterAdapter("qqbot", DEFAULT_CHANNEL_ID);
+      return;
     }
 
-    const configSignature = this.buildQQBotAdapterSignature(settings)
-    const existing = this.channelManager.getAdapter('qqbot', DEFAULT_CHANNEL_ID)
+    const configSignature = this.buildQQBotAdapterSignature(settings);
+    const existing = this.channelManager.getAdapter("qqbot", DEFAULT_CHANNEL_ID);
     if (existing?.configSignature === configSignature && existing.connected) {
-      return
+      return;
     }
 
-    await this.channelManager.unregisterAdapter('qqbot', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("qqbot", DEFAULT_CHANNEL_ID);
 
     const adapter = await this.channelManager.createAdapter(
       await this.buildChannelAdapterConfig(
-        'qqbot',
+        "qqbot",
         {
           appId: settings.appId.trim(),
-          clientSecret: settings.clientSecret.trim()
+          clientSecret: settings.clientSecret.trim(),
         },
-        configSignature
-      )
-    )
-    this.channelManager.registerAdapter(adapter)
+        configSignature,
+      ),
+    );
+    this.channelManager.registerAdapter(adapter);
 
     try {
-      await adapter.connect()
+      await adapter.connect();
     } catch {
       // The adapter status snapshot already captures the failure.
     }
   }
 
   private async rebuildDiscordRuntime(): Promise<void> {
-    const settings = this.buildDiscordSettingsSnapshot()
+    const settings = this.buildDiscordSettingsSnapshot();
 
     if (!settings.remoteEnabled || !settings.botToken.trim()) {
-      await this.channelManager.unregisterAdapter('discord', DEFAULT_CHANNEL_ID)
-      return
+      await this.channelManager.unregisterAdapter("discord", DEFAULT_CHANNEL_ID);
+      return;
     }
 
-    const configSignature = this.buildDiscordAdapterSignature(settings)
-    const existing = this.channelManager.getAdapter('discord', DEFAULT_CHANNEL_ID)
+    const configSignature = this.buildDiscordAdapterSignature(settings);
+    const existing = this.channelManager.getAdapter("discord", DEFAULT_CHANNEL_ID);
     if (existing?.configSignature === configSignature && existing.connected) {
-      return
+      return;
     }
 
-    await this.channelManager.unregisterAdapter('discord', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("discord", DEFAULT_CHANNEL_ID);
 
     const adapter = await this.channelManager.createAdapter(
       await this.buildChannelAdapterConfig(
-        'discord',
+        "discord",
         {
-          botToken: settings.botToken.trim()
+          botToken: settings.botToken.trim(),
         },
-        configSignature
-      )
-    )
-    this.channelManager.registerAdapter(adapter)
+        configSignature,
+      ),
+    );
+    this.channelManager.registerAdapter(adapter);
 
     try {
-      await adapter.connect()
+      await adapter.connect();
     } catch {
       // The adapter status snapshot already captures the failure.
     }
   }
 
   private async rebuildWeixinIlinkRuntimes(): Promise<void> {
-    const settings = this.buildWeixinIlinkSettingsSnapshot()
-    const configuredAccountIds = new Set(settings.accounts.map((account) => account.accountId))
-    const existingAdapters = this.channelManager.listAdapters('weixin-ilink')
+    const settings = this.buildWeixinIlinkSettingsSnapshot();
+    const configuredAccountIds = new Set(settings.accounts.map((account) => account.accountId));
+    const existingAdapters = this.channelManager.listAdapters("weixin-ilink");
 
     for (const { channelId } of existingAdapters) {
-      const account = settings.accounts.find((entry) => entry.accountId === channelId)
-      const storedAccount = this.bindingStore.getWeixinIlinkAccount(channelId)
-      if (
-        !settings.remoteEnabled ||
-        !account ||
-        !account.enabled ||
-        !storedAccount?.botToken.trim()
-      ) {
-        await this.channelManager.unregisterAdapter('weixin-ilink', channelId)
+      const account = settings.accounts.find((entry) => entry.accountId === channelId);
+      const storedAccount = this.bindingStore.getWeixinIlinkAccount(channelId);
+      if (!settings.remoteEnabled || !account || !account.enabled || !storedAccount?.botToken.trim()) {
+        await this.channelManager.unregisterAdapter("weixin-ilink", channelId);
       }
     }
 
     if (!settings.remoteEnabled) {
-      return
+      return;
     }
 
     for (const accountId of configuredAccountIds) {
-      await this.rebuildWeixinIlinkAccountRuntime(accountId)
+      await this.rebuildWeixinIlinkAccountRuntime(accountId);
     }
   }
 
   private async rebuildWeixinIlinkAccountRuntime(accountId: string): Promise<void> {
-    const remoteConfig = this.bindingStore.getWeixinIlinkConfig()
-    const account = remoteConfig.accounts.find((entry) => entry.accountId === accountId.trim())
+    const remoteConfig = this.bindingStore.getWeixinIlinkConfig();
+    const account = remoteConfig.accounts.find((entry) => entry.accountId === accountId.trim());
     if (
       !remoteConfig.enabled ||
       !account ||
@@ -1134,55 +1104,52 @@ export class RemoteControlPresenter {
       !account.ownerUserId.trim() ||
       !account.botToken.trim()
     ) {
-      this.logWeixinTrace('Unregistering Weixin iLink adapter.', {
+      this.logWeixinTrace("Unregistering Weixin iLink adapter.", {
         accountId,
         reason: !remoteConfig.enabled
-          ? 'remote-disabled'
+          ? "remote-disabled"
           : !account
-            ? 'account-missing'
+            ? "account-missing"
             : !account.enabled
-              ? 'account-disabled'
+              ? "account-disabled"
               : !account.ownerUserId.trim()
-                ? 'missing-owner-user-id'
-                : 'missing-bot-token'
-      })
-      await this.channelManager.unregisterAdapter('weixin-ilink', accountId)
-      return
+                ? "missing-owner-user-id"
+                : "missing-bot-token",
+      });
+      await this.channelManager.unregisterAdapter("weixin-ilink", accountId);
+      return;
     }
 
-    const configSignature = this.buildWeixinIlinkAdapterSignature(
-      remoteConfig.defaultAgentId,
-      account
-    )
-    const existing = this.channelManager.getAdapter('weixin-ilink', account.accountId)
+    const configSignature = this.buildWeixinIlinkAdapterSignature(remoteConfig.defaultAgentId, account);
+    const existing = this.channelManager.getAdapter("weixin-ilink", account.accountId);
     if (existing?.configSignature === configSignature && existing.connected) {
-      this.logWeixinTrace('Reusing existing Weixin iLink adapter.', {
-        accountId: account.accountId
-      })
-      return
+      this.logWeixinTrace("Reusing existing Weixin iLink adapter.", {
+        accountId: account.accountId,
+      });
+      return;
     }
 
-    this.logWeixinTrace('Rebuilding Weixin iLink adapter.', {
+    this.logWeixinTrace("Rebuilding Weixin iLink adapter.", {
       accountId: account.accountId,
-      hadExistingAdapter: Boolean(existing)
-    })
-    await this.channelManager.unregisterAdapter('weixin-ilink', account.accountId)
+      hadExistingAdapter: Boolean(existing),
+    });
+    await this.channelManager.unregisterAdapter("weixin-ilink", account.accountId);
 
     const adapter = await this.channelManager.createAdapter(
-      await this.buildWeixinIlinkChannelAdapterConfig(account, configSignature)
-    )
-    this.channelManager.registerAdapter(adapter)
+      await this.buildWeixinIlinkChannelAdapterConfig(account, configSignature),
+    );
+    this.channelManager.registerAdapter(adapter);
 
     try {
-      await adapter.connect()
-      this.logWeixinTrace('Connected Weixin iLink adapter.', {
-        accountId: account.accountId
-      })
-    } catch (error) {
-      logger.warn('[RemoteControlPresenter] Failed to connect Weixin iLink adapter.', {
+      await adapter.connect();
+      this.logWeixinTrace("Connected Weixin iLink adapter.", {
         accountId: account.accountId,
-        error
-      })
+      });
+    } catch (error) {
+      logger.warn("[RemoteControlPresenter] Failed to connect Weixin iLink adapter.", {
+        accountId: account.accountId,
+        error,
+      });
       // The adapter status snapshot already captures the failure.
     }
   }
@@ -1190,420 +1157,390 @@ export class RemoteControlPresenter {
   private getEffectiveTelegramStatus(
     botToken: string,
     remoteEnabled: boolean,
-    lastFatalError: string | null
+    lastFatalError: string | null,
   ): TelegramPollerStatusSnapshot {
     if (!remoteEnabled) {
       if (lastFatalError) {
         return {
-          state: 'error',
+          state: "error",
           lastError: lastFatalError,
-          botUser: null
-        }
+          botUser: null,
+        };
       }
 
       return {
-        state: 'disabled',
+        state: "disabled",
         lastError: null,
-        botUser: null
-      }
+        botUser: null,
+      };
     }
 
     if (!botToken.trim()) {
       return {
-        state: 'error',
-        lastError: 'Bot token is required.',
-        botUser: null
-      }
+        state: "error",
+        lastError: "Bot token is required.",
+        botUser: null,
+      };
     }
 
-    const snapshot = this.channelManager.getStatusSnapshot('telegram', DEFAULT_CHANNEL_ID)
+    const snapshot = this.channelManager.getStatusSnapshot("telegram", DEFAULT_CHANNEL_ID);
     if (!snapshot) {
-      return { ...DEFAULT_TELEGRAM_POLLER_STATUS }
+      return { ...DEFAULT_TELEGRAM_POLLER_STATUS };
     }
 
     return {
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: (snapshot.botUser as TelegramRemoteStatus['botUser']) ?? null
-    }
+      botUser: (snapshot.botUser as TelegramRemoteStatus["botUser"]) ?? null,
+    };
   }
 
   private getEffectiveFeishuStatus(
     remoteEnabled: boolean,
     lastFatalError: string | null,
     appId: string,
-    appSecret: string
+    appSecret: string,
   ): FeishuRuntimeStatusSnapshot {
     if (!remoteEnabled) {
       if (lastFatalError) {
         return {
-          state: 'error',
+          state: "error",
           lastError: lastFatalError,
-          botUser: null
-        }
+          botUser: null,
+        };
       }
 
       return {
-        state: 'disabled',
+        state: "disabled",
         lastError: null,
-        botUser: null
-      }
+        botUser: null,
+      };
     }
 
     if (!appId.trim() || !appSecret.trim()) {
       return {
-        state: 'error',
-        lastError: 'App ID and App Secret are required.',
-        botUser: null
-      }
+        state: "error",
+        lastError: "App ID and App Secret are required.",
+        botUser: null,
+      };
     }
 
-    const snapshot = this.channelManager.getStatusSnapshot('feishu', DEFAULT_CHANNEL_ID)
+    const snapshot = this.channelManager.getStatusSnapshot("feishu", DEFAULT_CHANNEL_ID);
     if (!snapshot) {
-      return { ...DEFAULT_FEISHU_RUNTIME_STATUS }
+      return { ...DEFAULT_FEISHU_RUNTIME_STATUS };
     }
 
     return {
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: (snapshot.botUser as FeishuRemoteStatus['botUser']) ?? null
-    }
+      botUser: (snapshot.botUser as FeishuRemoteStatus["botUser"]) ?? null,
+    };
   }
 
   private getEffectiveQQBotStatus(
     remoteEnabled: boolean,
     lastFatalError: string | null,
     appId: string,
-    clientSecret: string
+    clientSecret: string,
   ): QQBotRuntimeStatusSnapshot {
     if (!remoteEnabled) {
       if (lastFatalError) {
         return {
-          state: 'error',
+          state: "error",
           lastError: lastFatalError,
-          botUser: null
-        }
+          botUser: null,
+        };
       }
 
       return {
-        state: 'disabled',
+        state: "disabled",
         lastError: null,
-        botUser: null
-      }
+        botUser: null,
+      };
     }
 
     if (!appId.trim() || !clientSecret.trim()) {
       return {
-        state: 'error',
-        lastError: 'App ID and Client Secret are required.',
-        botUser: null
-      }
+        state: "error",
+        lastError: "App ID and Client Secret are required.",
+        botUser: null,
+      };
     }
 
-    const snapshot = this.channelManager.getStatusSnapshot('qqbot', DEFAULT_CHANNEL_ID)
+    const snapshot = this.channelManager.getStatusSnapshot("qqbot", DEFAULT_CHANNEL_ID);
     if (!snapshot) {
-      return { ...DEFAULT_QQBOT_RUNTIME_STATUS }
+      return { ...DEFAULT_QQBOT_RUNTIME_STATUS };
     }
 
     return {
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: (snapshot.botUser as QQBotRemoteStatus['botUser']) ?? null
-    }
+      botUser: (snapshot.botUser as QQBotRemoteStatus["botUser"]) ?? null,
+    };
   }
 
   private getEffectiveDiscordStatus(
     remoteEnabled: boolean,
     lastFatalError: string | null,
-    botToken: string
+    botToken: string,
   ): DiscordRuntimeStatusSnapshot {
     if (!remoteEnabled) {
       if (lastFatalError) {
         return {
-          state: 'error',
+          state: "error",
           lastError: lastFatalError,
-          botUser: null
-        }
+          botUser: null,
+        };
       }
 
       return {
-        state: 'disabled',
+        state: "disabled",
         lastError: null,
-        botUser: null
-      }
+        botUser: null,
+      };
     }
 
     if (!botToken.trim()) {
       return {
-        state: 'error',
-        lastError: 'Bot token is required.',
-        botUser: null
-      }
+        state: "error",
+        lastError: "Bot token is required.",
+        botUser: null,
+      };
     }
 
-    const snapshot = this.channelManager.getStatusSnapshot('discord', DEFAULT_CHANNEL_ID)
+    const snapshot = this.channelManager.getStatusSnapshot("discord", DEFAULT_CHANNEL_ID);
     if (!snapshot) {
-      return { ...DEFAULT_DISCORD_RUNTIME_STATUS }
+      return { ...DEFAULT_DISCORD_RUNTIME_STATUS };
     }
 
     return {
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: (snapshot.botUser as DiscordRemoteStatus['botUser']) ?? null
-    }
+      botUser: (snapshot.botUser as DiscordRemoteStatus["botUser"]) ?? null,
+    };
   }
 
   private getEffectiveWeixinIlinkAccountStatus(
     remoteEnabled: boolean,
     account: {
-      accountId: string
-      ownerUserId: string
-      baseUrl: string
-      botToken: string
-      enabled: boolean
-      lastFatalError: string | null
-    }
+      accountId: string;
+      ownerUserId: string;
+      baseUrl: string;
+      botToken: string;
+      enabled: boolean;
+      lastFatalError: string | null;
+    },
   ): WeixinIlinkRuntimeStatusSnapshot {
     if (!remoteEnabled || !account.enabled) {
       if (account.lastFatalError) {
         return {
-          state: 'error',
+          state: "error",
           lastError: account.lastFatalError,
           botUser: {
             accountId: account.accountId,
             ownerUserId: account.ownerUserId,
-            baseUrl: account.baseUrl
-          }
-        }
+            baseUrl: account.baseUrl,
+          },
+        };
       }
 
       return {
         ...DEFAULT_WEIXIN_ILINK_RUNTIME_STATUS,
-        state: 'disabled',
+        state: "disabled",
         botUser: {
           accountId: account.accountId,
           ownerUserId: account.ownerUserId,
-          baseUrl: account.baseUrl
-        }
-      }
+          baseUrl: account.baseUrl,
+        },
+      };
     }
 
     if (!account.ownerUserId.trim() || !account.botToken.trim()) {
       return {
-        state: 'error',
-        lastError: 'Weixin iLink account credentials are incomplete.',
+        state: "error",
+        lastError: "Weixin iLink account credentials are incomplete.",
         botUser: {
           accountId: account.accountId,
           ownerUserId: account.ownerUserId,
-          baseUrl: account.baseUrl
-        }
-      }
+          baseUrl: account.baseUrl,
+        },
+      };
     }
 
-    const snapshot = this.channelManager.getStatusSnapshot('weixin-ilink', account.accountId)
+    const snapshot = this.channelManager.getStatusSnapshot("weixin-ilink", account.accountId);
     if (!snapshot) {
       return {
         ...DEFAULT_WEIXIN_ILINK_RUNTIME_STATUS,
         botUser: {
           accountId: account.accountId,
           ownerUserId: account.ownerUserId,
-          baseUrl: account.baseUrl
-        }
-      }
+          baseUrl: account.baseUrl,
+        },
+      };
     }
 
     return {
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: (snapshot.botUser as WeixinIlinkRuntimeStatusSnapshot['botUser']) ?? {
+      botUser: (snapshot.botUser as WeixinIlinkRuntimeStatusSnapshot["botUser"]) ?? {
         accountId: account.accountId,
         ownerUserId: account.ownerUserId,
-        baseUrl: account.baseUrl
-      }
-    }
+        baseUrl: account.baseUrl,
+      },
+    };
   }
 
   private resolveWeixinIlinkAggregateState(
     remoteEnabled: boolean,
-    states: Array<WeixinIlinkRemoteStatus['state']>
-  ): WeixinIlinkRemoteStatus['state'] {
+    states: Array<WeixinIlinkRemoteStatus["state"]>,
+  ): WeixinIlinkRemoteStatus["state"] {
     if (!remoteEnabled) {
-      return 'disabled'
+      return "disabled";
     }
 
     if (states.length === 0) {
-      return 'stopped'
+      return "stopped";
     }
 
-    if (states.includes('error')) {
-      return 'error'
+    if (states.includes("error")) {
+      return "error";
     }
 
-    if (states.includes('backoff')) {
-      return 'backoff'
+    if (states.includes("backoff")) {
+      return "backoff";
     }
 
-    if (states.includes('starting')) {
-      return 'starting'
+    if (states.includes("starting")) {
+      return "starting";
     }
 
-    if (states.includes('running')) {
-      return 'running'
+    if (states.includes("running")) {
+      return "running";
     }
 
-    return 'stopped'
+    return "stopped";
   }
 
-  private async disableTelegramRuntimeForFatalError(
-    configSignature: string,
-    errorMessage: string
-  ): Promise<void> {
-    const currentSettings = this.buildTelegramSettingsSnapshot()
-    if (
-      !currentSettings.remoteEnabled ||
-      this.buildTelegramAdapterSignature(currentSettings) !== configSignature
-    ) {
-      return
+  private async disableTelegramRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+    const currentSettings = this.buildTelegramSettingsSnapshot();
+    if (!currentSettings.remoteEnabled || this.buildTelegramAdapterSignature(currentSettings) !== configSignature) {
+      return;
     }
 
     this.bindingStore.updateTelegramConfig((config) => ({
       ...config,
       enabled: false,
-      lastFatalError: errorMessage
-    }))
+      lastFatalError: errorMessage,
+    }));
 
-    await this.channelManager.unregisterAdapter('telegram', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("telegram", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableFeishuRuntimeForFatalError(
-    configSignature: string,
-    errorMessage: string
-  ): Promise<void> {
-    const currentSettings = this.buildFeishuSettingsSnapshot()
-    if (
-      !currentSettings.remoteEnabled ||
-      this.buildFeishuAdapterSignature(currentSettings) !== configSignature
-    ) {
-      return
+  private async disableFeishuRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+    const currentSettings = this.buildFeishuSettingsSnapshot();
+    if (!currentSettings.remoteEnabled || this.buildFeishuAdapterSignature(currentSettings) !== configSignature) {
+      return;
     }
 
     this.bindingStore.updateFeishuConfig((config) => ({
       ...config,
       enabled: false,
-      lastFatalError: errorMessage
-    }))
+      lastFatalError: errorMessage,
+    }));
 
-    await this.channelManager.unregisterAdapter('feishu', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("feishu", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableQQBotRuntimeForFatalError(
-    configSignature: string,
-    errorMessage: string
-  ): Promise<void> {
-    const currentSettings = this.buildQQBotSettingsSnapshot()
-    if (
-      !currentSettings.remoteEnabled ||
-      this.buildQQBotAdapterSignature(currentSettings) !== configSignature
-    ) {
-      return
+  private async disableQQBotRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+    const currentSettings = this.buildQQBotSettingsSnapshot();
+    if (!currentSettings.remoteEnabled || this.buildQQBotAdapterSignature(currentSettings) !== configSignature) {
+      return;
     }
 
     this.bindingStore.updateQQBotConfig((config) => ({
       ...config,
       enabled: false,
-      lastFatalError: errorMessage
-    }))
+      lastFatalError: errorMessage,
+    }));
 
-    await this.channelManager.unregisterAdapter('qqbot', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("qqbot", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableDiscordRuntimeForFatalError(
-    configSignature: string,
-    errorMessage: string
-  ): Promise<void> {
-    const currentSettings = this.buildDiscordSettingsSnapshot()
-    if (
-      !currentSettings.remoteEnabled ||
-      this.buildDiscordAdapterSignature(currentSettings) !== configSignature
-    ) {
-      return
+  private async disableDiscordRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+    const currentSettings = this.buildDiscordSettingsSnapshot();
+    if (!currentSettings.remoteEnabled || this.buildDiscordAdapterSignature(currentSettings) !== configSignature) {
+      return;
     }
 
     this.bindingStore.updateDiscordConfig((config) => ({
       ...config,
       enabled: false,
-      lastFatalError: errorMessage
-    }))
+      lastFatalError: errorMessage,
+    }));
 
-    await this.channelManager.unregisterAdapter('discord', DEFAULT_CHANNEL_ID)
+    await this.channelManager.unregisterAdapter("discord", DEFAULT_CHANNEL_ID);
   }
 
   private async disableWeixinIlinkRuntimeForFatalError(
     accountId: string,
     configSignature: string,
-    errorMessage: string
+    errorMessage: string,
   ): Promise<void> {
-    const remoteConfig = this.bindingStore.getWeixinIlinkConfig()
-    const account = remoteConfig.accounts.find((entry) => entry.accountId === accountId)
+    const remoteConfig = this.bindingStore.getWeixinIlinkConfig();
+    const account = remoteConfig.accounts.find((entry) => entry.accountId === accountId);
     if (!remoteConfig.enabled || !account) {
-      return
+      return;
     }
 
-    if (
-      this.buildWeixinIlinkAdapterSignature(remoteConfig.defaultAgentId, account) !==
-      configSignature
-    ) {
-      return
+    if (this.buildWeixinIlinkAdapterSignature(remoteConfig.defaultAgentId, account) !== configSignature) {
+      return;
     }
 
     this.bindingStore.updateWeixinIlinkAccount(accountId, (config) => ({
       ...config,
       enabled: false,
-      lastFatalError: errorMessage
-    }))
+      lastFatalError: errorMessage,
+    }));
 
-    await this.channelManager.unregisterAdapter('weixin-ilink', accountId)
+    await this.channelManager.unregisterAdapter("weixin-ilink", accountId);
   }
 
   private async buildChannelAdapterConfig(
-    channel: 'telegram' | 'feishu' | 'qqbot' | 'discord',
+    channel: "telegram" | "feishu" | "qqbot" | "discord",
     channelConfig: Record<string, unknown>,
-    configSignature: string
+    configSignature: string,
   ): Promise<ChannelAdapterConfig> {
     return {
       channelId: DEFAULT_CHANNEL_ID,
       channelType: channel,
       agentId: await this.sanitizeDefaultAgentId(channel, this.getDefaultAgentId(channel)),
       channelConfig,
-      source: 'builtin',
-      configSignature
-    }
+      source: "builtin",
+      configSignature,
+    };
   }
 
   private async buildWeixinIlinkChannelAdapterConfig(
     account: {
-      accountId: string
-      ownerUserId: string
-      baseUrl: string
-      botToken: string
+      accountId: string;
+      ownerUserId: string;
+      baseUrl: string;
+      botToken: string;
     },
-    configSignature: string
+    configSignature: string,
   ): Promise<ChannelAdapterConfig> {
     return {
       channelId: account.accountId,
-      channelType: 'weixin-ilink',
-      agentId: await this.sanitizeDefaultAgentId(
-        'weixin-ilink',
-        this.getDefaultAgentId('weixin-ilink')
-      ),
+      channelType: "weixin-ilink",
+      agentId: await this.sanitizeDefaultAgentId("weixin-ilink", this.getDefaultAgentId("weixin-ilink")),
       channelConfig: {
         ownerUserId: account.ownerUserId,
         baseUrl: account.baseUrl,
-        botToken: account.botToken
+        botToken: account.botToken,
       },
-      source: 'builtin',
-      configSignature
-    }
+      source: "builtin",
+      configSignature,
+    };
   }
 
   private buildTelegramAdapterSignature(settings: TelegramRemoteSettings): string {
@@ -1611,8 +1548,8 @@ export class RemoteControlPresenter {
       botToken: settings.botToken.trim(),
       remoteEnabled: settings.remoteEnabled,
       defaultAgentId: settings.defaultAgentId.trim(),
-      defaultWorkdir: settings.defaultWorkdir.trim()
-    })
+      defaultWorkdir: settings.defaultWorkdir.trim(),
+    });
   }
 
   private buildFeishuAdapterSignature(settings: FeishuRemoteSettings): string {
@@ -1624,8 +1561,8 @@ export class RemoteControlPresenter {
       encryptKey: settings.encryptKey.trim(),
       remoteEnabled: settings.remoteEnabled,
       defaultAgentId: settings.defaultAgentId.trim(),
-      defaultWorkdir: settings.defaultWorkdir.trim()
-    })
+      defaultWorkdir: settings.defaultWorkdir.trim(),
+    });
   }
 
   private buildQQBotAdapterSignature(settings: QQBotRemoteSettings): string {
@@ -1634,8 +1571,8 @@ export class RemoteControlPresenter {
       clientSecret: settings.clientSecret.trim(),
       remoteEnabled: settings.remoteEnabled,
       defaultAgentId: settings.defaultAgentId.trim(),
-      defaultWorkdir: settings.defaultWorkdir.trim()
-    })
+      defaultWorkdir: settings.defaultWorkdir.trim(),
+    });
   }
 
   private buildDiscordAdapterSignature(settings: DiscordRemoteSettings): string {
@@ -1643,19 +1580,19 @@ export class RemoteControlPresenter {
       botToken: settings.botToken.trim(),
       remoteEnabled: settings.remoteEnabled,
       defaultAgentId: settings.defaultAgentId.trim(),
-      defaultWorkdir: settings.defaultWorkdir.trim()
-    })
+      defaultWorkdir: settings.defaultWorkdir.trim(),
+    });
   }
 
   private buildWeixinIlinkAdapterSignature(
     defaultAgentId: string,
     account: {
-      accountId: string
-      ownerUserId: string
-      baseUrl: string
-      botToken: string
-      enabled: boolean
-    }
+      accountId: string;
+      ownerUserId: string;
+      baseUrl: string;
+      botToken: string;
+      enabled: boolean;
+    },
   ): string {
     return JSON.stringify({
       accountId: account.accountId,
@@ -1663,14 +1600,14 @@ export class RemoteControlPresenter {
       baseUrl: account.baseUrl,
       botToken: account.botToken,
       enabled: account.enabled,
-      defaultAgentId: defaultAgentId.trim()
-    })
+      defaultAgentId: defaultAgentId.trim(),
+    });
   }
 
   private openWeixinIlinkLoginWindow(loginUrl: string | null | undefined): void {
-    const normalizedLoginUrl = loginUrl?.trim()
+    const normalizedLoginUrl = loginUrl?.trim();
     if (!normalizedLoginUrl) {
-      return
+      return;
     }
 
     if (
@@ -1678,58 +1615,57 @@ export class RemoteControlPresenter {
       !this.weixinIlinkLoginWindow.isDestroyed() &&
       this.weixinIlinkLoginWindowUrl === normalizedLoginUrl
     ) {
-      this.weixinIlinkLoginWindow.show()
-      this.weixinIlinkLoginWindow.focus()
-      return
+      this.weixinIlinkLoginWindow.show();
+      this.weixinIlinkLoginWindow.focus();
+      return;
     }
 
-    this.closeWeixinIlinkLoginWindow()
+    this.closeWeixinIlinkLoginWindow();
 
-    const parentWindow =
-      this.deps.windowPresenter.getFocusedWindow() ?? this.deps.windowPresenter.getAllWindows()[0]
+    const parentWindow = this.deps.windowPresenter.getFocusedWindow() ?? this.deps.windowPresenter.getAllWindows()[0];
     const loginWindow = new BrowserWindow({
       width: 420,
       height: 760,
       minWidth: 380,
       minHeight: 680,
       autoHideMenuBar: true,
-      title: 'WeChat iLink Login',
+      title: "WeChat iLink Login",
       ...(parentWindow ? { parent: parentWindow } : {}),
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        webSecurity: true
-      }
-    })
+        webSecurity: true,
+      },
+    });
 
     loginWindow.webContents.setWindowOpenHandler(({ url }) => {
-      void loginWindow.loadURL(url)
-      return { action: 'deny' }
-    })
-    loginWindow.on('closed', () => {
+      void loginWindow.loadURL(url);
+      return { action: "deny" };
+    });
+    loginWindow.on("closed", () => {
       if (this.weixinIlinkLoginWindow === loginWindow) {
-        this.weixinIlinkLoginWindow = null
-        this.weixinIlinkLoginWindowUrl = null
+        this.weixinIlinkLoginWindow = null;
+        this.weixinIlinkLoginWindowUrl = null;
       }
-    })
+    });
 
-    void loginWindow.loadURL(normalizedLoginUrl)
-    loginWindow.show()
-    loginWindow.focus()
-    this.weixinIlinkLoginWindow = loginWindow
-    this.weixinIlinkLoginWindowUrl = normalizedLoginUrl
+    void loginWindow.loadURL(normalizedLoginUrl);
+    loginWindow.show();
+    loginWindow.focus();
+    this.weixinIlinkLoginWindow = loginWindow;
+    this.weixinIlinkLoginWindowUrl = normalizedLoginUrl;
   }
 
   private closeWeixinIlinkLoginWindow(): void {
     if (!this.weixinIlinkLoginWindow || this.weixinIlinkLoginWindow.isDestroyed()) {
-      this.weixinIlinkLoginWindow = null
-      this.weixinIlinkLoginWindowUrl = null
-      return
+      this.weixinIlinkLoginWindow = null;
+      this.weixinIlinkLoginWindowUrl = null;
+      return;
     }
 
-    this.weixinIlinkLoginWindow.close()
-    this.weixinIlinkLoginWindow = null
-    this.weixinIlinkLoginWindowUrl = null
+    this.weixinIlinkLoginWindow.close();
+    this.weixinIlinkLoginWindow = null;
+    this.weixinIlinkLoginWindowUrl = null;
   }
 
   private createConversationRunner(channel: RemoteChannel): RemoteConversationRunner {
@@ -1741,117 +1677,112 @@ export class RemoteControlPresenter {
         agentRuntimePresenter: this.deps.agentRuntimePresenter,
         windowPresenter: this.deps.windowPresenter,
         tabPresenter: this.deps.tabPresenter,
-        resolveDefaultAgentId: async () =>
-          await this.sanitizeDefaultAgentId(channel, this.getDefaultAgentId(channel))
+        resolveDefaultAgentId: async () => await this.sanitizeDefaultAgentId(channel, this.getDefaultAgentId(channel)),
       },
-      this.bindingStore
-    )
+      this.bindingStore,
+    );
   }
 
   private logWeixinTrace(message: string, context?: Record<string, unknown>): void {
     if (!WEIXIN_TRACE_LOG_ENABLED) {
-      return
+      return;
     }
 
-    logger.info(`[RemoteControlPresenter] ${message}`, context)
+    logger.info(`[RemoteControlPresenter] ${message}`, context);
   }
 
   private getDefaultAgentId(channel: RemoteChannel): string {
-    return channel === 'telegram'
+    return channel === "telegram"
       ? this.bindingStore.getTelegramDefaultAgentId()
-      : channel === 'feishu'
+      : channel === "feishu"
         ? this.bindingStore.getFeishuDefaultAgentId()
-        : channel === 'qqbot'
+        : channel === "qqbot"
           ? this.bindingStore.getQQBotDefaultAgentId()
-          : channel === 'discord'
+          : channel === "discord"
             ? this.bindingStore.getDiscordDefaultAgentId()
-            : this.bindingStore.getWeixinIlinkDefaultAgentId()
+            : this.bindingStore.getWeixinIlinkDefaultAgentId();
   }
 
   private enqueueRuntimeOperation(operation: () => Promise<void>): Promise<void> {
-    const nextOperation = this.runtimeOperation.then(operation, operation)
-    this.runtimeOperation = nextOperation.catch(() => {})
-    return nextOperation
+    const nextOperation = this.runtimeOperation.then(operation, operation);
+    this.runtimeOperation = nextOperation.catch(() => {});
+    return nextOperation;
   }
 
-  private async sanitizeDefaultAgentId(
-    channel: RemoteChannel,
-    candidate: string | null | undefined
-  ): Promise<string> {
+  private async sanitizeDefaultAgentId(channel: RemoteChannel, candidate: string | null | undefined): Promise<string> {
     const channelDefault =
-      channel === 'qqbot'
+      channel === "qqbot"
         ? QQBOT_REMOTE_DEFAULT_AGENT_ID
-        : channel === 'discord'
+        : channel === "discord"
           ? DISCORD_REMOTE_DEFAULT_AGENT_ID
-          : channel === 'weixin-ilink'
+          : channel === "weixin-ilink"
             ? WEIXIN_ILINK_REMOTE_DEFAULT_AGENT_ID
-            : TELEGRAM_REMOTE_DEFAULT_AGENT_ID
-    const rawCandidate = candidate?.trim() || channelDefault
-    const normalizedCandidate = resolveAcpAgentAlias(rawCandidate)
-    const agents = await this.deps.configPresenter.listAgents()
-    const enabledAgents = agents.filter((agent) => agent.enabled !== false)
+            : TELEGRAM_REMOTE_DEFAULT_AGENT_ID;
+    const rawCandidate = candidate?.trim() || channelDefault;
+    const normalizedCandidate = resolveAcpAgentAlias(rawCandidate);
+    const agents = await this.deps.configPresenter.listAgents();
+    const enabledAgents = agents.filter((agent) => agent.enabled !== false);
     const matchedAgent =
       enabledAgents.find((agent) => agent.id === rawCandidate) ??
-      enabledAgents.find((agent) => resolveAcpAgentAlias(agent.id) === normalizedCandidate)
-    const fallbackAgent = enabledAgents.find((agent) => agent.id === channelDefault)
-    const nextDefaultAgentId =
-      matchedAgent?.id ?? fallbackAgent?.id ?? enabledAgents[0]?.id ?? channelDefault
+      enabledAgents.find((agent) => resolveAcpAgentAlias(agent.id) === normalizedCandidate);
+    const fallbackAgent = enabledAgents.find((agent) => agent.id === channelDefault);
+    const nextDefaultAgentId = matchedAgent?.id ?? fallbackAgent?.id ?? enabledAgents[0]?.id ?? channelDefault;
 
-    if (channel === 'telegram') {
+    if (channel === "telegram") {
       if (this.bindingStore.getTelegramDefaultAgentId() !== nextDefaultAgentId) {
         this.bindingStore.updateTelegramConfig((config) => ({
           ...config,
-          defaultAgentId: nextDefaultAgentId
-        }))
+          defaultAgentId: nextDefaultAgentId,
+        }));
       }
-    } else if (channel === 'feishu') {
+    } else if (channel === "feishu") {
       if (this.bindingStore.getFeishuDefaultAgentId() !== nextDefaultAgentId) {
         this.bindingStore.updateFeishuConfig((config) => ({
           ...config,
-          defaultAgentId: nextDefaultAgentId
-        }))
+          defaultAgentId: nextDefaultAgentId,
+        }));
       }
-    } else if (channel === 'qqbot') {
+    } else if (channel === "qqbot") {
       if (this.bindingStore.getQQBotDefaultAgentId() !== nextDefaultAgentId) {
         this.bindingStore.updateQQBotConfig((config) => ({
           ...config,
-          defaultAgentId: nextDefaultAgentId
-        }))
+          defaultAgentId: nextDefaultAgentId,
+        }));
       }
-    } else if (channel === 'discord') {
+    } else if (channel === "discord") {
       if (this.bindingStore.getDiscordDefaultAgentId() !== nextDefaultAgentId) {
         this.bindingStore.updateDiscordConfig((config) => ({
           ...config,
-          defaultAgentId: nextDefaultAgentId
-        }))
+          defaultAgentId: nextDefaultAgentId,
+        }));
       }
     } else if (this.bindingStore.getWeixinIlinkDefaultAgentId() !== nextDefaultAgentId) {
       this.bindingStore.updateWeixinIlinkConfig((config) => ({
         ...config,
-        defaultAgentId: nextDefaultAgentId
-      }))
+        defaultAgentId: nextDefaultAgentId,
+      }));
     }
 
-    return nextDefaultAgentId
+    return nextDefaultAgentId;
   }
 
   private async assertAcpDefaultWorkdir(agentId: string, defaultWorkdir: string): Promise<void> {
-    if ((await this.deps.configPresenter.getAgentType(agentId)) !== 'acp') {
-      return
+    if ((await this.deps.configPresenter.getAgentType(agentId)) !== "acp") {
+      return;
     }
 
     if (defaultWorkdir.trim()) {
-      return
+      return;
     }
 
-    throw new Error(REMOTE_CONTROL_ERROR_MESSAGES.acpDefaultWorkdirRequired)
+    throw new Error(REMOTE_CONTROL_ERROR_MESSAGES.acpDefaultWorkdirRequired);
   }
 
   private async registerTelegramCommands(client: TelegramClient): Promise<void> {
     try {
-      await client.setMyCommands([...TELEGRAM_REMOTE_COMMANDS])
+      await client.setMyCommands([...TELEGRAM_REMOTE_COMMANDS]);
     } catch (error) {
-      console.warn('[RemoteControlPresenter] Failed to register Telegram commands:', error)
+      console.warn("[RemoteControlPresenter] Failed to register Telegram commands:", error);
     }
   }
 }

@@ -1,44 +1,44 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi } from "vitest";
 
-vi.mock('@/stores/artifact', () => ({
+vi.mock("@/stores/artifact", () => ({
   useArtifactStore: () => ({
-    showArtifact: vi.fn()
-  })
-}))
+    showArtifact: vi.fn(),
+  }),
+}));
 
-vi.mock('@/stores/reference', () => ({
+vi.mock("@/stores/reference", () => ({
   useReferenceStore: () => ({
     hideReference: vi.fn(),
-    showReference: vi.fn()
-  })
-}))
+    showReference: vi.fn(),
+  }),
+}));
 
-vi.mock('@/stores/theme', () => ({
+vi.mock("@/stores/theme", () => ({
   useThemeStore: () => ({
-    isDark: false
-  })
-}))
+    isDark: false,
+  }),
+}));
 
-vi.mock('@/stores/uiSettingsStore', () => ({
+vi.mock("@/stores/uiSettingsStore", () => ({
   useUiSettingsStore: () => ({
-    formattedCodeFontFamily: 'monospace'
-  })
-}))
+    formattedCodeFontFamily: "monospace",
+  }),
+}));
 
-vi.mock('@api/SessionClient', () => ({
+vi.mock("@api/SessionClient", () => ({
   createSessionClient: vi.fn(() => ({
-    getSearchResults: vi.fn().mockResolvedValue([])
-  }))
-}))
+    getSearchResults: vi.fn().mockResolvedValue([]),
+  })),
+}));
 
-vi.mock('@/components/markdown/useMarkdownLinkNavigation', () => ({
+vi.mock("@/components/markdown/useMarkdownLinkNavigation", () => ({
   useMarkdownLinkNavigation: () => ({
-    navigateLink: vi.fn().mockResolvedValue(true)
-  })
-}))
+    navigateLink: vi.fn().mockResolvedValue(true),
+  }),
+}));
 
-describe('MarkdownRenderer', () => {
-  it('placeholder — full React tests will be written in Phase 12', () => {
-    expect(true).toBe(true)
-  })
-})
+describe("MarkdownRenderer", () => {
+  it("placeholder — full React tests will be written in Phase 12", () => {
+    expect(true).toBe(true);
+  });
+});

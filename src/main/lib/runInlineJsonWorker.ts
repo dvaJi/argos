@@ -1,121 +1,121 @@
-import { Worker } from 'node:worker_threads'
-import { fileURLToPath } from 'node:url'
+import { Worker } from "node:worker_threads";
+import { fileURLToPath } from "node:url";
 
 type InlineJsonWorkerResponse<T> =
   | {
-      ok: true
-      data: T
+      ok: true;
+      data: T;
     }
   | {
-      ok: false
+      ok: false;
       error: {
-        message: string
-        stack?: string
-      }
-    }
+        message: string;
+        stack?: string;
+      };
+    };
 
 type RunInlineJsonWorkerOptions<TInput> = {
-  name: string
-  source: string
-  input: TInput
-  signal?: AbortSignal
-}
+  name: string;
+  source: string;
+  input: TInput;
+  signal?: AbortSignal;
+};
 
 function createAbortError(name: string): Error {
-  const error = new Error(`Inline worker "${name}" was cancelled`)
-  error.name = 'AbortError'
-  return error
+  const error = new Error(`Inline worker "${name}" was cancelled`);
+  error.name = "AbortError";
+  return error;
 }
 
 export async function runInlineJsonWorker<TInput, TOutput>({
   name,
   source,
   input,
-  signal
+  signal,
 }: RunInlineJsonWorkerOptions<TInput>): Promise<TOutput> {
   if (signal?.aborted) {
-    throw createAbortError(name)
+    throw createAbortError(name);
   }
 
   return await new Promise<TOutput>((resolve, reject) => {
-    let settled = false
+    let settled = false;
     const wrappedSource = `
 const { createRequire } = require('node:module')
 globalThis.__inlineWorkerRequire = createRequire(${JSON.stringify(fileURLToPath(import.meta.url))})
 ${source}
-`
+`;
 
     const worker = new Worker(wrappedSource, {
       eval: true,
       name,
-      workerData: input
-    })
+      workerData: input,
+    });
 
     const cleanup = () => {
       if (signal) {
-        signal.removeEventListener('abort', handleAbort)
+        signal.removeEventListener("abort", handleAbort);
       }
-      worker.removeAllListeners()
-    }
+      worker.removeAllListeners();
+    };
 
     const settleResolve = (value: TOutput) => {
       if (settled) {
-        return
+        return;
       }
-      settled = true
-      cleanup()
-      resolve(value)
-    }
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
 
     const settleReject = (error: unknown) => {
       if (settled) {
-        return
+        return;
       }
-      settled = true
-      cleanup()
-      reject(error)
-    }
+      settled = true;
+      cleanup();
+      reject(error);
+    };
 
     const handleAbort = () => {
       worker
         .terminate()
         .catch(() => {})
         .finally(() => {
-          settleReject(createAbortError(name))
-        })
-    }
+          settleReject(createAbortError(name));
+        });
+    };
 
-    worker.once('message', (response: InlineJsonWorkerResponse<TOutput>) => {
-      if (!response || typeof response !== 'object') {
-        settleReject(new Error(`Inline worker "${name}" returned an invalid response`))
-        return
+    worker.once("message", (response: InlineJsonWorkerResponse<TOutput>) => {
+      if (!response || typeof response !== "object") {
+        settleReject(new Error(`Inline worker "${name}" returned an invalid response`));
+        return;
       }
 
       if (!response.ok) {
-        const error = new Error(response.error.message)
-        error.name = 'WorkerError'
+        const error = new Error(response.error.message);
+        error.name = "WorkerError";
         if (response.error.stack) {
-          error.stack = response.error.stack
+          error.stack = response.error.stack;
         }
-        settleReject(error)
-        return
+        settleReject(error);
+        return;
       }
 
-      settleResolve(response.data)
-    })
+      settleResolve(response.data);
+    });
 
-    worker.once('error', (error) => {
-      settleReject(error)
-    })
+    worker.once("error", (error) => {
+      settleReject(error);
+    });
 
-    worker.once('exit', (code) => {
+    worker.once("exit", (code) => {
       if (!settled && code !== 0) {
-        settleReject(new Error(`Inline worker "${name}" exited with code ${code}`))
+        settleReject(new Error(`Inline worker "${name}" exited with code ${code}`));
       }
-    })
+    });
 
     if (signal) {
-      signal.addEventListener('abort', handleAbort, { once: true })
+      signal.addEventListener("abort", handleAbort, { once: true });
     }
-  })
+  });
 }

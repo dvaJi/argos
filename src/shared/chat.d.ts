@@ -1,222 +1,209 @@
-import { FileMetaData } from './presenter'
-import type { ToolCallImagePreview } from './types/core/mcp'
-import type { AgentPlanDisplayItem } from './types/agent-plan'
+import { FileMetaData } from "./presenter";
+import type { ToolCallImagePreview } from "./types/core/mcp";
+import type { AgentPlanDisplayItem } from "./types/agent-plan";
 
 export type Message = {
-  id: string
+  id: string;
 
-  content: UserMessageContent | AssistantMessageBlock[]
-  role: MESSAGE_ROLE
-  timestamp: number
-  avatar: string
-  name: string
-  model_name: string
-  model_id: string
-  model_provider: string
-  status: 'sent' | 'pending' | 'error'
-  error: string
+  content: UserMessageContent | AssistantMessageBlock[];
+  role: MESSAGE_ROLE;
+  timestamp: number;
+  avatar: string;
+  name: string;
+  model_name: string;
+  model_id: string;
+  model_provider: string;
+  status: "sent" | "pending" | "error";
+  error: string;
   // user messages only have prompt_tokens, other values can be left as 0
   usage: {
-    context_usage: number
-    tokens_per_second: number
-    total_tokens: number
-    generation_time: number
-    first_token_time: number
-    reasoning_start_time: number
-    reasoning_end_time: number
-    input_tokens: number
-    output_tokens: number
-  }
-  parentId?: string
-  conversationId: string
-  is_variant: number
-  variants?: Message[]
-}
+    context_usage: number;
+    tokens_per_second: number;
+    total_tokens: number;
+    generation_time: number;
+    first_token_time: number;
+    reasoning_start_time: number;
+    reasoning_end_time: number;
+    input_tokens: number;
+    output_tokens: number;
+  };
+  parentId?: string;
+  conversationId: string;
+  is_variant: number;
+  variants?: Message[];
+};
 
 export type UserMessage = Message & {
-  role: 'user'
-  content: UserMessageContent
-}
+  role: "user";
+  content: UserMessageContent;
+};
 
 export type AssistantMessage = Message & {
-  role: 'assistant'
-  content: AssistantMessageBlock[]
-}
+  role: "assistant";
+  content: AssistantMessageBlock[];
+};
 
 export type UserMessageTextBlock = {
-  type: 'text'
-  content: string
-}
+  type: "text";
+  content: string;
+};
 
 export type UserMessageCodeBlock = {
-  type: 'code'
-  content: string
-  language: string
-}
+  type: "code";
+  content: string;
+  language: string;
+};
 
 export type UserMessageMentionBlock = {
-  type: 'mention'
-  content: string
-  id: string
-  category: string
-}
+  type: "mention";
+  content: string;
+  id: string;
+  category: string;
+};
 
 export type UserMessageContent = {
-  continue?: boolean
-  files: MessageFile[]
-  resources?: ResourceListEntryWithClient[]
-  prompts?: PromptWithClient[]
-  links: string[]
-  think: boolean
-  search: boolean
-  text: string
-  content?: (UserMessageTextBlock | UserMessageMentionBlock | UserMessageCodeBlock)[]
-}
+  continue?: boolean;
+  files: MessageFile[];
+  resources?: ResourceListEntryWithClient[];
+  prompts?: PromptWithClient[];
+  links: string[];
+  think: boolean;
+  search: boolean;
+  text: string;
+  content?: (UserMessageTextBlock | UserMessageMentionBlock | UserMessageCodeBlock)[];
+};
 
 export type MessageFile = {
-  name: string
-  content: string
-  mimeType: string
-  metadata: FileMetaData
-  token: number
-  path: string
-  thumbnail?: string
-}
+  name: string;
+  content: string;
+  mimeType: string;
+  metadata: FileMetaData;
+  token: number;
+  path: string;
+  thumbnail?: string;
+};
 
 export type AssistantMessageBlock = {
   type:
-    | 'content'
-    | 'search'
-    | 'reasoning_content'
-    | 'plan'
-    | 'error'
-    | 'tool_call'
-    | 'action'
-    | 'image'
-    | 'audio'
-    | 'artifact-thinking'
-  id?: string
-  content?: string
-  extra?: AssistantMessageExtra
-  status:
-    | 'success'
-    | 'loading'
-    | 'cancel'
-    | 'error'
-    | 'reading'
-    | 'optimizing'
-    | 'pending'
-    | 'granted'
-    | 'denied'
-  timestamp: number
+    | "content"
+    | "search"
+    | "reasoning_content"
+    | "plan"
+    | "error"
+    | "tool_call"
+    | "action"
+    | "image"
+    | "audio"
+    | "artifact-thinking";
+  id?: string;
+  content?: string;
+  extra?: AssistantMessageExtra;
+  status: "success" | "loading" | "cancel" | "error" | "reading" | "optimizing" | "pending" | "granted" | "denied";
+  timestamp: number;
   artifact?: {
-    identifier: string
-    title: string
+    identifier: string;
+    title: string;
     type:
-      | 'application/vnd.ant.code'
-      | 'text/markdown'
-      | 'text/html'
-      | 'image/svg+xml'
-      | 'application/vnd.ant.mermaid'
-      | 'application/vnd.ant.react'
-    language?: string
-  }
+      | "application/vnd.ant.code"
+      | "text/markdown"
+      | "text/html"
+      | "image/svg+xml"
+      | "application/vnd.ant.mermaid"
+      | "application/vnd.ant.react";
+    language?: string;
+  };
   tool_call?: {
-    id?: string
-    name?: string
-    params?: string
-    response?: string
-    imagePreviews?: ToolCallImagePreview[]
-    server_name?: string
-    server_icons?: string
-    server_description?: string
-  }
-  action_type?:
-    | 'tool_call_permission'
-    | 'maximum_tool_calls_reached'
-    | 'rate_limit'
-    | 'question_request'
+    id?: string;
+    name?: string;
+    params?: string;
+    response?: string;
+    imagePreviews?: ToolCallImagePreview[];
+    server_name?: string;
+    server_icons?: string;
+    server_description?: string;
+  };
+  action_type?: "tool_call_permission" | "maximum_tool_calls_reached" | "rate_limit" | "question_request";
   image_data?: {
-    data: string
-    mimeType: string
-  }
+    data: string;
+    mimeType: string;
+  };
   reasoning_time?: {
-    start: number
-    end: number
-  }
-}
+    start: number;
+    end: number;
+  };
+};
 
-export type PermissionType = 'read' | 'write' | 'all' | 'command'
+export type PermissionType = "read" | "write" | "all" | "command";
 
-export type CommandRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+export type CommandRiskLevel = "low" | "medium" | "high" | "critical";
 
 export type CommandInfo = {
-  command: string
-  riskLevel: CommandRiskLevel
-  suggestion: string
-  signature?: string
-  baseCommand?: string
-}
+  command: string;
+  riskLevel: CommandRiskLevel;
+  suggestion: string;
+  signature?: string;
+  baseCommand?: string;
+};
 
 export type AssistantMessageExtra = Record<string, string | number | object[] | boolean> & {
-  needsUserAction?: boolean
-  permissionType?: PermissionType
-  grantedPermissions?: PermissionType
-  toolName?: string
-  serverName?: string
-  providerId?: string
-  permissionRequestId?: string
-  permissionRequest?: string
-  commandInfo?: string
-  rememberable?: boolean
-  questionHeader?: string
-  questionText?: string
+  needsUserAction?: boolean;
+  permissionType?: PermissionType;
+  grantedPermissions?: PermissionType;
+  toolName?: string;
+  serverName?: string;
+  providerId?: string;
+  permissionRequestId?: string;
+  permissionRequest?: string;
+  commandInfo?: string;
+  rememberable?: boolean;
+  questionHeader?: string;
+  questionText?: string;
   questionOptions?:
     | Array<{
-        label: string
-        description?: string
+        label: string;
+        description?: string;
       }>
-    | string
-  questionMultiple?: boolean
-  questionCustom?: boolean
-  questionResolution?: 'asked' | 'replied' | 'rejected'
-  answerText?: string
-  answerMessageId?: string
-  skillDraftAction?: string
-  skillDraftId?: string
-  skillDraftName?: string
-  skillDraftPreview?: string
-  skillDraftStatus?: string
-  skillDraftError?: string
-  internalTool?: boolean
-  plan_entries?: AgentPlanDisplayItem[]
-  plan_explanation?: string
-  plan_revision?: number
-  plan_updated_at?: string
-  subagentProgress?: string
-  subagentFinal?: string
-}
+    | string;
+  questionMultiple?: boolean;
+  questionCustom?: boolean;
+  questionResolution?: "asked" | "replied" | "rejected";
+  answerText?: string;
+  answerMessageId?: string;
+  skillDraftAction?: string;
+  skillDraftId?: string;
+  skillDraftName?: string;
+  skillDraftPreview?: string;
+  skillDraftStatus?: string;
+  skillDraftError?: string;
+  internalTool?: boolean;
+  plan_entries?: AgentPlanDisplayItem[];
+  plan_explanation?: string;
+  plan_revision?: number;
+  plan_updated_at?: string;
+  subagentProgress?: string;
+  subagentFinal?: string;
+};
 // Search-related message block types
 export type SearchBlock = {
-  type: 'search'
-  status: 'loading' | 'success' | 'error'
-  timestamp: number
+  type: "search";
+  status: "loading" | "success" | "error";
+  timestamp: number;
   extra: {
-    total?: number
+    total?: number;
     pages?: Array<{
-      title: string
-      url: string
-      content?: string
-    }>
-    searchId?: string
-  }
-}
+      title: string;
+      url: string;
+      content?: string;
+    }>;
+    searchId?: string;
+  };
+};
 
 export interface SearchEngineTemplate {
-  id: string
-  name: string
-  selector: string
-  searchUrl: string
-  extractorScript: string
-  isCustom?: boolean
+  id: string;
+  name: string;
+  selector: string;
+  searchUrl: string;
+  extractorScript: string;
+  isCustom?: boolean;
 }

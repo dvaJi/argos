@@ -1,4 +1,4 @@
-import type { ToolInteractionResponse } from '@shared/types/agent-interface'
+import type { ToolInteractionResponse } from "@shared/types/agent-interface";
 import type {
   RemotePendingInteraction,
   TelegramAgentMenuCallback,
@@ -11,8 +11,8 @@ import type {
   TelegramModelProviderOption,
   TelegramOutboundAction,
   TelegramPendingInteractionCallback,
-  TelegramPollerStatusSnapshot
-} from '../types'
+  TelegramPollerStatusSnapshot,
+} from "../types";
 import {
   TELEGRAM_AGENT_MENU_TTL_MS,
   TELEGRAM_INTERACTION_CALLBACK_TTL_MS,
@@ -26,271 +26,263 @@ import {
   buildModelMenuProviderCallbackData,
   parseAgentMenuCallbackData,
   parseModelMenuCallbackData,
-  parsePendingInteractionCallbackData
-} from '../types'
+  parsePendingInteractionCallbackData,
+} from "../types";
 import {
   buildTelegramInteractionResolvedText,
-  buildTelegramPendingInteractionPrompt
-} from '../telegram/telegramInteractionPrompt'
-import type { RemoteConversationExecution } from './remoteConversationRunner'
-import { RemoteAuthGuard } from './remoteAuthGuard'
-import { RemoteBindingStore } from './remoteBindingStore'
-import { RemoteConversationRunner } from './remoteConversationRunner'
+  buildTelegramPendingInteractionPrompt,
+} from "../telegram/telegramInteractionPrompt";
+import type { RemoteConversationExecution } from "./remoteConversationRunner";
+import { RemoteAuthGuard } from "./remoteAuthGuard";
+import { RemoteBindingStore } from "./remoteBindingStore";
+import { RemoteConversationRunner } from "./remoteConversationRunner";
 
 export interface RemoteCommandRouteResult {
-  replies: string[]
-  outboundActions?: TelegramOutboundAction[]
-  conversation?: RemoteConversationExecution
-  callbackAnswer?: TelegramCallbackAnswer
-  deferred?: Promise<RemoteCommandRouteContinuation>
+  replies: string[];
+  outboundActions?: TelegramOutboundAction[];
+  conversation?: RemoteConversationExecution;
+  callbackAnswer?: TelegramCallbackAnswer;
+  deferred?: Promise<RemoteCommandRouteContinuation>;
 }
 
 export interface RemoteCommandRouteContinuation {
-  replies?: string[]
-  outboundActions?: TelegramOutboundAction[]
-  conversation?: RemoteConversationExecution
+  replies?: string[];
+  outboundActions?: TelegramOutboundAction[];
+  conversation?: RemoteConversationExecution;
 }
 
 type RemoteCommandRouterDeps = {
-  authGuard: RemoteAuthGuard
-  runner: RemoteConversationRunner
-  bindingStore: RemoteBindingStore
-  getPollerStatus: () => TelegramPollerStatusSnapshot
-}
+  authGuard: RemoteAuthGuard;
+  runner: RemoteConversationRunner;
+  bindingStore: RemoteBindingStore;
+  getPollerStatus: () => TelegramPollerStatusSnapshot;
+};
 
-const TELEGRAM_PENDING_ALLOWED_COMMANDS = new Set(['start', 'help', 'status', 'open', 'pending'])
+const TELEGRAM_PENDING_ALLOWED_COMMANDS = new Set(["start", "help", "status", "open", "pending"]);
 
 export class RemoteCommandRouter {
   constructor(private readonly deps: RemoteCommandRouterDeps) {}
 
   async handleMessage(event: TelegramInboundEvent): Promise<RemoteCommandRouteResult> {
-    if (event.kind === 'callback_query') {
-      return await this.handleCallbackQuery(event)
+    if (event.kind === "callback_query") {
+      return await this.handleCallbackQuery(event);
     }
 
-    return await this.handleTextMessage(event)
+    return await this.handleTextMessage(event);
   }
 
-  private async handleTextMessage(
-    message: TelegramInboundMessage
-  ): Promise<RemoteCommandRouteResult> {
-    const endpointKey = this.deps.bindingStore.getEndpointKey(message)
-    const command = message.command?.name
+  private async handleTextMessage(message: TelegramInboundMessage): Promise<RemoteCommandRouteResult> {
+    const endpointKey = this.deps.bindingStore.getEndpointKey(message);
+    const command = message.command?.name;
 
-    if (command === 'start') {
-      const auth = this.deps.authGuard.ensureAuthorized(message)
+    if (command === "start") {
+      const auth = this.deps.authGuard.ensureAuthorized(message);
       return {
-        replies: [this.formatStartMessage(auth.ok)]
-      }
+        replies: [this.formatStartMessage(auth.ok)],
+      };
     }
 
-    if (command === 'help') {
+    if (command === "help") {
       return {
-        replies: [this.formatHelpMessage()]
-      }
+        replies: [this.formatHelpMessage()],
+      };
     }
 
-    if (command === 'pair') {
+    if (command === "pair") {
       return {
-        replies: [this.deps.authGuard.pair(message, message.command?.args ?? '')]
-      }
+        replies: [this.deps.authGuard.pair(message, message.command?.args ?? "")],
+      };
     }
 
-    const auth = this.deps.authGuard.ensureAuthorized(message)
+    const auth = this.deps.authGuard.ensureAuthorized(message);
     if (!auth.ok) {
       return {
-        replies: [auth.message]
-      }
+        replies: [auth.message],
+      };
     }
 
     try {
-      const pendingInteraction = await this.deps.runner.getPendingInteraction(endpointKey)
+      const pendingInteraction = await this.deps.runner.getPendingInteraction(endpointKey);
       if (pendingInteraction) {
         if (!command) {
-          return await this.handlePendingTextResponse(endpointKey, message.text, pendingInteraction)
+          return await this.handlePendingTextResponse(endpointKey, message.text, pendingInteraction);
         }
 
-        if (command === 'pending') {
-          return this.buildPendingPromptResult(endpointKey, pendingInteraction)
+        if (command === "pending") {
+          return this.buildPendingPromptResult(endpointKey, pendingInteraction);
         }
 
         if (!TELEGRAM_PENDING_ALLOWED_COMMANDS.has(command)) {
           return {
-            replies: [this.formatPendingCommandBlockedMessage(pendingInteraction)]
-          }
+            replies: [this.formatPendingCommandBlockedMessage(pendingInteraction)],
+          };
         }
       }
 
       switch (command) {
-        case 'new': {
-          const title = message.command?.args?.trim()
-          const session = await this.deps.runner.createNewSession(endpointKey, title)
+        case "new": {
+          const title = message.command?.args?.trim();
+          const session = await this.deps.runner.createNewSession(endpointKey, title);
           return {
-            replies: [`Started a new session: ${this.formatSessionLabel(session)}`]
-          }
+            replies: [`Started a new session: ${this.formatSessionLabel(session)}`],
+          };
         }
 
-        case 'sessions': {
-          const sessions = await this.deps.runner.listSessions(endpointKey)
+        case "sessions": {
+          const sessions = await this.deps.runner.listSessions(endpointKey);
           if (sessions.length === 0) {
             return {
-              replies: ['No sessions were found.']
-            }
+              replies: ["No sessions were found."],
+            };
           }
 
           return {
             replies: [
               [
-                'Recent sessions:',
-                ...sessions.map((session, index) => this.formatSessionLine(session, index + 1))
-              ].join('\n')
-            ]
-          }
+                "Recent sessions:",
+                ...sessions.map((session, index) => this.formatSessionLine(session, index + 1)),
+              ].join("\n"),
+            ],
+          };
         }
 
-        case 'use': {
-          const rawIndex = message.command?.args?.trim()
-          const index = Number.parseInt(rawIndex ?? '', 10)
+        case "use": {
+          const rawIndex = message.command?.args?.trim();
+          const index = Number.parseInt(rawIndex ?? "", 10);
           if (!Number.isInteger(index) || index <= 0) {
             return {
-              replies: ['Usage: /use <index>']
-            }
+              replies: ["Usage: /use <index>"],
+            };
           }
 
-          const session = await this.deps.runner.useSessionByIndex(endpointKey, index - 1)
+          const session = await this.deps.runner.useSessionByIndex(endpointKey, index - 1);
           return {
-            replies: [`Now using: ${this.formatSessionLabel(session)}`]
-          }
+            replies: [`Now using: ${this.formatSessionLabel(session)}`],
+          };
         }
 
-        case 'stop': {
-          const stopped = await this.deps.runner.stop(endpointKey)
+        case "stop": {
+          const stopped = await this.deps.runner.stop(endpointKey);
           return {
-            replies: [
-              stopped ? 'Stopped the active generation.' : 'There is no active generation to stop.'
-            ]
-          }
+            replies: [stopped ? "Stopped the active generation." : "There is no active generation to stop."],
+          };
         }
 
-        case 'open': {
-          const openResult = await this.deps.runner.open(endpointKey)
+        case "open": {
+          const openResult = await this.deps.runner.open(endpointKey);
           return {
             replies: [
-              openResult.status === 'ok'
+              openResult.status === "ok"
                 ? `Opened on desktop: ${this.formatSessionLabel(openResult.session)}`
-                : openResult.status === 'windowNotFound'
-                  ? 'Could not find a DeepChat desktop window. Open DeepChat and try /open again.'
-                  : 'No bound session. Send a message, /new, or /use first.'
-            ]
-          }
+                : openResult.status === "windowNotFound"
+                  ? "Could not find a DeepChat desktop window. Open DeepChat and try /open again."
+                  : "No bound session. Send a message, /new, or /use first.",
+            ],
+          };
         }
 
-        case 'pending': {
+        case "pending": {
           return {
-            replies: ['No pending interaction is waiting.']
-          }
+            replies: ["No pending interaction is waiting."],
+          };
         }
 
-        case 'model': {
-          const session = await this.deps.runner.getCurrentSession(endpointKey)
+        case "model": {
+          const session = await this.deps.runner.getCurrentSession(endpointKey);
           if (!session) {
             return {
-              replies: ['No bound session. Send a message, /new, or /use first.']
-            }
+              replies: ["No bound session. Send a message, /new, or /use first."],
+            };
           }
 
           if (await this.deps.runner.isSessionModelLocked(session)) {
             return {
-              replies: ['ACP sessions lock the model. Change the channel default agent instead.']
-            }
+              replies: ["ACP sessions lock the model. Change the channel default agent instead."],
+            };
           }
 
-          const providers = await this.deps.runner.listAvailableModelProviders()
+          const providers = await this.deps.runner.listAvailableModelProviders();
           if (providers.length === 0) {
             return {
-              replies: ['No enabled providers or models are available.']
-            }
+              replies: ["No enabled providers or models are available."],
+            };
           }
 
-          const token = this.deps.bindingStore.createModelMenuState(
-            endpointKey,
-            session.id,
-            providers
-          )
+          const token = this.deps.bindingStore.createModelMenuState(endpointKey, session.id, providers);
 
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'sendMessage',
+                type: "sendMessage",
                 text: this.formatProviderMenuText(session),
-                replyMarkup: this.buildProviderMenuKeyboard(token, providers)
-              }
-            ]
-          }
+                replyMarkup: this.buildProviderMenuKeyboard(token, providers),
+              },
+            ],
+          };
         }
 
-        case 'agent': {
-          const session = await this.deps.runner.getCurrentSession(endpointKey)
+        case "agent": {
+          const session = await this.deps.runner.getCurrentSession(endpointKey);
           if (!session) {
             return {
-              replies: ['No bound session. Send a message, /new, or /use first.']
-            }
+              replies: ["No bound session. Send a message, /new, or /use first."],
+            };
           }
 
-          const agents = await this.deps.runner.listAvailableAgents()
+          const agents = await this.deps.runner.listAvailableAgents();
           if (agents.length === 0) {
             return {
-              replies: ['No enabled agents are available.']
-            }
+              replies: ["No enabled agents are available."],
+            };
           }
 
-          const token = this.deps.bindingStore.createAgentMenuState(endpointKey, session.id, agents)
+          const token = this.deps.bindingStore.createAgentMenuState(endpointKey, session.id, agents);
 
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'sendMessage',
+                type: "sendMessage",
                 text: this.formatAgentMenuText(session, agents),
-                replyMarkup: this.buildAgentMenuKeyboard(token, agents)
-              }
-            ]
-          }
+                replyMarkup: this.buildAgentMenuKeyboard(token, agents),
+              },
+            ],
+          };
         }
 
-        case 'status': {
-          const runtime = this.deps.getPollerStatus()
-          const status = await this.deps.runner.getStatus(endpointKey)
-          const defaultAgentId = await this.deps.runner.getDefaultAgentId()
-          const defaultWorkdir = await this.deps.runner.getDefaultWorkdir(endpointKey)
-          const telegramConfig = this.deps.bindingStore.getTelegramConfig()
+        case "status": {
+          const runtime = this.deps.getPollerStatus();
+          const status = await this.deps.runner.getStatus(endpointKey);
+          const defaultAgentId = await this.deps.runner.getDefaultAgentId();
+          const defaultWorkdir = await this.deps.runner.getDefaultWorkdir(endpointKey);
+          const telegramConfig = this.deps.bindingStore.getTelegramConfig();
           return {
             replies: [
               [
-                'DeepChat Telegram Remote',
+                "DeepChat Telegram Remote",
                 `Runtime: ${runtime.state}`,
                 `Default agent: ${defaultAgentId}`,
-                `Default workdir: ${defaultWorkdir ?? 'none'}`,
-                `Current session: ${status.session ? this.formatSessionLabel(status.session) : 'none'}`,
-                `Current agent: ${status.session?.agentId ?? 'none'}`,
-                `Current model: ${status.session?.modelId ?? 'none'}`,
-                `Current workdir: ${status.session?.projectDir?.trim() || 'none'}`,
-                `Generating: ${status.isGenerating ? 'yes' : 'no'}`,
-                `Waiting: ${status.pendingInteraction ? this.formatPendingStatus(status.pendingInteraction) : 'none'}`,
+                `Default workdir: ${defaultWorkdir ?? "none"}`,
+                `Current session: ${status.session ? this.formatSessionLabel(status.session) : "none"}`,
+                `Current agent: ${status.session?.agentId ?? "none"}`,
+                `Current model: ${status.session?.modelId ?? "none"}`,
+                `Current workdir: ${status.session?.projectDir?.trim() || "none"}`,
+                `Generating: ${status.isGenerating ? "yes" : "no"}`,
+                `Waiting: ${status.pendingInteraction ? this.formatPendingStatus(status.pendingInteraction) : "none"}`,
                 `Allowed users: ${telegramConfig.allowlist.length}`,
                 `Bindings: ${Object.keys(telegramConfig.bindings).length}`,
-                `Last error: ${runtime.lastError ?? 'none'}`
-              ].join('\n')
-            ]
-          }
+                `Last error: ${runtime.lastError ?? "none"}`,
+              ].join("\n"),
+            ],
+          };
         }
 
         default:
-          break
+          break;
       }
 
-      const attachments = message.attachments ?? []
+      const attachments = message.attachments ?? [];
       return {
         replies: [],
         conversation:
@@ -298,190 +290,181 @@ export class RemoteCommandRouter {
             ? await this.deps.runner.sendInput(endpointKey, {
                 text: message.text,
                 attachments,
-                sourceMessageId: String(message.messageId)
+                sourceMessageId: String(message.messageId),
               })
-            : await this.deps.runner.sendText(endpointKey, message.text)
-      }
+            : await this.deps.runner.sendText(endpointKey, message.text),
+      };
     } catch (error) {
       return {
-        replies: [error instanceof Error ? error.message : String(error)]
-      }
+        replies: [error instanceof Error ? error.message : String(error)],
+      };
     }
   }
 
-  private async handleCallbackQuery(
-    event: TelegramInboundCallbackQuery
-  ): Promise<RemoteCommandRouteResult> {
-    const endpointKey = this.deps.bindingStore.getEndpointKey(event)
-    const auth = this.deps.authGuard.ensureAuthorized(event)
+  private async handleCallbackQuery(event: TelegramInboundCallbackQuery): Promise<RemoteCommandRouteResult> {
+    const endpointKey = this.deps.bindingStore.getEndpointKey(event);
+    const auth = this.deps.authGuard.ensureAuthorized(event);
     if (!auth.ok) {
       return {
         replies: [],
         callbackAnswer: {
           text: auth.message,
-          showAlert: true
-        }
-      }
+          showAlert: true,
+        },
+      };
     }
 
-    const pendingCallback = parsePendingInteractionCallbackData(event.data)
+    const pendingCallback = parsePendingInteractionCallbackData(event.data);
     if (pendingCallback) {
-      return await this.handlePendingCallbackQuery(event, endpointKey, pendingCallback)
+      return await this.handlePendingCallbackQuery(event, endpointKey, pendingCallback);
     }
 
-    const pendingInteraction = await this.deps.runner.getPendingInteraction(endpointKey)
+    const pendingInteraction = await this.deps.runner.getPendingInteraction(endpointKey);
     if (pendingInteraction) {
       return {
         replies: [],
         callbackAnswer: {
           text: this.formatPendingCommandBlockedMessage(pendingInteraction),
-          showAlert: true
-        }
-      }
+          showAlert: true,
+        },
+      };
     }
 
-    const agentCallback = parseAgentMenuCallbackData(event.data)
+    const agentCallback = parseAgentMenuCallbackData(event.data);
     if (agentCallback) {
-      return await this.handleAgentMenuCallback(event, endpointKey, agentCallback)
+      return await this.handleAgentMenuCallback(event, endpointKey, agentCallback);
     }
 
-    const callback = parseModelMenuCallbackData(event.data)
+    const callback = parseModelMenuCallbackData(event.data);
     if (!callback) {
       return {
         replies: [],
         callbackAnswer: {
-          text: 'Unsupported Telegram remote action.',
-          showAlert: false
-        }
-      }
+          text: "Unsupported Telegram remote action.",
+          showAlert: false,
+        },
+      };
     }
 
-    const state = this.deps.bindingStore.getModelMenuState(
-      callback.token,
-      TELEGRAM_MODEL_MENU_TTL_MS
-    )
-    const expiredResult = this.buildExpiredMenuResult(event.messageId)
+    const state = this.deps.bindingStore.getModelMenuState(callback.token, TELEGRAM_MODEL_MENU_TTL_MS);
+    const expiredResult = this.buildExpiredMenuResult(event.messageId);
     if (!state || state.endpointKey !== endpointKey) {
-      return expiredResult
+      return expiredResult;
     }
 
-    const session = await this.deps.runner.getCurrentSession(endpointKey)
+    const session = await this.deps.runner.getCurrentSession(endpointKey);
     if (!session || session.id !== state.sessionId) {
-      this.deps.bindingStore.clearModelMenuState(callback.token)
-      return expiredResult
+      this.deps.bindingStore.clearModelMenuState(callback.token);
+      return expiredResult;
     }
 
     try {
       switch (callback.action) {
-        case 'provider': {
-          const provider = state.providers[callback.providerIndex]
+        case "provider": {
+          const provider = state.providers[callback.providerIndex];
           if (!provider) {
-            return expiredResult
+            return expiredResult;
           }
 
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'editMessageText',
+                type: "editMessageText",
                 messageId: event.messageId,
                 text: this.formatModelMenuText(session, provider),
-                replyMarkup: this.buildModelMenuKeyboard(
-                  callback.token,
-                  callback.providerIndex,
-                  provider
-                )
-              }
-            ]
-          }
+                replyMarkup: this.buildModelMenuKeyboard(callback.token, callback.providerIndex, provider),
+              },
+            ],
+          };
         }
 
-        case 'model': {
-          const provider = state.providers[callback.providerIndex]
-          const model = provider?.models[callback.modelIndex]
+        case "model": {
+          const provider = state.providers[callback.providerIndex];
+          const model = provider?.models[callback.modelIndex];
           if (!provider || !model) {
-            return expiredResult
+            return expiredResult;
           }
 
           const updatedSession = await this.deps.runner.setSessionModel(
             endpointKey,
             provider.providerId,
-            model.modelId
-          )
-          this.deps.bindingStore.clearModelMenuState(callback.token)
+            model.modelId,
+          );
+          this.deps.bindingStore.clearModelMenuState(callback.token);
 
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'editMessageText',
+                type: "editMessageText",
                 messageId: event.messageId,
                 text: [
-                  'Model updated.',
+                  "Model updated.",
                   `Session: ${this.formatSessionLabel(updatedSession)}`,
                   `Provider: ${provider.providerName}`,
-                  `Model: ${model.modelName}`
-                ].join('\n'),
-                replyMarkup: null
-              }
+                  `Model: ${model.modelName}`,
+                ].join("\n"),
+                replyMarkup: null,
+              },
             ],
             callbackAnswer: {
-              text: 'Model switched.'
-            }
-          }
+              text: "Model switched.",
+            },
+          };
         }
 
-        case 'back':
+        case "back":
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'editMessageText',
+                type: "editMessageText",
                 messageId: event.messageId,
                 text: this.formatProviderMenuText(session),
-                replyMarkup: this.buildProviderMenuKeyboard(callback.token, state.providers)
-              }
-            ]
-          }
+                replyMarkup: this.buildProviderMenuKeyboard(callback.token, state.providers),
+              },
+            ],
+          };
 
-        case 'cancel':
-          this.deps.bindingStore.clearModelMenuState(callback.token)
+        case "cancel":
+          this.deps.bindingStore.clearModelMenuState(callback.token);
           return {
             replies: [],
             outboundActions: [
               {
-                type: 'editMessageText',
+                type: "editMessageText",
                 messageId: event.messageId,
-                text: 'Model selection cancelled.',
-                replyMarkup: null
-              }
+                text: "Model selection cancelled.",
+                replyMarkup: null,
+              },
             ],
             callbackAnswer: {
-              text: 'Cancelled.'
-            }
-          }
+              text: "Cancelled.",
+            },
+          };
       }
     } catch (error) {
       return {
         replies: [],
         callbackAnswer: {
           text: error instanceof Error ? error.message : String(error),
-          showAlert: true
-        }
-      }
+          showAlert: true,
+        },
+      };
     }
   }
 
   private async handlePendingCallbackQuery(
     event: TelegramInboundCallbackQuery,
     endpointKey: string,
-    callback: TelegramPendingInteractionCallback
+    callback: TelegramPendingInteractionCallback,
   ): Promise<RemoteCommandRouteResult> {
-    const interaction = await this.deps.runner.getPendingInteraction(endpointKey)
+    const interaction = await this.deps.runner.getPendingInteraction(endpointKey);
     const state = this.deps.bindingStore.getPendingInteractionState(
       callback.token,
-      TELEGRAM_INTERACTION_CALLBACK_TTL_MS
-    )
+      TELEGRAM_INTERACTION_CALLBACK_TTL_MS,
+    );
 
     if (
       !interaction ||
@@ -490,64 +473,59 @@ export class RemoteCommandRouter {
       state.messageId !== interaction.messageId ||
       state.toolCallId !== interaction.toolCallId
     ) {
-      return await this.buildExpiredPendingInteractionResult(event.messageId, endpointKey)
+      return await this.buildExpiredPendingInteractionResult(event.messageId, endpointKey);
     }
 
-    const response = this.resolvePendingCallbackResponse(interaction, callback)
+    const response = this.resolvePendingCallbackResponse(interaction, callback);
     if (!response) {
-      return await this.buildExpiredPendingInteractionResult(event.messageId, endpointKey)
+      return await this.buildExpiredPendingInteractionResult(event.messageId, endpointKey);
     }
 
-    this.deps.bindingStore.clearPendingInteractionState(callback.token)
+    this.deps.bindingStore.clearPendingInteractionState(callback.token);
 
-    const waitingForUserMessage = response.kind === 'question_other'
+    const waitingForUserMessage = response.kind === "question_other";
     return {
       replies: [],
       outboundActions: [
         {
-          type: 'editMessageText',
+          type: "editMessageText",
           messageId: event.messageId,
           text: buildTelegramInteractionResolvedText({
             interaction,
             responseText: this.describeInteractionResponse(interaction, response),
-            waitingForUserMessage
+            waitingForUserMessage,
           }),
-          replyMarkup: null
-        }
+          replyMarkup: null,
+        },
       ],
       callbackAnswer: {
-        text: waitingForUserMessage ? 'Reply with your answer.' : 'Continuing...'
+        text: waitingForUserMessage ? "Reply with your answer." : "Continuing...",
       },
-      deferred: this.buildPendingCallbackContinuation(
-        endpointKey,
-        event.messageId,
-        interaction,
-        response
-      )
-    }
+      deferred: this.buildPendingCallbackContinuation(endpointKey, event.messageId, interaction, response),
+    };
   }
 
   private async handlePendingTextResponse(
     endpointKey: string,
     text: string,
-    interaction: RemotePendingInteraction
+    interaction: RemotePendingInteraction,
   ): Promise<RemoteCommandRouteResult> {
-    const response = this.resolvePendingTextResponse(text, interaction)
+    const response = this.resolvePendingTextResponse(text, interaction);
     if (!response) {
       return {
-        replies: [this.formatPendingTextReplyHint(interaction)]
-      }
+        replies: [this.formatPendingTextReplyHint(interaction)],
+      };
     }
 
-    const result = await this.deps.runner.respondToPendingInteraction(endpointKey, response)
+    const result = await this.deps.runner.respondToPendingInteraction(endpointKey, response);
     return {
       replies: [
         result.waitingForUserMessage
-          ? 'Reply with your answer in your next message.'
-          : this.describeInteractionResponse(interaction, response)
+          ? "Reply with your answer in your next message."
+          : this.describeInteractionResponse(interaction, response),
       ],
-      ...(result.execution ? { conversation: result.execution } : {})
-    }
+      ...(result.execution ? { conversation: result.execution } : {}),
+    };
   }
 
   private buildExpiredMenuResult(messageId: number): RemoteCommandRouteResult {
@@ -555,17 +533,17 @@ export class RemoteCommandRouter {
       replies: [],
       outboundActions: [
         {
-          type: 'editMessageText',
+          type: "editMessageText",
           messageId,
-          text: 'Model menu expired. Run /model again.',
-          replyMarkup: null
-        }
+          text: "Model menu expired. Run /model again.",
+          replyMarkup: null,
+        },
       ],
       callbackAnswer: {
-        text: 'Model menu expired. Run /model again.',
-        showAlert: true
-      }
-    }
+        text: "Model menu expired. Run /model again.",
+        showAlert: true,
+      },
+    };
   }
 
   private buildExpiredAgentMenuResult(messageId: number): RemoteCommandRouteResult {
@@ -573,506 +551,478 @@ export class RemoteCommandRouter {
       replies: [],
       outboundActions: [
         {
-          type: 'editMessageText',
+          type: "editMessageText",
           messageId,
-          text: 'Agent menu expired. Run /agent again.',
-          replyMarkup: null
-        }
+          text: "Agent menu expired. Run /agent again.",
+          replyMarkup: null,
+        },
       ],
       callbackAnswer: {
-        text: 'Agent menu expired. Run /agent again.',
-        showAlert: true
-      }
-    }
+        text: "Agent menu expired. Run /agent again.",
+        showAlert: true,
+      },
+    };
   }
 
   private async handleAgentMenuCallback(
     event: TelegramInboundCallbackQuery,
     endpointKey: string,
-    callback: TelegramAgentMenuCallback
+    callback: TelegramAgentMenuCallback,
   ): Promise<RemoteCommandRouteResult> {
-    const state = this.deps.bindingStore.getAgentMenuState(
-      callback.token,
-      TELEGRAM_AGENT_MENU_TTL_MS
-    )
-    const expiredResult = this.buildExpiredAgentMenuResult(event.messageId)
+    const state = this.deps.bindingStore.getAgentMenuState(callback.token, TELEGRAM_AGENT_MENU_TTL_MS);
+    const expiredResult = this.buildExpiredAgentMenuResult(event.messageId);
     if (!state || state.endpointKey !== endpointKey) {
-      return expiredResult
+      return expiredResult;
     }
 
-    const session = await this.deps.runner.getCurrentSession(endpointKey)
+    const session = await this.deps.runner.getCurrentSession(endpointKey);
     if (!session || session.id !== state.sessionId) {
-      this.deps.bindingStore.clearAgentMenuState(callback.token)
-      return expiredResult
+      this.deps.bindingStore.clearAgentMenuState(callback.token);
+      return expiredResult;
     }
 
-    if (callback.action === 'cancel') {
-      this.deps.bindingStore.clearAgentMenuState(callback.token)
+    if (callback.action === "cancel") {
+      this.deps.bindingStore.clearAgentMenuState(callback.token);
       return {
         replies: [],
         outboundActions: [
           {
-            type: 'editMessageText',
+            type: "editMessageText",
             messageId: event.messageId,
-            text: 'Agent selection cancelled.',
-            replyMarkup: null
-          }
+            text: "Agent selection cancelled.",
+            replyMarkup: null,
+          },
         ],
         callbackAnswer: {
-          text: 'Cancelled.'
-        }
-      }
+          text: "Cancelled.",
+        },
+      };
     }
 
-    const agentOption = state.agents[callback.agentIndex]
+    const agentOption = state.agents[callback.agentIndex];
     if (!agentOption) {
-      return expiredResult
+      return expiredResult;
     }
 
     try {
-      const result = await this.deps.runner.setChannelDefaultAgent(endpointKey, agentOption.agentId)
-      this.deps.bindingStore.clearAgentMenuState(callback.token)
+      const result = await this.deps.runner.setChannelDefaultAgent(endpointKey, agentOption.agentId);
+      this.deps.bindingStore.clearAgentMenuState(callback.token);
 
       return {
         replies: [],
         outboundActions: [
           {
-            type: 'editMessageText',
+            type: "editMessageText",
             messageId: event.messageId,
             text: this.formatAgentSwitchSuccessText(result.agent, result.session),
-            replyMarkup: null
-          }
+            replyMarkup: null,
+          },
         ],
         callbackAnswer: {
-          text: 'Agent switched.'
-        }
-      }
+          text: "Agent switched.",
+        },
+      };
     } catch (error) {
       return {
         replies: [],
         callbackAnswer: {
           text: error instanceof Error ? error.message : String(error),
-          showAlert: true
-        }
-      }
+          showAlert: true,
+        },
+      };
     }
   }
 
   private async buildExpiredPendingInteractionResult(
     messageId: number,
-    endpointKey: string
+    endpointKey: string,
   ): Promise<RemoteCommandRouteResult> {
-    const interaction = await this.deps.runner.getPendingInteraction(endpointKey)
+    const interaction = await this.deps.runner.getPendingInteraction(endpointKey);
     if (!interaction) {
       return {
         replies: [],
         outboundActions: [
           {
-            type: 'editMessageText',
+            type: "editMessageText",
             messageId,
-            text: 'Pending interaction expired. Run /pending if another action is waiting.',
-            replyMarkup: null
-          }
+            text: "Pending interaction expired. Run /pending if another action is waiting.",
+            replyMarkup: null,
+          },
         ],
         callbackAnswer: {
-          text: 'Pending interaction expired.',
-          showAlert: true
-        }
-      }
+          text: "Pending interaction expired.",
+          showAlert: true,
+        },
+      };
     }
 
-    const prompt = this.createPendingPromptAction(
-      endpointKey,
-      interaction,
-      'editMessageText',
-      messageId
-    )
+    const prompt = this.createPendingPromptAction(endpointKey, interaction, "editMessageText", messageId);
     return {
       replies: [],
       outboundActions: [prompt],
       callbackAnswer: {
-        text: 'Prompt refreshed.'
-      }
-    }
+        text: "Prompt refreshed.",
+      },
+    };
   }
 
   private buildProviderMenuKeyboard(
     token: string,
-    providers: TelegramModelProviderOption[]
+    providers: TelegramModelProviderOption[],
   ): TelegramInlineKeyboardMarkup {
     return {
       inline_keyboard: [
         ...providers.map((provider, index) => [
           {
             text: provider.providerName,
-            callback_data: buildModelMenuProviderCallbackData(token, index)
-          }
+            callback_data: buildModelMenuProviderCallbackData(token, index),
+          },
         ]),
         [
           {
-            text: 'Cancel',
-            callback_data: buildModelMenuCancelCallbackData(token)
-          }
-        ]
-      ]
-    }
+            text: "Cancel",
+            callback_data: buildModelMenuCancelCallbackData(token),
+          },
+        ],
+      ],
+    };
   }
 
   private buildModelMenuKeyboard(
     token: string,
     providerIndex: number,
-    provider: TelegramModelProviderOption
+    provider: TelegramModelProviderOption,
   ): TelegramInlineKeyboardMarkup {
     return {
       inline_keyboard: [
         ...provider.models.map((model, modelIndex) => [
           {
             text: model.modelName,
-            callback_data: buildModelMenuChoiceCallbackData(token, providerIndex, modelIndex)
-          }
+            callback_data: buildModelMenuChoiceCallbackData(token, providerIndex, modelIndex),
+          },
         ]),
         [
           {
-            text: 'Back',
-            callback_data: buildModelMenuBackCallbackData(token)
+            text: "Back",
+            callback_data: buildModelMenuBackCallbackData(token),
           },
           {
-            text: 'Cancel',
-            callback_data: buildModelMenuCancelCallbackData(token)
-          }
-        ]
-      ]
-    }
+            text: "Cancel",
+            callback_data: buildModelMenuCancelCallbackData(token),
+          },
+        ],
+      ],
+    };
   }
 
-  private buildAgentMenuKeyboard(
-    token: string,
-    agents: TelegramAgentOption[]
-  ): TelegramInlineKeyboardMarkup {
+  private buildAgentMenuKeyboard(token: string, agents: TelegramAgentOption[]): TelegramInlineKeyboardMarkup {
     return {
       inline_keyboard: [
         ...agents.map((agent, index) => [
           {
             text: this.formatAgentButtonLabel(agent),
-            callback_data: buildAgentMenuChoiceCallbackData(token, index)
-          }
+            callback_data: buildAgentMenuChoiceCallbackData(token, index),
+          },
         ]),
         [
           {
-            text: 'Cancel',
-            callback_data: buildAgentMenuCancelCallbackData(token)
-          }
-        ]
-      ]
-    }
+            text: "Cancel",
+            callback_data: buildAgentMenuCancelCallbackData(token),
+          },
+        ],
+      ],
+    };
   }
 
   private buildPendingPromptResult(
     endpointKey: string,
-    interaction: RemotePendingInteraction
+    interaction: RemotePendingInteraction,
   ): RemoteCommandRouteResult {
     return {
       replies: [],
-      outboundActions: [this.createPendingPromptAction(endpointKey, interaction, 'sendMessage')]
-    }
+      outboundActions: [this.createPendingPromptAction(endpointKey, interaction, "sendMessage")],
+    };
   }
 
   private createPendingPromptAction(
     endpointKey: string,
     interaction: RemotePendingInteraction,
-    mode: 'sendMessage' | 'editMessageText',
-    messageId?: number
+    mode: "sendMessage" | "editMessageText",
+    messageId?: number,
   ): TelegramOutboundAction {
-    const token = this.deps.bindingStore.createPendingInteractionState(endpointKey, interaction)
-    const prompt = buildTelegramPendingInteractionPrompt(interaction, token)
-    if (mode === 'editMessageText' && typeof messageId === 'number') {
+    const token = this.deps.bindingStore.createPendingInteractionState(endpointKey, interaction);
+    const prompt = buildTelegramPendingInteractionPrompt(interaction, token);
+    if (mode === "editMessageText" && typeof messageId === "number") {
       return {
-        type: 'editMessageText',
+        type: "editMessageText",
         messageId,
         text: prompt.text,
-        replyMarkup: prompt.replyMarkup ?? null
-      }
+        replyMarkup: prompt.replyMarkup ?? null,
+      };
     }
 
     return {
-      type: 'sendMessage',
+      type: "sendMessage",
       text: prompt.text,
-      ...(prompt.replyMarkup ? { replyMarkup: prompt.replyMarkup } : {})
-    }
+      ...(prompt.replyMarkup ? { replyMarkup: prompt.replyMarkup } : {}),
+    };
   }
 
   private async buildPendingCallbackContinuation(
     endpointKey: string,
     messageId: number,
     interaction: RemotePendingInteraction,
-    response: ToolInteractionResponse
+    response: ToolInteractionResponse,
   ): Promise<RemoteCommandRouteContinuation> {
     try {
-      const result = await this.deps.runner.respondToPendingInteraction(endpointKey, response)
+      const result = await this.deps.runner.respondToPendingInteraction(endpointKey, response);
 
       if (result.waitingForUserMessage) {
-        if (response.kind === 'question_other') {
-          return {}
+        if (response.kind === "question_other") {
+          return {};
         }
 
         return {
           outboundActions: [
             {
-              type: 'editMessageText',
+              type: "editMessageText",
               messageId,
               text: buildTelegramInteractionResolvedText({
                 interaction,
                 responseText: this.describeInteractionResponse(interaction, response),
-                waitingForUserMessage: true
+                waitingForUserMessage: true,
               }),
-              replyMarkup: null
-            }
-          ]
-        }
+              replyMarkup: null,
+            },
+          ],
+        };
       }
 
-      return result.execution ? { conversation: result.execution } : {}
+      return result.execution ? { conversation: result.execution } : {};
     } catch (error) {
       return {
-        replies: [error instanceof Error ? error.message : String(error)]
-      }
+        replies: [error instanceof Error ? error.message : String(error)],
+      };
     }
   }
 
   private resolvePendingCallbackResponse(
     interaction: RemotePendingInteraction,
-    callback: TelegramPendingInteractionCallback
+    callback: TelegramPendingInteractionCallback,
   ): ToolInteractionResponse | null {
-    if (interaction.type === 'permission') {
-      if (callback.action === 'allow') {
-        return { kind: 'permission', granted: true }
+    if (interaction.type === "permission") {
+      if (callback.action === "allow") {
+        return { kind: "permission", granted: true };
       }
-      if (callback.action === 'deny') {
-        return { kind: 'permission', granted: false }
+      if (callback.action === "deny") {
+        return { kind: "permission", granted: false };
       }
-      return null
+      return null;
     }
 
-    if (callback.action === 'other') {
-      return { kind: 'question_other' }
+    if (callback.action === "other") {
+      return { kind: "question_other" };
     }
 
-    if (callback.action !== 'option') {
-      return null
+    if (callback.action !== "option") {
+      return null;
     }
 
-    const option = interaction.question?.options?.[callback.optionIndex]
+    const option = interaction.question?.options?.[callback.optionIndex];
     if (!option) {
-      return null
+      return null;
     }
 
     return {
-      kind: 'question_option',
-      optionLabel: option.label
-    }
+      kind: "question_option",
+      optionLabel: option.label,
+    };
   }
 
   private resolvePendingTextResponse(
     text: string,
-    interaction: RemotePendingInteraction
+    interaction: RemotePendingInteraction,
   ): ToolInteractionResponse | null {
-    const normalized = text.trim()
+    const normalized = text.trim();
     if (!normalized) {
-      return null
+      return null;
     }
 
-    if (interaction.type === 'permission') {
-      const lowered = normalized.toLowerCase()
-      if (lowered === 'allow') {
-        return { kind: 'permission', granted: true }
+    if (interaction.type === "permission") {
+      const lowered = normalized.toLowerCase();
+      if (lowered === "allow") {
+        return { kind: "permission", granted: true };
       }
-      if (lowered === 'deny') {
-        return { kind: 'permission', granted: false }
+      if (lowered === "deny") {
+        return { kind: "permission", granted: false };
       }
-      return null
+      return null;
     }
 
-    const question = interaction.question
+    const question = interaction.question;
     if (!question) {
-      return null
+      return null;
     }
 
     if (!question.multiple) {
-      const optionByIndex = Number.parseInt(normalized, 10)
-      if (
-        Number.isInteger(optionByIndex) &&
-        optionByIndex > 0 &&
-        optionByIndex <= question.options.length
-      ) {
+      const optionByIndex = Number.parseInt(normalized, 10);
+      if (Number.isInteger(optionByIndex) && optionByIndex > 0 && optionByIndex <= question.options.length) {
         return {
-          kind: 'question_option',
-          optionLabel: question.options[optionByIndex - 1].label
-        }
+          kind: "question_option",
+          optionLabel: question.options[optionByIndex - 1].label,
+        };
       }
 
       const matchedOption = question.options.find(
-        (option) =>
-          option.label.localeCompare(normalized, undefined, { sensitivity: 'accent' }) === 0
-      )
+        (option) => option.label.localeCompare(normalized, undefined, { sensitivity: "accent" }) === 0,
+      );
       if (matchedOption) {
         return {
-          kind: 'question_option',
-          optionLabel: matchedOption.label
-        }
+          kind: "question_option",
+          optionLabel: matchedOption.label,
+        };
       }
     }
 
     if (question.multiple || question.custom !== false) {
       return {
-        kind: 'question_custom',
-        answerText: normalized
-      }
+        kind: "question_custom",
+        answerText: normalized,
+      };
     }
 
-    return null
+    return null;
   }
 
   private describeInteractionResponse(
     interaction: RemotePendingInteraction,
-    response: ToolInteractionResponse
+    response: ToolInteractionResponse,
   ): string {
-    if (interaction.type === 'permission' && response.kind === 'permission') {
-      return response.granted ? 'Approved. Continuing...' : 'Denied.'
+    if (interaction.type === "permission" && response.kind === "permission") {
+      return response.granted ? "Approved. Continuing..." : "Denied.";
     }
 
-    if (response.kind === 'question_option') {
-      return `Selected: ${response.optionLabel}`
+    if (response.kind === "question_option") {
+      return `Selected: ${response.optionLabel}`;
     }
 
-    if (response.kind === 'question_custom') {
-      return `Answer received: ${response.answerText.trim()}`
+    if (response.kind === "question_custom") {
+      return `Answer received: ${response.answerText.trim()}`;
     }
 
-    return 'Reply with your answer in a new message.'
+    return "Reply with your answer in a new message.";
   }
 
   private formatPendingTextReplyHint(interaction: RemotePendingInteraction): string {
-    if (interaction.type === 'permission') {
-      return 'Reply with ALLOW or DENY, or use /pending to show the buttons again.'
+    if (interaction.type === "permission") {
+      return "Reply with ALLOW or DENY, or use /pending to show the buttons again.";
     }
 
     if (interaction.question?.multiple) {
-      return 'Reply with your answer in plain text.'
+      return "Reply with your answer in plain text.";
     }
 
     if (interaction.question?.custom !== false) {
-      return 'Reply with an option number, exact label, or your own answer.'
+      return "Reply with an option number, exact label, or your own answer.";
     }
 
-    return 'Reply with an option number or exact label, or use /pending to show the buttons again.'
+    return "Reply with an option number or exact label, or use /pending to show the buttons again.";
   }
 
   private formatPendingCommandBlockedMessage(interaction: RemotePendingInteraction): string {
-    return `Resolve the pending ${interaction.type} first. Use /pending to review it again.`
+    return `Resolve the pending ${interaction.type} first. Use /pending to review it again.`;
   }
 
   private formatPendingStatus(interaction: RemotePendingInteraction): string {
-    const toolLabel = interaction.toolName.trim() || 'unknown tool'
-    return `${interaction.type} via ${toolLabel}`
+    const toolLabel = interaction.toolName.trim() || "unknown tool";
+    return `${interaction.type} via ${toolLabel}`;
   }
 
   private formatStartMessage(isAuthorized: boolean): string {
     const statusLine = isAuthorized
-      ? 'Status: paired'
-      : 'Status: not paired. Use /pair <code> from DeepChat Remote settings.'
+      ? "Status: paired"
+      : "Status: not paired. Use /pair <code> from DeepChat Remote settings.";
 
-    return [
-      'DeepChat Telegram remote control is ready.',
-      statusLine,
-      'Use /help to see the available commands.'
-    ].join('\n')
+    return ["DeepChat Telegram remote control is ready.", statusLine, "Use /help to see the available commands."].join(
+      "\n",
+    );
   }
 
   private formatHelpMessage(): string {
     return [
-      'Commands:',
+      "Commands:",
       ...TELEGRAM_REMOTE_COMMANDS.map((item) =>
-        item.command === 'pair'
-          ? '/pair <code> - Authorize this Telegram account'
-          : item.command === 'new'
-            ? '/new [title] - Start a new DeepChat session'
-            : item.command === 'use'
-              ? '/use <index> - Bind a listed session'
-              : `/${item.command} - ${item.description}`
+        item.command === "pair"
+          ? "/pair <code> - Authorize this Telegram account"
+          : item.command === "new"
+            ? "/new [title] - Start a new DeepChat session"
+            : item.command === "use"
+              ? "/use <index> - Bind a listed session"
+              : `/${item.command} - ${item.description}`,
       ),
-      'Plain text sends to the current bound session unless a tool interaction is waiting.'
-    ].join('\n')
+      "Plain text sends to the current bound session unless a tool interaction is waiting.",
+    ].join("\n");
   }
 
-  private formatProviderMenuText(session: {
-    title: string
-    id: string
-    providerId: string
-    modelId: string
-  }): string {
+  private formatProviderMenuText(session: { title: string; id: string; providerId: string; modelId: string }): string {
     return [
       `Session: ${this.formatSessionLabel(session)}`,
-      `Current: ${session.providerId || 'none'} / ${session.modelId || 'none'}`,
-      'Choose a provider:'
-    ].join('\n')
+      `Current: ${session.providerId || "none"} / ${session.modelId || "none"}`,
+      "Choose a provider:",
+    ].join("\n");
   }
 
   private formatModelMenuText(
     session: { title: string; id: string; providerId: string; modelId: string },
-    provider: TelegramModelProviderOption
+    provider: TelegramModelProviderOption,
   ): string {
     return [
       `Session: ${this.formatSessionLabel(session)}`,
-      `Current: ${session.providerId || 'none'} / ${session.modelId || 'none'}`,
+      `Current: ${session.providerId || "none"} / ${session.modelId || "none"}`,
       `Provider: ${provider.providerName}`,
-      'Choose a model:'
-    ].join('\n')
+      "Choose a model:",
+    ].join("\n");
   }
 
   private formatAgentMenuText(
     session: { title: string; id: string; agentId: string },
-    agents: TelegramAgentOption[]
+    agents: TelegramAgentOption[],
   ): string {
-    const current = agents.find((agent) => agent.agentId === session.agentId)
-    const currentLabel = current
-      ? `${current.agentName} [${current.agentId}]`
-      : session.agentId || 'none'
+    const current = agents.find((agent) => agent.agentId === session.agentId);
+    const currentLabel = current ? `${current.agentName} [${current.agentId}]` : session.agentId || "none";
     return [
       `Session: ${this.formatSessionLabel(session)}`,
       `Current agent: ${currentLabel}`,
-      'Choose an agent (switching starts a new session):'
-    ].join('\n')
+      "Choose an agent (switching starts a new session):",
+    ].join("\n");
   }
 
   private formatAgentButtonLabel(agent: TelegramAgentOption): string {
-    const typeLabel = agent.agentType === 'acp' ? 'ACP' : 'DeepChat'
-    return `${agent.agentName} · ${typeLabel}`
+    const typeLabel = agent.agentType === "acp" ? "ACP" : "DeepChat";
+    return `${agent.agentName} · ${typeLabel}`;
   }
 
   private formatAgentSwitchSuccessText(
     agent: TelegramAgentOption,
-    session: { title: string; id: string; providerId: string; modelId: string }
+    session: { title: string; id: string; providerId: string; modelId: string },
   ): string {
-    const typeLabel = agent.agentType === 'acp' ? 'ACP' : 'DeepChat'
+    const typeLabel = agent.agentType === "acp" ? "ACP" : "DeepChat";
     const providerLine = session.providerId
-      ? `Provider / Model: ${session.providerId} / ${session.modelId || 'none'}`
-      : `Provider / Model: none`
+      ? `Provider / Model: ${session.providerId} / ${session.modelId || "none"}`
+      : `Provider / Model: none`;
     return [
       `Agent switched to ${agent.agentName} [${agent.agentId}] (${typeLabel}).`,
       `Started a new session: ${this.formatSessionLabel(session)}`,
-      providerLine
-    ].join('\n')
+      providerLine,
+    ].join("\n");
   }
 
-  private formatSessionLine(
-    session: { title: string; id: string; status: string },
-    index: number
-  ): string {
-    return `${index}. ${session.title || 'Untitled'} (${session.status})`
+  private formatSessionLine(session: { title: string; id: string; status: string }, index: number): string {
+    return `${index}. ${session.title || "Untitled"} (${session.status})`;
   }
 
   private formatSessionLabel(session: { title: string; id: string }): string {
-    const title = session.title?.trim() || 'Untitled'
-    return `${title} [${session.id}]`
+    const title = session.title?.trim() || "Untitled";
+    return `${title} [${session.id}]`;
   }
 }

@@ -1,37 +1,37 @@
-import { useMemo, useRef, useState, useLayoutEffect } from 'react'
-import OnBoardingSpotlight from './OnBoardingSpotlight'
-import { useOnBoarding } from '@/composables/useOnBoarding'
+import { useMemo, useRef, useState, useLayoutEffect } from "react";
+import OnBoardingSpotlight from "./OnBoardingSpotlight";
+import { useOnBoarding } from "@/composables/useOnBoarding";
 
-type GuidedOnboardingPanelPlacement = 'auto' | 'above' | 'below'
+type GuidedOnboardingPanelPlacement = "auto" | "above" | "below";
 
 interface GuidedOnboardingOverlayProps {
-  visible: boolean
-  containerEl: HTMLElement | null
-  targetEl: HTMLElement | null
-  eyebrow: string
-  title: string
-  description: string
-  stepIndex: number
-  totalSteps: number
-  closeLabel: string
-  backLabel?: string
-  primaryLabel?: string
-  secondaryLabel?: string
-  expertLabel?: string
-  caption?: string
-  backDisabled?: boolean
-  primaryDisabled?: boolean
-  secondaryDisabled?: boolean
-  expertDisabled?: boolean
-  preferredPanelPlacement?: GuidedOnboardingPanelPlacement
-  onClose?: () => void
-  onBack?: () => void
-  onPrimary?: () => void
-  onSecondary?: () => void
-  onExpert?: () => void
+  visible: boolean;
+  containerEl: HTMLElement | null;
+  targetEl: HTMLElement | null;
+  eyebrow: string;
+  title: string;
+  description: string;
+  stepIndex: number;
+  totalSteps: number;
+  closeLabel: string;
+  backLabel?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  expertLabel?: string;
+  caption?: string;
+  backDisabled?: boolean;
+  primaryDisabled?: boolean;
+  secondaryDisabled?: boolean;
+  expertDisabled?: boolean;
+  preferredPanelPlacement?: GuidedOnboardingPanelPlacement;
+  onClose?: () => void;
+  onBack?: () => void;
+  onPrimary?: () => void;
+  onSecondary?: () => void;
+  onExpert?: () => void;
 }
 
-const PANEL_MIN_HEIGHT = 156
+const PANEL_MIN_HEIGHT = 156;
 
 export default function GuidedOnboardingOverlay({
   visible,
@@ -51,67 +51,57 @@ export default function GuidedOnboardingOverlay({
   primaryDisabled = false,
   secondaryDisabled = false,
   expertDisabled = false,
-  preferredPanelPlacement = 'auto',
+  preferredPanelPlacement = "auto",
   onClose,
   onBack,
   onPrimary,
   onSecondary,
-  onExpert
+  onExpert,
 }: GuidedOnboardingOverlayProps) {
-  const panelRef = useRef<HTMLElement | null>(null)
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const { spotlightRect, viewportWidth, viewportHeight, pathD, cutoutPathD } = useOnBoarding(
-    () => targetEl,
-    { visible: () => visible }
-  )
+  const { spotlightRect, viewportWidth, viewportHeight, pathD, cutoutPathD } = useOnBoarding(targetEl, {
+    visible: visible,
+  });
 
-  const [panelActualHeight, setPanelActualHeight] = useState(0)
+  const [panelActualHeight, setPanelActualHeight] = useState(0);
   useLayoutEffect(() => {
     if (panelRef.current) {
-      const rect = panelRef.current.getBoundingClientRect()
-      setPanelActualHeight(rect.height)
+      const rect = panelRef.current.getBoundingClientRect();
+      setPanelActualHeight(rect.height);
     }
-  })
+  });
 
   const panelStyle = useMemo(() => {
-    const rect = spotlightRect.value
+    const rect = spotlightRect;
     if (!rect) {
-      return { top: '24px', left: '24px', width: 'min(320px, calc(100% - 32px))' }
+      return { top: "24px", left: "24px", width: "min(320px, calc(100% - 32px))" };
     }
 
-    const panelWidth = Math.min(320, Math.max(180, viewportWidth.value - 32))
-    const panelHeightEstimate = Math.max(panelActualHeight, PANEL_MIN_HEIGHT)
-    const desiredTop = rect.y + rect.height + 18
-    const maxPanelTop = Math.max(16, viewportHeight.value - panelHeightEstimate - 16)
-    const aboveTop = Math.max(16, rect.y - panelHeightEstimate - 18)
-    const belowTop = Math.min(maxPanelTop, desiredTop)
+    const panelWidth = Math.min(320, Math.max(180, viewportWidth - 32));
+    const panelHeightEstimate = Math.max(panelActualHeight, PANEL_MIN_HEIGHT);
+    const desiredTop = rect.y + rect.height + 18;
+    const maxPanelTop = Math.max(16, viewportHeight - panelHeightEstimate - 16);
+    const aboveTop = Math.max(16, rect.y - panelHeightEstimate - 18);
+    const belowTop = Math.min(maxPanelTop, desiredTop);
 
     const panelTop = (() => {
-      if (preferredPanelPlacement === 'above') return aboveTop
-      if (preferredPanelPlacement === 'below') return belowTop
-      const placeAbove = desiredTop + panelHeightEstimate > viewportHeight.value - 16
-      return placeAbove ? aboveTop : belowTop
-    })()
+      if (preferredPanelPlacement === "above") return aboveTop;
+      if (preferredPanelPlacement === "below") return belowTop;
+      const placeAbove = desiredTop + panelHeightEstimate > viewportHeight - 16;
+      return placeAbove ? aboveTop : belowTop;
+    })();
 
-    const panelLeft = Math.min(
-      Math.max(16, rect.x),
-      Math.max(16, viewportWidth.value - panelWidth - 16)
-    )
+    const panelLeft = Math.min(Math.max(16, rect.x), Math.max(16, viewportWidth - panelWidth - 16));
 
     return {
       top: `${panelTop}px`,
       left: `${panelLeft}px`,
-      width: `${panelWidth}px`
-    }
-  }, [
-    spotlightRect.value,
-    viewportWidth.value,
-    viewportHeight.value,
-    panelActualHeight,
-    preferredPanelPlacement
-  ])
+      width: `${panelWidth}px`,
+    };
+  }, [spotlightRect, viewportWidth, viewportHeight, panelActualHeight, preferredPanelPlacement]);
 
-  if (!visible) return null
+  if (!visible) return null;
 
   return (
     <div data-testid="guided-onboarding-overlay" className="pointer-events-none fixed inset-0 z-70">
@@ -190,5 +180,5 @@ export default function GuidedOnboardingOverlay({
         {caption && <div className="mt-3 text-[11px] text-muted-foreground/80">{caption}</div>}
       </div>
     </div>
-  )
+  );
 }

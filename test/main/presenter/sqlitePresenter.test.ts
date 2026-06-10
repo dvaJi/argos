@@ -1,99 +1,95 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import os from 'os'
+import { afterEach, describe, expect, it, vi } from "vitest";
+import os from "os";
 
-const fsMock = await import('fs')
-const realFs = await vi.importActual<typeof import('fs')>('fs')
-Object.assign(fsMock, realFs)
-;(fsMock as any).promises = realFs.promises
-const fs = realFs
+const fsMock = await import("fs");
+const realFs = await vi.importActual<typeof import("fs")>("fs");
+Object.assign(fsMock, realFs);
+(fsMock as any).promises = realFs.promises;
+const fs = realFs;
 
-const path = await vi.importActual<typeof import('path')>('path')
-const sqliteModule = await import('better-sqlite3-multiple-ciphers').catch(() => null)
+const path = await vi.importActual<typeof import("path")>("path");
+const sqliteModule = await import("better-sqlite3-multiple-ciphers").catch(() => null);
 const sqlitePresenterModule = sqliteModule
-  ? await import('../../../src/main/presenter/sqlitePresenter').catch(() => null)
-  : null
-const Database = sqliteModule?.default
-const SQLitePresenter = sqlitePresenterModule?.SQLitePresenter
-let sqliteAvailable = false
+  ? await import("../../../src/main/presenter/sqlitePresenter").catch(() => null)
+  : null;
+const Database = sqliteModule?.default;
+const SQLitePresenter = sqlitePresenterModule?.SQLitePresenter;
+let sqliteAvailable = false;
 if (Database) {
   try {
-    const smokeDb = new Database(':memory:')
-    smokeDb.close()
-    sqliteAvailable = true
+    const smokeDb = new Database(":memory:");
+    smokeDb.close();
+    sqliteAvailable = true;
   } catch {
-    sqliteAvailable = false
+    sqliteAvailable = false;
   }
 }
-const DatabaseCtor = Database!
-const SQLitePresenterCtor = SQLitePresenter!
-const describeIfSqlite = sqliteAvailable && SQLitePresenter ? describe : describe.skip
+const DatabaseCtor = Database!;
+const SQLitePresenterCtor = SQLitePresenter!;
+const describeIfSqlite = sqliteAvailable && SQLitePresenter ? describe : describe.skip;
 
-describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
-  const tempDirs: string[] = []
+describeIfSqlite("SQLitePresenter legacy schema bootstrap", () => {
+  const tempDirs: string[] = [];
 
   afterEach(() => {
     for (const dir of tempDirs.splice(0)) {
-      fs.rmSync(dir, { recursive: true, force: true })
+      fs.rmSync(dir, { recursive: true, force: true });
     }
-  })
+  });
 
-  it('repairs missing legacy conversation tables when schema version is already advanced', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("repairs missing legacy conversation tables when schema version is already advanced", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
         applied_at INTEGER NOT NULL
       );
       INSERT INTO schema_versions (version, applied_at) VALUES (13, ${Date.now()});
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    const diagnosis = await presenter.diagnoseSchema()
-    expect(diagnosis.issues.some((issue) => issue.kind === 'missing_table')).toBe(true)
+    const presenter = new SQLitePresenterCtor(dbPath);
+    const diagnosis = await presenter.diagnoseSchema();
+    expect(diagnosis.issues.some((issue) => issue.kind === "missing_table")).toBe(true);
 
-    const repairReport = await presenter.repairSchema()
-    expect(repairReport.status).toBe('repaired')
+    const repairReport = await presenter.repairSchema();
+    expect(repairReport.status).toBe("repaired");
 
-    const conversationList = await presenter.getConversationList(1, 20)
-    expect(conversationList.total).toBe(0)
-    expect(conversationList.list).toEqual([])
-    presenter.close()
+    const conversationList = await presenter.getConversationList(1, 20);
+    expect(conversationList.total).toBe(0);
+    expect(conversationList.list).toEqual([]);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
+    const checkDb = new DatabaseCtor(dbPath);
     const tables = checkDb
       .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('conversations', 'messages', 'message_attachments') ORDER BY name"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('conversations', 'messages', 'message_attachments') ORDER BY name",
       )
-      .all() as Array<{ name: string }>
+      .all() as Array<{ name: string }>;
 
-    expect(tables).toEqual([
-      { name: 'conversations' },
-      { name: 'message_attachments' },
-      { name: 'messages' }
-    ])
+    expect(tables).toEqual([{ name: "conversations" }, { name: "message_attachments" }, { name: "messages" }]);
 
-    const conversationColumns = checkDb.prepare('PRAGMA table_info(conversations)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(conversationColumns.map((column) => column.name))
+    const conversationColumns = checkDb.prepare("PRAGMA table_info(conversations)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(conversationColumns.map((column) => column.name));
 
-    expect(columnNames.has('is_new')).toBe(true)
-    expect(columnNames.has('active_skills')).toBe(true)
-    expect(columnNames.has('parent_conversation_id')).toBe(true)
-    checkDb.close()
-  })
+    expect(columnNames.has("is_new")).toBe(true);
+    expect(columnNames.has("active_skills")).toBe(true);
+    expect(columnNames.has("parent_conversation_id")).toBe(true);
+    checkDb.close();
+  });
 
-  it('migrates new_sessions active_skills when schema version is already at 14', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("migrates new_sessions active_skills when schema version is already at 14", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -110,146 +106,142 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const newSessionColumns = checkDb.prepare('PRAGMA table_info(new_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(newSessionColumns.map((column) => column.name))
-    expect(columnNames.has('active_skills')).toBe(true)
-    expect(columnNames.has('disabled_agent_tools')).toBe(true)
+    const checkDb = new DatabaseCtor(dbPath);
+    const newSessionColumns = checkDb.prepare("PRAGMA table_info(new_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(newSessionColumns.map((column) => column.name));
+    expect(columnNames.has("active_skills")).toBe(true);
+    expect(columnNames.has("disabled_agent_tools")).toBe(true);
 
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
-    expect(versions.map((row) => row.version)).toContain(16)
-    checkDb.close()
-  })
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
+    expect(versions.map((row) => row.version)).toContain(16);
+    checkDb.close();
+  });
 
-  it('creates fresh new_sessions tables with disabled_agent_tools column', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("creates fresh new_sessions tables with disabled_agent_tools column", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.close()
+    const dbPath = path.join(tempDir, "agent.db");
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const newSessionColumns = checkDb.prepare('PRAGMA table_info(new_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(newSessionColumns.map((column) => column.name))
-    const environmentColumns = checkDb
-      .prepare('PRAGMA table_info(new_environments)')
-      .all() as Array<{
-      name: string
-    }>
-    const environmentColumnNames = new Set(environmentColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const newSessionColumns = checkDb.prepare("PRAGMA table_info(new_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(newSessionColumns.map((column) => column.name));
+    const environmentColumns = checkDb.prepare("PRAGMA table_info(new_environments)").all() as Array<{
+      name: string;
+    }>;
+    const environmentColumnNames = new Set(environmentColumns.map((column) => column.name));
 
-    expect(columnNames.has('is_draft')).toBe(true)
-    expect(columnNames.has('active_skills')).toBe(true)
-    expect(columnNames.has('disabled_agent_tools')).toBe(true)
-    expect(environmentColumnNames).toEqual(new Set(['path', 'session_count', 'last_used_at']))
+    expect(columnNames.has("is_draft")).toBe(true);
+    expect(columnNames.has("active_skills")).toBe(true);
+    expect(columnNames.has("disabled_agent_tools")).toBe(true);
+    expect(environmentColumnNames).toEqual(new Set(["path", "session_count", "last_used_at"]));
 
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
-    expect(versions.map((row) => row.version)).toEqual(expect.arrayContaining([11, 15, 16, 17]))
-    checkDb.close()
-  })
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
+    expect(versions.map((row) => row.version)).toEqual(expect.arrayContaining([11, 15, 16, 17]));
+    checkDb.close();
+  });
 
-  it('migrates ACP agent aliases without requiring legacy conversations tables', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("migrates ACP agent aliases without requiring legacy conversations tables", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const presenter = new SQLitePresenterCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const presenter = new SQLitePresenterCtor(dbPath);
 
-    presenter.newSessionsTable.create('session-1', 'kimi-cli', 'Recovered session', null)
-    presenter.deepchatSessionsTable.create('session-1', 'acp', 'kimi-cli')
-    await presenter.upsertAcpSession('conversation-1', 'kimi-cli', {
-      sessionId: 'acp-session-1',
-      status: 'active'
-    })
+    presenter.newSessionsTable.create("session-1", "kimi-cli", "Recovered session", null);
+    presenter.deepchatSessionsTable.create("session-1", "acp", "kimi-cli");
+    await presenter.upsertAcpSession("conversation-1", "kimi-cli", {
+      sessionId: "acp-session-1",
+      status: "active",
+    });
 
     await expect(
       presenter.migrateAcpAgentReferences({
-        'kimi-cli': 'kimi'
-      })
-    ).resolves.toBeUndefined()
+        "kimi-cli": "kimi",
+      }),
+    ).resolves.toBeUndefined();
 
-    expect(presenter.newSessionsTable.get('session-1')?.agent_id).toBe('kimi')
-    expect(presenter.deepchatSessionsTable.get('session-1')?.model_id).toBe('kimi')
-    expect(await presenter.getAcpSession('conversation-1', 'kimi-cli')).toBeNull()
-    expect(await presenter.getAcpSession('conversation-1', 'kimi')).toMatchObject({
-      conversationId: 'conversation-1',
-      agentId: 'kimi',
-      sessionId: 'acp-session-1'
-    })
+    expect(presenter.newSessionsTable.get("session-1")?.agent_id).toBe("kimi");
+    expect(presenter.deepchatSessionsTable.get("session-1")?.model_id).toBe("kimi");
+    expect(await presenter.getAcpSession("conversation-1", "kimi-cli")).toBeNull();
+    expect(await presenter.getAcpSession("conversation-1", "kimi")).toMatchObject({
+      conversationId: "conversation-1",
+      agentId: "kimi",
+      sessionId: "acp-session-1",
+    });
 
-    presenter.close()
-  })
+    presenter.close();
+  });
 
-  it('recreates new_sessions with applied columns when schema version is already 16', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("recreates new_sessions with applied columns when schema version is already 16", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
         applied_at INTEGER NOT NULL
       );
       INSERT INTO schema_versions (version, applied_at) VALUES (16, ${Date.now()});
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.newSessionsTable.create('session-1', 'agent-1', 'Recovered session', null)
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.newSessionsTable.create("session-1", "agent-1", "Recovered session", null);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const newSessionColumns = checkDb.prepare('PRAGMA table_info(new_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(newSessionColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const newSessionColumns = checkDb.prepare("PRAGMA table_info(new_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(newSessionColumns.map((column) => column.name));
 
-    expect(columnNames.has('is_draft')).toBe(true)
-    expect(columnNames.has('active_skills')).toBe(true)
-    expect(columnNames.has('disabled_agent_tools')).toBe(true)
+    expect(columnNames.has("is_draft")).toBe(true);
+    expect(columnNames.has("active_skills")).toBe(true);
+    expect(columnNames.has("disabled_agent_tools")).toBe(true);
 
     const row = checkDb
-      .prepare(
-        'SELECT is_draft, active_skills, disabled_agent_tools FROM new_sessions WHERE id = ?'
-      )
-      .get('session-1') as
+      .prepare("SELECT is_draft, active_skills, disabled_agent_tools FROM new_sessions WHERE id = ?")
+      .get("session-1") as
       | {
-          is_draft: number
-          active_skills: string
-          disabled_agent_tools: string
+          is_draft: number;
+          active_skills: string;
+          disabled_agent_tools: string;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
       is_draft: 0,
-      active_skills: '[]',
-      disabled_agent_tools: '[]'
-    })
-    checkDb.close()
-  })
+      active_skills: "[]",
+      disabled_agent_tools: "[]",
+    });
+    checkDb.close();
+  });
 
-  it('repairs missing subagent columns when schema version is already 20', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("repairs missing subagent columns when schema version is already 20", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -291,59 +283,59 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         1000,
         2000
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    const diagnosis = await presenter.diagnoseSchema()
-    expect(diagnosis.issues.some((issue) => issue.name === 'subagent_enabled')).toBe(true)
+    const presenter = new SQLitePresenterCtor(dbPath);
+    const diagnosis = await presenter.diagnoseSchema();
+    expect(diagnosis.issues.some((issue) => issue.name === "subagent_enabled")).toBe(true);
 
-    const repairReport = await presenter.repairSchema()
-    expect(repairReport.status).toBe('repaired')
-    presenter.close()
+    const repairReport = await presenter.repairSchema();
+    expect(repairReport.status).toBe("repaired");
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const newSessionColumns = checkDb.prepare('PRAGMA table_info(new_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(newSessionColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const newSessionColumns = checkDb.prepare("PRAGMA table_info(new_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(newSessionColumns.map((column) => column.name));
 
-    expect(columnNames.has('subagent_enabled')).toBe(true)
-    expect(columnNames.has('session_kind')).toBe(true)
-    expect(columnNames.has('parent_session_id')).toBe(true)
-    expect(columnNames.has('subagent_meta_json')).toBe(true)
+    expect(columnNames.has("subagent_enabled")).toBe(true);
+    expect(columnNames.has("session_kind")).toBe(true);
+    expect(columnNames.has("parent_session_id")).toBe(true);
+    expect(columnNames.has("subagent_meta_json")).toBe(true);
 
     const row = checkDb
       .prepare(
         `SELECT subagent_enabled, session_kind, parent_session_id, subagent_meta_json
          FROM new_sessions
-         WHERE id = ?`
+         WHERE id = ?`,
       )
-      .get('session-1') as
+      .get("session-1") as
       | {
-          subagent_enabled: number
-          session_kind: string
-          parent_session_id: string | null
-          subagent_meta_json: string | null
+          subagent_enabled: number;
+          session_kind: string;
+          parent_session_id: string | null;
+          subagent_meta_json: string | null;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
       subagent_enabled: 0,
-      session_kind: 'regular',
+      session_kind: "regular",
       parent_session_id: null,
-      subagent_meta_json: null
-    })
+      subagent_meta_json: null,
+    });
 
-    checkDb.close()
-  })
+    checkDb.close();
+  });
 
-  it('migrates new_environments from existing session history when schema version is 16', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("migrates new_environments from existing session history when schema version is 16", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -386,46 +378,46 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         (conversation_id, agent_id, session_id, workdir, status, created_at, updated_at, metadata)
       VALUES
         ('s3', 'agent-1', NULL, '/work/app-b', 'idle', 200, 275, NULL);
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
+    const checkDb = new DatabaseCtor(dbPath);
     const rows = checkDb
-      .prepare('SELECT path, session_count, last_used_at FROM new_environments ORDER BY path ASC')
+      .prepare("SELECT path, session_count, last_used_at FROM new_environments ORDER BY path ASC")
       .all() as Array<{
-      path: string
-      session_count: number
-      last_used_at: number
-    }>
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
+      path: string;
+      session_count: number;
+      last_used_at: number;
+    }>;
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
 
     expect(rows).toEqual([
       {
-        path: '/work/app-a',
+        path: "/work/app-a",
         session_count: 2,
-        last_used_at: 300
+        last_used_at: 300,
       },
       {
-        path: '/work/app-b',
+        path: "/work/app-b",
         session_count: 1,
-        last_used_at: 275
-      }
-    ])
-    expect(versions.map((row) => row.version)).toContain(18)
-    checkDb.close()
-  })
+        last_used_at: 275,
+      },
+    ]);
+    expect(versions.map((row) => row.version)).toContain(18);
+    checkDb.close();
+  });
 
-  it('does not duplicate environment rows when reopening an already migrated database', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("does not duplicate environment rows when reopening an already migrated database", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -461,82 +453,80 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
       VALUES
         ('s1', 'deepchat', 'One', '/work/app-a', 0, 0, '[]', '[]', 100, 200),
         ('s2', 'deepchat', 'Two', '/work/app-a', 0, 0, '[]', '[]', 150, 300);
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const firstPresenter = new SQLitePresenterCtor(dbPath)
-    firstPresenter.close()
+    const firstPresenter = new SQLitePresenterCtor(dbPath);
+    firstPresenter.close();
 
-    const secondPresenter = new SQLitePresenterCtor(dbPath)
-    secondPresenter.close()
+    const secondPresenter = new SQLitePresenterCtor(dbPath);
+    secondPresenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const rows = checkDb
-      .prepare('SELECT path, session_count, last_used_at FROM new_environments')
-      .all() as Array<{
-      path: string
-      session_count: number
-      last_used_at: number
-    }>
+    const checkDb = new DatabaseCtor(dbPath);
+    const rows = checkDb.prepare("SELECT path, session_count, last_used_at FROM new_environments").all() as Array<{
+      path: string;
+      session_count: number;
+      last_used_at: number;
+    }>;
 
     expect(rows).toEqual([
       {
-        path: '/work/app-a',
+        path: "/work/app-a",
         session_count: 2,
-        last_used_at: 300
-      }
-    ])
-    checkDb.close()
-  })
+        last_used_at: 300,
+      },
+    ]);
+    checkDb.close();
+  });
 
-  it('recreates deepchat_sessions with applied columns when schema version is already 14', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("recreates deepchat_sessions with applied columns when schema version is already 14", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
         applied_at INTEGER NOT NULL
       );
       INSERT INTO schema_versions (version, applied_at) VALUES (14, ${Date.now()});
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.deepchatSessionsTable.create('session-1', 'openai', 'gpt-4o')
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.deepchatSessionsTable.create("session-1", "openai", "gpt-4o");
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const deepchatColumns = checkDb.prepare('PRAGMA table_info(deepchat_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(deepchatColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const deepchatColumns = checkDb.prepare("PRAGMA table_info(deepchat_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(deepchatColumns.map((column) => column.name));
 
-    expect(columnNames.has('system_prompt')).toBe(true)
-    expect(columnNames.has('summary_text')).toBe(true)
-    expect(columnNames.has('summary_cursor_order_seq')).toBe(true)
-    expect(columnNames.has('force_interleaved_thinking_compat')).toBe(true)
-    expect(columnNames.has('reasoning_visibility')).toBe(true)
-    expect(columnNames.has('timeout_ms')).toBe(true)
-    expect(columnNames.has('image_generation_options_json')).toBe(true)
+    expect(columnNames.has("system_prompt")).toBe(true);
+    expect(columnNames.has("summary_text")).toBe(true);
+    expect(columnNames.has("summary_cursor_order_seq")).toBe(true);
+    expect(columnNames.has("force_interleaved_thinking_compat")).toBe(true);
+    expect(columnNames.has("reasoning_visibility")).toBe(true);
+    expect(columnNames.has("timeout_ms")).toBe(true);
+    expect(columnNames.has("image_generation_options_json")).toBe(true);
 
     const row = checkDb
       .prepare(
-        'SELECT system_prompt, summary_text, summary_cursor_order_seq, force_interleaved_thinking_compat, reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?'
+        "SELECT system_prompt, summary_text, summary_cursor_order_seq, force_interleaved_thinking_compat, reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?",
       )
-      .get('session-1') as
+      .get("session-1") as
       | {
-          system_prompt: string | null
-          summary_text: string | null
-          summary_cursor_order_seq: number
-          force_interleaved_thinking_compat: number | null
-          reasoning_visibility: string | null
-          timeout_ms: number | null
-          image_generation_options_json: string | null
+          system_prompt: string | null;
+          summary_text: string | null;
+          summary_cursor_order_seq: number;
+          force_interleaved_thinking_compat: number | null;
+          reasoning_visibility: string | null;
+          timeout_ms: number | null;
+          image_generation_options_json: string | null;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
       system_prompt: null,
@@ -545,17 +535,17 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
       force_interleaved_thinking_compat: null,
       reasoning_visibility: null,
       timeout_ms: null,
-      image_generation_options_json: null
-    })
-    checkDb.close()
-  })
+      image_generation_options_json: null,
+    });
+    checkDb.close();
+  });
 
-  it('migrates force_interleaved_thinking_compat when schema version is already 18', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("migrates force_interleaved_thinking_compat when schema version is already 18", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -595,50 +585,50 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         NULL,
         1
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.deepchatSessionsTable.updateGenerationSettings('session-1', {
-      forceInterleavedThinkingCompat: true
-    })
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.deepchatSessionsTable.updateGenerationSettings("session-1", {
+      forceInterleavedThinkingCompat: true,
+    });
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const deepchatColumns = checkDb.prepare('PRAGMA table_info(deepchat_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(deepchatColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const deepchatColumns = checkDb.prepare("PRAGMA table_info(deepchat_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(deepchatColumns.map((column) => column.name));
 
-    expect(columnNames.has('force_interleaved_thinking_compat')).toBe(true)
-    expect(columnNames.has('timeout_ms')).toBe(true)
+    expect(columnNames.has("force_interleaved_thinking_compat")).toBe(true);
+    expect(columnNames.has("timeout_ms")).toBe(true);
 
     const row = checkDb
-      .prepare('SELECT force_interleaved_thinking_compat FROM deepchat_sessions WHERE id = ?')
-      .get('session-1') as
+      .prepare("SELECT force_interleaved_thinking_compat FROM deepchat_sessions WHERE id = ?")
+      .get("session-1") as
       | {
-          force_interleaved_thinking_compat: number | null
+          force_interleaved_thinking_compat: number | null;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
-      force_interleaved_thinking_compat: 1
-    })
+      force_interleaved_thinking_compat: 1,
+    });
 
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
-    expect(versions.map((entry) => entry.version)).toContain(20)
-    expect(versions.map((entry) => entry.version)).toContain(24)
-    checkDb.close()
-  })
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
+    expect(versions.map((entry) => entry.version)).toContain(20);
+    expect(versions.map((entry) => entry.version)).toContain(24);
+    checkDb.close();
+  });
 
-  it('repairs missing deepchat_sessions columns when schema version is already 22', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("repairs missing deepchat_sessions columns when schema version is already 22", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -678,58 +668,56 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         NULL,
         1
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    const diagnosis = await presenter.diagnoseSchema()
-    expect(
-      diagnosis.issues.some((issue) => issue.name === 'force_interleaved_thinking_compat')
-    ).toBe(true)
+    const presenter = new SQLitePresenterCtor(dbPath);
+    const diagnosis = await presenter.diagnoseSchema();
+    expect(diagnosis.issues.some((issue) => issue.name === "force_interleaved_thinking_compat")).toBe(true);
 
-    const repairReport = await presenter.repairSchema()
-    expect(repairReport.status).toBe('repaired')
-    presenter.close()
+    const repairReport = await presenter.repairSchema();
+    expect(repairReport.status).toBe("repaired");
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const deepchatColumns = checkDb.prepare('PRAGMA table_info(deepchat_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(deepchatColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const deepchatColumns = checkDb.prepare("PRAGMA table_info(deepchat_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(deepchatColumns.map((column) => column.name));
 
-    expect(columnNames.has('force_interleaved_thinking_compat')).toBe(true)
-    expect(columnNames.has('reasoning_visibility')).toBe(true)
-    expect(columnNames.has('timeout_ms')).toBe(true)
-    expect(columnNames.has('image_generation_options_json')).toBe(true)
+    expect(columnNames.has("force_interleaved_thinking_compat")).toBe(true);
+    expect(columnNames.has("reasoning_visibility")).toBe(true);
+    expect(columnNames.has("timeout_ms")).toBe(true);
+    expect(columnNames.has("image_generation_options_json")).toBe(true);
 
     const row = checkDb
       .prepare(
-        'SELECT force_interleaved_thinking_compat, reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?'
+        "SELECT force_interleaved_thinking_compat, reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?",
       )
-      .get('session-1') as
+      .get("session-1") as
       | {
-          force_interleaved_thinking_compat: number | null
-          reasoning_visibility: string | null
-          timeout_ms: number | null
-          image_generation_options_json: string | null
+          force_interleaved_thinking_compat: number | null;
+          reasoning_visibility: string | null;
+          timeout_ms: number | null;
+          image_generation_options_json: string | null;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
       force_interleaved_thinking_compat: null,
       reasoning_visibility: null,
       timeout_ms: null,
-      image_generation_options_json: null
-    })
-    checkDb.close()
-  })
+      image_generation_options_json: null,
+    });
+    checkDb.close();
+  });
 
-  it('repairs missing timeout_ms and image settings in deepchat_sessions when schema version is already 24', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("repairs missing timeout_ms and image settings in deepchat_sessions when schema version is already 24", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -767,52 +755,52 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         'full_access',
         'auto'
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    const diagnosis = await presenter.diagnoseSchema()
-    expect(diagnosis.issues.some((issue) => issue.name === 'timeout_ms')).toBe(true)
+    const presenter = new SQLitePresenterCtor(dbPath);
+    const diagnosis = await presenter.diagnoseSchema();
+    expect(diagnosis.issues.some((issue) => issue.name === "timeout_ms")).toBe(true);
 
-    const repairReport = await presenter.repairSchema()
-    expect(repairReport.status).toBe('repaired')
-    presenter.close()
+    const repairReport = await presenter.repairSchema();
+    expect(repairReport.status).toBe("repaired");
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const deepchatColumns = checkDb.prepare('PRAGMA table_info(deepchat_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(deepchatColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const deepchatColumns = checkDb.prepare("PRAGMA table_info(deepchat_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(deepchatColumns.map((column) => column.name));
 
-    expect(columnNames.has('timeout_ms')).toBe(true)
-    expect(columnNames.has('image_generation_options_json')).toBe(true)
+    expect(columnNames.has("timeout_ms")).toBe(true);
+    expect(columnNames.has("image_generation_options_json")).toBe(true);
 
     const row = checkDb
       .prepare(
-        'SELECT reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?'
+        "SELECT reasoning_visibility, timeout_ms, image_generation_options_json FROM deepchat_sessions WHERE id = ?",
       )
-      .get('session-1') as
+      .get("session-1") as
       | {
-          reasoning_visibility: string | null
-          timeout_ms: number | null
-          image_generation_options_json: string | null
+          reasoning_visibility: string | null;
+          timeout_ms: number | null;
+          image_generation_options_json: string | null;
         }
-      | undefined
+      | undefined;
 
     expect(row).toEqual({
-      reasoning_visibility: 'auto',
+      reasoning_visibility: "auto",
       timeout_ms: null,
-      image_generation_options_json: null
-    })
-    checkDb.close()
-  })
+      image_generation_options_json: null,
+    });
+    checkDb.close();
+  });
 
-  it('runs the v23, v24, and v27 recovery migrations for deepchat_sessions when schema version is 22', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("runs the v23, v24, and v27 recovery migrations for deepchat_sessions when schema version is 22", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -835,69 +823,63 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         summary_cursor_order_seq INTEGER NOT NULL DEFAULT 1,
         summary_updated_at INTEGER
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const deepchatColumns = checkDb.prepare('PRAGMA table_info(deepchat_sessions)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(deepchatColumns.map((column) => column.name))
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
+    const checkDb = new DatabaseCtor(dbPath);
+    const deepchatColumns = checkDb.prepare("PRAGMA table_info(deepchat_sessions)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(deepchatColumns.map((column) => column.name));
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
 
-    expect(columnNames.has('force_interleaved_thinking_compat')).toBe(true)
-    expect(columnNames.has('reasoning_visibility')).toBe(true)
-    expect(columnNames.has('timeout_ms')).toBe(true)
-    expect(columnNames.has('image_generation_options_json')).toBe(true)
-    expect(versions.map((entry) => entry.version)).toContain(23)
-    expect(versions.map((entry) => entry.version)).toContain(24)
-    expect(versions.map((entry) => entry.version)).toContain(27)
-    checkDb.close()
-  })
+    expect(columnNames.has("force_interleaved_thinking_compat")).toBe(true);
+    expect(columnNames.has("reasoning_visibility")).toBe(true);
+    expect(columnNames.has("timeout_ms")).toBe(true);
+    expect(columnNames.has("image_generation_options_json")).toBe(true);
+    expect(versions.map((entry) => entry.version)).toContain(23);
+    expect(versions.map((entry) => entry.version)).toContain(24);
+    expect(versions.map((entry) => entry.version)).toContain(27);
+    checkDb.close();
+  });
 
-  it('returns child sessions when filtering by parentSessionId without includeSubagents', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("returns child sessions when filtering by parentSessionId without includeSubagents", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const presenter = new SQLitePresenterCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const presenter = new SQLitePresenterCtor(dbPath);
 
-    presenter.newSessionsTable.create(
-      'parent-session',
-      'deepchat',
-      'Parent session',
-      '/workspace',
-      {
-        sessionKind: 'regular'
-      }
-    )
-    presenter.newSessionsTable.create('child-session', 'deepchat', 'Child session', '/workspace', {
-      sessionKind: 'subagent',
-      parentSessionId: 'parent-session'
-    })
+    presenter.newSessionsTable.create("parent-session", "deepchat", "Parent session", "/workspace", {
+      sessionKind: "regular",
+    });
+    presenter.newSessionsTable.create("child-session", "deepchat", "Child session", "/workspace", {
+      sessionKind: "subagent",
+      parentSessionId: "parent-session",
+    });
 
     const childRows = presenter.newSessionsTable.list({
-      parentSessionId: 'parent-session'
-    })
-    const defaultRows = presenter.newSessionsTable.list()
+      parentSessionId: "parent-session",
+    });
+    const defaultRows = presenter.newSessionsTable.list();
 
-    expect(childRows.map((row) => row.id)).toEqual(['child-session'])
-    expect(defaultRows.map((row) => row.id)).toEqual(['parent-session'])
+    expect(childRows.map((row) => row.id)).toEqual(["child-session"]);
+    expect(defaultRows.map((row) => row.id)).toEqual(["parent-session"]);
 
-    presenter.close()
-  })
+    presenter.close();
+  });
 
-  it('migrates deepchat_usage_stats to include cache_write_input_tokens without losing rows', async () => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deepchat-sqlite-presenter-'))
-    tempDirs.push(tempDir)
+  it("migrates deepchat_usage_stats to include cache_write_input_tokens without losing rows", async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deepchat-sqlite-presenter-"));
+    tempDirs.push(tempDir);
 
-    const dbPath = path.join(tempDir, 'agent.db')
-    const bootstrapDb = new DatabaseCtor(dbPath)
+    const dbPath = path.join(tempDir, "agent.db");
+    const bootstrapDb = new DatabaseCtor(dbPath);
     bootstrapDb.exec(`
       CREATE TABLE IF NOT EXISTS schema_versions (
         version INTEGER PRIMARY KEY,
@@ -948,17 +930,17 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
         1000,
         2000
       );
-    `)
-    bootstrapDb.close()
+    `);
+    bootstrapDb.close();
 
-    const presenter = new SQLitePresenterCtor(dbPath)
-    presenter.close()
+    const presenter = new SQLitePresenterCtor(dbPath);
+    presenter.close();
 
-    const checkDb = new DatabaseCtor(dbPath)
-    const usageColumns = checkDb.prepare('PRAGMA table_info(deepchat_usage_stats)').all() as Array<{
-      name: string
-    }>
-    const columnNames = new Set(usageColumns.map((column) => column.name))
+    const checkDb = new DatabaseCtor(dbPath);
+    const usageColumns = checkDb.prepare("PRAGMA table_info(deepchat_usage_stats)").all() as Array<{
+      name: string;
+    }>;
+    const columnNames = new Set(usageColumns.map((column) => column.name));
     const row = checkDb
       .prepare(
         `SELECT
@@ -967,28 +949,28 @@ describeIfSqlite('SQLitePresenter legacy schema bootstrap', () => {
           cache_write_input_tokens,
           estimated_cost_usd
          FROM deepchat_usage_stats
-         WHERE message_id = ?`
+         WHERE message_id = ?`,
       )
-      .get('message-1') as
+      .get("message-1") as
       | {
-          message_id: string
-          cached_input_tokens: number
-          cache_write_input_tokens: number
-          estimated_cost_usd: number | null
+          message_id: string;
+          cached_input_tokens: number;
+          cache_write_input_tokens: number;
+          estimated_cost_usd: number | null;
         }
-      | undefined
-    const versions = checkDb
-      .prepare('SELECT version FROM schema_versions ORDER BY version ASC')
-      .all() as Array<{ version: number }>
+      | undefined;
+    const versions = checkDb.prepare("SELECT version FROM schema_versions ORDER BY version ASC").all() as Array<{
+      version: number;
+    }>;
 
-    expect(columnNames.has('cache_write_input_tokens')).toBe(true)
+    expect(columnNames.has("cache_write_input_tokens")).toBe(true);
     expect(row).toEqual({
-      message_id: 'message-1',
+      message_id: "message-1",
       cached_input_tokens: 20,
       cache_write_input_tokens: 0,
-      estimated_cost_usd: 0.01
-    })
-    expect(versions.map((entry) => entry.version)).toContain(22)
-    checkDb.close()
-  })
-})
+      estimated_cost_usd: 0.01,
+    });
+    expect(versions.map((entry) => entry.version)).toContain(22);
+    checkDb.close();
+  });
+});

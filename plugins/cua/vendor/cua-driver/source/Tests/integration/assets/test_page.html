@@ -31,7 +31,7 @@
         cursor: pointer;
         border-radius: 6px;
       }
-      input[type='text'],
+      input[type="text"],
       textarea {
         font-size: 16px;
         padding: 10px;
@@ -94,27 +94,19 @@
         <option value="b">Option B</option>
         <option value="c">Option C</option>
       </select>
-      <div id="select-label" style="font-size: 14px; margin-top: 6px; color: #333">
-        selected: Option A
-      </div>
+      <div id="select-label" style="font-size: 14px; margin-top: 6px; color: #333">selected: Option A</div>
     </div>
 
     <div class="section">
       <h2>Textarea</h2>
-      <textarea
-        id="textarea"
-        placeholder="Multi-line text..."
-        oninput="mirrorTextarea()"
-      ></textarea>
+      <textarea id="textarea" placeholder="Multi-line text..." oninput="mirrorTextarea()"></textarea>
       <div id="textarea-mirror" style="font-size: 14px; margin-top: 6px; color: #333">content:</div>
     </div>
 
     <div class="section">
       <h2>Link</h2>
       <a href="#anchor" id="testlink" onclick="trackLink(event)">Test Link</a>
-      <div id="link-status" style="font-size: 14px; margin-top: 4px; color: #333">
-        link: not clicked
-      </div>
+      <div id="link-status" style="font-size: 14px; margin-top: 4px; color: #333">link: not clicked</div>
     </div>
 
     <div class="section">
@@ -127,69 +119,67 @@
 
     <script>
       // Button
-      var clickCount = 0
+      var clickCount = 0;
       function bumpClick() {
-        clickCount++
-        document.getElementById('btn-counter').textContent = 'clicks: ' + clickCount
+        clickCount++;
+        document.getElementById("btn-counter").textContent = "clicks: " + clickCount;
       }
 
       // Text input
       function mirrorText() {
-        document.getElementById('text-mirror').textContent =
-          'typed: ' + document.getElementById('textbox').value
+        document.getElementById("text-mirror").textContent = "typed: " + document.getElementById("textbox").value;
       }
 
       // Checkbox
       function updateCheckbox() {
-        var cb = document.getElementById('checkbox')
-        document.getElementById('checkbox-label').textContent = cb.checked ? 'checked' : 'unchecked'
+        var cb = document.getElementById("checkbox");
+        document.getElementById("checkbox-label").textContent = cb.checked ? "checked" : "unchecked";
       }
 
       // Select
       function updateSelect() {
-        var sel = document.getElementById('dropdown')
-        var txt = sel.options[sel.selectedIndex].text
-        document.getElementById('select-label').textContent = 'selected: ' + txt
+        var sel = document.getElementById("dropdown");
+        var txt = sel.options[sel.selectedIndex].text;
+        document.getElementById("select-label").textContent = "selected: " + txt;
       }
 
       // Textarea
       function mirrorTextarea() {
-        document.getElementById('textarea-mirror').textContent =
-          'content: ' + document.getElementById('textarea').value
+        document.getElementById("textarea-mirror").textContent =
+          "content: " + document.getElementById("textarea").value;
       }
 
       // Link
       function trackLink(e) {
-        document.getElementById('link-status').textContent = 'link: clicked'
+        document.getElementById("link-status").textContent = "link: clicked";
       }
 
       // Canvas — draw on click, record last position
-      var canvas = document.getElementById('mycanvas')
-      var ctx = canvas.getContext('2d')
+      var canvas = document.getElementById("mycanvas");
+      var ctx = canvas.getContext("2d");
       // Draw initial grey background
-      ctx.fillStyle = '#eee'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      ctx.fillStyle = '#999'
-      ctx.font = '14px sans-serif'
-      ctx.fillText('Click to draw', 90, 80)
+      ctx.fillStyle = "#eee";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#999";
+      ctx.font = "14px sans-serif";
+      ctx.fillText("Click to draw", 90, 80);
 
-      canvas.addEventListener('mousedown', function (e) {
-        var rect = canvas.getBoundingClientRect()
-        var x = Math.round(e.clientX - rect.left)
-        var y = Math.round(e.clientY - rect.top)
-        canvas.dataset.lastX = x
-        canvas.dataset.lastY = y
+      canvas.addEventListener("mousedown", function (e) {
+        var rect = canvas.getBoundingClientRect();
+        var x = Math.round(e.clientX - rect.left);
+        var y = Math.round(e.clientY - rect.top);
+        canvas.dataset.lastX = x;
+        canvas.dataset.lastY = y;
         // Draw a red dot
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#eee'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.beginPath()
-        ctx.arc(x, y, 12, 0, Math.PI * 2)
-        ctx.fillStyle = '#e53935'
-        ctx.fill()
-        document.getElementById('canvas-status').textContent =
-          'canvas: clicked at (' + x + ',' + y + ')'
-      })
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#eee";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = "#e53935";
+        ctx.fill();
+        document.getElementById("canvas-status").textContent = "canvas: clicked at (" + x + "," + y + ")";
+      });
     </script>
   </body>
 </html>

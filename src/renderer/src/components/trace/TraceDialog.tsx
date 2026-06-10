@@ -1,186 +1,180 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@shadcn/components/ui/dialog'
-import { Button } from '@shadcn/components/ui/button'
-import { Spinner } from '@shadcn/components/ui/spinner'
-import { Icon } from '@iconify/react'
-import { createDeviceClient } from '@api/DeviceClient'
-import { createSessionClient } from '@api/SessionClient'
-import { useMonaco } from 'stream-monaco'
-import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import type { MessageTraceRecord } from '@shared/types/agent-interface'
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@shadcn/components/ui/dialog";
+import { Button } from "@shadcn/components/ui/button";
+import { Spinner } from "@shadcn/components/ui/spinner";
+import { Icon } from "@iconify/react";
+import { createDeviceClient } from "@api/DeviceClient";
+import { createSessionClient } from "@api/SessionClient";
+import { useMonaco } from "stream-monaco";
+import { useUiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
+import type { MessageTraceRecord } from "@shared/types/agent-interface";
 
-const deviceClient = createDeviceClient()
-const sessionClient = createSessionClient()
+const deviceClient = createDeviceClient();
+const sessionClient = createSessionClient();
 
 interface TraceDialogProps {
-  messageId: string | null
-  agentId?: string | null
-  onClose: () => void
+  messageId: string | null;
+  agentId?: string | null;
+  onClose: () => void;
 }
 
-export default function TraceDialog({ messageId, agentId, onClose }: TraceDialogProps) {
-  const uiSettingsStore = useUiSettingsStore()
-  const jsonEditorRef = useRef<HTMLDivElement | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
-  const [copySuccess, setCopySuccess] = useState(false)
-  const requestIdRef = useRef(0)
-  const [traceList, setTraceList] = useState<MessageTraceRecord[]>([])
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
-  const [editorInitialized, setEditorInitialized] = useState(false)
+export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
+  const uiSettingsStore = useUiSettingsStore();
+  const jsonEditorRef = useRef<HTMLDivElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const requestIdRef = useRef(0);
+  const [traceList, setTraceList] = useState<MessageTraceRecord[]>([]);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [editorInitialized, setEditorInitialized] = useState(false);
 
-  const { createEditor, updateCode, cleanupEditor, getEditorView } = useMonaco({
+  const { cleanupEditor, getEditorView } = useMonaco({
     readOnly: true,
-    wordWrap: 'off',
-    wrappingIndent: 'same',
-    fontFamily: uiSettingsStore.formattedCodeFontFamily,
+    wordWrap: "off",
+    wrappingIndent: "same",
+    fontFamily: getFormattedCodeFontFamily(),
     minimap: { enabled: false },
     scrollBeyondLastLine: true,
     fontSize: 12,
-    lineNumbers: 'on',
+    lineNumbers: "on",
     folding: true,
     automaticLayout: true,
     scrollbar: {
-      horizontal: 'visible',
-      vertical: 'visible',
+      horizontal: "visible",
+      vertical: "visible",
       horizontalScrollbarSize: 10,
-      verticalScrollbarSize: 10
-    }
-  })
+      verticalScrollbarSize: 10,
+    },
+  });
 
   const selectedTrace = useMemo(() => {
-    if (!traceList.length) return null
+    if (!traceList.length) return null;
     if (selectedTraceId) {
-      const matched = traceList.find((item) => item.id === selectedTraceId)
-      if (matched) return matched
+      const matched = traceList.find((item) => item.id === selectedTraceId);
+      if (matched) return matched;
     }
-    return traceList[0] ?? null
-  }, [traceList, selectedTraceId])
+    return traceList[0] ?? null;
+  }, [traceList, selectedTraceId]);
 
   const parsedHeaders = useMemo(() => {
-    if (!selectedTrace) return {}
+    if (!selectedTrace) return {};
     try {
-      return JSON.parse(selectedTrace.headersJson)
+      return JSON.parse(selectedTrace.headersJson);
     } catch {
-      return selectedTrace.headersJson
+      return selectedTrace.headersJson;
     }
-  }, [selectedTrace])
+  }, [selectedTrace]);
 
   const parsedBody = useMemo(() => {
-    if (!selectedTrace) return {}
+    if (!selectedTrace) return {};
     try {
-      return JSON.parse(selectedTrace.bodyJson)
+      return JSON.parse(selectedTrace.bodyJson);
     } catch {
-      return selectedTrace.bodyJson
+      return selectedTrace.bodyJson;
     }
-  }, [selectedTrace])
+  }, [selectedTrace]);
 
   const formattedJson = useMemo(() => {
-    if (!selectedTrace) return ''
+    if (!selectedTrace) return "";
     const fullData = {
       endpoint: selectedTrace.endpoint,
       headers: parsedHeaders,
       body: parsedBody,
       truncated: selectedTrace.truncated,
-      requestSeq: selectedTrace.requestSeq
-    }
-    return JSON.stringify(fullData, null, 2)
-  }, [selectedTrace, parsedHeaders, parsedBody])
+      requestSeq: selectedTrace.requestSeq,
+    };
+    return JSON.stringify(fullData, null, 2);
+  }, [selectedTrace, parsedHeaders, parsedBody]);
 
   useEffect(() => {
     if (messageId) {
-      setIsOpen(true)
-      loadTraces(messageId)
+      setIsOpen(true);
+      loadTraces(messageId);
     } else {
-      setIsOpen(false)
-      resetState()
+      setIsOpen(false);
+      resetState();
     }
-  }, [messageId])
+  }, [messageId]);
 
   useEffect(() => {
     if (!isOpen) {
-      resetState()
-      onClose()
+      resetState();
+      onClose();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   useEffect(() => {
     const applyFontFamily = (fontFamily: string) => {
-      const editor = getEditorView()
-      if (editor) editor.updateOptions({ fontFamily })
-    }
-    applyFontFamily(uiSettingsStore.formattedCodeFontFamily)
-  }, [uiSettingsStore.formattedCodeFontFamily])
+      const editor = getEditorView();
+      if (editor) editor.updateOptions({ fontFamily });
+    };
+    applyFontFamily(getFormattedCodeFontFamily());
+  }, [getFormattedCodeFontFamily()]);
 
   useEffect(() => {
     return () => {
-      cleanupEditor()
-      setEditorInitialized(false)
-    }
-  }, [])
+      cleanupEditor();
+      setEditorInitialized(false);
+    };
+  }, []);
 
   const loadTraces = async (msgId: string) => {
-    requestIdRef.current += 1
-    const currentRequestId = requestIdRef.current
+    requestIdRef.current += 1;
+    const currentRequestId = requestIdRef.current;
 
-    setLoading(true)
-    setError(false)
-    setTraceList([])
-    setSelectedTraceId(null)
+    setLoading(true);
+    setError(false);
+    setTraceList([]);
+    setSelectedTraceId(null);
 
     try {
-      const result = await sessionClient.listMessageTraces(msgId)
-      if (currentRequestId !== requestIdRef.current) return
+      const result = await sessionClient.listMessageTraces(msgId);
+      if (currentRequestId !== requestIdRef.current) return;
       if (!Array.isArray(result) || result.length === 0) {
-        setError(true)
-        return
+        setError(true);
+        return;
       }
-      setTraceList(result)
-      setSelectedTraceId(result[0].id)
+      setTraceList(result);
+      setSelectedTraceId(result[0].id);
     } catch {
       if (currentRequestId === requestIdRef.current) {
-        setError(true)
+        setError(true);
       }
     } finally {
       if (currentRequestId === requestIdRef.current) {
-        setLoading(false)
+        setLoading(false);
       }
     }
-  }
+  };
 
   const copyJson = useCallback(async () => {
-    if (!formattedJson) return
+    if (!formattedJson) return;
     try {
-      deviceClient.copyText(formattedJson)
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
+      deviceClient.copyText(formattedJson);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
     } catch (err) {
-      console.error('Failed to copy JSON:', err)
+      console.error("Failed to copy JSON:", err);
     }
-  }, [formattedJson])
+  }, [formattedJson]);
 
   const resetState = useCallback(() => {
-    setLoading(false)
-    setError(false)
-    setCopySuccess(false)
-    setTraceList([])
-    setSelectedTraceId(null)
-    cleanupEditor()
-    setEditorInitialized(false)
-  }, [])
+    setLoading(false);
+    setError(false);
+    setCopySuccess(false);
+    setTraceList([]);
+    setSelectedTraceId(null);
+    cleanupEditor();
+    setEditorInitialized(false);
+  }, []);
 
   const close = useCallback(() => {
-    setIsOpen(false)
-    resetState()
-    onClose()
-  }, [resetState, onClose])
+    setIsOpen(false);
+    resetState();
+    onClose();
+  }, [resetState, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -212,7 +206,7 @@ export default function TraceDialog({ messageId, agentId, onClose }: TraceDialog
                   <Button
                     key={trace.id}
                     size="sm"
-                    variant={trace.id === selectedTrace.id ? 'default' : 'outline'}
+                    variant={trace.id === selectedTrace.id ? "default" : "outline"}
                     onClick={() => setSelectedTraceId(trace.id)}
                   >
                     #{trace.requestSeq}
@@ -245,7 +239,7 @@ export default function TraceDialog({ messageId, agentId, onClose }: TraceDialog
                 <span className="text-sm font-semibold">Body</span>
                 <Button variant="ghost" size="sm" onClick={copyJson}>
                   <Icon icon="lucide:copy" className="w-4 h-4 mr-1" />
-                  {copySuccess ? 'Copied!' : 'Copy JSON'}
+                  {copySuccess ? "Copied!" : "Copy JSON"}
                 </Button>
               </div>
               <div className="flex-1 min-h-0 bg-muted/30 relative">
@@ -269,5 +263,5 @@ export default function TraceDialog({ messageId, agentId, onClose }: TraceDialog
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

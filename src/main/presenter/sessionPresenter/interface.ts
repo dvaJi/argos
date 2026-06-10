@@ -1,1 +1,1 @@
-export type { ISessionPresenter } from '@shared/presenter'
+export type { ISessionPresenter } from "@shared/presenter";

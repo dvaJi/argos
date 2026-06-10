@@ -1,10 +1,10 @@
-import { eventBus, SendTarget } from '@/eventbus'
-import { CONFIG_EVENTS } from '@/events'
-import { SystemPrompt } from '@shared/presenter'
-import ElectronStore from 'electron-store'
-import { publishDeepchatEvent } from '@/routes/publishDeepchatEvent'
+import { eventBus, SendTarget } from "@/eventbus";
+import { CONFIG_EVENTS } from "@/events";
+import { SystemPrompt } from "@shared/presenter";
+import ElectronStore from "electron-store";
+import { publishDeepchatEvent } from "@/routes/publishDeepchatEvent";
 
-type SetSetting = <T>(key: string, value: T) => void
+type SetSetting = <T>(key: string, value: T) => void;
 
 export const DEFAULT_SYSTEM_PROMPT = `You are DeepChat — a powerful, autonomous AI agent built to get things done. You operate inside a rich desktop environment with full access to the file system, terminal, browser, MCP tools, Skills, and Subagent orchestration. You don't just answer questions — you solve problems end-to-end.
 
@@ -62,137 +62,137 @@ When writing or modifying code:
 
 ## Identity
 
-You are DeepChat — not a generic chatbot, but a capable engineering partner. You take ownership of problems. You ship solutions. You leave the codebase better than you found it.`
+You are DeepChat — not a generic chatbot, but a capable engineering partner. You take ownership of problems. You ship solutions. You leave the codebase better than you found it.`;
 
-type GetSetting = <T>(key: string) => T | undefined
+type GetSetting = <T>(key: string) => T | undefined;
 
 interface SystemPromptHelperOptions {
-  systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>
-  getSetting: GetSetting
-  setSetting: SetSetting
+  systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>;
+  getSetting: GetSetting;
+  setSetting: SetSetting;
 }
 
 export class SystemPromptHelper {
-  private readonly systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>
-  private readonly getSetting: GetSetting
-  private readonly setSetting: SetSetting
+  private readonly systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>;
+  private readonly getSetting: GetSetting;
+  private readonly setSetting: SetSetting;
 
   constructor(options: SystemPromptHelperOptions) {
-    this.systemPromptsStore = options.systemPromptsStore
-    this.getSetting = options.getSetting
-    this.setSetting = options.setSetting
+    this.systemPromptsStore = options.systemPromptsStore;
+    this.getSetting = options.getSetting;
+    this.setSetting = options.setSetting;
   }
 
   async getDefaultSystemPrompt(): Promise<string> {
-    const prompts = await this.getSystemPrompts()
-    const defaultPrompt = prompts.find((p) => p.isDefault)
+    const prompts = await this.getSystemPrompts();
+    const defaultPrompt = prompts.find((p) => p.isDefault);
     if (defaultPrompt) {
-      return defaultPrompt.content
+      return defaultPrompt.content;
     }
-    return this.getSetting<string>('default_system_prompt') || ''
+    return this.getSetting<string>("default_system_prompt") || "";
   }
 
   async setDefaultSystemPrompt(prompt: string): Promise<void> {
-    this.setSetting('default_system_prompt', prompt)
-    await this.publishSystemPromptState()
+    this.setSetting("default_system_prompt", prompt);
+    await this.publishSystemPromptState();
   }
 
   async resetToDefaultPrompt(): Promise<void> {
-    this.setSetting('default_system_prompt', DEFAULT_SYSTEM_PROMPT)
-    await this.publishSystemPromptState()
+    this.setSetting("default_system_prompt", DEFAULT_SYSTEM_PROMPT);
+    await this.publishSystemPromptState();
   }
 
   async clearSystemPrompt(): Promise<void> {
-    this.setSetting('default_system_prompt', '')
-    await this.publishSystemPromptState()
+    this.setSetting("default_system_prompt", "");
+    await this.publishSystemPromptState();
   }
 
   async getSystemPrompts(): Promise<SystemPrompt[]> {
     try {
-      return this.systemPromptsStore.get('prompts') || []
+      return this.systemPromptsStore.get("prompts") || [];
     } catch (error) {
-      console.error('[SystemPromptHelper] Failed to load prompts:', error)
-      return []
+      console.error("[SystemPromptHelper] Failed to load prompts:", error);
+      return [];
     }
   }
 
   async setSystemPrompts(prompts: SystemPrompt[]): Promise<void> {
-    await this.systemPromptsStore.set('prompts', prompts)
-    await this.publishSystemPromptState()
+    await this.systemPromptsStore.set("prompts", prompts);
+    await this.publishSystemPromptState();
   }
 
   async addSystemPrompt(prompt: SystemPrompt): Promise<void> {
-    const prompts = await this.getSystemPrompts()
-    prompts.push(prompt)
-    await this.setSystemPrompts(prompts)
+    const prompts = await this.getSystemPrompts();
+    prompts.push(prompt);
+    await this.setSystemPrompts(prompts);
   }
 
   async updateSystemPrompt(promptId: string, updates: Partial<SystemPrompt>): Promise<void> {
-    const prompts = await this.getSystemPrompts()
-    const index = prompts.findIndex((p) => p.id === promptId)
+    const prompts = await this.getSystemPrompts();
+    const index = prompts.findIndex((p) => p.id === promptId);
     if (index !== -1) {
-      prompts[index] = { ...prompts[index], ...updates }
-      await this.setSystemPrompts(prompts)
+      prompts[index] = { ...prompts[index], ...updates };
+      await this.setSystemPrompts(prompts);
     }
   }
 
   async deleteSystemPrompt(promptId: string): Promise<void> {
-    const prompts = await this.getSystemPrompts()
-    const filteredPrompts = prompts.filter((p) => p.id !== promptId)
-    await this.setSystemPrompts(filteredPrompts)
+    const prompts = await this.getSystemPrompts();
+    const filteredPrompts = prompts.filter((p) => p.id !== promptId);
+    await this.setSystemPrompts(filteredPrompts);
   }
 
   async setDefaultSystemPromptId(promptId: string): Promise<void> {
-    const prompts = await this.getSystemPrompts()
-    const updatedPrompts = prompts.map((p) => ({ ...p, isDefault: false }))
+    const prompts = await this.getSystemPrompts();
+    const updatedPrompts = prompts.map((p) => ({ ...p, isDefault: false }));
 
-    if (promptId === 'empty') {
-      await this.setSystemPrompts(updatedPrompts)
-      await this.clearSystemPrompt()
+    if (promptId === "empty") {
+      await this.setSystemPrompts(updatedPrompts);
+      await this.clearSystemPrompt();
       eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
-        promptId: 'empty',
-        content: ''
-      })
-      await this.publishSystemPromptState()
-      return
+        promptId: "empty",
+        content: "",
+      });
+      await this.publishSystemPromptState();
+      return;
     }
 
-    const targetIndex = updatedPrompts.findIndex((p) => p.id === promptId)
+    const targetIndex = updatedPrompts.findIndex((p) => p.id === promptId);
     if (targetIndex !== -1) {
-      updatedPrompts[targetIndex].isDefault = true
-      await this.setSystemPrompts(updatedPrompts)
-      await this.setDefaultSystemPrompt(updatedPrompts[targetIndex].content)
+      updatedPrompts[targetIndex].isDefault = true;
+      await this.setSystemPrompts(updatedPrompts);
+      await this.setDefaultSystemPrompt(updatedPrompts[targetIndex].content);
       eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
         promptId,
-        content: updatedPrompts[targetIndex].content
-      })
-      await this.publishSystemPromptState()
+        content: updatedPrompts[targetIndex].content,
+      });
+      await this.publishSystemPromptState();
     } else {
-      await this.setSystemPrompts(updatedPrompts)
+      await this.setSystemPrompts(updatedPrompts);
     }
   }
 
   async getDefaultSystemPromptId(): Promise<string> {
-    const prompts = await this.getSystemPrompts()
-    const defaultPrompt = prompts.find((p) => p.isDefault)
+    const prompts = await this.getSystemPrompts();
+    const defaultPrompt = prompts.find((p) => p.isDefault);
     if (defaultPrompt) {
-      return defaultPrompt.id
+      return defaultPrompt.id;
     }
 
-    const storedPrompt = this.getSetting<string>('default_system_prompt')
-    if (!storedPrompt || storedPrompt.trim() === '') {
-      return 'empty'
+    const storedPrompt = this.getSetting<string>("default_system_prompt");
+    if (!storedPrompt || storedPrompt.trim() === "") {
+      return "empty";
     }
 
-    return prompts.find((p) => p.id === 'default')?.id || 'default'
+    return prompts.find((p) => p.id === "default")?.id || "default";
   }
 
   private async publishSystemPromptState(): Promise<void> {
-    publishDeepchatEvent('config.systemPrompts.changed', {
+    publishDeepchatEvent("config.systemPrompts.changed", {
       prompts: await this.getSystemPrompts(),
       defaultPromptId: await this.getDefaultSystemPromptId(),
       prompt: await this.getDefaultSystemPrompt(),
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
   }
 }

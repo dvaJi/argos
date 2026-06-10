@@ -1,4 +1,5 @@
-import TipTMention from '@tiptap/extension-mention'
+import TipTMention from "@tiptap/extension-mention";
+import type { MentionOptions, MentionNodeAttrs } from "@tiptap/extension-mention";
 
 /**
  * SlashMention extension for TipTap editor
@@ -13,12 +14,12 @@ import TipTMention from '@tiptap/extension-mention'
  * - trigger: stores the trigger character used ('/')
  */
 export const SlashMention = TipTMention.extend({
-  name: 'slashMention',
+  name: "slashMention",
 
   addOptions() {
     return {
-      ...this.parent?.()
-    }
+      ...(this.parent?.() ?? {}),
+    } as MentionOptions<any, MentionNodeAttrs>;
   },
 
   addAttributes() {
@@ -27,39 +28,39 @@ export const SlashMention = TipTMention.extend({
 
       category: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-category'),
+        parseHTML: (element) => element.getAttribute("data-category"),
         renderHTML: (attributes) => {
           if (!attributes.category) {
-            return {}
+            return {};
           }
           return {
-            'data-category': attributes.category
-          }
-        }
+            "data-category": attributes.category,
+          };
+        },
       },
 
       content: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-content'),
+        parseHTML: (element) => element.getAttribute("data-content"),
         renderHTML: (attributes) => {
           if (!attributes.content) {
-            return {}
+            return {};
           }
           return {
-            'data-content': attributes.content
-          }
-        }
+            "data-content": attributes.content,
+          };
+        },
       },
 
       trigger: {
-        default: '/',
-        parseHTML: (element) => element.getAttribute('data-trigger') || '/',
+        default: "/",
+        parseHTML: (element) => element.getAttribute("data-trigger") || "/",
         renderHTML: (attributes) => {
           return {
-            'data-trigger': attributes.trigger || '/'
-          }
-        }
-      }
-    }
-  }
-})
+            "data-trigger": attributes.trigger || "/",
+          };
+        },
+      },
+    };
+  },
+});

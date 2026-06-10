@@ -8,16 +8,16 @@
  * been updated yet.
  */
 
-let initialized = false
+let initialized = false;
 
 export function _resetForTesting(): void {
-  initialized = false
+  initialized = false;
 }
 
 export async function ensureMarkdownWorkers(): Promise<void> {
-  initialized = true
+  initialized = true;
 }
 
 export function areMarkdownWorkersInitialized(): boolean {
-  return initialized
+  return initialized;
 }

@@ -1,7 +1,7 @@
-import { minimatch } from 'minimatch'
-import safeRegex from 'safe-regex2'
+import { minimatch } from "minimatch";
+import safeRegex from "safe-regex2";
 
-const DEFAULT_MAX_PATTERN_LENGTH = 1000
+const DEFAULT_MAX_PATTERN_LENGTH = 1000;
 
 /**
  * Validate regex pattern for ReDoS safety
@@ -9,22 +9,19 @@ const DEFAULT_MAX_PATTERN_LENGTH = 1000
  * @param maxLength Maximum allowed pattern length (default: 1000)
  * @throws Error if pattern is unsafe or exceeds length limit
  */
-export function validateRegexPattern(
-  pattern: string,
-  maxLength: number = DEFAULT_MAX_PATTERN_LENGTH
-): void {
+export function validateRegexPattern(pattern: string, maxLength: number = DEFAULT_MAX_PATTERN_LENGTH): void {
   // Check length limit
   if (pattern.length > maxLength) {
     throw new Error(
-      `Regular expression pattern exceeds maximum length of ${maxLength} characters. Pattern length: ${pattern.length}`
-    )
+      `Regular expression pattern exceeds maximum length of ${maxLength} characters. Pattern length: ${pattern.length}`,
+    );
   }
 
   // Check for ReDoS vulnerability using safe-regex2
   if (!safeRegex(pattern)) {
     throw new Error(
-      `Regular expression pattern is potentially unsafe and may cause ReDoS (Regular Expression Denial of Service). Please use a simpler, safer pattern.`
-    )
+      `Regular expression pattern is potentially unsafe and may cause ReDoS (Regular Expression Denial of Service). Please use a simpler, safer pattern.`,
+    );
   }
 }
 
@@ -34,31 +31,28 @@ export function validateRegexPattern(
  * @param maxLength Maximum allowed pattern length (default: 1000)
  * @throws Error if pattern is unsafe or exceeds length limit
  */
-export function validateGlobPattern(
-  pattern: string,
-  maxLength: number = DEFAULT_MAX_PATTERN_LENGTH
-): void {
+export function validateGlobPattern(pattern: string, maxLength: number = DEFAULT_MAX_PATTERN_LENGTH): void {
   if (pattern.length > maxLength) {
     throw new Error(
-      `Glob pattern exceeds maximum length of ${maxLength} characters. Pattern length: ${pattern.length}`
-    )
+      `Glob pattern exceeds maximum length of ${maxLength} characters. Pattern length: ${pattern.length}`,
+    );
   }
 
-  let compiled: RegExp | false
+  let compiled: RegExp | false;
   try {
-    compiled = minimatch.makeRe(pattern)
+    compiled = minimatch.makeRe(pattern);
   } catch (error) {
-    throw new Error(`Invalid glob pattern: ${pattern}. Error: ${error}`)
+    throw new Error(`Invalid glob pattern: ${pattern}. Error: ${error}`);
   }
 
   if (!compiled) {
-    throw new Error(`Invalid glob pattern: ${pattern}`)
+    throw new Error(`Invalid glob pattern: ${pattern}`);
   }
 
   if (!safeRegex(compiled)) {
     throw new Error(
-      'Glob pattern is potentially unsafe and may cause ReDoS (Regular Expression Denial of Service). Please use a simpler, safer pattern.'
-    )
+      "Glob pattern is potentially unsafe and may cause ReDoS (Regular Expression Denial of Service). Please use a simpler, safer pattern.",
+    );
   }
 }
 
@@ -68,15 +62,12 @@ export function validateGlobPattern(
  * @param maxLength Maximum allowed pattern length (default: 1000)
  * @returns true if pattern is safe, false otherwise
  */
-export function isSafeRegexPattern(
-  pattern: string,
-  maxLength: number = DEFAULT_MAX_PATTERN_LENGTH
-): boolean {
+export function isSafeRegexPattern(pattern: string, maxLength: number = DEFAULT_MAX_PATTERN_LENGTH): boolean {
   // Check length limit
   if (pattern.length > maxLength) {
-    return false
+    return false;
   }
 
   // Check for ReDoS vulnerability using safe-regex2
-  return safeRegex(pattern)
+  return safeRegex(pattern);
 }

@@ -6,10 +6,10 @@
   color: white;
   background: linear-gradient(135deg, var(--base-900) 0%, var(--base-950) 100%);
   font-family:
-    'Geist',
+    "Geist",
     -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
+    "Segoe UI",
     Roboto,
     sans-serif;
 }
@@ -117,10 +117,10 @@
   width: 154px;
   height: 154px;
   font-family:
-    'Geist',
+    "Geist",
     -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
+    "Segoe UI",
     Roboto,
     sans-serif;
   font-size: 1.04em;

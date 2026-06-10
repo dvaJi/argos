@@ -1,35 +1,35 @@
-import { useState } from 'react'
-import { useStore } from '@tanstack/react-store'
-import { Icon } from '@iconify/react'
-import { Switch } from '@shadcn/components/ui/switch'
-import { toast } from '@/components/use-toast'
-import { uiSettingsStore, setPrivacyModeEnabled } from '@/stores/uiSettingsStore'
+import { useState } from "react";
+import { useStore } from "@tanstack/react-store";
+import { Icon } from "@iconify/react";
+import { Switch } from "@shadcn/components/ui/switch";
+import { toast } from "@/components/use-toast";
+import { uiSettingsStore, setPrivacyModeEnabled } from "@/stores/uiSettingsStore";
 
-const PRIVACY_MODE_LABEL_ID = 'privacy-mode-label'
-const PRIVACY_MODE_DESCRIPTION_ID = 'privacy-mode-desc'
+const PRIVACY_MODE_LABEL_ID = "privacy-mode-label";
+const PRIVACY_MODE_DESCRIPTION_ID = "privacy-mode-desc";
 
 export default function PrivacySettingsSection() {
-  const privacyModeEnabled = useStore(uiSettingsStore, (s) => s.privacyModeEnabled)
-  const [isUpdatingPrivacyMode, setIsUpdatingPrivacyMode] = useState(false)
+  const privacyModeEnabled = useStore(uiSettingsStore, (s) => s.privacyModeEnabled);
+  const [isUpdatingPrivacyMode, setIsUpdatingPrivacyMode] = useState(false);
 
   const handlePrivacyModeChange = async (value: boolean) => {
     if (isUpdatingPrivacyMode) {
-      return
+      return;
     }
-    setIsUpdatingPrivacyMode(true)
+    setIsUpdatingPrivacyMode(true);
     try {
-      await setPrivacyModeEnabled(value)
+      await setPrivacyModeEnabled(value);
     } catch (error) {
-      console.error('Failed to update privacy mode:', error)
+      console.error("Failed to update privacy mode:", error);
       toast({
-        title: 'Operation failed',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive'
-      })
+        title: "Operation failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
-      setIsUpdatingPrivacyMode(false)
+      setIsUpdatingPrivacyMode(false);
     }
-  }
+  };
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border/60 bg-background/70 p-4">
@@ -40,10 +40,7 @@ export default function PrivacySettingsSection() {
             <div id={PRIVACY_MODE_LABEL_ID} className="text-sm font-medium">
               Privacy mode
             </div>
-            <p
-              id={PRIVACY_MODE_DESCRIPTION_ID}
-              className="mt-1 text-xs leading-5 text-muted-foreground"
-            >
+            <p id={PRIVACY_MODE_DESCRIPTION_ID} className="mt-1 text-xs leading-5 text-muted-foreground">
               Enable privacy mode to restrict data collection and network access.
             </p>
           </div>
@@ -71,5 +68,5 @@ export default function PrivacySettingsSection() {
         <p>Some features may require manual configuration in privacy mode.</p>
       </div>
     </section>
-  )
+  );
 }

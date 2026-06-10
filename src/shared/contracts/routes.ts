@@ -1,5 +1,5 @@
-import type { z } from 'zod'
-import type { RouteContract } from './common'
+import type { z } from "zod";
+import type { RouteContract } from "./common";
 import {
   browserAttachCurrentWindowRoute,
   browserDestroyRoute,
@@ -9,20 +9,20 @@ import {
   browserGoForwardRoute,
   browserLoadUrlRoute,
   browserReloadRoute,
-  browserUpdateCurrentWindowBoundsRoute
-} from './routes/browser.routes'
+  browserUpdateCurrentWindowBoundsRoute,
+} from "./routes/browser.routes";
 import {
   chatRespondToolInteractionRoute,
   chatSendMessageRoute,
   chatSteerActiveTurnRoute,
-  chatStopStreamRoute
-} from './routes/chat.routes'
+  chatStopStreamRoute,
+} from "./routes/chat.routes";
 import {
   databaseSecurityChangePasswordRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
-  databaseSecurityGetStatusRoute
-} from './routes/database-security.routes'
+  databaseSecurityGetStatusRoute,
+} from "./routes/database-security.routes";
 import {
   configAddCustomPromptRoute,
   configAddSystemPromptRoute,
@@ -71,16 +71,16 @@ import {
   configUpdateEntriesRoute,
   configUpdateSyncSettingsRoute,
   configUpdateSystemPromptRoute,
-  configUpdateVoiceAiConfigRoute
-} from './routes/config.routes'
-import { dialogErrorRoute, dialogRespondRoute } from './routes/dialog.routes'
+  configUpdateVoiceAiConfigRoute,
+} from "./routes/config.routes";
+import { dialogErrorRoute, dialogRespondRoute } from "./routes/dialog.routes";
 import {
   deviceGetAppVersionRoute,
   deviceGetInfoRoute,
   deviceRestartAppRoute,
   deviceSanitizeSvgRoute,
-  deviceSelectDirectoryRoute
-} from './routes/device.routes'
+  deviceSelectDirectoryRoute,
+} from "./routes/device.routes";
 import {
   fileCopyImageRoute,
   fileGetMimeTypeRoute,
@@ -89,8 +89,8 @@ import {
   filePrepareFileRoute,
   fileReadFileRoute,
   fileSaveImageRoute,
-  fileWriteImageBase64Route
-} from './routes/file.routes'
+  fileWriteImageBase64Route,
+} from "./routes/file.routes";
 import {
   mcpAddServerRoute,
   mcpCallToolRoute,
@@ -115,8 +115,8 @@ import {
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
-  mcpUpdateServerRoute
-} from './routes/mcp.routes'
+  mcpUpdateServerRoute,
+} from "./routes/mcp.routes";
 import {
   modelsAddCustomRoute,
   modelsExportConfigsRoute,
@@ -133,22 +133,22 @@ import {
   modelsSetConfigRoute,
   modelsSetStatusRoute,
   modelsTranscribeAudioRoute,
-  modelsUpdateCustomRoute
-} from './routes/models.routes'
+  modelsUpdateCustomRoute,
+} from "./routes/models.routes";
 import {
   onboardingCompleteRoute,
   onboardingGetStateRoute,
   onboardingResetRoute,
   onboardingSetStepStatusRoute,
-  onboardingStartRoute
-} from './routes/onboarding.routes'
+  onboardingStartRoute,
+} from "./routes/onboarding.routes";
 import {
   scheduledTasksDeleteRoute,
   scheduledTasksFireNowRoute,
   scheduledTasksListRoute,
   scheduledTasksToggleRoute,
-  scheduledTasksUpsertRoute
-} from './routes/scheduledTasks.routes'
+  scheduledTasksUpsertRoute,
+} from "./routes/scheduledTasks.routes";
 import {
   providersAddRoute,
   providersGetAcpProcessConfigOptionsRoute,
@@ -168,28 +168,28 @@ import {
   providersSetByIdRoute,
   providersTestConnectionRoute,
   providersUpdateRoute,
-  providersWarmupAcpProcessRoute
-} from './routes/providers.routes'
+  providersWarmupAcpProcessRoute,
+} from "./routes/providers.routes";
 import {
   projectListEnvironmentsRoute,
   projectListRecentRoute,
   projectOpenDirectoryRoute,
-  projectSelectDirectoryRoute
-} from './routes/project.routes'
+  projectSelectDirectoryRoute,
+} from "./routes/project.routes";
 import {
   pluginsDisableRoute,
   pluginsEnableRoute,
   pluginsGetRoute,
   pluginsInvokeActionRoute,
-  pluginsListRoute
-} from './routes/plugins.routes'
+  pluginsListRoute,
+} from "./routes/plugins.routes";
 import {
   settingsActivityListRoute,
   settingsGetSnapshotRoute,
   settingsListSystemFontsRoute,
-  settingsUpdateRoute
-} from './routes/settings.routes'
-import { startupGetBootstrapRoute } from './routes/startup.routes'
+  settingsUpdateRoute,
+} from "./routes/settings.routes";
+import { startupGetBootstrapRoute } from "./routes/startup.routes";
 import {
   sessionsActivateRoute,
   sessionsClearMessagesRoute,
@@ -227,8 +227,8 @@ import {
   sessionsRenameRoute,
   sessionsResumePendingQueueRoute,
   sessionsRetryMessageRoute,
-  sessionsRestoreRoute
-} from './routes/sessions.routes'
+  sessionsRestoreRoute,
+} from "./routes/sessions.routes";
 import {
   sessionsSearchHistoryRoute,
   sessionsSetAcpSessionConfigOptionRoute,
@@ -240,8 +240,8 @@ import {
   sessionsTranslateTextRoute,
   sessionsUpdateDisabledAgentToolsRoute,
   sessionsUpdateGenerationSettingsRoute,
-  sessionsUpdateQueuedInputRoute
-} from './routes/sessions.routes'
+  sessionsUpdateQueuedInputRoute,
+} from "./routes/sessions.routes";
 import {
   skillsGetActiveRoute,
   skillsGetDirectoryRoute,
@@ -257,8 +257,8 @@ import {
   skillsSaveWithExtensionRoute,
   skillsSetActiveRoute,
   skillsUninstallRoute,
-  skillsUpdateFileRoute
-} from './routes/skills.routes'
+  skillsUpdateFileRoute,
+} from "./routes/skills.routes";
 import {
   syncGetBackupStatusRoute,
   syncImportRoute,
@@ -269,16 +269,16 @@ import {
   syncSetCloudConfigRoute,
   syncTestCloudRoute,
   syncUploadToCloudRoute,
-  syncPullFromCloudRoute
-} from './routes/sync.routes'
-import { systemOpenSettingsRoute } from './routes/system.routes'
-import { toolsListDefinitionsRoute } from './routes/tools.routes'
+  syncPullFromCloudRoute,
+} from "./routes/sync.routes";
+import { systemOpenSettingsRoute } from "./routes/system.routes";
+import { toolsListDefinitionsRoute } from "./routes/tools.routes";
 import {
   tabCaptureCurrentAreaRoute,
   tabNotifyRendererActivatedRoute,
   tabNotifyRendererReadyRoute,
-  tabStitchImagesWithWatermarkRoute
-} from './routes/tab.routes'
+  tabStitchImagesWithWatermarkRoute,
+} from "./routes/tab.routes";
 import {
   upgradeCheckRoute,
   upgradeClearMockRoute,
@@ -286,16 +286,16 @@ import {
   upgradeMockDownloadedRoute,
   upgradeOpenDownloadRoute,
   upgradeRestartToUpdateRoute,
-  upgradeStartDownloadRoute
-} from './routes/upgrade.routes'
+  upgradeStartDownloadRoute,
+} from "./routes/upgrade.routes";
 import {
   windowCloseCurrentRoute,
   windowCloseFloatingCurrentRoute,
   windowGetCurrentStateRoute,
   windowMinimizeCurrentRoute,
   windowPreviewFileRoute,
-  windowToggleMaximizeCurrentRoute
-} from './routes/window.routes'
+  windowToggleMaximizeCurrentRoute,
+} from "./routes/window.routes";
 import {
   workspaceExpandDirectoryRoute,
   workspaceGetGitDiffRoute,
@@ -309,34 +309,34 @@ import {
   workspaceSearchFilesRoute,
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
-  workspaceWatchRoute
-} from './routes/workspace.routes'
+  workspaceWatchRoute,
+} from "./routes/workspace.routes";
 
-export * from './routes/browser.routes'
-export * from './routes/chat.routes'
-export * from './routes/config.routes'
-export * from './routes/database-security.routes'
-export * from './routes/dialog.routes'
-export * from './routes/device.routes'
-export * from './routes/file.routes'
-export * from './routes/mcp.routes'
-export * from './routes/models.routes'
-export * from './routes/onboarding.routes'
-export * from './routes/plugins.routes'
-export * from './routes/providers.routes'
-export * from './routes/project.routes'
-export * from './routes/scheduledTasks.routes'
-export * from './routes/settings.routes'
-export * from './routes/startup.routes'
-export * from './routes/sessions.routes'
-export * from './routes/skills.routes'
-export * from './routes/sync.routes'
-export * from './routes/system.routes'
-export * from './routes/tab.routes'
-export * from './routes/tools.routes'
-export * from './routes/upgrade.routes'
-export * from './routes/window.routes'
-export * from './routes/workspace.routes'
+export * from "./routes/browser.routes";
+export * from "./routes/chat.routes";
+export * from "./routes/config.routes";
+export * from "./routes/database-security.routes";
+export * from "./routes/dialog.routes";
+export * from "./routes/device.routes";
+export * from "./routes/file.routes";
+export * from "./routes/mcp.routes";
+export * from "./routes/models.routes";
+export * from "./routes/onboarding.routes";
+export * from "./routes/plugins.routes";
+export * from "./routes/providers.routes";
+export * from "./routes/project.routes";
+export * from "./routes/scheduledTasks.routes";
+export * from "./routes/settings.routes";
+export * from "./routes/startup.routes";
+export * from "./routes/sessions.routes";
+export * from "./routes/skills.routes";
+export * from "./routes/sync.routes";
+export * from "./routes/system.routes";
+export * from "./routes/tab.routes";
+export * from "./routes/tools.routes";
+export * from "./routes/upgrade.routes";
+export * from "./routes/window.routes";
+export * from "./routes/workspace.routes";
 
 export const DEEPCHAT_ROUTE_CATALOG = {
   [windowGetCurrentStateRoute.name]: windowGetCurrentStateRoute,
@@ -606,25 +606,19 @@ export const DEEPCHAT_ROUTE_CATALOG = {
   [dialogRespondRoute.name]: dialogRespondRoute,
   [dialogErrorRoute.name]: dialogErrorRoute,
   [toolsListDefinitionsRoute.name]: toolsListDefinitionsRoute,
-  [systemOpenSettingsRoute.name]: systemOpenSettingsRoute
-} satisfies Record<string, RouteContract>
+  [systemOpenSettingsRoute.name]: systemOpenSettingsRoute,
+} satisfies Record<string, RouteContract>;
 
-export type DeepchatRouteCatalog = typeof DEEPCHAT_ROUTE_CATALOG
-export type DeepchatRouteName = keyof DeepchatRouteCatalog
-export type DeepchatRouteContract<T extends DeepchatRouteName> = DeepchatRouteCatalog[T]
-export type DeepchatRouteInput<T extends DeepchatRouteName> = z.input<
-  DeepchatRouteContract<T>['input']
->
-export type DeepchatRouteOutput<T extends DeepchatRouteName> = z.output<
-  DeepchatRouteContract<T>['output']
->
+export type DeepchatRouteCatalog = typeof DEEPCHAT_ROUTE_CATALOG;
+export type DeepchatRouteName = keyof DeepchatRouteCatalog;
+export type DeepchatRouteContract<T extends DeepchatRouteName> = DeepchatRouteCatalog[T];
+export type DeepchatRouteInput<T extends DeepchatRouteName> = z.input<DeepchatRouteContract<T>["input"]>;
+export type DeepchatRouteOutput<T extends DeepchatRouteName> = z.output<DeepchatRouteContract<T>["output"]>;
 
 export function hasDeepchatRouteContract(name: string): name is DeepchatRouteName {
-  return Object.prototype.hasOwnProperty.call(DEEPCHAT_ROUTE_CATALOG, name)
+  return Object.prototype.hasOwnProperty.call(DEEPCHAT_ROUTE_CATALOG, name);
 }
 
-export function getDeepchatRouteContract<T extends DeepchatRouteName>(
-  name: T
-): DeepchatRouteContract<T> {
-  return DEEPCHAT_ROUTE_CATALOG[name]
+export function getDeepchatRouteContract<T extends DeepchatRouteName>(name: T): DeepchatRouteContract<T> {
+  return DEEPCHAT_ROUTE_CATALOG[name];
 }

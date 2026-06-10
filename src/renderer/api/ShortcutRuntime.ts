@@ -1,21 +1,21 @@
-import type { IShortcutPresenter } from '@shared/presenter'
-import { useLegacyShortcutPresenter } from './legacy/presenters'
+import type { IShortcutPresenter } from "@shared/presenter";
+import { useLegacyShortcutPresenter } from "./legacy/presenters";
 
-const defaultShortcutPresenter = useLegacyShortcutPresenter()
+const defaultShortcutPresenter = useLegacyShortcutPresenter();
 
 export function createShortcutRuntime(presenter: IShortcutPresenter = defaultShortcutPresenter) {
   function registerShortcuts() {
-    presenter.registerShortcuts()
+    presenter.registerShortcuts();
   }
 
   function destroy() {
-    presenter.destroy()
+    presenter.destroy();
   }
 
   return {
     registerShortcuts,
-    destroy
-  }
+    destroy,
+  };
 }
 
-export type ShortcutRuntime = ReturnType<typeof createShortcutRuntime>
+export type ShortcutRuntime = ReturnType<typeof createShortcutRuntime>;

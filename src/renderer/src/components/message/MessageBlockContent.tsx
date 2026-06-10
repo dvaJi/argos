@@ -1,137 +1,121 @@
-import React, { useEffect, useMemo, useRef } from 'react'
-import { useBlockContent, type ProcessedPart } from '@/composables/useArtifacts'
-import { useArtifactStore } from '@/stores/artifact'
-import { useStore } from '@nanostores/react'
-import ArtifactThinking from '../artifacts/ArtifactThinking'
-import ArtifactPreview from '../artifacts/ArtifactPreview'
-import ToolCallPreview from '../artifacts/ToolCallPreview'
-import MarkdownRenderer from '@/components/markdown/MarkdownRenderer'
-import type { DisplayAssistantMessageBlock } from '@/components/chat/messageListItems'
+import { type FC, useEffect, useMemo, useRef } from "react";
+import { useBlockContent, type ProcessedPart } from "@/composables/useArtifacts";
+import { useArtifactStore } from "@/stores/artifact";
+import { ArtifactThinking } from "../artifacts/ArtifactThinking";
+import { ArtifactPreview } from "../artifacts/ArtifactPreview";
+import { ToolCallPreview } from "../artifacts/ToolCallPreview";
+import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
 interface MessageBlockContentProps {
-  block: DisplayAssistantMessageBlock
-  messageId: string
-  threadId: string
-  isSearchResult?: boolean
+  block: DisplayAssistantMessageBlock;
+  messageId: string;
+  threadId: string;
 }
 
-export const MessageBlockContent: React.FC<MessageBlockContentProps> = ({
-  block,
-  messageId,
-  threadId,
-  isSearchResult
-}) => {
-  const artifactStore = useArtifactStore()
-  const artifactState = useStore(artifactStore)
+export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
+  const artifactState = useArtifactStore();
 
-  const propsRef = useRef({ block, messageId, threadId })
-  propsRef.current = { block, messageId, threadId }
+  const propsRef = useRef({ block, messageId, threadId });
+  propsRef.current = { block, messageId, threadId };
 
-  const { processedContent } = useBlockContent({ block })
+  const { processedContent } = useBlockContent({ block });
 
-  const shouldSmoothStream = useMemo(
-    () => block.status === 'pending' || block.status === 'loading',
-    [block.status]
-  )
+  const shouldSmoothStream = useMemo(() => block.status === "pending" || block.status === "loading", [block.status]);
 
-  const lastArtifactSnapshot = useRef<string>('')
+  const lastArtifactSnapshot = useRef<string>("");
 
   const artifactSnapshot = useMemo(
     () =>
       processedContent
         .filter(
           (
-            part
+            part,
           ): part is ProcessedPart & {
-            type: 'artifact'
-            artifact: NonNullable<ProcessedPart['artifact']>
-          } => part.type === 'artifact' && Boolean(part.artifact)
+            type: "artifact";
+            artifact: NonNullable<ProcessedPart["artifact"]>;
+          } => part.type === "artifact" && Boolean(part.artifact),
         )
         .map((part) => {
-          const artifact = part.artifact
+          const artifact = part.artifact;
           return [
             artifact.identifier,
             artifact.title,
             artifact.type,
-            artifact.language || '',
-            part.loading ? '1' : '0',
-            part.content
-          ].join('::')
+            artifact.language || "",
+            part.loading ? "1" : "0",
+            part.content,
+          ].join("::");
         })
-        .join('\n__artifact__\n'),
-    [processedContent]
-  )
+        .join("\n__artifact__\n"),
+    [processedContent],
+  );
 
   useEffect(() => {
-    if (artifactSnapshot === lastArtifactSnapshot.current) return
-    lastArtifactSnapshot.current = artifactSnapshot
+    if (artifactSnapshot === lastArtifactSnapshot.current) return;
+    lastArtifactSnapshot.current = artifactSnapshot;
 
-    const currentProps = propsRef.current
+    const currentProps = propsRef.current;
 
     for (const part of processedContent) {
-      const artifact = part.type === 'artifact' && part.artifact
-      if (!artifact) continue
-      const { title, type } = artifact
-      const { content, loading } = part
-      if (currentProps.block.status === 'loading') {
-        const status = loading ? 'loading' : 'loaded'
+      const artifact = part.type === "artifact" && part.artifact;
+      if (!artifact) continue;
+      const { title, type } = artifact;
+      const { content, loading } = part;
+      if (currentProps.block.status === "loading") {
+        const status = loading ? "loading" : "loaded";
         const nextArtifact = {
           id: artifact.identifier,
           type,
           title,
           language: artifact.language,
           content,
-          status
-        } as const
+          status,
+        } as const;
 
         if (loading) {
-          artifactStore.syncArtifact(nextArtifact, currentProps.messageId, currentProps.threadId)
+          artifactState.syncArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
         } else {
-          artifactStore.completeArtifact(
-            nextArtifact,
-            currentProps.messageId,
-            currentProps.threadId
-          )
+          artifactState.completeArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
         }
       } else {
-        artifactStore.completeArtifact(
+        artifactState.completeArtifact(
           {
             id: artifact.identifier,
             type,
             title: artifact.title,
             language: artifact.language,
             content,
-            status: 'loaded'
+            status: "loaded",
           },
           currentProps.messageId,
-          currentProps.threadId
-        )
+          currentProps.threadId,
+        );
       }
     }
-  }, [artifactSnapshot, processedContent, artifactStore])
+  }, [artifactSnapshot, processedContent]);
 
   return (
     <>
       {processedContent.map((part, index) => {
-        if (part.type === 'text') {
+        if (part.type === "text") {
           return (
             <MarkdownRenderer
               key={index}
               content={part.content}
-              loading={part.loading}
               smoothStreaming={shouldSmoothStream}
               messageId={messageId}
               threadId={threadId}
-              linkContext={{ source: 'chat', sessionId: threadId }}
+              linkContext={{ source: "chat", sessionId: threadId }}
             />
-          )
+          );
         }
 
-        if (part.type === 'thinking' && part.loading) {
-          return <ArtifactThinking key={index} />
+        if (part.type === "thinking" && part.loading) {
+          return <ArtifactThinking key={index} />;
         }
 
-        if (part.type === 'artifact' && part.artifact) {
+        if (part.type === "artifact" && part.artifact) {
           return (
             <div key={index} className="my-1">
               <ArtifactPreview
@@ -141,19 +125,19 @@ export const MessageBlockContent: React.FC<MessageBlockContentProps> = ({
                 loading={part.loading}
               />
             </div>
-          )
+          );
         }
 
-        if (part.type === 'tool_call' && part.tool_call) {
+        if (part.type === "tool_call" && part.tool_call) {
           return (
             <div key={index} className="my-1">
               <ToolCallPreview block={part} blockStatus={block.status} />
             </div>
-          )
+          );
         }
 
-        return null
+        return null;
       })}
     </>
-  )
-}
+  );
+};

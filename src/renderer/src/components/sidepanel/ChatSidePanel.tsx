@@ -1,232 +1,220 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { createBrowserClient } from '@api/BrowserClient'
-import { BrowserPanel } from './BrowserPanel'
-import { WorkspacePanel } from './WorkspacePanel'
-import { WORKSPACE_EVENTS } from '@/events'
-import { useSidepanelStore } from '@/stores/ui/sidepanel'
+import { type MouseEvent, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { createBrowserClient } from "@api/BrowserClient";
+import { BrowserPanel } from "./BrowserPanel";
+import { WorkspacePanel } from "./WorkspacePanel";
+import { WORKSPACE_EVENTS } from "@/events";
+import { useSidepanelStore } from "@/stores/ui/sidepanel";
 
 interface ChatSidePanelProps {
-  sessionId: string | null
-  workspacePath: string | null
+  sessionId: string | null;
+  workspacePath: string | null;
 }
 
-const PANEL_MOTION_MS = 220
-const FULLSCREEN_MOTION_MS = 180
+const PANEL_MOTION_MS = 220;
+const FULLSCREEN_MOTION_MS = 180;
 
 export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) {
-  const sidepanelStore = useSidepanelStore()
-  const browserClient = useMemo(() => createBrowserClient(), [])
+  const sidepanelStore = useSidepanelStore();
+  const browserClient = useMemo(() => createBrowserClient(), []);
 
-  const stopBrowserOpenRequestedListener = useRef<(() => void) | null>(null)
-  const resizeCleanup = useRef<(() => void) | null>(null)
-  const pendingResizeWidth = useRef<number | null>(null)
-  const resizeFrame = useRef<number | null>(null)
-  const panelMotionTimer = useRef<number | null>(null)
-  const panelMotionFrame = useRef<number | null>(null)
-  const fullscreenMotionTimer = useRef<number | null>(null)
+  const stopBrowserOpenRequestedListener = useRef<(() => void) | null>(null);
+  const resizeCleanup = useRef<(() => void) | null>(null);
+  const pendingResizeWidth = useRef<number | null>(null);
+  const resizeFrame = useRef<number | null>(null);
+  const panelMotionTimer = useRef<number | null>(null);
+  const panelMotionFrame = useRef<number | null>(null);
+  const fullscreenMotionTimer = useRef<number | null>(null);
 
-  const shouldShow = useMemo(
-    () => sidepanelStore.open && Boolean(sessionId),
-    [sidepanelStore.open, sessionId]
-  )
-  const [layoutWidth, setLayoutWidth] = useState(shouldShow ? sidepanelStore.width : 0)
-  const [panelVisible, setPanelVisible] = useState(shouldShow)
-  const [isResizing, setIsResizing] = useState(false)
-  const [isWorkspaceFullscreen, setIsWorkspaceFullscreen] = useState(false)
-  const [fullscreenMotionState, setFullscreenMotionState] = useState<
-    'expanding' | 'collapsing' | null
-  >(null)
+  const shouldShow = useMemo(() => sidepanelStore.open && Boolean(sessionId), [sidepanelStore.open, sessionId]);
+  const [layoutWidth, setLayoutWidth] = useState(shouldShow ? sidepanelStore.width : 0);
+  const [panelVisible, setPanelVisible] = useState(shouldShow);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isWorkspaceFullscreen, setIsWorkspaceFullscreen] = useState(false);
+  const [fullscreenMotionState, setFullscreenMotionState] = useState<"expanding" | "collapsing" | null>(null);
 
   const isWorkspaceFullscreenActive = useMemo(
-    () => isWorkspaceFullscreen && shouldShow && sidepanelStore.activeTab === 'workspace',
-    [isWorkspaceFullscreen, shouldShow, sidepanelStore.activeTab]
-  )
+    () => isWorkspaceFullscreen && shouldShow && sidepanelStore.activeTab === "workspace",
+    [isWorkspaceFullscreen, shouldShow, sidepanelStore.activeTab],
+  );
 
   const shellStyle = useMemo(
-    () => ({ width: isWorkspaceFullscreenActive ? '100%' : `${layoutWidth}px` }),
-    [isWorkspaceFullscreenActive, layoutWidth]
-  )
+    () => ({ width: isWorkspaceFullscreenActive ? "100%" : `${layoutWidth}px` }),
+    [isWorkspaceFullscreenActive, layoutWidth],
+  );
 
   const handleBrowserOpenRequested = useCallback(
     (payload: { sessionId: string }) => {
-      if (!sessionId || payload.sessionId !== sessionId) return
-      sidepanelStore.openBrowser()
+      if (!sessionId || payload.sessionId !== sessionId) return;
+      sidepanelStore.openBrowser();
     },
-    [sessionId, sidepanelStore]
-  )
+    [sessionId, sidepanelStore],
+  );
 
   const clearPanelMotionHandles = useCallback(() => {
     if (panelMotionTimer.current !== null) {
-      window.clearTimeout(panelMotionTimer.current)
-      panelMotionTimer.current = null
+      window.clearTimeout(panelMotionTimer.current);
+      panelMotionTimer.current = null;
     }
     if (panelMotionFrame.current !== null) {
-      window.cancelAnimationFrame(panelMotionFrame.current)
-      panelMotionFrame.current = null
+      window.cancelAnimationFrame(panelMotionFrame.current);
+      panelMotionFrame.current = null;
     }
-  }, [])
+  }, []);
 
   const clearFullscreenMotionHandle = useCallback(() => {
     if (fullscreenMotionTimer.current !== null) {
-      window.clearTimeout(fullscreenMotionTimer.current)
-      fullscreenMotionTimer.current = null
+      window.clearTimeout(fullscreenMotionTimer.current);
+      fullscreenMotionTimer.current = null;
     }
-    setFullscreenMotionState(null)
-  }, [])
+    setFullscreenMotionState(null);
+  }, []);
 
   const applyPendingResize = useCallback(() => {
-    resizeFrame.current = null
-    if (pendingResizeWidth.current === null) return
-    sidepanelStore.setWidth(pendingResizeWidth.current)
-    pendingResizeWidth.current = null
-  }, [sidepanelStore])
+    resizeFrame.current = null;
+    if (pendingResizeWidth.current === null) return;
+    sidepanelStore.setWidth(pendingResizeWidth.current);
+    pendingResizeWidth.current = null;
+  }, [sidepanelStore]);
 
   const stopResizeTracking = useCallback(() => {
-    resizeCleanup.current?.()
-    resizeCleanup.current = null
+    resizeCleanup.current?.();
+    resizeCleanup.current = null;
     if (resizeFrame.current !== null) {
-      window.cancelAnimationFrame(resizeFrame.current)
-      resizeFrame.current = null
+      window.cancelAnimationFrame(resizeFrame.current);
+      resizeFrame.current = null;
     }
     if (pendingResizeWidth.current !== null) {
-      sidepanelStore.setWidth(pendingResizeWidth.current)
-      pendingResizeWidth.current = null
+      sidepanelStore.setWidth(pendingResizeWidth.current);
+      pendingResizeWidth.current = null;
     }
-  }, [sidepanelStore])
+  }, [sidepanelStore]);
 
   const resetWorkspaceFullscreen = useCallback(() => {
-    setIsWorkspaceFullscreen(false)
-    clearFullscreenMotionHandle()
-  }, [clearFullscreenMotionHandle])
+    setIsWorkspaceFullscreen(false);
+    clearFullscreenMotionHandle();
+  }, [clearFullscreenMotionHandle]);
 
   const toggleWorkspaceFullscreen = useCallback(() => {
-    if (!shouldShow || sidepanelStore.activeTab !== 'workspace') return
-    clearFullscreenMotionHandle()
-    setFullscreenMotionState(isWorkspaceFullscreen ? 'collapsing' : 'expanding')
+    if (!shouldShow || sidepanelStore.activeTab !== "workspace") return;
+    clearFullscreenMotionHandle();
+    setFullscreenMotionState(isWorkspaceFullscreen ? "collapsing" : "expanding");
     fullscreenMotionTimer.current = window.setTimeout(() => {
-      fullscreenMotionTimer.current = null
-      setFullscreenMotionState(null)
-    }, FULLSCREEN_MOTION_MS)
-    setIsWorkspaceFullscreen(!isWorkspaceFullscreen)
-  }, [shouldShow, sidepanelStore.activeTab, isWorkspaceFullscreen, clearFullscreenMotionHandle])
+      fullscreenMotionTimer.current = null;
+      setFullscreenMotionState(null);
+    }, FULLSCREEN_MOTION_MS);
+    setIsWorkspaceFullscreen(!isWorkspaceFullscreen);
+  }, [shouldShow, sidepanelStore.activeTab, isWorkspaceFullscreen, clearFullscreenMotionHandle]);
 
   const handleWorkspaceInsertFileReference = useCallback(
     (filePath: string) => {
-      const sid = sessionId?.trim()
-      const targetPath = filePath.trim()
-      if (!sid || !targetPath) return
+      const sid = sessionId?.trim();
+      const targetPath = filePath.trim();
+      if (!sid || !targetPath) return;
       window.dispatchEvent(
         new CustomEvent(WORKSPACE_EVENTS.INSERT_REFERENCE_REQUESTED, {
-          detail: { sessionId: sid, filePath: targetPath }
-        })
-      )
+          detail: { sessionId: sid, filePath: targetPath },
+        }),
+      );
     },
-    [sessionId]
-  )
+    [sessionId],
+  );
 
   const startResize = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault()
-      if (isWorkspaceFullscreenActive) return
-      stopResizeTracking()
-      setIsResizing(true)
-      const startX = event.clientX
-      const startWidth = sidepanelStore.width
+    (event: MouseEvent) => {
+      event.preventDefault();
+      if (isWorkspaceFullscreenActive) return;
+      stopResizeTracking();
+      setIsResizing(true);
+      const startX = event.clientX;
+      const startWidth = sidepanelStore.width;
 
-      const onMouseMove = (moveEvent: MouseEvent) => {
-        pendingResizeWidth.current = startWidth - (moveEvent.clientX - startX)
+      const onMouseMove = (moveEvent: globalThis.MouseEvent) => {
+        pendingResizeWidth.current = startWidth - (moveEvent.clientX - startX);
         if (resizeFrame.current === null) {
-          resizeFrame.current = window.requestAnimationFrame(applyPendingResize)
+          resizeFrame.current = window.requestAnimationFrame(applyPendingResize);
         }
-      }
-      const onMouseUp = () => {
-        setIsResizing(false)
-        stopResizeTracking()
-      }
+      };
+      const onMouseUp = (_evt: globalThis.MouseEvent) => {
+        setIsResizing(false);
+        stopResizeTracking();
+      };
 
-      window.addEventListener('mousemove', onMouseMove, { passive: true })
-      window.addEventListener('mouseup', onMouseUp, { once: true })
+      window.addEventListener("mousemove", onMouseMove, { passive: true });
+      window.addEventListener("mouseup", onMouseUp, { once: true });
       resizeCleanup.current = () => {
-        window.removeEventListener('mousemove', onMouseMove)
-        window.removeEventListener('mouseup', onMouseUp)
-        setIsResizing(false)
-      }
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        setIsResizing(false);
+      };
     },
-    [isWorkspaceFullscreenActive, sidepanelStore.width, stopResizeTracking, applyPendingResize]
-  )
+    [isWorkspaceFullscreenActive, sidepanelStore.width, stopResizeTracking, applyPendingResize],
+  );
 
   useEffect(() => {
-    clearPanelMotionHandles()
-    stopResizeTracking()
-    if (!shouldShow) resetWorkspaceFullscreen()
+    clearPanelMotionHandles();
+    stopResizeTracking();
+    if (!shouldShow) resetWorkspaceFullscreen();
 
     if (shouldShow) {
-      setLayoutWidth(sidepanelStore.width)
+      setLayoutWidth(sidepanelStore.width);
       panelMotionFrame.current = window.requestAnimationFrame(() => {
-        panelMotionFrame.current = null
-        setPanelVisible(true)
-      })
+        panelMotionFrame.current = null;
+        setPanelVisible(true);
+      });
     } else {
-      setPanelVisible(false)
+      setPanelVisible(false);
       panelMotionTimer.current = window.setTimeout(() => {
-        panelMotionTimer.current = null
-        if (!shouldShow) setLayoutWidth(0)
-      }, PANEL_MOTION_MS)
+        panelMotionTimer.current = null;
+        if (!shouldShow) setLayoutWidth(0);
+      }, PANEL_MOTION_MS);
     }
-  }, [shouldShow])
+  }, [shouldShow]);
 
   useEffect(() => {
-    if (sidepanelStore.activeTab !== 'workspace') resetWorkspaceFullscreen()
-  }, [sidepanelStore.activeTab])
+    if (sidepanelStore.activeTab !== "workspace") resetWorkspaceFullscreen();
+  }, [sidepanelStore.activeTab]);
 
   useEffect(() => {
-    if (!sessionId) resetWorkspaceFullscreen()
-  }, [sessionId])
+    if (!sessionId) resetWorkspaceFullscreen();
+  }, [sessionId]);
 
   useEffect(() => {
-    if (shouldShow || layoutWidth > 0) setLayoutWidth(sidepanelStore.width)
-  }, [sidepanelStore.width])
+    if (shouldShow || layoutWidth > 0) setLayoutWidth(sidepanelStore.width);
+  }, [sidepanelStore.width]);
 
   useEffect(() => {
-    stopBrowserOpenRequestedListener.current = browserClient.onOpenRequestedForCurrentWindow(
-      handleBrowserOpenRequested
-    )
+    stopBrowserOpenRequestedListener.current =
+      browserClient.onOpenRequestedForCurrentWindow(handleBrowserOpenRequested);
     return () => {
-      clearPanelMotionHandles()
-      clearFullscreenMotionHandle()
-      stopResizeTracking()
-      stopBrowserOpenRequestedListener.current?.()
-      stopBrowserOpenRequestedListener.current = null
-    }
-  }, [])
+      clearPanelMotionHandles();
+      clearFullscreenMotionHandle();
+      stopResizeTracking();
+      stopBrowserOpenRequestedListener.current?.();
+      stopBrowserOpenRequestedListener.current = null;
+    };
+  }, []);
 
   return (
     <div
       data-testid="chat-side-panel-shell"
       className={`chat-side-panel-shell h-full min-h-0 overflow-hidden ${
-        isWorkspaceFullscreenActive ? 'absolute inset-0 z-30 w-full' : 'relative shrink-0'
-      } ${isResizing ? 'chat-side-panel-shell--resizing' : ''}`}
+        isWorkspaceFullscreenActive ? "absolute inset-0 z-30 w-full" : "relative shrink-0"
+      } ${isResizing ? "chat-side-panel-shell--resizing" : ""}`}
       style={shellStyle}
       data-workspace-fullscreen={String(isWorkspaceFullscreenActive)}
     >
       {sessionId && (
         <aside
           className={`chat-side-panel-surface absolute inset-y-0 flex h-full min-h-0 w-full origin-right flex-col bg-background ${
-            isWorkspaceFullscreenActive
-              ? 'inset-x-0 border shadow-xl'
-              : 'right-0 border-l shadow-lg'
-          } ${
-            panelVisible
-              ? 'translate-x-0 opacity-100'
-              : 'pointer-events-none translate-x-3 opacity-0 shadow-none'
-          } ${
-            fullscreenMotionState === 'expanding'
-              ? 'chat-side-panel-surface--fullscreen-enter'
-              : fullscreenMotionState === 'collapsing'
-                ? 'chat-side-panel-surface--fullscreen-exit'
-                : ''
+            isWorkspaceFullscreenActive ? "inset-x-0 border shadow-xl" : "right-0 border-l shadow-lg"
+          } ${panelVisible ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0 shadow-none"} ${
+            fullscreenMotionState === "expanding"
+              ? "chat-side-panel-surface--fullscreen-enter"
+              : fullscreenMotionState === "collapsing"
+                ? "chat-side-panel-surface--fullscreen-exit"
+                : ""
           }`}
         >
           {panelVisible && !isWorkspaceFullscreenActive && (
@@ -242,9 +230,9 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
             <div className="flex items-center gap-1 rounded-lg bg-muted p-0.5">
               <button
                 className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${
-                  sidepanelStore.activeTab === 'workspace'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground'
+                  sidepanelStore.activeTab === "workspace"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
                 }`}
                 type="button"
                 onClick={() => sidepanelStore.openWorkspace(sessionId)}
@@ -253,9 +241,9 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
               </button>
               <button
                 className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${
-                  sidepanelStore.activeTab === 'browser'
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground'
+                  sidepanelStore.activeTab === "browser"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
                 }`}
                 type="button"
                 onClick={() => sidepanelStore.openBrowser()}
@@ -263,17 +251,12 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
                 Browser
               </button>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => sidepanelStore.closePanel()}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => sidepanelStore.closePanel()}>
               <Icon icon="lucide:x" className="h-4 w-4" />
             </Button>
           </div>
 
-          {sidepanelStore.activeTab === 'workspace' ? (
+          {sidepanelStore.activeTab === "workspace" ? (
             <WorkspacePanel
               sessionId={sessionId}
               workspacePath={workspacePath}
@@ -329,5 +312,5 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
         }
       `}</style>
     </div>
-  )
+  );
 }

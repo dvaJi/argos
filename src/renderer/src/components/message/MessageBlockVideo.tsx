@@ -1,80 +1,76 @@
-import React from 'react'
-import { Icon } from '@iconify/react'
-import type { DisplayAssistantMessageBlock } from '@/components/chat/messageListItems'
+import React from "react";
+import { Icon } from "@iconify/react";
+import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
 interface MessageBlockVideoProps {
-  block: DisplayAssistantMessageBlock
-  messageId?: string
-  threadId?: string
+  block: DisplayAssistantMessageBlock;
+  messageId?: string;
+  threadId?: string;
 }
 
 type LegacyVideoBlockContent = {
-  data?: string
-  mimeType?: string
-}
+  data?: string;
+  mimeType?: string;
+};
 
 const parseVideoDataUri = (value: string): { data: string; mimeType: string } | null => {
-  const match = value.match(/^data:([^;]+);base64,(.*)$/)
-  if (!match?.[1] || !match?.[2]) return null
-  if (!match[1].startsWith('video/')) return null
-  return { data: match[2], mimeType: match[1] }
-}
+  const match = value.match(/^data:([^;]+);base64,(.*)$/);
+  if (!match?.[1] || !match?.[2]) return null;
+  if (!match[1].startsWith("video/")) return null;
+  return { data: match[2], mimeType: match[1] };
+};
 
 const normalizeVideoData = (rawData: string, mimeType?: string) => {
-  const trimmed = rawData.trim()
-  if (!trimmed) return null
+  const trimmed = rawData.trim();
+  if (!trimmed) return null;
 
-  if (
-    trimmed.startsWith('imgcache://') ||
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://')
-  ) {
+  if (trimmed.startsWith("imgcache://") || trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     return {
       data: trimmed,
-      mimeType: mimeType?.trim() || 'video/mp4'
-    }
+      mimeType: mimeType?.trim() || "video/mp4",
+    };
   }
 
-  const parsed = parseVideoDataUri(trimmed)
-  if (parsed) return parsed
+  const parsed = parseVideoDataUri(trimmed);
+  if (parsed) return parsed;
 
   return {
     data: trimmed,
-    mimeType: mimeType?.trim() || 'video/mp4'
-  }
-}
+    mimeType: mimeType?.trim() || "video/mp4",
+  };
+};
 
 export const MessageBlockVideo: React.FC<MessageBlockVideoProps> = ({ block }) => {
-  const [videoError, setVideoError] = React.useState(false)
+  const [videoError, setVideoError] = React.useState(false);
 
   const resolvedVideoData = React.useMemo(() => {
     if (block.image_data?.data) {
-      return normalizeVideoData(block.image_data.data, block.image_data.mimeType)
+      return normalizeVideoData(block.image_data.data, block.image_data.mimeType);
     }
 
-    const content = block.content
-    if (content && typeof content === 'object' && 'data' in (content as LegacyVideoBlockContent)) {
-      const legacyContent = content as LegacyVideoBlockContent
+    const content = block.content;
+    if (content && typeof content === "object" && "data" in (content as LegacyVideoBlockContent)) {
+      const legacyContent = content as LegacyVideoBlockContent;
       if (legacyContent.data) {
-        return normalizeVideoData(legacyContent.data, legacyContent.mimeType)
+        return normalizeVideoData(legacyContent.data, legacyContent.mimeType);
       }
     }
 
-    if (typeof content === 'string' && content.length > 0) {
-      return normalizeVideoData(content)
+    if (typeof content === "string" && content.length > 0) {
+      return normalizeVideoData(content);
     }
 
-    return null
-  }, [block.image_data, block.content])
+    return null;
+  }, [block.image_data, block.content]);
 
   const videoSrc = React.useMemo(() => {
-    if (!resolvedVideoData) return ''
-    const raw = resolvedVideoData.data
-    if (raw.startsWith('imgcache://') || raw.startsWith('http://') || raw.startsWith('https://')) {
-      return raw
+    if (!resolvedVideoData) return "";
+    const raw = resolvedVideoData.data;
+    if (raw.startsWith("imgcache://") || raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
     }
-    return `data:${resolvedVideoData.mimeType};base64,${raw}`
-  }, [resolvedVideoData])
+    return `data:${resolvedVideoData.mimeType};base64,${raw}`;
+  }, [resolvedVideoData]);
 
   return (
     <div className="my-1">
@@ -96,9 +92,7 @@ export const MessageBlockVideo: React.FC<MessageBlockVideoProps> = ({ block }) =
                   onError={() => setVideoError(true)}
                 />
               </div>
-              <div className="text-[11px] text-muted-foreground break-all">
-                {resolvedVideoData.mimeType}
-              </div>
+              <div className="text-[11px] text-muted-foreground break-all">{resolvedVideoData.mimeType}</div>
               {videoError && <div className="text-xs text-red-500">Request failed</div>}
             </>
           ) : (
@@ -109,5 +103,5 @@ export const MessageBlockVideo: React.FC<MessageBlockVideoProps> = ({ block }) =
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

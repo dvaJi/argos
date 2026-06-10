@@ -1,6 +1,6 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'tailwind-scrollbar-hide/v4';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "tailwind-scrollbar-hide/v4";
 
 @plugin "@tailwindcss/typography";
 @plugin "tailwindcss-animate";
@@ -15,10 +15,9 @@
   :root {
     --dc-font-scale: 1;
     --dc-font-family:
-      'Geist', Noto Sans, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
-      'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    --dc-code-font-family:
-      'JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+      "Geist", Noto Sans, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+      "Segoe UI Symbol", "Noto Color Emoji";
+    --dc-code-font-family: "JetBrains Mono", "Fira Code", "Menlo", "Monaco", "Consolas", "Courier New", monospace;
     --base-50: hsl(0 0% 100%);
     --base-100: hsl(0 0% 98.1%);
     --base-200: hsl(0 0% 93.4%);
@@ -109,8 +108,7 @@
 
     --animation-accordion-down: accordion-down var(--dc-motion-fast) var(--dc-ease-out-soft);
     --animation-accordion-up: accordion-up var(--dc-motion-fast) var(--dc-ease-out-soft);
-    --animation-collapsible-down: collapsible-down var(--dc-motion-default)
-      var(--dc-ease-out-express);
+    --animation-collapsible-down: collapsible-down var(--dc-motion-default) var(--dc-ease-out-express);
     --animation-collapsible-up: collapsible-up var(--dc-motion-default) var(--dc-ease-out-express);
     --animation-pulse: pulse 2.4s var(--dc-ease-out-soft) infinite;
 
@@ -182,7 +180,7 @@
   }
 
   .dark,
-  [data-theme='dark'] {
+  [data-theme="dark"] {
     --container: var(--black);
     --background: hsl(0 0 5% / 1);
     --foreground: var(--base-200);
@@ -240,7 +238,7 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    :root:not(.dark):not([data-theme='light']):not([data-theme='dark']) {
+    :root:not(.dark):not([data-theme="light"]):not([data-theme="dark"]) {
       --container: var(--black);
       --background: hsl(0 0 5% / 1);
       --foreground: hsl(0 0 100%);
@@ -886,13 +884,13 @@
   }
 
   @font-face {
-    font-family: 'Geist';
-    src: url('./geist.ttf') format('truetype');
+    font-family: "Geist";
+    src: url("./geist.ttf") format("truetype");
   }
 }
 
 @layer utilities {
-  [data-slot='switch'] {
+  [data-slot="switch"] {
     inline-size: calc(2rem / var(--dc-font-scale));
     block-size: calc(1.15rem / var(--dc-font-scale));
     min-inline-size: calc(2rem / var(--dc-font-scale));
@@ -903,7 +901,7 @@
     min-height: calc(1.15rem / var(--dc-font-scale));
   }
 
-  [data-slot='switch-thumb'] {
+  [data-slot="switch-thumb"] {
     inline-size: calc(1rem / var(--dc-font-scale));
     block-size: calc(1rem / var(--dc-font-scale));
     width: calc(1rem / var(--dc-font-scale));
@@ -915,11 +913,7 @@
   .loading-shimmer,
   .loading-shimmer-pure-text {
     --shimmer-text-secondary: var(--text-secondary-foreground, rgba(37, 37, 37, 0.5));
-    --shimmer-contrast: color-mix(
-      in srgb,
-      var(--text-primary-foreground, #ffffff) 70%,
-      transparent
-    );
+    --shimmer-contrast: color-mix(in srgb, var(--text-primary-foreground, #ffffff) 70%, transparent);
     color: transparent;
     -webkit-text-fill-color: transparent;
     text-fill-color: transparent;
@@ -1016,6 +1010,17 @@
 
   .font-text {
     font-weight: var(--text-weight);
+  }
+
+  .window-drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+
+  .window-no-drag-region,
+  .no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
   }
 }
 

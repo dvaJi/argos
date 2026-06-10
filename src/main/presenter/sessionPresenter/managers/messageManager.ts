@@ -4,56 +4,56 @@ import {
   MESSAGE_ROLE,
   MESSAGE_STATUS,
   ISQLitePresenter,
-  SQLITE_MESSAGE
-} from '@shared/presenter'
+  SQLITE_MESSAGE,
+} from "@shared/presenter";
 import {
   Message,
   AssistantMessageBlock,
   UserMessageContent,
   UserMessageTextBlock,
   UserMessageMentionBlock,
-  UserMessageCodeBlock
-} from '@shared/chat'
-import { eventBus, SendTarget } from '@/eventbus'
-import { CONVERSATION_EVENTS } from '@/events'
+  UserMessageCodeBlock,
+} from "@shared/chat";
+import { eventBus, SendTarget } from "@/eventbus";
+import { CONVERSATION_EVENTS } from "@/events";
 
 export class MessageManager implements IMessageManager {
-  private sqlitePresenter: ISQLitePresenter
+  private sqlitePresenter: ISQLitePresenter;
 
   constructor(sqlitePresenter: ISQLitePresenter) {
-    this.sqlitePresenter = sqlitePresenter
+    this.sqlitePresenter = sqlitePresenter;
   }
 
   private formatUserMessageContentForDisplay(
-    msgContentBlock: (UserMessageTextBlock | UserMessageMentionBlock | UserMessageCodeBlock)[]
+    msgContentBlock: (UserMessageTextBlock | UserMessageMentionBlock | UserMessageCodeBlock)[],
   ): string {
-    if (!Array.isArray(msgContentBlock)) return ''
+    if (!Array.isArray(msgContentBlock)) return "";
     return msgContentBlock
       .map((block) => {
-        if (block.type === 'mention') {
-          if (block.category === 'context') {
-            const label = block.id?.trim() || 'context'
-            return `@${label}`
+        if (block.type === "mention") {
+          if (block.category === "context") {
+            const label = block.id?.trim() || "context";
+            return `@${label}`;
           }
         }
-        return block.content || ''
+        return block.content || "";
       })
-      .join('')
+      .join("");
   }
 
   private convertToMessage(sqliteMessage: SQLITE_MESSAGE): Message {
-    let metadata: MESSAGE_METADATA | null = null
+    let metadata: MESSAGE_METADATA | null = null;
     try {
-      metadata = JSON.parse(sqliteMessage.metadata)
+      metadata = JSON.parse(sqliteMessage.metadata);
     } catch (e) {
-      console.error('Failed to parse metadata', e)
+      console.error("Failed to parse metadata", e);
     }
-    const messageContent = JSON.parse(sqliteMessage.content)
+    const messageContent = JSON.parse(sqliteMessage.content);
 
-    if (sqliteMessage.role === 'user') {
-      const userContent = messageContent as UserMessageContent
+    if (sqliteMessage.role === "user") {
+      const userContent = messageContent as UserMessageContent;
       if (userContent.content && Array.isArray(userContent.content)) {
-        userContent.text = this.formatUserMessageContentForDisplay(userContent.content)
+        userContent.text = this.formatUserMessageContentForDisplay(userContent.content);
       }
     }
     return {
@@ -73,17 +73,17 @@ export class MessageManager implements IMessageManager {
         input_tokens: metadata?.inputTokens ?? 0,
         output_tokens: metadata?.outputTokens ?? 0,
         reasoning_start_time: metadata?.reasoningStartTime ?? 0,
-        reasoning_end_time: metadata?.reasoningEndTime ?? 0
+        reasoning_end_time: metadata?.reasoningEndTime ?? 0,
       },
-      avatar: '',
-      name: '',
-      model_name: metadata?.model ?? '',
-      model_id: metadata?.model ?? '',
-      model_provider: metadata?.provider ?? '',
-      error: '',
+      avatar: "",
+      name: "",
+      model_name: metadata?.model ?? "",
+      model_id: metadata?.model ?? "",
+      model_provider: metadata?.provider ?? "",
+      error: "",
       is_variant: sqliteMessage.is_variant,
-      variants: sqliteMessage.variants?.map((variant) => this.convertToMessage(variant)) || []
-    }
+      variants: sqliteMessage.variants?.map((variant) => this.convertToMessage(variant)) || [],
+    };
   }
 
   async sendMessage(
@@ -93,9 +93,9 @@ export class MessageManager implements IMessageManager {
     parentId: string,
     isVariant: boolean,
     metadata: MESSAGE_METADATA,
-    searchResults?: string
+    searchResults?: string,
   ): Promise<Message> {
-    const maxOrderSeq = await this.sqlitePresenter.getMaxOrderSeq(conversationId)
+    const maxOrderSeq = await this.sqlitePresenter.getMaxOrderSeq(conversationId);
     const msgId = await this.sqlitePresenter.insertMessage(
       conversationId,
       content,
@@ -104,60 +104,56 @@ export class MessageManager implements IMessageManager {
       JSON.stringify(metadata),
       maxOrderSeq + 1,
       0,
-      'pending',
+      "pending",
       0,
-      isVariant ? 1 : 0
-    )
+      isVariant ? 1 : 0,
+    );
 
     if (searchResults) {
-      await this.sqlitePresenter.addMessageAttachment(msgId, 'search_results', searchResults)
+      await this.sqlitePresenter.addMessageAttachment(msgId, "search_results", searchResults);
     }
-    const message = await this.getMessage(msgId)
+    const message = await this.getMessage(msgId);
     if (!message) {
-      throw new Error('Failed to create message')
+      throw new Error("Failed to create message");
     }
-    return message
+    return message;
   }
 
   async editMessage(
     messageId: string,
     content: string,
-    options?: { emit?: boolean; emitParent?: boolean }
+    options?: { emit?: boolean; emitParent?: boolean },
   ): Promise<Message> {
-    await this.sqlitePresenter.updateMessage(messageId, { content })
-    const message = await this.sqlitePresenter.getMessage(messageId)
+    await this.sqlitePresenter.updateMessage(messageId, { content });
+    const message = await this.sqlitePresenter.getMessage(messageId);
     if (!message) {
-      throw new Error(`Message ${messageId} not found`)
+      throw new Error(`Message ${messageId} not found`);
     }
-    const msg = this.convertToMessage(message)
-    const shouldEmit = options?.emit !== false
-    const shouldEmitParent = options?.emitParent !== false
+    const msg = this.convertToMessage(message);
+    const shouldEmit = options?.emit !== false;
+    const shouldEmitParent = options?.emitParent !== false;
 
     if (shouldEmit) {
-      eventBus.sendToRenderer(CONVERSATION_EVENTS.MESSAGE_EDITED, SendTarget.ALL_WINDOWS, messageId)
+      eventBus.sendToRenderer(CONVERSATION_EVENTS.MESSAGE_EDITED, SendTarget.ALL_WINDOWS, messageId);
       if (shouldEmitParent && msg.parentId) {
-        eventBus.sendToRenderer(
-          CONVERSATION_EVENTS.MESSAGE_EDITED,
-          SendTarget.ALL_WINDOWS,
-          msg.parentId
-        )
+        eventBus.sendToRenderer(CONVERSATION_EVENTS.MESSAGE_EDITED, SendTarget.ALL_WINDOWS, msg.parentId);
       }
     }
-    return msg
+    return msg;
   }
 
   async editMessageSilently(messageId: string, content: string): Promise<Message> {
-    return this.editMessage(messageId, content, { emit: false, emitParent: false })
+    return this.editMessage(messageId, content, { emit: false, emitParent: false });
   }
 
   async deleteMessage(messageId: string): Promise<void> {
-    await this.sqlitePresenter.deleteMessage(messageId)
+    await this.sqlitePresenter.deleteMessage(messageId);
   }
 
   async retryMessage(messageId: string, metadata: MESSAGE_METADATA): Promise<Message> {
-    const originalMessage = await this.getMessage(messageId)
+    const originalMessage = await this.getMessage(messageId);
     if (!originalMessage) {
-      throw new Error(`Message ${messageId} not found`)
+      throw new Error(`Message ${messageId} not found`);
     }
 
     // 创建一个新的变体消息
@@ -165,205 +161,199 @@ export class MessageManager implements IMessageManager {
       originalMessage.conversationId,
       JSON.stringify([]),
       originalMessage.role as MESSAGE_ROLE,
-      originalMessage.parentId || '',
+      originalMessage.parentId || "",
       true,
-      metadata
-    )
+      metadata,
+    );
 
-    return variantMessage
+    return variantMessage;
   }
 
   async getMessage(messageId: string): Promise<Message> {
-    const message = await this.sqlitePresenter.getMessage(messageId)
+    const message = await this.sqlitePresenter.getMessage(messageId);
     if (!message) {
-      throw new Error(`Message ${messageId} not found`)
+      throw new Error(`Message ${messageId} not found`);
     }
-    return this.convertToMessage(message)
+    return this.convertToMessage(message);
   }
 
   async getMessagesByIds(messageIds: string[]): Promise<Message[]> {
-    if (messageIds.length === 0) return []
-    const sqliteMessages = await this.sqlitePresenter.getMessagesByIds(messageIds)
-    const sqliteById = new Map(sqliteMessages.map((msg) => [msg.id, msg]))
-    const result: Message[] = []
+    if (messageIds.length === 0) return [];
+    const sqliteMessages = await this.sqlitePresenter.getMessagesByIds(messageIds);
+    const sqliteById = new Map(sqliteMessages.map((msg) => [msg.id, msg]));
+    const result: Message[] = [];
 
     for (const messageId of messageIds) {
-      const sqliteMessage = sqliteById.get(messageId)
-      if (!sqliteMessage) continue
-      if (sqliteMessage.role === 'assistant' && sqliteMessage.parent_id) {
-        const variants = await this.sqlitePresenter.getMessageVariants(sqliteMessage.parent_id)
+      const sqliteMessage = sqliteById.get(messageId);
+      if (!sqliteMessage) continue;
+      if (sqliteMessage.role === "assistant" && sqliteMessage.parent_id) {
+        const variants = await this.sqlitePresenter.getMessageVariants(sqliteMessage.parent_id);
         if (variants.length > 0) {
-          sqliteMessage.variants = variants
+          sqliteMessage.variants = variants;
         }
       }
-      result.push(this.convertToMessage(sqliteMessage))
+      result.push(this.convertToMessage(sqliteMessage));
     }
 
-    return result
+    return result;
   }
 
   async getMessageVariants(messageId: string): Promise<Message[]> {
-    const variants = await this.sqlitePresenter.getMessageVariants(messageId)
-    return variants.map((variant) => this.convertToMessage(variant))
+    const variants = await this.sqlitePresenter.getMessageVariants(messageId);
+    return variants.map((variant) => this.convertToMessage(variant));
   }
 
-  async getMainMessageByParentId(
-    conversationId: string,
-    parentId: string
-  ): Promise<Message | null> {
-    const message = await this.sqlitePresenter.getMainMessageByParentId(conversationId, parentId)
+  async getMainMessageByParentId(conversationId: string, parentId: string): Promise<Message | null> {
+    const message = await this.sqlitePresenter.getMainMessageByParentId(conversationId, parentId);
     if (!message) {
-      return null
+      return null;
     }
-    return this.convertToMessage(message)
+    return this.convertToMessage(message);
   }
 
   async getMessageThread(
     conversationId: string,
     page: number,
-    pageSize: number
+    pageSize: number,
   ): Promise<{ total: number; list: Message[] }> {
-    const sqliteMessages = await this.sqlitePresenter.queryMessages(conversationId)
-    const start = (page - 1) * pageSize
-    const end = start + pageSize
+    const sqliteMessages = await this.sqlitePresenter.queryMessages(conversationId);
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
 
     // 处理消息的排序和变体关系
     const messages = sqliteMessages
       .sort((a, b) => {
         // 首先按创建时间排序
-        const timeCompare = a.created_at - b.created_at
-        if (timeCompare !== 0) return timeCompare
+        const timeCompare = a.created_at - b.created_at;
+        if (timeCompare !== 0) return timeCompare;
         // 如果创建时间相同，按序号排序
-        return a.order_seq - b.order_seq
+        return a.order_seq - b.order_seq;
       })
-      .map((msg) => this.convertToMessage(msg))
+      .map((msg) => this.convertToMessage(msg));
 
     return {
       total: messages.length,
-      list: messages.slice(start, end)
-    }
+      list: messages.slice(start, end),
+    };
   }
 
   async getMessageIds(conversationId: string): Promise<string[]> {
-    return this.sqlitePresenter.queryMessageIds(conversationId)
+    return this.sqlitePresenter.queryMessageIds(conversationId);
   }
 
   async updateMessageStatus(messageId: string, status: MESSAGE_STATUS): Promise<void> {
-    await this.sqlitePresenter.updateMessage(messageId, { status })
+    await this.sqlitePresenter.updateMessage(messageId, { status });
   }
 
-  async updateMessageMetadata(
-    messageId: string,
-    metadata: Partial<MESSAGE_METADATA>
-  ): Promise<void> {
-    const message = await this.sqlitePresenter.getMessage(messageId)
+  async updateMessageMetadata(messageId: string, metadata: Partial<MESSAGE_METADATA>): Promise<void> {
+    const message = await this.sqlitePresenter.getMessage(messageId);
     if (!message) {
-      return
+      return;
     }
     const updatedMetadata = {
       ...JSON.parse(message.metadata),
-      ...metadata
-    }
+      ...metadata,
+    };
     await this.sqlitePresenter.updateMessage(messageId, {
-      metadata: JSON.stringify(updatedMetadata)
-    })
+      metadata: JSON.stringify(updatedMetadata),
+    });
   }
 
   async markMessageAsContextEdge(messageId: string, isEdge: boolean): Promise<void> {
     await this.sqlitePresenter.updateMessage(messageId, {
-      isContextEdge: isEdge ? 1 : 0
-    })
+      isContextEdge: isEdge ? 1 : 0,
+    });
   }
 
   async getContextMessages(
     conversationId: string,
     messageCount: number,
-    { ensureUserStart = true, normalizeUserText = true } = {}
+    { ensureUserStart = true, normalizeUserText = true } = {},
   ): Promise<Message[]> {
-    const sqliteMessages = await this.sqlitePresenter.queryMessages(conversationId)
+    const sqliteMessages = await this.sqlitePresenter.queryMessages(conversationId);
 
     const messages = sqliteMessages
       .sort((a, b) => {
-        const timeCompare = b.created_at - a.created_at
-        if (timeCompare !== 0) return timeCompare
-        return b.order_seq - a.order_seq
+        const timeCompare = b.created_at - a.created_at;
+        if (timeCompare !== 0) return timeCompare;
+        return b.order_seq - a.order_seq;
       })
       .slice(0, messageCount)
       .sort((a, b) => {
-        const timeCompare = a.created_at - b.created_at
-        if (timeCompare !== 0) return timeCompare
-        return a.order_seq - b.order_seq
+        const timeCompare = a.created_at - b.created_at;
+        if (timeCompare !== 0) return timeCompare;
+        return a.order_seq - b.order_seq;
       })
-      .map((msg) => this.convertToMessage(msg))
+      .map((msg) => this.convertToMessage(msg));
 
     if (ensureUserStart) {
-      while (messages.length > 0 && messages[0].role !== 'user') {
-        messages.shift()
+      while (messages.length > 0 && messages[0].role !== "user") {
+        messages.shift();
       }
     }
 
     if (normalizeUserText) {
       return messages.map((msg) => {
-        if (msg.role !== 'user') {
-          return msg
+        if (msg.role !== "user") {
+          return msg;
         }
-        const userContent = msg.content as UserMessageContent
+        const userContent = msg.content as UserMessageContent;
         if (userContent?.content) {
           return {
             ...msg,
             content: {
               ...userContent,
-              text: this.formatUserMessageContentForDisplay(userContent.content)
-            }
-          }
+              text: this.formatUserMessageContentForDisplay(userContent.content),
+            },
+          };
         }
-        return msg
-      })
+        return msg;
+      });
     }
 
-    return messages
+    return messages;
   }
 
   async getMessageHistory(messageId: string, limit: number = 100): Promise<Message[]> {
     if (limit <= 0) {
-      return []
+      return [];
     }
 
-    const message = await this.getMessage(messageId)
-    const sqliteMessages = await this.sqlitePresenter.queryMessages(message.conversationId)
+    const message = await this.getMessage(messageId);
+    const sqliteMessages = await this.sqlitePresenter.queryMessages(message.conversationId);
     const orderedMessages = sqliteMessages
       .sort((a, b) => {
-        const timeDiff = a.created_at - b.created_at
-        return timeDiff !== 0 ? timeDiff : a.order_seq - b.order_seq
+        const timeDiff = a.created_at - b.created_at;
+        return timeDiff !== 0 ? timeDiff : a.order_seq - b.order_seq;
       })
-      .map((sqliteMessage) => this.convertToMessage(sqliteMessage))
+      .map((sqliteMessage) => this.convertToMessage(sqliteMessage));
 
-    const targetIndex = orderedMessages.findIndex((msg) => msg.id === messageId)
+    const targetIndex = orderedMessages.findIndex((msg) => msg.id === messageId);
     if (targetIndex === -1) {
-      return [message]
+      return [message];
     }
 
-    return orderedMessages.slice(Math.max(0, targetIndex - limit + 1), targetIndex + 1)
+    return orderedMessages.slice(Math.max(0, targetIndex - limit + 1), targetIndex + 1);
   }
 
   async getLastUserMessage(conversationId: string): Promise<Message | null> {
-    const sqliteMessage = await this.sqlitePresenter.getLastUserMessage(conversationId)
+    const sqliteMessage = await this.sqlitePresenter.getLastUserMessage(conversationId);
     if (!sqliteMessage) {
-      return null
+      return null;
     }
-    return this.convertToMessage(sqliteMessage)
+    return this.convertToMessage(sqliteMessage);
   }
 
   async getLastAssistantMessage(conversationId: string): Promise<Message | null> {
-    const sqliteMessage = await this.sqlitePresenter.getLastAssistantMessage(conversationId)
+    const sqliteMessage = await this.sqlitePresenter.getLastAssistantMessage(conversationId);
     if (!sqliteMessage) {
-      return null
+      return null;
     }
-    return this.convertToMessage(sqliteMessage)
+    return this.convertToMessage(sqliteMessage);
   }
 
   async clearAllMessages(conversationId: string): Promise<void> {
-    await this.sqlitePresenter.deleteAllMessagesInConversation(conversationId)
+    await this.sqlitePresenter.deleteAllMessagesInConversation(conversationId);
   }
   /**
    * 初始化未完成的消息
@@ -371,28 +361,26 @@ export class MessageManager implements IMessageManager {
   public async initializeUnfinishedMessages(): Promise<void> {
     try {
       // 获取所有对话
-      const { list: conversations } = await this.sqlitePresenter.getConversationList(1, 1000)
+      const { list: conversations } = await this.sqlitePresenter.getConversationList(1, 1000);
 
       for (const conversation of conversations) {
         // 获取每个对话的消息
-        const { list: messages } = await this.getMessageThread(conversation.id, 1, 1000)
+        const { list: messages } = await this.getMessageThread(conversation.id, 1, 1000);
 
         // 找出所有pending状态的assistant消息
-        const pendingMessages = messages.filter(
-          (msg) => msg.role === 'assistant' && msg.status === 'pending'
-        )
+        const pendingMessages = messages.filter((msg) => msg.role === "assistant" && msg.status === "pending");
 
         // 处理每个未完成的消息
         for (const message of pendingMessages) {
-          const blocks = Array.isArray(message.content) ? message.content : []
+          const blocks = Array.isArray(message.content) ? message.content : [];
           const hasQuestionRequest = blocks.some(
-            (block) => block.type === 'action' && block.action_type === 'question_request'
-          )
+            (block) => block.type === "action" && block.action_type === "question_request",
+          );
           if (hasQuestionRequest) {
-            await this.updateMessageStatus(message.id, 'sent')
-            continue
+            await this.updateMessageStatus(message.id, "sent");
+            continue;
           }
-          await this.handleMessageError(message.id, 'common.error.sessionInterrupted')
+          await this.handleMessageError(message.id, "common.error.sessionInterrupted");
         }
       }
     } catch (error) {
@@ -400,12 +388,10 @@ export class MessageManager implements IMessageManager {
         error instanceof Error &&
         /no such table:\s*(conversations|messages|message_attachments)/i.test(error.message)
       ) {
-        console.info(
-          '[MessageManager] Skip legacy unfinished message initialization: legacy tables not found.'
-        )
-        return
+        console.info("[MessageManager] Skip legacy unfinished message initialization: legacy tables not found.");
+        return;
       }
-      console.error('初始化未完成消息失败:', error)
+      console.error("初始化未完成消息失败:", error);
     }
   }
   /**
@@ -415,37 +401,37 @@ export class MessageManager implements IMessageManager {
    */
   public async handleMessageError(
     messageId: string,
-    errorMessage: string = 'common.error.requestFailed'
+    errorMessage: string = "common.error.requestFailed",
   ): Promise<void> {
-    const message = await this.getMessage(messageId)
+    const message = await this.getMessage(messageId);
     if (!message) {
-      return
+      return;
     }
 
-    let content: AssistantMessageBlock[] = []
+    let content: AssistantMessageBlock[] = [];
     try {
-      content = message.content as AssistantMessageBlock[]
+      content = message.content as AssistantMessageBlock[];
     } catch {
-      content = []
+      content = [];
     }
 
     // 将所有loading状态的block改为error
     content.forEach((block: AssistantMessageBlock) => {
-      if (block.status === 'loading') {
-        block.status = 'error'
+      if (block.status === "loading") {
+        block.status = "error";
       }
-    })
+    });
 
     // 添加错误信息block
     content.push({
-      type: 'error',
+      type: "error",
       content: errorMessage,
-      status: 'error',
-      timestamp: Date.now()
-    })
+      status: "error",
+      timestamp: Date.now(),
+    });
 
     // 更新消息状态和内容
-    await this.updateMessageStatus(messageId, 'error')
-    await this.editMessage(messageId, JSON.stringify(content))
+    await this.updateMessageStatus(messageId, "error");
+    await this.editMessage(messageId, JSON.stringify(content));
   }
 }

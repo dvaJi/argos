@@ -1,17 +1,17 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
 export interface NewSessionActiveSkillRow {
-  session_id: string
-  ordinal: number
-  skill_name: string
+  session_id: string;
+  ordinal: number;
+  skill_name: string;
 }
 
-const NORMALIZATION_SCHEMA_VERSION = 26
+const NORMALIZATION_SCHEMA_VERSION = 26;
 
 export class NewSessionActiveSkillsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'new_session_active_skills')
+    super(db, "new_session_active_skills");
   }
 
   getCreateTableSQL(): string {
@@ -24,18 +24,18 @@ export class NewSessionActiveSkillsTable extends BaseTable {
       );
       CREATE INDEX IF NOT EXISTS idx_new_session_active_skills_session
         ON new_session_active_skills(session_id, ordinal);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
     if (version === NORMALIZATION_SCHEMA_VERSION) {
-      return this.getCreateTableSQL()
+      return this.getCreateTableSQL();
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return NORMALIZATION_SCHEMA_VERSION
+    return NORMALIZATION_SCHEMA_VERSION;
   }
 
   replaceForSession(sessionId: string, skills: string[]): void {
@@ -44,15 +44,15 @@ export class NewSessionActiveSkillsTable extends BaseTable {
         session_id,
         ordinal,
         skill_name
-      ) VALUES (?, ?, ?)`
-    )
+      ) VALUES (?, ?, ?)`,
+    );
 
     this.db.transaction(() => {
-      this.deleteBySession(sessionId)
+      this.deleteBySession(sessionId);
       skills.forEach((skillName, index) => {
-        insert.run(sessionId, index, skillName)
-      })
-    })()
+        insert.run(sessionId, index, skillName);
+      });
+    })();
   }
 
   listBySession(sessionId: string): NewSessionActiveSkillRow[] {
@@ -60,12 +60,12 @@ export class NewSessionActiveSkillsTable extends BaseTable {
       .prepare(
         `SELECT * FROM new_session_active_skills
          WHERE session_id = ?
-         ORDER BY ordinal`
+         ORDER BY ordinal`,
       )
-      .all(sessionId) as NewSessionActiveSkillRow[]
+      .all(sessionId) as NewSessionActiveSkillRow[];
   }
 
   deleteBySession(sessionId: string): void {
-    this.db.prepare('DELETE FROM new_session_active_skills WHERE session_id = ?').run(sessionId)
+    this.db.prepare("DELETE FROM new_session_active_skills WHERE session_id = ?").run(sessionId);
   }
 }

@@ -1,17 +1,17 @@
-import { BrowserWindow } from 'electron'
-import { randomBytes } from 'crypto'
-import { is } from '@electron-toolkit/utils'
+import { BrowserWindow } from "electron";
+import { randomBytes } from "crypto";
+import { is } from "@electron-toolkit/utils";
 
 export interface GitHubOAuthConfig {
-  clientId: string
-  clientSecret: string
-  redirectUri: string
-  scope: string
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  scope: string;
 }
 
 export class GitHubCopilotOAuth {
-  private authWindow: BrowserWindow | null = null
-  private state: string = ''
+  private authWindow: BrowserWindow | null = null;
+  private state: string = "";
 
   constructor(private config: GitHubOAuthConfig) {}
 
@@ -21,11 +21,11 @@ export class GitHubCopilotOAuth {
   async startLogin(): Promise<string> {
     return new Promise((resolve, reject) => {
       // Generate random state for security verification
-      this.state = randomBytes(16).toString('hex')
+      this.state = randomBytes(16).toString("hex");
 
       // Build authorization URL
-      const authUrl = this.buildAuthUrl()
-      console.log('Starting GitHub OAuth with URL:', authUrl)
+      const authUrl = this.buildAuthUrl();
+      console.log("Starting GitHub OAuth with URL:", authUrl);
 
       // Create authorization window
       this.authWindow = new BrowserWindow({
@@ -35,17 +35,17 @@ export class GitHubCopilotOAuth {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
-          webSecurity: true
+          webSecurity: true,
         },
         autoHideMenuBar: true,
-        title: 'GitHub Copilot Authorization'
-      })
+        title: "GitHub Copilot Authorization",
+      });
 
       // Monitor URL changes to capture authorization callback
-      this.authWindow.webContents.on('will-redirect', (_event, url) => {
-        console.log('Redirecting to:', url)
-        this.handleCallback(url, resolve, reject)
-      })
+      this.authWindow.webContents.on("will-redirect", (_event, url) => {
+        console.log("Redirecting to:", url);
+        this.handleCallback(url, resolve, reject);
+      });
 
       // Note: did-get-redirect-request is deprecated in newer Electron versions
       // this.authWindow.webContents.on('did-get-redirect-request', (event, oldUrl, newUrl) => {
@@ -54,36 +54,36 @@ export class GitHubCopilotOAuth {
       // })
 
       // Monitor navigation events
-      this.authWindow.webContents.on('did-navigate', (_event, url) => {
-        console.log('Navigated to:', url)
-        this.handleCallback(url, resolve, reject)
-      })
+      this.authWindow.webContents.on("did-navigate", (_event, url) => {
+        console.log("Navigated to:", url);
+        this.handleCallback(url, resolve, reject);
+      });
 
       // Monitor new window events (GitHub may open in new window)
       this.authWindow.webContents.setWindowOpenHandler(({ url }) => {
-        console.log('New window requested for:', url)
-        this.handleCallback(url, resolve, reject)
-        return { action: 'deny' }
-      })
+        console.log("New window requested for:", url);
+        this.handleCallback(url, resolve, reject);
+        return { action: "deny" };
+      });
 
       // Handle window close
-      this.authWindow.on('closed', () => {
-        this.authWindow = null
-        reject(new Error('User cancelled authorization'))
-      })
+      this.authWindow.on("closed", () => {
+        this.authWindow = null;
+        reject(new Error("User cancelled authorization"));
+      });
 
       // Load authorization page
-      this.authWindow.loadURL(authUrl)
-      this.authWindow.show()
+      this.authWindow.loadURL(authUrl);
+      this.authWindow.show();
 
       // Set timeout
       setTimeout(() => {
         if (this.authWindow) {
-          this.closeWindow()
-          reject(new Error('Authorization timeout'))
+          this.closeWindow();
+          reject(new Error("Authorization timeout"));
         }
-      }, 300000) // 5 minute timeout
-    })
+      }, 300000); // 5 minute timeout
+    });
   }
 
   /**
@@ -95,53 +95,49 @@ export class GitHubCopilotOAuth {
       redirect_uri: this.config.redirectUri,
       scope: this.config.scope,
       state: this.state,
-      response_type: 'code'
-    })
+      response_type: "code",
+    });
 
-    return `https://github.com/login/oauth/authorize?${params.toString()}`
+    return `https://github.com/login/oauth/authorize?${params.toString()}`;
   }
 
   /**
    * Handle OAuth callback
    */
-  private handleCallback(
-    url: string,
-    resolve: (code: string) => void,
-    reject: (error: Error) => void
-  ): void {
+  private handleCallback(url: string, resolve: (code: string) => void, reject: (error: Error) => void): void {
     try {
-      const urlObj = new URL(url)
+      const urlObj = new URL(url);
 
       // Check if this is our callback URL
       if (url.startsWith(this.config.redirectUri)) {
-        const code = urlObj.searchParams.get('code')
-        const error = urlObj.searchParams.get('error')
-        const returnedState = urlObj.searchParams.get('state')
+        const code = urlObj.searchParams.get("code");
+        const error = urlObj.searchParams.get("error");
+        const returnedState = urlObj.searchParams.get("state");
 
         // Verify state parameter
         if (returnedState !== this.state) {
-          console.error('State mismatch:', returnedState, 'vs', this.state)
-          this.closeWindow()
-          reject(new Error('Security verification failed: state parameter mismatch'))
-          return
+          console.error("State mismatch:", returnedState, "vs", this.state);
+          this.closeWindow();
+          reject(new Error("Security verification failed: state parameter mismatch"));
+          return;
         }
 
         if (error) {
-          console.error('OAuth error:', error)
-          this.closeWindow()
-          reject(new Error(`GitHub authorization failed: ${error}`))
+          console.error("OAuth error:", error);
+          this.closeWindow();
+          reject(new Error(`GitHub authorization failed: ${error}`));
         } else if (code) {
-          console.log('OAuth success, received authorization code')
-          this.closeWindow()
-          resolve(code)
+          console.log("OAuth success, received authorization code");
+          this.closeWindow();
+          resolve(code);
         } else {
-          console.warn('No code or error in callback URL:', url)
+          console.warn("No code or error in callback URL:", url);
         }
       }
     } catch (error) {
-      console.error('Error parsing callback URL:', error)
-      this.closeWindow()
-      reject(new Error('Failed to parse callback URL'))
+      console.error("Error parsing callback URL:", error);
+      this.closeWindow();
+      reject(new Error("Failed to parse callback URL"));
     }
   }
 
@@ -150,43 +146,43 @@ export class GitHubCopilotOAuth {
    */
   async exchangeCodeForToken(code: string): Promise<string> {
     try {
-      const response = await fetch('https://github.com/login/oauth/access_token', {
-        method: 'POST',
+      const response = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
         headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepChat/1.0.0'
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "User-Agent": "DeepChat/1.0.0",
         },
         body: JSON.stringify({
           client_id: this.config.clientId,
           client_secret: this.config.clientSecret,
           code: code,
-          redirect_uri: this.config.redirectUri
-        })
-      })
+          redirect_uri: this.config.redirectUri,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`)
+        throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
       }
 
       const data = (await response.json()) as {
-        access_token?: string
-        error?: string
-        error_description?: string
-      }
+        access_token?: string;
+        error?: string;
+        error_description?: string;
+      };
 
       if (data.error) {
-        throw new Error(`Token exchange error: ${data.error_description || data.error}`)
+        throw new Error(`Token exchange error: ${data.error_description || data.error}`);
       }
 
       if (!data.access_token) {
-        throw new Error('No access token received')
+        throw new Error("No access token received");
       }
 
-      return data.access_token
+      return data.access_token;
     } catch (error) {
-      console.error('Token exchange failed:', error)
-      throw error
+      console.error("Token exchange failed:", error);
+      throw error;
     }
   }
 
@@ -195,17 +191,17 @@ export class GitHubCopilotOAuth {
    */
   async validateToken(token: string): Promise<boolean> {
     try {
-      const response = await fetch('https://api.github.com/user', {
+      const response = await fetch("https://api.github.com/user", {
         headers: {
           Authorization: `Bearer ${token}`,
-          'User-Agent': 'DeepChat/1.0.0'
-        }
-      })
+          "User-Agent": "DeepChat/1.0.0",
+        },
+      });
 
-      return response.ok
+      return response.ok;
     } catch (error) {
-      console.error('Token validation failed:', error)
-      return false
+      console.error("Token validation failed:", error);
+      return false;
     }
   }
 
@@ -214,8 +210,8 @@ export class GitHubCopilotOAuth {
    */
   private closeWindow(): void {
     if (this.authWindow && !this.authWindow.isDestroyed()) {
-      this.authWindow.close()
-      this.authWindow = null
+      this.authWindow.close();
+      this.authWindow = null;
     }
   }
 }
@@ -223,56 +219,55 @@ export class GitHubCopilotOAuth {
 // GitHub Copilot OAuth configuration
 export function createGitHubCopilotOAuth(clientIdOverride?: string): GitHubCopilotOAuth {
   // Read GitHub OAuth configuration from environment variables
-  const clientId = clientIdOverride?.trim() || import.meta.env.VITE_GITHUB_CLIENT_ID
-  const clientSecret = import.meta.env.VITE_GITHUB_CLIENT_SECRET
-  const redirectUri =
-    import.meta.env.VITE_GITHUB_REDIRECT_URI || 'https://deepchatai.cn/auth/github/callback'
+  const clientId = clientIdOverride?.trim() || import.meta.env.VITE_GITHUB_CLIENT_ID;
+  const clientSecret = import.meta.env.VITE_GITHUB_CLIENT_SECRET;
+  const redirectUri = import.meta.env.VITE_GITHUB_REDIRECT_URI || "https://deepchatai.cn/auth/github/callback";
 
-  console.log('GitHub OAuth Configuration:')
-  console.log('- Client ID configured:', clientId ? '✅' : '❌')
-  console.log('- Client ID override provided:', clientIdOverride ? '✅' : '❌')
-  console.log('- Client Secret configured:', clientSecret ? '✅' : '❌')
-  console.log('- Redirect URI:', redirectUri)
-  console.log('- Environment variables check:')
+  console.log("GitHub OAuth Configuration:");
+  console.log("- Client ID configured:", clientId ? "✅" : "❌");
+  console.log("- Client ID override provided:", clientIdOverride ? "✅" : "❌");
+  console.log("- Client Secret configured:", clientSecret ? "✅" : "❌");
+  console.log("- Redirect URI:", redirectUri);
+  console.log("- Environment variables check:");
   console.log(
-    '  - import.meta.env.VITE_GITHUB_CLIENT_ID:',
-    import.meta.env.VITE_GITHUB_CLIENT_ID ? 'EXISTS' : 'NOT SET'
-  )
+    "  - import.meta.env.VITE_GITHUB_CLIENT_ID:",
+    import.meta.env.VITE_GITHUB_CLIENT_ID ? "EXISTS" : "NOT SET",
+  );
   console.log(
-    '  - import.meta.env.VITE_GITHUB_CLIENT_SECRET:',
-    import.meta.env.VITE_GITHUB_CLIENT_SECRET ? 'EXISTS' : 'NOT SET'
-  )
+    "  - import.meta.env.VITE_GITHUB_CLIENT_SECRET:",
+    import.meta.env.VITE_GITHUB_CLIENT_SECRET ? "EXISTS" : "NOT SET",
+  );
   console.log(
-    '  - import.meta.env.VITE_GITHUB_REDIRECT_URI:',
-    import.meta.env.VITE_GITHUB_REDIRECT_URI ? 'EXISTS' : 'NOT SET'
-  )
+    "  - import.meta.env.VITE_GITHUB_REDIRECT_URI:",
+    import.meta.env.VITE_GITHUB_REDIRECT_URI ? "EXISTS" : "NOT SET",
+  );
 
   if (!clientId) {
     throw new Error(
-      'GitHub Client ID is required. Please enter it in the Copilot settings input or set GITHUB_CLIENT_ID / VITE_GITHUB_CLIENT_ID in .env.'
-    )
+      "GitHub Client ID is required. Please enter it in the Copilot settings input or set GITHUB_CLIENT_ID / VITE_GITHUB_CLIENT_ID in .env.",
+    );
   }
 
   if (!clientSecret) {
     throw new Error(
-      'GITHUB_CLIENT_SECRET environment variable is required. Please create a .env file with your GitHub OAuth Client Secret. You can use either GITHUB_CLIENT_SECRET or VITE_GITHUB_CLIENT_SECRET.'
-    )
+      "GITHUB_CLIENT_SECRET environment variable is required. Please create a .env file with your GitHub OAuth Client Secret. You can use either GITHUB_CLIENT_SECRET or VITE_GITHUB_CLIENT_SECRET.",
+    );
   }
 
   const config: GitHubOAuthConfig = {
     clientId,
     clientSecret,
     redirectUri,
-    scope: 'read:user read:org'
-  }
+    scope: "read:user read:org",
+  };
   if (is.dev) {
-    console.log('Final OAuth config:', {
+    console.log("Final OAuth config:", {
       clientIdConfigured: !!config.clientId,
       redirectUri: config.redirectUri,
       scope: config.scope,
-      clientSecretConfigured: !!config.clientSecret
-    })
+      clientSecretConfigured: !!config.clientSecret,
+    });
   }
 
-  return new GitHubCopilotOAuth(config)
+  return new GitHubCopilotOAuth(config);
 }

@@ -1,109 +1,105 @@
 export type ChatLanguage =
-  | 'system'
-  | 'zh-CN'
-  | 'en-US'
-  | 'zh-TW'
-  | 'zh-HK'
-  | 'ko-KR'
-  | 'ru-RU'
-  | 'ja-JP'
-  | 'fr-FR'
-  | 'fa-IR'
-  | 'pt-BR'
-  | 'da-DK'
-  | 'he-IL'
-  | 'es-ES'
-  | 'de-DE'
-  | 'tr-TR'
-  | 'id-ID'
-  | 'ms-MY'
-  | 'it-IT'
-  | 'pl-PL'
-  | 'vi-VN'
+  | "system"
+  | "zh-CN"
+  | "en-US"
+  | "zh-TW"
+  | "zh-HK"
+  | "ko-KR"
+  | "ru-RU"
+  | "ja-JP"
+  | "fr-FR"
+  | "fa-IR"
+  | "pt-BR"
+  | "da-DK"
+  | "he-IL"
+  | "es-ES"
+  | "de-DE"
+  | "tr-TR"
+  | "id-ID"
+  | "ms-MY"
+  | "it-IT"
+  | "pl-PL"
+  | "vi-VN";
 
-export type ChatTheme = 'dark' | 'light' | 'system'
+export type ChatTheme = "dark" | "light" | "system";
 
-export type ChatSettingId = 'copyWithCotEnabled' | 'language' | 'theme' | 'fontSizeLevel'
+export type ChatSettingId = "copyWithCotEnabled" | "language" | "theme" | "fontSizeLevel";
 
-export type ChatSettingValue = boolean | number | ChatLanguage | ChatTheme
+export type ChatSettingValue = boolean | number | ChatLanguage | ChatTheme;
 
 export type ToggleChatSettingRequest = {
-  setting: 'copyWithCotEnabled'
-  enabled: boolean
-}
+  setting: "copyWithCotEnabled";
+  enabled: boolean;
+};
 
 export type SetLanguageRequest = {
-  language: ChatLanguage
-}
+  language: ChatLanguage;
+};
 
 export type SetThemeRequest = {
-  theme: ChatTheme
-}
+  theme: ChatTheme;
+};
 
 export type SetFontSizeRequest = {
-  level: number
-}
+  level: number;
+};
 
 export type ApplyChatSettingRequest =
   | ToggleChatSettingRequest
   | SetLanguageRequest
   | SetThemeRequest
-  | SetFontSizeRequest
+  | SetFontSizeRequest;
 
 export type ApplyChatSettingSuccess = {
-  ok: true
-  id: ChatSettingId
-  value: ChatSettingValue
-  previousValue?: ChatSettingValue
-  appliedAt: number
-}
+  ok: true;
+  id: ChatSettingId;
+  value: ChatSettingValue;
+  previousValue?: ChatSettingValue;
+  appliedAt: number;
+};
 
-export type ApplyChatSettingErrorCode =
-  | 'invalid_request'
-  | 'skill_inactive'
-  | 'unknown_setting'
-  | 'apply_failed'
+export type ApplyChatSettingErrorCode = "invalid_request" | "skill_inactive" | "unknown_setting" | "apply_failed";
 
 export type ApplyChatSettingFailure = {
-  ok: false
-  errorCode: ApplyChatSettingErrorCode
-  message: string
-  details?: unknown
-}
+  ok: false;
+  errorCode: ApplyChatSettingErrorCode;
+  message: string;
+  details?: unknown;
+};
 
-export type ApplyChatSettingResult = ApplyChatSettingSuccess | ApplyChatSettingFailure
+export type ApplyChatSettingResult = ApplyChatSettingSuccess | ApplyChatSettingFailure;
 
 export type OpenChatSettingsSection =
-  | 'common'
-  | 'display'
-  | 'provider'
-  | 'mcp'
-  | 'prompt'
-  | 'acp'
-  | 'skills'
-  | 'knowledge-base'
-  | 'database'
-  | 'shortcut'
-  | 'about'
+  | "common"
+  | "display"
+  | "provider"
+  | "mcp"
+  | "prompt"
+  | "acp"
+  | "skills"
+  | "knowledge-base"
+  | "database"
+  | "shortcut"
+  | "about";
 
 export type OpenChatSettingsRequest = {
-  section?: OpenChatSettingsSection
-}
+  section?: OpenChatSettingsSection;
+};
 
-export type OpenChatSettingsErrorCode = 'invalid_request' | 'skill_inactive' | 'open_failed'
+export type OpenChatSettingsErrorCode = "invalid_request" | "skill_inactive" | "open_failed";
 
 export type OpenChatSettingsFailure = {
-  ok: false
-  errorCode: OpenChatSettingsErrorCode
-  message: string
-  details?: unknown
-}
+  ok: false;
+  errorCode: OpenChatSettingsErrorCode;
+  message: string;
+  details?: unknown;
+};
 
 export type OpenChatSettingsSuccess = {
-  ok: true
-  section?: OpenChatSettingsSection
-  routeName?: string
-  appliedAt: number
-}
+  ok: true;
+  section?: OpenChatSettingsSection;
+  routeName?: string;
+  appliedAt: number;
+};
 
-export type OpenChatSettingsResult = OpenChatSettingsSuccess | OpenChatSettingsFailure
+export type OpenChatSettingsResult = OpenChatSettingsSuccess | OpenChatSettingsFailure;

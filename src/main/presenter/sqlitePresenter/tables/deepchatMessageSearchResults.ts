@@ -1,21 +1,21 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { nanoid } from 'nanoid'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { nanoid } from "nanoid";
+import { BaseTable } from "./baseTable";
 
 export interface DeepChatMessageSearchResultRow {
-  id: string
-  session_id: string
-  message_id: string
-  search_id: string | null
-  rank: number | null
-  content: string
-  dedupe_key: string
-  created_at: number
+  id: string;
+  session_id: string;
+  message_id: string;
+  search_id: string | null;
+  rank: number | null;
+  content: string;
+  dedupe_key: string;
+  created_at: number;
 }
 
 export class DeepChatMessageSearchResultsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'deepchat_message_search_results')
+    super(db, "deepchat_message_search_results");
   }
 
   getCreateTableSQL(): string {
@@ -36,33 +36,28 @@ export class DeepChatMessageSearchResultsTable extends BaseTable {
         ON deepchat_message_search_results(message_id, search_id, rank);
       CREATE INDEX IF NOT EXISTS idx_search_results_session
         ON deepchat_message_search_results(session_id, created_at DESC);
-    `
+    `;
   }
 
   getMigrationSQL(_version: number): string | null {
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 0
+    return 0;
   }
 
   add(row: {
-    sessionId: string
-    messageId: string
-    searchId?: string | null
-    rank?: number | null
-    content: string
-    createdAt?: number
+    sessionId: string;
+    messageId: string;
+    searchId?: string | null;
+    rank?: number | null;
+    content: string;
+    createdAt?: number;
   }): boolean {
-    const normalizedSearchId = row.searchId?.trim() || null
-    const normalizedRank = Number.isInteger(row.rank) ? (row.rank as number) : null
-    const dedupeKey = this.buildDedupeKey(
-      row.messageId,
-      normalizedSearchId,
-      normalizedRank,
-      row.content
-    )
+    const normalizedSearchId = row.searchId?.trim() || null;
+    const normalizedRank = Number.isInteger(row.rank) ? (row.rank as number) : null;
+    const dedupeKey = this.buildDedupeKey(row.messageId, normalizedSearchId, normalizedRank, row.content);
 
     const result = this.db
       .prepare(
@@ -75,7 +70,7 @@ export class DeepChatMessageSearchResultsTable extends BaseTable {
            content,
            dedupe_key,
            created_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         nanoid(),
@@ -85,10 +80,10 @@ export class DeepChatMessageSearchResultsTable extends BaseTable {
         normalizedRank,
         row.content,
         dedupeKey,
-        row.createdAt ?? Date.now()
-      )
+        row.createdAt ?? Date.now(),
+      );
 
-    return result.changes > 0
+    return result.changes > 0;
   }
 
   listByMessageId(messageId: string): DeepChatMessageSearchResultRow[] {
@@ -96,31 +91,24 @@ export class DeepChatMessageSearchResultsTable extends BaseTable {
       .prepare(
         `SELECT * FROM deepchat_message_search_results
          WHERE message_id = ?
-         ORDER BY created_at ASC, CASE WHEN rank IS NULL THEN 2147483647 ELSE rank END ASC`
+         ORDER BY created_at ASC, CASE WHEN rank IS NULL THEN 2147483647 ELSE rank END ASC`,
       )
-      .all(messageId) as DeepChatMessageSearchResultRow[]
+      .all(messageId) as DeepChatMessageSearchResultRow[];
   }
 
   deleteBySessionId(sessionId: string): void {
-    this.db
-      .prepare('DELETE FROM deepchat_message_search_results WHERE session_id = ?')
-      .run(sessionId)
+    this.db.prepare("DELETE FROM deepchat_message_search_results WHERE session_id = ?").run(sessionId);
   }
 
   deleteByMessageIds(messageIds: string[]): void {
-    if (messageIds.length === 0) return
-    const placeholders = messageIds.map(() => '?').join(', ')
+    if (messageIds.length === 0) return;
+    const placeholders = messageIds.map(() => "?").join(", ");
     this.db
       .prepare(`DELETE FROM deepchat_message_search_results WHERE message_id IN (${placeholders})`)
-      .run(...messageIds)
+      .run(...messageIds);
   }
 
-  private buildDedupeKey(
-    messageId: string,
-    searchId: string | null,
-    rank: number | null,
-    content: string
-  ): string {
-    return `${messageId}::${searchId ?? ''}::${rank ?? ''}::${content}`
+  private buildDedupeKey(messageId: string, searchId: string | null, rank: number | null, content: string): string {
+    return `${messageId}::${searchId ?? ""}::${rank ?? ""}::${content}`;
   }
 }

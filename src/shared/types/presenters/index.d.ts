@@ -22,8 +22,8 @@ export type {
   AWS_BEDROCK_PROVIDER,
   OllamaModel,
   ModelScopeMcpSyncOptions,
-  ModelScopeMcpSyncResult
-} from './llmprovider.presenter'
+  ModelScopeMcpSyncResult,
+} from "./llmprovider.presenter";
 
 // Thread/Conversation types
 export type {
@@ -36,8 +36,8 @@ export type {
   MESSAGE_ROLE,
   MESSAGE_METADATA,
   SearchEngineTemplate,
-  SearchResult
-} from './thread.presenter'
+  SearchResult,
+} from "./thread.presenter";
 
 // Session types
 export type {
@@ -49,16 +49,16 @@ export type {
   CreateSessionOptions,
   CreateSessionParams,
   CreateChildSessionParams,
-  ISessionPresenter
-} from './session.presenter'
+  ISessionPresenter,
+} from "./session.presenter";
 
 // Search types
-export type { ISearchPresenter } from './search.presenter'
+export type { ISearchPresenter } from "./search.presenter";
 
 // Exporter types
-export type { IConversationExporter, NowledgeMemConfig } from './exporter.presenter'
+export type { IConversationExporter, NowledgeMemConfig } from "./exporter.presenter";
 
-export type * from './agent-provider'
+export type * from "./agent-provider";
 
 // Generic Workspace types (for all Agent modes)
 export type {
@@ -78,11 +78,11 @@ export type {
   WorkspaceInvalidationEvent,
   ResolveMarkdownLinkedFileInput,
   WorkspaceLinkedFileResolution,
-  IWorkspacePresenter
-} from './workspace'
+  IWorkspacePresenter,
+} from "./workspace";
 
 // Tool Presenter types
-export type { IToolPresenter } from './tool.presenter'
+export type { IToolPresenter } from "./tool.presenter";
 
 // New agent architecture types
 export type {
@@ -90,9 +90,9 @@ export type {
   HistorySearchHit,
   HistorySearchMessageHit,
   HistorySearchOptions,
-  HistorySearchSessionHit
-} from './agent-session.presenter'
-export type { IProjectPresenter } from './project.presenter'
+  HistorySearchSessionHit,
+} from "./agent-session.presenter";
+export type { IProjectPresenter } from "./project.presenter";
 export type {
   ChannelSettingsMap,
   DiscordPairingSnapshot,
@@ -129,8 +129,8 @@ export type {
   WeixinIlinkLoginResult,
   WeixinIlinkLoginSession,
   WeixinIlinkRemoteSettings,
-  WeixinIlinkRemoteStatus
-} from './remote-control.presenter'
+  WeixinIlinkRemoteStatus,
+} from "./remote-control.presenter";
 
 // Re-export legacy types temporarily for compatibility
-export * from './legacy.presenters'
+export * from "./legacy.presenters";

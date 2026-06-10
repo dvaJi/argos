@@ -1,32 +1,32 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { MCPToolDefinition } from '@shared/presenter'
-import { ToolPresenter } from '@/presenter/toolPresenter'
-import { TAPE_TOOL_NAMES, UPDATE_PLAN_TOOL_NAME } from '@/presenter/toolPresenter/agentTools'
-import { CommandPermissionService } from '@/presenter/permission'
-import { IMAGE_GENERATE_TOOL_NAME } from '@shared/agentImageGenerationTool'
+import { describe, expect, it, vi } from "vitest";
+import type { MCPToolDefinition } from "@shared/presenter";
+import { ToolPresenter } from "@/presenter/toolPresenter";
+import { TAPE_TOOL_NAMES, UPDATE_PLAN_TOOL_NAME } from "@/presenter/toolPresenter/agentTools";
+import { CommandPermissionService } from "@/presenter/permission";
+import { IMAGE_GENERATE_TOOL_NAME } from "@shared/agentImageGenerationTool";
 
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   app: {
-    getPath: () => process.env.TEMP || process.env.TMP || 'C:\\\\temp'
-  }
-}))
+    getPath: () => process.env.TEMP || process.env.TMP || "C:\\\\temp",
+  },
+}));
 
 const buildToolDefinition = (name: string, serverName: string): MCPToolDefinition => ({
-  type: 'function',
+  type: "function",
   function: {
     name,
     description: `${name} tool`,
     parameters: {
-      type: 'object',
-      properties: {}
-    }
+      type: "object",
+      properties: {},
+    },
   },
   server: {
     name: serverName,
-    icons: '',
-    description: `${serverName} server`
-  }
-})
+    icons: "",
+    description: `${serverName} server`,
+  },
+});
 
 const buildAgentToolRuntimeMock = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -40,100 +40,98 @@ const buildAgentToolRuntimeMock = (overrides: Record<string, unknown> = {}) =>
         getSkillExtension: vi.fn().mockResolvedValue({
           version: 1,
           env: {},
-          runtimePolicy: { python: 'auto', node: 'auto' },
-          scriptOverrides: {}
-        })
+          runtimePolicy: { python: "auto", node: "auto" },
+          scriptOverrides: {},
+        }),
       }) as any,
     getYoBrowserToolHandler: () => ({
       getToolDefinitions: vi.fn().mockReturnValue([]),
-      callTool: vi.fn()
+      callTool: vi.fn(),
     }),
     getFilePresenter: () => ({
       getMimeType: vi.fn(),
-      prepareFileCompletely: vi.fn()
+      prepareFileCompletely: vi.fn(),
     }),
     getLlmProviderPresenter: () => ({
       executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
       generateCompletionStandalone: vi.fn(),
-      generateImageStandalone: vi.fn()
+      generateImageStandalone: vi.fn(),
     }),
     createSettingsWindow: vi.fn(),
     sendToWindow: vi.fn().mockReturnValue(true),
     getApprovedFilePaths: vi.fn().mockReturnValue([]),
     consumeSettingsApproval: vi.fn().mockReturnValue(false),
-    ...overrides
-  }) as any
+    ...overrides,
+  }) as any;
 
-describe('ToolPresenter', () => {
-  it('reserves image_generate for the built-in agent tool when MCP exposes the same name', async () => {
+describe("ToolPresenter", () => {
+  it("reserves image_generate for the built-in agent tool when MCP exposes the same name", async () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi
-        .fn()
-        .mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, 'mcp-images')]),
-      callTool: vi.fn()
-    } as any
+      getAllToolDefinitions: vi.fn().mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, "mcp-images")]),
+      callTool: vi.fn(),
+    } as any;
 
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const defs = await toolPresenter.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
-      agentWorkspacePath: 'C:\\\\workspace'
-    })
-    const imageGenerateDefs = defs.filter((def) => def.function.name === IMAGE_GENERATE_TOOL_NAME)
+      agentWorkspacePath: "C:\\\\workspace",
+    });
+    const imageGenerateDefs = defs.filter((def) => def.function.name === IMAGE_GENERATE_TOOL_NAME);
 
-    expect(imageGenerateDefs).toHaveLength(1)
-    expect(imageGenerateDefs[0].source).toBe('agent')
-    expect(imageGenerateDefs[0].server.name).toBe('agent-image-generation')
+    expect(imageGenerateDefs).toHaveLength(1);
+    expect(imageGenerateDefs[0].source).toBe("agent");
+    expect(imageGenerateDefs[0].server.name).toBe("agent-image-generation");
 
-    const agentToolManager = (toolPresenter as any).agentToolManager
-    const callToolSpy = vi.fn().mockResolvedValue('agent-image')
-    agentToolManager.callTool = callToolSpy
+    const agentToolManager = (toolPresenter as any).agentToolManager;
+    const callToolSpy = vi.fn().mockResolvedValue("agent-image");
+    agentToolManager.callTool = callToolSpy;
 
     await toolPresenter.callTool({
-      id: 'tool-1',
-      type: 'function',
+      id: "tool-1",
+      type: "function",
       function: {
         name: IMAGE_GENERATE_TOOL_NAME,
-        arguments: '{"prompt":"sunset"}'
+        arguments: '{"prompt":"sunset"}',
       },
-      conversationId: 'conv-1'
-    })
+      conversationId: "conv-1",
+    });
 
     expect(callToolSpy).toHaveBeenCalledWith(
       IMAGE_GENERATE_TOOL_NAME,
-      { prompt: 'sunset' },
-      'conv-1',
+      { prompt: "sunset" },
+      "conv-1",
       expect.objectContaining({
-        toolCallId: 'tool-1'
-      })
-    )
-    expect(mcpPresenter.callTool).not.toHaveBeenCalled()
-  })
+        toolCallId: "tool-1",
+      }),
+    );
+    expect(mcpPresenter.callTool).not.toHaveBeenCalled();
+  });
 
-  it('deduplicates agent tools when MCP tool names overlap', async () => {
-    const mcpDefs = [buildToolDefinition('shared', 'mcp')]
+  it("deduplicates agent tools when MCP tool names overlap", async () => {
+    const mcpDefs = [buildToolDefinition("shared", "mcp")];
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue(mcpDefs),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
 
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
@@ -141,441 +139,427 @@ describe('ToolPresenter', () => {
       commandPermissionHandler: new CommandPermissionService(),
       agentToolRuntime: buildAgentToolRuntimeMock({
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi
-            .fn()
-            .mockReturnValue([buildToolDefinition('shared', 'yo-browser')]),
-          callTool: vi.fn()
-        })
-      })
-    })
+          getToolDefinitions: vi.fn().mockReturnValue([buildToolDefinition("shared", "yo-browser")]),
+          callTool: vi.fn(),
+        }),
+      }),
+    });
 
     const defs = await toolPresenter.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
-      agentWorkspacePath: 'C:\\\\workspace'
-    })
-    const sharedDefs = defs.filter((def) => def.function.name === 'shared')
+      agentWorkspacePath: "C:\\\\workspace",
+    });
+    const sharedDefs = defs.filter((def) => def.function.name === "shared");
 
-    expect(sharedDefs).toHaveLength(1)
-    expect(sharedDefs[0].server?.name).toBe('mcp')
-  })
+    expect(sharedDefs).toHaveLength(1);
+    expect(sharedDefs[0].server?.name).toBe("mcp");
+  });
 
-  it('falls back to jsonrepair when tool arguments are malformed', async () => {
+  it("falls back to jsonrepair when tool arguments are malformed", async () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
-    const runtimePort = buildAgentToolRuntimeMock()
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
+    const runtimePort = buildAgentToolRuntimeMock();
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: runtimePort
-    })
+      agentToolRuntime: runtimePort,
+    });
 
     await toolPresenter.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
-      agentWorkspacePath: 'C:\\\\workspace'
-    })
+      agentWorkspacePath: "C:\\\\workspace",
+    });
 
-    const agentToolManager = (toolPresenter as any).agentToolManager
-    const callToolSpy = vi.fn().mockResolvedValue('ok')
-    agentToolManager.callTool = callToolSpy
+    const agentToolManager = (toolPresenter as any).agentToolManager;
+    const callToolSpy = vi.fn().mockResolvedValue("ok");
+    agentToolManager.callTool = callToolSpy;
 
     const result = await toolPresenter.callTool({
-      id: 'tool-1',
-      type: 'function',
+      id: "tool-1",
+      type: "function",
       function: {
-        name: 'read',
-        arguments: '{"path":"foo",}'
+        name: "read",
+        arguments: '{"path":"foo",}',
       },
-      conversationId: 'conv-1'
-    })
+      conversationId: "conv-1",
+    });
 
     expect(result.rawData.toolResult).toMatchObject({
       ok: true,
       data: {
-        content: 'ok',
-        source: 'agent'
-      }
-    })
+        content: "ok",
+        source: "agent",
+      },
+    });
     callToolSpy.mockResolvedValueOnce({
       rawData: {
-        content: 'from-raw'
-      }
-    })
-    const rawOnlyResult = await toolPresenter.callTool({
-      id: 'tool-2',
-      type: 'function',
-      function: {
-        name: 'read',
-        arguments: '{"path":"bar"}'
+        content: "from-raw",
       },
-      conversationId: 'conv-1'
-    })
+    });
+    const rawOnlyResult = await toolPresenter.callTool({
+      id: "tool-2",
+      type: "function",
+      function: {
+        name: "read",
+        arguments: '{"path":"bar"}',
+      },
+      conversationId: "conv-1",
+    });
 
-    expect(rawOnlyResult.content).toBe('from-raw')
+    expect(rawOnlyResult.content).toBe("from-raw");
     expect(callToolSpy).toHaveBeenCalledWith(
-      'read',
-      { path: 'foo' },
-      'conv-1',
+      "read",
+      { path: "foo" },
+      "conv-1",
       expect.objectContaining({
-        toolCallId: 'tool-1'
-      })
-    )
-  })
+        toolCallId: "tool-1",
+      }),
+    );
+  });
 
-  it('filters disabled agent tools while preserving MCP tools', async () => {
-    const mcpDefs = [buildToolDefinition('shared', 'mcp'), buildToolDefinition('mcp_only', 'mcp')]
+  it("filters disabled agent tools while preserving MCP tools", async () => {
+    const mcpDefs = [buildToolDefinition("shared", "mcp"), buildToolDefinition("mcp_only", "mcp")];
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue(mcpDefs),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
-    const runtimePort = buildAgentToolRuntimeMock()
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
+    const runtimePort = buildAgentToolRuntimeMock();
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: runtimePort
-    })
+      agentToolRuntime: runtimePort,
+    });
 
     const defs = await toolPresenter.getAllToolDefinitions({
-      disabledAgentTools: ['read', 'exec'],
-      chatMode: 'agent',
+      disabledAgentTools: ["read", "exec"],
+      chatMode: "agent",
       supportsVision: false,
-      agentWorkspacePath: 'C:\\\\workspace'
-    })
+      agentWorkspacePath: "C:\\\\workspace",
+    });
 
-    expect(defs.some((tool) => tool.function.name === 'mcp_only' && tool.source === 'mcp')).toBe(
-      true
-    )
-    expect(defs.some((tool) => tool.function.name === 'read')).toBe(false)
-    expect(defs.some((tool) => tool.function.name === 'exec')).toBe(false)
-    expect(defs.some((tool) => tool.function.name === 'find')).toBe(false)
-    expect(defs.some((tool) => tool.function.name === 'grep')).toBe(false)
-    expect(defs.some((tool) => tool.function.name === 'ls')).toBe(false)
-  })
+    expect(defs.some((tool) => tool.function.name === "mcp_only" && tool.source === "mcp")).toBe(true);
+    expect(defs.some((tool) => tool.function.name === "read")).toBe(false);
+    expect(defs.some((tool) => tool.function.name === "exec")).toBe(false);
+    expect(defs.some((tool) => tool.function.name === "find")).toBe(false);
+    expect(defs.some((tool) => tool.function.name === "grep")).toBe(false);
+    expect(defs.some((tool) => tool.function.name === "ls")).toBe(false);
+  });
 
-  it('omits YoBrowser prompt text when no yobrowser tools are enabled', () => {
+  it("omits YoBrowser prompt text when no yobrowser tools are enabled", () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const withoutYoBrowser = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('read', 'agent-filesystem'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("read", "agent-filesystem"),
+          source: "agent",
+        },
+      ],
+    });
     const withYoBrowser = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('read', 'agent-filesystem'),
-          source: 'agent'
+          ...buildToolDefinition("read", "agent-filesystem"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('load_url', 'yobrowser'),
-          source: 'agent'
+          ...buildToolDefinition("load_url", "yobrowser"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('cdp_send', 'yobrowser'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("cdp_send", "yobrowser"),
+          source: "agent",
+        },
+      ],
+    });
 
-    expect(withoutYoBrowser).not.toContain('YoBrowser')
-    expect(withYoBrowser).toContain('YoBrowser')
-    expect(withYoBrowser).toContain('cdp_send')
+    expect(withoutYoBrowser).not.toContain("YoBrowser");
+    expect(withYoBrowser).toContain("YoBrowser");
+    expect(withYoBrowser).toContain("cdp_send");
+    expect(withYoBrowser).toContain("Prefer `load_url` to create the session browser and handle navigation.");
+    expect(withYoBrowser).toContain("Avoid using `cdp_send` `Page.navigate` for normal navigation unless needed.");
     expect(withYoBrowser).toContain(
-      'Prefer `load_url` to create the session browser and handle navigation.'
-    )
-    expect(withYoBrowser).toContain(
-      'Avoid using `cdp_send` `Page.navigate` for normal navigation unless needed.'
-    )
-    expect(withYoBrowser).toContain(
-      'If `cdp_send` reports `yobrowser_unavailable`, call `get_browser_status`, then use `load_url` with the target URL when available.'
-    )
-  })
+      "If `cdp_send` reports `yobrowser_unavailable`, call `get_browser_status`, then use `load_url` with the target URL when available.",
+    );
+  });
 
-  it('includes question guidance only when deepchat_question is enabled', () => {
+  it("includes question guidance only when deepchat_question is enabled", () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const withoutQuestion = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('read', 'agent-filesystem'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("read", "agent-filesystem"),
+          source: "agent",
+        },
+      ],
+    });
     const withQuestion = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('deepchat_question', 'agent-core'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("deepchat_question", "agent-core"),
+          source: "agent",
+        },
+      ],
+    });
 
-    expect(withoutQuestion).not.toContain('## User Interaction')
-    expect(withQuestion).toContain('## User Interaction')
+    expect(withoutQuestion).not.toContain("## User Interaction");
+    expect(withQuestion).toContain("## User Interaction");
     expect(withQuestion).toContain(
-      'Use `deepchat_question` when missing user preferences, implementation direction, output shape, or risk decisions would materially change the result.'
-    )
+      "Use `deepchat_question` when missing user preferences, implementation direction, output shape, or risk decisions would materially change the result.",
+    );
     expect(withQuestion).toContain(
-      'Do not ask for facts you can discover from the repo, tools, or existing conversation context.'
-    )
+      "Do not ask for facts you can discover from the repo, tools, or existing conversation context.",
+    );
     expect(withQuestion).toContain(
-      'Ask exactly one question per `deepchat_question` call. If multiple clarifications are needed, split them into multiple tool calls.'
-    )
-    expect(withQuestion).toContain(
-      'Do not send `questions`, `allowOther`, or stringified `options` JSON.'
-    )
-  })
+      "Ask exactly one question per `deepchat_question` call. If multiple clarifications are needed, split them into multiple tool calls.",
+    );
+    expect(withQuestion).toContain("Do not send `questions`, `allowOther`, or stringified `options` JSON.");
+  });
 
-  it('includes progress guidance only when update_plan is enabled', () => {
+  it("includes progress guidance only when update_plan is enabled", () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const withoutProgress = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('read', 'agent-filesystem'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("read", "agent-filesystem"),
+          source: "agent",
+        },
+      ],
+    });
     const withProgress = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition(UPDATE_PLAN_TOOL_NAME, 'agent-core'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition(UPDATE_PLAN_TOOL_NAME, "agent-core"),
+          source: "agent",
+        },
+      ],
+    });
 
-    expect(withoutProgress).not.toContain('## Progress Checklist Tool')
-    expect(withProgress).toContain('## Progress Checklist Tool')
-    expect(withProgress).toContain('Use `update_plan` for non-trivial multi-step tasks.')
-    expect(withProgress).toContain('At most one step may be in_progress at a time.')
-  })
+    expect(withoutProgress).not.toContain("## Progress Checklist Tool");
+    expect(withProgress).toContain("## Progress Checklist Tool");
+    expect(withProgress).toContain("Use `update_plan` for non-trivial multi-step tasks.");
+    expect(withProgress).toContain("At most one step may be in_progress at a time.");
+  });
 
-  it('describes only enabled tape tools in the tape prompt', () => {
+  it("describes only enabled tape tools in the tape prompt", () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const prompt = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition(TAPE_TOOL_NAMES.info, 'agent-tape'),
-          source: 'agent'
+          ...buildToolDefinition(TAPE_TOOL_NAMES.info, "agent-tape"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition(TAPE_TOOL_NAMES.anchors, 'agent-tape'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition(TAPE_TOOL_NAMES.anchors, "agent-tape"),
+          source: "agent",
+        },
+      ],
+    });
 
-    expect(prompt).toContain('## Tape Tools')
-    expect(prompt).toContain('`tape_info` inspects')
-    expect(prompt).toContain('`tape_anchors` lists')
-    expect(prompt).not.toContain('`tape_search` supports')
-    expect(prompt).not.toContain('`tape_handoff` writes')
-  })
+    expect(prompt).toContain("## Tape Tools");
+    expect(prompt).toContain("`tape_info` inspects");
+    expect(prompt).toContain("`tape_anchors` lists");
+    expect(prompt).not.toContain("`tape_search` supports");
+    expect(prompt).not.toContain("`tape_handoff` writes");
+  });
 
-  it('describes the question schema and returns actionable validation errors', async () => {
+  it("describes the question schema and returns actionable validation errors", async () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
-    const runtimePort = buildAgentToolRuntimeMock()
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
+    const runtimePort = buildAgentToolRuntimeMock();
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: runtimePort
-    })
+      agentToolRuntime: runtimePort,
+    });
 
     const defs = await toolPresenter.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
-      agentWorkspacePath: 'C:\\\\workspace'
-    })
-    const questionDef = defs.find((def) => def.function.name === 'deepchat_question')
+      agentWorkspacePath: "C:\\\\workspace",
+    });
+    const questionDef = defs.find((def) => def.function.name === "deepchat_question");
 
-    expect(questionDef?.function.description).toContain('one structured clarification question')
-    expect(questionDef?.function.description).toContain(
-      'The loop resumes only after the user responds.'
-    )
+    expect(questionDef?.function.description).toContain("one structured clarification question");
+    expect(questionDef?.function.description).toContain("The loop resumes only after the user responds.");
     expect((questionDef?.function.parameters as any)?.description).toContain(
-      'Ask exactly one blocking clarification question.'
-    )
+      "Ask exactly one blocking clarification question.",
+    );
     expect((questionDef?.function.parameters as any)?.properties?.options?.description).toContain(
-      'Do not pass a stringified JSON array.'
-    )
+      "Do not pass a stringified JSON array.",
+    );
     expect((questionDef?.function.parameters as any)?.properties?.custom?.description).toContain(
-      'The field name is `custom`, not `allowOther`.'
-    )
+      "The field name is `custom`, not `allowOther`.",
+    );
 
     await expect(
       toolPresenter.callTool({
-        id: 'tool-1',
-        type: 'function',
+        id: "tool-1",
+        type: "function",
         function: {
-          name: 'deepchat_question',
+          name: "deepchat_question",
           arguments: JSON.stringify({
             questions: [
               {
-                question: 'Pick one',
-                options: [{ label: 'A' }]
-              }
-            ]
-          })
+                question: "Pick one",
+                options: [{ label: "A" }],
+              },
+            ],
+          }),
         },
-        conversationId: 'conv-1'
-      })
-    ).rejects.toThrow(
-      'Use a single object with `header?`, `question`, `options`, `multiple?`, and `custom?`.'
-    )
-  })
+        conversationId: "conv-1",
+      }),
+    ).rejects.toThrow("Use a single object with `header?`, `question`, `options`, `multiple?`, and `custom?`.");
+  });
 
-  it('guides search and directory discovery through exec', () => {
+  it("guides search and directory discovery through exec", () => {
     const mcpPresenter = {
       getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn()
-    } as any
+      callTool: vi.fn(),
+    } as any;
     const configPresenter = {
       getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue('C:\\\\skills'),
-      getModelConfig: vi.fn()
-    }
+      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn(),
+    };
 
     const toolPresenter = new ToolPresenter({
       mcpPresenter,
       configPresenter: configPresenter as any,
       commandPermissionHandler: new CommandPermissionService(),
-      agentToolRuntime: buildAgentToolRuntimeMock()
-    })
+      agentToolRuntime: buildAgentToolRuntimeMock(),
+    });
 
     const promptWithoutFocusedTools = toolPresenter.buildToolSystemPrompt({
-      conversationId: 'conv-1',
+      conversationId: "conv-1",
       toolDefinitions: [
         {
-          ...buildToolDefinition('read', 'agent-filesystem'),
-          source: 'agent'
+          ...buildToolDefinition("read", "agent-filesystem"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('edit', 'agent-filesystem'),
-          source: 'agent'
+          ...buildToolDefinition("edit", "agent-filesystem"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('write', 'agent-filesystem'),
-          source: 'agent'
+          ...buildToolDefinition("write", "agent-filesystem"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('exec', 'agent-filesystem'),
-          source: 'agent'
+          ...buildToolDefinition("exec", "agent-filesystem"),
+          source: "agent",
         },
         {
-          ...buildToolDefinition('process', 'agent-filesystem'),
-          source: 'agent'
-        }
-      ]
-    })
+          ...buildToolDefinition("process", "agent-filesystem"),
+          source: "agent",
+        },
+      ],
+    });
     expect(promptWithoutFocusedTools).toContain(
-      'Use canonical Agent tool names only: read, write, edit, exec, process.'
-    )
+      "Use canonical Agent tool names only: read, write, edit, exec, process.",
+    );
     expect(promptWithoutFocusedTools).toContain(
-      'Prefer shell-native discovery and search inside `exec`, such as `rg -n`, `rg --files`, `git status`, and project verification commands.'
-    )
+      "Prefer shell-native discovery and search inside `exec`, such as `rg -n`, `rg --files`, `git status`, and project verification commands.",
+    );
     expect(promptWithoutFocusedTools).toContain(
-      'Recommended file task flow: `exec` for discovery/search -> `read` -> `edit`/`write`.'
-    )
-  })
-})
+      "Recommended file task flow: `exec` for discovery/search -> `read` -> `edit`/`write`.",
+    );
+  });
+});

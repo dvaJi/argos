@@ -1,89 +1,83 @@
-import { useState, useMemo, type FocusEvent } from 'react'
-import { Label } from '@shadcn/components/ui/label'
-import { Input } from '@shadcn/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { Button } from '@shadcn/components/ui/button'
-import { Icon } from '@iconify/react'
-import type { VERTEX_PROVIDER } from '@shared/presenter'
-import { useProviderStore } from '@/stores/providerStore'
+import { useState, useMemo, type FocusEvent } from "react";
+import { Label } from "@shadcn/components/ui/label";
+import { Input } from "@shadcn/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { Button } from "@shadcn/components/ui/button";
+import { Icon } from "@iconify/react";
+import type { VERTEX_PROVIDER } from "@shared/presenter";
+import { useProviderStore } from "@/stores/providerStore";
 
 interface VertexProviderSettingsDetailProps {
-  provider: VERTEX_PROVIDER
-  onConfigUpdated?: () => void
-  onValidateProvider?: () => void
+  provider: VERTEX_PROVIDER;
+  onConfigUpdated?: () => void;
+  onValidateProvider?: () => void;
 }
 
 export default function VertexProviderSettingsDetail({
   provider,
   onConfigUpdated,
-  onValidateProvider
+  onValidateProvider,
 }: VertexProviderSettingsDetailProps) {
-  const providerStore = useProviderStore()
+  const providerStore = useProviderStore();
 
-  const [projectId, setProjectId] = useState(provider.projectId || '')
-  const [location, setLocation] = useState(provider.location || '')
-  const [apiVersion, setApiVersion] = useState(provider.apiVersion || 'v1')
-  const [endpointMode, setEndpointMode] = useState(provider.endpointMode || 'standard')
-  const [accountClientEmail, setAccountClientEmail] = useState(provider.accountClientEmail || '')
-  const [accountPrivateKey, setAccountPrivateKey] = useState(provider.accountPrivateKey || '')
-  const [showPrivateKey, setShowPrivateKey] = useState(false)
+  const [projectId, setProjectId] = useState(provider.projectId || "");
+  const [location, setLocation] = useState(provider.location || "");
+  const [apiVersion, setApiVersion] = useState(provider.apiVersion || "v1");
+  const [endpointMode, setEndpointMode] = useState(provider.endpointMode || "standard");
+  const [accountClientEmail, setAccountClientEmail] = useState(provider.accountClientEmail || "");
+  const [accountPrivateKey, setAccountPrivateKey] = useState(provider.accountPrivateKey || "");
+  const [showPrivateKey, setShowPrivateKey] = useState(false);
 
   useMemo(() => {
-    setProjectId(provider.projectId || '')
-    setLocation(provider.location || '')
-    setApiVersion(provider.apiVersion || 'v1')
-    setEndpointMode(provider.endpointMode || 'standard')
-    setAccountClientEmail(provider.accountClientEmail || '')
-    setAccountPrivateKey(provider.accountPrivateKey || '')
-  }, [provider])
+    setProjectId(provider.projectId || "");
+    setLocation(provider.location || "");
+    setApiVersion(provider.apiVersion || "v1");
+    setEndpointMode(provider.endpointMode || "standard");
+    setAccountClientEmail(provider.accountClientEmail || "");
+    setAccountPrivateKey(provider.accountPrivateKey || "");
+  }, [provider]);
 
   const updateConfig = async (updates: Partial<VERTEX_PROVIDER>) => {
-    await providerStore.updateVertexProviderConfig(provider.id, updates)
-    onConfigUpdated?.()
-  }
+    await providerStore.updateVertexProviderConfig(provider.id, updates);
+    onConfigUpdated?.();
+  };
 
   const handleProjectIdChange = async (value: string) => {
-    const nextValue = value.trim()
-    setProjectId(nextValue)
-    await updateConfig({ projectId: nextValue })
-  }
+    const nextValue = value.trim();
+    setProjectId(nextValue);
+    await updateConfig({ projectId: nextValue });
+  };
 
   const handleLocationChange = async (value: string) => {
-    const nextValue = value.trim()
-    setLocation(nextValue)
-    await updateConfig({ location: nextValue })
-  }
+    const nextValue = value.trim();
+    setLocation(nextValue);
+    await updateConfig({ location: nextValue });
+  };
 
   const handleApiVersionChange = async (value: string) => {
-    if (value && typeof value === 'string') {
-      setApiVersion(value as 'v1' | 'v1beta1')
-      await updateConfig({ apiVersion: value as 'v1' | 'v1beta1' })
+    if (value && typeof value === "string") {
+      setApiVersion(value as "v1" | "v1beta1");
+      await updateConfig({ apiVersion: value as "v1" | "v1beta1" });
     }
-  }
+  };
 
   const handleEndpointModeChange = async (value: string) => {
-    if (value && typeof value === 'string') {
-      setEndpointMode(value as 'standard' | 'express')
-      await updateConfig({ endpointMode: value as 'standard' | 'express' })
+    if (value && typeof value === "string") {
+      setEndpointMode(value as "standard" | "express");
+      await updateConfig({ endpointMode: value as "standard" | "express" });
     }
-  }
+  };
 
   const handleServiceEmailChange = async (value: string) => {
-    const nextValue = value.trim()
-    setAccountClientEmail(nextValue)
-    await updateConfig({ accountClientEmail: nextValue })
-  }
+    const nextValue = value.trim();
+    setAccountClientEmail(nextValue);
+    await updateConfig({ accountClientEmail: nextValue });
+  };
 
   const handlePrivateKeyChange = async (value: string) => {
-    setAccountPrivateKey(value)
-    await updateConfig({ accountPrivateKey: value })
-  }
+    setAccountPrivateKey(value);
+    await updateConfig({ accountPrivateKey: value });
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,7 +93,7 @@ export default function VertexProviderSettingsDetail({
             void handleProjectIdChange(String((e.target as HTMLInputElement).value))
           }
           onKeyUp={(e) => {
-            if (e.key === 'Enter') void handleProjectIdChange(projectId)
+            if (e.key === "Enter") void handleProjectIdChange(projectId);
           }}
           placeholder="Enter Google Cloud Project ID"
         />
@@ -117,7 +111,7 @@ export default function VertexProviderSettingsDetail({
             void handleLocationChange(String((e.target as HTMLInputElement).value))
           }
           onKeyUp={(e) => {
-            if (e.key === 'Enter') void handleLocationChange(location)
+            if (e.key === "Enter") void handleLocationChange(location);
           }}
           placeholder="e.g., us-central1"
         />
@@ -167,7 +161,7 @@ export default function VertexProviderSettingsDetail({
             void handleServiceEmailChange(String((e.target as HTMLInputElement).value))
           }
           onKeyUp={(e) => {
-            if (e.key === 'Enter') void handleServiceEmailChange(accountClientEmail)
+            if (e.key === "Enter") void handleServiceEmailChange(accountClientEmail);
           }}
           placeholder="Enter service account email"
         />
@@ -186,11 +180,11 @@ export default function VertexProviderSettingsDetail({
               void handlePrivateKeyChange(String((e.target as HTMLInputElement).value))
             }
             onKeyUp={(e) => {
-              if (e.key === 'Enter') void handlePrivateKeyChange(accountPrivateKey)
+              if (e.key === "Enter") void handlePrivateKeyChange(accountPrivateKey);
             }}
-            type={showPrivateKey ? 'text' : 'password'}
+            type={showPrivateKey ? "text" : "password"}
             placeholder="Enter private key"
-            style={{ paddingRight: '2.5rem' }}
+            style={{ paddingRight: "2.5rem" }}
           />
           <Button
             variant="ghost"
@@ -199,7 +193,7 @@ export default function VertexProviderSettingsDetail({
             onClick={() => setShowPrivateKey(!showPrivateKey)}
           >
             <Icon
-              icon={showPrivateKey ? 'lucide:eye-off' : 'lucide:eye'}
+              icon={showPrivateKey ? "lucide:eye-off" : "lucide:eye"}
               className="w-4 h-4 text-muted-foreground hover:text-foreground"
             />
           </Button>
@@ -219,5 +213,5 @@ export default function VertexProviderSettingsDetail({
         </Button>
       </div>
     </div>
-  )
+  );
 }

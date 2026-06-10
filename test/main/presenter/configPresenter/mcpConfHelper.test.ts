@@ -1,224 +1,223 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockStores = vi.hoisted(() => new Map<string, Record<string, any>>())
-const mockKnowledgeSupported = vi.hoisted(() => vi.fn().mockResolvedValue(true))
+const mockStores = vi.hoisted(() => new Map<string, Record<string, any>>());
+const mockKnowledgeSupported = vi.hoisted(() => vi.fn().mockResolvedValue(true));
 
 const clone = <T>(value: T): T => {
-  const cloneFn = (globalThis as typeof globalThis & { structuredClone?: (value: T) => T })
-    .structuredClone
+  const cloneFn = (globalThis as typeof globalThis & { structuredClone?: (value: T) => T }).structuredClone;
 
-  if (typeof cloneFn === 'function') {
-    return cloneFn(value)
+  if (typeof cloneFn === "function") {
+    return cloneFn(value);
   }
 
-  return JSON.parse(JSON.stringify(value)) as T
-}
+  return JSON.parse(JSON.stringify(value)) as T;
+};
 
-vi.mock('electron-store', () => ({
+vi.mock("electron-store", () => ({
   default: class MockElectronStore {
-    private readonly data: Record<string, any>
+    private readonly data: Record<string, any>;
 
     constructor(options: { name: string; defaults?: Record<string, any> }) {
       if (!mockStores.has(options.name)) {
-        mockStores.set(options.name, clone(options.defaults ?? {}))
+        mockStores.set(options.name, clone(options.defaults ?? {}));
       }
-      this.data = mockStores.get(options.name)!
+      this.data = mockStores.get(options.name)!;
     }
 
     get(key: string) {
-      return this.data[key]
+      return this.data[key];
     }
 
     set(key: string, value: any) {
-      this.data[key] = value
+      this.data[key] = value;
     }
 
     delete(key: string) {
-      delete this.data[key]
+      delete this.data[key];
     }
 
     has(key: string) {
-      return key in this.data
+      return key in this.data;
     }
-  }
-}))
+  },
+}));
 
-vi.mock('@/eventbus', () => ({
+vi.mock("@/eventbus", () => ({
   eventBus: {
     send: vi.fn(),
-    sendToRenderer: vi.fn()
+    sendToRenderer: vi.fn(),
   },
   SendTarget: {
-    ALL_WINDOWS: 'ALL_WINDOWS'
-  }
-}))
+    ALL_WINDOWS: "ALL_WINDOWS",
+  },
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   MCP_EVENTS: {
-    CONFIG_CHANGED: 'mcp-config-changed'
-  }
-}))
+    CONFIG_CHANGED: "mcp-config-changed",
+  },
+}));
 
-vi.mock('../../../../src/main/presenter', () => ({
+vi.mock("../../../../src/main/presenter", () => ({
   presenter: {
     knowledgePresenter: {
-      isSupported: mockKnowledgeSupported
-    }
-  }
-}))
+      isSupported: mockKnowledgeSupported,
+    },
+  },
+}));
 
-const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
+const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");
 
 const setPlatform = (platform: string) => {
-  Object.defineProperty(process, 'platform', {
+  Object.defineProperty(process, "platform", {
     configurable: true,
-    value: platform
-  })
-}
+    value: platform,
+  });
+};
 
 const loadHelper = async (platform: string) => {
-  vi.resetModules()
-  setPlatform(platform)
-  return await import('../../../../src/main/presenter/configPresenter/mcpConfHelper')
-}
+  vi.resetModules();
+  setPlatform(platform);
+  return await import("../../../../src/main/presenter/configPresenter/mcpConfHelper");
+};
 
 const createKnowledgeConfig = (id: string, description = id) => ({
   id,
   description,
   embedding: {
-    providerId: 'openai',
-    modelId: 'text-embedding-3-small'
+    providerId: "openai",
+    modelId: "text-embedding-3-small",
   },
   dimensions: 1536,
   normalized: true,
   fragmentsNumber: 6,
-  enabled: true
-})
+  enabled: true,
+});
 
-describe('McpConfHelper', () => {
+describe("McpConfHelper", () => {
   beforeEach(() => {
-    mockStores.clear()
-    mockKnowledgeSupported.mockResolvedValue(true)
-  })
+    mockStores.clear();
+    mockKnowledgeSupported.mockResolvedValue(true);
+  });
 
   afterEach(() => {
-    vi.clearAllMocks()
+    vi.clearAllMocks();
     if (originalPlatform) {
-      Object.defineProperty(process, 'platform', originalPlatform)
+      Object.defineProperty(process, "platform", originalPlatform);
     }
-  })
+  });
 
-  it('honors an empty legacy enabled set when legacy keys are present', async () => {
-    const { McpConfHelper } = await loadHelper('darwin')
-    const helper = new McpConfHelper()
-    const mcpStore = (helper as any).mcpStore
-    const artifactsConfig = { ...mcpStore.get('mcpServers').Artifacts }
+  it("honors an empty legacy enabled set when legacy keys are present", async () => {
+    const { McpConfHelper } = await loadHelper("darwin");
+    const helper = new McpConfHelper();
+    const mcpStore = (helper as any).mcpStore;
+    const artifactsConfig = { ...mcpStore.get("mcpServers").Artifacts };
 
-    delete artifactsConfig.enabled
-    mcpStore.set('mcpServers', {
-      Artifacts: artifactsConfig
-    })
-    mcpStore.set('defaultServers', [])
+    delete artifactsConfig.enabled;
+    mcpStore.set("mcpServers", {
+      Artifacts: artifactsConfig,
+    });
+    mcpStore.set("defaultServers", []);
 
-    const servers = await helper.getMcpServers()
+    const servers = await helper.getMcpServers();
 
-    expect(servers.Artifacts.enabled).toBe(false)
-    expect(mcpStore.has('defaultServers')).toBe(false)
-  })
+    expect(servers.Artifacts.enabled).toBe(false);
+    expect(mcpStore.has("defaultServers")).toBe(false);
+  });
 
-  it('does not recreate the Apple built-in server after the user removed it', async () => {
-    const { McpConfHelper } = await loadHelper('darwin')
-    const helper = new McpConfHelper()
-    const mcpStore = (helper as any).mcpStore
+  it("does not recreate the Apple built-in server after the user removed it", async () => {
+    const { McpConfHelper } = await loadHelper("darwin");
+    const helper = new McpConfHelper();
+    const mcpStore = (helper as any).mcpStore;
 
-    mcpStore.set('mcpServers', {})
-    mcpStore.set('removedBuiltInServers', ['deepchat/apple-server'])
+    mcpStore.set("mcpServers", {});
+    mcpStore.set("removedBuiltInServers", ["deepchat/apple-server"]);
 
-    helper.onUpgrade(undefined)
+    helper.onUpgrade(undefined);
 
-    expect(mcpStore.get('mcpServers')['deepchat/apple-server']).toBeUndefined()
-  })
+    expect(mcpStore.get("mcpServers")["deepchat/apple-server"]).toBeUndefined();
+  });
 
-  it('removes the unpublished Computer Use demo MCP server config', async () => {
-    const { McpConfHelper } = await loadHelper('darwin')
-    const helper = new McpConfHelper()
-    const mcpStore = (helper as any).mcpStore
+  it("removes the unpublished Computer Use demo MCP server config", async () => {
+    const { McpConfHelper } = await loadHelper("darwin");
+    const helper = new McpConfHelper();
+    const mcpStore = (helper as any).mcpStore;
     const legacyServer = {
-      command: '/Applications/DeepChat Computer Use.app/Contents/MacOS/cua-driver',
-      args: ['mcp'],
+      command: "/Applications/DeepChat Computer Use.app/Contents/MacOS/cua-driver",
+      args: ["mcp"],
       env: {},
-      descriptions: 'Computer Use',
-      icons: 'computer-use',
+      descriptions: "Computer Use",
+      icons: "computer-use",
       autoApprove: [],
       disable: false,
-      type: 'stdio',
-      enabled: true
-    }
+      type: "stdio",
+      enabled: true,
+    };
 
-    mcpStore.set('mcpServers', {
-      'deepchat/computer-use': legacyServer,
+    mcpStore.set("mcpServers", {
+      "deepchat/computer-use": legacyServer,
       demo: {
-        command: 'demo',
+        command: "demo",
         args: [],
         env: {},
-        descriptions: 'Demo',
-        icons: 'D',
+        descriptions: "Demo",
+        icons: "D",
         autoApprove: [],
         disable: false,
-        type: 'stdio',
-        enabled: true
-      }
-    })
-    mcpStore.set('removedBuiltInServers', ['deepchat/computer-use', 'demo'])
+        type: "stdio",
+        enabled: true,
+      },
+    });
+    mcpStore.set("removedBuiltInServers", ["deepchat/computer-use", "demo"]);
 
-    const servers = await helper.getMcpServers()
+    const servers = await helper.getMcpServers();
 
-    expect(servers['deepchat/computer-use']).toBeUndefined()
-    expect(servers.demo).toBeDefined()
-    expect(mcpStore.get('removedBuiltInServers')).toEqual(['demo'])
-  })
+    expect(servers["deepchat/computer-use"]).toBeUndefined();
+    expect(servers.demo).toBeDefined();
+    expect(mcpStore.get("removedBuiltInServers")).toEqual(["demo"]);
+  });
 
-  it('migrates legacy builtin knowledge configs out of MCP env', async () => {
-    const { McpConfHelper } = await loadHelper('win32')
-    const helper = new McpConfHelper()
-    const mcpStore = (helper as any).mcpStore
-    const legacyConfig = createKnowledgeConfig('legacy-knowledge', 'Legacy config')
-    const realConfig = createKnowledgeConfig('real-knowledge', 'Real config')
+  it("migrates legacy builtin knowledge configs out of MCP env", async () => {
+    const { McpConfHelper } = await loadHelper("win32");
+    const helper = new McpConfHelper();
+    const mcpStore = (helper as any).mcpStore;
+    const legacyConfig = createKnowledgeConfig("legacy-knowledge", "Legacy config");
+    const realConfig = createKnowledgeConfig("real-knowledge", "Real config");
 
-    mcpStore.set('mcpServers', {
+    mcpStore.set("mcpServers", {
       builtinKnowledge: {
-        ...(mcpStore.get('mcpServers').builtinKnowledge ?? {}),
+        ...(mcpStore.get("mcpServers").builtinKnowledge ?? {}),
         env: {
-          configs: [legacyConfig]
-        }
-      }
-    })
+          configs: [legacyConfig],
+        },
+      },
+    });
 
-    const configs = helper.migrateBuiltinKnowledgeConfigsFromEnv([realConfig])
+    const configs = helper.migrateBuiltinKnowledgeConfigsFromEnv([realConfig]);
 
-    expect(configs).toEqual([realConfig, legacyConfig])
-    expect(mcpStore.get('mcpServers').builtinKnowledge.env).toEqual({})
-  })
+    expect(configs).toEqual([realConfig, legacyConfig]);
+    expect(mcpStore.get("mcpServers").builtinKnowledge.env).toEqual({});
+  });
 
-  it('keeps existing knowledge configs when legacy env has the same id', async () => {
-    const { McpConfHelper } = await loadHelper('win32')
-    const helper = new McpConfHelper()
-    const mcpStore = (helper as any).mcpStore
-    const realConfig = createKnowledgeConfig('same-id', 'Real config')
-    const legacyConfig = createKnowledgeConfig('same-id', 'Legacy config')
+  it("keeps existing knowledge configs when legacy env has the same id", async () => {
+    const { McpConfHelper } = await loadHelper("win32");
+    const helper = new McpConfHelper();
+    const mcpStore = (helper as any).mcpStore;
+    const realConfig = createKnowledgeConfig("same-id", "Real config");
+    const legacyConfig = createKnowledgeConfig("same-id", "Legacy config");
 
-    mcpStore.set('mcpServers', {
+    mcpStore.set("mcpServers", {
       builtinKnowledge: {
-        ...(mcpStore.get('mcpServers').builtinKnowledge ?? {}),
+        ...(mcpStore.get("mcpServers").builtinKnowledge ?? {}),
         env: {
-          configs: [legacyConfig]
-        }
-      }
-    })
+          configs: [legacyConfig],
+        },
+      },
+    });
 
-    const configs = helper.migrateBuiltinKnowledgeConfigsFromEnv([realConfig])
+    const configs = helper.migrateBuiltinKnowledgeConfigsFromEnv([realConfig]);
 
-    expect(configs).toEqual([realConfig])
-    expect(mcpStore.get('mcpServers').builtinKnowledge.env).toEqual({})
-  })
-})
+    expect(configs).toEqual([realConfig]);
+    expect(mcpStore.get("mcpServers").builtinKnowledge.env).toEqual({});
+  });
+});

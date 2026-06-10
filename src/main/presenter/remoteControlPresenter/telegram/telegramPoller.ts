@@ -10,438 +10,408 @@ import {
   type TelegramInlineKeyboardMarkup,
   type TelegramOutboundAction,
   type TelegramPollerStatusSnapshot,
-  type TelegramTransportTarget
-} from '../types'
-import { RemoteBindingStore } from '../services/remoteBindingStore'
-import { REMOTE_NO_RESPONSE_TEXT } from '../services/remoteBlockRenderer'
+  type TelegramTransportTarget,
+} from "../types";
+import { RemoteBindingStore } from "../services/remoteBindingStore";
+import { REMOTE_NO_RESPONSE_TEXT } from "../services/remoteBlockRenderer";
 import {
   RemoteCommandRouter,
   type RemoteCommandRouteContinuation,
-  type RemoteCommandRouteResult
-} from '../services/remoteCommandRouter'
-import type { RemoteConversationExecution } from '../services/remoteConversationRunner'
-import { chunkTelegramText } from './telegramOutbound'
-import { convertMarkdownToTelegramHtml } from './telegramMarkdown'
-import { buildTelegramPendingInteractionPrompt } from './telegramInteractionPrompt'
-import { TelegramApiRequestError, TelegramClient, type TelegramRawUpdate } from './telegramClient'
-import { TelegramParser } from './telegramParser'
+  type RemoteCommandRouteResult,
+} from "../services/remoteCommandRouter";
+import type { RemoteConversationExecution } from "../services/remoteConversationRunner";
+import { chunkTelegramText } from "./telegramOutbound";
+import { convertMarkdownToTelegramHtml } from "./telegramMarkdown";
+import { buildTelegramPendingInteractionPrompt } from "./telegramInteractionPrompt";
+import { TelegramApiRequestError, TelegramClient, type TelegramRawUpdate } from "./telegramClient";
+import { TelegramParser } from "./telegramParser";
 
-const POLL_BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const
-const CALLBACK_QUERY_ACK_TIMEOUT_MS = 500
+const POLL_BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 30_000] as const;
+const CALLBACK_QUERY_ACK_TIMEOUT_MS = 500;
 
 const sleep = (ms: number, signal?: AbortSignal): Promise<void> => {
   if (signal?.aborted) {
-    return Promise.resolve()
+    return Promise.resolve();
   }
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
-      signal?.removeEventListener('abort', handleAbort)
-      resolve()
-    }, ms)
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    }, ms);
 
     const handleAbort = () => {
-      clearTimeout(timeout)
-      signal?.removeEventListener('abort', handleAbort)
-      resolve()
-    }
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", handleAbort);
+      resolve();
+    };
 
-    signal?.addEventListener('abort', handleAbort, { once: true })
-  })
-}
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+};
 
 type TelegramPollerDeps = {
-  client: TelegramClient
-  parser: TelegramParser
-  router: RemoteCommandRouter
-  bindingStore: RemoteBindingStore
-  onStatusChange?: (snapshot: TelegramPollerStatusSnapshot) => void
-  onFatalError?: (message: string) => void
-}
+  client: TelegramClient;
+  parser: TelegramParser;
+  router: RemoteCommandRouter;
+  bindingStore: RemoteBindingStore;
+  onStatusChange?: (snapshot: TelegramPollerStatusSnapshot) => void;
+  onFatalError?: (message: string) => void;
+};
 
 type TelegramRemoteDeliveryState = {
-  sourceMessageId: string
+  sourceMessageId: string;
   segments: Array<{
-    key: string
-    kind: 'process' | 'answer' | 'terminal'
-    messageIds: Array<number | null>
-    lastText: string
-  }>
-}
+    key: string;
+    kind: "process" | "answer" | "terminal";
+    messageIds: Array<number | null>;
+    lastText: string;
+  }>;
+};
 
 export class TelegramPoller {
-  private stopRequested = false
-  private loopPromise: Promise<void> | null = null
-  private activePollController: AbortController | null = null
-  private runId = 0
-  private readonly backgroundTasks = new Set<Promise<void>>()
+  private stopRequested = false;
+  private loopPromise: Promise<void> | null = null;
+  private activePollController: AbortController | null = null;
+  private runId = 0;
+  private readonly backgroundTasks = new Set<Promise<void>>();
   private statusSnapshot: TelegramPollerStatusSnapshot = {
-    state: 'stopped',
+    state: "stopped",
     lastError: null,
-    botUser: null
-  }
+    botUser: null,
+  };
 
   constructor(private readonly deps: TelegramPollerDeps) {}
 
   async start(): Promise<void> {
     if (this.loopPromise) {
-      return
+      return;
     }
 
-    this.stopRequested = false
-    const runId = ++this.runId
+    this.stopRequested = false;
+    const runId = ++this.runId;
     this.loopPromise = this.runLoop(runId).finally(() => {
-      this.loopPromise = null
-      if (this.isCurrentRun(runId) && this.statusSnapshot.state !== 'error') {
+      this.loopPromise = null;
+      if (this.isCurrentRun(runId) && this.statusSnapshot.state !== "error") {
         this.setStatus({
-          state: 'stopped'
-        })
+          state: "stopped",
+        });
       }
-    })
+    });
   }
 
   async stop(): Promise<void> {
-    this.stopRequested = true
-    this.runId += 1
-    this.activePollController?.abort()
-    const loop = this.loopPromise
+    this.stopRequested = true;
+    this.runId += 1;
+    this.activePollController?.abort();
+    const loop = this.loopPromise;
     if (loop) {
-      await loop
+      await loop;
     }
-    this.backgroundTasks.clear()
+    this.backgroundTasks.clear();
     this.setStatus({
-      state: 'stopped'
-    })
+      state: "stopped",
+    });
   }
 
   getStatusSnapshot(): TelegramPollerStatusSnapshot {
-    return { ...this.statusSnapshot }
+    return { ...this.statusSnapshot };
   }
 
   private async runLoop(runId: number): Promise<void> {
-    let backoffIndex = 0
+    let backoffIndex = 0;
 
     while (this.isCurrentRun(runId)) {
-      const pollSignal = this.createPollSignal()
-      let updates: TelegramRawUpdate[]
+      const pollSignal = this.createPollSignal();
+      let updates: TelegramRawUpdate[];
 
       try {
-        await this.ensureBotIdentity()
+        await this.ensureBotIdentity();
         this.setStatus({
-          state: 'running',
-          lastError: null
-        })
+          state: "running",
+          lastError: null,
+        });
 
         updates = await this.deps.client.getUpdates({
           offset: this.deps.bindingStore.getPollOffset(),
           limit: TELEGRAM_REMOTE_POLL_LIMIT,
           timeout: TELEGRAM_REMOTE_POLL_TIMEOUT_SEC,
-          allowedUpdates: ['message', 'callback_query'],
-          signal: pollSignal
-        })
+          allowedUpdates: ["message", "callback_query"],
+          signal: pollSignal,
+        });
 
-        backoffIndex = 0
+        backoffIndex = 0;
       } catch (error) {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        const lastError = error instanceof Error ? error.message : String(error)
+        const lastError = error instanceof Error ? error.message : String(error);
         if (this.isFatalPollError(error)) {
           this.setStatus({
-            state: 'error',
-            lastError
-          })
-          this.deps.onFatalError?.(lastError)
-          return
+            state: "error",
+            lastError,
+          });
+          this.deps.onFatalError?.(lastError);
+          return;
         }
 
-        const delay = POLL_BACKOFF_MS[Math.min(backoffIndex, POLL_BACKOFF_MS.length - 1)]
-        backoffIndex += 1
+        const delay = POLL_BACKOFF_MS[Math.min(backoffIndex, POLL_BACKOFF_MS.length - 1)];
+        backoffIndex += 1;
         this.setStatus({
-          state: 'backoff',
-          lastError
-        })
-        await sleep(delay, pollSignal)
-        continue
+          state: "backoff",
+          lastError,
+        });
+        await sleep(delay, pollSignal);
+        continue;
       }
 
       for (const update of updates) {
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
         // Persist the next offset before processing to avoid replaying
         // partially-delivered Telegram side effects after restart.
-        this.deps.bindingStore.setPollOffset(update.update_id + 1)
+        this.deps.bindingStore.setPollOffset(update.update_id + 1);
 
         try {
-          await this.handleRawUpdate(update, runId)
+          await this.handleRawUpdate(update, runId);
         } catch (error) {
           if (!this.isCurrentRun(runId)) {
-            return
+            return;
           }
 
-          console.warn('[TelegramPoller] Failed to handle update:', {
+          console.warn("[TelegramPoller] Failed to handle update:", {
             updateId: update.update_id,
-            error
-          })
+            error,
+          });
         }
       }
     }
   }
 
   private createPollSignal(): AbortSignal {
-    this.activePollController?.abort()
-    this.activePollController = new AbortController()
-    return this.activePollController.signal
+    this.activePollController?.abort();
+    this.activePollController = new AbortController();
+    return this.activePollController.signal;
   }
 
   private async ensureBotIdentity(): Promise<void> {
     if (this.statusSnapshot.botUser) {
-      return
+      return;
     }
 
-    const botUser = await this.deps.client.getMe()
+    const botUser = await this.deps.client.getMe();
     this.setStatus({
-      botUser
-    })
+      botUser,
+    });
   }
 
   private async handleRawUpdate(update: TelegramRawUpdate, runId: number): Promise<void> {
-    const parsed = this.deps.parser.parseUpdate(update)
+    const parsed = this.deps.parser.parseUpdate(update);
     if (!parsed) {
-      return
+      return;
     }
 
     const target: TelegramTransportTarget = {
       chatId: parsed.chatId,
-      messageThreadId: parsed.messageThreadId
-    }
+      messageThreadId: parsed.messageThreadId,
+    };
     const callbackAcknowledger =
-      parsed.kind === 'callback_query'
-        ? this.createCallbackQueryAcknowledger(parsed.callbackQueryId)
-        : null
+      parsed.kind === "callback_query" ? this.createCallbackQueryAcknowledger(parsed.callbackQueryId) : null;
 
-    const messageForRouting =
-      parsed.kind === 'message' ? await this.resolveMessageAttachments(parsed) : parsed
+    const messageForRouting = parsed.kind === "message" ? await this.resolveMessageAttachments(parsed) : parsed;
 
-    let routed: Awaited<ReturnType<RemoteCommandRouter['handleMessage']>>
+    let routed: Awaited<ReturnType<RemoteCommandRouter["handleMessage"]>>;
     try {
-      routed = await this.deps.router.handleMessage(messageForRouting)
+      routed = await this.deps.router.handleMessage(messageForRouting);
     } catch (error) {
       if (callbackAcknowledger) {
-        await callbackAcknowledger.answer()
+        await callbackAcknowledger.answer();
       }
-      throw error
+      throw error;
     }
 
     if (callbackAcknowledger) {
-      await callbackAcknowledger.answer(routed.callbackAnswer)
+      await callbackAcknowledger.answer(routed.callbackAnswer);
     }
 
     await this.dispatchRouteResult(
       target,
       routed,
       runId,
-      messageForRouting.kind === 'message' && !messageForRouting.command ? messageForRouting : null
-    )
+      messageForRouting.kind === "message" && !messageForRouting.command ? messageForRouting : null,
+    );
 
     if (routed.deferred) {
-      this.scheduleDeferredRouteResult(target, routed.deferred, runId)
+      this.scheduleDeferredRouteResult(target, routed.deferred, runId);
     }
   }
 
-  private async resolveMessageAttachments(
-    message: TelegramInboundMessage
-  ): Promise<TelegramInboundMessage> {
+  private async resolveMessageAttachments(message: TelegramInboundMessage): Promise<TelegramInboundMessage> {
     if ((message.attachments ?? []).length === 0) {
-      return message
+      return message;
     }
 
     const attachments = await Promise.all(
       (message.attachments ?? []).map(async (attachment) => {
         if (!attachment.fileId || attachment.data) {
-          return attachment
+          return attachment;
         }
 
         try {
-          const downloaded = await this.deps.client.downloadFileBase64(attachment.fileId)
+          const downloaded = await this.deps.client.downloadFileBase64(attachment.fileId);
           return {
             ...attachment,
             data: downloaded.data,
-            size: attachment.size ?? downloaded.size
-          }
+            size: attachment.size ?? downloaded.size,
+          };
         } catch (error) {
-          console.warn('[TelegramPoller] Failed to download Telegram attachment:', {
+          console.warn("[TelegramPoller] Failed to download Telegram attachment:", {
             messageId: message.messageId,
             filename: attachment.filename,
-            error
-          })
-          return attachment
+            error,
+          });
+          return attachment;
         }
-      })
-    )
+      }),
+    );
 
     return {
       ...message,
-      attachments
-    }
+      attachments,
+    };
   }
 
   private scheduleDeferredRouteResult(
     target: TelegramTransportTarget,
     deferred: Promise<RemoteCommandRouteContinuation>,
-    runId: number
+    runId: number,
   ): void {
     const task = Promise.resolve()
       .then(async () => {
-        const continuation = await deferred
+        const continuation = await deferred;
         if (!this.isCurrentRun(runId)) {
-          return
+          return;
         }
 
-        await this.dispatchRouteResult(target, continuation, runId)
+        await this.dispatchRouteResult(target, continuation, runId);
       })
       .catch((error) => {
-        console.warn('[TelegramPoller] Deferred route dispatch failed:', error)
+        console.warn("[TelegramPoller] Deferred route dispatch failed:", error);
       })
       .finally(() => {
-        this.backgroundTasks.delete(task)
-      })
+        this.backgroundTasks.delete(task);
+      });
 
-    this.backgroundTasks.add(task)
+    this.backgroundTasks.add(task);
   }
 
   private async dispatchRouteResult(
     target: TelegramTransportTarget,
     routed:
-      | Pick<RemoteCommandRouteResult, 'replies' | 'outboundActions' | 'conversation'>
+      | Pick<RemoteCommandRouteResult, "replies" | "outboundActions" | "conversation">
       | RemoteCommandRouteContinuation,
     runId: number,
-    reactionMessage: TelegramInboundMessage | null = null
+    reactionMessage: TelegramInboundMessage | null = null,
   ): Promise<void> {
     if (!this.isCurrentRun(runId)) {
-      return
+      return;
     }
 
     for (const reply of routed.replies ?? []) {
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
-      await this.sendChunkedMessage(target, reply)
+      await this.sendChunkedMessage(target, reply);
     }
 
     if (routed.outboundActions?.length) {
       if (!this.isCurrentRun(runId)) {
-        return
+        return;
       }
-      await this.dispatchOutboundActions(target, routed.outboundActions)
+      await this.dispatchOutboundActions(target, routed.outboundActions);
     }
 
     if (!routed.conversation) {
-      return
+      return;
     }
 
     if (reactionMessage) {
-      await this.setIncomingReaction(reactionMessage.chatId, reactionMessage.messageId)
+      await this.setIncomingReaction(reactionMessage.chatId, reactionMessage.messageId);
     }
 
     try {
-      await this.deliverConversation(target, routed.conversation, runId)
+      await this.deliverConversation(target, routed.conversation, runId);
     } finally {
       if (reactionMessage) {
-        await this.clearIncomingReaction(reactionMessage.chatId, reactionMessage.messageId)
+        await this.clearIncomingReaction(reactionMessage.chatId, reactionMessage.messageId);
       }
     }
   }
 
   private async deliverConversation(
     target: TelegramTransportTarget,
-    execution: NonNullable<
-      Awaited<ReturnType<RemoteCommandRouter['handleMessage']>>['conversation']
-    >,
-    runId: number
+    execution: NonNullable<Awaited<ReturnType<RemoteCommandRouter["handleMessage"]>>["conversation"]>,
+    runId: number,
   ): Promise<void> {
-    const startedAt = Date.now()
-    let typingSent = false
-    const endpointKey = this.deps.bindingStore.getEndpointKey(target)
+    const startedAt = Date.now();
+    let typingSent = false;
+    const endpointKey = this.deps.bindingStore.getEndpointKey(target);
 
     while (this.isCurrentRun(runId)) {
-      const snapshot = await execution.getSnapshot()
-      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null
-      let deliveryState = this.getStoredDeliveryState(endpointKey)
-      deliveryState = await this.prepareDeliveryStateForSource(
-        endpointKey,
-        sourceMessageId,
-        deliveryState
-      )
-      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId)
+      const snapshot = await execution.getSnapshot();
+      const sourceMessageId = snapshot.messageId ?? execution.eventId ?? null;
+      let deliveryState = this.getStoredDeliveryState(endpointKey);
+      deliveryState = await this.prepareDeliveryStateForSource(endpointKey, sourceMessageId, deliveryState);
+      let deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId);
 
       if (sourceMessageId) {
-        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId)
+        deliveryState = deliveryState ?? this.createDeliveryState(sourceMessageId);
       }
 
       if (snapshot.completed) {
         if (snapshot.pendingInteraction) {
           if (deliveryState && deliverySegments.length > 0) {
-            deliveryState = await this.syncDeliverySegments(
-              target,
-              endpointKey,
-              deliveryState,
-              deliverySegments
-            )
+            deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
           }
-          await this.sendPendingInteractionPrompt(target, snapshot.pendingInteraction)
-          return
+          await this.sendPendingInteractionPrompt(target, snapshot.pendingInteraction);
+          return;
         }
 
-        const finalText = this.getFinalDeliveryText(snapshot)
-        deliverySegments = this.appendTerminalDeliverySegment(
-          deliverySegments,
-          sourceMessageId,
-          finalText
-        )
+        const finalText = this.getFinalDeliveryText(snapshot);
+        deliverySegments = this.appendTerminalDeliverySegment(deliverySegments, sourceMessageId, finalText);
 
         if (deliveryState) {
           if (deliverySegments.length > 0) {
-            deliveryState = await this.syncDeliverySegments(
-              target,
-              endpointKey,
-              deliveryState,
-              deliverySegments
-            )
+            deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
           }
-          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
+          this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
         } else if (finalText) {
-          await this.sendChunkedMessage(target, finalText)
+          await this.sendChunkedMessage(target, finalText);
         }
-        await this.sendGeneratedImages(target, snapshot)
-        return
+        await this.sendGeneratedImages(target, snapshot);
+        return;
       }
 
       if (deliveryState && deliverySegments.length > 0) {
-        deliveryState = await this.syncDeliverySegments(
-          target,
-          endpointKey,
-          deliveryState,
-          deliverySegments
-        )
+        deliveryState = await this.syncDeliverySegments(target, endpointKey, deliveryState, deliverySegments);
       }
 
       if (!typingSent && Date.now() - startedAt >= TELEGRAM_TYPING_DELAY_MS) {
-        typingSent = true
-        await this.sendTyping(target)
+        typingSent = true;
+        await this.sendTyping(target);
       }
 
-      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS)
+      await sleep(TELEGRAM_STREAM_POLL_INTERVAL_MS);
     }
   }
 
   private getStoredDeliveryState(endpointKey: string): TelegramRemoteDeliveryState | null {
-    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey)
+    const state = this.deps.bindingStore.getRemoteDeliveryState(endpointKey);
     if (!state) {
-      return null
+      return null;
     }
 
     return {
@@ -450,117 +420,108 @@ export class TelegramPoller {
         key: segment.key,
         kind: segment.kind,
         messageIds: segment.messageIds.filter(
-          (messageId): messageId is number | null =>
-            typeof messageId === 'number' || messageId === null
+          (messageId): messageId is number | null => typeof messageId === "number" || messageId === null,
         ),
-        lastText: segment.lastText
-      }))
-    }
+        lastText: segment.lastText,
+      })),
+    };
   }
 
-  private rememberDeliveryState(
-    endpointKey: string,
-    state: TelegramRemoteDeliveryState
-  ): TelegramRemoteDeliveryState {
-    this.deps.bindingStore.rememberRemoteDeliveryState(endpointKey, state)
-    return state
+  private rememberDeliveryState(endpointKey: string, state: TelegramRemoteDeliveryState): TelegramRemoteDeliveryState {
+    this.deps.bindingStore.rememberRemoteDeliveryState(endpointKey, state);
+    return state;
   }
 
   private createDeliveryState(sourceMessageId: string): TelegramRemoteDeliveryState {
     return {
       sourceMessageId,
-      segments: []
-    }
+      segments: [],
+    };
   }
 
   private async prepareDeliveryStateForSource(
     endpointKey: string,
     sourceMessageId: string | null,
-    state: TelegramRemoteDeliveryState | null
+    state: TelegramRemoteDeliveryState | null,
   ): Promise<TelegramRemoteDeliveryState | null> {
     if (!state) {
-      return sourceMessageId ? this.createDeliveryState(sourceMessageId) : null
+      return sourceMessageId ? this.createDeliveryState(sourceMessageId) : null;
     }
 
     if (sourceMessageId && state.sourceMessageId === sourceMessageId) {
-      return state
+      return state;
     }
 
-    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
+    this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
 
     if (!sourceMessageId) {
-      return null
+      return null;
     }
 
-    return this.createDeliveryState(sourceMessageId)
+    return this.createDeliveryState(sourceMessageId);
   }
 
   private getSnapshotDeliverySegments(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>,
-    sourceMessageId: string | null
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
+    sourceMessageId: string | null,
   ): RemoteDeliverySegment[] {
     if (snapshot.deliverySegments !== undefined) {
-      return snapshot.deliverySegments.filter((segment) => segment.text.trim().length > 0)
+      return snapshot.deliverySegments.filter((segment) => segment.text.trim().length > 0);
     }
 
     if (!sourceMessageId) {
-      return []
+      return [];
     }
 
-    const segments: RemoteDeliverySegment[] = []
-    const traceText = snapshot.traceText?.trim() || ''
-    const answerText = snapshot.text?.trim() || ''
+    const segments: RemoteDeliverySegment[] = [];
+    const traceText = snapshot.traceText?.trim() || "";
+    const answerText = snapshot.text?.trim() || "";
 
     if (traceText) {
       segments.push({
         key: `${sourceMessageId}:legacy:process`,
-        kind: 'process',
+        kind: "process",
         text: traceText,
-        sourceMessageId
-      })
+        sourceMessageId,
+      });
     }
 
     if (answerText) {
       segments.push({
         key: `${sourceMessageId}:legacy:answer`,
-        kind: 'answer',
+        kind: "answer",
         text: answerText,
-        sourceMessageId
-      })
+        sourceMessageId,
+      });
     }
 
-    return segments
+    return segments;
   }
 
-  private getFinalDeliveryText(
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
-  ): string {
-    const finalText = snapshot.finalText?.trim() ?? ''
+  private getFinalDeliveryText(snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>): string {
+    const finalText = snapshot.finalText?.trim() ?? "";
     if (finalText) {
-      return finalText
+      return finalText;
     }
     if ((snapshot.generatedImages?.length ?? 0) > 0) {
-      return ''
+      return "";
     }
-    return (snapshot.fullText ?? snapshot.text).trim()
+    return (snapshot.fullText ?? snapshot.text).trim();
   }
 
   private async sendGeneratedImages(
     target: TelegramTransportTarget,
-    snapshot: Awaited<ReturnType<RemoteConversationExecution['getSnapshot']>>
+    snapshot: Awaited<ReturnType<RemoteConversationExecution["getSnapshot"]>>,
   ): Promise<void> {
     for (const asset of snapshot.generatedImages ?? []) {
       try {
-        await this.deps.client.sendPhoto(target, asset.path)
+        await this.deps.client.sendPhoto(target, asset.path);
       } catch (error) {
-        console.warn('[TelegramPoller] Failed to send generated image:', {
+        console.warn("[TelegramPoller] Failed to send generated image:", {
           path: asset.path,
-          error
-        })
-        await this.sendChunkedMessage(
-          target,
-          '[Image] Delivery failed - see local copy in the app.'
-        )
+          error,
+        });
+        await this.sendChunkedMessage(target, "[Image] Delivery failed - see local copy in the app.");
       }
     }
   }
@@ -568,100 +529,93 @@ export class TelegramPoller {
   private appendTerminalDeliverySegment(
     segments: RemoteDeliverySegment[],
     sourceMessageId: string | null,
-    finalText: string
+    finalText: string,
   ): RemoteDeliverySegment[] {
-    const normalized = finalText.trim()
+    const normalized = finalText.trim();
     if (!sourceMessageId || !normalized) {
-      return segments
+      return segments;
     }
 
-    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === 'answer')
+    const lastAnswerSegment = [...segments].reverse().find((segment) => segment.kind === "answer");
     if (lastAnswerSegment?.text === normalized) {
-      return segments
+      return segments;
     }
 
     if (normalized === REMOTE_NO_RESPONSE_TEXT && segments.length > 0) {
-      return segments
+      return segments;
     }
 
     return [
       ...segments,
       {
         key: `${sourceMessageId}:terminal`,
-        kind: 'terminal',
+        kind: "terminal",
         text: normalized,
-        sourceMessageId
-      }
-    ]
+        sourceMessageId,
+      },
+    ];
   }
 
-  private isDeliveryStateCompatible(
-    state: TelegramRemoteDeliveryState,
-    segments: RemoteDeliverySegment[]
-  ): boolean {
+  private isDeliveryStateCompatible(state: TelegramRemoteDeliveryState, segments: RemoteDeliverySegment[]): boolean {
     if (segments.length < state.segments.length) {
-      return false
+      return false;
     }
 
-    return state.segments.every((segment, index) => segments[index]?.key === segment.key)
+    return state.segments.every((segment, index) => segments[index]?.key === segment.key);
   }
 
   private async syncDeliverySegments(
     target: TelegramTransportTarget,
     endpointKey: string,
     state: TelegramRemoteDeliveryState,
-    segments: RemoteDeliverySegment[]
+    segments: RemoteDeliverySegment[],
   ): Promise<TelegramRemoteDeliveryState> {
     if (segments.length === 0) {
-      return state
+      return state;
     }
 
-    let nextState = state
+    let nextState = state;
     if (!this.isDeliveryStateCompatible(nextState, segments)) {
-      this.deps.bindingStore.clearRemoteDeliveryState(endpointKey)
-      nextState = this.createDeliveryState(state.sourceMessageId)
+      this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
+      nextState = this.createDeliveryState(state.sourceMessageId);
     }
 
-    const syncedSegments: TelegramRemoteDeliveryState['segments'] = []
+    const syncedSegments: TelegramRemoteDeliveryState["segments"] = [];
 
     for (const [index, segment] of segments.entries()) {
-      const syncedSegment = await this.syncDeliverySegment(
-        target,
-        nextState.segments[index] ?? null,
-        segment
-      )
-      syncedSegments.push(syncedSegment)
+      const syncedSegment = await this.syncDeliverySegment(target, nextState.segments[index] ?? null, segment);
+      syncedSegments.push(syncedSegment);
     }
 
     return this.rememberDeliveryState(endpointKey, {
       sourceMessageId: nextState.sourceMessageId,
-      segments: syncedSegments
-    })
+      segments: syncedSegments,
+    });
   }
 
   private async syncDeliverySegment(
     target: TelegramTransportTarget,
-    existing: TelegramRemoteDeliveryState['segments'][number] | null,
-    segment: RemoteDeliverySegment
-  ): Promise<TelegramRemoteDeliveryState['segments'][number]> {
-    const normalized = segment.text.trim()
-    const nextChunks = chunkTelegramText(normalized)
+    existing: TelegramRemoteDeliveryState["segments"][number] | null,
+    segment: RemoteDeliverySegment,
+  ): Promise<TelegramRemoteDeliveryState["segments"][number]> {
+    const normalized = segment.text.trim();
+    const nextChunks = chunkTelegramText(normalized);
 
     if (!existing) {
-      const messageIds: number[] = []
+      const messageIds: number[] = [];
       for (const chunk of nextChunks) {
-        messageIds.push(await this.sendChunk(target, chunk))
+        messageIds.push(await this.sendChunk(target, chunk));
       }
 
       return {
         key: segment.key,
         kind: segment.kind,
         messageIds,
-        lastText: normalized
-      }
+        lastText: normalized,
+      };
     }
 
-    const previousChunks = existing.lastText ? chunkTelegramText(existing.lastText) : []
+    const previousChunks = existing.lastText ? chunkTelegramText(existing.lastText) : [];
     if (
       nextChunks.length < existing.messageIds.length ||
       previousChunks.length < existing.messageIds.length ||
@@ -669,126 +623,123 @@ export class TelegramPoller {
         .slice(0, Math.max(0, existing.messageIds.length - 1))
         .some((chunk, index) => chunk !== nextChunks[index])
     ) {
-      const messageIds: number[] = []
+      const messageIds: number[] = [];
       for (const chunk of nextChunks) {
-        messageIds.push(await this.sendChunk(target, chunk))
+        messageIds.push(await this.sendChunk(target, chunk));
       }
 
       return {
         key: segment.key,
         kind: segment.kind,
         messageIds,
-        lastText: normalized
-      }
+        lastText: normalized,
+      };
     }
 
-    const messageIds = [...existing.messageIds]
-    const editableIndex = Math.max(0, messageIds.length - 1)
-    const retainedCount = Math.min(messageIds.length, nextChunks.length)
+    const messageIds = [...existing.messageIds];
+    const editableIndex = Math.max(0, messageIds.length - 1);
+    const retainedCount = Math.min(messageIds.length, nextChunks.length);
 
     for (let index = editableIndex; index < retainedCount; index += 1) {
       if (previousChunks[index] === nextChunks[index]) {
-        continue
+        continue;
       }
 
-      const messageId = messageIds[index]
+      const messageId = messageIds[index];
       if (!messageId) {
-        continue
+        continue;
       }
 
       await this.editMessageText(target, {
-        type: 'editMessageText',
+        type: "editMessageText",
         messageId,
         text: nextChunks[index],
-        replyMarkup: null
-      })
+        replyMarkup: null,
+      });
     }
 
     for (let index = messageIds.length; index < nextChunks.length; index += 1) {
-      messageIds.push(await this.sendChunk(target, nextChunks[index]))
+      messageIds.push(await this.sendChunk(target, nextChunks[index]));
     }
 
     return {
       key: segment.key,
       kind: segment.kind,
       messageIds,
-      lastText: normalized
-    }
+      lastText: normalized,
+    };
   }
 
   private async sendTyping(target: TelegramTransportTarget): Promise<void> {
     try {
-      await this.deps.client.sendChatAction(target, 'typing')
+      await this.deps.client.sendChatAction(target, "typing");
     } catch (error) {
-      console.warn('[TelegramPoller] Failed to send typing action:', error)
+      console.warn("[TelegramPoller] Failed to send typing action:", error);
     }
   }
 
   private async sendChunkedMessage(target: TelegramTransportTarget, text: string): Promise<void> {
     for (const chunk of chunkTelegramText(text)) {
-      await this.sendChunk(target, chunk)
+      await this.sendChunk(target, chunk);
     }
   }
 
   private async sendChunk(
     target: TelegramTransportTarget,
     text: string,
-    replyMarkup?: TelegramInlineKeyboardMarkup
+    replyMarkup?: TelegramInlineKeyboardMarkup,
   ): Promise<number> {
     try {
-      return await this.deps.client.sendMessage(
-        target,
-        convertMarkdownToTelegramHtml(text),
-        replyMarkup,
-        { parseMode: 'HTML' }
-      )
+      return await this.deps.client.sendMessage(target, convertMarkdownToTelegramHtml(text), replyMarkup, {
+        parseMode: "HTML",
+      });
     } catch (error) {
       if (this.isTelegramEntityParseError(error)) {
-        return await this.deps.client.sendMessage(target, text, replyMarkup)
+        return await this.deps.client.sendMessage(target, text, replyMarkup);
       }
 
-      throw error
+      throw error;
     }
   }
 
   private async sendPendingInteractionPrompt(
     target: TelegramTransportTarget,
-    interaction: RemotePendingInteraction
+    interaction: RemotePendingInteraction,
   ): Promise<void> {
-    const endpointKey = this.deps.bindingStore.getEndpointKey(target)
-    const token = this.deps.bindingStore.createPendingInteractionState(endpointKey, interaction)
-    const prompt = buildTelegramPendingInteractionPrompt(interaction, token)
+    const endpointKey = this.deps.bindingStore.getEndpointKey(target);
+    const token = this.deps.bindingStore.createPendingInteractionState(endpointKey, interaction);
+    const prompt = buildTelegramPendingInteractionPrompt(interaction, token);
 
     if (prompt.replyMarkup) {
-      await this.sendChunk(target, prompt.text, prompt.replyMarkup)
-      return
+      await this.sendChunk(target, prompt.text, prompt.replyMarkup);
+      return;
     }
 
-    await this.sendChunkedMessage(target, prompt.text)
+    await this.sendChunkedMessage(target, prompt.text);
   }
 
   private async dispatchOutboundActions(
     target: TelegramTransportTarget,
-    actions: TelegramOutboundAction[]
+    actions: TelegramOutboundAction[],
   ): Promise<void> {
     for (const action of actions) {
-      if (action.type === 'sendMessage') {
+      if (action.type === "sendMessage") {
         if (action.replyMarkup) {
-          await this.sendChunk(target, action.text, action.replyMarkup)
-          continue
+          await this.sendChunk(target, action.text, action.replyMarkup);
+          continue;
         }
 
-        await this.sendChunkedMessage(target, action.text)
-        continue
+        await this.sendChunkedMessage(target, action.text);
+        continue;
       }
 
-      await this.editMessageText(target, action)
+      await this.editMessageText(target, action);
     }
   }
 
   private async editMessageText(
     target: TelegramTransportTarget,
-    action: Extract<TelegramOutboundAction, { type: 'editMessageText' }>
+    action: Extract<TelegramOutboundAction, { type: "editMessageText" }>,
   ): Promise<void> {
     try {
       await this.deps.client.editMessageText({
@@ -796,11 +747,11 @@ export class TelegramPoller {
         messageId: action.messageId,
         text: convertMarkdownToTelegramHtml(action.text),
         replyMarkup: action.replyMarkup ?? undefined,
-        parseMode: 'HTML'
-      })
+        parseMode: "HTML",
+      });
     } catch (error) {
       if (this.isMessageNotModifiedError(error)) {
-        return
+        return;
       }
 
       if (this.isTelegramEntityParseError(error)) {
@@ -809,18 +760,18 @@ export class TelegramPoller {
             target,
             messageId: action.messageId,
             text: action.text,
-            replyMarkup: action.replyMarkup ?? undefined
-          })
+            replyMarkup: action.replyMarkup ?? undefined,
+          });
         } catch (fallbackError) {
           if (this.isMessageNotModifiedError(fallbackError)) {
-            return
+            return;
           }
-          throw fallbackError
+          throw fallbackError;
         }
-        return
+        return;
       }
 
-      throw error
+      throw error;
     }
   }
 
@@ -829,10 +780,10 @@ export class TelegramPoller {
       await this.deps.client.setMessageReaction({
         chatId,
         messageId,
-        emoji: TELEGRAM_REMOTE_REACTION_EMOJI
-      })
+        emoji: TELEGRAM_REMOTE_REACTION_EMOJI,
+      });
     } catch (error) {
-      console.warn('[TelegramPoller] Failed to set message reaction:', error)
+      console.warn("[TelegramPoller] Failed to set message reaction:", error);
     }
   }
 
@@ -841,59 +792,59 @@ export class TelegramPoller {
       await this.deps.client.setMessageReaction({
         chatId,
         messageId,
-        emoji: null
-      })
+        emoji: null,
+      });
     } catch (error) {
-      console.warn('[TelegramPoller] Failed to clear message reaction:', error)
+      console.warn("[TelegramPoller] Failed to clear message reaction:", error);
     }
   }
 
   private async answerCallbackQuery(
     callbackQueryId: string,
     answer?: {
-      text?: string
-      showAlert?: boolean
-    }
+      text?: string;
+      showAlert?: boolean;
+    },
   ): Promise<void> {
     try {
       await this.deps.client.answerCallbackQuery({
         callbackQueryId,
         text: answer?.text,
-        showAlert: answer?.showAlert
-      })
+        showAlert: answer?.showAlert,
+      });
     } catch (error) {
       if (this.isExpiredCallbackQueryError(error)) {
-        return
+        return;
       }
 
-      console.warn('[TelegramPoller] Failed to answer callback query:', error)
+      console.warn("[TelegramPoller] Failed to answer callback query:", error);
     }
   }
 
   private createCallbackQueryAcknowledger(callbackQueryId: string): {
-    answer: (answer?: { text?: string; showAlert?: boolean }) => Promise<void>
+    answer: (answer?: { text?: string; showAlert?: boolean }) => Promise<void>;
   } {
-    let answered = false
+    let answered = false;
     const timer = setTimeout(() => {
       if (answered) {
-        return
+        return;
       }
 
-      answered = true
-      void this.answerCallbackQuery(callbackQueryId)
-    }, CALLBACK_QUERY_ACK_TIMEOUT_MS)
+      answered = true;
+      void this.answerCallbackQuery(callbackQueryId);
+    }, CALLBACK_QUERY_ACK_TIMEOUT_MS);
 
     return {
       answer: async (answer) => {
-        clearTimeout(timer)
+        clearTimeout(timer);
         if (answered) {
-          return
+          return;
         }
 
-        answered = true
-        await this.answerCallbackQuery(callbackQueryId, answer)
-      }
-    }
+        answered = true;
+        await this.answerCallbackQuery(callbackQueryId, answer);
+      },
+    };
   }
 
   private isExpiredCallbackQueryError(error: unknown): boolean {
@@ -901,54 +852,48 @@ export class TelegramPoller {
       error instanceof TelegramApiRequestError &&
       error.code === 400 &&
       /query is too old|query id is invalid|response timeout expired/i.test(error.message)
-    )
+    );
   }
 
   private isMessageNotModifiedError(error: unknown): boolean {
     return (
-      error instanceof TelegramApiRequestError &&
-      error.code === 400 &&
-      /message is not modified/i.test(error.message)
-    )
+      error instanceof TelegramApiRequestError && error.code === 400 && /message is not modified/i.test(error.message)
+    );
   }
 
   private isTelegramEntityParseError(error: unknown): boolean {
     return (
       error instanceof TelegramApiRequestError &&
       error.code === 400 &&
-      /parse entities|can't parse entities|unsupported start tag|can't find end tag/i.test(
-        error.message
-      )
-    )
+      /parse entities|can't parse entities|unsupported start tag|can't find end tag/i.test(error.message)
+    );
   }
 
   private isFatalPollError(error: unknown): boolean {
     if (error instanceof TelegramApiRequestError) {
-      return typeof error.code === 'number' && error.code >= 400 && error.code < 500
-        ? error.code !== 429
-        : false
+      return typeof error.code === "number" && error.code >= 400 && error.code < 500 ? error.code !== 429 : false;
     }
 
     if (!(error instanceof Error)) {
-      return false
+      return false;
     }
 
-    return error.message.includes('terminated by other getUpdates request')
+    return error.message.includes("terminated by other getUpdates request");
   }
 
   private isCurrentRun(runId: number): boolean {
-    return this.runId === runId && !this.stopRequested
+    return this.runId === runId && !this.stopRequested;
   }
 
   private setStatus(
     patch: Partial<TelegramPollerStatusSnapshot> & {
-      state?: TelegramPollerStatusSnapshot['state']
-    }
+      state?: TelegramPollerStatusSnapshot["state"];
+    },
   ): void {
     this.statusSnapshot = {
       ...this.statusSnapshot,
-      ...patch
-    }
-    this.deps.onStatusChange?.(this.getStatusSnapshot())
+      ...patch,
+    };
+    this.deps.onStatusChange?.(this.getStatusSnapshot());
   }
 }

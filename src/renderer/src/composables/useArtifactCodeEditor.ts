@@ -1,181 +1,186 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import type { ArtifactState } from '@/stores/artifact'
-import { useMonaco, detectLanguage } from 'stream-monaco'
-import { uiSettingsStore } from '@/stores/uiSettingsStore'
-import { useStore } from '@tanstack/react-store'
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { ArtifactState } from "@/stores/artifact";
+import { useMonaco, detectLanguage } from "stream-monaco";
+import { uiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
+import { buildFontStack, DEFAULT_CODE_FONT_STACK } from "@/lib/fontStack";
+import { useStore } from "@tanstack/react-store";
 
 const sanitizeLanguage = (language: string | undefined | null): string => {
-  if (!language) return ''
-  const normalized = language.trim().toLowerCase()
+  if (!language) return "";
+  const normalized = language.trim().toLowerCase();
 
   switch (normalized) {
-    case 'md':
-      return 'markdown'
-    case 'plain':
-    case 'text':
-      return 'plaintext'
-    case 'htm':
-      return 'html'
+    case "md":
+      return "markdown";
+    case "plain":
+    case "text":
+      return "plaintext";
+    case "htm":
+      return "html";
     default:
-      return normalized
+      return normalized;
   }
-}
+};
 
 const normalizeLanguage = (artifact: ArtifactState | null): string => {
-  if (!artifact) return ''
+  if (!artifact) return "";
 
-  const explicit = sanitizeLanguage(artifact.language)
+  const explicit = sanitizeLanguage(artifact.language);
   if (explicit) {
-    return explicit
+    return explicit;
   }
 
   switch (artifact.type) {
-    case 'application/vnd.ant.code':
-      return 'plaintext'
-    case 'text/markdown':
-      return 'markdown'
-    case 'text/html':
-      return 'html'
-    case 'image/svg+xml':
-      return 'svg'
-    case 'application/vnd.ant.mermaid':
-      return 'mermaid'
-    case 'application/vnd.ant.react':
-      return 'jsx'
+    case "application/vnd.ant.code":
+      return "plaintext";
+    case "text/markdown":
+      return "markdown";
+    case "text/html":
+      return "html";
+    case "image/svg+xml":
+      return "svg";
+    case "application/vnd.ant.mermaid":
+      return "mermaid";
+    case "application/vnd.ant.react":
+      return "jsx";
     default:
-      return sanitizeLanguage(artifact.type)
+      return sanitizeLanguage(artifact.type);
   }
-}
+};
 
 export function useArtifactCodeEditor(
   artifact: ArtifactState | null,
   editorElement: HTMLElement | null,
   isPreview: boolean,
-  isOpen: boolean
+  isOpen: boolean,
 ) {
-  const [codeLanguage, setCodeLanguage] = useState(() => normalizeLanguage(artifact))
-  const formattedCodeFontFamily = useStore(uiSettingsStore, (s) => s.formattedCodeFontFamily)
+  const [codeLanguage, setCodeLanguage] = useState(() => normalizeLanguage(artifact));
+  const codeFontFamily = useStore(uiSettingsStore, (s) => s.codeFontFamily);
+  const formattedCodeFontFamily = useMemo(
+    () => buildFontStack(codeFontFamily, DEFAULT_CODE_FONT_STACK),
+    [codeFontFamily],
+  );
 
   const { createEditor, updateCode, cleanupEditor, getEditorView } = useMonaco({
-    MAX_HEIGHT: '100%',
-    wordWrap: 'on',
-    wrappingIndent: 'same',
-    fontFamily: formattedCodeFontFamily
-  })
+    MAX_HEIGHT: "100%",
+    wordWrap: "on",
+    wrappingIndent: "same",
+    fontFamily: formattedCodeFontFamily,
+  });
 
-  const lastDetectTimeRef = useRef(0)
-  const trailingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingCodeRef = useRef<string | null>(null)
+  const lastDetectTimeRef = useRef(0);
+  const trailingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingCodeRef = useRef<string | null>(null);
 
   const throttledDetectLanguage = useCallback((code: string) => {
-    const now = Date.now()
-    pendingCodeRef.current = code
+    const now = Date.now();
+    pendingCodeRef.current = code;
 
     if (now - lastDetectTimeRef.current >= 1000) {
-      lastDetectTimeRef.current = now
-      setCodeLanguage(sanitizeLanguage(detectLanguage(code)))
+      lastDetectTimeRef.current = now;
+      setCodeLanguage(sanitizeLanguage(detectLanguage(code)));
       if (trailingTimerRef.current) {
-        clearTimeout(trailingTimerRef.current)
-        trailingTimerRef.current = null
+        clearTimeout(trailingTimerRef.current);
+        trailingTimerRef.current = null;
       }
     } else if (!trailingTimerRef.current) {
       trailingTimerRef.current = setTimeout(
         () => {
-          trailingTimerRef.current = null
-          lastDetectTimeRef.current = Date.now()
+          trailingTimerRef.current = null;
+          lastDetectTimeRef.current = Date.now();
           if (pendingCodeRef.current !== null) {
-            setCodeLanguage(sanitizeLanguage(detectLanguage(pendingCodeRef.current)))
+            setCodeLanguage(sanitizeLanguage(detectLanguage(pendingCodeRef.current)));
           }
         },
-        1000 - (now - lastDetectTimeRef.current)
-      )
+        1000 - (now - lastDetectTimeRef.current),
+      );
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (!artifact) {
-      setCodeLanguage('')
-      return
+      setCodeLanguage("");
+      return;
     }
 
-    const normalizedLanguage = normalizeLanguage(artifact)
+    const normalizedLanguage = normalizeLanguage(artifact);
     if (normalizedLanguage !== codeLanguage) {
-      setCodeLanguage(normalizedLanguage)
+      setCodeLanguage(normalizedLanguage);
     }
 
-    if (normalizedLanguage === 'mermaid') {
-      return
+    if (normalizedLanguage === "mermaid") {
+      return;
     }
 
-    const newCode = artifact.content || ''
+    const newCode = artifact.content || "";
 
     if (!normalizedLanguage) {
-      throttledDetectLanguage(newCode)
+      throttledDetectLanguage(newCode);
     }
 
-    updateCode(newCode, normalizedLanguage)
-  }, [artifact?.id, artifact?.content, artifact?.language, artifact?.type, artifact?.status])
+    updateCode(newCode, normalizedLanguage);
+  }, [artifact?.id, artifact?.content, artifact?.language, artifact?.type, artifact?.status]);
 
   useEffect(() => {
     if (!codeLanguage && artifact?.content !== undefined) {
-      throttledDetectLanguage(artifact.content || '')
+      throttledDetectLanguage(artifact.content || "");
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    updateCode(artifact?.content || '', codeLanguage)
-  }, [codeLanguage])
+    updateCode(artifact?.content || "", codeLanguage);
+  }, [codeLanguage]);
 
   useEffect(() => {
     if (artifact?.content !== undefined) {
-      updateCode(artifact.content, codeLanguage)
+      updateCode(artifact.content, codeLanguage);
     }
-  }, [artifact?.content])
+  }, [artifact?.content]);
 
   useEffect(() => {
-    if (!isOpen || isPreview || !editorElement) return
-    void createEditor(editorElement, artifact?.content || '', codeLanguage)
-    const editor = getEditorView()
+    if (!isOpen || isPreview || !editorElement) return;
+    void createEditor(editorElement, artifact?.content || "", codeLanguage);
+    const editor = getEditorView();
     if (editor) {
-      editor.updateOptions({ fontFamily: formattedCodeFontFamily })
+      editor.updateOptions({ fontFamily: formattedCodeFontFamily });
     }
-  }, [editorElement, isPreview, isOpen])
+  }, [editorElement, isPreview, isOpen]);
 
   useEffect(() => {
     if (isPreview) {
-      cleanupEditor()
+      cleanupEditor();
     }
-  }, [isPreview])
+  }, [isPreview]);
 
   useEffect(() => {
     if (!editorElement) {
-      cleanupEditor()
+      cleanupEditor();
     }
-  }, [editorElement])
+  }, [editorElement]);
 
   useEffect(() => {
     if (!isOpen) {
-      cleanupEditor()
+      cleanupEditor();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   useEffect(() => {
     return () => {
-      cleanupEditor()
+      cleanupEditor();
       if (trailingTimerRef.current) {
-        clearTimeout(trailingTimerRef.current)
+        clearTimeout(trailingTimerRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   useEffect(() => {
-    const editor = getEditorView()
+    const editor = getEditorView();
     if (editor) {
-      editor.updateOptions({ fontFamily: formattedCodeFontFamily })
+      editor.updateOptions({ fontFamily: formattedCodeFontFamily });
     }
-  }, [formattedCodeFontFamily])
+  }, [formattedCodeFontFamily]);
 
   return {
-    codeLanguage
-  }
+    codeLanguage,
+  };
 }

@@ -2,25 +2,25 @@
  * presenter destroy hook
  */
 
-import { LifecycleHook, LifecycleContext } from '@shared/presenter'
-import { presenter } from '@/presenter'
-import { LifecyclePhase } from '@shared/lifecycle'
+import { LifecycleHook, LifecycleContext } from "@shared/presenter";
+import { presenter } from "@/presenter";
+import { LifecyclePhase } from "@shared/lifecycle";
 
 export const presenterDestroyHook: LifecycleHook = {
-  name: 'presenter-destroy',
+  name: "presenter-destroy",
   phase: LifecyclePhase.BEFORE_QUIT,
   priority: Number.MAX_VALUE, // make sure presenter be destroyed lastest
   critical: false,
   execute: async (_context: LifecycleContext) => {
-    console.log('presenterDestroyHook: Destroy system presenter')
+    console.log("presenterDestroyHook: Destroy system presenter");
 
     // Ensure presenter is available
     if (!presenter) {
-      throw new Error('presenterDestroyHook: Presenter has been destroyed')
+      throw new Error("presenterDestroyHook: Presenter has been destroyed");
     }
 
-    await presenter.destroy()
+    await presenter.destroy();
 
-    console.log('presenterDestroyHook: System presenter destroyed successfully')
-  }
-}
+    console.log("presenterDestroyHook: System presenter destroyed successfully");
+  },
+};

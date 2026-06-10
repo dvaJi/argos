@@ -23,13 +23,13 @@
         margin-bottom: 4px;
         font-size: 14px;
       }
-      input[type='text'],
-      input[type='password'],
-      input[type='email'],
-      input[type='number'],
-      input[type='tel'],
-      input[type='url'],
-      input[type='search'],
+      input[type="text"],
+      input[type="password"],
+      input[type="email"],
+      input[type="number"],
+      input[type="tel"],
+      input[type="url"],
+      input[type="search"],
       textarea,
       select {
         width: 100%;
@@ -49,10 +49,10 @@
         display: inline;
         margin-left: 6px;
       }
-      input[type='range'] {
+      input[type="range"] {
         width: 100%;
       }
-      input[type='color'] {
+      input[type="color"] {
         width: 80px;
         height: 40px;
         border: none;
@@ -100,12 +100,7 @@
 
       <div class="field">
         <label for="f-password">Password</label>
-        <input
-          type="password"
-          id="f-password"
-          name="password_field"
-          placeholder="Enter password..."
-        />
+        <input type="password" id="f-password" name="password_field" placeholder="Enter password..." />
       </div>
 
       <div class="field">
@@ -178,50 +173,50 @@
     <div id="result"></div>
 
     <script>
-      document.getElementById('f-range').addEventListener('input', function () {
-        document.getElementById('range-display').textContent = this.value
-      })
+      document.getElementById("f-range").addEventListener("input", function () {
+        document.getElementById("range-display").textContent = this.value;
+      });
 
       function handleSubmit(e) {
-        e.preventDefault()
-        var form = document.getElementById('test-form')
+        e.preventDefault();
+        var form = document.getElementById("test-form");
         var data = {
-          text: document.getElementById('f-text').value,
-          password: document.getElementById('f-password').value,
-          email: document.getElementById('f-email').value,
-          number: document.getElementById('f-number').value,
-          tel: document.getElementById('f-tel').value,
-          textarea: document.getElementById('f-textarea').value,
-          select: document.getElementById('f-select').value,
-          checkbox: document.getElementById('f-checkbox').checked,
-          radio: (document.querySelector('input[name=radio_field]:checked') || {}).value || '',
-          range: document.getElementById('f-range').value,
-          date: document.getElementById('f-date').value,
-          color: document.getElementById('f-color').value
-        }
-        document.getElementById('submitted').style.display = 'block'
-        document.getElementById('result').style.display = 'block'
-        document.getElementById('result').textContent = JSON.stringify(data, null, 2)
-        window._submitted = data
+          text: document.getElementById("f-text").value,
+          password: document.getElementById("f-password").value,
+          email: document.getElementById("f-email").value,
+          number: document.getElementById("f-number").value,
+          tel: document.getElementById("f-tel").value,
+          textarea: document.getElementById("f-textarea").value,
+          select: document.getElementById("f-select").value,
+          checkbox: document.getElementById("f-checkbox").checked,
+          radio: (document.querySelector("input[name=radio_field]:checked") || {}).value || "",
+          range: document.getElementById("f-range").value,
+          date: document.getElementById("f-date").value,
+          color: document.getElementById("f-color").value,
+        };
+        document.getElementById("submitted").style.display = "block";
+        document.getElementById("result").style.display = "block";
+        document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+        window._submitted = data;
       }
 
       // Expose live field state for test assertions (no submit required)
       function getFieldValues() {
         return JSON.stringify({
-          text: document.getElementById('f-text').value,
-          password: document.getElementById('f-password').value,
-          email: document.getElementById('f-email').value,
-          number: document.getElementById('f-number').value,
-          tel: document.getElementById('f-tel').value,
-          textarea: document.getElementById('f-textarea').value,
-          select: document.getElementById('f-select').value,
-          checkbox: document.getElementById('f-checkbox').checked,
-          radio: (document.querySelector('input[name=radio_field]:checked') || {}).value || '',
-          range: document.getElementById('f-range').value,
-          date: document.getElementById('f-date').value,
-          color: document.getElementById('f-color').value,
-          submitted: typeof window._submitted !== 'undefined'
-        })
+          text: document.getElementById("f-text").value,
+          password: document.getElementById("f-password").value,
+          email: document.getElementById("f-email").value,
+          number: document.getElementById("f-number").value,
+          tel: document.getElementById("f-tel").value,
+          textarea: document.getElementById("f-textarea").value,
+          select: document.getElementById("f-select").value,
+          checkbox: document.getElementById("f-checkbox").checked,
+          radio: (document.querySelector("input[name=radio_field]:checked") || {}).value || "",
+          range: document.getElementById("f-range").value,
+          date: document.getElementById("f-date").value,
+          color: document.getElementById("f-color").value,
+          submitted: typeof window._submitted !== "undefined",
+        });
       }
     </script>
   </body>

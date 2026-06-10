@@ -1,63 +1,55 @@
-import React, { useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import type { DisplayAssistantMessageBlock } from '@/components/chat/messageListItems'
+import { type FC, useMemo } from "react";
+import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
 interface MessageBlockQuestionRequestProps {
-  block: DisplayAssistantMessageBlock
+  block: DisplayAssistantMessageBlock;
 }
 
-export const MessageBlockQuestionRequest: React.FC<MessageBlockQuestionRequestProps> = ({
-  block
-}) => {
-  const skillDraftName = useMemo(() => {
-    const raw = block.extra?.skillDraftName
-    return typeof raw === 'string' ? raw : ''
-  }, [block.extra?.skillDraftName])
-
+export const MessageBlockQuestionRequest: FC<MessageBlockQuestionRequestProps> = ({ block }) => {
   const questionText = useMemo(() => {
-    const raw = block.extra?.questionText
-    if (typeof raw === 'string' && raw.trim()) {
-      return raw
+    const raw = block.extra?.questionText;
+    if (typeof raw === "string" && raw.trim()) {
+      return raw;
     }
-    return block.content || ''
-  }, [block.extra?.questionText, block.content])
+    return block.content || "";
+  }, [block.extra?.questionText, block.content]);
 
   const answerText = useMemo(() => {
-    const raw = block.extra?.answerText
-    return typeof raw === 'string' ? raw : ''
-  }, [block.extra?.answerText])
+    const raw = block.extra?.answerText;
+    return typeof raw === "string" ? raw : "";
+  }, [block.extra?.answerText]);
 
   const options = useMemo(() => {
-    const raw = block.extra?.questionOptions
-    let items: unknown[] = []
+    const raw = block.extra?.questionOptions;
+    let items: unknown[] = [];
     if (Array.isArray(raw)) {
-      items = raw
-    } else if (typeof raw === 'string' && raw.trim()) {
+      items = raw;
+    } else if (typeof raw === "string" && raw.trim()) {
       try {
-        const parsed = JSON.parse(raw)
-        items = Array.isArray(parsed) ? parsed : []
+        const parsed = JSON.parse(raw);
+        items = Array.isArray(parsed) ? parsed : [];
       } catch {
-        items = []
+        items = [];
       }
     }
 
     return items
       .map((option): { label: string; description?: string } | null => {
-        if (!option || typeof option !== 'object') return null
-        const candidate = option as { label?: unknown; description?: unknown }
-        if (typeof candidate.label !== 'string') return null
-        const label = candidate.label.trim()
-        if (!label) return null
-        if (typeof candidate.description === 'string') {
-          const description = candidate.description.trim()
+        if (!option || typeof option !== "object") return null;
+        const candidate = option as { label?: unknown; description?: unknown };
+        if (typeof candidate.label !== "string") return null;
+        const label = candidate.label.trim();
+        if (!label) return null;
+        if (typeof candidate.description === "string") {
+          const description = candidate.description.trim();
           if (description) {
-            return { label, description }
+            return { label, description };
           }
         }
-        return { label }
+        return { label };
       })
-      .filter((o): o is { label: string; description?: string } => o !== null)
-  }, [block.extra?.questionOptions])
+      .filter((o): o is { label: string; description?: string } => o !== null);
+  }, [block.extra?.questionOptions]);
 
   return (
     <div className="my-1 flex flex-col gap-2">
@@ -83,5 +75,5 @@ export const MessageBlockQuestionRequest: React.FC<MessageBlockQuestionRequestPr
         </div>
       )}
     </div>
-  )
-}
+  );
+};

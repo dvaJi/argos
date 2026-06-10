@@ -1,3 +1,3 @@
-import { BaseFileAdapter } from './BaseFileAdapter'
+import { BaseFileAdapter } from "./BaseFileAdapter";
 
-export type FileAdapterConstructor = new (filePath: string, maxFileSize: number) => BaseFileAdapter
+export type FileAdapterConstructor = new (filePath: string, maxFileSize: number) => BaseFileAdapter;

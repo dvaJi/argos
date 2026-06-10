@@ -1,5 +1,5 @@
-import { BrowserWindow } from 'electron'
-import { eventBus } from '@/eventbus'
+import { BrowserWindow } from "electron";
+import { eventBus } from "@/eventbus";
 import {
   CONFIG_EVENTS,
   FLOATING_BUTTON_EVENTS,
@@ -7,453 +7,447 @@ import {
   PROVIDER_DB_EVENTS,
   SYNC_EVENTS,
   SYSTEM_EVENTS,
-  WINDOW_EVENTS
-} from '@/events'
-import { publishDeepchatEvent } from './publishDeepchatEvent'
-import type { IConfigPresenter, ILlmProviderPresenter, ShortcutKeySetting } from '@shared/presenter'
+  WINDOW_EVENTS,
+} from "@/events";
+import { publishDeepchatEvent } from "./publishDeepchatEvent";
+import type { IConfigPresenter, ILlmProviderPresenter, ShortcutKeySetting } from "@shared/presenter";
 import {
   readAcpState,
   readLanguageState,
   readSyncSettings,
   readSystemPromptState,
-  readThemeState
-} from './config/configRouteSupport'
+  readThemeState,
+} from "./config/configRouteSupport";
 
-let legacyTypedEventBridgeInitialized = false
+let legacyTypedEventBridgeInitialized = false;
 
 export function setupLegacyTypedEventBridge(deps: {
-  configPresenter: IConfigPresenter
-  llmProviderPresenter: ILlmProviderPresenter
+  configPresenter: IConfigPresenter;
+  llmProviderPresenter: ILlmProviderPresenter;
 }): void {
   if (legacyTypedEventBridgeInitialized) {
-    return
+    return;
   }
 
-  legacyTypedEventBridgeInitialized = true
-  const { configPresenter } = deps
+  legacyTypedEventBridgeInitialized = true;
+  const { configPresenter } = deps;
 
   const publishLanguageChanged = () => {
-    publishDeepchatEvent('config.language.changed', {
+    publishDeepchatEvent("config.language.changed", {
       ...readLanguageState(configPresenter),
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const publishThemeChanged = async () => {
-    publishDeepchatEvent('config.theme.changed', {
+    publishDeepchatEvent("config.theme.changed", {
       ...(await readThemeState(configPresenter)),
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const publishSyncSettingsChanged = () => {
-    publishDeepchatEvent('config.syncSettings.changed', {
+    publishDeepchatEvent("config.syncSettings.changed", {
       ...readSyncSettings(configPresenter),
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const publishAgentsChanged = async (agentIds?: string[]) => {
-    const state = await readAcpState(configPresenter)
-    publishDeepchatEvent('config.agents.changed', {
+    const state = await readAcpState(configPresenter);
+    publishDeepchatEvent("config.agents.changed", {
       ...state,
       agentIds,
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const publishCustomPromptsChanged = async () => {
-    publishDeepchatEvent('config.customPrompts.changed', {
+    publishDeepchatEvent("config.customPrompts.changed", {
       prompts: await configPresenter.getCustomPrompts(),
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const publishMcpConfigChanged = async () => {
-    publishDeepchatEvent('mcp.config.changed', {
+    publishDeepchatEvent("mcp.config.changed", {
       mcpServers: await configPresenter.getMcpServers(),
       mcpEnabled: await configPresenter.getMcpEnabled(),
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   const resolveWindowId = (payload: unknown): number | null => {
-    if (typeof payload === 'number') {
-      return payload
+    if (typeof payload === "number") {
+      return payload;
     }
 
     if (
       payload &&
-      typeof payload === 'object' &&
-      'windowId' in payload &&
-      typeof (payload as { windowId?: unknown }).windowId === 'number'
+      typeof payload === "object" &&
+      "windowId" in payload &&
+      typeof (payload as { windowId?: unknown }).windowId === "number"
     ) {
-      return (payload as { windowId: number }).windowId
+      return (payload as { windowId: number }).windowId;
     }
 
-    return null
-  }
+    return null;
+  };
 
   const publishWindowStateChanged = (payload: unknown, existsOverride?: boolean) => {
-    const windowId = resolveWindowId(payload)
-    const window = windowId != null ? BrowserWindow.fromId(windowId) : null
-    const exists = existsOverride ?? Boolean(window && !window.isDestroyed())
+    const windowId = resolveWindowId(payload);
+    const window = windowId != null ? BrowserWindow.fromId(windowId) : null;
+    const exists = existsOverride ?? Boolean(window && !window.isDestroyed());
 
-    publishDeepchatEvent('window.state.changed', {
+    publishDeepchatEvent("window.state.changed", {
       windowId,
       exists,
       isMaximized: exists ? window!.isMaximized() : false,
       isFullScreen: exists ? window!.isFullScreen() : false,
       isFocused: exists ? window!.isFocused() : false,
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
   eventBus.on(CONFIG_EVENTS.LANGUAGE_CHANGED, () => {
-    publishLanguageChanged()
-  })
+    publishLanguageChanged();
+  });
 
   eventBus.on(CONFIG_EVENTS.THEME_CHANGED, () => {
-    void publishThemeChanged()
-  })
+    void publishThemeChanged();
+  });
 
   eventBus.on(SYSTEM_EVENTS.SYSTEM_THEME_UPDATED, (isDark: boolean) => {
-    publishDeepchatEvent('config.systemTheme.changed', {
+    publishDeepchatEvent("config.systemTheme.changed", {
       isDark,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(FLOATING_BUTTON_EVENTS.ENABLED_CHANGED, (enabled: boolean) => {
-    publishDeepchatEvent('config.floatingButton.changed', {
+    publishDeepchatEvent("config.floatingButton.changed", {
       enabled: Boolean(enabled),
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_CREATED, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_FOCUSED, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_BLURRED, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_MAXIMIZED, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_UNMAXIMIZED, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_ENTER_FULL_SCREEN, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_LEAVE_FULL_SCREEN, (payload?: unknown) => {
-    publishWindowStateChanged(payload)
-  })
+    publishWindowStateChanged(payload);
+  });
 
   eventBus.on(WINDOW_EVENTS.WINDOW_CLOSED, (payload?: unknown) => {
-    publishWindowStateChanged(payload, false)
-  })
+    publishWindowStateChanged(payload, false);
+  });
 
   eventBus.on(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, () => {
-    publishSyncSettingsChanged()
-  })
+    publishSyncSettingsChanged();
+  });
 
   eventBus.on(CONFIG_EVENTS.DEFAULT_PROJECT_PATH_CHANGED, (payload?: { path?: string | null }) => {
-    publishDeepchatEvent('config.defaultProjectPath.changed', {
+    publishDeepchatEvent("config.defaultProjectPath.changed", {
       path: payload?.path ?? configPresenter.getDefaultProjectPath(),
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.AGENTS_CHANGED, (payload?: { agentIds?: string[] }) => {
-    void publishAgentsChanged(payload?.agentIds)
-    publishDeepchatEvent('models.changed', {
-      reason: 'agents',
-      providerId: 'acp',
-      version: Date.now()
-    })
-  })
+    void publishAgentsChanged(payload?.agentIds);
+    publishDeepchatEvent("models.changed", {
+      reason: "agents",
+      providerId: "acp",
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.CUSTOM_PROMPTS_CHANGED, () => {
-    void publishCustomPromptsChanged()
-  })
+    void publishCustomPromptsChanged();
+  });
 
   eventBus.on(MCP_EVENTS.SERVER_STARTED, (serverName?: string) => {
     if (!serverName) {
-      return
+      return;
     }
 
-    publishDeepchatEvent('mcp.server.started', {
+    publishDeepchatEvent("mcp.server.started", {
       serverName,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(MCP_EVENTS.SERVER_STOPPED, (serverName?: string) => {
     if (!serverName) {
-      return
+      return;
     }
 
-    publishDeepchatEvent('mcp.server.stopped', {
+    publishDeepchatEvent("mcp.server.stopped", {
       serverName,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(MCP_EVENTS.CONFIG_CHANGED, () => {
-    void publishMcpConfigChanged()
-  })
+    void publishMcpConfigChanged();
+  });
 
   eventBus.on(
     MCP_EVENTS.SERVER_STATUS_CHANGED,
     (payload?: { name?: string; serverName?: string; status?: string; isRunning?: boolean }) => {
-      const serverName = payload?.serverName ?? payload?.name
+      const serverName = payload?.serverName ?? payload?.name;
       if (!serverName) {
-        return
+        return;
       }
 
-      const isRunning =
-        typeof payload?.isRunning === 'boolean' ? payload.isRunning : payload?.status === 'running'
+      const isRunning = typeof payload?.isRunning === "boolean" ? payload.isRunning : payload?.status === "running";
 
-      publishDeepchatEvent('mcp.server.status.changed', {
+      publishDeepchatEvent("mcp.server.status.changed", {
         serverName,
         isRunning,
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(
     MCP_EVENTS.TOOL_CALL_RESULT,
     (payload?: { function_name?: string; functionName?: string; content?: unknown }) => {
       if (!payload || payload.content === undefined) {
-        return
+        return;
       }
 
-      publishDeepchatEvent('mcp.toolCall.result', {
+      publishDeepchatEvent("mcp.toolCall.result", {
         functionName: payload.functionName ?? payload.function_name,
         content: payload.content,
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(SYNC_EVENTS.BACKUP_STARTED, () => {
-    publishDeepchatEvent('sync.backup.started', {
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("sync.backup.started", {
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(SYNC_EVENTS.BACKUP_COMPLETED, (timestamp?: number) => {
-    publishDeepchatEvent('sync.backup.completed', {
+    publishDeepchatEvent("sync.backup.completed", {
       timestamp: timestamp ?? Date.now(),
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(SYNC_EVENTS.BACKUP_ERROR, (error?: string) => {
-    publishDeepchatEvent('sync.backup.error', {
+    publishDeepchatEvent("sync.backup.error", {
       error,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(
     SYNC_EVENTS.BACKUP_STATUS_CHANGED,
     (payload?: {
-      status?: string
-      previousStatus?: string
-      lastSuccessfulBackupTime?: number
-      failed?: boolean
-      message?: string
+      status?: string;
+      previousStatus?: string;
+      lastSuccessfulBackupTime?: number;
+      failed?: boolean;
+      message?: string;
     }) => {
       if (!payload?.status) {
-        return
+        return;
       }
 
-      publishDeepchatEvent('sync.backup.status.changed', {
+      publishDeepchatEvent("sync.backup.status.changed", {
         status: payload.status,
         previousStatus: payload.previousStatus,
         lastSuccessfulBackupTime: payload.lastSuccessfulBackupTime,
         failed: payload.failed,
         message: payload.message,
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(SYNC_EVENTS.IMPORT_STARTED, () => {
-    publishDeepchatEvent('sync.import.started', {
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("sync.import.started", {
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(SYNC_EVENTS.IMPORT_COMPLETED, () => {
-    publishDeepchatEvent('sync.import.completed', {
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("sync.import.completed", {
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(SYNC_EVENTS.IMPORT_ERROR, (error?: string) => {
-    publishDeepchatEvent('sync.import.error', {
+    publishDeepchatEvent("sync.import.error", {
       error,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.PROVIDER_CHANGED, () => {
-    publishDeepchatEvent('providers.changed', {
-      reason: 'providers',
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("providers.changed", {
+      reason: "providers",
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.PROVIDER_ATOMIC_UPDATE, (change?: { providerId?: string }) => {
-    publishDeepchatEvent('providers.changed', {
-      reason: 'provider-atomic-update',
+    publishDeepchatEvent("providers.changed", {
+      reason: "provider-atomic-update",
       providerIds: change?.providerId ? [change.providerId] : undefined,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
-  eventBus.on(
-    CONFIG_EVENTS.PROVIDER_BATCH_UPDATE,
-    (payload?: { providers?: Array<{ id: string }> }) => {
-      publishDeepchatEvent('providers.changed', {
-        reason: 'provider-batch-update',
-        providerIds: Array.isArray(payload?.providers)
-          ? payload.providers.map((provider) => provider.id)
-          : undefined,
-        version: Date.now()
-      })
-    }
-  )
+  eventBus.on(CONFIG_EVENTS.PROVIDER_BATCH_UPDATE, (payload?: { providers?: Array<{ id: string }> }) => {
+    publishDeepchatEvent("providers.changed", {
+      reason: "provider-batch-update",
+      providerIds: Array.isArray(payload?.providers) ? payload.providers.map((provider) => provider.id) : undefined,
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(PROVIDER_DB_EVENTS.LOADED, () => {
-    publishDeepchatEvent('providers.changed', {
-      reason: 'provider-db-loaded',
-      version: Date.now()
-    })
-    publishDeepchatEvent('models.changed', {
-      reason: 'provider-db-loaded',
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("providers.changed", {
+      reason: "provider-db-loaded",
+      version: Date.now(),
+    });
+    publishDeepchatEvent("models.changed", {
+      reason: "provider-db-loaded",
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(PROVIDER_DB_EVENTS.UPDATED, () => {
-    publishDeepchatEvent('providers.changed', {
-      reason: 'provider-db-updated',
-      version: Date.now()
-    })
-    publishDeepchatEvent('models.changed', {
-      reason: 'provider-db-updated',
-      version: Date.now()
-    })
-  })
+    publishDeepchatEvent("providers.changed", {
+      reason: "provider-db-updated",
+      version: Date.now(),
+    });
+    publishDeepchatEvent("models.changed", {
+      reason: "provider-db-updated",
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.MODEL_LIST_CHANGED, (providerId?: string) => {
-    publishDeepchatEvent('models.changed', {
-      reason: 'runtime-refresh',
+    publishDeepchatEvent("models.changed", {
+      reason: "runtime-refresh",
       providerId,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(
     CONFIG_EVENTS.MODEL_STATUS_CHANGED,
     (payload?: { providerId?: string; modelId?: string; enabled?: boolean }) => {
       if (!payload?.providerId || !payload?.modelId) {
-        return
+        return;
       }
 
-      publishDeepchatEvent('models.status.changed', {
+      publishDeepchatEvent("models.status.changed", {
         providerId: payload.providerId,
         modelId: payload.modelId,
         enabled: Boolean(payload.enabled),
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(
     CONFIG_EVENTS.MODEL_BATCH_STATUS_CHANGED,
     (payload?: { providerId?: string; updates?: { modelId: string; enabled: boolean }[] }) => {
       if (!payload?.providerId || !payload?.updates) {
-        return
+        return;
       }
 
-      publishDeepchatEvent('models.batch.status.changed', {
+      publishDeepchatEvent("models.batch.status.changed", {
         providerId: payload.providerId,
         updates: payload.updates,
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(
     CONFIG_EVENTS.MODEL_CONFIG_CHANGED,
     (providerId?: string, modelId?: string, config?: Record<string, unknown>) => {
-      publishDeepchatEvent('models.config.changed', {
-        changeType: 'updated',
+      publishDeepchatEvent("models.config.changed", {
+        changeType: "updated",
         providerId,
         modelId,
         config,
-        version: Date.now()
-      })
-    }
-  )
+        version: Date.now(),
+      });
+    },
+  );
 
   eventBus.on(CONFIG_EVENTS.MODEL_CONFIG_RESET, (providerId?: string, modelId?: string) => {
-    publishDeepchatEvent('models.config.changed', {
-      changeType: 'reset',
+    publishDeepchatEvent("models.config.changed", {
+      changeType: "reset",
       providerId,
       modelId,
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.MODEL_CONFIGS_IMPORTED, (overwrite?: boolean) => {
-    publishDeepchatEvent('models.config.changed', {
-      changeType: 'imported',
+    publishDeepchatEvent("models.config.changed", {
+      changeType: "imported",
       overwrite: Boolean(overwrite),
-      version: Date.now()
-    })
-  })
+      version: Date.now(),
+    });
+  });
 
   eventBus.on(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, () => {
     void readSystemPromptState(configPresenter).then((state) => {
-      publishDeepchatEvent('config.systemPrompts.changed', {
+      publishDeepchatEvent("config.systemPrompts.changed", {
         ...state,
-        version: Date.now()
-      })
-    })
-  })
+        version: Date.now(),
+      });
+    });
+  });
 
   const publishShortcutKeysChanged = (shortcuts: ShortcutKeySetting) => {
-    publishDeepchatEvent('config.shortcutKeys.changed', {
+    publishDeepchatEvent("config.shortcutKeys.changed", {
       shortcuts,
-      version: Date.now()
-    })
-  }
+      version: Date.now(),
+    });
+  };
 
-  const originalSetShortcutKey = configPresenter.setShortcutKey.bind(configPresenter)
+  const originalSetShortcutKey = configPresenter.setShortcutKey.bind(configPresenter);
   configPresenter.setShortcutKey = ((shortcuts: ShortcutKeySetting) => {
-    originalSetShortcutKey(shortcuts)
-    publishShortcutKeysChanged(configPresenter.getShortcutKey())
-  }) as typeof configPresenter.setShortcutKey
+    originalSetShortcutKey(shortcuts);
+    publishShortcutKeysChanged(configPresenter.getShortcutKey());
+  }) as typeof configPresenter.setShortcutKey;
 
-  const originalResetShortcutKeys = configPresenter.resetShortcutKeys.bind(configPresenter)
+  const originalResetShortcutKeys = configPresenter.resetShortcutKeys.bind(configPresenter);
   configPresenter.resetShortcutKeys = (() => {
-    originalResetShortcutKeys()
-    publishShortcutKeysChanged(configPresenter.getShortcutKey())
-  }) as typeof configPresenter.resetShortcutKeys
+    originalResetShortcutKeys();
+    publishShortcutKeysChanged(configPresenter.getShortcutKey());
+  }) as typeof configPresenter.resetShortcutKeys;
 }

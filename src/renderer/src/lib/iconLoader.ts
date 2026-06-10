@@ -3,21 +3,21 @@
  * Icons are loaded on-demand after app initialization to reduce startup time
  */
 
-import type lucideIconsType from '@iconify-json/lucide/icons.json'
-import type vscodeIconsType from '@iconify-json/vscode-icons/icons.json'
-import type lineMdThemeIconsType from './icons/line-md-theme.json'
+import type lucideIconsType from "@iconify-json/lucide/icons.json";
+import type vscodeIconsType from "@iconify-json/vscode-icons/icons.json";
+import type lineMdThemeIconsType from "./icons/line-md-theme.json";
 
 interface IconLoadState {
-  isLoading: boolean
-  isLoaded: boolean
-  loadPromise: Promise<void> | null
+  isLoading: boolean;
+  isLoaded: boolean;
+  loadPromise: Promise<void> | null;
 }
 
 const state: IconLoadState = {
   isLoading: false,
   isLoaded: false,
-  loadPromise: null
-}
+  loadPromise: null,
+};
 
 /**
  * 确保 Icon 集合已加载
@@ -27,48 +27,46 @@ const state: IconLoadState = {
  */
 export async function ensureIconsLoaded(): Promise<void> {
   if (state.isLoaded) {
-    return
+    return;
   }
 
   if (state.isLoading && state.loadPromise) {
-    return state.loadPromise
+    return state.loadPromise;
   }
 
-  state.isLoading = true
+  state.isLoading = true;
 
   state.loadPromise = (async () => {
     try {
       // 动态导入 icon 数据和 addCollection，延迟加载
       const [{ addCollection }, lucideIcons, vscodeIcons, lineMdThemeIcons] = await Promise.all([
-        import('@iconify/react').then((m) => ({ addCollection: m.addCollection })),
-        import('@iconify-json/lucide/icons.json').then((m) => m.default as typeof lucideIconsType),
-        import('@iconify-json/vscode-icons/icons.json').then(
-          (m) => m.default as typeof vscodeIconsType
-        ),
-        import('./icons/line-md-theme.json').then((m) => m.default as typeof lineMdThemeIconsType)
-      ])
+        import("@iconify/react").then((m) => ({ addCollection: m.addCollection })),
+        import("@iconify-json/lucide/icons.json").then((m) => m.default as typeof lucideIconsType),
+        import("@iconify-json/vscode-icons/icons.json").then((m) => m.default as typeof vscodeIconsType),
+        import("./icons/line-md-theme.json").then((m) => m.default as typeof lineMdThemeIconsType),
+      ]);
 
       // 检查 addCollection 是否存在（可能在测试中被mock）
-      if (typeof addCollection === 'function') {
+      if (typeof addCollection === "function") {
         // 添加到 Iconify 注册表
-        addCollection(lucideIcons)
-        addCollection(vscodeIcons)
+        addCollection(lucideIcons);
+        addCollection(vscodeIcons);
         // line-md 主题切换图标（自带线条流动过渡动画，离线可用）
-        addCollection(lineMdThemeIcons)
+        addCollection(lineMdThemeIcons);
       }
 
-      state.isLoaded = true
-      console.info('[Startup][Renderer] Icons loaded successfully')
+      state.isLoaded = true;
+      console.info("[Startup][Renderer] Icons loaded successfully");
     } catch (error) {
-      console.error('[Startup][Renderer] Failed to load icons:', error)
+      console.error("[Startup][Renderer] Failed to load icons:", error);
       // 继续执行，不要因为 icon 加载失败而中断应用
-      state.isLoaded = true
+      state.isLoaded = true;
     } finally {
-      state.isLoading = false
+      state.isLoading = false;
     }
-  })()
+  })();
 
-  return state.loadPromise
+  return state.loadPromise;
 }
 
 /**
@@ -77,7 +75,7 @@ export async function ensureIconsLoaded(): Promise<void> {
  */
 export function preloadIcons(): Promise<void> {
   if (!state.isLoaded && !state.isLoading) {
-    return ensureIconsLoaded()
+    return ensureIconsLoaded();
   }
-  return Promise.resolve()
+  return Promise.resolve();
 }

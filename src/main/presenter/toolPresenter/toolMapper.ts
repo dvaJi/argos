@@ -1,11 +1,11 @@
-import type { MCPToolDefinition } from '@shared/presenter'
+import type { MCPToolDefinition } from "@shared/presenter";
 
-export type ToolSource = 'mcp' | 'agent'
+export type ToolSource = "mcp" | "agent";
 
 export interface ToolMapping {
-  toolName: string
-  source: ToolSource
-  originalName?: string
+  toolName: string;
+  source: ToolSource;
+  originalName?: string;
 }
 
 /**
@@ -13,19 +13,19 @@ export interface ToolMapping {
  * Supports future tool deduplication and mapping features
  */
 export class ToolMapper {
-  private toolNameToSource = new Map<string, ToolSource>()
-  private toolMappings: ToolMapping[] = []
+  private toolNameToSource = new Map<string, ToolSource>();
+  private toolMappings: ToolMapping[] = [];
 
   /**
    * Register a tool mapping
    */
   registerTool(toolName: string, source: ToolSource, originalName?: string): void {
-    this.toolNameToSource.set(toolName, source)
+    this.toolNameToSource.set(toolName, source);
     this.toolMappings.push({
       toolName,
       source,
-      originalName: originalName || toolName
-    })
+      originalName: originalName || toolName,
+    });
   }
 
   /**
@@ -33,7 +33,7 @@ export class ToolMapper {
    */
   registerTools(tools: MCPToolDefinition[], source: ToolSource): void {
     for (const tool of tools) {
-      this.registerTool(tool.function.name, source)
+      this.registerTool(tool.function.name, source);
     }
   }
 
@@ -41,29 +41,29 @@ export class ToolMapper {
    * Get the source for a tool name
    */
   getToolSource(toolName: string): ToolSource | undefined {
-    return this.toolNameToSource.get(toolName)
+    return this.toolNameToSource.get(toolName);
   }
 
   /**
    * Check if a tool is mapped
    */
   hasTool(toolName: string): boolean {
-    return this.toolNameToSource.has(toolName)
+    return this.toolNameToSource.has(toolName);
   }
 
   /**
    * Clear all mappings
    */
   clear(): void {
-    this.toolNameToSource.clear()
-    this.toolMappings = []
+    this.toolNameToSource.clear();
+    this.toolMappings = [];
   }
 
   /**
    * Get all mappings
    */
   getAllMappings(): ToolMapping[] {
-    return [...this.toolMappings]
+    return [...this.toolMappings];
   }
 
   /**
@@ -71,11 +71,11 @@ export class ToolMapper {
    * If MCP and Agent have the same tool name, map to MCP by default
    */
   resolveDuplicate(toolName: string, preferredSource?: ToolSource): ToolSource {
-    const existing = this.toolNameToSource.get(toolName)
+    const existing = this.toolNameToSource.get(toolName);
     if (existing && preferredSource && existing !== preferredSource) {
       // Future: Allow configuration to prefer one source over another
-      return preferredSource
+      return preferredSource;
     }
-    return existing || 'mcp'
+    return existing || "mcp";
   }
 }

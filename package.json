@@ -67,7 +67,8 @@
     "installRuntime:linux:arm64": "npx -y tiny-runtime-injector --type uv --dir ./runtime/uv --runtime-version 0.9.18 -a arm64 -p linux && npx -y tiny-runtime-injector --type node --dir ./runtime/node -a arm64 -p linux && npx -y tiny-runtime-injector --type ripgrep --dir ./runtime/ripgrep -a arm64 -p linux && npx -y tiny-runtime-injector --type rtk --dir ./runtime/rtk -a arm64 -p linux",
     "installRuntime:duckdb:vss": "node scripts/installVss.js",
     "smoke:duckdb:vss": "node scripts/smoke-duckdb-vss.js",
-    "cleanRuntime": "rm -rf runtime/uv runtime/node"
+    "cleanRuntime": "rm -rf runtime/uv runtime/node",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.16.1",
@@ -195,6 +196,7 @@
     "oxfmt": "^0.42.0",
     "oxlint": "^1.65.0",
     "picocolors": "^1.1.1",
+    "react-doctor": "^0.5.0",
     "react-hook-form": "^7.78.0",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
@@ -215,7 +217,7 @@
     "vite": "^7.3.3",
     "vite-plugin-monaco-editor-esm": "^2.0.2",
     "vite-plugin-svgr": "^5.2.0",
-    "vitest": "^3.2.4",
+    "vitest": "^3.2.6",
     "yaml": "^2.9.0",
     "zod-to-json-schema": "^3.25.2"
   },
@@ -226,23 +228,6 @@
   "lint-staged": {
     "*.{js,ts}": [
       "oxfmt --no-error-on-unmatched-pattern"
-    ]
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@tailwindcss/oxide",
-      "classic-level",
-      "electron",
-      "electron-winstaller",
-      "lzo",
-      "simple-git-hooks"
-    ],
-    "ignoredBuiltDependencies": [
-      "node-pty",
-      "better-sqlite3-multiple-ciphers",
-      "esbuild",
-      "maplibre-gl",
-      "sharp"
     ]
   }
 }

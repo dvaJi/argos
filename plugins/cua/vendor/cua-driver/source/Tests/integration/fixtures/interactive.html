@@ -40,14 +40,13 @@
     <input id="textbox" type="text" placeholder="Type here..." oninput="mirror()" />
     <div id="typed">typed:</div>
     <script>
-      var n = 0
+      var n = 0;
       function bump() {
-        n++
-        document.getElementById('counter').textContent = 'clicks: ' + n
+        n++;
+        document.getElementById("counter").textContent = "clicks: " + n;
       }
       function mirror() {
-        document.getElementById('typed').textContent =
-          'typed: ' + document.getElementById('textbox').value
+        document.getElementById("typed").textContent = "typed: " + document.getElementById("textbox").value;
       }
     </script>
   </body>

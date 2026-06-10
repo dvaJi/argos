@@ -1,171 +1,158 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { nanoid } from 'nanoid'
-import * as yaml from 'yaml'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Textarea } from '@shadcn/components/ui/textarea'
-import { Separator } from '@shadcn/components/ui/separator'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Badge } from '@shadcn/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import { Switch } from '@shadcn/components/ui/switch'
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { nanoid } from "nanoid";
+import * as yaml from "yaml";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Textarea } from "@shadcn/components/ui/textarea";
+import { Separator } from "@shadcn/components/ui/separator";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Badge } from "@shadcn/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { Switch } from "@shadcn/components/ui/switch";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle
-} from '@shadcn/components/ui/sheet'
-import { useToast } from '@/components/use-toast'
-import { useSkillsStore } from '@/stores/skillsStore'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+  SheetTitle,
+} from "@shadcn/components/ui/sheet";
+import { useToast } from "@/components/use-toast";
+import { useSkillsStore, loadSkillRuntime, saveSkillWithExtension, getSkillFolderTree } from "@/stores/skillsStore";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 import type {
   SkillExtensionConfig,
   SkillMetadata,
   SkillRuntimePreference,
-  SkillScriptDescriptor
-} from '@shared/types/skill'
-import SkillFolderTree from './SkillFolderTree'
+  SkillScriptDescriptor,
+} from "@shared/types/skill";
+import SkillFolderTree from "./SkillFolderTree";
 
-type EnvRow = { id: string; key: string; value: string }
-type EditableScript = SkillScriptDescriptor & { description: string }
+type EnvRow = { id: string; key: string; value: string };
+type EditableScript = SkillScriptDescriptor & { description: string };
 
 interface SkillEditorSheetProps {
-  skill: SkillMetadata | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSaved: () => void
+  skill: SkillMetadata | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
 }
 
-export default function SkillEditorSheet({
-  skill,
-  open,
-  onOpenChange,
-  onSaved
-}: SkillEditorSheetProps) {
-  const { toast } = useToast()
-  const skillsStore = useSkillsStore()
-  const skillPresenter = useLegacyPresenter('skillPresenter', { safeCall: false })
+export default function SkillEditorSheet({ skill, open, onOpenChange, onSaved }: SkillEditorSheetProps) {
+  const { toast } = useToast();
+  const skillsStore = useSkillsStore();
+  const skillPresenter = useLegacyPresenter("skillPresenter", { safeCall: false });
 
-  const [editName, setEditName] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editAllowedTools, setEditAllowedTools] = useState('')
-  const [editContent, setEditContent] = useState('')
-  const [pythonRuntime, setPythonRuntime] = useState<SkillRuntimePreference>('auto')
-  const [nodeRuntime, setNodeRuntime] = useState<SkillRuntimePreference>('auto')
-  const [envRows, setEnvRows] = useState<EnvRow[]>([])
-  const [scriptRows, setScriptRows] = useState<EditableScript[]>([])
-  const [saving, setSaving] = useState(false)
-  const loadRequestId = useRef(0)
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAllowedTools, setEditAllowedTools] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [pythonRuntime, setPythonRuntime] = useState<SkillRuntimePreference>("auto");
+  const [nodeRuntime, setNodeRuntime] = useState<SkillRuntimePreference>("auto");
+  const [envRows, setEnvRows] = useState<EnvRow[]>([]);
+  const [scriptRows, setScriptRows] = useState<EditableScript[]>([]);
+  const [saving, setSaving] = useState(false);
+  const loadRequestId = useRef(0);
 
-  const addEnvRow = () => setEnvRows((prev) => [...prev, { id: nanoid(6), key: '', value: '' }])
+  const addEnvRow = () => setEnvRows((prev) => [...prev, { id: nanoid(6), key: "", value: "" }]);
   const removeEnvRow = (id: string) => {
     setEnvRows((prev) => {
-      const next = prev.filter((r) => r.id !== id)
-      return next.length ? next : [{ id: nanoid(6), key: '', value: '' }]
-    })
-  }
+      const next = prev.filter((r) => r.id !== id);
+      return next.length ? next : [{ id: nanoid(6), key: "", value: "" }];
+    });
+  };
 
   const resetForm = () => {
-    setEditName('')
-    setEditDescription('')
-    setEditAllowedTools('')
-    setEditContent('')
-    setPythonRuntime('auto')
-    setNodeRuntime('auto')
-    setEnvRows([{ id: nanoid(6), key: '', value: '' }])
-    setScriptRows([])
-  }
+    setEditName("");
+    setEditDescription("");
+    setEditAllowedTools("");
+    setEditContent("");
+    setPythonRuntime("auto");
+    setNodeRuntime("auto");
+    setEnvRows([{ id: nanoid(6), key: "", value: "" }]);
+    setScriptRows([]);
+  };
 
   const parseSkillContent = (content: string | null): string => {
-    if (!content) return ''
-    const lines = content.split('\n')
-    let inFrontmatter = false
-    let frontmatterEnd = 0
+    if (!content) return "";
+    const lines = content.split("\n");
+    let inFrontmatter = false;
+    let frontmatterEnd = 0;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim() === '---') {
-        if (!inFrontmatter) inFrontmatter = true
+      if (lines[i].trim() === "---") {
+        if (!inFrontmatter) inFrontmatter = true;
         else {
-          frontmatterEnd = i + 1
-          break
+          frontmatterEnd = i + 1;
+          break;
         }
       }
     }
-    return lines.slice(frontmatterEnd).join('\n').trim()
-  }
+    return lines.slice(frontmatterEnd).join("\n").trim();
+  };
 
   const buildSkillContent = (): string => {
-    const frontmatter: Record<string, unknown> = { name: editName, description: editDescription }
+    const frontmatter: Record<string, unknown> = { name: editName, description: editDescription };
     if (editAllowedTools.trim()) {
       const tools = editAllowedTools
-        .split(',')
+        .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
-      if (tools.length) frontmatter.allowedTools = tools
+        .filter(Boolean);
+      if (tools.length) frontmatter.allowedTools = tools;
     }
-    return `---\n${yaml.stringify(frontmatter, { lineWidth: 0 })}---\n\n${editContent}`
-  }
+    return `---\n${yaml.stringify(frontmatter, { lineWidth: 0 })}---\n\n${editContent}`;
+  };
 
   useEffect(() => {
     if (open && skill) {
-      const rid = ++loadRequestId.current
-      const name = skill.name
-      setEditName(skill.name)
-      setEditDescription(skill.description)
-      setEditAllowedTools(skill.allowedTools?.join(', ') || '')
-      setEditContent('')
+      const rid = ++loadRequestId.current;
+      const name = skill.name;
+      setEditName(skill.name);
+      setEditDescription(skill.description);
+      setEditAllowedTools(skill.allowedTools?.join(", ") || "");
+      setEditContent("");
 
       skillPresenter
         .readSkillFile(name)
         .then((content: string) => {
-          if (loadRequestId.current !== rid || !open || skill?.name !== name) return
-          setEditContent(parseSkillContent(content))
+          if (loadRequestId.current !== rid || !open || skill?.name !== name) return;
+          setEditContent(parseSkillContent(content));
         })
-        .catch(() => {})
+        .catch(() => {});
 
-      skillsStore.loadSkillRuntime(name).then(() => {
-        if (loadRequestId.current !== rid || !open || skill?.name !== name) return
+      loadSkillRuntime(name).then(() => {
+        if (loadRequestId.current !== rid || !open || skill?.name !== name) return;
         const ext = skillsStore.skillExtensions[name] ?? {
           version: 1,
           env: {},
-          runtimePolicy: { python: 'auto', node: 'auto' },
-          scriptOverrides: {}
-        }
-        setPythonRuntime(ext.runtimePolicy.python)
-        setNodeRuntime(ext.runtimePolicy.node)
-        const rows = Object.entries(ext.env).map(([k, v]) => ({ id: nanoid(6), key: k, value: v }))
-        setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: '', value: '' }])
+          runtimePolicy: { python: "auto", node: "auto" },
+          scriptOverrides: {},
+        };
+        setPythonRuntime(ext.runtimePolicy.python);
+        setNodeRuntime(ext.runtimePolicy.node);
+        const rows = Object.entries(ext.env).map(([k, v]) => ({ id: nanoid(6), key: k, value: v }));
+        setEnvRows(rows.length ? rows : [{ id: nanoid(6), key: "", value: "" }]);
         setScriptRows(
           (skillsStore.skillScripts[name] ?? []).map((s) => ({
             ...s,
-            description: s.description ?? ''
-          }))
-        )
-      })
+            description: s.description ?? "",
+          })),
+        );
+      });
     }
     if (!open) {
-      loadRequestId.current++
-      resetForm()
+      loadRequestId.current++;
+      resetForm();
     }
-  }, [open, skill])
+  }, [open, skill]);
 
   const handleSave = async () => {
-    if (!skill) return
-    setSaving(true)
+    if (!skill) return;
+    setSaving(true);
     try {
-      const skillContent = buildSkillContent()
-      const env = Object.fromEntries(
-        envRows.map((r) => [r.key.trim(), r.value]).filter(([k]) => k.length > 0)
-      )
+      const skillContent = buildSkillContent();
+      const env = Object.fromEntries(envRows.map((r) => [r.key.trim(), r.value]).filter(([k]) => k.length > 0));
       const extension: SkillExtensionConfig = {
         version: 1,
         env,
@@ -173,24 +160,24 @@ export default function SkillEditorSheet({
         scriptOverrides: Object.fromEntries(
           scriptRows.map((s) => [
             s.relativePath,
-            { enabled: s.enabled, description: s.description.trim() || undefined }
-          ])
-        )
-      }
-      const result = await skillsStore.saveSkillWithExtension(skill.name, skillContent, extension)
+            { enabled: s.enabled, description: s.description.trim() || undefined },
+          ]),
+        ),
+      };
+      const result = await saveSkillWithExtension(skill.name, skillContent, extension);
       if (!result.success) {
-        toast({ title: 'Save failed', description: result.error, variant: 'destructive' })
-        return
+        toast({ title: "Save failed", description: result.error, variant: "destructive" });
+        return;
       }
-      toast({ title: 'Saved successfully' })
-      onSaved()
-      onOpenChange(false)
+      toast({ title: "Saved successfully" });
+      onSaved();
+      onOpenChange(false);
     } catch (error) {
-      toast({ title: 'Save failed', description: String(error), variant: 'destructive' })
+      toast({ title: "Save failed", description: String(error), variant: "destructive" });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -234,10 +221,7 @@ export default function SkillEditorSheet({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Python Runtime</Label>
-                  <Select
-                    value={pythonRuntime}
-                    onValueChange={(v) => setPythonRuntime(v as SkillRuntimePreference)}
-                  >
+                  <Select value={pythonRuntime} onValueChange={(v) => setPythonRuntime(v as SkillRuntimePreference)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -250,10 +234,7 @@ export default function SkillEditorSheet({
                 </div>
                 <div className="space-y-1.5">
                   <Label>Node Runtime</Label>
-                  <Select
-                    value={nodeRuntime}
-                    onValueChange={(v) => setNodeRuntime(v as SkillRuntimePreference)}
-                  >
+                  <Select value={nodeRuntime} onValueChange={(v) => setNodeRuntime(v as SkillRuntimePreference)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -279,9 +260,7 @@ export default function SkillEditorSheet({
                   <Input
                     value={row.key}
                     onChange={(e) =>
-                      setEnvRows((p) =>
-                        p.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r))
-                      )
+                      setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)))
                     }
                     className="col-span-5"
                     placeholder="Key"
@@ -290,19 +269,12 @@ export default function SkillEditorSheet({
                     value={row.value}
                     type="password"
                     onChange={(e) =>
-                      setEnvRows((p) =>
-                        p.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r))
-                      )
+                      setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))
                     }
                     className="col-span-6"
                     placeholder="Value"
                   />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="col-span-1"
-                    onClick={() => removeEnvRow(row.id)}
-                  >
+                  <Button variant="ghost" size="icon" className="col-span-1" onClick={() => removeEnvRow(row.id)}>
                     ✕
                   </Button>
                 </div>
@@ -320,9 +292,7 @@ export default function SkillEditorSheet({
                           <Badge variant="outline" className="text-[11px]">
                             {script.runtime}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {script.absolutePath}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{script.absolutePath}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -331,9 +301,7 @@ export default function SkillEditorSheet({
                           checked={script.enabled}
                           onCheckedChange={(v) =>
                             setScriptRows((p) =>
-                              p.map((s) =>
-                                s.relativePath === script.relativePath ? { ...s, enabled: v } : s
-                              )
+                              p.map((s) => (s.relativePath === script.relativePath ? { ...s, enabled: v } : s)),
                             )
                           }
                         />
@@ -363,5 +331,5 @@ export default function SkillEditorSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
+  );
 }

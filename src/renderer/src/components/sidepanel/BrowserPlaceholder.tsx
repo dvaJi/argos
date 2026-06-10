@@ -1,5 +1,4 @@
-import React from 'react'
-import { Icon } from '@iconify/react'
+import { Icon } from "@iconify/react";
 
 export function BrowserPlaceholder() {
   return (
@@ -10,5 +9,5 @@ export function BrowserPlaceholder() {
         Type a web address in the URL bar above to open it in the embedded browser
       </p>
     </div>
-  )
+  );
 }

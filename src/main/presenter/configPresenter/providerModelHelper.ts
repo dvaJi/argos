@@ -1,324 +1,314 @@
-import { eventBus, SendTarget } from '@/eventbus'
-import { CONFIG_EVENTS } from '@/events'
-import { ModelConfig, MODEL_META } from '@shared/presenter'
-import { ModelType } from '@shared/model'
-import { resolveVideoGenerationCompatType } from '@shared/videoGenerationSettings'
-import ElectronStore from 'electron-store'
-import path from 'path'
-import type { StoreLike } from './storeLike'
+import { eventBus, SendTarget } from "@/eventbus";
+import { CONFIG_EVENTS } from "@/events";
+import { ModelConfig, MODEL_META } from "@shared/presenter";
+import { ModelType } from "@shared/model";
+import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
+import ElectronStore from "electron-store";
+import path from "path";
+import type { StoreLike } from "./storeLike";
 
 export interface IModelStore {
-  models: MODEL_META[]
-  custom_models: MODEL_META[]
+  models: MODEL_META[];
+  custom_models: MODEL_META[];
 }
 
-export const PROVIDER_MODELS_DIR = 'provider_models'
-const PROVIDER_MODEL_CACHE_TTL_MS = 250
+export const PROVIDER_MODELS_DIR = "provider_models";
+const PROVIDER_MODEL_CACHE_TTL_MS = 250;
 
-type ModelConfigResolver = (modelId: string, providerId?: string) => ModelConfig
+type ModelConfigResolver = (modelId: string, providerId?: string) => ModelConfig;
 
-type ModelStatusUpdater = (providerId: string, modelId: string, enabled: boolean) => void
+type ModelStatusUpdater = (providerId: string, modelId: string, enabled: boolean) => void;
 
-type ModelStatusRemover = (providerId: string, modelId: string) => void
+type ModelStatusRemover = (providerId: string, modelId: string) => void;
 
 interface ProviderModelHelperOptions {
-  userDataPath: string
-  getModelConfig: ModelConfigResolver
-  setModelStatus: ModelStatusUpdater
-  deleteModelStatus: ModelStatusRemover
+  userDataPath: string;
+  getModelConfig: ModelConfigResolver;
+  setModelStatus: ModelStatusUpdater;
+  deleteModelStatus: ModelStatusRemover;
 }
 
-type ProviderModelStore = StoreLike<IModelStore & Record<string, unknown>>
+type ProviderModelStore = StoreLike<IModelStore & Record<string, unknown>>;
 
 export class ProviderModelHelper {
-  private readonly userDataPath: string
-  private readonly getModelConfig: ModelConfigResolver
-  private readonly setModelStatus: ModelStatusUpdater
-  private readonly deleteModelStatus: ModelStatusRemover
-  private readonly stores: Map<string, ProviderModelStore> = new Map()
-  private storeFactory: ((providerId: string) => ProviderModelStore) | null = null
+  private readonly userDataPath: string;
+  private readonly getModelConfig: ModelConfigResolver;
+  private readonly setModelStatus: ModelStatusUpdater;
+  private readonly deleteModelStatus: ModelStatusRemover;
+  private readonly stores: Map<string, ProviderModelStore> = new Map();
+  private storeFactory: ((providerId: string) => ProviderModelStore) | null = null;
   private readonly providerModelsCache = new Map<
     string,
     {
-      expiresAt: number
-      models: MODEL_META[]
+      expiresAt: number;
+      models: MODEL_META[];
     }
-  >()
+  >();
 
   constructor(options: ProviderModelHelperOptions) {
-    this.userDataPath = options.userDataPath
-    this.getModelConfig = options.getModelConfig
-    this.setModelStatus = options.setModelStatus
-    this.deleteModelStatus = options.deleteModelStatus
+    this.userDataPath = options.userDataPath;
+    this.getModelConfig = options.getModelConfig;
+    this.setModelStatus = options.setModelStatus;
+    this.deleteModelStatus = options.deleteModelStatus;
   }
 
   private getStoreName(providerId: string): string {
-    const safeProviderId = encodeURIComponent(providerId).replace(/\*/g, '%2A')
-    return `models_${safeProviderId}`
+    const safeProviderId = encodeURIComponent(providerId).replace(/\*/g, "%2A");
+    return `models_${safeProviderId}`;
   }
 
   setStoreFactory(factory: (providerId: string) => ProviderModelStore): void {
-    this.storeFactory = factory
-    this.stores.clear()
-    this.invalidateAllProviderModelsCache()
+    this.storeFactory = factory;
+    this.stores.clear();
+    this.invalidateAllProviderModelsCache();
   }
 
   getProviderModelStore(providerId: string): ProviderModelStore {
     if (!this.stores.has(providerId)) {
       if (this.storeFactory) {
-        this.stores.set(providerId, this.storeFactory(providerId))
-        return this.stores.get(providerId)!
+        this.stores.set(providerId, this.storeFactory(providerId));
+        return this.stores.get(providerId)!;
       }
 
-      const storeName = this.getStoreName(providerId)
-      const storePath = path.join(this.userDataPath, PROVIDER_MODELS_DIR)
+      const storeName = this.getStoreName(providerId);
+      const storePath = path.join(this.userDataPath, PROVIDER_MODELS_DIR);
       console.log(
-        `[ProviderModelHelper] getProviderModelStore: creating isolated store "${storeName}" at "${storePath}" for provider "${providerId}"`
-      )
+        `[ProviderModelHelper] getProviderModelStore: creating isolated store "${storeName}" at "${storePath}" for provider "${providerId}"`,
+      );
       const store = new ElectronStore<IModelStore>({
         name: storeName,
         cwd: storePath,
         defaults: {
           models: [],
-          custom_models: []
-        }
-      })
-      this.stores.set(providerId, store as unknown as ProviderModelStore)
+          custom_models: [],
+        },
+      });
+      this.stores.set(providerId, store as unknown as ProviderModelStore);
       console.log(
-        `[ProviderModelHelper] getProviderModelStore: store "${storeName}" created and cached for provider "${providerId}"`
-      )
+        `[ProviderModelHelper] getProviderModelStore: store "${storeName}" created and cached for provider "${providerId}"`,
+      );
     }
-    return this.stores.get(providerId)!
+    return this.stores.get(providerId)!;
   }
 
   invalidateProviderModelsCache(providerId: string): void {
-    this.providerModelsCache.delete(providerId)
+    this.providerModelsCache.delete(providerId);
   }
 
   invalidateAllProviderModelsCache(): void {
-    this.providerModelsCache.clear()
+    this.providerModelsCache.clear();
   }
 
   private cloneModel(model: MODEL_META): MODEL_META {
     return {
-      ...model
-    }
+      ...model,
+    };
   }
 
   private cloneModels(models: MODEL_META[]): MODEL_META[] {
-    return models.map((model) => this.cloneModel(model))
+    return models.map((model) => this.cloneModel(model));
   }
 
   private normalizeStoredModel(model: MODEL_META, providerId: string, source: string): MODEL_META {
-    const normalizedModel = this.cloneModel(model)
+    const normalizedModel = this.cloneModel(model);
 
     if (normalizedModel.providerId && normalizedModel.providerId !== providerId) {
       console.warn(
-        `[ProviderModelHelper] ${source}: Model ${normalizedModel.id} has incorrect providerId: expected "${providerId}", got "${normalizedModel.providerId}". Fixing it.`
-      )
-      normalizedModel.providerId = providerId
+        `[ProviderModelHelper] ${source}: Model ${normalizedModel.id} has incorrect providerId: expected "${providerId}", got "${normalizedModel.providerId}". Fixing it.`,
+      );
+      normalizedModel.providerId = providerId;
     } else if (!normalizedModel.providerId) {
       console.warn(
-        `[ProviderModelHelper] ${source}: Model ${normalizedModel.id} missing providerId, setting to "${providerId}"`
-      )
-      normalizedModel.providerId = providerId
+        `[ProviderModelHelper] ${source}: Model ${normalizedModel.id} missing providerId, setting to "${providerId}"`,
+      );
+      normalizedModel.providerId = providerId;
     }
 
-    return normalizedModel
+    return normalizedModel;
   }
 
   private applyResolvedModelConfig(model: MODEL_META, providerId: string): MODEL_META {
-    const normalizedModel = this.cloneModel(model)
-    const config = this.getModelConfig(normalizedModel.id, providerId)
+    const normalizedModel = this.cloneModel(model);
+    const config = this.getModelConfig(normalizedModel.id, providerId);
 
     if (config) {
-      normalizedModel.maxTokens = config.maxTokens
-      normalizedModel.contextLength = config.contextLength
-      normalizedModel.vision =
-        normalizedModel.vision !== undefined ? normalizedModel.vision : config.vision || false
+      normalizedModel.maxTokens = config.maxTokens;
+      normalizedModel.contextLength = config.contextLength;
+      normalizedModel.vision = normalizedModel.vision !== undefined ? normalizedModel.vision : config.vision || false;
       normalizedModel.functionCall =
-        normalizedModel.functionCall !== undefined
-          ? normalizedModel.functionCall
-          : config.functionCall || false
+        normalizedModel.functionCall !== undefined ? normalizedModel.functionCall : config.functionCall || false;
       normalizedModel.reasoning =
-        normalizedModel.reasoning !== undefined
-          ? normalizedModel.reasoning
-          : config.reasoning || false
-      normalizedModel.endpointType = config.endpointType ?? normalizedModel.endpointType
-      normalizedModel.ownedBy = normalizedModel.ownedBy ?? config.ownedBy
+        normalizedModel.reasoning !== undefined ? normalizedModel.reasoning : config.reasoning || false;
+      normalizedModel.endpointType = config.endpointType ?? normalizedModel.endpointType;
+      normalizedModel.ownedBy = normalizedModel.ownedBy ?? config.ownedBy;
       normalizedModel.type =
         resolveVideoGenerationCompatType({
           modelId: normalizedModel.id,
           type: config.type ?? normalizedModel.type,
           apiEndpoint: config.apiEndpoint,
           endpointType: normalizedModel.endpointType,
-          supportedEndpointTypes: normalizedModel.supportedEndpointTypes
-        }) ??
-        (normalizedModel.type !== undefined ? normalizedModel.type : config.type || ModelType.Chat)
-      return normalizedModel
+          supportedEndpointTypes: normalizedModel.supportedEndpointTypes,
+        }) ?? (normalizedModel.type !== undefined ? normalizedModel.type : config.type || ModelType.Chat);
+      return normalizedModel;
     }
 
-    normalizedModel.vision = normalizedModel.vision || false
-    normalizedModel.functionCall = normalizedModel.functionCall || false
-    normalizedModel.reasoning = normalizedModel.reasoning || false
+    normalizedModel.vision = normalizedModel.vision || false;
+    normalizedModel.functionCall = normalizedModel.functionCall || false;
+    normalizedModel.reasoning = normalizedModel.reasoning || false;
     normalizedModel.type =
       resolveVideoGenerationCompatType({
         modelId: normalizedModel.id,
         type: normalizedModel.type,
         endpointType: normalizedModel.endpointType,
-        supportedEndpointTypes: normalizedModel.supportedEndpointTypes
+        supportedEndpointTypes: normalizedModel.supportedEndpointTypes,
       }) ??
-      (normalizedModel.type || ModelType.Chat)
-    return normalizedModel
+      (normalizedModel.type || ModelType.Chat);
+    return normalizedModel;
   }
 
   getProviderModels(providerId: string): MODEL_META[] {
-    const cached = this.providerModelsCache.get(providerId)
+    const cached = this.providerModelsCache.get(providerId);
     if (cached && cached.expiresAt > Date.now()) {
-      return this.cloneModels(cached.models)
+      return this.cloneModels(cached.models);
     }
 
-    const store = this.getProviderModelStore(providerId)
-    const storedModels = (store.get('models') || []) as MODEL_META[]
+    const store = this.getProviderModelStore(providerId);
+    const storedModels = (store.get("models") || []) as MODEL_META[];
     const normalizedStoredModels = storedModels.map((model) =>
-      this.normalizeStoredModel(model, providerId, 'getProviderModels')
-    )
+      this.normalizeStoredModel(model, providerId, "getProviderModels"),
+    );
 
-    const incorrectProviderIds = normalizedStoredModels.filter(
-      (model) => model.providerId !== providerId
-    )
+    const incorrectProviderIds = normalizedStoredModels.filter((model) => model.providerId !== providerId);
     if (incorrectProviderIds.length > 0) {
       console.error(
-        `[ProviderModelHelper] getProviderModels: Found ${incorrectProviderIds.length} models with incorrect providerId for provider "${providerId}"`
-      )
+        `[ProviderModelHelper] getProviderModels: Found ${incorrectProviderIds.length} models with incorrect providerId for provider "${providerId}"`,
+      );
     }
 
     const shouldPersistNormalizedModels = normalizedStoredModels.some(
-      (model, index) => model.providerId !== storedModels[index]?.providerId
-    )
+      (model, index) => model.providerId !== storedModels[index]?.providerId,
+    );
     if (shouldPersistNormalizedModels) {
-      store.set('models', this.cloneModels(normalizedStoredModels))
+      store.set("models", this.cloneModels(normalizedStoredModels));
     }
 
-    const result = normalizedStoredModels.map((model) =>
-      this.applyResolvedModelConfig(model, providerId)
-    )
+    const result = normalizedStoredModels.map((model) => this.applyResolvedModelConfig(model, providerId));
 
     this.providerModelsCache.set(providerId, {
       expiresAt: Date.now() + PROVIDER_MODEL_CACHE_TTL_MS,
-      models: this.cloneModels(result)
-    })
+      models: this.cloneModels(result),
+    });
 
-    return this.cloneModels(result)
+    return this.cloneModels(result);
   }
 
   setProviderModels(providerId: string, models: MODEL_META[]): void {
     console.log(
-      `[ProviderModelHelper] setProviderModels: storing ${models.length} models for provider "${providerId}"`
-    )
+      `[ProviderModelHelper] setProviderModels: storing ${models.length} models for provider "${providerId}"`,
+    );
 
     // Validate and fix providerId for all models before storing
     const validatedModels = models.map((model) => {
       if (model.providerId && model.providerId !== providerId) {
         console.warn(
-          `[ProviderModelHelper] setProviderModels: Model ${model.id} has incorrect providerId: expected "${providerId}", got "${model.providerId}". Fixing it.`
-        )
-        model.providerId = providerId
+          `[ProviderModelHelper] setProviderModels: Model ${model.id} has incorrect providerId: expected "${providerId}", got "${model.providerId}". Fixing it.`,
+        );
+        model.providerId = providerId;
       } else if (!model.providerId) {
         console.warn(
-          `[ProviderModelHelper] setProviderModels: Model ${model.id} missing providerId, setting to "${providerId}"`
-        )
-        model.providerId = providerId
+          `[ProviderModelHelper] setProviderModels: Model ${model.id} missing providerId, setting to "${providerId}"`,
+        );
+        model.providerId = providerId;
       }
-      return model
-    })
+      return model;
+    });
 
     // Log validation results
-    const incorrectProviderIds = validatedModels.filter((m) => m.providerId !== providerId)
+    const incorrectProviderIds = validatedModels.filter((m) => m.providerId !== providerId);
     if (incorrectProviderIds.length > 0) {
       console.error(
-        `[ProviderModelHelper] setProviderModels: Found ${incorrectProviderIds.length} models with incorrect providerId for provider "${providerId}" after validation`
-      )
+        `[ProviderModelHelper] setProviderModels: Found ${incorrectProviderIds.length} models with incorrect providerId for provider "${providerId}" after validation`,
+      );
     }
 
-    const store = this.getProviderModelStore(providerId)
-    store.set('models', validatedModels)
-    this.invalidateProviderModelsCache(providerId)
+    const store = this.getProviderModelStore(providerId);
+    store.set("models", validatedModels);
+    this.invalidateProviderModelsCache(providerId);
     console.log(
-      `[ProviderModelHelper] setProviderModels: stored ${validatedModels.length} models for provider "${providerId}"`
-    )
+      `[ProviderModelHelper] setProviderModels: stored ${validatedModels.length} models for provider "${providerId}"`,
+    );
   }
 
   getCustomModels(providerId: string): MODEL_META[] {
-    const store = this.getProviderModelStore(providerId)
-    const customModels = (store.get('custom_models') || []) as MODEL_META[]
+    const store = this.getProviderModelStore(providerId);
+    const customModels = (store.get("custom_models") || []) as MODEL_META[];
     return customModels.map((model) => {
-      const config = this.getModelConfig(model.id, providerId)
-      model.vision = model.vision !== undefined ? model.vision : false
-      model.functionCall = model.functionCall !== undefined ? model.functionCall : false
-      model.reasoning = model.reasoning !== undefined ? model.reasoning : false
-      model.type = model.type || ModelType.Chat
-      model.endpointType = config?.endpointType ?? model.endpointType
-      model.ownedBy = model.ownedBy ?? config?.ownedBy
-      return model
-    })
+      const config = this.getModelConfig(model.id, providerId);
+      model.vision = model.vision !== undefined ? model.vision : false;
+      model.functionCall = model.functionCall !== undefined ? model.functionCall : false;
+      model.reasoning = model.reasoning !== undefined ? model.reasoning : false;
+      model.type = model.type || ModelType.Chat;
+      model.endpointType = config?.endpointType ?? model.endpointType;
+      model.ownedBy = model.ownedBy ?? config?.ownedBy;
+      return model;
+    });
   }
 
   setCustomModels(providerId: string, models: MODEL_META[]): void {
-    const store = this.getProviderModelStore(providerId)
-    store.set('custom_models', models)
-    this.invalidateProviderModelsCache(providerId)
+    const store = this.getProviderModelStore(providerId);
+    store.set("custom_models", models);
+    this.invalidateProviderModelsCache(providerId);
   }
 
   clearProviderModelStore(providerId: string): void {
     const store = this.getProviderModelStore(providerId) as ProviderModelStore & {
-      clear?: () => void
-    }
+      clear?: () => void;
+    };
 
-    if (typeof store.clear === 'function') {
-      store.clear()
+    if (typeof store.clear === "function") {
+      store.clear();
     } else {
-      store.set('models', [])
-      store.set('custom_models', [])
+      store.set("models", []);
+      store.set("custom_models", []);
     }
 
-    this.stores.delete(providerId)
-    this.invalidateProviderModelsCache(providerId)
+    this.stores.delete(providerId);
+    this.invalidateProviderModelsCache(providerId);
   }
 
   addCustomModel(providerId: string, model: MODEL_META): void {
-    const models = this.getCustomModels(providerId)
-    const existingIndex = models.findIndex((m) => m.id === model.id)
+    const models = this.getCustomModels(providerId);
+    const existingIndex = models.findIndex((m) => m.id === model.id);
     const { enabled: _enabled, ...modelWithoutStatus } = model as MODEL_META & {
-      enabled?: unknown
-    }
+      enabled?: unknown;
+    };
 
     if (existingIndex !== -1) {
-      models[existingIndex] = modelWithoutStatus as MODEL_META
+      models[existingIndex] = modelWithoutStatus as MODEL_META;
     } else {
-      models.push(modelWithoutStatus as MODEL_META)
+      models.push(modelWithoutStatus as MODEL_META);
     }
 
-    this.setCustomModels(providerId, models)
-    this.setModelStatus(providerId, model.id, true)
-    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId)
+    this.setCustomModels(providerId, models);
+    this.setModelStatus(providerId, model.id, true);
+    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId);
   }
 
   removeCustomModel(providerId: string, modelId: string): void {
-    const models = this.getCustomModels(providerId)
-    const filteredModels = models.filter((model) => model.id !== modelId)
-    this.setCustomModels(providerId, filteredModels)
-    this.deleteModelStatus(providerId, modelId)
-    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId)
+    const models = this.getCustomModels(providerId);
+    const filteredModels = models.filter((model) => model.id !== modelId);
+    this.setCustomModels(providerId, filteredModels);
+    this.deleteModelStatus(providerId, modelId);
+    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId);
   }
 
   updateCustomModel(providerId: string, modelId: string, updates: Partial<MODEL_META>): void {
-    const models = this.getCustomModels(providerId)
-    const index = models.findIndex((model) => model.id === modelId)
+    const models = this.getCustomModels(providerId);
+    const index = models.findIndex((model) => model.id === modelId);
     if (index !== -1) {
-      models[index] = { ...models[index], ...updates }
-      this.setCustomModels(providerId, models)
-      eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId)
+      models[index] = { ...models[index], ...updates };
+      this.setCustomModels(providerId, models);
+      eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, providerId);
     }
   }
 }

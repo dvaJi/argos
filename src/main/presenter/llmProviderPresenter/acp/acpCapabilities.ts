@@ -1,35 +1,33 @@
-import type * as schema from '@agentclientprotocol/sdk/dist/schema/index.js'
+import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
 
 export interface AcpCapabilityOptions {
-  enableFs?: boolean
-  enableTerminal?: boolean
-  enableTerminalAuth?: boolean
+  enableFs?: boolean;
+  enableTerminal?: boolean;
+  enableTerminalAuth?: boolean;
 }
 
 export interface AcpCapabilitySupport {
-  loadSession: boolean
-  sessionList: boolean
-  sessionResume: boolean
-  sessionClose: boolean
-  sessionFork: boolean
+  loadSession: boolean;
+  sessionList: boolean;
+  sessionResume: boolean;
+  sessionClose: boolean;
+  sessionFork: boolean;
 }
 
 export interface AcpCapabilitySnapshot {
-  protocolVersion?: schema.ProtocolVersion
-  agentInfo?: schema.Implementation | null
-  agentCapabilities?: schema.AgentCapabilities
-  sessionCapabilities?: schema.SessionCapabilities
-  promptCapabilities?: schema.PromptCapabilities
-  authMethods: schema.AuthMethod[]
-  mcpCapabilities?: schema.McpCapabilities
-  supports: AcpCapabilitySupport
+  protocolVersion?: schema.ProtocolVersion;
+  agentInfo?: schema.Implementation | null;
+  agentCapabilities?: schema.AgentCapabilities;
+  sessionCapabilities?: schema.SessionCapabilities;
+  promptCapabilities?: schema.PromptCapabilities;
+  authMethods: schema.AuthMethod[];
+  mcpCapabilities?: schema.McpCapabilities;
+  supports: AcpCapabilitySupport;
 }
 
-export function buildCapabilitySnapshot(
-  initializeResult: schema.InitializeResponse
-): AcpCapabilitySnapshot {
-  const agentCapabilities = initializeResult.agentCapabilities
-  const sessionCapabilities = agentCapabilities?.sessionCapabilities
+export function buildCapabilitySnapshot(initializeResult: schema.InitializeResponse): AcpCapabilitySnapshot {
+  const agentCapabilities = initializeResult.agentCapabilities;
+  const sessionCapabilities = agentCapabilities?.sessionCapabilities;
 
   return {
     protocolVersion: initializeResult.protocolVersion,
@@ -44,9 +42,9 @@ export function buildCapabilitySnapshot(
       sessionList: Boolean(sessionCapabilities?.list),
       sessionResume: Boolean(sessionCapabilities?.resume),
       sessionClose: Boolean(sessionCapabilities?.close),
-      sessionFork: Boolean(sessionCapabilities?.fork)
-    }
-  }
+      sessionFork: Boolean(sessionCapabilities?.fork),
+    },
+  };
 }
 
 /**
@@ -55,27 +53,25 @@ export function buildCapabilitySnapshot(
  * This determines what features the client (DeepChat) advertises to the agent.
  * Agents use these capabilities to decide which operations to request.
  */
-export function buildClientCapabilities(
-  options: AcpCapabilityOptions = {}
-): schema.ClientCapabilities {
-  const caps: schema.ClientCapabilities = {}
+export function buildClientCapabilities(options: AcpCapabilityOptions = {}): schema.ClientCapabilities {
+  const caps: schema.ClientCapabilities = {};
 
   if (options.enableFs !== false) {
     caps.fs = {
       readTextFile: true,
-      writeTextFile: true
-    }
+      writeTextFile: true,
+    };
   }
 
   if (options.enableTerminal !== false) {
-    caps.terminal = true
+    caps.terminal = true;
   }
 
   if (options.enableTerminal !== false && options.enableTerminalAuth) {
     caps.auth = {
-      terminal: true
-    }
+      terminal: true,
+    };
   }
 
-  return caps
+  return caps;
 }

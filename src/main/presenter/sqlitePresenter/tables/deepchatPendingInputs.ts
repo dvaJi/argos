@@ -1,22 +1,22 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
 export interface DeepChatPendingInputRow {
-  id: string
-  session_id: string
-  mode: 'queue' | 'steer'
-  state: 'pending' | 'claimed' | 'consumed'
-  payload_json: string
-  queue_order: number | null
-  claimed_at: number | null
-  consumed_at: number | null
-  created_at: number
-  updated_at: number
+  id: string;
+  session_id: string;
+  mode: "queue" | "steer";
+  state: "pending" | "claimed" | "consumed";
+  payload_json: string;
+  queue_order: number | null;
+  claimed_at: number | null;
+  consumed_at: number | null;
+  created_at: number;
+  updated_at: number;
 }
 
 export class DeepChatPendingInputsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'deepchat_pending_inputs')
+    super(db, "deepchat_pending_inputs");
   }
 
   getCreateTableSQL(): string {
@@ -35,35 +35,35 @@ export class DeepChatPendingInputsTable extends BaseTable {
       );
       CREATE INDEX IF NOT EXISTS idx_deepchat_pending_inputs_session
         ON deepchat_pending_inputs(session_id, state, mode, queue_order, created_at);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
     if (version === 17) {
-      return this.getCreateTableSQL()
+      return this.getCreateTableSQL();
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 17
+    return 17;
   }
 
   insert(row: {
-    id: string
-    sessionId: string
-    mode: 'queue' | 'steer'
-    state?: 'pending' | 'claimed' | 'consumed'
-    payloadJson: string
-    queueOrder?: number | null
-    claimedAt?: number | null
-    consumedAt?: number | null
-    createdAt?: number
-    updatedAt?: number
+    id: string;
+    sessionId: string;
+    mode: "queue" | "steer";
+    state?: "pending" | "claimed" | "consumed";
+    payloadJson: string;
+    queueOrder?: number | null;
+    claimedAt?: number | null;
+    consumedAt?: number | null;
+    createdAt?: number;
+    updatedAt?: number;
   }): void {
-    const now = Date.now()
-    const createdAt = row.createdAt ?? now
-    const updatedAt = row.updatedAt ?? createdAt
+    const now = Date.now();
+    const createdAt = row.createdAt ?? now;
+    const updatedAt = row.updatedAt ?? createdAt;
     this.db
       .prepare(
         `INSERT INTO deepchat_pending_inputs (
@@ -77,26 +77,26 @@ export class DeepChatPendingInputsTable extends BaseTable {
           consumed_at,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         row.id,
         row.sessionId,
         row.mode,
-        row.state ?? 'pending',
+        row.state ?? "pending",
         row.payloadJson,
         row.queueOrder ?? null,
         row.claimedAt ?? null,
         row.consumedAt ?? null,
         createdAt,
-        updatedAt
-      )
+        updatedAt,
+      );
   }
 
   get(id: string): DeepChatPendingInputRow | undefined {
-    return this.db.prepare('SELECT * FROM deepchat_pending_inputs WHERE id = ?').get(id) as
+    return this.db.prepare("SELECT * FROM deepchat_pending_inputs WHERE id = ?").get(id) as
       | DeepChatPendingInputRow
-      | undefined
+      | undefined;
   }
 
   listBySession(sessionId: string): DeepChatPendingInputRow[] {
@@ -111,9 +111,9 @@ export class DeepChatPendingInputsTable extends BaseTable {
              WHEN mode = 'queue' THEN COALESCE(queue_order, 2147483647)
              ELSE created_at
            END ASC,
-           created_at ASC`
+           created_at ASC`,
       )
-      .all(sessionId) as DeepChatPendingInputRow[]
+      .all(sessionId) as DeepChatPendingInputRow[];
   }
 
   listClaimed(): DeepChatPendingInputRow[] {
@@ -122,9 +122,9 @@ export class DeepChatPendingInputsTable extends BaseTable {
         `SELECT *
          FROM deepchat_pending_inputs
          WHERE state = 'claimed'
-         ORDER BY session_id ASC, created_at ASC`
+         ORDER BY session_id ASC, created_at ASC`,
       )
-      .all() as DeepChatPendingInputRow[]
+      .all() as DeepChatPendingInputRow[];
   }
 
   listActiveBySession(sessionId: string): DeepChatPendingInputRow[] {
@@ -140,9 +140,9 @@ export class DeepChatPendingInputsTable extends BaseTable {
              WHEN mode = 'queue' THEN COALESCE(queue_order, 2147483647)
              ELSE created_at
            END ASC,
-           created_at ASC`
+           created_at ASC`,
       )
-      .all(sessionId) as DeepChatPendingInputRow[]
+      .all(sessionId) as DeepChatPendingInputRow[];
   }
 
   countActiveBySession(sessionId: string): number {
@@ -152,67 +152,62 @@ export class DeepChatPendingInputsTable extends BaseTable {
          FROM deepchat_pending_inputs
          WHERE session_id = ?
            AND state != 'consumed'
-           AND NOT (mode = 'queue' AND state = 'claimed')`
+           AND NOT (mode = 'queue' AND state = 'claimed')`,
       )
-      .get(sessionId) as { total: number }
-    return row.total
+      .get(sessionId) as { total: number };
+    return row.total;
   }
 
   update(
     id: string,
     fields: Partial<
-      Pick<
-        DeepChatPendingInputRow,
-        'mode' | 'state' | 'payload_json' | 'queue_order' | 'claimed_at' | 'consumed_at'
-      >
-    >
+      Pick<DeepChatPendingInputRow, "mode" | "state" | "payload_json" | "queue_order" | "claimed_at" | "consumed_at">
+    >,
   ): void {
-    const setClauses: string[] = []
-    const params: unknown[] = []
+    const setClauses: string[] = [];
+    const params: unknown[] = [];
 
     if (fields.mode !== undefined) {
-      setClauses.push('mode = ?')
-      params.push(fields.mode)
+      setClauses.push("mode = ?");
+      params.push(fields.mode);
     }
     if (fields.state !== undefined) {
-      setClauses.push('state = ?')
-      params.push(fields.state)
+      setClauses.push("state = ?");
+      params.push(fields.state);
     }
     if (fields.payload_json !== undefined) {
-      setClauses.push('payload_json = ?')
-      params.push(fields.payload_json)
+      setClauses.push("payload_json = ?");
+      params.push(fields.payload_json);
     }
     if (fields.queue_order !== undefined) {
-      setClauses.push('queue_order = ?')
-      params.push(fields.queue_order)
+      setClauses.push("queue_order = ?");
+      params.push(fields.queue_order);
     }
     if (fields.claimed_at !== undefined) {
-      setClauses.push('claimed_at = ?')
-      params.push(fields.claimed_at)
+      setClauses.push("claimed_at = ?");
+      params.push(fields.claimed_at);
     }
     if (fields.consumed_at !== undefined) {
-      setClauses.push('consumed_at = ?')
-      params.push(fields.consumed_at)
+      setClauses.push("consumed_at = ?");
+      params.push(fields.consumed_at);
     }
 
     if (setClauses.length === 0) {
-      return
+      return;
     }
 
-    setClauses.push('updated_at = ?')
-    params.push(Date.now())
-    params.push(id)
+    setClauses.push("updated_at = ?");
+    params.push(Date.now());
+    params.push(id);
 
-    this.db
-      .prepare(`UPDATE deepchat_pending_inputs SET ${setClauses.join(', ')} WHERE id = ?`)
-      .run(...params)
+    this.db.prepare(`UPDATE deepchat_pending_inputs SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
   }
 
   delete(id: string): void {
-    this.db.prepare('DELETE FROM deepchat_pending_inputs WHERE id = ?').run(id)
+    this.db.prepare("DELETE FROM deepchat_pending_inputs WHERE id = ?").run(id);
   }
 
   deleteBySession(sessionId: string): void {
-    this.db.prepare('DELETE FROM deepchat_pending_inputs WHERE session_id = ?').run(sessionId)
+    this.db.prepare("DELETE FROM deepchat_pending_inputs WHERE session_id = ?").run(sessionId);
   }
 }

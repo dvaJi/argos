@@ -10,307 +10,307 @@
 
 // 配置相关事件
 export const CONFIG_EVENTS = {
-  PROVIDER_CHANGED: 'config:provider-changed', // 替代 provider-setting-changed
-  PROVIDER_ATOMIC_UPDATE: 'config:provider-atomic-update', // 新增：原子操作单个 provider 更新
-  PROVIDER_BATCH_UPDATE: 'config:provider-batch-update', // 新增：批量 provider 更新
-  MODEL_LIST_CHANGED: 'config:model-list-changed', // 替代 provider-models-updated（ConfigPresenter）
-  MODEL_STATUS_CHANGED: 'config:model-status-changed', // 替代 model-status-changed（ConfigPresenter）
-  MODEL_BATCH_STATUS_CHANGED: 'config:model-batch-status-changed', // 批量模型状态变更事件
-  SETTING_CHANGED: 'config:setting-changed', // 替代 setting-changed（ConfigPresenter）
-  PROXY_MODE_CHANGED: 'config:proxy-mode-changed',
-  CUSTOM_PROXY_URL_CHANGED: 'config:custom-proxy-url-changed',
-  SYNC_SETTINGS_CHANGED: 'config:sync-settings-changed',
-  SEARCH_ENGINES_UPDATED: 'config:search-engines-updated',
-  SEARCH_PREVIEW_CHANGED: 'config:search-preview-changed',
-  AUTO_SCROLL_CHANGED: 'config:auto-scroll-changed',
-  NOTIFICATIONS_CHANGED: 'config:notifications-changed',
-  CONTENT_PROTECTION_CHANGED: 'config:content-protection-changed',
-  COPY_WITH_COT_CHANGED: 'config:copy-with-cot-enabled-changed',
-  TRACE_DEBUG_CHANGED: 'config:trace-debug-changed', // Trace 调试功能开关变更事件
-  PROXY_RESOLVED: 'config:proxy-resolved',
-  LANGUAGE_CHANGED: 'config:language-changed', // 新增：语言变更事件
+  PROVIDER_CHANGED: "config:provider-changed", // 替代 provider-setting-changed
+  PROVIDER_ATOMIC_UPDATE: "config:provider-atomic-update", // 新增：原子操作单个 provider 更新
+  PROVIDER_BATCH_UPDATE: "config:provider-batch-update", // 新增：批量 provider 更新
+  MODEL_LIST_CHANGED: "config:model-list-changed", // 替代 provider-models-updated（ConfigPresenter）
+  MODEL_STATUS_CHANGED: "config:model-status-changed", // 替代 model-status-changed（ConfigPresenter）
+  MODEL_BATCH_STATUS_CHANGED: "config:model-batch-status-changed", // 批量模型状态变更事件
+  SETTING_CHANGED: "config:setting-changed", // 替代 setting-changed（ConfigPresenter）
+  PROXY_MODE_CHANGED: "config:proxy-mode-changed",
+  CUSTOM_PROXY_URL_CHANGED: "config:custom-proxy-url-changed",
+  SYNC_SETTINGS_CHANGED: "config:sync-settings-changed",
+  SEARCH_ENGINES_UPDATED: "config:search-engines-updated",
+  SEARCH_PREVIEW_CHANGED: "config:search-preview-changed",
+  AUTO_SCROLL_CHANGED: "config:auto-scroll-changed",
+  NOTIFICATIONS_CHANGED: "config:notifications-changed",
+  CONTENT_PROTECTION_CHANGED: "config:content-protection-changed",
+  COPY_WITH_COT_CHANGED: "config:copy-with-cot-enabled-changed",
+  TRACE_DEBUG_CHANGED: "config:trace-debug-changed", // Trace 调试功能开关变更事件
+  PROXY_RESOLVED: "config:proxy-resolved",
+  LANGUAGE_CHANGED: "config:language-changed", // 新增：语言变更事件
   // 模型配置相关事件
-  MODEL_CONFIG_CHANGED: 'config:model-config-changed', // 模型配置变更事件
-  MODEL_CONFIG_RESET: 'config:model-config-reset', // 模型配置重置事件
-  MODEL_CONFIGS_IMPORTED: 'config:model-configs-imported', // 模型配置批量导入事件
-  FONT_FAMILY_CHANGED: 'config:font-family-changed',
-  CODE_FONT_FAMILY_CHANGED: 'config:code-font-family-changed',
+  MODEL_CONFIG_CHANGED: "config:model-config-changed", // 模型配置变更事件
+  MODEL_CONFIG_RESET: "config:model-config-reset", // 模型配置重置事件
+  MODEL_CONFIGS_IMPORTED: "config:model-configs-imported", // 模型配置批量导入事件
+  FONT_FAMILY_CHANGED: "config:font-family-changed",
+  CODE_FONT_FAMILY_CHANGED: "config:code-font-family-changed",
   // OAuth相关事件
-  OAUTH_LOGIN_START: 'config:oauth-login-start', // OAuth登录开始
-  OAUTH_LOGIN_SUCCESS: 'config:oauth-login-success', // OAuth登录成功
-  OAUTH_LOGIN_ERROR: 'config:oauth-login-error', // OAuth登录失败
-  THEME_CHANGED: 'config:theme-changed', // 主题变更事件
-  FONT_SIZE_CHANGED: 'config:font-size-changed', // 字体大小变更事件
-  DEFAULT_SYSTEM_PROMPT_CHANGED: 'config:default-system-prompt-changed', // Default system prompt changed event
-  CUSTOM_PROMPTS_CHANGED: 'config:custom-prompts-changed', // 自定义提示词变更事件
-  NOWLEDGE_MEM_CONFIG_UPDATED: 'config:nowledge-mem-config-updated', // Nowledge-mem configuration updated event
-  DEFAULT_PROJECT_PATH_CHANGED: 'config:default-project-path-changed',
-  AGENTS_CHANGED: 'config:agents-changed'
-}
+  OAUTH_LOGIN_START: "config:oauth-login-start", // OAuth登录开始
+  OAUTH_LOGIN_SUCCESS: "config:oauth-login-success", // OAuth登录成功
+  OAUTH_LOGIN_ERROR: "config:oauth-login-error", // OAuth登录失败
+  THEME_CHANGED: "config:theme-changed", // 主题变更事件
+  FONT_SIZE_CHANGED: "config:font-size-changed", // 字体大小变更事件
+  DEFAULT_SYSTEM_PROMPT_CHANGED: "config:default-system-prompt-changed", // Default system prompt changed event
+  CUSTOM_PROMPTS_CHANGED: "config:custom-prompts-changed", // 自定义提示词变更事件
+  NOWLEDGE_MEM_CONFIG_UPDATED: "config:nowledge-mem-config-updated", // Nowledge-mem configuration updated event
+  DEFAULT_PROJECT_PATH_CHANGED: "config:default-project-path-changed",
+  AGENTS_CHANGED: "config:agents-changed",
+};
 
 // Provider DB（聚合 JSON）相关事件
 export const PROVIDER_DB_EVENTS = {
-  LOADED: 'provider-db:loaded', // 首次装载完毕（内置或缓存）
-  UPDATED: 'provider-db:updated' // 远端刷新成功
-}
+  LOADED: "provider-db:loaded", // 首次装载完毕（内置或缓存）
+  UPDATED: "provider-db:updated", // 远端刷新成功
+};
 
 // 会话相关事件
 export const CONVERSATION_EVENTS = {
-  LIST_UPDATED: 'conversation:list-updated', // 用于推送完整的会话列表
+  LIST_UPDATED: "conversation:list-updated", // 用于推送完整的会话列表
 
-  ACTIVATED: 'conversation:activated', // 替代 conversation-activated
-  DEACTIVATED: 'conversation:deactivated', // 替代 active-conversation-cleared
-  MESSAGE_EDITED: 'conversation:message-edited', // 替代 message-edited
-  SCROLL_TO_MESSAGE: 'conversation:scroll-to-message',
+  ACTIVATED: "conversation:activated", // 替代 conversation-activated
+  DEACTIVATED: "conversation:deactivated", // 替代 active-conversation-cleared
+  MESSAGE_EDITED: "conversation:message-edited", // 替代 message-edited
+  SCROLL_TO_MESSAGE: "conversation:scroll-to-message",
 
-  MESSAGE_GENERATED: 'conversation:message-generated' // 主进程内部事件，一条完整的消息已生成
-}
+  MESSAGE_GENERATED: "conversation:message-generated", // 主进程内部事件，一条完整的消息已生成
+};
 
 // 通信相关事件
 export const STREAM_EVENTS = {
-  RESPONSE: 'stream:response', // 替代 stream-response
-  END: 'stream:end', // 替代 stream-end
-  ERROR: 'stream:error', // 替代 stream-error
-  PERMISSION_UPDATED: 'stream:permission-updated' // 权限状态更新，通知前端刷新UI
-}
+  RESPONSE: "stream:response", // 替代 stream-response
+  END: "stream:end", // 替代 stream-end
+  ERROR: "stream:error", // 替代 stream-error
+  PERMISSION_UPDATED: "stream:permission-updated", // 权限状态更新，通知前端刷新UI
+};
 
 // New agent session events
 export const SESSION_EVENTS = {
-  LIST_UPDATED: 'session:list-updated',
-  ACTIVATED: 'session:activated',
-  DEACTIVATED: 'session:deactivated',
-  STATUS_CHANGED: 'session:status-changed',
-  COMPACTION_UPDATED: 'session:compaction-updated',
-  PENDING_INPUTS_UPDATED: 'session:pending-inputs-updated'
-}
+  LIST_UPDATED: "session:list-updated",
+  ACTIVATED: "session:activated",
+  DEACTIVATED: "session:deactivated",
+  STATUS_CHANGED: "session:status-changed",
+  COMPACTION_UPDATED: "session:compaction-updated",
+  PENDING_INPUTS_UPDATED: "session:pending-inputs-updated",
+};
 
 // 系统相关事件
 export const SYSTEM_EVENTS = {
-  SYSTEM_THEME_UPDATED: 'system:theme-updated'
-}
+  SYSTEM_THEME_UPDATED: "system:theme-updated",
+};
 
 // 应用更新相关事件
 export const UPDATE_EVENTS = {
-  STATUS_CHANGED: 'update:status-changed', // 替代 update-status-changed
-  ERROR: 'update:error', // 替代 update-error
-  PROGRESS: 'update:progress', // 下载进度
-  WILL_RESTART: 'update:will-restart', // 准备重启
-  STATE_CHANGED: 'update:state-changed' // 更新状态变化（用于生命周期管理通信）
-}
+  STATUS_CHANGED: "update:status-changed", // 替代 update-status-changed
+  ERROR: "update:error", // 替代 update-error
+  PROGRESS: "update:progress", // 下载进度
+  WILL_RESTART: "update:will-restart", // 准备重启
+  STATE_CHANGED: "update:state-changed", // 更新状态变化（用于生命周期管理通信）
+};
 
 // 窗口相关事件
 export const WINDOW_EVENTS = {
-  READY_TO_SHOW: 'window:ready-to-show', // 替代 main-window-ready-to-show
-  FORCE_QUIT_APP: 'window:force-quit-app', // 替代 force-quit-app
-  SET_APPLICATION_QUITTING: 'window:set-application-quitting', // 设置应用退出状态
-  APP_FOCUS: 'app:focus',
-  APP_BLUR: 'app:blur',
-  WINDOW_MAXIMIZED: 'window:maximized',
-  WINDOW_UNMAXIMIZED: 'window:unmaximized',
-  WINDOW_RESIZED: 'window:resized',
-  WINDOW_RESIZE: 'window:resize',
-  WINDOW_CLOSE: 'window:close',
-  WINDOW_CREATED: 'window:created',
-  WINDOW_FOCUSED: 'window:focused',
-  WINDOW_BLURRED: 'window:blurred',
-  WINDOW_ENTER_FULL_SCREEN: 'window:enter-full-screen',
-  WINDOW_LEAVE_FULL_SCREEN: 'window:leave-full-screen',
-  WINDOW_CLOSED: 'window:closed',
-  FIRST_CONTENT_LOADED: 'window:first-content-loaded', // 新增：首次内容加载完成事件
-  WINDOW_RESTORED: 'window:restored'
-}
+  READY_TO_SHOW: "window:ready-to-show", // 替代 main-window-ready-to-show
+  FORCE_QUIT_APP: "window:force-quit-app", // 替代 force-quit-app
+  SET_APPLICATION_QUITTING: "window:set-application-quitting", // 设置应用退出状态
+  APP_FOCUS: "app:focus",
+  APP_BLUR: "app:blur",
+  WINDOW_MAXIMIZED: "window:maximized",
+  WINDOW_UNMAXIMIZED: "window:unmaximized",
+  WINDOW_RESIZED: "window:resized",
+  WINDOW_RESIZE: "window:resize",
+  WINDOW_CLOSE: "window:close",
+  WINDOW_CREATED: "window:created",
+  WINDOW_FOCUSED: "window:focused",
+  WINDOW_BLURRED: "window:blurred",
+  WINDOW_ENTER_FULL_SCREEN: "window:enter-full-screen",
+  WINDOW_LEAVE_FULL_SCREEN: "window:leave-full-screen",
+  WINDOW_CLOSED: "window:closed",
+  FIRST_CONTENT_LOADED: "window:first-content-loaded", // 新增：首次内容加载完成事件
+  WINDOW_RESTORED: "window:restored",
+};
 
 // Settings related events
 export const SETTINGS_EVENTS = {
-  READY: 'settings:ready',
-  NAVIGATE: 'settings:navigate',
-  CHECK_FOR_UPDATES: 'settings:check-for-updates',
-  PROVIDER_INSTALL: 'settings:provider-install'
-}
+  READY: "settings:ready",
+  NAVIGATE: "settings:navigate",
+  CHECK_FOR_UPDATES: "settings:check-for-updates",
+  PROVIDER_INSTALL: "settings:provider-install",
+};
 
 export const DEV_EVENTS = {
-  START_GUIDED_ONBOARDING: 'dev:start-guided-onboarding'
-}
+  START_GUIDED_ONBOARDING: "dev:start-guided-onboarding",
+};
 
 // ollama 相关事件
 export const OLLAMA_EVENTS = {
-  PULL_MODEL_PROGRESS: 'ollama:pull-model-progress'
-}
+  PULL_MODEL_PROGRESS: "ollama:pull-model-progress",
+};
 
 // MCP 相关事件
 export const MCP_EVENTS = {
-  SERVER_STARTED: 'mcp:server-started',
-  SERVER_STOPPED: 'mcp:server-stopped',
-  CONFIG_CHANGED: 'mcp:config-changed',
-  TOOL_CALL_RESULT: 'mcp:tool-call-result',
-  SERVER_STATUS_CHANGED: 'mcp:server-status-changed',
-  CLIENT_LIST_UPDATED: 'mcp:client-list-updated',
-  INITIALIZED: 'mcp:initialized', // 新增：MCP初始化完成事件
-  SAMPLING_REQUEST: 'mcp:sampling-request',
-  SAMPLING_DECISION: 'mcp:sampling-decision',
-  SAMPLING_CANCELLED: 'mcp:sampling-cancelled'
-}
+  SERVER_STARTED: "mcp:server-started",
+  SERVER_STOPPED: "mcp:server-stopped",
+  CONFIG_CHANGED: "mcp:config-changed",
+  TOOL_CALL_RESULT: "mcp:tool-call-result",
+  SERVER_STATUS_CHANGED: "mcp:server-status-changed",
+  CLIENT_LIST_UPDATED: "mcp:client-list-updated",
+  INITIALIZED: "mcp:initialized", // 新增：MCP初始化完成事件
+  SAMPLING_REQUEST: "mcp:sampling-request",
+  SAMPLING_DECISION: "mcp:sampling-decision",
+  SAMPLING_CANCELLED: "mcp:sampling-cancelled",
+};
 
 // 同步相关事件
 export const SYNC_EVENTS = {
-  BACKUP_STARTED: 'sync:backup-started',
-  BACKUP_COMPLETED: 'sync:backup-completed',
-  BACKUP_ERROR: 'sync:backup-error',
-  BACKUP_STATUS_CHANGED: 'sync:backup-status-changed',
-  IMPORT_STARTED: 'sync:import-started',
-  IMPORT_COMPLETED: 'sync:import-completed',
-  IMPORT_ERROR: 'sync:import-error',
-  DATA_CHANGED: 'sync:data-changed'
-}
+  BACKUP_STARTED: "sync:backup-started",
+  BACKUP_COMPLETED: "sync:backup-completed",
+  BACKUP_ERROR: "sync:backup-error",
+  BACKUP_STATUS_CHANGED: "sync:backup-status-changed",
+  IMPORT_STARTED: "sync:import-started",
+  IMPORT_COMPLETED: "sync:import-completed",
+  IMPORT_ERROR: "sync:import-error",
+  DATA_CHANGED: "sync:data-changed",
+};
 
 // 速率限制相关事件
 export const RATE_LIMIT_EVENTS = {
-  CONFIG_UPDATED: 'rate-limit:config-updated',
-  REQUEST_QUEUED: 'rate-limit:request-queued',
-  REQUEST_EXECUTED: 'rate-limit:request-executed',
-  LIMIT_EXCEEDED: 'rate-limit:limit-exceeded'
-}
+  CONFIG_UPDATED: "rate-limit:config-updated",
+  REQUEST_QUEUED: "rate-limit:request-queued",
+  REQUEST_EXECUTED: "rate-limit:request-executed",
+  LIMIT_EXCEEDED: "rate-limit:limit-exceeded",
+};
 
 // DeepLink 相关事件
 export const DEEPLINK_EVENTS = {
-  PROTOCOL_RECEIVED: 'deeplink:protocol-received',
-  START: 'deeplink:start',
-  MCP_INSTALL: 'deeplink:mcp-install'
-}
+  PROTOCOL_RECEIVED: "deeplink:protocol-received",
+  START: "deeplink:start",
+  MCP_INSTALL: "deeplink:mcp-install",
+};
 
 // 全局通知相关事件
 export const NOTIFICATION_EVENTS = {
-  SHOW_ERROR: 'notification:show-error', // 显示错误通知
-  DATABASE_REPAIR_SUGGESTED: 'notification:database-repair-suggested',
-  SYS_NOTIFY_CLICKED: 'notification:sys-notify-clicked', // 系统通知点击事件
-  DATA_RESET_COMPLETE_DEV: 'notification:data-reset-complete-dev' // 开发环境数据重置完成通知
-}
+  SHOW_ERROR: "notification:show-error", // 显示错误通知
+  DATABASE_REPAIR_SUGGESTED: "notification:database-repair-suggested",
+  SYS_NOTIFY_CLICKED: "notification:sys-notify-clicked", // 系统通知点击事件
+  DATA_RESET_COMPLETE_DEV: "notification:data-reset-complete-dev", // 开发环境数据重置完成通知
+};
 
 export const SHORTCUT_EVENTS = {
-  ZOOM_IN: 'shortcut:zoom-in',
-  ZOOM_OUT: 'shortcut:zoom-out',
-  ZOOM_RESUME: 'shortcut:zoom-resume',
-  CREATE_NEW_WINDOW: 'shortcut:create-new-window',
-  CREATE_NEW_CONVERSATION: 'shortcut:create-new-conversation',
-  TOGGLE_SPOTLIGHT: 'shortcut:toggle-spotlight',
-  TOGGLE_SIDEBAR: 'shortcut:toggle-sidebar',
-  TOGGLE_WORKSPACE: 'shortcut:toggle-workspace',
-  GO_SETTINGS: 'shortcut:go-settings',
-  CLEAN_CHAT_HISTORY: 'shortcut:clean-chat-history',
-  DELETE_CONVERSATION: 'shortcut:delete-conversation'
-}
+  ZOOM_IN: "shortcut:zoom-in",
+  ZOOM_OUT: "shortcut:zoom-out",
+  ZOOM_RESUME: "shortcut:zoom-resume",
+  CREATE_NEW_WINDOW: "shortcut:create-new-window",
+  CREATE_NEW_CONVERSATION: "shortcut:create-new-conversation",
+  TOGGLE_SPOTLIGHT: "shortcut:toggle-spotlight",
+  TOGGLE_SIDEBAR: "shortcut:toggle-sidebar",
+  TOGGLE_WORKSPACE: "shortcut:toggle-workspace",
+  GO_SETTINGS: "shortcut:go-settings",
+  CLEAN_CHAT_HISTORY: "shortcut:clean-chat-history",
+  DELETE_CONVERSATION: "shortcut:delete-conversation",
+};
 
 // 标签页相关事件
 export const TAB_EVENTS = {
-  TITLE_UPDATED: 'tab:title-updated', // 标签页标题更新
-  CONTENT_UPDATED: 'tab:content-updated', // 标签页内容更新
-  STATE_CHANGED: 'tab:state-changed', // 标签页状态变化
-  VISIBILITY_CHANGED: 'tab:visibility-changed', // 标签页可见性变化
-  RENDERER_TAB_READY: 'tab:renderer-ready', // 渲染进程标签页就绪
-  RENDERER_TAB_ACTIVATED: 'tab:renderer-activated', // 渲染进程标签页激活
-  CLOSED: 'tab:closed' // 标签页被关闭事件
-}
+  TITLE_UPDATED: "tab:title-updated", // 标签页标题更新
+  CONTENT_UPDATED: "tab:content-updated", // 标签页内容更新
+  STATE_CHANGED: "tab:state-changed", // 标签页状态变化
+  VISIBILITY_CHANGED: "tab:visibility-changed", // 标签页可见性变化
+  RENDERER_TAB_READY: "tab:renderer-ready", // 渲染进程标签页就绪
+  RENDERER_TAB_ACTIVATED: "tab:renderer-activated", // 渲染进程标签页激活
+  CLOSED: "tab:closed", // 标签页被关闭事件
+};
 
 // Yo Browser 相关事件
 export const YO_BROWSER_EVENTS = {
-  OPEN_REQUESTED: 'yo-browser:open-requested',
-  WINDOW_CREATED: 'yo-browser:window-created',
-  WINDOW_UPDATED: 'yo-browser:window-updated',
-  WINDOW_CLOSED: 'yo-browser:window-closed',
-  WINDOW_FOCUSED: 'yo-browser:window-focused',
-  WINDOW_COUNT_CHANGED: 'yo-browser:window-count-changed',
-  WINDOW_VISIBILITY_CHANGED: 'yo-browser:window-visibility-changed'
-}
+  OPEN_REQUESTED: "yo-browser:open-requested",
+  WINDOW_CREATED: "yo-browser:window-created",
+  WINDOW_UPDATED: "yo-browser:window-updated",
+  WINDOW_CLOSED: "yo-browser:window-closed",
+  WINDOW_FOCUSED: "yo-browser:window-focused",
+  WINDOW_COUNT_CHANGED: "yo-browser:window-count-changed",
+  WINDOW_VISIBILITY_CHANGED: "yo-browser:window-visibility-changed",
+};
 
 // 托盘相关事件
 export const TRAY_EVENTS = {
-  SHOW_HIDDEN_WINDOW: 'tray:show-hidden-window', // 从托盘显示/隐藏窗口
-  CHECK_FOR_UPDATES: 'tray:check-for-updates' // 托盘检查更新
-}
+  SHOW_HIDDEN_WINDOW: "tray:show-hidden-window", // 从托盘显示/隐藏窗口
+  CHECK_FOR_UPDATES: "tray:check-for-updates", // 托盘检查更新
+};
 
 // 悬浮按钮相关事件
 export const FLOATING_BUTTON_EVENTS = {
-  CLICKED: 'floating-button:clicked', // 悬浮按钮被点击
-  RIGHT_CLICKED: 'floating-button:right-clicked', // 悬浮按钮被右键点击
-  VISIBILITY_CHANGED: 'floating-button:visibility-changed', // 悬浮按钮显示状态改变
-  POSITION_CHANGED: 'floating-button:position-changed', // 悬浮按钮位置改变
-  ENABLED_CHANGED: 'floating-button:enabled-changed', // 悬浮按钮启用状态改变
-  HOVER_STATE_CHANGED: 'floating-button:hover-state-changed',
-  SNAPSHOT_REQUEST: 'floating-button:snapshot-request',
-  SNAPSHOT_UPDATED: 'floating-button:snapshot-updated',
-  LANGUAGE_REQUEST: 'floating-button:language-request',
-  LANGUAGE_CHANGED: 'floating-button:language-changed',
-  THEME_REQUEST: 'floating-button:theme-request',
-  THEME_CHANGED: 'floating-button:theme-changed',
-  ACP_REGISTRY_ICON_REQUEST: 'floating-button:acp-registry-icon-request',
-  TOGGLE_EXPANDED: 'floating-button:toggle-expanded',
-  SET_EXPANDED: 'floating-button:set-expanded',
-  OPEN_SESSION: 'floating-button:open-session',
-  DRAG_START: 'floating-button:drag-start', // 悬浮按钮开始拖拽
-  DRAG_MOVE: 'floating-button:drag-move', // 悬浮按钮拖拽移动
-  DRAG_END: 'floating-button:drag-end' // 悬浮按钮结束拖拽
-}
+  CLICKED: "floating-button:clicked", // 悬浮按钮被点击
+  RIGHT_CLICKED: "floating-button:right-clicked", // 悬浮按钮被右键点击
+  VISIBILITY_CHANGED: "floating-button:visibility-changed", // 悬浮按钮显示状态改变
+  POSITION_CHANGED: "floating-button:position-changed", // 悬浮按钮位置改变
+  ENABLED_CHANGED: "floating-button:enabled-changed", // 悬浮按钮启用状态改变
+  HOVER_STATE_CHANGED: "floating-button:hover-state-changed",
+  SNAPSHOT_REQUEST: "floating-button:snapshot-request",
+  SNAPSHOT_UPDATED: "floating-button:snapshot-updated",
+  LANGUAGE_REQUEST: "floating-button:language-request",
+  LANGUAGE_CHANGED: "floating-button:language-changed",
+  THEME_REQUEST: "floating-button:theme-request",
+  THEME_CHANGED: "floating-button:theme-changed",
+  ACP_REGISTRY_ICON_REQUEST: "floating-button:acp-registry-icon-request",
+  TOGGLE_EXPANDED: "floating-button:toggle-expanded",
+  SET_EXPANDED: "floating-button:set-expanded",
+  OPEN_SESSION: "floating-button:open-session",
+  DRAG_START: "floating-button:drag-start", // 悬浮按钮开始拖拽
+  DRAG_MOVE: "floating-button:drag-move", // 悬浮按钮拖拽移动
+  DRAG_END: "floating-button:drag-end", // 悬浮按钮结束拖拽
+};
 
 // Dialog related events
 export const DIALOG_EVENTS = {
-  REQUEST: 'dialog:request', // Main -> Renderer: Request to show dialog
-  RESPONSE: 'dialog:response' // Renderer -> Main: Dialog result response
-}
+  REQUEST: "dialog:request", // Main -> Renderer: Request to show dialog
+  RESPONSE: "dialog:response", // Renderer -> Main: Dialog result response
+};
 
 // Knowledge base events
 export const RAG_EVENTS = {
-  FILE_UPDATED: 'rag:file-updated', // File status update
-  FILE_PROGRESS: 'rag:file-progress' // File processing progress update
-}
+  FILE_UPDATED: "rag:file-updated", // File status update
+  FILE_PROGRESS: "rag:file-progress", // File processing progress update
+};
 
 // Lifecycle management events
 export const LIFECYCLE_EVENTS = {
-  PHASE_STARTED: 'lifecycle:phase-started', // Lifecycle phase started
-  PHASE_COMPLETED: 'lifecycle:phase-completed', // Lifecycle phase completed
-  HOOK_EXECUTED: 'lifecycle:hook-executed', // Lifecycle hook executed start
-  HOOK_COMPLETED: 'lifecycle:hook-completed', // Lifecycle hook executed completed
-  HOOK_FAILED: 'lifecycle:hook-failed', // Lifecycle hook executed failed
-  ERROR_OCCURRED: 'lifecycle:error-occurred', // Lifecycle error occurred
-  PROGRESS_UPDATED: 'lifecycle:progress-updated', // Lifecycle progress updated
-  SHUTDOWN_REQUESTED: 'lifecycle:shutdown-requested' // Application shutdown requested
-}
+  PHASE_STARTED: "lifecycle:phase-started", // Lifecycle phase started
+  PHASE_COMPLETED: "lifecycle:phase-completed", // Lifecycle phase completed
+  HOOK_EXECUTED: "lifecycle:hook-executed", // Lifecycle hook executed start
+  HOOK_COMPLETED: "lifecycle:hook-completed", // Lifecycle hook executed completed
+  HOOK_FAILED: "lifecycle:hook-failed", // Lifecycle hook executed failed
+  ERROR_OCCURRED: "lifecycle:error-occurred", // Lifecycle error occurred
+  PROGRESS_UPDATED: "lifecycle:progress-updated", // Lifecycle progress updated
+  SHUTDOWN_REQUESTED: "lifecycle:shutdown-requested", // Application shutdown requested
+};
 
 // Workspace events
 export const WORKSPACE_EVENTS = {
-  INVALIDATED: 'workspace:files-changed', // Workspace invalidation event
-  FILES_CHANGED: 'workspace:files-changed' // Legacy alias
-}
+  INVALIDATED: "workspace:files-changed", // Workspace invalidation event
+  FILES_CHANGED: "workspace:files-changed", // Legacy alias
+};
 
 // ACP-specific workspace events
 export const ACP_WORKSPACE_EVENTS = {
-  SESSION_MODES_READY: 'acp-workspace:session-modes-ready', // Session modes available
-  SESSION_COMMANDS_READY: 'acp-workspace:session-commands-ready', // Session commands available
-  SESSION_CONFIG_OPTIONS_READY: 'acp-workspace:session-config-options-ready' // Session config options available
-}
+  SESSION_MODES_READY: "acp-workspace:session-modes-ready", // Session modes available
+  SESSION_COMMANDS_READY: "acp-workspace:session-commands-ready", // Session commands available
+  SESSION_CONFIG_OPTIONS_READY: "acp-workspace:session-config-options-ready", // Session config options available
+};
 
 export const ACP_DEBUG_EVENTS = {
-  EVENT: 'acp-debug:event'
-}
+  EVENT: "acp-debug:event",
+};
 
 // Skills system events
 export const SKILL_EVENTS = {
-  DISCOVERED: 'skill:discovered', // Skills discovery completed
-  METADATA_UPDATED: 'skill:metadata-updated', // Metadata hot-reload updated
-  INSTALLED: 'skill:installed', // Skill installation completed
-  UNINSTALLED: 'skill:uninstalled', // Skill uninstallation completed
-  ACTIVATED: 'skill:activated', // Skill activated in session
-  DEACTIVATED: 'skill:deactivated' // Skill deactivated in session
-}
+  DISCOVERED: "skill:discovered", // Skills discovery completed
+  METADATA_UPDATED: "skill:metadata-updated", // Metadata hot-reload updated
+  INSTALLED: "skill:installed", // Skill installation completed
+  UNINSTALLED: "skill:uninstalled", // Skill uninstallation completed
+  ACTIVATED: "skill:activated", // Skill activated in session
+  DEACTIVATED: "skill:deactivated", // Skill deactivated in session
+};
 
 // Skill sync events (cross-tool synchronization)
 export const SKILL_SYNC_EVENTS = {
-  SCAN_STARTED: 'skill-sync:scan-started', // Scan operation started
-  SCAN_COMPLETED: 'skill-sync:scan-completed', // Scan operation completed
-  NEW_DISCOVERIES: 'skill-sync:new-discoveries', // New skills discovered (after comparing with cache)
-  IMPORT_STARTED: 'skill-sync:import-started', // Import operation started
-  IMPORT_PROGRESS: 'skill-sync:import-progress', // Import progress update
-  IMPORT_COMPLETED: 'skill-sync:import-completed', // Import operation completed
-  EXPORT_STARTED: 'skill-sync:export-started', // Export operation started
-  EXPORT_PROGRESS: 'skill-sync:export-progress', // Export progress update
-  EXPORT_COMPLETED: 'skill-sync:export-completed' // Export operation completed
-}
+  SCAN_STARTED: "skill-sync:scan-started", // Scan operation started
+  SCAN_COMPLETED: "skill-sync:scan-completed", // Scan operation completed
+  NEW_DISCOVERIES: "skill-sync:new-discoveries", // New skills discovered (after comparing with cache)
+  IMPORT_STARTED: "skill-sync:import-started", // Import operation started
+  IMPORT_PROGRESS: "skill-sync:import-progress", // Import progress update
+  IMPORT_COMPLETED: "skill-sync:import-completed", // Import operation completed
+  EXPORT_STARTED: "skill-sync:export-started", // Export operation started
+  EXPORT_PROGRESS: "skill-sync:export-progress", // Export progress update
+  EXPORT_COMPLETED: "skill-sync:export-completed", // Export operation completed
+};

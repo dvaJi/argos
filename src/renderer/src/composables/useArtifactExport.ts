@@ -1,24 +1,24 @@
 // === Types ===
-import { downloadBlob } from '@/lib/download'
-import type { ArtifactState } from '@/stores/artifact'
+import { downloadBlob } from "@/lib/download";
+import type { ArtifactState } from "@/stores/artifact";
 
 // === External Dependencies ===
-import mermaid from 'mermaid'
+import mermaid from "mermaid";
 
 interface WatermarkConfig {
-  isDark: boolean
-  version: string
+  isDark: boolean;
+  version: string;
   texts: {
-    brand: string
-    tip: string
-  }
+    brand: string;
+    tip: string;
+  };
 }
 
 interface CaptureOptions {
-  container: string
-  getTargetRect: () => { x: number; y: number; width: number; height: number } | null
-  isHTMLIframe: boolean
-  watermark: WatermarkConfig
+  container: string;
+  getTargetRect: () => { x: number; y: number; width: number; height: number } | null;
+  isHTMLIframe: boolean;
+  watermark: WatermarkConfig;
 }
 
 /**
@@ -26,22 +26,22 @@ interface CaptureOptions {
  */
 const getFileExtension = (type: string): string => {
   switch (type) {
-    case 'application/vnd.ant.code':
-      return 'txt'
-    case 'text/markdown':
-      return 'md'
-    case 'text/html':
-      return 'html'
-    case 'image/svg+xml':
-      return 'svg'
-    case 'application/vnd.ant.mermaid':
-      return 'mmd'
-    case 'application/vnd.ant.react':
-      return 'jsx'
+    case "application/vnd.ant.code":
+      return "txt";
+    case "text/markdown":
+      return "md";
+    case "text/html":
+      return "html";
+    case "image/svg+xml":
+      return "svg";
+    case "application/vnd.ant.mermaid":
+      return "mmd";
+    case "application/vnd.ant.react":
+      return "jsx";
     default:
-      return 'txt'
+      return "txt";
   }
-}
+};
 
 /**
  * Composable for managing artifact export and copy operations
@@ -57,111 +57,107 @@ export function useArtifactExport(captureAndCopy: (options: CaptureOptions) => P
    * Export SVG content (including Mermaid diagrams)
    */
   const exportSVG = async (artifact: ArtifactState | null): Promise<void> => {
-    if (!artifact?.content) return
+    if (!artifact?.content) return;
 
     try {
-      let svgContent = artifact.content
+      let svgContent = artifact.content;
 
       // Render Mermaid diagrams to SVG
-      if (artifact.type === 'application/vnd.ant.mermaid') {
-        const { svg } = await mermaid.render('export-diagram', artifact.content)
-        svgContent = svg
+      if (artifact.type === "application/vnd.ant.mermaid") {
+        const { svg } = await mermaid.render("export-diagram", artifact.content);
+        svgContent = svg;
       }
 
       // Validate SVG content
-      if (!svgContent.trim().startsWith('<svg')) {
-        throw new Error('Invalid SVG content')
+      if (!svgContent.trim().startsWith("<svg")) {
+        throw new Error("Invalid SVG content");
       }
 
-      const blob = new Blob([svgContent], { type: 'image/svg+xml' })
-      downloadBlob(blob, `${artifact.title || 'artifact'}.svg`)
+      const blob = new Blob([svgContent], { type: "image/svg+xml" });
+      downloadBlob(blob, `${artifact.title || "artifact"}.svg`);
     } catch (error) {
-      console.error('Failed to export SVG:', error)
-      throw error
+      console.error("Failed to export SVG:", error);
+      throw error;
     }
-  }
+  };
 
   /**
    * Export code content with appropriate file extension
    */
   const exportCode = (artifact: ArtifactState | null): void => {
-    if (!artifact?.content) return
+    if (!artifact?.content) return;
 
-    const extension = getFileExtension(artifact.type)
-    const blob = new Blob([artifact.content], { type: 'text/plain' })
-    downloadBlob(blob, `${artifact.title || 'artifact'}.${extension}`)
-  }
+    const extension = getFileExtension(artifact.type);
+    const blob = new Blob([artifact.content], { type: "text/plain" });
+    downloadBlob(blob, `${artifact.title || "artifact"}.${extension}`);
+  };
 
   /**
    * Copy content as text to clipboard
    */
   const copyContent = async (artifact: ArtifactState | null): Promise<void> => {
-    if (!artifact?.content) return
+    if (!artifact?.content) return;
 
     try {
-      await navigator.clipboard.writeText(artifact.content)
+      await navigator.clipboard.writeText(artifact.content);
     } catch (error) {
-      console.error('Failed to copy content:', error)
-      throw error
+      console.error("Failed to copy content:", error);
+      throw error;
     }
-  }
+  };
 
   /**
    * Copy artifact as image with screenshot capture
    */
-  const copyAsImage = async (
-    artifact: ArtifactState | null,
-    watermark: WatermarkConfig
-  ): Promise<boolean> => {
-    if (!artifact) return false
+  const copyAsImage = async (artifact: ArtifactState | null, watermark: WatermarkConfig): Promise<boolean> => {
+    if (!artifact) return false;
 
     // Check if artifact is iframe-based (HTML or React)
-    const isIframeArtifact =
-      artifact.type === 'text/html' || artifact.type === 'application/vnd.ant.react'
+    const isIframeArtifact = artifact.type === "text/html" || artifact.type === "application/vnd.ant.react";
 
-    let containerSelector: string
-    let targetSelector: string
+    let containerSelector: string;
+    let targetSelector: string;
 
     if (isIframeArtifact) {
       // For iframe types, use iframe wrapper as both container and target
-      containerSelector = '.html-iframe-wrapper'
-      targetSelector = '.html-iframe-wrapper'
+      containerSelector = ".html-iframe-wrapper";
+      targetSelector = ".html-iframe-wrapper";
     } else {
       // For non-iframe types, use default selectors
-      containerSelector = '.artifact-scroll-container'
-      targetSelector = '.artifact-dialog-content'
+      containerSelector = ".artifact-scroll-container";
+      targetSelector = ".artifact-dialog-content";
     }
 
     try {
       const success = await captureAndCopy({
         container: containerSelector,
         getTargetRect: () => {
-          const element = document.querySelector(targetSelector)
-          if (!element) return null
-          const rect = element.getBoundingClientRect()
+          const element = document.querySelector(targetSelector);
+          if (!element) return null;
+          const rect = element.getBoundingClientRect();
           return {
             x: Math.round(rect.x),
             y: Math.round(rect.y),
             width: Math.round(rect.width),
-            height: Math.round(rect.height)
-          }
+            height: Math.round(rect.height),
+          };
         },
         isHTMLIframe: isIframeArtifact,
-        watermark
-      })
+        watermark,
+      });
 
-      return success
+      return success;
     } catch (error) {
-      console.error('Failed to copy as image:', error)
-      return false
+      console.error("Failed to copy as image:", error);
+      return false;
     }
-  }
+  };
 
   // === Return API ===
   return {
     exportSVG,
     exportCode,
     copyContent,
-    copyAsImage
-  }
+    copyAsImage,
+  };
 }

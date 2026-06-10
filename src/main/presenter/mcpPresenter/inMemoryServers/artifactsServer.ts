@@ -1,8 +1,8 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { z } from 'zod'
-import { zodToJsonSchema } from 'zod-to-json-schema'
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
+import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 // Artifacts 相关的常量定义
 const ARTIFACTS_INFO = `
@@ -32,7 +32,7 @@ You should create and reference artifacts during conversations. Artifacts are fo
 - If asked to generate an image, the assistant can offer an SVG instead. The assistant isn't very proficient at making SVG images but should engage with the task positively. Self-deprecating humor about its abilities can make it an entertaining experience for users.
 - The assistant errs on the side of simplicity and avoids overusing artifacts for content that can be effectively presented within the conversation.
 </artifacts_info>
-`
+`;
 
 const ARTIFACT_INSTRUCTIONS_HEAD = `
 <artifact_instructions>
@@ -43,13 +43,13 @@ const ARTIFACT_INSTRUCTIONS_HEAD = `
   3. Assign an identifier to the \`identifier\` attribute of the opening \`<antArtifact>\` tag. For updates, reuse the prior identifier. For new artifacts, the identifier should be descriptive and relevant to the content, using kebab-case (e.g., "example-code-snippet"). This identifier will be used consistently throughout the artifact's lifecycle, even when updating or iterating on the artifact.
   4. Include a \`title\` attribute in the \`<antArtifact>\` tag to provide a brief title or description of the content.
   5. Add a \`type\` attribute to the opening \`<antArtifact>\` tag to specify the type of content the artifact represents. Assign one of the following values to the \`type\` attribute:
-  `
+  `;
 
 const ARTIFACT_INSTRUCTIONS_TAIL = `
  6. Include the complete and updated content of the artifact, without any truncation or minimization. Don't use "// rest of the code remains the same...".
   7. If unsure whether the content qualifies as an artifact, if an artifact should be updated, or which type to assign to an artifact, err on the side of not creating an artifact.
 </artifact_instructions>
-`
+`;
 
 // 存储各类型的示例
 const EXAMPLE_TEMPLATES = {
@@ -532,38 +532,38 @@ ${ARTIFACT_INSTRUCTIONS_TAIL}
       Feel free to ask if you want to extend this component!
     </assistant_response>
   </example>
-`
-}
+`,
+};
 
 // Schema 定义
 const GetArtifactInstructionsArgsSchema = z.object({
-  type: z.enum(['code', 'documents', 'html', 'svg', 'mermaid', 'react'])
-})
+  type: z.enum(["code", "documents", "html", "svg", "mermaid", "react"]),
+});
 
 export class ArtifactsServer {
-  private server: Server
+  private server: Server;
 
   constructor() {
     // 创建服务器实例
     this.server = new Server(
       {
-        name: 'deepchat-inmemory/artifacts-server',
-        version: '1.0.0'
+        name: "deepchat-inmemory/artifacts-server",
+        version: "1.0.0",
       },
       {
         capabilities: {
-          tools: {}
-        }
-      }
-    )
+          tools: {},
+        },
+      },
+    );
 
     // 设置请求处理器
-    this.setupRequestHandlers()
+    this.setupRequestHandlers();
   }
 
   // 启动服务器
   public startServer(transport: Transport): void {
-    this.server.connect(transport)
+    this.server.connect(transport);
   }
 
   // 设置请求处理器
@@ -573,54 +573,54 @@ export class ArtifactsServer {
       return {
         tools: [
           {
-            name: 'get_artifact_instructions',
+            name: "get_artifact_instructions",
             description:
-              'Only call this function when you need instructions for a specific artifact type, and call it only once per type. ' +
-              'This tool provides guidance on creating and referencing artifacts, including code, documents, HTML, SVG, Mermaid diagrams, or React components. ' +
-              'Do not call this function repeatedly if instructions or definitions for the requested artifact type are already available in the current context. ' +
-              'Specify the desired artifact category through the type parameter: code, documents, html, svg, mermaid, or react. ' +
-              'After obtaining the instructions, use them appropriately and avoid duplicate calls for the same type.',
+              "Only call this function when you need instructions for a specific artifact type, and call it only once per type. " +
+              "This tool provides guidance on creating and referencing artifacts, including code, documents, HTML, SVG, Mermaid diagrams, or React components. " +
+              "Do not call this function repeatedly if instructions or definitions for the requested artifact type are already available in the current context. " +
+              "Specify the desired artifact category through the type parameter: code, documents, html, svg, mermaid, or react. " +
+              "After obtaining the instructions, use them appropriately and avoid duplicate calls for the same type.",
             inputSchema: zodToJsonSchema(GetArtifactInstructionsArgsSchema),
             annotations: {
-              title: 'Get Artifact Instructions',
-              readOnlyHint: true
-            }
-          }
-        ]
-      }
-    })
+              title: "Get Artifact Instructions",
+              readOnlyHint: true,
+            },
+          },
+        ],
+      };
+    });
 
     // 设置工具调用处理器
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
-        const { name, arguments: args } = request.params
+        const { name, arguments: args } = request.params;
 
-        if (name === 'get_artifact_instructions') {
-          const parsed = GetArtifactInstructionsArgsSchema.safeParse(args)
+        if (name === "get_artifact_instructions") {
+          const parsed = GetArtifactInstructionsArgsSchema.safeParse(args);
           if (!parsed.success) {
-            throw new Error(`Invalid parameters: ${parsed.error}`)
+            throw new Error(`Invalid parameters: ${parsed.error}`);
           }
 
           // 组合返回所有必要信息
           return {
             content: [
               {
-                type: 'text',
-                text: `[IMPORTANT NOTE: You have received instructions for artifact type '${parsed.data.type}'. DO NOT call this again for the same type.]\n\n${ARTIFACTS_INFO}\n\n${EXAMPLE_TEMPLATES[parsed.data.type]}`
-              }
-            ]
-          }
+                type: "text",
+                text: `[IMPORTANT NOTE: You have received instructions for artifact type '${parsed.data.type}'. DO NOT call this again for the same type.]\n\n${ARTIFACTS_INFO}\n\n${EXAMPLE_TEMPLATES[parsed.data.type]}`,
+              },
+            ],
+          };
         }
 
-        throw new Error(`Unknown tool: ${name}`)
+        throw new Error(`Unknown tool: ${name}`);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
+        const errorMessage = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: 'text', text: `Error: ${errorMessage}` }],
-          isError: true
-        }
+          content: [{ type: "text", text: `Error: ${errorMessage}` }],
+          isError: true,
+        };
       }
-    })
+    });
   }
 }
 

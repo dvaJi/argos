@@ -1,4 +1,4 @@
-import { eventBus, SendTarget } from '@/eventbus'
+import { eventBus, SendTarget } from "@/eventbus";
 import {
   IConfigPresenter,
   LLM_PROVIDER,
@@ -17,138 +17,122 @@ import {
   AcpManualAgent,
   AcpRegistryAgent,
   AcpResolvedLaunchSpec,
-  ProviderDbRefreshResult
-} from '@shared/presenter'
-import type {
-  CloudSyncConfigView,
-  CloudSyncConfigInput,
-  ResolvedCloudSyncConfig
-} from '@shared/presenter'
-import { ProviderBatchUpdate } from '@shared/provider-operations'
-import { SearchEngineTemplate } from '@shared/chat'
+  ProviderDbRefreshResult,
+} from "@shared/presenter";
+import type { CloudSyncConfigView, CloudSyncConfigInput, ResolvedCloudSyncConfig } from "@shared/presenter";
+import { ProviderBatchUpdate } from "@shared/provider-operations";
+import { SearchEngineTemplate } from "@shared/chat";
 import {
   ModelType,
   isNewApiEndpointType,
   resolveProviderCapabilityProviderId,
-  type NewApiEndpointType
-} from '@shared/model'
-import { resolveVideoGenerationCompatType } from '@shared/videoGenerationSettings'
+  type NewApiEndpointType,
+} from "@shared/model";
+import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
 import {
   DEFAULT_MODEL_CAPABILITY_FALLBACKS,
   resolveDerivedModelMaxTokens,
   resolveModelContextLength,
   resolveModelFunctionCall,
-  resolveModelVision
-} from '@shared/modelConfigDefaults'
-import ElectronStore from 'electron-store'
-import { DEFAULT_PROVIDERS } from './providers'
-import path from 'path'
-import { app, nativeTheme, shell, safeStorage } from 'electron'
-import fs from 'fs'
-import {
-  CONFIG_EVENTS,
-  SYSTEM_EVENTS,
-  FLOATING_BUTTON_EVENTS,
-  SESSION_EVENTS,
-  MCP_EVENTS
-} from '@/events'
-import { McpConfHelper } from './mcpConfHelper'
-import { presenter } from '@/presenter'
-import { compare } from 'compare-versions'
-import { defaultShortcutKey, ShortcutKeySetting } from './shortcutKeySettings'
-import { ModelConfigHelper } from './modelConfig'
-import { KnowledgeConfHelper } from './knowledgeConfHelper'
-import { providerDbLoader } from './providerDbLoader'
+  resolveModelVision,
+} from "@shared/modelConfigDefaults";
+import ElectronStore from "electron-store";
+import { DEFAULT_PROVIDERS } from "./providers";
+import path from "path";
+import { app, nativeTheme, shell, safeStorage } from "electron";
+import fs from "fs";
+import { CONFIG_EVENTS, SYSTEM_EVENTS, FLOATING_BUTTON_EVENTS, SESSION_EVENTS, MCP_EVENTS } from "@/events";
+import { McpConfHelper } from "./mcpConfHelper";
+import { presenter } from "@/presenter";
+import { compare } from "compare-versions";
+import { defaultShortcutKey, ShortcutKeySetting } from "./shortcutKeySettings";
+import { ModelConfigHelper } from "./modelConfig";
+import { KnowledgeConfHelper } from "./knowledgeConfHelper";
+import { providerDbLoader } from "./providerDbLoader";
 import {
   ProviderAggregate,
   ReasoningPortrait,
   type ProviderModel,
   type ReasoningEffort,
-  type Verbosity
-} from '@shared/types/model-db'
-import { modelCapabilities } from './modelCapabilities'
-import { ProviderHelper } from './providerHelper'
-import { ModelStatusHelper } from './modelStatusHelper'
-import { ProviderModelHelper, PROVIDER_MODELS_DIR } from './providerModelHelper'
-import { SystemPromptHelper, DEFAULT_SYSTEM_PROMPT } from './systemPromptHelper'
-import { UiSettingsHelper } from './uiSettingsHelper'
-import { AcpConfHelper } from './acpConfHelper'
-import { AcpRegistryService } from './acpRegistryService'
-import { AcpLaunchSpecService } from './acpLaunchSpecService'
-import { AcpProvider } from '../llmProviderPresenter/providers/acpProvider'
-import { resolveAcpAgentAlias } from './acpRegistryConstants'
-import { AgentRepository, BUILTIN_DEEPCHAT_AGENT_ID } from '../agentRepository'
-import { normalizeDeepChatSubagentConfig } from '@shared/lib/deepchatSubagents'
-import type { SQLitePresenter } from '../sqlitePresenter'
-import type { SettingsKey, SettingsSnapshotValues } from '@shared/contracts/routes'
-import { publishDeepchatEvent } from '@/routes/publishDeepchatEvent'
-import type { HookTestResult, HooksNotificationsSettings } from '@shared/hooksNotifications'
+  type Verbosity,
+} from "@shared/types/model-db";
+import { modelCapabilities } from "./modelCapabilities";
+import { ProviderHelper } from "./providerHelper";
+import { ModelStatusHelper } from "./modelStatusHelper";
+import { ProviderModelHelper, PROVIDER_MODELS_DIR } from "./providerModelHelper";
+import { SystemPromptHelper, DEFAULT_SYSTEM_PROMPT } from "./systemPromptHelper";
+import { UiSettingsHelper } from "./uiSettingsHelper";
+import { AcpConfHelper } from "./acpConfHelper";
+import { AcpRegistryService } from "./acpRegistryService";
+import { AcpLaunchSpecService } from "./acpLaunchSpecService";
+import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
+import { resolveAcpAgentAlias } from "./acpRegistryConstants";
+import { AgentRepository, BUILTIN_DEEPCHAT_AGENT_ID } from "../agentRepository";
+import { normalizeDeepChatSubagentConfig } from "@shared/lib/deepchatSubagents";
+import type { SQLitePresenter } from "../sqlitePresenter";
+import type { SettingsKey, SettingsSnapshotValues } from "@shared/contracts/routes";
+import { publishDeepchatEvent } from "@/routes/publishDeepchatEvent";
+import type { HookTestResult, HooksNotificationsSettings } from "@shared/hooksNotifications";
 import type {
   Agent,
   AgentType,
   CreateDeepChatAgentInput,
   DeepChatAgentConfig,
-  UpdateDeepChatAgentInput
-} from '@shared/types/agent-interface'
-import type { FloatingButtonBounds } from '@shared/types/floating-widget'
-import {
-  createDefaultHooksNotificationsConfig,
-  normalizeHooksNotificationsConfig
-} from '../hooksNotifications/config'
-import { normalizeScheduledTasksConfig } from '../scheduledTasks/normalize'
-import {
-  createDefaultScheduledTasksSettings,
-  type ScheduledTasksSettings
-} from '@shared/scheduledTasks'
+  UpdateDeepChatAgentInput,
+} from "@shared/types/agent-interface";
+import type { FloatingButtonBounds } from "@shared/types/floating-widget";
+import { createDefaultHooksNotificationsConfig, normalizeHooksNotificationsConfig } from "../hooksNotifications/config";
+import { normalizeScheduledTasksConfig } from "../scheduledTasks/normalize";
+import { createDefaultScheduledTasksSettings, type ScheduledTasksSettings } from "@shared/scheduledTasks";
 import {
   AcpDbStore,
   AppSettingsDbBackedStore,
   McpDbStore,
   ModelConfigDbStore,
   ProviderModelDbStore,
-  SENSITIVE_APP_SETTING_KEYS
-} from './configDbStores'
-import type { StoreLike } from './storeLike'
+  SENSITIVE_APP_SETTING_KEYS,
+} from "./configDbStores";
+import type { StoreLike } from "./storeLike";
 
 // Define application settings interface
 interface IAppSettings {
   // Define your configuration items here, for example:
-  language: string
-  providers: LLM_PROVIDER[]
-  closeToQuit: boolean // Whether to quit the program when clicking the close button
-  appVersion?: string // Used for version checking and data migration
-  proxyMode?: string // Proxy mode: system, none, custom
-  customProxyUrl?: string // Custom proxy address
-  customShortKey?: ShortcutKeySetting // Custom shortcut keys
-  artifactsEffectEnabled?: boolean // Whether artifacts animation effects are enabled
-  searchPreviewEnabled?: boolean // Whether search preview is enabled
-  contentProtectionEnabled?: boolean // Whether content protection is enabled
-  privacyModeEnabled?: boolean // Whether privacy mode is enabled
-  syncEnabled?: boolean // Whether sync functionality is enabled
-  syncFolderPath?: string // Sync folder path
-  lastSyncTime?: number // Last sync time
-  customSearchEngines?: string // Custom search engines JSON string
-  copyWithCotEnabled?: boolean
-  autoCompactionEnabled?: boolean
-  autoCompactionTriggerThreshold?: number
-  autoCompactionRetainRecentPairs?: number
-  loggingEnabled?: boolean // Whether logging is enabled
-  floatingButtonEnabled?: boolean // Whether floating button is enabled
-  default_system_prompt?: string // Default system prompt
-  updateChannel?: string // Update channel: 'stable' | 'beta'
-  fontFamily?: string // Custom UI font
-  codeFontFamily?: string // Custom code font
-  skillsPath?: string // Skills directory path
-  enableSkills?: boolean // Skills system global toggle
-  skillDraftSuggestionsEnabled?: boolean // Whether agent may propose skill drafts after tasks
-  hooksNotifications?: HooksNotificationsSettings // Hooks & notifications settings
-  scheduledTasks?: ScheduledTasksSettings // User-defined scheduled tasks
-  defaultModel?: { providerId: string; modelId: string } // Default model for new conversations
-  defaultVisionModel?: { providerId: string; modelId: string } // Legacy vision model setting for migration only
-  defaultProjectPath?: string | null
-  acpRegistryMigrationVersion?: number
-  unifiedAgentsMigrationVersion?: number
-  [key: string]: unknown // Allow arbitrary keys, using unknown type instead of any
+  language: string;
+  providers: LLM_PROVIDER[];
+  closeToQuit: boolean; // Whether to quit the program when clicking the close button
+  appVersion?: string; // Used for version checking and data migration
+  proxyMode?: string; // Proxy mode: system, none, custom
+  customProxyUrl?: string; // Custom proxy address
+  customShortKey?: ShortcutKeySetting; // Custom shortcut keys
+  artifactsEffectEnabled?: boolean; // Whether artifacts animation effects are enabled
+  searchPreviewEnabled?: boolean; // Whether search preview is enabled
+  contentProtectionEnabled?: boolean; // Whether content protection is enabled
+  privacyModeEnabled?: boolean; // Whether privacy mode is enabled
+  syncEnabled?: boolean; // Whether sync functionality is enabled
+  syncFolderPath?: string; // Sync folder path
+  lastSyncTime?: number; // Last sync time
+  customSearchEngines?: string; // Custom search engines JSON string
+  copyWithCotEnabled?: boolean;
+  autoCompactionEnabled?: boolean;
+  autoCompactionTriggerThreshold?: number;
+  autoCompactionRetainRecentPairs?: number;
+  loggingEnabled?: boolean; // Whether logging is enabled
+  floatingButtonEnabled?: boolean; // Whether floating button is enabled
+  default_system_prompt?: string; // Default system prompt
+  updateChannel?: string; // Update channel: 'stable' | 'beta'
+  fontFamily?: string; // Custom UI font
+  codeFontFamily?: string; // Custom code font
+  skillsPath?: string; // Skills directory path
+  enableSkills?: boolean; // Skills system global toggle
+  skillDraftSuggestionsEnabled?: boolean; // Whether agent may propose skill drafts after tasks
+  hooksNotifications?: HooksNotificationsSettings; // Hooks & notifications settings
+  scheduledTasks?: ScheduledTasksSettings; // User-defined scheduled tasks
+  defaultModel?: { providerId: string; modelId: string }; // Default model for new conversations
+  defaultVisionModel?: { providerId: string; modelId: string }; // Legacy vision model setting for migration only
+  defaultProjectPath?: string | null;
+  acpRegistryMigrationVersion?: number;
+  unifiedAgentsMigrationVersion?: number;
+  [key: string]: unknown; // Allow arbitrary keys, using unknown type instead of any
 }
 
 // Create interface for model storage
@@ -163,274 +147,262 @@ const defaultProviders = DEFAULT_PROVIDERS.map((provider) => ({
   models: provider.models ?? [],
   customModels: provider.customModels ?? [],
   enabledModels: provider.enabledModels ?? [],
-  disabledModels: provider.disabledModels ?? []
-}))
+  disabledModels: provider.disabledModels ?? [],
+}));
 
-const PROVIDERS_STORE_KEY = 'providers'
-const UNIFIED_AGENTS_MIGRATION_VERSION = 1
-const DEPRECATED_BUILTIN_PROVIDER_IDS = ['qwenlm', 'laoshi'] as const
-type AnthropicLegacyProvider = LLM_PROVIDER & { authMode?: 'apikey' | 'oauth' }
-type ModelSelection = { providerId: string; modelId: string }
-type ProviderModelSettingKey =
-  | 'defaultModel'
-  | 'assistantModel'
-  | 'defaultVisionModel'
-  | 'preferredModel'
-type AnthropicModelSettingKey = 'defaultModel' | 'assistantModel' | 'defaultVisionModel'
+const PROVIDERS_STORE_KEY = "providers";
+const UNIFIED_AGENTS_MIGRATION_VERSION = 1;
+const DEPRECATED_BUILTIN_PROVIDER_IDS = ["qwenlm", "laoshi"] as const;
+type AnthropicLegacyProvider = LLM_PROVIDER & { authMode?: "apikey" | "oauth" };
+type ModelSelection = { providerId: string; modelId: string };
+type ProviderModelSettingKey = "defaultModel" | "assistantModel" | "defaultVisionModel" | "preferredModel";
+type AnthropicModelSettingKey = "defaultModel" | "assistantModel" | "defaultVisionModel";
 
 const ANTHROPIC_MODEL_SETTING_KEYS: AnthropicModelSettingKey[] = [
-  'defaultModel',
-  'assistantModel',
-  'defaultVisionModel'
-]
+  "defaultModel",
+  "assistantModel",
+  "defaultVisionModel",
+];
 const DEPRECATED_PROVIDER_MODEL_SETTING_KEYS: ProviderModelSettingKey[] = [
-  'defaultModel',
-  'assistantModel',
-  'defaultVisionModel',
-  'preferredModel'
-]
+  "defaultModel",
+  "assistantModel",
+  "defaultVisionModel",
+  "preferredModel",
+];
 
 const hasLegacyAnthropicOAuthState = (provider: AnthropicLegacyProvider): boolean =>
-  Object.prototype.hasOwnProperty.call(provider, 'authMode') || provider.oauthToken !== undefined
+  Object.prototype.hasOwnProperty.call(provider, "authMode") || provider.oauthToken !== undefined;
 
 const hasAnthropicApiCredential = (
   provider: AnthropicLegacyProvider,
-  envApiKey = process.env.ANTHROPIC_API_KEY
-): boolean => Boolean(provider.apiKey?.trim() || envApiKey?.trim())
+  envApiKey = process.env.ANTHROPIC_API_KEY,
+): boolean => Boolean(provider.apiKey?.trim() || envApiKey?.trim());
 
 const isModelSelection = (value: unknown): value is ModelSelection => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
   }
 
-  const record = value as Record<string, unknown>
-  return typeof record.providerId === 'string' && typeof record.modelId === 'string'
-}
+  const record = value as Record<string, unknown>;
+  return typeof record.providerId === "string" && typeof record.modelId === "string";
+};
 
 const normalizeKnownModelId = (modelId: string): string => {
-  const normalizedModelId = modelId.trim().toLowerCase()
-  return normalizedModelId.replace(/^models\//, '')
-}
+  const normalizedModelId = modelId.trim().toLowerCase();
+  return normalizedModelId.replace(/^models\//, "");
+};
 
 const normalizeKnownProviderId = (providerId: string): string =>
-  modelCapabilities.resolveProviderId(providerId.trim().toLowerCase()) ||
-  providerId.trim().toLowerCase()
+  modelCapabilities.resolveProviderId(providerId.trim().toLowerCase()) || providerId.trim().toLowerCase();
 
 const normalizeModelSelection = (value: unknown): ModelSelection | null => {
   if (!isModelSelection(value)) {
-    return null
+    return null;
   }
 
-  const providerId = normalizeKnownProviderId(value.providerId)
-  const modelId = value.modelId.trim()
+  const providerId = normalizeKnownProviderId(value.providerId);
+  const modelId = value.modelId.trim();
 
   if (!providerId || !modelId) {
-    return null
+    return null;
   }
 
   return {
     providerId,
-    modelId
-  }
-}
+    modelId,
+  };
+};
 
 const isDeprecatedBuiltinProviderId = (
   providerId: string,
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
-): boolean => deprecatedProviderIds.includes(normalizeKnownProviderId(providerId))
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
+): boolean => deprecatedProviderIds.includes(normalizeKnownProviderId(providerId));
 
 const isDeprecatedBuiltinModelSelection = (
   selection: unknown,
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
 ): boolean => {
-  const normalizedSelection = normalizeModelSelection(selection)
+  const normalizedSelection = normalizeModelSelection(selection);
   return Boolean(
-    normalizedSelection &&
-    isDeprecatedBuiltinProviderId(normalizedSelection.providerId, deprecatedProviderIds)
-  )
-}
+    normalizedSelection && isDeprecatedBuiltinProviderId(normalizedSelection.providerId, deprecatedProviderIds),
+  );
+};
 
 const shouldReplaceBuiltinModelSelection = (
   builtinSelection: unknown,
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
 ): boolean =>
   normalizeModelSelection(builtinSelection) === null ||
-  isDeprecatedBuiltinModelSelection(builtinSelection, deprecatedProviderIds)
+  isDeprecatedBuiltinModelSelection(builtinSelection, deprecatedProviderIds);
 
 const getLiveLegacyModelSelection = (
   value: unknown,
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
 ): ModelSelection | null => {
-  const normalizedSelection = normalizeModelSelection(value)
+  const normalizedSelection = normalizeModelSelection(value);
   if (!normalizedSelection) {
-    return null
+    return null;
   }
 
   return isDeprecatedBuiltinProviderId(normalizedSelection.providerId, deprecatedProviderIds)
     ? null
-    : normalizedSelection
-}
+    : normalizedSelection;
+};
 
 const toTrackedSettingsChangePayload = (
   key: string,
-  value: unknown
+  value: unknown,
 ): { changedKey: SettingsKey; value: SettingsSnapshotValues[SettingsKey] } | null => {
   switch (key) {
-    case 'fontSizeLevel':
+    case "fontSizeLevel":
       return {
-        changedKey: 'fontSizeLevel',
-        value: typeof value === 'number' ? value : 1
-      }
-    case 'fontFamily':
+        changedKey: "fontSizeLevel",
+        value: typeof value === "number" ? value : 1,
+      };
+    case "fontFamily":
       return {
-        changedKey: 'fontFamily',
-        value: typeof value === 'string' ? value : ''
-      }
-    case 'codeFontFamily':
+        changedKey: "fontFamily",
+        value: typeof value === "string" ? value : "",
+      };
+    case "codeFontFamily":
       return {
-        changedKey: 'codeFontFamily',
-        value: typeof value === 'string' ? value : ''
-      }
-    case 'artifactsEffectEnabled':
+        changedKey: "codeFontFamily",
+        value: typeof value === "string" ? value : "",
+      };
+    case "artifactsEffectEnabled":
       return {
-        changedKey: 'artifactsEffectEnabled',
-        value: Boolean(value)
-      }
-    case 'autoScrollEnabled':
+        changedKey: "artifactsEffectEnabled",
+        value: Boolean(value),
+      };
+    case "autoScrollEnabled":
       return {
-        changedKey: 'autoScrollEnabled',
-        value: Boolean(value)
-      }
-    case 'contentProtectionEnabled':
+        changedKey: "autoScrollEnabled",
+        value: Boolean(value),
+      };
+    case "contentProtectionEnabled":
       return {
-        changedKey: 'contentProtectionEnabled',
-        value: Boolean(value)
-      }
-    case 'privacyModeEnabled':
+        changedKey: "contentProtectionEnabled",
+        value: Boolean(value),
+      };
+    case "privacyModeEnabled":
       return {
-        changedKey: 'privacyModeEnabled',
-        value: Boolean(value)
-      }
-    case 'notificationsEnabled':
+        changedKey: "privacyModeEnabled",
+        value: Boolean(value),
+      };
+    case "notificationsEnabled":
       return {
-        changedKey: 'notificationsEnabled',
-        value: Boolean(value)
-      }
-    case 'traceDebugEnabled':
+        changedKey: "notificationsEnabled",
+        value: Boolean(value),
+      };
+    case "traceDebugEnabled":
       return {
-        changedKey: 'traceDebugEnabled',
-        value: Boolean(value)
-      }
-    case 'copyWithCotEnabled':
+        changedKey: "traceDebugEnabled",
+        value: Boolean(value),
+      };
+    case "copyWithCotEnabled":
       return {
-        changedKey: 'copyWithCotEnabled',
-        value: Boolean(value)
-      }
+        changedKey: "copyWithCotEnabled",
+        value: Boolean(value),
+      };
     default:
-      return null
+      return null;
   }
-}
+};
 
 export const getAnthropicModelSelectionKeysToClear = (
   settings: Partial<
-    Record<
-      AnthropicModelSettingKey | 'preferredModel',
-      { providerId: string; modelId: string } | undefined
-    >
-  >
+    Record<AnthropicModelSettingKey | "preferredModel", { providerId: string; modelId: string } | undefined>
+  >,
 ): AnthropicModelSettingKey[] =>
   ANTHROPIC_MODEL_SETTING_KEYS.filter((key) => {
-    const selection = settings[key]
-    return isModelSelection(selection) && selection.providerId === 'anthropic'
-  })
+    const selection = settings[key];
+    return isModelSelection(selection) && selection.providerId === "anthropic";
+  });
 
 export const removeDeprecatedBuiltinProviders = (
   providers: LLM_PROVIDER[],
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
 ): LLM_PROVIDER[] => {
-  const deprecatedProviderIdSet = new Set(deprecatedProviderIds)
-  return providers.filter((provider) => !deprecatedProviderIdSet.has(provider.id))
-}
+  const deprecatedProviderIdSet = new Set(deprecatedProviderIds);
+  return providers.filter((provider) => !deprecatedProviderIdSet.has(provider.id));
+};
 
 export const getDeprecatedProviderModelSelectionKeysToClear = (
-  settings: Partial<
-    Record<ProviderModelSettingKey, { providerId: string; modelId: string } | undefined>
-  >,
-  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS
+  settings: Partial<Record<ProviderModelSettingKey, { providerId: string; modelId: string } | undefined>>,
+  deprecatedProviderIds: readonly string[] = DEPRECATED_BUILTIN_PROVIDER_IDS,
 ): ProviderModelSettingKey[] => {
-  const deprecatedProviderIdSet = new Set(deprecatedProviderIds)
+  const deprecatedProviderIdSet = new Set(deprecatedProviderIds);
 
   return DEPRECATED_PROVIDER_MODEL_SETTING_KEYS.filter((key) => {
-    const selection = settings[key]
-    return isModelSelection(selection) && deprecatedProviderIdSet.has(selection.providerId)
-  })
-}
+    const selection = settings[key];
+    return isModelSelection(selection) && deprecatedProviderIdSet.has(selection.providerId);
+  });
+};
 
 export const normalizeAnthropicProviderForApiOnly = (
   provider: AnthropicLegacyProvider,
-  fallbackBaseUrl = 'https://api.anthropic.com',
-  envApiKey = process.env.ANTHROPIC_API_KEY
+  fallbackBaseUrl = "https://api.anthropic.com",
+  envApiKey = process.env.ANTHROPIC_API_KEY,
 ): LLM_PROVIDER => {
-  if (provider.id !== 'anthropic') {
-    return provider
+  if (provider.id !== "anthropic") {
+    return provider;
   }
 
-  const shouldDisable =
-    hasLegacyAnthropicOAuthState(provider) && !hasAnthropicApiCredential(provider, envApiKey)
+  const shouldDisable = hasLegacyAnthropicOAuthState(provider) && !hasAnthropicApiCredential(provider, envApiKey);
 
   const normalized: AnthropicLegacyProvider = {
     ...provider,
     baseUrl: provider.baseUrl || fallbackBaseUrl,
-    enable: shouldDisable ? false : provider.enable
-  }
+    enable: shouldDisable ? false : provider.enable,
+  };
 
-  delete normalized.authMode
-  delete normalized.oauthToken
+  delete normalized.authMode;
+  delete normalized.oauthToken;
 
-  return normalized
-}
+  return normalized;
+};
 
 export class ConfigPresenter implements IConfigPresenter {
-  private store: ElectronStore<IAppSettings>
-  private customPromptsStore: ElectronStore<{ prompts: Prompt[] }>
-  private systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>
-  private userDataPath: string
-  private currentAppVersion: string
-  private mcpConfHelper: McpConfHelper // Use MCP configuration helper
-  private acpConfHelper: AcpConfHelper
-  private acpRegistryService: AcpRegistryService
-  private acpLaunchSpecService: AcpLaunchSpecService
-  private modelConfigHelper: ModelConfigHelper // Model configuration helper
-  private knowledgeConfHelper: KnowledgeConfHelper // Knowledge configuration helper
-  private providerHelper: ProviderHelper
-  private modelStatusHelper: ModelStatusHelper
-  private providerModelHelper: ProviderModelHelper
-  private systemPromptHelper: SystemPromptHelper
-  private uiSettingsHelper: UiSettingsHelper
-  private agentRepository: AgentRepository | null = null
-  private dbBackedSettingsStore: AppSettingsDbBackedStore | null = null
+  private store: ElectronStore<IAppSettings>;
+  private customPromptsStore: ElectronStore<{ prompts: Prompt[] }>;
+  private systemPromptsStore: ElectronStore<{ prompts: SystemPrompt[] }>;
+  private userDataPath: string;
+  private currentAppVersion: string;
+  private mcpConfHelper: McpConfHelper; // Use MCP configuration helper
+  private acpConfHelper: AcpConfHelper;
+  private acpRegistryService: AcpRegistryService;
+  private acpLaunchSpecService: AcpLaunchSpecService;
+  private modelConfigHelper: ModelConfigHelper; // Model configuration helper
+  private knowledgeConfHelper: KnowledgeConfHelper; // Knowledge configuration helper
+  private providerHelper: ProviderHelper;
+  private modelStatusHelper: ModelStatusHelper;
+  private providerModelHelper: ProviderModelHelper;
+  private systemPromptHelper: SystemPromptHelper;
+  private uiSettingsHelper: UiSettingsHelper;
+  private agentRepository: AgentRepository | null = null;
+  private dbBackedSettingsStore: AppSettingsDbBackedStore | null = null;
   // Custom prompts cache for high-frequency read operations
-  private customPromptsCache: Prompt[] | null = null
+  private customPromptsCache: Prompt[] | null = null;
 
   constructor() {
-    this.userDataPath = app.getPath('userData')
-    this.currentAppVersion = app.getVersion()
+    this.userDataPath = app.getPath("userData");
+    this.currentAppVersion = app.getVersion();
     // Initialize application settings storage
     this.store = new ElectronStore<IAppSettings>({
-      name: 'app-settings',
+      name: "app-settings",
       defaults: {
-        language: 'system',
+        language: "system",
         providers: defaultProviders,
         closeToQuit: false,
         customShortKey: defaultShortcutKey,
-        proxyMode: 'system',
-        customProxyUrl: '',
+        proxyMode: "system",
+        customProxyUrl: "",
         artifactsEffectEnabled: true,
         searchPreviewEnabled: true,
         contentProtectionEnabled: false,
         privacyModeEnabled: false,
         syncEnabled: false,
-        syncFolderPath: path.join(this.userDataPath, 'sync'),
+        syncFolderPath: path.join(this.userDataPath, "sync"),
         lastSyncTime: 0,
         copyWithCotEnabled: true,
         autoCompactionEnabled: true,
@@ -438,576 +410,548 @@ export class ConfigPresenter implements IConfigPresenter {
         autoCompactionRetainRecentPairs: 2,
         loggingEnabled: false,
         floatingButtonEnabled: false,
-        fontFamily: '',
-        codeFontFamily: '',
-        default_system_prompt: '',
-        skillsPath: path.join(app.getPath('home'), '.deepchat', 'skills'),
+        fontFamily: "",
+        codeFontFamily: "",
+        default_system_prompt: "",
+        skillsPath: path.join(app.getPath("home"), ".deepchat", "skills"),
         enableSkills: true,
         skillDraftSuggestionsEnabled: false,
         // updateChannel 不预填，首次由 getUpdateChannel() 根据当前应用版本号推断（避免 beta 安装包被默认推入 stable 渠道）
         appVersion: this.currentAppVersion,
         hooksNotifications: createDefaultHooksNotificationsConfig(),
-        scheduledTasks: createDefaultScheduledTasksSettings()
-      }
-    })
+        scheduledTasks: createDefaultScheduledTasksSettings(),
+      },
+    });
 
     this.providerHelper = new ProviderHelper({
       store: this.store,
       setSetting: this.setSetting.bind(this),
-      defaultProviders
-    })
+      defaultProviders,
+    });
 
     this.modelStatusHelper = new ModelStatusHelper({
       store: this.store,
-      setSetting: this.setSetting.bind(this)
-    })
+      setSetting: this.setSetting.bind(this),
+    });
 
-    this.initTheme()
+    this.initTheme();
 
     // Initialize custom prompts storage
     this.customPromptsStore = new ElectronStore<{ prompts: Prompt[] }>({
-      name: 'custom_prompts',
+      name: "custom_prompts",
       defaults: {
-        prompts: []
-      }
-    })
+        prompts: [],
+      },
+    });
 
     this.systemPromptsStore = new ElectronStore<{ prompts: SystemPrompt[] }>({
-      name: 'system_prompts',
+      name: "system_prompts",
       defaults: {
         prompts: [
           {
-            id: 'default',
-            name: 'DeepChat',
+            id: "default",
+            name: "DeepChat",
             content: DEFAULT_SYSTEM_PROMPT,
             isDefault: true,
             createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        ]
-      }
-    })
+            updatedAt: Date.now(),
+          },
+        ],
+      },
+    });
 
     this.systemPromptHelper = new SystemPromptHelper({
       systemPromptsStore: this.systemPromptsStore,
       getSetting: this.getSetting.bind(this),
-      setSetting: this.setSetting.bind(this)
-    })
+      setSetting: this.setSetting.bind(this),
+    });
 
     this.uiSettingsHelper = new UiSettingsHelper({
       getSetting: this.getSetting.bind(this),
-      setSetting: this.setSetting.bind(this)
-    })
+      setSetting: this.setSetting.bind(this),
+    });
 
     // Initialize MCP configuration helper
-    this.mcpConfHelper = new McpConfHelper()
+    this.mcpConfHelper = new McpConfHelper();
 
-    this.acpConfHelper = new AcpConfHelper({ mcpConfHelper: this.mcpConfHelper })
+    this.acpConfHelper = new AcpConfHelper({ mcpConfHelper: this.mcpConfHelper });
     this.acpRegistryService = new AcpRegistryService({
-      isPrivacyModeEnabled: () => this.getPrivacyModeEnabled()
-    })
-    this.acpLaunchSpecService = new AcpLaunchSpecService(
-      path.join(this.userDataPath, 'acp-registry')
-    )
-    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled())
+      isPrivacyModeEnabled: () => this.getPrivacyModeEnabled(),
+    });
+    this.acpLaunchSpecService = new AcpLaunchSpecService(path.join(this.userDataPath, "acp-registry"));
+    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled());
     void this.acpRegistryService
       .initialize()
       .then(() => {
-        this.syncRegistryAgentsToRepository()
-        this.notifyAcpAgentsChanged()
+        this.syncRegistryAgentsToRepository();
+        this.notifyAcpAgentsChanged();
       })
       .catch((error) => {
-        console.error('[ACP] Failed to initialize registry service:', error)
-      })
+        console.error("[ACP] Failed to initialize registry service:", error);
+      });
 
     // Initialize model configuration helper
-    this.modelConfigHelper = new ModelConfigHelper(this.currentAppVersion)
+    this.modelConfigHelper = new ModelConfigHelper(this.currentAppVersion);
 
     // Initialize knowledge configuration helper
-    this.knowledgeConfHelper = new KnowledgeConfHelper()
+    this.knowledgeConfHelper = new KnowledgeConfHelper();
 
     this.providerModelHelper = new ProviderModelHelper({
       userDataPath: this.userDataPath,
-      getModelConfig: (modelId: string, providerId?: string) =>
-        this.getModelConfig(modelId, providerId),
+      getModelConfig: (modelId: string, providerId?: string) => this.getModelConfig(modelId, providerId),
       setModelStatus: this.modelStatusHelper.setModelStatus.bind(this.modelStatusHelper),
-      deleteModelStatus: this.modelStatusHelper.deleteModelStatus.bind(this.modelStatusHelper)
-    })
+      deleteModelStatus: this.modelStatusHelper.deleteModelStatus.bind(this.modelStatusHelper),
+    });
     this.providerHelper.setCleanupHooks({
-      deleteProviderModelStatuses: this.modelStatusHelper.deleteProviderModelStatuses.bind(
-        this.modelStatusHelper
-      ),
-      clearProviderModelStore: this.providerModelHelper.clearProviderModelStore.bind(
-        this.providerModelHelper
-      )
-    })
+      deleteProviderModelStatuses: this.modelStatusHelper.deleteProviderModelStatuses.bind(this.modelStatusHelper),
+      clearProviderModelStore: this.providerModelHelper.clearProviderModelStore.bind(this.providerModelHelper),
+    });
 
     // Initialize built-in ACP agents on first run or version upgrade
     // Initialize provider models directory
-    this.initProviderModelsDir()
+    this.initProviderModelsDir();
 
     // 初始化 Provider DB（外部聚合 JSON，本地内置为兜底）
-    providerDbLoader.setPrivacyModeResolver(() => this.getPrivacyModeEnabled())
+    providerDbLoader.setPrivacyModeResolver(() => this.getPrivacyModeEnabled());
     providerDbLoader.initialize().catch((error) => {
-      console.warn('[ConfigPresenter] Failed to initialize provider DB:', error)
-    })
+      console.warn("[ConfigPresenter] Failed to initialize provider DB:", error);
+    });
 
     // If application version is updated, update appVersion
-    if (this.store.get('appVersion') !== this.currentAppVersion) {
-      const oldVersion = this.store.get('appVersion')
-      this.store.set('appVersion', this.currentAppVersion)
+    if (this.store.get("appVersion") !== this.currentAppVersion) {
+      const oldVersion = this.store.get("appVersion");
+      this.store.set("appVersion", this.currentAppVersion);
       // Migrate data
-      this.migrateConfigData(oldVersion)
-      this.mcpConfHelper.onUpgrade(oldVersion)
+      this.migrateConfigData(oldVersion);
+      this.mcpConfHelper.onUpgrade(oldVersion);
     }
 
     // Migrate minimax provider from OpenAI format to Anthropic format
-    this.migrateMinimaxProvider()
-    this.migrateAnthropicProviderToApiOnly()
-    this.cleanupDeprecatedBuiltinProviders()
+    this.migrateMinimaxProvider();
+    this.migrateAnthropicProviderToApiOnly();
+    this.cleanupDeprecatedBuiltinProviders();
 
-    const existingProviders = this.getSetting<LLM_PROVIDER[]>(PROVIDERS_STORE_KEY) || []
+    const existingProviders = this.getSetting<LLM_PROVIDER[]>(PROVIDERS_STORE_KEY) || [];
     const newProviders = defaultProviders.filter(
-      (defaultProvider) =>
-        !existingProviders.some((existingProvider) => existingProvider.id === defaultProvider.id)
-    )
+      (defaultProvider) => !existingProviders.some((existingProvider) => existingProvider.id === defaultProvider.id),
+    );
 
     if (newProviders.length > 0) {
-      this.setProviders([...existingProviders, ...newProviders])
+      this.setProviders([...existingProviders, ...newProviders]);
     }
   }
 
   setAgentRepository(agentRepository: AgentRepository): void {
-    this.agentRepository = agentRepository
-    this.initializeUnifiedAgents()
-    this.reconcileLegacyBuiltinAgentSelections()
-    this.cleanupDeprecatedBuiltinAgentSelections()
+    this.agentRepository = agentRepository;
+    this.initializeUnifiedAgents();
+    this.reconcileLegacyBuiltinAgentSelections();
+    this.cleanupDeprecatedBuiltinAgentSelections();
   }
 
   setSQLitePresenter(sqlitePresenter: SQLitePresenter): void {
     try {
-      this.migrateConfigStoresToSqlite(sqlitePresenter)
-      this.migrateSensitiveConfigStoresToSqlite(sqlitePresenter)
-      this.attachDbBackedConfigStores(sqlitePresenter)
+      this.migrateConfigStoresToSqlite(sqlitePresenter);
+      this.migrateSensitiveConfigStoresToSqlite(sqlitePresenter);
+      this.attachDbBackedConfigStores(sqlitePresenter);
     } catch (error) {
-      console.error('[Config] Failed to attach sqlite-backed config storage:', error)
-      throw error
+      console.error("[Config] Failed to attach sqlite-backed config storage:", error);
+      throw error;
     }
   }
 
   cleanupLegacyProviderJsonForDatabaseEncryption(): number {
     if (!this.dbBackedSettingsStore) {
-      return 0
+      return 0;
     }
 
-    const legacyProviders = this.store.get(PROVIDERS_STORE_KEY)
+    const legacyProviders = this.store.get(PROVIDERS_STORE_KEY);
     if (!Array.isArray(legacyProviders) || legacyProviders.length === 0) {
-      return 0
+      return 0;
     }
 
-    this.store.delete(PROVIDERS_STORE_KEY)
-    console.info('[Config] Removed legacy providers from app-settings JSON after SQLite migration')
-    return legacyProviders.length
+    this.store.delete(PROVIDERS_STORE_KEY);
+    console.info("[Config] Removed legacy providers from app-settings JSON after SQLite migration");
+    return legacyProviders.length;
   }
 
   private migrateConfigStoresToSqlite(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables
+    const configTables = sqlitePresenter.configTables;
     if (configTables.hasConfigMigration()) {
-      return
+      return;
     }
 
-    const providers = this.providerHelper.getProviders()
-    const providerIds = providers.map((provider) => provider.id)
-    const providerOrder = this.readLegacyStringArray('providerOrder') ?? providerIds
-    const providerTimestamps = this.readLegacyNumberRecord('providerTimestamps')
+    const providers = this.providerHelper.getProviders();
+    const providerIds = providers.map((provider) => provider.id);
+    const providerOrder = this.readLegacyStringArray("providerOrder") ?? providerIds;
+    const providerTimestamps = this.readLegacyNumberRecord("providerTimestamps");
 
-    configTables.replaceProviders(providers, providerOrder, providerTimestamps)
+    configTables.replaceProviders(providers, providerOrder, providerTimestamps);
 
     for (const provider of providers) {
-      const store = this.providerModelHelper.getProviderModelStore(provider.id)
-      const models = store.get<MODEL_META[]>('models', [])
-      const customModels = store.get<MODEL_META[]>('custom_models', [])
+      const store = this.providerModelHelper.getProviderModelStore(provider.id);
+      const models = store.get<MODEL_META[]>("models", []);
+      const customModels = store.get<MODEL_META[]>("custom_models", []);
       if (Array.isArray(models)) {
-        configTables.replaceProviderModels(provider.id, 'provider', models)
+        configTables.replaceProviderModels(provider.id, "provider", models);
       }
       if (Array.isArray(customModels)) {
-        configTables.replaceProviderModels(provider.id, 'custom', customModels)
+        configTables.replaceProviderModels(provider.id, "custom", customModels);
       }
     }
 
     for (const [statusKey, enabled] of this.readLegacyModelStatuses()) {
-      const parsed = this.parseLegacyModelStatusKey(statusKey, providerIds)
-      configTables.setModelStatus(statusKey, parsed.providerId, parsed.modelId, enabled)
+      const parsed = this.parseLegacyModelStatusKey(statusKey, providerIds);
+      configTables.setModelStatus(statusKey, parsed.providerId, parsed.modelId, enabled);
     }
 
-    const modelConfigs = this.modelConfigHelper.exportConfigs()
+    const modelConfigs = this.modelConfigHelper.exportConfigs();
     for (const [cacheKey, config] of Object.entries(modelConfigs)) {
-      configTables.setModelConfigStoreEntry(cacheKey, config)
+      configTables.setModelConfigStoreEntry(cacheKey, config);
     }
 
-    const mcpStore = this.mcpConfHelper.getStoreForMigration()
-    const mcpServers = mcpStore.get<Record<string, MCPServerConfig>>('mcpServers', {})
-    if (mcpServers && typeof mcpServers === 'object' && !Array.isArray(mcpServers)) {
-      configTables.replaceMcpServers(mcpServers)
+    const mcpStore = this.mcpConfHelper.getStoreForMigration();
+    const mcpServers = mcpStore.get<Record<string, MCPServerConfig>>("mcpServers", {});
+    if (mcpServers && typeof mcpServers === "object" && !Array.isArray(mcpServers)) {
+      configTables.replaceMcpServers(mcpServers);
     }
 
     for (const [key, value] of Object.entries(mcpStore.store)) {
-      if (key === 'mcpServers') {
-        continue
+      if (key === "mcpServers") {
+        continue;
       }
       if (value !== undefined) {
-        configTables.setMcpSetting(key, value)
+        configTables.setMcpSetting(key, value);
       }
     }
 
-    configTables.setAgentSetting('enabled', this.acpConfHelper.getGlobalEnabled())
-    configTables.setAgentSetting('version', '4')
-    configTables.setAgentMcpSelections(this.acpConfHelper.getSharedMcpSelections())
-    configTables.markConfigMigrationApplied()
+    configTables.setAgentSetting("enabled", this.acpConfHelper.getGlobalEnabled());
+    configTables.setAgentSetting("version", "4");
+    configTables.setAgentMcpSelections(this.acpConfHelper.getSharedMcpSelections());
+    configTables.markConfigMigrationApplied();
   }
 
   private migrateSensitiveConfigStoresToSqlite(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables
-    const migrationId = 'sensitive-config-sqlite-v1'
+    const configTables = sqlitePresenter.configTables;
+    const migrationId = "sensitive-config-sqlite-v1";
     if (configTables.hasConfigMigration(migrationId)) {
-      return
+      return;
     }
 
     for (const key of SENSITIVE_APP_SETTING_KEYS) {
-      if (key === 'customPrompts' || key === 'systemPrompts' || key === 'knowledgeConfigs') {
-        continue
+      if (key === "customPrompts" || key === "systemPrompts" || key === "knowledgeConfigs") {
+        continue;
       }
-      const value = this.store.get(key)
+      const value = this.store.get(key);
       if (value !== undefined) {
-        configTables.setAppSetting(key, value, true)
-        this.store.delete(key)
+        configTables.setAppSetting(key, value, true);
+        this.store.delete(key);
       }
     }
 
-    const customPrompts = this.customPromptsStore.get('prompts') || []
-    configTables.setAppSetting('customPrompts', customPrompts, true)
-    this.customPromptsStore.set('prompts', [])
-    this.customPromptsCache = null
+    const customPrompts = this.customPromptsStore.get("prompts") || [];
+    configTables.setAppSetting("customPrompts", customPrompts, true);
+    this.customPromptsStore.set("prompts", []);
+    this.customPromptsCache = null;
 
-    const systemPrompts = this.systemPromptsStore.get('prompts') || []
-    configTables.setAppSetting('systemPrompts', systemPrompts, true)
-    this.systemPromptsStore.set('prompts', [])
+    const systemPrompts = this.systemPromptsStore.get("prompts") || [];
+    configTables.setAppSetting("systemPrompts", systemPrompts, true);
+    this.systemPromptsStore.set("prompts", []);
 
-    const knowledgeConfigs = this.knowledgeConfHelper.getKnowledgeConfigs()
-    configTables.setAppSetting('knowledgeConfigs', knowledgeConfigs, true)
-    this.knowledgeConfHelper.setKnowledgeConfigs([])
+    const knowledgeConfigs = this.knowledgeConfHelper.getKnowledgeConfigs();
+    configTables.setAppSetting("knowledgeConfigs", knowledgeConfigs, true);
+    this.knowledgeConfHelper.setKnowledgeConfigs([]);
 
-    configTables.markConfigMigrationApplied(migrationId)
+    configTables.markConfigMigrationApplied(migrationId);
   }
 
   private attachDbBackedConfigStores(sqlitePresenter: SQLitePresenter): void {
-    const configTables = sqlitePresenter.configTables
-    const legacyAppStore = this.store as unknown as StoreLike<Record<string, unknown>>
-    const appSettingsStore = new AppSettingsDbBackedStore(legacyAppStore, configTables)
-    const legacyMcpStore = this.mcpConfHelper.getStoreForMigration()
-    const legacyAcpStore = this.acpConfHelper.getStoreForMigration()
+    const configTables = sqlitePresenter.configTables;
+    const legacyAppStore = this.store as unknown as StoreLike<Record<string, unknown>>;
+    const appSettingsStore = new AppSettingsDbBackedStore(legacyAppStore, configTables);
+    const legacyMcpStore = this.mcpConfHelper.getStoreForMigration();
+    const legacyAcpStore = this.acpConfHelper.getStoreForMigration();
 
-    this.providerHelper.setStore(appSettingsStore)
-    this.modelStatusHelper.setStore(appSettingsStore)
-    this.providerModelHelper.setStoreFactory(
-      (providerId) => new ProviderModelDbStore(providerId, configTables)
-    )
-    this.modelConfigHelper.setStore(
-      new ModelConfigDbStore(configTables) as unknown as StoreLike<any>
-    )
-    this.mcpConfHelper.setStore(
-      new McpDbStore(legacyMcpStore, configTables) as unknown as StoreLike<any>
-    )
-    this.acpConfHelper.setStore(
-      new AcpDbStore(legacyAcpStore, configTables) as unknown as StoreLike<any>
-    )
-    this.dbBackedSettingsStore = appSettingsStore
+    this.providerHelper.setStore(appSettingsStore);
+    this.modelStatusHelper.setStore(appSettingsStore);
+    this.providerModelHelper.setStoreFactory((providerId) => new ProviderModelDbStore(providerId, configTables));
+    this.modelConfigHelper.setStore(new ModelConfigDbStore(configTables) as unknown as StoreLike<any>);
+    this.mcpConfHelper.setStore(new McpDbStore(legacyMcpStore, configTables) as unknown as StoreLike<any>);
+    this.acpConfHelper.setStore(new AcpDbStore(legacyAcpStore, configTables) as unknown as StoreLike<any>);
+    this.dbBackedSettingsStore = appSettingsStore;
 
-    this.providerHelper.getProviders()
-    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled())
+    this.providerHelper.getProviders();
+    this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled());
   }
 
   private getSettingsStoreForKey(key: string): StoreLike<Record<string, unknown>> {
     if (this.dbBackedSettingsStore && this.isDbBackedAppSettingKey(key)) {
-      return this.dbBackedSettingsStore
+      return this.dbBackedSettingsStore;
     }
-    return this.store as unknown as StoreLike<Record<string, unknown>>
+    return this.store as unknown as StoreLike<Record<string, unknown>>;
   }
 
   private isDbBackedAppSettingKey(key: string): boolean {
     return (
-      key === 'providers' ||
-      key === 'providerOrder' ||
-      key === 'providerTimestamps' ||
-      key.startsWith('model_status_') ||
+      key === "providers" ||
+      key === "providerOrder" ||
+      key === "providerTimestamps" ||
+      key.startsWith("model_status_") ||
       SENSITIVE_APP_SETTING_KEYS.includes(key as (typeof SENSITIVE_APP_SETTING_KEYS)[number])
-    )
+    );
   }
 
   private readLegacyStringArray(key: string): string[] | null {
-    const value = this.store.get(key)
+    const value = this.store.get(key);
     if (!Array.isArray(value)) {
-      return null
+      return null;
     }
-    return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    return value.filter((item): item is string => typeof item === "string" && item.length > 0);
   }
 
   private readLegacyNumberRecord(key: string): Record<string, number> {
-    const value = this.store.get(key)
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {}
+    const value = this.store.get(key);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return {};
     }
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).filter(
-        (entry): entry is [string, number] =>
-          typeof entry[1] === 'number' && Number.isFinite(entry[1])
-      )
-    )
+        (entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]),
+      ),
+    );
   }
 
   private readLegacyModelStatuses(): Array<[string, boolean]> {
-    const rawStore = this.store.store as Record<string, unknown>
+    const rawStore = this.store.store as Record<string, unknown>;
     return Object.entries(rawStore).filter(
-      (entry): entry is [string, boolean] =>
-        entry[0].startsWith('model_status_') && typeof entry[1] === 'boolean'
-    )
+      (entry): entry is [string, boolean] => entry[0].startsWith("model_status_") && typeof entry[1] === "boolean",
+    );
   }
 
-  private parseLegacyModelStatusKey(
-    statusKey: string,
-    providerIds: string[]
-  ): { providerId: string; modelId: string } {
-    const suffix = statusKey.slice('model_status_'.length)
+  private parseLegacyModelStatusKey(statusKey: string, providerIds: string[]): { providerId: string; modelId: string } {
+    const suffix = statusKey.slice("model_status_".length);
     const matchedProvider = [...providerIds]
       .sort((a, b) => b.length - a.length)
-      .find((providerId) => suffix.startsWith(`${providerId}_`))
+      .find((providerId) => suffix.startsWith(`${providerId}_`));
 
     if (matchedProvider) {
       return {
         providerId: matchedProvider,
-        modelId: suffix.slice(matchedProvider.length + 1)
-      }
+        modelId: suffix.slice(matchedProvider.length + 1),
+      };
     }
 
-    const separatorIndex = suffix.indexOf('_')
+    const separatorIndex = suffix.indexOf("_");
     if (separatorIndex === -1) {
-      return { providerId: '', modelId: suffix }
+      return { providerId: "", modelId: suffix };
     }
 
     return {
       providerId: suffix.slice(0, separatorIndex),
-      modelId: suffix.slice(separatorIndex + 1)
-    }
+      modelId: suffix.slice(separatorIndex + 1),
+    };
   }
 
   private getAgentRepositoryOrThrow(): AgentRepository {
     if (!this.agentRepository) {
-      throw new Error('Unified agent repository is not attached.')
+      throw new Error("Unified agent repository is not attached.");
     }
-    return this.agentRepository
+    return this.agentRepository;
   }
 
   private initializeUnifiedAgents(): void {
-    const repository = this.getAgentRepositoryOrThrow()
+    const repository = this.getAgentRepositoryOrThrow();
 
     repository.ensureBuiltinDeepChatAgent({
-      name: 'DeepChat',
-      config: this.buildLegacyBuiltinDeepChatConfig()
-    })
+      name: "DeepChat",
+      config: this.buildLegacyBuiltinDeepChatConfig(),
+    });
 
-    const migratedVersion = this.getSetting<number>('unifiedAgentsMigrationVersion') ?? 0
+    const migratedVersion = this.getSetting<number>("unifiedAgentsMigrationVersion") ?? 0;
     if (migratedVersion < UNIFIED_AGENTS_MIGRATION_VERSION) {
       this.acpConfHelper.getManualAgents().forEach((agent) => {
-        repository.createManualAcpAgent(agent)
-      })
+        repository.createManualAcpAgent(agent);
+      });
 
       this.syncRegistryAgentsToRepository(
         this.acpConfHelper.getRegistryStates(),
-        this.acpConfHelper.getInstallStates()
-      )
-      this.store.set('unifiedAgentsMigrationVersion', UNIFIED_AGENTS_MIGRATION_VERSION)
-      return
+        this.acpConfHelper.getInstallStates(),
+      );
+      this.store.set("unifiedAgentsMigrationVersion", UNIFIED_AGENTS_MIGRATION_VERSION);
+      return;
     }
 
-    this.syncRegistryAgentsToRepository()
+    this.syncRegistryAgentsToRepository();
   }
 
   private reconcileLegacyBuiltinAgentSelections(): void {
-    const config = this.getBuiltinDeepChatConfig()
-    const updates: Partial<DeepChatAgentConfig> = {}
+    const config = this.getBuiltinDeepChatConfig();
+    const updates: Partial<DeepChatAgentConfig> = {};
 
-    const legacyDefaultModel = getLiveLegacyModelSelection(
-      this.store.get('defaultModel') as unknown
-    )
+    const legacyDefaultModel = getLiveLegacyModelSelection(this.store.get("defaultModel") as unknown);
     if (legacyDefaultModel && shouldReplaceBuiltinModelSelection(config.defaultModelPreset)) {
-      updates.defaultModelPreset = legacyDefaultModel
+      updates.defaultModelPreset = legacyDefaultModel;
     }
 
-    const legacyAssistantModel = getLiveLegacyModelSelection(
-      this.store.get('assistantModel') as unknown
-    )
+    const legacyAssistantModel = getLiveLegacyModelSelection(this.store.get("assistantModel") as unknown);
     if (legacyAssistantModel && shouldReplaceBuiltinModelSelection(config.assistantModel)) {
-      updates.assistantModel = legacyAssistantModel
+      updates.assistantModel = legacyAssistantModel;
     }
 
-    const legacyVisionSelection = this.store.get('defaultVisionModel') as unknown
-    const legacyVisionModel = getLiveLegacyModelSelection(legacyVisionSelection)
+    const legacyVisionSelection = this.store.get("defaultVisionModel") as unknown;
+    const legacyVisionModel = getLiveLegacyModelSelection(legacyVisionSelection);
     if (legacyVisionModel && shouldReplaceBuiltinModelSelection(config.visionModel)) {
-      updates.visionModel = legacyVisionModel
+      updates.visionModel = legacyVisionModel;
     }
 
     if (Object.keys(updates).length > 0) {
-      this.updateBuiltinDeepChatConfig(updates)
+      this.updateBuiltinDeepChatConfig(updates);
     }
 
     if (legacyVisionSelection !== undefined) {
-      this.store.delete('defaultVisionModel')
-      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, 'defaultVisionModel', undefined)
+      this.store.delete("defaultVisionModel");
+      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, "defaultVisionModel", undefined);
     }
   }
 
   private buildLegacyBuiltinDeepChatConfig(): DeepChatAgentConfig {
-    const defaultModel = this.store.get('defaultModel') as ModelSelection | undefined
-    const assistantModel = this.store.get('assistantModel') as ModelSelection | undefined
-    const visionModel = this.store.get('defaultVisionModel') as ModelSelection | undefined
-    const autoCompactionEnabled = this.store.get('autoCompactionEnabled')
-    const autoCompactionTriggerThreshold = this.store.get('autoCompactionTriggerThreshold')
-    const autoCompactionRetainRecentPairs = this.store.get('autoCompactionRetainRecentPairs')
+    const defaultModel = this.store.get("defaultModel") as ModelSelection | undefined;
+    const assistantModel = this.store.get("assistantModel") as ModelSelection | undefined;
+    const visionModel = this.store.get("defaultVisionModel") as ModelSelection | undefined;
+    const autoCompactionEnabled = this.store.get("autoCompactionEnabled");
+    const autoCompactionTriggerThreshold = this.store.get("autoCompactionTriggerThreshold");
+    const autoCompactionRetainRecentPairs = this.store.get("autoCompactionRetainRecentPairs");
 
     return normalizeDeepChatSubagentConfig({
       defaultModelPreset:
         defaultModel?.providerId && defaultModel?.modelId
           ? {
               providerId: defaultModel.providerId,
-              modelId: defaultModel.modelId
+              modelId: defaultModel.modelId,
             }
           : null,
       assistantModel:
         assistantModel?.providerId && assistantModel?.modelId
           ? {
               providerId: assistantModel.providerId,
-              modelId: assistantModel.modelId
+              modelId: assistantModel.modelId,
             }
           : null,
       visionModel:
         visionModel?.providerId && visionModel?.modelId
           ? {
               providerId: visionModel.providerId,
-              modelId: visionModel.modelId
+              modelId: visionModel.modelId,
             }
           : null,
-      systemPrompt: (this.store.get('default_system_prompt') as string | undefined) ?? '',
-      permissionMode: 'full_access',
+      systemPrompt: (this.store.get("default_system_prompt") as string | undefined) ?? "",
+      permissionMode: "full_access",
       disabledAgentTools: [],
-      autoCompactionEnabled:
-        typeof autoCompactionEnabled === 'boolean' ? autoCompactionEnabled : true,
+      autoCompactionEnabled: typeof autoCompactionEnabled === "boolean" ? autoCompactionEnabled : true,
       autoCompactionTriggerThreshold:
-        typeof autoCompactionTriggerThreshold === 'number' ? autoCompactionTriggerThreshold : 80,
+        typeof autoCompactionTriggerThreshold === "number" ? autoCompactionTriggerThreshold : 80,
       autoCompactionRetainRecentPairs:
-        typeof autoCompactionRetainRecentPairs === 'number' ? autoCompactionRetainRecentPairs : 2
-    })
+        typeof autoCompactionRetainRecentPairs === "number" ? autoCompactionRetainRecentPairs : 2,
+    });
   }
 
   private syncRegistryAgentsToRepository(
     legacyStateById?: Record<string, AcpAgentState>,
-    legacyInstallStateById?: Record<string, AcpAgentInstallState>
+    legacyInstallStateById?: Record<string, AcpAgentInstallState>,
   ): void {
     if (!this.agentRepository) {
-      return
+      return;
     }
 
     try {
       this.agentRepository.syncRegistryAgents(
         this.acpRegistryService.listAgents(),
         legacyStateById,
-        legacyInstallStateById
-      )
+        legacyInstallStateById,
+      );
     } catch (error) {
-      console.warn('[Agents] Failed to sync ACP registry agents into sqlite:', error)
+      console.warn("[Agents] Failed to sync ACP registry agents into sqlite:", error);
     }
   }
 
   private getBuiltinDeepChatConfig(): DeepChatAgentConfig {
-    return this.agentRepository?.resolveDeepChatAgentConfig(BUILTIN_DEEPCHAT_AGENT_ID) ?? {}
+    return this.agentRepository?.resolveDeepChatAgentConfig(BUILTIN_DEEPCHAT_AGENT_ID) ?? {};
   }
 
   private updateBuiltinDeepChatConfig(updates: Partial<DeepChatAgentConfig>): void {
     if (!this.agentRepository) {
-      return
+      return;
     }
 
     this.agentRepository.updateDeepChatAgent(BUILTIN_DEEPCHAT_AGENT_ID, {
-      config: updates
-    })
-    this.notifyAcpAgentsChanged()
+      config: updates,
+    });
+    this.notifyAcpAgentsChanged();
   }
 
   private cleanupDeprecatedBuiltinAgentSelections(): void {
-    const config = this.getBuiltinDeepChatConfig()
-    const updates: Partial<DeepChatAgentConfig> = {}
+    const config = this.getBuiltinDeepChatConfig();
+    const updates: Partial<DeepChatAgentConfig> = {};
 
     if (isDeprecatedBuiltinModelSelection(config.defaultModelPreset)) {
-      updates.defaultModelPreset = null
+      updates.defaultModelPreset = null;
     }
 
     if (isDeprecatedBuiltinModelSelection(config.assistantModel)) {
-      updates.assistantModel = null
+      updates.assistantModel = null;
     }
 
     if (isDeprecatedBuiltinModelSelection(config.visionModel)) {
-      updates.visionModel = null
+      updates.visionModel = null;
     }
 
     if (isDeprecatedBuiltinModelSelection(config.imageGenerationModel)) {
-      updates.imageGenerationModel = null
+      updates.imageGenerationModel = null;
     }
 
     if (Object.keys(updates).length > 0) {
-      this.updateBuiltinDeepChatConfig(updates)
+      this.updateBuiltinDeepChatConfig(updates);
     }
   }
 
   private initProviderModelsDir(): void {
-    const modelsDir = path.join(this.userDataPath, PROVIDER_MODELS_DIR)
+    const modelsDir = path.join(this.userDataPath, PROVIDER_MODELS_DIR);
     if (!fs.existsSync(modelsDir)) {
-      fs.mkdirSync(modelsDir, { recursive: true })
+      fs.mkdirSync(modelsDir, { recursive: true });
     }
   }
 
   // 提供聚合 Provider DB（只读）给渲染层/其他模块
   getProviderDb(): ProviderAggregate | null {
-    return providerDbLoader.getDb()
+    return providerDbLoader.getDb();
   }
 
   async refreshProviderDb(force = false): Promise<ProviderDbRefreshResult> {
-    return providerDbLoader.refreshIfNeeded(force)
+    return providerDbLoader.refreshIfNeeded(force);
   }
 
   private resolveCapabilityRoute(
     providerId: string,
-    modelId: string
+    modelId: string,
   ): {
-    endpointType?: NewApiEndpointType
-    supportedEndpointTypes?: NewApiEndpointType[]
-    type?: ModelType
-    providerApiType?: string
-    ownedBy?: string
+    endpointType?: NewApiEndpointType;
+    supportedEndpointTypes?: NewApiEndpointType[];
+    type?: ModelType;
+    providerApiType?: string;
+    ownedBy?: string;
   } | null {
-    const providerApiType = this.providerHelper?.getProviderById?.(providerId)?.apiType
-    const modelConfig = this.getModelConfig(modelId, providerId)
+    const providerApiType = this.providerHelper?.getProviderById?.(providerId)?.apiType;
+    const modelConfig = this.getModelConfig(modelId, providerId);
     if (isNewApiEndpointType(modelConfig.endpointType)) {
       return {
         endpointType: modelConfig.endpointType,
         providerApiType,
-        ownedBy: modelConfig.ownedBy
-      }
+        ownedBy: modelConfig.ownedBy,
+      };
     }
 
     const storedModel =
-      this.providerModelHelper
-        .getProviderModels(providerId)
-        .find((model) => model.id === modelId) ??
-      this.getCustomModels(providerId).find((model) => model.id === modelId)
+      this.providerModelHelper.getProviderModels(providerId).find((model) => model.id === modelId) ??
+      this.getCustomModels(providerId).find((model) => model.id === modelId);
 
     if (storedModel) {
       return {
@@ -1015,486 +959,432 @@ export class ConfigPresenter implements IConfigPresenter {
         supportedEndpointTypes: storedModel.supportedEndpointTypes,
         type: storedModel.type,
         providerApiType,
-        ownedBy: storedModel.ownedBy ?? modelConfig.ownedBy
-      }
+        ownedBy: storedModel.ownedBy ?? modelConfig.ownedBy,
+      };
     }
 
     return providerApiType
       ? {
-          providerApiType
+          providerApiType,
         }
-      : null
+      : null;
   }
 
   getCapabilityProviderId(providerId: string, modelId: string): string {
-    return resolveProviderCapabilityProviderId(
-      providerId,
-      this.resolveCapabilityRoute(providerId, modelId),
-      modelId
-    )
+    return resolveProviderCapabilityProviderId(providerId, this.resolveCapabilityRoute(providerId, modelId), modelId);
   }
 
   supportsReasoningCapability(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsReasoning(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.supportsReasoning(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   private inferProviderDbModelType(model: ProviderModel): ModelType {
     const videoGenerationType = resolveVideoGenerationCompatType({
       modelId: model.id,
       type: model.type,
-      modalities: model.modalities
-    })
+      modalities: model.modalities,
+    });
     if (videoGenerationType) {
-      return videoGenerationType
+      return videoGenerationType;
     }
 
-    if (Array.isArray(model.modalities?.output) && model.modalities.output.includes('image')) {
-      return ModelType.ImageGeneration
+    if (Array.isArray(model.modalities?.output) && model.modalities.output.includes("image")) {
+      return ModelType.ImageGeneration;
     }
 
     switch (model.type) {
-      case 'embedding':
-        return ModelType.Embedding
-      case 'rerank':
-        return ModelType.Rerank
-      case 'imageGeneration':
-        return ModelType.ImageGeneration
-      case 'videoGeneration':
-        return ModelType.VideoGeneration
-      case 'tts':
-        return ModelType.TTS
-      case 'chat':
+      case "embedding":
+        return ModelType.Embedding;
+      case "rerank":
+        return ModelType.Rerank;
+      case "imageGeneration":
+        return ModelType.ImageGeneration;
+      case "videoGeneration":
+        return ModelType.VideoGeneration;
+      case "tts":
+        return ModelType.TTS;
+      case "chat":
       default:
-        return ModelType.Chat
+        return ModelType.Chat;
     }
   }
 
   getReasoningPortrait(providerId: string, modelId: string): ReasoningPortrait | null {
-    return modelCapabilities.getReasoningPortrait(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.getReasoningPortrait(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
-  getThinkingBudgetRange(
-    providerId: string,
-    modelId: string
-  ): { min?: number; max?: number; default?: number } {
-    return modelCapabilities.getThinkingBudgetRange(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+  getThinkingBudgetRange(providerId: string, modelId: string): { min?: number; max?: number; default?: number } {
+    return modelCapabilities.getThinkingBudgetRange(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   supportsSearchCapability(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsSearch(providerId, modelId)
+    return modelCapabilities.supportsSearch(providerId, modelId);
   }
 
   getTemperatureCapability(providerId: string, modelId: string): boolean | undefined {
-    return modelCapabilities.getTemperatureCapability(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.getTemperatureCapability(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   supportsTemperatureControl(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsTemperatureControl(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.supportsTemperatureControl(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   getSearchDefaults(
     providerId: string,
-    modelId: string
-  ): { default?: boolean; forced?: boolean; strategy?: 'turbo' | 'max' } {
-    return modelCapabilities.getSearchDefaults(providerId, modelId)
+    modelId: string,
+  ): { default?: boolean; forced?: boolean; strategy?: "turbo" | "max" } {
+    return modelCapabilities.getSearchDefaults(providerId, modelId);
   }
 
   supportsAudioInputCapability(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsAudioInput(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.supportsAudioInput(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   supportsReasoningEffortCapability(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsReasoningEffort(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.supportsReasoningEffort(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   getReasoningEffortDefault(providerId: string, modelId: string): ReasoningEffort | undefined {
-    return modelCapabilities.getReasoningEffortDefault(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.getReasoningEffortDefault(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   supportsVerbosityCapability(providerId: string, modelId: string): boolean {
-    return modelCapabilities.supportsVerbosity(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.supportsVerbosity(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   getVerbosityDefault(providerId: string, modelId: string): Verbosity | undefined {
-    return modelCapabilities.getVerbosityDefault(
-      this.getCapabilityProviderId(providerId, modelId),
-      modelId
-    )
+    return modelCapabilities.getVerbosityDefault(this.getCapabilityProviderId(providerId, modelId), modelId);
   }
 
   private migrateConfigData(oldVersion: string | undefined): void {
     // Before version 0.2.4, minimax's baseUrl was incorrect and needs to be fixed
-    if (oldVersion && compare(oldVersion, '0.2.4', '<')) {
-      const providers = this.getProviders()
+    if (oldVersion && compare(oldVersion, "0.2.4", "<")) {
+      const providers = this.getProviders();
       for (const provider of providers) {
-        if (provider.id === 'minimax') {
-          provider.baseUrl = 'https://api.minimax.chat/v1'
-          this.setProviderById('minimax', provider)
+        if (provider.id === "minimax") {
+          provider.baseUrl = "https://api.minimax.chat/v1";
+          this.setProviderById("minimax", provider);
         }
       }
     }
     // Before version 0.0.10, model data was stored in app-settings.json
-    if (oldVersion && compare(oldVersion, '0.0.10', '<')) {
+    if (oldVersion && compare(oldVersion, "0.0.10", "<")) {
       // Migrate old model data
-      const providers = this.getProviders()
+      const providers = this.getProviders();
 
       for (const provider of providers) {
         // Check and fix ollama's baseUrl
-        if (provider.id === 'ollama' && provider.baseUrl) {
-          if (provider.baseUrl.endsWith('/v1')) {
-            provider.baseUrl = provider.baseUrl.replace(/\/v1$/, '')
+        if (provider.id === "ollama" && provider.baseUrl) {
+          if (provider.baseUrl.endsWith("/v1")) {
+            provider.baseUrl = provider.baseUrl.replace(/\/v1$/, "");
             // Save the modified provider
-            this.setProviderById('ollama', provider)
+            this.setProviderById("ollama", provider);
           }
         }
 
         // Migrate provider models
-        const oldProviderModelsKey = `${provider.id}_models`
-        const oldModels =
-          this.getSetting<(MODEL_META & { enabled: boolean })[]>(oldProviderModelsKey)
+        const oldProviderModelsKey = `${provider.id}_models`;
+        const oldModels = this.getSetting<(MODEL_META & { enabled: boolean })[]>(oldProviderModelsKey);
 
         if (oldModels && oldModels.length > 0) {
-          const store = this.providerModelHelper.getProviderModelStore(provider.id)
+          const store = this.providerModelHelper.getProviderModelStore(provider.id);
           // Iterate through old models, save enabled state
           oldModels.forEach((model) => {
             if (model.enabled) {
-              this.setModelStatus(provider.id, model.id, true)
+              this.setModelStatus(provider.id, model.id, true);
             }
             // @ts-ignore - Need to delete enabled property for independent state storage
-            delete model.enabled
-          })
+            delete model.enabled;
+          });
           // Save model list to new storage
-          store.set('models', oldModels)
+          store.set("models", oldModels);
           // Clear old storage
-          this.store.delete(oldProviderModelsKey)
+          this.store.delete(oldProviderModelsKey);
         }
 
         // Migrate custom models
-        const oldCustomModelsKey = `custom_models_${provider.id}`
-        const oldCustomModels =
-          this.getSetting<(MODEL_META & { enabled: boolean })[]>(oldCustomModelsKey)
+        const oldCustomModelsKey = `custom_models_${provider.id}`;
+        const oldCustomModels = this.getSetting<(MODEL_META & { enabled: boolean })[]>(oldCustomModelsKey);
 
         if (oldCustomModels && oldCustomModels.length > 0) {
-          const store = this.providerModelHelper.getProviderModelStore(provider.id)
+          const store = this.providerModelHelper.getProviderModelStore(provider.id);
           // Iterate through old custom models, save enabled state
           oldCustomModels.forEach((model) => {
             if (model.enabled) {
-              this.setModelStatus(provider.id, model.id, true)
+              this.setModelStatus(provider.id, model.id, true);
             }
             // @ts-ignore - Need to delete enabled property for independent state storage
-            delete model.enabled
-          })
+            delete model.enabled;
+          });
           // Save custom model list to new storage
-          store.set('custom_models', oldCustomModels)
+          store.set("custom_models", oldCustomModels);
           // Clear old storage
-          this.store.delete(oldCustomModelsKey)
+          this.store.delete(oldCustomModelsKey);
         }
       }
     }
 
     // Before version 0.0.17, need to remove qwenlm provider
-    if (oldVersion && compare(oldVersion, '0.0.17', '<')) {
+    if (oldVersion && compare(oldVersion, "0.0.17", "<")) {
       // Get all current providers
-      const providers = this.getProviders()
+      const providers = this.getProviders();
 
       // Filter out qwenlm provider
-      const filteredProviders = providers.filter((provider) => provider.id !== 'qwenlm')
+      const filteredProviders = providers.filter((provider) => provider.id !== "qwenlm");
 
       // If filtered count differs, there was removal operation, need to save updated provider list
       if (filteredProviders.length !== providers.length) {
-        this.setProviders(filteredProviders)
+        this.setProviders(filteredProviders);
       }
     }
 
     // Before version 0.3.5, handle migration and settings of default system prompt
-    if (oldVersion && compare(oldVersion, '0.3.5', '<')) {
+    if (oldVersion && compare(oldVersion, "0.3.5", "<")) {
       try {
-        const currentPrompt = this.getSetting<string>('default_system_prompt')
-        if (!currentPrompt || currentPrompt.trim() === '') {
-          this.setSetting('default_system_prompt', DEFAULT_SYSTEM_PROMPT)
+        const currentPrompt = this.getSetting<string>("default_system_prompt");
+        if (!currentPrompt || currentPrompt.trim() === "") {
+          this.setSetting("default_system_prompt", DEFAULT_SYSTEM_PROMPT);
         }
-        const legacyDefault = this.getSetting<string>('default_system_prompt')
+        const legacyDefault = this.getSetting<string>("default_system_prompt");
         if (
-          typeof legacyDefault === 'string' &&
+          typeof legacyDefault === "string" &&
           legacyDefault.trim() &&
           legacyDefault.trim() !== DEFAULT_SYSTEM_PROMPT.trim()
         ) {
-          const prompts = (this.systemPromptsStore.get('prompts') || []) as SystemPrompt[]
-          const now = Date.now()
-          const idx = prompts.findIndex((p) => p.id === 'default')
+          const prompts = (this.systemPromptsStore.get("prompts") || []) as SystemPrompt[];
+          const now = Date.now();
+          const idx = prompts.findIndex((p) => p.id === "default");
           if (idx !== -1) {
             prompts[idx] = {
               ...prompts[idx],
               content: legacyDefault,
               isDefault: true,
-              updatedAt: now
-            }
+              updatedAt: now,
+            };
           } else {
             prompts.push({
-              id: 'default',
-              name: 'DeepChat',
+              id: "default",
+              name: "DeepChat",
               content: legacyDefault,
               isDefault: true,
               createdAt: now,
-              updatedAt: now
-            })
+              updatedAt: now,
+            });
           }
-          this.systemPromptsStore.set('prompts', prompts)
+          this.systemPromptsStore.set("prompts", prompts);
         }
       } catch (e) {
-        console.warn('Failed to migrate legacy default_system_prompt:', e)
+        console.warn("Failed to migrate legacy default_system_prompt:", e);
       }
     }
 
     // Before version 0.5.8, split OpenAI Responses and OpenAI Completions semantics
-    if (oldVersion && compare(oldVersion, '0.5.8', '<')) {
-      const providers = this.getProviders()
-      let hasChanges = false
+    if (oldVersion && compare(oldVersion, "0.5.8", "<")) {
+      const providers = this.getProviders();
+      let hasChanges = false;
 
       const migratedProviders = providers.map((provider) => {
-        if (provider.apiType === 'openai-compatible') {
-          hasChanges = true
-          return { ...provider, apiType: 'openai-completions' }
+        if (provider.apiType === "openai-compatible") {
+          hasChanges = true;
+          return { ...provider, apiType: "openai-completions" };
         }
 
-        if (
-          provider.id !== 'openai' &&
-          provider.id !== 'minimax' &&
-          provider.apiType === 'openai'
-        ) {
-          hasChanges = true
-          return { ...provider, apiType: 'openai-completions' }
+        if (provider.id !== "openai" && provider.id !== "minimax" && provider.apiType === "openai") {
+          hasChanges = true;
+          return { ...provider, apiType: "openai-completions" };
         }
 
-        return provider
-      })
+        return provider;
+      });
 
       if (hasChanges) {
-        this.setProviders(migratedProviders)
+        this.setProviders(migratedProviders);
       }
     }
   }
 
   private migrateMinimaxProvider(): void {
-    const providers = this.getProviders()
+    const providers = this.getProviders();
     const legacyMinimax = providers.find(
-      (provider) =>
-        provider.id === 'minimax' &&
-        (provider.apiType === 'openai' || provider.apiType === 'minimax')
-    )
+      (provider) => provider.id === "minimax" && (provider.apiType === "openai" || provider.apiType === "minimax"),
+    );
 
     if (!legacyMinimax) {
-      return
+      return;
     }
 
-    const defaultMinimax = defaultProviders.find((provider) => provider.id === 'minimax')
+    const defaultMinimax = defaultProviders.find((provider) => provider.id === "minimax");
     if (!defaultMinimax) {
-      return
+      return;
     }
 
     const updatedProvider: LLM_PROVIDER = {
       ...defaultMinimax,
-      apiKey: legacyMinimax.apiKey
-    }
+      apiKey: legacyMinimax.apiKey,
+    };
 
-    this.setProviderById('minimax', updatedProvider)
+    this.setProviderById("minimax", updatedProvider);
 
-    if (providers.some((provider) => provider.id === 'minimax-an')) {
-      const filteredProviders = this.getProviders().filter(
-        (provider) => provider.id !== 'minimax-an'
-      )
-      this.setProviders(filteredProviders)
+    if (providers.some((provider) => provider.id === "minimax-an")) {
+      const filteredProviders = this.getProviders().filter((provider) => provider.id !== "minimax-an");
+      this.setProviders(filteredProviders);
     }
   }
 
   private migrateAnthropicProviderToApiOnly(): void {
-    const providers = this.getProviders()
-    const defaultAnthropic = defaultProviders.find((provider) => provider.id === 'anthropic')
-    const fallbackBaseUrl = defaultAnthropic?.baseUrl || 'https://api.anthropic.com'
-    const envApiKey = process.env.ANTHROPIC_API_KEY
-    let hasChanges = false
-    let shouldClearAnthropicSelections = false
+    const providers = this.getProviders();
+    const defaultAnthropic = defaultProviders.find((provider) => provider.id === "anthropic");
+    const fallbackBaseUrl = defaultAnthropic?.baseUrl || "https://api.anthropic.com";
+    const envApiKey = process.env.ANTHROPIC_API_KEY;
+    let hasChanges = false;
+    let shouldClearAnthropicSelections = false;
 
     const normalizedProviders = providers.map((provider) => {
-      if (provider.id !== 'anthropic') {
-        return provider
+      if (provider.id !== "anthropic") {
+        return provider;
       }
 
-      const legacyProvider = provider as AnthropicLegacyProvider
-      const normalized = normalizeAnthropicProviderForApiOnly(
-        legacyProvider,
-        fallbackBaseUrl,
-        envApiKey
-      )
+      const legacyProvider = provider as AnthropicLegacyProvider;
+      const normalized = normalizeAnthropicProviderForApiOnly(legacyProvider, fallbackBaseUrl, envApiKey);
       const shouldDisableForMissingCredential =
-        hasLegacyAnthropicOAuthState(legacyProvider) &&
-        !hasAnthropicApiCredential(legacyProvider, envApiKey)
+        hasLegacyAnthropicOAuthState(legacyProvider) && !hasAnthropicApiCredential(legacyProvider, envApiKey);
 
       if (
         hasLegacyAnthropicOAuthState(legacyProvider) ||
         normalized.enable !== legacyProvider.enable ||
         normalized.baseUrl !== legacyProvider.baseUrl
       ) {
-        hasChanges = true
+        hasChanges = true;
       }
 
       if (shouldDisableForMissingCredential) {
-        shouldClearAnthropicSelections = true
+        shouldClearAnthropicSelections = true;
       }
 
-      return normalized
-    })
+      return normalized;
+    });
 
     if (hasChanges) {
-      this.setProviders(normalizedProviders)
+      this.setProviders(normalizedProviders);
     }
 
     if (shouldClearAnthropicSelections) {
       const keysToClear = getAnthropicModelSelectionKeysToClear({
-        defaultModel: this.getSetting('defaultModel'),
-        assistantModel: this.getSetting('assistantModel'),
-        defaultVisionModel: this.store.get('defaultVisionModel') as
-          | { providerId: string; modelId: string }
-          | undefined,
-        preferredModel: this.getSetting('preferredModel')
-      })
+        defaultModel: this.getSetting("defaultModel"),
+        assistantModel: this.getSetting("assistantModel"),
+        defaultVisionModel: this.store.get("defaultVisionModel") as { providerId: string; modelId: string } | undefined,
+        preferredModel: this.getSetting("preferredModel"),
+      });
 
       for (const key of keysToClear) {
-        this.store.delete(key)
-        eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined)
+        this.store.delete(key);
+        eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined);
       }
     }
   }
 
   private cleanupDeprecatedBuiltinProviders(): void {
-    const providers = this.getProviders()
-    const filteredProviders = removeDeprecatedBuiltinProviders(providers)
+    const providers = this.getProviders();
+    const filteredProviders = removeDeprecatedBuiltinProviders(providers);
 
     if (filteredProviders.length !== providers.length) {
-      this.setProviders(filteredProviders)
+      this.setProviders(filteredProviders);
     }
 
     const keysToClear = getDeprecatedProviderModelSelectionKeysToClear({
-      defaultModel: this.store.get('defaultModel') as ModelSelection | undefined,
-      assistantModel: this.store.get('assistantModel') as ModelSelection | undefined,
-      defaultVisionModel: this.store.get('defaultVisionModel') as ModelSelection | undefined,
-      preferredModel: this.store.get('preferredModel') as ModelSelection | undefined
-    })
+      defaultModel: this.store.get("defaultModel") as ModelSelection | undefined,
+      assistantModel: this.store.get("assistantModel") as ModelSelection | undefined,
+      defaultVisionModel: this.store.get("defaultVisionModel") as ModelSelection | undefined,
+      preferredModel: this.store.get("preferredModel") as ModelSelection | undefined,
+    });
 
     for (const key of keysToClear) {
-      this.store.delete(key)
-      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined)
+      this.store.delete(key);
+      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined);
     }
   }
 
   getSetting<T>(key: string): T | undefined {
     try {
       if (this.agentRepository) {
-        if (key === 'defaultModel') {
-          return this.getDefaultModel() as T | undefined
+        if (key === "defaultModel") {
+          return this.getDefaultModel() as T | undefined;
         }
-        if (key === 'assistantModel') {
-          return this.getBuiltinDeepChatConfig().assistantModel as T | undefined
+        if (key === "assistantModel") {
+          return this.getBuiltinDeepChatConfig().assistantModel as T | undefined;
         }
-        if (key === 'default_system_prompt') {
-          return this.getBuiltinDeepChatConfig().systemPrompt as T | undefined
+        if (key === "default_system_prompt") {
+          return this.getBuiltinDeepChatConfig().systemPrompt as T | undefined;
         }
       }
-      return this.getSettingsStoreForKey(key).get<T>(key)
+      return this.getSettingsStoreForKey(key).get<T>(key);
     } catch (error) {
-      console.error(`[Config] Failed to get setting ${key}:`, error)
-      return undefined
+      console.error(`[Config] Failed to get setting ${key}:`, error);
+      return undefined;
     }
   }
 
   setSetting<T>(key: string, value: T): void {
     try {
       if (this.agentRepository) {
-        if (key === 'defaultModel') {
-          this.setDefaultModel(value as { providerId: string; modelId: string } | undefined)
-          return
+        if (key === "defaultModel") {
+          this.setDefaultModel(value as { providerId: string; modelId: string } | undefined);
+          return;
         }
-        if (key === 'assistantModel') {
+        if (key === "assistantModel") {
           this.updateBuiltinDeepChatConfig({
-            assistantModel: value as { providerId: string; modelId: string } | null | undefined
-          })
-          eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value)
-          return
+            assistantModel: value as { providerId: string; modelId: string } | null | undefined,
+          });
+          eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
+          return;
         }
-        if (key === 'default_system_prompt') {
+        if (key === "default_system_prompt") {
           this.updateBuiltinDeepChatConfig({
-            systemPrompt: typeof value === 'string' ? value : ''
-          })
-          eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value)
-          return
+            systemPrompt: typeof value === "string" ? value : "",
+          });
+          eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
+          return;
         }
       }
 
-      this.getSettingsStoreForKey(key).set(key, value)
+      this.getSettingsStoreForKey(key).set(key, value);
       // Trigger setting change event (main process internal use only)
-      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value)
+      eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
 
       // Special handling: font size settings need to notify all tabs
-      if (key === 'fontSizeLevel') {
-        eventBus.sendToRenderer(CONFIG_EVENTS.FONT_SIZE_CHANGED, SendTarget.ALL_WINDOWS, value)
+      if (key === "fontSizeLevel") {
+        eventBus.sendToRenderer(CONFIG_EVENTS.FONT_SIZE_CHANGED, SendTarget.ALL_WINDOWS, value);
       }
 
-      const trackedChange = toTrackedSettingsChangePayload(key, value)
+      const trackedChange = toTrackedSettingsChangePayload(key, value);
       if (trackedChange) {
-        publishDeepchatEvent('settings.changed', {
+        publishDeepchatEvent("settings.changed", {
           changedKeys: [trackedChange.changedKey],
           version: Date.now(),
           values: {
-            [trackedChange.changedKey]: trackedChange.value
-          } as Partial<SettingsSnapshotValues>
-        })
+            [trackedChange.changedKey]: trackedChange.value,
+          } as Partial<SettingsSnapshotValues>,
+        });
       }
     } catch (error) {
-      console.error(`[Config] Failed to set setting ${key}:`, error)
+      console.error(`[Config] Failed to set setting ${key}:`, error);
     }
   }
 
   getProviders(): LLM_PROVIDER[] {
-    return this.providerHelper.getProviders()
+    return this.providerHelper.getProviders();
   }
 
   setProviders(providers: LLM_PROVIDER[]): void {
-    this.providerHelper.setProviders(providers)
+    this.providerHelper.setProviders(providers);
   }
 
   getProviderById(id: string): LLM_PROVIDER | undefined {
-    return this.providerHelper.getProviderById(id)
+    return this.providerHelper.getProviderById(id);
   }
 
   setProviderById(id: string, provider: LLM_PROVIDER): void {
-    this.providerHelper.setProviderById(id, provider)
+    this.providerHelper.setProviderById(id, provider);
   }
 
   /**
@@ -1504,7 +1394,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @returns 是否需要重建实例
    */
   updateProviderAtomic(id: string, updates: Partial<LLM_PROVIDER>): boolean {
-    return this.providerHelper.updateProviderAtomic(id, updates)
+    return this.providerHelper.updateProviderAtomic(id, updates);
   }
 
   /**
@@ -1512,7 +1402,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param batchUpdate 批量更新请求
    */
   updateProvidersBatch(batchUpdate: ProviderBatchUpdate): void {
-    this.providerHelper.updateProvidersBatch(batchUpdate)
+    this.providerHelper.updateProvidersBatch(batchUpdate);
   }
 
   /**
@@ -1520,7 +1410,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param provider 新的 provider
    */
   addProviderAtomic(provider: LLM_PROVIDER): void {
-    this.providerHelper.addProviderAtomic(provider)
+    this.providerHelper.addProviderAtomic(provider);
   }
 
   /**
@@ -1528,7 +1418,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param providerId Provider ID
    */
   removeProviderAtomic(providerId: string): void {
-    this.providerHelper.removeProviderAtomic(providerId)
+    this.providerHelper.removeProviderAtomic(providerId);
   }
 
   /**
@@ -1536,51 +1426,51 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param providers 新的 provider 排序
    */
   reorderProvidersAtomic(providers: LLM_PROVIDER[]): void {
-    this.providerHelper.reorderProvidersAtomic(providers)
+    this.providerHelper.reorderProvidersAtomic(providers);
   }
 
   getModelStatus(providerId: string, modelId: string): boolean {
-    return this.modelStatusHelper.getModelStatus(providerId, modelId)
+    return this.modelStatusHelper.getModelStatus(providerId, modelId);
   }
 
   getBatchModelStatus(providerId: string, modelIds: string[]): Record<string, boolean> {
-    return this.modelStatusHelper.getBatchModelStatus(providerId, modelIds)
+    return this.modelStatusHelper.getBatchModelStatus(providerId, modelIds);
   }
 
   setModelStatus(providerId: string, modelId: string, enabled: boolean): void {
-    this.modelStatusHelper.setModelStatus(providerId, modelId, enabled)
+    this.modelStatusHelper.setModelStatus(providerId, modelId, enabled);
   }
 
   ensureModelStatus(providerId: string, modelId: string, enabled: boolean): void {
-    this.modelStatusHelper.ensureModelStatus(providerId, modelId, enabled)
+    this.modelStatusHelper.ensureModelStatus(providerId, modelId, enabled);
   }
 
   enableModel(providerId: string, modelId: string): void {
-    this.modelStatusHelper.enableModel(providerId, modelId)
+    this.modelStatusHelper.enableModel(providerId, modelId);
   }
 
   disableModel(providerId: string, modelId: string): void {
-    this.modelStatusHelper.disableModel(providerId, modelId)
+    this.modelStatusHelper.disableModel(providerId, modelId);
   }
 
   clearModelStatusCache(): void {
-    this.modelStatusHelper.clearModelStatusCache()
+    this.modelStatusHelper.clearModelStatusCache();
   }
 
   clearProviderModelStatusCache(providerId: string): void {
-    this.modelStatusHelper.clearProviderModelStatusCache(providerId)
+    this.modelStatusHelper.clearProviderModelStatusCache(providerId);
   }
 
   batchSetModelStatus(providerId: string, modelStatusMap: Record<string, boolean>): void {
-    this.modelStatusHelper.batchSetModelStatus(providerId, modelStatusMap)
+    this.modelStatusHelper.batchSetModelStatus(providerId, modelStatusMap);
   }
 
   batchSetModelStatusQuiet(providerId: string, modelStatusMap: Record<string, boolean>): void {
-    this.modelStatusHelper.batchSetModelStatusQuiet(providerId, modelStatusMap)
+    this.modelStatusHelper.batchSetModelStatusQuiet(providerId, modelStatusMap);
   }
 
   getProviderModels(providerId: string): MODEL_META[] {
-    const models = this.providerModelHelper.getProviderModels(providerId)
+    const models = this.providerModelHelper.getProviderModels(providerId);
     return models.map((model) => {
       const capabilityProviderId = resolveProviderCapabilityProviderId(
         providerId,
@@ -1589,31 +1479,28 @@ export class ConfigPresenter implements IConfigPresenter {
           supportedEndpointTypes: model.supportedEndpointTypes,
           type: model.type,
           providerApiType: this.providerHelper?.getProviderById?.(providerId)?.apiType,
-          ownedBy: model.ownedBy
+          ownedBy: model.ownedBy,
         },
-        model.id
-      )
+        model.id,
+      );
 
       if (capabilityProviderId === providerId) {
-        return model
+        return model;
       }
 
       return {
         ...model,
-        reasoning:
-          model.reasoning === true ||
-          modelCapabilities.supportsReasoning(capabilityProviderId, model.id)
-      }
-    })
+        reasoning: model.reasoning === true || modelCapabilities.supportsReasoning(capabilityProviderId, model.id),
+      };
+    });
   }
 
   // 基于聚合 Provider DB 的标准模型（只读映射，不落库）
   getDbProviderModels(providerId: string): RENDERER_MODEL_META[] {
-    const db = providerDbLoader.getDb()
-    const resolvedId =
-      modelCapabilities.resolveProviderId(providerId.toLowerCase()) || providerId.toLowerCase()
-    const provider = db?.providers?.[resolvedId]
-    if (!provider || !Array.isArray(provider.models)) return []
+    const db = providerDbLoader.getDb();
+    const resolvedId = modelCapabilities.resolveProviderId(providerId.toLowerCase()) || providerId.toLowerCase();
+    const provider = db?.providers?.[resolvedId];
+    if (!provider || !Array.isArray(provider.models)) return [];
     return provider.models.map((m) => ({
       id: m.id,
       name: m.display_name || m.name || m.id,
@@ -1621,51 +1508,48 @@ export class ConfigPresenter implements IConfigPresenter {
       maxTokens: resolveDerivedModelMaxTokens(m.limit?.output),
       provider: providerId,
       providerId,
-      group: 'default',
+      group: "default",
       enabled: false,
       isCustom: false,
       vision: resolveModelVision(
-        Array.isArray(m?.modalities?.input) ? m.modalities!.input!.includes('image') : undefined
+        Array.isArray(m?.modalities?.input) ? m.modalities!.input!.includes("image") : undefined,
       ),
       functionCall: resolveModelFunctionCall(m.tool_call),
       reasoning: this.supportsReasoningCapability(providerId, m.id),
-      type: this.inferProviderDbModelType(m)
-    }))
+      type: this.inferProviderDbModelType(m),
+    }));
   }
 
   getModelDefaultConfig(modelId: string, providerId?: string): ModelConfig {
-    const model = this.getModelConfig(modelId, providerId)
+    const model = this.getModelConfig(modelId, providerId);
     if (model) {
-      return model
+      return model;
     }
     return {
       ...DEFAULT_MODEL_CAPABILITY_FALLBACKS,
       temperature: 0.6,
-      type: ModelType.Chat
-    }
+      type: ModelType.Chat,
+    };
   }
 
   setProviderModels(providerId: string, models: MODEL_META[]): void {
-    this.providerModelHelper.setProviderModels(providerId, models)
+    this.providerModelHelper.setProviderModels(providerId, models);
   }
 
   getEnabledProviders(): LLM_PROVIDER[] {
-    return this.providerHelper.getEnabledProviders()
+    return this.providerHelper.getEnabledProviders();
   }
 
   getAllEnabledModels(): Promise<{ providerId: string; models: RENDERER_MODEL_META[] }[]> {
-    const enabledProviders = this.getEnabledProviders()
+    const enabledProviders = this.getEnabledProviders();
     return Promise.all(
       enabledProviders.map(async (provider) => {
-        const providerId = provider.id
-        const allModels = [
-          ...this.getProviderModels(providerId),
-          ...this.getCustomModels(providerId)
-        ]
+        const providerId = provider.id;
+        const allModels = [...this.getProviderModels(providerId), ...this.getCustomModels(providerId)];
 
         // Batch get model states
-        const modelIds = allModels.map((model) => model.id)
-        const modelStatusMap = this.getBatchModelStatus(providerId, modelIds)
+        const modelIds = allModels.map((model) => model.id);
+        const modelStatusMap = this.getBatchModelStatus(providerId, modelIds);
 
         // Filter enabled models based on batch retrieved states
         const enabledModels = allModels
@@ -1676,334 +1560,329 @@ export class ConfigPresenter implements IConfigPresenter {
             // Ensure capability properties are copied
             vision: model.vision || false,
             functionCall: model.functionCall || false,
-            reasoning: model.reasoning || false
-          }))
+            reasoning: model.reasoning || false,
+          }));
 
         return {
           providerId,
-          models: enabledModels
-        }
-      })
-    )
+          models: enabledModels,
+        };
+      }),
+    );
   }
 
   getCustomModels(providerId: string): MODEL_META[] {
-    return this.providerModelHelper.getCustomModels(providerId)
+    return this.providerModelHelper.getCustomModels(providerId);
   }
 
   isKnownModel(providerId: string, modelId: string): boolean {
-    const normalizedProviderId = normalizeKnownProviderId(providerId)
-    const normalizedModelId = normalizeKnownModelId(modelId)
+    const normalizedProviderId = normalizeKnownProviderId(providerId);
+    const normalizedModelId = normalizeKnownModelId(modelId);
 
     if (!normalizedProviderId || !normalizedModelId) {
-      return false
+      return false;
     }
 
     const hasKnownModel = (models: Array<{ id: string }> | undefined): boolean =>
-      Array.isArray(models) &&
-      models.some((model) => normalizeKnownModelId(model.id) === normalizedModelId)
+      Array.isArray(models) && models.some((model) => normalizeKnownModelId(model.id) === normalizedModelId);
 
     return (
       this.hasUserModelConfig(normalizedModelId, normalizedProviderId) ||
       hasKnownModel(this.getProviderModels(normalizedProviderId)) ||
       hasKnownModel(this.getCustomModels(normalizedProviderId)) ||
       hasKnownModel(this.getDbProviderModels(normalizedProviderId))
-    )
+    );
   }
 
   setCustomModels(providerId: string, models: MODEL_META[]): void {
-    this.providerModelHelper.setCustomModels(providerId, models)
+    this.providerModelHelper.setCustomModels(providerId, models);
   }
 
   addCustomModel(providerId: string, model: MODEL_META): void {
-    this.providerModelHelper.addCustomModel(providerId, model)
+    this.providerModelHelper.addCustomModel(providerId, model);
   }
 
   removeCustomModel(providerId: string, modelId: string): void {
-    this.providerModelHelper.removeCustomModel(providerId, modelId)
+    this.providerModelHelper.removeCustomModel(providerId, modelId);
   }
 
   updateCustomModel(providerId: string, modelId: string, updates: Partial<MODEL_META>): void {
-    this.providerModelHelper.updateCustomModel(providerId, modelId, updates)
+    this.providerModelHelper.updateCustomModel(providerId, modelId, updates);
   }
 
   getCloseToQuit(): boolean {
-    return this.getSetting<boolean>('closeToQuit') ?? false
+    return this.getSetting<boolean>("closeToQuit") ?? false;
   }
 
   setCloseToQuit(value: boolean): void {
-    this.setSetting('closeToQuit', value)
+    this.setSetting("closeToQuit", value);
   }
 
   // Get application current language, considering system language settings
   getLanguage(): string {
-    const language = this.getSetting<string>('language') || 'system'
+    const language = this.getSetting<string>("language") || "system";
 
-    if (language !== 'system') {
-      return language
+    if (language !== "system") {
+      return language;
     }
 
-    return this.getSystemLanguage()
+    return this.getSystemLanguage();
   }
 
   // Set application language
   setLanguage(language: string): void {
-    this.setSetting('language', language)
+    this.setSetting("language", language);
     // Trigger language change event (need to notify all tabs)
-    eventBus.send(CONFIG_EVENTS.LANGUAGE_CHANGED, SendTarget.ALL_WINDOWS, language)
+    eventBus.send(CONFIG_EVENTS.LANGUAGE_CHANGED, SendTarget.ALL_WINDOWS, language);
 
     try {
-      presenter.floatingButtonPresenter.refreshLanguage()
+      presenter.floatingButtonPresenter.refreshLanguage();
     } catch (error) {
-      console.error('Failed to refresh floating widget language:', error)
+      console.error("Failed to refresh floating widget language:", error);
     }
   }
 
   // Get system language and match supported language list
   private getSystemLanguage(): string {
-    const systemLang = app.getLocale()
+    const systemLang = app.getLocale();
     const supportedLanguages = [
-      'zh-CN',
-      'zh-TW',
-      'en-US',
-      'zh-HK',
-      'ko-KR',
-      'ru-RU',
-      'ja-JP',
-      'fr-FR',
-      'fa-IR',
-      'pt-BR',
-      'da-DK',
-      'he-IL',
-      'es-ES',
-      'de-DE',
-      'tr-TR',
-      'id-ID',
-      'ms-MY',
-      'it-IT',
-      'pl-PL',
-      'vi-VN'
-    ]
+      "zh-CN",
+      "zh-TW",
+      "en-US",
+      "zh-HK",
+      "ko-KR",
+      "ru-RU",
+      "ja-JP",
+      "fr-FR",
+      "fa-IR",
+      "pt-BR",
+      "da-DK",
+      "he-IL",
+      "es-ES",
+      "de-DE",
+      "tr-TR",
+      "id-ID",
+      "ms-MY",
+      "it-IT",
+      "pl-PL",
+      "vi-VN",
+    ];
 
     // Exact match
     if (supportedLanguages.includes(systemLang)) {
-      return systemLang
+      return systemLang;
     }
 
     // Partial match (only match language code)
-    const langCode = systemLang.split('-')[0]
-    const matchedLang = supportedLanguages.find((lang) => lang.startsWith(langCode))
+    const langCode = systemLang.split("-")[0];
+    const matchedLang = supportedLanguages.find((lang) => lang.startsWith(langCode));
     if (matchedLang) {
-      return matchedLang
+      return matchedLang;
     }
 
     // Default return English
-    return 'en-US'
+    return "en-US";
   }
 
   public getDefaultProviders(): LLM_PROVIDER[] {
-    return this.providerHelper.getDefaultProviders()
+    return this.providerHelper.getDefaultProviders();
   }
 
   // Get proxy mode
   getProxyMode(): string {
-    return this.getSetting<string>('proxyMode') || 'system'
+    return this.getSetting<string>("proxyMode") || "system";
   }
 
   // Set proxy mode
   setProxyMode(mode: string): void {
-    this.setSetting('proxyMode', mode)
-    eventBus.sendToMain(CONFIG_EVENTS.PROXY_MODE_CHANGED, mode)
+    this.setSetting("proxyMode", mode);
+    eventBus.sendToMain(CONFIG_EVENTS.PROXY_MODE_CHANGED, mode);
   }
 
   // Get custom proxy address
   getCustomProxyUrl(): string {
-    return this.getSetting<string>('customProxyUrl') || ''
+    return this.getSetting<string>("customProxyUrl") || "";
   }
 
   // Set custom proxy address
   setCustomProxyUrl(url: string): void {
-    this.setSetting('customProxyUrl', url)
-    eventBus.sendToMain(CONFIG_EVENTS.CUSTOM_PROXY_URL_CHANGED, url)
+    this.setSetting("customProxyUrl", url);
+    eventBus.sendToMain(CONFIG_EVENTS.CUSTOM_PROXY_URL_CHANGED, url);
   }
 
   // Get sync function status
   getSyncEnabled(): boolean {
-    return this.getSetting<boolean>('syncEnabled') || false
+    return this.getSetting<boolean>("syncEnabled") || false;
   }
 
   // Get log folder path
   getLoggingFolderPath(): string {
-    return path.join(this.userDataPath, 'logs')
+    return path.join(this.userDataPath, "logs");
   }
 
   // Open log folder
   async openLoggingFolder(): Promise<void> {
-    const loggingFolderPath = this.getLoggingFolderPath()
+    const loggingFolderPath = this.getLoggingFolderPath();
 
     // If folder doesn't exist, create it first
     if (!fs.existsSync(loggingFolderPath)) {
-      fs.mkdirSync(loggingFolderPath, { recursive: true })
+      fs.mkdirSync(loggingFolderPath, { recursive: true });
     }
 
     // Open folder
-    await shell.openPath(loggingFolderPath)
+    await shell.openPath(loggingFolderPath);
   }
 
   // Set sync function status
   setSyncEnabled(enabled: boolean): void {
-    console.log('setSyncEnabled', enabled)
-    this.setSetting('syncEnabled', enabled)
-    eventBus.send(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, SendTarget.ALL_WINDOWS, { enabled })
+    console.log("setSyncEnabled", enabled);
+    this.setSetting("syncEnabled", enabled);
+    eventBus.send(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, SendTarget.ALL_WINDOWS, { enabled });
   }
 
   // Get sync folder path
   getSyncFolderPath(): string {
-    return (
-      this.getSetting<string>('syncFolderPath') || path.join(app.getPath('home'), 'DeepchatSync')
-    )
+    return this.getSetting<string>("syncFolderPath") || path.join(app.getPath("home"), "DeepchatSync");
   }
 
   // Set sync folder path
   setSyncFolderPath(folderPath: string): void {
-    this.setSetting('syncFolderPath', folderPath)
-    eventBus.send(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, SendTarget.ALL_WINDOWS, { folderPath })
+    this.setSetting("syncFolderPath", folderPath);
+    eventBus.send(CONFIG_EVENTS.SYNC_SETTINGS_CHANGED, SendTarget.ALL_WINDOWS, { folderPath });
   }
 
   // Get last sync time
   getLastSyncTime(): number {
-    return this.getSetting<number>('lastSyncTime') || 0
+    return this.getSetting<number>("lastSyncTime") || 0;
   }
 
   // Set last sync time
   setLastSyncTime(time: number): void {
-    this.setSetting('lastSyncTime', time)
+    this.setSetting("lastSyncTime", time);
   }
 
   // === Cloud sync (S3-compatible) settings ===
   // Non-sensitive fields live in app-settings; the secret is encrypted via safeStorage.
-  private readonly CLOUD_SYNC_BASE_KEY = 'cloudSyncConfig'
-  private readonly CLOUD_SYNC_SECRET_KEY = 'cloudSyncSecret'
+  private readonly CLOUD_SYNC_BASE_KEY = "cloudSyncConfig";
+  private readonly CLOUD_SYNC_SECRET_KEY = "cloudSyncSecret";
 
   isCloudSafeStorageAvailable(): boolean {
     try {
-      return safeStorage.isEncryptionAvailable()
+      return safeStorage.isEncryptionAvailable();
     } catch {
-      return false
+      return false;
     }
   }
 
   private getCloudSyncBase(): {
-    enabled: boolean
-    endpoint: string
-    bucket: string
-    region: string
-    prefix: string
-    accessKeyId: string
+    enabled: boolean;
+    endpoint: string;
+    bucket: string;
+    region: string;
+    prefix: string;
+    accessKeyId: string;
   } {
     const stored = this.getSetting<{
-      enabled?: boolean
-      endpoint?: string
-      bucket?: string
-      region?: string
-      prefix?: string
-      accessKeyId?: string
-    }>(this.CLOUD_SYNC_BASE_KEY)
+      enabled?: boolean;
+      endpoint?: string;
+      bucket?: string;
+      region?: string;
+      prefix?: string;
+      accessKeyId?: string;
+    }>(this.CLOUD_SYNC_BASE_KEY);
     return {
       enabled: stored?.enabled ?? false,
-      endpoint: stored?.endpoint ?? '',
-      bucket: stored?.bucket ?? '',
-      region: stored?.region ?? 'auto',
-      prefix: stored?.prefix ?? 'deepchat-backups',
-      accessKeyId: stored?.accessKeyId ?? ''
-    }
+      endpoint: stored?.endpoint ?? "",
+      bucket: stored?.bucket ?? "",
+      region: stored?.region ?? "auto",
+      prefix: stored?.prefix ?? "deepchat-backups",
+      accessKeyId: stored?.accessKeyId ?? "",
+    };
   }
 
   private getCloudSyncSecret(): string {
-    const wrapped = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY)
+    const wrapped = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY);
     if (!wrapped) {
-      return ''
+      return "";
     }
     try {
-      return safeStorage.decryptString(Buffer.from(wrapped, 'base64'))
+      return safeStorage.decryptString(Buffer.from(wrapped, "base64"));
     } catch (error) {
-      console.error('[Config] Failed to decrypt cloud sync secret:', error)
-      return ''
+      console.error("[Config] Failed to decrypt cloud sync secret:", error);
+      return "";
     }
   }
 
   getCloudSyncConfig(): CloudSyncConfigView {
-    const base = this.getCloudSyncBase()
+    const base = this.getCloudSyncBase();
     return {
       ...base,
       hasSecret: Boolean(this.getCloudSyncSecret()),
-      safeStorageAvailable: this.isCloudSafeStorageAvailable()
-    }
+      safeStorageAvailable: this.isCloudSafeStorageAvailable(),
+    };
   }
 
   private setCloudSyncSetting<T>(key: string, value: T): void {
-    this.getSettingsStoreForKey(key).set(key, value)
-    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value)
+    this.getSettingsStoreForKey(key).set(key, value);
+    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, value);
   }
 
   private deleteCloudSyncSetting(key: string): void {
-    this.getSettingsStoreForKey(key).delete(key)
-    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined)
+    this.getSettingsStoreForKey(key).delete(key);
+    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, key, undefined);
   }
 
   setCloudSyncConfig(config: CloudSyncConfigInput): CloudSyncConfigView {
-    const current = this.getCloudSyncBase()
+    const current = this.getCloudSyncBase();
     const next = {
       enabled: config.enabled ?? current.enabled,
       endpoint: config.endpoint ?? current.endpoint,
       bucket: config.bucket ?? current.bucket,
       region: config.region ?? current.region,
       prefix: config.prefix ?? current.prefix,
-      accessKeyId: config.accessKeyId ?? current.accessKeyId
-    }
+      accessKeyId: config.accessKeyId ?? current.accessKeyId,
+    };
 
     // Only update the secret when a non-empty value is provided; empty/undefined keeps the existing one.
-    const currentWrappedSecret = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY)
-    let nextWrappedSecret: string | undefined
-    if (typeof config.secretAccessKey === 'string' && config.secretAccessKey.length > 0) {
+    const currentWrappedSecret = this.getSetting<string>(this.CLOUD_SYNC_SECRET_KEY);
+    let nextWrappedSecret: string | undefined;
+    if (typeof config.secretAccessKey === "string" && config.secretAccessKey.length > 0) {
       if (!this.isCloudSafeStorageAvailable()) {
-        throw new Error('sync.error.safeStorageUnavailable')
+        throw new Error("sync.error.safeStorageUnavailable");
       }
-      nextWrappedSecret = Buffer.from(safeStorage.encryptString(config.secretAccessKey)).toString(
-        'base64'
-      )
+      nextWrappedSecret = Buffer.from(safeStorage.encryptString(config.secretAccessKey)).toString("base64");
     }
 
-    let secretWritten = false
+    let secretWritten = false;
     try {
       if (nextWrappedSecret !== undefined) {
-        this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, nextWrappedSecret)
-        secretWritten = true
+        this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, nextWrappedSecret);
+        secretWritten = true;
       }
-      this.setCloudSyncSetting(this.CLOUD_SYNC_BASE_KEY, next)
+      this.setCloudSyncSetting(this.CLOUD_SYNC_BASE_KEY, next);
     } catch (error) {
       if (secretWritten) {
         try {
           if (currentWrappedSecret) {
-            this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, currentWrappedSecret)
+            this.setCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY, currentWrappedSecret);
           } else {
-            this.deleteCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY)
+            this.deleteCloudSyncSetting(this.CLOUD_SYNC_SECRET_KEY);
           }
         } catch (rollbackError) {
-          console.error('[Config] Failed to rollback cloud sync secret:', rollbackError)
+          console.error("[Config] Failed to rollback cloud sync secret:", rollbackError);
         }
       }
-      throw error
+      throw error;
     }
 
-    return this.getCloudSyncConfig()
+    return this.getCloudSyncConfig();
   }
 
   getResolvedCloudSyncConfig(): ResolvedCloudSyncConfig | null {
-    const base = this.getCloudSyncBase()
-    const secretAccessKey = this.getCloudSyncSecret()
+    const base = this.getCloudSyncBase();
+    const secretAccessKey = this.getCloudSyncSecret();
     if (!base.endpoint || !base.bucket || !base.accessKeyId || !secretAccessKey) {
-      return null
+      return null;
     }
     return {
       endpoint: base.endpoint,
@@ -2011,708 +1890,672 @@ export class ConfigPresenter implements IConfigPresenter {
       region: base.region,
       prefix: base.prefix,
       accessKeyId: base.accessKeyId,
-      secretAccessKey
-    }
+      secretAccessKey,
+    };
   }
 
   // Skills settings
   getSkillsEnabled(): boolean {
-    return this.getSetting<boolean>('enableSkills') ?? true
+    return this.getSetting<boolean>("enableSkills") ?? true;
   }
 
   setSkillsEnabled(enabled: boolean): void {
-    this.setSetting('enableSkills', enabled)
+    this.setSetting("enableSkills", enabled);
   }
 
   getSkillDraftSuggestionsEnabled(): boolean {
-    return this.getSetting<boolean>('skillDraftSuggestionsEnabled') ?? false
+    return this.getSetting<boolean>("skillDraftSuggestionsEnabled") ?? false;
   }
 
   setSkillDraftSuggestionsEnabled(enabled: boolean): void {
-    this.setSetting('skillDraftSuggestionsEnabled', enabled)
+    this.setSetting("skillDraftSuggestionsEnabled", enabled);
   }
 
   getSkillsPath(): string {
-    return (
-      this.getSetting<string>('skillsPath') || path.join(app.getPath('home'), '.deepchat', 'skills')
-    )
+    return this.getSetting<string>("skillsPath") || path.join(app.getPath("home"), ".deepchat", "skills");
   }
 
   setSkillsPath(skillsPath: string): void {
-    this.setSetting('skillsPath', skillsPath)
+    this.setSetting("skillsPath", skillsPath);
   }
 
   getSkillSettings(): {
-    skillsPath: string
-    enableSkills: boolean
-    skillDraftSuggestionsEnabled: boolean
+    skillsPath: string;
+    enableSkills: boolean;
+    skillDraftSuggestionsEnabled: boolean;
   } {
     return {
       skillsPath: this.getSkillsPath(),
       enableSkills: this.getSkillsEnabled(),
-      skillDraftSuggestionsEnabled: this.getSkillDraftSuggestionsEnabled()
-    }
+      skillDraftSuggestionsEnabled: this.getSkillDraftSuggestionsEnabled(),
+    };
   }
 
   // Get custom search engines
   async getCustomSearchEngines(): Promise<SearchEngineTemplate[]> {
     try {
-      const customEnginesJson = this.store.get('customSearchEngines')
+      const customEnginesJson = this.store.get("customSearchEngines");
       if (customEnginesJson) {
-        return JSON.parse(customEnginesJson as string)
+        return JSON.parse(customEnginesJson as string);
       }
-      return []
+      return [];
     } catch (error) {
-      console.error('Failed to get custom search engines:', error)
-      return []
+      console.error("Failed to get custom search engines:", error);
+      return [];
     }
   }
 
   // Set custom search engines
   async setCustomSearchEngines(engines: SearchEngineTemplate[]): Promise<void> {
     try {
-      this.store.set('customSearchEngines', JSON.stringify(engines))
+      this.store.set("customSearchEngines", JSON.stringify(engines));
       // Send event to notify search engine update (need to notify all tabs)
-      eventBus.send(CONFIG_EVENTS.SEARCH_ENGINES_UPDATED, SendTarget.ALL_WINDOWS, engines)
+      eventBus.send(CONFIG_EVENTS.SEARCH_ENGINES_UPDATED, SendTarget.ALL_WINDOWS, engines);
     } catch (error) {
-      console.error('Failed to set custom search engines:', error)
-      throw error
+      console.error("Failed to set custom search engines:", error);
+      throw error;
     }
   }
 
   // Get search preview setting status
   getSearchPreviewEnabled(): Promise<boolean> {
-    return this.uiSettingsHelper.getSearchPreviewEnabled()
+    return this.uiSettingsHelper.getSearchPreviewEnabled();
   }
 
   setSearchPreviewEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setSearchPreviewEnabled(enabled)
+    this.uiSettingsHelper.setSearchPreviewEnabled(enabled);
   }
 
   getAutoScrollEnabled(): boolean {
-    return this.uiSettingsHelper.getAutoScrollEnabled()
+    return this.uiSettingsHelper.getAutoScrollEnabled();
   }
 
   setAutoScrollEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setAutoScrollEnabled(enabled)
+    this.uiSettingsHelper.setAutoScrollEnabled(enabled);
   }
 
   getAutoCompactionEnabled(): boolean {
-    return (
-      this.getBuiltinDeepChatConfig().autoCompactionEnabled ??
-      this.uiSettingsHelper.getAutoCompactionEnabled()
-    )
+    return this.getBuiltinDeepChatConfig().autoCompactionEnabled ?? this.uiSettingsHelper.getAutoCompactionEnabled();
   }
 
   setAutoCompactionEnabled(enabled: boolean): void {
-    const nextValue = Boolean(enabled)
+    const nextValue = Boolean(enabled);
     this.updateBuiltinDeepChatConfig({
-      autoCompactionEnabled: nextValue
-    })
-    publishDeepchatEvent('settings.changed', {
-      changedKeys: ['autoCompactionEnabled'],
+      autoCompactionEnabled: nextValue,
+    });
+    publishDeepchatEvent("settings.changed", {
+      changedKeys: ["autoCompactionEnabled"],
       version: Date.now(),
       values: {
-        autoCompactionEnabled: nextValue
-      }
-    })
+        autoCompactionEnabled: nextValue,
+      },
+    });
   }
 
   getAutoCompactionTriggerThreshold(): number {
     return (
       this.getBuiltinDeepChatConfig().autoCompactionTriggerThreshold ??
       this.uiSettingsHelper.getAutoCompactionTriggerThreshold()
-    )
+    );
   }
 
   setAutoCompactionTriggerThreshold(threshold: number): void {
     this.updateBuiltinDeepChatConfig({
-      autoCompactionTriggerThreshold: threshold
-    })
-    publishDeepchatEvent('settings.changed', {
-      changedKeys: ['autoCompactionTriggerThreshold'],
+      autoCompactionTriggerThreshold: threshold,
+    });
+    publishDeepchatEvent("settings.changed", {
+      changedKeys: ["autoCompactionTriggerThreshold"],
       version: Date.now(),
       values: {
-        autoCompactionTriggerThreshold: this.getAutoCompactionTriggerThreshold()
-      }
-    })
+        autoCompactionTriggerThreshold: this.getAutoCompactionTriggerThreshold(),
+      },
+    });
   }
 
   getAutoCompactionRetainRecentPairs(): number {
     return (
       this.getBuiltinDeepChatConfig().autoCompactionRetainRecentPairs ??
       this.uiSettingsHelper.getAutoCompactionRetainRecentPairs()
-    )
+    );
   }
 
   setAutoCompactionRetainRecentPairs(count: number): void {
     this.updateBuiltinDeepChatConfig({
-      autoCompactionRetainRecentPairs: count
-    })
-    publishDeepchatEvent('settings.changed', {
-      changedKeys: ['autoCompactionRetainRecentPairs'],
+      autoCompactionRetainRecentPairs: count,
+    });
+    publishDeepchatEvent("settings.changed", {
+      changedKeys: ["autoCompactionRetainRecentPairs"],
       version: Date.now(),
       values: {
-        autoCompactionRetainRecentPairs: this.getAutoCompactionRetainRecentPairs()
-      }
-    })
+        autoCompactionRetainRecentPairs: this.getAutoCompactionRetainRecentPairs(),
+      },
+    });
   }
 
   getContentProtectionEnabled(): boolean {
-    return this.uiSettingsHelper.getContentProtectionEnabled()
+    return this.uiSettingsHelper.getContentProtectionEnabled();
   }
 
   setContentProtectionEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setContentProtectionEnabled(enabled)
+    this.uiSettingsHelper.setContentProtectionEnabled(enabled);
   }
 
   getPrivacyModeEnabled(): boolean {
-    return this.uiSettingsHelper.getPrivacyModeEnabled()
+    return this.uiSettingsHelper.getPrivacyModeEnabled();
   }
 
   setPrivacyModeEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setPrivacyModeEnabled(enabled)
+    this.uiSettingsHelper.setPrivacyModeEnabled(enabled);
   }
 
   getLoggingEnabled(): boolean {
-    return this.getSetting<boolean>('loggingEnabled') ?? false
+    return this.getSetting<boolean>("loggingEnabled") ?? false;
   }
 
   setLoggingEnabled(enabled: boolean): void {
-    this.setSetting('loggingEnabled', enabled)
-    publishDeepchatEvent('settings.changed', {
-      changedKeys: ['loggingEnabled'],
+    this.setSetting("loggingEnabled", enabled);
+    publishDeepchatEvent("settings.changed", {
+      changedKeys: ["loggingEnabled"],
       version: Date.now(),
       values: {
-        loggingEnabled: Boolean(enabled)
-      }
-    })
+        loggingEnabled: Boolean(enabled),
+      },
+    });
     setTimeout(() => {
-      presenter.devicePresenter.restartApp()
-    }, 1000)
+      presenter.devicePresenter.restartApp();
+    }, 1000);
   }
 
   getLaunchAtLoginEnabled(): boolean {
-    return app.getLoginItemSettings().openAtLogin
+    return app.getLoginItemSettings().openAtLogin;
   }
 
   setLaunchAtLoginEnabled(enabled: boolean): void {
     app.setLoginItemSettings({
-      openAtLogin: Boolean(enabled)
-    })
-    publishDeepchatEvent('settings.changed', {
-      changedKeys: ['launchAtLoginEnabled'],
+      openAtLogin: Boolean(enabled),
+    });
+    publishDeepchatEvent("settings.changed", {
+      changedKeys: ["launchAtLoginEnabled"],
       version: Date.now(),
       values: {
-        launchAtLoginEnabled: this.getLaunchAtLoginEnabled()
-      }
-    })
+        launchAtLoginEnabled: this.getLaunchAtLoginEnabled(),
+      },
+    });
   }
 
   getCopyWithCotEnabled(): boolean {
-    return this.uiSettingsHelper.getCopyWithCotEnabled()
+    return this.uiSettingsHelper.getCopyWithCotEnabled();
   }
 
   setCopyWithCotEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setCopyWithCotEnabled(enabled)
+    this.uiSettingsHelper.setCopyWithCotEnabled(enabled);
   }
 
   setTraceDebugEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setTraceDebugEnabled(enabled)
+    this.uiSettingsHelper.setTraceDebugEnabled(enabled);
   }
 
   getFontFamily(): string {
-    return this.uiSettingsHelper.getFontFamily()
+    return this.uiSettingsHelper.getFontFamily();
   }
 
   setFontFamily(fontFamily?: string | null): void {
-    this.uiSettingsHelper.setFontFamily(fontFamily)
+    this.uiSettingsHelper.setFontFamily(fontFamily);
   }
 
   getCodeFontFamily(): string {
-    return this.uiSettingsHelper.getCodeFontFamily()
+    return this.uiSettingsHelper.getCodeFontFamily();
   }
 
   setCodeFontFamily(fontFamily?: string | null): void {
-    this.uiSettingsHelper.setCodeFontFamily(fontFamily)
+    this.uiSettingsHelper.setCodeFontFamily(fontFamily);
   }
 
   resetFontSettings(): void {
-    this.uiSettingsHelper.resetFontSettings()
+    this.uiSettingsHelper.resetFontSettings();
   }
 
   async getSystemFonts(): Promise<string[]> {
-    return this.uiSettingsHelper.getSystemFonts()
+    return this.uiSettingsHelper.getSystemFonts();
   }
 
   // Get floating button switch status
   getFloatingButtonEnabled(): boolean {
-    const value = this.getSetting<boolean>('floatingButtonEnabled') ?? false
-    return value === undefined || value === null ? false : value
+    const value = this.getSetting<boolean>("floatingButtonEnabled") ?? false;
+    return value === undefined || value === null ? false : value;
   }
 
   // Set floating button switch status
   setFloatingButtonEnabled(enabled: boolean): void {
-    this.setSetting('floatingButtonEnabled', enabled)
-    eventBus.send(FLOATING_BUTTON_EVENTS.ENABLED_CHANGED, SendTarget.ALL_WINDOWS, enabled)
+    this.setSetting("floatingButtonEnabled", enabled);
+    eventBus.send(FLOATING_BUTTON_EVENTS.ENABLED_CHANGED, SendTarget.ALL_WINDOWS, enabled);
 
     try {
-      presenter.floatingButtonPresenter.setEnabled(enabled)
+      presenter.floatingButtonPresenter.setEnabled(enabled);
     } catch (error) {
-      console.error('Failed to directly call floatingButtonPresenter:', error)
+      console.error("Failed to directly call floatingButtonPresenter:", error);
     }
   }
 
   // Get persisted floating button resting position (docked, fully on-screen)
   getFloatingButtonBounds(): FloatingButtonBounds | null {
-    const value = this.getSetting<FloatingButtonBounds>('floatingButtonBounds')
+    const value = this.getSetting<FloatingButtonBounds>("floatingButtonBounds");
     if (
       !value ||
-      typeof value.x !== 'number' ||
-      typeof value.y !== 'number' ||
-      (value.dockSide !== 'left' && value.dockSide !== 'right')
+      typeof value.x !== "number" ||
+      typeof value.y !== "number" ||
+      (value.dockSide !== "left" && value.dockSide !== "right")
     ) {
-      return null
+      return null;
     }
-    return value
+    return value;
   }
 
   // Persist floating button resting position so it survives restarts
   setFloatingButtonBounds(bounds: FloatingButtonBounds): void {
-    this.setSetting('floatingButtonBounds', bounds)
+    this.setSetting("floatingButtonBounds", bounds);
   }
 
   // ===================== MCP configuration related methods =====================
 
   // Get MCP server configuration
   async getMcpServers(): Promise<Record<string, MCPServerConfig>> {
-    return await this.mcpConfHelper.getMcpServers()
+    return await this.mcpConfHelper.getMcpServers();
   }
 
   // Set MCP server configuration
   async setMcpServers(servers: Record<string, MCPServerConfig>): Promise<void> {
-    return this.mcpConfHelper.setMcpServers(servers)
+    return this.mcpConfHelper.setMcpServers(servers);
   }
 
   getEnabledMcpServers(): Promise<string[]> {
-    return this.mcpConfHelper.getEnabledMcpServers()
+    return this.mcpConfHelper.getEnabledMcpServers();
   }
 
   async setMcpServerEnabled(serverName: string, enabled: boolean): Promise<void> {
-    return this.mcpConfHelper.setMcpServerEnabled(serverName, enabled)
+    return this.mcpConfHelper.setMcpServerEnabled(serverName, enabled);
   }
 
   // Get MCP enabled status
   getMcpEnabled(): Promise<boolean> {
-    return this.mcpConfHelper.getMcpEnabled()
+    return this.mcpConfHelper.getMcpEnabled();
   }
 
   // Set MCP enabled status
   async setMcpEnabled(enabled: boolean): Promise<void> {
-    return this.mcpConfHelper.setMcpEnabled(enabled)
+    return this.mcpConfHelper.setMcpEnabled(enabled);
   }
 
   // Add MCP server
   async addMcpServer(name: string, config: MCPServerConfig): Promise<boolean> {
-    return this.mcpConfHelper.addMcpServer(name, config)
+    return this.mcpConfHelper.addMcpServer(name, config);
   }
 
   // Remove MCP server
   async removeMcpServer(name: string): Promise<void> {
-    return this.mcpConfHelper.removeMcpServer(name)
+    return this.mcpConfHelper.removeMcpServer(name);
   }
 
   // Update MCP server configuration
   async updateMcpServer(name: string, config: Partial<MCPServerConfig>): Promise<void> {
-    await this.mcpConfHelper.updateMcpServer(name, config)
+    await this.mcpConfHelper.updateMcpServer(name, config);
   }
 
   private syncAcpProviderEnabled(enabled: boolean): void {
-    const provider = this.getProviderById('acp')
+    const provider = this.getProviderById("acp");
     if (!provider || provider.enable === enabled) {
-      return
+      return;
     }
-    console.log(`[ACP] syncAcpProviderEnabled: updating provider enable state to ${enabled}`)
-    this.updateProviderAtomic('acp', { enable: enabled })
+    console.log(`[ACP] syncAcpProviderEnabled: updating provider enable state to ${enabled}`);
+    this.updateProviderAtomic("acp", { enable: enabled });
   }
 
   async getAcpEnabled(): Promise<boolean> {
-    return this.acpConfHelper.getGlobalEnabled()
+    return this.acpConfHelper.getGlobalEnabled();
   }
 
   async setAcpEnabled(enabled: boolean): Promise<void> {
-    const changed = this.acpConfHelper.setGlobalEnabled(enabled)
-    if (!changed) return
+    const changed = this.acpConfHelper.setGlobalEnabled(enabled);
+    if (!changed) return;
 
-    console.log('[ACP] setAcpEnabled: updating global toggle to', enabled)
-    this.syncAcpProviderEnabled(enabled)
+    console.log("[ACP] setAcpEnabled: updating global toggle to", enabled);
+    this.syncAcpProviderEnabled(enabled);
 
     if (!enabled) {
-      console.log('[ACP] Disabling: clearing provider models and status cache')
-      this.providerModelHelper.setProviderModels('acp', [])
-      this.clearProviderModelStatusCache('acp')
+      console.log("[ACP] Disabling: clearing provider models and status cache");
+      this.providerModelHelper.setProviderModels("acp", []);
+      this.clearProviderModelStatusCache("acp");
     }
 
-    this.notifyAcpAgentsChanged()
+    this.notifyAcpAgentsChanged();
   }
 
   // ===================== ACP configuration methods =====================
   async listAcpRegistryAgents(): Promise<AcpRegistryAgent[]> {
-    this.syncRegistryAgentsToRepository()
-    const registryAgents = this.acpRegistryService.listAgents()
+    this.syncRegistryAgentsToRepository();
+    const registryAgents = this.acpRegistryService.listAgents();
 
     return registryAgents.map((agent) => {
       const overlay = this.agentRepository?.getAcpRegistryOverlay(agent.id) ?? {
         enabled: this.acpConfHelper.getRegistryStates()[agent.id]?.enabled ?? false,
         envOverride: this.acpConfHelper.getRegistryStates()[agent.id]?.envOverride,
-        installState: this.acpConfHelper.getInstallStates()[agent.id] ?? null
-      }
+        installState: this.acpConfHelper.getInstallStates()[agent.id] ?? null,
+      };
       return {
         ...agent,
         enabled: overlay.enabled,
         envOverride: overlay.envOverride,
-        installState: overlay.installState ?? null
-      }
-    })
+        installState: overlay.installState ?? null,
+      };
+    });
   }
 
   async refreshAcpRegistry(force = true): Promise<AcpRegistryAgent[]> {
-    await this.acpRegistryService.refresh(force)
-    this.syncRegistryAgentsToRepository()
-    const agents = await this.listAcpRegistryAgents()
-    this.notifyAcpAgentsChanged()
-    return agents
+    await this.acpRegistryService.refresh(force);
+    this.syncRegistryAgentsToRepository();
+    const agents = await this.listAcpRegistryAgents();
+    this.notifyAcpAgentsChanged();
+    return agents;
   }
 
   async getAcpRegistryIconMarkup(agentId: string, iconUrl?: string): Promise<string | null> {
-    return await this.acpRegistryService.getIconMarkup(agentId, iconUrl)
+    return await this.acpRegistryService.getIconMarkup(agentId, iconUrl);
   }
 
   async getAcpAgentState(agentId: string): Promise<AcpAgentState | null> {
-    return this.agentRepository?.getAcpAgentState(resolveAcpAgentAlias(agentId)) ?? null
+    return this.agentRepository?.getAcpAgentState(resolveAcpAgentAlias(agentId)) ?? null;
   }
 
   async setAcpAgentEnabled(agentId: string, enabled: boolean): Promise<void> {
-    const resolvedId = resolveAcpAgentAlias(agentId)
-    this.getAgentRepositoryOrThrow().setAgentEnabled(resolvedId, enabled)
-    this.handleAcpAgentsMutated([resolvedId])
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    this.getAgentRepositoryOrThrow().setAgentEnabled(resolvedId, enabled);
+    this.handleAcpAgentsMutated([resolvedId]);
 
     if (enabled) {
       void this.ensureAcpAgentInstalled(resolvedId).catch((error) => {
-        console.warn(`[ACP] Failed to preinstall registry agent ${resolvedId}:`, error)
-      })
+        console.warn(`[ACP] Failed to preinstall registry agent ${resolvedId}:`, error);
+      });
     }
   }
 
   async setAcpAgentEnvOverride(agentId: string, env: Record<string, string>): Promise<void> {
-    const resolvedId = resolveAcpAgentAlias(agentId)
-    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(resolvedId)
-    if (installState?.status !== 'installed') {
-      throw new Error(`ACP registry agent is not installed: ${resolvedId}`)
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(resolvedId);
+    if (installState?.status !== "installed") {
+      throw new Error(`ACP registry agent is not installed: ${resolvedId}`);
     }
-    this.getAgentRepositoryOrThrow().setAgentEnvOverride(resolvedId, env)
-    this.handleAcpAgentsMutated([resolvedId])
+    this.getAgentRepositoryOrThrow().setAgentEnvOverride(resolvedId, env);
+    this.handleAcpAgentsMutated([resolvedId]);
   }
 
   async ensureAcpAgentInstalled(agentId: string): Promise<AcpAgentInstallState> {
-    const registryAgent = this.getRegistryAgentOrThrow(agentId)
-    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id)
+    const registryAgent = this.getRegistryAgentOrThrow(agentId);
+    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
     const installingState: AcpAgentInstallState = {
-      status: 'installing',
+      status: "installing",
       version: registryAgent.version,
-      distributionType:
-        this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
+      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
       lastCheckedAt: Date.now(),
       installedAt: currentState?.installedAt ?? null,
       installDir: currentState?.installDir ?? null,
-      error: null
-    }
-    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installingState)
-    this.notifyAcpAgentsChanged([registryAgent.id])
+      error: null,
+    };
+    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installingState);
+    this.notifyAcpAgentsChanged([registryAgent.id]);
 
     try {
-      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(
-        registryAgent,
-        currentState
-      )
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState)
-      this.handleAcpAgentsMutated([registryAgent.id])
-      return installedState
+      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState);
+      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState);
+      this.handleAcpAgentsMutated([registryAgent.id]);
+      return installedState;
     } catch (error) {
       const failedState: AcpAgentInstallState = {
-        status: 'error',
+        status: "error",
         version: registryAgent.version,
-        distributionType:
-          this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
+        distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
         lastCheckedAt: Date.now(),
         installedAt: currentState?.installedAt ?? null,
         installDir: currentState?.installDir ?? null,
-        error: error instanceof Error ? error.message : String(error)
-      }
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState)
-      this.notifyAcpAgentsChanged([registryAgent.id])
-      throw error
+        error: error instanceof Error ? error.message : String(error),
+      };
+      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState);
+      this.notifyAcpAgentsChanged([registryAgent.id]);
+      throw error;
     }
   }
 
   async repairAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
-    const registryAgent = this.getRegistryAgentOrThrow(agentId)
-    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id)
+    const registryAgent = this.getRegistryAgentOrThrow(agentId);
+    const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
     const repairingState: AcpAgentInstallState = {
-      status: 'installing',
+      status: "installing",
       version: registryAgent.version,
-      distributionType:
-        this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
+      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
       lastCheckedAt: Date.now(),
       installedAt: currentState?.installedAt ?? null,
       installDir: currentState?.installDir ?? null,
-      error: null
-    }
-    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, repairingState)
-    this.notifyAcpAgentsChanged([registryAgent.id])
-    await this.refreshAcpProviderAgents([registryAgent.id])
+      error: null,
+    };
+    this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, repairingState);
+    this.notifyAcpAgentsChanged([registryAgent.id]);
+    await this.refreshAcpProviderAgents([registryAgent.id]);
 
     try {
-      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(
-        registryAgent,
-        currentState,
-        { repair: true }
-      )
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState)
-      this.handleAcpAgentsMutated([registryAgent.id])
-      return installedState
+      const installedState = await this.acpLaunchSpecService.ensureRegistryAgentInstalled(registryAgent, currentState, {
+        repair: true,
+      });
+      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, installedState);
+      this.handleAcpAgentsMutated([registryAgent.id]);
+      return installedState;
     } catch (error) {
       const failedState: AcpAgentInstallState = {
-        status: 'error',
+        status: "error",
         version: registryAgent.version,
-        distributionType:
-          this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
+        distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
         lastCheckedAt: Date.now(),
         installedAt: currentState?.installedAt ?? null,
         installDir: currentState?.installDir ?? null,
-        error: error instanceof Error ? error.message : String(error)
-      }
-      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState)
-      this.notifyAcpAgentsChanged([registryAgent.id])
-      throw error
+        error: error instanceof Error ? error.message : String(error),
+      };
+      this.getAgentRepositoryOrThrow().setAgentInstallState(registryAgent.id, failedState);
+      this.notifyAcpAgentsChanged([registryAgent.id]);
+      throw error;
     }
   }
 
   async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
-    const resolvedId = resolveAcpAgentAlias(agentId)
-    const registryAgent = this.getRegistryAgentOrThrow(resolvedId)
-    const agentRepository = this.getAgentRepositoryOrThrow()
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
+    const agentRepository = this.getAgentRepositoryOrThrow();
     if (agentRepository.hasAgentSessions(registryAgent.id)) {
-      throw new Error(
-        'ACP registry agent still has related conversations. Move or delete them first.'
-      )
+      throw new Error("ACP registry agent still has related conversations. Move or delete them first.");
     }
 
-    const currentState = agentRepository.getAgentInstallState(registryAgent.id)
+    const currentState = agentRepository.getAgentInstallState(registryAgent.id);
 
-    await this.acpLaunchSpecService.uninstallRegistryAgent(registryAgent, currentState)
+    await this.acpLaunchSpecService.uninstallRegistryAgent(registryAgent, currentState);
 
     const uninstalledState: AcpAgentInstallState = {
-      status: 'not_installed',
+      status: "not_installed",
       version: registryAgent.version,
-      distributionType:
-        this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
+      distributionType: this.acpLaunchSpecService.selectRegistryDistribution(registryAgent)?.type ?? undefined,
       lastCheckedAt: Date.now(),
       installedAt: null,
       installDir: null,
-      error: null
-    }
+      error: null,
+    };
 
-    const updated = agentRepository.clearRegistryAcpAgentInstallation(
-      registryAgent.id,
-      uninstalledState
-    )
+    const updated = agentRepository.clearRegistryAcpAgentInstallation(registryAgent.id, uninstalledState);
     if (!updated) {
-      throw new Error(
-        `ACP registry agent not found or still has related conversations: ${registryAgent.id}`
-      )
+      throw new Error(`ACP registry agent not found or still has related conversations: ${registryAgent.id}`);
     }
 
-    this.handleAcpAgentsMutated([registryAgent.id])
+    this.handleAcpAgentsMutated([registryAgent.id]);
   }
 
   async getAcpAgentInstallStatus(agentId: string): Promise<AcpAgentInstallState | null> {
-    return this.agentRepository?.getAgentInstallState(resolveAcpAgentAlias(agentId)) ?? null
+    return this.agentRepository?.getAgentInstallState(resolveAcpAgentAlias(agentId)) ?? null;
   }
 
   async listManualAcpAgents(): Promise<AcpManualAgent[]> {
-    return this.getAgentRepositoryOrThrow().listManualAcpAgents()
+    return this.getAgentRepositoryOrThrow().listManualAcpAgents();
   }
 
-  async addManualAcpAgent(
-    agent: Omit<AcpManualAgent, 'id' | 'source'> & { id?: string }
-  ): Promise<AcpManualAgent> {
-    const created = this.getAgentRepositoryOrThrow().createManualAcpAgent(agent)
-    this.handleAcpAgentsMutated([created.id])
-    return created
+  async addManualAcpAgent(agent: Omit<AcpManualAgent, "id" | "source"> & { id?: string }): Promise<AcpManualAgent> {
+    const created = this.getAgentRepositoryOrThrow().createManualAcpAgent(agent);
+    this.handleAcpAgentsMutated([created.id]);
+    return created;
   }
 
   async updateManualAcpAgent(
     agentId: string,
-    updates: Partial<Omit<AcpManualAgent, 'id' | 'source'>>
+    updates: Partial<Omit<AcpManualAgent, "id" | "source">>,
   ): Promise<AcpManualAgent | null> {
-    const updated = this.getAgentRepositoryOrThrow().updateManualAcpAgent(agentId, updates)
+    const updated = this.getAgentRepositoryOrThrow().updateManualAcpAgent(agentId, updates);
     if (updated) {
-      this.handleAcpAgentsMutated([updated.id])
+      this.handleAcpAgentsMutated([updated.id]);
     }
-    return updated
+    return updated;
   }
 
   async removeManualAcpAgent(agentId: string): Promise<boolean> {
-    const removed = this.getAgentRepositoryOrThrow().removeManualAcpAgent(agentId)
+    const removed = this.getAgentRepositoryOrThrow().removeManualAcpAgent(agentId);
     if (removed) {
-      this.handleAcpAgentsMutated([agentId])
+      this.handleAcpAgentsMutated([agentId]);
     }
-    return removed
+    return removed;
   }
 
   async getAcpAgents(): Promise<AcpAgentConfig[]> {
-    const acpEnabled = this.acpConfHelper.getGlobalEnabled()
+    const acpEnabled = this.acpConfHelper.getGlobalEnabled();
     if (!acpEnabled) {
-      return []
+      return [];
     }
 
     const [registryAgents, manualAgents] = await Promise.all([
       this.listAcpRegistryAgents(),
-      this.listManualAcpAgents()
-    ])
+      this.listManualAcpAgents(),
+    ]);
 
     const enabledRegistryAgents = registryAgents
-      .filter((agent) => agent.enabled && agent.installState?.status === 'installed')
-      .map((agent) => this.buildRegistryAgentConfig(agent))
+      .filter((agent) => agent.enabled && agent.installState?.status === "installed")
+      .map((agent) => this.buildRegistryAgentConfig(agent));
 
     const enabledManualAgents = manualAgents
       .filter((agent) => agent.enabled)
-      .map((agent) => this.buildManualAgentConfig(agent))
+      .map((agent) => this.buildManualAgentConfig(agent));
 
-    return [...enabledRegistryAgents, ...enabledManualAgents]
+    return [...enabledRegistryAgents, ...enabledManualAgents];
   }
 
   async resolveAcpLaunchSpec(agentId: string, _workdir?: string): Promise<AcpResolvedLaunchSpec> {
-    const resolvedId = resolveAcpAgentAlias(agentId)
-    const manualAgent = this.getAgentRepositoryOrThrow().getManualAcpAgent(resolvedId)
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const manualAgent = this.getAgentRepositoryOrThrow().getManualAcpAgent(resolvedId);
     if (manualAgent) {
-      return this.acpLaunchSpecService.resolveManualLaunchSpec(manualAgent)
+      return this.acpLaunchSpecService.resolveManualLaunchSpec(manualAgent);
     }
 
-    const registryAgent = this.getRegistryAgentOrThrow(resolvedId)
-    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id)
-    const launchSpec = await this.acpLaunchSpecService.resolveRegistryLaunchSpec(
-      registryAgent,
-      installState
-    )
+    const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
+    const installState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
+    const launchSpec = await this.acpLaunchSpecService.resolveRegistryLaunchSpec(registryAgent, installState);
 
     const nextInstallState: AcpAgentInstallState = {
-      status: 'installed',
+      status: "installed",
       distributionType: launchSpec.distributionType,
       version: launchSpec.version,
       lastCheckedAt: Date.now(),
       installedAt: installState?.installedAt ?? Date.now(),
       installDir: launchSpec.installDir ?? null,
-      error: null
-    }
-    this.getAgentRepositoryOrThrow().setAgentInstallState(resolvedId, nextInstallState)
-    return launchSpec
+      error: null,
+    };
+    this.getAgentRepositoryOrThrow().setAgentInstallState(resolvedId, nextInstallState);
+    return launchSpec;
   }
 
   async getAcpSharedMcpSelections(): Promise<string[]> {
-    return this.acpConfHelper.getSharedMcpSelections()
+    return this.acpConfHelper.getSharedMcpSelections();
   }
 
   async setAcpSharedMcpSelections(mcpIds: string[]): Promise<void> {
-    await this.acpConfHelper.setSharedMcpSelections(mcpIds)
-    this.handleAcpAgentsMutated()
+    await this.acpConfHelper.setSharedMcpSelections(mcpIds);
+    this.handleAcpAgentsMutated();
   }
 
   async listAgents(): Promise<Agent[]> {
-    return this.getAgentRepositoryOrThrow().listAgents()
+    return this.getAgentRepositoryOrThrow().listAgents();
   }
 
   async getAgent(agentId: string): Promise<Agent | null> {
-    return this.getAgentRepositoryOrThrow().getAgent(agentId)
+    return this.getAgentRepositoryOrThrow().getAgent(agentId);
   }
 
   async getAgentType(agentId: string): Promise<AgentType | null> {
-    return this.getAgentRepositoryOrThrow().getAgentType(agentId)
+    return this.getAgentRepositoryOrThrow().getAgentType(agentId);
   }
 
   async getDeepChatAgentConfig(agentId: string): Promise<DeepChatAgentConfig | null> {
-    return this.getAgentRepositoryOrThrow().getDeepChatAgentConfig(agentId)
+    return this.getAgentRepositoryOrThrow().getDeepChatAgentConfig(agentId);
   }
 
   async resolveDeepChatAgentConfig(agentId: string): Promise<DeepChatAgentConfig> {
-    return this.getAgentRepositoryOrThrow().resolveDeepChatAgentConfig(
-      agentId || BUILTIN_DEEPCHAT_AGENT_ID
-    )
+    return this.getAgentRepositoryOrThrow().resolveDeepChatAgentConfig(agentId || BUILTIN_DEEPCHAT_AGENT_ID);
   }
 
-  async agentSupportsCapability(agentId: string, capability: 'vision'): Promise<boolean> {
-    if (capability !== 'vision') {
-      return false
+  async agentSupportsCapability(agentId: string, capability: "vision"): Promise<boolean> {
+    if (capability !== "vision") {
+      return false;
     }
 
-    const agentConfig = await this.resolveDeepChatAgentConfig(agentId)
-    const providerId = agentConfig.visionModel?.providerId?.trim()
-    const modelId = agentConfig.visionModel?.modelId?.trim()
+    const agentConfig = await this.resolveDeepChatAgentConfig(agentId);
+    const providerId = agentConfig.visionModel?.providerId?.trim();
+    const modelId = agentConfig.visionModel?.modelId?.trim();
 
-    return Boolean(providerId && modelId && this.getModelConfig(modelId, providerId)?.vision)
+    return Boolean(providerId && modelId && this.getModelConfig(modelId, providerId)?.vision);
   }
 
   async createDeepChatAgent(input: CreateDeepChatAgentInput): Promise<Agent> {
-    const created = this.getAgentRepositoryOrThrow().createDeepChatAgent(input)
-    this.notifyAcpAgentsChanged()
-    return created
+    const created = this.getAgentRepositoryOrThrow().createDeepChatAgent(input);
+    this.notifyAcpAgentsChanged();
+    return created;
   }
 
-  async updateDeepChatAgent(
-    agentId: string,
-    updates: UpdateDeepChatAgentInput
-  ): Promise<Agent | null> {
-    const updated = this.getAgentRepositoryOrThrow().updateDeepChatAgent(agentId, updates)
+  async updateDeepChatAgent(agentId: string, updates: UpdateDeepChatAgentInput): Promise<Agent | null> {
+    const updated = this.getAgentRepositoryOrThrow().updateDeepChatAgent(agentId, updates);
     if (updated) {
-      this.notifyAcpAgentsChanged()
+      this.notifyAcpAgentsChanged();
     }
-    return updated
+    return updated;
   }
 
   async deleteDeepChatAgent(agentId: string): Promise<boolean> {
-    const removed = this.getAgentRepositoryOrThrow().deleteDeepChatAgent(agentId)
+    const removed = this.getAgentRepositoryOrThrow().deleteDeepChatAgent(agentId);
     if (removed) {
-      this.notifyAcpAgentsChanged()
+      this.notifyAcpAgentsChanged();
     }
-    return removed
+    return removed;
   }
 
   async getAgentMcpSelections(agentId: string, isBuiltin?: boolean): Promise<string[]> {
-    return await this.acpConfHelper.getAgentMcpSelections(agentId, isBuiltin)
+    return await this.acpConfHelper.getAgentMcpSelections(agentId, isBuiltin);
   }
 
-  async setAgentMcpSelections(
-    agentId: string,
-    isBuiltin: boolean,
-    mcpIds: string[]
-  ): Promise<void> {
-    await this.acpConfHelper.setAgentMcpSelections(agentId, isBuiltin, mcpIds)
-    this.handleAcpAgentsMutated()
+  async setAgentMcpSelections(agentId: string, isBuiltin: boolean, mcpIds: string[]): Promise<void> {
+    await this.acpConfHelper.setAgentMcpSelections(agentId, isBuiltin, mcpIds);
+    this.handleAcpAgentsMutated();
   }
 
   async addMcpToAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void> {
-    await this.acpConfHelper.addMcpToAgent(agentId, isBuiltin, mcpId)
-    this.handleAcpAgentsMutated()
+    await this.acpConfHelper.addMcpToAgent(agentId, isBuiltin, mcpId);
+    this.handleAcpAgentsMutated();
   }
 
   async removeMcpFromAgent(agentId: string, isBuiltin: boolean, mcpId: string): Promise<void> {
-    await this.acpConfHelper.removeMcpFromAgent(agentId, isBuiltin, mcpId)
-    this.handleAcpAgentsMutated()
+    await this.acpConfHelper.removeMcpFromAgent(agentId, isBuiltin, mcpId);
+    this.handleAcpAgentsMutated();
   }
 
   private buildRegistryAgentConfig(agent: AcpRegistryAgent): AcpAgentConfig {
-    const preview = this.acpLaunchSpecService.buildRegistryPreview(agent)
+    const preview = this.acpLaunchSpecService.buildRegistryPreview(agent);
     return {
       id: agent.id,
       name: agent.name,
@@ -2720,9 +2563,9 @@ export class ConfigPresenter implements IConfigPresenter {
       args: preview.args,
       description: agent.description,
       icon: agent.icon,
-      source: 'registry',
-      installState: agent.installState ?? null
-    }
+      source: "registry",
+      installState: agent.installState ?? null,
+    };
   }
 
   private buildManualAgentConfig(agent: AcpManualAgent): AcpAgentConfig {
@@ -2734,54 +2577,54 @@ export class ConfigPresenter implements IConfigPresenter {
       env: agent.env,
       description: agent.description,
       icon: agent.icon,
-      source: 'manual',
-      installState: null
-    }
+      source: "manual",
+      installState: null,
+    };
   }
 
   private getRegistryAgentOrThrow(agentId: string): AcpRegistryAgent {
-    const resolvedId = resolveAcpAgentAlias(agentId)
-    const agent = this.acpRegistryService.getAgent(resolvedId)
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const agent = this.acpRegistryService.getAgent(resolvedId);
     if (!agent) {
-      throw new Error(`ACP registry agent not found: ${resolvedId}`)
+      throw new Error(`ACP registry agent not found: ${resolvedId}`);
     }
-    return agent
+    return agent;
   }
 
   private handleAcpAgentsMutated(agentIds?: string[]) {
-    this.clearProviderModelStatusCache('acp')
-    this.notifyAcpAgentsChanged(agentIds)
-    void this.refreshAcpProviderAgents(agentIds)
+    this.clearProviderModelStatusCache("acp");
+    this.notifyAcpAgentsChanged(agentIds);
+    void this.refreshAcpProviderAgents(agentIds);
   }
 
   private async refreshAcpProviderAgents(agentIds?: string[]): Promise<void> {
     try {
-      const providerInstance = presenter?.llmproviderPresenter?.getProviderInstance?.('acp')
+      const providerInstance = presenter?.llmproviderPresenter?.getProviderInstance?.("acp");
       if (!providerInstance) {
-        return
+        return;
       }
 
-      const acpProvider = providerInstance as AcpProvider
-      if (typeof acpProvider.refreshAgents !== 'function') {
-        return
+      const acpProvider = providerInstance as AcpProvider;
+      if (typeof acpProvider.refreshAgents !== "function") {
+        return;
       }
 
-      await acpProvider.refreshAgents(agentIds)
+      await acpProvider.refreshAgents(agentIds);
     } catch (error) {
-      console.warn('[ACP] Failed to refresh agent processes after config change:', error)
+      console.warn("[ACP] Failed to refresh agent processes after config change:", error);
     }
   }
 
   private notifyAcpAgentsChanged(agentIds?: string[]) {
-    console.log('[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider "acp"')
-    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, 'acp')
-    eventBus.send(CONFIG_EVENTS.AGENTS_CHANGED, SendTarget.ALL_WINDOWS, { agentIds })
-    eventBus.sendToRendererIfAvailable(SESSION_EVENTS.LIST_UPDATED, SendTarget.ALL_WINDOWS)
+    console.log('[ACP] notifyAcpAgentsChanged: sending MODEL_LIST_CHANGED event for provider "acp"');
+    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, "acp");
+    eventBus.send(CONFIG_EVENTS.AGENTS_CHANGED, SendTarget.ALL_WINDOWS, { agentIds });
+    eventBus.sendToRendererIfAvailable(SESSION_EVENTS.LIST_UPDATED, SendTarget.ALL_WINDOWS);
   }
 
   // Provide getMcpConfHelper method to get MCP configuration helper
   getMcpConfHelper(): McpConfHelper {
-    return this.mcpConfHelper
+    return this.mcpConfHelper;
   }
 
   /**
@@ -2791,7 +2634,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @returns ModelConfig 模型配置
    */
   getModelConfig(modelId: string, providerId?: string): ModelConfig {
-    return this.modelConfigHelper.getModelConfig(modelId, providerId)
+    return this.modelConfigHelper.getModelConfig(modelId, providerId);
   }
 
   /**
@@ -2804,18 +2647,12 @@ export class ConfigPresenter implements IConfigPresenter {
     modelId: string,
     providerId: string,
     config: ModelConfig,
-    options?: { source?: ModelConfigSource }
+    options?: { source?: ModelConfigSource },
   ): void {
-    const storedConfig = this.modelConfigHelper.setModelConfig(modelId, providerId, config, options)
-    this.providerModelHelper.invalidateProviderModelsCache(providerId)
+    const storedConfig = this.modelConfigHelper.setModelConfig(modelId, providerId, config, options);
+    this.providerModelHelper.invalidateProviderModelsCache(providerId);
     // Trigger model configuration change event (need to notify all tabs)
-    eventBus.send(
-      CONFIG_EVENTS.MODEL_CONFIG_CHANGED,
-      SendTarget.ALL_WINDOWS,
-      providerId,
-      modelId,
-      storedConfig
-    )
+    eventBus.send(CONFIG_EVENTS.MODEL_CONFIG_CHANGED, SendTarget.ALL_WINDOWS, providerId, modelId, storedConfig);
   }
 
   /**
@@ -2824,17 +2661,17 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param providerId - The provider ID
    */
   resetModelConfig(modelId: string, providerId: string): void {
-    this.modelConfigHelper.resetModelConfig(modelId, providerId)
-    this.providerModelHelper.invalidateProviderModelsCache(providerId)
+    this.modelConfigHelper.resetModelConfig(modelId, providerId);
+    this.providerModelHelper.invalidateProviderModelsCache(providerId);
     // 触发模型配置重置事件（需要通知所有标签页）
-    eventBus.send(CONFIG_EVENTS.MODEL_CONFIG_RESET, SendTarget.ALL_WINDOWS, providerId, modelId)
+    eventBus.send(CONFIG_EVENTS.MODEL_CONFIG_RESET, SendTarget.ALL_WINDOWS, providerId, modelId);
   }
 
   /**
    * Get all user-defined model configurations
    */
   getAllModelConfigs(): Record<string, IModelConfig> {
-    return this.modelConfigHelper.getAllModelConfigs()
+    return this.modelConfigHelper.getAllModelConfigs();
   }
 
   /**
@@ -2842,7 +2679,7 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param providerId - The provider ID
    */
   getProviderModelConfigs(providerId: string): Array<{ modelId: string; config: ModelConfig }> {
-    return this.modelConfigHelper.getProviderModelConfigs(providerId)
+    return this.modelConfigHelper.getProviderModelConfigs(providerId);
   }
 
   /**
@@ -2851,14 +2688,14 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param providerId - The provider ID
    */
   hasUserModelConfig(modelId: string, providerId: string): boolean {
-    return this.modelConfigHelper.hasUserConfig(modelId, providerId)
+    return this.modelConfigHelper.hasUserConfig(modelId, providerId);
   }
 
   /**
    * Export all model configurations for backup/sync
    */
   exportModelConfigs(): Record<string, IModelConfig> {
-    return this.modelConfigHelper.exportConfigs()
+    return this.modelConfigHelper.exportConfigs();
   }
 
   /**
@@ -2867,139 +2704,139 @@ export class ConfigPresenter implements IConfigPresenter {
    * @param overwrite - Whether to overwrite existing configurations
    */
   importModelConfigs(configs: Record<string, IModelConfig>, overwrite: boolean = false): void {
-    this.modelConfigHelper.importConfigs(configs, overwrite)
-    this.providerModelHelper.invalidateAllProviderModelsCache()
+    this.modelConfigHelper.importConfigs(configs, overwrite);
+    this.providerModelHelper.invalidateAllProviderModelsCache();
     // 触发批量导入事件（需要通知所有标签页）
-    eventBus.send(CONFIG_EVENTS.MODEL_CONFIGS_IMPORTED, SendTarget.ALL_WINDOWS, overwrite)
+    eventBus.send(CONFIG_EVENTS.MODEL_CONFIGS_IMPORTED, SendTarget.ALL_WINDOWS, overwrite);
   }
 
   getNotificationsEnabled(): boolean {
-    return this.uiSettingsHelper.getNotificationsEnabled()
+    return this.uiSettingsHelper.getNotificationsEnabled();
   }
 
   setNotificationsEnabled(enabled: boolean): void {
-    this.uiSettingsHelper.setNotificationsEnabled(enabled)
+    this.uiSettingsHelper.setNotificationsEnabled(enabled);
   }
 
   async initTheme() {
-    const theme = this.getSetting<string>('appTheme')
+    const theme = this.getSetting<string>("appTheme");
     if (theme) {
-      nativeTheme.themeSource = theme as 'dark' | 'light' | 'system'
+      nativeTheme.themeSource = theme as "dark" | "light" | "system";
     }
     // 监听系统主题变化
-    nativeTheme.on('updated', () => {
+    nativeTheme.on("updated", () => {
       // 只有当主题设置为 system 时，才需要通知渲染进程系统主题变化
-      if (nativeTheme.themeSource === 'system') {
-        eventBus.sendToMain(SYSTEM_EVENTS.SYSTEM_THEME_UPDATED, nativeTheme.shouldUseDarkColors)
+      if (nativeTheme.themeSource === "system") {
+        eventBus.sendToMain(SYSTEM_EVENTS.SYSTEM_THEME_UPDATED, nativeTheme.shouldUseDarkColors);
 
         try {
-          void presenter.floatingButtonPresenter.refreshTheme()
+          void presenter.floatingButtonPresenter.refreshTheme();
         } catch (error) {
-          console.error('Failed to refresh floating widget theme:', error)
+          console.error("Failed to refresh floating widget theme:", error);
         }
       }
-    })
+    });
   }
 
-  async setTheme(theme: 'dark' | 'light' | 'system'): Promise<boolean> {
-    nativeTheme.themeSource = theme
-    this.setSetting('appTheme', theme)
+  async setTheme(theme: "dark" | "light" | "system"): Promise<boolean> {
+    nativeTheme.themeSource = theme;
+    this.setSetting("appTheme", theme);
     // 通知所有窗口主题已更改
-    eventBus.send(CONFIG_EVENTS.THEME_CHANGED, SendTarget.ALL_WINDOWS, theme)
+    eventBus.send(CONFIG_EVENTS.THEME_CHANGED, SendTarget.ALL_WINDOWS, theme);
 
     try {
-      void presenter.floatingButtonPresenter.refreshTheme()
+      void presenter.floatingButtonPresenter.refreshTheme();
     } catch (error) {
-      console.error('Failed to refresh floating widget theme:', error)
+      console.error("Failed to refresh floating widget theme:", error);
     }
 
-    return nativeTheme.shouldUseDarkColors
+    return nativeTheme.shouldUseDarkColors;
   }
 
   async getTheme(): Promise<string> {
-    return this.getSetting<string>('appTheme') || 'system'
+    return this.getSetting<string>("appTheme") || "system";
   }
 
   async getCurrentThemeIsDark(): Promise<boolean> {
-    return nativeTheme.shouldUseDarkColors
+    return nativeTheme.shouldUseDarkColors;
   }
 
-  async getSystemTheme(): Promise<'dark' | 'light'> {
-    return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  async getSystemTheme(): Promise<"dark" | "light"> {
+    return nativeTheme.shouldUseDarkColors ? "dark" : "light";
   }
 
   // 获取所有自定义 prompts (with cache)
   async getCustomPrompts(): Promise<Prompt[]> {
     // Check cache first
     if (this.customPromptsCache !== null) {
-      return this.customPromptsCache
+      return this.customPromptsCache;
     }
 
     // Load from store and cache it
     try {
       const prompts = this.dbBackedSettingsStore
-        ? this.getSetting<Prompt[]>('customPrompts') || []
-        : this.customPromptsStore.get('prompts') || []
-      this.customPromptsCache = prompts
-      console.log(`[Config] Custom prompts cache loaded: ${prompts.length} prompts`)
-      return prompts
+        ? this.getSetting<Prompt[]>("customPrompts") || []
+        : this.customPromptsStore.get("prompts") || [];
+      this.customPromptsCache = prompts;
+      console.log(`[Config] Custom prompts cache loaded: ${prompts.length} prompts`);
+      return prompts;
     } catch (error) {
-      console.error('[Config] Failed to load custom prompts:', error)
-      this.customPromptsCache = []
-      return []
+      console.error("[Config] Failed to load custom prompts:", error);
+      this.customPromptsCache = [];
+      return [];
     }
   }
 
   // 保存自定义 prompts (with cache update)
   async setCustomPrompts(prompts: Prompt[]): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      this.setSetting('customPrompts', prompts)
+      this.setSetting("customPrompts", prompts);
     } else {
-      await this.customPromptsStore.set('prompts', prompts)
+      await this.customPromptsStore.set("prompts", prompts);
     }
-    this.clearCustomPromptsCache()
-    console.log(`[Config] Custom prompts cache updated: ${prompts.length} prompts`)
+    this.clearCustomPromptsCache();
+    console.log(`[Config] Custom prompts cache updated: ${prompts.length} prompts`);
     // Notify all windows about custom prompts change
     eventBus.send(CONFIG_EVENTS.CUSTOM_PROMPTS_CHANGED, SendTarget.ALL_WINDOWS, {
-      count: prompts.length
-    })
+      count: prompts.length,
+    });
   }
 
   // 添加单个 prompt (optimized with cache)
   async addCustomPrompt(prompt: Prompt): Promise<void> {
-    const prompts = await this.getCustomPrompts()
-    const updatedPrompts = [...prompts, prompt] // Create new array
-    await this.setCustomPrompts(updatedPrompts)
-    console.log(`[Config] Added custom prompt: ${prompt.name}`)
+    const prompts = await this.getCustomPrompts();
+    const updatedPrompts = [...prompts, prompt]; // Create new array
+    await this.setCustomPrompts(updatedPrompts);
+    console.log(`[Config] Added custom prompt: ${prompt.name}`);
   }
 
   // 更新单个 prompt (optimized with cache)
   async updateCustomPrompt(promptId: string, updates: Partial<Prompt>): Promise<void> {
-    const prompts = await this.getCustomPrompts()
-    const index = prompts.findIndex((p) => p.id === promptId)
+    const prompts = await this.getCustomPrompts();
+    const index = prompts.findIndex((p) => p.id === promptId);
     if (index !== -1) {
-      const updatedPrompts = [...prompts] // Create new array
-      updatedPrompts[index] = { ...updatedPrompts[index], ...updates }
-      await this.setCustomPrompts(updatedPrompts)
-      console.log(`[Config] Updated custom prompt: ${promptId}`)
+      const updatedPrompts = [...prompts]; // Create new array
+      updatedPrompts[index] = { ...updatedPrompts[index], ...updates };
+      await this.setCustomPrompts(updatedPrompts);
+      console.log(`[Config] Updated custom prompt: ${promptId}`);
     } else {
-      console.warn(`[Config] Custom prompt not found for update: ${promptId}`)
+      console.warn(`[Config] Custom prompt not found for update: ${promptId}`);
     }
   }
 
   // 删除单个 prompt (optimized with cache)
   async deleteCustomPrompt(promptId: string): Promise<void> {
-    const prompts = await this.getCustomPrompts()
-    const initialCount = prompts.length
-    const filteredPrompts = prompts.filter((p) => p.id !== promptId)
+    const prompts = await this.getCustomPrompts();
+    const initialCount = prompts.length;
+    const filteredPrompts = prompts.filter((p) => p.id !== promptId);
 
     if (filteredPrompts.length === initialCount) {
-      console.warn(`[Config] Custom prompt not found for deletion: ${promptId}`)
-      return
+      console.warn(`[Config] Custom prompt not found for deletion: ${promptId}`);
+      return;
     }
 
-    await this.setCustomPrompts(filteredPrompts)
-    console.log(`[Config] Deleted custom prompt: ${promptId}`)
+    await this.setCustomPrompts(filteredPrompts);
+    console.log(`[Config] Deleted custom prompt: ${promptId}`);
   }
 
   /**
@@ -3007,401 +2844,393 @@ export class ConfigPresenter implements IConfigPresenter {
    * 这将强制下次访问时重新加载
    */
   clearCustomPromptsCache(): void {
-    console.log('[Config] Clearing custom prompts cache')
-    this.customPromptsCache = null
+    console.log("[Config] Clearing custom prompts cache");
+    this.customPromptsCache = null;
   }
 
   // 获取默认系统提示词
   async getDefaultSystemPrompt(): Promise<string> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      const defaultPrompt = prompts.find((prompt) => prompt.isDefault)
-      return defaultPrompt?.content ?? this.getSetting<string>('default_system_prompt') ?? ''
+      const prompts = await this.getSystemPrompts();
+      const defaultPrompt = prompts.find((prompt) => prompt.isDefault);
+      return defaultPrompt?.content ?? this.getSetting<string>("default_system_prompt") ?? "";
     }
-    return this.systemPromptHelper.getDefaultSystemPrompt()
+    return this.systemPromptHelper.getDefaultSystemPrompt();
   }
 
   async setDefaultSystemPrompt(prompt: string): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      this.setSetting('default_system_prompt', prompt)
-      await this.publishSystemPromptState()
-      return
+      this.setSetting("default_system_prompt", prompt);
+      await this.publishSystemPromptState();
+      return;
     }
-    return this.systemPromptHelper.setDefaultSystemPrompt(prompt)
+    return this.systemPromptHelper.setDefaultSystemPrompt(prompt);
   }
 
   async resetToDefaultPrompt(): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      this.setSetting('default_system_prompt', DEFAULT_SYSTEM_PROMPT)
-      await this.publishSystemPromptState()
-      return
+      this.setSetting("default_system_prompt", DEFAULT_SYSTEM_PROMPT);
+      await this.publishSystemPromptState();
+      return;
     }
-    return this.systemPromptHelper.resetToDefaultPrompt()
+    return this.systemPromptHelper.resetToDefaultPrompt();
   }
 
   async clearSystemPrompt(): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      this.setSetting('default_system_prompt', '')
-      await this.publishSystemPromptState()
-      return
+      this.setSetting("default_system_prompt", "");
+      await this.publishSystemPromptState();
+      return;
     }
-    return this.systemPromptHelper.clearSystemPrompt()
+    return this.systemPromptHelper.clearSystemPrompt();
   }
 
   async getSystemPrompts(): Promise<SystemPrompt[]> {
     if (this.dbBackedSettingsStore) {
-      return this.getSetting<SystemPrompt[]>('systemPrompts') || []
+      return this.getSetting<SystemPrompt[]>("systemPrompts") || [];
     }
-    return this.systemPromptHelper.getSystemPrompts()
+    return this.systemPromptHelper.getSystemPrompts();
   }
 
   async setSystemPrompts(prompts: SystemPrompt[]): Promise<void> {
     if (!this.dbBackedSettingsStore) {
-      return this.systemPromptHelper.setSystemPrompts(prompts)
+      return this.systemPromptHelper.setSystemPrompts(prompts);
     }
 
-    this.setSetting('systemPrompts', prompts)
-    publishDeepchatEvent('config.systemPrompts.changed', {
+    this.setSetting("systemPrompts", prompts);
+    publishDeepchatEvent("config.systemPrompts.changed", {
       prompts,
       defaultPromptId: await this.getDefaultSystemPromptId(),
       prompt: await this.getDefaultSystemPrompt(),
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
   }
 
   async addSystemPrompt(prompt: SystemPrompt): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      await this.setSystemPrompts([...prompts, prompt])
-      return
+      const prompts = await this.getSystemPrompts();
+      await this.setSystemPrompts([...prompts, prompt]);
+      return;
     }
-    return this.systemPromptHelper.addSystemPrompt(prompt)
+    return this.systemPromptHelper.addSystemPrompt(prompt);
   }
 
   async updateSystemPrompt(promptId: string, updates: Partial<SystemPrompt>): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      const index = prompts.findIndex((prompt) => prompt.id === promptId)
+      const prompts = await this.getSystemPrompts();
+      const index = prompts.findIndex((prompt) => prompt.id === promptId);
       if (index === -1) {
-        return
+        return;
       }
-      const nextPrompts = [...prompts]
-      nextPrompts[index] = { ...nextPrompts[index], ...updates }
-      await this.setSystemPrompts(nextPrompts)
-      return
+      const nextPrompts = [...prompts];
+      nextPrompts[index] = { ...nextPrompts[index], ...updates };
+      await this.setSystemPrompts(nextPrompts);
+      return;
     }
-    return this.systemPromptHelper.updateSystemPrompt(promptId, updates)
+    return this.systemPromptHelper.updateSystemPrompt(promptId, updates);
   }
 
   async deleteSystemPrompt(promptId: string): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      await this.setSystemPrompts(prompts.filter((prompt) => prompt.id !== promptId))
-      return
+      const prompts = await this.getSystemPrompts();
+      await this.setSystemPrompts(prompts.filter((prompt) => prompt.id !== promptId));
+      return;
     }
-    return this.systemPromptHelper.deleteSystemPrompt(promptId)
+    return this.systemPromptHelper.deleteSystemPrompt(promptId);
   }
 
   async setDefaultSystemPromptId(promptId: string): Promise<void> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      const updatedPrompts = prompts.map((prompt) => ({ ...prompt, isDefault: false }))
+      const prompts = await this.getSystemPrompts();
+      const updatedPrompts = prompts.map((prompt) => ({ ...prompt, isDefault: false }));
 
-      if (promptId === 'empty') {
-        await this.setSystemPrompts(updatedPrompts)
-        await this.clearSystemPrompt()
+      if (promptId === "empty") {
+        await this.setSystemPrompts(updatedPrompts);
+        await this.clearSystemPrompt();
         eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
-          promptId: 'empty',
-          content: ''
-        })
-        await this.publishSystemPromptState()
-        return
+          promptId: "empty",
+          content: "",
+        });
+        await this.publishSystemPromptState();
+        return;
       }
 
-      const targetIndex = updatedPrompts.findIndex((prompt) => prompt.id === promptId)
+      const targetIndex = updatedPrompts.findIndex((prompt) => prompt.id === promptId);
       if (targetIndex !== -1) {
-        updatedPrompts[targetIndex].isDefault = true
-        await this.setSystemPrompts(updatedPrompts)
-        await this.setDefaultSystemPrompt(updatedPrompts[targetIndex].content)
+        updatedPrompts[targetIndex].isDefault = true;
+        await this.setSystemPrompts(updatedPrompts);
+        await this.setDefaultSystemPrompt(updatedPrompts[targetIndex].content);
         eventBus.send(CONFIG_EVENTS.DEFAULT_SYSTEM_PROMPT_CHANGED, SendTarget.ALL_WINDOWS, {
           promptId,
-          content: updatedPrompts[targetIndex].content
-        })
-        await this.publishSystemPromptState()
+          content: updatedPrompts[targetIndex].content,
+        });
+        await this.publishSystemPromptState();
       } else {
-        await this.setSystemPrompts(updatedPrompts)
+        await this.setSystemPrompts(updatedPrompts);
       }
-      return
+      return;
     }
-    return this.systemPromptHelper.setDefaultSystemPromptId(promptId)
+    return this.systemPromptHelper.setDefaultSystemPromptId(promptId);
   }
 
   async getDefaultSystemPromptId(): Promise<string> {
     if (this.dbBackedSettingsStore) {
-      const prompts = await this.getSystemPrompts()
-      const defaultPrompt = prompts.find((prompt) => prompt.isDefault)
+      const prompts = await this.getSystemPrompts();
+      const defaultPrompt = prompts.find((prompt) => prompt.isDefault);
       if (defaultPrompt) {
-        return defaultPrompt.id
+        return defaultPrompt.id;
       }
 
-      const storedPrompt = this.getSetting<string>('default_system_prompt')
-      if (!storedPrompt || storedPrompt.trim() === '') {
-        return 'empty'
+      const storedPrompt = this.getSetting<string>("default_system_prompt");
+      if (!storedPrompt || storedPrompt.trim() === "") {
+        return "empty";
       }
 
-      return prompts.find((prompt) => prompt.id === 'default')?.id || 'default'
+      return prompts.find((prompt) => prompt.id === "default")?.id || "default";
     }
-    return this.systemPromptHelper.getDefaultSystemPromptId()
+    return this.systemPromptHelper.getDefaultSystemPromptId();
   }
 
   private async publishSystemPromptState(): Promise<void> {
-    publishDeepchatEvent('config.systemPrompts.changed', {
+    publishDeepchatEvent("config.systemPrompts.changed", {
       prompts: await this.getSystemPrompts(),
       defaultPromptId: await this.getDefaultSystemPromptId(),
       prompt: await this.getDefaultSystemPrompt(),
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
   }
 
   // 获取更新渠道
   getUpdateChannel(): string {
-    const raw = this.getSetting<string>('updateChannel')
-    if (raw === 'stable' || raw === 'beta') {
-      return raw
+    const raw = this.getSetting<string>("updateChannel");
+    if (raw === "stable" || raw === "beta") {
+      return raw;
     }
     // 首次启动或值非法时，按当前应用版本号推断：含 -alpha/-beta/-rc/-canary 等预发后缀的安装包默认进入 beta 渠道
-    const isPrerelease = /-(?:alpha|beta|rc|canary)(?:[.-]\d+)?$/i.test(this.currentAppVersion)
-    const inferred = isPrerelease ? 'beta' : 'stable'
-    this.setSetting('updateChannel', inferred)
-    return inferred
+    const isPrerelease = /-(?:alpha|beta|rc|canary)(?:[.-]\d+)?$/i.test(this.currentAppVersion);
+    const inferred = isPrerelease ? "beta" : "stable";
+    this.setSetting("updateChannel", inferred);
+    return inferred;
   }
 
   // 设置更新渠道
   setUpdateChannel(channel: string): void {
-    this.setSetting('updateChannel', channel)
+    this.setSetting("updateChannel", channel);
   }
 
   // 获取默认快捷键
   getDefaultShortcutKey(): ShortcutKeySetting {
     return {
-      ...defaultShortcutKey
-    }
+      ...defaultShortcutKey,
+    };
   }
 
   // 获取快捷键
   getShortcutKey(): ShortcutKeySetting {
     return (
-      this.getSetting<ShortcutKeySetting>('shortcutKey') || {
-        ...defaultShortcutKey
+      this.getSetting<ShortcutKeySetting>("shortcutKey") || {
+        ...defaultShortcutKey,
       }
-    )
+    );
   }
 
   // 设置快捷键
   setShortcutKey(customShortcutKey: ShortcutKeySetting) {
-    this.setSetting('shortcutKey', customShortcutKey)
+    this.setSetting("shortcutKey", customShortcutKey);
   }
 
   // 重置快捷键
   resetShortcutKeys() {
-    this.setSetting('shortcutKey', { ...defaultShortcutKey })
+    this.setSetting("shortcutKey", { ...defaultShortcutKey });
   }
 
   // 获取知识库配置
   getKnowledgeConfigs(): BuiltinKnowledgeConfig[] {
     const configs = this.dbBackedSettingsStore
-      ? this.getSetting<BuiltinKnowledgeConfig[]>('knowledgeConfigs') || []
-      : this.knowledgeConfHelper.getKnowledgeConfigs()
-    const migratedConfigs = this.mcpConfHelper.migrateBuiltinKnowledgeConfigsFromEnv(configs)
+      ? this.getSetting<BuiltinKnowledgeConfig[]>("knowledgeConfigs") || []
+      : this.knowledgeConfHelper.getKnowledgeConfigs();
+    const migratedConfigs = this.mcpConfHelper.migrateBuiltinKnowledgeConfigsFromEnv(configs);
 
     if (migratedConfigs !== configs) {
       if (this.dbBackedSettingsStore) {
-        this.setSetting('knowledgeConfigs', migratedConfigs)
+        this.setSetting("knowledgeConfigs", migratedConfigs);
       } else {
-        this.knowledgeConfHelper.setKnowledgeConfigs(migratedConfigs)
+        this.knowledgeConfHelper.setKnowledgeConfigs(migratedConfigs);
       }
     }
 
-    return migratedConfigs
+    return migratedConfigs;
   }
 
   // 设置知识库配置
   setKnowledgeConfigs(configs: BuiltinKnowledgeConfig[]): void {
     if (this.dbBackedSettingsStore) {
-      this.setSetting('knowledgeConfigs', configs)
+      this.setSetting("knowledgeConfigs", configs);
     } else {
-      this.knowledgeConfHelper.setKnowledgeConfigs(configs)
+      this.knowledgeConfHelper.setKnowledgeConfigs(configs);
     }
     void Promise.all([this.getMcpServers(), this.getMcpEnabled()])
       .then(([mcpServers, mcpEnabled]) => {
         eventBus.send(MCP_EVENTS.CONFIG_CHANGED, SendTarget.ALL_WINDOWS, {
           mcpServers,
-          mcpEnabled
-        })
+          mcpEnabled,
+        });
       })
       .catch((error) => {
-        console.error('Failed to notify MCP config change after knowledge config update:', error)
-      })
+        console.error("Failed to notify MCP config change after knowledge config update:", error);
+      });
   }
 
   // 获取NPM Registry缓存
   getNpmRegistryCache(): any {
-    return this.mcpConfHelper.getNpmRegistryCache()
+    return this.mcpConfHelper.getNpmRegistryCache();
   }
 
   // 设置NPM Registry缓存
   setNpmRegistryCache(cache: any): void {
-    return this.mcpConfHelper.setNpmRegistryCache(cache)
+    return this.mcpConfHelper.setNpmRegistryCache(cache);
   }
 
   // 检查NPM Registry缓存是否有效
   isNpmRegistryCacheValid(): boolean {
-    return this.mcpConfHelper.isNpmRegistryCacheValid()
+    return this.mcpConfHelper.isNpmRegistryCacheValid();
   }
 
   // 获取有效的NPM Registry
   getEffectiveNpmRegistry(): string | null {
-    return this.mcpConfHelper.getEffectiveNpmRegistry()
+    return this.mcpConfHelper.getEffectiveNpmRegistry();
   }
 
   // 获取自定义NPM Registry
   getCustomNpmRegistry(): string | undefined {
-    return this.mcpConfHelper.getCustomNpmRegistry()
+    return this.mcpConfHelper.getCustomNpmRegistry();
   }
 
   // 设置自定义NPM Registry
   setCustomNpmRegistry(registry: string | undefined): void {
-    this.mcpConfHelper.setCustomNpmRegistry(registry)
+    this.mcpConfHelper.setCustomNpmRegistry(registry);
   }
 
   // 获取自动检测NPM Registry设置
   getAutoDetectNpmRegistry(): boolean {
-    return this.mcpConfHelper.getAutoDetectNpmRegistry()
+    return this.mcpConfHelper.getAutoDetectNpmRegistry();
   }
 
   // 设置自动检测NPM Registry
   setAutoDetectNpmRegistry(enabled: boolean): void {
-    this.mcpConfHelper.setAutoDetectNpmRegistry(enabled)
+    this.mcpConfHelper.setAutoDetectNpmRegistry(enabled);
   }
 
   // 清除NPM Registry缓存
   clearNpmRegistryCache(): void {
-    this.mcpConfHelper.clearNpmRegistryCache()
+    this.mcpConfHelper.clearNpmRegistryCache();
   }
 
   // 对比知识库配置差异
   diffKnowledgeConfigs(newConfigs: BuiltinKnowledgeConfig[]) {
-    return KnowledgeConfHelper.diffKnowledgeConfigs(this.getKnowledgeConfigs(), newConfigs)
+    return KnowledgeConfHelper.diffKnowledgeConfigs(this.getKnowledgeConfigs(), newConfigs);
   }
 
   // 批量导入MCP服务器
   async batchImportMcpServers(
     servers: Array<{
-      name: string
-      description: string
-      package: string
-      version?: string
-      type?: any
-      args?: string[]
-      env?: Record<string, string>
-      enabled?: boolean
-      source?: string
-      [key: string]: unknown
+      name: string;
+      description: string;
+      package: string;
+      version?: string;
+      type?: any;
+      args?: string[];
+      env?: Record<string, string>;
+      enabled?: boolean;
+      source?: string;
+      [key: string]: unknown;
     }>,
     options: {
-      skipExisting?: boolean
-      enableByDefault?: boolean
-      overwriteExisting?: boolean
-    } = {}
+      skipExisting?: boolean;
+      enableByDefault?: boolean;
+      overwriteExisting?: boolean;
+    } = {},
   ): Promise<{ imported: number; skipped: number; errors: string[] }> {
-    return this.mcpConfHelper.batchImportMcpServers(servers, options)
+    return this.mcpConfHelper.batchImportMcpServers(servers, options);
   }
 
   // 根据包名查找服务器
   async findMcpServerByPackage(packageName: string): Promise<string | null> {
-    return this.mcpConfHelper.findServerByPackage(packageName)
+    return this.mcpConfHelper.findServerByPackage(packageName);
   }
 
   // ===================== Nowledge-mem configuration methods =====================
   async getNowledgeMemConfig(): Promise<{
-    baseUrl: string
-    apiKey?: string
-    timeout: number
+    baseUrl: string;
+    apiKey?: string;
+    timeout: number;
   } | null> {
     try {
-      return this.getSettingsStoreForKey('nowledgeMemConfig').get('nowledgeMemConfig', null) as {
-        baseUrl: string
-        apiKey?: string
-        timeout: number
-      } | null
+      return this.getSettingsStoreForKey("nowledgeMemConfig").get("nowledgeMemConfig", null) as {
+        baseUrl: string;
+        apiKey?: string;
+        timeout: number;
+      } | null;
     } catch (error) {
-      console.error('[Config] Failed to get nowledge-mem config:', error)
-      return null
+      console.error("[Config] Failed to get nowledge-mem config:", error);
+      return null;
     }
   }
 
-  async setNowledgeMemConfig(config: {
-    baseUrl: string
-    apiKey?: string
-    timeout: number
-  }): Promise<void> {
+  async setNowledgeMemConfig(config: { baseUrl: string; apiKey?: string; timeout: number }): Promise<void> {
     try {
-      this.getSettingsStoreForKey('nowledgeMemConfig').set('nowledgeMemConfig', config)
-      eventBus.sendToRenderer(
-        CONFIG_EVENTS.NOWLEDGE_MEM_CONFIG_UPDATED,
-        SendTarget.ALL_WINDOWS,
-        config
-      )
+      this.getSettingsStoreForKey("nowledgeMemConfig").set("nowledgeMemConfig", config);
+      eventBus.sendToRenderer(CONFIG_EVENTS.NOWLEDGE_MEM_CONFIG_UPDATED, SendTarget.ALL_WINDOWS, config);
     } catch (error) {
-      console.error('[Config] Failed to set nowledge-mem config:', error)
-      throw error
+      console.error("[Config] Failed to set nowledge-mem config:", error);
+      throw error;
     }
   }
 
   getHooksNotificationsConfig(): HooksNotificationsSettings {
-    const store = this.getSettingsStoreForKey('hooksNotifications')
-    const raw = store.get('hooksNotifications')
-    const normalized = normalizeHooksNotificationsConfig(raw)
+    const store = this.getSettingsStoreForKey("hooksNotifications");
+    const raw = store.get("hooksNotifications");
+    const normalized = normalizeHooksNotificationsConfig(raw);
     if (!raw || JSON.stringify(raw) !== JSON.stringify(normalized)) {
-      store.set('hooksNotifications', normalized)
+      store.set("hooksNotifications", normalized);
     }
-    return normalized
+    return normalized;
   }
 
   setHooksNotificationsConfig(config: HooksNotificationsSettings): HooksNotificationsSettings {
-    const normalized = normalizeHooksNotificationsConfig(config)
-    this.getSettingsStoreForKey('hooksNotifications').set('hooksNotifications', normalized)
-    return normalized
+    const normalized = normalizeHooksNotificationsConfig(config);
+    this.getSettingsStoreForKey("hooksNotifications").set("hooksNotifications", normalized);
+    return normalized;
   }
 
   getScheduledTasksConfig(): ScheduledTasksSettings {
-    const raw = this.store.get('scheduledTasks')
-    const normalized = normalizeScheduledTasksConfig(raw)
+    const raw = this.store.get("scheduledTasks");
+    const normalized = normalizeScheduledTasksConfig(raw);
     if (!raw || JSON.stringify(raw) !== JSON.stringify(normalized)) {
-      this.store.set('scheduledTasks', normalized)
+      this.store.set("scheduledTasks", normalized);
     }
-    return normalized
+    return normalized;
   }
 
   setScheduledTasksConfig(config: ScheduledTasksSettings): ScheduledTasksSettings {
-    const normalized = normalizeScheduledTasksConfig(config)
-    this.store.set('scheduledTasks', normalized)
-    return normalized
+    const normalized = normalizeScheduledTasksConfig(config);
+    this.store.set("scheduledTasks", normalized);
+    return normalized;
   }
 
   async testHookCommand(hookId: string): Promise<HookTestResult> {
-    return await presenter.hooksNotifications.testHookCommand(hookId)
+    return await presenter.hooksNotifications.testHookCommand(hookId);
   }
 
   getDefaultModel(): { providerId: string; modelId: string } | undefined {
-    const selection = this.getBuiltinDeepChatConfig().defaultModelPreset
+    const selection = this.getBuiltinDeepChatConfig().defaultModelPreset;
     if (selection?.providerId && selection?.modelId) {
       return {
         providerId: selection.providerId,
-        modelId: selection.modelId
-      }
+        modelId: selection.modelId,
+      };
     }
-    return this.store.get('defaultModel') as { providerId: string; modelId: string } | undefined
+    return this.store.get("defaultModel") as { providerId: string; modelId: string } | undefined;
   }
 
   setDefaultModel(model: { providerId: string; modelId: string } | undefined): void {
@@ -3410,25 +3239,25 @@ export class ConfigPresenter implements IConfigPresenter {
         model?.providerId && model?.modelId
           ? {
               providerId: model.providerId,
-              modelId: model.modelId
+              modelId: model.modelId,
             }
-          : null
-    })
-    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, 'defaultModel', model)
+          : null,
+    });
+    eventBus.sendToMain(CONFIG_EVENTS.SETTING_CHANGED, "defaultModel", model);
   }
 
   getDefaultProjectPath(): string | null {
-    const path = this.getSetting<string | null>('defaultProjectPath')
-    return path?.trim() ? path.trim() : null
+    const path = this.getSetting<string | null>("defaultProjectPath");
+    return path?.trim() ? path.trim() : null;
   }
 
   setDefaultProjectPath(projectPath: string | null): void {
-    const normalized = projectPath?.trim() ? projectPath.trim() : null
-    this.setSetting('defaultProjectPath', normalized)
+    const normalized = projectPath?.trim() ? projectPath.trim() : null;
+    this.setSetting("defaultProjectPath", normalized);
     eventBus.send(CONFIG_EVENTS.DEFAULT_PROJECT_PATH_CHANGED, SendTarget.ALL_WINDOWS, {
-      path: normalized
-    })
+      path: normalized,
+    });
   }
 }
 
-export { defaultShortcutKey } from './shortcutKeySettings'
+export { defaultShortcutKey } from "./shortcutKeySettings";

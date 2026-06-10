@@ -1,3 +1,3 @@
 export const is = {
-  dev: false
-}
+  dev: false,
+};

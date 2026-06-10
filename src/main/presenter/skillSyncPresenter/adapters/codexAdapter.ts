@@ -11,8 +11,8 @@
  * - Identical format to Claude Code
  */
 
-import { ClaudeCodeAdapter } from './claudeCodeAdapter'
-import type { CanonicalSkill, ParseContext } from '@shared/types/skillSync'
+import { ClaudeCodeAdapter } from "./claudeCodeAdapter";
+import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
 
 /**
  * OpenAI Codex format adapter
@@ -22,23 +22,23 @@ import type { CanonicalSkill, ParseContext } from '@shared/types/skillSync'
  * and only overrides the id, name, and source tracking.
  */
 export class CodexAdapter extends ClaudeCodeAdapter {
-  readonly id = 'codex'
-  readonly name = 'OpenAI Codex'
+  readonly id = "codex";
+  readonly name = "OpenAI Codex";
 
   /**
    * Parse Codex SKILL.md format to CanonicalSkill
    * Uses the same parsing logic as Claude Code, but updates source info
    */
   parse(content: string, context: ParseContext): CanonicalSkill {
-    const skill = super.parse(content, context)
+    const skill = super.parse(content, context);
 
     // Update source to reflect Codex origin
     skill.source = {
       tool: this.id,
       originalPath: context.filePath,
-      originalFormat: 'yaml-frontmatter-markdown'
-    }
+      originalFormat: "yaml-frontmatter-markdown",
+    };
 
-    return skill
+    return skill;
   }
 }

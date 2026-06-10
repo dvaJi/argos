@@ -1,278 +1,279 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
+import {
+  type FC,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@shadcn/components/ui/dropdown-menu'
+  DropdownMenuTrigger,
+} from "@shadcn/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import AgentTransferDialog from '@/components/agent/AgentTransferDialog'
-import { useAgentStore } from '@/stores/ui/agent'
-import { useSessionStore } from '@/stores/ui/session'
-import { useSidepanelStore } from '@/stores/ui/sidepanel'
-import { useSidebarStore } from '@/stores/ui/sidebar'
-import { useToast } from '@/components/use-toast'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import AgentTransferDialog from "@/components/agent/AgentTransferDialog";
+import { useAgentStore } from "@/stores/ui/agent";
+import { useSessionStore, getNewConversationTargetAgentId } from "@/stores/ui/session";
+import { useSidepanelStore } from "@/stores/ui/sidepanel";
+import { useSidebarStore } from "@/stores/ui/sidebar";
+import { useToast } from "@/components/use-toast";
 
-interface ChatTopBarProps extends React.HTMLAttributes<HTMLDivElement> {
-  sessionId: string
-  title: string
-  project: string
-  isReadOnly?: boolean
+interface ChatTopBarProps extends HTMLAttributes<HTMLDivElement> {
+  sessionId: string;
+  title: string;
+  project: string;
+  isReadOnly?: boolean;
 }
 
-const ChatTopBar: React.FC<ChatTopBarProps> = ({
+const ChatTopBar: FC<ChatTopBarProps> = ({
   sessionId,
   title,
   project,
   isReadOnly: isReadOnlyProp = false,
   ...attrs
 }) => {
-  const sessionStore = useSessionStore()
-  const agentStore = useAgentStore()
-  const sidepanelStore = useSidepanelStore()
-  const sidebarStore = useSidebarStore()
-  const { toast } = useToast()
+  const sessionStore = useSessionStore();
+  const agentStore = useAgentStore();
+  const sidepanelStore = useSidepanelStore();
+  const sidebarStore = useSidebarStore();
+  const { toast } = useToast();
 
-  const [isRenaming, setIsRenaming] = useState(false)
-  const [clearDialogOpen, setClearDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
-  const [moveDialogBusy, setMoveDialogBusy] = useState(false)
-  const [moveDialogError, setMoveDialogError] = useState<string | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const renameInputRef = useRef<HTMLInputElement | null>(null)
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveDialogBusy, setMoveDialogBusy] = useState(false);
+  const [moveDialogError, setMoveDialogError] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
 
   const showCollapsedNewChatButton = useMemo(
-    () => sidebarStore.collapsed && Boolean(sessionStore.newConversationTargetAgentId),
-    [sidebarStore.collapsed, sessionStore.newConversationTargetAgentId]
-  )
-  const projectName = useMemo(() => project.split('/').pop() ?? project, [project])
+    () => sidebarStore.collapsed && Boolean(getNewConversationTargetAgentId()),
+    [sidebarStore.collapsed, getNewConversationTargetAgentId()],
+  );
+  const projectName = useMemo(() => project.split("/").pop() ?? project, [project]);
   const currentSession = useMemo(
     () => sessionStore.sessions.find((session) => session.id === sessionId) ?? null,
-    [sessionStore.sessions, sessionId]
-  )
-  const currentTitle = useMemo(() => currentSession?.title ?? title, [currentSession?.title, title])
-  const showCollapsedNewChatSpacer = showCollapsedNewChatButton
-  const parentSessionId = useMemo(
-    () => currentSession?.parentSessionId ?? null,
-    [currentSession?.parentSessionId]
-  )
-  const isPinned = useMemo(() => Boolean(currentSession?.isPinned), [currentSession?.isPinned])
-  const isReadOnly = isReadOnlyProp === true
+    [sessionStore.sessions, sessionId],
+  );
+  const currentTitle = useMemo(() => currentSession?.title ?? title, [currentSession?.title, title]);
+  const showCollapsedNewChatSpacer = showCollapsedNewChatButton;
+  const parentSessionId = useMemo(() => currentSession?.parentSessionId ?? null, [currentSession?.parentSessionId]);
+  const isPinned = useMemo(() => Boolean(currentSession?.isPinned), [currentSession?.isPinned]);
+  const isReadOnly = isReadOnlyProp === true;
   const currentAgent = useMemo(
     () => agentStore.agents.find((agent) => agent.id === currentSession?.agentId) ?? null,
-    [agentStore.agents, currentSession?.agentId]
-  )
+    [agentStore.agents, currentSession?.agentId],
+  );
   const currentAgentName = useMemo(
-    () => currentAgent?.name ?? currentSession?.agentId ?? '',
-    [currentAgent?.name, currentSession?.agentId]
-  )
+    () => currentAgent?.name ?? currentSession?.agentId ?? "",
+    [currentAgent?.name, currentSession?.agentId],
+  );
   const transferAgents = useMemo(
     () =>
       agentStore.enabledAgents
-        .filter((agent) => agent.type === 'deepchat')
+        .filter((agent) => agent.type === "deepchat")
         .map((agent) => ({
           id: agent.id,
           name: agent.name,
           type: agent.type,
-          enabled: agent.enabled
+          enabled: agent.enabled,
         })),
-    [agentStore.enabledAgents]
-  )
+    [agentStore.enabledAgents],
+  );
   const canMoveConversation = useMemo(
-    () =>
-      !isReadOnly &&
-      currentSession?.sessionKind === 'regular' &&
-      currentSession?.status !== 'working',
-    [isReadOnly, currentSession?.sessionKind, currentSession?.status]
-  )
-  const normalizedRenameValue = useMemo(() => renameValue.trim(), [renameValue])
+    () => !isReadOnly && currentSession?.sessionKind === "regular" && currentSession?.status !== "working",
+    [isReadOnly, currentSession?.sessionKind, currentSession?.status],
+  );
+  const normalizedRenameValue = useMemo(() => renameValue.trim(), [renameValue]);
   const canSubmitRename = useMemo(
     () => normalizedRenameValue.length > 0 && normalizedRenameValue !== currentTitle.trim(),
-    [normalizedRenameValue, currentTitle]
-  )
+    [normalizedRenameValue, currentTitle],
+  );
 
   const handleCollapsedNewChat = useCallback(() => {
-    void sessionStore.startNewConversation({ refresh: true })
-  }, [sessionStore])
+    void sessionStore.startNewConversation({ refresh: true });
+  }, [sessionStore]);
 
   const resetRenameState = useCallback(() => {
-    setRenameValue(currentTitle)
-    setIsRenaming(false)
-  }, [currentTitle])
+    setRenameValue(currentTitle);
+    setIsRenaming(false);
+  }, [currentTitle]);
 
   const openRenameDialog = useCallback(async () => {
-    if (isReadOnly) return
-    setRenameValue(currentTitle)
-    setIsRenaming(true)
+    if (isReadOnly) return;
+    setRenameValue(currentTitle);
+    setIsRenaming(true);
     requestAnimationFrame(() => {
-      renameInputRef.current?.focus()
-      renameInputRef.current?.select()
-    })
-  }, [isReadOnly, currentTitle])
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    });
+  }, [isReadOnly, currentTitle]);
 
   const handleRenameCancel = useCallback(() => {
-    resetRenameState()
-  }, [resetRenameState])
+    resetRenameState();
+  }, [resetRenameState]);
 
   const handleRenameInputKeydown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (event.nativeEvent.isComposing) return
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        void handleRenameConfirm()
-        return
+    (event: KeyboardEvent) => {
+      if (event.nativeEvent.isComposing) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void handleRenameConfirm();
+        return;
       }
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        handleRenameCancel()
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleRenameCancel();
       }
     },
-    [handleRenameCancel]
-  )
+    [handleRenameCancel],
+  );
 
   const handleRenameConfirm = useCallback(async () => {
-    if (isReadOnly) return
-    const normalized = renameValue.trim()
+    if (isReadOnly) return;
+    const normalized = renameValue.trim();
     if (!normalized) {
-      resetRenameState()
-      return
+      resetRenameState();
+      return;
     }
     if (normalized === currentTitle.trim()) {
-      resetRenameState()
-      return
+      resetRenameState();
+      return;
     }
     try {
-      await sessionStore.renameSession(sessionId, normalized)
-      setIsRenaming(false)
+      await sessionStore.renameSession(sessionId, normalized);
+      setIsRenaming(false);
     } catch (error) {
-      console.error('Failed to rename chat:', error)
+      console.error("Failed to rename chat:", error);
     }
-  }, [isReadOnly, renameValue, currentTitle, sessionId, sessionStore, resetRenameState])
+  }, [isReadOnly, renameValue, currentTitle, sessionId, sessionStore, resetRenameState]);
 
   useEffect(() => {
-    resetRenameState()
-  }, [sessionId])
+    resetRenameState();
+  }, [sessionId]);
 
   useEffect(() => {
     if (isReadOnlyProp) {
-      resetRenameState()
+      resetRenameState();
     }
-  }, [isReadOnlyProp, resetRenameState])
+  }, [isReadOnlyProp, resetRenameState]);
 
   const handleClearConfirm = useCallback(async () => {
-    if (isReadOnly) return
+    if (isReadOnly) return;
     try {
-      await sessionStore.clearSessionMessages(sessionId)
+      await sessionStore.clearSessionMessages(sessionId);
     } catch (error) {
-      console.error('Failed to clear messages:', error)
+      console.error("Failed to clear messages:", error);
     }
-    setClearDialogOpen(false)
-  }, [isReadOnly, sessionId, sessionStore])
+    setClearDialogOpen(false);
+  }, [isReadOnly, sessionId, sessionStore]);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (isReadOnly) return
+    if (isReadOnly) return;
     try {
-      await sessionStore.deleteSession(sessionId)
+      await sessionStore.deleteSession(sessionId);
     } catch (error) {
-      console.error('Failed to delete chat:', error)
+      console.error("Failed to delete chat:", error);
     }
-    setDeleteDialogOpen(false)
-  }, [isReadOnly, sessionId, sessionStore])
+    setDeleteDialogOpen(false);
+  }, [isReadOnly, sessionId, sessionStore]);
 
   const handleMoveConfirm = useCallback(
     async (payload: { targetAgentId: string }) => {
-      if (!canMoveConversation) return
-      setMoveDialogBusy(true)
-      setMoveDialogError(null)
+      if (!canMoveConversation) return;
+      setMoveDialogBusy(true);
+      setMoveDialogError(null);
       try {
-        await sessionStore.moveSessionToAgent(sessionId, payload.targetAgentId)
-        setMoveDialogOpen(false)
+        await sessionStore.moveSessionToAgent(sessionId, payload.targetAgentId);
+        setMoveDialogOpen(false);
       } catch (error) {
-        setMoveDialogError(error instanceof Error ? error.message : String(error))
+        setMoveDialogError(error instanceof Error ? error.message : String(error));
       } finally {
-        setMoveDialogBusy(false)
+        setMoveDialogBusy(false);
       }
     },
-    [canMoveConversation, sessionId, sessionStore]
-  )
+    [canMoveConversation, sessionId, sessionStore],
+  );
 
   const handleExport = useCallback(
-    async (format: 'markdown' | 'html' | 'txt' | 'nowledge-mem') => {
+    async (format: "markdown" | "html" | "txt" | "nowledge-mem") => {
       try {
-        await sessionStore.exportSession(sessionId, format)
-        const isNowledgeMem = format === 'nowledge-mem'
+        await sessionStore.exportSession(sessionId, format);
+        const isNowledgeMem = format === "nowledge-mem";
         toast({
-          title: isNowledgeMem ? 'Nowledge Memory exported' : 'Export successful',
-          description: isNowledgeMem
-            ? 'Nowledge Memory file has been saved.'
-            : 'Chat has been exported.',
-          variant: 'default'
-        })
+          title: isNowledgeMem ? "Nowledge Memory exported" : "Export successful",
+          description: isNowledgeMem ? "Nowledge Memory file has been saved." : "Chat has been exported.",
+          variant: "default",
+        });
       } catch (error) {
-        console.error('Export failed:', error)
+        console.error("Export failed:", error);
         toast({
-          title: 'Export failed',
-          description: 'Could not export the chat.',
-          variant: 'destructive'
-        })
+          title: "Export failed",
+          description: "Could not export the chat.",
+          variant: "destructive",
+        });
       }
     },
-    [sessionId, sessionStore, toast]
-  )
+    [sessionId, sessionStore, toast],
+  );
 
   const handleBackToParent = useCallback(async () => {
-    if (!parentSessionId) return
+    if (!parentSessionId) return;
     try {
-      await sessionStore.selectSession(parentSessionId)
+      await sessionStore.selectSession(parentSessionId);
     } catch (error) {
-      console.error('Failed to navigate to parent session:', error)
+      console.error("Failed to navigate to parent session:", error);
     }
-  }, [parentSessionId, sessionStore])
+  }, [parentSessionId, sessionStore]);
 
   const openClearDialog = useCallback(() => {
-    if (isReadOnly) return
-    setClearDialogOpen(true)
-  }, [isReadOnly])
+    if (isReadOnly) return;
+    setClearDialogOpen(true);
+  }, [isReadOnly]);
 
   const openDeleteDialog = useCallback(() => {
-    if (isReadOnly) return
-    setDeleteDialogOpen(true)
-  }, [isReadOnly])
+    if (isReadOnly) return;
+    setDeleteDialogOpen(true);
+  }, [isReadOnly]);
 
   const openMoveDialog = useCallback(async () => {
-    if (!canMoveConversation) return
-    setMoveDialogError(null)
+    if (!canMoveConversation) return;
+    setMoveDialogError(null);
     if (agentStore.agents.length === 0) {
-      await agentStore.fetchAgents()
+      await agentStore.fetchAgents();
     }
-    setMoveDialogOpen(true)
-  }, [canMoveConversation, agentStore])
+    setMoveDialogOpen(true);
+  }, [canMoveConversation, agentStore]);
 
   const handleTogglePin = useCallback(async () => {
-    if (isReadOnly) return
+    if (isReadOnly) return;
     try {
-      await sessionStore.toggleSessionPinned(sessionId, !isPinned)
+      await sessionStore.toggleSessionPinned(sessionId, !isPinned);
     } catch (error) {
-      console.error('Failed to toggle pin status:', error)
+      console.error("Failed to toggle pin status:", error);
     }
-  }, [isReadOnly, sessionId, sessionStore, isPinned])
+  }, [isReadOnly, sessionId, sessionStore, isPinned]);
 
   return (
     <>
       <div
         {...attrs}
-        className={`sticky top-0 z-10 flex h-12 items-center justify-between bg-background/60 px-4 backdrop-blur-lg window-drag-region transition-[padding] duration-200 ease-out ${showCollapsedNewChatSpacer ? 'pl-12' : ''}`}
+        className={`sticky top-0 z-10 flex h-12 items-center justify-between bg-background/60 px-4 backdrop-blur-lg window-drag-region transition-[padding] duration-200 ease-out ${showCollapsedNewChatSpacer ? "pl-12" : ""}`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {showCollapsedNewChatButton && (
@@ -315,7 +316,7 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
             </div>
           ) : (
             <div
-              className={`title-inline-shell no-drag min-w-0 flex-1 ${isRenaming ? 'title-inline-shell--editing' : ''}`}
+              className={`title-inline-shell no-drag min-w-0 flex-1 ${isRenaming ? "title-inline-shell--editing" : ""}`}
             >
               {!isRenaming ? (
                 <button
@@ -395,19 +396,19 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onSelect={() => void handleExport('markdown')}>
+              <DropdownMenuItem onSelect={() => void handleExport("markdown")}>
                 <Icon icon="lucide:file-text" className="mr-2 h-4 w-4" />
                 <span>Markdown Document (.md)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport('html')}>
+              <DropdownMenuItem onSelect={() => void handleExport("html")}>
                 <Icon icon="lucide:globe" className="mr-2 h-4 w-4" />
                 <span>HTML Document (.html)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport('txt')}>
+              <DropdownMenuItem onSelect={() => void handleExport("txt")}>
                 <Icon icon="lucide:file-type" className="mr-2 h-4 w-4" />
                 <span>Plain Text (.txt)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport('nowledge-mem')}>
+              <DropdownMenuItem onSelect={() => void handleExport("nowledge-mem")}>
                 <Icon icon="lucide:brain" className="mr-2 h-4 w-4" />
                 <span>Nowledge Memory (.json)</span>
               </DropdownMenuItem>
@@ -428,16 +429,10 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onSelect={() => void handleTogglePin()}>
-                  <Icon
-                    icon={isPinned ? 'lucide:pin-off' : 'lucide:pin'}
-                    className="mr-2 h-4 w-4"
-                  />
-                  <span>{isPinned ? 'Unpin' : 'Pin'}</span>
+                  <Icon icon={isPinned ? "lucide:pin-off" : "lucide:pin"} className="mr-2 h-4 w-4" />
+                  <span>{isPinned ? "Unpin" : "Pin"}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!canMoveConversation}
-                  onSelect={() => void openMoveDialog()}
-                >
+                <DropdownMenuItem disabled={!canMoveConversation} onSelect={() => void openMoveDialog()}>
                   <Icon icon="lucide:move-right" className="mr-2 h-4 w-4" />
                   <span>Move conversation</span>
                 </DropdownMenuItem>
@@ -460,9 +455,7 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Clear Messages</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to clear all messages in this conversation?
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to clear all messages in this conversation?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClearDialogOpen(false)}>
@@ -479,9 +472,7 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Chat</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this conversation?
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to delete this conversation?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
@@ -498,7 +489,8 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
         mode="move-session"
-        sourceAgentId={currentSession?.agentId ?? ''}
+        onConfirmDelete={handleDeleteConfirm}
+        sourceAgentId={currentSession?.agentId ?? ""}
         sourceAgentName={currentAgentName}
         agents={transferAgents}
         sessionTitle={currentTitle}
@@ -507,7 +499,7 @@ const ChatTopBar: React.FC<ChatTopBarProps> = ({
         onConfirmMove={handleMoveConfirm}
       />
     </>
-  )
-}
+  );
+};
 
-export default ChatTopBar
+export default ChatTopBar;

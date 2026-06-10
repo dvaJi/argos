@@ -1,20 +1,15 @@
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
 
 interface SkillsHeaderProps {
-  searchQuery: string
-  onSearchQueryChange: (value: string) => void
-  onInstall: () => void
-  onExport: () => void
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  onInstall: () => void;
+  onExport: () => void;
 }
 
-export default function SkillsHeader({
-  searchQuery,
-  onSearchQueryChange,
-  onInstall,
-  onExport
-}: SkillsHeaderProps) {
+export default function SkillsHeader({ searchQuery, onSearchQueryChange, onInstall, onExport }: SkillsHeaderProps) {
   return (
     <div className="shrink-0 px-4 pt-4">
       <div className="flex items-center justify-between">
@@ -48,5 +43,5 @@ export default function SkillsHeader({
         </div>
       </div>
     </div>
-  )
+  );
 }

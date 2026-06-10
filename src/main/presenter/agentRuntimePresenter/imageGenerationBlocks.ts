@@ -1,104 +1,98 @@
-import type { AssistantMessageBlock } from '@shared/types/agent-interface'
-import type { ToolCallImagePreview } from '@shared/types/core/mcp'
-import {
-  IMAGE_GENERATE_TOOL_NAME,
-  IMAGE_GENERATION_TOOL_SERVER_NAME
-} from '@shared/agentImageGenerationTool'
+import type { AssistantMessageBlock } from "@shared/types/agent-interface";
+import type { ToolCallImagePreview } from "@shared/types/core/mcp";
+import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
 
 export function prepareToolImagePreviewPresentation(params: {
-  toolCallId?: string
-  toolName: string
-  toolSource?: 'mcp' | 'agent'
-  serverName?: string
-  isError: boolean
-  imagePreviews?: ToolCallImagePreview[]
+  toolCallId?: string;
+  toolName: string;
+  toolSource?: "mcp" | "agent";
+  serverName?: string;
+  isError: boolean;
+  imagePreviews?: ToolCallImagePreview[];
 }): {
-  toolBlockImagePreviews?: ToolCallImagePreview[]
-  promotedBlocks: AssistantMessageBlock[]
+  toolBlockImagePreviews?: ToolCallImagePreview[];
+  promotedBlocks: AssistantMessageBlock[];
 } {
-  const { toolCallId, toolName, toolSource, serverName, isError, imagePreviews } = params
+  const { toolCallId, toolName, toolSource, serverName, isError, imagePreviews } = params;
   if (!imagePreviews) {
-    return { promotedBlocks: [] }
+    return { promotedBlocks: [] };
   }
 
   if (isError || imagePreviews.length === 0) {
     return {
       toolBlockImagePreviews: imagePreviews,
-      promotedBlocks: []
-    }
+      promotedBlocks: [],
+    };
   }
 
-  const timestamp = Date.now()
-  const promotedBlocks: AssistantMessageBlock[] = []
-  const remainingToolBlockImagePreviews: ToolCallImagePreview[] = []
+  const timestamp = Date.now();
+  const promotedBlocks: AssistantMessageBlock[] = [];
+  const remainingToolBlockImagePreviews: ToolCallImagePreview[] = [];
 
   for (const preview of imagePreviews) {
-    const { data, mimeType } = preview
+    const { data, mimeType } = preview;
     if (!data || !mimeType) {
-      remainingToolBlockImagePreviews.push(preview)
-      continue
+      remainingToolBlockImagePreviews.push(preview);
+      continue;
     }
 
     promotedBlocks.push({
-      type: 'image',
-      content: '',
-      status: 'success',
+      type: "image",
+      content: "",
+      status: "success",
       timestamp,
       image_data: {
         data,
-        mimeType
+        mimeType,
       },
       extra: {
         ...(toolCallId ? { toolCallId } : {}),
         toolName,
         ...(preview.id ? { toolImagePreviewId: preview.id } : {}),
         toolImagePreviewSource: preview.source,
-        ...(preview.title ? { toolImagePreviewTitle: preview.title } : {})
-      } as AssistantMessageBlock['extra']
-    })
+        ...(preview.title ? { toolImagePreviewTitle: preview.title } : {}),
+      } as AssistantMessageBlock["extra"],
+    });
   }
 
   if (promotedBlocks.length === 0) {
     return {
       toolBlockImagePreviews: imagePreviews,
-      promotedBlocks: []
-    }
+      promotedBlocks: [],
+    };
   }
 
   if (
     toolName === IMAGE_GENERATE_TOOL_NAME &&
-    toolSource === 'agent' &&
+    toolSource === "agent" &&
     serverName === IMAGE_GENERATION_TOOL_SERVER_NAME
   ) {
     return {
       toolBlockImagePreviews: remainingToolBlockImagePreviews,
-      promotedBlocks
-    }
+      promotedBlocks,
+    };
   }
 
   return {
-    toolBlockImagePreviews:
-      remainingToolBlockImagePreviews.length > 0 ? remainingToolBlockImagePreviews : [],
-    promotedBlocks
-  }
+    toolBlockImagePreviews: remainingToolBlockImagePreviews.length > 0 ? remainingToolBlockImagePreviews : [],
+    promotedBlocks,
+  };
 }
 
 export function insertBlocksAfterToolCall(
   blocks: AssistantMessageBlock[],
   toolCallId: string,
-  newBlocks: AssistantMessageBlock[]
+  newBlocks: AssistantMessageBlock[],
 ): void {
   if (newBlocks.length === 0) {
-    return
+    return;
   }
 
-  const toolBlockIndex = blocks.findIndex(
-    (block) => block.type === 'tool_call' && block.tool_call?.id === toolCallId
-  )
+  const toolBlockIndex = blocks.findIndex((block) => block.type === "tool_call" && block.tool_call?.id === toolCallId);
   if (toolBlockIndex === -1) {
-    blocks.push(...newBlocks)
-    return
+    blocks.push(...newBlocks);
+    return;
   }
 
-  blocks.splice(toolBlockIndex + 1, 0, ...newBlocks)
+  blocks.splice(toolBlockIndex + 1, 0, ...newBlocks);
 }

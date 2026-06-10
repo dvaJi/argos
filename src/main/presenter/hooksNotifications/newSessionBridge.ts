@@ -1,24 +1,24 @@
-import type { HookEventName } from '@shared/hooksNotifications'
-import type { HookDispatchContext } from './index'
+import type { HookEventName } from "@shared/hooksNotifications";
+import type { HookDispatchContext } from "./index";
 
 type HookDispatcher = {
-  dispatchEvent(event: HookEventName, context: HookDispatchContext): void
-}
+  dispatchEvent(event: HookEventName, context: HookDispatchContext): void;
+};
 
 export type NewSessionHookContext = {
-  sessionId: string
-  agentId?: string | null
-  projectDir?: string | null
-  messageId?: string
-  promptPreview?: string
-  providerId?: string
-  modelId?: string
-  tool?: HookDispatchContext['tool']
-  permission?: HookDispatchContext['permission']
-  stop?: HookDispatchContext['stop']
-  usage?: HookDispatchContext['usage']
-  error?: HookDispatchContext['error']
-}
+  sessionId: string;
+  agentId?: string | null;
+  projectDir?: string | null;
+  messageId?: string;
+  promptPreview?: string;
+  providerId?: string;
+  modelId?: string;
+  tool?: HookDispatchContext["tool"];
+  permission?: HookDispatchContext["permission"];
+  stop?: HookDispatchContext["stop"];
+  usage?: HookDispatchContext["usage"];
+  error?: HookDispatchContext["error"];
+};
 
 export class NewSessionHooksBridge {
   constructor(private readonly dispatcher: HookDispatcher) {}
@@ -36,7 +36,7 @@ export class NewSessionHooksBridge {
       permission: context.permission ?? null,
       stop: context.stop ?? null,
       usage: context.usage ?? null,
-      error: context.error ?? null
-    })
+      error: context.error ?? null,
+    });
   }
 }

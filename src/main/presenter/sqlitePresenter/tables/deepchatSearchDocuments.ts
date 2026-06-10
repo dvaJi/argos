@@ -1,25 +1,25 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
 export interface DeepChatSearchDocumentRow {
-  rowid: number
-  document_key: string
-  session_id: string
-  message_id: string | null
-  document_kind: 'session' | 'message'
-  role: 'user' | 'assistant' | null
-  title: string
-  content: string
-  updated_at: number
+  rowid: number;
+  document_key: string;
+  session_id: string;
+  message_id: string | null;
+  document_kind: "session" | "message";
+  role: "user" | "assistant" | null;
+  title: string;
+  content: string;
+  updated_at: number;
 }
 
-const NORMALIZATION_SCHEMA_VERSION = 26
-const FTS_TABLE_NAME = 'deepchat_search_documents_fts'
+const NORMALIZATION_SCHEMA_VERSION = 26;
+const FTS_TABLE_NAME = "deepchat_search_documents_fts";
 const FTS_TRIGGER_NAMES = [
-  'deepchat_search_documents_ai',
-  'deepchat_search_documents_ad',
-  'deepchat_search_documents_au'
-] as const
+  "deepchat_search_documents_ai",
+  "deepchat_search_documents_ad",
+  "deepchat_search_documents_au",
+] as const;
 
 function buildFtsMatchQuery(query: string): string {
   return query
@@ -27,19 +27,19 @@ function buildFtsMatchQuery(query: string): string {
     .split(/\s+/)
     .filter(Boolean)
     .map((token) => `"${token.replace(/"/g, '""')}"`)
-    .join(' AND ')
+    .join(" AND ");
 }
 
 export class DeepChatSearchDocumentsTable extends BaseTable {
-  private ftsUnavailable = false
+  private ftsUnavailable = false;
 
   constructor(db: Database.Database) {
-    super(db, 'deepchat_search_documents')
+    super(db, "deepchat_search_documents");
   }
 
   override createTable(): void {
-    this.db.exec(this.getCreateTableSQL())
-    this.ensureFtsTable()
+    this.db.exec(this.getCreateTableSQL());
+    this.ensureFtsTable();
   }
 
   getCreateTableSQL(): string {
@@ -58,26 +58,26 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         ON deepchat_search_documents(session_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS idx_deepchat_search_documents_message
         ON deepchat_search_documents(message_id);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
     if (version === NORMALIZATION_SCHEMA_VERSION) {
-      return this.getCreateTableSQL()
+      return this.getCreateTableSQL();
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return NORMALIZATION_SCHEMA_VERSION
+    return NORMALIZATION_SCHEMA_VERSION;
   }
 
   isFtsAvailable(): boolean {
     if (this.ftsUnavailable) {
-      return false
+      return false;
     }
 
-    return this.hasCompatibleFtsTable()
+    return this.hasCompatibleFtsTable();
   }
 
   private hasFtsTable(): boolean {
@@ -86,10 +86,10 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         `SELECT name
          FROM sqlite_master
          WHERE type = 'table'
-           AND name = ?`
+           AND name = ?`,
       )
-      .get(FTS_TABLE_NAME) as { name?: string } | undefined
-    return row?.name === FTS_TABLE_NAME
+      .get(FTS_TABLE_NAME) as { name?: string } | undefined;
+    return row?.name === FTS_TABLE_NAME;
   }
 
   private getFtsTableSql(): string | null {
@@ -98,24 +98,24 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         `SELECT sql
          FROM sqlite_master
          WHERE type = 'table'
-           AND name = ?`
+           AND name = ?`,
       )
-      .get(FTS_TABLE_NAME) as { sql?: string | null } | undefined
-    return row?.sql ?? null
+      .get(FTS_TABLE_NAME) as { sql?: string | null } | undefined;
+    return row?.sql ?? null;
   }
 
   private hasCompatibleFtsTable(): boolean {
-    const sql = this.getFtsTableSql()
+    const sql = this.getFtsTableSql();
     if (!sql) {
-      return false
+      return false;
     }
 
-    const normalized = sql.replace(/\s+/g, ' ').toLowerCase()
+    const normalized = sql.replace(/\s+/g, " ").toLowerCase();
     return (
-      normalized.includes('using fts5') &&
+      normalized.includes("using fts5") &&
       /content\s*=\s*'deepchat_search_documents'/.test(normalized) &&
       /content_rowid\s*=\s*'rowid'/.test(normalized)
-    )
+    );
   }
 
   private hasFtsTriggers(): boolean {
@@ -124,24 +124,24 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         `SELECT name
          FROM sqlite_master
          WHERE type = 'trigger'
-           AND name IN (${FTS_TRIGGER_NAMES.map(() => '?').join(', ')})`
+           AND name IN (${FTS_TRIGGER_NAMES.map(() => "?").join(", ")})`,
       )
-      .all(...FTS_TRIGGER_NAMES) as Array<{ name: string }>
-    const existing = new Set(rows.map((row) => row.name))
-    return FTS_TRIGGER_NAMES.every((name) => existing.has(name))
+      .all(...FTS_TRIGGER_NAMES) as Array<{ name: string }>;
+    const existing = new Set(rows.map((row) => row.name));
+    return FTS_TRIGGER_NAMES.every((name) => existing.has(name));
   }
 
   upsert(row: {
-    documentKey: string
-    sessionId: string
-    messageId?: string | null
-    documentKind: 'session' | 'message'
-    role?: 'user' | 'assistant' | null
-    title: string
-    content: string
-    updatedAt?: number
+    documentKey: string;
+    sessionId: string;
+    messageId?: string | null;
+    documentKind: "session" | "message";
+    role?: "user" | "assistant" | null;
+    title: string;
+    content: string;
+    updatedAt?: number;
   }): void {
-    const updatedAt = row.updatedAt ?? Date.now()
+    const updatedAt = row.updatedAt ?? Date.now();
     this.db
       .prepare(
         `INSERT INTO deepchat_search_documents (
@@ -161,7 +161,7 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
           role = excluded.role,
           title = excluded.title,
           content = excluded.content,
-          updated_at = excluded.updated_at`
+          updated_at = excluded.updated_at`,
       )
       .run(
         row.documentKey,
@@ -171,8 +171,8 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         row.role ?? null,
         row.title,
         row.content,
-        updatedAt
-      )
+        updatedAt,
+      );
   }
 
   refreshSessionTitle(sessionId: string, title: string, updatedAt: number = Date.now()): void {
@@ -180,41 +180,41 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
       .prepare(
         `UPDATE deepchat_search_documents
          SET title = ?, updated_at = ?
-         WHERE session_id = ?`
+         WHERE session_id = ?`,
       )
-      .run(title, updatedAt, sessionId)
+      .run(title, updatedAt, sessionId);
   }
 
   delete(documentKey: string): void {
-    this.db.prepare('DELETE FROM deepchat_search_documents WHERE document_key = ?').run(documentKey)
+    this.db.prepare("DELETE FROM deepchat_search_documents WHERE document_key = ?").run(documentKey);
   }
 
   deleteByMessageIds(messageIds: string[]): void {
     if (messageIds.length === 0) {
-      return
+      return;
     }
 
-    const placeholders = messageIds.map(() => '?').join(', ')
+    const placeholders = messageIds.map(() => "?").join(", ");
     this.db
       .prepare(
         `DELETE FROM deepchat_search_documents
-         WHERE message_id IN (${placeholders})`
+         WHERE message_id IN (${placeholders})`,
       )
-      .run(...messageIds)
+      .run(...messageIds);
   }
 
   deleteBySession(sessionId: string): void {
-    this.db.prepare('DELETE FROM deepchat_search_documents WHERE session_id = ?').run(sessionId)
+    this.db.prepare("DELETE FROM deepchat_search_documents WHERE session_id = ?").run(sessionId);
   }
 
   searchFts(query: string, limit: number): Array<DeepChatSearchDocumentRow & { rank: number }> {
     if (!this.isFtsAvailable()) {
-      return []
+      return [];
     }
 
-    const matchQuery = buildFtsMatchQuery(query)
+    const matchQuery = buildFtsMatchQuery(query);
     if (!matchQuery) {
-      return []
+      return [];
     }
 
     return this.db
@@ -235,13 +235,13 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
            ON d.rowid = deepchat_search_documents_fts.rowid
          WHERE deepchat_search_documents_fts MATCH ?
          ORDER BY rank ASC, d.updated_at DESC
-         LIMIT ?`
+         LIMIT ?`,
       )
-      .all(matchQuery, limit) as Array<DeepChatSearchDocumentRow & { rank: number }>
+      .all(matchQuery, limit) as Array<DeepChatSearchDocumentRow & { rank: number }>;
   }
 
   searchLike(query: string, limit: number): Array<DeepChatSearchDocumentRow & { rank: number }> {
-    const likeQuery = `%${query.trim().toLowerCase()}%`
+    const likeQuery = `%${query.trim().toLowerCase()}%`;
     return this.db
       .prepare(
         `SELECT
@@ -259,21 +259,20 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
          WHERE lower(title) LIKE ?
             OR lower(content) LIKE ?
          ORDER BY updated_at DESC
-         LIMIT ?`
+         LIMIT ?`,
       )
-      .all(likeQuery, likeQuery, limit) as Array<DeepChatSearchDocumentRow & { rank: number }>
+      .all(likeQuery, likeQuery, limit) as Array<DeepChatSearchDocumentRow & { rank: number }>;
   }
 
   private ensureFtsTable(): void {
     try {
       this.db.transaction(() => {
-        const shouldRecreateFtsTable = this.hasFtsTable() && !this.hasCompatibleFtsTable()
-        const shouldRebuildFtsIndex =
-          shouldRecreateFtsTable || !this.hasFtsTable() || !this.hasFtsTriggers()
+        const shouldRecreateFtsTable = this.hasFtsTable() && !this.hasCompatibleFtsTable();
+        const shouldRebuildFtsIndex = shouldRecreateFtsTable || !this.hasFtsTable() || !this.hasFtsTriggers();
 
         if (shouldRecreateFtsTable) {
-          this.dropFtsTriggers()
-          this.db.exec(`DROP TABLE IF EXISTS ${FTS_TABLE_NAME};`)
+          this.dropFtsTriggers();
+          this.db.exec(`DROP TABLE IF EXISTS ${FTS_TABLE_NAME};`);
         }
 
         this.db.exec(`
@@ -284,30 +283,27 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
             content='deepchat_search_documents',
             content_rowid='rowid'
           );
-        `)
-        this.ensureFtsTriggers()
+        `);
+        this.ensureFtsTriggers();
 
         if (shouldRebuildFtsIndex) {
-          this.rebuildFtsIndex()
+          this.rebuildFtsIndex();
         }
-      })()
+      })();
 
-      this.ftsUnavailable = false
+      this.ftsUnavailable = false;
     } catch (error) {
-      this.ftsUnavailable = true
-      console.warn(
-        '[DeepChatSearchDocumentsTable] FTS5 unavailable, falling back to LIKE search.',
-        error
-      )
+      this.ftsUnavailable = true;
+      console.warn("[DeepChatSearchDocumentsTable] FTS5 unavailable, falling back to LIKE search.", error);
     }
   }
 
   private dropFtsTriggers(): void {
-    this.db.exec(FTS_TRIGGER_NAMES.map((name) => `DROP TRIGGER IF EXISTS ${name};`).join('\n'))
+    this.db.exec(FTS_TRIGGER_NAMES.map((name) => `DROP TRIGGER IF EXISTS ${name};`).join("\n"));
   }
 
   private ensureFtsTriggers(): void {
-    this.dropFtsTriggers()
+    this.dropFtsTriggers();
     this.db.exec(`
       CREATE TRIGGER deepchat_search_documents_ai
       AFTER INSERT ON deepchat_search_documents
@@ -331,10 +327,10 @@ export class DeepChatSearchDocumentsTable extends BaseTable {
         INSERT INTO ${FTS_TABLE_NAME}(rowid, title, content)
         VALUES (new.rowid, new.title, new.content);
       END;
-    `)
+    `);
   }
 
   private rebuildFtsIndex(): void {
-    this.db.prepare(`INSERT INTO ${FTS_TABLE_NAME}(${FTS_TABLE_NAME}) VALUES('rebuild')`).run()
+    this.db.prepare(`INSERT INTO ${FTS_TABLE_NAME}(${FTS_TABLE_NAME}) VALUES('rebuild')`).run();
   }
 }

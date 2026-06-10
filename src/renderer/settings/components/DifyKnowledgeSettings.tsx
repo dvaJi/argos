@@ -1,165 +1,156 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Switch } from '@shadcn/components/ui/switch'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Switch } from "@shadcn/components/ui/switch";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from '@shadcn/components/ui/dialog'
-import { Collapsible, CollapsibleContent } from '@shadcn/components/ui/collapsible'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
-import { useMcpStore } from '@/stores/mcp'
-import { useToast } from '@/components/use-toast'
-import difyPng from '@/assets/images/dify.png'
+  DialogTitle,
+} from "@shadcn/components/ui/dialog";
+import { Collapsible, CollapsibleContent } from "@shadcn/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import { useMcpStore } from "@/stores/mcp";
+import { useToast } from "@/components/use-toast";
+import difyPng from "@/assets/images/dify.png";
 
 interface DifyConfig {
-  description: string
-  apiKey: string
-  datasetId: string
-  endpoint: string
-  enabled?: boolean
+  description: string;
+  apiKey: string;
+  datasetId: string;
+  endpoint: string;
+  enabled?: boolean;
 }
 
 const DifyKnowledgeSettings = () => {
-  const mcpStore = useMcpStore()
-  const { toast } = useToast()
+  const mcpStore = useMcpStore();
+  const { toast } = useToast();
 
-  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false)
-  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [configs, setConfigs] = useState<DifyConfig[]>([])
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [configs, setConfigs] = useState<DifyConfig[]>([]);
   const [editingConfig, setEditingConfig] = useState<DifyConfig>({
-    description: '',
-    apiKey: '',
-    datasetId: '',
-    endpoint: 'https://api.dify.ai/v1',
-    enabled: true
-  })
-  const [editingIndex, setEditingIndex] = useState(-1)
+    description: "",
+    apiKey: "",
+    datasetId: "",
+    endpoint: "https://api.dify.ai/v1",
+    enabled: true,
+  });
+  const [editingIndex, setEditingIndex] = useState(-1);
 
   const isValid = useMemo(
     () =>
-      editingConfig.apiKey.trim() !== '' &&
-      editingConfig.datasetId.trim() !== '' &&
-      editingConfig.description.trim() !== '',
-    [editingConfig]
-  )
+      editingConfig.apiKey.trim() !== "" &&
+      editingConfig.datasetId.trim() !== "" &&
+      editingConfig.description.trim() !== "",
+    [editingConfig],
+  );
 
-  const isMcpEnabled = useMemo(
-    () => mcpStore.serverStatuses['difyKnowledge'] || false,
-    [mcpStore.serverStatuses]
-  )
+  const isMcpEnabled = useMemo(() => mcpStore.serverStatuses["difyKnowledge"] || false, [mcpStore.serverStatuses]);
 
   const openAddConfig = () => {
-    setIsEditing(false)
-    setEditingIndex(-1)
+    setIsEditing(false);
+    setEditingIndex(-1);
     setEditingConfig({
-      description: '',
-      apiKey: '',
-      datasetId: '',
-      endpoint: 'https://api.dify.ai/v1',
-      enabled: true
-    })
-    setIsConfigDialogOpen(true)
-  }
+      description: "",
+      apiKey: "",
+      datasetId: "",
+      endpoint: "https://api.dify.ai/v1",
+      enabled: true,
+    });
+    setIsConfigDialogOpen(true);
+  };
 
   const editConfig = (index: number) => {
-    setIsEditing(true)
-    setEditingIndex(index)
-    setEditingConfig({ ...configs[index] })
-    setIsConfigDialogOpen(true)
-  }
+    setIsEditing(true);
+    setEditingIndex(index);
+    setEditingConfig({ ...configs[index] });
+    setIsConfigDialogOpen(true);
+  };
 
   const closeDialog = () => {
-    setIsConfigDialogOpen(false)
-    setEditingIndex(-1)
+    setIsConfigDialogOpen(false);
+    setEditingIndex(-1);
     setEditingConfig({
-      description: '',
-      apiKey: '',
-      datasetId: '',
-      endpoint: 'https://api.dify.ai/v1',
-      enabled: true
-    })
-  }
+      description: "",
+      apiKey: "",
+      datasetId: "",
+      endpoint: "https://api.dify.ai/v1",
+      enabled: true,
+    });
+  };
 
   const saveConfig = async () => {
-    if (!isValid) return
+    if (!isValid) return;
     if (isEditing && editingIndex !== -1) {
       setConfigs((prev) => {
-        prev[editingIndex] = { ...editingConfig }
-        return [...prev]
-      })
-      toast({ title: 'Config updated', description: 'Dify config updated' })
+        prev[editingIndex] = { ...editingConfig };
+        return [...prev];
+      });
+      toast({ title: "Config updated", description: "Dify config updated" });
     } else {
-      setConfigs((prev) => [...prev, { ...editingConfig }])
-      toast({ title: 'Config added', description: 'Dify config added' })
+      setConfigs((prev) => [...prev, { ...editingConfig }]);
+      toast({ title: "Config added", description: "Dify config added" });
     }
-    await updateToMcp()
-    closeDialog()
-  }
+    await updateToMcp();
+    closeDialog();
+  };
 
   const removeConfig = async (index: number) => {
     setConfigs((prev) => {
-      prev.splice(index, 1)
-      return [...prev]
-    })
-    await updateToMcp()
-  }
+      prev.splice(index, 1);
+      return [...prev];
+    });
+    await updateToMcp();
+  };
 
   const toggleConfigEnabled = async (index: number, enabled: boolean) => {
     setConfigs((prev) => {
-      prev[index].enabled = enabled
-      return [...prev]
-    })
-    await updateToMcp()
-  }
+      prev[index].enabled = enabled;
+      return [...prev];
+    });
+    await updateToMcp();
+  };
 
   const updateToMcp = async () => {
     try {
-      await mcpStore.updateServer('difyKnowledge', { env: { configs } })
+      await mcpStore.updateServer("difyKnowledge", { env: { configs } });
     } catch (error) {
-      toast({ title: 'Operation failed', description: String(error), variant: 'destructive' })
+      toast({ title: "Operation failed", description: String(error), variant: "destructive" });
     }
-  }
+  };
 
   const loadFromMcp = async () => {
     try {
-      const serverConfig = mcpStore.config.mcpServers['difyKnowledge']
+      const serverConfig = mcpStore.config.mcpServers["difyKnowledge"];
       if (serverConfig?.env) {
-        const envObj =
-          typeof serverConfig.env === 'string' ? JSON.parse(serverConfig.env) : serverConfig.env
+        const envObj = typeof serverConfig.env === "string" ? JSON.parse(serverConfig.env) : serverConfig.env;
         if (envObj.configs && Array.isArray(envObj.configs)) {
-          setConfigs(envObj.configs)
+          setConfigs(envObj.configs);
         }
       }
     } catch {}
-  }
+  };
 
   const toggleMcpServer = async () => {
-    if (!mcpStore.mcpEnabled) return
-    await mcpStore.toggleServer('difyKnowledge')
-  }
+    if (!mcpStore.mcpEnabled) return;
+    await mcpStore.toggleServer("difyKnowledge");
+  };
 
   useEffect(() => {
-    if (mcpStore.config.ready) loadFromMcp()
-  }, [mcpStore.config.ready])
+    if (mcpStore.config.ready) loadFromMcp();
+  }, [mcpStore.config.ready]);
 
   useEffect(() => {
     if (!mcpStore.mcpEnabled && isMcpEnabled) {
-      mcpStore.toggleServer('difyKnowledge')
+      mcpStore.toggleServer("difyKnowledge");
     }
-  }, [mcpStore.mcpEnabled])
+  }, [mcpStore.mcpEnabled]);
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -178,11 +169,7 @@ const DifyKnowledgeSettings = () => {
           <TooltipProvider>
             <Tooltip delayDuration={200}>
               <TooltipTrigger>
-                <Switch
-                  checked={isMcpEnabled}
-                  disabled={!mcpStore.mcpEnabled}
-                  onCheckedChange={toggleMcpServer}
-                />
+                <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
               </TooltipTrigger>
               {!mcpStore.mcpEnabled && (
                 <TooltipContent>
@@ -191,10 +178,7 @@ const DifyKnowledgeSettings = () => {
               )}
             </Tooltip>
           </TooltipProvider>
-          <Icon
-            icon={isConfigPanelOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'}
-            className="w-4 h-4"
-          />
+          <Icon icon={isConfigPanelOpen ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
         </div>
       </div>
 
@@ -210,10 +194,7 @@ const DifyKnowledgeSettings = () => {
                         checked={config.enabled === true}
                         onCheckedChange={(v) => toggleConfigEnabled(index, v)}
                       />
-                      <button
-                        className="text-muted-foreground hover:text-primary"
-                        onClick={() => editConfig(index)}
-                      >
+                      <button className="text-muted-foreground hover:text-primary" onClick={() => editConfig(index)}>
                         <Icon icon="lucide:edit" className="h-4 w-4" />
                       </button>
                       <button
@@ -227,8 +208,7 @@ const DifyKnowledgeSettings = () => {
                       <span className="font-medium text-sm">{config.description}</span>
                       <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                         <div>
-                          <span className="font-medium">API Key:</span>{' '}
-                          {config.apiKey.substring(0, 8) + '****'}
+                          <span className="font-medium">API Key:</span> {config.apiKey.substring(0, 8) + "****"}
                         </div>
                         <div>
                           <span className="font-medium">Dataset ID:</span> {config.datasetId}
@@ -255,7 +235,7 @@ const DifyKnowledgeSettings = () => {
       <Dialog open={isConfigDialogOpen} onOpenChange={setIsConfigDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isEditing ? 'Edit Dify Config' : 'Add Dify Config'}</DialogTitle>
+            <DialogTitle>{isEditing ? "Edit Dify Config" : "Add Dify Config"}</DialogTitle>
             <DialogDescription>Connect to Dify knowledge bases</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -298,13 +278,13 @@ const DifyKnowledgeSettings = () => {
               Cancel
             </Button>
             <Button disabled={!isValid} onClick={saveConfig}>
-              {isEditing ? 'Confirm' : 'Add Config'}
+              {isEditing ? "Confirm" : "Add Config"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
+  );
+};
 
-export default DifyKnowledgeSettings
+export default DifyKnowledgeSettings;

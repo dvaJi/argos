@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Switch } from '@shadcn/components/ui/switch'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { useLegacyPresenter } from '@api/legacy/presenters'
-import { RATE_LIMIT_EVENTS } from '@/events'
-import type { LLM_PROVIDER } from '@shared/presenter'
-import { useToast } from '@/components/use-toast'
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Switch } from "@shadcn/components/ui/switch";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { useLegacyPresenter } from "@api/legacy/presenters";
+import { RATE_LIMIT_EVENTS } from "@/events";
+import type { LLM_PROVIDER } from "@shared/presenter";
+import { useToast } from "@/components/use-toast";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,191 +14,184 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
-} from '@shadcn/components/ui/alert-dialog'
+  AlertDialogTitle,
+} from "@shadcn/components/ui/alert-dialog";
 
 interface ProviderRateLimitConfigProps {
-  provider: LLM_PROVIDER
-  onConfigChanged?: () => void
+  provider: LLM_PROVIDER;
+  onConfigChanged?: () => void;
 }
 
 function convertQpsToInterval(qps: number): number {
-  return 1 / qps
+  return 1 / qps;
 }
 
 function convertIntervalToQps(interval: number): number {
-  return 1 / interval
+  return 1 / interval;
 }
 
-export default function ProviderRateLimitConfig({
-  provider,
-  onConfigChanged
-}: ProviderRateLimitConfigProps) {
-  const llmPresenter = useLegacyPresenter('llmproviderPresenter')
-  const { toast } = useToast()
+export default function ProviderRateLimitConfig({ provider, onConfigChanged }: ProviderRateLimitConfigProps) {
+  const llmPresenter = useLegacyPresenter("llmproviderPresenter");
+  const { toast } = useToast();
 
-  const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false)
-  const [intervalValue, setIntervalValue] = useState(
-    convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1)
-  )
+  const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);
+  const [intervalValue, setIntervalValue] = useState(convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1));
   const [previousValidValue, setPreviousValidValue] = useState(
-    convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1)
-  )
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+    convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1),
+  );
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [status, setStatus] = useState<{
-    currentQps: number
-    queueLength: number
-    lastRequestTime?: number
-  } | null>(null)
+    currentQps: number;
+    queueLength: number;
+    lastRequestTime?: number;
+  } | null>(null);
 
-  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadStatus = useCallback(async () => {
     try {
-      const rateLimitStatus = await llmPresenter.getProviderRateLimitStatus(provider.id)
+      const rateLimitStatus = await llmPresenter.getProviderRateLimitStatus(provider.id);
       setStatus({
         currentQps: rateLimitStatus.currentQps,
         queueLength: rateLimitStatus.queueLength,
-        lastRequestTime: rateLimitStatus.lastRequestTime
-      })
+        lastRequestTime: rateLimitStatus.lastRequestTime,
+      });
     } catch (error) {
-      console.error('Failed to load rate limit status:', error)
+      console.error("Failed to load rate limit status:", error);
     }
-  }, [llmPresenter, provider.id])
+  }, [llmPresenter, provider.id]);
 
   const startStatusPolling = useCallback(() => {
     if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current)
+      clearInterval(statusIntervalRef.current);
     }
     if (rateLimitEnabled) {
-      statusIntervalRef.current = setInterval(loadStatus, 1000)
+      statusIntervalRef.current = setInterval(loadStatus, 1000);
     }
-  }, [rateLimitEnabled, loadStatus])
+  }, [rateLimitEnabled, loadStatus]);
 
   const stopStatusPolling = useCallback(() => {
     if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current)
-      statusIntervalRef.current = null
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
     }
-  }, [])
+  }, []);
 
   const handleRateLimitEvent = useCallback(
     (data: any) => {
       if (data.providerId === provider.id) {
-        void loadStatus()
+        void loadStatus();
       }
     },
-    [provider.id, loadStatus]
-  )
+    [provider.id, loadStatus],
+  );
 
   useEffect(() => {
-    void loadStatus()
+    void loadStatus();
 
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent)
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent)
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent)
+    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
+    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
+    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
 
-    startStatusPolling()
+    startStatusPolling();
 
     return () => {
-      stopStatusPolling()
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.CONFIG_UPDATED)
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_EXECUTED)
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_QUEUED)
-    }
-  }, [loadStatus, handleRateLimitEvent, startStatusPolling, stopStatusPolling])
+      stopStatusPolling();
+      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.CONFIG_UPDATED);
+      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_EXECUTED);
+      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_QUEUED);
+    };
+  }, [loadStatus, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
 
   useEffect(() => {
-    startStatusPolling()
-  }, [rateLimitEnabled, startStatusPolling])
+    startStatusPolling();
+  }, [rateLimitEnabled, startStatusPolling]);
 
   useEffect(() => {
-    setRateLimitEnabled(provider.rateLimit?.enabled ?? false)
-    const newInterval = convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1)
-    setIntervalValue(newInterval)
-    setPreviousValidValue(newInterval)
-    void loadStatus()
-  }, [provider, loadStatus])
+    setRateLimitEnabled(provider.rateLimit?.enabled ?? false);
+    const newInterval = convertQpsToInterval(provider.rateLimit?.qpsLimit ?? 0.1);
+    setIntervalValue(newInterval);
+    setPreviousValidValue(newInterval);
+    void loadStatus();
+  }, [provider, loadStatus]);
 
   const updateRateLimitConfig = async (enabled: boolean, interval: number) => {
     try {
-      const qpsValue = convertIntervalToQps(interval)
-      await llmPresenter.updateProviderRateLimit(provider.id, enabled, qpsValue)
-      onConfigChanged?.()
-      await loadStatus()
+      const qpsValue = convertIntervalToQps(interval);
+      await llmPresenter.updateProviderRateLimit(provider.id, enabled, qpsValue);
+      onConfigChanged?.();
+      await loadStatus();
     } catch (error) {
-      console.error('Failed to update rate limit config:', error)
+      console.error("Failed to update rate limit config:", error);
     }
-  }
+  };
 
   const handleEnabledChange = async (enabled: boolean) => {
-    setRateLimitEnabled(enabled)
-    await updateRateLimitConfig(enabled, intervalValue)
-    startStatusPolling()
-  }
+    setRateLimitEnabled(enabled);
+    await updateRateLimitConfig(enabled, intervalValue);
+    startStatusPolling();
+  };
 
   const handleIntervalChange = async () => {
     if (intervalValue <= 0) {
-      setShowConfirmDialog(true)
-      return
+      setShowConfirmDialog(true);
+      return;
     }
 
     if (intervalValue > 3600) {
-      setIntervalValue(3600)
+      setIntervalValue(3600);
     }
-    setPreviousValidValue(intervalValue)
-    await updateRateLimitConfig(rateLimitEnabled, intervalValue)
-  }
+    setPreviousValidValue(intervalValue);
+    await updateRateLimitConfig(rateLimitEnabled, intervalValue);
+  };
 
   const confirmDisableRateLimit = async () => {
-    setRateLimitEnabled(false)
-    setShowConfirmDialog(false)
-    await updateRateLimitConfig(false, intervalValue)
+    setRateLimitEnabled(false);
+    setShowConfirmDialog(false);
+    await updateRateLimitConfig(false, intervalValue);
     toast({
-      title: 'Rate limit disabled',
-      description: 'Rate limiting has been disabled for this provider.'
-    })
-  }
+      title: "Rate limit disabled",
+      description: "Rate limiting has been disabled for this provider.",
+    });
+  };
 
   const cancelDisableRateLimit = () => {
-    setIntervalValue(previousValidValue)
-    setShowConfirmDialog(false)
-  }
+    setIntervalValue(previousValidValue);
+    setShowConfirmDialog(false);
+  };
 
   const formatLastRequestTime = () => {
     if (!status?.lastRequestTime || status.lastRequestTime === 0) {
-      return 'Never'
+      return "Never";
     }
-    const diff = Date.now() - status.lastRequestTime
-    if (diff < 1000) return 'Just now'
-    if (diff < 60000) return `${Math.floor(diff / 1000)} seconds ago`
-    return `${Math.floor(diff / 60000)} minutes ago`
-  }
+    const diff = Date.now() - status.lastRequestTime;
+    if (diff < 1000) return "Just now";
+    if (diff < 60000) return `${Math.floor(diff / 1000)} seconds ago`;
+    return `${Math.floor(diff / 60000)} minutes ago`;
+  };
 
   const formatNextAllowedTime = () => {
     if (!rateLimitEnabled || !status?.lastRequestTime || status.lastRequestTime === 0) {
-      return 'Immediately'
+      return "Immediately";
     }
 
-    const nextAllowedTime = status.lastRequestTime + intervalValue * 1000
-    const now = Date.now()
+    const nextAllowedTime = status.lastRequestTime + intervalValue * 1000;
+    const now = Date.now();
 
     if (nextAllowedTime <= now) {
-      return 'Immediately'
+      return "Immediately";
     }
 
-    const waitTime = Math.ceil((nextAllowedTime - now) / 1000)
-    return `${waitTime} seconds`
-  }
+    const waitTime = Math.ceil((nextAllowedTime - now) / 1000);
+    return `${waitTime} seconds`;
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h4 className="text-sm font-medium">Rate Limit</h4>
-          <p className="text-xs text-muted-foreground">
-            Control the request rate for this provider.
-          </p>
+          <p className="text-xs text-muted-foreground">Control the request rate for this provider.</p>
         </div>
         <Switch checked={rateLimitEnabled} onCheckedChange={handleEnabledChange} />
       </div>
@@ -216,20 +209,18 @@ export default function ProviderRateLimitConfig({
                 className="w-20"
                 value={intervalValue}
                 onChange={(e) => {
-                  const val = Number(e.target.value)
-                  setIntervalValue(val)
-                  if (val > 0) setPreviousValidValue(val)
+                  const val = Number(e.target.value);
+                  setIntervalValue(val);
+                  if (val > 0) setPreviousValidValue(val);
                 }}
                 onBlur={() => void handleIntervalChange()}
                 onKeyUp={(e) => {
-                  if (e.key === 'Enter') void handleIntervalChange()
+                  if (e.key === "Enter") void handleIntervalChange();
                 }}
               />
               <span className="text-xs text-muted-foreground">seconds between requests</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              Minimum time between consecutive requests in seconds.
-            </div>
+            <div className="text-xs text-muted-foreground">Minimum time between consecutive requests in seconds.</div>
           </div>
 
           {status && (
@@ -256,18 +247,15 @@ export default function ProviderRateLimitConfig({
           <AlertDialogHeader>
             <AlertDialogTitle>Disable Rate Limit?</AlertDialogTitle>
             <AlertDialogDescription>
-              Setting the interval to 0 will disable rate limiting. This may cause excessive API
-              usage.
+              Setting the interval to 0 will disable rate limiting. This may cause excessive API usage.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={cancelDisableRateLimit}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void confirmDisableRateLimit()}>
-              Disable
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => void confirmDisableRateLimit()}>Disable</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }

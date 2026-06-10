@@ -1,103 +1,96 @@
-import type { AssistantMessageBlock, ChatMessageRecord } from '@shared/types/agent-interface'
-import type { DeepChatTapeEntriesTable } from '../sqlitePresenter/tables/deepchatTapeEntries'
-import type { DeepChatTapeEntryRow } from '../sqlitePresenter/tables/deepchatTapeEntries'
-import { buildEffectiveTapeView } from './tapeEffectiveView'
+import type { AssistantMessageBlock, ChatMessageRecord } from "@shared/types/agent-interface";
+import type { DeepChatTapeEntriesTable } from "../sqlitePresenter/tables/deepchatTapeEntries";
+import type { DeepChatTapeEntryRow } from "../sqlitePresenter/tables/deepchatTapeEntries";
+import { buildEffectiveTapeView } from "./tapeEffectiveView";
 
-export type TapeFactSource = 'live' | 'backfill' | 'repair'
+export type TapeFactSource = "live" | "backfill" | "repair";
 
 function parseAssistantBlocks(rawContent: string): AssistantMessageBlock[] {
   try {
-    const parsed = JSON.parse(rawContent) as AssistantMessageBlock[]
-    return Array.isArray(parsed) ? parsed : []
+    const parsed = JSON.parse(rawContent) as AssistantMessageBlock[];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 function parsePayload(row: DeepChatTapeEntryRow): Record<string, unknown> | null {
   try {
-    const parsed = JSON.parse(row.payload_json) as unknown
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>
+    const parsed = JSON.parse(row.payload_json) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
     }
   } catch {}
-  return null
+  return null;
 }
 
 function readCompactionStatus(record: ChatMessageRecord): string | null {
   try {
     const parsed = JSON.parse(record.metadata) as {
-      messageType?: string
-      compactionStatus?: unknown
+      messageType?: string;
+      compactionStatus?: unknown;
+    };
+    if (parsed.messageType !== "compaction") {
+      return null;
     }
-    if (parsed.messageType !== 'compaction') {
-      return null
-    }
-    return typeof parsed.compactionStatus === 'string' ? parsed.compactionStatus : record.status
+    return typeof parsed.compactionStatus === "string" ? parsed.compactionStatus : record.status;
   } catch {
-    return null
+    return null;
   }
 }
 
 function shouldUseRevisionProvenance(record: ChatMessageRecord, source: TapeFactSource): boolean {
-  return source === 'repair' || record.status !== 'sent'
+  return source === "repair" || record.status !== "sent";
 }
 
-function buildMessageProvenanceKey(
-  record: ChatMessageRecord,
-  source: TapeFactSource
-): string | undefined {
+function buildMessageProvenanceKey(record: ChatMessageRecord, source: TapeFactSource): string | undefined {
   if (!shouldUseRevisionProvenance(record, source)) {
-    return undefined
+    return undefined;
   }
-  return `message:${record.id}:revision:${record.status}:${record.updatedAt}`
+  return `message:${record.id}:revision:${record.status}:${record.updatedAt}`;
 }
 
 function buildToolFactProvenanceKey(
   record: ChatMessageRecord,
   source: TapeFactSource,
-  kind: 'tool_call' | 'tool_result',
+  kind: "tool_call" | "tool_result",
   toolCallId: string,
-  index: number
+  index: number,
 ): string | undefined {
   if (!shouldUseRevisionProvenance(record, source)) {
-    return undefined
+    return undefined;
   }
-  return `${kind}:${record.id}:${toolCallId}:revision:${record.status}:${record.updatedAt}:${index}`
+  return `${kind}:${record.id}:${toolCallId}:revision:${record.status}:${record.updatedAt}:${index}`;
 }
 
-function appendToolFacts(
-  table: DeepChatTapeEntriesTable,
-  record: ChatMessageRecord,
-  source: TapeFactSource
-): number {
-  if (record.role !== 'assistant') {
-    return 0
+function appendToolFacts(table: DeepChatTapeEntriesTable, record: ChatMessageRecord, source: TapeFactSource): number {
+  if (record.role !== "assistant") {
+    return 0;
   }
 
-  let appended = 0
-  const blocks = parseAssistantBlocks(record.content)
+  let appended = 0;
+  const blocks = parseAssistantBlocks(record.content);
   blocks.forEach((block, index) => {
-    if (block.type !== 'tool_call' || !block.tool_call) {
-      return
+    if (block.type !== "tool_call" || !block.tool_call) {
+      return;
     }
 
-    const toolCall = block.tool_call
-    if (typeof toolCall.id !== 'string' || toolCall.id.length === 0) {
-      return
+    const toolCall = block.tool_call;
+    if (typeof toolCall.id !== "string" || toolCall.id.length === 0) {
+      return;
     }
-    const toolCallId = toolCall.id
-    const sourceId = `${record.id}:${toolCallId}`
+    const toolCallId = toolCall.id;
+    const sourceId = `${record.id}:${toolCallId}`;
     table.append({
       sessionId: record.sessionId,
-      kind: 'tool_call',
-      name: toolCall.name || 'unknown',
+      kind: "tool_call",
+      name: toolCall.name || "unknown",
       source: {
-        type: 'tool_call',
+        type: "tool_call",
         id: sourceId,
-        seq: index
+        seq: index,
       },
-      provenanceKey: buildToolFactProvenanceKey(record, source, 'tool_call', toolCallId, index),
+      provenanceKey: buildToolFactProvenanceKey(record, source, "tool_call", toolCallId, index),
       payload: {
         messageId: record.id,
         orderSeq: record.orderSeq,
@@ -107,33 +100,33 @@ function appendToolFacts(
           params: toolCall.params,
           serverName: toolCall.server_name,
           serverIcons: toolCall.server_icons,
-          serverDescription: toolCall.server_description
-        }
+          serverDescription: toolCall.server_description,
+        },
       },
       meta: {
         source,
         role: record.role,
-        status: record.status
+        status: record.status,
       },
       createdAt: block.timestamp ?? record.updatedAt,
-      idempotent: true
-    })
-    appended += 1
+      idempotent: true,
+    });
+    appended += 1;
 
-    if (typeof toolCall.response !== 'string' || toolCall.response.length === 0) {
-      return
+    if (typeof toolCall.response !== "string" || toolCall.response.length === 0) {
+      return;
     }
 
     table.append({
       sessionId: record.sessionId,
-      kind: 'tool_result',
-      name: toolCall.name || 'unknown',
+      kind: "tool_result",
+      name: toolCall.name || "unknown",
       source: {
-        type: 'tool_result',
+        type: "tool_result",
         id: sourceId,
-        seq: index
+        seq: index,
       },
-      provenanceKey: buildToolFactProvenanceKey(record, source, 'tool_result', toolCallId, index),
+      provenanceKey: buildToolFactProvenanceKey(record, source, "tool_result", toolCallId, index),
       payload: {
         messageId: record.id,
         orderSeq: record.orderSeq,
@@ -142,75 +135,75 @@ function appendToolFacts(
         rtkApplied: toolCall.rtkApplied,
         rtkMode: toolCall.rtkMode,
         rtkFallbackReason: toolCall.rtkFallbackReason,
-        imagePreviews: toolCall.imagePreviews
+        imagePreviews: toolCall.imagePreviews,
       },
       meta: {
         source,
         role: record.role,
-        status: record.status
+        status: record.status,
       },
       createdAt: block.timestamp ?? record.updatedAt,
-      idempotent: true
-    })
-    appended += 1
-  })
+      idempotent: true,
+    });
+    appended += 1;
+  });
 
-  return appended
+  return appended;
 }
 
 export function appendMessageRecordToTape(
   table: DeepChatTapeEntriesTable | undefined,
   record: ChatMessageRecord,
-  source: TapeFactSource
+  source: TapeFactSource,
 ): number {
   if (!table) {
-    return 0
+    return 0;
   }
 
-  table.ensureBootstrapAnchor?.(record.sessionId)
+  table.ensureBootstrapAnchor?.(record.sessionId);
 
-  const compactionStatus = readCompactionStatus(record)
+  const compactionStatus = readCompactionStatus(record);
   if (compactionStatus) {
-    if (typeof table.appendEvent !== 'function') {
-      return 0
+    if (typeof table.appendEvent !== "function") {
+      return 0;
     }
     table.appendEvent({
       sessionId: record.sessionId,
-      name: 'message/compaction_indicator',
+      name: "message/compaction_indicator",
       source: {
-        type: 'message',
+        type: "message",
         id: record.id,
-        seq: record.updatedAt
+        seq: record.updatedAt,
       },
       provenanceKey: `message:${record.id}:compaction_indicator:${compactionStatus}:${record.updatedAt}`,
       data: {
         messageId: record.id,
         orderSeq: record.orderSeq,
         status: compactionStatus,
-        metadata: record.metadata
+        metadata: record.metadata,
       },
       meta: {
         source,
-        status: compactionStatus
+        status: compactionStatus,
       },
       createdAt: record.updatedAt,
-      idempotent: true
-    })
-    return 1
+      idempotent: true,
+    });
+    return 1;
   }
 
-  if (typeof table.append !== 'function') {
-    return 0
+  if (typeof table.append !== "function") {
+    return 0;
   }
 
   table.append({
     sessionId: record.sessionId,
-    kind: 'message',
+    kind: "message",
     name: `message/${record.role}`,
     source: {
-      type: 'message',
+      type: "message",
       id: record.id,
-      seq: 0
+      seq: 0,
     },
     provenanceKey: buildMessageProvenanceKey(record, source),
     payload: {
@@ -225,40 +218,40 @@ export function appendMessageRecordToTape(
         metadata: record.metadata,
         traceCount: record.traceCount,
         createdAt: record.createdAt,
-        updatedAt: record.updatedAt
-      }
+        updatedAt: record.updatedAt,
+      },
     },
     meta: {
       source,
       orderSeq: record.orderSeq,
       role: record.role,
-      status: record.status
+      status: record.status,
     },
     createdAt: record.createdAt,
-    idempotent: true
-  })
+    idempotent: true,
+  });
 
-  return 1 + appendToolFacts(table, record, source)
+  return 1 + appendToolFacts(table, record, source);
 }
 
 export function appendMessageReplacementToTape(
   table: DeepChatTapeEntriesTable | undefined,
   record: ChatMessageRecord,
-  reason: string
+  reason: string,
 ): number {
-  if (!table || typeof table.append !== 'function') {
-    return 0
+  if (!table || typeof table.append !== "function") {
+    return 0;
   }
 
-  table.ensureBootstrapAnchor?.(record.sessionId)
+  table.ensureBootstrapAnchor?.(record.sessionId);
   table.append({
     sessionId: record.sessionId,
-    kind: 'message',
+    kind: "message",
     name: `message/${record.role}`,
     source: {
-      type: 'message',
+      type: "message",
       id: record.id,
-      seq: record.updatedAt
+      seq: record.updatedAt,
     },
     provenanceKey: `message:${record.id}:revision:${record.updatedAt}`,
     payload: {
@@ -273,77 +266,77 @@ export function appendMessageReplacementToTape(
         metadata: record.metadata,
         traceCount: record.traceCount,
         createdAt: record.createdAt,
-        updatedAt: record.updatedAt
-      }
+        updatedAt: record.updatedAt,
+      },
     },
     meta: {
-      source: 'live',
+      source: "live",
       correction: true,
       reason,
       orderSeq: record.orderSeq,
       role: record.role,
-      status: record.status
+      status: record.status,
     },
     createdAt: record.updatedAt,
-    idempotent: true
-  })
+    idempotent: true,
+  });
 
-  return 1 + appendToolFacts(table, record, 'repair')
+  return 1 + appendToolFacts(table, record, "repair");
 }
 
 export function appendMessageRetractionToTape(
   table: DeepChatTapeEntriesTable | undefined,
   record: ChatMessageRecord,
-  reason: string
+  reason: string,
 ): number {
-  if (!table || typeof table.appendEvent !== 'function') {
-    return 0
+  if (!table || typeof table.appendEvent !== "function") {
+    return 0;
   }
 
-  table.ensureBootstrapAnchor?.(record.sessionId)
+  table.ensureBootstrapAnchor?.(record.sessionId);
   table.appendEvent({
     sessionId: record.sessionId,
-    name: 'message/retracted',
+    name: "message/retracted",
     source: {
-      type: 'message',
+      type: "message",
       id: record.id,
-      seq: Date.now()
+      seq: Date.now(),
     },
     provenanceKey: null,
     data: {
       messageId: record.id,
       orderSeq: record.orderSeq,
       role: record.role,
-      reason
+      reason,
     },
     meta: {
-      source: 'live',
-      correction: true
+      source: "live",
+      correction: true,
     },
-    idempotent: false
-  })
+    idempotent: false,
+  });
 
-  return 1
+  return 1;
 }
 
 export function tapeEntryToMessageRecord(row: DeepChatTapeEntryRow): ChatMessageRecord | null {
-  if (row.kind !== 'message') {
-    return null
+  if (row.kind !== "message") {
+    return null;
   }
-  const payload = parsePayload(row)
-  const record = payload?.record
-  if (!record || typeof record !== 'object' || Array.isArray(record)) {
-    return null
+  const payload = parsePayload(row);
+  const record = payload?.record;
+  if (!record || typeof record !== "object" || Array.isArray(record)) {
+    return null;
   }
-  const candidate = record as Partial<ChatMessageRecord>
+  const candidate = record as Partial<ChatMessageRecord>;
   if (
-    typeof candidate.id !== 'string' ||
-    typeof candidate.sessionId !== 'string' ||
-    typeof candidate.orderSeq !== 'number' ||
-    (candidate.role !== 'user' && candidate.role !== 'assistant') ||
-    typeof candidate.content !== 'string'
+    typeof candidate.id !== "string" ||
+    typeof candidate.sessionId !== "string" ||
+    typeof candidate.orderSeq !== "number" ||
+    (candidate.role !== "user" && candidate.role !== "assistant") ||
+    typeof candidate.content !== "string"
   ) {
-    return null
+    return null;
   }
 
   return {
@@ -353,19 +346,17 @@ export function tapeEntryToMessageRecord(row: DeepChatTapeEntryRow): ChatMessage
     role: candidate.role,
     content: candidate.content,
     status:
-      candidate.status === 'pending' || candidate.status === 'error' || candidate.status === 'sent'
+      candidate.status === "pending" || candidate.status === "error" || candidate.status === "sent"
         ? candidate.status
-        : 'sent',
-    isContextEdge: typeof candidate.isContextEdge === 'number' ? candidate.isContextEdge : 0,
-    metadata: typeof candidate.metadata === 'string' ? candidate.metadata : '{}',
-    traceCount: typeof candidate.traceCount === 'number' ? candidate.traceCount : 0,
-    createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : row.created_at,
-    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : row.created_at
-  }
+        : "sent",
+    isContextEdge: typeof candidate.isContextEdge === "number" ? candidate.isContextEdge : 0,
+    metadata: typeof candidate.metadata === "string" ? candidate.metadata : "{}",
+    traceCount: typeof candidate.traceCount === "number" ? candidate.traceCount : 0,
+    createdAt: typeof candidate.createdAt === "number" ? candidate.createdAt : row.created_at,
+    updatedAt: typeof candidate.updatedAt === "number" ? candidate.updatedAt : row.created_at,
+  };
 }
 
-export function tapeEntriesToEffectiveMessageRecords(
-  rows: DeepChatTapeEntryRow[]
-): ChatMessageRecord[] {
-  return buildEffectiveTapeView(rows, { includePending: true }).messageRecords
+export function tapeEntriesToEffectiveMessageRecords(rows: DeepChatTapeEntryRow[]): ChatMessageRecord[] {
+  return buildEffectiveTapeView(rows, { includePending: true }).messageRecords;
 }

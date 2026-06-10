@@ -1,164 +1,162 @@
-import { useState, useRef } from 'react'
+import { useState, useRef } from "react";
 
 export type RecorderWindow = {
-  MediaRecorder?: typeof MediaRecorder
-  navigator?: Navigator
-}
+  MediaRecorder?: typeof MediaRecorder;
+  navigator?: Navigator;
+};
 
 function getDefaultRecorderWindow(): RecorderWindow | undefined {
-  if (typeof window === 'undefined') {
-    return undefined
+  if (typeof window === "undefined") {
+    return undefined;
   }
 
-  return window as unknown as RecorderWindow
+  return window as unknown as RecorderWindow;
 }
 
 export function isMediaRecorderSupported(recorderWindow: RecorderWindow | undefined): boolean {
   return (
-    typeof recorderWindow?.MediaRecorder !== 'undefined' &&
-    typeof recorderWindow?.navigator?.mediaDevices?.getUserMedia === 'function'
-  )
+    typeof recorderWindow?.MediaRecorder !== "undefined" &&
+    typeof recorderWindow?.navigator?.mediaDevices?.getUserMedia === "function"
+  );
 }
 
-function resolvePreferredRecorderMimeType(
-  recorderWindow: RecorderWindow | undefined
-): string | null {
-  const MediaRecorderCtor = recorderWindow?.MediaRecorder
+function resolvePreferredRecorderMimeType(recorderWindow: RecorderWindow | undefined): string | null {
+  const MediaRecorderCtor = recorderWindow?.MediaRecorder;
   if (!MediaRecorderCtor?.isTypeSupported) {
-    return null
+    return null;
   }
 
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
-  return candidates.find((candidate) => MediaRecorderCtor.isTypeSupported(candidate)) ?? null
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  return candidates.find((candidate) => MediaRecorderCtor.isTypeSupported(candidate)) ?? null;
 }
 
 export function useAudioRecorder(options: {
-  onRecorded: (payload: { blob: Blob; mimeType: string }) => void
-  onUnsupported?: () => void
-  onError?: (code: string) => void
-  recorderWindow?: RecorderWindow
+  onRecorded: (payload: { blob: Blob; mimeType: string }) => void;
+  onUnsupported?: () => void;
+  onError?: (code: string) => void;
+  recorderWindow?: RecorderWindow;
 }) {
-  const recorderWindow = options.recorderWindow ?? getDefaultRecorderWindow()
-  const isSupported = isMediaRecorderSupported(recorderWindow)
-  const [isRecording, setIsRecording] = useState(false)
-  const isRecordingRef = useRef(false)
+  const recorderWindow = options.recorderWindow ?? getDefaultRecorderWindow();
+  const isSupported = isMediaRecorderSupported(recorderWindow);
+  const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const mediaStreamRef = useRef<MediaStream | null>(null)
-  const discardedRecordersRef = useRef(new WeakSet<MediaRecorder>())
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const discardedRecordersRef = useRef(new WeakSet<MediaRecorder>());
 
   const setRecording = (val: boolean) => {
-    isRecordingRef.current = val
-    setIsRecording(val)
-  }
+    isRecordingRef.current = val;
+    setIsRecording(val);
+  };
 
   const stopTracks = (stream: MediaStream | null = mediaStreamRef.current) => {
-    stream?.getTracks().forEach((track) => track.stop())
+    stream?.getTracks().forEach((track) => track.stop());
     if (!stream || mediaStreamRef.current === stream) {
-      mediaStreamRef.current = null
+      mediaStreamRef.current = null;
     }
-  }
+  };
 
   const cleanupRecorder = (
     recorder: MediaRecorder | null = mediaRecorderRef.current,
     stream: MediaStream | null = mediaStreamRef.current,
-    cleanupOptions?: { discardRecording?: boolean }
+    cleanupOptions?: { discardRecording?: boolean },
   ) => {
     if (cleanupOptions?.discardRecording && recorder) {
-      discardedRecordersRef.current.add(recorder)
+      discardedRecordersRef.current.add(recorder);
     }
     if (!recorder || mediaRecorderRef.current === recorder) {
-      mediaRecorderRef.current = null
-      setRecording(false)
+      mediaRecorderRef.current = null;
+      setRecording(false);
     }
-    stopTracks(stream)
-  }
+    stopTracks(stream);
+  };
 
   const start = async (): Promise<boolean> => {
     if (!isSupported) {
-      options.onUnsupported?.()
-      return false
+      options.onUnsupported?.();
+      return false;
     }
 
     if (isRecordingRef.current) {
-      return true
+      return true;
     }
 
     try {
-      const stream = await recorderWindow!.navigator!.mediaDevices!.getUserMedia({ audio: true })
-      mediaStreamRef.current = stream
-      const preferredMimeType = resolvePreferredRecorderMimeType(recorderWindow)
+      const stream = await recorderWindow!.navigator!.mediaDevices!.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const preferredMimeType = resolvePreferredRecorderMimeType(recorderWindow);
       const recorder = preferredMimeType
         ? new recorderWindow!.MediaRecorder!(stream, { mimeType: preferredMimeType })
-        : new recorderWindow!.MediaRecorder!(stream)
-      mediaRecorderRef.current = recorder
-      const chunks: BlobPart[] = []
+        : new recorderWindow!.MediaRecorder!(stream);
+      mediaRecorderRef.current = recorder;
+      const chunks: BlobPart[] = [];
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
-          chunks.push(event.data)
+          chunks.push(event.data);
         }
-      }
+      };
 
       recorder.onerror = () => {
-        options.onError?.('recording-error')
-        cleanupRecorder(recorder, stream, { discardRecording: true })
-      }
+        options.onError?.("recording-error");
+        cleanupRecorder(recorder, stream, { discardRecording: true });
+      };
 
       recorder.onstop = () => {
-        const shouldEmitRecorded = !discardedRecordersRef.current.has(recorder)
-        const mimeType = recorder.mimeType || 'audio/webm'
-        const blob = new Blob(chunks, { type: mimeType })
-        cleanupRecorder(recorder, stream)
+        const shouldEmitRecorded = !discardedRecordersRef.current.has(recorder);
+        const mimeType = recorder.mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type: mimeType });
+        cleanupRecorder(recorder, stream);
 
         if (shouldEmitRecorded && blob.size > 0) {
-          options.onRecorded({ blob, mimeType })
+          options.onRecorded({ blob, mimeType });
         }
-      }
+      };
 
-      recorder.start()
-      setRecording(true)
-      return true
+      recorder.start();
+      setRecording(true);
+      return true;
     } catch (error) {
       const code =
         error instanceof Error
           ? error.name
-          : typeof error === 'object' && error && 'name' in error && typeof error.name === 'string'
+          : typeof error === "object" && error && "name" in error && typeof error.name === "string"
             ? error.name
-            : 'recording-start-failed'
-      options.onError?.(code)
-      cleanupRecorder()
-      return false
+            : "recording-start-failed";
+      options.onError?.(code);
+      cleanupRecorder();
+      return false;
     }
-  }
+  };
 
   const stop = () => {
-    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
-      cleanupRecorder()
-      return
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") {
+      cleanupRecorder();
+      return;
     }
 
-    mediaRecorderRef.current.stop()
-  }
+    mediaRecorderRef.current.stop();
+  };
 
   const toggle = async () => {
     if (isRecordingRef.current) {
-      stop()
-      return false
+      stop();
+      return false;
     }
 
-    return start()
-  }
+    return start();
+  };
 
   const cleanup = () => {
-    const recorder = mediaRecorderRef.current
-    const stream = mediaStreamRef.current
-    if (recorder && recorder.state !== 'inactive') {
-      discardedRecordersRef.current.add(recorder)
-      recorder.stop()
+    const recorder = mediaRecorderRef.current;
+    const stream = mediaStreamRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      discardedRecordersRef.current.add(recorder);
+      recorder.stop();
     }
-    cleanupRecorder(recorder, stream, { discardRecording: true })
-  }
+    cleanupRecorder(recorder, stream, { discardRecording: true });
+  };
 
   return {
     isSupported,
@@ -166,6 +164,6 @@ export function useAudioRecorder(options: {
     start,
     stop,
     toggle,
-    cleanup
-  }
+    cleanup,
+  };
 }

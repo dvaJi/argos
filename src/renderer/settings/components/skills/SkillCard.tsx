@@ -1,45 +1,38 @@
-import { useMemo, useState } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Badge } from '@shadcn/components/ui/badge'
+import { useMemo, useState } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Badge } from "@shadcn/components/ui/badge";
 import type {
   SkillExtensionConfig,
   SkillMetadata,
   SkillRuntimePreference,
-  SkillScriptDescriptor
-} from '@shared/types/skill'
+  SkillScriptDescriptor,
+} from "@shared/types/skill";
 
 interface SkillCardProps {
-  skill: SkillMetadata
-  extension?: SkillExtensionConfig
-  scripts?: SkillScriptDescriptor[]
-  onEdit: () => void
-  onDelete: () => void
+  skill: SkillMetadata;
+  extension?: SkillExtensionConfig;
+  scripts?: SkillScriptDescriptor[];
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
 const runtimeLabel = (value: SkillRuntimePreference | undefined) => {
-  const normalized = value ?? 'auto'
-  const labels: Record<string, string> = { auto: 'Auto', system: 'System', builtin: 'Built-in' }
-  return labels[normalized] ?? normalized
-}
+  const normalized = value ?? "auto";
+  const labels: Record<string, string> = { auto: "Auto", system: "System", builtin: "Built-in" };
+  return labels[normalized] ?? normalized;
+};
 
-export default function SkillCard({
-  skill,
-  extension,
-  scripts: scriptsProp,
-  onEdit,
-  onDelete
-}: SkillCardProps) {
-  const [hovering, setHovering] = useState(false)
+export default function SkillCard({ skill, extension, scripts: scriptsProp, onEdit, onDelete }: SkillCardProps) {
+  const [hovering, setHovering] = useState(false);
 
-  const envCount = useMemo(() => Object.keys(extension?.env ?? {}).length, [extension])
-  const scriptsList = useMemo(() => scriptsProp ?? [], [scriptsProp])
+  const envCount = useMemo(() => Object.keys(extension?.env ?? {}).length, [extension]);
+  const scriptsList = useMemo(() => scriptsProp ?? [], [scriptsProp]);
 
   const runtimeSummary = useMemo(
-    () =>
-      `PY:${runtimeLabel(extension?.runtimePolicy?.python)} / Node:${runtimeLabel(extension?.runtimePolicy?.node)}`,
-    [extension]
-  )
+    () => `PY:${runtimeLabel(extension?.runtimePolicy?.python)} / Node:${runtimeLabel(extension?.runtimePolicy?.node)}`,
+    [extension],
+  );
 
   return (
     <div
@@ -70,21 +63,16 @@ export default function SkillCard({
 
       <div
         className={`flex items-start gap-0.5 transition-opacity ${
-          !hovering ? 'opacity-0 group-hover:opacity-100' : ''
+          !hovering ? "opacity-0 group-hover:opacity-100" : ""
         }`}
       >
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onEdit}>
           <Icon icon="lucide:edit" className="w-3.5 h-3.5" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 text-destructive"
-          onClick={onDelete}
-        >
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onDelete}>
           <Icon icon="lucide:trash-2" className="w-3.5 h-3.5" />
         </Button>
       </div>
     </div>
-  )
+  );
 }

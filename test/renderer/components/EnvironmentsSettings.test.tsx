@@ -1,303 +1,296 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 const createTranslator = () => (key: string, params?: Record<string, unknown>) => {
   switch (key) {
-    case 'routes.settings-environments':
-      return 'Environments'
-    case 'settings.environments.title':
-      return 'Environments'
-    case 'settings.environments.description':
-      return 'Environment settings'
-    case 'settings.environments.default.title':
-      return 'Default directory'
-    case 'settings.environments.default.description':
-      return 'Used for new chats'
-    case 'settings.environments.default.empty':
-      return 'No default directory'
-    case 'settings.environments.history.title':
-      return 'History'
-    case 'settings.environments.history.description':
-      return 'Session-used directories'
-    case 'settings.environments.temp.title':
-      return 'Temp directories'
-    case 'settings.environments.temp.description':
-      return 'Hidden by default'
-    case 'settings.environments.actions.refresh':
-      return 'Refresh'
-    case 'settings.environments.actions.showMissing':
-      return 'Show Missing'
-    case 'settings.environments.actions.open':
-      return 'Open'
-    case 'settings.environments.actions.setDefault':
-      return 'Set Default'
-    case 'settings.environments.actions.clearDefault':
-      return 'Clear Default'
-    case 'settings.environments.actions.showTemp':
-      return 'Show Temp'
-    case 'settings.environments.actions.hideTemp':
-      return 'Hide Temp'
-    case 'settings.environments.badges.default':
-      return 'Default'
-    case 'settings.environments.badges.temp':
-      return 'Temp'
-    case 'settings.environments.badges.missing':
-      return 'Missing'
-    case 'settings.environments.badges.notInHistory':
-      return 'Not in history'
-    case 'settings.environments.meta.sessions':
-      return `${params?.count ?? 0} sessions`
-    case 'settings.environments.meta.lastUsed':
-      return `Last used: ${params?.value ?? 'never'}`
-    case 'settings.environments.meta.never':
-      return 'Never'
-    case 'settings.environments.empty.regular':
-      return 'No environments to show'
-    case 'settings.environments.empty.temp':
-      return 'No temp environments'
-    case 'settings.environments.errors.openTitle':
-      return 'Open failed'
+    case "routes.settings-environments":
+      return "Environments";
+    case "settings.environments.title":
+      return "Environments";
+    case "settings.environments.description":
+      return "Environment settings";
+    case "settings.environments.default.title":
+      return "Default directory";
+    case "settings.environments.default.description":
+      return "Used for new chats";
+    case "settings.environments.default.empty":
+      return "No default directory";
+    case "settings.environments.history.title":
+      return "History";
+    case "settings.environments.history.description":
+      return "Session-used directories";
+    case "settings.environments.temp.title":
+      return "Temp directories";
+    case "settings.environments.temp.description":
+      return "Hidden by default";
+    case "settings.environments.actions.refresh":
+      return "Refresh";
+    case "settings.environments.actions.showMissing":
+      return "Show Missing";
+    case "settings.environments.actions.open":
+      return "Open";
+    case "settings.environments.actions.setDefault":
+      return "Set Default";
+    case "settings.environments.actions.clearDefault":
+      return "Clear Default";
+    case "settings.environments.actions.showTemp":
+      return "Show Temp";
+    case "settings.environments.actions.hideTemp":
+      return "Hide Temp";
+    case "settings.environments.badges.default":
+      return "Default";
+    case "settings.environments.badges.temp":
+      return "Temp";
+    case "settings.environments.badges.missing":
+      return "Missing";
+    case "settings.environments.badges.notInHistory":
+      return "Not in history";
+    case "settings.environments.meta.sessions":
+      return `${params?.count ?? 0} sessions`;
+    case "settings.environments.meta.lastUsed":
+      return `Last used: ${params?.value ?? "never"}`;
+    case "settings.environments.meta.never":
+      return "Never";
+    case "settings.environments.empty.regular":
+      return "No environments to show";
+    case "settings.environments.empty.temp":
+      return "No temp environments";
+    case "settings.environments.errors.openTitle":
+      return "Open failed";
     default:
-      return key
+      return key;
   }
-}
+};
 
 async function setup(overrides?: {
-  defaultProjectPath?: string | null
-  pathExists?: boolean
+  defaultProjectPath?: string | null;
+  pathExists?: boolean;
   environments?: Array<{
-    path: string
-    name: string
-    sessionCount: number
-    lastUsedAt: number
-    isTemp: boolean
-    exists: boolean
-  }>
+    path: string;
+    name: string;
+    sessionCount: number;
+    lastUsedAt: number;
+    isTemp: boolean;
+    exists: boolean;
+  }>;
 }) {
-  vi.resetModules()
+  vi.resetModules();
 
-  const toast = vi.fn()
+  const toast = vi.fn();
   const projectStore = {
-    defaultProjectPath:
-      overrides && 'defaultProjectPath' in overrides
-        ? (overrides.defaultProjectPath ?? null)
-        : null,
+    defaultProjectPath: overrides && "defaultProjectPath" in overrides ? (overrides.defaultProjectPath ?? null) : null,
     environments: overrides?.environments ?? [
       {
-        path: '/work/app',
-        name: 'app',
+        path: "/work/app",
+        name: "app",
         sessionCount: 2,
         lastUsedAt: 1700000000000,
         isTemp: false,
-        exists: true
+        exists: true,
       },
       {
-        path: '/system/temp/deepchat-agent/workspaces/tmp-1',
-        name: 'tmp-1',
+        path: "/system/temp/deepchat-agent/workspaces/tmp-1",
+        name: "tmp-1",
         sessionCount: 1,
         lastUsedAt: 1700000001000,
         isTemp: true,
-        exists: true
-      }
+        exists: true,
+      },
     ],
     refreshEnvironmentData: vi.fn().mockResolvedValue(undefined),
     openDirectory: vi.fn().mockResolvedValue(undefined),
     setDefaultProject: vi.fn().mockResolvedValue(undefined),
-    clearDefaultProject: vi.fn().mockResolvedValue(undefined)
-  }
+    clearDefaultProject: vi.fn().mockResolvedValue(undefined),
+  };
 
-  vi.doMock('@/stores/ui/project', () => ({
-    useProjectStore: () => projectStore
-  }))
-  vi.doMock('@api/legacy/presenters', () => ({
+  vi.doMock("@/stores/ui/project", () => ({
+    useProjectStore: () => projectStore,
+  }));
+  vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
-      pathExists: vi.fn().mockResolvedValue(overrides?.pathExists ?? true)
-    })
-  }))
-  vi.doMock('@/components/use-toast', () => ({
-    useToast: () => ({ toast })
-  }))
+      pathExists: vi.fn().mockResolvedValue(overrides?.pathExists ?? true),
+    }),
+  }));
+  vi.doMock("@/components/use-toast", () => ({
+    useToast: () => ({ toast }),
+  }));
 
-  const EnvironmentsSettings = (
-    await import('../../../src/renderer/settings/components/EnvironmentsSettings')
-  ).default
+  const EnvironmentsSettings = (await import("../../../src/renderer/settings/components/EnvironmentsSettings")).default;
 
-  const result = render(<EnvironmentsSettings />)
+  const result = render(<EnvironmentsSettings />);
 
-  await act(async () => {})
+  await act(async () => {});
 
   return {
     ...result,
     projectStore,
-    toast
-  }
+    toast,
+  };
 }
 
-describe('EnvironmentsSettings', () => {
+describe("EnvironmentsSettings", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  it('renders non-temp environments by default and refreshes on mount', async () => {
-    const { container, projectStore } = await setup()
+  it("renders non-temp environments by default and refreshes on mount", async () => {
+    const { container, projectStore } = await setup();
 
-    expect(projectStore.refreshEnvironmentData).toHaveBeenCalledTimes(1)
-    expect(screen.getAllByTestId('environment-row')).toHaveLength(1)
-    expect(container.textContent).toContain('app')
-    expect(container.textContent).not.toContain('tmp-1')
-    const missingToggle = screen.getByTestId('missing-toggle')
-    expect(missingToggle.getAttribute('aria-checked')).toBe('false')
-  })
+    expect(projectStore.refreshEnvironmentData).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByTestId("environment-row")).toHaveLength(1);
+    expect(container.textContent).toContain("app");
+    expect(container.textContent).not.toContain("tmp-1");
+    const missingToggle = screen.getByTestId("missing-toggle");
+    expect(missingToggle.getAttribute("aria-checked")).toBe("false");
+  });
 
-  it('keeps the current default visible even when it is a temp directory', async () => {
+  it("keeps the current default visible even when it is a temp directory", async () => {
     const { container } = await setup({
-      defaultProjectPath: '/system/temp/deepchat-agent/workspaces/tmp-1'
-    })
+      defaultProjectPath: "/system/temp/deepchat-agent/workspaces/tmp-1",
+    });
 
-    expect(screen.getAllByTestId('environment-row')).toHaveLength(2)
-    expect(container.textContent).toContain('tmp-1')
-    expect(screen.getByLabelText('Clear Default')).toBeTruthy()
-  })
+    expect(screen.getAllByTestId("environment-row")).toHaveLength(2);
+    expect(container.textContent).toContain("tmp-1");
+    expect(screen.getByLabelText("Clear Default")).toBeTruthy();
+  });
 
-  it('dispatches open and set default actions from an item', async () => {
-    const { projectStore } = await setup()
-    const row = screen.getByTestId('environment-row')
-    const buttons = row.querySelectorAll('button')
+  it("dispatches open and set default actions from an item", async () => {
+    const { projectStore } = await setup();
+    const row = screen.getByTestId("environment-row");
+    const buttons = row.querySelectorAll("button");
 
-    await fireEvent.click(buttons[0])
-    await fireEvent.click(buttons[1])
-    await act(async () => {})
+    await fireEvent.click(buttons[0]);
+    await fireEvent.click(buttons[1]);
+    await act(async () => {});
 
-    expect(projectStore.openDirectory).toHaveBeenCalledWith('/work/app')
-    expect(projectStore.setDefaultProject).toHaveBeenCalledWith('/work/app')
-  })
+    expect(projectStore.openDirectory).toHaveBeenCalledWith("/work/app");
+    expect(projectStore.setDefaultProject).toHaveBeenCalledWith("/work/app");
+  });
 
-  it('dispatches clear default from the default item', async () => {
+  it("dispatches clear default from the default item", async () => {
     const { projectStore } = await setup({
-      defaultProjectPath: '/work/app'
-    })
-    const clearDefaultButton = screen.getByLabelText('Clear Default')
+      defaultProjectPath: "/work/app",
+    });
+    const clearDefaultButton = screen.getByLabelText("Clear Default");
 
-    await fireEvent.click(clearDefaultButton)
+    await fireEvent.click(clearDefaultButton);
 
-    expect(projectStore.clearDefaultProject).toHaveBeenCalledTimes(1)
-  })
+    expect(projectStore.clearDefaultProject).toHaveBeenCalledTimes(1);
+  });
 
-  it('shows a missing environment only after enabling the missing filter', async () => {
+  it("shows a missing environment only after enabling the missing filter", async () => {
     const { container } = await setup({
       environments: [
         {
-          path: '/work/app',
-          name: 'app',
+          path: "/work/app",
+          name: "app",
           sessionCount: 1,
           lastUsedAt: 100,
           isTemp: false,
-          exists: true
+          exists: true,
         },
         {
-          path: '/work/missing',
-          name: 'missing',
+          path: "/work/missing",
+          name: "missing",
           sessionCount: 1,
           lastUsedAt: 200,
           isTemp: false,
-          exists: false
-        }
-      ]
-    })
+          exists: false,
+        },
+      ],
+    });
 
-    expect(container.textContent).not.toContain('missing')
-    expect(screen.getAllByTestId('environment-row')).toHaveLength(1)
+    expect(container.textContent).not.toContain("missing");
+    expect(screen.getAllByTestId("environment-row")).toHaveLength(1);
 
-    await fireEvent.click(screen.getByTestId('missing-toggle'))
-    await act(async () => {})
+    await fireEvent.click(screen.getByTestId("missing-toggle"));
+    await act(async () => {});
 
-    expect(container.textContent).toContain('missing')
-    expect(container.textContent).toContain('Missing')
-    expect(screen.getAllByTestId('environment-row')).toHaveLength(2)
-  })
+    expect(container.textContent).toContain("missing");
+    expect(container.textContent).toContain("Missing");
+    expect(screen.getAllByTestId("environment-row")).toHaveLength(2);
+  });
 
-  it('does not allow setting a missing environment as default', async () => {
+  it("does not allow setting a missing environment as default", async () => {
     const { projectStore } = await setup({
       environments: [
         {
-          path: '/work/missing',
-          name: 'missing',
+          path: "/work/missing",
+          name: "missing",
           sessionCount: 1,
           lastUsedAt: 200,
           isTemp: false,
-          exists: false
-        }
-      ]
-    })
+          exists: false,
+        },
+      ],
+    });
 
-    await fireEvent.click(screen.getByTestId('missing-toggle'))
-    await act(async () => {})
+    await fireEvent.click(screen.getByTestId("missing-toggle"));
+    await act(async () => {});
 
-    const row = screen.getByTestId('environment-row')
-    const buttons = row.querySelectorAll('button')
+    const row = screen.getByTestId("environment-row");
+    const buttons = row.querySelectorAll("button");
 
-    expect(buttons[1].hasAttribute('disabled')).toBe(true)
+    expect(buttons[1].hasAttribute("disabled")).toBe(true);
 
-    await fireEvent.click(buttons[1])
+    await fireEvent.click(buttons[1]);
 
-    expect(projectStore.setDefaultProject).not.toHaveBeenCalled()
-  })
+    expect(projectStore.setDefaultProject).not.toHaveBeenCalled();
+  });
 
-  it('keeps synthetic defaults visible and hides missing history by default', async () => {
+  it("keeps synthetic defaults visible and hides missing history by default", async () => {
     const { container } = await setup({
-      defaultProjectPath: '/work/missing-default',
+      defaultProjectPath: "/work/missing-default",
       environments: [
         {
-          path: '/work/app',
-          name: 'app',
+          path: "/work/app",
+          name: "app",
           sessionCount: 1,
           lastUsedAt: 0,
           isTemp: false,
-          exists: false
-        }
-      ]
-    })
+          exists: false,
+        },
+      ],
+    });
 
-    expect(container.textContent).toContain('Not in history')
-    expect(container.textContent).not.toContain('/work/app')
-  })
+    expect(container.textContent).toContain("Not in history");
+    expect(container.textContent).not.toContain("/work/app");
+  });
 
-  it('hides missing synthetic defaults until the missing filter is enabled', async () => {
+  it("hides missing synthetic defaults until the missing filter is enabled", async () => {
     const { container } = await setup({
-      defaultProjectPath: '/work/missing-default',
+      defaultProjectPath: "/work/missing-default",
       pathExists: false,
-      environments: []
-    })
+      environments: [],
+    });
 
-    expect(container.textContent).not.toContain('/work/missing-default')
-    expect(screen.getByTestId('environments-empty')).toBeTruthy()
+    expect(container.textContent).not.toContain("/work/missing-default");
+    expect(screen.getByTestId("environments-empty")).toBeTruthy();
 
-    await fireEvent.click(screen.getByTestId('missing-toggle'))
-    await act(async () => {})
+    await fireEvent.click(screen.getByTestId("missing-toggle"));
+    await act(async () => {});
 
-    expect(container.textContent).toContain('/work/missing-default')
-    expect(container.textContent).toContain('Missing')
-    expect(container.textContent).toContain('Not in history')
-  })
+    expect(container.textContent).toContain("/work/missing-default");
+    expect(container.textContent).toContain("Missing");
+    expect(container.textContent).toContain("Not in history");
+  });
 
-  it('renders empty states when no environments are available', async () => {
+  it("renders empty states when no environments are available", async () => {
     const { container } = await setup({
       defaultProjectPath: null,
       environments: [
         {
-          path: '/system/temp/deepchat-agent/workspaces/tmp-1',
-          name: 'tmp-1',
+          path: "/system/temp/deepchat-agent/workspaces/tmp-1",
+          name: "tmp-1",
           sessionCount: 1,
           lastUsedAt: 1700000001000,
           isTemp: true,
-          exists: true
-        }
-      ]
-    })
+          exists: true,
+        },
+      ],
+    });
 
-    expect(screen.getByTestId('environments-empty').textContent).toContain(
-      'No environments to show'
-    )
-    expect(container.textContent).not.toContain('tmp-1')
-  })
-})
+    expect(screen.getByTestId("environments-empty").textContent).toContain("No environments to show");
+    expect(container.textContent).not.toContain("tmp-1");
+  });
+});

@@ -1,20 +1,20 @@
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import ConfigFieldHeader from './ConfigFieldHeader'
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import ConfigFieldHeader from "./ConfigFieldHeader";
 
 interface ConfigInputFieldProps {
-  icon: string
-  label: string
-  description?: string
-  modelValue: number | string | undefined
-  type?: 'text' | 'number'
-  min?: number
-  max?: number
-  step?: number
-  placeholder?: string
-  error?: string
-  hint?: string
-  onModelValueChange?: (value: number | string | undefined) => void
+  icon: string;
+  label: string;
+  description?: string;
+  modelValue: number | string | undefined;
+  type?: "text" | "number";
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  error?: string;
+  hint?: string;
+  onModelValueChange?: (value: number | string | undefined) => void;
 }
 
 export default function ConfigInputField({
@@ -22,14 +22,14 @@ export default function ConfigInputField({
   label,
   description,
   modelValue,
-  type = 'text',
+  type = "text",
   min,
   max,
   step,
   placeholder,
   error,
   hint,
-  onModelValueChange
+  onModelValueChange,
 }: ConfigInputFieldProps) {
   return (
     <div className="space-y-4 px-2">
@@ -38,16 +38,16 @@ export default function ConfigInputField({
         <div className="space-y-2">
           <Label className="text-sm">{label}</Label>
           <Input
-            value={modelValue ?? ''}
+            value={modelValue ?? ""}
             type={type}
             min={min}
             max={max}
             step={step}
             placeholder={placeholder}
-            className={error ? 'border-destructive' : undefined}
+            className={error ? "border-destructive" : undefined}
             onChange={(e) => {
-              const val = e.target.value
-              onModelValueChange?.(type === 'number' ? Number(val) : val)
+              const val = e.target.value;
+              onModelValueChange?.(type === "number" ? Number(val) : val);
             }}
           />
           <p className="text-xs text-muted-foreground">
@@ -56,5 +56,5 @@ export default function ConfigInputField({
         </div>
       </div>
     </div>
-  )
+  );
 }

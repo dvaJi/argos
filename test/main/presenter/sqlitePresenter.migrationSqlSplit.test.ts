@@ -1,41 +1,41 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock('better-sqlite3-multiple-ciphers', () => ({
-  default: vi.fn()
-}))
+vi.mock("better-sqlite3-multiple-ciphers", () => ({
+  default: vi.fn(),
+}));
 
-describe('sqlitePresenter migration SQL splitting', () => {
+describe("sqlitePresenter migration SQL splitting", () => {
   beforeEach(() => {
-    vi.resetModules()
-  })
+    vi.resetModules();
+  });
 
-  it('ignores line and block comments when splitting migration SQL blocks', async () => {
-    const { SQLitePresenter } = await import('../../../src/main/presenter/sqlitePresenter')
-    const exec = vi.fn()
-    const insertVersion = vi.fn()
-    const transaction = vi.fn((callback: () => void) => callback)
+  it("ignores line and block comments when splitting migration SQL blocks", async () => {
+    const { SQLitePresenter } = await import("../../../src/main/presenter/sqlitePresenter");
+    const exec = vi.fn();
+    const insertVersion = vi.fn();
+    const transaction = vi.fn((callback: () => void) => callback);
     const prepare = vi.fn((statement: string) => {
-      if (statement === 'INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)') {
+      if (statement === "INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)") {
         return {
-          run: insertVersion
-        }
+          run: insertVersion,
+        };
       }
 
-      throw new Error(`Unexpected prepared statement: ${statement}`)
-    })
+      throw new Error(`Unexpected prepared statement: ${statement}`);
+    });
 
-    const presenter = Object.create(SQLitePresenter.prototype) as any
+    const presenter = Object.create(SQLitePresenter.prototype) as any;
     presenter.db = {
       exec,
       transaction,
-      prepare
-    }
-    presenter.currentVersion = 0
+      prepare,
+    };
+    presenter.currentVersion = 0;
 
     const emptyTable = {
       getLatestVersion: () => 0,
-      getMigrationSQL: () => undefined
-    }
+      getMigrationSQL: () => undefined,
+    };
     const migrationTable = {
       getLatestVersion: () => 1,
       getMigrationSQL: (version: number) =>
@@ -46,41 +46,41 @@ CREATE TABLE sample (
 );
 /* block comment with ; and ' and " */
 CREATE INDEX sample_value_idx ON sample(value);`
-          : undefined
-    }
+          : undefined,
+    };
 
-    presenter.acpSessionsTable = migrationTable
-    presenter.newEnvironmentsTable = emptyTable
-    presenter.newSessionsTable = emptyTable
-    presenter.newProjectsTable = emptyTable
-    presenter.deepchatSessionsTable = emptyTable
-    presenter.deepchatMessagesTable = emptyTable
-    presenter.deepchatUserMessagesTable = emptyTable
-    presenter.deepchatUserMessageFilesTable = emptyTable
-    presenter.deepchatUserMessageLinksTable = emptyTable
-    presenter.deepchatAssistantBlocksTable = emptyTable
-    presenter.deepchatMessageTracesTable = emptyTable
-    presenter.deepchatMessageSearchResultsTable = emptyTable
-    presenter.deepchatSearchDocumentsTable = emptyTable
-    presenter.deepchatPendingInputsTable = emptyTable
-    presenter.deepchatUsageStatsTable = emptyTable
-    presenter.deepchatTapeEntriesTable = emptyTable
-    presenter.legacyImportStatusTable = emptyTable
-    presenter.agentsTable = emptyTable
-    presenter.configTables = emptyTable
-    presenter.newSessionActiveSkillsTable = emptyTable
-    presenter.newSessionDisabledAgentToolsTable = emptyTable
-    presenter.settingsActivityTable = emptyTable
+    presenter.acpSessionsTable = migrationTable;
+    presenter.newEnvironmentsTable = emptyTable;
+    presenter.newSessionsTable = emptyTable;
+    presenter.newProjectsTable = emptyTable;
+    presenter.deepchatSessionsTable = emptyTable;
+    presenter.deepchatMessagesTable = emptyTable;
+    presenter.deepchatUserMessagesTable = emptyTable;
+    presenter.deepchatUserMessageFilesTable = emptyTable;
+    presenter.deepchatUserMessageLinksTable = emptyTable;
+    presenter.deepchatAssistantBlocksTable = emptyTable;
+    presenter.deepchatMessageTracesTable = emptyTable;
+    presenter.deepchatMessageSearchResultsTable = emptyTable;
+    presenter.deepchatSearchDocumentsTable = emptyTable;
+    presenter.deepchatPendingInputsTable = emptyTable;
+    presenter.deepchatUsageStatsTable = emptyTable;
+    presenter.deepchatTapeEntriesTable = emptyTable;
+    presenter.legacyImportStatusTable = emptyTable;
+    presenter.agentsTable = emptyTable;
+    presenter.configTables = emptyTable;
+    presenter.newSessionActiveSkillsTable = emptyTable;
+    presenter.newSessionDisabledAgentToolsTable = emptyTable;
+    presenter.settingsActivityTable = emptyTable;
 
-    presenter.migrate()
+    presenter.migrate();
 
-    expect(transaction).toHaveBeenCalledTimes(1)
-    expect(exec).toHaveBeenCalledTimes(2)
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(exec).toHaveBeenCalledTimes(2);
     expect(exec.mock.calls.map(([statement]) => statement)).toEqual([
       "CREATE TABLE sample (\n  value TEXT DEFAULT '; -- not comment'\n)",
-      'CREATE INDEX sample_value_idx ON sample(value)'
-    ])
-    expect(insertVersion).toHaveBeenCalledTimes(1)
-    expect(insertVersion).toHaveBeenCalledWith(1, expect.any(Number))
-  })
-})
+      "CREATE INDEX sample_value_idx ON sample(value)",
+    ]);
+    expect(insertVersion).toHaveBeenCalledTimes(1);
+    expect(insertVersion).toHaveBeenCalledWith(1, expect.any(Number));
+  });
+});

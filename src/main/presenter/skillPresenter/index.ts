@@ -1,11 +1,11 @@
-import { app, shell } from 'electron'
-import path from 'path'
-import fs from 'fs'
-import { randomUUID } from 'node:crypto'
-import { FSWatcher, watch } from 'chokidar'
-import matter from 'gray-matter'
-import { unzipSync } from 'fflate'
-import type { IConfigPresenter } from '@shared/presenter'
+import { app, shell } from "electron";
+import path from "path";
+import fs from "fs";
+import { randomUUID } from "node:crypto";
+import { FSWatcher, watch } from "chokidar";
+import matter from "gray-matter";
+import { unzipSync } from "fflate";
+import type { IConfigPresenter } from "@shared/presenter";
 import {
   ISkillPresenter,
   SkillMetadata,
@@ -21,14 +21,14 @@ import {
   SkillScriptDescriptor,
   SkillScriptRuntime,
   SkillViewResult,
-  SkillLinkedFile
-} from '@shared/types/skill'
-import { eventBus, SendTarget } from '@/eventbus'
-import { SKILL_EVENTS } from '@/events'
-import { publishDeepchatEvent } from '@/routes/publishDeepchatEvent'
-import logger from '@shared/logger'
-import { normalizeSkillAllowedTools } from './toolNameMapping'
-import { discoverSkillMetadataInWorker, logSkillDiscoveryWorkerWarnings } from './discoveryWorker'
+  SkillLinkedFile,
+} from "@shared/types/skill";
+import { eventBus, SendTarget } from "@/eventbus";
+import { SKILL_EVENTS } from "@/events";
+import { publishDeepchatEvent } from "@/routes/publishDeepchatEvent";
+import logger from "@shared/logger";
+import { normalizeSkillAllowedTools } from "./toolNameMapping";
+import { discoverSkillMetadataInWorker, logSkillDiscoveryWorkerWarnings } from "./discoveryWorker";
 
 /**
  * Skill system configuration constants
@@ -51,76 +51,76 @@ export const SKILL_CONFIG = {
   WATCHER_POLL_INTERVAL: 100, // ms
 
   /** Sidecar configuration directory name */
-  SIDECAR_DIR: '.deepchat-meta',
+  SIDECAR_DIR: ".deepchat-meta",
 
   /** Draft skill configuration */
-  DRAFT_ROOT_DIR: 'deepchat-skill-drafts',
+  DRAFT_ROOT_DIR: "deepchat-skill-drafts",
   DRAFT_MAX_CONTENT_CHARS: 100000,
   DRAFT_RETENTION_MS: 7 * 24 * 60 * 60 * 1000,
-  MAX_LINKED_FILE_SIZE: 1024 * 1024
-} as const
+  MAX_LINKED_FILE_SIZE: 1024 * 1024,
+} as const;
 
 const SUPPORTED_SCRIPT_EXTENSIONS: Record<string, SkillScriptRuntime> = {
-  '.py': 'python',
-  '.js': 'node',
-  '.mjs': 'node',
-  '.cjs': 'node',
-  '.sh': 'shell'
-}
+  ".py": "python",
+  ".js": "node",
+  ".mjs": "node",
+  ".cjs": "node",
+  ".sh": "shell",
+};
 
 const DEFAULT_RUNTIME_POLICY: SkillRuntimePolicy = {
-  python: 'auto',
-  node: 'auto'
-}
+  python: "auto",
+  node: "auto",
+};
 
-const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/
+const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const BINARY_LIKE_EXTENSIONS = new Set([
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.webp',
-  '.avif',
-  '.pdf',
-  '.zip',
-  '.tar',
-  '.gz',
-  '.sqlite',
-  '.db',
-  '.woff',
-  '.woff2',
-  '.ttf',
-  '.otf',
-  '.exe',
-  '.dll',
-  '.so',
-  '.dylib',
-  '.mp3',
-  '.mp4',
-  '.mov',
-  '.avi',
-  '.wasm',
-  '.bin',
-  '.ico'
-])
-const DRAFT_ALLOWED_TOP_LEVEL_DIRS = new Set(['references', 'templates', 'scripts', 'assets'])
-const DRAFT_CONVERSATION_ID_PATTERN = /^[A-Za-z0-9._-]+$/
-const DRAFT_ID_PATTERN = /^[A-Za-z0-9._-]+$/
-const DRAFT_ACTIVITY_MARKER = '.lastActivity'
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".avif",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".sqlite",
+  ".db",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".mp3",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".wasm",
+  ".bin",
+  ".ico",
+]);
+const DRAFT_ALLOWED_TOP_LEVEL_DIRS = new Set(["references", "templates", "scripts", "assets"]);
+const DRAFT_CONVERSATION_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
+const DRAFT_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
+const DRAFT_ACTIVITY_MARKER = ".lastActivity";
 const DRAFT_INJECTION_PATTERNS = [
   /ignore\s+previous\s+instructions/i,
   /disregard\s+all\s+prior/i,
   /system\s+prompt/i,
   /reveal\s+hidden\s+instructions/i,
   /forget\s+all\s+above/i,
-  /override\s+the\s+rules/i
-]
+  /override\s+the\s+rules/i,
+];
 
 export interface SkillSessionStatePort {
-  hasNewSession(conversationId: string): Promise<boolean>
-  getPersistedNewSessionSkills(conversationId: string): string[]
-  setPersistedNewSessionSkills(conversationId: string, skills: string[]): void
-  repairImportedLegacySessionSkills(conversationId: string): Promise<string[]>
+  hasNewSession(conversationId: string): Promise<boolean>;
+  getPersistedNewSessionSkills(conversationId: string): string[];
+  setPersistedNewSessionSkills(conversationId: string, skills: string[]): void;
+  repairImportedLegacySessionSkills(conversationId: string): Promise<string[]>;
 }
 
 function createDefaultSkillExtensionConfig(): SkillExtensionConfig {
@@ -128,61 +128,56 @@ function createDefaultSkillExtensionConfig(): SkillExtensionConfig {
     version: 1,
     env: {},
     runtimePolicy: { ...DEFAULT_RUNTIME_POLICY },
-    scriptOverrides: {}
-  }
+    scriptOverrides: {},
+  };
 }
 
 function sanitizeSkillExtensionConfig(input: unknown): SkillExtensionConfig {
-  const fallback = createDefaultSkillExtensionConfig()
-  if (!input || typeof input !== 'object') {
-    return fallback
+  const fallback = createDefaultSkillExtensionConfig();
+  if (!input || typeof input !== "object") {
+    return fallback;
   }
 
-  const candidate = input as Partial<SkillExtensionConfig>
+  const candidate = input as Partial<SkillExtensionConfig>;
   const env = Object.fromEntries(
     Object.entries(candidate.env ?? {})
       .filter(
         (entry): entry is [string, string] =>
-          typeof entry[0] === 'string' && typeof entry[1] === 'string' && entry[0].trim().length > 0
+          typeof entry[0] === "string" && typeof entry[1] === "string" && entry[0].trim().length > 0,
       )
-      .map(([key, value]) => [key.trim(), value])
-  )
+      .map(([key, value]) => [key.trim(), value]),
+  );
 
-  const runtimePolicy = (candidate.runtimePolicy ?? {}) as Partial<SkillRuntimePolicy>
+  const runtimePolicy = (candidate.runtimePolicy ?? {}) as Partial<SkillRuntimePolicy>;
   const python =
-    runtimePolicy.python === 'builtin' || runtimePolicy.python === 'system'
-      ? runtimePolicy.python
-      : 'auto'
-  const node =
-    runtimePolicy.node === 'builtin' || runtimePolicy.node === 'system'
-      ? runtimePolicy.node
-      : 'auto'
+    runtimePolicy.python === "builtin" || runtimePolicy.python === "system" ? runtimePolicy.python : "auto";
+  const node = runtimePolicy.node === "builtin" || runtimePolicy.node === "system" ? runtimePolicy.node : "auto";
 
   const scriptOverrides = Object.fromEntries(
     Object.entries(candidate.scriptOverrides ?? {})
-      .filter(([key]) => typeof key === 'string' && key.trim().length > 0)
+      .filter(([key]) => typeof key === "string" && key.trim().length > 0)
       .map(([key, value]) => {
-        const override = value && typeof value === 'object' ? value : {}
-        const next: { enabled?: boolean; description?: string } = {}
-        if (typeof (override as { enabled?: unknown }).enabled === 'boolean') {
-          next.enabled = (override as { enabled: boolean }).enabled
+        const override = value && typeof value === "object" ? value : {};
+        const next: { enabled?: boolean; description?: string } = {};
+        if (typeof (override as { enabled?: unknown }).enabled === "boolean") {
+          next.enabled = (override as { enabled: boolean }).enabled;
         }
-        if (typeof (override as { description?: unknown }).description === 'string') {
-          const description = (override as { description: string }).description.trim()
+        if (typeof (override as { description?: unknown }).description === "string") {
+          const description = (override as { description: string }).description.trim();
           if (description) {
-            next.description = description
+            next.description = description;
           }
         }
-        return [key.trim(), next]
-      })
-  )
+        return [key.trim(), next];
+      }),
+  );
 
   return {
     version: 1,
     env,
     runtimePolicy: { python, node },
-    scriptOverrides
-  }
+    scriptOverrides,
+  };
 }
 
 /**
@@ -196,76 +191,71 @@ function sanitizeSkillExtensionConfig(input: unknown): SkillExtensionConfig {
  * - Install/uninstall skills from various sources
  */
 export class SkillPresenter implements ISkillPresenter {
-  private skillsDir: string
-  private sidecarDir: string
-  private draftsRoot: string
-  private metadataCache: Map<string, SkillMetadata> = new Map()
-  private contentCache: Map<string, SkillContent> = new Map()
-  private pluginSkillContributions: Map<
-    string,
-    { ownerPluginId: string; skillRoot: string; pluginRoot?: string }
-  > = new Map()
-  private watcher: FSWatcher | null = null
-  private initialized: boolean = false
+  private skillsDir: string;
+  private sidecarDir: string;
+  private draftsRoot: string;
+  private metadataCache: Map<string, SkillMetadata> = new Map();
+  private contentCache: Map<string, SkillContent> = new Map();
+  private pluginSkillContributions: Map<string, { ownerPluginId: string; skillRoot: string; pluginRoot?: string }> =
+    new Map();
+  private watcher: FSWatcher | null = null;
+  private initialized: boolean = false;
   // Prevent concurrent discovery calls (race condition protection)
-  private discoveryPromise: Promise<SkillMetadata[]> | null = null
-  private legacySkillRetirementWarnings: Set<string> = new Set()
+  private discoveryPromise: Promise<SkillMetadata[]> | null = null;
+  private legacySkillRetirementWarnings: Set<string> = new Set();
 
   constructor(
     private readonly configPresenter: IConfigPresenter,
-    private readonly sessionStatePort: SkillSessionStatePort
+    private readonly sessionStatePort: SkillSessionStatePort,
   ) {
     // Skills directory: ~/.deepchat/skills/
-    this.skillsDir = this.resolveSkillsDir()
-    this.sidecarDir = path.join(this.skillsDir, SKILL_CONFIG.SIDECAR_DIR)
-    this.draftsRoot = path.join(app.getPath('temp'), SKILL_CONFIG.DRAFT_ROOT_DIR)
-    this.ensureSkillsDir()
+    this.skillsDir = this.resolveSkillsDir();
+    this.sidecarDir = path.join(this.skillsDir, SKILL_CONFIG.SIDECAR_DIR);
+    this.draftsRoot = path.join(app.getPath("temp"), SKILL_CONFIG.DRAFT_ROOT_DIR);
+    this.ensureSkillsDir();
   }
 
   private resolveSkillsDir(): string {
-    const configuredPath = this.configPresenter.getSkillsPath()
-    const normalized = configuredPath?.trim()
-    const homePath = app.getPath('home')
-    const homeDir = homePath ? path.resolve(homePath) : path.resolve('.')
-    const fallbackDir = path.join(homeDir, '.deepchat', 'skills')
-    const resolved = normalized ? path.resolve(normalized) : fallbackDir
-    const repairedDefaultPath = normalized
-      ? this.repairPortableDefaultSkillsPath(normalized, homeDir)
-      : null
+    const configuredPath = this.configPresenter.getSkillsPath();
+    const normalized = configuredPath?.trim();
+    const homePath = app.getPath("home");
+    const homeDir = homePath ? path.resolve(homePath) : path.resolve(".");
+    const fallbackDir = path.join(homeDir, ".deepchat", "skills");
+    const resolved = normalized ? path.resolve(normalized) : fallbackDir;
+    const repairedDefaultPath = normalized ? this.repairPortableDefaultSkillsPath(normalized, homeDir) : null;
 
     if (repairedDefaultPath) {
-      return repairedDefaultPath
+      return repairedDefaultPath;
     }
 
     // Repair malformed paths like: C:\Users\name.deepchat\skills
-    const brokenPrefix = `${homeDir}.deepchat`
-    const compareResolved = process.platform === 'win32' ? resolved.toLowerCase() : resolved
-    const compareBrokenPrefix =
-      process.platform === 'win32' ? brokenPrefix.toLowerCase() : brokenPrefix
-    const hasBrokenPrefix = compareResolved.startsWith(compareBrokenPrefix)
-    const nextChar = compareResolved.charAt(compareBrokenPrefix.length)
+    const brokenPrefix = `${homeDir}.deepchat`;
+    const compareResolved = process.platform === "win32" ? resolved.toLowerCase() : resolved;
+    const compareBrokenPrefix = process.platform === "win32" ? brokenPrefix.toLowerCase() : brokenPrefix;
+    const hasBrokenPrefix = compareResolved.startsWith(compareBrokenPrefix);
+    const nextChar = compareResolved.charAt(compareBrokenPrefix.length);
     const hasBoundaryAfterPrefix =
-      compareResolved.length === compareBrokenPrefix.length || nextChar === '/' || nextChar === '\\'
+      compareResolved.length === compareBrokenPrefix.length || nextChar === "/" || nextChar === "\\";
     if (hasBrokenPrefix && hasBoundaryAfterPrefix) {
-      const suffix = resolved.slice(brokenPrefix.length).replace(/^[\\/]+/, '')
-      return path.join(homeDir, '.deepchat', suffix)
+      const suffix = resolved.slice(brokenPrefix.length).replace(/^[\\/]+/, "");
+      return path.join(homeDir, ".deepchat", suffix);
     }
 
-    return resolved
+    return resolved;
   }
 
   private repairPortableDefaultSkillsPath(configuredPath: string, homeDir: string): string | null {
-    const slashPath = configuredPath.replace(/\\/g, '/')
+    const slashPath = configuredPath.replace(/\\/g, "/");
     const match =
       slashPath.match(/^\/Users\/[^/]+\/\.deepchat\/skills(?:\/(.*))?$/i) ??
-      slashPath.match(/^[A-Za-z]:\/Users\/[^/]+\/\.deepchat\/skills(?:\/(.*))?$/i)
+      slashPath.match(/^[A-Za-z]:\/Users\/[^/]+\/\.deepchat\/skills(?:\/(.*))?$/i);
 
     if (!match) {
-      return null
+      return null;
     }
 
-    const suffixParts = (match[1] ?? '').split('/').filter(Boolean)
-    return path.join(homeDir, '.deepchat', 'skills', ...suffixParts)
+    const suffixParts = (match[1] ?? "").split("/").filter(Boolean);
+    return path.join(homeDir, ".deepchat", "skills", ...suffixParts);
   }
 
   /**
@@ -273,10 +263,10 @@ export class SkillPresenter implements ISkillPresenter {
    */
   private ensureSkillsDir(): void {
     if (!fs.existsSync(this.skillsDir)) {
-      fs.mkdirSync(this.skillsDir, { recursive: true })
+      fs.mkdirSync(this.skillsDir, { recursive: true });
     }
     if (!fs.existsSync(this.sidecarDir)) {
-      fs.mkdirSync(this.sidecarDir, { recursive: true })
+      fs.mkdirSync(this.sidecarDir, { recursive: true });
     }
   }
 
@@ -284,124 +274,118 @@ export class SkillPresenter implements ISkillPresenter {
    * Get the skills directory path
    */
   async getSkillsDir(): Promise<string> {
-    return this.skillsDir
+    return this.skillsDir;
   }
 
   /**
    * Initialize the skill system - discover skills and start watching
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return
+    if (this.initialized) return;
 
-    await this.installBuiltinSkills()
-    this.cleanupExpiredDrafts()
-    await this.discoverSkills()
-    this.watchSkillFiles()
-    this.initialized = true
+    await this.installBuiltinSkills();
+    this.cleanupExpiredDrafts();
+    await this.discoverSkills();
+    this.watchSkillFiles();
+    this.initialized = true;
   }
 
   /**
    * Discover all skills from the skills directory
    */
   async discoverSkills(): Promise<SkillMetadata[]> {
-    this.metadataCache.clear()
-    this.contentCache.clear()
+    this.metadataCache.clear();
+    this.contentCache.clear();
 
     if (!fs.existsSync(this.skillsDir)) {
-      return []
+      return [];
     }
 
-    let discoveredSkills: SkillMetadata[]
+    let discoveredSkills: SkillMetadata[];
     try {
       const workerResult = await discoverSkillMetadataInWorker({
         skillsDir: this.skillsDir,
         sidecarDirName: SKILL_CONFIG.SIDECAR_DIR,
-        maxDepth: SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH
-      })
-      logSkillDiscoveryWorkerWarnings(workerResult.warnings)
-      discoveredSkills = workerResult.skills
+        maxDepth: SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH,
+      });
+      logSkillDiscoveryWorkerWarnings(workerResult.warnings);
+      discoveredSkills = workerResult.skills;
     } catch (error) {
-      console.warn('[SkillPresenter] Worker discovery failed, falling back to main thread:', error)
-      discoveredSkills = await this.discoverSkillsOnMainThread()
+      console.warn("[SkillPresenter] Worker discovery failed, falling back to main thread:", error);
+      discoveredSkills = await this.discoverSkillsOnMainThread();
     }
 
-    for (const metadata of [
-      ...discoveredSkills,
-      ...(await this.discoverPluginSkillsOnMainThread())
-    ]) {
+    for (const metadata of [...discoveredSkills, ...(await this.discoverPluginSkillsOnMainThread())]) {
       if (this.metadataCache.has(metadata.name)) {
-        logger.warn('[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.', {
+        logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
           name: metadata.name,
-          path: metadata.path
-        })
-        continue
+          path: metadata.path,
+        });
+        continue;
       }
-      this.metadataCache.set(metadata.name, metadata)
+      this.metadataCache.set(metadata.name, metadata);
     }
 
-    const skills = this.getVisibleMetadataFromCache()
-    eventBus.sendToRenderer(SKILL_EVENTS.DISCOVERED, SendTarget.ALL_WINDOWS, skills)
-    publishDeepchatEvent('skills.catalog.changed', {
-      reason: 'discovered',
+    const skills = this.getVisibleMetadataFromCache();
+    eventBus.sendToRenderer(SKILL_EVENTS.DISCOVERED, SendTarget.ALL_WINDOWS, skills);
+    publishDeepchatEvent("skills.catalog.changed", {
+      reason: "discovered",
       skills,
-      version: Date.now()
-    })
+      version: Date.now(),
+    });
 
-    return skills
+    return skills;
   }
 
   private async discoverSkillsOnMainThread(): Promise<SkillMetadata[]> {
-    const discovered = new Map<string, SkillMetadata>()
-    const skillManifestPaths = [...this.collectSkillManifestPaths(this.skillsDir)].sort(
-      (left, right) => left.localeCompare(right)
-    )
+    const discovered = new Map<string, SkillMetadata>();
+    const skillManifestPaths = [...this.collectSkillManifestPaths(this.skillsDir)].sort((left, right) =>
+      left.localeCompare(right),
+    );
 
     for (const skillPath of skillManifestPaths) {
-      const dirName = path.basename(path.dirname(skillPath))
+      const dirName = path.basename(path.dirname(skillPath));
       try {
-        const metadata = await this.parseSkillMetadata(skillPath, dirName)
+        const metadata = await this.parseSkillMetadata(skillPath, dirName);
         if (!metadata) {
-          continue
+          continue;
         }
         if (discovered.has(metadata.name)) {
-          logger.warn(
-            '[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.',
-            {
-              name: metadata.name,
-              path: metadata.path
-            }
-          )
-          continue
+          logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+            name: metadata.name,
+            path: metadata.path,
+          });
+          continue;
         }
-        discovered.set(metadata.name, metadata)
+        discovered.set(metadata.name, metadata);
       } catch (error) {
-        console.error(`[SkillPresenter] Failed to parse skill at ${skillPath}:`, error)
+        console.error(`[SkillPresenter] Failed to parse skill at ${skillPath}:`, error);
       }
     }
 
-    return Array.from(discovered.values())
+    return Array.from(discovered.values());
   }
 
   private async discoverPluginSkillsOnMainThread(): Promise<SkillMetadata[]> {
-    const discovered: SkillMetadata[] = []
+    const discovered: SkillMetadata[] = [];
     for (const contribution of this.pluginSkillContributions.values()) {
-      const skillPath = path.join(contribution.skillRoot, 'SKILL.md')
-      const dirName = path.basename(contribution.skillRoot)
+      const skillPath = path.join(contribution.skillRoot, "SKILL.md");
+      const dirName = path.basename(contribution.skillRoot);
       if (!fs.existsSync(skillPath)) {
-        logger.warn('[SkillPresenter] Plugin skill contribution is missing SKILL.md.', {
+        logger.warn("[SkillPresenter] Plugin skill contribution is missing SKILL.md.", {
           ownerPluginId: contribution.ownerPluginId,
-          skillRoot: contribution.skillRoot
-        })
-        continue
+          skillRoot: contribution.skillRoot,
+        });
+        continue;
       }
 
-      const metadata = await this.parseSkillMetadata(skillPath, dirName, contribution.ownerPluginId)
+      const metadata = await this.parseSkillMetadata(skillPath, dirName, contribution.ownerPluginId);
       if (metadata) {
-        discovered.push(metadata)
+        discovered.push(metadata);
       }
     }
 
-    return discovered
+    return discovered;
   }
 
   /**
@@ -410,46 +394,42 @@ export class SkillPresenter implements ISkillPresenter {
   private async parseSkillMetadata(
     skillPath: string,
     dirName: string,
-    ownerPluginId?: string
+    ownerPluginId?: string,
   ): Promise<SkillMetadata | null> {
     try {
-      const content = fs.readFileSync(skillPath, 'utf-8')
-      const { data } = matter(content)
+      const content = fs.readFileSync(skillPath, "utf-8");
+      const { data } = matter(content);
 
       // Validate required fields
       if (!data.name || !data.description) {
-        console.warn(`[SkillPresenter] Skill ${dirName} missing required frontmatter fields`)
-        return null
+        console.warn(`[SkillPresenter] Skill ${dirName} missing required frontmatter fields`);
+        return null;
       }
 
       // Ensure name matches directory name
       if (data.name !== dirName) {
-        console.warn(
-          `[SkillPresenter] Skill name "${data.name}" doesn't match directory "${dirName}"`
-        )
+        console.warn(`[SkillPresenter] Skill name "${data.name}" doesn't match directory "${dirName}"`);
       }
 
       return {
         name: data.name || dirName,
-        description: data.description || '',
+        description: data.description || "",
         path: skillPath,
         skillRoot: path.dirname(skillPath),
         category: this.deriveSkillCategory(path.dirname(skillPath)),
         platforms: Array.isArray(data.platforms)
-          ? data.platforms.filter((platform): platform is string => typeof platform === 'string')
+          ? data.platforms.filter((platform): platform is string => typeof platform === "string")
           : undefined,
         metadata:
-          data.metadata && typeof data.metadata === 'object'
-            ? (data.metadata as Record<string, unknown>)
-            : undefined,
+          data.metadata && typeof data.metadata === "object" ? (data.metadata as Record<string, unknown>) : undefined,
         allowedTools: Array.isArray(data.allowedTools)
-          ? data.allowedTools.filter((t): t is string => typeof t === 'string')
+          ? data.allowedTools.filter((t): t is string => typeof t === "string")
           : undefined,
-        ownerPluginId
-      }
+        ownerPluginId,
+      };
     } catch (error) {
-      console.error(`[SkillPresenter] Error parsing skill metadata at ${skillPath}:`, error)
-      return null
+      console.error(`[SkillPresenter] Error parsing skill metadata at ${skillPath}:`, error);
+      return null;
     }
   }
 
@@ -461,63 +441,54 @@ export class SkillPresenter implements ISkillPresenter {
     if (this.metadataCache.size === 0) {
       if (!this.discoveryPromise) {
         this.discoveryPromise = this.discoverSkills().finally(() => {
-          this.discoveryPromise = null
-        })
+          this.discoveryPromise = null;
+        });
       }
-      await this.discoveryPromise
+      await this.discoveryPromise;
     }
-    return this.getVisibleMetadataFromCache()
+    return this.getVisibleMetadataFromCache();
   }
 
   private getVisibleMetadataFromCache(): SkillMetadata[] {
     return this.sortSkillMetadata(
-      Array.from(this.metadataCache.values()).filter((skill) => this.isSkillVisible(skill))
-    )
+      Array.from(this.metadataCache.values()).filter((skill) => this.isSkillVisible(skill)),
+    );
   }
 
   private isSkillVisible(metadata: SkillMetadata): boolean {
-    return Boolean(metadata)
+    return Boolean(metadata);
   }
 
   private sortSkillMetadata(skills: SkillMetadata[]): SkillMetadata[] {
     return [...skills].sort((left, right) => {
-      return (
-        (left.category ?? '').localeCompare(right.category ?? '') ||
-        left.name.localeCompare(right.name)
-      )
-    })
+      return (left.category ?? "").localeCompare(right.category ?? "") || left.name.localeCompare(right.name);
+    });
   }
 
   /**
    * Get metadata prompt for skill listing (used by skill_list tool)
    */
   async getMetadataPrompt(): Promise<string> {
-    const skills = await this.getMetadataList()
-    const header = '# Available Skills'
-    const dirLine = `Skills directory: \`${this.skillsDir}\``
+    const skills = await this.getMetadataList();
+    const header = "# Available Skills";
+    const dirLine = `Skills directory: \`${this.skillsDir}\``;
 
     if (skills.length === 0) {
-      return `${header}\n\n${dirLine}\nNo skills are currently installed.`
+      return `${header}\n\n${dirLine}\nNo skills are currently installed.`;
     }
 
     const lines = skills.map((skill) => {
-      const details: string[] = []
+      const details: string[] = [];
       if (skill.category) {
-        details.push(`category=${skill.category}`)
+        details.push(`category=${skill.category}`);
       }
       if (skill.platforms?.length) {
-        details.push(`platforms=${skill.platforms.join(',')}`)
+        details.push(`platforms=${skill.platforms.join(",")}`);
       }
-      const suffix = details.length > 0 ? ` (${details.join('; ')})` : ''
-      return `- ${skill.name}: ${skill.description}${suffix}`
-    })
-    return [
-      header,
-      '',
-      dirLine,
-      'Inspect these skills with `skill_view` before relying on them.',
-      ...lines
-    ].join('\n')
+      const suffix = details.length > 0 ? ` (${details.join("; ")})` : "";
+      return `- ${skill.name}: ${skill.description}${suffix}`;
+    });
+    return [header, "", dirLine, "Inspect these skills with `skill_view` before relying on them.", ...lines].join("\n");
   }
 
   /**
@@ -525,109 +496,107 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async loadSkillContent(name: string): Promise<SkillContent | null> {
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
     // Get metadata to find the path
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata || !this.isSkillVisible(metadata)) {
-      console.warn(`[SkillPresenter] Skill not found: ${name}`)
-      return null
+      console.warn(`[SkillPresenter] Skill not found: ${name}`);
+      return null;
     }
 
     // Check content cache after feature visibility so disabled managed skills stay hidden.
     if (this.contentCache.has(name)) {
-      return this.contentCache.get(name)!
+      return this.contentCache.get(name)!;
     }
 
     try {
       // Check file size before reading to prevent memory exhaustion
-      const stats = fs.statSync(metadata.path)
+      const stats = fs.statSync(metadata.path);
       if (stats.size > SKILL_CONFIG.SKILL_FILE_MAX_SIZE) {
         console.error(
-          `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`
-        )
-        return null
+          `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`,
+        );
+        return null;
       }
 
-      const rawContent = fs.readFileSync(metadata.path, 'utf-8')
-      const { content } = matter(rawContent)
-      const renderedContent = this.replacePathVariables(content, metadata)
-      const runtimeInstructions = await this.buildRuntimeInstructions(metadata)
+      const rawContent = fs.readFileSync(metadata.path, "utf-8");
+      const { content } = matter(rawContent);
+      const renderedContent = this.replacePathVariables(content, metadata);
+      const runtimeInstructions = await this.buildRuntimeInstructions(metadata);
 
       const skillContent: SkillContent = {
         name,
-        content: [renderedContent.trim(), runtimeInstructions].filter(Boolean).join('\n\n')
-      }
+        content: [renderedContent.trim(), runtimeInstructions].filter(Boolean).join("\n\n"),
+      };
 
-      this.contentCache.set(name, skillContent)
-      return skillContent
+      this.contentCache.set(name, skillContent);
+      return skillContent;
     } catch (error) {
-      console.error(`[SkillPresenter] Error loading skill content for ${name}:`, error)
-      return null
+      console.error(`[SkillPresenter] Error loading skill content for ${name}:`, error);
+      return null;
     }
   }
 
   async viewSkill(
     name: string,
     options?: {
-      filePath?: string
-      conversationId?: string
-    }
+      filePath?: string;
+      conversationId?: string;
+    },
   ): Promise<SkillViewResult> {
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata || !this.isSkillVisible(metadata)) {
       return {
         success: false,
-        error: `Skill "${name}" not found`
-      }
+        error: `Skill "${name}" not found`,
+      };
     }
 
-    const pinnedSkills = options?.conversationId
-      ? await this.getActiveSkills(options.conversationId)
-      : []
-    const isPinned = pinnedSkills.includes(metadata.name)
+    const pinnedSkills = options?.conversationId ? await this.getActiveSkills(options.conversationId) : [];
+    const isPinned = pinnedSkills.includes(metadata.name);
 
     if (options?.filePath?.trim()) {
       try {
-        const requestedFilePath = options.filePath.trim()
-        const resolvedPath = this.resolveSkillRelativePath(metadata.skillRoot, requestedFilePath)
+        const requestedFilePath = options.filePath.trim();
+        const resolvedPath = this.resolveSkillRelativePath(metadata.skillRoot, requestedFilePath);
         if (!resolvedPath) {
           return {
             success: false,
-            error: 'Requested skill file is outside the skill root'
-          }
+            error: "Requested skill file is outside the skill root",
+          };
         }
 
         if (!fs.existsSync(resolvedPath)) {
           return {
             success: false,
-            error: `Skill file not found: ${requestedFilePath}`
-          }
+            error: `Skill file not found: ${requestedFilePath}`,
+          };
         }
 
-        const stats = fs.statSync(resolvedPath)
+        const stats = fs.statSync(resolvedPath);
         if (!stats.isFile()) {
           return {
             success: false,
-            error: 'Requested skill path is not a file'
-          }
+            error: "Requested skill path is not a file",
+          };
         }
         if (stats.size > SKILL_CONFIG.MAX_LINKED_FILE_SIZE) {
           return {
             success: false,
-            error: 'Requested skill file is too large to load inline'
-          }
+            error: "Requested skill file is too large to load inline",
+          };
         }
         if (this.isBinaryLikeFile(resolvedPath)) {
           return {
             success: false,
-            error: 'Binary skill files cannot be loaded with skill_view'
-          }
+            error: "Binary skill files cannot be loaded with skill_view",
+          };
         }
 
         return {
@@ -636,46 +605,43 @@ export class SkillPresenter implements ISkillPresenter {
           category: metadata.category ?? null,
           skillRoot: metadata.skillRoot,
           filePath: path.relative(metadata.skillRoot, resolvedPath),
-          content: fs.readFileSync(resolvedPath, 'utf-8'),
+          content: fs.readFileSync(resolvedPath, "utf-8"),
           platforms: metadata.platforms,
           metadata: metadata.metadata,
-          isPinned
-        }
+          isPinned,
+        };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        console.error('[SkillPresenter] Failed to load requested skill file for skill_view:', {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("[SkillPresenter] Failed to load requested skill file for skill_view:", {
           name: metadata.name,
           filePath: options.filePath.trim(),
-          error
-        })
+          error,
+        });
         return {
           success: false,
-          error: `Failed to load requested skill file: ${errorMessage}`
-        }
+          error: `Failed to load requested skill file: ${errorMessage}`,
+        };
       }
     }
 
     try {
-      const stats = fs.statSync(metadata.path)
+      const stats = fs.statSync(metadata.path);
       if (stats.size > SKILL_CONFIG.SKILL_FILE_MAX_SIZE) {
-        const errorMessage = `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`
-        console.error(errorMessage)
+        const errorMessage = `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`;
+        console.error(errorMessage);
         return {
           success: false,
-          error: errorMessage
-        }
+          error: errorMessage,
+        };
       }
 
-      const rawContent = fs.readFileSync(metadata.path, 'utf-8')
-      const { content } = matter(rawContent)
-      let nextIsPinned = isPinned
+      const rawContent = fs.readFileSync(metadata.path, "utf-8");
+      const { content } = matter(rawContent);
+      let nextIsPinned = isPinned;
 
       if (options?.conversationId && !isPinned) {
-        const updatedSkills = await this.setActiveSkills(options.conversationId, [
-          ...pinnedSkills,
-          metadata.name
-        ])
-        nextIsPinned = updatedSkills.includes(metadata.name)
+        const updatedSkills = await this.setActiveSkills(options.conversationId, [...pinnedSkills, metadata.name]);
+        nextIsPinned = updatedSkills.includes(metadata.name);
       }
 
       return {
@@ -688,475 +654,457 @@ export class SkillPresenter implements ISkillPresenter {
         platforms: metadata.platforms,
         metadata: metadata.metadata,
         linkedFiles: this.listSkillLinkedFiles(metadata.skillRoot),
-        isPinned: nextIsPinned
-      }
+        isPinned: nextIsPinned,
+      };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error('[SkillPresenter] Failed to load skill_view content:', {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("[SkillPresenter] Failed to load skill_view content:", {
         name: metadata.name,
         path: metadata.path,
-        error
-      })
+        error,
+      });
       return {
         success: false,
-        error: `Failed to load skill view: ${errorMessage}`
-      }
+        error: `Failed to load skill view: ${errorMessage}`,
+      };
     }
   }
 
-  async manageDraftSkill(
-    conversationId: string,
-    request: SkillManageRequest
-  ): Promise<SkillManageResult> {
-    const action = request.action
+  async manageDraftSkill(conversationId: string, request: SkillManageRequest): Promise<SkillManageResult> {
+    const action = request.action;
 
     try {
       switch (action) {
-        case 'create': {
-          const parsed = this.validateDraftSkillDocument(request.content)
+        case "create": {
+          const parsed = this.validateDraftSkillDocument(request.content);
           if (!parsed.success) {
-            return { success: false, action, error: parsed.error }
+            return { success: false, action, error: parsed.error };
           }
-          const { draftId, draftPath } = this.createDraftHandle(conversationId)
-          this.atomicWriteFile(path.join(draftPath, 'SKILL.md'), request.content!)
-          this.touchDraftActivity(draftPath)
+          const { draftId, draftPath } = this.createDraftHandle(conversationId);
+          this.atomicWriteFile(path.join(draftPath, "SKILL.md"), request.content!);
+          this.touchDraftActivity(draftPath);
           return {
             success: true,
             action,
             draftId,
             skillName: parsed.skillName,
-            draftStatus: 'created'
-          }
+            draftStatus: "created",
+          };
         }
-        case 'edit': {
-          const parsed = this.validateDraftSkillDocument(request.content)
+        case "edit": {
+          const parsed = this.validateDraftSkillDocument(request.content);
           if (!parsed.success) {
-            return { success: false, action, error: parsed.error }
+            return { success: false, action, error: parsed.error };
           }
-          const draftId = this.validateDraftId(request.draftId)
+          const draftId = this.validateDraftId(request.draftId);
           if (!draftId) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
-          const draftPath = this.getDraftPathForId(conversationId, draftId)
+          const draftPath = this.getDraftPathForId(conversationId, draftId);
           if (!draftPath) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
           if (!fs.existsSync(draftPath)) {
-            return { success: false, action, error: 'Draft not found' }
+            return { success: false, action, error: "Draft not found" };
           }
-          this.atomicWriteFile(path.join(draftPath, 'SKILL.md'), request.content!)
-          this.touchDraftActivity(draftPath)
+          this.atomicWriteFile(path.join(draftPath, "SKILL.md"), request.content!);
+          this.touchDraftActivity(draftPath);
           return {
             success: true,
             action,
             draftId,
             skillName: parsed.skillName,
-            draftStatus: 'updated'
-          }
+            draftStatus: "updated",
+          };
         }
-        case 'write_file': {
-          const draftId = this.validateDraftId(request.draftId)
+        case "write_file": {
+          const draftId = this.validateDraftId(request.draftId);
           if (!draftId) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
-          const draftPath = this.getDraftPathForId(conversationId, draftId)
+          const draftPath = this.getDraftPathForId(conversationId, draftId);
           if (!draftPath) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
           if (!request.filePath?.trim()) {
-            return { success: false, action, error: 'filePath is required for write_file' }
+            return { success: false, action, error: "filePath is required for write_file" };
           }
-          if (typeof request.fileContent !== 'string') {
-            return { success: false, action, error: 'fileContent is required for write_file' }
+          if (typeof request.fileContent !== "string") {
+            return { success: false, action, error: "fileContent is required for write_file" };
           }
-          const resolvedFilePath = this.resolveDraftFilePath(draftPath, request.filePath)
+          const resolvedFilePath = this.resolveDraftFilePath(draftPath, request.filePath);
           if (!resolvedFilePath) {
             return {
               success: false,
               action,
-              error: 'Draft file path must stay within allowed draft folders'
-            }
+              error: "Draft file path must stay within allowed draft folders",
+            };
           }
-          const blockedPattern = this.findDraftInjectionPattern(request.fileContent)
+          const blockedPattern = this.findDraftInjectionPattern(request.fileContent);
           if (blockedPattern) {
             return {
               success: false,
               action,
-              error: `Draft content rejected by security scan: ${blockedPattern}`
-            }
+              error: `Draft content rejected by security scan: ${blockedPattern}`,
+            };
           }
-          fs.mkdirSync(path.dirname(resolvedFilePath), { recursive: true })
-          this.atomicWriteFile(resolvedFilePath, request.fileContent)
-          this.touchDraftActivity(draftPath)
+          fs.mkdirSync(path.dirname(resolvedFilePath), { recursive: true });
+          this.atomicWriteFile(resolvedFilePath, request.fileContent);
+          this.touchDraftActivity(draftPath);
           return {
             success: true,
             action,
             draftId,
-            filePath: path.relative(draftPath, resolvedFilePath)
-          }
+            filePath: path.relative(draftPath, resolvedFilePath),
+          };
         }
-        case 'remove_file': {
-          const draftId = this.validateDraftId(request.draftId)
+        case "remove_file": {
+          const draftId = this.validateDraftId(request.draftId);
           if (!draftId) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
-          const draftPath = this.getDraftPathForId(conversationId, draftId)
+          const draftPath = this.getDraftPathForId(conversationId, draftId);
           if (!draftPath) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
           if (!request.filePath?.trim()) {
-            return { success: false, action, error: 'filePath is required for remove_file' }
+            return { success: false, action, error: "filePath is required for remove_file" };
           }
-          const resolvedFilePath = this.resolveDraftFilePath(draftPath, request.filePath)
+          const resolvedFilePath = this.resolveDraftFilePath(draftPath, request.filePath);
           if (!resolvedFilePath) {
             return {
               success: false,
               action,
-              error: 'Draft file path must stay within allowed draft folders'
-            }
+              error: "Draft file path must stay within allowed draft folders",
+            };
           }
           if (!fs.existsSync(resolvedFilePath)) {
-            return { success: false, action, error: 'Draft file not found' }
+            return { success: false, action, error: "Draft file not found" };
           }
-          fs.rmSync(resolvedFilePath, { force: true })
-          this.touchDraftActivity(draftPath)
+          fs.rmSync(resolvedFilePath, { force: true });
+          this.touchDraftActivity(draftPath);
           return {
             success: true,
             action,
             draftId,
-            filePath: path.relative(draftPath, resolvedFilePath)
-          }
+            filePath: path.relative(draftPath, resolvedFilePath),
+          };
         }
-        case 'delete': {
-          const draftId = this.validateDraftId(request.draftId)
+        case "delete": {
+          const draftId = this.validateDraftId(request.draftId);
           if (!draftId) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
-          const draftPath = this.getDraftPathForId(conversationId, draftId)
+          const draftPath = this.getDraftPathForId(conversationId, draftId);
           if (!draftPath) {
             return {
               success: false,
               action,
-              error: 'Draft handle is invalid for this conversation'
-            }
+              error: "Draft handle is invalid for this conversation",
+            };
           }
           if (!fs.existsSync(draftPath)) {
-            return { success: false, action, error: 'Draft not found' }
+            return { success: false, action, error: "Draft not found" };
           }
-          fs.rmSync(draftPath, { recursive: true, force: true })
-          return { success: true, action, draftId }
+          fs.rmSync(draftPath, { recursive: true, force: true });
+          return { success: true, action, draftId };
         }
         default:
-          return { success: false, action, error: `Unsupported draft action: ${action}` }
+          return { success: false, action, error: `Unsupported draft action: ${action}` };
       }
     } catch (error) {
       return {
         success: false,
         action,
-        error: error instanceof Error ? error.message : String(error)
-      }
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
   async viewDraftSkill(conversationId: string, draftId: string): Promise<SkillDraftActionResult> {
-    const normalizedDraftId = this.validateDraftId(draftId)
+    const normalizedDraftId = this.validateDraftId(draftId);
     if (!normalizedDraftId) {
-      return { success: false, action: 'view', draftId, error: 'Draft handle is invalid' }
+      return { success: false, action: "view", draftId, error: "Draft handle is invalid" };
     }
 
-    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId)
+    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId);
     if (!draftPath || !fs.existsSync(draftPath)) {
       return {
         success: false,
-        action: 'view',
+        action: "view",
         draftId: normalizedDraftId,
-        error: 'Draft not found'
-      }
+        error: "Draft not found",
+      };
     }
 
     try {
-      const skillMdPath = path.join(draftPath, 'SKILL.md')
-      const stats = fs.statSync(skillMdPath)
+      const skillMdPath = path.join(draftPath, "SKILL.md");
+      const stats = fs.statSync(skillMdPath);
       if (!stats.isFile()) {
         return {
           success: false,
-          action: 'view',
+          action: "view",
           draftId: normalizedDraftId,
-          error: 'Draft SKILL.md not found'
-        }
+          error: "Draft SKILL.md not found",
+        };
       }
       if (stats.size > SKILL_CONFIG.SKILL_FILE_MAX_SIZE) {
         return {
           success: false,
-          action: 'view',
+          action: "view",
           draftId: normalizedDraftId,
-          error: `Draft skill file too large: ${stats.size} bytes`
-        }
+          error: `Draft skill file too large: ${stats.size} bytes`,
+        };
       }
-      const content = fs.readFileSync(skillMdPath, 'utf-8')
-      this.touchDraftActivity(draftPath)
-      const parsed = this.validateDraftSkillDocument(content)
+      const content = fs.readFileSync(skillMdPath, "utf-8");
+      this.touchDraftActivity(draftPath);
+      const parsed = this.validateDraftSkillDocument(content);
       return {
         success: parsed.success,
-        action: 'view',
+        action: "view",
         draftId: normalizedDraftId,
-        ...(parsed.success ? { skillName: parsed.skillName, content } : { error: parsed.error })
-      }
+        ...(parsed.success ? { skillName: parsed.skillName, content } : { error: parsed.error }),
+      };
     } catch (error) {
       return {
         success: false,
-        action: 'view',
+        action: "view",
         draftId: normalizedDraftId,
-        error: error instanceof Error ? error.message : String(error)
-      }
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
-  async installDraftSkill(
-    conversationId: string,
-    draftId: string
-  ): Promise<SkillDraftActionResult> {
-    const normalizedDraftId = this.validateDraftId(draftId)
+  async installDraftSkill(conversationId: string, draftId: string): Promise<SkillDraftActionResult> {
+    const normalizedDraftId = this.validateDraftId(draftId);
     if (!normalizedDraftId) {
-      return { success: false, action: 'install', draftId, error: 'Draft handle is invalid' }
+      return { success: false, action: "install", draftId, error: "Draft handle is invalid" };
     }
 
-    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId)
+    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId);
     if (!draftPath || !fs.existsSync(draftPath)) {
       return {
         success: false,
-        action: 'install',
+        action: "install",
         draftId: normalizedDraftId,
-        error: 'Draft not found'
-      }
+        error: "Draft not found",
+      };
     }
 
-    const viewed = await this.viewDraftSkill(conversationId, normalizedDraftId)
+    const viewed = await this.viewDraftSkill(conversationId, normalizedDraftId);
     if (!viewed.success) {
-      return { ...viewed, action: 'install' }
+      return { ...viewed, action: "install" };
     }
 
-    const result = await this.installFromDirectory(draftPath, { overwrite: false })
+    const result = await this.installFromDirectory(draftPath, { overwrite: false });
     if (!result.success) {
       return {
         success: false,
-        action: 'install',
+        action: "install",
         draftId: normalizedDraftId,
         skillName: viewed.skillName,
-        error: result.error
-      }
+        error: result.error,
+      };
     }
 
-    fs.rmSync(draftPath, { recursive: true, force: true })
-    this.removeEmptyDraftConversationDir(conversationId)
+    fs.rmSync(draftPath, { recursive: true, force: true });
+    this.removeEmptyDraftConversationDir(conversationId);
     return {
       success: true,
-      action: 'install',
+      action: "install",
       draftId: normalizedDraftId,
       skillName: viewed.skillName,
-      installedSkillName: result.skillName ?? viewed.skillName
-    }
+      installedSkillName: result.skillName ?? viewed.skillName,
+    };
   }
 
-  async discardDraftSkill(
-    conversationId: string,
-    draftId: string
-  ): Promise<SkillDraftActionResult> {
-    const normalizedDraftId = this.validateDraftId(draftId)
+  async discardDraftSkill(conversationId: string, draftId: string): Promise<SkillDraftActionResult> {
+    const normalizedDraftId = this.validateDraftId(draftId);
     if (!normalizedDraftId) {
-      return { success: false, action: 'discard', draftId, error: 'Draft handle is invalid' }
+      return { success: false, action: "discard", draftId, error: "Draft handle is invalid" };
     }
 
-    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId)
+    const draftPath = this.getDraftPathForId(conversationId, normalizedDraftId);
     if (!draftPath || !fs.existsSync(draftPath)) {
       return {
         success: false,
-        action: 'discard',
+        action: "discard",
         draftId: normalizedDraftId,
-        error: 'Draft not found'
-      }
+        error: "Draft not found",
+      };
     }
 
-    fs.rmSync(draftPath, { recursive: true, force: true })
-    this.removeEmptyDraftConversationDir(conversationId)
-    return { success: true, action: 'discard', draftId: normalizedDraftId }
+    fs.rmSync(draftPath, { recursive: true, force: true });
+    this.removeEmptyDraftConversationDir(conversationId);
+    return { success: true, action: "discard", draftId: normalizedDraftId };
   }
 
   private replacePathVariables(content: string, metadata: SkillMetadata): string {
-    const pluginContribution = this.getPluginContributionForSkillRoot(metadata.skillRoot)
+    const pluginContribution = this.getPluginContributionForSkillRoot(metadata.skillRoot);
     return content
       .replace(/\$\{SKILL_ROOT\}/g, metadata.skillRoot)
       .replace(/\$\{SKILLS_DIR\}/g, this.skillsDir)
-      .replace(/\$\{PLUGIN_ROOT\}/g, pluginContribution?.pluginRoot ?? '')
+      .replace(/\$\{PLUGIN_ROOT\}/g, pluginContribution?.pluginRoot ?? "")
       .replace(/\$\{PROCESS_ARCH\}/g, process.arch)
-      .replace(
-        /\$\{OWNER_PLUGIN_ID\}/g,
-        metadata.ownerPluginId ?? pluginContribution?.ownerPluginId ?? ''
-      )
+      .replace(/\$\{OWNER_PLUGIN_ID\}/g, metadata.ownerPluginId ?? pluginContribution?.ownerPluginId ?? "");
   }
 
   private async buildRuntimeInstructions(metadata: SkillMetadata): Promise<string> {
-    const scripts = (await this.listSkillScripts(metadata.name)).filter((script) => script.enabled)
+    const scripts = (await this.listSkillScripts(metadata.name)).filter((script) => script.enabled);
     const lines = [
-      '## DeepChat Runtime Context',
+      "## DeepChat Runtime Context",
       `- Skill root: \`${metadata.skillRoot}\`.`,
-      '- Relative paths mentioned by this skill are relative to the skill root unless stated otherwise.',
-      '- When this skill needs script execution, prefer `skill_run` over `exec`.'
-    ]
+      "- Relative paths mentioned by this skill are relative to the skill root unless stated otherwise.",
+      "- When this skill needs script execution, prefer `skill_run` over `exec`.",
+    ];
 
     if (scripts.length > 0) {
-      lines.push('- Bundled runnable scripts:')
+      lines.push("- Bundled runnable scripts:");
       lines.push(
         ...scripts.map((script) => {
-          const suffix = script.description ? ` - ${script.description}` : ''
-          return `  - ${script.relativePath} (${script.runtime})${suffix}`
-        })
-      )
+          const suffix = script.description ? ` - ${script.description}` : "";
+          return `  - ${script.relativePath} (${script.runtime})${suffix}`;
+        }),
+      );
     } else {
-      lines.push('- No bundled scripts detected for this skill.')
+      lines.push("- No bundled scripts detected for this skill.");
     }
 
-    lines.push('- Do not guess script paths or change directories to locate skill files.')
+    lines.push("- Do not guess script paths or change directories to locate skill files.");
 
-    return lines.join('\n')
+    return lines.join("\n");
   }
 
   /**
    * Install built-in skills from resources
    */
   async installBuiltinSkills(): Promise<void> {
-    const builtinDir = this.resolveBuiltinSkillsDir()
+    const builtinDir = this.resolveBuiltinSkillsDir();
     if (!builtinDir || !fs.existsSync(builtinDir)) {
-      return
+      return;
     }
 
-    const entries = fs.readdirSync(builtinDir, { withFileTypes: true })
+    const entries = fs.readdirSync(builtinDir, { withFileTypes: true });
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      const skillDir = path.join(builtinDir, entry.name)
-      const skillMdPath = path.join(skillDir, 'SKILL.md')
-      if (!fs.existsSync(skillMdPath)) continue
+      if (!entry.isDirectory()) continue;
+      const skillDir = path.join(builtinDir, entry.name);
+      const skillMdPath = path.join(skillDir, "SKILL.md");
+      if (!fs.existsSync(skillMdPath)) continue;
 
-      const metadata = await this.parseSkillMetadata(skillMdPath, entry.name)
+      const metadata = await this.parseSkillMetadata(skillMdPath, entry.name);
       if (!metadata || !this.supportsCurrentPlatform(metadata.platforms)) {
-        continue
+        continue;
       }
 
-      const result = await this.installFromDirectory(skillDir, { overwrite: false })
-      if (!result.success && result.error?.includes('already exists')) {
-        continue
+      const result = await this.installFromDirectory(skillDir, { overwrite: false });
+      if (!result.success && result.error?.includes("already exists")) {
+        continue;
       }
       if (!result.success) {
-        console.warn('[SkillPresenter] Failed to install builtin skill:', result.error)
+        console.warn("[SkillPresenter] Failed to install builtin skill:", result.error);
       }
     }
   }
 
   private supportsCurrentPlatform(platforms?: string[]): boolean {
     if (!platforms?.length) {
-      return true
+      return true;
     }
 
-    const aliases = this.getCurrentPlatformAliases()
-    return platforms.some((platform) => aliases.has(platform.trim().toLowerCase()))
+    const aliases = this.getCurrentPlatformAliases();
+    return platforms.some((platform) => aliases.has(platform.trim().toLowerCase()));
   }
 
   private getCurrentPlatformAliases(): Set<string> {
     switch (process.platform) {
-      case 'darwin':
-        return new Set(['darwin', 'macos', 'mac'])
-      case 'win32':
-        return new Set(['win32', 'windows', 'win'])
-      case 'linux':
-        return new Set(['linux'])
+      case "darwin":
+        return new Set(["darwin", "macos", "mac"]);
+      case "win32":
+        return new Set(["win32", "windows", "win"]);
+      case "linux":
+        return new Set(["linux"]);
       default:
-        return new Set([process.platform])
+        return new Set([process.platform]);
     }
   }
 
   private resolveBuiltinSkillsDir(): string | null {
-    const candidates = this.getBuiltinSkillsDirCandidates()
+    const candidates = this.getBuiltinSkillsDirCandidates();
     for (const candidate of candidates) {
       if (fs.existsSync(candidate)) {
-        return candidate
+        return candidate;
       }
     }
-    return null
+    return null;
   }
 
   private getBuiltinSkillsDirCandidates(): string[] {
     if (!app.isPackaged) {
-      return [path.join(app.getAppPath(), 'resources', 'skills')]
+      return [path.join(app.getAppPath(), "resources", "skills")];
     }
     return [
-      path.join(process.resourcesPath, 'app.asar.unpacked', 'resources', 'skills'),
-      path.join(process.resourcesPath, 'resources', 'skills'),
-      path.join(process.resourcesPath, 'skills')
-    ]
+      path.join(process.resourcesPath, "app.asar.unpacked", "resources", "skills"),
+      path.join(process.resourcesPath, "resources", "skills"),
+      path.join(process.resourcesPath, "skills"),
+    ];
   }
 
   /**
    * Install a skill from a folder path
    */
-  async installFromFolder(
-    folderPath: string,
-    options?: SkillInstallOptions
-  ): Promise<SkillInstallResult> {
-    return this.installFromDirectory(folderPath, options)
+  async installFromFolder(folderPath: string, options?: SkillInstallOptions): Promise<SkillInstallResult> {
+    return this.installFromDirectory(folderPath, options);
   }
 
   /**
    * Install a skill from a zip file
    */
-  async installFromZip(
-    zipPath: string,
-    options?: SkillInstallOptions
-  ): Promise<SkillInstallResult> {
+  async installFromZip(zipPath: string, options?: SkillInstallOptions): Promise<SkillInstallResult> {
     if (!fs.existsSync(zipPath)) {
-      return { success: false, error: 'Zip file not found', errorCode: 'not_found' }
+      return { success: false, error: "Zip file not found", errorCode: "not_found" };
     }
 
-    const tempDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'deepchat-skill-'))
+    const tempDir = fs.mkdtempSync(path.join(app.getPath("temp"), "deepchat-skill-"));
     try {
-      this.extractZipToDirectory(zipPath, tempDir)
-      const skillDir = this.resolveSkillDirFromExtracted(tempDir)
+      this.extractZipToDirectory(zipPath, tempDir);
+      const skillDir = this.resolveSkillDirFromExtracted(tempDir);
       if (!skillDir) {
-        return { success: false, error: 'SKILL.md not found in zip archive' }
+        return { success: false, error: "SKILL.md not found in zip archive" };
       }
-      return await this.installFromDirectory(skillDir, options)
+      return await this.installFromDirectory(skillDir, options);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMsg, errorCode: 'io_error' }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg, errorCode: "io_error" };
     } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true })
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   }
 
@@ -1164,139 +1112,129 @@ export class SkillPresenter implements ISkillPresenter {
    * Install a skill from a URL
    */
   async installFromUrl(url: string, options?: SkillInstallOptions): Promise<SkillInstallResult> {
-    const tempZipPath = path.join(app.getPath('temp'), `deepchat-skill-${Date.now()}.zip`)
+    const tempZipPath = path.join(app.getPath("temp"), `deepchat-skill-${Date.now()}.zip`);
     try {
-      await this.downloadSkillZip(url, tempZipPath)
-      return await this.installFromZip(tempZipPath, options)
+      await this.downloadSkillZip(url, tempZipPath);
+      return await this.installFromZip(tempZipPath, options);
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMsg, errorCode: 'io_error' }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg, errorCode: "io_error" };
     } finally {
       if (fs.existsSync(tempZipPath)) {
-        fs.rmSync(tempZipPath, { force: true })
+        fs.rmSync(tempZipPath, { force: true });
       }
     }
   }
 
   async registerPluginSkill(input: {
-    ownerPluginId: string
-    id: string
-    skillRoot: string
-    pluginRoot?: string
+    ownerPluginId: string;
+    id: string;
+    skillRoot: string;
+    pluginRoot?: string;
   }): Promise<void> {
-    const skillRoot = path.resolve(input.skillRoot)
-    const skillPath = path.join(skillRoot, 'SKILL.md')
+    const skillRoot = path.resolve(input.skillRoot);
+    const skillPath = path.join(skillRoot, "SKILL.md");
     if (!fs.existsSync(skillPath)) {
-      throw new Error(`Plugin skill "${input.id}" is missing SKILL.md`)
+      throw new Error(`Plugin skill "${input.id}" is missing SKILL.md`);
     }
 
     this.pluginSkillContributions.set(`${input.ownerPluginId}:${input.id}`, {
       ownerPluginId: input.ownerPluginId,
       skillRoot,
-      pluginRoot: input.pluginRoot ? path.resolve(input.pluginRoot) : undefined
-    })
-    this.metadataCache.clear()
-    this.contentCache.clear()
+      pluginRoot: input.pluginRoot ? path.resolve(input.pluginRoot) : undefined,
+    });
+    this.metadataCache.clear();
+    this.contentCache.clear();
     if (this.initialized) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
   }
 
   async unregisterPluginSkillsByOwner(ownerPluginId: string): Promise<void> {
-    let changed = false
+    let changed = false;
     for (const [key, contribution] of this.pluginSkillContributions.entries()) {
       if (contribution.ownerPluginId === ownerPluginId) {
-        this.pluginSkillContributions.delete(key)
-        changed = true
+        this.pluginSkillContributions.delete(key);
+        changed = true;
       }
     }
 
     if (changed && this.initialized) {
-      this.metadataCache.clear()
-      this.contentCache.clear()
-      await this.discoverSkills()
+      this.metadataCache.clear();
+      this.contentCache.clear();
+      await this.discoverSkills();
     } else if (changed) {
-      this.metadataCache.clear()
-      this.contentCache.clear()
+      this.metadataCache.clear();
+      this.contentCache.clear();
     }
   }
 
-  private async installFromDirectory(
-    folderPath: string,
-    options?: SkillInstallOptions
-  ): Promise<SkillInstallResult> {
+  private async installFromDirectory(folderPath: string, options?: SkillInstallOptions): Promise<SkillInstallResult> {
     try {
-      this.ensureSkillsDir()
-      const resolvedSource = path.resolve(folderPath)
+      this.ensureSkillsDir();
+      const resolvedSource = path.resolve(folderPath);
 
       if (!fs.existsSync(resolvedSource)) {
-        return { success: false, error: 'Skill folder not found', errorCode: 'not_found' }
+        return { success: false, error: "Skill folder not found", errorCode: "not_found" };
       }
 
-      const skillMdPath = path.join(resolvedSource, 'SKILL.md')
+      const skillMdPath = path.join(resolvedSource, "SKILL.md");
       if (!fs.existsSync(skillMdPath)) {
         return {
           success: false,
-          error: 'SKILL.md not found in the folder',
-          errorCode: 'invalid_skill'
-        }
+          error: "SKILL.md not found in the folder",
+          errorCode: "invalid_skill",
+        };
       }
 
-      const content = fs.readFileSync(skillMdPath, 'utf-8')
-      const { data } = matter(content)
-      const skillName = typeof data.name === 'string' ? data.name.trim() : ''
-      const skillDescription = typeof data.description === 'string' ? data.description.trim() : ''
+      const content = fs.readFileSync(skillMdPath, "utf-8");
+      const { data } = matter(content);
+      const skillName = typeof data.name === "string" ? data.name.trim() : "";
+      const skillDescription = typeof data.description === "string" ? data.description.trim() : "";
 
       if (!skillName) {
         return {
           success: false,
-          error: 'Skill name not found in SKILL.md frontmatter',
-          errorCode: 'invalid_skill'
-        }
+          error: "Skill name not found in SKILL.md frontmatter",
+          errorCode: "invalid_skill",
+        };
       }
 
       if (!skillDescription) {
         return {
           success: false,
-          error: 'Skill description not found in SKILL.md frontmatter',
-          errorCode: 'invalid_skill'
-        }
+          error: "Skill description not found in SKILL.md frontmatter",
+          errorCode: "invalid_skill",
+        };
       }
 
-      if (
-        skillName.includes('/') ||
-        skillName.includes('\\') ||
-        !SKILL_NAME_PATTERN.test(skillName)
-      ) {
+      if (skillName.includes("/") || skillName.includes("\\") || !SKILL_NAME_PATTERN.test(skillName)) {
         return {
           success: false,
-          error: 'Invalid skill name in SKILL.md frontmatter',
-          errorCode: 'invalid_skill'
-        }
+          error: "Invalid skill name in SKILL.md frontmatter",
+          errorCode: "invalid_skill",
+        };
       }
 
-      const targetDir = path.join(this.skillsDir, skillName)
-      const resolvedTarget = path.resolve(targetDir)
+      const targetDir = path.join(this.skillsDir, skillName);
+      const resolvedTarget = path.resolve(targetDir);
 
       if (resolvedSource === resolvedTarget) {
         return {
           success: false,
           error: `Skill "${skillName}" already exists`,
-          errorCode: 'conflict',
-          existingSkillName: skillName
-        }
+          errorCode: "conflict",
+          existingSkillName: skillName,
+        };
       }
 
-      const relativeToSource = path.relative(resolvedSource, resolvedTarget)
-      if (
-        relativeToSource === '' ||
-        (!relativeToSource.startsWith('..') && !path.isAbsolute(relativeToSource))
-      ) {
+      const relativeToSource = path.relative(resolvedSource, resolvedTarget);
+      if (relativeToSource === "" || (!relativeToSource.startsWith("..") && !path.isAbsolute(relativeToSource))) {
         return {
           success: false,
-          error: 'Target directory cannot be inside source folder',
-          errorCode: 'invalid_skill'
-        }
+          error: "Target directory cannot be inside source folder",
+          errorCode: "invalid_skill",
+        };
       }
 
       if (fs.existsSync(resolvedTarget)) {
@@ -1304,172 +1242,165 @@ export class SkillPresenter implements ISkillPresenter {
           return {
             success: false,
             error: `Skill "${skillName}" already exists`,
-            errorCode: 'conflict',
-            existingSkillName: skillName
-          }
+            errorCode: "conflict",
+            existingSkillName: skillName,
+          };
         }
-        this.backupExistingSkill(skillName)
-        this.metadataCache.delete(skillName)
-        this.contentCache.delete(skillName)
+        this.backupExistingSkill(skillName);
+        this.metadataCache.delete(skillName);
+        this.contentCache.delete(skillName);
       }
 
-      this.copyDirectory(resolvedSource, resolvedTarget)
+      this.copyDirectory(resolvedSource, resolvedTarget);
 
-      const metadata = await this.parseSkillMetadata(
-        path.join(resolvedTarget, 'SKILL.md'),
-        skillName
-      )
+      const metadata = await this.parseSkillMetadata(path.join(resolvedTarget, "SKILL.md"), skillName);
       if (metadata) {
-        this.metadataCache.set(skillName, metadata)
+        this.metadataCache.set(skillName, metadata);
       }
 
-      eventBus.sendToRenderer(SKILL_EVENTS.INSTALLED, SendTarget.ALL_WINDOWS, { name: skillName })
-      publishDeepchatEvent('skills.catalog.changed', {
-        reason: 'installed',
+      eventBus.sendToRenderer(SKILL_EVENTS.INSTALLED, SendTarget.ALL_WINDOWS, { name: skillName });
+      publishDeepchatEvent("skills.catalog.changed", {
+        reason: "installed",
         name: skillName,
-        version: Date.now()
-      })
+        version: Date.now(),
+      });
 
-      return { success: true, skillName }
+      return { success: true, skillName };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMsg, errorCode: 'io_error' }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg, errorCode: "io_error" };
     }
   }
 
   private backupExistingSkill(skillName: string): string {
-    const sourceDir = path.join(this.skillsDir, skillName)
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    let backupDir = path.join(this.skillsDir, `${skillName}.backup-${timestamp}`)
-    let counter = 0
+    const sourceDir = path.join(this.skillsDir, skillName);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    let backupDir = path.join(this.skillsDir, `${skillName}.backup-${timestamp}`);
+    let counter = 0;
     while (fs.existsSync(backupDir)) {
-      counter += 1
-      backupDir = path.join(this.skillsDir, `${skillName}.backup-${timestamp}-${counter}`)
+      counter += 1;
+      backupDir = path.join(this.skillsDir, `${skillName}.backup-${timestamp}-${counter}`);
     }
-    fs.renameSync(sourceDir, backupDir)
-    return backupDir
+    fs.renameSync(sourceDir, backupDir);
+    return backupDir;
   }
 
   private extractZipToDirectory(zipPath: string, targetDir: string): void {
     // Check ZIP file size before loading to prevent memory exhaustion
-    const stats = fs.statSync(zipPath)
+    const stats = fs.statSync(zipPath);
     if (stats.size > SKILL_CONFIG.ZIP_MAX_SIZE) {
-      throw new Error(`ZIP file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`)
+      throw new Error(`ZIP file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`);
     }
 
-    const zipContent = new Uint8Array(fs.readFileSync(zipPath))
-    const extracted = unzipSync(zipContent)
-    const resolvedTargetDir = path.resolve(targetDir)
+    const zipContent = new Uint8Array(fs.readFileSync(zipPath));
+    const extracted = unzipSync(zipContent);
+    const resolvedTargetDir = path.resolve(targetDir);
 
     for (const entryName of Object.keys(extracted)) {
-      const fileContent = extracted[entryName]
+      const fileContent = extracted[entryName];
       if (!fileContent) {
-        continue
+        continue;
       }
 
-      const normalizedEntry = entryName.replace(/\\/g, '/')
+      const normalizedEntry = entryName.replace(/\\/g, "/");
       if (!normalizedEntry) {
-        continue
+        continue;
       }
 
-      if (/^[A-Za-z]:/.test(normalizedEntry) || normalizedEntry.startsWith('/')) {
-        throw new Error('Invalid zip entry')
+      if (/^[A-Za-z]:/.test(normalizedEntry) || normalizedEntry.startsWith("/")) {
+        throw new Error("Invalid zip entry");
       }
 
-      const segments = normalizedEntry.split('/')
-      const safeSegments: string[] = []
+      const segments = normalizedEntry.split("/");
+      const safeSegments: string[] = [];
       for (const segment of segments) {
-        if (!segment || segment === '.') {
-          continue
+        if (!segment || segment === ".") {
+          continue;
         }
-        if (segment === '..') {
-          throw new Error('Invalid zip entry')
+        if (segment === "..") {
+          throw new Error("Invalid zip entry");
         }
-        safeSegments.push(segment)
+        safeSegments.push(segment);
       }
 
       if (safeSegments.length === 0) {
-        continue
+        continue;
       }
 
-      const isDirectoryEntry = normalizedEntry.endsWith('/')
-      const destination = path.resolve(resolvedTargetDir, ...safeSegments)
-      const relativeToTarget = path.relative(resolvedTargetDir, destination)
-      if (relativeToTarget.startsWith('..') || path.isAbsolute(relativeToTarget)) {
-        throw new Error('Invalid zip entry')
+      const isDirectoryEntry = normalizedEntry.endsWith("/");
+      const destination = path.resolve(resolvedTargetDir, ...safeSegments);
+      const relativeToTarget = path.relative(resolvedTargetDir, destination);
+      if (relativeToTarget.startsWith("..") || path.isAbsolute(relativeToTarget)) {
+        throw new Error("Invalid zip entry");
       }
 
       if (isDirectoryEntry) {
-        fs.mkdirSync(destination, { recursive: true })
-        continue
+        fs.mkdirSync(destination, { recursive: true });
+        continue;
       }
 
-      fs.mkdirSync(path.dirname(destination), { recursive: true })
-      fs.writeFileSync(destination, Buffer.from(fileContent))
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      fs.writeFileSync(destination, Buffer.from(fileContent));
     }
   }
 
   private resolveSkillDirFromExtracted(extractDir: string): string | null {
-    const rootSkill = path.join(extractDir, 'SKILL.md')
+    const rootSkill = path.join(extractDir, "SKILL.md");
     if (fs.existsSync(rootSkill)) {
-      return extractDir
+      return extractDir;
     }
 
-    const entries = fs.readdirSync(extractDir, { withFileTypes: true })
+    const entries = fs.readdirSync(extractDir, { withFileTypes: true });
     const candidates = entries.filter((entry) => {
-      if (!entry.isDirectory()) return false
-      const skillPath = path.join(extractDir, entry.name, 'SKILL.md')
-      return fs.existsSync(skillPath)
-    })
+      if (!entry.isDirectory()) return false;
+      const skillPath = path.join(extractDir, entry.name, "SKILL.md");
+      return fs.existsSync(skillPath);
+    });
 
     if (candidates.length === 1) {
-      return path.join(extractDir, candidates[0].name)
+      return path.join(extractDir, candidates[0].name);
     }
 
-    return null
+    return null;
   }
 
   private async downloadSkillZip(url: string, destPath: string): Promise<void> {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), SKILL_CONFIG.DOWNLOAD_TIMEOUT)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), SKILL_CONFIG.DOWNLOAD_TIMEOUT);
 
     try {
-      const response = await fetch(url, { signal: controller.signal })
+      const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) {
-        throw new Error(`Failed to download skill zip: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to download skill zip: ${response.status} ${response.statusText}`);
       }
 
       // Check Content-Length to prevent memory exhaustion
-      const contentLength = response.headers.get('content-length')
+      const contentLength = response.headers.get("content-length");
       if (contentLength && parseInt(contentLength) > SKILL_CONFIG.ZIP_MAX_SIZE) {
-        throw new Error(
-          `File too large: ${contentLength} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`
-        )
+        throw new Error(`File too large: ${contentLength} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`);
       }
 
       // Validate Content-Type
-      const contentType = response.headers.get('content-type')
+      const contentType = response.headers.get("content-type");
       if (
         contentType &&
-        !contentType.includes('application/zip') &&
-        !contentType.includes('application/octet-stream') &&
-        !contentType.includes('application/x-zip')
+        !contentType.includes("application/zip") &&
+        !contentType.includes("application/octet-stream") &&
+        !contentType.includes("application/x-zip")
       ) {
-        throw new Error(`Expected ZIP file but got: ${contentType}`)
+        throw new Error(`Expected ZIP file but got: ${contentType}`);
       }
 
-      const buffer = new Uint8Array(await response.arrayBuffer())
+      const buffer = new Uint8Array(await response.arrayBuffer());
 
       // Double-check actual size after download
       if (buffer.length > SKILL_CONFIG.ZIP_MAX_SIZE) {
-        throw new Error(
-          `Downloaded file too large: ${buffer.length} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`
-        )
+        throw new Error(`Downloaded file too large: ${buffer.length} bytes (max: ${SKILL_CONFIG.ZIP_MAX_SIZE})`);
       }
 
-      fs.writeFileSync(destPath, Buffer.from(buffer))
+      fs.writeFileSync(destPath, Buffer.from(buffer));
     } finally {
-      clearTimeout(timeoutId)
+      clearTimeout(timeoutId);
     }
   }
 
@@ -1478,31 +1409,31 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async uninstallSkill(name: string): Promise<SkillInstallResult> {
     try {
-      const skillDir = path.join(this.skillsDir, name)
+      const skillDir = path.join(this.skillsDir, name);
 
       if (!fs.existsSync(skillDir)) {
-        return { success: false, error: `Skill "${name}" not found` }
+        return { success: false, error: `Skill "${name}" not found` };
       }
 
       // Remove from caches
-      this.metadataCache.delete(name)
-      this.contentCache.delete(name)
+      this.metadataCache.delete(name);
+      this.contentCache.delete(name);
 
       // Delete the directory
-      fs.rmSync(skillDir, { recursive: true, force: true })
-      this.deleteSkillExtension(name)
+      fs.rmSync(skillDir, { recursive: true, force: true });
+      this.deleteSkillExtension(name);
 
-      eventBus.sendToRenderer(SKILL_EVENTS.UNINSTALLED, SendTarget.ALL_WINDOWS, { name })
-      publishDeepchatEvent('skills.catalog.changed', {
-        reason: 'uninstalled',
+      eventBus.sendToRenderer(SKILL_EVENTS.UNINSTALLED, SendTarget.ALL_WINDOWS, { name });
+      publishDeepchatEvent("skills.catalog.changed", {
+        reason: "uninstalled",
         name,
-        version: Date.now()
-      })
+        version: Date.now(),
+      });
 
-      return { success: true, skillName: name }
+      return { success: true, skillName: name };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMsg }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg };
     }
   }
 
@@ -1511,118 +1442,117 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async updateSkillFile(name: string, content: string): Promise<SkillInstallResult> {
     try {
-      const metadata = this.metadataCache.get(name)
+      const metadata = this.metadataCache.get(name);
       if (!metadata) {
-        return { success: false, error: `Skill "${name}" not found` }
+        return { success: false, error: `Skill "${name}" not found` };
       }
 
-      fs.writeFileSync(metadata.path, content, 'utf-8')
+      fs.writeFileSync(metadata.path, content, "utf-8");
 
       // Invalidate caches
-      this.contentCache.delete(name)
-      const newMetadata = await this.parseSkillMetadata(metadata.path, name)
+      this.contentCache.delete(name);
+      const newMetadata = await this.parseSkillMetadata(metadata.path, name);
       if (newMetadata) {
-        this.metadataCache.set(name, newMetadata)
+        this.metadataCache.set(name, newMetadata);
       }
 
-      return { success: true, skillName: name }
+      return { success: true, skillName: name };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMsg }
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg };
     }
   }
 
   async saveSkillWithExtension(
     name: string,
     content: string,
-    config: SkillExtensionConfig
+    config: SkillExtensionConfig,
   ): Promise<SkillInstallResult> {
-    this.ensureSkillsDir()
+    this.ensureSkillsDir();
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata) {
-      return { success: false, error: `Skill "${name}" not found` }
+      return { success: false, error: `Skill "${name}" not found` };
     }
 
-    const sidecarPath = this.getSidecarPath(name)
-    const previousSkillContent = fs.readFileSync(metadata.path, 'utf-8')
-    const hadSidecar = fs.existsSync(sidecarPath)
-    const previousSidecarContent = hadSidecar ? fs.readFileSync(sidecarPath, 'utf-8') : null
-    const sanitized = sanitizeSkillExtensionConfig(config)
+    const sidecarPath = this.getSidecarPath(name);
+    const previousSkillContent = fs.readFileSync(metadata.path, "utf-8");
+    const hadSidecar = fs.existsSync(sidecarPath);
+    const previousSidecarContent = hadSidecar ? fs.readFileSync(sidecarPath, "utf-8") : null;
+    const sanitized = sanitizeSkillExtensionConfig(config);
 
     try {
-      fs.writeFileSync(metadata.path, content, 'utf-8')
-      fs.writeFileSync(sidecarPath, JSON.stringify(sanitized, null, 2), 'utf-8')
+      fs.writeFileSync(metadata.path, content, "utf-8");
+      fs.writeFileSync(sidecarPath, JSON.stringify(sanitized, null, 2), "utf-8");
 
-      this.contentCache.delete(name)
-      const newMetadata = await this.parseSkillMetadata(metadata.path, name)
+      this.contentCache.delete(name);
+      const newMetadata = await this.parseSkillMetadata(metadata.path, name);
       if (newMetadata) {
-        this.metadataCache.set(name, newMetadata)
+        this.metadataCache.set(name, newMetadata);
       }
 
-      return { success: true, skillName: name }
+      return { success: true, skillName: name };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
+      const errorMsg = error instanceof Error ? error.message : String(error);
 
       try {
-        fs.writeFileSync(metadata.path, previousSkillContent, 'utf-8')
+        fs.writeFileSync(metadata.path, previousSkillContent, "utf-8");
         if (hadSidecar && previousSidecarContent !== null) {
-          fs.writeFileSync(sidecarPath, previousSidecarContent, 'utf-8')
+          fs.writeFileSync(sidecarPath, previousSidecarContent, "utf-8");
         } else if (fs.existsSync(sidecarPath)) {
-          fs.rmSync(sidecarPath, { force: true })
+          fs.rmSync(sidecarPath, { force: true });
         }
       } catch (rollbackError) {
-        const rollbackMessage =
-          rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
-        logger.warn('[SkillPresenter] Failed to rollback combined skill save', {
+        const rollbackMessage = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
+        logger.warn("[SkillPresenter] Failed to rollback combined skill save", {
           name,
           error,
-          rollbackError
-        })
+          rollbackError,
+        });
         return {
           success: false,
-          error: `${errorMsg} (rollback failed: ${rollbackMessage})`
-        }
+          error: `${errorMsg} (rollback failed: ${rollbackMessage})`,
+        };
       }
 
-      this.contentCache.delete(name)
-      return { success: false, error: errorMsg }
+      this.contentCache.delete(name);
+      return { success: false, error: errorMsg };
     }
   }
 
   async readSkillFile(name: string): Promise<string> {
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata) {
-      throw new Error(`Skill "${name}" not found`)
+      throw new Error(`Skill "${name}" not found`);
     }
 
-    const stats = await fs.promises.stat(metadata.path)
+    const stats = await fs.promises.stat(metadata.path);
     if (stats.size > SKILL_CONFIG.SKILL_FILE_MAX_SIZE) {
-      const errorMessage = `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`
-      console.error(errorMessage)
-      throw new Error(errorMessage)
+      const errorMessage = `[SkillPresenter] Skill file too large: ${stats.size} bytes (max: ${SKILL_CONFIG.SKILL_FILE_MAX_SIZE})`;
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
 
-    return await fs.promises.readFile(metadata.path, 'utf-8')
+    return await fs.promises.readFile(metadata.path, "utf-8");
   }
 
   /**
    * Get folder tree for a skill
    */
   async getSkillFolderTree(name: string): Promise<SkillFolderNode[]> {
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata) {
-      return []
+      return [];
     }
 
-    return this.buildFolderTree(metadata.skillRoot)
+    return this.buildFolderTree(metadata.skillRoot);
   }
 
   /**
@@ -1631,43 +1561,43 @@ export class SkillPresenter implements ISkillPresenter {
   private buildFolderTree(
     dirPath: string,
     depth: number = 0,
-    maxDepth: number = SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH
+    maxDepth: number = SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH,
   ): SkillFolderNode[] {
     if (depth >= maxDepth) {
-      return []
+      return [];
     }
 
     try {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-      const nodes: SkillFolderNode[] = []
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      const nodes: SkillFolderNode[] = [];
 
       for (const entry of entries) {
         // Skip symbolic links to prevent infinite recursion
         if (entry.isSymbolicLink() || entry.name === SKILL_CONFIG.SIDECAR_DIR) {
-          continue
+          continue;
         }
 
-        const fullPath = path.join(dirPath, entry.name)
+        const fullPath = path.join(dirPath, entry.name);
         if (entry.isDirectory()) {
           nodes.push({
             name: entry.name,
-            type: 'directory',
+            type: "directory",
             path: fullPath,
-            children: this.buildFolderTree(fullPath, depth + 1, maxDepth)
-          })
+            children: this.buildFolderTree(fullPath, depth + 1, maxDepth),
+          });
         } else {
           nodes.push({
             name: entry.name,
-            type: 'file',
-            path: fullPath
-          })
+            type: "file",
+            path: fullPath,
+          });
         }
       }
 
-      return nodes
+      return nodes;
     } catch (error) {
-      console.warn(`[SkillPresenter] Cannot read directory: ${dirPath}`, error)
-      return []
+      console.warn(`[SkillPresenter] Cannot read directory: ${dirPath}`, error);
+      return [];
     }
   }
 
@@ -1675,113 +1605,108 @@ export class SkillPresenter implements ISkillPresenter {
    * Open the skills folder in file explorer
    */
   async openSkillsFolder(): Promise<void> {
-    this.ensureSkillsDir()
-    await shell.openPath(this.skillsDir)
+    this.ensureSkillsDir();
+    await shell.openPath(this.skillsDir);
   }
 
   async getSkillExtension(name: string): Promise<SkillExtensionConfig> {
-    this.ensureSkillsDir()
-    const sidecarPath = this.getSidecarPath(name)
+    this.ensureSkillsDir();
+    const sidecarPath = this.getSidecarPath(name);
     if (!fs.existsSync(sidecarPath)) {
-      return createDefaultSkillExtensionConfig()
+      return createDefaultSkillExtensionConfig();
     }
 
     try {
-      const content = fs.readFileSync(sidecarPath, 'utf-8')
-      return sanitizeSkillExtensionConfig(JSON.parse(content))
+      const content = fs.readFileSync(sidecarPath, "utf-8");
+      return sanitizeSkillExtensionConfig(JSON.parse(content));
     } catch (error) {
-      logger.warn('[SkillPresenter] Failed to read skill sidecar, using defaults', {
+      logger.warn("[SkillPresenter] Failed to read skill sidecar, using defaults", {
         name,
-        error
-      })
-      return createDefaultSkillExtensionConfig()
+        error,
+      });
+      return createDefaultSkillExtensionConfig();
     }
   }
 
   async saveSkillExtension(name: string, config: SkillExtensionConfig): Promise<void> {
-    this.ensureSkillsDir()
+    this.ensureSkillsDir();
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
     if (!this.metadataCache.has(name)) {
-      throw new Error(`Skill "${name}" not found`)
+      throw new Error(`Skill "${name}" not found`);
     }
 
-    const sanitized = sanitizeSkillExtensionConfig(config)
-    fs.writeFileSync(this.getSidecarPath(name), JSON.stringify(sanitized, null, 2), 'utf-8')
-    this.contentCache.delete(name)
+    const sanitized = sanitizeSkillExtensionConfig(config);
+    fs.writeFileSync(this.getSidecarPath(name), JSON.stringify(sanitized, null, 2), "utf-8");
+    this.contentCache.delete(name);
   }
 
   async listSkillScripts(name: string): Promise<SkillScriptDescriptor[]> {
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
-    const metadata = this.metadataCache.get(name)
+    const metadata = this.metadataCache.get(name);
     if (!metadata) {
-      return []
+      return [];
     }
 
-    const scriptsDir = path.join(metadata.skillRoot, 'scripts')
+    const scriptsDir = path.join(metadata.skillRoot, "scripts");
     if (!fs.existsSync(scriptsDir)) {
-      return []
+      return [];
     }
 
-    const extension = await this.getSkillExtension(name)
-    const descriptors = this.collectScriptDescriptors(scriptsDir, metadata.skillRoot).map(
-      (script) => {
-        const override = extension.scriptOverrides[script.relativePath] ?? {}
-        return {
-          ...script,
-          enabled: override.enabled ?? true,
-          description: override.description
-        }
-      }
-    )
+    const extension = await this.getSkillExtension(name);
+    const descriptors = this.collectScriptDescriptors(scriptsDir, metadata.skillRoot).map((script) => {
+      const override = extension.scriptOverrides[script.relativePath] ?? {};
+      return {
+        ...script,
+        enabled: override.enabled ?? true,
+        description: override.description,
+      };
+    });
 
-    descriptors.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
-    return descriptors
+    descriptors.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    return descriptors;
   }
 
   private async isNewAgentSession(conversationId: string): Promise<boolean> {
     try {
-      return await this.sessionStatePort.hasNewSession(conversationId)
+      return await this.sessionStatePort.hasNewSession(conversationId);
     } catch {
-      return false
+      return false;
     }
   }
 
   private isImportedLegacySessionId(conversationId: string): boolean {
-    return conversationId.startsWith('legacy-session-')
+    return conversationId.startsWith("legacy-session-");
   }
 
   private async loadNewSessionSkills(conversationId: string): Promise<string[]> {
-    const persistedSkills = this.getPersistedNewSessionSkills(conversationId)
+    const persistedSkills = this.getPersistedNewSessionSkills(conversationId);
     if (persistedSkills.length > 0 || !this.isImportedLegacySessionId(conversationId)) {
-      return persistedSkills
+      return persistedSkills;
     }
 
     try {
-      return await this.sessionStatePort.repairImportedLegacySessionSkills(conversationId)
+      return await this.sessionStatePort.repairImportedLegacySessionSkills(conversationId);
     } catch (error) {
-      console.warn(
-        `[SkillPresenter] Failed to repair imported legacy session skills for ${conversationId}:`,
-        error
-      )
-      return persistedSkills
+      console.warn(`[SkillPresenter] Failed to repair imported legacy session skills for ${conversationId}:`, error);
+      return persistedSkills;
     }
   }
 
   private warnLegacySkillRetired(conversationId: string): void {
     if (this.legacySkillRetirementWarnings.has(conversationId)) {
-      return
+      return;
     }
 
-    this.legacySkillRetirementWarnings.add(conversationId)
-    logger.warn('[SkillPresenter] Ignoring skill state update for retired legacy conversation.', {
-      conversationId
-    })
+    this.legacySkillRetirementWarnings.add(conversationId);
+    logger.warn("[SkillPresenter] Ignoring skill state update for retired legacy conversation.", {
+      conversationId,
+    });
   }
 
   /**
@@ -1789,15 +1714,15 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async getActiveSkills(conversationId: string): Promise<string[]> {
     if (await this.isNewAgentSession(conversationId)) {
-      const skills = await this.loadNewSessionSkills(conversationId)
-      const validSkills = await this.validateSkillNames(skills)
+      const skills = await this.loadNewSessionSkills(conversationId);
+      const validSkills = await this.validateSkillNames(skills);
       if (validSkills.length !== skills.length) {
-        this.setPersistedNewSessionSkills(conversationId, validSkills)
+        this.setPersistedNewSessionSkills(conversationId, validSkills);
       }
-      return validSkills
+      return validSkills;
     }
 
-    return []
+    return [];
   }
 
   /**
@@ -1805,67 +1730,67 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async setActiveSkills(conversationId: string, skills: string[]): Promise<string[]> {
     try {
-      const isNewSession = await this.isNewAgentSession(conversationId)
+      const isNewSession = await this.isNewAgentSession(conversationId);
       // Validate skill names
-      const validSkills = await this.validateSkillNames(skills)
+      const validSkills = await this.validateSkillNames(skills);
       if (!isNewSession) {
-        this.warnLegacySkillRetired(conversationId)
-        return await this.getActiveSkills(conversationId)
+        this.warnLegacySkillRetired(conversationId);
+        return await this.getActiveSkills(conversationId);
       }
 
-      const previousSkills = await this.getActiveSkills(conversationId)
-      const previousSet = new Set(previousSkills)
-      const validSet = new Set(validSkills)
+      const previousSkills = await this.getActiveSkills(conversationId);
+      const previousSet = new Set(previousSkills);
+      const validSet = new Set(validSkills);
 
-      this.setPersistedNewSessionSkills(conversationId, validSkills)
+      this.setPersistedNewSessionSkills(conversationId, validSkills);
 
-      const activated = validSkills.filter((skill) => !previousSet.has(skill))
-      const deactivated = previousSkills.filter((skill) => !validSet.has(skill))
+      const activated = validSkills.filter((skill) => !previousSet.has(skill));
+      const deactivated = previousSkills.filter((skill) => !validSet.has(skill));
 
       if (activated.length > 0) {
         eventBus.sendToRenderer(SKILL_EVENTS.ACTIVATED, SendTarget.ALL_WINDOWS, {
           conversationId,
-          skills: activated
-        })
-        publishDeepchatEvent('skills.session.changed', {
+          skills: activated,
+        });
+        publishDeepchatEvent("skills.session.changed", {
           conversationId,
           skills: activated,
-          change: 'activated',
-          version: Date.now()
-        })
+          change: "activated",
+          version: Date.now(),
+        });
       }
 
       if (deactivated.length > 0) {
         eventBus.sendToRenderer(SKILL_EVENTS.DEACTIVATED, SendTarget.ALL_WINDOWS, {
           conversationId,
-          skills: deactivated
-        })
-        publishDeepchatEvent('skills.session.changed', {
+          skills: deactivated,
+        });
+        publishDeepchatEvent("skills.session.changed", {
           conversationId,
           skills: deactivated,
-          change: 'deactivated',
-          version: Date.now()
-        })
+          change: "deactivated",
+          version: Date.now(),
+        });
       }
 
-      return validSkills
+      return validSkills;
     } catch (error) {
-      console.error(`[SkillPresenter] Error setting active skills for ${conversationId}:`, error)
-      throw error
+      console.error(`[SkillPresenter] Error setting active skills for ${conversationId}:`, error);
+      throw error;
     }
   }
 
   async clearNewAgentSessionSkills(conversationId: string): Promise<void> {
-    this.setPersistedNewSessionSkills(conversationId, [])
+    this.setPersistedNewSessionSkills(conversationId, []);
   }
 
   /**
    * Validate skill names against available skills
    */
   async validateSkillNames(names: string[]): Promise<string[]> {
-    const available = await this.getMetadataList()
-    const availableNames = new Set(available.map((s) => s.name))
-    return names.filter((name) => availableNames.has(name))
+    const available = await this.getMetadataList();
+    const availableNames = new Set(available.map((s) => s.name));
+    return names.filter((name) => availableNames.has(name));
   }
 
   /**
@@ -1873,24 +1798,24 @@ export class SkillPresenter implements ISkillPresenter {
    */
   async getActiveSkillsAllowedTools(conversationId: string): Promise<string[]> {
     if (this.metadataCache.size === 0) {
-      await this.discoverSkills()
+      await this.discoverSkills();
     }
 
-    const activeSkills = await this.getActiveSkills(conversationId)
-    const allowedTools: Set<string> = new Set()
+    const activeSkills = await this.getActiveSkills(conversationId);
+    const allowedTools: Set<string> = new Set();
 
     for (const skillName of activeSkills) {
-      const metadata = this.metadataCache.get(skillName)
+      const metadata = this.metadataCache.get(skillName);
       if (metadata?.allowedTools && this.isSkillVisible(metadata)) {
-        metadata.allowedTools.forEach((tool) => allowedTools.add(tool))
+        metadata.allowedTools.forEach((tool) => allowedTools.add(tool));
       }
     }
 
-    const result = normalizeSkillAllowedTools(Array.from(allowedTools))
+    const result = normalizeSkillAllowedTools(Array.from(allowedTools));
     for (const warning of result.warnings) {
-      logger.warn(warning, { conversationId })
+      logger.warn(warning, { conversationId });
     }
-    return result.tools
+    return result.tools;
   }
 
   /**
@@ -1898,7 +1823,7 @@ export class SkillPresenter implements ISkillPresenter {
    */
   watchSkillFiles(): void {
     if (this.watcher) {
-      return
+      return;
     }
 
     this.watcher = watch(this.skillsDir, {
@@ -1909,113 +1834,99 @@ export class SkillPresenter implements ISkillPresenter {
         path.basename(watchPath) === SKILL_CONFIG.SIDECAR_DIR,
       awaitWriteFinish: {
         stabilityThreshold: SKILL_CONFIG.WATCHER_STABILITY_THRESHOLD,
-        pollInterval: SKILL_CONFIG.WATCHER_POLL_INTERVAL
-      }
-    })
+        pollInterval: SKILL_CONFIG.WATCHER_POLL_INTERVAL,
+      },
+    });
 
-    this.watcher.on('change', async (filePath: string) => {
-      if (path.basename(filePath) === 'SKILL.md') {
-        const previousName =
-          this.findSkillNameByPath(filePath) ?? path.basename(path.dirname(filePath))
-        this.contentCache.delete(previousName)
+    this.watcher.on("change", async (filePath: string) => {
+      if (path.basename(filePath) === "SKILL.md") {
+        const previousName = this.findSkillNameByPath(filePath) ?? path.basename(path.dirname(filePath));
+        this.contentCache.delete(previousName);
 
         // Re-parse metadata
-        const metadata = await this.parseSkillMetadata(
-          filePath,
-          path.basename(path.dirname(filePath))
-        )
+        const metadata = await this.parseSkillMetadata(filePath, path.basename(path.dirname(filePath)));
         if (metadata) {
-          const existingMetadata = this.metadataCache.get(metadata.name)
+          const existingMetadata = this.metadataCache.get(metadata.name);
           if (existingMetadata && existingMetadata.path !== metadata.path) {
-            logger.warn(
-              '[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.',
-              {
-                name: metadata.name,
-                path: metadata.path,
-                existingPath: existingMetadata.path
-              }
-            )
-            const previousMetadata = this.metadataCache.get(previousName)
+            logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+              name: metadata.name,
+              path: metadata.path,
+              existingPath: existingMetadata.path,
+            });
+            const previousMetadata = this.metadataCache.get(previousName);
             if (previousName !== metadata.name && previousMetadata?.path === metadata.path) {
-              this.metadataCache.delete(previousName)
+              this.metadataCache.delete(previousName);
             }
-            return
+            return;
           }
 
           if (previousName !== metadata.name) {
-            const previousMetadata = this.metadataCache.get(previousName)
+            const previousMetadata = this.metadataCache.get(previousName);
             if (previousMetadata?.path === metadata.path) {
-              this.metadataCache.delete(previousName)
+              this.metadataCache.delete(previousName);
             }
           }
-          this.metadataCache.set(metadata.name, metadata)
-          eventBus.sendToRenderer(SKILL_EVENTS.METADATA_UPDATED, SendTarget.ALL_WINDOWS, metadata)
-          publishDeepchatEvent('skills.catalog.changed', {
-            reason: 'metadata-updated',
+          this.metadataCache.set(metadata.name, metadata);
+          eventBus.sendToRenderer(SKILL_EVENTS.METADATA_UPDATED, SendTarget.ALL_WINDOWS, metadata);
+          publishDeepchatEvent("skills.catalog.changed", {
+            reason: "metadata-updated",
             name: metadata.name,
             skill: metadata,
-            version: Date.now()
-          })
+            version: Date.now(),
+          });
         }
       }
-    })
+    });
 
-    this.watcher.on('add', async (filePath: string) => {
-      if (path.basename(filePath) === 'SKILL.md') {
-        const metadata = await this.parseSkillMetadata(
-          filePath,
-          path.basename(path.dirname(filePath))
-        )
+    this.watcher.on("add", async (filePath: string) => {
+      if (path.basename(filePath) === "SKILL.md") {
+        const metadata = await this.parseSkillMetadata(filePath, path.basename(path.dirname(filePath)));
         if (metadata) {
-          const existingMetadata = this.metadataCache.get(metadata.name)
+          const existingMetadata = this.metadataCache.get(metadata.name);
           if (existingMetadata && existingMetadata.path !== metadata.path) {
-            logger.warn(
-              '[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.',
-              {
-                name: metadata.name,
-                path: metadata.path,
-                existingPath: existingMetadata.path
-              }
-            )
-            return
+            logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
+              name: metadata.name,
+              path: metadata.path,
+              existingPath: existingMetadata.path,
+            });
+            return;
           }
 
-          this.metadataCache.set(metadata.name, metadata)
+          this.metadataCache.set(metadata.name, metadata);
           eventBus.sendToRenderer(SKILL_EVENTS.INSTALLED, SendTarget.ALL_WINDOWS, {
-            name: metadata.name
-          })
-          publishDeepchatEvent('skills.catalog.changed', {
-            reason: 'installed',
+            name: metadata.name,
+          });
+          publishDeepchatEvent("skills.catalog.changed", {
+            reason: "installed",
             name: metadata.name,
             skill: metadata,
-            version: Date.now()
-          })
+            version: Date.now(),
+          });
         }
       }
-    })
+    });
 
-    this.watcher.on('unlink', (filePath: string) => {
-      if (path.basename(filePath) === 'SKILL.md') {
-        const skillName =
-          this.findSkillNameByPath(filePath) ?? path.basename(path.dirname(filePath))
-        this.metadataCache.delete(skillName)
-        this.contentCache.delete(skillName)
+    this.watcher.on("unlink", (filePath: string) => {
+      if (path.basename(filePath) === "SKILL.md") {
+        const skillName = this.findSkillNameByPath(filePath) ?? path.basename(path.dirname(filePath));
+        this.metadataCache.delete(skillName);
+        this.contentCache.delete(skillName);
         eventBus.sendToRenderer(SKILL_EVENTS.UNINSTALLED, SendTarget.ALL_WINDOWS, {
-          name: skillName
-        })
-        publishDeepchatEvent('skills.catalog.changed', {
-          reason: 'uninstalled',
           name: skillName,
-          version: Date.now()
-        })
+        });
+        publishDeepchatEvent("skills.catalog.changed", {
+          reason: "uninstalled",
+          name: skillName,
+          version: Date.now(),
+        });
       }
-    })
+    });
 
-    this.watcher.on('error', (error) => {
-      console.error('[SkillPresenter] File watcher error:', error)
-    })
+    this.watcher.on("error", (error) => {
+      console.error("[SkillPresenter] File watcher error:", error);
+    });
 
-    console.log('[SkillPresenter] File watcher started')
+    console.log("[SkillPresenter] File watcher started");
   }
 
   /**
@@ -2023,9 +1934,9 @@ export class SkillPresenter implements ISkillPresenter {
    */
   stopWatching(): void {
     if (this.watcher) {
-      this.watcher.close()
-      this.watcher = null
-      console.log('[SkillPresenter] File watcher stopped')
+      this.watcher.close();
+      this.watcher = null;
+      console.log("[SkillPresenter] File watcher stopped");
     }
   }
 
@@ -2033,23 +1944,23 @@ export class SkillPresenter implements ISkillPresenter {
    * Utility: Copy directory recursively (skips symbolic links)
    */
   private copyDirectory(src: string, dest: string): void {
-    fs.mkdirSync(dest, { recursive: true })
+    fs.mkdirSync(dest, { recursive: true });
 
-    const entries = fs.readdirSync(src, { withFileTypes: true })
+    const entries = fs.readdirSync(src, { withFileTypes: true });
 
     for (const entry of entries) {
       // Skip symbolic links to prevent infinite recursion
       if (entry.isSymbolicLink() || entry.name === SKILL_CONFIG.SIDECAR_DIR) {
-        continue
+        continue;
       }
 
-      const srcPath = path.join(src, entry.name)
-      const destPath = path.join(dest, entry.name)
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
 
       if (entry.isDirectory()) {
-        this.copyDirectory(srcPath, destPath)
+        this.copyDirectory(srcPath, destPath);
       } else {
-        fs.copyFileSync(srcPath, destPath)
+        fs.copyFileSync(srcPath, destPath);
       }
     }
   }
@@ -2058,53 +1969,49 @@ export class SkillPresenter implements ISkillPresenter {
    * Cleanup resources on shutdown
    */
   destroy(): void {
-    this.stopWatching()
-    this.metadataCache.clear()
-    this.contentCache.clear()
-    this.discoveryPromise = null
-    this.initialized = false
+    this.stopWatching();
+    this.metadataCache.clear();
+    this.contentCache.clear();
+    this.discoveryPromise = null;
+    this.initialized = false;
   }
 
   private shouldIgnoreSkillsRootEntry(entryName: string): boolean {
-    return (
-      entryName === SKILL_CONFIG.SIDECAR_DIR ||
-      entryName.includes('.backup-') ||
-      entryName.startsWith('.')
-    )
+    return entryName === SKILL_CONFIG.SIDECAR_DIR || entryName.includes(".backup-") || entryName.startsWith(".");
   }
 
   private getSidecarPath(name: string): string {
-    return path.join(this.sidecarDir, `${name}.json`)
+    return path.join(this.sidecarDir, `${name}.json`);
   }
 
   private deleteSkillExtension(name: string): void {
-    const sidecarPath = this.getSidecarPath(name)
+    const sidecarPath = this.getSidecarPath(name);
     if (fs.existsSync(sidecarPath)) {
-      fs.rmSync(sidecarPath, { force: true })
+      fs.rmSync(sidecarPath, { force: true });
     }
   }
 
   private collectScriptDescriptors(
     currentDir: string,
     skillRoot: string,
-    acc: SkillScriptDescriptor[] = []
+    acc: SkillScriptDescriptor[] = [],
   ): SkillScriptDescriptor[] {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
 
     for (const entry of entries) {
       if (entry.isSymbolicLink()) {
-        continue
+        continue;
       }
 
-      const fullPath = path.join(currentDir, entry.name)
+      const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
-        this.collectScriptDescriptors(fullPath, skillRoot, acc)
-        continue
+        this.collectScriptDescriptors(fullPath, skillRoot, acc);
+        continue;
       }
 
-      const runtime = SUPPORTED_SCRIPT_EXTENSIONS[path.extname(entry.name).toLowerCase()]
+      const runtime = SUPPORTED_SCRIPT_EXTENSIONS[path.extname(entry.name).toLowerCase()];
       if (!runtime) {
-        continue
+        continue;
       }
 
       acc.push({
@@ -2112,345 +2019,341 @@ export class SkillPresenter implements ISkillPresenter {
         relativePath: path.relative(skillRoot, fullPath),
         absolutePath: fullPath,
         runtime,
-        enabled: true
-      })
+        enabled: true,
+      });
     }
 
-    return acc
+    return acc;
   }
 
-  private collectSkillManifestPaths(
-    currentDir: string,
-    depth: number = 0,
-    acc: string[] = []
-  ): string[] {
+  private collectSkillManifestPaths(currentDir: string, depth: number = 0, acc: string[] = []): string[] {
     if (depth > SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH) {
-      return acc
+      return acc;
     }
 
-    let entries: fs.Dirent[]
+    let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(currentDir, { withFileTypes: true })
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
     } catch (error) {
-      logger.warn('[SkillPresenter] Failed to scan skill directory, skipping subtree', {
+      logger.warn("[SkillPresenter] Failed to scan skill directory, skipping subtree", {
         currentDir,
-        error
-      })
-      return acc
+        error,
+      });
+      return acc;
     }
 
     for (const entry of entries) {
       if (entry.isSymbolicLink()) {
-        continue
+        continue;
       }
 
-      const fullPath = path.join(currentDir, entry.name)
+      const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
         if (this.shouldIgnoreSkillsRootEntry(entry.name)) {
-          continue
+          continue;
         }
-        this.collectSkillManifestPaths(fullPath, depth + 1, acc)
-        continue
+        this.collectSkillManifestPaths(fullPath, depth + 1, acc);
+        continue;
       }
 
-      if (entry.name === 'SKILL.md') {
-        acc.push(fullPath)
+      if (entry.name === "SKILL.md") {
+        acc.push(fullPath);
       }
     }
 
-    return acc
+    return acc;
   }
 
   private deriveSkillCategory(skillRoot: string): string | null {
-    const pluginContribution = this.getPluginContributionForSkillRoot(skillRoot)
+    const pluginContribution = this.getPluginContributionForSkillRoot(skillRoot);
     if (pluginContribution) {
-      return `plugin/${pluginContribution.ownerPluginId}`
+      return `plugin/${pluginContribution.ownerPluginId}`;
     }
 
-    const relative = path.relative(this.skillsDir, skillRoot)
-    if (!relative || relative === '.' || path.isAbsolute(relative)) {
-      return null
+    const relative = path.relative(this.skillsDir, skillRoot);
+    if (!relative || relative === "." || path.isAbsolute(relative)) {
+      return null;
     }
 
-    const segments = relative.split(path.sep).filter(Boolean)
-    return segments.length > 1 ? segments.slice(0, -1).join('/') : null
+    const segments = relative.split(path.sep).filter(Boolean);
+    return segments.length > 1 ? segments.slice(0, -1).join("/") : null;
   }
 
   private getPluginContributionForSkillRoot(
-    skillRoot: string
+    skillRoot: string,
   ): { ownerPluginId: string; skillRoot: string; pluginRoot?: string } | undefined {
     return Array.from(this.pluginSkillContributions.values()).find(
-      (contribution) => path.resolve(contribution.skillRoot) === path.resolve(skillRoot)
-    )
+      (contribution) => path.resolve(contribution.skillRoot) === path.resolve(skillRoot),
+    );
   }
 
   private listSkillLinkedFiles(skillRoot: string): SkillLinkedFile[] {
-    const linkedFiles: SkillLinkedFile[] = []
+    const linkedFiles: SkillLinkedFile[] = [];
     for (const [dirName, kind] of [
-      ['references', 'reference'],
-      ['templates', 'template'],
-      ['scripts', 'script'],
-      ['assets', 'asset']
+      ["references", "reference"],
+      ["templates", "template"],
+      ["scripts", "script"],
+      ["assets", "asset"],
     ] as const) {
-      const targetDir = path.join(skillRoot, dirName)
+      const targetDir = path.join(skillRoot, dirName);
       if (!fs.existsSync(targetDir)) {
-        continue
+        continue;
       }
-      this.collectLinkedFiles(targetDir, skillRoot, kind, linkedFiles)
+      this.collectLinkedFiles(targetDir, skillRoot, kind, linkedFiles);
     }
 
-    return linkedFiles.sort((left, right) => left.path.localeCompare(right.path))
+    return linkedFiles.sort((left, right) => left.path.localeCompare(right.path));
   }
 
   private collectLinkedFiles(
     currentDir: string,
     skillRoot: string,
-    kind: SkillLinkedFile['kind'],
-    acc: SkillLinkedFile[]
+    kind: SkillLinkedFile["kind"],
+    acc: SkillLinkedFile[],
   ): void {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
 
     for (const entry of entries) {
       if (entry.isSymbolicLink()) {
-        continue
+        continue;
       }
 
-      const fullPath = path.join(currentDir, entry.name)
+      const fullPath = path.join(currentDir, entry.name);
       if (entry.isDirectory()) {
-        this.collectLinkedFiles(fullPath, skillRoot, kind, acc)
-        continue
+        this.collectLinkedFiles(fullPath, skillRoot, kind, acc);
+        continue;
       }
 
       acc.push({
         path: path.relative(skillRoot, fullPath),
-        kind
-      })
+        kind,
+      });
     }
   }
 
   private resolveSkillRelativePath(skillRoot: string, filePath: string): string | null {
-    const resolvedPath = path.resolve(skillRoot, filePath)
-    const relativePath = path.relative(skillRoot, resolvedPath)
-    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      return null
+    const resolvedPath = path.resolve(skillRoot, filePath);
+    const relativePath = path.relative(skillRoot, resolvedPath);
+    if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      return null;
     }
-    return resolvedPath
+    return resolvedPath;
   }
 
   private isBinaryLikeFile(filePath: string): boolean {
-    return BINARY_LIKE_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+    return BINARY_LIKE_EXTENSIONS.has(path.extname(filePath).toLowerCase());
   }
 
   private validateDraftSkillDocument(
-    content: string | undefined
+    content: string | undefined,
   ): { success: true; skillName: string } | { success: false; error: string } {
-    if (typeof content !== 'string' || content.trim().length === 0) {
-      return { success: false, error: 'content is required' }
+    if (typeof content !== "string" || content.trim().length === 0) {
+      return { success: false, error: "content is required" };
     }
-    if (!content.trimStart().startsWith('---')) {
-      return { success: false, error: 'Draft skill content must include YAML frontmatter' }
+    if (!content.trimStart().startsWith("---")) {
+      return { success: false, error: "Draft skill content must include YAML frontmatter" };
     }
     if (content.length > SKILL_CONFIG.DRAFT_MAX_CONTENT_CHARS) {
       return {
         success: false,
-        error: `Draft skill content exceeds ${SKILL_CONFIG.DRAFT_MAX_CONTENT_CHARS} characters`
-      }
+        error: `Draft skill content exceeds ${SKILL_CONFIG.DRAFT_MAX_CONTENT_CHARS} characters`,
+      };
     }
 
-    const blockedPattern = this.findDraftInjectionPattern(content)
+    const blockedPattern = this.findDraftInjectionPattern(content);
     if (blockedPattern) {
       return {
         success: false,
-        error: `Draft content rejected by security scan: ${blockedPattern}`
-      }
+        error: `Draft content rejected by security scan: ${blockedPattern}`,
+      };
     }
 
-    const { data, content: body } = matter(content)
-    const skillName = typeof data.name === 'string' ? data.name.trim() : ''
-    const description = typeof data.description === 'string' ? data.description.trim() : ''
+    const { data, content: body } = matter(content);
+    const skillName = typeof data.name === "string" ? data.name.trim() : "";
+    const description = typeof data.description === "string" ? data.description.trim() : "";
     if (!skillName) {
-      return { success: false, error: 'Skill frontmatter must include name' }
+      return { success: false, error: "Skill frontmatter must include name" };
     }
     if (!SKILL_NAME_PATTERN.test(skillName) || skillName.length > 64) {
       return {
         success: false,
-        error: 'Skill name must match ^[a-z0-9][a-z0-9._-]*$ and be <= 64 characters'
-      }
+        error: "Skill name must match ^[a-z0-9][a-z0-9._-]*$ and be <= 64 characters",
+      };
     }
     if (!description || description.length > 1024) {
       return {
         success: false,
-        error: 'Skill description is required and must be <= 1024 characters'
-      }
+        error: "Skill description is required and must be <= 1024 characters",
+      };
     }
     if (!body.trim()) {
-      return { success: false, error: 'Skill body cannot be empty' }
+      return { success: false, error: "Skill body cannot be empty" };
     }
 
-    return { success: true, skillName }
+    return { success: true, skillName };
   }
 
   private findDraftInjectionPattern(content: string): string | null {
-    const matched = DRAFT_INJECTION_PATTERNS.find((pattern) => pattern.test(content))
-    return matched ? matched.source : null
+    const matched = DRAFT_INJECTION_PATTERNS.find((pattern) => pattern.test(content));
+    return matched ? matched.source : null;
   }
 
   private ensureDraftRoot(): void {
     if (!fs.existsSync(this.draftsRoot)) {
-      fs.mkdirSync(this.draftsRoot, { recursive: true })
+      fs.mkdirSync(this.draftsRoot, { recursive: true });
     }
   }
 
   private validateDraftConversationId(conversationId: string): string | null {
-    const normalizedConversationId = conversationId.trim()
+    const normalizedConversationId = conversationId.trim();
     if (!normalizedConversationId) {
-      return null
+      return null;
     }
     if (path.isAbsolute(normalizedConversationId)) {
-      return null
+      return null;
     }
     if (normalizedConversationId !== path.basename(normalizedConversationId)) {
-      return null
+      return null;
     }
     if (
-      normalizedConversationId.includes('..') ||
-      normalizedConversationId.includes('/') ||
-      normalizedConversationId.includes('\\') ||
+      normalizedConversationId.includes("..") ||
+      normalizedConversationId.includes("/") ||
+      normalizedConversationId.includes("\\") ||
       normalizedConversationId.includes(path.sep)
     ) {
-      return null
+      return null;
     }
     if (!DRAFT_CONVERSATION_ID_PATTERN.test(normalizedConversationId)) {
-      return null
+      return null;
     }
-    return normalizedConversationId
+    return normalizedConversationId;
   }
 
   private validateDraftId(draftId: string | undefined): string | null {
-    const normalizedDraftId = draftId?.trim()
+    const normalizedDraftId = draftId?.trim();
     if (!normalizedDraftId) {
-      return null
+      return null;
     }
     if (path.isAbsolute(normalizedDraftId)) {
-      return null
+      return null;
     }
     if (normalizedDraftId !== path.basename(normalizedDraftId)) {
-      return null
+      return null;
     }
     if (
-      normalizedDraftId.includes('..') ||
-      normalizedDraftId.includes('/') ||
-      normalizedDraftId.includes('\\') ||
+      normalizedDraftId.includes("..") ||
+      normalizedDraftId.includes("/") ||
+      normalizedDraftId.includes("\\") ||
       normalizedDraftId.includes(path.sep)
     ) {
-      return null
+      return null;
     }
     if (!DRAFT_ID_PATTERN.test(normalizedDraftId)) {
-      return null
+      return null;
     }
-    return normalizedDraftId
+    return normalizedDraftId;
   }
 
   private createDraftHandle(conversationId: string): { draftId: string; draftPath: string } {
-    const safeConversationId = this.validateDraftConversationId(conversationId)
+    const safeConversationId = this.validateDraftConversationId(conversationId);
     if (!safeConversationId) {
-      throw new Error('Invalid conversationId for draft access')
+      throw new Error("Invalid conversationId for draft access");
     }
-    this.ensureDraftRoot()
-    const conversationRoot = path.join(this.draftsRoot, safeConversationId)
-    fs.mkdirSync(conversationRoot, { recursive: true })
-    const draftId = `draft-${randomUUID()}`
-    const draftPath = path.join(conversationRoot, draftId)
-    fs.mkdirSync(draftPath, { recursive: true })
-    return { draftId, draftPath }
+    this.ensureDraftRoot();
+    const conversationRoot = path.join(this.draftsRoot, safeConversationId);
+    fs.mkdirSync(conversationRoot, { recursive: true });
+    const draftId = `draft-${randomUUID()}`;
+    const draftPath = path.join(conversationRoot, draftId);
+    fs.mkdirSync(draftPath, { recursive: true });
+    return { draftId, draftPath };
   }
 
   private getDraftPathForId(conversationId: string, draftId: string): string | null {
-    const safeDraftId = this.validateDraftId(draftId)
+    const safeDraftId = this.validateDraftId(draftId);
     if (!safeDraftId) {
-      return null
+      return null;
     }
-    const safeConversationId = this.validateDraftConversationId(conversationId)
+    const safeConversationId = this.validateDraftConversationId(conversationId);
     if (!safeConversationId) {
-      return null
+      return null;
     }
-    const conversationRoot = path.resolve(this.draftsRoot, safeConversationId)
-    const resolvedDraftPath = path.resolve(conversationRoot, safeDraftId)
-    const relativePath = path.relative(conversationRoot, resolvedDraftPath)
-    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      return null
+    const conversationRoot = path.resolve(this.draftsRoot, safeConversationId);
+    const resolvedDraftPath = path.resolve(conversationRoot, safeDraftId);
+    const relativePath = path.relative(conversationRoot, resolvedDraftPath);
+    if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      return null;
     }
-    return resolvedDraftPath
+    return resolvedDraftPath;
   }
 
   private resolveDraftFilePath(draftPath: string, relativeFilePath: string): string | null {
-    const normalizedFilePath = relativeFilePath.trim().replace(/\\/g, '/').replace(/^\/+/, '')
-    const [topLevelDir] = normalizedFilePath.split('/')
+    const normalizedFilePath = relativeFilePath.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+    const [topLevelDir] = normalizedFilePath.split("/");
     if (!topLevelDir || !DRAFT_ALLOWED_TOP_LEVEL_DIRS.has(topLevelDir)) {
-      return null
+      return null;
     }
 
-    const resolvedPath = path.resolve(draftPath, normalizedFilePath)
-    const relativePath = path.relative(draftPath, resolvedPath)
-    if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      return null
+    const resolvedPath = path.resolve(draftPath, normalizedFilePath);
+    const relativePath = path.relative(draftPath, resolvedPath);
+    if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      return null;
     }
-    return resolvedPath
+    return resolvedPath;
   }
 
   private getDraftActivityMarkerPath(draftPath: string): string {
-    return path.join(draftPath, DRAFT_ACTIVITY_MARKER)
+    return path.join(draftPath, DRAFT_ACTIVITY_MARKER);
   }
 
   private touchDraftActivity(draftPath: string): void {
-    fs.writeFileSync(this.getDraftActivityMarkerPath(draftPath), `${Date.now()}`, 'utf-8')
+    fs.writeFileSync(this.getDraftActivityMarkerPath(draftPath), `${Date.now()}`, "utf-8");
   }
 
   private getDraftLastActivityMs(draftPath: string): number {
-    const markerPath = this.getDraftActivityMarkerPath(draftPath)
+    const markerPath = this.getDraftActivityMarkerPath(draftPath);
     if (fs.existsSync(markerPath)) {
-      return fs.statSync(markerPath).mtimeMs
+      return fs.statSync(markerPath).mtimeMs;
     }
-    return fs.statSync(draftPath).mtimeMs
+    return fs.statSync(draftPath).mtimeMs;
   }
 
   private atomicWriteFile(targetPath: string, content: string): void {
     const tempPath = path.join(
       path.dirname(targetPath),
-      `.${path.basename(targetPath)}.${process.pid}.${Date.now()}.tmp`
-    )
-    fs.writeFileSync(tempPath, content, 'utf-8')
-    fs.renameSync(tempPath, targetPath)
+      `.${path.basename(targetPath)}.${process.pid}.${Date.now()}.tmp`,
+    );
+    fs.writeFileSync(tempPath, content, "utf-8");
+    fs.renameSync(tempPath, targetPath);
   }
 
   private cleanupExpiredDrafts(): void {
     if (!fs.existsSync(this.draftsRoot)) {
-      return
+      return;
     }
 
-    const now = Date.now()
-    const conversationEntries = fs.readdirSync(this.draftsRoot, { withFileTypes: true })
+    const now = Date.now();
+    const conversationEntries = fs.readdirSync(this.draftsRoot, { withFileTypes: true });
     for (const conversationEntry of conversationEntries) {
       if (!conversationEntry.isDirectory()) {
-        continue
+        continue;
       }
 
-      const conversationDir = path.join(this.draftsRoot, conversationEntry.name)
-      const draftEntries = fs.readdirSync(conversationDir, { withFileTypes: true })
+      const conversationDir = path.join(this.draftsRoot, conversationEntry.name);
+      const draftEntries = fs.readdirSync(conversationDir, { withFileTypes: true });
       for (const draftEntry of draftEntries) {
         if (!draftEntry.isDirectory()) {
-          continue
+          continue;
         }
 
-        const draftDir = path.join(conversationDir, draftEntry.name)
-        const lastActivityMs = this.getDraftLastActivityMs(draftDir)
+        const draftDir = path.join(conversationDir, draftEntry.name);
+        const lastActivityMs = this.getDraftLastActivityMs(draftDir);
         if (now - lastActivityMs > SKILL_CONFIG.DRAFT_RETENTION_MS) {
-          fs.rmSync(draftDir, { recursive: true, force: true })
+          fs.rmSync(draftDir, { recursive: true, force: true });
         }
       }
 
       if (fs.existsSync(conversationDir) && fs.readdirSync(conversationDir).length === 0) {
-        fs.rmSync(conversationDir, { recursive: true, force: true })
+        fs.rmSync(conversationDir, { recursive: true, force: true });
       }
     }
   }
@@ -2458,37 +2361,34 @@ export class SkillPresenter implements ISkillPresenter {
   private findSkillNameByPath(skillPath: string): string | null {
     for (const metadata of this.metadataCache.values()) {
       if (metadata.path === skillPath) {
-        return metadata.name
+        return metadata.name;
       }
     }
-    return null
+    return null;
   }
 
   private removeEmptyDraftConversationDir(conversationId: string): void {
-    const safeConversationId = this.validateDraftConversationId(conversationId)
+    const safeConversationId = this.validateDraftConversationId(conversationId);
     if (!safeConversationId) {
-      return
+      return;
     }
 
-    const conversationDir = path.join(this.draftsRoot, safeConversationId)
+    const conversationDir = path.join(this.draftsRoot, safeConversationId);
     if (fs.existsSync(conversationDir) && fs.readdirSync(conversationDir).length === 0) {
-      fs.rmSync(conversationDir, { recursive: true, force: true })
+      fs.rmSync(conversationDir, { recursive: true, force: true });
     }
   }
 
   private getPersistedNewSessionSkills(conversationId: string): string[] {
     try {
-      return this.sessionStatePort.getPersistedNewSessionSkills(conversationId)
+      return this.sessionStatePort.getPersistedNewSessionSkills(conversationId);
     } catch (error) {
-      console.warn(
-        `[SkillPresenter] Failed to read persisted active skills for ${conversationId}:`,
-        error
-      )
-      return []
+      console.warn(`[SkillPresenter] Failed to read persisted active skills for ${conversationId}:`, error);
+      return [];
     }
   }
 
   private setPersistedNewSessionSkills(conversationId: string, skills: string[]): void {
-    this.sessionStatePort.setPersistedNewSessionSkills(conversationId, skills)
+    this.sessionStatePort.setPersistedNewSessionSkills(conversationId, skills);
   }
 }

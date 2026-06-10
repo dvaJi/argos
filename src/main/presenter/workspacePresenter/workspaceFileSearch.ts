@@ -1,77 +1,70 @@
-import fs from 'fs/promises'
-import path from 'path'
-import type { WorkspaceFileNode } from '@shared/presenter'
-import { searchFiles } from './fileSearcher'
-import { resolveWorkspacePath } from './pathResolver'
-import { checkSensitiveFile, isBinaryFile } from './fileSecurity'
+import fs from "fs/promises";
+import path from "path";
+import type { WorkspaceFileNode } from "@shared/presenter";
+import { searchFiles } from "./fileSearcher";
+import { resolveWorkspacePath } from "./pathResolver";
+import { checkSensitiveFile, isBinaryFile } from "./fileSecurity";
 
-const DEFAULT_RESULT_LIMIT = 50
+const DEFAULT_RESULT_LIMIT = 50;
 
-const escapeGlob = (input: string) => input.replace(/[[\\*?\]]/g, '\\$&')
+const escapeGlob = (input: string) => input.replace(/[[\\*?\]]/g, "\\$&");
 
 const buildFileNode = (filePath: string): WorkspaceFileNode => ({
   name: path.basename(filePath),
   path: filePath,
-  isDirectory: false
-})
+  isDirectory: false,
+});
 
 const scoreMatch = (workspaceRoot: string, filePath: string, query: string): number => {
-  const normalizedPath = path.normalize(filePath)
-  const normalizedQuery = query.toLowerCase()
-  const baseName = path.basename(normalizedPath).toLowerCase()
-  const relativePath = path
-    .relative(workspaceRoot, normalizedPath)
-    .split(path.sep)
-    .join('/')
-    .toLowerCase()
+  const normalizedPath = path.normalize(filePath);
+  const normalizedQuery = query.toLowerCase();
+  const baseName = path.basename(normalizedPath).toLowerCase();
+  const relativePath = path.relative(workspaceRoot, normalizedPath).split(path.sep).join("/").toLowerCase();
 
-  if (normalizedPath.toLowerCase() === query.toLowerCase()) return 100
-  if (relativePath === normalizedQuery) return 95
-  if (baseName === normalizedQuery) return 90
-  if (baseName.startsWith(normalizedQuery)) return 80
-  if (baseName.includes(normalizedQuery)) return 70
-  if (relativePath.includes(normalizedQuery)) return 60
-  return 50
-}
+  if (normalizedPath.toLowerCase() === query.toLowerCase()) return 100;
+  if (relativePath === normalizedQuery) return 95;
+  if (baseName === normalizedQuery) return 90;
+  if (baseName.startsWith(normalizedQuery)) return 80;
+  if (baseName.includes(normalizedQuery)) return 70;
+  if (relativePath.includes(normalizedQuery)) return 60;
+  return 50;
+};
 
-export async function searchWorkspaceFiles(
-  workspacePath: string,
-  query: string
-): Promise<WorkspaceFileNode[]> {
-  const trimmed = query.trim()
+export async function searchWorkspaceFiles(workspacePath: string, query: string): Promise<WorkspaceFileNode[]> {
+  const trimmed = query.trim();
   if (!trimmed) {
-    return []
+    return [];
   }
 
   // Handle special case: if query is "**/*", use it directly as glob pattern
   // This is used when user just types "@" to show some files
-  if (trimmed === '**/*') {
+  if (trimmed === "**/*") {
     const result = await searchFiles(workspacePath, trimmed, {
       maxResults: DEFAULT_RESULT_LIMIT,
-      sortBy: 'name'
-    })
+      sortBy: "name",
+    });
 
     const filtered = result.files
       .filter((filePath) => {
         try {
-          checkSensitiveFile(filePath)
-          return !isBinaryFile(filePath)
+          checkSensitiveFile(filePath);
+          return !isBinaryFile(filePath);
         } catch {
-          return false
+          return false;
         }
       })
-      .map((filePath) => buildFileNode(filePath))
-    return filtered
+      .map((filePath) => buildFileNode(filePath));
+    return filtered;
   }
 
-  const resolved = resolveWorkspacePath(workspacePath, trimmed)
+  const resolved = resolveWorkspacePath(workspacePath, trimmed);
   if (resolved) {
     try {
-      const stats = await fs.stat(resolved)
+      const stats = await fs.stat(resolved);
       if (stats.isFile()) {
-        checkSensitiveFile(resolved)
+        checkSensitiveFile(resolved);
         if (!isBinaryFile(resolved)) {
-          return [buildFileNode(resolved)]
+          return [buildFileNode(resolved)];
         }
       }
     } catch {
@@ -79,35 +72,35 @@ export async function searchWorkspaceFiles(
     }
   }
 
-  const hasSeparator = trimmed.includes('/') || trimmed.includes('\\')
-  const escaped = escapeGlob(trimmed)
+  const hasSeparator = trimmed.includes("/") || trimmed.includes("\\");
+  const escaped = escapeGlob(trimmed);
   // For ripgrep, use simpler glob patterns
   // If has separator, use the path as-is with wildcards
   // Otherwise, use *query* to match anywhere in filename
   const globPattern = hasSeparator
     ? `**/${escaped}*` // Path-based: **/path/to/file*
-    : `*${escaped}*` // Filename-based: *query* (matches anywhere in filename)
+    : `*${escaped}*`; // Filename-based: *query* (matches anywhere in filename)
 
   const result = await searchFiles(workspacePath, globPattern, {
     maxResults: DEFAULT_RESULT_LIMIT,
-    sortBy: 'name'
-  })
+    sortBy: "name",
+  });
 
   const ranked = result.files
     .map((filePath) => ({
       filePath,
-      score: scoreMatch(workspacePath, filePath, trimmed)
+      score: scoreMatch(workspacePath, filePath, trimmed),
     }))
     .filter(({ filePath }) => {
       try {
-        checkSensitiveFile(filePath)
-        return !isBinaryFile(filePath)
+        checkSensitiveFile(filePath);
+        return !isBinaryFile(filePath);
       } catch {
-        return false
+        return false;
       }
     })
-    .sort((a, b) => b.score - a.score || a.filePath.localeCompare(b.filePath))
+    .sort((a, b) => b.score - a.score || a.filePath.localeCompare(b.filePath));
 
-  const finalResults = ranked.map(({ filePath }) => buildFileNode(filePath))
-  return finalResults
+  const finalResults = ranked.map(({ filePath }) => buildFileNode(filePath));
+  return finalResults;
 }

@@ -1,63 +1,63 @@
-import type { ChannelAdapterConfig, SendMessageOptions } from '../../types/channel'
-import { ChannelAdapter } from '../../channelAdapter'
-import type { TelegramPollerStatusSnapshot, TelegramTransportTarget } from '../../types'
-import { RemoteAuthGuard } from '../../services/remoteAuthGuard'
-import { RemoteBindingStore } from '../../services/remoteBindingStore'
-import { RemoteConversationRunner } from '../../services/remoteConversationRunner'
-import { RemoteCommandRouter } from '../../services/remoteCommandRouter'
-import { TelegramClient } from '../../telegram/telegramClient'
-import { TelegramParser } from '../../telegram/telegramParser'
-import { TelegramPoller } from '../../telegram/telegramPoller'
+import type { ChannelAdapterConfig, SendMessageOptions } from "../../types/channel";
+import { ChannelAdapter } from "../../channelAdapter";
+import type { TelegramPollerStatusSnapshot, TelegramTransportTarget } from "../../types";
+import { RemoteAuthGuard } from "../../services/remoteAuthGuard";
+import { RemoteBindingStore } from "../../services/remoteBindingStore";
+import { RemoteConversationRunner } from "../../services/remoteConversationRunner";
+import { RemoteCommandRouter } from "../../services/remoteCommandRouter";
+import { TelegramClient } from "../../telegram/telegramClient";
+import { TelegramParser } from "../../telegram/telegramParser";
+import { TelegramPoller } from "../../telegram/telegramPoller";
 
 const DEFAULT_STATUS: TelegramPollerStatusSnapshot = {
-  state: 'stopped',
+  state: "stopped",
   lastError: null,
-  botUser: null
-}
+  botUser: null,
+};
 
 type TelegramAdapterDeps = {
-  bindingStore: RemoteBindingStore
-  createConversationRunner: () => RemoteConversationRunner
-  registerTelegramCommands: (client: TelegramClient) => Promise<void>
-  onFatalError?: (message: string) => Promise<void> | void
-  configSignature?: string
-}
+  bindingStore: RemoteBindingStore;
+  createConversationRunner: () => RemoteConversationRunner;
+  registerTelegramCommands: (client: TelegramClient) => Promise<void>;
+  onFatalError?: (message: string) => Promise<void> | void;
+  configSignature?: string;
+};
 
 export class TelegramAdapter extends ChannelAdapter {
-  private readonly bindingStore: RemoteBindingStore
-  private readonly createConversationRunner: () => RemoteConversationRunner
-  private readonly registerTelegramCommands: (client: TelegramClient) => Promise<void>
-  private readonly onFatalError?: (message: string) => Promise<void> | void
-  private readonly botToken: string
-  private client: TelegramClient | null = null
-  private poller: TelegramPoller | null = null
-  private telegramStatus: TelegramPollerStatusSnapshot = { ...DEFAULT_STATUS }
+  private readonly bindingStore: RemoteBindingStore;
+  private readonly createConversationRunner: () => RemoteConversationRunner;
+  private readonly registerTelegramCommands: (client: TelegramClient) => Promise<void>;
+  private readonly onFatalError?: (message: string) => Promise<void> | void;
+  private readonly botToken: string;
+  private client: TelegramClient | null = null;
+  private poller: TelegramPoller | null = null;
+  private telegramStatus: TelegramPollerStatusSnapshot = { ...DEFAULT_STATUS };
 
   constructor(config: ChannelAdapterConfig, deps: TelegramAdapterDeps) {
     super(config, {
-      configSignature: deps.configSignature
-    })
-    this.bindingStore = deps.bindingStore
-    this.createConversationRunner = deps.createConversationRunner
-    this.registerTelegramCommands = deps.registerTelegramCommands
-    this.onFatalError = deps.onFatalError
-    this.botToken = String(config.channelConfig.botToken ?? '').trim()
+      configSignature: deps.configSignature,
+    });
+    this.bindingStore = deps.bindingStore;
+    this.createConversationRunner = deps.createConversationRunner;
+    this.registerTelegramCommands = deps.registerTelegramCommands;
+    this.onFatalError = deps.onFatalError;
+    this.botToken = String(config.channelConfig.botToken ?? "").trim();
   }
 
   protected async performConnect(_signal: AbortSignal): Promise<void> {
     if (!this.botToken) {
-      throw new Error('Bot token is required.')
+      throw new Error("Bot token is required.");
     }
 
-    const client = new TelegramClient(this.botToken)
-    await this.registerTelegramCommands(client)
+    const client = new TelegramClient(this.botToken);
+    await this.registerTelegramCommands(client);
 
     const router = new RemoteCommandRouter({
       authGuard: new RemoteAuthGuard(this.bindingStore),
       runner: this.createConversationRunner(),
       bindingStore: this.bindingStore,
-      getPollerStatus: () => ({ ...this.telegramStatus })
-    })
+      getPollerStatus: () => ({ ...this.telegramStatus }),
+    });
 
     const poller = new TelegramPoller({
       client,
@@ -65,95 +65,93 @@ export class TelegramAdapter extends ChannelAdapter {
       router,
       bindingStore: this.bindingStore,
       onStatusChange: (snapshot) => {
-        this.handleStatusChange(snapshot)
+        this.handleStatusChange(snapshot);
       },
       onFatalError: (message) => {
-        void this.onFatalError?.(message)
-      }
-    })
+        void this.onFatalError?.(message);
+      },
+    });
 
-    this.client = client
-    this.poller = poller
+    this.client = client;
+    this.poller = poller;
     this.handleStatusChange({
-      state: 'starting',
+      state: "starting",
       lastError: null,
-      botUser: null
-    })
+      botUser: null,
+    });
 
     try {
-      await poller.start()
+      await poller.start();
     } catch (error) {
-      this.client = null
-      this.poller = null
-      throw error
+      this.client = null;
+      this.poller = null;
+      throw error;
     }
   }
 
   protected async performDisconnect(): Promise<void> {
-    const poller = this.poller
-    this.poller = null
-    this.client = null
+    const poller = this.poller;
+    this.poller = null;
+    this.client = null;
 
     if (!poller) {
-      return
+      return;
     }
 
-    await poller.stop()
-    this.handleStatusChange(poller.getStatusSnapshot())
+    await poller.stop();
+    this.handleStatusChange(poller.getStatusSnapshot());
   }
 
   async sendMessage(chatId: string, text: string, _opts?: SendMessageOptions): Promise<void> {
     if (!this.client) {
-      throw new Error('Telegram adapter is not connected.')
+      throw new Error("Telegram adapter is not connected.");
     }
 
-    await this.client.sendMessage(this.parseTransportTarget(chatId), text)
+    await this.client.sendMessage(this.parseTransportTarget(chatId), text);
   }
 
   async sendImage(chatId: string, imagePath: string, _opts?: SendMessageOptions): Promise<void> {
     if (!this.client) {
-      throw new Error('Telegram adapter is not connected.')
+      throw new Error("Telegram adapter is not connected.");
     }
 
-    await this.client.sendPhoto(this.parseTransportTarget(chatId), imagePath)
+    await this.client.sendPhoto(this.parseTransportTarget(chatId), imagePath);
   }
 
   async sendTypingIndicator(chatId: string): Promise<void> {
     if (!this.client) {
-      throw new Error('Telegram adapter is not connected.')
+      throw new Error("Telegram adapter is not connected.");
     }
 
-    await this.client.sendChatAction(this.parseTransportTarget(chatId), 'typing')
+    await this.client.sendChatAction(this.parseTransportTarget(chatId), "typing");
   }
 
   private handleStatusChange(snapshot: TelegramPollerStatusSnapshot): void {
-    this.telegramStatus = { ...snapshot }
+    this.telegramStatus = { ...snapshot };
     this.setStatus({
-      connected: snapshot.state === 'running',
+      connected: snapshot.state === "running",
       state: snapshot.state,
       lastError: snapshot.lastError,
-      botUser: snapshot.botUser
-    })
+      botUser: snapshot.botUser,
+    });
   }
 
   private parseTransportTarget(chatId: string): TelegramTransportTarget {
-    const [chatIdPart, messageThreadIdPart] = chatId.split(':')
-    const normalizedChatIdPart = chatIdPart.trim()
-    const normalizedMessageThreadIdPart = messageThreadIdPart?.trim() ?? ''
+    const [chatIdPart, messageThreadIdPart] = chatId.split(":");
+    const normalizedChatIdPart = chatIdPart.trim();
+    const normalizedMessageThreadIdPart = messageThreadIdPart?.trim() ?? "";
 
     if (!/^-?\d+$/.test(normalizedChatIdPart)) {
-      throw new Error(`Invalid Telegram chat id "${chatId}".`)
+      throw new Error(`Invalid Telegram chat id "${chatId}".`);
     }
 
     if (normalizedMessageThreadIdPart && !/^\d+$/.test(normalizedMessageThreadIdPart)) {
-      throw new Error(`Invalid Telegram chat id "${chatId}".`)
+      throw new Error(`Invalid Telegram chat id "${chatId}".`);
     }
 
     return {
       chatId: Number.parseInt(normalizedChatIdPart, 10),
-      messageThreadId: normalizedMessageThreadIdPart
-        ? Number.parseInt(normalizedMessageThreadIdPart, 10)
-        : 0
-    }
+      messageThreadId: normalizedMessageThreadIdPart ? Number.parseInt(normalizedMessageThreadIdPart, 10) : 0,
+    };
   }
 }

@@ -13,17 +13,17 @@
  * @throws Error if input is not a string
  */
 export function sanitizeText(text: string) {
-  if (typeof text !== 'string') {
-    throw new Error('Input must be a string')
+  if (typeof text !== "string") {
+    throw new Error("Input must be a string");
   }
   if (text.length === 0) {
-    return text
+    return text;
   }
   return text
-    .replace(/\\/g, '')
-    .replace(/#/g, ' ')
-    .replace(/\. \./g, '.')
-    .replace(/(\r\n|\r)/g, '\n')
-    .replace(/[ \t]+/g, ' ')
-    .trim()
+    .replace(/\\/g, "")
+    .replace(/#/g, " ")
+    .replace(/\. \./g, ".")
+    .replace(/(\r\n|\r)/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
 }

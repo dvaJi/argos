@@ -1,46 +1,43 @@
-import type { DeepchatBridge } from '@shared/contracts/bridge'
+import type { DeepchatBridge } from "@shared/contracts/bridge";
 import {
   databaseSecurityChangePasswordRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
   databaseSecurityGetStatusRoute,
-  type DatabaseSecurityStatus
-} from '@shared/contracts/routes'
-import { getDeepchatBridge } from './core'
+  type DatabaseSecurityStatus,
+} from "@shared/contracts/routes";
+import { getDeepchatBridge } from "./core";
 
 export function createDatabaseSecurityClient(bridge: DeepchatBridge = getDeepchatBridge()) {
   async function getStatus(): Promise<DatabaseSecurityStatus> {
-    const result = await bridge.invoke(databaseSecurityGetStatusRoute.name, {})
-    return result.status
+    const result = await bridge.invoke(databaseSecurityGetStatusRoute.name, {});
+    return result.status;
   }
 
   async function enable(password: string): Promise<DatabaseSecurityStatus> {
-    const result = await bridge.invoke(databaseSecurityEnableRoute.name, { password })
-    return result.status
+    const result = await bridge.invoke(databaseSecurityEnableRoute.name, { password });
+    return result.status;
   }
 
-  async function changePassword(
-    currentPassword: string,
-    newPassword: string
-  ): Promise<DatabaseSecurityStatus> {
+  async function changePassword(currentPassword: string, newPassword: string): Promise<DatabaseSecurityStatus> {
     const result = await bridge.invoke(databaseSecurityChangePasswordRoute.name, {
       currentPassword,
-      newPassword
-    })
-    return result.status
+      newPassword,
+    });
+    return result.status;
   }
 
   async function disable(currentPassword: string): Promise<DatabaseSecurityStatus> {
-    const result = await bridge.invoke(databaseSecurityDisableRoute.name, { currentPassword })
-    return result.status
+    const result = await bridge.invoke(databaseSecurityDisableRoute.name, { currentPassword });
+    return result.status;
   }
 
   return {
     getStatus,
     enable,
     changePassword,
-    disable
-  }
+    disable,
+  };
 }
 
-export type DatabaseSecurityClient = ReturnType<typeof createDatabaseSecurityClient>
+export type DatabaseSecurityClient = ReturnType<typeof createDatabaseSecurityClient>;

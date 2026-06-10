@@ -1,10 +1,11 @@
-import TipTMention from '@tiptap/extension-mention'
+import TipTMention from "@tiptap/extension-mention";
+import type { MentionOptions, MentionNodeAttrs } from "@tiptap/extension-mention";
 
 export const Mention = TipTMention.extend({
   addOptions() {
     return {
-      ...this.parent?.()
-    }
+      ...(this.parent?.() ?? {}),
+    } as MentionOptions<any, MentionNodeAttrs>;
   },
 
   addAttributes() {
@@ -13,29 +14,29 @@ export const Mention = TipTMention.extend({
 
       category: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-category'),
+        parseHTML: (element) => element.getAttribute("data-category"),
         renderHTML: (attributes) => {
           if (!attributes.category) {
-            return {}
+            return {};
           }
           return {
-            'data-category': attributes.category
-          }
-        }
+            "data-category": attributes.category,
+          };
+        },
       },
 
       content: {
         default: null,
-        parseHTML: (element) => element.getAttribute('data-content'),
+        parseHTML: (element) => element.getAttribute("data-content"),
         renderHTML: (attributes) => {
           if (!attributes.content) {
-            return {}
+            return {};
           }
           return {
-            'data-content': attributes.content
-          }
-        }
-      }
-    }
-  }
-})
+            "data-content": attributes.content,
+          };
+        },
+      },
+    };
+  },
+});

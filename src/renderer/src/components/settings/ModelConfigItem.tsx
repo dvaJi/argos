@@ -1,30 +1,30 @@
-import { useState, useMemo } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Switch } from '@shadcn/components/ui/switch'
-import { hasNativeToolCapability, ModelType, type NewApiEndpointType } from '@shared/model'
-import ModelConfigDialog from './ModelConfigDialog'
+import { useState, useMemo } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Switch } from "@shadcn/components/ui/switch";
+import { hasNativeToolCapability, ModelType, type NewApiEndpointType } from "@shared/model";
+import ModelConfigDialog from "./ModelConfigDialog";
 
 interface ModelConfigItemProps {
-  modelName: string
-  modelId: string
-  providerId: string
-  group?: string
-  enabled: boolean
-  isCustomModel?: boolean
-  vision?: boolean
-  functionCall?: boolean
-  explicitFunctionCall?: boolean
-  reasoning?: boolean
-  enableSearch?: boolean
-  type?: ModelType
-  supportedEndpointTypes?: NewApiEndpointType[]
-  endpointType?: NewApiEndpointType
-  changeable?: boolean
-  hideEnableToggle?: boolean
-  onEnabledChange: (enabled: boolean) => void
-  onDeleteModel: () => void
-  onConfigChanged: () => void
+  modelName: string;
+  modelId: string;
+  providerId: string;
+  group?: string;
+  enabled: boolean;
+  isCustomModel?: boolean;
+  vision?: boolean;
+  functionCall?: boolean;
+  explicitFunctionCall?: boolean;
+  reasoning?: boolean;
+  enableSearch?: boolean;
+  type?: ModelType;
+  supportedEndpointTypes?: NewApiEndpointType[];
+  endpointType?: NewApiEndpointType;
+  changeable?: boolean;
+  hideEnableToggle?: boolean;
+  onEnabledChange: (enabled: boolean) => void;
+  onDeleteModel: () => void;
+  onConfigChanged: () => void;
 }
 
 export default function ModelConfigItem({
@@ -46,9 +46,9 @@ export default function ModelConfigItem({
   hideEnableToggle = false,
   onEnabledChange,
   onDeleteModel,
-  onConfigChanged
+  onConfigChanged,
 }: ModelConfigItemProps) {
-  const [showConfigDialog, setShowConfigDialog] = useState(false)
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
 
   const showWeakAgentWarning = useMemo(
     () =>
@@ -56,54 +56,36 @@ export default function ModelConfigItem({
       !hasNativeToolCapability(
         {
           endpointType,
-          supportedEndpointTypes
+          supportedEndpointTypes,
         },
-        explicitFunctionCall
+        explicitFunctionCall,
       ),
-    [type, endpointType, supportedEndpointTypes, explicitFunctionCall]
-  )
+    [type, endpointType, supportedEndpointTypes, explicitFunctionCall],
+  );
 
   return (
     <>
       <div className="flex h-12 min-h-12 flex-row items-center gap-2 overflow-hidden bg-muted/50 px-2.5 py-1.5 transition-colors hover:bg-accent border-b last:border-none">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-          <span className={`truncate text-xs${!enabled ? ' text-foreground/70' : ''}`}>
-            {modelName}
-          </span>
-          {vision && (
-            <Icon icon="lucide:eye" className="h-4 w-4 shrink-0 text-blue-500" title="Vision" />
-          )}
+          <span className={`truncate text-xs${!enabled ? " text-foreground/70" : ""}`}>{modelName}</span>
+          {vision && <Icon icon="lucide:eye" className="h-4 w-4 shrink-0 text-blue-500" aria-label="Vision" />}
           {functionCall && (
             <Icon
               icon="lucide:function-square"
               className="h-4 w-4 shrink-0 text-orange-500"
-              title="Function calling"
+              aria-label="Function calling"
             />
           )}
-          {showWeakAgentWarning && (
-            <Icon
-              icon="lucide:triangle-alert"
-              className="h-4 w-4 shrink-0 text-amber-500"
-              title="Chat fallback warning"
-            />
-          )}
+          {showWeakAgentWarning && <Icon icon="lucide:triangle-alert" className="h-4 w-4 shrink-0 text-amber-500" />}
           {reasoning && (
-            <Icon
-              icon="lucide:brain"
-              className="h-4 w-4 shrink-0 text-purple-500"
-              title="Reasoning"
-            />
+            <Icon icon="lucide:brain" className="h-4 w-4 shrink-0 text-purple-500" aria-label="Reasoning" />
           )}
           {enableSearch && (
-            <Icon
-              icon="lucide:globe"
-              className="h-4 w-4 shrink-0 text-green-500"
-              title="Web search"
-            />
+            <Icon icon="lucide:globe" className="h-4 w-4 shrink-0 text-green-500" aria-label="Web search" />
           )}
         </div>
         <div className="flex shrink-0 flex-row items-center gap-2 whitespace-nowrap">
-          {group && group !== 'default' && (
+          {group && group !== "default" && (
             <span className="max-w-[6rem] truncate text-xs text-muted-foreground">{group}</span>
           )}
           <span className="shrink-0 rounded-full border border-muted-foreground/20 bg-muted px-2 py-0.5 text-xs text-muted-foreground select-none">
@@ -151,11 +133,11 @@ export default function ModelConfigItem({
           mode="edit"
           isCustomModel={isCustomModel}
           onSaved={() => {
-            onConfigChanged()
-            setShowConfigDialog(false)
+            onConfigChanged();
+            setShowConfigDialog(false);
           }}
         />
       )}
     </>
-  )
+  );
 }

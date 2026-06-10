@@ -1,41 +1,41 @@
-import type Database from 'better-sqlite3-multiple-ciphers'
-import type { AgentSessionLifecycleStatus } from '@shared/presenter'
-import { BaseTable } from './baseTable'
+import type Database from "better-sqlite3-multiple-ciphers";
+import type { AgentSessionLifecycleStatus } from "@shared/presenter";
+import { BaseTable } from "./baseTable";
 
 export type AcpSessionRow = {
-  id: number
-  conversationId: string
-  agentId: string
-  sessionId: string | null
-  workdir: string | null
-  status: AgentSessionLifecycleStatus
-  createdAt: number
-  updatedAt: number
-  metadata: Record<string, unknown> | null
-}
+  id: number;
+  conversationId: string;
+  agentId: string;
+  sessionId: string | null;
+  workdir: string | null;
+  status: AgentSessionLifecycleStatus;
+  createdAt: number;
+  updatedAt: number;
+  metadata: Record<string, unknown> | null;
+};
 
 type AcpSessionDbRow = {
-  id: number
-  conversation_id: string
-  agent_id: string
-  session_id: string | null
-  workdir: string | null
-  status: AgentSessionLifecycleStatus
-  created_at: number
-  updated_at: number
-  metadata: string | null
-}
+  id: number;
+  conversation_id: string;
+  agent_id: string;
+  session_id: string | null;
+  workdir: string | null;
+  status: AgentSessionLifecycleStatus;
+  created_at: number;
+  updated_at: number;
+  metadata: string | null;
+};
 
 export type AcpSessionUpsertData = {
-  sessionId?: string | null
-  workdir?: string | null
-  status?: AgentSessionLifecycleStatus
-  metadata?: Record<string, unknown> | null
-}
+  sessionId?: string | null;
+  workdir?: string | null;
+  status?: AgentSessionLifecycleStatus;
+  metadata?: Record<string, unknown> | null;
+};
 
 export class AcpSessionsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'acp_sessions')
+    super(db, "acp_sessions");
   }
 
   getCreateTableSQL(): string {
@@ -55,7 +55,7 @@ export class AcpSessionsTable extends BaseTable {
       );
       CREATE INDEX IF NOT EXISTS idx_acp_sessions_session_id ON acp_sessions(session_id);
       CREATE INDEX IF NOT EXISTS idx_acp_sessions_agent ON acp_sessions(agent_id);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
@@ -102,19 +102,16 @@ export class AcpSessionsTable extends BaseTable {
         ALTER TABLE acp_sessions_migrated RENAME TO acp_sessions;
         CREATE INDEX IF NOT EXISTS idx_acp_sessions_session_id ON acp_sessions(session_id);
         CREATE INDEX IF NOT EXISTS idx_acp_sessions_agent ON acp_sessions(agent_id);
-      `
+      `;
     }
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 30
+    return 30;
   }
 
-  async getByConversationAndAgent(
-    conversationId: string,
-    agentId: string
-  ): Promise<AcpSessionRow | null> {
+  async getByConversationAndAgent(conversationId: string, agentId: string): Promise<AcpSessionRow | null> {
     const row = this.db
       .prepare(
         `
@@ -122,11 +119,11 @@ export class AcpSessionsTable extends BaseTable {
         FROM acp_sessions
         WHERE conversation_id = ? AND agent_id = ?
         LIMIT 1
-      `
+      `,
       )
-      .get(conversationId, agentId) as AcpSessionDbRow | undefined
+      .get(conversationId, agentId) as AcpSessionDbRow | undefined;
 
-    return row ? this.mapRow(row) : null
+    return row ? this.mapRow(row) : null;
   }
 
   async getByAgentAndSessionId(agentId: string, sessionId: string): Promise<AcpSessionRow | null> {
@@ -137,25 +134,25 @@ export class AcpSessionsTable extends BaseTable {
         FROM acp_sessions
         WHERE agent_id = ? AND session_id = ?
         LIMIT 1
-      `
+      `,
       )
-      .get(agentId, sessionId) as AcpSessionDbRow | undefined
+      .get(agentId, sessionId) as AcpSessionDbRow | undefined;
 
-    return row ? this.mapRow(row) : null
+    return row ? this.mapRow(row) : null;
   }
 
   async upsert(conversationId: string, agentId: string, data: AcpSessionUpsertData): Promise<void> {
-    const now = Date.now()
+    const now = Date.now();
     const payload = {
       conversationId,
       agentId,
       sessionId: data.sessionId ?? null,
       workdir: data.workdir ?? null,
-      status: data.status ?? 'idle',
+      status: data.status ?? "idle",
       metadata: data.metadata ? JSON.stringify(data.metadata) : null,
       createdAt: now,
-      updatedAt: now
-    }
+      updatedAt: now,
+    };
 
     this.db
       .prepare(
@@ -176,7 +173,7 @@ export class AcpSessionsTable extends BaseTable {
           status = excluded.status,
           metadata = excluded.metadata,
           updated_at = excluded.updated_at
-      `
+      `,
       )
       .run(
         payload.conversationId,
@@ -186,73 +183,59 @@ export class AcpSessionsTable extends BaseTable {
         payload.status,
         payload.metadata,
         payload.createdAt,
-        payload.updatedAt
-      )
+        payload.updatedAt,
+      );
   }
 
-  async updateSessionId(
-    conversationId: string,
-    agentId: string,
-    sessionId: string | null
-  ): Promise<void> {
-    this.updateColumns(conversationId, agentId, { session_id: sessionId })
+  async updateSessionId(conversationId: string, agentId: string, sessionId: string | null): Promise<void> {
+    this.updateColumns(conversationId, agentId, { session_id: sessionId });
   }
 
-  async updateWorkdir(
-    conversationId: string,
-    agentId: string,
-    workdir: string | null
-  ): Promise<void> {
-    this.updateColumns(conversationId, agentId, { workdir })
+  async updateWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
+    this.updateColumns(conversationId, agentId, { workdir });
   }
 
-  async updateStatus(
-    conversationId: string,
-    agentId: string,
-    status: AgentSessionLifecycleStatus
-  ): Promise<void> {
-    this.updateColumns(conversationId, agentId, { status })
+  async updateStatus(conversationId: string, agentId: string, status: AgentSessionLifecycleStatus): Promise<void> {
+    this.updateColumns(conversationId, agentId, { status });
   }
 
   async deleteByConversation(conversationId: string): Promise<void> {
-    this.db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ?`).run(conversationId)
+    this.db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ?`).run(conversationId);
   }
 
   async deleteByConversationAndAgent(conversationId: string, agentId: string): Promise<void> {
-    this.db
-      .prepare(`DELETE FROM acp_sessions WHERE conversation_id = ? AND agent_id = ?`)
-      .run(conversationId, agentId)
+    this.db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ? AND agent_id = ?`).run(conversationId, agentId);
   }
 
   private updateColumns(
     conversationId: string,
     agentId: string,
-    data: Partial<Record<'session_id' | 'workdir' | 'status', string | null>>
+    data: Partial<Record<"session_id" | "workdir" | "status", string | null>>,
   ): void {
-    const columns = Object.keys(data)
-    if (!columns.length) return
+    const columns = Object.keys(data);
+    if (!columns.length) return;
 
-    const sets = columns.map((column) => `${column} = ?`)
-    const values = columns.map((column) => (data as Record<string, string | null>)[column])
+    const sets = columns.map((column) => `${column} = ?`);
+    const values = columns.map((column) => (data as Record<string, string | null>)[column]);
 
     this.db
       .prepare(
         `
         UPDATE acp_sessions
-        SET ${sets.join(', ')}, updated_at = ?
+        SET ${sets.join(", ")}, updated_at = ?
         WHERE conversation_id = ? AND agent_id = ?
-      `
+      `,
       )
-      .run(...values, Date.now(), conversationId, agentId)
+      .run(...values, Date.now(), conversationId, agentId);
   }
 
   private mapRow(row: AcpSessionDbRow): AcpSessionRow {
-    let metadata: Record<string, unknown> | null = null
+    let metadata: Record<string, unknown> | null = null;
     if (row.metadata) {
       try {
-        metadata = JSON.parse(row.metadata) as Record<string, unknown>
+        metadata = JSON.parse(row.metadata) as Record<string, unknown>;
       } catch {
-        metadata = null
+        metadata = null;
       }
     }
 
@@ -265,7 +248,7 @@ export class AcpSessionsTable extends BaseTable {
       status: row.status,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      metadata
-    }
+      metadata,
+    };
   }
 }

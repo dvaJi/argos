@@ -1,67 +1,67 @@
-import { useState, useEffect, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+import { useState, useEffect, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 
-const MIN_SIZE = 1
-const MAX_SIZE = 1024
+const MIN_SIZE = 1;
+const MAX_SIZE = 1024;
 
 export default function UploadFileSettingsSection() {
-  const configPresenter = useLegacyPresenter('configPresenter')
-  const [fileMaxSize, setFileMaxSize] = useState(30)
-  const [isEditing, setIsEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const configPresenter = useLegacyPresenter("configPresenter");
+  const [fileMaxSize, setFileMaxSize] = useState(30);
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = async (value: string | number) => {
-    const numValue = typeof value === 'string' ? parseInt(value, 10) : value
+    const numValue = typeof value === "string" ? parseInt(value, 10) : value;
     if (!isNaN(numValue) && numValue >= MIN_SIZE && numValue <= MAX_SIZE) {
       try {
-        await configPresenter.setSetting('maxFileSize', numValue * 1024 * 1024)
-        setFileMaxSize(numValue)
+        await configPresenter.setSetting("maxFileSize", numValue * 1024 * 1024);
+        setFileMaxSize(numValue);
       } catch (error) {
-        console.error('Failed to set max file size:', error)
+        console.error("Failed to set max file size:", error);
       }
     }
-  }
+  };
 
   const increaseFileMaxSize = () => {
-    const newValue = Math.min(fileMaxSize + 50, MAX_SIZE)
-    handleChange(newValue)
-  }
+    const newValue = Math.min(fileMaxSize + 50, MAX_SIZE);
+    handleChange(newValue);
+  };
 
   const decreaseFileMaxSize = () => {
-    const newValue = Math.max(fileMaxSize - 50, MIN_SIZE)
-    handleChange(newValue)
-  }
+    const newValue = Math.max(fileMaxSize - 50, MIN_SIZE);
+    handleChange(newValue);
+  };
 
   const startEditing = () => {
-    setIsEditing(true)
-  }
+    setIsEditing(true);
+  };
 
   const stopEditing = () => {
-    setIsEditing(false)
-  }
+    setIsEditing(false);
+  };
 
   useEffect(() => {
     if (isEditing) {
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     }
-  }, [isEditing])
+  }, [isEditing]);
 
   useEffect(() => {
     const loadSize = async () => {
       try {
-        const saved = await configPresenter.getSetting<number>('maxFileSize')
+        const saved = await configPresenter.getSetting<number>("maxFileSize");
         if (saved !== undefined && saved !== null) {
-          setFileMaxSize(saved / 1024 / 1024)
+          setFileMaxSize(saved / 1024 / 1024);
         }
       } catch (error) {
-        console.error('Failed to load max file size:', error)
+        console.error("Failed to load max file size:", error);
       }
-    }
-    loadSize()
-  }, [])
+    };
+    loadSize();
+  }, []);
 
   return (
     <div className="flex flex-row items-center gap-2 h-10">
@@ -100,14 +100,12 @@ export default function UploadFileSettingsSection() {
               onChange={(e) => handleChange(e.target.value)}
               onBlur={stopEditing}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === 'Escape') stopEditing()
+                if (e.key === "Enter" || e.key === "Escape") stopEditing();
               }}
               className="min-w-16 h-8 text-center text-sm font-semibold rounded px-2 bg-accent"
               style={{
-                ...{
-                  '-webkit-appearance': 'none' as unknown as undefined,
-                  '-moz-appearance': 'textfield' as unknown as undefined
-                }
+                WebkitAppearance: "none" as any,
+                MozAppearance: "textfield" as any,
               }}
             />
           )}
@@ -126,5 +124,5 @@ export default function UploadFileSettingsSection() {
         <span className="text-xs text-muted-foreground ml-1">MB</span>
       </div>
     </div>
-  )
+  );
 }

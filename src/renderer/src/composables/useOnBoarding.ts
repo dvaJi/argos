@@ -1,63 +1,63 @@
-import { useState, useMemo, useEffect, useCallback, type RefObject } from 'react'
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 export interface SpotlightRect {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface UseOnBoardingOptions {
-  visible?: boolean
-  padding?: number
-  radius?: number
-  edgeInset?: number
+  visible?: boolean;
+  padding?: number;
+  radius?: number;
+  edgeInset?: number;
 }
 
 export function useOnBoarding(targetEl: HTMLElement | null, options: UseOnBoardingOptions = {}) {
-  const padding = options.padding ?? 12
-  const radius = options.radius ?? 24
-  const edgeInset = options.edgeInset ?? 16
+  const padding = options.padding ?? 12;
+  const radius = options.radius ?? 24;
+  const edgeInset = options.edgeInset ?? 16;
 
   const [viewportWidth, setViewportWidth] = useState(
-    typeof document !== 'undefined' ? document.documentElement.clientWidth : 0
-  )
+    typeof document !== "undefined" ? document.documentElement.clientWidth : 0,
+  );
   const [viewportHeight, setViewportHeight] = useState(
-    typeof document !== 'undefined' ? document.documentElement.clientHeight : 0
-  )
-  const [targetBounds, setTargetBounds] = useState({ x: 0, y: 0, width: 0, height: 0 })
+    typeof document !== "undefined" ? document.documentElement.clientHeight : 0,
+  );
+  const [targetBounds, setTargetBounds] = useState({ x: 0, y: 0, width: 0, height: 0 });
 
   const updateTargetBounds = useCallback(() => {
-    if (!targetEl) return
-    const rect = targetEl.getBoundingClientRect()
-    setTargetBounds({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })
-  }, [targetEl])
+    if (!targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    setTargetBounds({ x: rect.x, y: rect.y, width: rect.width, height: rect.height });
+  }, [targetEl]);
 
   useEffect(() => {
     const handleResize = () => {
-      setViewportWidth(document.documentElement.clientWidth)
-      setViewportHeight(document.documentElement.clientHeight)
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+      setViewportWidth(document.documentElement.clientWidth);
+      setViewportHeight(document.documentElement.clientHeight);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
-    if (!targetEl) return
+    if (!targetEl) return;
     const observer = new ResizeObserver(() => {
-      updateTargetBounds()
-    })
-    observer.observe(targetEl)
-    updateTargetBounds()
-    return () => observer.disconnect()
-  }, [targetEl, updateTargetBounds])
+      updateTargetBounds();
+    });
+    observer.observe(targetEl);
+    updateTargetBounds();
+    return () => observer.disconnect();
+  }, [targetEl, updateTargetBounds]);
 
   useEffect(() => {
-    updateTargetBounds()
-  }, [viewportWidth, viewportHeight, updateTargetBounds])
+    updateTargetBounds();
+  }, [viewportWidth, viewportHeight, updateTargetBounds]);
 
   const spotlightRect = useMemo<SpotlightRect | null>(() => {
-    const isVisible = options.visible === undefined ? true : options.visible
+    const isVisible = options.visible === undefined ? true : options.visible;
     if (
       !isVisible ||
       !targetEl ||
@@ -66,49 +66,43 @@ export function useOnBoarding(targetEl: HTMLElement | null, options: UseOnBoardi
       viewportWidth < 1 ||
       viewportHeight < 1
     ) {
-      return null
+      return null;
     }
 
-    const top = Math.max(targetBounds.y - padding, edgeInset)
-    const left = Math.max(targetBounds.x - padding, edgeInset)
-    const width = Math.min(
-      targetBounds.width + padding * 2,
-      Math.max(viewportWidth - left - edgeInset, 0)
-    )
-    const height = Math.min(
-      targetBounds.height + padding * 2,
-      Math.max(viewportHeight - top - edgeInset, 0)
-    )
+    const top = Math.max(targetBounds.y - padding, edgeInset);
+    const left = Math.max(targetBounds.x - padding, edgeInset);
+    const width = Math.min(targetBounds.width + padding * 2, Math.max(viewportWidth - left - edgeInset, 0));
+    const height = Math.min(targetBounds.height + padding * 2, Math.max(viewportHeight - top - edgeInset, 0));
 
     if (width <= 0 || height <= 0) {
-      return null
+      return null;
     }
 
-    return { x: left, y: top, width, height }
-  }, [targetEl, targetBounds, viewportWidth, viewportHeight, options.visible, padding, edgeInset])
+    return { x: left, y: top, width, height };
+  }, [targetEl, targetBounds, viewportWidth, viewportHeight, options.visible, padding, edgeInset]);
 
   const cutoutPathD = useMemo(() => {
-    const rect = spotlightRect
-    if (!rect) return ''
-    const r = Math.floor(Math.max(Math.min(radius, rect.width / 2, rect.height / 2), 0))
-    const vx = rect.x + r
-    const vy = rect.y
-    const innerWidth = rect.width - r * 2
-    const innerHeight = rect.height - r * 2
+    const rect = spotlightRect;
+    if (!rect) return "";
+    const r = Math.floor(Math.max(Math.min(radius, rect.width / 2, rect.height / 2), 0));
+    const vx = rect.x + r;
+    const vy = rect.y;
+    const innerWidth = rect.width - r * 2;
+    const innerHeight = rect.height - r * 2;
     return (
       `M${vx},${vy} h${innerWidth} ` +
       `a${r},${r} 0 0 1 ${r},${r} v${innerHeight} ` +
       `a${r},${r} 0 0 1 -${r},${r} h-${innerWidth} ` +
       `a${r},${r} 0 0 1 -${r},-${r} v-${innerHeight} ` +
       `a${r},${r} 0 0 1 ${r},-${r} z`
-    )
-  }, [spotlightRect, radius])
+    );
+  }, [spotlightRect, radius]);
 
   const pathD = useMemo(() => {
-    const outer = `M${viewportWidth},0L0,0L0,${viewportHeight}L${viewportWidth},${viewportHeight}L${viewportWidth},0Z`
-    if (!cutoutPathD) return outer
-    return `${outer} ${cutoutPathD}`
-  }, [viewportWidth, viewportHeight, cutoutPathD])
+    const outer = `M${viewportWidth},0L0,0L0,${viewportHeight}L${viewportWidth},${viewportHeight}L${viewportWidth},0Z`;
+    if (!cutoutPathD) return outer;
+    return `${outer} ${cutoutPathD}`;
+  }, [viewportWidth, viewportHeight, cutoutPathD]);
 
-  return { spotlightRect, viewportWidth, viewportHeight, pathD, cutoutPathD }
+  return { spotlightRect, viewportWidth, viewportHeight, pathD, cutoutPathD };
 }

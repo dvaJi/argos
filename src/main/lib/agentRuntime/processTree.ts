@@ -1,132 +1,129 @@
-import { spawn, type ChildProcess } from 'child_process'
+import { spawn, type ChildProcess } from "child_process";
 
-const FORCE_KILL_SETTLE_MS = 500
+const FORCE_KILL_SETTLE_MS = 500;
 
 function hasExited(child: ChildProcess): boolean {
-  return child.exitCode !== null || child.signalCode !== null
+  return child.exitCode !== null || child.signalCode !== null;
 }
 
 function waitForClose(child: ChildProcess, timeoutMs: number): Promise<boolean> {
   if (hasExited(child)) {
-    return Promise.resolve(true)
+    return Promise.resolve(true);
   }
 
   return new Promise((resolve) => {
-    let settled = false
-    let timeoutId: NodeJS.Timeout | null = null
+    let settled = false;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     const cleanup = () => {
-      child.removeListener('close', onClose)
+      child.removeListener("close", onClose);
       if (timeoutId) {
-        clearTimeout(timeoutId)
-        timeoutId = null
+        clearTimeout(timeoutId);
+        timeoutId = null;
       }
-    }
+    };
 
     const onClose = () => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resolve(true)
-    }
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(true);
+    };
 
-    child.once('close', onClose)
+    child.once("close", onClose);
     timeoutId = setTimeout(() => {
-      if (settled) return
-      settled = true
-      cleanup()
-      resolve(false)
-    }, timeoutMs)
-  })
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(false);
+    }, timeoutMs);
+  });
 }
 
 async function spawnAndWait(command: string, args: string[]): Promise<void> {
   await new Promise<void>((resolve) => {
     try {
-      const child = spawn(command, args, { stdio: 'ignore' })
-      child.on('error', () => resolve())
-      child.on('close', () => resolve())
+      const child = spawn(command, args, { stdio: "ignore" });
+      child.on("error", () => resolve());
+      child.on("close", () => resolve());
     } catch {
-      resolve()
+      resolve();
     }
-  })
+  });
 }
 
 async function spawnAndCapture(command: string, args: string[]): Promise<string> {
   return await new Promise<string>((resolve) => {
-    let output = ''
+    let output = "";
 
     try {
-      const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'ignore'] })
-      child.stdout?.on('data', (chunk: Buffer | string) => {
-        output += chunk.toString()
-      })
-      child.on('error', () => resolve(''))
-      child.on('close', () => resolve(output))
+      const child = spawn(command, args, { stdio: ["ignore", "pipe", "ignore"] });
+      child.stdout?.on("data", (chunk: Buffer | string) => {
+        output += chunk.toString();
+      });
+      child.on("error", () => resolve(""));
+      child.on("close", () => resolve(output));
     } catch {
-      resolve('')
+      resolve("");
     }
-  })
+  });
 }
 
 async function listChildPids(pid: number): Promise<number[]> {
-  const output = await spawnAndCapture('pgrep', ['-P', `${pid}`])
+  const output = await spawnAndCapture("pgrep", ["-P", `${pid}`]);
   return output
     .split(/\r?\n/)
     .map((line) => Number.parseInt(line.trim(), 10))
-    .filter((childPid) => Number.isInteger(childPid) && childPid > 0)
+    .filter((childPid) => Number.isInteger(childPid) && childPid > 0);
 }
 
 async function collectDescendantPids(pid: number): Promise<number[]> {
-  const descendants: number[] = []
-  const pending = [pid]
-  const seen = new Set<number>()
+  const descendants: number[] = [];
+  const pending = [pid];
+  const seen = new Set<number>();
 
   while (pending.length > 0) {
-    const currentPid = pending.pop()
+    const currentPid = pending.pop();
     if (!currentPid) {
-      continue
+      continue;
     }
 
-    const childPids = await listChildPids(currentPid)
+    const childPids = await listChildPids(currentPid);
     for (const childPid of childPids) {
       if (seen.has(childPid)) {
-        continue
+        continue;
       }
 
-      seen.add(childPid)
-      descendants.push(childPid)
-      pending.push(childPid)
+      seen.add(childPid);
+      descendants.push(childPid);
+      pending.push(childPid);
     }
   }
 
-  return descendants
+  return descendants;
 }
 
-async function signalDescendantsRecursively(
-  pid: number,
-  childSignal: '-TERM' | '-KILL'
-): Promise<void> {
-  const descendants = await collectDescendantPids(pid)
+async function signalDescendantsRecursively(pid: number, childSignal: "-TERM" | "-KILL"): Promise<void> {
+  const descendants = await collectDescendantPids(pid);
   for (const descendantPid of descendants.reverse()) {
-    await spawnAndWait('kill', [childSignal, `${descendantPid}`])
+    await spawnAndWait("kill", [childSignal, `${descendantPid}`]);
   }
 }
 
-async function signalProcessTree(pid: number, signal: 'SIGTERM' | 'SIGKILL'): Promise<void> {
-  if (process.platform === 'win32') {
-    const args = ['/PID', `${pid}`, '/T', '/F']
-    await spawnAndWait('taskkill', args)
-    return
+async function signalProcessTree(pid: number, signal: "SIGTERM" | "SIGKILL"): Promise<void> {
+  if (process.platform === "win32") {
+    const args = ["/PID", `${pid}`, "/T", "/F"];
+    await spawnAndWait("taskkill", args);
+    return;
   }
 
-  const childSignal = signal === 'SIGKILL' ? '-KILL' : '-TERM'
+  const childSignal = signal === "SIGKILL" ? "-KILL" : "-TERM";
   try {
-    process.kill(-pid, signal)
+    process.kill(-pid, signal);
   } catch {
-    await signalDescendantsRecursively(pid, childSignal)
+    await signalDescendantsRecursively(pid, childSignal);
     try {
-      process.kill(pid, signal)
+      process.kill(pid, signal);
     } catch {
       // Process may have already exited.
     }
@@ -136,30 +133,30 @@ async function signalProcessTree(pid: number, signal: 'SIGTERM' | 'SIGKILL'): Pr
 export async function terminateProcessTree(
   child: ChildProcess,
   options: {
-    graceMs?: number
-  } = {}
+    graceMs?: number;
+  } = {},
 ): Promise<boolean> {
-  const graceMs = Math.max(0, options.graceMs ?? 2000)
+  const graceMs = Math.max(0, options.graceMs ?? 2000);
 
   if (hasExited(child)) {
-    return true
+    return true;
   }
 
-  const pid = child.pid
+  const pid = child.pid;
   if (!pid) {
     try {
-      child.kill('SIGTERM')
+      child.kill("SIGTERM");
     } catch {
       // Ignore missing pid failures.
     }
-    return await waitForClose(child, graceMs)
+    return await waitForClose(child, graceMs);
   }
 
-  await signalProcessTree(pid, 'SIGTERM')
+  await signalProcessTree(pid, "SIGTERM");
   if (await waitForClose(child, graceMs)) {
-    return true
+    return true;
   }
 
-  await signalProcessTree(pid, 'SIGKILL')
-  return await waitForClose(child, FORCE_KILL_SETTLE_MS)
+  await signalProcessTree(pid, "SIGKILL");
+  return await waitForClose(child, FORCE_KILL_SETTLE_MS);
 }

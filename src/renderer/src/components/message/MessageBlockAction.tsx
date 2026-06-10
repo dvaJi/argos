@@ -1,56 +1,56 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import type { DisplayAssistantMessageBlock } from '@/components/chat/messageListItems'
+import { type FC, useState, useEffect, useMemo, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
 interface MessageBlockActionProps {
-  messageId: string
-  conversationId: string
-  block: DisplayAssistantMessageBlock
-  isReadOnly?: boolean
-  onContinue?: (conversationId: string, messageId: string) => void
+  messageId: string;
+  conversationId: string;
+  block: DisplayAssistantMessageBlock;
+  isReadOnly?: boolean;
+  onContinue?: (conversationId: string, messageId: string) => void;
 }
 
-export const MessageBlockAction: React.FC<MessageBlockActionProps> = ({
+export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   messageId,
   conversationId,
   block,
   isReadOnly: isReadOnlyProp,
-  onContinue
+  onContinue,
 }) => {
-  const [currentTime, setCurrentTime] = useState(Date.now())
-  const progressTimer = useRef<number | null>(null)
-  const isReadOnly = isReadOnlyProp === true
-  const isRateLimitBlock = block.action_type === 'rate_limit'
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const progressTimer = useRef<number | null>(null);
+  const isReadOnly = isReadOnlyProp === true;
+  const isRateLimitBlock = block.action_type === "rate_limit";
 
   const elapsedSeconds = useMemo(() => {
-    if (!isRateLimitBlock) return 0
-    const elapsed = currentTime - block.timestamp
-    return Math.max(0, Math.floor(Math.max(0, elapsed) / 1000))
-  }, [isRateLimitBlock, currentTime, block.timestamp])
+    if (!isRateLimitBlock) return 0;
+    const elapsed = currentTime - block.timestamp;
+    return Math.max(0, Math.floor(Math.max(0, elapsed) / 1000));
+  }, [isRateLimitBlock, currentTime, block.timestamp]);
 
-  const rateLimitStatusLabel = `Rate limiting ${elapsedSeconds}s`
+  const rateLimitStatusLabel = `Rate limiting ${elapsedSeconds}s`;
 
   const containerClass = isRateLimitBlock
-    ? 'my-2'
-    : 'flex flex-col w-[360px] break-all shadow-sm my-2 items-start p-2 gap-2 rounded-lg border bg-card text-card-foreground'
+    ? "my-2"
+    : "flex flex-col w-[360px] break-all shadow-sm my-2 items-start p-2 gap-2 rounded-lg border bg-card text-card-foreground";
 
   const handleClick = () => {
-    onContinue?.(conversationId, messageId)
-  }
+    onContinue?.(conversationId, messageId);
+  };
 
   useEffect(() => {
     if (isRateLimitBlock) {
       progressTimer.current = window.setInterval(() => {
-        setCurrentTime(Date.now())
-      }, 1000)
+        setCurrentTime(Date.now());
+      }, 1000);
     }
     return () => {
       if (progressTimer.current) {
-        clearInterval(progressTimer.current)
+        clearInterval(progressTimer.current);
       }
-    }
-  }, [isRateLimitBlock])
+    };
+  }, [isRateLimitBlock]);
 
   return (
     <div className={containerClass}>
@@ -61,15 +61,11 @@ export const MessageBlockAction: React.FC<MessageBlockActionProps> = ({
               <Icon icon="lucide:info" className="w-4 h-4 text-red-500/80" />
             </div>
             <div className="prose prose-sm max-w-full break-all whitespace-pre-wrap leading-7 text-left text-card-foreground">
-              {block.content || ''}
+              {block.content || ""}
             </div>
           </div>
           {block.extra.needContinue && !isReadOnly && (
-            <Button
-              className="bg-primary rounded-lg hover:bg-indigo-600/50 h-8"
-              size="sm"
-              onClick={handleClick}
-            >
+            <Button className="bg-primary rounded-lg hover:bg-indigo-600/50 h-8" size="sm" onClick={handleClick}>
               <Icon icon="lucide:check" className="w-4 h-4" />
               Continue
             </Button>
@@ -88,12 +84,12 @@ export const MessageBlockAction: React.FC<MessageBlockActionProps> = ({
         </div>
       ) : null}
 
-      {!block.extra?.needContinue && block.action_type !== 'rate_limit' && (
+      {!block.extra?.needContinue && block.action_type !== "rate_limit" && (
         <div className="text-xs text-gray-500 flex flex-row gap-2 items-center">
           <Icon icon="lucide:check" className="w-4 h-4" />
           Continued
         </div>
       )}
     </div>
-  )
-}
+  );
+};

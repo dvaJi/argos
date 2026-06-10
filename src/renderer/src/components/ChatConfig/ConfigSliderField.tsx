@@ -1,17 +1,17 @@
-import { useMemo } from 'react'
-import { Slider } from '@shadcn/components/ui/slider'
-import ConfigFieldHeader from './ConfigFieldHeader'
+import { useMemo } from "react";
+import { Slider } from "@shadcn/components/ui/slider";
+import ConfigFieldHeader from "./ConfigFieldHeader";
 
 interface ConfigSliderFieldProps {
-  icon: string
-  label: string
-  description: string
-  modelValue: number
-  min: number
-  max: number
-  step: number
-  formatter?: (value: number) => string
-  onModelValueChange?: (value: number) => void
+  icon: string;
+  label: string;
+  description: string;
+  modelValue: number;
+  min: number;
+  max: number;
+  step: number;
+  formatter?: (value: number) => string;
+  onModelValueChange?: (value: number) => void;
 }
 
 export default function ConfigSliderField({
@@ -23,12 +23,9 @@ export default function ConfigSliderField({
   max,
   step,
   formatter,
-  onModelValueChange
+  onModelValueChange,
 }: ConfigSliderFieldProps) {
-  const displayValue = useMemo(
-    () => (formatter ? formatter(modelValue) : String(modelValue)),
-    [formatter, modelValue]
-  )
+  const displayValue = useMemo(() => (formatter ? formatter(modelValue) : String(modelValue)), [formatter, modelValue]);
 
   return (
     <div className="space-y-4 px-2">
@@ -41,5 +38,5 @@ export default function ConfigSliderField({
         onValueChange={(val) => onModelValueChange?.(val[0])}
       />
     </div>
-  )
+  );
 }

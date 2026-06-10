@@ -1,56 +1,56 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { IConfigPresenter, LLM_PROVIDER } from '../../../../src/shared/presenter'
-import { AiSdkProvider } from '../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider'
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { IConfigPresenter, LLM_PROVIDER } from "../../../../src/shared/presenter";
+import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 const { mockRunAiSdkCoreStream, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
   mockRunAiSdkCoreStream: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn().mockResolvedValue({ content: 'ok' })
-}))
+  mockRunAiSdkGenerateText: vi.fn().mockResolvedValue({ content: "ok" }),
+}));
 
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => 'DeepChat'),
-    getVersion: vi.fn(() => '0.0.0-test'),
-    getPath: vi.fn(() => '/mock/path'),
+    getName: vi.fn(() => "DeepChat"),
+    getVersion: vi.fn(() => "0.0.0-test"),
+    getPath: vi.fn(() => "/mock/path"),
     isReady: vi.fn(() => true),
-    on: vi.fn()
-  }
-}))
+    on: vi.fn(),
+  },
+}));
 
-vi.mock('@/eventbus', () => ({
+vi.mock("@/eventbus", () => ({
   eventBus: {
     on: vi.fn(),
-    sendToRenderer: vi.fn()
+    sendToRenderer: vi.fn(),
   },
   SendTarget: {
-    ALL_WINDOWS: 'ALL_WINDOWS'
-  }
-}))
+    ALL_WINDOWS: "ALL_WINDOWS",
+  },
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   CONFIG_EVENTS: {
-    MODEL_LIST_CHANGED: 'MODEL_LIST_CHANGED'
+    MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },
   PROVIDER_DB_EVENTS: {
-    LOADED: 'LOADED',
-    UPDATED: 'UPDATED'
-  }
-}))
+    LOADED: "LOADED",
+    UPDATED: "UPDATED",
+  },
+}));
 
-vi.mock('../../../../src/main/presenter/llmProviderPresenter/aiSdk', () => ({
+vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
   runAiSdkCoreStream: mockRunAiSdkCoreStream,
-  runAiSdkGenerateText: mockRunAiSdkGenerateText
-}))
+  runAiSdkGenerateText: mockRunAiSdkGenerateText,
+}));
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
-  id: 'anthropic',
-  name: 'Anthropic',
-  apiType: 'anthropic',
-  apiKey: 'test-key',
-  baseUrl: 'https://api.anthropic.com',
+  id: "anthropic",
+  name: "Anthropic",
+  apiType: "anthropic",
+  apiKey: "test-key",
+  baseUrl: "https://api.anthropic.com",
   enable: false,
-  ...overrides
-})
+  ...overrides,
+});
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
@@ -58,172 +58,170 @@ const createConfigPresenter = (): IConfigPresenter =>
     getCustomModels: vi.fn().mockReturnValue([]),
     getDbProviderModels: vi.fn().mockReturnValue([
       {
-        id: 'claude-sonnet-4-5-20250929',
-        name: 'Claude Sonnet 4.5',
-        group: 'Claude',
+        id: "claude-sonnet-4-5-20250929",
+        name: "Claude Sonnet 4.5",
+        group: "Claude",
         contextLength: 200000,
         maxTokens: 64000,
         vision: true,
         functionCall: true,
-        reasoning: true
-      }
+        reasoning: true,
+      },
     ]),
     getModelConfig: vi.fn().mockReturnValue(undefined),
     setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true)
-  }) as unknown as IConfigPresenter
+    getModelStatus: vi.fn().mockReturnValue(true),
+  }) as unknown as IConfigPresenter;
 
-describe('AiSdkProvider anthropic', () => {
-  const originalEnvKey = process.env.ANTHROPIC_API_KEY
+describe("AiSdkProvider anthropic", () => {
+  const originalEnvKey = process.env.ANTHROPIC_API_KEY;
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    mockRunAiSdkGenerateText.mockResolvedValue({ content: 'ok' })
-    delete process.env.ANTHROPIC_API_KEY
-  })
+    vi.clearAllMocks();
+    mockRunAiSdkGenerateText.mockResolvedValue({ content: "ok" });
+    delete process.env.ANTHROPIC_API_KEY;
+  });
 
   afterEach(() => {
     if (originalEnvKey === undefined) {
-      delete process.env.ANTHROPIC_API_KEY
-      return
+      delete process.env.ANTHROPIC_API_KEY;
+      return;
     }
 
-    process.env.ANTHROPIC_API_KEY = originalEnvKey
-  })
+    process.env.ANTHROPIC_API_KEY = originalEnvKey;
+  });
 
-  it('fails fast when no Anthropic API key is available', async () => {
+  it("fails fast when no Anthropic API key is available", async () => {
     const provider = new AiSdkProvider(
       createProvider({
-        apiKey: ''
+        apiKey: "",
       }),
-      createConfigPresenter()
-    )
+      createConfigPresenter(),
+    );
 
     await expect(provider.check()).resolves.toEqual({
       isOk: false,
-      errorMsg: 'Missing API key'
-    })
-    expect(mockRunAiSdkGenerateText).not.toHaveBeenCalled()
-  })
+      errorMsg: "Missing API key",
+    });
+    expect(mockRunAiSdkGenerateText).not.toHaveBeenCalled();
+  });
 
-  it('uses the AI SDK runtime for provider health checks', async () => {
-    process.env.ANTHROPIC_API_KEY = 'env-key'
+  it("uses the AI SDK runtime for provider health checks", async () => {
+    process.env.ANTHROPIC_API_KEY = "env-key";
     const provider = new AiSdkProvider(
       createProvider({
-        apiKey: ''
+        apiKey: "",
       }),
-      createConfigPresenter()
-    )
-    ;(provider as any).isInitialized = true
+      createConfigPresenter(),
+    );
+    (provider as any).isInitialized = true;
 
     await expect(provider.check()).resolves.toEqual({
       isOk: true,
-      errorMsg: null
-    })
+      errorMsg: null,
+    });
     expect(mockRunAiSdkGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        providerKind: 'anthropic'
+        providerKind: "anthropic",
       }),
-      [{ role: 'user', content: 'Hello' }],
-      'claude-sonnet-4-5-20250929',
+      [{ role: "user", content: "Hello" }],
+      "claude-sonnet-4-5-20250929",
       expect.any(Object),
       0.2,
-      16
-    )
-  })
+      16,
+    );
+  });
 
-  it('passes system prompts through the AI SDK text path', async () => {
-    const provider = new AiSdkProvider(createProvider(), createConfigPresenter())
-    ;(provider as any).isInitialized = true
+  it("passes system prompts through the AI SDK text path", async () => {
+    const provider = new AiSdkProvider(createProvider(), createConfigPresenter());
+    (provider as any).isInitialized = true;
 
-    await provider.generateText('hi', 'claude-sonnet-4-5-20250929', 0.2, 32, 'Real system prompt')
+    await provider.generateText("hi", "claude-sonnet-4-5-20250929", 0.2, 32, "Real system prompt");
 
     expect(mockRunAiSdkGenerateText).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        providerKind: 'anthropic'
+        providerKind: "anthropic",
       }),
       [
-        { role: 'system', content: 'Real system prompt' },
-        { role: 'user', content: 'hi' }
+        { role: "system", content: "Real system prompt" },
+        { role: "user", content: "hi" },
       ],
-      'claude-sonnet-4-5-20250929',
+      "claude-sonnet-4-5-20250929",
       expect.any(Object),
       0.2,
-      32
-    )
-  })
+      32,
+    );
+  });
 
-  it('reads model metadata from the provider database snapshot', async () => {
-    const provider = new AiSdkProvider(createProvider(), createConfigPresenter())
-    const models = await (provider as any).fetchProviderModels()
+  it("reads model metadata from the provider database snapshot", async () => {
+    const provider = new AiSdkProvider(createProvider(), createConfigPresenter());
+    const models = await (provider as any).fetchProviderModels();
 
     expect(models).toEqual([
       expect.objectContaining({
-        id: 'claude-sonnet-4-5-20250929',
-        providerId: 'anthropic',
+        id: "claude-sonnet-4-5-20250929",
+        providerId: "anthropic",
         vision: true,
         functionCall: true,
-        reasoning: true
-      })
-    ])
-  })
+        reasoning: true,
+      }),
+    ]);
+  });
 
-  it('fetches remote models for custom anthropic-compatible providers', async () => {
+  it("fetches remote models for custom anthropic-compatible providers", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
-        data: [{ id: 'claude-3-7-sonnet-latest', display_name: 'Claude 3.7 Sonnet' }]
-      })
-    })
-    vi.stubGlobal('fetch', fetchMock)
+        data: [{ id: "claude-3-7-sonnet-latest", display_name: "Claude 3.7 Sonnet" }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const provider = new AiSdkProvider(
       createProvider({
-        id: 'custom-anthropic',
-        name: 'Custom Anthropic',
-        custom: true
+        id: "custom-anthropic",
+        name: "Custom Anthropic",
+        custom: true,
       }),
-      createConfigPresenter()
-    )
-    const models = await provider.fetchModels()
+      createConfigPresenter(),
+    );
+    const models = await provider.fetchModels();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://api.anthropic.com/v1/models',
+      "https://api.anthropic.com/v1/models",
       expect.objectContaining({
-        method: 'GET',
+        method: "GET",
         headers: expect.objectContaining({
-          'x-api-key': 'test-key',
-          'anthropic-version': '2023-06-01'
-        })
-      })
-    )
+          "x-api-key": "test-key",
+          "anthropic-version": "2023-06-01",
+        }),
+      }),
+    );
     expect(models).toEqual([
       expect.objectContaining({
-        id: 'claude-3-7-sonnet-latest',
-        providerId: 'custom-anthropic',
-        name: 'Claude 3.7 Sonnet'
-      })
-    ])
-  })
+        id: "claude-3-7-sonnet-latest",
+        providerId: "custom-anthropic",
+        name: "Claude 3.7 Sonnet",
+      }),
+    ]);
+  });
 
-  it('throws refresh errors for custom anthropic-compatible providers when remote fetch fails', async () => {
+  it("throws refresh errors for custom anthropic-compatible providers when remote fetch fails", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
-      text: vi
-        .fn()
-        .mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}')
-    })
-    vi.stubGlobal('fetch', fetchMock)
+      text: vi.fn().mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}'),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const provider = new AiSdkProvider(
       createProvider({
-        id: 'custom-anthropic',
-        name: 'Custom Anthropic',
-        custom: true
+        id: "custom-anthropic",
+        name: "Custom Anthropic",
+        custom: true,
       }),
-      createConfigPresenter()
-    )
+      createConfigPresenter(),
+    );
 
-    await expect(provider.refreshModels()).rejects.toThrow('Invalid API key')
-  })
-})
+    await expect(provider.refreshModels()).rejects.toThrow("Invalid API key");
+  });
+});

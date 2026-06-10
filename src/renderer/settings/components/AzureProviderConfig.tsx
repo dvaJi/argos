@@ -1,34 +1,30 @@
-import { useState, useEffect, type FocusEvent } from 'react'
-import { Label } from '@shadcn/components/ui/label'
-import { Input } from '@shadcn/components/ui/input'
-import type { LLM_PROVIDER } from '@shared/presenter'
+import { useState, useEffect, type FocusEvent } from "react";
+import { Label } from "@shadcn/components/ui/label";
+import { Input } from "@shadcn/components/ui/input";
+import type { LLM_PROVIDER } from "@shared/presenter";
 
 interface AzureProviderConfigProps {
-  provider: LLM_PROVIDER
-  initialValue?: string
-  onApiVersionChange?: (value: string) => void
+  provider: LLM_PROVIDER;
+  initialValue?: string;
+  onApiVersionChange?: (value: string) => void;
 }
 
-export default function AzureProviderConfig({
-  provider,
-  initialValue,
-  onApiVersionChange
-}: AzureProviderConfigProps) {
-  const [azureApiVersion, setAzureApiVersion] = useState(initialValue || '2024-02-01')
+export default function AzureProviderConfig({ provider, initialValue, onApiVersionChange }: AzureProviderConfigProps) {
+  const [azureApiVersion, setAzureApiVersion] = useState(initialValue || "2024-02-01");
 
   useEffect(() => {
     if (initialValue) {
-      setAzureApiVersion(initialValue)
+      setAzureApiVersion(initialValue);
     }
-  }, [initialValue])
+  }, [initialValue]);
 
   const handleAzureApiVersionChange = (value: string) => {
-    const trimmedValue = value.trim()
+    const trimmedValue = value.trim();
     if (trimmedValue) {
-      setAzureApiVersion(trimmedValue)
-      onApiVersionChange?.(trimmedValue)
+      setAzureApiVersion(trimmedValue);
+      onApiVersionChange?.(trimmedValue);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col items-start gap-2">
@@ -44,9 +40,9 @@ export default function AzureProviderConfig({
           handleAzureApiVersionChange(String((e.target as HTMLInputElement).value))
         }
         onKeyUp={(e) => {
-          if (e.key === 'Enter') handleAzureApiVersionChange(azureApiVersion)
+          if (e.key === "Enter") handleAzureApiVersionChange(azureApiVersion);
         }}
       />
     </div>
-  )
+  );
 }

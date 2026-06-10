@@ -1,9 +1,9 @@
-import React from 'react'
+import type { FC } from "react";
 
 interface MessageTextContentProps {
-  content: string
+  content: string;
 }
 
-export const MessageTextContent: React.FC<MessageTextContentProps> = ({ content }) => {
-  return <div className="text-sm whitespace-pre-wrap break-all">{content}</div>
-}
+export const MessageTextContent: FC<MessageTextContentProps> = ({ content }) => {
+  return <div className="text-sm whitespace-pre-wrap break-all">{content}</div>;
+};

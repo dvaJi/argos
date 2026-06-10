@@ -1,35 +1,35 @@
-import { useState, useEffect } from 'react'
-import { Icon } from '@iconify/react'
-import { useSkillsStore } from '@/stores/skillsStore'
-import type { SkillFolderNode } from '@shared/types/skill'
-import SkillFolderTreeNode from './SkillFolderTreeNode'
+import { useState, useEffect } from "react";
+import { Icon } from "@iconify/react";
+import { useSkillsStore, getSkillFolderTree } from "@/stores/skillsStore";
+import type { SkillFolderNode } from "@shared/types/skill";
+import SkillFolderTreeNode from "./SkillFolderTreeNode";
 
 interface SkillFolderTreeProps {
-  skillName: string
+  skillName: string;
 }
 
 export default function SkillFolderTree({ skillName }: SkillFolderTreeProps) {
-  const skillsStore = useSkillsStore()
-  const [nodes, setNodes] = useState<SkillFolderNode[]>([])
-  const [loading, setLoading] = useState(false)
+  const skillsStore = useSkillsStore();
+  const [nodes, setNodes] = useState<SkillFolderNode[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const loadTree = async () => {
-    if (!skillName) return
-    setLoading(true)
+    if (!skillName) return;
+    setLoading(true);
     try {
-      const result = await skillsStore.getSkillFolderTree(skillName)
-      setNodes(result)
+      const result = await getSkillFolderTree(skillName);
+      setNodes(result);
     } catch (error) {
-      console.error('Failed to load folder tree:', error)
-      setNodes([])
+      console.error("Failed to load folder tree:", error);
+      setNodes([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadTree()
-  }, [skillName])
+    loadTree();
+  }, [skillName]);
 
   return (
     <div className="text-sm">
@@ -47,5 +47,5 @@ export default function SkillFolderTree({ skillName }: SkillFolderTreeProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

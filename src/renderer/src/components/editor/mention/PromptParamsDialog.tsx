@@ -1,82 +1,77 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter
-} from '@shadcn/components/ui/dialog'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
+  DialogFooter,
+} from "@shadcn/components/ui/dialog";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
 
 interface PromptParam {
-  name: string
-  description: string
-  required: boolean
+  name: string;
+  description: string;
+  required: boolean;
 }
 
 interface PromptParamsDialogProps {
-  promptName: string
-  params: PromptParam[]
-  onClose: () => void
-  onSubmit: (values: Record<string, string>) => void
+  promptName: string;
+  params: PromptParam[];
+  onClose: () => void;
+  onSubmit: (values: Record<string, string>) => void;
 }
 
-export default function PromptParamsDialog({
-  promptName,
-  params,
-  onClose,
-  onSubmit
-}: PromptParamsDialogProps) {
+export default function PromptParamsDialog({ promptName, params, onClose, onSubmit }: PromptParamsDialogProps) {
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => {
-    const values: Record<string, string> = {}
+    const values: Record<string, string> = {};
     params.forEach((param) => {
-      values[param.name] = ''
-    })
-    return values
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
+      values[param.name] = "";
+    });
+    return values;
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const hasErrors = useMemo(() => {
-    if (Object.keys(errors).length > 0) return true
+    if (Object.keys(errors).length > 0) return true;
     return params.some((param) => {
       if (param.required) {
-        const value = paramValues[param.name]
-        return !value || value.trim() === ''
+        const value = paramValues[param.name];
+        return !value || value.trim() === "";
       }
-      return false
-    })
-  }, [errors, params, paramValues])
+      return false;
+    });
+  }, [errors, params, paramValues]);
 
   const validateParams = () => {
-    let hasError = false
-    const newErrors: Record<string, string> = {}
+    let hasError = false;
+    const newErrors: Record<string, string> = {};
 
     params.forEach((param) => {
       if (param.required && !paramValues[param.name]) {
-        newErrors[param.name] = 'This field is required'
-        hasError = true
+        newErrors[param.name] = "This field is required";
+        hasError = true;
       }
-    })
+    });
 
-    setErrors(newErrors)
-    return !hasError
-  }
+    setErrors(newErrors);
+    return !hasError;
+  };
 
   const handleEnter = (index: number) => {
     if (index === params.length - 1) {
-      handleSubmit()
+      handleSubmit();
     }
-  }
+  };
 
   const handleSubmit = () => {
     if (validateParams()) {
-      onSubmit(paramValues)
+      onSubmit(paramValues);
     }
-  }
+  };
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
@@ -100,13 +95,11 @@ export default function PromptParamsDialog({
                 <Input
                   id={param.name}
                   value={paramValues[param.name]}
-                  className={errors[param.name] ? 'border-red-500' : ''}
-                  onChange={(e) =>
-                    setParamValues((prev) => ({ ...prev, [param.name]: e.target.value }))
-                  }
+                  className={errors[param.name] ? "border-red-500" : ""}
+                  onChange={(e) => setParamValues((prev) => ({ ...prev, [param.name]: e.target.value }))}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleEnter(index)
-                    if (e.key === 'Escape') onClose()
+                    if (e.key === "Enter") handleEnter(index);
+                    if (e.key === "Escape") onClose();
                   }}
                 />
                 {errors[param.name] && <p className="text-xs text-red-500">{errors[param.name]}</p>}
@@ -124,5 +117,5 @@ export default function PromptParamsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

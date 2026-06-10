@@ -1,95 +1,88 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import fs from 'fs/promises'
-import os from 'os'
-import path from 'path'
-import { app } from 'electron'
-import { approximateTokenSize } from 'tokenx'
-import type {
-  InterleavedReasoningConfig,
-  IoParams,
-  StreamState
-} from '@/presenter/agentRuntimePresenter/types'
-import { createState } from '@/presenter/agentRuntimePresenter/types'
-import { estimateMessagesTokens } from '@/presenter/agentRuntimePresenter/contextBuilder'
-import type { MCPToolDefinition } from '@shared/presenter'
-import type { IToolPresenter } from '@shared/types/presenters/tool.presenter'
-import { ToolOutputGuard } from '@/presenter/agentRuntimePresenter/toolOutputGuard'
-import { QUESTION_TOOL_NAME } from '@/lib/agentRuntime/questionTool'
-import { DEEPCHAT_EVENT_CHANNEL } from '@shared/contracts/channels'
-import {
-  IMAGE_GENERATE_TOOL_NAME,
-  IMAGE_GENERATION_TOOL_SERVER_NAME
-} from '@shared/agentImageGenerationTool'
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
+import { app } from "electron";
+import { approximateTokenSize } from "tokenx";
+import type { InterleavedReasoningConfig, IoParams, StreamState } from "@/presenter/agentRuntimePresenter/types";
+import { createState } from "@/presenter/agentRuntimePresenter/types";
+import { estimateMessagesTokens } from "@/presenter/agentRuntimePresenter/contextBuilder";
+import type { MCPToolDefinition } from "@shared/presenter";
+import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
+import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
+import { QUESTION_TOOL_NAME } from "@/lib/agentRuntime/questionTool";
+import { DEEPCHAT_EVENT_CHANNEL } from "@shared/contracts/channels";
+import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
 
-vi.mock('@/eventbus', () => ({
+vi.mock("@/eventbus", () => ({
   eventBus: { sendToRenderer: vi.fn() },
-  SendTarget: { ALL_WINDOWS: 'all' }
-}))
+  SendTarget: { ALL_WINDOWS: "all" },
+}));
 
-vi.mock('@/events', () => ({
+vi.mock("@/events", () => ({
   STREAM_EVENTS: {
-    RESPONSE: 'stream:response',
-    END: 'stream:end',
-    ERROR: 'stream:error'
-  }
-}))
+    RESPONSE: "stream:response",
+    END: "stream:end",
+    ERROR: "stream:error",
+  },
+}));
 
-vi.mock('@/presenter', () => ({
+vi.mock("@/presenter", () => ({
   presenter: {
     commandPermissionService: {
-      extractCommandSignature: vi.fn().mockReturnValue('mock-signature'),
-      approve: vi.fn()
+      extractCommandSignature: vi.fn().mockReturnValue("mock-signature"),
+      approve: vi.fn(),
     },
     filePermissionService: { approve: vi.fn() },
     settingsPermissionService: { approve: vi.fn() },
     mcpPresenter: {
-      grantPermission: vi.fn().mockResolvedValue(undefined)
-    }
-  }
-}))
+      grantPermission: vi.fn().mockResolvedValue(undefined),
+    },
+  },
+}));
 
 import {
   executeTools as executeToolsInternal,
   finalize,
-  finalizeError
-} from '@/presenter/agentRuntimePresenter/dispatch'
-import type { EchoHandle } from '@/presenter/agentRuntimePresenter/echo'
-import { accumulate } from '@/presenter/agentRuntimePresenter/accumulator'
-import { eventBus } from '@/eventbus'
+  finalizeError,
+} from "@/presenter/agentRuntimePresenter/dispatch";
+import type { EchoHandle } from "@/presenter/agentRuntimePresenter/echo";
+import { accumulate } from "@/presenter/agentRuntimePresenter/accumulator";
+import { eventBus } from "@/eventbus";
 
 function createIo(overrides?: Partial<IoParams>): IoParams {
   return {
-    sessionId: 's1',
-    requestId: 'req-1',
-    messageId: 'm1',
+    sessionId: "s1",
+    requestId: "req-1",
+    messageId: "m1",
     messageStore: {
       addSearchResult: vi.fn(),
       updateAssistantContent: vi.fn(),
       finalizeAssistantMessage: vi.fn(),
-      setMessageError: vi.fn()
+      setMessageError: vi.fn(),
     } as any,
     abortSignal: new AbortController().signal,
-    ...overrides
-  }
+    ...overrides,
+  };
 }
 
 function makeTool(name: string): MCPToolDefinition {
   return {
-    type: 'function',
+    type: "function",
     function: {
       name,
       description: `Tool ${name}`,
-      parameters: { type: 'object', properties: {} }
+      parameters: { type: "object", properties: {} },
     },
-    server: { name: 'test-server', icons: 'icon', description: 'Test server' }
-  }
+    server: { name: "test-server", icons: "icon", description: "Test server" },
+  };
 }
 
 function makeAgentTool(name: string): MCPToolDefinition {
   return {
     ...makeTool(name),
-    source: 'agent'
-  }
+    source: "agent",
+  };
 }
 
 function makeAgentImageGenerationTool(): MCPToolDefinition {
@@ -97,29 +90,29 @@ function makeAgentImageGenerationTool(): MCPToolDefinition {
     ...makeAgentTool(IMAGE_GENERATE_TOOL_NAME),
     server: {
       name: IMAGE_GENERATION_TOOL_SERVER_NAME,
-      icons: 'icon',
-      description: 'Agent image generation tools'
-    }
-  }
+      icons: "icon",
+      description: "Agent image generation tools",
+    },
+  };
 }
 
 function createMockToolPresenter(responses: Record<string, string> = {}): IToolPresenter {
   return {
     getAllToolDefinitions: vi.fn().mockResolvedValue([]),
     callTool: vi.fn(async (request) => {
-      const name = request.function.name
-      const responseText = responses[name] ?? `result for ${name}`
+      const name = request.function.name;
+      const responseText = responses[name] ?? `result for ${name}`;
       return {
         content: responseText,
         rawData: {
           toolCallId: request.id,
           content: responseText,
-          isError: false
-        }
-      }
+          isError: false,
+        },
+      };
     }),
-    buildToolSystemPrompt: vi.fn().mockReturnValue('')
-  } as unknown as IToolPresenter
+    buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+  } as unknown as IToolPresenter;
 }
 
 const DEFAULT_INTERLEAVED_REASONING: InterleavedReasoningConfig = {
@@ -127,8 +120,8 @@ const DEFAULT_INTERLEAVED_REASONING: InterleavedReasoningConfig = {
   forcedBySessionSetting: false,
   portraitInterleaved: false,
   reasoningSupported: false,
-  providerDbSourceUrl: 'https://example.com/provider-db.json'
-}
+  providerDbSourceUrl: "https://example.com/provider-db.json",
+};
 
 async function executeTools(
   state: StreamState,
@@ -138,46 +131,46 @@ async function executeTools(
   toolPresenter: IToolPresenter,
   modelId: string,
   io: IoParams,
-  permissionMode: 'default' | 'full_access',
+  permissionMode: "default" | "full_access",
   toolOutputGuard: ToolOutputGuard,
   contextLength: number,
   maxTokens: number,
   hooks?: Parameters<typeof executeToolsInternal>[13],
   providerId?: string,
   interleavedReasoning: InterleavedReasoningConfig = DEFAULT_INTERLEAVED_REASONING,
-  rendererFlushHandle?: Pick<EchoHandle, 'flush' | 'schedule' | 'rescheduleRenderer'>
+  rendererFlushHandle?: Pick<EchoHandle, "flush" | "schedule" | "rescheduleRenderer">,
 ) {
   const flushHandle =
     rendererFlushHandle ??
     ({
       flush: vi.fn(() => {
-        eventBus.sendToRenderer('stream:response', 'all', {
+        eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
           messageId: io.messageId,
-          blocks: state.blocks
-        })
-        io.messageStore.updateAssistantContent(io.messageId, state.blocks)
+          blocks: state.blocks,
+        });
+        io.messageStore.updateAssistantContent(io.messageId, state.blocks);
       }),
       schedule: vi.fn(() => {
-        eventBus.sendToRenderer('stream:response', 'all', {
+        eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
           messageId: io.messageId,
-          blocks: state.blocks
-        })
-        io.messageStore.updateAssistantContent(io.messageId, state.blocks)
+          blocks: state.blocks,
+        });
+        io.messageStore.updateAssistantContent(io.messageId, state.blocks);
       }),
       rescheduleRenderer: vi.fn(() => {
-        eventBus.sendToRenderer('stream:response', 'all', {
+        eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
           messageId: io.messageId,
-          blocks: state.blocks
-        })
-        io.messageStore.updateAssistantContent(io.messageId, state.blocks)
-      })
-    } satisfies Pick<EchoHandle, 'flush' | 'schedule' | 'rescheduleRenderer'>)
+          blocks: state.blocks,
+        });
+        io.messageStore.updateAssistantContent(io.messageId, state.blocks);
+      }),
+    } satisfies Pick<EchoHandle, "flush" | "schedule" | "rescheduleRenderer">);
 
   return executeToolsInternal(
     state,
@@ -194,52 +187,52 @@ async function executeTools(
     maxTokens,
     flushHandle,
     hooks,
-    providerId
-  )
+    providerId,
+  );
 }
 
-describe('dispatch', () => {
-  let state: StreamState
-  let io: IoParams
-  let tempHome: string | null = null
-  let getPathSpy: ReturnType<typeof vi.spyOn> | null = null
+describe("dispatch", () => {
+  let state: StreamState;
+  let io: IoParams;
+  let tempHome: string | null = null;
+  let getPathSpy: ReturnType<typeof vi.spyOn> | null = null;
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    state = createState()
-    io = createIo()
-  })
+    vi.clearAllMocks();
+    state = createState();
+    io = createIo();
+  });
 
   afterEach(async () => {
-    getPathSpy?.mockRestore()
-    getPathSpy = null
+    getPathSpy?.mockRestore();
+    getPathSpy = null;
     if (tempHome) {
-      await fs.rm(tempHome, { recursive: true, force: true })
-      tempHome = null
+      await fs.rm(tempHome, { recursive: true, force: true });
+      tempHome = null;
     }
-  })
+  });
 
-  describe('executeTools', () => {
-    it('builds assistant message, calls tools, updates blocks', async () => {
-      const tools = [makeTool('get_weather')]
-      const toolPresenter = createMockToolPresenter({ get_weather: 'Sunny, 72F' })
-      const conversation = [{ role: 'user' as const, content: 'Hello' }]
+  describe("executeTools", () => {
+    it("builds assistant message, calls tools, updates blocks", async () => {
+      const tools = [makeTool("get_weather")];
+      const toolPresenter = createMockToolPresenter({ get_weather: "Sunny, 72F" });
+      const conversation = [{ role: "user" as const, content: "Hello" }];
 
       // Simulate accumulator having produced a tool_call block
       state.blocks.push({
-        type: 'content',
-        content: 'Checking weather...',
-        status: 'pending',
-        timestamp: Date.now()
-      })
-      state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "content",
+        content: "Checking weather...",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'get_weather', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'get_weather', arguments: '{}' }]
+      });
+      state.blocks.push({
+        type: "tool_call",
+        content: "",
+        status: "pending",
+        timestamp: Date.now(),
+        tool_call: { id: "tc1", name: "get_weather", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "get_weather", arguments: "{}" }];
 
       const executed = await executeTools(
         state,
@@ -247,83 +240,83 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
         undefined,
-        'openai'
-      )
+        "openai",
+      );
 
-      expect(executed.executed).toBe(1)
+      expect(executed.executed).toBe(1);
       expect(toolPresenter.callTool).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'tc1',
-          function: { name: 'get_weather', arguments: '{}' },
+          id: "tc1",
+          function: { name: "get_weather", arguments: "{}" },
           server: tools[0].server,
-          conversationId: 's1',
-          providerId: 'openai'
+          conversationId: "s1",
+          providerId: "openai",
         }),
         expect.objectContaining({
-          signal: expect.any(Object)
-        })
-      )
+          signal: expect.any(Object),
+        }),
+      );
 
       // Conversation should have assistant + tool messages
-      expect(conversation).toHaveLength(3)
-      expect(conversation[1].role).toBe('assistant')
-      expect(conversation[2].role).toBe('tool')
-      expect(conversation[2].content).toBe('Sunny, 72F')
+      expect(conversation).toHaveLength(3);
+      expect(conversation[1].role).toBe("assistant");
+      expect(conversation[2].role).toBe("tool");
+      expect(conversation[2].content).toBe("Sunny, 72F");
 
       // Block should be updated with response
-      const toolBlock = state.blocks.find((b) => b.type === 'tool_call')
-      expect(toolBlock!.tool_call!.response).toBe('Sunny, 72F')
-      expect(toolBlock!.status).toBe('success')
-    })
+      const toolBlock = state.blocks.find((b) => b.type === "tool_call");
+      expect(toolBlock!.tool_call!.response).toBe("Sunny, 72F");
+      expect(toolBlock!.status).toBe("success");
+    });
 
-    it('publishes plan update events without inserting plan blocks into messages', async () => {
-      const tools = [makeAgentTool('update_plan')]
+    it("publishes plan update events without inserting plan blocks into messages", async () => {
+      const tools = [makeAgentTool("update_plan")];
       const snapshot = {
-        sessionId: 's1',
-        toolCallId: 'tc-plan',
-        explanation: 'Repository inspected',
+        sessionId: "s1",
+        toolCallId: "tc-plan",
+        explanation: "Repository inspected",
         plan: [
-          { step: 'Inspect runtime', status: 'completed' as const },
-          { step: 'Render checklist', status: 'in_progress' as const }
+          { step: "Inspect runtime", status: "completed" as const },
+          { step: "Render checklist", status: "in_progress" as const },
         ],
         revision: 1,
-        updatedAt: '2026-05-18T00:00:00.000Z'
-      }
+        updatedAt: "2026-05-18T00:00:00.000Z",
+      };
       const toolPresenter = {
         ...createMockToolPresenter(),
         callTool: vi.fn(async (_request, options) => {
           options?.onProgress?.({
-            kind: 'agent_plan',
-            toolCallId: 'tc-plan',
-            snapshot
-          })
+            kind: "agent_plan",
+            toolCallId: "tc-plan",
+            snapshot,
+          });
           return {
-            content: '{}',
+            content: "{}",
             rawData: {
-              toolCallId: 'tc-plan',
-              content: '{}',
-              isError: false
-            }
-          }
-        })
-      } as unknown as IToolPresenter
-      const conversation = [{ role: 'user' as const, content: 'Plan this' }]
+              toolCallId: "tc-plan",
+              content: "{}",
+              isError: false,
+            },
+          };
+        }),
+      } as unknown as IToolPresenter;
+      const conversation = [{ role: "user" as const, content: "Plan this" }];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-plan', name: 'update_plan', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc-plan', name: 'update_plan', arguments: '{}' }]
+        tool_call: { id: "tc-plan", name: "update_plan", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc-plan", name: "update_plan", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -331,21 +324,21 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
         undefined,
-        'openai'
-      )
+        "openai",
+      );
 
-      const planBlock = state.blocks.find((block) => block.type === 'plan')
-      const toolBlock = state.blocks.find((block) => block.type === 'tool_call')
+      const planBlock = state.blocks.find((block) => block.type === "plan");
+      const toolBlock = state.blocks.find((block) => block.type === "tool_call");
 
-      expect(planBlock).toBeUndefined()
-      expect(toolBlock?.extra?.internalTool).toBe(true)
+      expect(planBlock).toBeUndefined();
+      expect(toolBlock?.extra?.internalTool).toBe(true);
 
       const planEventCall = vi
         .mocked(eventBus.sendToRenderer)
@@ -353,81 +346,81 @@ describe('dispatch', () => {
           ([channel, _target, envelope]) =>
             channel === DEEPCHAT_EVENT_CHANNEL &&
             envelope &&
-            typeof envelope === 'object' &&
-            (envelope as { name?: string }).name === 'chat.plan.updated'
-        )
+            typeof envelope === "object" &&
+            (envelope as { name?: string }).name === "chat.plan.updated",
+        );
       expect(planEventCall?.[2]).toMatchObject({
-        name: 'chat.plan.updated',
+        name: "chat.plan.updated",
         payload: {
-          sessionId: 's1',
-          messageId: 'm1',
-          toolCallId: 'tc-plan',
+          sessionId: "s1",
+          messageId: "m1",
+          toolCallId: "tc-plan",
           plan: snapshot.plan,
-          explanation: 'Repository inspected',
+          explanation: "Repository inspected",
           revision: 1,
-          updatedAt: snapshot.updatedAt
-        }
-      })
-    })
+          updatedAt: snapshot.updatedAt,
+        },
+      });
+    });
 
-    it('runs all-read-only Agent tool batches in parallel and preserves result order', async () => {
-      const tools = [makeAgentTool('read')]
-      const started: string[] = []
-      let releaseFirstRead: (() => void) | null = null
-      let firstReadStarted: (() => void) | null = null
+    it("runs all-read-only Agent tool batches in parallel and preserves result order", async () => {
+      const tools = [makeAgentTool("read")];
+      const started: string[] = [];
+      let releaseFirstRead: (() => void) | null = null;
+      let firstReadStarted: (() => void) | null = null;
       const firstReadStartedPromise = new Promise<void>((resolve) => {
-        firstReadStarted = resolve
-      })
+        firstReadStarted = resolve;
+      });
       const firstReadReleasePromise = new Promise<void>((resolve) => {
-        releaseFirstRead = resolve
-      })
+        releaseFirstRead = resolve;
+      });
       const toolPresenter = {
         ...createMockToolPresenter(),
         callTool: vi.fn(async (request) => {
-          started.push(request.id)
-          if (request.id === 'tc-read-a') {
-            firstReadStarted?.()
-            await firstReadReleasePromise
+          started.push(request.id);
+          if (request.id === "tc-read-a") {
+            firstReadStarted?.();
+            await firstReadReleasePromise;
             return {
-              content: 'read result a',
+              content: "read result a",
               rawData: {
                 toolCallId: request.id,
-                content: 'read result a',
-                isError: false
-              }
-            }
+                content: "read result a",
+                isError: false,
+              },
+            };
           }
 
           return {
-            content: 'read result b',
+            content: "read result b",
             rawData: {
               toolCallId: request.id,
-              content: 'read result b',
-              isError: false
-            }
-          }
-        })
-      } as unknown as IToolPresenter
-      const conversation = [{ role: 'user' as const, content: 'Hello' }]
+              content: "read result b",
+              isError: false,
+            },
+          };
+        }),
+      } as unknown as IToolPresenter;
+      const conversation = [{ role: "user" as const, content: "Hello" }];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-read-a', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc-read-a", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-read-b', name: 'read', params: '{"path":"b.txt"}', response: '' }
-      })
+        tool_call: { id: "tc-read-b", name: "read", params: '{"path":"b.txt"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc-read-a', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc-read-b', name: 'read', arguments: '{"path":"b.txt"}' }
-      ]
+        { id: "tc-read-a", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc-read-b", name: "read", arguments: '{"path":"b.txt"}' },
+      ];
 
       const execution = executeTools(
         state,
@@ -435,65 +428,65 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
-      await firstReadStartedPromise
-      await Promise.resolve()
-      const secondReadStartedBeforeFirstResolved = started.includes('tc-read-b')
-      releaseFirstRead?.()
-      const executed = await execution
+        1024,
+      );
+      await firstReadStartedPromise;
+      await Promise.resolve();
+      const secondReadStartedBeforeFirstResolved = started.includes("tc-read-b");
+      releaseFirstRead?.();
+      const executed = await execution;
 
-      expect(secondReadStartedBeforeFirstResolved).toBe(true)
-      expect(executed.executed).toBe(2)
+      expect(secondReadStartedBeforeFirstResolved).toBe(true);
+      expect(executed.executed).toBe(2);
       expect(conversation.slice(-2)).toEqual([
-        { role: 'tool', tool_call_id: 'tc-read-a', content: 'read result a' },
-        { role: 'tool', tool_call_id: 'tc-read-b', content: 'read result b' }
-      ])
-    })
+        { role: "tool", tool_call_id: "tc-read-a", content: "read result a" },
+        { role: "tool", tool_call_id: "tc-read-b", content: "read result b" },
+      ]);
+    });
 
-    it('isolates parallel pre-check failures to the affected tool call', async () => {
-      const tools = [makeAgentTool('read')]
+    it("isolates parallel pre-check failures to the affected tool call", async () => {
+      const tools = [makeAgentTool("read")];
       const toolPresenter = {
         ...createMockToolPresenter(),
         preCheckToolPermission: vi.fn(async (request) => {
-          if (request.id === 'tc-read-a') {
-            throw new Error('pre-check failed')
+          if (request.id === "tc-read-a") {
+            throw new Error("pre-check failed");
           }
-          return null
+          return null;
         }),
         callTool: vi.fn(async (request) => ({
           content: `result for ${request.id}`,
           rawData: {
             toolCallId: request.id,
             content: `result for ${request.id}`,
-            isError: false
-          }
-        }))
-      } as unknown as IToolPresenter
+            isError: false,
+          },
+        })),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-read-a', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc-read-a", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-read-b', name: 'read', params: '{"path":"b.txt"}', response: '' }
-      })
+        tool_call: { id: "tc-read-b", name: "read", params: '{"path":"b.txt"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc-read-a', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc-read-b', name: 'read', arguments: '{"path":"b.txt"}' }
-      ]
+        { id: "tc-read-a", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc-read-b", name: "read", arguments: '{"path":"b.txt"}' },
+      ];
 
       const executed = await executeTools(
         state,
@@ -501,45 +494,45 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(executed.executed).toBe(2)
-      expect(toolPresenter.callTool).toHaveBeenCalledTimes(1)
+      expect(executed.executed).toBe(2);
+      expect(toolPresenter.callTool).toHaveBeenCalledTimes(1);
       expect(toolPresenter.callTool).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'tc-read-b' }),
-        expect.any(Object)
-      )
-      expect(state.blocks[0].tool_call?.response).toBe('Error: pre-check failed')
-      expect(state.blocks[0].status).toBe('error')
-      expect(state.blocks[1].tool_call?.response).toBe('result for tc-read-b')
-      expect(state.blocks[1].status).toBe('success')
-    })
+        expect.objectContaining({ id: "tc-read-b" }),
+        expect.any(Object),
+      );
+      expect(state.blocks[0].tool_call?.response).toBe("Error: pre-check failed");
+      expect(state.blocks[0].status).toBe("error");
+      expect(state.blocks[1].tool_call?.response).toBe("result for tc-read-b");
+      expect(state.blocks[1].status).toBe("success");
+    });
 
-    it('keeps mixed read/write Agent tool batches serialized', async () => {
-      const tools = [makeAgentTool('write'), makeAgentTool('read')]
-      const started: string[] = []
-      let releaseWrite: (() => void) | null = null
-      let writeStarted: (() => void) | null = null
+    it("keeps mixed read/write Agent tool batches serialized", async () => {
+      const tools = [makeAgentTool("write"), makeAgentTool("read")];
+      const started: string[] = [];
+      let releaseWrite: (() => void) | null = null;
+      let writeStarted: (() => void) | null = null;
       const writeStartedPromise = new Promise<void>((resolve) => {
-        writeStarted = resolve
-      })
+        writeStarted = resolve;
+      });
       const writeReleasePromise = new Promise<void>((resolve) => {
-        releaseWrite = resolve
-      })
+        releaseWrite = resolve;
+      });
       const toolPresenter = {
         ...createMockToolPresenter(),
         callTool: vi.fn(async (request) => {
-          const name = request.function.name
-          started.push(name)
-          if (name === 'write') {
-            writeStarted?.()
-            await writeReleasePromise
+          const name = request.function.name;
+          started.push(name);
+          if (name === "write") {
+            writeStarted?.();
+            await writeReleasePromise;
           }
 
           return {
@@ -547,30 +540,30 @@ describe('dispatch', () => {
             rawData: {
               toolCallId: request.id,
               content: `${name} result`,
-              isError: false
-            }
-          }
-        })
-      } as unknown as IToolPresenter
+              isError: false,
+            },
+          };
+        }),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-write', name: 'write', params: '{}', response: '' }
-      })
+        tool_call: { id: "tc-write", name: "write", params: "{}", response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc-read', name: 'read', params: '{}', response: '' }
-      })
+        tool_call: { id: "tc-read", name: "read", params: "{}", response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc-write', name: 'write', arguments: '{}' },
-        { id: 'tc-read', name: 'read', arguments: '{}' }
-      ]
+        { id: "tc-write", name: "write", arguments: "{}" },
+        { id: "tc-read", name: "read", arguments: "{}" },
+      ];
 
       const execution = executeTools(
         state,
@@ -578,57 +571,57 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
-      await writeStartedPromise
-      await Promise.resolve()
-      const readStartedBeforeWriteResolved = started.includes('read')
-      releaseWrite?.()
-      await execution
+        1024,
+      );
+      await writeStartedPromise;
+      await Promise.resolve();
+      const readStartedBeforeWriteResolved = started.includes("read");
+      releaseWrite?.();
+      await execution;
 
-      expect(readStartedBeforeWriteResolved).toBe(false)
-      expect(started).toEqual(['write', 'read'])
-    })
+      expect(readStartedBeforeWriteResolved).toBe(false);
+      expect(started).toEqual(["write", "read"]);
+    });
 
-    it('persists final-only subagent tool payloads', async () => {
-      const tools = [makeTool('subagent_orchestrator')]
-      const toolPresenter = createMockToolPresenter()
+    it("persists final-only subagent tool payloads", async () => {
+      const tools = [makeTool("subagent_orchestrator")];
+      const toolPresenter = createMockToolPresenter();
       const subagentFinal = JSON.stringify({
-        runId: 'run-1',
-        mode: 'parallel',
+        runId: "run-1",
+        mode: "parallel",
         tasks: [
           {
-            slotId: 'worker-1',
-            displayName: 'Worker 1',
-            title: 'Inspect repo',
-            status: 'completed'
-          }
-        ]
-      })
+            slotId: "worker-1",
+            displayName: "Worker 1",
+            title: "Inspect repo",
+            status: "completed",
+          },
+        ],
+      });
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        content: [{ type: 'text', text: 'Final summary' }],
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        content: [{ type: "text", text: "Final summary" }],
         rawData: {
-          toolCallId: 'tc1',
-          content: [{ type: 'text', text: 'Final summary' }],
+          toolCallId: "tc1",
+          content: [{ type: "text", text: "Final summary" }],
           isError: false,
-          toolResult: { subagentFinal }
-        }
-      })
+          toolResult: { subagentFinal },
+        },
+      });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'subagent_orchestrator', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'subagent_orchestrator', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "subagent_orchestrator", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "subagent_orchestrator", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -636,77 +629,75 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const toolBlock = state.blocks.find(
-        (block) => block.type === 'tool_call' && block.tool_call?.id === 'tc1'
-      )
-      expect(toolBlock?.tool_call?.response).toBe('Final summary')
-      expect(toolBlock?.status).toBe('success')
-      expect(toolBlock?.extra?.subagentFinal).toBe(subagentFinal)
+      const toolBlock = state.blocks.find((block) => block.type === "tool_call" && block.tool_call?.id === "tc1");
+      expect(toolBlock?.tool_call?.response).toBe("Final summary");
+      expect(toolBlock?.status).toBe("success");
+      expect(toolBlock?.extra?.subagentFinal).toBe(subagentFinal);
 
-      const persistedBlocks = (
-        io.messageStore.updateAssistantContent as ReturnType<typeof vi.fn>
-      ).mock.calls.at(-1)?.[1] as StreamState['blocks'] | undefined
+      const persistedBlocks = (io.messageStore.updateAssistantContent as ReturnType<typeof vi.fn>).mock.calls.at(
+        -1,
+      )?.[1] as StreamState["blocks"] | undefined;
       const persistedToolBlock = persistedBlocks?.find(
-        (block) => block.type === 'tool_call' && block.tool_call?.id === 'tc1'
-      )
-      expect(persistedToolBlock?.extra?.subagentFinal).toBe(subagentFinal)
-    })
+        (block) => block.type === "tool_call" && block.tool_call?.id === "tc1",
+      );
+      expect(persistedToolBlock?.extra?.subagentFinal).toBe(subagentFinal);
+    });
 
-    it('finalizes trailing narrative blocks before plain tool results run', async () => {
-      const tools = [makeTool('get_weather')]
-      const toolPresenter = createMockToolPresenter()
-      const conversation = [{ role: 'user' as const, content: 'Hello' }]
-      const trailingText = 'Working on it.'
+    it("finalizes trailing narrative blocks before plain tool results run", async () => {
+      const tools = [makeTool("get_weather")];
+      const toolPresenter = createMockToolPresenter();
+      const conversation = [{ role: "user" as const, content: "Hello" }];
+      const trailingText = "Working on it.";
 
       accumulate(state, {
-        type: 'tool_call_start',
-        tool_call_id: 'tc1',
-        tool_call_name: 'get_weather'
-      })
+        type: "tool_call_start",
+        tool_call_id: "tc1",
+        tool_call_name: "get_weather",
+      });
       accumulate(state, {
-        type: 'tool_call_end',
-        tool_call_id: 'tc1',
-        tool_call_arguments_complete: '{}'
-      })
+        type: "tool_call_end",
+        tool_call_id: "tc1",
+        tool_call_arguments_complete: "{}",
+      });
       accumulate(state, {
-        type: 'text',
-        content: trailingText
-      })
+        type: "text",
+        content: trailingText,
+      });
 
-      const trailingBlockBeforeExecution = state.blocks.at(-1)
-      expect(trailingBlockBeforeExecution?.type).toBe('content')
-      expect(trailingBlockBeforeExecution?.status).toBe('pending')
+      const trailingBlockBeforeExecution = state.blocks.at(-1);
+      expect(trailingBlockBeforeExecution?.type).toBe("content");
+      expect(trailingBlockBeforeExecution?.status).toBe("pending");
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        const persistedBlocks = (
-          io.messageStore.updateAssistantContent as ReturnType<typeof vi.fn>
-        ).mock.calls.at(-1)?.[1] as StreamState['blocks'] | undefined
-        const trailingBlockDuringExecution = state.blocks.at(-1)
-        expect(io.messageStore.updateAssistantContent).toHaveBeenCalled()
-        expect(persistedBlocks?.at(-1)?.type).toBe('content')
-        expect(persistedBlocks?.at(-1)?.content).toBe(trailingText)
-        expect(persistedBlocks?.at(-1)?.status).toBe('success')
-        expect(trailingBlockDuringExecution?.type).toBe('content')
-        expect(trailingBlockDuringExecution?.content).toBe(trailingText)
-        expect(trailingBlockDuringExecution?.status).toBe('success')
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        const persistedBlocks = (io.messageStore.updateAssistantContent as ReturnType<typeof vi.fn>).mock.calls.at(
+          -1,
+        )?.[1] as StreamState["blocks"] | undefined;
+        const trailingBlockDuringExecution = state.blocks.at(-1);
+        expect(io.messageStore.updateAssistantContent).toHaveBeenCalled();
+        expect(persistedBlocks?.at(-1)?.type).toBe("content");
+        expect(persistedBlocks?.at(-1)?.content).toBe(trailingText);
+        expect(persistedBlocks?.at(-1)?.status).toBe("success");
+        expect(trailingBlockDuringExecution?.type).toBe("content");
+        expect(trailingBlockDuringExecution?.content).toBe(trailingText);
+        expect(trailingBlockDuringExecution?.status).toBe("success");
 
         return {
-          content: 'Sunny, 72F',
+          content: "Sunny, 72F",
           rawData: {
-            toolCallId: 'tc1',
-            content: 'Sunny, 72F',
-            isError: false
-          }
-        }
-      })
+            toolCallId: "tc1",
+            content: "Sunny, 72F",
+            isError: false,
+          },
+        };
+      });
 
       await executeTools(
         state,
@@ -714,65 +705,59 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const trailingBlockAfterExecution = state.blocks
-        .filter((block) => block.type === 'content')
-        .at(-1)
-      expect(trailingBlockAfterExecution?.content).toBe(trailingText)
-      expect(trailingBlockAfterExecution?.status).toBe('success')
-    })
+      const trailingBlockAfterExecution = state.blocks.filter((block) => block.type === "content").at(-1);
+      expect(trailingBlockAfterExecution?.content).toBe(trailingText);
+      expect(trailingBlockAfterExecution?.status).toBe("success");
+    });
 
-    it('pauses with a skill draft confirmation question after successful draft creation', async () => {
-      const tools = [makeTool('skill_manage')]
+    it("pauses with a skill draft confirmation question after successful draft creation", async () => {
+      const tools = [makeTool("skill_manage")];
       const toolPresenter = {
         ...createMockToolPresenter(),
         callTool: vi.fn().mockResolvedValue({
-          content:
-            '{"success":true,"action":"create","draftId":"draft-1","skillName":"draft-skill"}',
+          content: '{"success":true,"action":"create","draftId":"draft-1","skillName":"draft-skill"}',
           rawData: {
-            toolCallId: 'tc1',
-            content:
-              '{"success":true,"action":"create","draftId":"draft-1","skillName":"draft-skill"}',
+            toolCallId: "tc1",
+            content: '{"success":true,"action":"create","draftId":"draft-1","skillName":"draft-skill"}',
             isError: false,
             toolResult: {
-              toolName: 'skill_manage',
+              toolName: "skill_manage",
               success: true,
-              action: 'create',
-              draftId: 'draft-1',
-              skillName: 'draft-skill',
+              action: "create",
+              draftId: "draft-1",
+              skillName: "draft-skill",
               skillDraft: {
-                status: 'created',
-                draftId: 'draft-1',
-                skillName: 'draft-skill'
-              }
-            }
-          }
-        })
-      } as unknown as IToolPresenter
-      const conversation: any[] = []
+                status: "created",
+                draftId: "draft-1",
+                skillName: "draft-skill",
+              },
+            },
+          },
+        }),
+      } as unknown as IToolPresenter;
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'skill_manage',
+          id: "tc1",
+          name: "skill_manage",
           params: '{"action":"create"}',
-          response: ''
-        }
-      })
-      state.completedToolCalls = [
-        { id: 'tc1', name: 'skill_manage', arguments: '{"action":"create"}' }
-      ]
+          response: "",
+        },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "skill_manage", arguments: '{"action":"create"}' }];
 
       const result = await executeTools(
         state,
@@ -780,82 +765,80 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(result.pendingInteractions).toHaveLength(1)
+      expect(result.pendingInteractions).toHaveLength(1);
       expect(result.pendingInteractions[0]).toEqual(
         expect.objectContaining({
-          type: 'question',
-          messageId: 'm1',
-          toolCallId: 'tc1',
-          toolName: 'skill_manage'
-        })
-      )
-      expect(state.blocks[0].status).toBe('success')
+          type: "question",
+          messageId: "m1",
+          toolCallId: "tc1",
+          toolName: "skill_manage",
+        }),
+      );
+      expect(state.blocks[0].status).toBe("success");
       expect(state.blocks[1]).toEqual(
         expect.objectContaining({
-          type: 'action',
-          action_type: 'question_request',
-          status: 'pending',
-          tool_call: expect.objectContaining({ id: 'tc1', name: 'skill_manage' }),
+          type: "action",
+          action_type: "question_request",
+          status: "pending",
+          tool_call: expect.objectContaining({ id: "tc1", name: "skill_manage" }),
           extra: expect.objectContaining({
             needsUserAction: true,
-            questionHeader: 'chat.skillDraft.confirmationTitle',
-            questionText: 'chat.skillDraft.confirmationQuestion',
+            questionHeader: "chat.skillDraft.confirmationTitle",
+            questionText: "chat.skillDraft.confirmationQuestion",
             questionCustom: false,
-            skillDraftAction: 'confirm',
-            skillDraftId: 'draft-1',
-            skillDraftName: 'draft-skill',
-            skillDraftStatus: 'pending'
-          })
-        })
-      )
-      expect(
-        (state.blocks[1].extra?.questionOptions as any[]).map((option) => option.label)
-      ).toEqual([
-        'chat.skillDraft.actions.view',
-        'chat.skillDraft.actions.install',
-        'chat.skillDraft.actions.discard'
-      ])
-    })
+            skillDraftAction: "confirm",
+            skillDraftId: "draft-1",
+            skillDraftName: "draft-skill",
+            skillDraftStatus: "pending",
+          }),
+        }),
+      );
+      expect((state.blocks[1].extra?.questionOptions as any[]).map((option) => option.label)).toEqual([
+        "chat.skillDraft.actions.view",
+        "chat.skillDraft.actions.install",
+        "chat.skillDraft.actions.discard",
+      ]);
+    });
 
-    it('does not emit PreToolUse for question interactions that pause execution', async () => {
+    it("does not emit PreToolUse for question interactions that pause execution", async () => {
       const hooks = {
         onPreToolUse: vi.fn(),
         onPermissionRequest: vi.fn(),
         onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn()
-      }
-      const toolPresenter = createMockToolPresenter()
+        onPostToolUseFailure: vi.fn(),
+      };
+      const toolPresenter = createMockToolPresenter();
       const rendererFlushHandle = {
         flush: vi.fn(),
         schedule: vi.fn(),
-        rescheduleRenderer: vi.fn()
-      }
+        rescheduleRenderer: vi.fn(),
+      };
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: QUESTION_TOOL_NAME, params: '', response: '' }
-      })
+        tool_call: { id: "tc1", name: QUESTION_TOOL_NAME, params: "", response: "" },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc1',
+          id: "tc1",
           name: QUESTION_TOOL_NAME,
           arguments: JSON.stringify({
-            question: 'Continue?',
-            options: [{ label: 'Yes' }]
-          })
-        }
-      ]
+            question: "Continue?",
+            options: [{ label: "Yes" }],
+          }),
+        },
+      ];
 
       const result = await executeTools(
         state,
@@ -863,99 +846,99 @@ describe('dispatch', () => {
         0,
         [makeTool(QUESTION_TOOL_NAME)],
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
         hooks,
         undefined,
         DEFAULT_INTERLEAVED_REASONING,
-        rendererFlushHandle
-      )
+        rendererFlushHandle,
+      );
 
-      expect(result.pendingInteractions).toHaveLength(1)
-      expect(hooks.onPreToolUse).not.toHaveBeenCalled()
-      expect(toolPresenter.callTool).not.toHaveBeenCalled()
-      expect(rendererFlushHandle.rescheduleRenderer).toHaveBeenCalledTimes(1)
-      expect(rendererFlushHandle.schedule).toHaveBeenCalled()
+      expect(result.pendingInteractions).toHaveLength(1);
+      expect(hooks.onPreToolUse).not.toHaveBeenCalled();
+      expect(toolPresenter.callTool).not.toHaveBeenCalled();
+      expect(rendererFlushHandle.rescheduleRenderer).toHaveBeenCalledTimes(1);
+      expect(rendererFlushHandle.schedule).toHaveBeenCalled();
       expect(rendererFlushHandle.rescheduleRenderer.mock.invocationCallOrder[0]).toBeLessThan(
-        rendererFlushHandle.schedule.mock.invocationCallOrder.at(-1)!
-      )
-    })
+        rendererFlushHandle.schedule.mock.invocationCallOrder.at(-1)!,
+      );
+    });
 
-    it('does not emit PreToolUse before a pre-checked permission pause', async () => {
+    it("does not emit PreToolUse before a pre-checked permission pause", async () => {
       const hooks = {
         onPreToolUse: vi.fn(),
         onPermissionRequest: vi.fn(),
         onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn()
-      }
+        onPostToolUseFailure: vi.fn(),
+      };
       const toolPresenter = createMockToolPresenter() as IToolPresenter & {
-        preCheckToolPermission: ReturnType<typeof vi.fn>
-      }
+        preCheckToolPermission: ReturnType<typeof vi.fn>;
+      };
       const rendererFlushHandle = {
         flush: vi.fn(),
         schedule: vi.fn(),
-        rescheduleRenderer: vi.fn()
-      }
+        rescheduleRenderer: vi.fn(),
+      };
       toolPresenter.preCheckToolPermission = vi.fn().mockResolvedValue({
         needsPermission: true,
-        permissionType: 'write',
-        description: 'Need permission'
-      })
+        permissionType: "write",
+        description: "Need permission",
+      });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'write_file', params: '{"path":"a.txt"}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'write_file', arguments: '{"path":"a.txt"}' }]
+        tool_call: { id: "tc1", name: "write_file", params: '{"path":"a.txt"}', response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "write_file", arguments: '{"path":"a.txt"}' }];
 
       const result = await executeTools(
         state,
         [],
         0,
-        [makeTool('write_file')],
+        [makeTool("write_file")],
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'default',
+        "default",
         new ToolOutputGuard(),
         32000,
         1024,
         hooks,
         undefined,
         DEFAULT_INTERLEAVED_REASONING,
-        rendererFlushHandle
-      )
+        rendererFlushHandle,
+      );
 
-      expect(result.pendingInteractions).toHaveLength(1)
-      expect(hooks.onPreToolUse).not.toHaveBeenCalled()
-      expect(hooks.onPermissionRequest).toHaveBeenCalledTimes(1)
-      expect(toolPresenter.callTool).not.toHaveBeenCalled()
-      expect(rendererFlushHandle.rescheduleRenderer).toHaveBeenCalledTimes(1)
-      expect(rendererFlushHandle.schedule).toHaveBeenCalled()
+      expect(result.pendingInteractions).toHaveLength(1);
+      expect(hooks.onPreToolUse).not.toHaveBeenCalled();
+      expect(hooks.onPermissionRequest).toHaveBeenCalledTimes(1);
+      expect(toolPresenter.callTool).not.toHaveBeenCalled();
+      expect(rendererFlushHandle.rescheduleRenderer).toHaveBeenCalledTimes(1);
+      expect(rendererFlushHandle.schedule).toHaveBeenCalled();
       expect(rendererFlushHandle.rescheduleRenderer.mock.invocationCallOrder[0]).toBeLessThan(
-        rendererFlushHandle.schedule.mock.invocationCallOrder.at(-1)!
-      )
-    })
+        rendererFlushHandle.schedule.mock.invocationCallOrder.at(-1)!,
+      );
+    });
 
-    it('enriches tool_call blocks with server info', async () => {
-      const tools = [makeTool('get_weather')]
-      const toolPresenter = createMockToolPresenter({ get_weather: 'Sunny' })
+    it("enriches tool_call blocks with server info", async () => {
+      const tools = [makeTool("get_weather")];
+      const toolPresenter = createMockToolPresenter({ get_weather: "Sunny" });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'get_weather', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'get_weather', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "get_weather", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "get_weather", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -963,53 +946,51 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(state.blocks[0].tool_call!.server_name).toBe('test-server')
-      expect(state.blocks[0].tool_call!.server_icons).toBe('icon')
-      expect(state.blocks[0].tool_call!.server_description).toBe('Test server')
-    })
+      expect(state.blocks[0].tool_call!.server_name).toBe("test-server");
+      expect(state.blocks[0].tool_call!.server_icons).toBe("icon");
+      expect(state.blocks[0].tool_call!.server_description).toBe("Test server");
+    });
 
-    it('flags toolsChanged when skill_view activates a skill via main SKILL.md', async () => {
-      const tools = [makeTool('skill_view')]
+    it("flags toolsChanged when skill_view activates a skill via main SKILL.md", async () => {
+      const tools = [makeTool("skill_view")];
       const toolPresenter = {
         ...createMockToolPresenter(),
         callTool: vi.fn().mockResolvedValue({
           content: '{"success":true,"name":"deepchat-settings","isPinned":true}',
           rawData: {
-            toolCallId: 'tc1',
+            toolCallId: "tc1",
             content: '{"success":true,"name":"deepchat-settings","isPinned":true}',
             isError: false,
             toolResult: {
               activationApplied: true,
-              activationSource: 'skill_md',
-              activatedSkill: 'deepchat-settings'
-            }
-          }
-        })
-      } as unknown as IToolPresenter
+              activationSource: "skill_md",
+              activatedSkill: "deepchat-settings",
+            },
+          },
+        }),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'skill_view',
+          id: "tc1",
+          name: "skill_view",
           params: '{"name":"deepchat-settings"}',
-          response: ''
-        }
-      })
-      state.completedToolCalls = [
-        { id: 'tc1', name: 'skill_view', arguments: '{"name":"deepchat-settings"}' }
-      ]
+          response: "",
+        },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "skill_view", arguments: '{"name":"deepchat-settings"}' }];
 
       const result = await executeTools(
         state,
@@ -1017,36 +998,36 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(result.toolsChanged).toBe(true)
-    })
+      expect(result.toolsChanged).toBe(true);
+    });
 
-    it('includes reasoning_content when interleaved compatibility is enabled', async () => {
-      const tools = [makeTool('search')]
-      const toolPresenter = createMockToolPresenter({ search: 'result' })
-      const conversation: any[] = []
+    it("includes reasoning_content when interleaved compatibility is enabled", async () => {
+      const tools = [makeTool("search")];
+      const toolPresenter = createMockToolPresenter({ search: "result" });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'reasoning_content',
-        content: 'Let me think...',
-        status: 'pending',
-        timestamp: Date.now()
-      })
-      state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "reasoning_content",
+        content: "Let me think...",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'search', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'search', arguments: '{}' }]
+      });
+      state.blocks.push({
+        type: "tool_call",
+        content: "",
+        status: "pending",
+        timestamp: Date.now(),
+        tool_call: { id: "tc1", name: "search", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "search", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1054,9 +1035,9 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
@@ -1065,27 +1046,27 @@ describe('dispatch', () => {
         {
           ...DEFAULT_INTERLEAVED_REASONING,
           preserveReasoningContent: true,
-          portraitInterleaved: true
-        }
-      )
+          portraitInterleaved: true,
+        },
+      );
 
-      const assistantMsg = conversation.find((m: any) => m.role === 'assistant')
-      expect(assistantMsg.reasoning_content).toBe('Let me think...')
-    })
+      const assistantMsg = conversation.find((m: any) => m.role === "assistant");
+      expect(assistantMsg.reasoning_content).toBe("Let me think...");
+    });
 
-    it('adds empty reasoning_content for DeepSeek tool-only assistant messages when enabled', async () => {
-      const tools = [makeTool('search')]
-      const toolPresenter = createMockToolPresenter({ search: 'result' })
-      const conversation: any[] = []
+    it("adds empty reasoning_content for DeepSeek tool-only assistant messages when enabled", async () => {
+      const tools = [makeTool("search")];
+      const toolPresenter = createMockToolPresenter({ search: "result" });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'search', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'search', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "search", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "search", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1093,9 +1074,9 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'deepseek-v4',
+        "deepseek-v4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
@@ -1105,28 +1086,28 @@ describe('dispatch', () => {
           ...DEFAULT_INTERLEAVED_REASONING,
           preserveReasoningContent: true,
           preserveEmptyReasoningContent: true,
-          portraitInterleaved: true
-        }
-      )
+          portraitInterleaved: true,
+        },
+      );
 
-      const assistantMsg = conversation.find((m: any) => m.role === 'assistant')
-      expect(assistantMsg.reasoning_content).toBe('')
-      expect(assistantMsg.tool_calls).toHaveLength(1)
-    })
+      const assistantMsg = conversation.find((m: any) => m.role === "assistant");
+      expect(assistantMsg.reasoning_content).toBe("");
+      expect(assistantMsg.tool_calls).toHaveLength(1);
+    });
 
-    it('does not add empty reasoning_content for non-DeepSeek tool-only assistant messages', async () => {
-      const tools = [makeTool('search')]
-      const toolPresenter = createMockToolPresenter({ search: 'result' })
-      const conversation: any[] = []
+    it("does not add empty reasoning_content for non-DeepSeek tool-only assistant messages", async () => {
+      const tools = [makeTool("search")];
+      const toolPresenter = createMockToolPresenter({ search: "result" });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'search', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'search', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "search", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "search", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1134,9 +1115,9 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
@@ -1146,51 +1127,51 @@ describe('dispatch', () => {
           ...DEFAULT_INTERLEAVED_REASONING,
           preserveReasoningContent: true,
           preserveEmptyReasoningContent: false,
-          portraitInterleaved: true
-        }
-      )
+          portraitInterleaved: true,
+        },
+      );
 
-      const assistantMsg = conversation.find((m: any) => m.role === 'assistant')
-      expect(assistantMsg.reasoning_content).toBeUndefined()
-      expect(assistantMsg.tool_calls).toHaveLength(1)
-    })
+      const assistantMsg = conversation.find((m: any) => m.role === "assistant");
+      expect(assistantMsg.reasoning_content).toBeUndefined();
+      expect(assistantMsg.tool_calls).toHaveLength(1);
+    });
 
-    it('preserves tool call provider options in the follow-up assistant message', async () => {
-      const tools = [makeTool('exec')]
-      const toolPresenter = createMockToolPresenter({ exec: 'done' })
-      const conversation: any[] = []
+    it("preserves tool call provider options in the follow-up assistant message", async () => {
+      const tools = [makeTool("exec")];
+      const toolPresenter = createMockToolPresenter({ exec: "done" });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'exec',
+          id: "tc1",
+          name: "exec",
           params: '{"command":"tree"}',
-          response: ''
+          response: "",
         },
         extra: {
           providerOptionsJson: JSON.stringify({
             vertex: {
-              thoughtSignature: 'tool-thought-signature'
-            }
-          })
-        }
-      })
+              thoughtSignature: "tool-thought-signature",
+            },
+          }),
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc1',
-          name: 'exec',
+          id: "tc1",
+          name: "exec",
           arguments: '{"command":"tree"}',
           providerOptions: {
             vertex: {
-              thoughtSignature: 'tool-thought-signature'
-            }
-          }
-        }
-      ]
+              thoughtSignature: "tool-thought-signature",
+            },
+          },
+        },
+      ];
 
       await executeTools(
         state,
@@ -1198,48 +1179,48 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gemini-3.1-flash-lite-preview',
+        "gemini-3.1-flash-lite-preview",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const assistantMsg = conversation.find((message: any) => message.role === 'assistant')
+      const assistantMsg = conversation.find((message: any) => message.role === "assistant");
       expect(assistantMsg.tool_calls).toEqual([
         {
-          id: 'tc1',
-          type: 'function',
-          function: { name: 'exec', arguments: '{"command":"tree"}' },
+          id: "tc1",
+          type: "function",
+          function: { name: "exec", arguments: '{"command":"tree"}' },
           provider_options: {
             vertex: {
-              thoughtSignature: 'tool-thought-signature'
-            }
-          }
-        }
-      ])
-    })
+              thoughtSignature: "tool-thought-signature",
+            },
+          },
+        },
+      ]);
+    });
 
-    it('does not include reasoning_content when compatibility is disabled', async () => {
-      const tools = [makeTool('search')]
-      const toolPresenter = createMockToolPresenter({ search: 'result' })
-      const conversation: any[] = []
+    it("does not include reasoning_content when compatibility is disabled", async () => {
+      const tools = [makeTool("search")];
+      const toolPresenter = createMockToolPresenter({ search: "result" });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'reasoning_content',
-        content: 'Thinking...',
-        status: 'pending',
-        timestamp: Date.now()
-      })
-      state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "reasoning_content",
+        content: "Thinking...",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'search', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'search', arguments: '{}' }]
+      });
+      state.blocks.push({
+        type: "tool_call",
+        content: "",
+        status: "pending",
+        timestamp: Date.now(),
+        tool_call: { id: "tc1", name: "search", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "search", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1247,40 +1228,40 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const assistantMsg = conversation.find((m: any) => m.role === 'assistant')
-      expect(assistantMsg.reasoning_content).toBeUndefined()
-    })
+      const assistantMsg = conversation.find((m: any) => m.role === "assistant");
+      expect(assistantMsg.reasoning_content).toBeUndefined();
+    });
 
-    it('reports an interleaved reasoning gap when reasoning exists but compatibility is unavailable', async () => {
-      const tools = [makeTool('search')]
-      const toolPresenter = createMockToolPresenter({ search: 'result' })
-      const conversation: any[] = []
+    it("reports an interleaved reasoning gap when reasoning exists but compatibility is unavailable", async () => {
+      const tools = [makeTool("search")];
+      const toolPresenter = createMockToolPresenter({ search: "result" });
+      const conversation: any[] = [];
       const hooks = {
-        onInterleavedReasoningGap: vi.fn()
-      }
+        onInterleavedReasoningGap: vi.fn(),
+      };
 
       state.blocks.push({
-        type: 'reasoning_content',
-        content: 'Thinking...',
-        status: 'pending',
-        timestamp: Date.now()
-      })
-      state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "reasoning_content",
+        content: "Thinking...",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'search', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'search', arguments: '{}' }]
+      });
+      state.blocks.push({
+        type: "tool_call",
+        content: "",
+        status: "pending",
+        timestamp: Date.now(),
+        tool_call: { id: "tc1", name: "search", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "search", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1288,48 +1269,46 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
         hooks,
-        'zenmux',
+        "zenmux",
         {
           ...DEFAULT_INTERLEAVED_REASONING,
           reasoningSupported: true,
-          providerDbSourceUrl: 'https://example.com/dist/all.json'
-        }
-      )
+          providerDbSourceUrl: "https://example.com/dist/all.json",
+        },
+      );
 
-      const assistantMsg = conversation.find((message: any) => message.role === 'assistant')
-      expect(assistantMsg.reasoning_content).toBeUndefined()
+      const assistantMsg = conversation.find((message: any) => message.role === "assistant");
+      expect(assistantMsg.reasoning_content).toBeUndefined();
       expect(hooks.onInterleavedReasoningGap).toHaveBeenCalledWith({
-        providerId: 'zenmux',
-        modelId: 'gpt-4',
-        providerDbSourceUrl: 'https://example.com/dist/all.json',
-        reasoningContentLength: 'Thinking...'.length,
-        toolCallCount: 1
-      })
-    })
+        providerId: "zenmux",
+        modelId: "gpt-4",
+        providerDbSourceUrl: "https://example.com/dist/all.json",
+        reasoningContentLength: "Thinking...".length,
+        toolCallCount: 1,
+      });
+    });
 
-    it('handles tool error', async () => {
-      const tools = [makeTool('bad_tool')]
-      const toolPresenter = createMockToolPresenter()
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Tool failed')
-      )
-      const conversation: any[] = []
+    it("handles tool error", async () => {
+      const tools = [makeTool("bad_tool")];
+      const toolPresenter = createMockToolPresenter();
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("Tool failed"));
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'bad_tool', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'bad_tool', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "bad_tool", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "bad_tool", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1337,43 +1316,43 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const toolMsg = conversation.find((m: any) => m.role === 'tool')
-      expect(toolMsg.content).toBe('Error: Tool failed')
+      const toolMsg = conversation.find((m: any) => m.role === "tool");
+      expect(toolMsg.content).toBe("Error: Tool failed");
 
-      const block = state.blocks.find((b) => b.type === 'tool_call')
-      expect(block!.tool_call!.response).toBe('Error: Tool failed')
-      expect(block!.status).toBe('error')
-    })
+      const block = state.blocks.find((b) => b.type === "tool_call");
+      expect(block!.tool_call!.response).toBe("Error: Tool failed");
+      expect(block!.status).toBe("error");
+    });
 
-    it('preserves raw tool error status when guard returns ok', async () => {
-      const tools = [makeTool('bad_tool')]
-      const toolPresenter = createMockToolPresenter()
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValue({
-        content: 'Upstream failure',
+    it("preserves raw tool error status when guard returns ok", async () => {
+      const tools = [makeTool("bad_tool")];
+      const toolPresenter = createMockToolPresenter();
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValue({
+        content: "Upstream failure",
         rawData: {
-          toolCallId: 'tc1',
-          content: 'Upstream failure',
-          isError: true
-        }
-      })
-      const conversation: any[] = []
+          toolCallId: "tc1",
+          content: "Upstream failure",
+          isError: true,
+        },
+      });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'bad_tool', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'bad_tool', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "bad_tool", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "bad_tool", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1381,73 +1360,71 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const toolMsg = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMsg.content).toBe('Upstream failure')
+      const toolMsg = conversation.find((message: any) => message.role === "tool");
+      expect(toolMsg.content).toBe("Upstream failure");
 
-      const block = state.blocks.find((b) => b.type === 'tool_call')
-      expect(block!.tool_call!.response).toBe('Upstream failure')
-      expect(block!.status).toBe('error')
-    })
+      const block = state.blocks.find((b) => b.type === "tool_call");
+      expect(block!.tool_call!.response).toBe("Upstream failure");
+      expect(block!.status).toBe("error");
+    });
 
-    it('preserves recoverable YoBrowser unavailable errors as failed tool context', async () => {
-      const tools = [makeTool('cdp_send')]
-      const toolPresenter = createMockToolPresenter()
+    it("preserves recoverable YoBrowser unavailable errors as failed tool context", async () => {
+      const tools = [makeTool("cdp_send")];
+      const toolPresenter = createMockToolPresenter();
       const payload = {
         ok: false,
         error: {
-          code: 'yobrowser_unavailable',
-          message: 'YoBrowser is not available for this session, so the CDP command was not run.',
+          code: "yobrowser_unavailable",
+          message: "YoBrowser is not available for this session, so the CDP command was not run.",
           recoverable: true,
-          sessionId: 's1',
-          method: 'Page.captureScreenshot',
+          sessionId: "s1",
+          method: "Page.captureScreenshot",
           browserStatus: {
             initialized: false,
             page: null,
             canGoBack: false,
             canGoForward: false,
             visible: false,
-            loading: false
+            loading: false,
           },
           suggestedNextActions: [
-            'Call get_browser_status to inspect the current browser state.',
-            'Call load_url with the target URL to recreate or reopen the session browser.'
-          ]
-        }
-      }
-      const content = JSON.stringify(payload)
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValue({
+            "Call get_browser_status to inspect the current browser state.",
+            "Call load_url with the target URL to recreate or reopen the session browser.",
+          ],
+        },
+      };
+      const content = JSON.stringify(payload);
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockResolvedValue({
         content,
         rawData: {
-          toolCallId: 'tc1',
+          toolCallId: "tc1",
           content,
-          isError: true
-        }
-      })
-      const conversation: any[] = []
+          isError: true,
+        },
+      });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'cdp_send',
+          id: "tc1",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
-      state.completedToolCalls = [
-        { id: 'tc1', name: 'cdp_send', arguments: '{"method":"Page.captureScreenshot"}' }
-      ]
+          response: "",
+        },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "cdp_send", arguments: '{"method":"Page.captureScreenshot"}' }];
 
       await executeTools(
         state,
@@ -1455,52 +1432,52 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      const toolMsg = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMsg.content).toContain('yobrowser_unavailable')
+      const toolMsg = conversation.find((message: any) => message.role === "tool");
+      expect(toolMsg.content).toContain("yobrowser_unavailable");
 
-      const block = state.blocks.find((b) => b.type === 'tool_call')
-      expect(block!.tool_call!.response).toContain('yobrowser_unavailable')
-      expect(block!.status).toBe('error')
-    })
+      const block = state.blocks.find((b) => b.type === "tool_call");
+      expect(block!.tool_call!.response).toContain("yobrowser_unavailable");
+      expect(block!.status).toBe("error");
+    });
 
-    it('stops on abort', async () => {
-      const abortController = new AbortController()
-      const abortIo = createIo({ abortSignal: abortController.signal })
-      const tools = [makeTool('tool_a'), makeTool('tool_b')]
-      const toolPresenter = createMockToolPresenter()
+    it("stops on abort", async () => {
+      const abortController = new AbortController();
+      const abortIo = createIo({ abortSignal: abortController.signal });
+      const tools = [makeTool("tool_a"), makeTool("tool_b")];
+      const toolPresenter = createMockToolPresenter();
 
       // Abort after first tool call
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>).mockImplementation(async () => {
-        abortController.abort()
-        return { content: 'ok', rawData: { toolCallId: 'tc1', content: 'ok', isError: false } }
-      })
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+        abortController.abort();
+        return { content: "ok", rawData: { toolCallId: "tc1", content: "ok", isError: false } };
+      });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'tool_a', params: '{}', response: '' }
-      })
+        tool_call: { id: "tc1", name: "tool_a", params: "{}", response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc2', name: 'tool_b', params: '{}', response: '' }
-      })
+        tool_call: { id: "tc2", name: "tool_b", params: "{}", response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc1', name: 'tool_a', arguments: '{}' },
-        { id: 'tc2', name: 'tool_b', arguments: '{}' }
-      ]
+        { id: "tc1", name: "tool_a", arguments: "{}" },
+        { id: "tc2", name: "tool_b", arguments: "{}" },
+      ];
 
       const executed = await executeTools(
         state,
@@ -1508,31 +1485,31 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         abortIo,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
       // Only first tool should have been called
-      expect(executed.executed).toBe(1)
-      expect(toolPresenter.callTool).toHaveBeenCalledTimes(1)
-    })
+      expect(executed.executed).toBe(1);
+      expect(toolPresenter.callTool).toHaveBeenCalledTimes(1);
+    });
 
-    it('flushes to renderer and DB after each tool execution', async () => {
-      const tools = [makeTool('tool_a')]
-      const toolPresenter = createMockToolPresenter({ tool_a: 'done' })
+    it("flushes to renderer and DB after each tool execution", async () => {
+      const tools = [makeTool("tool_a")];
+      const toolPresenter = createMockToolPresenter({ tool_a: "done" });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'tool_a', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'tool_a', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "tool_a", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "tool_a", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1540,63 +1517,63 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
       expect(eventBus.sendToRenderer).toHaveBeenCalledWith(
-        'stream:response',
-        'all',
+        "stream:response",
+        "all",
         expect.objectContaining({
-          conversationId: 's1',
-          messageId: 'm1',
-          eventId: 'm1',
-          blocks: expect.any(Array)
-        })
-      )
-      expect(io.messageStore.updateAssistantContent).toHaveBeenCalled()
-    })
+          conversationId: "s1",
+          messageId: "m1",
+          eventId: "m1",
+          blocks: expect.any(Array),
+        }),
+      );
+      expect(io.messageStore.updateAssistantContent).toHaveBeenCalled();
+    });
 
-    it('promotes image previews from structured tool output into assistant image blocks', async () => {
-      const tools = [makeTool('tool_image')]
+    it("promotes image previews from structured tool output into assistant image blocks", async () => {
+      const tools = [makeTool("tool_image")];
       const toolPresenter = {
         getAllToolDefinitions: vi.fn().mockResolvedValue([]),
         callTool: vi.fn(async (request) => ({
-          content: '[image]',
+          content: "[image]",
           rawData: {
             toolCallId: request.id,
-            content: [{ type: 'image', data: 'AAAA', mimeType: 'image/png' }],
+            content: [{ type: "image", data: "AAAA", mimeType: "image/png" }],
             isError: false,
             imagePreviews: [
               {
-                id: 'mcp_image-1',
-                data: 'imgcache://cached.png',
-                mimeType: 'image/png',
-                source: 'mcp_image'
+                id: "mcp_image-1",
+                data: "imgcache://cached.png",
+                mimeType: "image/png",
+                source: "mcp_image",
               },
               {
-                id: 'metadata-only',
-                mimeType: 'image/png',
-                source: 'mcp_image'
-              }
-            ]
-          }
+                id: "metadata-only",
+                mimeType: "image/png",
+                source: "mcp_image",
+              },
+            ],
+          },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue('')
-      } as unknown as IToolPresenter
+        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'tool_image', params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: 'tool_image', arguments: '{}' }]
+        tool_call: { id: "tc1", name: "tool_image", params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: "tool_image", arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1604,42 +1581,42 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
       expect(state.blocks[0].tool_call?.imagePreviews).toEqual([
         {
-          id: 'metadata-only',
-          mimeType: 'image/png',
-          source: 'mcp_image'
-        }
-      ])
-      expect(state.blocks).toHaveLength(2)
+          id: "metadata-only",
+          mimeType: "image/png",
+          source: "mcp_image",
+        },
+      ]);
+      expect(state.blocks).toHaveLength(2);
       expect(state.blocks[1]).toEqual(
         expect.objectContaining({
-          type: 'image',
-          status: 'success',
+          type: "image",
+          status: "success",
           image_data: {
-            data: 'imgcache://cached.png',
-            mimeType: 'image/png'
+            data: "imgcache://cached.png",
+            mimeType: "image/png",
           },
           extra: expect.objectContaining({
-            toolCallId: 'tc1',
-            toolName: 'tool_image',
-            toolImagePreviewId: 'mcp_image-1',
-            toolImagePreviewSource: 'mcp_image'
-          })
-        })
-      )
-    })
+            toolCallId: "tc1",
+            toolName: "tool_image",
+            toolImagePreviewId: "mcp_image-1",
+            toolImagePreviewSource: "mcp_image",
+          }),
+        }),
+      );
+    });
 
-    it('promotes image_generate previews into assistant image blocks', async () => {
-      const tools = [makeAgentImageGenerationTool()]
+    it("promotes image_generate previews into assistant image blocks", async () => {
+      const tools = [makeAgentImageGenerationTool()];
       const toolPresenter = {
         getAllToolDefinitions: vi.fn().mockResolvedValue([]),
         callTool: vi.fn(async (request) => ({
@@ -1650,26 +1627,26 @@ describe('dispatch', () => {
             isError: false,
             imagePreviews: [
               {
-                id: 'generated-image-1',
-                data: 'imgcache://generated.png',
-                mimeType: 'image/png',
-                title: 'Generated image 1',
-                source: 'tool_output'
-              }
-            ]
-          }
+                id: "generated-image-1",
+                data: "imgcache://generated.png",
+                mimeType: "image/png",
+                title: "Generated image 1",
+                source: "tool_output",
+              },
+            ],
+          },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue('')
-      } as unknown as IToolPresenter
+        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, arguments: '{}' }]
+        tool_call: { id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1677,43 +1654,43 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(state.blocks).toHaveLength(2)
+      expect(state.blocks).toHaveLength(2);
       expect(state.blocks[0]).toEqual(
         expect.objectContaining({
-          type: 'tool_call',
-          status: 'success'
-        })
-      )
-      expect(state.blocks[0].tool_call?.imagePreviews).toBeUndefined()
+          type: "tool_call",
+          status: "success",
+        }),
+      );
+      expect(state.blocks[0].tool_call?.imagePreviews).toBeUndefined();
       expect(state.blocks[1]).toEqual(
         expect.objectContaining({
-          type: 'image',
-          status: 'success',
+          type: "image",
+          status: "success",
           image_data: {
-            data: 'imgcache://generated.png',
-            mimeType: 'image/png'
+            data: "imgcache://generated.png",
+            mimeType: "image/png",
           },
           extra: expect.objectContaining({
-            toolCallId: 'tc1',
+            toolCallId: "tc1",
             toolName: IMAGE_GENERATE_TOOL_NAME,
-            toolImagePreviewId: 'generated-image-1',
-            toolImagePreviewSource: 'tool_output',
-            toolImagePreviewTitle: 'Generated image 1'
-          })
-        })
-      )
-    })
+            toolImagePreviewId: "generated-image-1",
+            toolImagePreviewSource: "tool_output",
+            toolImagePreviewTitle: "Generated image 1",
+          }),
+        }),
+      );
+    });
 
-    it('promotes same-name MCP image_generate previews into assistant image blocks', async () => {
-      const tools = [makeTool(IMAGE_GENERATE_TOOL_NAME)]
+    it("promotes same-name MCP image_generate previews into assistant image blocks", async () => {
+      const tools = [makeTool(IMAGE_GENERATE_TOOL_NAME)];
       const toolPresenter = {
         getAllToolDefinitions: vi.fn().mockResolvedValue([]),
         callTool: vi.fn(async (request) => ({
@@ -1724,25 +1701,25 @@ describe('dispatch', () => {
             isError: false,
             imagePreviews: [
               {
-                id: 'mcp-generated-image-1',
-                data: 'imgcache://mcp-generated.png',
-                mimeType: 'image/png',
-                source: 'tool_output'
-              }
-            ]
-          }
+                id: "mcp-generated-image-1",
+                data: "imgcache://mcp-generated.png",
+                mimeType: "image/png",
+                source: "tool_output",
+              },
+            ],
+          },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue('')
-      } as unknown as IToolPresenter
+        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, arguments: '{}' }]
+        tool_call: { id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1750,71 +1727,71 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(state.blocks).toHaveLength(2)
+      expect(state.blocks).toHaveLength(2);
       expect(state.blocks[0]).toEqual(
         expect.objectContaining({
-          type: 'tool_call',
-          status: 'success'
-        })
-      )
-      expect(state.blocks[0].tool_call?.imagePreviews).toBeUndefined()
+          type: "tool_call",
+          status: "success",
+        }),
+      );
+      expect(state.blocks[0].tool_call?.imagePreviews).toBeUndefined();
       expect(state.blocks[1]).toEqual(
         expect.objectContaining({
-          type: 'image',
-          status: 'success',
+          type: "image",
+          status: "success",
           image_data: {
-            data: 'imgcache://mcp-generated.png',
-            mimeType: 'image/png'
+            data: "imgcache://mcp-generated.png",
+            mimeType: "image/png",
           },
           extra: expect.objectContaining({
-            toolCallId: 'tc1',
+            toolCallId: "tc1",
             toolName: IMAGE_GENERATE_TOOL_NAME,
-            toolImagePreviewId: 'mcp-generated-image-1',
-            toolImagePreviewSource: 'tool_output'
-          })
-        })
-      )
-    })
+            toolImagePreviewId: "mcp-generated-image-1",
+            toolImagePreviewSource: "tool_output",
+          }),
+        }),
+      );
+    });
 
-    it('does not promote image_generate previews when the tool result is an error', async () => {
-      const tools = [makeAgentImageGenerationTool()]
+    it("does not promote image_generate previews when the tool result is an error", async () => {
+      const tools = [makeAgentImageGenerationTool()];
       const toolPresenter = {
         getAllToolDefinitions: vi.fn().mockResolvedValue([]),
         callTool: vi.fn(async (request) => ({
-          content: 'generation failed',
+          content: "generation failed",
           rawData: {
             toolCallId: request.id,
-            content: 'generation failed',
+            content: "generation failed",
             isError: true,
             imagePreviews: [
               {
-                id: 'generated-image-1',
-                data: 'imgcache://partial.png',
-                mimeType: 'image/png',
-                source: 'tool_output'
-              }
-            ]
-          }
+                id: "generated-image-1",
+                data: "imgcache://partial.png",
+                mimeType: "image/png",
+                source: "tool_output",
+              },
+            ],
+          },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue('')
-      } as unknown as IToolPresenter
+        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+      } as unknown as IToolPresenter;
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, params: '{}', response: '' }
-      })
-      state.completedToolCalls = [{ id: 'tc1', name: IMAGE_GENERATE_TOOL_NAME, arguments: '{}' }]
+        tool_call: { id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, params: "{}", response: "" },
+      });
+      state.completedToolCalls = [{ id: "tc1", name: IMAGE_GENERATE_TOOL_NAME, arguments: "{}" }];
 
       await executeTools(
         state,
@@ -1822,54 +1799,54 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(state.blocks).toHaveLength(1)
-      expect(state.blocks[0].status).toBe('error')
+      expect(state.blocks).toHaveLength(1);
+      expect(state.blocks[0].status).toBe("error");
       expect(state.blocks[0].tool_call?.imagePreviews).toEqual([
         {
-          id: 'generated-image-1',
-          data: 'imgcache://partial.png',
-          mimeType: 'image/png',
-          source: 'tool_output'
-        }
-      ])
-    })
+          id: "generated-image-1",
+          data: "imgcache://partial.png",
+          mimeType: "image/png",
+          source: "tool_output",
+        },
+      ]);
+    });
 
-    it('offloads large yo_browser responses into a stub', async () => {
-      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'deepchat-dispatch-offload-'))
-      getPathSpy = vi.spyOn(app, 'getPath').mockReturnValue(tempHome)
+    it("offloads large yo_browser responses into a stub", async () => {
+      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "deepchat-dispatch-offload-"));
+      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
 
-      const tools = [makeTool('cdp_send')]
-      const longScreenshot = JSON.stringify({ data: 'x'.repeat(7000) })
-      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot })
-      const conversation: any[] = []
+      const tools = [makeTool("cdp_send")];
+      const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
+      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'function.cdp_send:11',
-          name: 'cdp_send',
+          id: "function.cdp_send:11",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
+          response: "",
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'function.cdp_send:11',
-          name: 'cdp_send',
-          arguments: '{"method":"Page.captureScreenshot"}'
-        }
-      ]
+          id: "function.cdp_send:11",
+          name: "cdp_send",
+          arguments: '{"method":"Page.captureScreenshot"}',
+        },
+      ];
 
       const executed = await executeTools(
         state,
@@ -1877,52 +1854,52 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      expect(executed.terminalError).toBeUndefined()
-      const toolMessage = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMessage.content).toContain('[Tool output offloaded]')
-      expect(toolMessage.content).toMatch(/tool_function\.cdp_send_11(?:_[a-f0-9]+)?\.offload/)
-      expect(toolMessage.content).not.toContain(':11.offload')
-      expect(toolMessage.content).not.toContain(tempHome!)
-      expect(state.blocks[0].tool_call?.response).toContain('[Tool output offloaded]')
-      expect(state.blocks[0].status).toBe('success')
-    })
+      expect(executed.terminalError).toBeUndefined();
+      const toolMessage = conversation.find((message: any) => message.role === "tool");
+      expect(toolMessage.content).toContain("[Tool output offloaded]");
+      expect(toolMessage.content).toMatch(/tool_function\.cdp_send_11(?:_[a-f0-9]+)?\.offload/);
+      expect(toolMessage.content).not.toContain(":11.offload");
+      expect(toolMessage.content).not.toContain(tempHome!);
+      expect(state.blocks[0].tool_call?.response).toContain("[Tool output offloaded]");
+      expect(state.blocks[0].status).toBe("success");
+    });
 
-    it('normalizes tool output before offload when a hook rewrites screenshot content', async () => {
-      const tools = [makeTool('cdp_send')]
-      const longScreenshot = JSON.stringify({ data: 'x'.repeat(7000) })
-      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot })
-      const conversation: any[] = []
+    it("normalizes tool output before offload when a hook rewrites screenshot content", async () => {
+      const tools = [makeTool("cdp_send")];
+      const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
+      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
+      const conversation: any[] = [];
       const hooks = {
-        normalizeToolResult: vi.fn().mockResolvedValue('English screenshot summary')
-      }
+        normalizeToolResult: vi.fn().mockResolvedValue("English screenshot summary"),
+      };
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc-normalized',
-          name: 'cdp_send',
+          id: "tc-normalized",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
+          response: "",
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc-normalized',
-          name: 'cdp_send',
-          arguments: '{"method":"Page.captureScreenshot"}'
-        }
-      ]
+          id: "tc-normalized",
+          name: "cdp_send",
+          arguments: '{"method":"Page.captureScreenshot"}',
+        },
+      ];
 
       const executed = await executeTools(
         state,
@@ -1930,62 +1907,62 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
         1024,
         hooks,
-        'openai'
-      )
+        "openai",
+      );
 
-      expect(executed.terminalError).toBeUndefined()
+      expect(executed.terminalError).toBeUndefined();
       expect(hooks.normalizeToolResult).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionId: 's1',
-          toolCallId: 'tc-normalized',
-          toolName: 'cdp_send',
+          sessionId: "s1",
+          toolCallId: "tc-normalized",
+          toolName: "cdp_send",
           toolArgs: '{"method":"Page.captureScreenshot"}',
           content: longScreenshot,
-          isError: false
-        })
-      )
-      const toolMessage = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMessage.content).toBe('English screenshot summary')
-      expect(toolMessage.content).not.toContain('[Tool output offloaded]')
-      expect(state.blocks[0].tool_call?.response).toBe('English screenshot summary')
-    })
+          isError: false,
+        }),
+      );
+      const toolMessage = conversation.find((message: any) => message.role === "tool");
+      expect(toolMessage.content).toBe("English screenshot summary");
+      expect(toolMessage.content).not.toContain("[Tool output offloaded]");
+      expect(state.blocks[0].tool_call?.response).toBe("English screenshot summary");
+    });
 
-    it('turns offload write failures into tool errors instead of falling back to raw content', async () => {
-      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'deepchat-dispatch-offload-fail-'))
-      getPathSpy = vi.spyOn(app, 'getPath').mockReturnValue(tempHome)
-      const writeFileSpy = vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('disk full'))
+    it("turns offload write failures into tool errors instead of falling back to raw content", async () => {
+      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "deepchat-dispatch-offload-fail-"));
+      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+      const writeFileSpy = vi.spyOn(fs, "writeFile").mockRejectedValueOnce(new Error("disk full"));
 
-      const tools = [makeTool('cdp_send')]
-      const longScreenshot = JSON.stringify({ data: 'x'.repeat(7000) })
-      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot })
-      const conversation: any[] = []
+      const tools = [makeTool("cdp_send")];
+      const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
+      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'cdp_send',
+          id: "tc1",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
+          response: "",
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc1',
-          name: 'cdp_send',
-          arguments: '{"method":"Page.captureScreenshot"}'
-        }
-      ]
+          id: "tc1",
+          name: "cdp_send",
+          arguments: '{"method":"Page.captureScreenshot"}',
+        },
+      ];
 
       await executeTools(
         state,
@@ -1993,60 +1970,60 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         32000,
-        1024
-      )
+        1024,
+      );
 
-      writeFileSpy.mockRestore()
-      const toolMessage = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMessage.content).toContain('offloading that result to disk failed')
-      expect(toolMessage.content).not.toContain(longScreenshot)
-      expect(state.blocks[0].status).toBe('error')
-    })
+      writeFileSpy.mockRestore();
+      const toolMessage = conversation.find((message: any) => message.role === "tool");
+      expect(toolMessage.content).toContain("offloading that result to disk failed");
+      expect(toolMessage.content).not.toContain(longScreenshot);
+      expect(state.blocks[0].status).toBe("error");
+    });
 
-    it('keeps the largest prefix of tool results and downgrades the overflow tail', async () => {
-      const tools = [makeTool('read')]
-      const toolPresenter = createMockToolPresenter()
+    it("keeps the largest prefix of tool results and downgrades the overflow tail", async () => {
+      const tools = [makeTool("read")];
+      const toolPresenter = createMockToolPresenter();
       const hooks = {
         onPreToolUse: vi.fn(),
         onPermissionRequest: vi.fn(),
         onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn()
-      }
-      const conversation: any[] = []
+        onPostToolUseFailure: vi.fn(),
+      };
+      const conversation: any[] = [];
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>)
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({
-          content: 'a'.repeat(60),
-          rawData: { toolCallId: 'tc1', content: 'a'.repeat(60), isError: false }
+          content: "a".repeat(60),
+          rawData: { toolCallId: "tc1", content: "a".repeat(60), isError: false },
         })
         .mockResolvedValueOnce({
-          content: 'b'.repeat(4000),
-          rawData: { toolCallId: 'tc2', content: 'b'.repeat(4000), isError: false }
-        })
+          content: "b".repeat(4000),
+          rawData: { toolCallId: "tc2", content: "b".repeat(4000), isError: false },
+        });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc1", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc2', name: 'read', params: '{"path":"b.txt"}', response: '' }
-      })
+        tool_call: { id: "tc2", name: "read", params: '{"path":"b.txt"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc1', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc2', name: 'read', arguments: '{"path":"b.txt"}' }
-      ]
+        { id: "tc1", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc2", name: "read", arguments: '{"path":"b.txt"}' },
+      ];
 
       const executed = await executeTools(
         state,
@@ -2054,93 +2031,90 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         260,
         32,
-        hooks
-      )
+        hooks,
+      );
 
-      const toolMessages = conversation.filter((message: any) => message.role === 'tool')
-      expect(executed.terminalError).toBeUndefined()
-      expect(toolMessages).toHaveLength(2)
-      expect(toolMessages[0].content).toBe('a'.repeat(60))
-      expect(toolMessages[1].content).toContain('remaining context window is too small')
-      expect(state.blocks[0].status).toBe('success')
-      expect(state.blocks[0].tool_call?.response).toBe('a'.repeat(60))
-      expect(state.blocks[1].status).toBe('error')
-      expect(state.blocks[1].tool_call?.response).toContain('remaining context window is too small')
-      expect(hooks.onPostToolUse).toHaveBeenCalledTimes(1)
-      expect(hooks.onPostToolUseFailure).toHaveBeenCalledTimes(1)
-    })
+      const toolMessages = conversation.filter((message: any) => message.role === "tool");
+      expect(executed.terminalError).toBeUndefined();
+      expect(toolMessages).toHaveLength(2);
+      expect(toolMessages[0].content).toBe("a".repeat(60));
+      expect(toolMessages[1].content).toContain("remaining context window is too small");
+      expect(state.blocks[0].status).toBe("success");
+      expect(state.blocks[0].tool_call?.response).toBe("a".repeat(60));
+      expect(state.blocks[1].status).toBe("error");
+      expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
+      expect(hooks.onPostToolUse).toHaveBeenCalledTimes(1);
+      expect(hooks.onPostToolUseFailure).toHaveBeenCalledTimes(1);
+    });
 
-    it('keeps the fitting prefix when a short overflow tail is downgraded', async () => {
-      const tools = [makeTool('read')]
-      const toolPresenter = createMockToolPresenter()
-      const conversation: any[] = []
+    it("keeps the fitting prefix when a short overflow tail is downgraded", async () => {
+      const tools = [makeTool("read")];
+      const toolPresenter = createMockToolPresenter();
+      const conversation: any[] = [];
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>)
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({
-          content: 'a'.repeat(40),
-          rawData: { toolCallId: 'tc1', content: 'a'.repeat(40), isError: false }
+          content: "a".repeat(40),
+          rawData: { toolCallId: "tc1", content: "a".repeat(40), isError: false },
         })
         .mockResolvedValueOnce({
-          content: 'b'.repeat(40),
-          rawData: { toolCallId: 'tc2', content: 'b'.repeat(40), isError: false }
+          content: "b".repeat(40),
+          rawData: { toolCallId: "tc2", content: "b".repeat(40), isError: false },
         })
         .mockResolvedValueOnce({
-          content: 'OK',
-          rawData: { toolCallId: 'tc3', content: 'OK', isError: false }
-        })
+          content: "OK",
+          rawData: { toolCallId: "tc3", content: "OK", isError: false },
+        });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc1", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc2', name: 'read', params: '{"path":"b.txt"}', response: '' }
-      })
+        tool_call: { id: "tc2", name: "read", params: '{"path":"b.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc3', name: 'read', params: '{"path":"c.txt"}', response: '' }
-      })
+        tool_call: { id: "tc3", name: "read", params: '{"path":"c.txt"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc1', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc2', name: 'read', arguments: '{"path":"b.txt"}' },
-        { id: 'tc3', name: 'read', arguments: '{"path":"c.txt"}' }
-      ]
+        { id: "tc1", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc2", name: "read", arguments: '{"path":"b.txt"}' },
+        { id: "tc3", name: "read", arguments: '{"path":"c.txt"}' },
+      ];
 
       const assistantMessage = {
-        role: 'assistant' as const,
-        content: '',
+        role: "assistant" as const,
+        content: "",
         tool_calls: state.completedToolCalls.map((tc) => ({
           id: tc.id,
-          type: 'function' as const,
-          function: { name: tc.name, arguments: tc.arguments }
-        }))
-      }
+          type: "function" as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        })),
+      };
       const fittingPrefixMessages = [
         assistantMessage,
-        { role: 'tool' as const, tool_call_id: 'tc1', content: 'a'.repeat(40) },
-        { role: 'tool' as const, tool_call_id: 'tc2', content: 'b'.repeat(40) }
-      ]
-      const toolDefinitionTokens = tools.reduce(
-        (total, tool) => total + approximateTokenSize(JSON.stringify(tool)),
-        0
-      )
-      const contextLength = estimateMessagesTokens(fittingPrefixMessages) + toolDefinitionTokens + 1
+        { role: "tool" as const, tool_call_id: "tc1", content: "a".repeat(40) },
+        { role: "tool" as const, tool_call_id: "tc2", content: "b".repeat(40) },
+      ];
+      const toolDefinitionTokens = tools.reduce((total, tool) => total + approximateTokenSize(JSON.stringify(tool)), 0);
+      const contextLength = estimateMessagesTokens(fittingPrefixMessages) + toolDefinitionTokens + 1;
 
       const executed = await executeTools(
         state,
@@ -2148,62 +2122,62 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         contextLength,
-        0
-      )
+        0,
+      );
 
-      const toolMessages = conversation.filter((message: any) => message.role === 'tool')
-      expect(executed.terminalError).toBeUndefined()
-      expect(toolMessages).toHaveLength(3)
-      expect(toolMessages[0].content).toBe('a'.repeat(40))
-      expect(toolMessages[1].content).toBe('b'.repeat(40))
-      expect(toolMessages[2].content).toBe('')
-      expect(state.blocks[0].status).toBe('success')
-      expect(state.blocks[1].status).toBe('success')
-      expect(state.blocks[2].status).toBe('error')
-      expect(state.blocks[2].tool_call?.response).toContain('remaining context window is too small')
-    })
+      const toolMessages = conversation.filter((message: any) => message.role === "tool");
+      expect(executed.terminalError).toBeUndefined();
+      expect(toolMessages).toHaveLength(3);
+      expect(toolMessages[0].content).toBe("a".repeat(40));
+      expect(toolMessages[1].content).toBe("b".repeat(40));
+      expect(toolMessages[2].content).toBe("");
+      expect(state.blocks[0].status).toBe("success");
+      expect(state.blocks[1].status).toBe("success");
+      expect(state.blocks[2].status).toBe("error");
+      expect(state.blocks[2].tool_call?.response).toContain("remaining context window is too small");
+    });
 
-    it('cleans offload files when a tail tool is downgraded during batch fitting', async () => {
-      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'deepchat-dispatch-tail-offload-'))
-      getPathSpy = vi.spyOn(app, 'getPath').mockReturnValue(tempHome)
+    it("cleans offload files when a tail tool is downgraded during batch fitting", async () => {
+      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "deepchat-dispatch-tail-offload-"));
+      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
 
-      const tools = [makeTool('read'), makeTool('exec')]
-      const toolPresenter = createMockToolPresenter()
-      const conversation: any[] = []
+      const tools = [makeTool("read"), makeTool("exec")];
+      const toolPresenter = createMockToolPresenter();
+      const conversation: any[] = [];
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>)
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({
-          content: 'a'.repeat(60),
-          rawData: { toolCallId: 'tc1', content: 'a'.repeat(60), isError: false }
+          content: "a".repeat(60),
+          rawData: { toolCallId: "tc1", content: "a".repeat(60), isError: false },
         })
         .mockResolvedValueOnce({
-          content: 'x'.repeat(7000),
-          rawData: { toolCallId: 'tc2', content: 'x'.repeat(7000), isError: false }
-        })
+          content: "x".repeat(7000),
+          rawData: { toolCallId: "tc2", content: "x".repeat(7000), isError: false },
+        });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc1", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc2', name: 'exec', params: '{"command":"ls"}', response: '' }
-      })
+        tool_call: { id: "tc2", name: "exec", params: '{"command":"ls"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc1', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc2', name: 'exec', arguments: '{"command":"ls"}' }
-      ]
+        { id: "tc1", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc2", name: "exec", arguments: '{"command":"ls"}' },
+      ];
 
       const executed = await executeTools(
         state,
@@ -2211,83 +2185,81 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         260,
-        32
-      )
+        32,
+      );
 
-      expect(executed.terminalError).toBeUndefined()
-      expect(state.blocks[1].tool_call?.response).toContain('remaining context window is too small')
-      expect(state.blocks[1].tool_call?.response).not.toContain('[Tool output offloaded]')
-      await expect(
-        fs.access(path.join(tempHome, '.deepchat', 'sessions', 's1', 'tool_tc2.offload'))
-      ).rejects.toThrow()
-    })
+      expect(executed.terminalError).toBeUndefined();
+      expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
+      expect(state.blocks[1].tool_call?.response).not.toContain("[Tool output offloaded]");
+      await expect(fs.access(path.join(tempHome, ".deepchat", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow();
+    });
 
-    it('drops search side effects for downgraded tail tool results', async () => {
-      const tools = [makeTool('read'), makeTool('search_docs')]
-      const toolPresenter = createMockToolPresenter()
-      const conversation: any[] = []
+    it("drops search side effects for downgraded tail tool results", async () => {
+      const tools = [makeTool("read"), makeTool("search_docs")];
+      const toolPresenter = createMockToolPresenter();
+      const conversation: any[] = [];
       const searchResource = JSON.stringify({
-        title: 'Example',
-        url: 'https://example.com',
-        content: 'x'.repeat(4000),
-        description: 'x'.repeat(4000)
-      })
+        title: "Example",
+        url: "https://example.com",
+        content: "x".repeat(4000),
+        description: "x".repeat(4000),
+      });
 
-      ;(toolPresenter.callTool as ReturnType<typeof vi.fn>)
+      (toolPresenter.callTool as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce({
-          content: 'a'.repeat(60),
-          rawData: { toolCallId: 'tc1', content: 'a'.repeat(60), isError: false }
+          content: "a".repeat(60),
+          rawData: { toolCallId: "tc1", content: "a".repeat(60), isError: false },
         })
         .mockResolvedValueOnce({
           content: [
             {
-              type: 'resource',
+              type: "resource",
               resource: {
-                uri: 'https://example.com',
-                mimeType: 'application/deepchat-webpage',
-                text: searchResource
-              }
-            }
+                uri: "https://example.com",
+                mimeType: "application/deepchat-webpage",
+                text: searchResource,
+              },
+            },
           ],
           rawData: {
-            toolCallId: 'tc2',
+            toolCallId: "tc2",
             content: [
               {
-                type: 'resource',
+                type: "resource",
                 resource: {
-                  uri: 'https://example.com',
-                  mimeType: 'application/deepchat-webpage',
-                  text: searchResource
-                }
-              }
+                  uri: "https://example.com",
+                  mimeType: "application/deepchat-webpage",
+                  text: searchResource,
+                },
+              },
             ],
-            isError: false
-          }
-        })
+            isError: false,
+          },
+        });
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc1', name: 'read', params: '{"path":"a.txt"}', response: '' }
-      })
+        tool_call: { id: "tc1", name: "read", params: '{"path":"a.txt"}', response: "" },
+      });
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
-        tool_call: { id: 'tc2', name: 'search_docs', params: '{"q":"x"}', response: '' }
-      })
+        tool_call: { id: "tc2", name: "search_docs", params: '{"q":"x"}', response: "" },
+      });
       state.completedToolCalls = [
-        { id: 'tc1', name: 'read', arguments: '{"path":"a.txt"}' },
-        { id: 'tc2', name: 'search_docs', arguments: '{"q":"x"}' }
-      ]
+        { id: "tc1", name: "read", arguments: '{"path":"a.txt"}' },
+        { id: "tc2", name: "search_docs", arguments: '{"q":"x"}' },
+      ];
 
       const executed = await executeTools(
         state,
@@ -2295,48 +2267,48 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         260,
-        32
-      )
+        32,
+      );
 
-      expect(executed.terminalError).toBeUndefined()
-      expect(state.blocks.find((block) => block.type === 'search')).toBeUndefined()
-      expect(state.blocks[1].tool_call?.response).toContain('remaining context window is too small')
-      expect((io.messageStore as any).addSearchResult).not.toHaveBeenCalled()
-    })
+      expect(executed.terminalError).toBeUndefined();
+      expect(state.blocks.find((block) => block.type === "search")).toBeUndefined();
+      expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
+      expect((io.messageStore as any).addSearchResult).not.toHaveBeenCalled();
+    });
 
-    it('marks the tool as error when offload succeeds but context budget cannot fit the result', async () => {
-      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'deepchat-dispatch-offload-clean-'))
-      getPathSpy = vi.spyOn(app, 'getPath').mockReturnValue(tempHome)
+    it("marks the tool as error when offload succeeds but context budget cannot fit the result", async () => {
+      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "deepchat-dispatch-offload-clean-"));
+      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
 
-      const tools = [makeTool('cdp_send')]
-      const longScreenshot = JSON.stringify({ data: 'x'.repeat(7000) })
-      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot })
-      const conversation: any[] = []
+      const tools = [makeTool("cdp_send")];
+      const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
+      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
+      const conversation: any[] = [];
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'cdp_send',
+          id: "tc1",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
+          response: "",
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc1',
-          name: 'cdp_send',
-          arguments: '{"method":"Page.captureScreenshot"}'
-        }
-      ]
+          id: "tc1",
+          name: "cdp_send",
+          arguments: '{"method":"Page.captureScreenshot"}',
+        },
+      ];
 
       await executeTools(
         state,
@@ -2344,56 +2316,54 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         200,
-        32
-      )
+        32,
+      );
 
-      const toolMessage = conversation.find((message: any) => message.role === 'tool')
-      expect(toolMessage.content).toContain('remaining context window is too small')
-      expect(state.blocks[0].status).toBe('error')
-      await expect(
-        fs.access(path.join(tempHome, '.deepchat', 'sessions', 's1', 'tool_tc1.offload'))
-      ).rejects.toThrow()
-    })
+      const toolMessage = conversation.find((message: any) => message.role === "tool");
+      expect(toolMessage.content).toContain("remaining context window is too small");
+      expect(state.blocks[0].status).toBe("error");
+      await expect(fs.access(path.join(tempHome, ".deepchat", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow();
+    });
 
-    it('returns terminalError when even the minimal tool failure stub cannot fit', async () => {
-      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), 'deepchat-dispatch-terminal-clean-'))
-      getPathSpy = vi.spyOn(app, 'getPath').mockReturnValue(tempHome)
+    it("returns terminalError when even the minimal tool failure stub cannot fit", async () => {
+      tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "deepchat-dispatch-terminal-clean-"));
+      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
 
-      const tools = [makeTool('cdp_send')]
-      const longScreenshot = JSON.stringify({ data: 'x'.repeat(7000) })
-      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot })
-      const conversation: any[] = []
+      const tools = [makeTool("cdp_send")];
+      const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
+      const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
+      const conversation: any[] = [];
       const hooks = {
         onPreToolUse: vi.fn(),
         onPermissionRequest: vi.fn(),
         onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn()
-      }
+        onPostToolUseFailure: vi.fn(),
+      };
 
       state.blocks.push({
-        type: 'tool_call',
-        content: '',
-        status: 'pending',
+        type: "tool_call",
+        content: "",
+        status: "pending",
         timestamp: Date.now(),
         tool_call: {
-          id: 'tc1',
-          name: 'cdp_send',
+          id: "tc1",
+          name: "cdp_send",
           params: '{"method":"Page.captureScreenshot"}',
-          response: ''
-        }
-      })
+          response: "",
+        },
+      });
       state.completedToolCalls = [
         {
-          id: 'tc1',
-          name: 'cdp_send',
-          arguments: '{"method":"Page.captureScreenshot"}'
-        }
-      ]
+          id: "tc1",
+          name: "cdp_send",
+          arguments: '{"method":"Page.captureScreenshot"}',
+        },
+      ];
 
       const executed = await executeTools(
         state,
@@ -2401,151 +2371,139 @@ describe('dispatch', () => {
         0,
         tools,
         toolPresenter,
-        'gpt-4',
+        "gpt-4",
         io,
-        'full_access',
+        "full_access",
         new ToolOutputGuard(),
         1,
         1,
-        hooks
-      )
+        hooks,
+      );
 
-      expect(executed.terminalError).toContain('remaining context window is too small')
-      expect(conversation.find((message: any) => message.role === 'tool')).toBeUndefined()
-      expect(state.blocks[0].status).toBe('error')
+      expect(executed.terminalError).toContain("remaining context window is too small");
+      expect(conversation.find((message: any) => message.role === "tool")).toBeUndefined();
+      expect(state.blocks[0].status).toBe("error");
       expect(hooks.onPostToolUseFailure).toHaveBeenCalledWith({
-        callId: 'tc1',
-        name: 'cdp_send',
+        callId: "tc1",
+        name: "cdp_send",
         params: '{"method":"Page.captureScreenshot"}',
-        error: expect.stringContaining('remaining context window is too small')
-      })
-      await expect(
-        fs.access(path.join(tempHome, '.deepchat', 'sessions', 's1', 'tool_tc1.offload'))
-      ).rejects.toThrow()
-    })
-  })
+        error: expect.stringContaining("remaining context window is too small"),
+      });
+      await expect(fs.access(path.join(tempHome, ".deepchat", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow();
+    });
+  });
 
-  describe('finalize', () => {
-    it('marks pending blocks as success and computes metadata', () => {
+  describe("finalize", () => {
+    it("marks pending blocks as success and computes metadata", () => {
       // Set startTime in the past so generationTime > 0
-      state.startTime = Date.now() - 1000
+      state.startTime = Date.now() - 1000;
       state.blocks.push({
-        type: 'content',
-        content: 'Hello',
-        status: 'pending',
-        timestamp: Date.now()
-      })
-      state.metadata.outputTokens = 100
-      state.firstTokenTime = state.startTime + 50
+        type: "content",
+        content: "Hello",
+        status: "pending",
+        timestamp: Date.now(),
+      });
+      state.metadata.outputTokens = 100;
+      state.firstTokenTime = state.startTime + 50;
 
-      finalize(state, io)
+      finalize(state, io);
 
-      expect(state.blocks[0].status).toBe('success')
-      expect(io.messageStore.finalizeAssistantMessage).toHaveBeenCalledWith(
-        'm1',
-        state.blocks,
-        expect.any(String)
-      )
+      expect(state.blocks[0].status).toBe("success");
+      expect(io.messageStore.finalizeAssistantMessage).toHaveBeenCalledWith("m1", state.blocks, expect.any(String));
 
       const metadata = JSON.parse(
-        (io.messageStore.finalizeAssistantMessage as ReturnType<typeof vi.fn>).mock.calls[0][2]
-      )
-      expect(metadata.firstTokenTime).toBe(50)
-      expect(metadata.generationTime).toBeGreaterThanOrEqual(1000)
-      expect(metadata.tokensPerSecond).toBeDefined()
-    })
+        (io.messageStore.finalizeAssistantMessage as ReturnType<typeof vi.fn>).mock.calls[0][2],
+      );
+      expect(metadata.firstTokenTime).toBe(50);
+      expect(metadata.generationTime).toBeGreaterThanOrEqual(1000);
+      expect(metadata.tokensPerSecond).toBeDefined();
+    });
 
-    it('emits END event', () => {
-      finalize(state, io)
+    it("emits END event", () => {
+      finalize(state, io);
 
       expect(eventBus.sendToRenderer).toHaveBeenCalledWith(
-        'stream:end',
-        'all',
+        "stream:end",
+        "all",
         expect.objectContaining({
-          conversationId: 's1',
-          messageId: 'm1',
-          eventId: 'm1'
-        })
-      )
-    })
+          conversationId: "s1",
+          messageId: "m1",
+          eventId: "m1",
+        }),
+      );
+    });
 
-    it('emits RESPONSE with blocks', () => {
+    it("emits RESPONSE with blocks", () => {
       state.blocks.push({
-        type: 'content',
-        content: 'test',
-        status: 'pending',
-        timestamp: Date.now()
-      })
+        type: "content",
+        content: "test",
+        status: "pending",
+        timestamp: Date.now(),
+      });
 
-      finalize(state, io)
+      finalize(state, io);
 
       expect(eventBus.sendToRenderer).toHaveBeenCalledWith(
-        'stream:response',
-        'all',
+        "stream:response",
+        "all",
         expect.objectContaining({
-          conversationId: 's1',
-          messageId: 'm1',
-          eventId: 'm1',
-          blocks: expect.any(Array)
-        })
-      )
-    })
-  })
+          conversationId: "s1",
+          messageId: "m1",
+          eventId: "m1",
+          blocks: expect.any(Array),
+        }),
+      );
+    });
+  });
 
-  describe('finalizeError', () => {
-    it('pushes error block and marks pending blocks as error', () => {
+  describe("finalizeError", () => {
+    it("pushes error block and marks pending blocks as error", () => {
       state.blocks.push({
-        type: 'content',
-        content: 'Partial',
-        status: 'pending',
-        timestamp: Date.now()
-      })
+        type: "content",
+        content: "Partial",
+        status: "pending",
+        timestamp: Date.now(),
+      });
 
-      finalizeError(state, io, new Error('Connection lost'))
+      finalizeError(state, io, new Error("Connection lost"));
 
-      expect(state.blocks).toHaveLength(2)
-      expect(state.blocks[0].status).toBe('error')
-      expect(state.blocks[1].type).toBe('error')
-      expect(state.blocks[1].content).toBe('Connection lost')
-    })
+      expect(state.blocks).toHaveLength(2);
+      expect(state.blocks[0].status).toBe("error");
+      expect(state.blocks[1].type).toBe("error");
+      expect(state.blocks[1].content).toBe("Connection lost");
+    });
 
-    it('calls setMessageError', () => {
-      state.metadata.provider = 'openai'
-      state.metadata.model = 'gpt-4'
-      finalizeError(state, io, new Error('fail'))
+    it("calls setMessageError", () => {
+      state.metadata.provider = "openai";
+      state.metadata.model = "gpt-4";
+      finalizeError(state, io, new Error("fail"));
 
-      expect(io.messageStore.setMessageError).toHaveBeenCalledWith(
-        'm1',
-        state.blocks,
-        expect.any(String)
-      )
-      const metadata = JSON.parse(
-        (io.messageStore.setMessageError as ReturnType<typeof vi.fn>).mock.calls[0][2]
-      )
-      expect(metadata.provider).toBe('openai')
-      expect(metadata.model).toBe('gpt-4')
-    })
+      expect(io.messageStore.setMessageError).toHaveBeenCalledWith("m1", state.blocks, expect.any(String));
+      const metadata = JSON.parse((io.messageStore.setMessageError as ReturnType<typeof vi.fn>).mock.calls[0][2]);
+      expect(metadata.provider).toBe("openai");
+      expect(metadata.model).toBe("gpt-4");
+    });
 
-    it('emits ERROR event', () => {
-      finalizeError(state, io, new Error('boom'))
+    it("emits ERROR event", () => {
+      finalizeError(state, io, new Error("boom"));
 
       expect(eventBus.sendToRenderer).toHaveBeenCalledWith(
-        'stream:error',
-        'all',
+        "stream:error",
+        "all",
         expect.objectContaining({
-          conversationId: 's1',
-          messageId: 'm1',
-          eventId: 'm1',
-          error: 'boom'
-        })
-      )
-    })
+          conversationId: "s1",
+          messageId: "m1",
+          eventId: "m1",
+          error: "boom",
+        }),
+      );
+    });
 
-    it('handles non-Error objects', () => {
-      finalizeError(state, io, 'string error')
+    it("handles non-Error objects", () => {
+      finalizeError(state, io, "string error");
 
-      const errorBlock = state.blocks.find((b) => b.type === 'error')
-      expect(errorBlock!.content).toBe('string error')
-    })
-  })
-})
+      const errorBlock = state.blocks.find((b) => b.type === "error");
+      expect(errorBlock!.content).toBe("string error");
+    });
+  });
+});

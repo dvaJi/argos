@@ -1,1 +1,1 @@
-export { default as SkillSyncDialog } from './SkillSyncDialog'
+export { default as SkillSyncDialog } from "./SkillSyncDialog";

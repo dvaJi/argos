@@ -5,23 +5,23 @@
  * Each adapter handles parsing and serializing skills for a specific tool format.
  */
 
-import type { IFormatAdapter } from '@shared/types/skillSync'
-import { ClaudeCodeAdapter } from './claudeCodeAdapter'
-import { CodexAdapter } from './codexAdapter'
-import { CursorAdapter } from './cursorAdapter'
-import { WindsurfAdapter } from './windsurfAdapter'
-import { CopilotAdapter } from './copilotAdapter'
-import { KiroAdapter } from './kiroAdapter'
-import { AntigravityAdapter } from './antigravityAdapter'
-import { OpenCodeAdapter } from './openCodeAdapter'
-import { GooseAdapter } from './gooseAdapter'
-import { KiloCodeAdapter } from './kiloCodeAdapter'
-import { CopilotUserAdapter } from './copilotUserAdapter'
+import type { IFormatAdapter } from "@shared/types/skillSync";
+import { ClaudeCodeAdapter } from "./claudeCodeAdapter";
+import { CodexAdapter } from "./codexAdapter";
+import { CursorAdapter } from "./cursorAdapter";
+import { WindsurfAdapter } from "./windsurfAdapter";
+import { CopilotAdapter } from "./copilotAdapter";
+import { KiroAdapter } from "./kiroAdapter";
+import { AntigravityAdapter } from "./antigravityAdapter";
+import { OpenCodeAdapter } from "./openCodeAdapter";
+import { GooseAdapter } from "./gooseAdapter";
+import { KiloCodeAdapter } from "./kiloCodeAdapter";
+import { CopilotUserAdapter } from "./copilotUserAdapter";
 
 /**
  * Registry of all available format adapters
  */
-const adapters: Map<string, IFormatAdapter> = new Map()
+const adapters: Map<string, IFormatAdapter> = new Map();
 
 /**
  * Register all built-in adapters
@@ -38,36 +38,36 @@ function registerBuiltinAdapters(): void {
     new OpenCodeAdapter(),
     new GooseAdapter(),
     new KiloCodeAdapter(),
-    new CopilotUserAdapter()
-  ]
+    new CopilotUserAdapter(),
+  ];
 
   for (const adapter of builtinAdapters) {
-    adapters.set(adapter.id, adapter)
+    adapters.set(adapter.id, adapter);
   }
 }
 
 // Initialize adapters on module load
-registerBuiltinAdapters()
+registerBuiltinAdapters();
 
 /**
  * Get an adapter by its ID
  */
 export function getAdapter(id: string): IFormatAdapter | undefined {
-  return adapters.get(id)
+  return adapters.get(id);
 }
 
 /**
  * Get all registered adapters
  */
 export function getAllAdapters(): IFormatAdapter[] {
-  return Array.from(adapters.values())
+  return Array.from(adapters.values());
 }
 
 /**
  * Register a custom adapter
  */
 export function registerAdapter(adapter: IFormatAdapter): void {
-  adapters.set(adapter.id, adapter)
+  adapters.set(adapter.id, adapter);
 }
 
 /**
@@ -76,10 +76,10 @@ export function registerAdapter(adapter: IFormatAdapter): void {
 export function detectAdapter(content: string): IFormatAdapter | undefined {
   for (const adapter of adapters.values()) {
     if (adapter.detect(content)) {
-      return adapter
+      return adapter;
     }
   }
-  return undefined
+  return undefined;
 }
 
 export {
@@ -93,5 +93,5 @@ export {
   OpenCodeAdapter,
   GooseAdapter,
   KiloCodeAdapter,
-  CopilotUserAdapter
-}
+  CopilotUserAdapter,
+};

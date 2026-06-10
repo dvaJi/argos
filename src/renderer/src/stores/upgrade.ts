@@ -1,46 +1,39 @@
-import { Store } from '@tanstack/store'
-import { useStore } from '@tanstack/react-store'
-import { createDeviceClient } from '@api/DeviceClient'
-import { createUpgradeClient } from '@api/UpgradeClient'
+import { Store } from "@tanstack/store";
+import { useStore } from "@tanstack/react-store";
+import { createDeviceClient } from "@api/DeviceClient";
+import { createUpgradeClient } from "@api/UpgradeClient";
 
-type PresenterUpdateStatus =
-  | 'checking'
-  | 'available'
-  | 'not-available'
-  | 'downloading'
-  | 'downloaded'
-  | 'error'
-  | null
+type PresenterUpdateStatus = "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error" | null;
 
-type UpdateState = 'idle' | 'checking' | 'available' | 'downloading' | 'ready_to_install' | 'error'
+type UpdateState = "idle" | "checking" | "available" | "downloading" | "ready_to_install" | "error";
 
 type UpdateInfo = {
-  version: string
-  releaseDate: string
-  releaseNotes: string
-  githubUrl?: string
-  downloadUrl?: string
-  isMock?: boolean
-}
+  version: string;
+  releaseDate: string;
+  releaseNotes: string;
+  githubUrl?: string;
+  downloadUrl?: string;
+  isMock?: boolean;
+};
 
 type ProgressInfo = {
-  percent: number
-  bytesPerSecond: number
-  transferred: number
-  total: number
-}
+  percent: number;
+  bytesPerSecond: number;
+  transferred: number;
+  total: number;
+};
 
 type PresenterStatusSnapshot = {
-  status: PresenterUpdateStatus
-  progress: ProgressInfo | null
-  error: string | null
-  updateInfo: UpdateInfo | null
-}
+  status: PresenterUpdateStatus;
+  progress: ProgressInfo | null;
+  error: string | null;
+  updateInfo: UpdateInfo | null;
+};
 
-const DEFAULT_UPDATE_ERROR = 'Update error'
+const DEFAULT_UPDATE_ERROR = "Update error";
 
 const toUpdateInfo = (info: UpdateInfo | null | undefined): UpdateInfo | null => {
-  if (!info) return null
+  if (!info) return null;
 
   return {
     version: info.version,
@@ -48,37 +41,37 @@ const toUpdateInfo = (info: UpdateInfo | null | undefined): UpdateInfo | null =>
     releaseNotes: info.releaseNotes,
     githubUrl: info.githubUrl,
     downloadUrl: info.downloadUrl,
-    isMock: info.isMock
-  }
-}
+    isMock: info.isMock,
+  };
+};
 
 const toProgressInfo = (progress: ProgressInfo | null | undefined): ProgressInfo | null => {
-  if (!progress) return null
+  if (!progress) return null;
 
   return {
     percent: progress.percent,
     bytesPerSecond: progress.bytesPerSecond,
     transferred: progress.transferred,
-    total: progress.total
-  }
-}
+    total: progress.total,
+  };
+};
 
 interface UpgradeState {
-  rawStatus: PresenterUpdateStatus
-  updateInfo: UpdateInfo | null
-  isUpdating: boolean
-  updateProgress: ProgressInfo | null
-  isRestarting: boolean
-  updateError: string | null
-  isSilent: boolean
-  platform: string | null
-  listenersReady: boolean
+  rawStatus: PresenterUpdateStatus;
+  updateInfo: UpdateInfo | null;
+  isUpdating: boolean;
+  updateProgress: ProgressInfo | null;
+  isRestarting: boolean;
+  updateError: string | null;
+  isSilent: boolean;
+  platform: string | null;
+  listenersReady: boolean;
 }
 
-const upgradeClient = createUpgradeClient()
-const deviceClient = createDeviceClient()
-let externalMutationToken = 0
-let latestSyncRequestId = 0
+const upgradeClient = createUpgradeClient();
+const deviceClient = createDeviceClient();
+let externalMutationToken = 0;
+let latestSyncRequestId = 0;
 
 export const upgradeStore = new Store<UpgradeState>({
   rawStatus: null,
@@ -89,275 +82,259 @@ export const upgradeStore = new Store<UpgradeState>({
   updateError: null,
   isSilent: true,
   platform: null,
-  listenersReady: false
-})
+  listenersReady: false,
+});
 
-export const isWindows = () => upgradeStore.state.platform === 'win32'
+export const isWindows = () => upgradeStore.state.platform === "win32";
 
-export const hasUpdate = () => Boolean(upgradeStore.state.updateInfo)
+export const hasUpdate = () => Boolean(upgradeStore.state.updateInfo);
 
-export const isMockUpdate = () => Boolean(upgradeStore.state.updateInfo?.isMock)
+export const isMockUpdate = () => Boolean(upgradeStore.state.updateInfo?.isMock);
 
 export const getUpdateState = (): UpdateState => {
-  const { rawStatus, updateInfo } = upgradeStore.state
+  const { rawStatus, updateInfo } = upgradeStore.state;
   switch (rawStatus) {
-    case 'checking':
-      return 'checking'
-    case 'available':
-      return 'available'
-    case 'downloading':
-      return 'downloading'
-    case 'downloaded':
-      return 'ready_to_install'
-    case 'error':
-      return updateInfo ? 'error' : 'idle'
+    case "checking":
+      return "checking";
+    case "available":
+      return "available";
+    case "downloading":
+      return "downloading";
+    case "downloaded":
+      return "ready_to_install";
+    case "error":
+      return updateInfo ? "error" : "idle";
     default:
-      return 'idle'
+      return "idle";
   }
-}
+};
 
-export const isChecking = () => getUpdateState() === 'checking'
-export const isDownloading = () => getUpdateState() === 'downloading'
-export const isReadyToInstall = () => getUpdateState() === 'ready_to_install'
-export const shouldShowUpdateNotes = () => hasUpdate()
-export const shouldShowTopbarInstallButton = () => isReadyToInstall()
+export const isChecking = () => getUpdateState() === "checking";
+export const isDownloading = () => getUpdateState() === "downloading";
+export const isReadyToInstall = () => getUpdateState() === "ready_to_install";
+export const shouldShowUpdateNotes = () => hasUpdate();
+export const shouldShowTopbarInstallButton = () => isReadyToInstall();
 export const showManualDownloadOptions = () =>
-  upgradeStore.state.rawStatus === 'error' && Boolean(upgradeStore.state.updateInfo)
+  upgradeStore.state.rawStatus === "error" && Boolean(upgradeStore.state.updateInfo);
 
 const applyProgress = (
   progress?: ProgressInfo | null,
-  source: 'external' | 'sync' = 'external',
-  mutationToken = externalMutationToken
+  source: "external" | "sync" = "external",
+  mutationToken = externalMutationToken,
 ) => {
-  if (source === 'external') {
-    externalMutationToken += 1
+  if (source === "external") {
+    externalMutationToken += 1;
   } else if (mutationToken !== externalMutationToken) {
-    return
+    return;
   }
 
-  upgradeStore.setState((prev) => ({ ...prev, updateProgress: toProgressInfo(progress) }))
-}
+  upgradeStore.setState((prev) => ({ ...prev, updateProgress: toProgressInfo(progress) }));
+};
 
 export const syncFromPresenterStatus = async (): Promise<PresenterUpdateStatus> => {
-  const requestId = ++latestSyncRequestId
-  const mutationTokenBeforeRequest = externalMutationToken
+  const requestId = ++latestSyncRequestId;
+  const mutationTokenBeforeRequest = externalMutationToken;
   try {
-    const snapshot = (await upgradeClient.getUpdateStatus()) as PresenterStatusSnapshot | null
+    const snapshot = (await upgradeClient.getUpdateStatus()) as PresenterStatusSnapshot | null;
 
     if (!snapshot || snapshot.status == null) {
-      return upgradeStore.state.rawStatus
+      return upgradeStore.state.rawStatus;
     }
 
     if (requestId !== latestSyncRequestId || externalMutationToken !== mutationTokenBeforeRequest) {
-      return upgradeStore.state.rawStatus
+      return upgradeStore.state.rawStatus;
     }
 
-    applyStatus(snapshot.status, snapshot.updateInfo, snapshot.error, 'sync')
-    applyProgress(snapshot.progress, 'sync', mutationTokenBeforeRequest)
-    return snapshot.status
+    applyStatus(snapshot.status, snapshot.updateInfo, snapshot.error, "sync");
+    applyProgress(snapshot.progress, "sync", mutationTokenBeforeRequest);
+    return snapshot.status;
   } catch (error) {
-    console.error('Failed to sync update status:', error)
-    return upgradeStore.state.rawStatus
+    console.error("Failed to sync update status:", error);
+    return upgradeStore.state.rawStatus;
   }
-}
+};
 
 export const applyStatus = (
   status: PresenterUpdateStatus,
   info?: UpdateInfo | null,
   error?: string | null,
-  source: 'external' | 'sync' = 'external'
+  source: "external" | "sync" = "external",
 ) => {
-  if (source === 'external') {
-    externalMutationToken += 1
+  if (source === "external") {
+    externalMutationToken += 1;
   }
 
-  const s = upgradeStore.state
+  const s = upgradeStore.state;
   const baseUpdate = {
     rawStatus: status,
-    updateInfo: info !== undefined ? toUpdateInfo(info) : s.updateInfo
-  }
+    updateInfo: info !== undefined ? toUpdateInfo(info) : s.updateInfo,
+  };
 
-  if (status === 'checking') {
+  if (status === "checking") {
     upgradeStore.setState((prev) => ({
       ...prev,
       ...baseUpdate,
       updateError: null,
       updateProgress: null,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  if (status === 'not-available') {
+  if (status === "not-available") {
     upgradeStore.setState((prev) => ({
       ...prev,
       rawStatus: status,
       updateInfo: null,
       updateError: null,
       updateProgress: null,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  if (status === 'available') {
+  if (status === "available") {
     upgradeStore.setState((prev) => ({
       ...prev,
       ...baseUpdate,
       updateError: null,
       updateProgress: null,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  if (status === 'downloading') {
+  if (status === "downloading") {
     upgradeStore.setState((prev) => ({
       ...prev,
       ...baseUpdate,
       updateError: null,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  if (status === 'downloaded') {
+  if (status === "downloaded") {
     upgradeStore.setState((prev) => ({
       ...prev,
       ...baseUpdate,
       updateError: null,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  if (status === 'error') {
+  if (status === "error") {
     upgradeStore.setState((prev) => ({
       ...prev,
       ...baseUpdate,
       updateError: error || DEFAULT_UPDATE_ERROR,
-      isRestarting: false
-    }))
-    return
+      isRestarting: false,
+    }));
+    return;
   }
 
-  upgradeStore.setState((prev) => ({ ...prev, ...baseUpdate }))
-}
+  upgradeStore.setState((prev) => ({ ...prev, ...baseUpdate }));
+};
 
 const loadDeviceInfo = async () => {
   try {
-    const deviceInfo = await deviceClient.getDeviceInfo()
-    upgradeStore.setState((prev) => ({ ...prev, platform: deviceInfo?.platform ?? null }))
+    const deviceInfo = await deviceClient.getDeviceInfo();
+    upgradeStore.setState((prev) => ({ ...prev, platform: deviceInfo?.platform ?? null }));
   } catch (error) {
-    console.error('Failed to load device info:', error)
+    console.error("Failed to load device info:", error);
   }
-}
+};
 
-void loadDeviceInfo()
+void loadDeviceInfo();
 
 export const checkUpdate = async (silent = true) => {
-  upgradeStore.setState((prev) => ({ ...prev, isSilent: silent }))
-  if (isChecking()) return upgradeStore.state.rawStatus
+  upgradeStore.setState((prev) => ({ ...prev, isSilent: silent }));
+  if (isChecking()) return upgradeStore.state.rawStatus;
 
   try {
-    applyStatus('checking', upgradeStore.state.updateInfo, null)
-    await upgradeClient.checkUpdate()
-    return await syncFromPresenterStatus()
+    applyStatus("checking", upgradeStore.state.updateInfo, null);
+    await upgradeClient.checkUpdate();
+    return await syncFromPresenterStatus();
   } catch (error) {
-    console.error('Failed to check update:', error)
-    applyStatus(
-      'error',
-      upgradeStore.state.updateInfo,
-      error instanceof Error ? error.message : String(error)
-    )
-    return 'error'
+    console.error("Failed to check update:", error);
+    applyStatus("error", upgradeStore.state.updateInfo, error instanceof Error ? error.message : String(error));
+    return "error";
   }
-}
+};
 
-export const startUpdate = async (type: 'github' | 'official') => {
+export const startUpdate = async (type: "github" | "official") => {
   try {
-    return await upgradeClient.goDownloadUpgrade(type)
+    return await upgradeClient.goDownloadUpgrade(type);
   } catch (error) {
-    console.error('Failed to start update:', error)
-    return false
+    console.error("Failed to start update:", error);
+    return false;
   }
-}
+};
 
 export const mockDownloadedUpdate = async () => {
   try {
-    const success = await upgradeClient.mockDownloadedUpdate()
+    const success = await upgradeClient.mockDownloadedUpdate();
     if (!success) {
-      return upgradeStore.state.rawStatus
+      return upgradeStore.state.rawStatus;
     }
 
-    return await syncFromPresenterStatus()
+    return await syncFromPresenterStatus();
   } catch (error) {
-    console.error('Failed to mock downloaded update:', error)
-    applyStatus(
-      'error',
-      upgradeStore.state.updateInfo,
-      error instanceof Error ? error.message : String(error)
-    )
-    return 'error'
+    console.error("Failed to mock downloaded update:", error);
+    applyStatus("error", upgradeStore.state.updateInfo, error instanceof Error ? error.message : String(error));
+    return "error";
   }
-}
+};
 
 export const clearMockUpdate = async () => {
   try {
-    const success = await upgradeClient.clearMockUpdate()
+    const success = await upgradeClient.clearMockUpdate();
     if (!success) {
-      return upgradeStore.state.rawStatus
+      return upgradeStore.state.rawStatus;
     }
 
-    return await syncFromPresenterStatus()
+    return await syncFromPresenterStatus();
   } catch (error) {
-    console.error('Failed to clear mock update:', error)
-    applyStatus(
-      'error',
-      upgradeStore.state.updateInfo,
-      error instanceof Error ? error.message : String(error)
-    )
-    return 'error'
+    console.error("Failed to clear mock update:", error);
+    applyStatus("error", upgradeStore.state.updateInfo, error instanceof Error ? error.message : String(error));
+    return "error";
   }
-}
+};
 
-export const handleUpdate = async (type: 'github' | 'official' | 'auto') => {
-  upgradeStore.setState((prev) => ({ ...prev, isUpdating: true }))
+export const handleUpdate = async (type: "github" | "official" | "auto") => {
+  upgradeStore.setState((prev) => ({ ...prev, isUpdating: true }));
   try {
     if (isReadyToInstall()) {
-      await upgradeClient.restartToUpdate()
-      return
+      await upgradeClient.restartToUpdate();
+      return;
     }
 
     if (isDownloading()) {
-      return
+      return;
     }
 
-    if (type === 'auto') {
-      const success = await upgradeClient.startDownloadUpdate()
+    if (type === "auto") {
+      const success = await upgradeClient.startDownloadUpdate();
       if (!success) {
-        applyStatus('error', upgradeStore.state.updateInfo, upgradeStore.state.updateError)
+        applyStatus("error", upgradeStore.state.updateInfo, upgradeStore.state.updateError);
       }
-      return
+      return;
     }
 
-    await startUpdate(type)
+    await startUpdate(type);
   } catch (error) {
-    console.error('Update failed:', error)
-    applyStatus(
-      'error',
-      upgradeStore.state.updateInfo,
-      error instanceof Error ? error.message : String(error)
-    )
+    console.error("Update failed:", error);
+    applyStatus("error", upgradeStore.state.updateInfo, error instanceof Error ? error.message : String(error));
   } finally {
-    upgradeStore.setState((prev) => ({ ...prev, isUpdating: false }))
+    upgradeStore.setState((prev) => ({ ...prev, isUpdating: false }));
   }
-}
+};
 
 const handleStatusChanged = (_: unknown, event: Record<string, any>) => {
-  const { status, info, error } = event
-  applyStatus(status as PresenterUpdateStatus, info, error)
-}
+  const { status, info, error } = event;
+  applyStatus(status as PresenterUpdateStatus, info, error);
+};
 
 const handleProgress = (_: unknown, progressData: Record<string, any>) => {
   applyProgress(
@@ -366,43 +343,43 @@ const handleProgress = (_: unknown, progressData: Record<string, any>) => {
           percent: progressData.percent || 0,
           bytesPerSecond: progressData.bytesPerSecond || 0,
           transferred: progressData.transferred || 0,
-          total: progressData.total || 0
+          total: progressData.total || 0,
         }
-      : null
-  )
-}
+      : null,
+  );
+};
 
 const handleWillRestart = () => {
-  upgradeStore.setState((prev) => ({ ...prev, isRestarting: true }))
-}
+  upgradeStore.setState((prev) => ({ ...prev, isRestarting: true }));
+};
 
 const handleError = (_: unknown, errorData: Record<string, any>) => {
   applyStatus(
-    upgradeStore.state.updateInfo ? 'error' : null,
+    upgradeStore.state.updateInfo ? "error" : null,
     upgradeStore.state.updateInfo,
-    errorData?.error || DEFAULT_UPDATE_ERROR
-  )
-}
+    errorData?.error || DEFAULT_UPDATE_ERROR,
+  );
+};
 
 const setupUpdateListener = () => {
   if (upgradeStore.state.listenersReady) {
-    return
+    return;
   }
 
-  upgradeStore.setState((prev) => ({ ...prev, listenersReady: true }))
-  upgradeClient.onStatusChanged((event) => handleStatusChanged(undefined, event))
-  upgradeClient.onProgress((event) => handleProgress(undefined, event))
-  upgradeClient.onWillRestart(handleWillRestart)
-  upgradeClient.onError((event) => handleError(undefined, event))
-}
+  upgradeStore.setState((prev) => ({ ...prev, listenersReady: true }));
+  upgradeClient.onStatusChanged((event) => handleStatusChanged(undefined, event));
+  upgradeClient.onProgress((event) => handleProgress(undefined, event));
+  upgradeClient.onWillRestart(handleWillRestart);
+  upgradeClient.onError((event) => handleError(undefined, event));
+};
 
-setupUpdateListener()
+setupUpdateListener();
 void syncFromPresenterStatus().catch((error) => {
-  console.error('Failed to sync update status:', error)
-})
+  console.error("Failed to sync update status:", error);
+});
 
 export function useUpgradeStore() {
-  const state = useStore(upgradeStore)
+  const state = useStore(upgradeStore);
   return {
     ...state,
     isWindows,
@@ -422,6 +399,6 @@ export function useUpgradeStore() {
     mockDownloadedUpdate,
     clearMockUpdate,
     handleUpdate,
-    refreshStatus: syncFromPresenterStatus
-  }
+    refreshStatus: syncFromPresenterStatus,
+  };
 }

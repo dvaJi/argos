@@ -1,49 +1,43 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
-import { useUiSettingsStore } from '@/stores/uiSettingsStore'
-import { useStore } from '@nanostores/react'
+import { type FC, useState, useMemo, useRef, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import { useUiSettingsStore } from "@/stores/uiSettingsStore";
 
 interface MessageToolbarProps {
   usage: {
-    context_usage: number
-    tokens_per_second: number
-    total_tokens: number
-    reasoning_start_time: number
-    reasoning_end_time: number
-    input_tokens: number
-    output_tokens: number
-  }
-  loading: boolean
-  isAssistant: boolean
-  currentVariantIndex?: number
-  totalVariants?: number
-  isEditMode?: boolean
-  isInGeneratingThread?: boolean
-  isCapturingImage: boolean
-  showTrace?: boolean
-  isReadOnly?: boolean
-  onRetry?: () => void
-  onDelete?: () => void
-  onCopy?: () => void
-  onCopyImage?: () => void
-  onPrev?: () => void
-  onNext?: () => void
-  onEdit?: () => void
-  onSave?: () => void
-  onCancel?: () => void
-  onFork?: () => void
-  onCopyImageFromTop?: () => void
-  onTrace?: () => void
+    context_usage: number;
+    tokens_per_second: number;
+    total_tokens: number;
+    reasoning_start_time: number;
+    reasoning_end_time: number;
+    input_tokens: number;
+    output_tokens: number;
+  };
+  loading: boolean;
+  isAssistant: boolean;
+  currentVariantIndex?: number;
+  totalVariants?: number;
+  isEditMode?: boolean;
+  isInGeneratingThread?: boolean;
+  isCapturingImage: boolean;
+  showTrace?: boolean;
+  isReadOnly?: boolean;
+  onRetry?: () => void;
+  onDelete?: () => void;
+  onCopy?: () => void;
+  onCopyImage?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  onFork?: () => void;
+  onCopyImageFromTop?: () => void;
+  onTrace?: () => void;
 }
 
-export const MessageToolbar: React.FC<MessageToolbarProps> = ({
+export const MessageToolbar: FC<MessageToolbarProps> = ({
   usage,
   loading,
   isAssistant,
@@ -65,64 +59,64 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
   onCancel,
   onFork,
   onCopyImageFromTop,
-  onTrace
+  onTrace,
 }) => {
-  const uiSettingsStore = useUiSettingsStore()
-  const traceDebugEnabled = useStore(uiSettingsStore, (s) => s.traceDebugEnabled)
+  const uiSettings = useUiSettingsStore();
+  const traceDebugEnabled = uiSettings.traceDebugEnabled;
 
-  const [showCopyTip, setShowCopyTip] = useState(false)
-  const [showCopyImageTip, setShowCopyImageTip] = useState(false)
-  const [showCopyFromTopTip, setShowCopyFromTopTip] = useState(false)
-  const copyImagePressTimer = useRef<number | null>(null)
-  const LONG_PRESS_DURATION = 800
+  const [showCopyTip, setShowCopyTip] = useState(false);
+  const [showCopyImageTip, setShowCopyImageTip] = useState(false);
+  const [showCopyFromTopTip, setShowCopyFromTopTip] = useState(false);
+  const copyImagePressTimer = useRef<number | null>(null);
+  const LONG_PRESS_DURATION = 800;
 
-  const hasTokensPerSecond = usage.tokens_per_second > 0
-  const hasVariants = (totalVariants || 0) > 1
-  const allowTrace = showTrace ?? false
-  const isReadOnly = isReadOnlyProp === true
+  const hasTokensPerSecond = usage.tokens_per_second > 0;
+  const hasVariants = (totalVariants || 0) > 1;
+  const allowTrace = showTrace ?? false;
+  const isReadOnly = isReadOnlyProp === true;
 
   const handleCopy = useCallback(() => {
-    onCopy?.()
-    setShowCopyTip(true)
-    setTimeout(() => setShowCopyTip(false), 2000)
-  }, [onCopy])
+    onCopy?.();
+    setShowCopyTip(true);
+    setTimeout(() => setShowCopyTip(false), 2000);
+  }, [onCopy]);
 
   const handleCopyImageStart = useCallback(() => {
     copyImagePressTimer.current = window.setTimeout(() => {
-      onCopyImageFromTop?.()
-      setShowCopyFromTopTip(true)
-      setTimeout(() => setShowCopyFromTopTip(false), 2000)
-      copyImagePressTimer.current = null
-    }, LONG_PRESS_DURATION)
-  }, [onCopyImageFromTop])
+      onCopyImageFromTop?.();
+      setShowCopyFromTopTip(true);
+      setTimeout(() => setShowCopyFromTopTip(false), 2000);
+      copyImagePressTimer.current = null;
+    }, LONG_PRESS_DURATION);
+  }, [onCopyImageFromTop]);
 
   const handleCopyImageEnd = useCallback(() => {
     if (copyImagePressTimer.current) {
-      window.clearTimeout(copyImagePressTimer.current)
-      copyImagePressTimer.current = null
-      onCopyImage?.()
-      setShowCopyImageTip(true)
-      setTimeout(() => setShowCopyImageTip(false), 2000)
+      window.clearTimeout(copyImagePressTimer.current);
+      copyImagePressTimer.current = null;
+      onCopyImage?.();
+      setShowCopyImageTip(true);
+      setTimeout(() => setShowCopyImageTip(false), 2000);
     }
-  }, [onCopyImage])
+  }, [onCopyImage]);
 
   const handleCopyImageCancel = useCallback(() => {
     if (copyImagePressTimer.current) {
-      window.clearTimeout(copyImagePressTimer.current)
-      copyImagePressTimer.current = null
+      window.clearTimeout(copyImagePressTimer.current);
+      copyImagePressTimer.current = null;
     }
-  }, [])
+  }, []);
 
-  if (isCapturingImage) return null
+  if (isCapturingImage) return null;
 
   return (
-    <TooltipProvider ignoreNonKeyboardFocus={true}>
+    <TooltipProvider>
       <div
         className={`w-full h-7 text-xs text-muted-foreground items-center justify-between flex flex-row opacity-0 group-hover:opacity-100 transition-opacity duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${
-          isAssistant ? '' : 'flex-row-reverse'
+          isAssistant ? "" : "flex-row-reverse"
         }`}
       >
-        <span className={loading ? 'hidden' : 'flex flex-row gap-3'}>
+        <span className={loading ? "hidden" : "flex flex-row gap-3"}>
           {isEditMode ? (
             <>
               <Tooltip delayDuration={200}>
@@ -175,7 +169,7 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? '' : 'hidden'}`}
+                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
                     disabled={currentVariantIndex === 0}
                     onClick={onPrev}
                   >
@@ -185,7 +179,7 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
                 <TooltipContent>Previous variant</TooltipContent>
               </Tooltip>
 
-              <span className={isAssistant && hasVariants ? '' : 'hidden'}>
+              <span className={isAssistant && hasVariants ? "" : "hidden"}>
                 {(currentVariantIndex ?? 0) + 1} / {totalVariants}
               </span>
 
@@ -194,7 +188,7 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? '' : 'hidden'}`}
+                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
                     disabled={(currentVariantIndex ?? 0) >= (totalVariants || 0) - 1}
                     onClick={onNext}
                   >
@@ -228,7 +222,7 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? '' : 'hidden'}`}
+                    className={`relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? "" : "hidden"}`}
                     disabled={isCapturingImage}
                     onMouseDown={handleCopyImageStart}
                     onMouseUp={handleCopyImageEnd}
@@ -252,7 +246,7 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isCapturingImage ? 'Capturing...' : 'Copy image (long press for from top)'}
+                  {isCapturingImage ? "Capturing..." : "Copy image (long press for from top)"}
                 </TooltipContent>
               </Tooltip>
 
@@ -356,5 +350,5 @@ export const MessageToolbar: React.FC<MessageToolbarProps> = ({
         </span>
       </div>
     </TooltipProvider>
-  )
-}
+  );
+};

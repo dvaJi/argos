@@ -1,28 +1,25 @@
-import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { JsonValue } from './JsonValue'
+import { type FC, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { JsonValue } from "./JsonValue";
 
 interface JsonObjectProps {
-  data: Record<string, unknown>
-  isNested?: boolean
+  data: Record<string, unknown>;
+  isNested?: boolean;
 }
 
-export const JsonObject: React.FC<JsonObjectProps> = ({ data, isNested = false }) => {
-  const [isExpanded, setIsExpanded] = useState(true)
-  const entries = Object.entries(data)
+export const JsonObject: FC<JsonObjectProps> = ({ data, isNested = false }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const entries = Object.entries(data);
 
   if (entries.length === 0) {
-    return <span className="text-xs text-muted-foreground">{'{ }'}</span>
+    return <span className="text-xs text-muted-foreground">{"{ }"}</span>;
   }
 
   return (
     <div className="w-full">
       {isNested && (
         <div className="flex items-center py-1">
-          <button
-            className="p-0.5 rounded hover:bg-muted mr-1"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
+          <button className="p-0.5 rounded hover:bg-muted mr-1" onClick={() => setIsExpanded(!isExpanded)}>
             {isExpanded ? (
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             ) : (
@@ -34,7 +31,7 @@ export const JsonObject: React.FC<JsonObjectProps> = ({ data, isNested = false }
       )}
 
       {isExpanded && (
-        <div className={isNested ? 'ml-2 pl-1 border-l border-muted space-y-2' : ' space-y-2'}>
+        <div className={isNested ? "ml-2 pl-1 border-l border-muted space-y-2" : " space-y-2"}>
           {entries.map(([key, value]) => (
             <div key={key}>
               <div className="flex flex-wrap items-start gap-2">
@@ -50,5 +47,5 @@ export const JsonObject: React.FC<JsonObjectProps> = ({ data, isNested = false }
         </div>
       )}
     </div>
-  )
-}
+  );
+};

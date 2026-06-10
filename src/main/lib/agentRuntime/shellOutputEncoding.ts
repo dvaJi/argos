@@ -1,118 +1,116 @@
-import path from 'path'
-import { StringDecoder } from 'string_decoder'
+import path from "path";
+import { StringDecoder } from "string_decoder";
 
 const POWERSHELL_UTF8_PREAMBLE =
-  '[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); ' +
-  '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); ' +
-  '$OutputEncoding = [System.Text.UTF8Encoding]::new($false)'
+  "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); " +
+  "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); " +
+  "$OutputEncoding = [System.Text.UTF8Encoding]::new($false)";
 
-const CMD_UTF8_PREAMBLE = 'chcp 65001 > nul'
+const CMD_UTF8_PREAMBLE = "chcp 65001 > nul";
 
-export function prepareProcessEnvForUtf8Output(
-  env: Record<string, string>
-): Record<string, string> {
-  if (process.platform !== 'win32') {
-    return env
+export function prepareProcessEnvForUtf8Output(env: Record<string, string>): Record<string, string> {
+  if (process.platform !== "win32") {
+    return env;
   }
 
   return {
     ...env,
-    PYTHONIOENCODING: 'utf-8',
-    PYTHONUTF8: '1'
-  }
+    PYTHONIOENCODING: "utf-8",
+    PYTHONUTF8: "1",
+  };
 }
 
 export function prepareShellCommandForUtf8Output(shell: string, command: string): string {
-  if (process.platform !== 'win32') {
-    return command
+  if (process.platform !== "win32") {
+    return command;
   }
 
-  const shellName = path.basename(shell).toLowerCase()
+  const shellName = path.basename(shell).toLowerCase();
   if (
-    shellName === 'powershell.exe' ||
-    shellName === 'powershell' ||
-    shellName === 'pwsh.exe' ||
-    shellName === 'pwsh'
+    shellName === "powershell.exe" ||
+    shellName === "powershell" ||
+    shellName === "pwsh.exe" ||
+    shellName === "pwsh"
   ) {
-    return `${POWERSHELL_UTF8_PREAMBLE}; ${command}`
+    return `${POWERSHELL_UTF8_PREAMBLE}; ${command}`;
   }
 
-  if (shellName === 'cmd.exe' || shellName === 'cmd') {
-    return `${CMD_UTF8_PREAMBLE} && ${command}`
+  if (shellName === "cmd.exe" || shellName === "cmd") {
+    return `${CMD_UTF8_PREAMBLE} && ${command}`;
   }
 
-  return command
+  return command;
 }
 
 export function createUtf8StreamDecoder(onText: (text: string) => void): {
-  write: (chunk: Buffer | string) => void
-  end: () => void
+  write: (chunk: Buffer | string) => void;
+  end: () => void;
 } {
-  const decoder = new StringDecoder('utf8')
+  const decoder = new StringDecoder("utf8");
 
   return {
     write(chunk) {
-      if (typeof chunk === 'string') {
+      if (typeof chunk === "string") {
         if (chunk) {
-          onText(chunk)
+          onText(chunk);
         }
-        return
+        return;
       }
 
-      const text = decoder.write(chunk)
+      const text = decoder.write(chunk);
       if (text) {
-        onText(text)
+        onText(text);
       }
     },
     end() {
-      const text = decoder.end()
+      const text = decoder.end();
       if (text) {
-        onText(text)
+        onText(text);
       }
-    }
-  }
+    },
+  };
 }
 
 export function createUtf8OutputDecoderPair(onText: (text: string) => void): {
-  writeStdout: (chunk: Buffer | string) => void
-  writeStderr: (chunk: Buffer | string) => void
-  flushStdout: () => void
-  flushStderr: () => void
-  flush: () => void
+  writeStdout: (chunk: Buffer | string) => void;
+  writeStderr: (chunk: Buffer | string) => void;
+  flushStdout: () => void;
+  flushStderr: () => void;
+  flush: () => void;
 } {
-  const stdout = createUtf8StreamDecoder(onText)
-  const stderr = createUtf8StreamDecoder(onText)
-  let stdoutFlushed = false
-  let stderrFlushed = false
+  const stdout = createUtf8StreamDecoder(onText);
+  const stderr = createUtf8StreamDecoder(onText);
+  let stdoutFlushed = false;
+  let stderrFlushed = false;
 
   const flushStdout = () => {
     if (stdoutFlushed) {
-      return
+      return;
     }
-    stdoutFlushed = true
-    stdout.end()
-  }
+    stdoutFlushed = true;
+    stdout.end();
+  };
 
   const flushStderr = () => {
     if (stderrFlushed) {
-      return
+      return;
     }
-    stderrFlushed = true
-    stderr.end()
-  }
+    stderrFlushed = true;
+    stderr.end();
+  };
 
   return {
     writeStdout(chunk) {
-      stdout.write(chunk)
+      stdout.write(chunk);
     },
     writeStderr(chunk) {
-      stderr.write(chunk)
+      stderr.write(chunk);
     },
     flushStdout,
     flushStderr,
     flush() {
-      flushStdout()
-      flushStderr()
-    }
-  }
+      flushStdout();
+      flushStderr();
+    },
+  };
 }

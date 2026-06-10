@@ -1,20 +1,20 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { AgentToolManager } from '@/presenter/toolPresenter/agentTools/agentToolManager'
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { AgentToolManager } from "@/presenter/toolPresenter/agentTools/agentToolManager";
 import {
   CHAT_SETTINGS_SKILL_NAME,
-  CHAT_SETTINGS_TOOL_NAMES
-} from '@/presenter/toolPresenter/agentTools/chatSettingsTools'
+  CHAT_SETTINGS_TOOL_NAMES,
+} from "@/presenter/toolPresenter/agentTools/chatSettingsTools";
 
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   app: {
-    getPath: () => '/tmp'
-  }
-}))
+    getPath: () => "/tmp",
+  },
+}));
 
-describe('AgentToolManager DeepChat settings tool gating', () => {
+describe("AgentToolManager DeepChat settings tool gating", () => {
   const configPresenter = {
-    getSkillsEnabled: () => true
-  } as any
+    getSkillsEnabled: () => true,
+  } as any;
   const skillPresenter = {
     getActiveSkills: vi.fn(),
     getActiveSkillsAllowedTools: vi.fn(),
@@ -24,13 +24,13 @@ describe('AgentToolManager DeepChat settings tool gating', () => {
     getSkillExtension: vi.fn().mockResolvedValue({
       version: 1,
       env: {},
-      runtimePolicy: { python: 'auto', node: 'auto' },
-      scriptOverrides: {}
-    })
-  } as any
-  const resolveConversationWorkdir = vi.fn()
-  const resolveConversationSessionInfo = vi.fn()
-  const getToolDefinitions = vi.fn().mockReturnValue([])
+      runtimePolicy: { python: "auto", node: "auto" },
+      scriptOverrides: {},
+    }),
+  } as any;
+  const resolveConversationWorkdir = vi.fn();
+  const resolveConversationSessionInfo = vi.fn();
+  const getToolDefinitions = vi.fn().mockReturnValue([]);
 
   const buildManager = () =>
     new AgentToolManager({
@@ -42,330 +42,323 @@ describe('AgentToolManager DeepChat settings tool gating', () => {
         getSkillPresenter: () => skillPresenter,
         getYoBrowserToolHandler: () => ({
           getToolDefinitions,
-          callTool: vi.fn()
+          callTool: vi.fn(),
         }),
         getFilePresenter: () => ({
           getMimeType: vi.fn(),
-          prepareFileCompletely: vi.fn()
+          prepareFileCompletely: vi.fn(),
         }),
         getLlmProviderPresenter: () => ({
           executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
           generateCompletionStandalone: vi.fn(),
-          generateImageStandalone: vi.fn()
+          generateImageStandalone: vi.fn(),
         }),
         createSettingsWindow: vi.fn(),
         sendToWindow: vi.fn().mockReturnValue(true),
         getApprovedFilePaths: vi.fn().mockReturnValue([]),
-        consumeSettingsApproval: vi.fn().mockReturnValue(false)
-      }
-    })
+        consumeSettingsApproval: vi.fn().mockReturnValue(false),
+      },
+    });
 
   beforeEach(() => {
-    vi.clearAllMocks()
-    resolveConversationWorkdir.mockResolvedValue(null)
-    resolveConversationSessionInfo.mockResolvedValue(null)
-    skillPresenter.listSkillScripts.mockResolvedValue([])
+    vi.clearAllMocks();
+    resolveConversationWorkdir.mockResolvedValue(null);
+    resolveConversationSessionInfo.mockResolvedValue(null);
+    skillPresenter.listSkillScripts.mockResolvedValue([]);
     skillPresenter.viewSkill.mockResolvedValue({
       success: true,
-      name: 'code-review',
+      name: "code-review",
       filePath: null,
-      content: '# Code Review',
-      isPinned: false
-    })
-    skillPresenter.manageDraftSkill.mockResolvedValue({ success: true, action: 'create' })
-    getToolDefinitions.mockReturnValue([])
-  })
+      content: "# Code Review",
+      isPinned: false,
+    });
+    skillPresenter.manageDraftSkill.mockResolvedValue({ success: true, action: "create" });
+    getToolDefinitions.mockReturnValue([]);
+  });
 
-  it('does not include settings tools when skill is inactive', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("does not include settings tools when skill is inactive", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
 
-    const manager = buildManager()
-
-    const defs = await manager.getAllToolDefinitions({
-      chatMode: 'agent',
-      supportsVision: false,
-      agentWorkspacePath: null,
-      conversationId: 'conv-1'
-    })
-
-    const names = defs.map((def) => def.function.name)
-    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.toggle)
-    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.open)
-  })
-
-  it('includes settings tools when skill is active and allowed', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([CHAT_SETTINGS_SKILL_NAME])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([CHAT_SETTINGS_TOOL_NAMES.toggle])
-
-    const manager = buildManager()
+    const manager = buildManager();
 
     const defs = await manager.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
       agentWorkspacePath: null,
-      conversationId: 'conv-1'
-    })
+      conversationId: "conv-1",
+    });
 
-    const names = defs.map((def) => def.function.name)
-    expect(names).toContain(CHAT_SETTINGS_TOOL_NAMES.toggle)
-    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.open)
-  })
+    const names = defs.map((def) => def.function.name);
+    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.toggle);
+    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.open);
+  });
 
-  it('includes skill_run when an active skill exposes runnable scripts', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue(['ocr'])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("includes settings tools when skill is active and allowed", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([CHAT_SETTINGS_SKILL_NAME]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([CHAT_SETTINGS_TOOL_NAMES.toggle]);
+
+    const manager = buildManager();
+
+    const defs = await manager.getAllToolDefinitions({
+      chatMode: "agent",
+      supportsVision: false,
+      agentWorkspacePath: null,
+      conversationId: "conv-1",
+    });
+
+    const names = defs.map((def) => def.function.name);
+    expect(names).toContain(CHAT_SETTINGS_TOOL_NAMES.toggle);
+    expect(names).not.toContain(CHAT_SETTINGS_TOOL_NAMES.open);
+  });
+
+  it("includes skill_run when an active skill exposes runnable scripts", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue(["ocr"]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
     skillPresenter.listSkillScripts.mockResolvedValue([
       {
-        name: 'run.py',
-        relativePath: 'scripts/run.py',
-        absolutePath: '/tmp/skills/ocr/scripts/run.py',
-        runtime: 'python',
-        enabled: true
-      }
-    ])
+        name: "run.py",
+        relativePath: "scripts/run.py",
+        absolutePath: "/tmp/skills/ocr/scripts/run.py",
+        runtime: "python",
+        enabled: true,
+      },
+    ]);
 
-    const manager = buildManager()
-
-    const defs = await manager.getAllToolDefinitions({
-      chatMode: 'agent',
-      supportsVision: false,
-      agentWorkspacePath: null,
-      conversationId: 'conv-1'
-    })
-
-    expect(defs.map((def) => def.function.name)).toContain('skill_run')
-  })
-
-  it('exposes skill inspection and draft tools without skill_control', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
-
-    const manager = buildManager()
+    const manager = buildManager();
 
     const defs = await manager.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
       agentWorkspacePath: null,
-      conversationId: 'conv-1'
-    })
+      conversationId: "conv-1",
+    });
 
-    const names = defs.map((def) => def.function.name)
-    expect(names).toContain('skill_list')
-    expect(names).toContain('skill_view')
-    expect(names).toContain('skill_manage')
-    expect(names).not.toContain('skill_control')
-  })
+    expect(defs.map((def) => def.function.name)).toContain("skill_run");
+  });
 
-  it('returns skill_view activation metadata after viewing a main SKILL.md', async () => {
-    skillPresenter.getActiveSkills
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(['deepchat-settings'])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("exposes skill inspection and draft tools without skill_control", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
+
+    const manager = buildManager();
+
+    const defs = await manager.getAllToolDefinitions({
+      chatMode: "agent",
+      supportsVision: false,
+      agentWorkspacePath: null,
+      conversationId: "conv-1",
+    });
+
+    const names = defs.map((def) => def.function.name);
+    expect(names).toContain("skill_list");
+    expect(names).toContain("skill_view");
+    expect(names).toContain("skill_manage");
+    expect(names).not.toContain("skill_control");
+  });
+
+  it("returns skill_view activation metadata after viewing a main SKILL.md", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValueOnce([]).mockResolvedValueOnce(["deepchat-settings"]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
     skillPresenter.viewSkill.mockResolvedValue({
       success: true,
-      name: 'deepchat-settings',
+      name: "deepchat-settings",
       filePath: null,
-      content: '# Skill',
-      isPinned: true
-    })
+      content: "# Skill",
+      isPinned: true,
+    });
 
-    const manager = buildManager()
-    const result = (await manager.callTool(
-      'skill_view',
-      { name: 'deepchat-settings' },
-      'conv-1'
-    )) as { content: string; rawData?: { toolResult?: unknown } }
+    const manager = buildManager();
+    const result = (await manager.callTool("skill_view", { name: "deepchat-settings" }, "conv-1")) as {
+      content: string;
+      rawData?: { toolResult?: unknown };
+    };
 
-    expect(result.content).toContain('"isPinned":true')
+    expect(result.content).toContain('"isPinned":true');
     expect(result.rawData?.toolResult).toEqual({
       activationApplied: true,
-      activationSource: 'skill_md',
-      activatedSkill: 'deepchat-settings'
-    })
-  })
+      activationSource: "skill_md",
+      activatedSkill: "deepchat-settings",
+    });
+  });
 
-  it('does not mark linked file views as skill activations', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("does not mark linked file views as skill activations", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
     skillPresenter.viewSkill.mockResolvedValue({
       success: true,
-      name: 'deepchat-settings',
-      filePath: 'references/guide.md',
-      content: '# Guide',
-      isPinned: false
-    })
+      name: "deepchat-settings",
+      filePath: "references/guide.md",
+      content: "# Guide",
+      isPinned: false,
+    });
 
-    const manager = buildManager()
+    const manager = buildManager();
     const result = (await manager.callTool(
-      'skill_view',
-      { name: 'deepchat-settings', file_path: 'references/guide.md' },
-      'conv-1'
-    )) as { rawData?: { toolResult?: unknown } }
+      "skill_view",
+      { name: "deepchat-settings", file_path: "references/guide.md" },
+      "conv-1",
+    )) as { rawData?: { toolResult?: unknown } };
 
     expect(result.rawData?.toolResult).toEqual({
       activationApplied: false,
-      activationSource: 'file'
-    })
-  })
+      activationSource: "file",
+    });
+  });
 
-  it('rejects skill_manage create requests without content before calling the presenter', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
-    const manager = buildManager()
+  it("rejects skill_manage create requests without content before calling the presenter", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
+    const manager = buildManager();
 
-    await expect(manager.callTool('skill_manage', { action: 'create' }, 'conv-1')).rejects.toThrow(
-      'Invalid arguments for skill_manage'
-    )
-    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled()
-  })
+    await expect(manager.callTool("skill_manage", { action: "create" }, "conv-1")).rejects.toThrow(
+      "Invalid arguments for skill_manage",
+    );
+    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled();
+  });
 
-  it('rejects skill_manage edit requests without draftId before calling the presenter', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
-    const manager = buildManager()
-
-    await expect(
-      manager.callTool(
-        'skill_manage',
-        {
-          action: 'edit',
-          content: '---\nname: draft\ndescription: Draft\n---\n\nBody'
-        },
-        'conv-1'
-      )
-    ).rejects.toThrow('Invalid arguments for skill_manage')
-    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled()
-  })
-
-  it('rejects skill_manage write_file requests without fileContent before calling the presenter', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
-    const manager = buildManager()
+  it("rejects skill_manage edit requests without draftId before calling the presenter", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
+    const manager = buildManager();
 
     await expect(
       manager.callTool(
-        'skill_manage',
+        "skill_manage",
         {
-          action: 'write_file',
-          draftId: 'draft-1',
-          filePath: 'references/guide.md'
+          action: "edit",
+          content: "---\nname: draft\ndescription: Draft\n---\n\nBody",
         },
-        'conv-1'
-      )
-    ).rejects.toThrow('Invalid arguments for skill_manage')
-    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled()
-  })
+        "conv-1",
+      ),
+    ).rejects.toThrow("Invalid arguments for skill_manage");
+    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled();
+  });
 
-  it('passes valid skill_manage create requests to the presenter', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("rejects skill_manage write_file requests without fileContent before calling the presenter", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
+    const manager = buildManager();
+
+    await expect(
+      manager.callTool(
+        "skill_manage",
+        {
+          action: "write_file",
+          draftId: "draft-1",
+          filePath: "references/guide.md",
+        },
+        "conv-1",
+      ),
+    ).rejects.toThrow("Invalid arguments for skill_manage");
+    expect(skillPresenter.manageDraftSkill).not.toHaveBeenCalled();
+  });
+
+  it("passes valid skill_manage create requests to the presenter", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
     skillPresenter.manageDraftSkill.mockResolvedValue({
       success: true,
-      action: 'create',
-      draftId: 'draft-1',
-      skillName: 'draft'
-    })
-    const manager = buildManager()
+      action: "create",
+      draftId: "draft-1",
+      skillName: "draft",
+    });
+    const manager = buildManager();
 
     const result = (await manager.callTool(
-      'skill_manage',
+      "skill_manage",
       {
-        action: 'create',
-        content: '---\nname: draft\ndescription: Draft\n---\n\nBody'
+        action: "create",
+        content: "---\nname: draft\ndescription: Draft\n---\n\nBody",
       },
-      'conv-1'
-    )) as { content: string; rawData?: { toolResult?: unknown } }
+      "conv-1",
+    )) as { content: string; rawData?: { toolResult?: unknown } };
 
-    expect(skillPresenter.manageDraftSkill).toHaveBeenCalledWith('conv-1', {
-      action: 'create',
-      content: '---\nname: draft\ndescription: Draft\n---\n\nBody'
-    })
-    expect(result.content).toContain('"success":true')
+    expect(skillPresenter.manageDraftSkill).toHaveBeenCalledWith("conv-1", {
+      action: "create",
+      content: "---\nname: draft\ndescription: Draft\n---\n\nBody",
+    });
+    expect(result.content).toContain('"success":true');
     expect(result.rawData?.toolResult).toEqual(
       expect.objectContaining({
-        toolName: 'skill_manage',
+        toolName: "skill_manage",
         success: true,
-        action: 'create',
-        draftId: 'draft-1',
-        skillName: 'draft',
+        action: "create",
+        draftId: "draft-1",
+        skillName: "draft",
         skillDraft: {
-          status: 'created',
-          draftId: 'draft-1',
-          skillName: 'draft'
-        }
-      })
-    )
-  })
+          status: "created",
+          draftId: "draft-1",
+          skillName: "draft",
+        },
+      }),
+    );
+  });
 
-  it('resolves workdir from new session first', async () => {
-    resolveConversationWorkdir.mockResolvedValue('/tmp/new-session-workdir')
+  it("resolves workdir from new session first", async () => {
+    resolveConversationWorkdir.mockResolvedValue("/tmp/new-session-workdir");
 
-    const manager = buildManager()
+    const manager = buildManager();
 
-    const workdir = await (manager as any).getWorkdirForConversation('new-session-1')
-    expect(workdir).toBe('/tmp/new-session-workdir')
-    expect(resolveConversationWorkdir).toHaveBeenCalledWith('new-session-1')
-  })
+    const workdir = await (manager as any).getWorkdirForConversation("new-session-1");
+    expect(workdir).toBe("/tmp/new-session-workdir");
+    expect(resolveConversationWorkdir).toHaveBeenCalledWith("new-session-1");
+  });
 
-  it('builds a stable slotId enum for subagent_orchestrator from the session config', async () => {
-    skillPresenter.getActiveSkills.mockResolvedValue([])
-    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([])
+  it("builds a stable slotId enum for subagent_orchestrator from the session config", async () => {
+    skillPresenter.getActiveSkills.mockResolvedValue([]);
+    skillPresenter.getActiveSkillsAllowedTools.mockResolvedValue([]);
     resolveConversationSessionInfo.mockResolvedValue({
-      sessionId: 'conv-1',
-      agentId: 'deepchat',
-      agentName: 'DeepChat',
-      agentType: 'deepchat',
-      providerId: 'openai',
-      modelId: 'gpt-4.1',
-      projectDir: '/tmp/workspace',
-      permissionMode: 'full_access',
+      sessionId: "conv-1",
+      agentId: "deepchat",
+      agentName: "DeepChat",
+      agentType: "deepchat",
+      providerId: "openai",
+      modelId: "gpt-4.1",
+      projectDir: "/tmp/workspace",
+      permissionMode: "full_access",
       generationSettings: null,
       disabledAgentTools: [],
       activeSkills: [],
-      sessionKind: 'regular',
+      sessionKind: "regular",
       parentSessionId: null,
       subagentEnabled: true,
       subagentMeta: null,
       availableSubagentSlots: [
         {
-          id: 'writer',
-          targetType: 'self',
-          displayName: 'Writer Clone',
-          description: 'Handle drafting tasks.'
+          id: "writer",
+          targetType: "self",
+          displayName: "Writer Clone",
+          description: "Handle drafting tasks.",
         },
         {
-          id: 'reviewer',
-          targetType: 'agent',
-          targetAgentId: 'acp-reviewer',
-          displayName: 'ACP Reviewer',
-          description: 'Review code changes.'
-        }
-      ]
-    })
+          id: "reviewer",
+          targetType: "agent",
+          targetAgentId: "acp-reviewer",
+          displayName: "ACP Reviewer",
+          description: "Review code changes.",
+        },
+      ],
+    });
 
-    const manager = buildManager()
+    const manager = buildManager();
     const defs = await manager.getAllToolDefinitions({
-      chatMode: 'agent',
+      chatMode: "agent",
       supportsVision: false,
       agentWorkspacePath: null,
-      conversationId: 'conv-1'
-    })
+      conversationId: "conv-1",
+    });
 
-    const subagentDef = defs.find((def) => def.function.name === 'subagent_orchestrator')
-    const slotIdSchema = (subagentDef?.function.parameters as any)?.properties?.tasks?.items
-      ?.properties?.slotId
-    const promptSchema = (subagentDef?.function.parameters as any)?.properties?.tasks?.items
-      ?.properties?.prompt
+    const subagentDef = defs.find((def) => def.function.name === "subagent_orchestrator");
+    const slotIdSchema = (subagentDef?.function.parameters as any)?.properties?.tasks?.items?.properties?.slotId;
+    const promptSchema = (subagentDef?.function.parameters as any)?.properties?.tasks?.items?.properties?.prompt;
 
-    expect(slotIdSchema?.enum).toEqual(['reviewer', 'writer'])
-    expect(slotIdSchema?.description).toContain('reviewer: ACP Reviewer | target=acp-reviewer')
-    expect(slotIdSchema?.description).toContain('writer: Writer Clone | target=current agent')
-    expect(subagentDef?.function.description).toContain(
-      'inherits the same working directory as the parent session'
-    )
+    expect(slotIdSchema?.enum).toEqual(["reviewer", "writer"]);
+    expect(slotIdSchema?.description).toContain("reviewer: ACP Reviewer | target=acp-reviewer");
+    expect(slotIdSchema?.description).toContain("writer: Writer Clone | target=current agent");
+    expect(subagentDef?.function.description).toContain("inherits the same working directory as the parent session");
     expect(promptSchema?.description).toContain(
-      'The child session uses the same working directory as the parent session'
-    )
-  })
-})
+      "The child session uses the same working directory as the parent session",
+    );
+  });
+});

@@ -1,5 +1,5 @@
-import { vi, beforeEach, afterEach } from 'vitest'
-import '@testing-library/jest-dom/vitest'
+import { vi, beforeEach, afterEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
 
 const createDefaultModelConfig = () => ({
   maxTokens: 4096,
@@ -8,8 +8,8 @@ const createDefaultModelConfig = () => ({
   vision: false,
   functionCall: true,
   reasoning: true,
-  type: 'chat'
-})
+  type: "chat",
+});
 
 const createDefaultReasoningCapabilities = () => ({
   supportsReasoning: true,
@@ -18,38 +18,38 @@ const createDefaultReasoningCapabilities = () => ({
   supportsSearch: null,
   searchDefaults: null,
   supportsTemperatureControl: true,
-  temperatureCapability: true
-})
+  temperatureCapability: true,
+});
 
 const getDefaultDeepchatInvokeResult = (
   routeName: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
 ): Record<string, unknown> => {
   switch (routeName) {
-    case 'settings.getSnapshot':
+    case "settings.getSnapshot":
       return {
         version: 0,
-        values: {}
-      }
-    case 'settings.listSystemFonts':
+        values: {},
+      };
+    case "settings.listSystemFonts":
       return {
-        fonts: []
-      }
-    case 'settings.update':
+        fonts: [],
+      };
+    case "settings.update":
       return {
         version: 1,
-        values: {}
-      }
-    case 'system.openSettings':
+        values: {},
+      };
+    case "system.openSettings":
       return {
-        opened: true
-      }
-    case 'config.getEntries':
+        opened: true,
+      };
+    case "config.getEntries":
       return {
         version: 0,
-        values: {}
-      }
-    case 'config.updateEntries':
+        values: {},
+      };
+    case "config.updateEntries":
       return {
         version: 1,
         values: Object.fromEntries(
@@ -58,313 +58,310 @@ const getDefaultDeepchatInvokeResult = (
                 .filter(
                   (change): change is { key: string; value: unknown } =>
                     Boolean(change) &&
-                    typeof change === 'object' &&
-                    typeof (change as { key?: unknown }).key === 'string'
+                    typeof change === "object" &&
+                    typeof (change as { key?: unknown }).key === "string",
                 )
                 .map((change) => [change.key, change.value])
-            : []
-        )
-      }
-    case 'config.getLanguage':
-    case 'config.setLanguage':
+            : [],
+        ),
+      };
+    case "config.getLanguage":
+    case "config.setLanguage":
       return {
-        requestedLanguage: 'zh-CN',
-        locale: 'zh-CN',
-        direction: 'ltr',
-        version: 0
-      }
-    case 'config.getTheme':
+        requestedLanguage: "zh-CN",
+        locale: "zh-CN",
+        direction: "ltr",
+        version: 0,
+      };
+    case "config.getTheme":
       return {
-        theme: 'light',
+        theme: "light",
         isDark: false,
-        version: 0
-      }
-    case 'config.setTheme':
+        version: 0,
+      };
+    case "config.setTheme":
       return {
-        theme: payload.theme ?? 'light',
-        isDark: payload.theme === 'dark',
-        version: 1
-      }
-    case 'config.getFloatingButton':
-    case 'config.setFloatingButton':
+        theme: payload.theme ?? "light",
+        isDark: payload.theme === "dark",
+        version: 1,
+      };
+    case "config.getFloatingButton":
+    case "config.setFloatingButton":
       return {
         enabled: payload.enabled ?? false,
-        version: 0
-      }
-    case 'config.getSyncSettings':
+        version: 0,
+      };
+    case "config.getSyncSettings":
       return {
         enabled: false,
-        folderPath: '',
-        version: 0
-      }
-    case 'config.updateSyncSettings':
+        folderPath: "",
+        version: 0,
+      };
+    case "config.updateSyncSettings":
       return {
         enabled: payload.enabled ?? false,
-        folderPath: payload.folderPath ?? '',
-        version: 1
-      }
-    case 'config.getDefaultProjectPath':
-    case 'config.setDefaultProjectPath':
+        folderPath: payload.folderPath ?? "",
+        version: 1,
+      };
+    case "config.getDefaultProjectPath":
+    case "config.setDefaultProjectPath":
       return {
         path: payload.path ?? null,
-        version: 0
-      }
-    case 'config.getShortcutKeys':
-    case 'config.resetShortcutKeys':
+        version: 0,
+      };
+    case "config.getShortcutKeys":
+    case "config.resetShortcutKeys":
       return {
         shortcuts: {},
-        version: 0
-      }
-    case 'config.setShortcutKeys':
+        version: 0,
+      };
+    case "config.setShortcutKeys":
       return {
         shortcuts: payload.shortcuts ?? {},
-        version: 1
-      }
-    case 'config.listCustomPrompts':
+        version: 1,
+      };
+    case "config.listCustomPrompts":
       return {
         prompts: [],
-        version: 0
-      }
-    case 'config.getSystemPrompts':
+        version: 0,
+      };
+    case "config.getSystemPrompts":
       return {
         prompts: [],
-        defaultPromptId: 'empty',
-        prompt: '',
-        version: 0
-      }
-    case 'config.getDefaultSystemPrompt':
-    case 'config.resetDefaultSystemPrompt':
-    case 'config.clearDefaultSystemPrompt':
+        defaultPromptId: "empty",
+        prompt: "",
+        version: 0,
+      };
+    case "config.getDefaultSystemPrompt":
+    case "config.resetDefaultSystemPrompt":
+    case "config.clearDefaultSystemPrompt":
       return {
-        defaultPromptId: 'empty',
-        prompt: '',
-        version: 0
-      }
-    case 'config.setDefaultSystemPrompt':
+        defaultPromptId: "empty",
+        prompt: "",
+        version: 0,
+      };
+    case "config.setDefaultSystemPrompt":
       return {
-        defaultPromptId: 'empty',
-        prompt: payload.prompt ?? '',
-        version: 1
-      }
-    case 'config.setDefaultSystemPromptId':
+        defaultPromptId: "empty",
+        prompt: payload.prompt ?? "",
+        version: 1,
+      };
+    case "config.setDefaultSystemPromptId":
       return {
-        defaultPromptId: payload.promptId ?? 'empty',
-        version: 1
-      }
-    case 'config.getAcpState':
+        defaultPromptId: payload.promptId ?? "empty",
+        version: 1,
+      };
+    case "config.getAcpState":
       return {
         enabled: false,
         agents: [],
-        version: 0
-      }
-    case 'config.resolveDeepChatAgentConfig':
+        version: 0,
+      };
+    case "config.resolveDeepChatAgentConfig":
       return {
         config: {
           defaultModelPreset: undefined,
           defaultProjectPath: undefined,
-          systemPrompt: '',
-          permissionMode: 'full_access',
+          systemPrompt: "",
+          permissionMode: "full_access",
           disabledAgentTools: [],
-          subagentEnabled: false
-        }
-      }
-    case 'config.getAgentMcpSelections':
-    case 'config.getAcpSharedMcpSelections':
-    case 'config.setAcpSharedMcpSelections':
+          subagentEnabled: false,
+        },
+      };
+    case "config.getAgentMcpSelections":
+    case "config.getAcpSharedMcpSelections":
+    case "config.setAcpSharedMcpSelections":
       return {
         selections: Array.isArray(payload.selections) ? payload.selections : [],
-        version: 0
-      }
-    case 'config.getMcpServers':
+        version: 0,
+      };
+    case "config.getMcpServers":
       return {
         servers: {},
-        version: 0
-      }
-    case 'config.getKnowledgeConfigs':
+        version: 0,
+      };
+    case "config.getKnowledgeConfigs":
       return {
         configs: [],
-        version: 0
-      }
-    case 'config.setKnowledgeConfigs':
+        version: 0,
+      };
+    case "config.setKnowledgeConfigs":
       return {
         configs: Array.isArray(payload.configs) ? payload.configs : [],
-        version: 1
-      }
-    case 'config.getAcpRegistryIconMarkup':
+        version: 1,
+      };
+    case "config.getAcpRegistryIconMarkup":
       return {
-        markup: ''
-      }
-    case 'config.getVoiceAiConfig':
-    case 'config.updateVoiceAiConfig':
+        markup: "",
+      };
+    case "config.getVoiceAiConfig":
+    case "config.updateVoiceAiConfig":
       return {
         config: {
-          audioFormat: 'wav',
-          model: '',
-          language: 'zh-CN',
+          audioFormat: "wav",
+          model: "",
+          language: "zh-CN",
           temperature: 0.7,
           topP: 1,
-          agentId: 'deepchat',
-          ...(typeof payload.updates === 'object' && payload.updates ? payload.updates : {})
-        }
-      }
-    case 'config.getAzureApiVersion':
-    case 'config.setAzureApiVersion':
+          agentId: "deepchat",
+          ...(typeof payload.updates === "object" && payload.updates ? payload.updates : {}),
+        },
+      };
+    case "config.getAzureApiVersion":
+    case "config.setAzureApiVersion":
       return {
-        version: payload.version ?? ''
-      }
-    case 'config.getGeminiSafety':
-    case 'config.setGeminiSafety':
+        version: payload.version ?? "",
+      };
+    case "config.getGeminiSafety":
+    case "config.setGeminiSafety":
       return {
-        value: payload.value ?? 'BLOCK_NONE'
-      }
-    case 'config.getAwsBedrockCredential':
-    case 'config.setAwsBedrockCredential':
+        value: payload.value ?? "BLOCK_NONE",
+      };
+    case "config.getAwsBedrockCredential":
+    case "config.setAwsBedrockCredential":
       return {
-        value: payload.credential ?? null
-      }
-    case 'providers.list':
-    case 'providers.listSummaries':
-    case 'providers.listDefaults':
+        value: payload.credential ?? null,
+      };
+    case "providers.list":
+    case "providers.listSummaries":
+    case "providers.listDefaults":
       return {
-        providers: []
-      }
-    case 'providers.setById':
-    case 'providers.add':
+        providers: [],
+      };
+    case "providers.setById":
+    case "providers.add":
       return {
-        provider: payload.provider ?? null
-      }
-    case 'providers.update':
+        provider: payload.provider ?? null,
+      };
+    case "providers.update":
       return {
-        requiresRebuild: false
-      }
-    case 'providers.remove':
+        requiresRebuild: false,
+      };
+    case "providers.remove":
       return {
-        removed: true
-      }
-    case 'providers.reorder':
+        removed: true,
+      };
+    case "providers.reorder":
       return {
-        providers: Array.isArray(payload.providers) ? payload.providers : []
-      }
-    case 'providers.listModels':
+        providers: Array.isArray(payload.providers) ? payload.providers : [],
+      };
+    case "providers.listModels":
       return {
-        models: []
-      }
-    case 'providers.testConnection':
+        models: [],
+      };
+    case "providers.testConnection":
       return {
-        success: true
-      }
-    case 'providers.getRateLimitStatus':
+        success: true,
+      };
+    case "providers.getRateLimitStatus":
       return {
         status: {
           config: {
             enabled: false,
-            qpsLimit: 1
+            qpsLimit: 1,
           },
           currentQps: 0,
           queueLength: 0,
-          lastRequestTime: 0
-        }
-      }
-    case 'providers.refreshModels':
+          lastRequestTime: 0,
+        },
+      };
+    case "providers.refreshModels":
       return {
-        success: true
-      }
-    case 'providers.listOllamaModels':
-    case 'providers.listOllamaRunningModels':
+        success: true,
+      };
+    case "providers.listOllamaModels":
+    case "providers.listOllamaRunningModels":
       return {
-        models: []
-      }
-    case 'providers.pullOllamaModel':
+        models: [],
+      };
+    case "providers.pullOllamaModel":
       return {
-        success: true
-      }
-    case 'providers.warmupAcpProcess':
+        success: true,
+      };
+    case "providers.warmupAcpProcess":
       return {
-        success: true
-      }
-    case 'providers.getAcpProcessConfigOptions':
+        success: true,
+      };
+    case "providers.getAcpProcessConfigOptions":
       return {
-        state: null
-      }
-    case 'models.getProviderCatalog':
+        state: null,
+      };
+    case "models.getProviderCatalog":
       return {
         catalog: {
           providerModels: [],
           customModels: [],
           dbProviderModels: [],
-          modelStatusMap: {}
-        }
-      }
-    case 'models.listRuntime':
+          modelStatusMap: {},
+        },
+      };
+    case "models.listRuntime":
       return {
-        models: []
-      }
-    case 'models.setStatus':
+        models: [],
+      };
+    case "models.setStatus":
       return {
-        enabled: payload.enabled ?? false
-      }
-    case 'models.addCustom':
+        enabled: payload.enabled ?? false,
+      };
+    case "models.addCustom":
       return {
-        model: payload.model ?? null
-      }
-    case 'models.removeCustom':
+        model: payload.model ?? null,
+      };
+    case "models.removeCustom":
       return {
-        removed: true
-      }
-    case 'models.updateCustom':
+        removed: true,
+      };
+    case "models.updateCustom":
       return {
-        updated: true
-      }
-    case 'models.getConfig':
+        updated: true,
+      };
+    case "models.getConfig":
       return {
-        config: createDefaultModelConfig()
-      }
-    case 'models.setConfig':
+        config: createDefaultModelConfig(),
+      };
+    case "models.setConfig":
       return {
-        config:
-          typeof payload.config === 'object' && payload.config
-            ? payload.config
-            : createDefaultModelConfig()
-      }
-    case 'models.resetConfig':
+        config: typeof payload.config === "object" && payload.config ? payload.config : createDefaultModelConfig(),
+      };
+    case "models.resetConfig":
       return {
-        reset: true
-      }
-    case 'models.getProviderConfigs':
+        reset: true,
+      };
+    case "models.getProviderConfigs":
       return {
-        configs: {}
-      }
-    case 'models.hasUserConfig':
+        configs: {},
+      };
+    case "models.hasUserConfig":
       return {
-        hasConfig: false
-      }
-    case 'models.exportConfigs':
+        hasConfig: false,
+      };
+    case "models.exportConfigs":
       return {
-        configs: {}
-      }
-    case 'models.importConfigs':
+        configs: {},
+      };
+    case "models.importConfigs":
       return {
         imported: 0,
-        skipped: 0
-      }
-    case 'models.getCapabilities':
+        skipped: 0,
+      };
+    case "models.getCapabilities":
       return {
-        capabilities: createDefaultReasoningCapabilities()
-      }
+        capabilities: createDefaultReasoningCapabilities(),
+      };
     default:
-      return {}
+      return {};
   }
-}
+};
 
 // Mock Electron IPC for renderer process
-vi.mock('electron', () => ({
+vi.mock("electron", () => ({
   ipcRenderer: {
     invoke: vi.fn(),
     on: vi.fn(),
     removeAllListeners: vi.fn(),
-    send: vi.fn()
-  }
-}))
+    send: vi.fn(),
+  },
+}));
 
 function startupWorkloadStoreMock() {
   return {
@@ -377,104 +374,104 @@ function startupWorkloadStoreMock() {
       settingsTasks: [],
       getTask: vi.fn(() => null),
       isTaskRunning: vi.fn(() => false),
-      isSectionReady: vi.fn(() => false)
-    }))
-  }
+      isSectionReady: vi.fn(() => false),
+    })),
+  };
 }
 
-vi.mock('@/stores/startupWorkloadStore', startupWorkloadStoreMock)
-vi.mock('../src/renderer/src/stores/startupWorkloadStore', startupWorkloadStoreMock)
+vi.mock("@/stores/startupWorkloadStore", startupWorkloadStoreMock);
+vi.mock("../src/renderer/src/stores/startupWorkloadStore", startupWorkloadStoreMock);
 
 // Mock @iconify/vue
-vi.mock('@iconify/react', () => ({
+vi.mock("@iconify/react", () => ({
   addCollection: vi.fn(),
-  Icon: () => null
-}))
+  Icon: () => null,
+}));
 
 // Mock window.api (preload exposed APIs)
-Object.defineProperty(window, 'electron', {
+Object.defineProperty(window, "electron", {
   value: {
     ipcRenderer: {
       invoke: vi.fn(),
       on: vi.fn(),
       removeAllListeners: vi.fn(),
       removeListener: vi.fn(),
-      send: vi.fn()
-    }
+      send: vi.fn(),
+    },
   },
-  writable: true
-})
+  writable: true,
+});
 
-Object.defineProperty(window, 'api', {
+Object.defineProperty(window, "api", {
   value: {
     copyImage: vi.fn(),
     copyText: vi.fn(),
     formatPathForInput: vi.fn((value) => value),
-    getPathForFile: vi.fn(() => ''),
+    getPathForFile: vi.fn(() => ""),
     getWebContentsId: vi.fn(() => 1),
     getWindowId: vi.fn(() => 1),
     openExternal: vi.fn(),
-    readClipboardText: vi.fn(() => ''),
+    readClipboardText: vi.fn(() => ""),
     toRelativePath: vi.fn((filePath: string, basePath?: string) => {
-      if (typeof filePath !== 'string' || typeof basePath !== 'string') {
-        return filePath
+      if (typeof filePath !== "string" || typeof basePath !== "string") {
+        return filePath;
       }
 
-      const normalize = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '').trim()
+      const normalize = (value: string) => value.replace(/\\/g, "/").replace(/\/+$/, "").trim();
 
-      const normalizedFilePath = normalize(filePath)
-      const normalizedBasePath = normalize(basePath)
+      const normalizedFilePath = normalize(filePath);
+      const normalizedBasePath = normalize(basePath);
 
       if (!normalizedBasePath) {
-        return filePath
+        return filePath;
       }
 
       if (normalizedFilePath === normalizedBasePath) {
-        return ''
+        return "";
       }
 
-      const basePrefix = `${normalizedBasePath}/`
+      const basePrefix = `${normalizedBasePath}/`;
       if (normalizedFilePath.startsWith(basePrefix)) {
-        return normalizedFilePath.slice(basePrefix.length)
+        return normalizedFilePath.slice(basePrefix.length);
       }
 
-      return filePath
+      return filePath;
     }),
     devicePresenter: {
       getDeviceInfo: vi.fn(() =>
         Promise.resolve({
-          platform: 'darwin',
-          arch: 'arm64',
-          version: '14.0.0'
-        })
-      )
+          platform: "darwin",
+          arch: "arm64",
+          version: "14.0.0",
+        }),
+      ),
     },
     windowPresenter: {
       minimize: vi.fn(),
       maximize: vi.fn(),
       close: vi.fn(),
-      isMaximized: vi.fn(() => Promise.resolve(false))
-    }
+      isMaximized: vi.fn(() => Promise.resolve(false)),
+    },
   },
-  writable: true
-})
+  writable: true,
+});
 
-Object.defineProperty(window, 'deepchat', {
+Object.defineProperty(window, "deepchat", {
   value: {
     invoke: vi.fn((routeName: string, payload?: Record<string, unknown>) =>
-      Promise.resolve(getDefaultDeepchatInvokeResult(routeName, payload))
+      Promise.resolve(getDefaultDeepchatInvokeResult(routeName, payload)),
     ),
-    on: vi.fn(() => vi.fn())
+    on: vi.fn(() => vi.fn()),
   },
-  writable: true
-})
+  writable: true,
+});
 
 // Global test setup
 beforeEach(() => {
-  vi.clearAllMocks()
-})
+  vi.clearAllMocks();
+});
 
 afterEach(() => {
   // Clean up after each test
-  vi.restoreAllMocks()
-})
+  vi.restoreAllMocks();
+});

@@ -1,441 +1,421 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { Outlet, useRouter } from '@tanstack/react-router'
-import { createConfigClient } from '@api/ConfigClient'
-import { createOnboardingClient } from '@api/OnboardingClient'
-import { createWindowClient } from '@api/WindowClient'
-import { SelectedTextContextMenu } from './components/message/SelectedTextContextMenu'
-import { artifactStore } from './stores/artifact'
-import {
-  sessionStore,
-  fetchSessions,
-  closeSession,
-  startNewConversation,
-  selectSession
-} from './stores/ui/session'
-import { agentStore } from './stores/ui/agent'
-import { draftStore, type StartDeeplinkPayload } from './stores/ui/draft'
-import { pageRouterStore } from './stores/ui/pageRouter'
-import { Toaster } from 'sonner'
-import { toast } from './components/use-toast'
-import { uiSettingsStore } from './stores/uiSettingsStore'
-import { themeStore, type ThemeMode } from './stores/theme'
-import { languageStore } from './stores/language'
-import TranslatePopup from './components/popup/TranslatePopup'
-import ModelCheckDialog from './components/settings/ModelCheckDialog'
-import { modelCheckStore } from './stores/modelCheck'
-import MessageDialog from './components/ui/MessageDialog'
-import McpSamplingDialog from './components/mcp/McpSamplingDialog'
-import { initAppStores, useMcpInstallDeeplinkHandler } from './lib/storeInitializer'
-import { ensureIconsLoaded } from './lib/iconLoader'
-import { useFontManager } from './composables/useFontManager'
-import AppBar from './components/AppBar'
-import { useDeviceVersion } from './composables/useDeviceVersion'
-import WindowSideBar from './components/WindowSideBar'
-import SpotlightOverlay from './components/spotlight/SpotlightOverlay'
-import { spotlightStore } from './stores/ui/spotlight'
-import { sidepanelStore } from './stores/ui/sidepanel'
-import { sidebarStore, toggleSidebar } from './stores/ui/sidebar'
-import {
-  providerStore,
-  ensureInitialized as ensureProvidersInitialized
-} from './stores/providerStore'
-import { modelStore, initialize as initializeModels } from './stores/modelStore'
-import { useAppIpcRuntime } from './composables/useAppIpcRuntime'
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Outlet, useRouter } from "@tanstack/react-router";
+import { createConfigClient } from "@api/ConfigClient";
+import { createOnboardingClient } from "@api/OnboardingClient";
+import { createWindowClient } from "@api/WindowClient";
+import { SelectedTextContextMenu } from "./components/message/SelectedTextContextMenu";
+import { artifactStore } from "./stores/artifact";
+import { sessionStore, fetchSessions, closeSession, startNewConversation, selectSession } from "./stores/ui/session";
+import { agentStore } from "./stores/ui/agent";
+import { draftStore, type StartDeeplinkPayload } from "./stores/ui/draft";
+import { pageRouterStore, goToNewThread, currentRoute, chatSessionId } from "./stores/ui/pageRouter";
+import { Toaster } from "sonner";
+import { toast } from "./components/use-toast";
+import { uiSettingsStore, getFontSizeClass } from "./stores/uiSettingsStore";
+import { themeStore, type ThemeMode } from "./stores/theme";
+import { languageStore } from "./stores/language";
+import TranslatePopup from "./components/popup/TranslatePopup";
+import ModelCheckDialog from "./components/settings/ModelCheckDialog";
+import { modelCheckStore } from "./stores/modelCheck";
+import MessageDialog from "./components/ui/MessageDialog";
+import McpSamplingDialog from "./components/mcp/McpSamplingDialog";
+import { initAppStores, useMcpInstallDeeplinkHandler } from "./lib/storeInitializer";
+import { ensureIconsLoaded } from "./lib/iconLoader";
+import { useFontManager } from "./composables/useFontManager";
+import AppBar from "./components/AppBar";
+import { useDeviceVersion } from "./composables/useDeviceVersion";
+import WindowSideBar from "./components/WindowSideBar";
+import SpotlightOverlay from "./components/spotlight/SpotlightOverlay";
+import { spotlightStore } from "./stores/ui/spotlight";
+import { sidepanelStore, toggleWorkspace } from "./stores/ui/sidepanel";
+import { sidebarStore, toggleSidebar } from "./stores/ui/sidebar";
+import { providerStore, ensureInitialized as ensureProvidersInitialized } from "./stores/providerStore";
+import { modelStore, initialize as initializeModels } from "./stores/modelStore";
+import { useAppIpcRuntime } from "./composables/useAppIpcRuntime";
 import {
   clearGuidedOnboardingResumeIntent,
   GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
   readGuidedOnboardingResumeIntent,
   type GuidedOnboardingResumeRequestDetail,
-  type GuidedOnboardingResumeTrigger
-} from './lib/onboardingResume'
-import type { GuidedOnboardingStepId } from '@shared/contracts/routes'
-import type { DatabaseRepairSuggestedPayload } from '@shared/presenter'
-import { useStore } from '@tanstack/react-store'
+  type GuidedOnboardingResumeTrigger,
+} from "./lib/onboardingResume";
+import type { GuidedOnboardingStepId } from "@shared/contracts/routes";
+import type { DatabaseRepairSuggestedPayload } from "@shared/presenter";
+import { useStore } from "@tanstack/react-store";
 
-const DEV_WELCOME_OVERRIDE_KEY = '__deepchat_dev_force_welcome'
+const DEV_WELCOME_OVERRIDE_KEY = "__deepchat_dev_force_welcome";
 
-const CHAT_GUIDED_ONBOARDING_STEP_IDS = new Set<GuidedOnboardingStepId>([
-  'switch-agent',
-  'switch-model',
-  'first-chat'
-])
+const CHAT_GUIDED_ONBOARDING_STEP_IDS = new Set<GuidedOnboardingStepId>(["switch-agent", "switch-model", "first-chat"]);
 
-const configClient = createConfigClient()
-const onboardingClient = createOnboardingClient()
-const windowClient = createWindowClient()
+const configClient = createConfigClient();
+const onboardingClient = createOnboardingClient();
+const windowClient = createWindowClient();
 
 const resolveThemeName = (themeMode: ThemeMode, isDark: boolean) => {
-  return themeMode === 'system' ? (isDark ? 'dark' : 'light') : themeMode
-}
+  return themeMode === "system" ? (isDark ? "dark" : "light") : themeMode;
+};
 
 const syncAppearanceClasses = (themeName: string, fontSizeClass: string) => {
-  if (typeof document === 'undefined') {
-    return
+  if (typeof document === "undefined") {
+    return;
   }
 
-  const root = document.documentElement
-  root.classList.add('dc-theme-switching')
+  const root = document.documentElement;
+  root.classList.add("dc-theme-switching");
 
   for (const target of [root, document.body]) {
-    target.classList.remove('light', 'dark', 'system')
-    target.classList.add(themeName)
-    target.classList.remove('text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl')
-    target.classList.add(fontSizeClass)
+    target.classList.remove("light", "dark", "system");
+    target.classList.add(themeName);
+    target.classList.remove("text-xs", "text-sm", "text-base", "text-lg", "text-xl", "text-2xl");
+    target.classList.add(fontSizeClass);
   }
 
-  void root.offsetWidth
+  void root.offsetWidth;
   requestAnimationFrame(() => {
-    root.classList.remove('dc-theme-switching')
-  })
-}
+    root.classList.remove("dc-theme-switching");
+  });
+};
 
 export default function App() {
-  const routerInstance = useRouter()
-  const { isWinMacOS } = useDeviceVersion()
-  useFontManager()
+  const routerInstance = useRouter();
+  const { isWinMacOS } = useDeviceVersion();
+  useFontManager();
 
-  const themeState = useStore(themeStore)
-  const langState = useStore(languageStore)
-  const modelCheckState = useStore(modelCheckStore)
-  const uiSettingsState = useStore(uiSettingsStore)
-  const draftState = useStore(draftStore)
-  const sessionState = useStore(sessionStore)
+  const themeState = useStore(themeStore);
+  const langState = useStore(languageStore);
+  const modelCheckState = useStore(modelCheckStore);
+  const uiSettingsState = useStore(uiSettingsStore);
+  const draftState = useStore(draftStore);
+  const sessionState = useStore(sessionStore);
 
   const toasterTheme = useMemo(
-    () =>
-      themeState.themeMode === 'system'
-        ? themeState.isDark
-          ? 'dark'
-          : 'light'
-        : themeState.themeMode,
-    [themeState.themeMode, themeState.isDark]
-  )
+    () => (themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode),
+    [themeState.themeMode, themeState.isDark],
+  );
 
-  const [isStartupRouteReady, setIsStartupRouteReady] = useState(false)
-  const [activeTab, setActiveTab] = useState('chat')
-  const errorQueue = useRef<Array<{ id: string; title: string; message: string; type: string }>>([])
-  const currentErrorId = useRef<string | null>(null)
-  const errorDisplayTimer = useRef<number | null>(null)
-  const processingStartDeeplinkToken = useRef<number | null>(null)
-  const processedStartDeeplinkToken = useRef<number | null>(null)
+  const [isStartupRouteReady, setIsStartupRouteReady] = useState(false);
+  const [activeTab, setActiveTab] = useState("chat");
+  const errorQueue = useRef<Array<{ id: string; title: string; message: string; type: string }>>([]);
+  const currentErrorId = useRef<string | null>(null);
+  const errorDisplayTimer = useRef<number | null>(null);
+  const processingStartDeeplinkToken = useRef<number | null>(null);
+  const processedStartDeeplinkToken = useRef<number | null>(null);
 
   const handleErrorClosed = useCallback(() => {
-    currentErrorId.current = null
+    currentErrorId.current = null;
 
     if (errorQueue.current.length > 0) {
-      const nextError = errorQueue.current.shift()
+      const nextError = errorQueue.current.shift();
       if (nextError) {
-        displayError(nextError)
+        displayError(nextError);
       }
     } else if (errorDisplayTimer.current) {
-      clearTimeout(errorDisplayTimer.current)
-      errorDisplayTimer.current = null
+      clearTimeout(errorDisplayTimer.current);
+      errorDisplayTimer.current = null;
     }
-  }, [])
+  }, []);
 
   const displayError = useCallback(
     (error: { id: string; title: string; message: string; type: string }) => {
-      currentErrorId.current = error.id
+      currentErrorId.current = error.id;
 
       const { dismiss } = toast({
         title: error.title,
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
         onOpenChange: (open) => {
           if (!open) {
-            handleErrorClosed()
+            handleErrorClosed();
           }
-        }
-      })
+        },
+      });
 
       if (errorDisplayTimer.current) {
-        clearTimeout(errorDisplayTimer.current)
+        clearTimeout(errorDisplayTimer.current);
       }
 
       errorDisplayTimer.current = window.setTimeout(() => {
-        dismiss()
-        handleErrorClosed()
-      }, 3000)
+        dismiss();
+        handleErrorClosed();
+      }, 3000);
     },
-    [handleErrorClosed]
-  )
+    [handleErrorClosed],
+  );
 
   const showErrorToast = useCallback(
     (error: { id: string; title: string; message: string; type: string }) => {
-      const existingErrorIndex = errorQueue.current.findIndex((e) => e.id === error.id)
+      const existingErrorIndex = errorQueue.current.findIndex((e) => e.id === error.id);
 
       if (existingErrorIndex === -1) {
         if (currentErrorId.current) {
           if (errorQueue.current.length > 5) {
-            errorQueue.current.shift()
+            errorQueue.current.shift();
           }
-          errorQueue.current.push(error)
+          errorQueue.current.push(error);
         } else {
-          displayError(error)
+          displayError(error);
         }
       }
     },
-    [displayError]
-  )
+    [displayError],
+  );
 
   const isDevWelcomeOverrideEnabled = useCallback(() => {
-    if (!import.meta.env.DEV) return false
+    if (!import.meta.env.DEV) return false;
 
     try {
-      return window.sessionStorage.getItem(DEV_WELCOME_OVERRIDE_KEY) === '1'
+      return window.sessionStorage.getItem(DEV_WELCOME_OVERRIDE_KEY) === "1";
     } catch {
-      return false
+      return false;
     }
-  }, [])
+  }, []);
 
   const ensureStartupWelcomeState = useCallback(async () => {
     try {
-      await routerInstance.load()
+      await routerInstance.load();
 
-      const currentRoute = routerInstance.state.location
-      const currentPath = currentRoute.pathname
-      const isWelcomeRoute = currentPath === '/welcome'
+      const currentRoute = routerInstance.state.location;
+      const currentPath = currentRoute.pathname;
+      const isWelcomeRoute = currentPath === "/welcome";
 
       if (isDevWelcomeOverrideEnabled()) {
         if (!isWelcomeRoute) {
-          await routerInstance.navigate({ to: '/welcome', replace: true })
+          await routerInstance.navigate({ to: "/welcome", replace: true });
         }
-        return
+        return;
       }
 
-      const initComplete = Boolean(await configClient.getSetting('init_complete'))
-      let onboardingState: Awaited<ReturnType<typeof onboardingClient.getState>> | null = null
+      const initComplete = Boolean(await configClient.getSetting("init_complete"));
+      let onboardingState: Awaited<ReturnType<typeof onboardingClient.getState>> | null = null;
 
       try {
-        onboardingState = await onboardingClient.getState()
+        onboardingState = await onboardingClient.getState();
       } catch (error) {
-        console.warn('[App] Failed to load onboarding state during startup:', error)
+        console.warn("[App] Failed to load onboarding state during startup:", error);
       }
 
-      if (onboardingState?.status === 'completed') {
+      if (onboardingState?.status === "completed") {
         if (isWelcomeRoute) {
-          await routerInstance.navigate({ to: '/chat', replace: true })
+          await routerInstance.navigate({ to: "/chat", replace: true });
         }
-        return
+        return;
       }
 
-      if (!initComplete || onboardingState?.status === 'active') {
-        if (!initComplete && onboardingState?.status !== 'active') {
+      if (!initComplete || onboardingState?.status === "active") {
+        if (!initComplete && onboardingState?.status !== "active") {
           try {
-            onboardingState = await onboardingClient.start()
+            onboardingState = await onboardingClient.start();
           } catch (error) {
-            console.warn('[App] Failed to start onboarding during startup:', error)
+            console.warn("[App] Failed to start onboarding during startup:", error);
           }
         }
 
         if (!isWelcomeRoute) {
-          await routerInstance.navigate({ to: '/welcome', replace: true })
+          await routerInstance.navigate({ to: "/welcome", replace: true });
         }
-        return
+        return;
       }
 
       if (isWelcomeRoute) {
-        await routerInstance.navigate({ to: '/chat', replace: true })
+        await routerInstance.navigate({ to: "/chat", replace: true });
       }
     } finally {
-      setIsStartupRouteReady(true)
+      setIsStartupRouteReady(true);
     }
-  }, [routerInstance, isDevWelcomeOverrideEnabled])
+  }, [routerInstance, isDevWelcomeOverrideEnabled]);
 
   const activatePendingStartDeeplink = useCallback(async () => {
-    const pendingStartDeeplink = draftStore.state.pendingStartDeeplink
+    const pendingStartDeeplink = draftStore.state.pendingStartDeeplink;
     if (!pendingStartDeeplink || !isStartupRouteReady) {
-      return
+      return;
     }
 
-    const token = pendingStartDeeplink.token
-    if (
-      processingStartDeeplinkToken.current === token ||
-      processedStartDeeplinkToken.current === token
-    ) {
-      return
+    const token = pendingStartDeeplink.token;
+    if (processingStartDeeplinkToken.current === token || processedStartDeeplinkToken.current === token) {
+      return;
     }
 
-    processingStartDeeplinkToken.current = token
+    processingStartDeeplinkToken.current = token;
 
     try {
-      const initComplete = Boolean(await configClient.getSetting('init_complete'))
+      const initComplete = Boolean(await configClient.getSetting("init_complete"));
       if (!initComplete) {
-        return
+        return;
       }
 
-      await routerInstance.load()
-      if (routerInstance.state.location.pathname !== '/chat') {
-        await routerInstance.navigate({ to: '/chat' })
+      await routerInstance.load();
+      if (routerInstance.state.location.pathname !== "/chat") {
+        await routerInstance.navigate({ to: "/chat" });
       }
 
-      agentStore.setState((s) => ({ ...s, selectedAgent: 'deepchat' }))
+      agentStore.setState((s) => ({ ...s, selectedAgent: "deepchat" }));
       if (sessionStore.state.activeSessionId) {
-        await closeSession()
-        processedStartDeeplinkToken.current = token
-        return
+        await closeSession();
+        processedStartDeeplinkToken.current = token;
+        return;
       }
 
-      pageRouterStore.state.goToNewThread?.({ refresh: true })
-      processedStartDeeplinkToken.current = token
+      goToNewThread({ refresh: true });
+      processedStartDeeplinkToken.current = token;
     } finally {
       if (processingStartDeeplinkToken.current === token) {
-        processingStartDeeplinkToken.current = null
+        processingStartDeeplinkToken.current = null;
       }
     }
-  }, [isStartupRouteReady, routerInstance])
+  }, [isStartupRouteReady, routerInstance]);
 
   const handleStartDeeplink = useCallback(
-    (_event: unknown, payload?: Omit<StartDeeplinkPayload, 'token'>) => {
+    (_event: unknown, payload?: Omit<StartDeeplinkPayload, "token">) => {
       if (!payload?.msg) {
-        return
+        return;
       }
 
       draftStore.setState((s) => ({
         ...s,
         pendingStartDeeplink: {
+          token: 0,
           msg: payload.msg,
           modelId: payload.modelId ?? null,
-          systemPrompt: payload.systemPrompt ?? '',
+          systemPrompt: payload.systemPrompt ?? "",
           mentions: Array.isArray(payload.mentions) ? payload.mentions : [],
-          autoSend: Boolean(payload.autoSend)
-        }
-      }))
-      void activatePendingStartDeeplink()
+          autoSend: Boolean(payload.autoSend),
+        },
+      }));
+      void activatePendingStartDeeplink();
     },
-    [activatePendingStartDeeplink]
-  )
+    [activatePendingStartDeeplink],
+  );
 
   const handleDatabaseRepairSuggested = useCallback((payload: unknown) => {
-    const repairPayload = payload as DatabaseRepairSuggestedPayload | undefined
+    const repairPayload = payload as DatabaseRepairSuggestedPayload | undefined;
     if (!repairPayload) {
-      return
+      return;
     }
 
     toast({
       title: repairPayload.title,
-      description: `${repairPayload.message} - ${repairPayload.reason}`
-    })
-  }, [])
+      description: `${repairPayload.message} - ${repairPayload.reason}`,
+    });
+  }, []);
 
   const handleStartGuidedOnboardingDev = useCallback(async () => {
     if (!import.meta.env.DEV) {
-      return
+      return;
     }
 
     try {
-      clearGuidedOnboardingResumeIntent()
+      clearGuidedOnboardingResumeIntent();
       await onboardingClient.start({
         force: true,
-        stepId: 'select-provider'
-      })
+        stepId: "select-provider",
+      });
 
-      if (routerInstance.state.location.pathname !== '/welcome') {
-        await routerInstance.navigate({ to: '/welcome', replace: true })
+      if (routerInstance.state.location.pathname !== "/welcome") {
+        await routerInstance.navigate({ to: "/welcome", replace: true });
       }
     } catch (error) {
-      console.warn('[App] Failed to start guided onboarding from dev trigger:', error)
+      console.warn("[App] Failed to start guided onboarding from dev trigger:", error);
     }
-  }, [routerInstance])
+  }, [routerInstance]);
 
   const routeToGuidedOnboardingStep = useCallback(
     async (stepId: GuidedOnboardingStepId | null) => {
       if (stepId && CHAT_GUIDED_ONBOARDING_STEP_IDS.has(stepId)) {
-        if (routerInstance.state.location.pathname !== '/chat') {
-          await routerInstance.navigate({ to: '/chat', replace: true })
+        if (routerInstance.state.location.pathname !== "/chat") {
+          await routerInstance.navigate({ to: "/chat", replace: true });
         }
 
-        pageRouterStore.state.goToNewThread?.({ refresh: true })
-        return
+        goToNewThread({ refresh: true });
+        return;
       }
 
-      if (routerInstance.state.location.pathname !== '/welcome') {
-        await routerInstance.navigate({ to: '/welcome', replace: true })
+      if (routerInstance.state.location.pathname !== "/welcome") {
+        await routerInstance.navigate({ to: "/welcome", replace: true });
       }
     },
-    [routerInstance]
-  )
+    [routerInstance],
+  );
 
   const handleResumeGuidedOnboarding = useCallback(
     async (trigger: GuidedOnboardingResumeTrigger) => {
-      const resumeIntent = readGuidedOnboardingResumeIntent()
+      const resumeIntent = readGuidedOnboardingResumeIntent();
       if (!resumeIntent || resumeIntent.trigger !== trigger) {
-        return
+        return;
       }
 
       try {
-        const onboardingState = await onboardingClient.getState()
+        const onboardingState = await onboardingClient.getState();
 
-        if (onboardingState.status !== 'active') {
-          clearGuidedOnboardingResumeIntent()
-          if (onboardingState.status === 'completed') {
-            if (routerInstance.state.location.pathname !== '/chat') {
-              await routerInstance.navigate({ to: '/chat', replace: true })
+        if (onboardingState.status !== "active") {
+          clearGuidedOnboardingResumeIntent();
+          if (onboardingState.status === "completed") {
+            if (routerInstance.state.location.pathname !== "/chat") {
+              await routerInstance.navigate({ to: "/chat", replace: true });
             }
 
-            pageRouterStore.state.goToNewThread?.({ refresh: true })
+            goToNewThread({ refresh: true });
           }
-          return
+          return;
         }
 
-        clearGuidedOnboardingResumeIntent()
-        await routeToGuidedOnboardingStep(onboardingState.currentStepId)
+        clearGuidedOnboardingResumeIntent();
+        await routeToGuidedOnboardingStep(onboardingState.currentStepId);
       } catch (error) {
-        console.warn('[App] Failed to resume guided onboarding:', error)
+        console.warn("[App] Failed to resume guided onboarding:", error);
       }
     },
-    [routerInstance, routeToGuidedOnboardingStep]
-  )
+    [routerInstance, routeToGuidedOnboardingStep],
+  );
 
   const handleGuidedOnboardingResumeRequested = useCallback(
     (event: Event) => {
-      const detail = (event as CustomEvent<GuidedOnboardingResumeRequestDetail>).detail
+      const detail = (event as CustomEvent<GuidedOnboardingResumeRequestDetail>).detail;
       if (!detail?.trigger) {
-        return
+        return;
       }
 
-      void handleResumeGuidedOnboarding(detail.trigger)
+      void handleResumeGuidedOnboarding(detail.trigger);
     },
-    [handleResumeGuidedOnboarding]
-  )
+    [handleResumeGuidedOnboarding],
+  );
 
-  const { setup: setupMcpDeeplink, cleanup: cleanupMcpDeeplink } = useMcpInstallDeeplinkHandler()
+  const { setup: setupMcpDeeplink, cleanup: cleanupMcpDeeplink } = useMcpInstallDeeplinkHandler();
 
   const handleZoomIn = useCallback(() => {
     uiSettingsStore.setState((s) => ({
       ...s,
-      fontSizeLevel: s.fontSizeLevel + 1
-    }))
-  }, [])
+      fontSizeLevel: s.fontSizeLevel + 1,
+    }));
+  }, []);
 
   const handleZoomOut = useCallback(() => {
     uiSettingsStore.setState((s) => ({
       ...s,
-      fontSizeLevel: s.fontSizeLevel - 1
-    }))
-  }, [])
+      fontSizeLevel: s.fontSizeLevel - 1,
+    }));
+  }, []);
 
   const handleZoomResume = useCallback(() => {
     uiSettingsStore.setState((s) => ({
       ...s,
-      fontSizeLevel: 1
-    }))
-  }, [])
+      fontSizeLevel: 1,
+    }));
+  }, []);
 
   const handleCreateNewConversation = useCallback(async () => {
     try {
-      await startNewConversation({ refresh: true })
+      await startNewConversation({ refresh: true });
     } catch (error) {
-      console.error('Failed to create new conversation:', error)
+      console.error("Failed to create new conversation:", error);
     }
-  }, [])
+  }, []);
 
   const { setup: setupAppIpcRuntime, cleanup: cleanupAppIpcRuntime } = useAppIpcRuntime({
     handleStartDeeplink: (event, payload) => {
-      handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, 'token'> | undefined)
+      handleStartDeeplink(event, payload as Omit<StartDeeplinkPayload, "token"> | undefined);
     },
     handleStartGuidedOnboardingDev,
-    handleWindowFocused: () => handleResumeGuidedOnboarding('window-focus'),
+    handleWindowFocused: () => handleResumeGuidedOnboarding("window-focus"),
     showErrorToast,
     handleDatabaseRepairSuggested,
     handleZoomIn,
@@ -443,133 +423,129 @@ export default function App() {
     handleZoomResume,
     handleCreateNewConversation,
     handleToggleSidebar: () => {
-      toggleSidebar()
+      toggleSidebar();
     },
     handleToggleWorkspace: () => {
-      if (pageRouterStore.state.currentRoute !== 'chat' || !pageRouterStore.state.chatSessionId) {
-        return
+      if (currentRoute() !== "chat" || !chatSessionId()) {
+        return;
       }
 
-      sidepanelStore.state.toggleWorkspace?.(pageRouterStore.state.chatSessionId)
+      toggleWorkspace(chatSessionId());
     },
     openSpotlight: () => {
-      spotlightStore.setState((s) => ({ ...s, isOpen: true }))
+      spotlightStore.setState((s) => ({ ...s, isOpen: true }));
     },
     handleDataResetComplete: () => {
       toast({
-        title: 'Data reset complete',
-        description: 'All data has been reset. Please restart the application.',
-        variant: 'default',
-        duration: 15000
-      })
+        title: "Data reset complete",
+        description: "All data has been reset. Please restart the application.",
+        variant: "default",
+        duration: 15000,
+      });
     },
     handleSystemNotificationClick: (msg) => {
-      let sessionId: string | null = null
+      let sessionId: string | null = null;
 
-      if (typeof msg === 'string' && msg.startsWith('chat/')) {
-        const parts = msg.split('/')
+      if (typeof msg === "string" && msg.startsWith("chat/")) {
+        const parts = msg.split("/");
         if (parts.length === 3) {
-          sessionId = parts[1]
+          sessionId = parts[1];
         }
-      } else if (msg && typeof msg === 'object' && 'threadId' in msg) {
-        sessionId = (msg as { threadId?: string }).threadId ?? null
+      } else if (msg && typeof msg === "object" && "threadId" in msg) {
+        sessionId = (msg as { threadId?: string }).threadId ?? null;
       }
 
       if (sessionId) {
-        void selectSession(sessionId)
+        void selectSession(sessionId);
       }
     },
     getCurrentRouteName: () => {
-      const pathname = routerInstance.state.location.pathname
-      if (pathname === '/chat') return 'chat'
-      if (pathname === '/welcome') return 'welcome'
-      return pathname
-    }
-  })
+      const pathname = routerInstance.state.location.pathname;
+      if (pathname === "/chat") return "chat";
+      if (pathname === "/welcome") return "welcome";
+      return pathname;
+    },
+  });
 
   useEffect(() => {
     syncAppearanceClasses(
       resolveThemeName(themeState.themeMode, themeState.isDark),
-      uiSettingsState.fontSizeClass
-    )
-  }, [themeState.themeMode, themeState.isDark, uiSettingsState.fontSizeClass])
+      getFontSizeClass(uiSettingsState.fontSizeLevel),
+    );
+  }, [themeState.themeMode, themeState.isDark, uiSettingsState.fontSizeLevel]);
 
   useEffect(() => {
-    void ensureStartupWelcomeState()
-  }, [ensureStartupWelcomeState])
+    void ensureStartupWelcomeState();
+  }, [ensureStartupWelcomeState]);
 
   useEffect(() => {
-    if (!isStartupRouteReady) return
-    void activatePendingStartDeeplink()
-  }, [isStartupRouteReady, activatePendingStartDeeplink, draftState.pendingStartDeeplink?.token])
+    if (!isStartupRouteReady) return;
+    void activatePendingStartDeeplink();
+  }, [isStartupRouteReady, activatePendingStartDeeplink, draftState.pendingStartDeeplink?.token]);
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        void windowClient.closeFloatingCurrent()
+      if (event.key === "Escape") {
+        void windowClient.closeFloatingCurrent();
       }
-    }
+    };
 
-    window.addEventListener('keydown', handleEscKey)
+    window.addEventListener("keydown", handleEscKey);
     window.addEventListener(
       GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
-      handleGuidedOnboardingResumeRequested as EventListener
-    )
+      handleGuidedOnboardingResumeRequested as EventListener,
+    );
 
-    void ensureIconsLoaded()
-    void initAppStores()
-    void ensureProvidersInitialized()
-    void initializeModels()
-    void fetchSessions()
-    setupMcpDeeplink()
-    setupAppIpcRuntime()
+    void ensureIconsLoaded();
+    void initAppStores();
+    void ensureProvidersInitialized();
+    void initializeModels();
+    void fetchSessions();
+    setupMcpDeeplink();
+    setupAppIpcRuntime();
 
     return () => {
       if (errorDisplayTimer.current) {
-        clearTimeout(errorDisplayTimer.current)
-        errorDisplayTimer.current = null
+        clearTimeout(errorDisplayTimer.current);
+        errorDisplayTimer.current = null;
       }
 
-      window.removeEventListener('keydown', handleEscKey)
+      window.removeEventListener("keydown", handleEscKey);
       window.removeEventListener(
         GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
-        handleGuidedOnboardingResumeRequested as EventListener
-      )
-      cleanupAppIpcRuntime()
-      cleanupMcpDeeplink()
-    }
-  }, [])
+        handleGuidedOnboardingResumeRequested as EventListener,
+      );
+      cleanupAppIpcRuntime();
+      cleanupMcpDeeplink();
+    };
+  }, []);
 
   useEffect(() => {
-    const currentPath = routerInstance.state.location.pathname
-    const pathWithoutQuery = currentPath.split('?')[0]
-    const newTab =
-      pathWithoutQuery === '/' ? 'chat' : pathWithoutQuery.split('/').filter(Boolean)[0] || ''
+    const currentPath = routerInstance.state.location.pathname;
+    const pathWithoutQuery = currentPath.split("?")[0];
+    const newTab = pathWithoutQuery === "/" ? "chat" : pathWithoutQuery.split("/").filter(Boolean)[0] || "";
     if (newTab !== activeTab) {
-      setActiveTab(newTab)
+      setActiveTab(newTab);
     }
-    artifactStore.setState((s) => ({ ...s, visible: false }))
-  }, [routerInstance.state.location.pathname])
+    artifactStore.setState((s) => ({ ...s, visible: false }));
+  }, [routerInstance.state.location.pathname]);
 
   useEffect(() => {
-    artifactStore.setState((s) => ({ ...s, visible: false }))
-  }, [sessionState.activeSessionId])
+    artifactStore.setState((s) => ({ ...s, visible: false }));
+  }, [sessionState.activeSessionId]);
 
-  const [modelCheckOpen, setModelCheckOpen] = useState(false)
+  const [modelCheckOpen, setModelCheckOpen] = useState(false);
   useEffect(() => {
-    setModelCheckOpen(modelCheckState.isDialogOpen)
-  }, [modelCheckState.isDialogOpen])
+    setModelCheckOpen(modelCheckState.isDialogOpen);
+  }, [modelCheckState.isDialogOpen]);
 
   return (
     <div
       data-testid="app-root"
-      className={`flex flex-col h-screen ${isWinMacOS ? 'bg-window-background' : 'bg-background'}`}
+      className={`flex flex-col h-screen ${isWinMacOS ? "bg-window-background" : "bg-background"}`}
     >
       <AppBar />
-      <div
-        className="flex flex-row h-0 grow relative overflow-hidden px-px py-px"
-        dir={langState.dir}
-      >
+      <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir={langState.dir}>
         <div className="flex flex-row w-full h-full">
           <WindowSideBar />
 
@@ -577,13 +553,15 @@ export default function App() {
             data-testid="app-main"
             className="flex h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-tl-xl border-l border-t border-black/20 bg-background dark:border-white/10"
           >
-            <div className="min-h-0 flex-1">{isStartupRouteReady && <Outlet />}</div>
+            <div className="min-h-0 flex-1">
+              <Outlet />
+            </div>
           </div>
         </div>
       </div>
       <MessageDialog />
       <McpSamplingDialog />
-      <Toaster theme={toasterTheme as 'light' | 'dark' | 'system'} />
+      <Toaster theme={toasterTheme as "light" | "dark" | "system"} />
       <SelectedTextContextMenu />
       <TranslatePopup />
       <SpotlightOverlay />
@@ -591,9 +569,9 @@ export default function App() {
         open={modelCheckOpen}
         providerId={modelCheckState.currentProviderId}
         onOpenChange={(open) => {
-          if (!open) modelCheckStore.setState((s) => ({ ...s, isDialogOpen: false }))
+          if (!open) modelCheckStore.setState((s) => ({ ...s, isDialogOpen: false }));
         }}
       />
     </div>
-  )
+  );
 }

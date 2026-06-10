@@ -1,29 +1,23 @@
-import React, { useMemo } from 'react'
-import type { WorkspaceFilePreview } from '@shared/presenter'
+import { useMemo } from "react";
+import type { WorkspaceFilePreview } from "@shared/presenter";
 
 interface WorkspaceInfoPaneProps {
-  filePreview: WorkspaceFilePreview
+  filePreview: WorkspaceFilePreview;
 }
 
 const formatDate = (value: Date | string | number): string => {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString()
-}
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString();
+};
 
 export function WorkspaceInfoPane({ filePreview }: WorkspaceInfoPaneProps) {
-  const description = useMemo(
-    () => filePreview.metadata.fileDescription?.trim() || '',
-    [filePreview]
-  )
-  const createdAt = useMemo(() => formatDate(filePreview.metadata.fileCreated), [filePreview])
-  const modifiedAt = useMemo(() => formatDate(filePreview.metadata.fileModified), [filePreview])
+  const description = useMemo(() => filePreview.metadata.fileDescription?.trim() || "", [filePreview]);
+  const createdAt = useMemo(() => formatDate(filePreview.metadata.fileCreated), [filePreview]);
+  const modifiedAt = useMemo(() => formatDate(filePreview.metadata.fileModified), [filePreview]);
 
   return (
-    <div
-      className="h-full min-h-0 w-full overflow-auto px-4 py-4 text-sm"
-      data-testid="workspace-info-pane"
-    >
+    <div className="h-full min-h-0 w-full overflow-auto px-4 py-4 text-sm" data-testid="workspace-info-pane">
       {description && <div className="mb-3 text-foreground">{description}</div>}
       <div className="space-y-2 text-muted-foreground">
         <div>{filePreview.mimeType}</div>
@@ -32,5 +26,5 @@ export function WorkspaceInfoPane({ filePreview }: WorkspaceInfoPaneProps) {
         {createdAt !== modifiedAt && <div>{createdAt}</div>}
       </div>
     </div>
-  )
+  );
 }

@@ -1,3 +1,3 @@
-import { startApp } from './appMain'
+import { startApp } from "./appMain";
 
-startApp()
+startApp();

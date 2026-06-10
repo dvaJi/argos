@@ -1,29 +1,29 @@
-import { Button } from '@shadcn/components/ui/button'
+import { Button } from "@shadcn/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogFooter
-} from '@shadcn/components/ui/dialog'
-import type { LLM_PROVIDER, RENDERER_MODEL_META } from '@shared/presenter'
+  DialogFooter,
+} from "@shadcn/components/ui/dialog";
+import type { LLM_PROVIDER, RENDERER_MODEL_META } from "@shared/presenter";
 
 interface ProviderDialogContainerProps {
-  provider: LLM_PROVIDER
-  modelToDisable: RENDERER_MODEL_META | null
-  checkResult: boolean
-  showConfirmDialog: boolean
-  showCheckModelDialog: boolean
-  showDisableAllConfirmDialog: boolean
-  showDeleteProviderDialog: boolean
-  onShowConfirmDialogChange: (value: boolean) => void
-  onShowCheckModelDialogChange: (value: boolean) => void
-  onShowDisableAllConfirmDialogChange: (value: boolean) => void
-  onShowDeleteProviderDialogChange: (value: boolean) => void
-  onConfirmDisableModel?: () => void
-  onConfirmDisableAllModels?: () => void
-  onConfirmDeleteProvider?: () => void
+  provider: LLM_PROVIDER;
+  modelToDisable: RENDERER_MODEL_META | null;
+  checkResult: boolean;
+  showConfirmDialog: boolean;
+  showCheckModelDialog: boolean;
+  showDisableAllConfirmDialog: boolean;
+  showDeleteProviderDialog: boolean;
+  onShowConfirmDialogChange: (value: boolean) => void;
+  onShowCheckModelDialogChange: (value: boolean) => void;
+  onShowDisableAllConfirmDialogChange: (value: boolean) => void;
+  onShowDeleteProviderDialogChange: (value: boolean) => void;
+  onConfirmDisableModel?: () => void;
+  onConfirmDisableAllModels?: () => void;
+  onConfirmDeleteProvider?: () => void;
 }
 
 export default function ProviderDialogContainer({
@@ -40,7 +40,7 @@ export default function ProviderDialogContainer({
   onShowDeleteProviderDialogChange,
   onConfirmDisableModel,
   onConfirmDisableAllModels,
-  onConfirmDeleteProvider
+  onConfirmDeleteProvider,
 }: ProviderDialogContainerProps) {
   return (
     <div>
@@ -49,8 +49,7 @@ export default function ProviderDialogContainer({
           <DialogHeader>
             <DialogTitle>Disable Model</DialogTitle>
             <DialogDescription>
-              Are you sure you want to disable "{modelToDisable?.name}"? This model will no longer
-              be available.
+              Are you sure you want to disable "{modelToDisable?.name}"? This model will no longer be available.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -67,13 +66,11 @@ export default function ProviderDialogContainer({
       <Dialog open={showCheckModelDialog} onOpenChange={onShowCheckModelDialogChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {checkResult ? 'Verification Successful' : 'Verification Failed'}
-            </DialogTitle>
+            <DialogTitle>{checkResult ? "Verification Successful" : "Verification Failed"}</DialogTitle>
             <DialogDescription>
               {checkResult
-                ? 'Your API key has been verified successfully.'
-                : 'API key verification failed. Please check your key and try again.'}
+                ? "Your API key has been verified successfully."
+                : "API key verification failed. Please check your key and try again."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -88,9 +85,7 @@ export default function ProviderDialogContainer({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Disable All Models</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to disable all models for "{provider.name}"?
-            </DialogDescription>
+            <DialogDescription>Are you sure you want to disable all models for "{provider.name}"?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => onShowDisableAllConfirmDialogChange(false)}>
@@ -122,5 +117,5 @@ export default function ProviderDialogContainer({
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

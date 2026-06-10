@@ -1,25 +1,22 @@
-import React, { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
-import { JsonValue } from './JsonValue'
+import { type FC, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { JsonValue } from "./JsonValue";
 
 interface JsonArrayProps {
-  data: unknown[]
+  data: unknown[];
 }
 
-export const JsonArray: React.FC<JsonArrayProps> = ({ data }) => {
-  const [isExpanded, setIsExpanded] = useState(true)
+export const JsonArray: FC<JsonArrayProps> = ({ data }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
 
   if (data.length === 0) {
-    return <span className="text-xs text-muted-foreground">[ ]</span>
+    return <span className="text-xs text-muted-foreground">[ ]</span>;
   }
 
   return (
     <div className="w-full">
       <div className="flex items-center mb-1">
-        <button
-          className="p-0.5 rounded hover:bg-muted mr-1"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
+        <button className="p-0.5 rounded hover:bg-muted mr-1" onClick={() => setIsExpanded(!isExpanded)}>
           {isExpanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
           ) : (
@@ -46,5 +43,5 @@ export const JsonArray: React.FC<JsonArrayProps> = ({ data }) => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};

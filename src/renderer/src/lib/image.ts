@@ -1,48 +1,48 @@
 export const imageFileToBase64 = (file: File) => {
   return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
     reader.onloadend = (event: ProgressEvent<FileReader>) => {
-      const base64 = event.target?.result
-      resolve(base64)
-    }
-  })
-}
+      const base64 = event.target?.result;
+      resolve(base64);
+    };
+  });
+};
 
-const MAX_SIZE = 1200
+const MAX_SIZE = 1200;
 
 interface ImageDimensions {
-  width: number
-  height: number
+  width: number;
+  height: number;
 }
 
 const calculateAspectRatioFit = (
   srcWidth: number,
   srcHeight: number,
   maxWidth: number,
-  maxHeight: number
+  maxHeight: number,
 ): ImageDimensions => {
-  const ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight)
+  const ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
   return {
     width: Math.round(srcWidth * ratio),
-    height: Math.round(srcHeight * ratio)
-  }
-}
+    height: Math.round(srcHeight * ratio),
+  };
+};
 
 export const getClipboardImageInfo = (
-  file: File
+  file: File,
 ): Promise<{
-  width: number
-  height: number
-  fileSize: number
-  mimeType: string
-  compressedBase64: string
-  compressedWidth: number
-  compressedHeight: number
+  width: number;
+  height: number;
+  fileSize: number;
+  mimeType: string;
+  compressedBase64: string;
+  compressedWidth: number;
+  compressedHeight: number;
 }> => {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    const objectUrl = URL.createObjectURL(file)
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
       // Calculate compressed dimensions
@@ -50,25 +50,25 @@ export const getClipboardImageInfo = (
         img.width,
         img.height,
         MAX_SIZE,
-        MAX_SIZE
-      )
+        MAX_SIZE,
+      );
 
       // Create canvas for compression
-      const canvas = document.createElement('canvas')
-      canvas.width = compressedWidth
-      canvas.height = compressedHeight
-      const ctx = canvas.getContext('2d')
+      const canvas = document.createElement("canvas");
+      canvas.width = compressedWidth;
+      canvas.height = compressedHeight;
+      const ctx = canvas.getContext("2d");
 
       if (!ctx) {
-        URL.revokeObjectURL(objectUrl)
-        img.remove()
-        reject(new Error('Failed to get canvas context'))
-        return
+        URL.revokeObjectURL(objectUrl);
+        img.remove();
+        reject(new Error("Failed to get canvas context"));
+        return;
       }
 
       // Draw and compress image
-      ctx.drawImage(img, 0, 0, compressedWidth, compressedHeight)
-      const compressedBase64 = canvas.toDataURL(file.type, 0.9)
+      ctx.drawImage(img, 0, 0, compressedWidth, compressedHeight);
+      const compressedBase64 = canvas.toDataURL(file.type, 0.9);
 
       const imageInfo = {
         width: img.width,
@@ -77,29 +77,29 @@ export const getClipboardImageInfo = (
         mimeType: file.type,
         compressedBase64,
         compressedWidth,
-        compressedHeight
-      }
+        compressedHeight,
+      };
 
       // Cleanup
-      URL.revokeObjectURL(objectUrl)
-      img.remove()
-      canvas.remove()
-      resolve(imageInfo)
-    }
+      URL.revokeObjectURL(objectUrl);
+      img.remove();
+      canvas.remove();
+      resolve(imageInfo);
+    };
 
     img.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      img.remove()
-      reject(new Error('Failed to load image'))
-    }
+      URL.revokeObjectURL(objectUrl);
+      img.remove();
+      reject(new Error("Failed to load image"));
+    };
 
-    img.src = objectUrl
-  })
-}
+    img.src = objectUrl;
+  });
+};
 
 export const calculateImageTokens = (width: number, height: number): number => {
   // 方法1：基于图片尺寸
-  const pixelBasedTokens = Math.round(((width ?? 1) * (height ?? 1)) / 750)
+  const pixelBasedTokens = Math.round(((width ?? 1) * (height ?? 1)) / 750);
 
-  return pixelBasedTokens
-}
+  return pixelBasedTokens;
+};

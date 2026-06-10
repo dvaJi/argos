@@ -1,75 +1,69 @@
-import type { GuidedOnboardingState, GuidedOnboardingStepId } from '@shared/contracts/routes'
-import { resolveGuidedOnboardingStepTarget } from '@shared/guidedOnboarding'
-import { createOnboardingClient } from '@api/OnboardingClient'
-import { persistGuidedOnboardingResumeIntent } from '@/lib/onboardingResume'
+import type { GuidedOnboardingState, GuidedOnboardingStepId } from "@shared/contracts/routes";
+import { resolveGuidedOnboardingStepTarget } from "@shared/guidedOnboarding";
+import { createOnboardingClient } from "@api/OnboardingClient";
+import { persistGuidedOnboardingResumeIntent } from "@/lib/onboardingResume";
 
 const resolveGuidedOnboardingResumeStepId = (
-  state: GuidedOnboardingState | null | undefined
+  state: GuidedOnboardingState | null | undefined,
 ): GuidedOnboardingStepId | null => {
-  if (state?.status === 'active' && state.currentStepId) {
-    return state.currentStepId
+  if (state?.status === "active" && state.currentStepId) {
+    return state.currentStepId;
   }
 
-  if (state?.status === 'completed') {
-    return 'first-chat'
+  if (state?.status === "completed") {
+    return "first-chat";
   }
 
-  return null
-}
+  return null;
+};
 
 export async function continueGuidedOnboardingFromSettings(options: {
-  state: GuidedOnboardingState | null | undefined
+  state: GuidedOnboardingState | null | undefined;
   router: {
-    navigate: (opts: {
-      to: string
-      params?: Record<string, string>
-      replace?: boolean
-    }) => Promise<void>
-  }
+    navigate: (opts: { to: string; params?: Record<string, string>; replace?: boolean }) => Promise<void>;
+  };
   currentRoute?: {
-    pathname?: string
-    params?: Record<string, unknown>
-  }
+    pathname?: string;
+    params?: Record<string, unknown>;
+  };
   windowPresenter: {
-    focusMainWindow?: () => Promise<boolean> | boolean
-  }
+    focusMainWindow?: () => Promise<boolean> | boolean;
+  };
 }) {
-  const { router, currentRoute, windowPresenter } = options
-  let { state } = options
-  let stepId = resolveGuidedOnboardingResumeStepId(state)
+  const { router, currentRoute, windowPresenter } = options;
+  let { state } = options;
+  let stepId = resolveGuidedOnboardingResumeStepId(state);
 
   if (!stepId) {
     try {
-      state = await createOnboardingClient().getState()
-      stepId = resolveGuidedOnboardingResumeStepId(state)
+      state = await createOnboardingClient().getState();
+      stepId = resolveGuidedOnboardingResumeStepId(state);
     } catch (error) {
-      console.warn('[GuidedOnboarding] Failed to refresh state from backend:', error)
+      console.warn("[GuidedOnboarding] Failed to refresh state from backend:", error);
     }
   }
 
-  const target = resolveGuidedOnboardingStepTarget(stepId)
+  const target = resolveGuidedOnboardingStepTarget(stepId);
 
-  if (target?.surface === 'settings' && target.routeName) {
-    const providerId = currentRoute?.params?.providerId
+  if (target?.surface === "settings" && target.routeName) {
+    const providerId = currentRoute?.params?.providerId;
 
     const params =
-      target.routeName === 'settings-provider' && typeof providerId === 'string'
-        ? { providerId }
-        : undefined
+      target.routeName === "settings-provider" && typeof providerId === "string" ? { providerId } : undefined;
 
     await router.navigate({
       to: `/settings/${target.routeName}`,
-      params
-    })
-    return
+      params,
+    });
+    return;
   }
 
   if (stepId) {
     persistGuidedOnboardingResumeIntent({
       stepId,
-      trigger: 'window-focus'
-    })
+      trigger: "window-focus",
+    });
   }
 
-  await windowPresenter.focusMainWindow?.()
+  await windowPresenter.focusMainWindow?.();
 }

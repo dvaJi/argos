@@ -1,55 +1,55 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from "vitest";
 
-describe('sidepanel store', () => {
+describe("sidepanel store", () => {
   const setupSidepanelStore = async (innerWidth: number) => {
-    vi.resetModules()
-    vi.doUnmock('pinia')
+    vi.resetModules();
+    vi.doUnmock("pinia");
 
-    Object.defineProperty(window, 'innerWidth', {
+    Object.defineProperty(window, "innerWidth", {
       configurable: true,
       writable: true,
-      value: innerWidth
-    })
+      value: innerWidth,
+    });
 
-    const storageRef = { value: 520 }
+    const storageRef = { value: 520 };
 
-    vi.doMock('@vueuse/core', () => ({
-      useStorage: () => storageRef
-    }))
+    vi.doMock("@vueuse/core", () => ({
+      useStorage: () => storageRef,
+    }));
 
-    const { createPinia, setActivePinia } = await vi.importActual<typeof import('pinia')>('pinia')
-    setActivePinia(createPinia())
+    const { createPinia, setActivePinia } = await vi.importActual<typeof import("pinia")>("pinia");
+    setActivePinia(createPinia());
 
-    const { useSidepanelStore } = await import('@/stores/ui/sidepanel')
+    const { useSidepanelStore } = await import("@/stores/ui/sidepanel");
     return {
       store: useSidepanelStore(),
-      storageRef
-    }
-  }
+      storageRef,
+    };
+  };
 
-  it('clamps width to the resolved maximum on narrow viewports', async () => {
-    const { store, storageRef } = await setupSidepanelStore(500)
+  it("clamps width to the resolved maximum on narrow viewports", async () => {
+    const { store, storageRef } = await setupSidepanelStore(500);
 
-    store.setWidth(640)
-    expect(storageRef.value).toBe(310)
-    expect(store.width).toBe(310)
-  })
+    store.setWidth(640);
+    expect(storageRef.value).toBe(310);
+    expect(store.width).toBe(310);
+  });
 
-  it('reclamps width when the viewport shrinks', async () => {
-    const { store, storageRef } = await setupSidepanelStore(1200)
+  it("reclamps width when the viewport shrinks", async () => {
+    const { store, storageRef } = await setupSidepanelStore(1200);
 
-    store.setWidth(640)
-    expect(storageRef.value).toBe(640)
+    store.setWidth(640);
+    expect(storageRef.value).toBe(640);
 
-    Object.defineProperty(window, 'innerWidth', {
+    Object.defineProperty(window, "innerWidth", {
       configurable: true,
       writable: true,
-      value: 500
-    })
+      value: 500,
+    });
 
-    window.dispatchEvent(new Event('resize'))
+    window.dispatchEvent(new Event("resize"));
 
-    expect(storageRef.value).toBe(310)
-    expect(store.width).toBe(310)
-  })
-})
+    expect(storageRef.value).toBe(310);
+    expect(store.width).toBe(310);
+  });
+});

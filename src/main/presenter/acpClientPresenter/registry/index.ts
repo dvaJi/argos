@@ -1,1 +1,1 @@
-export type { AcpAgentConfig, AcpResolvedLaunchSpec } from '@shared/presenter'
+export type { AcpAgentConfig, AcpResolvedLaunchSpec } from "@shared/presenter";

@@ -1,23 +1,23 @@
-import React from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
+import type { FC } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
 
 interface MessageActionButtonsProps {
-  showCleanButton: boolean
-  showScrollButton: boolean
-  showWorkspaceButton?: boolean
-  onClean?: () => void
-  onScrollToBottom?: () => void
-  onOpenWorkspace?: () => void
+  showCleanButton: boolean;
+  showScrollButton: boolean;
+  showWorkspaceButton?: boolean;
+  onClean?: () => void;
+  onScrollToBottom?: () => void;
+  onOpenWorkspace?: () => void;
 }
 
-export const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
+export const MessageActionButtons: FC<MessageActionButtonsProps> = ({
   showCleanButton,
   showScrollButton,
   showWorkspaceButton,
   onClean,
   onScrollToBottom,
-  onOpenWorkspace
+  onOpenWorkspace,
 }) => {
   return (
     <div className="absolute bottom-3 right-3 flex flex-col items-center gap-2 will-change-transform">
@@ -55,5 +55,5 @@ export const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
         </Button>
       )}
     </div>
-  )
-}
+  );
+};

@@ -1,13 +1,13 @@
-import type { ReactNode } from 'react'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
+import type { ReactNode } from "react";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
 
 interface SettingsPageShellProps {
-  title: string
-  description?: string
-  eyebrow?: string
-  dataTestid?: string
-  actions?: ReactNode
-  children?: ReactNode
+  title: string;
+  description?: string;
+  eyebrow?: string;
+  dataTestid?: string;
+  actions?: ReactNode;
+  children?: ReactNode;
 }
 
 export default function SettingsPageShell({
@@ -16,7 +16,7 @@ export default function SettingsPageShell({
   eyebrow,
   dataTestid,
   actions,
-  children
+  children,
 }: SettingsPageShellProps) {
   return (
     <ScrollArea className="h-full w-full">
@@ -28,16 +28,12 @@ export default function SettingsPageShell({
           <div className="min-w-0">
             {eyebrow && <div className="text-xs font-medium text-muted-foreground">{eyebrow}</div>}
             <h1 className="truncate text-xl font-semibold text-foreground">{title}</h1>
-            {description && (
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
-            )}
+            {description && <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </header>
         {children}
       </main>
     </ScrollArea>
-  )
+  );
 }

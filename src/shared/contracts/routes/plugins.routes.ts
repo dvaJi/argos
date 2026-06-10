@@ -1,60 +1,56 @@
-import { z } from 'zod'
-import { defineRouteContract, JsonValueSchema } from '../common'
-import type {
-  PluginActionResult,
-  PluginInvokeActionRequest,
-  PluginListItem
-} from '@shared/types/plugin'
+import { z } from "zod";
+import { defineRouteContract, JsonValueSchema } from "../common";
+import type { PluginActionResult, PluginInvokeActionRequest, PluginListItem } from "@shared/types/plugin";
 
-const PluginListItemSchema = z.custom<PluginListItem>()
-const PluginActionResultSchema = z.custom<PluginActionResult>()
+const PluginListItemSchema = z.custom<PluginListItem>();
+const PluginActionResultSchema = z.custom<PluginActionResult>();
 
 export const pluginsListRoute = defineRouteContract({
-  name: 'plugins.list',
+  name: "plugins.list",
   input: z.object({}),
   output: z.object({
-    plugins: z.array(PluginListItemSchema)
-  })
-})
+    plugins: z.array(PluginListItemSchema),
+  }),
+});
 
 export const pluginsGetRoute = defineRouteContract({
-  name: 'plugins.get',
+  name: "plugins.get",
   input: z.object({
-    pluginId: z.string().min(1)
+    pluginId: z.string().min(1),
   }),
   output: z.object({
-    plugin: PluginListItemSchema.optional()
-  })
-})
+    plugin: PluginListItemSchema.optional(),
+  }),
+});
 
 export const pluginsEnableRoute = defineRouteContract({
-  name: 'plugins.enable',
+  name: "plugins.enable",
   input: z.object({
-    pluginId: z.string().min(1)
+    pluginId: z.string().min(1),
   }),
   output: z.object({
-    result: PluginActionResultSchema
-  })
-})
+    result: PluginActionResultSchema,
+  }),
+});
 
 export const pluginsDisableRoute = defineRouteContract({
-  name: 'plugins.disable',
+  name: "plugins.disable",
   input: z.object({
-    pluginId: z.string().min(1)
+    pluginId: z.string().min(1),
   }),
   output: z.object({
-    result: PluginActionResultSchema
-  })
-})
+    result: PluginActionResultSchema,
+  }),
+});
 
 export const pluginsInvokeActionRoute = defineRouteContract({
-  name: 'plugins.invokeAction',
+  name: "plugins.invokeAction",
   input: z.object({
     pluginId: z.string().min(1),
     actionId: z.string().min(1),
-    payload: JsonValueSchema.optional()
+    payload: JsonValueSchema.optional(),
   }) satisfies z.ZodType<PluginInvokeActionRequest>,
   output: z.object({
-    result: PluginActionResultSchema
-  })
-})
+    result: PluginActionResultSchema,
+  }),
+});

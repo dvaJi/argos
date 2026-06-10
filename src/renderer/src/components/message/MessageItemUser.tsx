@@ -1,201 +1,190 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import MessageInfo from './MessageInfo'
-import ChatAttachmentItem from '../chat/ChatAttachmentItem'
-import MessageToolbar from './MessageToolbar'
-import MessageContent from './MessageContent'
-import MessageTextContent from './MessageTextContent'
-import { createDeviceClient } from '@api/DeviceClient'
-import { createWindowClient } from '@api/WindowClient'
+import { type FC, useState, useMemo, useEffect, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { MessageInfo } from "./MessageInfo";
+import ChatAttachmentItem from "../chat/ChatAttachmentItem";
+import { MessageToolbar } from "./MessageToolbar";
+import { MessageContent } from "./MessageContent";
+import { MessageTextContent } from "./MessageTextContent";
+import { createDeviceClient } from "@api/DeviceClient";
+import { createWindowClient } from "@api/WindowClient";
 import type {
   DisplayUserMessage,
   DisplayUserMessageTextBlock,
   DisplayUserMessageCodeBlock,
-  DisplayUserMessageMentionBlock
-} from '@/components/chat/messageListItems'
+  DisplayUserMessageMentionBlock,
+} from "@/components/chat/messageListItems";
 
-const COLLAPSE_CHAR_THRESHOLD = 600
-const COLLAPSE_EXPLICIT_LINE_THRESHOLD = 8
+const COLLAPSE_CHAR_THRESHOLD = 600;
+const COLLAPSE_EXPLICIT_LINE_THRESHOLD = 8;
 
 type DisplayUserMessageRichBlock =
   | DisplayUserMessageTextBlock
   | DisplayUserMessageMentionBlock
-  | DisplayUserMessageCodeBlock
+  | DisplayUserMessageCodeBlock;
 
 const getVisibleMentionLabel = (block: DisplayUserMessageMentionBlock) => {
-  if (block.category === 'prompts') return block.id || block.content
-  if (block.category === 'context') return block.id || block.category
-  return block.content
-}
+  if (block.category === "prompts") return block.id || block.content;
+  if (block.category === "context") return block.id || block.category;
+  return block.content;
+};
 
 const getVisibleBlockText = (block: DisplayUserMessageRichBlock) => {
-  if (block.type === 'mention') return getVisibleMentionLabel(block)
-  return block.content
-}
+  if (block.type === "mention") return getVisibleMentionLabel(block);
+  return block.content;
+};
 
 const getVisibleMessageText = (message: DisplayUserMessage) => {
-  const blocks = message.content.content
-  if (blocks && blocks.length > 0) return blocks.map((block) => getVisibleBlockText(block)).join('')
-  return message.content.text || ''
-}
+  const blocks = message.content.content;
+  if (blocks && blocks.length > 0) return blocks.map((block) => getVisibleBlockText(block)).join("");
+  return message.content.text || "";
+};
 
 const countExplicitLines = (value: string) => {
-  if (!value) return 0
-  let count = 1
+  if (!value) return 0;
+  let count = 1;
   for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index)
+    const code = value.charCodeAt(index);
     if (code === 10) {
-      count += 1
+      count += 1;
     } else if (code === 13) {
-      count += 1
-      if (value.charCodeAt(index + 1) === 10) index += 1
+      count += 1;
+      if (value.charCodeAt(index + 1) === 10) index += 1;
     }
   }
-  return count
-}
+  return count;
+};
 
 interface MessageItemUserProps {
-  message: DisplayUserMessage
-  isReadOnly?: boolean
-  onFileClick?: (fileName: string) => void
-  onRetry?: (messageId: string) => void
-  onDelete?: (messageId: string) => void
-  onEditSave?: (payload: { messageId: string; text: string }) => void
+  message: DisplayUserMessage;
+  isReadOnly?: boolean;
+  onRetry?: (messageId: string) => void;
+  onDelete?: (messageId: string) => void;
+  onEditSave?: (payload: { messageId: string; text: string }) => void;
 }
 
-export const MessageItemUser: React.FC<MessageItemUserProps> = ({
+export const MessageItemUser: FC<MessageItemUserProps> = ({
   message,
   isReadOnly = false,
-  onFileClick,
   onRetry,
   onDelete,
-  onEditSave
+  onEditSave,
 }) => {
-  const deviceClient = createDeviceClient()
-  const windowClient = createWindowClient()
+  const deviceClient = createDeviceClient();
+  const windowClient = createWindowClient();
 
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [editedText, setEditedText] = useState('')
-  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null)
-  const [isExpanded, setIsExpanded] = useState(true)
-  const [hasManualCollapsePreference, setHasManualCollapsePreference] = useState(false)
-  const pendingResizeFrameRef = useRef<number | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedText, setEditedText] = useState("");
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [hasManualCollapsePreference, setHasManualCollapsePreference] = useState(false);
+  const pendingResizeFrameRef = useRef<number | null>(null);
 
-  const visibleMessageText = useMemo(() => getVisibleMessageText(message), [message])
-  const explicitLineCount = useMemo(
-    () => countExplicitLines(visibleMessageText),
-    [visibleMessageText]
-  )
+  const visibleMessageText = useMemo(() => getVisibleMessageText(message), [message]);
+  const explicitLineCount = useMemo(() => countExplicitLines(visibleMessageText), [visibleMessageText]);
   const isCollapsible = useMemo(
-    () =>
-      visibleMessageText.length >= COLLAPSE_CHAR_THRESHOLD ||
-      explicitLineCount >= COLLAPSE_EXPLICIT_LINE_THRESHOLD,
-    [visibleMessageText, explicitLineCount]
-  )
-  const shouldClampContent = useMemo(
-    () => isCollapsible && !isExpanded,
-    [isCollapsible, isExpanded]
-  )
-  const showFadeMask = shouldClampContent
+    () => visibleMessageText.length >= COLLAPSE_CHAR_THRESHOLD || explicitLineCount >= COLLAPSE_EXPLICIT_LINE_THRESHOLD,
+    [visibleMessageText, explicitLineCount],
+  );
+  const shouldClampContent = useMemo(() => isCollapsible && !isExpanded, [isCollapsible, isExpanded]);
+  const showFadeMask = shouldClampContent;
 
   const previewFile = (filePath: string) => {
-    void windowClient.previewFile(filePath)
-  }
+    void windowClient.previewFile(filePath);
+  };
 
   const toggleExpanded = () => {
-    if (!isCollapsible) return
-    setIsExpanded((prev) => !prev)
-    setHasManualCollapsePreference(true)
-  }
+    if (!isCollapsible) return;
+    setIsExpanded((prev) => !prev);
+    setHasManualCollapsePreference(true);
+  };
 
   const runAutoResize = () => {
-    const el = editTextareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    const maxH = Math.max(120, Math.floor(window.innerHeight * 0.6))
-    const scrollH = el.scrollHeight
-    const target = Math.min(scrollH, maxH)
-    el.style.height = target + 'px'
-    el.style.overflowY = scrollH > target ? 'auto' : 'hidden'
-  }
+    const el = editTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxH = Math.max(120, Math.floor(window.innerHeight * 0.6));
+    const scrollH = el.scrollHeight;
+    const target = Math.min(scrollH, maxH);
+    el.style.height = target + "px";
+    el.style.overflowY = scrollH > target ? "auto" : "hidden";
+  };
 
   const autoResize = () => {
-    if (pendingResizeFrameRef.current !== null)
-      window.cancelAnimationFrame(pendingResizeFrameRef.current)
+    if (pendingResizeFrameRef.current !== null) window.cancelAnimationFrame(pendingResizeFrameRef.current);
     pendingResizeFrameRef.current = window.requestAnimationFrame(() => {
-      pendingResizeFrameRef.current = null
-      runAutoResize()
-    })
-  }
+      pendingResizeFrameRef.current = null;
+      runAutoResize();
+    });
+  };
 
   const startEdit = () => {
-    if (isReadOnly) return
-    setIsEditMode(true)
+    if (isReadOnly) return;
+    setIsEditMode(true);
     if (message.content?.content && message.content.content.length > 0) {
-      const textBlocks = message.content.content.filter((block) => block.type === 'text')
-      setEditedText(textBlocks.map((block) => block.content).join(''))
+      const textBlocks = message.content.content.filter((block) => block.type === "text");
+      setEditedText(textBlocks.map((block) => block.content).join(""));
     } else {
-      setEditedText(message.content.text || '')
+      setEditedText(message.content.text || "");
     }
-    setTimeout(() => autoResize(), 0)
-  }
+    setTimeout(() => autoResize(), 0);
+  };
 
   const saveEdit = () => {
-    if (isReadOnly) return
-    const nextText = editedText.trim()
-    if (!nextText) return
-    onEditSave?.({ messageId: message.id, text: nextText })
-    setIsEditMode(false)
-  }
+    if (isReadOnly) return;
+    const nextText = editedText.trim();
+    if (!nextText) return;
+    onEditSave?.({ messageId: message.id, text: nextText });
+    setIsEditMode(false);
+  };
 
-  const cancelEdit = () => setIsEditMode(false)
+  const cancelEdit = () => setIsEditMode(false);
 
   const getCopyText = () => {
     if (message.content?.content && message.content.content.length > 0) {
       return message.content.content
-        .map((block) => (typeof block.content === 'string' ? block.content : ''))
-        .join('')
-        .trim()
+        .map((block) => (typeof block.content === "string" ? block.content : ""))
+        .join("")
+        .trim();
     }
-    return message.content.text || ''
-  }
+    return message.content.text || "";
+  };
 
-  const handleAction = (action: 'delete' | 'copy') => {
-    if (action === 'delete') {
-      if (isReadOnly) return
-      onDelete?.(message.id)
-    } else if (action === 'copy') {
-      deviceClient.copyText(getCopyText())
+  const handleAction = (action: "delete" | "copy") => {
+    if (action === "delete") {
+      if (isReadOnly) return;
+      onDelete?.(message.id);
+    } else if (action === "copy") {
+      deviceClient.copyText(getCopyText());
     }
-  }
+  };
 
   const handleMentionClick = async (_block: DisplayUserMessageMentionBlock) => {
-    return
-  }
+    return;
+  };
 
   useEffect(() => {
     if (!isCollapsible) {
-      setIsExpanded(true)
-      setHasManualCollapsePreference(false)
-      return
+      setIsExpanded(true);
+      setHasManualCollapsePreference(false);
+      return;
     }
-    if (!hasManualCollapsePreference) setIsExpanded(false)
-  }, [message.id, visibleMessageText, isCollapsible])
+    if (!hasManualCollapsePreference) setIsExpanded(false);
+  }, [message.id, visibleMessageText, isCollapsible]);
 
   useEffect(() => {
-    if (isEditMode) setTimeout(() => autoResize(), 0)
-  }, [editedText])
+    if (isEditMode) setTimeout(() => autoResize(), 0);
+  }, [editedText]);
 
   useEffect(() => {
     return () => {
       if (pendingResizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(pendingResizeFrameRef.current)
-        pendingResizeFrameRef.current = null
+        window.cancelAnimationFrame(pendingResizeFrameRef.current);
+        pendingResizeFrameRef.current = null;
       }
-    }
-  }, [])
+    };
+  }, []);
 
-  if (message.content.continue) return null
+  if (message.content.continue) return null;
 
   return (
     <div
@@ -213,11 +202,7 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
         )}
       </div>
       <div className="flex flex-col w-full space-y-1.5 items-end">
-        <MessageInfo
-          className="flex-row-reverse"
-          name={message.name ?? 'user'}
-          timestamp={message.timestamp}
-        />
+        <MessageInfo name={message.name ?? "user"} timestamp={message.timestamp} />
         <div
           className="text-sm bg-muted dark:bg-muted rounded-lg p-2 border flex flex-col gap-1.5"
           data-message-content="true"
@@ -244,11 +229,11 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
                 rows={1}
                 onInput={autoResize}
                 onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    e.preventDefault()
-                    saveEdit()
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    saveEdit();
                   }
-                  if (e.key === 'Escape') cancelEdit()
+                  if (e.key === "Escape") cancelEdit();
                 }}
               />
             </div>
@@ -261,18 +246,12 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
                 className="relative w-full min-w-0"
               >
                 <div
-                  className={[
-                    'w-full min-w-0',
-                    shouldClampContent ? 'user-message-content--clamped' : ''
-                  ].join(' ')}
+                  className={["w-full min-w-0", shouldClampContent ? "user-message-content--clamped" : ""].join(" ")}
                 >
                   {message.content.content && message.content.content.length > 0 ? (
-                    <MessageContent
-                      content={message.content.content}
-                      onMentionClick={handleMentionClick}
-                    />
+                    <MessageContent content={message.content.content} onMentionClick={handleMentionClick} />
                   ) : (
-                    <MessageTextContent content={message.content.text || ''} />
+                    <MessageTextContent content={message.content.text || ""} />
                   )}
                 </div>
                 {showFadeMask && (
@@ -289,14 +268,13 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
                   className="text-xs leading-5 text-muted-foreground transition-colors hover:text-foreground"
                   onClick={toggleExpanded}
                 >
-                  {isExpanded ? 'Collapse' : 'Expand'}
+                  {isExpanded ? "Collapse" : "Expand"}
                 </button>
               )}
             </div>
           )}
         </div>
         <MessageToolbar
-          className="flex-row-reverse"
           usage={message.usage}
           loading={false}
           isAssistant={false}
@@ -304,10 +282,10 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
           isCapturingImage={false}
           isReadOnly={isReadOnly}
           onRetry={() => {
-            if (!isReadOnly) onRetry?.(message.id)
+            if (!isReadOnly) onRetry?.(message.id);
           }}
-          onDelete={() => handleAction('delete')}
-          onCopy={() => handleAction('copy')}
+          onDelete={() => handleAction("delete")}
+          onCopy={() => handleAction("copy")}
           onEdit={startEdit}
           onSave={saveEdit}
           onCancel={cancelEdit}
@@ -323,7 +301,7 @@ export const MessageItemUser: React.FC<MessageItemUserProps> = ({
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default MessageItemUser
+export default MessageItemUser;

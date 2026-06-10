@@ -1,13 +1,13 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 
 afterEach(() => {
-  vi.clearAllMocks()
-})
+  vi.clearAllMocks();
+});
 
-describe('AcpSettings', () => {
+describe("AcpSettings", () => {
   // TODO: flesh out React test — uninstalls registry agent through alert dialog
-  it('placeholder: module imports resolve', async () => {
-    expect(true).toBe(true)
-  })
-})
+  it("placeholder: module imports resolve", async () => {
+    expect(true).toBe(true);
+  });
+});

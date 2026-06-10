@@ -1,34 +1,24 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@shadcn/components/ui/select'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@shadcn/components/ui/collapsible'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Switch } from '@shadcn/components/ui/switch'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
-import { useToast } from '@/components/use-toast'
-import { useLegacyPresenter } from '@api/legacy/presenters'
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@shadcn/components/ui/collapsible";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Switch } from "@shadcn/components/ui/switch";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
+import { useToast } from "@/components/use-toast";
+import { useLegacyPresenter } from "@api/legacy/presenters";
 import type {
   HookCommandItem,
   HookEventName,
   HookTestResult,
-  HooksNotificationsSettings
-} from '@shared/hooksNotifications'
-import { DEFAULT_IMPORTANT_HOOK_EVENTS, HOOK_EVENT_NAMES } from '@shared/hooksNotifications'
+  HooksNotificationsSettings,
+} from "@shared/hooksNotifications";
+import { DEFAULT_IMPORTANT_HOOK_EVENTS, HOOK_EVENT_NAMES } from "@shared/hooksNotifications";
 
-const PREVIEW_LIMIT = 200
+const PREVIEW_LIMIT = 200;
 
 const stdinPreview = `{
   "event": "SessionStart",
@@ -39,222 +29,220 @@ const stdinPreview = `{
   },
   "user": null,
   "tool": null
-}`
+}`;
 
 const placeholderDocs = [
-  { token: '{{event}}', field: 'event' },
-  { token: '{{time}}', field: 'time' },
-  { token: '{{isTest}}', field: 'isTest' },
-  { token: '{{conversationId}}', field: 'conversationId' },
-  { token: '{{workdir}}', field: 'workdir' },
-  { token: '{{agentId}}', field: 'agentId' },
-  { token: '{{providerId}}', field: 'providerId' },
-  { token: '{{modelId}}', field: 'modelId' },
-  { token: '{{messageId}}', field: 'messageId' },
-  { token: '{{toolName}}', field: 'toolName' },
-  { token: '{{toolCallId}}', field: 'toolCallId' }
-]
+  { token: "{{event}}", field: "event" },
+  { token: "{{time}}", field: "time" },
+  { token: "{{isTest}}", field: "isTest" },
+  { token: "{{conversationId}}", field: "conversationId" },
+  { token: "{{workdir}}", field: "workdir" },
+  { token: "{{agentId}}", field: "agentId" },
+  { token: "{{providerId}}", field: "providerId" },
+  { token: "{{modelId}}", field: "modelId" },
+  { token: "{{messageId}}", field: "messageId" },
+  { token: "{{toolName}}", field: "toolName" },
+  { token: "{{toolCallId}}", field: "toolCallId" },
+];
 
 const envDocs = [
-  { token: 'DEEPCHAT_HOOK_EVENT', field: 'event' },
-  { token: 'DEEPCHAT_HOOK_TIME', field: 'time' },
-  { token: 'DEEPCHAT_HOOK_IS_TEST', field: 'isTest' },
-  { token: 'DEEPCHAT_CONVERSATION_ID', field: 'conversationId' },
-  { token: 'DEEPCHAT_WORKDIR', field: 'workdir' },
-  { token: 'DEEPCHAT_AGENT_ID', field: 'agentId' },
-  { token: 'DEEPCHAT_PROVIDER_ID', field: 'providerId' },
-  { token: 'DEEPCHAT_MODEL_ID', field: 'modelId' },
-  { token: 'DEEPCHAT_MESSAGE_ID', field: 'messageId' },
-  { token: 'DEEPCHAT_TOOL_NAME', field: 'toolName' },
-  { token: 'DEEPCHAT_TOOL_CALL_ID', field: 'toolCallId' }
-]
+  { token: "DEEPCHAT_HOOK_EVENT", field: "event" },
+  { token: "DEEPCHAT_HOOK_TIME", field: "time" },
+  { token: "DEEPCHAT_HOOK_IS_TEST", field: "isTest" },
+  { token: "DEEPCHAT_CONVERSATION_ID", field: "conversationId" },
+  { token: "DEEPCHAT_WORKDIR", field: "workdir" },
+  { token: "DEEPCHAT_AGENT_ID", field: "agentId" },
+  { token: "DEEPCHAT_PROVIDER_ID", field: "providerId" },
+  { token: "DEEPCHAT_MODEL_ID", field: "modelId" },
+  { token: "DEEPCHAT_MESSAGE_ID", field: "messageId" },
+  { token: "DEEPCHAT_TOOL_NAME", field: "toolName" },
+  { token: "DEEPCHAT_TOOL_CALL_ID", field: "toolCallId" },
+];
 
 const commandExamples = [
-  { label: 'Node.js', command: 'node scripts/hook.js {{event}} {{conversationId}}' },
+  { label: "Node.js", command: "node scripts/hook.js {{event}} {{conversationId}}" },
   {
-    label: 'Python',
-    command: 'python scripts/hook.py --event {{event}} --session {{conversationId}}'
+    label: "Python",
+    command: "python scripts/hook.py --event {{event}} --session {{conversationId}}",
   },
-  { label: 'PowerShell', command: 'powershell -File scripts/hook.ps1 {{event}} {{isTest}}' }
-]
+  { label: "PowerShell", command: "powershell -File scripts/hook.ps1 {{event}} {{isTest}}" },
+];
 
 const fieldDescriptions: Record<string, string> = {
-  event: 'The hook event name',
-  time: 'ISO 8601 timestamp',
-  isTest: 'Whether this is a test invocation',
-  conversationId: 'The conversation/session ID',
-  workdir: 'The working directory',
-  agentId: 'The agent ID',
-  providerId: 'The provider ID',
-  modelId: 'The model ID',
-  messageId: 'The message ID',
-  toolName: 'The tool name (for tool events)',
-  toolCallId: 'The tool call ID'
-}
+  event: "The hook event name",
+  time: "ISO 8601 timestamp",
+  isTest: "Whether this is a test invocation",
+  conversationId: "The conversation/session ID",
+  workdir: "The working directory",
+  agentId: "The agent ID",
+  providerId: "The provider ID",
+  modelId: "The model ID",
+  messageId: "The message ID",
+  toolName: "The tool name (for tool events)",
+  toolCallId: "The tool call ID",
+};
 
-const eventLabels: Record<string, string> = Object.fromEntries(
-  HOOK_EVENT_NAMES.map((name) => [name, name])
-)
+const eventLabels: Record<string, string> = Object.fromEntries(HOOK_EVENT_NAMES.map((name) => [name, name]));
 
 export default function NotificationsHooksSettings() {
-  const { toast } = useToast()
-  const configPresenter = useLegacyPresenter('configPresenter')
+  const { toast } = useToast();
+  const configPresenter = useLegacyPresenter("configPresenter");
 
-  const [config, setConfig] = useState<HooksNotificationsSettings | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [guideOpen, setGuideOpen] = useState(false)
-  const [testing, setTesting] = useState<Record<string, boolean>>({})
-  const [testResults, setTestResults] = useState<Record<string, HookTestResult | null>>({})
-  const pendingSaveRef = useRef(false)
+  const [config, setConfig] = useState<HooksNotificationsSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, HookTestResult | null>>({});
+  const pendingSaveRef = useRef(false);
 
   const loadConfig = useCallback(async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const result = await configPresenter.getHooksNotificationsConfig()
-      setConfig(result)
+      const result = await configPresenter.getHooksNotificationsConfig();
+      setConfig(result);
     } catch (error) {
       toast({
-        title: 'Operation failed',
+        title: "Operation failed",
         description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      })
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [configPresenter, toast])
+  }, [configPresenter, toast]);
 
   const persistConfig = useCallback(async () => {
-    if (!config) return
+    if (!config) return;
     if (isSaving) {
-      pendingSaveRef.current = true
-      return
+      pendingSaveRef.current = true;
+      return;
     }
-    setIsSaving(true)
+    setIsSaving(true);
     try {
-      const updated = await configPresenter.setHooksNotificationsConfig(config)
-      if (updated) setConfig(updated)
+      const updated = await configPresenter.setHooksNotificationsConfig(config);
+      if (updated) setConfig(updated);
     } catch (error) {
       toast({
-        title: 'Operation failed',
+        title: "Operation failed",
         description: error instanceof Error ? error.message : String(error),
-        variant: 'destructive'
-      })
+        variant: "destructive",
+      });
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
       if (pendingSaveRef.current) {
-        pendingSaveRef.current = false
-        void persistConfig()
+        pendingSaveRef.current = false;
+        void persistConfig();
       }
     }
-  }, [config, isSaving, configPresenter, toast])
+  }, [config, isSaving, configPresenter, toast]);
 
   const addHook = useCallback(() => {
-    if (!config) return
+    if (!config) return;
     const draft: HookCommandItem = {
       id: crypto.randomUUID(),
       name: `Hook ${config.hooks.length + 1}`,
       enabled: false,
-      command: '',
-      events: [...DEFAULT_IMPORTANT_HOOK_EVENTS]
-    }
-    setConfig({ ...config, hooks: [...config.hooks, draft] })
-    void persistConfig()
-  }, [config, persistConfig])
+      command: "",
+      events: [...DEFAULT_IMPORTANT_HOOK_EVENTS],
+    };
+    setConfig({ ...config, hooks: [...config.hooks, draft] });
+    void persistConfig();
+  }, [config, persistConfig]);
 
   const removeHook = useCallback(
     (hookId: string) => {
-      if (!config) return
-      setConfig({ ...config, hooks: config.hooks.filter((h) => h.id !== hookId) })
+      if (!config) return;
+      setConfig({ ...config, hooks: config.hooks.filter((h) => h.id !== hookId) });
       setTesting((prev) => {
-        const next = { ...prev }
-        delete next[hookId]
-        return next
-      })
+        const next = { ...prev };
+        delete next[hookId];
+        return next;
+      });
       setTestResults((prev) => {
-        const next = { ...prev }
-        delete next[hookId]
-        return next
-      })
-      void persistConfig()
+        const next = { ...prev };
+        delete next[hookId];
+        return next;
+      });
+      void persistConfig();
     },
-    [config, persistConfig]
-  )
+    [config, persistConfig],
+  );
 
   const updateHookEnabled = useCallback(
     (hookId: string, enabled: boolean) => {
-      if (!config) return
+      if (!config) return;
       setConfig({
         ...config,
-        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, enabled } : h))
-      })
-      void persistConfig()
+        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, enabled } : h)),
+      });
+      void persistConfig();
     },
-    [config, persistConfig]
-  )
+    [config, persistConfig],
+  );
 
   const updateHookEvent = useCallback(
     (hookId: string, eventName: HookEventName, checked: boolean) => {
-      if (!config) return
+      if (!config) return;
       setConfig({
         ...config,
         hooks: config.hooks.map((h) => {
-          if (h.id !== hookId) return h
-          const events = new Set(h.events)
-          if (checked) events.add(eventName)
-          else events.delete(eventName)
-          return { ...h, events: Array.from(events) }
-        })
-      })
-      void persistConfig()
+          if (h.id !== hookId) return h;
+          const events = new Set(h.events);
+          if (checked) events.add(eventName);
+          else events.delete(eventName);
+          return { ...h, events: Array.from(events) };
+        }),
+      });
+      void persistConfig();
     },
-    [config, persistConfig]
-  )
+    [config, persistConfig],
+  );
 
   const updateHookField = useCallback(
-    (hookId: string, field: 'name' | 'command', value: string) => {
-      if (!config) return
+    (hookId: string, field: "name" | "command", value: string) => {
+      if (!config) return;
       setConfig({
         ...config,
-        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, [field]: value } : h))
-      })
+        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, [field]: value } : h)),
+      });
     },
-    [config]
-  )
+    [config],
+  );
 
   const runHookTest = useCallback(
     async (hookId: string) => {
-      if (testing[hookId]) return
-      setTesting((prev) => ({ ...prev, [hookId]: true }))
-      setTestResults((prev) => ({ ...prev, [hookId]: null }))
+      if (testing[hookId]) return;
+      setTesting((prev) => ({ ...prev, [hookId]: true }));
+      setTestResults((prev) => ({ ...prev, [hookId]: null }));
       try {
-        await persistConfig()
-        const result = await configPresenter.testHookCommand(hookId)
-        setTestResults((prev) => ({ ...prev, [hookId]: result }))
+        await persistConfig();
+        const result = await configPresenter.testHookCommand(hookId);
+        setTestResults((prev) => ({ ...prev, [hookId]: result }));
       } catch (error) {
         setTestResults((prev) => ({
           ...prev,
           [hookId]: {
             success: false,
             durationMs: 0,
-            error: error instanceof Error ? error.message : String(error)
-          }
-        }))
+            error: error instanceof Error ? error.message : String(error),
+          },
+        }));
       } finally {
-        setTesting((prev) => ({ ...prev, [hookId]: false }))
+        setTesting((prev) => ({ ...prev, [hookId]: false }));
       }
     },
-    [testing, persistConfig, configPresenter]
-  )
+    [testing, persistConfig, configPresenter],
+  );
 
   const formatPreview = (value?: string) => {
-    if (!value) return ''
-    return value.length <= PREVIEW_LIMIT ? value : `${value.slice(0, PREVIEW_LIMIT)}…`
-  }
+    if (!value) return "";
+    return value.length <= PREVIEW_LIMIT ? value : `${value.slice(0, PREVIEW_LIMIT)}…`;
+  };
 
   useEffect(() => {
-    void loadConfig()
-  }, [loadConfig])
+    void loadConfig();
+  }, [loadConfig]);
 
   if (isLoading) {
     return (
@@ -263,7 +251,7 @@ export default function NotificationsHooksSettings() {
           <div className="text-sm text-muted-foreground">Loading...</div>
         </div>
       </ScrollArea>
-    )
+    );
   }
 
   if (!config) {
@@ -273,7 +261,7 @@ export default function NotificationsHooksSettings() {
           <div className="text-sm text-muted-foreground">Request failed</div>
         </div>
       </ScrollArea>
-    )
+    );
   }
 
   return (
@@ -284,46 +272,28 @@ export default function NotificationsHooksSettings() {
             <div className="text-base font-medium">Notification Hooks</div>
             {isSaving && <span className="text-xs text-muted-foreground">Saving</span>}
           </div>
-          <div className="text-sm text-muted-foreground">
-            Configure shell commands that run on specific events.
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Use placeholders in commands to receive event data.
-          </div>
+          <div className="text-sm text-muted-foreground">Configure shell commands that run on specific events.</div>
+          <div className="text-xs text-muted-foreground">Use placeholders in commands to receive event data.</div>
         </div>
 
         <div className="rounded-lg border p-4">
           <div className="space-y-4">
             <div className="flex justify-end">
-              <Button
-                data-testid="notifications-hooks-add"
-                variant="outline"
-                size="sm"
-                onClick={addHook}
-              >
+              <Button data-testid="notifications-hooks-add" variant="outline" size="sm" onClick={addHook}>
                 <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
                 New Hook
               </Button>
             </div>
 
-            <Collapsible
-              open={guideOpen}
-              onOpenChange={setGuideOpen}
-              className="rounded-md border bg-muted/20"
-            >
+            <Collapsible open={guideOpen} onOpenChange={setGuideOpen} className="rounded-md border bg-muted/20">
               <CollapsibleTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex h-auto w-full items-center justify-between p-4"
-                >
+                <Button variant="ghost" className="flex h-auto w-full items-center justify-between p-4">
                   <div className="min-w-0 text-left">
                     <div className="text-sm font-medium">Command Guide</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Learn how to configure hook commands
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Learn how to configure hook commands</p>
                   </div>
                   <Icon
-                    icon={guideOpen ? 'lucide:chevron-up' : 'lucide:chevron-down'}
+                    icon={guideOpen ? "lucide:chevron-up" : "lucide:chevron-down"}
                     className="ml-3 h-4 w-4 shrink-0 text-muted-foreground"
                   />
                 </Button>
@@ -340,19 +310,13 @@ export default function NotificationsHooksSettings() {
                         <li>Metadata only (no content)</li>
                       </ul>
                       <div className="rounded-md border bg-background p-3">
-                        <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-                          Stdin Preview
-                        </div>
-                        <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">
-                          {stdinPreview}
-                        </pre>
+                        <div className="mb-2 text-[11px] font-medium text-muted-foreground">Stdin Preview</div>
+                        <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{stdinPreview}</pre>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <div className="text-xs font-medium text-muted-foreground">Placeholders</div>
-                      <p className="text-xs text-muted-foreground">
-                        Use these tokens in your command string.
-                      </p>
+                      <p className="text-xs text-muted-foreground">Use these tokens in your command string.</p>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {placeholderDocs.map((item) => (
                           <div key={item.token} className="rounded-md border bg-background p-3">
@@ -369,9 +333,7 @@ export default function NotificationsHooksSettings() {
                   </div>
                   <div className="grid gap-4 lg:grid-cols-2">
                     <div className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">
-                        Environment Variables
-                      </div>
+                      <div className="text-xs font-medium text-muted-foreground">Environment Variables</div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {envDocs.map((item) => (
                           <div key={item.token} className="rounded-md border bg-background p-3">
@@ -390,12 +352,8 @@ export default function NotificationsHooksSettings() {
                       <div className="space-y-2">
                         {commandExamples.map((item) => (
                           <div key={item.label} className="rounded-md border bg-background p-3">
-                            <div className="mb-2 text-[11px] font-medium text-muted-foreground">
-                              {item.label}
-                            </div>
-                            <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">
-                              {item.command}
-                            </pre>
+                            <div className="mb-2 text-[11px] font-medium text-muted-foreground">{item.label}</div>
+                            <pre className="whitespace-pre-wrap break-all text-[11px] leading-5">{item.command}</pre>
                           </div>
                         ))}
                       </div>
@@ -415,22 +373,16 @@ export default function NotificationsHooksSettings() {
             ) : (
               <div className="space-y-3">
                 {config.hooks.map((hook, index) => (
-                  <div
-                    key={hook.id}
-                    data-testid={`notifications-hook-${hook.id}`}
-                    className="rounded-md border p-4"
-                  >
+                  <div key={hook.id} data-testid={`notifications-hook-${hook.id}`} className="rounded-md border p-4">
                     <div className="space-y-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="min-w-[180px]">
-                          <div className="text-sm font-medium">
-                            {hook.name || `Hook ${index + 1}`}
-                          </div>
+                          <div className="text-sm font-medium">{hook.name || `Hook ${index + 1}`}</div>
                           <div className="text-xs text-muted-foreground">{hook.id}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{hook.enabled ? 'Enabled' : 'Disabled'}</span>
+                            <span>{hook.enabled ? "Enabled" : "Disabled"}</span>
                             <Switch
                               checked={hook.enabled}
                               onCheckedChange={(value) => updateHookEnabled(hook.id, value)}
@@ -443,10 +395,10 @@ export default function NotificationsHooksSettings() {
                             onClick={() => void runHookTest(hook.id)}
                           >
                             <Icon
-                              icon={testing[hook.id] ? 'lucide:loader-2' : 'lucide:play'}
-                              className={`mr-1 h-4 w-4 ${testing[hook.id] ? 'animate-spin' : ''}`}
+                              icon={testing[hook.id] ? "lucide:loader-2" : "lucide:play"}
+                              className={`mr-1 h-4 w-4 ${testing[hook.id] ? "animate-spin" : ""}`}
                             />
-                            {testing[hook.id] ? 'Testing...' : 'Test'}
+                            {testing[hook.id] ? "Testing..." : "Test"}
                           </Button>
                           <Button
                             variant="ghost"
@@ -466,7 +418,7 @@ export default function NotificationsHooksSettings() {
                           <Input
                             value={hook.name}
                             placeholder="Hook name"
-                            onChange={(e) => updateHookField(hook.id, 'name', e.target.value)}
+                            onChange={(e) => updateHookField(hook.id, "name", e.target.value)}
                             onBlur={() => void persistConfig()}
                           />
                         </div>
@@ -475,7 +427,7 @@ export default function NotificationsHooksSettings() {
                           <Input
                             value={hook.command}
                             placeholder="Command to execute"
-                            onChange={(e) => updateHookField(hook.id, 'command', e.target.value)}
+                            onChange={(e) => updateHookField(hook.id, "command", e.target.value)}
                             onBlur={() => void persistConfig()}
                           />
                         </div>
@@ -485,15 +437,10 @@ export default function NotificationsHooksSettings() {
                         <Label className="text-xs text-muted-foreground">Events</Label>
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {HOOK_EVENT_NAMES.map((eventName) => (
-                            <label
-                              key={`${hook.id}-${eventName}`}
-                              className="flex items-center gap-2 text-sm"
-                            >
+                            <label key={`${hook.id}-${eventName}`} className="flex items-center gap-2 text-sm">
                               <Checkbox
                                 checked={hook.events.includes(eventName)}
-                                onCheckedChange={(value) =>
-                                  updateHookEvent(hook.id, eventName, value === true)
-                                }
+                                onCheckedChange={(value) => updateHookEvent(hook.id, eventName, value === true)}
                               />
                               <span>{eventLabels[eventName] ?? eventName}</span>
                             </label>
@@ -504,39 +451,25 @@ export default function NotificationsHooksSettings() {
                       {testResults[hook.id] && (
                         <div className="space-y-1 text-xs">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={
-                                testResults[hook.id]?.success
-                                  ? 'text-emerald-600'
-                                  : 'text-destructive'
-                              }
-                            >
-                              {testResults[hook.id]?.success ? 'Success' : 'Failed'}
+                            <span className={testResults[hook.id]?.success ? "text-emerald-600" : "text-destructive"}>
+                              {testResults[hook.id]?.success ? "Success" : "Failed"}
                             </span>
-                            <span className="text-muted-foreground">
-                              {testResults[hook.id]?.durationMs ?? 0}ms
-                            </span>
+                            <span className="text-muted-foreground">{testResults[hook.id]?.durationMs ?? 0}ms</span>
                             {testResults[hook.id]?.exitCode !== undefined && (
-                              <span className="text-muted-foreground">
-                                Exit code: {testResults[hook.id]?.exitCode}
-                              </span>
+                              <span className="text-muted-foreground">Exit code: {testResults[hook.id]?.exitCode}</span>
                             )}
                           </div>
                           {testResults[hook.id]?.error && (
-                            <div className="break-all text-destructive">
-                              {testResults[hook.id]?.error}
-                            </div>
+                            <div className="break-all text-destructive">{testResults[hook.id]?.error}</div>
                           )}
                           {testResults[hook.id]?.stdout && (
                             <div className="break-all text-muted-foreground">
-                              <span className="font-medium">stdout</span>:{' '}
-                              {formatPreview(testResults[hook.id]?.stdout)}
+                              <span className="font-medium">stdout</span>: {formatPreview(testResults[hook.id]?.stdout)}
                             </div>
                           )}
                           {testResults[hook.id]?.stderr && (
                             <div className="break-all text-muted-foreground">
-                              <span className="font-medium">stderr</span>:{' '}
-                              {formatPreview(testResults[hook.id]?.stderr)}
+                              <span className="font-medium">stderr</span>: {formatPreview(testResults[hook.id]?.stderr)}
                             </div>
                           )}
                         </div>
@@ -550,5 +483,5 @@ export default function NotificationsHooksSettings() {
         </div>
       </div>
     </ScrollArea>
-  )
+  );
 }

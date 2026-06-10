@@ -1,1 +1,1 @@
-export type { IWindowPresenter, TabData } from './legacy.presenters'
+export type { IWindowPresenter, TabData } from "./legacy.presenters";

@@ -1,63 +1,57 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useRef } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Input } from '@shadcn/components/ui/input'
+import { type ChangeEvent, type KeyboardEvent, forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
 
 interface ChatSearchBarProps {
-  modelValue: string
-  activeMatch: number
-  totalMatches: number
-  onUpdateModelValue: (value: string) => void
-  onPrevious: () => void
-  onNext: () => void
-  onClose: () => void
+  modelValue: string;
+  activeMatch: number;
+  totalMatches: number;
+  onUpdateModelValue: (value: string) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onClose: () => void;
 }
 
-const ChatSearchBar = forwardRef<
-  { focusInput: () => void; selectInput: () => void },
-  ChatSearchBarProps
->(
-  (
-    { modelValue, activeMatch, totalMatches, onUpdateModelValue, onPrevious, onNext, onClose },
-    ref
-  ) => {
-    const inputRef = useRef<HTMLInputElement | null>(null)
+const ChatSearchBar = forwardRef<{ focusInput: () => void; selectInput: () => void }, ChatSearchBarProps>(
+  ({ modelValue, activeMatch, totalMatches, onUpdateModelValue, onPrevious, onNext, onClose }, ref) => {
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
     const focusInput = useCallback(() => {
-      inputRef.current?.focus()
-    }, [])
+      inputRef.current?.focus();
+    }, []);
 
     const selectInput = useCallback(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }, [])
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, []);
 
-    useImperativeHandle(ref, () => ({ focusInput, selectInput }), [focusInput, selectInput])
+    useImperativeHandle(ref, () => ({ focusInput, selectInput }), [focusInput, selectInput]);
 
     const handleInputChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        onUpdateModelValue(e.target.value)
+      (e: ChangeEvent<HTMLInputElement>) => {
+        onUpdateModelValue(e.target.value);
       },
-      [onUpdateModelValue]
-    )
+      [onUpdateModelValue],
+    );
 
     const handleKeydown = useCallback(
-      (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          onClose()
-          return
+      (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onClose();
+          return;
         }
-        if (e.key !== 'Enter') return
-        e.preventDefault()
+        if (e.key !== "Enter") return;
+        e.preventDefault();
         if (e.shiftKey) {
-          onPrevious()
-          return
+          onPrevious();
+          return;
         }
-        onNext()
+        onNext();
       },
-      [onClose, onPrevious, onNext]
-    )
+      [onClose, onPrevious, onNext],
+    );
 
     return (
       <div className="chat-search-bar flex w-full max-w-[24rem] items-center gap-2 rounded-2xl border bg-background/90 px-2.5 py-2 shadow-lg backdrop-blur-xl">
@@ -84,7 +78,7 @@ const ChatSearchBar = forwardRef<
           className="min-w-[3.5rem] shrink-0 text-right text-xs tabular-nums text-muted-foreground"
           aria-live="polite"
         >
-          {totalMatches > 0 ? `${activeMatch + 1} / ${totalMatches}` : '0 / 0'}
+          {totalMatches > 0 ? `${activeMatch + 1} / ${totalMatches}` : "0 / 0"}
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5">
@@ -120,10 +114,10 @@ const ChatSearchBar = forwardRef<
           </Button>
         </div>
       </div>
-    )
-  }
-)
+    );
+  },
+);
 
-ChatSearchBar.displayName = 'ChatSearchBar'
+ChatSearchBar.displayName = "ChatSearchBar";
 
-export default ChatSearchBar
+export default ChatSearchBar;

@@ -1,28 +1,18 @@
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { Checkbox } from '@shadcn/components/ui/checkbox'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@shadcn/components/ui/tooltip'
-import type { SkillMetadata } from '@shared/types/skill'
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { Checkbox } from "@shadcn/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
+import type { SkillMetadata } from "@shared/types/skill";
 
 interface SkillsPanelProps {
-  skills: SkillMetadata[]
-  activeSkills: string[]
-  onToggle: (skillName: string) => void
-  onManage: () => void
+  skills: SkillMetadata[];
+  activeSkills: string[];
+  onToggle: (skillName: string) => void;
+  onManage: () => void;
 }
 
-export default function SkillsPanel({
-  skills,
-  activeSkills,
-  onToggle,
-  onManage
-}: SkillsPanelProps) {
-  const isActive = (skillName: string) => activeSkills.includes(skillName)
+export default function SkillsPanel({ skills, activeSkills, onToggle, onManage }: SkillsPanelProps) {
+  const isActive = (skillName: string) => activeSkills.includes(skillName);
 
   return (
     <div className="divide-y">
@@ -40,14 +30,8 @@ export default function SkillsPanel({
               <Tooltip key={skill.name}>
                 <TooltipTrigger asChild>
                   <label className="flex items-center gap-2 p-1.5 rounded hover:bg-muted transition-colors">
-                    <Checkbox
-                      checked={isActive(skill.name)}
-                      onCheckedChange={() => onToggle(skill.name)}
-                    />
-                    <Icon
-                      icon="lucide:wand-2"
-                      className="w-3.5 h-3.5 text-muted-foreground shrink-0"
-                    />
+                    <Checkbox checked={isActive(skill.name)} onCheckedChange={() => onToggle(skill.name)} />
+                    <Icon icon="lucide:wand-2" className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="text-sm truncate">{skill.name}</span>
                   </label>
                 </TooltipTrigger>
@@ -56,9 +40,7 @@ export default function SkillsPanel({
                     <div className="max-w-xs space-y-1">
                       {skill.description && <p className="text-xs">{skill.description}</p>}
                       {skill.allowedTools?.length && (
-                        <p className="text-xs text-muted-foreground">
-                          Tools: {skill.allowedTools.join(', ')}
-                        </p>
+                        <p className="text-xs text-muted-foreground">Tools: {skill.allowedTools.join(", ")}</p>
                       )}
                     </div>
                   </TooltipContent>
@@ -71,5 +53,5 @@ export default function SkillsPanel({
         <div className="p-4 text-center text-sm text-muted-foreground">No skills available</div>
       )}
     </div>
-  )
+  );
 }

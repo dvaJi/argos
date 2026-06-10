@@ -8,21 +8,21 @@ import {
   ChatMessage,
   KeyStatus,
   LLM_EMBEDDING_ATTRS,
-  IConfigPresenter
-} from '@shared/presenter'
-import { DevicePresenter } from '../devicePresenter'
-import { jsonrepair } from 'jsonrepair'
-import { eventBus, SendTarget } from '@/eventbus'
-import { CONFIG_EVENTS } from '@/events'
-import logger from '@shared/logger'
-import { resolveRequestTraceContext, type ProviderRequestTracePayload } from './requestTrace'
-import type { ProviderMcpRuntimePort } from './runtimePorts'
-import { normalizeToolInputSchema } from './aiSdk/toolMapper'
+  IConfigPresenter,
+} from "@shared/presenter";
+import { DevicePresenter } from "../devicePresenter";
+import { jsonrepair } from "jsonrepair";
+import { eventBus, SendTarget } from "@/eventbus";
+import { CONFIG_EVENTS } from "@/events";
+import logger from "@shared/logger";
+import { resolveRequestTraceContext, type ProviderRequestTracePayload } from "./requestTrace";
+import type { ProviderMcpRuntimePort } from "./runtimePorts";
+import { normalizeToolInputSchema } from "./aiSdk/toolMapper";
 
-export const AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR = 'audio-transcription-not-supported'
+export const AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR = "audio-transcription-not-supported";
 
 export function isAudioTranscriptionNotSupportedError(error: unknown): boolean {
-  return error instanceof Error && error.message === AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR
+  return error instanceof Error && error.message === AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR;
 }
 
 /**
@@ -39,33 +39,29 @@ export function isAudioTranscriptionNotSupportedError(error: unknown): boolean {
  */
 export abstract class BaseLLMProvider {
   // Maximum tool calls limit in a single conversation turn
-  protected static readonly MAX_TOOL_CALLS = 12800
-  protected static readonly DEFAULT_MODEL_FETCH_TIMEOUT = 12000 // Increased to 12 seconds as universal default
+  protected static readonly MAX_TOOL_CALLS = 12800;
+  protected static readonly DEFAULT_MODEL_FETCH_TIMEOUT = 12000; // Increased to 12 seconds as universal default
 
-  protected provider: LLM_PROVIDER
-  protected models: MODEL_META[] = []
-  protected customModels: MODEL_META[] = []
-  protected isInitialized: boolean = false
-  protected configPresenter: IConfigPresenter
-  protected readonly mcpRuntime?: ProviderMcpRuntimePort
+  protected provider: LLM_PROVIDER;
+  protected models: MODEL_META[] = [];
+  protected customModels: MODEL_META[] = [];
+  protected isInitialized: boolean = false;
+  protected configPresenter: IConfigPresenter;
+  protected readonly mcpRuntime?: ProviderMcpRuntimePort;
 
   protected defaultHeaders: Record<string, string> = {
-    'HTTP-Referer': 'https://deepchatai.cn',
-    'X-Title': 'DeepChat'
-  }
+    "HTTP-Referer": "https://deepchatai.cn",
+    "X-Title": "DeepChat",
+  };
 
-  constructor(
-    provider: LLM_PROVIDER,
-    configPresenter: IConfigPresenter,
-    mcpRuntime?: ProviderMcpRuntimePort
-  ) {
-    this.provider = provider
-    this.configPresenter = configPresenter
-    this.mcpRuntime = mcpRuntime
-    this.defaultHeaders = DevicePresenter.getDefaultHeaders()
+  constructor(provider: LLM_PROVIDER, configPresenter: IConfigPresenter, mcpRuntime?: ProviderMcpRuntimePort) {
+    this.provider = provider;
+    this.configPresenter = configPresenter;
+    this.mcpRuntime = mcpRuntime;
+    this.defaultHeaders = DevicePresenter.getDefaultHeaders();
 
     // Initialize models and customModels from cached config data
-    this.loadCachedModels()
+    this.loadCachedModels();
   }
 
   /**
@@ -73,7 +69,7 @@ export abstract class BaseLLMProvider {
    * @returns Configured maximum tool calls in a single conversation turn
    */
   public static getMaxToolCalls(): number {
-    return BaseLLMProvider.MAX_TOOL_CALLS
+    return BaseLLMProvider.MAX_TOOL_CALLS;
   }
 
   /**
@@ -81,77 +77,71 @@ export abstract class BaseLLMProvider {
    * @returns Timeout duration (milliseconds)
    */
   protected getModelFetchTimeout(): number {
-    return BaseLLMProvider.DEFAULT_MODEL_FETCH_TIMEOUT
+    return BaseLLMProvider.DEFAULT_MODEL_FETCH_TIMEOUT;
   }
 
-  protected resolveModelRequestTimeout(
-    modelConfig?: Pick<ModelConfig, 'timeout'> | null
-  ): number | undefined {
-    const timeout = modelConfig?.timeout
-    if (typeof timeout !== 'number' || !Number.isFinite(timeout) || timeout <= 0) {
-      return undefined
+  protected resolveModelRequestTimeout(modelConfig?: Pick<ModelConfig, "timeout"> | null): number | undefined {
+    const timeout = modelConfig?.timeout;
+    if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout <= 0) {
+      return undefined;
     }
 
-    return Math.round(timeout)
+    return Math.round(timeout);
   }
 
   protected createRequestAbortError(message: string): Error {
-    if (typeof DOMException !== 'undefined') {
-      return new DOMException(message, 'AbortError')
+    if (typeof DOMException !== "undefined") {
+      return new DOMException(message, "AbortError");
     }
 
-    const error = new Error(message)
-    error.name = 'AbortError'
-    return error
+    const error = new Error(message);
+    error.name = "AbortError";
+    return error;
   }
 
   protected createModelRequestTimeoutError(timeoutMs: number): Error {
-    return this.createRequestAbortError(`Request timed out after ${timeoutMs}ms`)
+    return this.createRequestAbortError(`Request timed out after ${timeoutMs}ms`);
   }
 
   protected createAudioTranscriptionNotSupportedError(): Error {
-    return new Error(AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR)
+    return new Error(AUDIO_TRANSCRIPTION_NOT_SUPPORTED_ERROR);
   }
 
   public updateConfig(provider: LLM_PROVIDER): void {
-    this.provider = { ...provider }
-    this.loadCachedModels()
+    this.provider = { ...provider };
+    this.loadCachedModels();
   }
 
-  protected createModelRequestSignal(modelConfig?: Pick<ModelConfig, 'timeout'> | null): {
-    signal?: AbortSignal
-    timeoutMs?: number
-    dispose: () => void
+  protected createModelRequestSignal(modelConfig?: Pick<ModelConfig, "timeout"> | null): {
+    signal?: AbortSignal;
+    timeoutMs?: number;
+    dispose: () => void;
   } {
-    const timeoutMs = this.resolveModelRequestTimeout(modelConfig)
+    const timeoutMs = this.resolveModelRequestTimeout(modelConfig);
     if (!timeoutMs) {
       return {
-        dispose: () => {}
-      }
+        dispose: () => {},
+      };
     }
 
-    const controller = new AbortController()
+    const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      controller.abort(this.createModelRequestTimeoutError(timeoutMs))
-    }, timeoutMs)
+      controller.abort(this.createModelRequestTimeoutError(timeoutMs));
+    }, timeoutMs);
 
     return {
       signal: controller.signal,
       timeoutMs,
-      dispose: () => clearTimeout(timeoutId)
-    }
+      dispose: () => clearTimeout(timeoutId),
+    };
   }
 
   protected getCapabilityProviderId(): string {
-    return this.provider.capabilityProviderId || this.provider.id
+    return this.provider.capabilityProviderId || this.provider.id;
   }
 
   private escapeXmlAttribute(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+    return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   /**
@@ -161,27 +151,23 @@ export abstract class BaseLLMProvider {
   private loadCachedModels(): void {
     try {
       // Load cached provider models from config
-      const cachedModels = this.configPresenter.getProviderModels(this.provider.id)
+      const cachedModels = this.configPresenter.getProviderModels(this.provider.id);
       if (cachedModels && cachedModels.length > 0) {
-        this.models = cachedModels
-        logger.info(
-          `Loaded ${cachedModels.length} cached models for provider: ${this.provider.name}`
-        )
+        this.models = cachedModels;
+        logger.info(`Loaded ${cachedModels.length} cached models for provider: ${this.provider.name}`);
       }
 
       // Load cached custom models from config
-      const cachedCustomModels = this.configPresenter.getCustomModels(this.provider.id)
+      const cachedCustomModels = this.configPresenter.getCustomModels(this.provider.id);
       if (cachedCustomModels && cachedCustomModels.length > 0) {
-        this.customModels = cachedCustomModels
-        logger.info(
-          `Loaded ${cachedCustomModels.length} cached custom models for provider: ${this.provider.name}`
-        )
+        this.customModels = cachedCustomModels;
+        logger.info(`Loaded ${cachedCustomModels.length} cached custom models for provider: ${this.provider.name}`);
       }
     } catch (error) {
-      logger.warn(`Failed to load cached models for provider: ${this.provider.name}`, error)
+      logger.warn(`Failed to load cached models for provider: ${this.provider.name}`, error);
       // Keep default empty arrays if loading fails
-      this.models = []
-      this.customModels = []
+      this.models = [];
+      this.customModels = [];
     }
   }
 
@@ -192,21 +178,21 @@ export abstract class BaseLLMProvider {
   protected async init() {
     if (this.provider.enable) {
       try {
-        this.isInitialized = true
+        this.isInitialized = true;
         this.fetchModels()
           .then(() => {
-            return this.autoEnableModelsIfNeeded()
+            return this.autoEnableModelsIfNeeded();
           })
           .then(() => {
-            logger.info('Provider initialized successfully:', this.provider.name)
+            logger.info("Provider initialized successfully:", this.provider.name);
           })
           .catch((error) => {
             // Handle errors from fetchModels() and autoEnableModelsIfNeeded()
-            logger.warn('Provider initialization failed:', this.provider.name, error)
-          })
+            logger.warn("Provider initialization failed:", this.provider.name, error);
+          });
         // Check if we need to automatically enable all models
       } catch (error) {
-        logger.warn('Provider initialization failed:', this.provider.name, error)
+        logger.warn("Provider initialization failed:", this.provider.name, error);
       }
     }
   }
@@ -216,28 +202,24 @@ export abstract class BaseLLMProvider {
    * If no models are enabled, automatically enable all models
    */
   protected async autoEnableModelsIfNeeded() {
-    if (!this.models || this.models.length === 0) return
-    const providerId = this.provider.id
+    if (!this.models || this.models.length === 0) return;
+    const providerId = this.provider.id;
 
     // Check if there are custom models (use cached customModels)
-    if (this.customModels && this.customModels.length > 0) return
+    if (this.customModels && this.customModels.length > 0) return;
 
     // Check if any model's status has been manually modified
     const hasManuallyModifiedModels = this.models.some((model) =>
-      this.configPresenter.getModelStatus(providerId, model.id)
-    )
-    if (hasManuallyModifiedModels) return
+      this.configPresenter.getModelStatus(providerId, model.id),
+    );
+    if (hasManuallyModifiedModels) return;
 
     // 检查是否有任何已启用的模型
-    const hasEnabledModels = this.models.some((model) =>
-      this.configPresenter.getModelStatus(providerId, model.id)
-    )
+    const hasEnabledModels = this.models.some((model) => this.configPresenter.getModelStatus(providerId, model.id));
 
     // 不再自动启用模型，让用户手动选择启用需要的模型
     if (!hasEnabledModels) {
-      logger.info(
-        `Provider ${this.provider.name} models loaded, please manually enable the models you need`
-      )
+      logger.info(`Provider ${this.provider.name} models loaded, please manually enable the models you need`);
     }
   }
 
@@ -246,38 +228,33 @@ export abstract class BaseLLMProvider {
    * @returns 模型列表
    */
   public async fetchModels(options?: { suppressErrors?: boolean }): Promise<MODEL_META[]> {
-    const suppressErrors = options?.suppressErrors ?? true
+    const suppressErrors = options?.suppressErrors ?? true;
     try {
       return this.fetchProviderModels().then((models) => {
-        logger.info(
-          `[Provider] fetchModels: fetched ${models?.length || 0} models for provider "${this.provider.id}"`
-        )
+        logger.info(`[Provider] fetchModels: fetched ${models?.length || 0} models for provider "${this.provider.id}"`);
         // Validate that all models have correct providerId
         const validatedModels = models.map((model) => {
           if (model.providerId !== this.provider.id) {
             logger.warn(
-              `[Provider] fetchModels: Model ${model.id} has incorrect providerId: expected "${this.provider.id}", got "${model.providerId}". Fixing it.`
-            )
-            model.providerId = this.provider.id
+              `[Provider] fetchModels: Model ${model.id} has incorrect providerId: expected "${this.provider.id}", got "${model.providerId}". Fixing it.`,
+            );
+            model.providerId = this.provider.id;
           }
-          return model
-        })
-        this.models = validatedModels
-        this.configPresenter.setProviderModels(this.provider.id, validatedModels)
-        return validatedModels
-      })
+          return model;
+        });
+        this.models = validatedModels;
+        this.configPresenter.setProviderModels(this.provider.id, validatedModels);
+        return validatedModels;
+      });
     } catch (e) {
-      logger.error(
-        `[Provider] fetchModels: Failed to fetch models for provider "${this.provider.id}":`,
-        e
-      )
+      logger.error(`[Provider] fetchModels: Failed to fetch models for provider "${this.provider.id}":`, e);
       if (!suppressErrors) {
-        throw e
+        throw e;
       }
       if (!this.models) {
-        this.models = []
+        this.models = [];
       }
-      return []
+      return [];
     }
   }
 
@@ -288,14 +265,12 @@ export abstract class BaseLLMProvider {
    */
   public async refreshModels(): Promise<void> {
     logger.info(
-      `[Provider] refreshModels: force refreshing models for provider "${this.provider.id}" (${this.provider.name})`
-    )
-    await this.fetchModels({ suppressErrors: false })
-    await this.autoEnableModelsIfNeeded()
-    logger.info(
-      `[Provider] refreshModels: sending MODEL_LIST_CHANGED event for provider "${this.provider.id}"`
-    )
-    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, this.provider.id)
+      `[Provider] refreshModels: force refreshing models for provider "${this.provider.id}" (${this.provider.name})`,
+    );
+    await this.fetchModels({ suppressErrors: false });
+    await this.autoEnableModelsIfNeeded();
+    logger.info(`[Provider] refreshModels: sending MODEL_LIST_CHANGED event for provider "${this.provider.id}"`);
+    eventBus.send(CONFIG_EVENTS.MODEL_LIST_CHANGED, SendTarget.ALL_WINDOWS, this.provider.id);
   }
 
   /**
@@ -303,14 +278,14 @@ export abstract class BaseLLMProvider {
    * 此方法由具体的提供商子类实现
    * @returns 提供商支持的模型列表
    */
-  protected abstract fetchProviderModels(): Promise<MODEL_META[]>
+  protected abstract fetchProviderModels(): Promise<MODEL_META[]>;
 
   /**
    * 获取所有模型（包括自定义模型）
    * @returns 模型列表
    */
   public getModels(): MODEL_META[] {
-    return [...this.models, ...this.customModels]
+    return [...this.models, ...this.customModels];
   }
 
   /**
@@ -318,26 +293,26 @@ export abstract class BaseLLMProvider {
    * @param model 模型基本信息
    * @returns 添加后的完整模型信息
    */
-  public addCustomModel(model: Omit<MODEL_META, 'providerId' | 'isCustom' | 'group'>): MODEL_META {
+  public addCustomModel(model: Omit<MODEL_META, "providerId" | "isCustom" | "group">): MODEL_META {
     const newModel: MODEL_META = {
       ...model,
       providerId: this.provider.id,
       isCustom: true,
-      group: 'default'
-    }
+      group: "default",
+    };
 
     // 检查是否已存在相同ID的自定义模型
-    const existingIndex = this.customModels.findIndex((m) => m.id === newModel.id)
+    const existingIndex = this.customModels.findIndex((m) => m.id === newModel.id);
     if (existingIndex !== -1) {
-      this.customModels[existingIndex] = newModel
+      this.customModels[existingIndex] = newModel;
     } else {
-      this.customModels.push(newModel)
+      this.customModels.push(newModel);
     }
 
     // Sync with config
-    this.configPresenter.addCustomModel(this.provider.id, newModel)
+    this.configPresenter.addCustomModel(this.provider.id, newModel);
 
-    return newModel
+    return newModel;
   }
 
   /**
@@ -346,14 +321,14 @@ export abstract class BaseLLMProvider {
    * @returns 是否删除成功
    */
   public removeCustomModel(modelId: string): boolean {
-    const index = this.customModels.findIndex((model) => model.id === modelId)
+    const index = this.customModels.findIndex((model) => model.id === modelId);
     if (index !== -1) {
-      this.customModels.splice(index, 1)
+      this.customModels.splice(index, 1);
       // Sync with config
-      this.configPresenter.removeCustomModel(this.provider.id, modelId)
-      return true
+      this.configPresenter.removeCustomModel(this.provider.id, modelId);
+      return true;
     }
-    return false
+    return false;
   }
 
   /**
@@ -363,15 +338,15 @@ export abstract class BaseLLMProvider {
    * @returns 是否更新成功
    */
   public updateCustomModel(modelId: string, updates: Partial<MODEL_META>): boolean {
-    const model = this.customModels.find((m) => m.id === modelId)
+    const model = this.customModels.find((m) => m.id === modelId);
     if (model) {
       // 应用更新
-      Object.assign(model, updates)
+      Object.assign(model, updates);
       // Sync with config
-      this.configPresenter.updateCustomModel(this.provider.id, modelId, updates)
-      return true
+      this.configPresenter.updateCustomModel(this.provider.id, modelId, updates);
+      return true;
     }
-    return false
+    return false;
   }
 
   /**
@@ -379,7 +354,7 @@ export abstract class BaseLLMProvider {
    * @returns 自定义模型列表
    */
   public getCustomModels(): MODEL_META[] {
-    return this.customModels
+    return this.customModels;
   }
 
   /**
@@ -389,7 +364,7 @@ export abstract class BaseLLMProvider {
    * @returns 格式化的提示词
    */
   protected getFunctionCallWrapPrompt(tools: MCPToolDefinition[]): string {
-    const locale = this.configPresenter.getLanguage?.() || 'zh-CN'
+    const locale = this.configPresenter.getLanguage?.() || "zh-CN";
 
     return `你具备调用外部工具的能力来协助解决用户的问题
 ====
@@ -519,7 +494,7 @@ ${this.convertToolsToXml(tools)}
 
 ===
 用户指令如下:
-`
+`;
   }
 
   /**
@@ -529,35 +504,35 @@ ${this.convertToolsToXml(tools)}
    * @returns 解析后的工具调用列表
    */
   protected parseFunctionCalls(
-    response: string
+    response: string,
   ): { id: string; type: string; function: { name: string; arguments: string } }[] {
     try {
       // 使用正则表达式匹配所有的function_call标签对
-      const functionCallMatches = response.match(/<function_call>(.*?)<\/function_call>/gs)
+      const functionCallMatches = response.match(/<function_call>(.*?)<\/function_call>/gs);
 
       // 如果没有匹配到任何函数调用，返回空数组
       if (!functionCallMatches) {
-        return []
+        return [];
       }
 
       // 解析每个匹配到的函数调用并组成数组
       const toolCalls = functionCallMatches
         .map((match) => {
-          const content = match.replace(/<function_call>|<\/function_call>/g, '').trim()
+          const content = match.replace(/<function_call>|<\/function_call>/g, "").trim();
           try {
             // 尝试解析多种可能的格式
-            let parsedCall
+            let parsedCall;
             try {
               // 首先尝试直接解析JSON
-              parsedCall = JSON.parse(content)
+              parsedCall = JSON.parse(content);
             } catch {
               try {
                 // 如果直接解析失败，尝试使用jsonrepair修复
-                parsedCall = JSON.parse(jsonrepair(content))
+                parsedCall = JSON.parse(jsonrepair(content));
               } catch (repairError) {
                 // 记录错误日志但不中断处理
-                logger.error('Failed to parse with jsonrepair:', repairError)
-                return null
+                logger.error("Failed to parse with jsonrepair:", repairError);
+                return null;
               }
             }
 
@@ -566,68 +541,68 @@ ${this.convertToolsToXml(tools)}
             // 2. { "name": "...", "arguments": {...} }
             // 3. { "function": { "name": "...", "arguments": {...} } }
             // 4. { "function_call": { "name": "...", "arguments": "..." } }
-            let functionName, functionArgs
+            let functionName, functionArgs;
 
             if (parsedCall.function_call) {
               // 格式1,4
-              functionName = parsedCall.function_call.name
-              functionArgs = parsedCall.function_call.arguments
+              functionName = parsedCall.function_call.name;
+              functionArgs = parsedCall.function_call.arguments;
             } else if (parsedCall.name && parsedCall.arguments !== undefined) {
               // 格式2
-              functionName = parsedCall.name
-              functionArgs = parsedCall.arguments
+              functionName = parsedCall.name;
+              functionArgs = parsedCall.arguments;
             } else if (parsedCall.function && parsedCall.function.name) {
               // 格式3
-              functionName = parsedCall.function.name
-              functionArgs = parsedCall.function.arguments
+              functionName = parsedCall.function.name;
+              functionArgs = parsedCall.function.arguments;
             } else {
               // 当没有明确匹配时，尝试从对象中推断
-              const keys = Object.keys(parsedCall)
+              const keys = Object.keys(parsedCall);
               // 如果对象只有一个键，可能是嵌套的自定义格式
               if (keys.length === 1) {
-                const firstKey = keys[0]
-                const innerObject = parsedCall[firstKey]
+                const firstKey = keys[0];
+                const innerObject = parsedCall[firstKey];
 
-                if (innerObject && typeof innerObject === 'object') {
+                if (innerObject && typeof innerObject === "object") {
                   // 可能是一个嵌套对象，查找name和arguments字段
                   if (innerObject.name && innerObject.arguments !== undefined) {
-                    functionName = innerObject.name
-                    functionArgs = innerObject.arguments
+                    functionName = innerObject.name;
+                    functionArgs = innerObject.arguments;
                   }
                 }
               }
 
               // 如果仍未找到格式，记录错误
               if (!functionName || functionArgs === undefined) {
-                logger.error('Unknown function call format:', parsedCall)
-                return null
+                logger.error("Unknown function call format:", parsedCall);
+                return null;
               }
             }
 
             // 确保arguments是字符串形式的JSON
-            if (typeof functionArgs !== 'string') {
-              functionArgs = JSON.stringify(functionArgs)
+            if (typeof functionArgs !== "string") {
+              functionArgs = JSON.stringify(functionArgs);
             }
 
             return {
               id: functionName,
-              type: 'function',
+              type: "function",
               function: {
                 name: functionName,
-                arguments: functionArgs
-              }
-            }
+                arguments: functionArgs,
+              },
+            };
           } catch (parseError) {
-            logger.error('Error parsing function call JSON:', parseError, match, content)
-            return null
+            logger.error("Error parsing function call JSON:", parseError, match, content);
+            return null;
           }
         })
-        .filter((call) => call !== null)
+        .filter((call) => call !== null);
 
-      return toolCalls
+      return toolCalls;
     } catch (error) {
-      logger.error('Error parsing function calls:', error)
-      return []
+      logger.error("Error parsing function calls:", error);
+      return [];
     }
   }
 
@@ -635,13 +610,13 @@ ${this.convertToolsToXml(tools)}
    * 代理更新回调
    * 当代理配置变更时调用此方法更新提供商的代理设置
    */
-  public abstract onProxyResolved(): void
+  public abstract onProxyResolved(): void;
 
   /**
    * 验证提供商API是否可用
    * @returns 验证结果和错误信息
    */
-  public abstract check(): Promise<{ isOk: boolean; errorMsg: string | null }>
+  public abstract check(): Promise<{ isOk: boolean; errorMsg: string | null }>;
 
   /**
    * 生成对话标题
@@ -650,7 +625,7 @@ ${this.convertToolsToXml(tools)}
    * @param modelId 模型ID
    * @returns 对话标题
    */
-  public abstract summaryTitles(messages: ChatMessage[], modelId: string): Promise<string>
+  public abstract summaryTitles(messages: ChatMessage[], modelId: string): Promise<string>;
 
   /**
    * 同步获取完整的LLM响应
@@ -672,8 +647,8 @@ ${this.convertToolsToXml(tools)}
     messages: ChatMessage[],
     modelId: string,
     temperature?: number,
-    maxTokens?: number
-  ): Promise<LLMResponse>
+    maxTokens?: number,
+  ): Promise<LLMResponse>;
 
   /**
    * 总结文本内容
@@ -684,12 +659,7 @@ ${this.convertToolsToXml(tools)}
    * @param maxTokens 最大生成token数
    * @returns 总结后的响应
    */
-  abstract summaries(
-    text: string,
-    modelId: string,
-    temperature?: number,
-    maxTokens?: number
-  ): Promise<LLMResponse>
+  abstract summaries(text: string, modelId: string, temperature?: number, maxTokens?: number): Promise<LLMResponse>;
 
   /**
    * 根据提示生成文本
@@ -704,8 +674,8 @@ ${this.convertToolsToXml(tools)}
     prompt: string,
     modelId: string,
     temperature?: number,
-    maxTokens?: number
-  ): Promise<LLMResponse>
+    maxTokens?: number,
+  ): Promise<LLMResponse>;
 
   /**
    * [新] 核心流式处理方法
@@ -723,8 +693,8 @@ ${this.convertToolsToXml(tools)}
     modelConfig: ModelConfig,
     temperature: number,
     maxTokens: number,
-    tools: MCPToolDefinition[]
-  ): AsyncGenerator<LLMCoreStreamEvent>
+    tools: MCPToolDefinition[],
+  ): AsyncGenerator<LLMCoreStreamEvent>;
 
   /**
    * 获取文本的 embedding 表示
@@ -734,7 +704,7 @@ ${this.convertToolsToXml(tools)}
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async getEmbeddings(_modelId: string, _texts: string[]): Promise<number[][]> {
-    throw new Error('embedding is not supported by this provider')
+    throw new Error("embedding is not supported by this provider");
   }
 
   public async transcribeAudio(
@@ -742,9 +712,9 @@ ${this.convertToolsToXml(tools)}
     _audioBase64: string,
     _mimeType: string,
     _filename?: string,
-    _options?: { signal?: AbortSignal }
+    _options?: { signal?: AbortSignal },
   ): Promise<string> {
-    throw this.createAudioTranscriptionNotSupportedError()
+    throw this.createAudioTranscriptionNotSupportedError();
   }
 
   /**
@@ -753,7 +723,7 @@ ${this.convertToolsToXml(tools)}
    * @returns 嵌入向量的维度
    */
   public async getDimensions(_modelId: string): Promise<LLM_EMBEDDING_ATTRS> {
-    throw new Error('embedding is not supported by this provider')
+    throw new Error("embedding is not supported by this provider");
   }
 
   /**
@@ -762,35 +732,32 @@ ${this.convertToolsToXml(tools)}
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async getKeyStatus(): Promise<KeyStatus | null> {
-    return null // 默认实现返回 null，表示不支持此功能
+    return null; // 默认实现返回 null，表示不支持此功能
   }
 
   protected async emitRequestTrace(
     modelConfig: ModelConfig,
     payload: {
-      endpoint: string
-      headers?: Record<string, string>
-      body?: unknown
-    }
+      endpoint: string;
+      headers?: Record<string, string>;
+      body?: unknown;
+    },
   ): Promise<void> {
-    const context = resolveRequestTraceContext(modelConfig)
+    const context = resolveRequestTraceContext(modelConfig);
     if (!context) {
-      return
+      return;
     }
 
     const tracePayload: ProviderRequestTracePayload = {
       endpoint: payload.endpoint,
       headers: payload.headers ?? {},
-      body: payload.body ?? null
-    }
+      body: payload.body ?? null,
+    };
 
     try {
-      await context.persist(tracePayload)
+      await context.persist(tracePayload);
     } catch (error) {
-      logger.warn(
-        `[Trace] Failed to persist request trace for provider "${this.provider.id}"`,
-        error
-      )
+      logger.warn(`[Trace] Failed to persist request trace for provider "${this.provider.id}"`, error);
     }
   }
 
@@ -801,18 +768,18 @@ ${this.convertToolsToXml(tools)}
    */
   protected convertToolsToXml(tools: MCPToolDefinition[]): string {
     const resolveParameterType = (parameter: unknown): string | undefined => {
-      if (!parameter || typeof parameter !== 'object' || Array.isArray(parameter)) {
-        return undefined
+      if (!parameter || typeof parameter !== "object" || Array.isArray(parameter)) {
+        return undefined;
       }
 
-      if (typeof (parameter as { type?: unknown }).type === 'string') {
-        return (parameter as { type: string }).type
+      if (typeof (parameter as { type?: unknown }).type === "string") {
+        return (parameter as { type: string }).type;
       }
 
-      for (const branchKey of ['anyOf', 'oneOf', 'allOf'] as const) {
-        const branches = (parameter as Record<string, unknown>)[branchKey]
+      for (const branchKey of ["anyOf", "oneOf", "allOf"] as const) {
+        const branches = (parameter as Record<string, unknown>)[branchKey];
         if (!Array.isArray(branches)) {
-          continue
+          continue;
         }
 
         const types = Array.from(
@@ -820,72 +787,70 @@ ${this.convertToolsToXml(tools)}
             branches
               .filter(
                 (branch): branch is Record<string, unknown> =>
-                  Boolean(branch) && typeof branch === 'object' && !Array.isArray(branch)
+                  Boolean(branch) && typeof branch === "object" && !Array.isArray(branch),
               )
               .map((branch) => branch.type)
-              .filter((type): type is string => typeof type === 'string')
-          )
-        )
+              .filter((type): type is string => typeof type === "string"),
+          ),
+        );
 
         if (types.length === 1) {
-          return types[0]
+          return types[0];
         }
       }
 
-      return undefined
-    }
+      return undefined;
+    };
 
     const xmlTools = tools
       .map((tool) => {
-        const { name, description, parameters } = tool.function
+        const { name, description, parameters } = tool.function;
         const normalizedParameters = normalizeToolInputSchema(
-          (parameters as Record<string, unknown> | undefined) ?? {}
-        )
+          (parameters as Record<string, unknown> | undefined) ?? {},
+        );
         const properties =
           normalizedParameters.properties &&
-          typeof normalizedParameters.properties === 'object' &&
+          typeof normalizedParameters.properties === "object" &&
           !Array.isArray(normalizedParameters.properties)
             ? (normalizedParameters.properties as Record<string, unknown>)
-            : {}
+            : {};
         const required = Array.isArray(normalizedParameters.required)
-          ? normalizedParameters.required.filter(
-              (value): value is string => typeof value === 'string'
-            )
-          : []
+          ? normalizedParameters.required.filter((value): value is string => typeof value === "string")
+          : [];
 
         // 构建参数 XML
         const paramsXml = Object.entries(properties)
           .map(([paramName, paramDef]) => {
-            const requiredAttr = required.includes(paramName) ? ' required="true"' : ''
+            const requiredAttr = required.includes(paramName) ? ' required="true"' : "";
             const paramMeta =
-              paramDef && typeof paramDef === 'object' && !Array.isArray(paramDef)
+              paramDef && typeof paramDef === "object" && !Array.isArray(paramDef)
                 ? (paramDef as Record<string, unknown>)
-                : {}
+                : {};
             const descriptionAttr =
-              typeof paramMeta.description === 'string'
+              typeof paramMeta.description === "string"
                 ? ` description="${this.escapeXmlAttribute(paramMeta.description)}"`
-                : ''
-            const paramType = resolveParameterType(paramMeta)
-            const typeAttr = paramType ? ` type="${paramType}"` : ''
+                : "";
+            const paramType = resolveParameterType(paramMeta);
+            const typeAttr = paramType ? ` type="${paramType}"` : "";
 
-            return `<parameter name="${paramName}"${requiredAttr}${descriptionAttr}${typeAttr}></parameter>`
+            return `<parameter name="${paramName}"${requiredAttr}${descriptionAttr}${typeAttr}></parameter>`;
           })
-          .join('\n    ')
+          .join("\n    ");
 
         if (!paramsXml) {
-          return `<tool name="${name}" description="${description}"></tool>`
+          return `<tool name="${name}" description="${description}"></tool>`;
         }
 
         // 构建工具 XML
         return `<tool name="${name}" description="${description}">
     ${paramsXml}
-</tool>`
+</tool>`;
       })
-      .join('\n\n')
+      .join("\n\n");
 
-    return xmlTools
+    return xmlTools;
   }
 }
 export const SUMMARY_TITLES_PROMPT = `
 You need to summarize the user's conversation into a title of no more than 10 words, with the title language matching the user's primary language, without using punctuation or other special symbols,only output the title,here is the conversation:
-`
+`;

@@ -1,73 +1,65 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Icon } from '@iconify/react'
-import { Button } from '@shadcn/components/ui/button'
-import { ScrollArea } from '@shadcn/components/ui/scroll-area'
-import { Input } from '@shadcn/components/ui/input'
-import { Label } from '@shadcn/components/ui/label'
-import { Textarea } from '@shadcn/components/ui/textarea'
+import { useState, useEffect, useCallback } from "react";
+import { Icon } from "@iconify/react";
+import { Button } from "@shadcn/components/ui/button";
+import { ScrollArea } from "@shadcn/components/ui/scroll-area";
+import { Input } from "@shadcn/components/ui/input";
+import { Label } from "@shadcn/components/ui/label";
+import { Textarea } from "@shadcn/components/ui/textarea";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetFooter,
   SheetHeader,
-  SheetTitle
-} from '@shadcn/components/ui/sheet'
+  SheetTitle,
+} from "@shadcn/components/ui/sheet";
 
 interface SystemPromptForm {
-  id: string
-  name: string
-  content: string
+  id: string;
+  name: string;
+  content: string;
 }
 
 interface SystemPromptEditorSheetProps {
-  open: boolean
-  prompt: SystemPromptForm | null
-  onUpdateOpen: (open: boolean) => void
-  onSave: (value: { id?: string; name: string; content: string }) => void
+  open: boolean;
+  prompt: SystemPromptForm | null;
+  onUpdateOpen: (open: boolean) => void;
+  onSave: (value: { id?: string; name: string; content: string }) => void;
 }
 
-export default function SystemPromptEditorSheet({
-  open,
-  prompt,
-  onUpdateOpen,
-  onSave
-}: SystemPromptEditorSheetProps) {
-  const [form, setForm] = useState<SystemPromptForm>({ id: '', name: '', content: '' })
+export default function SystemPromptEditorSheet({ open, prompt, onUpdateOpen, onSave }: SystemPromptEditorSheetProps) {
+  const [form, setForm] = useState<SystemPromptForm>({ id: "", name: "", content: "" });
 
-  const isEditing = Boolean(form.id)
+  const isEditing = Boolean(form.id);
 
-  const resetForm = () => setForm({ id: '', name: '', content: '' })
+  const resetForm = () => setForm({ id: "", name: "", content: "" });
 
   useEffect(() => {
     if (!open) {
-      resetForm()
-      return
+      resetForm();
+      return;
     }
     if (prompt) {
-      setForm({ id: prompt.id, name: prompt.name, content: prompt.content })
+      setForm({ id: prompt.id, name: prompt.name, content: prompt.content });
     } else {
-      resetForm()
+      resetForm();
     }
-  }, [open, prompt])
+  }, [open, prompt]);
 
   const handleSave = () => {
-    onSave({ id: form.id, name: form.name, content: form.content })
-  }
+    onSave({ id: form.id, name: form.name, content: form.content });
+  };
 
   return (
     <Sheet open={open} onOpenChange={onUpdateOpen}>
-      <SheetContent
-        side="right"
-        className="flex h-screen w-[60vw]! max-w-[90vw]! flex-col bg-background p-0"
-      >
+      <SheetContent side="right" className="flex h-screen w-[60vw]! max-w-[90vw]! flex-col bg-background p-0">
         <SheetHeader className="shrink-0 border-b bg-card/50 px-6 py-4">
           <SheetTitle className="flex items-center gap-2">
             <Icon icon="lucide:settings" className="h-5 w-5 text-primary" />
-            <span>{isEditing ? 'Edit System Prompt' : 'Add System Prompt'}</span>
+            <span>{isEditing ? "Edit System Prompt" : "Add System Prompt"}</span>
           </SheetTitle>
           <SheetDescription>
-            {isEditing ? 'Modify the system prompt configuration.' : 'Create a new system prompt.'}
+            {isEditing ? "Modify the system prompt configuration." : "Create a new system prompt."}
           </SheetDescription>
         </SheetHeader>
 
@@ -115,5 +107,5 @@ export default function SystemPromptEditorSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
+  );
 }

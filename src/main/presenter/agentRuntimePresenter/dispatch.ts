@@ -1,317 +1,298 @@
-import { eventBus, SendTarget } from '@/eventbus'
-import { STREAM_EVENTS } from '@/events'
+import { eventBus, SendTarget } from "@/eventbus";
+import { STREAM_EVENTS } from "@/events";
 import type {
   MCPToolCall,
   MCPContentItem,
   MCPResourceContent,
   MCPToolResponse,
-  ToolCallImagePreview
-} from '@shared/types/core/mcp'
-import type { MCPToolDefinition } from '@shared/types/core/mcp'
-import type { SearchResult } from '@shared/types/core/search'
-import type { IToolPresenter } from '@shared/types/presenters/tool.presenter'
-import type { AgentToolProgressUpdate } from '@shared/types/presenters/tool.presenter'
-import type { AssistantMessageBlock, PermissionMode } from '@shared/types/agent-interface'
-import type { AgentPlanSnapshot } from '@shared/types/agent-plan'
-import { parseQuestionToolArgs, QUESTION_TOOL_NAME } from '../../lib/agentRuntime/questionTool'
-import { UPDATE_PLAN_TOOL_NAME } from '../toolPresenter/agentTools/agentPlanTool'
-import type {
-  InterleavedReasoningConfig,
-  IoParams,
-  PendingToolInteraction,
-  ProcessHooks,
-  StreamState
-} from './types'
-import type { ChatMessage, ChatMessageProviderOptions } from '@shared/types/core/chat-message'
-import { nanoid } from 'nanoid'
-import type { ToolBatchOutputFitItem, ToolOutputGuard } from './toolOutputGuard'
-import { buildTerminalErrorBlocks } from './messageStore'
-import { finalizeTrailingPendingNarrativeBlocks } from './accumulator'
-import type { EchoHandle } from './echo'
-import { cloneBlocksForRenderer } from './echo'
-import {
-  insertBlocksAfterToolCall,
-  prepareToolImagePreviewPresentation
-} from './imageGenerationBlocks'
+  ToolCallImagePreview,
+} from "@shared/types/core/mcp";
+import type { MCPToolDefinition } from "@shared/types/core/mcp";
+import type { SearchResult } from "@shared/types/core/search";
+import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
+import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
+import type { AssistantMessageBlock, PermissionMode } from "@shared/types/agent-interface";
+import type { AgentPlanSnapshot } from "@shared/types/agent-plan";
+import { parseQuestionToolArgs, QUESTION_TOOL_NAME } from "../../lib/agentRuntime/questionTool";
+import { UPDATE_PLAN_TOOL_NAME } from "../toolPresenter/agentTools/agentPlanTool";
+import type { InterleavedReasoningConfig, IoParams, PendingToolInteraction, ProcessHooks, StreamState } from "./types";
+import type { ChatMessage, ChatMessageProviderOptions } from "@shared/types/core/chat-message";
+import { nanoid } from "nanoid";
+import type { ToolBatchOutputFitItem, ToolOutputGuard } from "./toolOutputGuard";
+import { buildTerminalErrorBlocks } from "./messageStore";
+import { finalizeTrailingPendingNarrativeBlocks } from "./accumulator";
+import type { EchoHandle } from "./echo";
+import { cloneBlocksForRenderer } from "./echo";
+import { insertBlocksAfterToolCall, prepareToolImagePreviewPresentation } from "./imageGenerationBlocks";
 import {
   buildAssistantPreviewMarkdown,
   buildAssistantResponseMarkdown,
   emitDeepChatInternalSessionUpdate,
-  extractWaitingInteraction
-} from './internalSessionEvents'
-import { publishDeepchatEvent } from '@/routes/publishDeepchatEvent'
-import { extractToolCallImagePreviews } from '@/lib/toolCallImagePreviews'
+  extractWaitingInteraction,
+} from "./internalSessionEvents";
+import { publishDeepchatEvent } from "@/routes/publishDeepchatEvent";
+import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
 
-type PermissionType = 'read' | 'write' | 'all' | 'command'
+type PermissionType = "read" | "write" | "all" | "command";
 
-type ExtractedSearchPayload = ReturnType<typeof extractSearchPayload>
+type ExtractedSearchPayload = ReturnType<typeof extractSearchPayload>;
 type ToolExecutionContext = {
-  toolDef?: MCPToolDefinition
-  toolCall: MCPToolCall
+  toolDef?: MCPToolDefinition;
+  toolCall: MCPToolCall;
   toolContext: {
-    id: string
-    name: string
-    args: string
-    serverName?: string
-    serverIcons?: string
-    serverDescription?: string
-  }
-  completedToolCall: StreamState['completedToolCalls'][number]
-}
+    id: string;
+    name: string;
+    args: string;
+    serverName?: string;
+    serverIcons?: string;
+    serverDescription?: string;
+  };
+  completedToolCall: StreamState["completedToolCalls"][number];
+};
 
 type StagedToolResult = {
-  toolCallId: string
-  toolName: string
-  toolSource?: 'mcp' | 'agent'
-  serverName?: string
-  toolArgs: string
-  responseText: string
-  isError: boolean
-  offloadPath?: string
-  searchPayload: ExtractedSearchPayload
-  rtkApplied?: boolean
-  rtkMode?: 'rewrite' | 'direct' | 'bypass'
-  rtkFallbackReason?: string
-  imagePreviews?: ToolCallImagePreview[]
-  skillDraftPrompt?: SkillDraftPromptPayload
-  postHookKind: 'success' | 'failure'
-}
+  toolCallId: string;
+  toolName: string;
+  toolSource?: "mcp" | "agent";
+  serverName?: string;
+  toolArgs: string;
+  responseText: string;
+  isError: boolean;
+  offloadPath?: string;
+  searchPayload: ExtractedSearchPayload;
+  rtkApplied?: boolean;
+  rtkMode?: "rewrite" | "direct" | "bypass";
+  rtkFallbackReason?: string;
+  imagePreviews?: ToolCallImagePreview[];
+  skillDraftPrompt?: SkillDraftPromptPayload;
+  postHookKind: "success" | "failure";
+};
 
 type SkillDraftPromptPayload = {
-  draftId: string
-  skillName: string
-}
+  draftId: string;
+  skillName: string;
+};
 
 type SkillDraftToolResult = {
   skillDraft?: {
-    status?: unknown
-    draftId?: unknown
-    skillName?: unknown
-  }
-}
+    status?: unknown;
+    draftId?: unknown;
+    skillName?: unknown;
+  };
+};
 
 type ToolRunOutcome =
   | {
-      kind: 'staged'
-      stagedResult: StagedToolResult
-      toolsChanged: boolean
+      kind: "staged";
+      stagedResult: StagedToolResult;
+      toolsChanged: boolean;
     }
   | {
-      kind: 'permission'
-      permission: NonNullable<PendingToolInteraction['permission']>
-      toolContext: ToolExecutionContext['toolContext']
-    }
+      kind: "permission";
+      permission: NonNullable<PendingToolInteraction["permission"]>;
+      toolContext: ToolExecutionContext["toolContext"];
+    };
 
 type PermissionRequestLike = {
-  toolName?: string
-  serverName?: string
-  permissionType?: PermissionType
-  description?: string
-  command?: string
-  commandSignature?: string
+  toolName?: string;
+  serverName?: string;
+  permissionType?: PermissionType;
+  description?: string;
+  command?: string;
+  commandSignature?: string;
   commandInfo?: {
-    command: string
-    riskLevel: 'low' | 'medium' | 'high' | 'critical'
-    suggestion: string
-    signature?: string
-    baseCommand?: string
-  }
-  providerId?: string
-  requestId?: string
-  rememberable?: boolean
-  paths?: string[]
-}
+    command: string;
+    riskLevel: "low" | "medium" | "high" | "critical";
+    suggestion: string;
+    signature?: string;
+    baseCommand?: string;
+  };
+  providerId?: string;
+  requestId?: string;
+  rememberable?: boolean;
+  paths?: string[];
+};
 
-type RendererFlushHandle = Pick<EchoHandle, 'flush' | 'schedule' | 'rescheduleRenderer'>
+type RendererFlushHandle = Pick<EchoHandle, "flush" | "schedule" | "rescheduleRenderer">;
 
-const PARALLEL_READ_ONLY_AGENT_TOOLS = new Set(['read'])
+const PARALLEL_READ_ONLY_AGENT_TOOLS = new Set(["read"]);
 
 function extractTextFromBlocks(blocks: AssistantMessageBlock[]): string {
   return blocks
-    .filter((b) => b.type === 'content')
-    .map((b) => b.content || '')
-    .join('')
+    .filter((b) => b.type === "content")
+    .map((b) => b.content || "")
+    .join("");
 }
 
 function extractReasoningFromBlocks(blocks: AssistantMessageBlock[]): string {
   return blocks
-    .filter((b) => b.type === 'reasoning_content')
-    .map((b) => b.content || '')
-    .join('')
+    .filter((b) => b.type === "reasoning_content")
+    .map((b) => b.content || "")
+    .join("");
 }
 
-function parseProviderOptionsJson(
-  value: string | undefined
-): ChatMessageProviderOptions | undefined {
+function parseProviderOptionsJson(value: string | undefined): ChatMessageProviderOptions | undefined {
   if (!value) {
-    return undefined
+    return undefined;
   }
 
   try {
-    const parsed = JSON.parse(value)
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as ChatMessageProviderOptions
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as ChatMessageProviderOptions;
     }
   } catch {}
 
-  return undefined
+  return undefined;
 }
 
-function getBlockProviderOptions(
-  block: AssistantMessageBlock
-): ChatMessageProviderOptions | undefined {
+function getBlockProviderOptions(block: AssistantMessageBlock): ChatMessageProviderOptions | undefined {
   return parseProviderOptionsJson(
-    typeof block.extra?.providerOptionsJson === 'string'
-      ? block.extra.providerOptionsJson
-      : undefined
-  )
+    typeof block.extra?.providerOptionsJson === "string" ? block.extra.providerOptionsJson : undefined,
+  );
 }
 
-function extractAssistantContent(
-  blocks: AssistantMessageBlock[]
-): ChatMessage['content'] | undefined {
+function extractAssistantContent(blocks: AssistantMessageBlock[]): ChatMessage["content"] | undefined {
   const textBlocks = blocks.filter(
     (block): block is AssistantMessageBlock & { content: string } =>
-      block.type === 'content' && typeof block.content === 'string' && block.content.length > 0
-  )
+      block.type === "content" && typeof block.content === "string" && block.content.length > 0,
+  );
 
   if (textBlocks.length === 0) {
-    return undefined
+    return undefined;
   }
 
   const contentParts = textBlocks.map((block) => {
-    const providerOptions = getBlockProviderOptions(block)
+    const providerOptions = getBlockProviderOptions(block);
     return {
-      type: 'text' as const,
+      type: "text" as const,
       text: block.content,
-      ...(providerOptions ? { provider_options: providerOptions } : {})
-    }
-  })
+      ...(providerOptions ? { provider_options: providerOptions } : {}),
+    };
+  });
 
   return contentParts.some((part) => part.provider_options)
     ? contentParts
-    : contentParts.map((part) => part.text).join('')
+    : contentParts.map((part) => part.text).join("");
 }
 
-function extractReasoningProviderOptions(
-  blocks: AssistantMessageBlock[]
-): ChatMessageProviderOptions | undefined {
-  const reasoningBlocks = blocks.filter((block) => block.type === 'reasoning_content')
+function extractReasoningProviderOptions(blocks: AssistantMessageBlock[]): ChatMessageProviderOptions | undefined {
+  const reasoningBlocks = blocks.filter((block) => block.type === "reasoning_content");
   for (const block of reasoningBlocks) {
-    const providerOptions = getBlockProviderOptions(block)
+    const providerOptions = getBlockProviderOptions(block);
     if (providerOptions) {
-      return providerOptions
+      return providerOptions;
     }
   }
 
-  return undefined
+  return undefined;
 }
 
 function toolResponseToText(content: string | MCPContentItem[]): string {
-  if (typeof content === 'string') return content
+  if (typeof content === "string") return content;
   return content
     .map((item) => {
-      if (item.type === 'text') return item.text
-      if (item.type === 'resource' && item.resource?.text) return item.resource.text
-      return `[${item.type}]`
+      if (item.type === "text") return item.text;
+      if (item.type === "resource" && item.resource?.text) return item.resource.text;
+      return `[${item.type}]`;
     })
-    .join('\n')
+    .join("\n");
 }
 
 function extractSearchPayload(
   content: string | MCPContentItem[],
   toolName?: string,
-  serverName?: string
+  serverName?: string,
 ): { block: AssistantMessageBlock; results: SearchResult[] } | null {
   if (!Array.isArray(content)) {
-    return null
+    return null;
   }
 
   const resourceItems = content.filter(
     (item): item is MCPResourceContent =>
-      item.type === 'resource' && item.resource?.mimeType === 'application/deepchat-webpage'
-  )
+      item.type === "resource" && item.resource?.mimeType === "application/deepchat-webpage",
+  );
   if (resourceItems.length === 0) {
-    return null
+    return null;
   }
 
   const results = resourceItems
     .map((item) => {
-      const resource = item.resource
+      const resource = item.resource;
       if (!resource?.text) {
-        return null
+        return null;
       }
       try {
         const parsed = JSON.parse(resource.text) as {
-          title?: string
-          url?: string
-          content?: string
-          description?: string
-          icon?: string
-          favicon?: string
-          rank?: number
-          snippet?: string
-          searchId?: string
-        }
-        const url = parsed.url || resource.uri || ''
+          title?: string;
+          url?: string;
+          content?: string;
+          description?: string;
+          icon?: string;
+          favicon?: string;
+          rank?: number;
+          snippet?: string;
+          searchId?: string;
+        };
+        const url = parsed.url || resource.uri || "";
         if (!url) {
-          return null
+          return null;
         }
         return {
-          title: parsed.title || '',
+          title: parsed.title || "",
           url,
-          content: parsed.content || '',
-          description: parsed.description || parsed.content || '',
-          snippet: parsed.snippet || parsed.description || parsed.content || '',
-          icon: parsed.icon || '',
-          favicon: parsed.favicon || '',
-          rank: typeof parsed.rank === 'number' ? parsed.rank : undefined,
-          searchId: parsed.searchId
-        } as SearchResult
+          content: parsed.content || "",
+          description: parsed.description || parsed.content || "",
+          snippet: parsed.snippet || parsed.description || parsed.content || "",
+          icon: parsed.icon || "",
+          favicon: parsed.favicon || "",
+          rank: typeof parsed.rank === "number" ? parsed.rank : undefined,
+          searchId: parsed.searchId,
+        } as SearchResult;
       } catch (error) {
-        console.warn('[DeepChatDispatch] Failed to parse search result resource:', error)
-        return null
+        console.warn("[DeepChatDispatch] Failed to parse search result resource:", error);
+        return null;
       }
     })
-    .filter((item): item is SearchResult => item !== null)
+    .filter((item): item is SearchResult => item !== null);
 
   if (results.length === 0) {
-    return null
+    return null;
   }
 
-  const searchId = nanoid()
+  const searchId = nanoid();
   const pages = results
     .filter((item) => item.icon || item.favicon)
     .slice(0, 6)
     .map((item) => ({
       url: item.url,
-      icon: item.icon || item.favicon || ''
-    }))
+      icon: item.icon || item.favicon || "",
+    }));
 
   const block: AssistantMessageBlock = {
     id: searchId,
-    type: 'search',
-    content: '',
-    status: 'success',
+    type: "search",
+    content: "",
+    status: "success",
     timestamp: Date.now(),
     extra: {
       total: results.length,
       searchId,
       pages,
-      label: toolName || 'web_search',
-      name: toolName || 'web_search',
+      label: toolName || "web_search",
+      name: toolName || "web_search",
       engine: serverName || undefined,
-      provider: serverName || undefined
-    }
-  }
+      provider: serverName || undefined,
+    },
+  };
 
   return {
     block,
     results: results.map((item) => ({
       ...item,
-      searchId: item.searchId || searchId
-    }))
-  }
+      searchId: item.searchId || searchId,
+    })),
+  };
 }
 
 function updateToolCallBlock(
@@ -320,30 +301,30 @@ function updateToolCallBlock(
   response: string,
   isError: boolean,
   rtkMetadata?: {
-    rtkApplied?: boolean
-    rtkMode?: 'rewrite' | 'direct' | 'bypass'
-    rtkFallbackReason?: string
+    rtkApplied?: boolean;
+    rtkMode?: "rewrite" | "direct" | "bypass";
+    rtkFallbackReason?: string;
   },
-  imagePreviews?: ToolCallImagePreview[]
+  imagePreviews?: ToolCallImagePreview[],
 ): void {
-  const block = blocks.find((b) => b.type === 'tool_call' && b.tool_call?.id === toolCallId)
+  const block = blocks.find((b) => b.type === "tool_call" && b.tool_call?.id === toolCallId);
   if (block?.tool_call) {
-    block.tool_call.response = response
-    if (typeof rtkMetadata?.rtkApplied === 'boolean') {
-      block.tool_call.rtkApplied = rtkMetadata.rtkApplied
+    block.tool_call.response = response;
+    if (typeof rtkMetadata?.rtkApplied === "boolean") {
+      block.tool_call.rtkApplied = rtkMetadata.rtkApplied;
     }
     if (rtkMetadata?.rtkMode) {
-      block.tool_call.rtkMode = rtkMetadata.rtkMode
+      block.tool_call.rtkMode = rtkMetadata.rtkMode;
     }
     if (rtkMetadata?.rtkFallbackReason) {
-      block.tool_call.rtkFallbackReason = rtkMetadata.rtkFallbackReason
+      block.tool_call.rtkFallbackReason = rtkMetadata.rtkFallbackReason;
     }
     if (imagePreviews && imagePreviews.length > 0) {
-      block.tool_call.imagePreviews = imagePreviews
+      block.tool_call.imagePreviews = imagePreviews;
     } else if (imagePreviews) {
-      delete block.tool_call.imagePreviews
+      delete block.tool_call.imagePreviews;
     }
-    block.status = isError ? 'error' : 'success'
+    block.status = isError ? "error" : "success";
   }
 }
 
@@ -352,129 +333,121 @@ function updateSubagentToolCallBlock(
   toolCallId: string,
   responseMarkdown: string,
   progressJson?: string,
-  finalJson?: string
+  finalJson?: string,
 ): void {
-  const block = blocks.find(
-    (item) => item.type === 'tool_call' && item.tool_call?.id === toolCallId
-  )
+  const block = blocks.find((item) => item.type === "tool_call" && item.tool_call?.id === toolCallId);
   if (!block?.tool_call) {
-    return
+    return;
   }
 
-  block.tool_call.response = responseMarkdown
-  block.status = typeof finalJson === 'string' ? 'success' : 'loading'
+  block.tool_call.response = responseMarkdown;
+  block.status = typeof finalJson === "string" ? "success" : "loading";
   block.extra = {
     ...block.extra,
-    ...(typeof progressJson === 'string' ? { subagentProgress: progressJson } : {}),
-    ...(typeof finalJson === 'string' ? { subagentFinal: finalJson } : {})
-  }
+    ...(typeof progressJson === "string" ? { subagentProgress: progressJson } : {}),
+    ...(typeof finalJson === "string" ? { subagentFinal: finalJson } : {}),
+  };
 }
 
 function markInternalPlanToolCallBlock(blocks: AssistantMessageBlock[], toolCallId: string): void {
-  const block = blocks.find(
-    (item) => item.type === 'tool_call' && item.tool_call?.id === toolCallId
-  )
+  const block = blocks.find((item) => item.type === "tool_call" && item.tool_call?.id === toolCallId);
   if (!block?.tool_call || block.tool_call.name !== UPDATE_PLAN_TOOL_NAME) {
-    return
+    return;
   }
 
   block.extra = {
     ...block.extra,
-    internalTool: true
-  }
+    internalTool: true,
+  };
 }
 
 function publishPlanUpdated(io: IoParams, snapshot: AgentPlanSnapshot): void {
-  publishDeepchatEvent('chat.plan.updated', {
+  publishDeepchatEvent("chat.plan.updated", {
     sessionId: io.sessionId,
     messageId: io.messageId,
     ...(snapshot.toolCallId ? { toolCallId: snapshot.toolCallId } : {}),
     plan: snapshot.plan,
     ...(snapshot.explanation ? { explanation: snapshot.explanation } : {}),
     revision: snapshot.revision,
-    updatedAt: snapshot.updatedAt
-  })
+    updatedAt: snapshot.updatedAt,
+  });
 }
 
 function extractSubagentToolState(rawData: MCPToolResponse): {
-  subagentProgress?: string
-  subagentFinal?: string
+  subagentProgress?: string;
+  subagentFinal?: string;
 } {
   const toolResult =
-    rawData.toolResult && typeof rawData.toolResult === 'object'
+    rawData.toolResult && typeof rawData.toolResult === "object"
       ? (rawData.toolResult as Record<string, unknown>)
-      : null
+      : null;
 
   return {
-    subagentProgress:
-      typeof toolResult?.subagentProgress === 'string' ? toolResult.subagentProgress : undefined,
-    subagentFinal:
-      typeof toolResult?.subagentFinal === 'string' ? toolResult.subagentFinal : undefined
-  }
+    subagentProgress: typeof toolResult?.subagentProgress === "string" ? toolResult.subagentProgress : undefined,
+    subagentFinal: typeof toolResult?.subagentFinal === "string" ? toolResult.subagentFinal : undefined,
+  };
 }
 
-function extractSkillDraftPromptPayload(
-  rawData: MCPToolResponse
-): SkillDraftPromptPayload | undefined {
-  const toolResult = rawData.toolResult as SkillDraftToolResult | null | undefined
-  const skillDraft = toolResult?.skillDraft
-  if (!skillDraft || typeof skillDraft !== 'object') {
-    return undefined
+function extractSkillDraftPromptPayload(rawData: MCPToolResponse): SkillDraftPromptPayload | undefined {
+  const toolResult = rawData.toolResult as SkillDraftToolResult | null | undefined;
+  const skillDraft = toolResult?.skillDraft;
+  if (!skillDraft || typeof skillDraft !== "object") {
+    return undefined;
   }
-  if (skillDraft.status !== 'created') {
-    return undefined
+  if (skillDraft.status !== "created") {
+    return undefined;
   }
-  if (typeof skillDraft.draftId !== 'string' || typeof skillDraft.skillName !== 'string') {
-    return undefined
+  if (typeof skillDraft.draftId !== "string" || typeof skillDraft.skillName !== "string") {
+    return undefined;
   }
-  const draftId = skillDraft.draftId.trim()
-  const skillName = skillDraft.skillName.trim()
+  const draftId = skillDraft.draftId.trim();
+  const skillName = skillDraft.skillName.trim();
   if (!draftId || !skillName) {
-    return undefined
+    return undefined;
   }
-  return { draftId, skillName }
+  return { draftId, skillName };
 }
 
 function shouldRefreshToolsAfterCall(toolName: string, rawData: MCPToolResponse): boolean {
-  if (toolName !== 'skill_view') {
-    return false
+  if (toolName !== "skill_view") {
+    return false;
   }
 
   const toolResult =
-    rawData.toolResult && typeof rawData.toolResult === 'object'
+    rawData.toolResult && typeof rawData.toolResult === "object"
       ? (rawData.toolResult as Record<string, unknown>)
-      : null
+      : null;
 
-  return toolResult?.activationApplied === true
+  return toolResult?.activationApplied === true;
 }
 
 function isParallelReadOnlyToolCall(
-  toolCall: StreamState['completedToolCalls'][number],
-  tools: MCPToolDefinition[]
+  toolCall: StreamState["completedToolCalls"][number],
+  tools: MCPToolDefinition[],
 ): boolean {
   if (!PARALLEL_READ_ONLY_AGENT_TOOLS.has(toolCall.name)) {
-    return false
+    return false;
   }
 
-  const toolDef = tools.find((tool) => tool.function.name === toolCall.name)
-  return toolDef?.source === 'agent'
+  const toolDef = tools.find((tool) => tool.function.name === toolCall.name);
+  return toolDef?.source === "agent";
 }
 
 function buildToolExecutionContext(
-  toolCallResult: StreamState['completedToolCalls'][number],
+  toolCallResult: StreamState["completedToolCalls"][number],
   tools: MCPToolDefinition[],
   sessionId: string,
-  providerId?: string
+  providerId?: string,
 ): ToolExecutionContext {
-  const toolDef = tools.find((tool) => tool.function.name === toolCallResult.name)
+  const toolDef = tools.find((tool) => tool.function.name === toolCallResult.name);
   const toolCall: MCPToolCall = {
     id: toolCallResult.id,
-    type: 'function',
+    type: "function",
     function: { name: toolCallResult.name, arguments: toolCallResult.arguments },
     server: toolDef?.server,
     conversationId: sessionId,
-    providerId: providerId?.trim() || undefined
-  }
+    providerId: providerId?.trim() || undefined,
+  };
 
   return {
     toolDef,
@@ -486,18 +459,18 @@ function buildToolExecutionContext(
       args: toolCallResult.arguments,
       serverName: toolDef?.server.name,
       serverIcons: toolDef?.server.icons,
-      serverDescription: toolDef?.server.description
-    }
-  }
+      serverDescription: toolDef?.server.description,
+    },
+  };
 }
 
 function buildToolErrorOutcome(
   execution: ToolExecutionContext,
-  error: unknown
-): Extract<ToolRunOutcome, { kind: 'staged' }> {
-  const errorText = error instanceof Error ? error.message : String(error)
+  error: unknown,
+): Extract<ToolRunOutcome, { kind: "staged" }> {
+  const errorText = error instanceof Error ? error.message : String(error);
   return {
-    kind: 'staged',
+    kind: "staged",
     stagedResult: {
       toolCallId: execution.completedToolCall.id,
       toolName: execution.completedToolCall.name,
@@ -507,103 +480,95 @@ function buildToolErrorOutcome(
       responseText: `Error: ${errorText}`,
       isError: true,
       searchPayload: null,
-      postHookKind: 'failure'
+      postHookKind: "failure",
     },
-    toolsChanged: false
-  }
+    toolsChanged: false,
+  };
 }
 
-function scheduleRendererFlush(
-  state: StreamState,
-  rendererFlushHandle?: Pick<RendererFlushHandle, 'schedule'>
-): void {
+function scheduleRendererFlush(state: StreamState, rendererFlushHandle?: Pick<RendererFlushHandle, "schedule">): void {
   if (!state.dirty) {
-    return
+    return;
   }
 
-  rendererFlushHandle?.schedule()
+  rendererFlushHandle?.schedule();
 }
 
 function rescheduleRendererFlush(
   state: StreamState,
-  rendererFlushHandle?: Pick<RendererFlushHandle, 'schedule' | 'rescheduleRenderer'>
+  rendererFlushHandle?: Pick<RendererFlushHandle, "schedule" | "rescheduleRenderer">,
 ): void {
   if (!state.dirty) {
-    return
+    return;
   }
 
   if (rendererFlushHandle?.rescheduleRenderer) {
-    rendererFlushHandle.rescheduleRenderer()
-    return
+    rendererFlushHandle.rescheduleRenderer();
+    return;
   }
 
-  rendererFlushHandle?.schedule()
+  rendererFlushHandle?.schedule();
 }
 
 function persistToolExecutionState(
   _io: IoParams,
   state: StreamState,
-  rendererFlushHandle?: Pick<RendererFlushHandle, 'schedule'>
+  rendererFlushHandle?: Pick<RendererFlushHandle, "schedule">,
 ): void {
   if (!state.dirty) {
-    return
+    return;
   }
 
-  scheduleRendererFlush(state, rendererFlushHandle)
+  scheduleRendererFlush(state, rendererFlushHandle);
 }
 
 function finalizePendingNarrativeBeforeToolExecution(state: StreamState): void {
-  const last = state.blocks[state.blocks.length - 1]
-  if (
-    !last ||
-    last.status !== 'pending' ||
-    (last.type !== 'content' && last.type !== 'reasoning_content')
-  ) {
-    return
+  const last = state.blocks[state.blocks.length - 1];
+  if (!last || last.status !== "pending" || (last.type !== "content" && last.type !== "reasoning_content")) {
+    return;
   }
 
-  finalizeTrailingPendingNarrativeBlocks(state.blocks)
-  state.dirty = true
+  finalizeTrailingPendingNarrativeBlocks(state.blocks);
+  state.dirty = true;
 }
 
 function applyFinalizedToolResults(params: {
-  stagedResults: StagedToolResult[]
-  fittedResults: ToolBatchOutputFitItem[]
-  conversation: ChatMessage[]
-  state: StreamState
-  io: IoParams
-  hooks?: ProcessHooks
-  appendToConversation: boolean
+  stagedResults: StagedToolResult[];
+  fittedResults: ToolBatchOutputFitItem[];
+  conversation: ChatMessage[];
+  state: StreamState;
+  io: IoParams;
+  hooks?: ProcessHooks;
+  appendToConversation: boolean;
 }): void {
-  const { stagedResults, fittedResults, conversation, state, io, hooks, appendToConversation } =
-    params
+  const { stagedResults, fittedResults, conversation, state, io, hooks, appendToConversation } = params;
 
   for (let index = 0; index < stagedResults.length; index += 1) {
-    const stagedResult = stagedResults[index]
-    const fittedResult = fittedResults[index]
+    const stagedResult = stagedResults[index];
+    const fittedResult = fittedResults[index];
     if (!fittedResult) {
-      continue
+      continue;
     }
 
     if (appendToConversation) {
       conversation.push({
-        role: 'tool',
+        role: "tool",
         tool_call_id: fittedResult.toolCallId,
-        content: fittedResult.contextResponseText
-      })
+        content: fittedResult.contextResponseText,
+      });
     }
 
-    const searchPayload = fittedResult.downgraded ? null : stagedResult.searchPayload
+    const searchPayload = fittedResult.downgraded ? null : stagedResult.searchPayload;
     if (searchPayload) {
-      state.blocks.push(searchPayload.block)
+      state.blocks.push(searchPayload.block);
       for (const result of searchPayload.results) {
         io.messageStore.addSearchResult({
           sessionId: io.sessionId,
           messageId: io.messageId,
           searchId: result.searchId,
-          rank: typeof result.rank === 'number' ? result.rank : null,
-          result
-        })
+          rank: typeof result.rank === "number" ? result.rank : null,
+          result,
+        });
       }
     }
 
@@ -613,8 +578,8 @@ function applyFinalizedToolResults(params: {
       toolSource: stagedResult.toolSource,
       serverName: stagedResult.serverName,
       isError: fittedResult.isError,
-      imagePreviews: stagedResult.imagePreviews
-    })
+      imagePreviews: stagedResult.imagePreviews,
+    });
     updateToolCallBlock(
       state.blocks,
       fittedResult.toolCallId,
@@ -625,15 +590,11 @@ function applyFinalizedToolResults(params: {
         : {
             rtkApplied: stagedResult.rtkApplied,
             rtkMode: stagedResult.rtkMode,
-            rtkFallbackReason: stagedResult.rtkFallbackReason
+            rtkFallbackReason: stagedResult.rtkFallbackReason,
           },
-      imagePresentation.toolBlockImagePreviews
-    )
-    insertBlocksAfterToolCall(
-      state.blocks,
-      fittedResult.toolCallId,
-      imagePresentation.promotedBlocks
-    )
+      imagePresentation.toolBlockImagePreviews,
+    );
+    insertBlocksAfterToolCall(state.blocks, fittedResult.toolCallId, imagePresentation.promotedBlocks);
 
     if (stagedResult.skillDraftPrompt && !fittedResult.isError && !fittedResult.downgraded) {
       const interaction = appendSkillDraftQuestionActionBlock(
@@ -643,11 +604,11 @@ function applyFinalizedToolResults(params: {
           id: stagedResult.toolCallId,
           name: stagedResult.toolName,
           args: stagedResult.toolArgs,
-          serverName: stagedResult.serverName
+          serverName: stagedResult.serverName,
         },
-        stagedResult.skillDraftPrompt
-      )
-      state.pendingInteractions = [...(state.pendingInteractions ?? []), interaction]
+        stagedResult.skillDraftPrompt,
+      );
+      state.pendingInteractions = [...(state.pendingInteractions ?? []), interaction];
     }
 
     if (fittedResult.isError) {
@@ -655,69 +616,65 @@ function applyFinalizedToolResults(params: {
         callId: stagedResult.toolCallId,
         name: stagedResult.toolName,
         params: stagedResult.toolArgs,
-        error: fittedResult.responseText
-      })
-    } else if (stagedResult.postHookKind === 'success') {
+        error: fittedResult.responseText,
+      });
+    } else if (stagedResult.postHookKind === "success") {
       hooks?.onPostToolUse?.({
         callId: stagedResult.toolCallId,
         name: stagedResult.toolName,
         params: stagedResult.toolArgs,
-        response: fittedResult.responseText
-      })
+        response: fittedResult.responseText,
+      });
     }
   }
 
-  state.dirty = true
+  state.dirty = true;
 }
 
 function isPermissionType(value: unknown): value is PermissionType {
-  return value === 'read' || value === 'write' || value === 'all' || value === 'command'
+  return value === "read" || value === "write" || value === "all" || value === "command";
 }
 
 function normalizePermissionRequest(
   request: PermissionRequestLike | null | undefined,
   fallback: {
-    toolName: string
-    serverName?: string
-    description: string
-  }
-): NonNullable<PendingToolInteraction['permission']> {
-  const permissionType = isPermissionType(request?.permissionType)
-    ? request.permissionType
-    : 'write'
-  const toolName = typeof request?.toolName === 'string' ? request.toolName : fallback.toolName
-  const serverName =
-    typeof request?.serverName === 'string' ? request.serverName : fallback.serverName
+    toolName: string;
+    serverName?: string;
+    description: string;
+  },
+): NonNullable<PendingToolInteraction["permission"]> {
+  const permissionType = isPermissionType(request?.permissionType) ? request.permissionType : "write";
+  const toolName = typeof request?.toolName === "string" ? request.toolName : fallback.toolName;
+  const serverName = typeof request?.serverName === "string" ? request.serverName : fallback.serverName;
   const description =
-    typeof request?.description === 'string' && request.description.trim().length > 0
+    typeof request?.description === "string" && request.description.trim().length > 0
       ? request.description
-      : fallback.description
+      : fallback.description;
 
   return {
     permissionType,
     description,
     toolName,
     serverName,
-    providerId: typeof request?.providerId === 'string' ? request.providerId : undefined,
-    requestId: typeof request?.requestId === 'string' ? request.requestId : undefined,
+    providerId: typeof request?.providerId === "string" ? request.providerId : undefined,
+    requestId: typeof request?.requestId === "string" ? request.requestId : undefined,
     rememberable: request?.rememberable === false ? false : true,
-    command: typeof request?.command === 'string' ? request.command : undefined,
-    commandSignature:
-      typeof request?.commandSignature === 'string' ? request.commandSignature : undefined,
+    command: typeof request?.command === "string" ? request.command : undefined,
+    commandSignature: typeof request?.commandSignature === "string" ? request.commandSignature : undefined,
     paths: Array.isArray(request?.paths)
-      ? request.paths.filter((item): item is string => typeof item === 'string' && item.length > 0)
+      ? request.paths.filter((item): item is string => typeof item === "string" && item.length > 0)
       : undefined,
-    commandInfo: request?.commandInfo
-  }
+    commandInfo: request?.commandInfo,
+  };
 }
 
 async function autoGrantPermission(
   hooks: ProcessHooks | undefined,
   _conversationId: string,
-  permission: NonNullable<PendingToolInteraction['permission']>
+  permission: NonNullable<PendingToolInteraction["permission"]>,
 ): Promise<void> {
   if (hooks?.autoGrantPermission) {
-    await hooks.autoGrantPermission(permission)
+    await hooks.autoGrantPermission(permission);
   }
 }
 
@@ -725,44 +682,44 @@ function appendPermissionActionBlock(
   state: StreamState,
   io: IoParams,
   toolCall: {
-    id: string
-    name: string
-    args: string
-    serverName?: string
-    serverIcons?: string
-    serverDescription?: string
+    id: string;
+    name: string;
+    args: string;
+    serverName?: string;
+    serverIcons?: string;
+    serverDescription?: string;
   },
-  permission: NonNullable<PendingToolInteraction['permission']>
+  permission: NonNullable<PendingToolInteraction["permission"]>,
 ): PendingToolInteraction {
   state.blocks.push({
-    type: 'action',
+    type: "action",
     content: permission.description,
-    status: 'pending',
+    status: "pending",
     timestamp: Date.now(),
-    action_type: 'tool_call_permission',
+    action_type: "tool_call_permission",
     tool_call: {
       id: toolCall.id,
       name: toolCall.name,
       params: toolCall.args,
       server_name: toolCall.serverName,
       server_icons: toolCall.serverIcons,
-      server_description: toolCall.serverDescription
+      server_description: toolCall.serverDescription,
     },
     extra: {
       needsUserAction: true,
       permissionType: permission.permissionType,
       toolName: permission.toolName || toolCall.name,
-      serverName: permission.serverName || toolCall.serverName || '',
+      serverName: permission.serverName || toolCall.serverName || "",
       ...(permission.providerId ? { providerId: permission.providerId } : {}),
       ...(permission.requestId ? { permissionRequestId: permission.requestId } : {}),
       ...(permission.commandInfo ? { commandInfo: JSON.stringify(permission.commandInfo) } : {}),
       permissionRequest: JSON.stringify(permission),
-      ...(permission.rememberable === false ? { rememberable: false } : {})
-    }
-  })
-  state.dirty = true
+      ...(permission.rememberable === false ? { rememberable: false } : {}),
+    },
+  });
+  state.dirty = true;
   return {
-    type: 'permission',
+    type: "permission",
     messageId: io.messageId,
     toolCallId: toolCall.id,
     toolName: toolCall.name,
@@ -770,52 +727,52 @@ function appendPermissionActionBlock(
     serverName: toolCall.serverName,
     serverIcons: toolCall.serverIcons,
     serverDescription: toolCall.serverDescription,
-    permission
-  }
+    permission,
+  };
 }
 
 function appendQuestionActionBlock(
   state: StreamState,
   io: IoParams,
   toolCall: {
-    id: string
-    name: string
-    args: string
-    serverName?: string
-    serverIcons?: string
-    serverDescription?: string
+    id: string;
+    name: string;
+    args: string;
+    serverName?: string;
+    serverIcons?: string;
+    serverDescription?: string;
   },
-  question: NonNullable<PendingToolInteraction['question']>,
-  extra?: Record<string, unknown>
+  question: NonNullable<PendingToolInteraction["question"]>,
+  extra?: Record<string, unknown>,
 ): PendingToolInteraction {
   state.blocks.push({
-    type: 'action',
-    content: '',
-    status: 'pending',
+    type: "action",
+    content: "",
+    status: "pending",
     timestamp: Date.now(),
-    action_type: 'question_request',
+    action_type: "question_request",
     tool_call: {
       id: toolCall.id,
       name: toolCall.name,
       params: toolCall.args,
       server_name: toolCall.serverName,
       server_icons: toolCall.serverIcons,
-      server_description: toolCall.serverDescription
+      server_description: toolCall.serverDescription,
     },
     extra: {
       needsUserAction: true,
-      questionHeader: question.header || '',
+      questionHeader: question.header || "",
       questionText: question.question,
       questionOptions: question.options,
       questionMultiple: question.multiple,
       questionCustom: question.custom,
-      questionResolution: 'asked',
-      ...extra
-    }
-  })
-  state.dirty = true
+      questionResolution: "asked",
+      ...extra,
+    },
+  });
+  state.dirty = true;
   return {
-    type: 'question',
+    type: "question",
     messageId: io.messageId,
     toolCallId: toolCall.id,
     toolName: toolCall.name,
@@ -823,89 +780,87 @@ function appendQuestionActionBlock(
     serverName: toolCall.serverName,
     serverIcons: toolCall.serverIcons,
     serverDescription: toolCall.serverDescription,
-    question
-  }
+    question,
+  };
 }
 
-function buildSkillDraftQuestion(
-  _payload: SkillDraftPromptPayload
-): NonNullable<PendingToolInteraction['question']> {
+function buildSkillDraftQuestion(_payload: SkillDraftPromptPayload): NonNullable<PendingToolInteraction["question"]> {
   return {
-    header: 'chat.skillDraft.confirmationTitle',
-    question: 'chat.skillDraft.confirmationQuestion',
+    header: "chat.skillDraft.confirmationTitle",
+    question: "chat.skillDraft.confirmationQuestion",
     options: [
       {
-        label: 'chat.skillDraft.actions.view',
-        description: 'chat.skillDraft.actions.viewDescription'
+        label: "chat.skillDraft.actions.view",
+        description: "chat.skillDraft.actions.viewDescription",
       },
       {
-        label: 'chat.skillDraft.actions.install',
-        description: 'chat.skillDraft.actions.installDescription'
+        label: "chat.skillDraft.actions.install",
+        description: "chat.skillDraft.actions.installDescription",
       },
       {
-        label: 'chat.skillDraft.actions.discard',
-        description: 'chat.skillDraft.actions.discardDescription'
-      }
+        label: "chat.skillDraft.actions.discard",
+        description: "chat.skillDraft.actions.discardDescription",
+      },
     ],
     custom: false,
-    multiple: false
-  }
+    multiple: false,
+  };
 }
 
 function appendSkillDraftQuestionActionBlock(
   state: StreamState,
   io: IoParams,
-  toolContext: ToolExecutionContext['toolContext'],
-  payload: SkillDraftPromptPayload
+  toolContext: ToolExecutionContext["toolContext"],
+  payload: SkillDraftPromptPayload,
 ): PendingToolInteraction {
-  const question = buildSkillDraftQuestion(payload)
+  const question = buildSkillDraftQuestion(payload);
   return appendQuestionActionBlock(state, io, toolContext, question, {
-    skillDraftAction: 'confirm',
+    skillDraftAction: "confirm",
     skillDraftId: payload.draftId,
     skillDraftName: payload.skillName,
-    skillDraftPreview: '',
-    skillDraftStatus: 'pending'
-  })
+    skillDraftPreview: "",
+    skillDraftStatus: "pending",
+  });
 }
 
 function flushBlocksToRenderer(io: IoParams, blocks: AssistantMessageBlock[]): void {
-  const renderedBlocks = cloneBlocksForRenderer(blocks)
+  const renderedBlocks = cloneBlocksForRenderer(blocks);
   eventBus.sendToRenderer(STREAM_EVENTS.RESPONSE, SendTarget.ALL_WINDOWS, {
     conversationId: io.sessionId,
     eventId: io.messageId,
     messageId: io.messageId,
-    blocks: renderedBlocks
-  })
-  publishDeepchatEvent('chat.stream.updated', {
-    kind: 'snapshot',
+    blocks: renderedBlocks,
+  });
+  publishDeepchatEvent("chat.stream.updated", {
+    kind: "snapshot",
     requestId: io.requestId,
     sessionId: io.sessionId,
     messageId: io.messageId,
     updatedAt: Date.now(),
-    blocks: renderedBlocks
-  })
+    blocks: renderedBlocks,
+  });
 
   emitDeepChatInternalSessionUpdate({
     sessionId: io.sessionId,
-    kind: 'blocks',
+    kind: "blocks",
     updatedAt: Date.now(),
     messageId: io.messageId,
     previewMarkdown: buildAssistantPreviewMarkdown(blocks),
     responseMarkdown: buildAssistantResponseMarkdown(blocks),
-    waitingInteraction: extractWaitingInteraction(blocks, io.messageId)
-  })
+    waitingInteraction: extractWaitingInteraction(blocks, io.messageId),
+  });
 }
 
 async function runToolCall(params: {
-  execution: ToolExecutionContext
-  toolPresenter: IToolPresenter
-  permissionMode: PermissionMode
-  hooks?: ProcessHooks
-  io: IoParams
-  state: StreamState
-  rendererFlushHandle: RendererFlushHandle
-  toolOutputGuard: ToolOutputGuard
-  allowProgressUpdates: boolean
+  execution: ToolExecutionContext;
+  toolPresenter: IToolPresenter;
+  permissionMode: PermissionMode;
+  hooks?: ProcessHooks;
+  io: IoParams;
+  state: StreamState;
+  rendererFlushHandle: RendererFlushHandle;
+  toolOutputGuard: ToolOutputGuard;
+  allowProgressUpdates: boolean;
 }): Promise<ToolRunOutcome> {
   const {
     execution,
@@ -916,51 +871,42 @@ async function runToolCall(params: {
     state,
     rendererFlushHandle,
     toolOutputGuard,
-    allowProgressUpdates
-  } = params
-  const { completedToolCall, toolCall, toolContext } = execution
+    allowProgressUpdates,
+  } = params;
+  const { completedToolCall, toolCall, toolContext } = execution;
 
   try {
     const applyProgressUpdate = (update: AgentToolProgressUpdate) => {
-      if (
-        update.kind === 'agent_plan' &&
-        update.toolCallId === completedToolCall.id &&
-        allowProgressUpdates
-      ) {
-        markInternalPlanToolCallBlock(state.blocks, completedToolCall.id)
-        publishPlanUpdated(io, update.snapshot)
-        state.dirty = true
-        scheduleRendererFlush(state, rendererFlushHandle)
-        return
+      if (update.kind === "agent_plan" && update.toolCallId === completedToolCall.id && allowProgressUpdates) {
+        markInternalPlanToolCallBlock(state.blocks, completedToolCall.id);
+        publishPlanUpdated(io, update.snapshot);
+        state.dirty = true;
+        scheduleRendererFlush(state, rendererFlushHandle);
+        return;
       }
 
       if (
         !allowProgressUpdates ||
-        update.kind !== 'subagent_orchestrator' ||
+        update.kind !== "subagent_orchestrator" ||
         update.toolCallId !== completedToolCall.id
       ) {
-        return
+        return;
       }
 
-      updateSubagentToolCallBlock(
-        state.blocks,
-        completedToolCall.id,
-        update.responseMarkdown,
-        update.progressJson
-      )
-      state.dirty = true
-      scheduleRendererFlush(state, rendererFlushHandle)
-    }
+      updateSubagentToolCallBlock(state.blocks, completedToolCall.id, update.responseMarkdown, update.progressJson);
+      state.dirty = true;
+      scheduleRendererFlush(state, rendererFlushHandle);
+    };
 
     const callTool = async () =>
       await toolPresenter.callTool(toolCall, {
         onProgress: applyProgressUpdate,
         signal: io.abortSignal,
-        permissionMode
-      })
+        permissionMode,
+      });
 
-    let toolCallResult = await callTool()
-    let toolRawData = toolCallResult.rawData
+    let toolCallResult = await callTool();
+    let toolRawData = toolCallResult.rawData;
 
     if (toolRawData?.requiresPermission) {
       const pendingPermission = normalizePermissionRequest(
@@ -968,36 +914,34 @@ async function runToolCall(params: {
         {
           toolName: toolContext.name,
           serverName: toolContext.serverName,
-          description: `Permission required for ${toolContext.name}`
-        }
-      )
+          description: `Permission required for ${toolContext.name}`,
+        },
+      );
 
       if (pendingPermission) {
-        if (permissionMode === 'full_access') {
-          await autoGrantPermission(hooks, io.sessionId, pendingPermission)
-          toolCallResult = await callTool()
-          toolRawData = toolCallResult.rawData
+        if (permissionMode === "full_access") {
+          await autoGrantPermission(hooks, io.sessionId, pendingPermission);
+          toolCallResult = await callTool();
+          toolRawData = toolCallResult.rawData;
         } else {
           return {
-            kind: 'permission',
+            kind: "permission",
             permission: pendingPermission,
-            toolContext
-          }
+            toolContext,
+          };
         }
       }
     }
 
-    const subagentState = extractSubagentToolState(toolRawData)
+    const subagentState = extractSubagentToolState(toolRawData);
     if (allowProgressUpdates && (subagentState.subagentProgress || subagentState.subagentFinal)) {
       updateSubagentToolCallBlock(
         state.blocks,
         completedToolCall.id,
-        typeof toolRawData.content === 'string'
-          ? toolRawData.content
-          : toolResponseToText(toolRawData.content),
+        typeof toolRawData.content === "string" ? toolRawData.content : toolResponseToText(toolRawData.content),
         subagentState.subagentProgress,
-        subagentState.subagentFinal
-      )
+        subagentState.subagentFinal,
+      );
     }
 
     const imagePreviews =
@@ -1006,8 +950,8 @@ async function runToolCall(params: {
         toolName: completedToolCall.name,
         toolArgs: completedToolCall.arguments,
         content: toolRawData.content,
-        cacheImage: hooks?.cacheImage
-      }))
+        cacheImage: hooks?.cacheImage,
+      }));
 
     if (hooks?.normalizeToolResult) {
       toolRawData = {
@@ -1018,30 +962,25 @@ async function runToolCall(params: {
           toolName: completedToolCall.name,
           toolArgs: completedToolCall.arguments,
           content: toolRawData.content,
-          isError: toolRawData.isError === true
-        })
-      }
+          isError: toolRawData.isError === true,
+        }),
+      };
     }
 
-    const searchPayload = extractSearchPayload(
-      toolRawData.content,
-      toolContext.name,
-      toolContext.serverName
-    )
+    const searchPayload = extractSearchPayload(toolRawData.content, toolContext.name, toolContext.serverName);
 
-    const responseText = toolResponseToText(toolRawData.content)
+    const responseText = toolResponseToText(toolRawData.content);
     const preparedResult = await toolOutputGuard.prepareToolOutput({
       sessionId: io.sessionId,
       toolCallId: completedToolCall.id,
       toolName: toolContext.name,
-      rawContent: responseText
-    })
-    const stagedResponseText =
-      preparedResult.kind === 'tool_error' ? preparedResult.message : preparedResult.content
-    const stagedIsError = preparedResult.kind === 'tool_error' || toolRawData.isError === true
+      rawContent: responseText,
+    });
+    const stagedResponseText = preparedResult.kind === "tool_error" ? preparedResult.message : preparedResult.content;
+    const stagedIsError = preparedResult.kind === "tool_error" || toolRawData.isError === true;
 
     return {
-      kind: 'staged',
+      kind: "staged",
       stagedResult: {
         toolCallId: completedToolCall.id,
         toolName: completedToolCall.name,
@@ -1050,19 +989,19 @@ async function runToolCall(params: {
         toolArgs: completedToolCall.arguments,
         responseText: stagedResponseText,
         isError: stagedIsError,
-        offloadPath: preparedResult.kind === 'ok' ? preparedResult.offloadPath : undefined,
+        offloadPath: preparedResult.kind === "ok" ? preparedResult.offloadPath : undefined,
         searchPayload,
         rtkApplied: toolRawData.rtkApplied,
         rtkMode: toolRawData.rtkMode,
         rtkFallbackReason: toolRawData.rtkFallbackReason,
         imagePreviews,
         skillDraftPrompt: extractSkillDraftPromptPayload(toolRawData),
-        postHookKind: stagedIsError ? 'failure' : 'success'
+        postHookKind: stagedIsError ? "failure" : "success",
       },
-      toolsChanged: shouldRefreshToolsAfterCall(completedToolCall.name, toolRawData)
-    }
+      toolsChanged: shouldRefreshToolsAfterCall(completedToolCall.name, toolRawData),
+    };
   } catch (err) {
-    return buildToolErrorOutcome(execution, err)
+    return buildToolErrorOutcome(execution, err);
   }
 }
 
@@ -1081,53 +1020,52 @@ export async function executeTools(
   maxTokens: number,
   rendererFlushHandle: RendererFlushHandle,
   hooks?: ProcessHooks,
-  providerId?: string
+  providerId?: string,
 ): Promise<{
-  executed: number
-  pendingInteractions: PendingToolInteraction[]
-  toolsChanged: boolean
-  terminalError?: string
+  executed: number;
+  pendingInteractions: PendingToolInteraction[];
+  toolsChanged: boolean;
+  terminalError?: string;
 }> {
-  finalizePendingNarrativeBeforeToolExecution(state)
-  persistToolExecutionState(io, state, rendererFlushHandle)
+  finalizePendingNarrativeBeforeToolExecution(state);
+  persistToolExecutionState(io, state, rendererFlushHandle);
 
   if (state.pendingInteractions?.length) {
-    state.pendingInteractions = []
+    state.pendingInteractions = [];
   }
 
   for (const tc of state.completedToolCalls) {
-    const toolDef = tools.find((t) => t.function.name === tc.name)
-    if (!toolDef) continue
-    const block = state.blocks.find((b) => b.type === 'tool_call' && b.tool_call?.id === tc.id)
-    if (!block?.tool_call) continue
-    block.tool_call.server_name = toolDef.server.name
-    block.tool_call.server_icons = toolDef.server.icons
-    block.tool_call.server_description = toolDef.server.description
+    const toolDef = tools.find((t) => t.function.name === tc.name);
+    if (!toolDef) continue;
+    const block = state.blocks.find((b) => b.type === "tool_call" && b.tool_call?.id === tc.id);
+    if (!block?.tool_call) continue;
+    block.tool_call.server_name = toolDef.server.name;
+    block.tool_call.server_icons = toolDef.server.icons;
+    block.tool_call.server_description = toolDef.server.description;
   }
 
-  const iterationBlocks = state.blocks.slice(prevBlockCount)
-  const assistantContent =
-    extractAssistantContent(iterationBlocks) ?? extractTextFromBlocks(iterationBlocks)
+  const iterationBlocks = state.blocks.slice(prevBlockCount);
+  const assistantContent = extractAssistantContent(iterationBlocks) ?? extractTextFromBlocks(iterationBlocks);
   const assistantMessage: ChatMessage = {
-    role: 'assistant',
+    role: "assistant",
     content: assistantContent,
     tool_calls: state.completedToolCalls.map((tc) => ({
       id: tc.id,
-      type: 'function' as const,
+      type: "function" as const,
       function: { name: tc.name, arguments: tc.arguments },
-      ...(tc.providerOptions ? { provider_options: tc.providerOptions } : {})
-    }))
-  }
+      ...(tc.providerOptions ? { provider_options: tc.providerOptions } : {}),
+    })),
+  };
 
-  const reasoning = extractReasoningFromBlocks(iterationBlocks)
+  const reasoning = extractReasoningFromBlocks(iterationBlocks);
   const shouldPreserveReasoning =
     interleavedReasoning.preserveReasoningContent &&
-    (Boolean(reasoning) || interleavedReasoning.preserveEmptyReasoningContent === true)
+    (Boolean(reasoning) || interleavedReasoning.preserveEmptyReasoningContent === true);
   if (shouldPreserveReasoning) {
-    assistantMessage.reasoning_content = reasoning
-    const reasoningProviderOptions = extractReasoningProviderOptions(iterationBlocks)
+    assistantMessage.reasoning_content = reasoning;
+    const reasoningProviderOptions = extractReasoningProviderOptions(iterationBlocks);
     if (reasoningProviderOptions) {
-      assistantMessage.reasoning_provider_options = reasoningProviderOptions
+      assistantMessage.reasoning_provider_options = reasoningProviderOptions;
     }
   } else if (
     reasoning &&
@@ -1136,50 +1074,50 @@ export async function executeTools(
     !interleavedReasoning.portraitInterleaved
   ) {
     const gapPayload = {
-      providerId: providerId?.trim() || 'unknown-provider',
+      providerId: providerId?.trim() || "unknown-provider",
       modelId,
       providerDbSourceUrl: interleavedReasoning.providerDbSourceUrl,
       reasoningContentLength: reasoning.length,
-      toolCallCount: state.completedToolCalls.length
-    }
-    hooks?.onInterleavedReasoningGap?.(gapPayload)
+      toolCallCount: state.completedToolCalls.length,
+    };
+    hooks?.onInterleavedReasoningGap?.(gapPayload);
     if (!hooks?.onInterleavedReasoningGap) {
-      console.warn('[DeepChatDispatch] Missing interleaved reasoning portrait:', gapPayload)
+      console.warn("[DeepChatDispatch] Missing interleaved reasoning portrait:", gapPayload);
     }
   }
 
-  conversation.push(assistantMessage)
+  conversation.push(assistantMessage);
 
-  let executed = 0
-  let toolsChanged = false
-  const pendingInteractions: PendingToolInteraction[] = []
-  const stagedResults: StagedToolResult[] = []
+  let executed = 0;
+  let toolsChanged = false;
+  const pendingInteractions: PendingToolInteraction[] = [];
+  const stagedResults: StagedToolResult[] = [];
 
   const canRunReadOnlyBatchInParallel =
-    permissionMode === 'full_access' &&
+    permissionMode === "full_access" &&
     state.completedToolCalls.length > 1 &&
-    state.completedToolCalls.every((tc) => isParallelReadOnlyToolCall(tc, tools))
+    state.completedToolCalls.every((tc) => isParallelReadOnlyToolCall(tc, tools));
 
   if (canRunReadOnlyBatchInParallel) {
     const executions = state.completedToolCalls.map((tc) =>
-      buildToolExecutionContext(tc, tools, io.sessionId, providerId)
-    )
+      buildToolExecutionContext(tc, tools, io.sessionId, providerId),
+    );
 
     const outcomes = await Promise.all(
       executions.map(async (execution) => {
         try {
           if (toolPresenter.preCheckToolPermission) {
             const preChecked = await toolPresenter.preCheckToolPermission(execution.toolCall, {
-              permissionMode
-            })
+              permissionMode,
+            });
             if (preChecked?.needsPermission) {
               const permission = normalizePermissionRequest(preChecked as PermissionRequestLike, {
                 toolName: execution.toolContext.name,
                 serverName: execution.toolContext.serverName,
-                description: `Permission required for ${execution.toolContext.name}`
-              })
+                description: `Permission required for ${execution.toolContext.name}`,
+              });
               if (permission) {
-                await autoGrantPermission(hooks, io.sessionId, permission)
+                await autoGrantPermission(hooks, io.sessionId, permission);
               }
             }
           }
@@ -1187,8 +1125,8 @@ export async function executeTools(
           hooks?.onPreToolUse?.({
             callId: execution.completedToolCall.id,
             name: execution.completedToolCall.name,
-            params: execution.completedToolCall.arguments
-          })
+            params: execution.completedToolCall.arguments,
+          });
 
           return await runToolCall({
             execution,
@@ -1199,36 +1137,31 @@ export async function executeTools(
             state,
             rendererFlushHandle,
             toolOutputGuard,
-            allowProgressUpdates: false
-          })
+            allowProgressUpdates: false,
+          });
         } catch (error) {
-          return buildToolErrorOutcome(execution, error)
+          return buildToolErrorOutcome(execution, error);
         }
-      })
-    )
+      }),
+    );
 
     for (const outcome of outcomes) {
-      if (outcome.kind === 'permission') {
+      if (outcome.kind === "permission") {
         hooks?.onPermissionRequest?.(outcome.permission, {
           callId: outcome.toolContext.id,
           name: outcome.toolContext.name,
-          params: outcome.toolContext.args
-        })
-        const interaction = appendPermissionActionBlock(
-          state,
-          io,
-          outcome.toolContext,
-          outcome.permission
-        )
-        pendingInteractions.push(interaction)
-        updateToolCallBlock(state.blocks, outcome.toolContext.id, '', false)
-        rescheduleRendererFlush(state, rendererFlushHandle)
-        continue
+          params: outcome.toolContext.args,
+        });
+        const interaction = appendPermissionActionBlock(state, io, outcome.toolContext, outcome.permission);
+        pendingInteractions.push(interaction);
+        updateToolCallBlock(state.blocks, outcome.toolContext.id, "", false);
+        rescheduleRendererFlush(state, rendererFlushHandle);
+        continue;
       }
 
-      stagedResults.push(outcome.stagedResult)
-      toolsChanged = toolsChanged || outcome.toolsChanged
-      executed += 1
+      stagedResults.push(outcome.stagedResult);
+      toolsChanged = toolsChanged || outcome.toolsChanged;
+      executed += 1;
     }
 
     if (stagedResults.length > 0) {
@@ -1239,12 +1172,12 @@ export async function executeTools(
           toolName: result.toolName,
           responseText: result.responseText,
           isError: result.isError,
-          offloadPath: result.offloadPath
+          offloadPath: result.offloadPath,
         })),
         toolDefinitions: tools,
         contextLength,
-        maxTokens
-      })
+        maxTokens,
+      });
 
       applyFinalizedToolResults({
         stagedResults,
@@ -1253,49 +1186,49 @@ export async function executeTools(
         state,
         io,
         hooks,
-        appendToConversation: fittedResults.kind === 'ok'
-      })
+        appendToConversation: fittedResults.kind === "ok",
+      });
       if (state.pendingInteractions?.length) {
-        pendingInteractions.push(...state.pendingInteractions)
-        state.pendingInteractions = []
+        pendingInteractions.push(...state.pendingInteractions);
+        state.pendingInteractions = [];
       }
-      persistToolExecutionState(io, state, rendererFlushHandle)
+      persistToolExecutionState(io, state, rendererFlushHandle);
 
-      if (fittedResults.kind === 'terminal_error') {
+      if (fittedResults.kind === "terminal_error") {
         return {
           executed,
           pendingInteractions,
           toolsChanged,
-          terminalError: fittedResults.message
-        }
+          terminalError: fittedResults.message,
+        };
       }
     }
 
-    persistToolExecutionState(io, state, rendererFlushHandle)
-    return { executed, pendingInteractions, toolsChanged }
+    persistToolExecutionState(io, state, rendererFlushHandle);
+    return { executed, pendingInteractions, toolsChanged };
   }
 
   for (const tc of state.completedToolCalls) {
-    if (io.abortSignal.aborted) break
+    if (io.abortSignal.aborted) break;
 
-    const execution = buildToolExecutionContext(tc, tools, io.sessionId, providerId)
-    const { toolCall, toolContext } = execution
+    const execution = buildToolExecutionContext(tc, tools, io.sessionId, providerId);
+    const { toolCall, toolContext } = execution;
 
     try {
       if (toolCall.function.name === QUESTION_TOOL_NAME) {
-        const parsedQuestion = parseQuestionToolArgs(tc.arguments)
+        const parsedQuestion = parseQuestionToolArgs(tc.arguments);
         if (!parsedQuestion.success) {
-          const errorText = `Error: ${parsedQuestion.error}`
+          const errorText = `Error: ${parsedQuestion.error}`;
           conversation.push({
-            role: 'tool',
+            role: "tool",
             tool_call_id: tc.id,
-            content: errorText
-          })
-          updateToolCallBlock(state.blocks, tc.id, errorText, true)
-          state.dirty = true
-          executed += 1
-          persistToolExecutionState(io, state, rendererFlushHandle)
-          continue
+            content: errorText,
+          });
+          updateToolCallBlock(state.blocks, tc.id, errorText, true);
+          state.dirty = true;
+          executed += 1;
+          persistToolExecutionState(io, state, rendererFlushHandle);
+          continue;
         }
 
         const interaction = appendQuestionActionBlock(state, io, toolContext, {
@@ -1303,55 +1236,50 @@ export async function executeTools(
           question: parsedQuestion.data.question,
           options: parsedQuestion.data.options,
           custom: parsedQuestion.data.custom !== false,
-          multiple: Boolean(parsedQuestion.data.multiple)
-        })
-        pendingInteractions.push(interaction)
-        updateToolCallBlock(state.blocks, tc.id, '', false)
-        rescheduleRendererFlush(state, rendererFlushHandle)
-        continue
+          multiple: Boolean(parsedQuestion.data.multiple),
+        });
+        pendingInteractions.push(interaction);
+        updateToolCallBlock(state.blocks, tc.id, "", false);
+        rescheduleRendererFlush(state, rendererFlushHandle);
+        continue;
       }
 
-      let preCheckedPermission: PendingToolInteraction['permission'] | null = null
+      let preCheckedPermission: PendingToolInteraction["permission"] | null = null;
       if (toolPresenter.preCheckToolPermission) {
         const preChecked = await toolPresenter.preCheckToolPermission(toolCall, {
-          permissionMode
-        })
+          permissionMode,
+        });
         if (preChecked?.needsPermission) {
           preCheckedPermission = normalizePermissionRequest(preChecked as PermissionRequestLike, {
             toolName: toolContext.name,
             serverName: toolContext.serverName,
-            description: `Permission required for ${toolContext.name}`
-          })
+            description: `Permission required for ${toolContext.name}`,
+          });
         }
       }
 
       if (preCheckedPermission) {
-        if (permissionMode === 'full_access') {
-          await autoGrantPermission(hooks, io.sessionId, preCheckedPermission)
+        if (permissionMode === "full_access") {
+          await autoGrantPermission(hooks, io.sessionId, preCheckedPermission);
         } else {
           hooks?.onPermissionRequest?.(preCheckedPermission, {
             callId: tc.id,
             name: tc.name,
-            params: tc.arguments
-          })
-          const interaction = appendPermissionActionBlock(
-            state,
-            io,
-            toolContext,
-            preCheckedPermission
-          )
-          pendingInteractions.push(interaction)
-          updateToolCallBlock(state.blocks, tc.id, '', false)
-          rescheduleRendererFlush(state, rendererFlushHandle)
-          continue
+            params: tc.arguments,
+          });
+          const interaction = appendPermissionActionBlock(state, io, toolContext, preCheckedPermission);
+          pendingInteractions.push(interaction);
+          updateToolCallBlock(state.blocks, tc.id, "", false);
+          rescheduleRendererFlush(state, rendererFlushHandle);
+          continue;
         }
       }
 
       hooks?.onPreToolUse?.({
         callId: tc.id,
         name: tc.name,
-        params: tc.arguments
-      })
+        params: tc.arguments,
+      });
 
       const outcome = await runToolCall({
         execution,
@@ -1362,27 +1290,27 @@ export async function executeTools(
         state,
         rendererFlushHandle,
         toolOutputGuard,
-        allowProgressUpdates: true
-      })
+        allowProgressUpdates: true,
+      });
 
-      if (outcome.kind === 'permission') {
+      if (outcome.kind === "permission") {
         hooks?.onPermissionRequest?.(outcome.permission, {
           callId: tc.id,
           name: tc.name,
-          params: tc.arguments
-        })
-        const interaction = appendPermissionActionBlock(state, io, toolContext, outcome.permission)
-        pendingInteractions.push(interaction)
-        updateToolCallBlock(state.blocks, tc.id, '', false)
-        rescheduleRendererFlush(state, rendererFlushHandle)
-        continue
+          params: tc.arguments,
+        });
+        const interaction = appendPermissionActionBlock(state, io, toolContext, outcome.permission);
+        pendingInteractions.push(interaction);
+        updateToolCallBlock(state.blocks, tc.id, "", false);
+        rescheduleRendererFlush(state, rendererFlushHandle);
+        continue;
       }
 
-      stagedResults.push(outcome.stagedResult)
-      toolsChanged = toolsChanged || outcome.toolsChanged
-      executed += 1
+      stagedResults.push(outcome.stagedResult);
+      toolsChanged = toolsChanged || outcome.toolsChanged;
+      executed += 1;
     } catch (err) {
-      const errorText = err instanceof Error ? err.message : String(err)
+      const errorText = err instanceof Error ? err.message : String(err);
       stagedResults.push({
         toolCallId: tc.id,
         toolName: tc.name,
@@ -1390,9 +1318,9 @@ export async function executeTools(
         responseText: `Error: ${errorText}`,
         isError: true,
         searchPayload: null,
-        postHookKind: 'failure'
-      })
-      executed += 1
+        postHookKind: "failure",
+      });
+      executed += 1;
     }
   }
 
@@ -1404,12 +1332,12 @@ export async function executeTools(
         toolName: result.toolName,
         responseText: result.responseText,
         isError: result.isError,
-        offloadPath: result.offloadPath
+        offloadPath: result.offloadPath,
       })),
       toolDefinitions: tools,
       contextLength,
-      maxTokens
-    })
+      maxTokens,
+    });
 
     applyFinalizedToolResults({
       stagedResults,
@@ -1418,114 +1346,106 @@ export async function executeTools(
       state,
       io,
       hooks,
-      appendToConversation: fittedResults.kind === 'ok'
-    })
+      appendToConversation: fittedResults.kind === "ok",
+    });
     if (state.pendingInteractions?.length) {
-      pendingInteractions.push(...state.pendingInteractions)
-      state.pendingInteractions = []
+      pendingInteractions.push(...state.pendingInteractions);
+      state.pendingInteractions = [];
     }
-    persistToolExecutionState(io, state, rendererFlushHandle)
+    persistToolExecutionState(io, state, rendererFlushHandle);
 
-    if (fittedResults.kind === 'terminal_error') {
+    if (fittedResults.kind === "terminal_error") {
       return {
         executed,
         pendingInteractions,
         toolsChanged,
-        terminalError: fittedResults.message
-      }
+        terminalError: fittedResults.message,
+      };
     }
   }
 
-  persistToolExecutionState(io, state, rendererFlushHandle)
-  return { executed, pendingInteractions, toolsChanged }
+  persistToolExecutionState(io, state, rendererFlushHandle);
+  return { executed, pendingInteractions, toolsChanged };
 }
 
 export function finalizePaused(state: StreamState, io: IoParams): void {
   for (const block of state.blocks) {
     if (
-      block.type === 'action' &&
-      (block.action_type === 'tool_call_permission' || block.action_type === 'question_request') &&
-      block.status === 'pending'
+      block.type === "action" &&
+      (block.action_type === "tool_call_permission" || block.action_type === "question_request") &&
+      block.status === "pending"
     ) {
-      continue
+      continue;
     }
-    if (block.status === 'pending') {
-      block.status = 'success'
+    if (block.status === "pending") {
+      block.status = "success";
     }
   }
 
-  io.messageStore.updateAssistantContent(io.messageId, state.blocks)
-  flushBlocksToRenderer(io, state.blocks)
+  io.messageStore.updateAssistantContent(io.messageId, state.blocks);
+  flushBlocksToRenderer(io, state.blocks);
   eventBus.sendToRenderer(STREAM_EVENTS.END, SendTarget.ALL_WINDOWS, {
     conversationId: io.sessionId,
     eventId: io.messageId,
-    messageId: io.messageId
-  })
+    messageId: io.messageId,
+  });
 }
 
 export function finalize(state: StreamState, io: IoParams): void {
   for (const block of state.blocks) {
-    if (block.status === 'pending') block.status = 'success'
+    if (block.status === "pending") block.status = "success";
   }
 
-  const endTime = Date.now()
-  state.metadata.generationTime = endTime - state.startTime
+  const endTime = Date.now();
+  state.metadata.generationTime = endTime - state.startTime;
   if (state.firstTokenTime !== null) {
-    state.metadata.firstTokenTime = state.firstTokenTime - state.startTime
+    state.metadata.firstTokenTime = state.firstTokenTime - state.startTime;
   }
   if (state.metadata.outputTokens && state.metadata.generationTime > 0) {
-    state.metadata.tokensPerSecond = Math.round(
-      (state.metadata.outputTokens / state.metadata.generationTime) * 1000
-    )
+    state.metadata.tokensPerSecond = Math.round((state.metadata.outputTokens / state.metadata.generationTime) * 1000);
   }
 
-  io.messageStore.finalizeAssistantMessage(
-    io.messageId,
-    state.blocks,
-    JSON.stringify(state.metadata)
-  )
-  flushBlocksToRenderer(io, state.blocks)
+  io.messageStore.finalizeAssistantMessage(io.messageId, state.blocks, JSON.stringify(state.metadata));
+  flushBlocksToRenderer(io, state.blocks);
   eventBus.sendToRenderer(STREAM_EVENTS.END, SendTarget.ALL_WINDOWS, {
     conversationId: io.sessionId,
     eventId: io.messageId,
-    messageId: io.messageId
-  })
-  publishDeepchatEvent('chat.stream.completed', {
+    messageId: io.messageId,
+  });
+  publishDeepchatEvent("chat.stream.completed", {
     requestId: io.requestId,
     sessionId: io.sessionId,
     messageId: io.messageId,
-    completedAt: Date.now()
-  })
+    completedAt: Date.now(),
+  });
 }
 
 export function finalizeError(state: StreamState, io: IoParams, error: unknown): void {
-  const errorMessage = error instanceof Error ? error.message : String(error)
-  state.blocks = buildTerminalErrorBlocks(state.blocks, errorMessage)
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  state.blocks = buildTerminalErrorBlocks(state.blocks, errorMessage);
 
-  const endTime = Date.now()
-  state.metadata.generationTime = endTime - state.startTime
+  const endTime = Date.now();
+  state.metadata.generationTime = endTime - state.startTime;
   if (state.firstTokenTime !== null) {
-    state.metadata.firstTokenTime = state.firstTokenTime - state.startTime
+    state.metadata.firstTokenTime = state.firstTokenTime - state.startTime;
   }
   if (state.metadata.outputTokens && state.metadata.generationTime > 0) {
-    state.metadata.tokensPerSecond = Math.round(
-      (state.metadata.outputTokens / state.metadata.generationTime) * 1000
-    )
+    state.metadata.tokensPerSecond = Math.round((state.metadata.outputTokens / state.metadata.generationTime) * 1000);
   }
 
-  io.messageStore.setMessageError(io.messageId, state.blocks, JSON.stringify(state.metadata))
-  flushBlocksToRenderer(io, state.blocks)
+  io.messageStore.setMessageError(io.messageId, state.blocks, JSON.stringify(state.metadata));
+  flushBlocksToRenderer(io, state.blocks);
   eventBus.sendToRenderer(STREAM_EVENTS.ERROR, SendTarget.ALL_WINDOWS, {
     conversationId: io.sessionId,
     eventId: io.messageId,
     messageId: io.messageId,
-    error: errorMessage
-  })
-  publishDeepchatEvent('chat.stream.failed', {
+    error: errorMessage,
+  });
+  publishDeepchatEvent("chat.stream.failed", {
     requestId: io.requestId,
     sessionId: io.sessionId,
     messageId: io.messageId,
     failedAt: Date.now(),
-    error: errorMessage
-  })
+    error: errorMessage,
+  });
 }

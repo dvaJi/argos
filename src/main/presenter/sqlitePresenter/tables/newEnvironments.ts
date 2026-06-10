@@ -1,15 +1,15 @@
-import Database from 'better-sqlite3-multiple-ciphers'
-import { BaseTable } from './baseTable'
+import Database from "better-sqlite3-multiple-ciphers";
+import { BaseTable } from "./baseTable";
 
 export interface NewEnvironmentRow {
-  path: string
-  session_count: number
-  last_used_at: number
+  path: string;
+  session_count: number;
+  last_used_at: number;
 }
 
 export class NewEnvironmentsTable extends BaseTable {
   constructor(db: Database.Database) {
-    super(db, 'new_environments')
+    super(db, "new_environments");
   }
 
   private getEnvironmentUsageSQL(pathFilter: boolean = false): string {
@@ -43,7 +43,7 @@ export class NewEnvironmentsTable extends BaseTable {
           path,
           MAX(activity_at) AS activity_at
         FROM environment_usage
-        ${pathFilter ? 'WHERE path = ?' : ''}
+        ${pathFilter ? "WHERE path = ?" : ""}
         GROUP BY session_id, path
       )
       SELECT
@@ -52,7 +52,7 @@ export class NewEnvironmentsTable extends BaseTable {
         MAX(activity_at) AS last_used_at
       FROM normalized_usage
       GROUP BY path
-    `
+    `;
   }
 
   getCreateTableSQL(): string {
@@ -64,7 +64,7 @@ export class NewEnvironmentsTable extends BaseTable {
       );
       CREATE INDEX IF NOT EXISTS idx_new_environments_last_used
         ON new_environments(last_used_at DESC);
-    `
+    `;
   }
 
   getMigrationSQL(version: number): string | null {
@@ -85,7 +85,7 @@ export class NewEnvironmentsTable extends BaseTable {
           AND TRIM(project_dir) <> ''
           AND is_draft = 0
         GROUP BY project_dir;
-      `
+      `;
     }
 
     if (version === 18) {
@@ -93,45 +93,45 @@ export class NewEnvironmentsTable extends BaseTable {
         DELETE FROM new_environments;
         INSERT INTO new_environments (path, session_count, last_used_at)
         ${this.getEnvironmentUsageSQL()};
-      `
+      `;
     }
 
-    return null
+    return null;
   }
 
   getLatestVersion(): number {
-    return 18
+    return 18;
   }
 
   list(): NewEnvironmentRow[] {
     return this.db
-      .prepare('SELECT * FROM new_environments ORDER BY last_used_at DESC, path ASC')
-      .all() as NewEnvironmentRow[]
+      .prepare("SELECT * FROM new_environments ORDER BY last_used_at DESC, path ASC")
+      .all() as NewEnvironmentRow[];
   }
 
   rebuildFromSessions(): void {
     this.db.transaction(() => {
-      this.db.prepare('DELETE FROM new_environments').run()
+      this.db.prepare("DELETE FROM new_environments").run();
       this.db.exec(`
         INSERT INTO new_environments (path, session_count, last_used_at)
         ${this.getEnvironmentUsageSQL()}
-      `)
-    })()
+      `);
+    })();
   }
 
   syncPath(projectPath: string | null | undefined): void {
-    const normalizedPath = projectPath?.trim()
+    const normalizedPath = projectPath?.trim();
     if (!normalizedPath) {
-      return
+      return;
     }
 
     const aggregate = this.db.prepare(this.getEnvironmentUsageSQL(true)).get(normalizedPath) as
       | { session_count: number; last_used_at: number | null }
-      | undefined
+      | undefined;
 
     if (!aggregate?.session_count || !aggregate.last_used_at) {
-      this.db.prepare('DELETE FROM new_environments WHERE path = ?').run(normalizedPath)
-      return
+      this.db.prepare("DELETE FROM new_environments WHERE path = ?").run(normalizedPath);
+      return;
     }
 
     this.db
@@ -140,9 +140,9 @@ export class NewEnvironmentsTable extends BaseTable {
          VALUES (?, ?, ?)
          ON CONFLICT(path) DO UPDATE SET
            session_count = excluded.session_count,
-           last_used_at = excluded.last_used_at`
+           last_used_at = excluded.last_used_at`,
       )
-      .run(normalizedPath, aggregate.session_count, aggregate.last_used_at)
+      .run(normalizedPath, aggregate.session_count, aggregate.last_used_at);
   }
 
   listPathsForSession(sessionId: string): string[] {
@@ -169,23 +169,23 @@ export class NewEnvironmentsTable extends BaseTable {
               AND acp.workdir IS NOT NULL
               AND TRIM(acp.workdir) <> ''
           )
-        `
+        `,
       )
       .all(sessionId, sessionId)
-      .map((row) => (row as { path: string }).path)
+      .map((row) => (row as { path: string }).path);
   }
 
   syncSessionPaths(sessionId: string): void {
     for (const path of this.listPathsForSession(sessionId)) {
-      this.syncPath(path)
+      this.syncPath(path);
     }
   }
 
   syncForSession(sessionId: string): void {
-    this.syncSessionPaths(sessionId)
+    this.syncSessionPaths(sessionId);
   }
 
   clear(): void {
-    this.db.prepare('DELETE FROM new_environments').run()
+    this.db.prepare("DELETE FROM new_environments").run();
   }
 }

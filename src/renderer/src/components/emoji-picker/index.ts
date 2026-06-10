@@ -1,4 +1,4 @@
-import EmojiPicker from './EmojiPicker'
+import EmojiPicker from "./EmojiPicker";
 
-export { EmojiPicker }
-export default EmojiPicker
+export { EmojiPicker };
+export default EmojiPicker;
