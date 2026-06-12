@@ -31,7 +31,11 @@ function findDaemonExecutable(): string {
 
   const platform = process.platform;
   const ext = platform === "win32" ? ".exe" : "";
-  return join(process.resourcesPath || process.cwd(), "daemon", `argos-daemon${ext}`);
+
+  const resourcesPath = process.resourcesPath || join(process.cwd(), "resources");
+  const bundledPath = join(resourcesPath, "daemon", `argos-daemon${ext}`);
+
+  return bundledPath;
 }
 
 function getExecutableArgs(executable: string, options: SidecarOptions): string[] {

@@ -179,7 +179,7 @@
 
 ### T6.1 Sidecar manager in Electron main
 
-- [ ] Bundle daemon executable with desktop app
+- [x] Bundle daemon executable with desktop app
 - [x] Spawn daemon on app startup with auto-assigned port
 - [x] Health check loop (retry `/health` every 500ms, timeout 10s)
 - [x] Restart daemon on crash (max 3 retries, then show error)

@@ -43,6 +43,9 @@ extraResources:
   - from: ./build/bundled-plugins/
     to: app.asar.unpacked/plugins
     filter: ["**/*.dcplugin"]
+  - from: ./apps/daemon/dist/
+    to: daemon
+    filter: ["argos-daemon*"]
 electronLanguages:
   - zh-CN
   - zh-TW
