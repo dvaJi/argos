@@ -306,15 +306,76 @@ async function run(): Promise<void> {
 
     // === Tier 2 routes (not yet supported) ===
     console.log("\n--- Tier 2 routes (not yet supported) ---");
-    await test("sessions.list returns coming soon", async () => {
+    await test("sessions.list returns empty array", async () => {
       const result = await postRoute(port, "sessions.list");
-      assert(!result.ok, "should not be ok");
-      assert(
-        result.error.message.includes("Coming soon") ||
-          result.error.message.includes("not yet available") ||
-          result.error.message.includes("not available"),
-        "error message indicates not yet available",
-      );
+      assert(result.ok, "should be ok");
+      assert(Array.isArray(result.output.sessions), "sessions is array");
+    });
+
+    let createdSessionId: string;
+
+    await test("sessions.create", async () => {
+      const result = await postRoute(port, "sessions.create", {
+        agentId: "deepchat",
+        message: "Hello from E2E test",
+      });
+      assert(result.ok, "should be ok");
+      assert(result.output.session, "session exists");
+      assert(result.output.session.id, "session has id");
+      assertEq(result.output.session.agentId, "deepchat", "agentId");
+      createdSessionId = result.output.session.id;
+    });
+
+    await test("sessions.list after create", async () => {
+      const result = await postRoute(port, "sessions.list");
+      assert(result.ok, "should be ok");
+      assert(result.output.sessions.length >= 1, "has sessions");
+    });
+
+    await test("sessions.restore", async () => {
+      const result = await postRoute(port, "sessions.restore", { sessionId: createdSessionId });
+      assert(result.ok, "should be ok");
+      assert(result.output.session, "session exists");
+      assert(result.output.session.id === createdSessionId, "correct session");
+    });
+
+    await test("sessions.rename", async () => {
+      const result = await postRoute(port, "sessions.rename", {
+        sessionId: createdSessionId,
+        title: "Renamed Session",
+      });
+      assert(result.ok, "should be ok");
+      assertEq(result.output.updated, true, "updated");
+    });
+
+    await test("sessions.togglePinned", async () => {
+      const result = await postRoute(port, "sessions.togglePinned", {
+        sessionId: createdSessionId,
+        pinned: true,
+      });
+      assert(result.ok, "should be ok");
+      assertEq(result.output.updated, true, "updated");
+    });
+
+    await test("sessions.setProjectDir", async () => {
+      const result = await postRoute(port, "sessions.setProjectDir", {
+        sessionId: createdSessionId,
+        projectDir: "/tmp/test-project",
+      });
+      assert(result.ok, "should be ok");
+      assertEq(result.output.session.projectDir, "/tmp/test-project", "projectDir");
+    });
+
+    await test("sessions.delete", async () => {
+      const result = await postRoute(port, "sessions.delete", { sessionId: createdSessionId });
+      assert(result.ok, "should be ok");
+    });
+
+    await test("sessions.list after delete", async () => {
+      const result = await postRoute(port, "sessions.list");
+      assert(result.ok, "should be ok");
+      const found = result.output.sessions.find((s: any) => s.id === createdSessionId);
+      assert(!found, "deleted session not in list");
     });
 
     await test("chat.sendMessage returns coming soon", async () => {

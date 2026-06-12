@@ -47,6 +47,16 @@ import {
   modelsSetStatusRoute,
   modelsSetBatchStatusRoute,
   toolsListDefinitionsRoute,
+  sessionsCreateRoute,
+  sessionsListRoute,
+  sessionsRestoreRoute,
+  sessionsDeleteRoute,
+  sessionsRenameRoute,
+  sessionsTogglePinnedRoute,
+  sessionsSetProjectDirRoute,
+  sessionsGetActiveRoute,
+  sessionsActivateRoute,
+  sessionsDeactivateRoute,
 } from "@argos/shared-contracts/routes";
 
 type RouteDispatcher = (route: DeepchatRouteName, input: unknown) => Promise<unknown>;
@@ -96,8 +106,10 @@ function isDesktopOnlyRoute(route: string): boolean {
 export function createDaemonDispatcher(
   configPresenter: IConfigPresenter,
   eventPublisher?: IEventPublisher,
+  sessionRepository?: any,
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
+  const runtime = { sessionRepository };
 
   return async function dispatchDaemonRoute(route: DeepchatRouteName, rawInput: unknown): Promise<unknown> {
     if (isDesktopOnlyRoute(route)) {
@@ -335,6 +347,92 @@ export function createDaemonDispatcher(
           searchDefaults: null,
         },
       });
+    }
+
+    if (route === sessionsListRoute.name) {
+      const input = sessionsListRoute.input.parse(rawInput);
+      const sessions = await (runtime as any).sessionRepository.list(input);
+      return sessionsListRoute.output.parse({ sessions });
+    }
+
+    if (route === sessionsCreateRoute.name) {
+      const input = sessionsCreateRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.create(input, 0);
+      return sessionsCreateRoute.output.parse({ session });
+    }
+
+    if (route === sessionsRestoreRoute.name) {
+      const input = sessionsRestoreRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      if (!session) {
+        return sessionsRestoreRoute.output.parse({
+          session: null,
+          messages: [],
+          nextCursor: null,
+          hasMore: false,
+        });
+      }
+      const messages = await (runtime as any).sessionRepository.listMessages(input.sessionId);
+      return sessionsRestoreRoute.output.parse({
+        session,
+        messages: messages.map((m: any, idx: number) => ({
+          id: m.id,
+          sessionId: m.session_id,
+          role: m.role,
+          content: m.content,
+          status: "sent",
+          isContextEdge: idx === 0 ? 1 : 0,
+          metadata: m.metadata || "{}",
+          createdAt: m.created_at,
+          updatedAt: m.updated_at,
+          orderSeq: idx,
+        })),
+        nextCursor: null,
+        hasMore: false,
+      });
+    }
+
+    if (route === sessionsDeleteRoute.name) {
+      const input = sessionsDeleteRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.delete(input.sessionId);
+      return sessionsDeleteRoute.output.parse({ deleted: true });
+    }
+
+    if (route === sessionsRenameRoute.name) {
+      const input = sessionsRenameRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.rename(input.sessionId, input.title);
+      return sessionsRenameRoute.output.parse({ updated: true });
+    }
+
+    if (route === sessionsTogglePinnedRoute.name) {
+      const input = sessionsTogglePinnedRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.setPinned(input.sessionId, input.pinned);
+      return sessionsTogglePinnedRoute.output.parse({ updated: true });
+    }
+
+    if (route === sessionsSetProjectDirRoute.name) {
+      const input = sessionsSetProjectDirRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.setProjectDir(input.sessionId, input.projectDir);
+      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      return sessionsSetProjectDirRoute.output.parse({ session });
+    }
+
+    if (route === sessionsGetActiveRoute.name) {
+      sessionsGetActiveRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.getActive(0);
+      return sessionsGetActiveRoute.output.parse({ session });
+    }
+
+    if (route === sessionsActivateRoute.name) {
+      const input = sessionsActivateRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.activate(0, input.sessionId);
+      return sessionsActivateRoute.output.parse({ activated: true });
+    }
+
+    if (route === sessionsDeactivateRoute.name) {
+      sessionsDeactivateRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.deactivate(0);
+      return sessionsDeactivateRoute.output.parse({ deactivated: true });
     }
 
     const prefix = getRoutePrefix(route);

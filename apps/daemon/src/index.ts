@@ -46,7 +46,11 @@ export async function startDaemon(options?: {
   const eventPublisher = new BunEventPublisher();
   const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
 
-  const dispatcher = options?.dispatcher ?? createDaemonDispatcher(configPresenter as any, eventPublisher);
+  const { BunSessionRepository } = await import("./host/bun-session-repository");
+  const sessionRepository = new BunSessionRepository(db);
+
+  const dispatcher =
+    options?.dispatcher ?? createDaemonDispatcher(configPresenter as any, eventPublisher, sessionRepository);
   setRouteDispatcher(dispatcher);
 
   const host = options?.host || "127.0.0.1";
