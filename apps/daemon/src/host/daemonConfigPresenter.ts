@@ -316,6 +316,123 @@ export class DaemonConfigPresenter {
   supportsAudioInputCapability(providerId: string, modelId: string): boolean {
     return false;
   }
+
+  getFontFamily(): string {
+    return (this.store.fontFamily as string) ?? "";
+  }
+
+  setFontFamily(fontFamily?: string | null): void {
+    this.store.fontFamily = fontFamily ?? "";
+    this.save();
+  }
+
+  getCodeFontFamily(): string {
+    return (this.store.codeFontFamily as string) ?? "";
+  }
+
+  setCodeFontFamily(fontFamily?: string | null): void {
+    this.store.codeFontFamily = fontFamily ?? "";
+    this.save();
+  }
+
+  getAutoScrollEnabled(): boolean {
+    return (this.store.autoScrollEnabled as boolean) ?? true;
+  }
+
+  setAutoScrollEnabled(enabled: boolean): void {
+    this.store.autoScrollEnabled = enabled;
+    this.save();
+  }
+
+  getAutoCompactionEnabled(): boolean {
+    return (this.store.autoCompactionEnabled as boolean) ?? false;
+  }
+
+  setAutoCompactionEnabled(enabled: boolean): void {
+    this.store.autoCompactionEnabled = enabled;
+    this.save();
+  }
+
+  getAutoCompactionTriggerThreshold(): number {
+    return (this.store.autoCompactionTriggerThreshold as number) ?? 0.8;
+  }
+
+  setAutoCompactionTriggerThreshold(threshold: number): void {
+    this.store.autoCompactionTriggerThreshold = threshold;
+    this.save();
+  }
+
+  getAutoCompactionRetainRecentPairs(): number {
+    return (this.store.autoCompactionRetainRecentPairs as number) ?? 2;
+  }
+
+  setAutoCompactionRetainRecentPairs(count: number): void {
+    this.store.autoCompactionRetainRecentPairs = count;
+    this.save();
+  }
+
+  getContentProtectionEnabled(): boolean {
+    return (this.store.contentProtectionEnabled as boolean) ?? false;
+  }
+
+  setContentProtectionEnabled(enabled: boolean): void {
+    this.store.contentProtectionEnabled = enabled;
+    this.save();
+  }
+
+  getPrivacyModeEnabled(): boolean {
+    return (this.store.privacyModeEnabled as boolean) ?? false;
+  }
+
+  setPrivacyModeEnabled(enabled: boolean): void {
+    this.store.privacyModeEnabled = enabled;
+    this.save();
+  }
+
+  getNotificationsEnabled(): boolean {
+    return (this.store.notificationsEnabled as boolean) ?? true;
+  }
+
+  setNotificationsEnabled(enabled: boolean): void {
+    this.store.notificationsEnabled = enabled;
+    this.save();
+  }
+
+  getLaunchAtLoginEnabled(): boolean {
+    return (this.store.launchAtLoginEnabled as boolean) ?? false;
+  }
+
+  setLaunchAtLoginEnabled(enabled: boolean): void {
+    this.store.launchAtLoginEnabled = enabled;
+    this.save();
+  }
+
+  getCopyWithCotEnabled(): boolean {
+    return (this.store.copyWithCotEnabled as boolean) ?? false;
+  }
+
+  setCopyWithCotEnabled(enabled: boolean): void {
+    this.store.copyWithCotEnabled = enabled;
+    this.save();
+  }
+
+  getLoggingEnabled(): boolean {
+    return (this.store.loggingEnabled as boolean) ?? false;
+  }
+
+  setLoggingEnabled(enabled: boolean): void {
+    this.store.loggingEnabled = enabled;
+    this.save();
+  }
+
+  async getSystemFonts(): Promise<string[]> {
+    return [];
+  }
+
+  setTraceDebugEnabled(enabled: boolean): void {
+    this.store.traceDebugEnabled = enabled;
+    this.save();
+  }
 }
 
 export function notImplemented(method: string): never {
