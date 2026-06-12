@@ -208,26 +208,26 @@
 
 ### T7.1 Settings UI for remote daemon
 
-- [ ] Add "Server" section in Settings
-- [ ] Local/Remote toggle
-- [ ] Remote: `serverUrl` input + auth token input + "Test Connection" button
-- [ ] Connection test hits `/health` with auth header
-- [ ] Store remote config securely
+- [x] Add "Server" section in Settings
+- [x] Local/Remote toggle
+- [x] Remote: `serverUrl` input + auth token input + "Test Connection" button
+- [x] Connection test hits `/health` with auth header
+- [x] Store remote config securely
 
 ### T7.2 Remote connection logic
 
-- [ ] When remote mode: renderer connects to `serverUrl` via WebSocket
-- [ ] Auth token sent on WS connect + HTTP Authorization header
+- [x] When remote mode: renderer connects to `serverUrl` via WebSocket
+- [x] Auth token sent on WS connect + HTTP Authorization header
 - [ ] Reconnect logic: exponential backoff, max 30s, show status in UI
 - [ ] Connection state indicator in UI (connected/disconnected/reconnecting)
-- [ ] Tailscale MagicDNS: no localhost-only assumptions in URL handling
+- [x] Tailscale MagicDNS: no localhost-only assumptions in URL handling
 
 ### T7.3 Security
 
-- [ ] Localhost connections: no auth required
-- [ ] Remote connections: token auth required
-- [ ] Token generated on daemon first run, printed to stdout
+- [x] Localhost connections: no auth required
+- [x] Remote connections: token auth required
+- [x] Token generated on daemon first run, printed to stdout
 - [ ] Desktop shows token in settings for copy
 - [ ] Rate limiting on auth failures
 
-> **Status: NOT STARTED**
+> **Status: PARTIAL.** Server settings UI added with Local/Remote toggle, URL input, auth token input, and Test Connection button. Config stored in localStorage. Connection test validates `/health` endpoint with auth header. Daemon auth works for remote connections. WebSocket reconnection with backoff already implemented in WebSocketBridge. Remaining: connection state indicator in main UI, token display in settings, rate limiting.

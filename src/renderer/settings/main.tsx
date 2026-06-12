@@ -22,6 +22,7 @@ import McpSettings from "./components/McpSettings";
 import DeepChatAgentsSettings from "./components/DeepChatAgentsSettings";
 import AcpSettings from "./components/AcpSettings";
 import RemoteSettings from "./components/RemoteSettings";
+import ServerSettings from "./components/ServerSettings";
 import NotificationsHooksSettings from "./components/NotificationsHooksSettings";
 import ScheduledTasksSettings from "./components/ScheduledTasksSettings";
 import PluginsSettings from "./components/PluginsSettings";
@@ -50,6 +51,7 @@ const componentMap: Record<string, RouteComponent> = {
   "settings-deepchat-agents": DeepChatAgentsSettings,
   "settings-acp": AcpSettings,
   "settings-remote": RemoteSettings,
+  "settings-server": ServerSettings,
   "settings-notifications-hooks": NotificationsHooksSettings,
   "settings-scheduled-tasks": ScheduledTasksSettings,
   "settings-plugins": PluginsSettings,

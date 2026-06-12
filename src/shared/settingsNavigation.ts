@@ -10,6 +10,7 @@ export interface SettingsNavigationItem {
     | "settings-deepchat-agents"
     | "settings-acp"
     | "settings-remote"
+    | "settings-server"
     | "settings-notifications-hooks"
     | "settings-scheduled-tasks"
     | "settings-plugins"
@@ -159,6 +160,15 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     position: 5,
     groupKey: "tools",
     keywords: ["mcp", "tools", "server", "model context protocol", "工具", "服务"],
+  },
+  {
+    routeName: "settings-server",
+    path: "/server",
+    titleKey: "routes.settings-server",
+    icon: "lucide:server",
+    position: 5.2,
+    groupKey: "system",
+    keywords: ["server", "daemon", "remote", "tailscale", "connect", "服务器", "守护进程"],
   },
   {
     routeName: "settings-remote",
@@ -311,6 +321,7 @@ const TITLE_MAP: Record<string, string> = {
   "routes.settings-mcp": "MCP Settings",
   "routes.settings-deepchat-agents": "DeepChat Agents",
   "routes.settings-acp": "ACP Agents",
+  "routes.settings-server": "Server",
   "routes.settings-remote": "Remote",
   "routes.settings-notifications-hooks": "Hooks",
   "routes.settings-scheduled-tasks": "Scheduled Tasks",

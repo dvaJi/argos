@@ -12,6 +12,7 @@ export const SettingsRouteNameSchema = z.enum([
   "settings-deepchat-agents",
   "settings-acp",
   "settings-remote",
+  "settings-server",
   "settings-notifications-hooks",
   "settings-scheduled-tasks",
   "settings-plugins",
