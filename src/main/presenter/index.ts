@@ -937,6 +937,9 @@ export function getInstance(lifecycleManager: ILifecycleManager): Presenter {
 
 registerMainKernelRoutes(ipcMain, () => (presenter ? getMainKernelRouteRuntime() : undefined));
 
+import { registerDaemonPortHandler } from "@/routes/daemonPortHandler";
+registerDaemonPortHandler();
+
 // 检查对象属性是否为函数 (用于动态调用)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isFunction(obj: any, prop: string): obj is { [key: string]: (...args: any[]) => any } {

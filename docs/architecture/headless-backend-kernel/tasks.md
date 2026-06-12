@@ -188,10 +188,10 @@
 
 ### T6.2 Renderer switches to WebSocket transport
 
-- [ ] Desktop main process provides `ws://127.0.0.1:<port>` to renderer
-- [ ] Renderer uses `WebSocketBridge` from client-sdk
+- [x] Desktop main process provides `ws://127.0.0.1:<port>` to renderer
+- [x] Renderer uses `WebSocketBridge` from client-sdk
 - [ ] Tier 3 routes (window, browser, tab, dialog, upgrade) handled by Electron IPC fallback
-- [ ] Hybrid transport: WS for daemon routes, IPC for desktop-only routes
+- [x] Hybrid transport: WS for daemon routes, IPC for desktop-only routes
 - [ ] Verify all existing UI flows work
 
 ### T6.3 End-to-end validation
@@ -202,7 +202,7 @@
 - [ ] Performance: no regression in startup time or chat latency
 - [ ] `pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test`
 
-> **Status: PARTIAL.** Sidecar manager implemented with spawn, health check, crash restart, graceful shutdown. Lifecycle hooks registered (INIT phase: start, BEFORE_QUIT: stop). Daemon runs via `bun run` in dev mode. Renderer WebSocket transport not yet wired — requires exposing daemon port to renderer and creating a hybrid bridge adapter.
+> **Status: HYBRID TRANSPORT WIRED.** Sidecar manager spawns daemon and exposes port via IPC. Preload creates HybridBridge that routes desktop-only routes (window.*, browser.*, tab.*, etc.) via IPC and all other routes via WebSocket to daemon. WS connection auto-reconnects on failure with IPC fallback. Renderer API unchanged — `window.deepchat` now transparently uses the best available transport.
 
 ## Milestone 7: Remote Attach
 

@@ -3,15 +3,15 @@ import { clipboard, contextBridge, nativeImage, webUtils, webFrame, ipcRenderer,
 import { exposeElectronAPI } from "@electron-toolkit/preload";
 import { normalizeExternalUrl } from "@shared/externalUrl";
 import { createBridge } from "./createBridge";
+import { HybridBridge, WebSocketBridgeAdapter } from "./hybridBridge";
 
 const isDevHiddenApiEnabled = process.env.NODE_ENV === "development" || Boolean(process.env.ELECTRON_RENDERER_URL);
 const DEV_WELCOME_OVERRIDE_KEY = "__deepchat_dev_force_welcome";
+const DAEMON_PORT_CHANNEL = "get-daemon-port";
 
-// Cache variables
 let cachedWindowId: number | undefined = undefined;
 let cachedWebContentsId: number | undefined = undefined;
 
-// Custom APIs for renderer
 const api = Object.freeze({
   copyText: (text: string) => {
     clipboard.writeText(text);
@@ -70,18 +70,15 @@ const api = Object.freeze({
       return filePath;
     }
 
-    // Prefer double quotes; escape any existing ones
     if (hasDoubleQuote) {
       const escaped = filePath.replace(/"/g, '\\"');
       return `"${escaped}"`;
     }
 
-    // Use double quotes when only spaces
     if (containsSpace) {
       return `"${filePath}"`;
     }
 
-    // Fallback: no spaces but contains single quotes
     return `'${filePath.replace(/'/g, `'\\''`)}'`;
   },
 });
@@ -111,13 +108,29 @@ const deepchatDevApi = isDevHiddenApiEnabled
       },
     })
   : undefined;
-const deepchatBridge = Object.freeze(createBridge(ipcRenderer));
+
+const ipcBridge = createBridge(ipcRenderer);
+const hybridBridge = new HybridBridge(ipcBridge);
+
+async function initDaemonConnection(): Promise<void> {
+  try {
+    const daemonInfo = await ipcRenderer.invoke(DAEMON_PORT_CHANNEL);
+    if (daemonInfo && daemonInfo.port) {
+      const wsUrl = `ws://127.0.0.1:${daemonInfo.port}/api/v1/events`;
+      const wsAdapter = new WebSocketBridgeAdapter(wsUrl);
+      await wsAdapter.connect();
+      hybridBridge.setWsBridge(wsAdapter);
+      console.log(`[preload] Connected to daemon on port ${daemonInfo.port}`);
+    }
+  } catch (error) {
+    console.warn("[preload] Failed to connect to daemon (using IPC fallback):", error);
+  }
+}
+
+const deepchatBridge = Object.freeze(hybridBridge);
 
 exposeElectronAPI();
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("api", api);
@@ -129,19 +142,21 @@ if (process.contextIsolated) {
     console.error("Preload: Failed to expose API via contextBridge:", error);
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore
   window.api = api;
-  // @ts-ignore (define in dts)
+  // @ts-ignore
   window.deepchat = deepchatBridge;
   if (deepchatDevApi) {
-    // @ts-ignore (define in dts)
+    // @ts-ignore
     window.__deepchatDev = deepchatDevApi;
   }
 }
+
 window.addEventListener("DOMContentLoaded", () => {
   cachedWebContentsId = ipcRenderer.sendSync("get-web-contents-id");
   cachedWindowId = ipcRenderer.sendSync("get-window-id");
   console.log("Preload: Initialized with WebContentsId:", cachedWebContentsId, "WindowId:", cachedWindowId);
-  webFrame.setVisualZoomLevelLimits(1, 1); // Disable trackpad zooming
+  webFrame.setVisualZoomLevelLimits(1, 1);
   webFrame.setZoomFactor(1);
+  initDaemonConnection();
 });
