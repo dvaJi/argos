@@ -123,7 +123,7 @@
 - [x] Create `packages/client-sdk/src/http-client.ts` for HTTP invoke
 - [x] WebSocket bridge handles: connect, reconnect, subscribe, event dispatch
 - [x] Both bridges validate via Zod schemas from shared-contracts
-- [ ] Write unit tests for WebSocketBridge with mock server
+- [x] Write unit tests for WebSocketBridge with mock server
 
 ### T4.2 Update renderer to use client-sdk
 

@@ -44,6 +44,8 @@ export default defineConfig({
             { find: '@argos/backend-core/', replacement: resolve('packages/backend-core/src/') },
             { find: '@argos/shared-contracts', replacement: resolve('packages/shared-contracts/src') },
             { find: '@argos/shared-contracts/', replacement: resolve('packages/shared-contracts/src/') },
+            { find: '@argos/client-sdk', replacement: resolve('packages/client-sdk/src') },
+            { find: '@argos/client-sdk/', replacement: resolve('packages/client-sdk/src/') },
             { find: 'electron', replacement: resolve('test/mocks/electron.ts') },
             { find: '@electron-toolkit/utils', replacement: resolve('test/mocks/electron-toolkit-utils.ts') }
           ]
