@@ -11,7 +11,7 @@ export class ElectronPathResolver implements IPathResolver {
   }
 
   getCacheDir(): string {
-    return app.getPath("cache");
+    return app.getPath("userData");
   }
 
   getTempDir(): string {

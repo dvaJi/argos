@@ -20,6 +20,18 @@
       ],
       "@shared/*": [
         "./src/shared/*"
+      ],
+      "@argos/electron-adapter": [
+        "./packages/electron-adapter/src"
+      ],
+      "@argos/electron-adapter/*": [
+        "./packages/electron-adapter/src/*"
+      ],
+      "@argos/backend-core": [
+        "./packages/backend-core/src"
+      ],
+      "@argos/backend-core/*": [
+        "./packages/backend-core/src/*"
       ]
     }
   }

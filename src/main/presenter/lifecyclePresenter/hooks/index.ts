@@ -6,6 +6,7 @@
 export { configInitHook } from "./init/configInitHook";
 export { databaseInitHook } from "./init/databaseInitHook";
 export { daemonSidecarHook } from "./init/daemonSidecarHook";
+export { electronAdapterHook } from "./init/electronAdapterHook";
 export { protocolRegistrationHook } from "./beforeStart/protocolRegistrationHook";
 export { presenterInitHook as presenterHook } from "./ready/presenterInitHook";
 export { eventListenerSetupHook } from "./ready/eventListenerSetupHook";

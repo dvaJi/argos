@@ -1,4 +1,5 @@
-import type { eventBus, SendTarget } from "@/eventbus";
+import type { eventBus } from "@/eventbus";
+import { SendTarget } from "@/eventbus";
 import type { IAgentSessionPresenter, IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
 import { getDeepchatEventContract, type DeepchatEventPayload, type DeepchatEventName } from "@shared/contracts/events";
 import { DEEPCHAT_EVENT_CHANNEL } from "@shared/contracts/channels";

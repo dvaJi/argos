@@ -1,6 +1,7 @@
 import type { IEventPublisher } from "@argos/backend-core";
-import type { eventBus as EventBusType, SendTarget } from "@/eventbus";
-import { getDeepchatEventContract, type DeepchatEventName, type DeepchatEventPayload } from "@shared/contracts/events";
+import type { eventBus as EventBusType } from "@/eventbus";
+import { SendTarget } from "@/eventbus";
+import { getDeepchatEventContract, type DeepchatEventName } from "@shared/contracts/events";
 import { DEEPCHAT_EVENT_CHANNEL } from "@shared/contracts/channels";
 
 export class ElectronEventPublisher implements IEventPublisher {
