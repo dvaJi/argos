@@ -35,7 +35,7 @@ export function parseArgs(argv: string[]): DaemonOptions {
 export function mergeOptions(parsed: DaemonOptions, env: Record<string, string | undefined>): DaemonOptions {
   return {
     host: parsed.host || env.ARGOS_HOST || "127.0.0.1",
-    port: parsed.port || parseInt(env.ARGOS_PORT || "0", 10) || 9527,
+    port: parsed.port ?? (parseInt(env.ARGOS_PORT || "0", 10) || 9527),
     dataDir: parsed.dataDir || env.ARGOS_DATA_DIR || undefined,
     token: parsed.token || env.ARGOS_TOKEN || undefined,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",

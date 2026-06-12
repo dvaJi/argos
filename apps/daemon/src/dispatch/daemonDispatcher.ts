@@ -326,7 +326,13 @@ export function createDaemonDispatcher(
           supportsStreaming: true,
           supportsToolUse: true,
           supportsImages: false,
-          supportsAudio: false,
+          supportsAudioInput: false,
+          supportsSearch: false,
+          supportsTemperatureControl: false,
+          temperatureCapability: false,
+          reasoningPortrait: null,
+          thinkingBudgetRange: null,
+          searchDefaults: null,
         },
       });
     }

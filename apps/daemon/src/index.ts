@@ -50,7 +50,7 @@ export async function startDaemon(options?: {
   setRouteDispatcher(dispatcher);
 
   const host = options?.host || "127.0.0.1";
-  const port = options?.port || 9527;
+  const port = options?.port ?? 9527;
   const token = options?.token || "";
 
   const server = serve({

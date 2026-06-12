@@ -196,11 +196,11 @@
 
 ### T6.3 End-to-end validation
 
-- [ ] All existing tests pass
+- [x] All existing tests pass
 - [ ] All E2E smoke tests pass
-- [ ] Manual test: full chat flow, session management, MCP tools, config changes
-- [ ] Performance: no regression in startup time or chat latency
-- [ ] `pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test`
+- [x] Manual test: full chat flow, session management, MCP tools, config changes
+- [x] Performance: no regression in startup time or chat latency
+- [x] `pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test`
 
 > **Status: HYBRID TRANSPORT WIRED.** Sidecar manager spawns daemon and exposes port via IPC. Preload creates HybridBridge that routes desktop-only routes (window.*, browser.*, tab.*, etc.) via IPC and all other routes via WebSocket to daemon. WS connection auto-reconnects on failure with IPC fallback. Renderer API unchanged — `window.deepchat` now transparently uses the best available transport.
 

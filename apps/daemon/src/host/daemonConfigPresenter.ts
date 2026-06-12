@@ -130,6 +130,48 @@ export class DaemonConfigPresenter {
     this.save();
   }
 
+  setProviderById(id: string, provider: any): void {
+    const providers = this.getProviders();
+    const idx = providers.findIndex((p: any) => p.id === id);
+    if (idx >= 0) {
+      providers[idx] = provider;
+    } else {
+      providers.push(provider);
+    }
+    this.store.providers = providers;
+    this.save();
+  }
+
+  addProviderAtomic(provider: any): void {
+    const providers = this.getProviders();
+    providers.push(provider);
+    this.store.providers = providers;
+    this.save();
+  }
+
+  removeProviderAtomic(providerId: string): void {
+    const providers = this.getProviders().filter((p: any) => p.id !== providerId);
+    this.store.providers = providers;
+    this.save();
+  }
+
+  updateProviderAtomic(id: string, updates: any): boolean {
+    const providers = this.getProviders();
+    const idx = providers.findIndex((p: any) => p.id === id);
+    if (idx >= 0) {
+      providers[idx] = { ...providers[idx], ...updates };
+      this.store.providers = providers;
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  reorderProvidersAtomic(providers: any[]): void {
+    this.store.providers = providers;
+    this.save();
+  }
+
   getProviderById(id: string): any {
     const providers = this.getProviders() as any[];
     return providers.find((p) => p.id === id);
