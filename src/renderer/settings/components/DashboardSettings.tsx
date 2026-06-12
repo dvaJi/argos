@@ -18,37 +18,72 @@ export default function DashboardSettings({ hideNostalgia = false, onDashboardLo
   const [dashboard, setDashboard] = useState<UsageDashboardData | null>(null);
   const isDashboardMountedRef = useRef(true);
   const refreshTimerRef = useRef<number | null>(null);
+  const loadDashboardRef = useRef<() => Promise<void>>(async () => {});
+
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleDashboardRefresh = useCallback(
+    (delayMs = 1500) => {
+      clearRefreshTimer();
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        if (!isDashboardMountedRef.current) return;
+        void loadDashboardRef.current();
+      }, delayMs);
+    },
+    [clearRefreshTimer],
+  );
 
   const loadDashboard = useCallback(async () => {
     if (!isDashboardMountedRef.current) return;
     let shouldFinalize = false;
     try {
+      clearRefreshTimer();
       setIsLoading(true);
       setErrorMessage("");
+
+      await (agentSessionPresenter as { startUsageStatsBackfill?: () => Promise<void> }).startUsageStatsBackfill?.();
+
       const nextDashboard = await agentSessionPresenter.getUsageDashboard();
       if (!isDashboardMountedRef.current) return;
       setDashboard(nextDashboard);
       onDashboardLoaded?.(nextDashboard);
+
+      const shouldRetryEmptyDashboard =
+        nextDashboard.summary.messageCount === 0 &&
+        (nextDashboard.backfillStatus.status === "idle" || nextDashboard.backfillStatus.status === "running");
+      if (shouldRetryEmptyDashboard) {
+        scheduleDashboardRefresh();
+      }
+
       shouldFinalize = true;
     } catch (error) {
       if (!isDashboardMountedRef.current) return;
       setErrorMessage(error instanceof Error ? error.message : "Failed to load dashboard");
+      scheduleDashboardRefresh(3000);
       shouldFinalize = true;
     } finally {
       if (shouldFinalize && isDashboardMountedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [agentSessionPresenter, onDashboardLoaded]);
+  }, [agentSessionPresenter, clearRefreshTimer, onDashboardLoaded, scheduleDashboardRefresh]);
+
+  loadDashboardRef.current = loadDashboard;
 
   useEffect(() => {
     isDashboardMountedRef.current = true;
     void loadDashboard();
     return () => {
       isDashboardMountedRef.current = false;
-      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      clearRefreshTimer();
     };
-  }, [loadDashboard]);
+  }, [clearRefreshTimer, loadDashboard]);
 
   const hasData = (dashboard?.summary.messageCount ?? 0) > 0;
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
-import { Outlet, useRouter } from "@tanstack/react-router";
+import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import CloseIcon from "./icons/CloseIcon";
@@ -86,6 +86,7 @@ const hasSameRouteParams = (currentParams: Record<string, unknown>, nextParams: 
 
 export default function SettingsApp() {
   const routerInstance = useRouter();
+  const routerState = useRouterState();
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   useFontManager();
 
@@ -498,7 +499,7 @@ export default function SettingsApp() {
 
   useEffect(() => {
     const updateTitle = () => {
-      const currentPath = routerInstance.state.location.pathname;
+      const currentPath = routerState.location.pathname;
       const routeSegment = currentPath.split("/").filter(Boolean)[0] || "";
       const currentSetting = settings.find((s) => s.name === `settings-${routeSegment}`);
       if (currentSetting) {
@@ -510,18 +511,24 @@ export default function SettingsApp() {
 
     updateTitle();
 
-    const currentPath = routerInstance.state.location.pathname;
+    const currentPath = routerState.location.pathname;
     const routeSegment = currentPath.split("/").filter(Boolean)[0] || "";
     if (!hasLoggedFirstRouteResolved.current && routeSegment) {
       hasLoggedFirstRouteResolved.current = true;
       logSettingsStartup(`first route resolved route=${routeSegment}`);
     }
 
-    const providerId = (routerInstance.state.location.search as any)?.providerId as string | undefined;
+    const providerId = (routerState.location.search as any)?.providerId as string | undefined;
     if (routeSegment === "provider") {
       void ensureProviderRouteReady(providerId);
     }
-  }, [routerInstance.state.location.pathname, settings, logSettingsStartup, ensureProviderRouteReady]);
+  }, [
+    routerState.location.pathname,
+    routerState.location.search,
+    settings,
+    logSettingsStartup,
+    ensureProviderRouteReady,
+  ]);
 
   useEffect(() => {
     document.documentElement.dir = langState.dir === "rtl" ? "rtl" : "ltr";
@@ -604,7 +611,7 @@ export default function SettingsApp() {
     setModelCheckOpen(modelCheckState.isDialogOpen);
   }, [modelCheckState.isDialogOpen]);
 
-  const currentPath = routerInstance.state.location.pathname;
+  const currentPath = routerState.location.pathname;
   const currentRouteSegment = currentPath.split("/").filter(Boolean)[0] || "";
 
   return (
@@ -656,7 +663,9 @@ export default function SettingsApp() {
             ))}
           </div>
         </div>
-        <Outlet />
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <Outlet />
+        </div>
       </div>
       <ModelCheckDialog
         open={modelCheckOpen}

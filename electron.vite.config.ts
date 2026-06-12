@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm'
 import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
@@ -70,6 +71,10 @@ export default defineConfig({
       host: '0.0.0.0'
     },
     plugins: [
+      tanstackRouter({
+        target: 'react',
+        autoCodeSplitting: true,
+      }),
       tailwindcss(),
       monacoEditorPlugin({
         languageWorkers: [],

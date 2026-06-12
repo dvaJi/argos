@@ -138,6 +138,10 @@ const ensureSessionState = (sessionId: string): WorkspaceSessionState => {
 
 export const getSessionState = (sessionId: string | null | undefined): WorkspaceSessionState => {
   if (!sessionId) return createSessionState();
+  return sidepanelStore.state.sessionStates[sessionId] ?? createSessionState();
+};
+
+export const ensureAndGetSessionState = (sessionId: string): WorkspaceSessionState => {
   return ensureSessionState(sessionId);
 };
 

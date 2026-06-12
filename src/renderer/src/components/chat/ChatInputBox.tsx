@@ -408,7 +408,6 @@ const ChatInputBox = forwardRef<
           {editor && (
             <EditorContent
               editor={editor}
-              className="min-h-[60px]"
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={() => setIsComposing(false)}
             />

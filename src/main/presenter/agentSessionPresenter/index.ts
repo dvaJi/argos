@@ -78,6 +78,7 @@ import {
 import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
 import { resolveAcpAgentAlias } from "../configPresenter/acpRegistryConstants";
 import type { ProviderSessionPort, SessionPermissionPort, SessionUiPort } from "../runtimePorts";
+import { hasAcpConfigStateData } from "../llmProviderPresenter/acp/acpConfigState";
 
 type SearchableSessionRow = {
   id: string;
@@ -2039,8 +2040,34 @@ export class AgentSessionPresenter {
     if (!(await this.isAcpBackedSession(sessionId, session.agentId))) {
       return null;
     }
-    return await (this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId) ??
-      this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
+
+    let configState =
+      (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
+      (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
+
+    if (hasAcpConfigStateData(configState) || !session.projectDir?.trim()) {
+      return configState;
+    }
+
+    const agent = await this.resolveAgentImplementation(session.agentId);
+    const runtimeState = await agent.getSessionState(sessionId);
+    const permissionMode: PermissionMode = runtimeState?.permissionMode === "default" ? "default" : "full_access";
+
+    await this.ensureSessionRuntimeInitialized(agent, sessionId, {
+      agentId: session.agentId,
+      providerId: "acp",
+      modelId: session.agentId,
+      projectDir: session.projectDir,
+      permissionMode,
+    });
+    await (this.providerSessionPort?.prepareAcpSession?.(sessionId, session.agentId, session.projectDir) ??
+      this.llmProviderPresenter.prepareAcpSession(sessionId, session.agentId, session.projectDir));
+
+    configState =
+      (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
+      (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
+
+    return configState;
   }
 
   async setAcpSessionConfigOption(

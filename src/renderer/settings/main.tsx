@@ -8,11 +8,29 @@ import {
   createHashHistory,
   redirect,
   RouterProvider,
-  lazyRouteComponent,
 } from "@tanstack/react-router";
 import { getSettingsRouteItems } from "@shared/settingsNavigation";
 import { preloadIcons } from "../src/lib/iconLoader";
 import SettingsApp from "./App";
+
+import SettingsOverview from "./components/SettingsOverview";
+import CommonSettings from "./components/CommonSettings";
+import DisplaySettings from "./components/DisplaySettings";
+import EnvironmentsSettings from "./components/EnvironmentsSettings";
+import ModelProviderSettings from "./components/ModelProviderSettings";
+import McpSettings from "./components/McpSettings";
+import DeepChatAgentsSettings from "./components/DeepChatAgentsSettings";
+import AcpSettings from "./components/AcpSettings";
+import RemoteSettings from "./components/RemoteSettings";
+import NotificationsHooksSettings from "./components/NotificationsHooksSettings";
+import ScheduledTasksSettings from "./components/ScheduledTasksSettings";
+import PluginsSettings from "./components/PluginsSettings";
+import SkillsSettings from "./components/skills/SkillsSettings";
+import PromptSetting from "./components/PromptSetting";
+import KnowledgeBaseSettings from "./components/KnowledgeBaseSettings";
+import DataSettings from "./components/DataSettings";
+import ShortcutSettings from "./components/ShortcutSettings";
+import AboutUsSettings from "./components/AboutUsSettings";
 
 const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform);
 
@@ -20,25 +38,27 @@ const rootRoute = createRootRoute({
   component: SettingsApp,
 });
 
-const lazyImports: Record<string, () => Promise<any>> = {
-  "settings-overview": () => import("./components/SettingsOverview"),
-  "settings-common": () => import("./components/CommonSettings"),
-  "settings-display": () => import("./components/DisplaySettings"),
-  "settings-environments": () => import("./components/EnvironmentsSettings"),
-  "settings-provider": () => import("./components/ModelProviderSettings"),
-  "settings-mcp": () => import("./components/McpSettings"),
-  "settings-deepchat-agents": () => import("./components/DeepChatAgentsSettings"),
-  "settings-acp": () => import("./components/AcpSettings"),
-  "settings-remote": () => import("./components/RemoteSettings"),
-  "settings-notifications-hooks": () => import("./components/NotificationsHooksSettings"),
-  "settings-scheduled-tasks": () => import("./components/ScheduledTasksSettings"),
-  "settings-plugins": () => import("./components/PluginsSettings"),
-  "settings-skills": () => import("./components/skills/SkillsSettings"),
-  "settings-prompt": () => import("./components/PromptSetting"),
-  "settings-knowledge-base": () => import("./components/KnowledgeBaseSettings"),
-  "settings-database": () => import("./components/DataSettings"),
-  "settings-shortcut": () => import("./components/ShortcutSettings"),
-  "settings-about": () => import("./components/AboutUsSettings"),
+import type { RouteComponent } from "@tanstack/react-router";
+
+const componentMap: Record<string, RouteComponent> = {
+  "settings-overview": SettingsOverview,
+  "settings-common": CommonSettings,
+  "settings-display": DisplaySettings,
+  "settings-environments": EnvironmentsSettings,
+  "settings-provider": ModelProviderSettings,
+  "settings-mcp": McpSettings,
+  "settings-deepchat-agents": DeepChatAgentsSettings,
+  "settings-acp": AcpSettings,
+  "settings-remote": RemoteSettings,
+  "settings-notifications-hooks": NotificationsHooksSettings,
+  "settings-scheduled-tasks": ScheduledTasksSettings,
+  "settings-plugins": PluginsSettings,
+  "settings-skills": SkillsSettings,
+  "settings-prompt": PromptSetting,
+  "settings-knowledge-base": KnowledgeBaseSettings,
+  "settings-database": DataSettings,
+  "settings-shortcut": ShortcutSettings,
+  "settings-about": AboutUsSettings,
 };
 
 const settingsRoutes = settingsRouteItems
@@ -53,22 +73,20 @@ const settingsRoutes = settingsRouteItems
       });
     }
 
-    const routeName = item.routeName as string;
-
-    const lazyFn = lazyImports[routeName];
-    if (!lazyFn) return null;
+    const Comp = componentMap[item.routeName as string];
+    if (!Comp) return null;
 
     if (item.path.includes(":providerId?")) {
       const providerRoute = createRoute({
         getParentRoute: () => rootRoute,
         path: "/provider",
-        component: lazyRouteComponent(lazyFn),
+        component: Comp,
       });
 
       const providerDetailRoute = createRoute({
         getParentRoute: () => providerRoute,
         path: "$providerId",
-        component: lazyRouteComponent(lazyFn),
+        component: Comp,
       });
 
       return providerRoute.addChildren([providerDetailRoute]);
@@ -77,7 +95,7 @@ const settingsRoutes = settingsRouteItems
     return createRoute({
       getParentRoute: () => rootRoute,
       path: item.path,
-      component: lazyRouteComponent(lazyFn),
+      component: Comp,
     });
   })
   .filter(Boolean);

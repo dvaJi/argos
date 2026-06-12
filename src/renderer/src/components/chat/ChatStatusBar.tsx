@@ -229,34 +229,34 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       return agentStore.selectedAgentId ?? "deepchat";
     }, [selectedAgentType, agentStore.selectedAgentId]);
 
+    const activeSession = getActiveSession();
     const isAcpAgent = useMemo(() => {
-      if (hasActiveSession) return getActiveSession()?.providerId === "acp";
+      if (hasActiveSession) return activeSession?.providerId === "acp";
       return selectedAgentType === "acp";
-    }, [hasActiveSession, getActiveSession()?.providerId, selectedAgentType]);
+    }, [hasActiveSession, activeSession?.providerId, selectedAgentType]);
 
     const activeAcpAgentId = useMemo(() => {
-      if (hasActiveSession && getActiveSession()?.providerId === "acp") return getActiveSession()?.modelId || null;
+      if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
       const selectedId = agentStore.selectedAgentId;
       return selectedAgentType === "acp" ? selectedId : null;
-    }, [hasActiveSession, getActiveSession(), agentStore.selectedAgentId, selectedAgentType]);
+    }, [hasActiveSession, activeSession, agentStore.selectedAgentId, selectedAgentType]);
 
     const activeAcpSessionId = useMemo(() => {
-      if (hasActiveSession && getActiveSession()?.providerId === "acp") return getActiveSession()?.id;
+      if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.id;
       const draftSessionId = acpDraftSessionId?.trim();
       return draftSessionId ? draftSessionId : null;
-    }, [hasActiveSession, getActiveSession(), acpDraftSessionId]);
+    }, [hasActiveSession, activeSession, acpDraftSessionId]);
 
     const acpWorkspacePath = useMemo(() => {
-      if (hasActiveSession && getActiveSession()?.providerId === "acp")
-        return getActiveSession()?.projectDir?.trim() || null;
+      if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.projectDir?.trim() || null;
       return getSelectedProject()?.path?.trim() || null;
-    }, [hasActiveSession, getActiveSession(), projectStore.selectedProjectPath]);
+    }, [hasActiveSession, activeSession, projectStore.selectedProjectPath]);
 
     const lockedAcpModelId = useMemo(() => {
-      if (hasActiveSession && getActiveSession()?.providerId === "acp") return getActiveSession()?.modelId || null;
+      if (hasActiveSession && activeSession?.providerId === "acp") return activeSession?.modelId || null;
       const selectedId = agentStore.selectedAgentId;
       return selectedAgentType === "acp" ? selectedId : null;
-    }, [hasActiveSession, getActiveSession(), agentStore.selectedAgentId, selectedAgentType]);
+    }, [hasActiveSession, activeSession, agentStore.selectedAgentId, selectedAgentType]);
 
     const isModelSelectionLocked = useMemo(
       () => isAcpAgent && Boolean(lockedAcpModelId),
@@ -268,10 +268,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     );
 
     const activeSessionSelection = useMemo<ModelSelection | null>(() => {
-      const active = getActiveSession();
-      if (!active?.providerId || !active?.modelId) return null;
-      return { providerId: active.providerId, modelId: active.modelId };
-    }, [getActiveSession()]);
+      if (!activeSession?.providerId || !activeSession?.modelId) return null;
+      return { providerId: activeSession.providerId, modelId: activeSession.modelId };
+    }, [activeSession]);
 
     const effectiveModelSelection = useMemo<ModelSelection | null>(() => {
       if (hasActiveSession) return activeSessionSelection;
@@ -309,11 +308,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const showSubagentToggle = useMemo(() => {
       if (isAcpAgent) return false;
       if (hasActiveSession)
-        return (
-          getActiveSession()?.sessionKind === "regular" && inferAgentType(getActiveSession()?.agentId) === "deepchat"
-        );
+        return activeSession?.sessionKind === "regular" && inferAgentType(activeSession?.agentId) === "deepchat";
       return selectedAgentType === "deepchat";
-    }, [isAcpAgent, hasActiveSession, getActiveSession(), inferAgentType, selectedAgentType]);
+    }, [isAcpAgent, hasActiveSession, activeSession, inferAgentType, selectedAgentType]);
 
     const providerNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -487,6 +484,39 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       resolveModelName,
       resolveModelIconId,
     });
+
+    const syncAcpConfigOptionsRef = useRef(syncAcpConfigOptions);
+    syncAcpConfigOptionsRef.current = syncAcpConfigOptions;
+
+    useEffect(() => {
+      if (!isAcpAgent) return;
+      let cancelled = false;
+      if (activeAcpSessionId) {
+        void syncAcpConfigOptionsRef.current();
+        return () => {
+          cancelled = true;
+        };
+      }
+      const cancel = scheduleStartupDeferredTask(async () => {
+        if (!cancelled) await syncAcpConfigOptionsRef.current();
+      });
+      return () => {
+        cancelled = true;
+        cancel();
+      };
+    }, [isAcpAgent, activeAcpSessionId, acpWorkspacePath, agentStore.selectedAgentId]);
+
+    const handleAcpConfigOptionsReadyRef = useRef(handleAcpConfigOptionsReady);
+    handleAcpConfigOptionsReadyRef.current = handleAcpConfigOptionsReady;
+
+    useEffect(() => {
+      const unsubscribe = sessionClient.onAcpConfigOptionsReady((payload) => {
+        handleAcpConfigOptionsReadyRef.current(payload as unknown as Record<string, unknown>);
+      });
+      return () => {
+        unsubscribe?.();
+      };
+    }, [sessionClient]);
 
     const permissionModeLabel = useMemo(
       () => (permissionMode === "default" ? "Default" : "Full Access"),
@@ -1130,12 +1160,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       async (providerId: string, modelId: string) => {
         if (hasActiveSession) {
           try {
-            await (sessionClient as any).updateSessionModelConfig(
-              getActiveSession()?.id ?? "",
-              providerId,
-              modelId,
-              {},
-            );
+            await (sessionClient as any).updateSessionModelConfig(activeSession?.id ?? "", providerId, modelId, {});
           } catch {}
         } else {
           setDraftModelSelection({ providerId, modelId });

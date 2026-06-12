@@ -3,8 +3,8 @@ import { useStore } from "@tanstack/react-store";
 import { createProviderClient } from "../../api/ProviderClient";
 import { createModelClient } from "../../api/ModelClient";
 import type { OllamaModel } from "@shared/presenter";
-import { useModelStore } from "@/stores/modelStore";
-import { useProviderStore } from "@/stores/providerStore";
+import { refreshProviderModels } from "@/stores/modelStore";
+import { providerStore } from "@/stores/providerStore";
 
 interface OllamaState {
   initializedProviderIds: Set<string>;
@@ -107,7 +107,7 @@ export const refreshOllamaModels = async (providerId: string): Promise<boolean> 
   try {
     await syncOllamaRuntimeModels(providerId);
     await providerClient.refreshModels(providerId);
-    await useModelStore().refreshProviderModels(providerId);
+    await refreshProviderModels(providerId);
     await syncOllamaRuntimeModels(providerId);
     return true;
   } catch {
@@ -160,7 +160,7 @@ export const setupOllamaEventListeners = () => {
     unsubscribeModelsChanged = modelClient.onModelsChanged(({ providerId }) => {
       if (!providerId) return;
 
-      const provider = useProviderStore().providers.find((item) => item.id === providerId);
+      const provider = providerStore.state.providers.find((item) => item.id === providerId);
       if (provider?.apiType !== "ollama") return;
 
       void syncOllamaRuntimeModels(providerId).catch(() => {});
@@ -217,7 +217,7 @@ export const isOllamaModelLocal = (providerId: string, modelName: string): boole
 
 export const initialize = async () => {
   setupOllamaEventListeners();
-  const ollamaProviders = useProviderStore().providers.filter((p) => p.apiType === "ollama" && p.enable);
+  const ollamaProviders = providerStore.state.providers.filter((p) => p.apiType === "ollama" && p.enable);
   for (const provider of ollamaProviders) {
     await ensureProviderReady(provider.id);
   }

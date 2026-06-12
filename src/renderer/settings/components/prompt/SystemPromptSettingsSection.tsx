@@ -66,7 +66,7 @@ export default function SystemPromptSettingsSection() {
     setCurrentSystemPrompt(systemPrompts.find((p) => p.id === selectedSystemPromptId) || null);
   }, [isEmptyPromptSelected, systemPrompts, selectedSystemPromptId]);
 
-  const loadSystemPrompts = useCallback(async () => {
+  const fetchSystemPrompts = useCallback(async () => {
     try {
       await loadSystemPrompts();
       setSystemPrompts([...systemPromptStore.prompts]);
@@ -136,18 +136,18 @@ export default function SystemPromptSettingsSection() {
     }
   }, [currentSystemPrompt, systemPromptStore, toast]);
 
-  const deleteSystemPrompt = useCallback(
+  const handleDeleteSystemPrompt = useCallback(
     async (promptId: string) => {
       try {
         await deleteSystemPrompt(promptId);
-        await loadSystemPrompts();
+        await fetchSystemPrompts();
         toast({ title: "System prompt deleted" });
       } catch (error) {
         console.error("Failed to delete system prompt:", error);
         toast({ title: "Failed to delete", variant: "destructive" });
       }
     },
-    [systemPromptStore, loadSystemPrompts, toast],
+    [systemPromptStore, fetchSystemPrompts, toast],
   );
 
   const handleSaveSystemPrompt = useCallback(
@@ -168,7 +168,7 @@ export default function SystemPromptSettingsSection() {
           });
           await setDefaultSystemPromptId(newId);
         }
-        await loadSystemPrompts();
+        await fetchSystemPrompts();
         setSystemPromptEditorOpen(false);
         setEditingSystemPrompt(null);
         toast({ title: id ? "System prompt updated" : "System prompt added and switched" });
@@ -177,12 +177,12 @@ export default function SystemPromptSettingsSection() {
         toast({ title: "Failed to save", variant: "destructive" });
       }
     },
-    [systemPromptStore, loadSystemPrompts, toast],
+    [systemPromptStore, fetchSystemPrompts, toast],
   );
 
   useEffect(() => {
-    void loadSystemPrompts();
-  }, [loadSystemPrompts]);
+    void fetchSystemPrompts();
+  }, [fetchSystemPrompts]);
 
   useEffect(() => {
     updateCurrentSystemPrompt();
@@ -261,7 +261,7 @@ export default function SystemPromptSettingsSection() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => void deleteSystemPrompt(currentSystemPrompt.id)}>
+                    <AlertDialogAction onClick={() => void handleDeleteSystemPrompt(currentSystemPrompt.id)}>
                       Confirm
                     </AlertDialogAction>
                   </AlertDialogFooter>

@@ -9,6 +9,7 @@ import type {
   DisplayMessage,
   DisplayMessageUsage,
 } from "@/components/chat/messageListItems";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ChatInputBox from "@/components/chat/ChatInputBox";
 import ChatInputToolbar from "@/components/chat/ChatInputToolbar";
 import AgentProgressFloat from "@/components/chat/AgentProgressFloat";
@@ -20,7 +21,7 @@ import { useToast } from "@/components/use-toast";
 import { createChatClient } from "../../api/ChatClient";
 import { createModelClient } from "@api/ModelClient";
 import { useUiSettingsStore } from "@/stores/uiSettingsStore";
-import { sessionStore, fetchSessions, selectSession } from "@/stores/ui/session";
+import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "@/stores/ui/session";
 import { useMessageStore } from "@/stores/ui/message";
 
 import { agentPlanStore } from "@/stores/ui/agentPlan";
@@ -710,7 +711,8 @@ export function ChatPage({ sessionId }: ChatPageProps) {
       cancelSessionRestoreTaskRef.current = scheduleStartupDeferredTask(async () => {
         if (requestId !== sessionRestoreRequestIdRef.current) return;
         console.info(`[Startup][Renderer] ChatPage restoring session ${sessionId}`);
-        await messageStore.loadMessages(sessionId, INITIAL_MESSAGE_RESTORE_COUNT);
+        const restored = await messageStore.loadMessages(sessionId, INITIAL_MESSAGE_RESTORE_COUNT);
+        applyRestoredSession(restored);
         await loadPendingInputs(sessionId);
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
         if (spotlightStore.pendingMessageJump?.sessionId === sessionId) {
@@ -1161,7 +1163,9 @@ export function ChatPage({ sessionId }: ChatPageProps) {
                           />
                         }
                       />
-                      <ChatStatusBar maxWidthClass="max-w-4xl" />
+                      <ErrorBoundary>
+                        <ChatStatusBar maxWidthClass="max-w-4xl" />
+                      </ErrorBoundary>
                     </div>
                   )}
                 </div>

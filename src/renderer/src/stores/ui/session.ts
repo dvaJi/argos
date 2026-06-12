@@ -428,7 +428,7 @@ const applySessionStatus = (sessionId: string, status: string): void => {
   });
 };
 
-const applyRestoredSession = (session: SessionWithState | null): void => {
+export const applyRestoredSession = (session: SessionWithState | null): void => {
   if (!session) {
     if (sessionStore.state.activeSessionId === null) {
       sessionStore.setState((prev) => ({ ...prev, activeSessionSummary: null }));
@@ -1022,5 +1022,6 @@ export function useSessionStore() {
     getActiveSession,
     getHasActiveSession,
     applyBootstrapShell,
+    applyRestoredSession,
   };
 }

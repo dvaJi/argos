@@ -4,11 +4,12 @@ import { DEEPLINK_EVENTS } from "@/events";
 import { createIpcSubscriptionScope } from "@/lib/ipcSubscription";
 import { mcpStore } from "@/stores/mcp";
 import { router } from "@/router";
+import { initTheme } from "@/stores/theme";
 
 export const initAppStores = async () => {
   console.info("[Startup][Renderer] initAppStores begin");
 
-  await Promise.all([loadSettings(), initializeProviders()]);
+  await Promise.all([loadSettings(), initializeProviders(), initTheme()]);
   console.info("[Startup][Renderer] initAppStores critical stores ready");
 };
 

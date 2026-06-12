@@ -47,8 +47,8 @@ const formatDateTimeLocal = (timestamp: number) => {
 
 export default function ScheduledTasksSettings() {
   const { toast } = useToast();
-  const client = createScheduledTasksClient();
-  const configClient = createConfigClient();
+  const client = useMemo(() => createScheduledTasksClient(), []);
+  const configClient = useMemo(() => createConfigClient(), []);
   const modelStore = useModelStore();
 
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);

@@ -11,7 +11,7 @@ import { WorkspaceViewer } from "./WorkspaceViewer";
 import { useWorkspaceSync } from "./composables/useWorkspaceSync";
 import { useArtifactStore } from "@/stores/artifact";
 import { useMessageStore, getMessages } from "@/stores/ui/message";
-import { useSidepanelStore, type WorkspaceArtifactContext } from "@/stores/ui/sidepanel";
+import { useSidepanelStore, getSessionState, type WorkspaceArtifactContext } from "@/stores/ui/sidepanel";
 import { useSessionStore } from "@/stores/ui/session";
 import type { WorkspaceGitFileChange, WorkspaceNavSection } from "@shared/presenter";
 
@@ -74,8 +74,8 @@ export function WorkspacePanel({
   const projectClient = useMemo(() => createProjectClient(), []);
   const fileClient = useMemo(() => createFileClient(), []);
 
-  const sessionState = useMemo(() => sidepanelStore.getSessionState(sessionId), [sidepanelStore, sessionId]);
-  const navCollapsed = useMemo(() => sidepanelStore.navCollapsed, [sidepanelStore.navCollapsed]);
+  const sessionState = useMemo(() => getSessionState(sessionId), [sessionId]);
+  const navCollapsed = sidepanelStore.navCollapsed;
 
   const {
     fileTree,

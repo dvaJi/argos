@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
 import { createWorkspaceClient } from "@api/WorkspaceClient";
-import { useSidepanelStore } from "@/stores/ui/sidepanel";
+import { useSidepanelStore, getSessionState } from "@/stores/ui/sidepanel";
 import type { ArtifactState } from "@/stores/artifact";
 import type { WorkspaceFilePreview, WorkspaceGitDiff } from "@shared/presenter";
 import { useWorkspaceViewerModel } from "./composables/useWorkspaceViewerModel";
@@ -41,7 +41,7 @@ export function WorkspaceViewer({
   const sidepanelStore = useSidepanelStore();
   const workspaceClient = createWorkspaceClient();
 
-  const sessionState = useMemo(() => sidepanelStore.getSessionState(sessionId), [sidepanelStore, sessionId]);
+  const sessionState = useMemo(() => getSessionState(sessionId), [sessionId]);
 
   const { activeSource, effectiveViewMode, paneKind, previewKind, shouldShowTabs } = useWorkspaceViewerModel({
     artifact: useMemo(() => artifact, [artifact]),

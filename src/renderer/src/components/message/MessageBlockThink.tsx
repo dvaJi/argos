@@ -1,4 +1,5 @@
 import { type FC, useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Icon } from "@iconify/react";
 import { createConfigClient } from "@api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
@@ -116,29 +117,25 @@ export const MessageBlockThink: FC<MessageBlockThinkProps> = ({ block, usage, on
   }, [isModeChange, modeChangeId, displayedSeconds, block.status]);
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground overflow-hidden transition-all duration-200">
+    <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200">
       <button
         type="button"
-        className="flex items-center gap-2 w-full px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+        className="flex min-h-10 w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/40"
         onClick={() => handleToggleCollapse(!collapse)}
       >
-        <svg
-          className={`w-3 h-3 transition-transform ${collapse ? "" : "rotate-90"}`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M9 18l6-6-6-6" />
-        </svg>
+        <Icon
+          icon="lucide:chevron-right"
+          className={`h-3 w-3 shrink-0 text-muted-foreground transition-transform ${collapse ? "" : "rotate-90"}`}
+        />
+        <Icon icon="lucide:brain-circuit" className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate font-medium text-accent-foreground">{headerText}</span>
         {block.status === "loading" && (
-          <span className="inline-block w-3 h-3 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
         )}
-        <span>{headerText}</span>
       </button>
 
       {!collapse && (
-        <div className="px-3 pb-3 text-xs text-muted-foreground whitespace-pre-wrap break-words border-t">
+        <div className="border-t bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground whitespace-pre-wrap break-words">
           {block.content}
         </div>
       )}

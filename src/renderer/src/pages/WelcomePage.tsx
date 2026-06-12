@@ -265,7 +265,7 @@ export function WelcomePage() {
   return (
     <div
       ref={rootRef}
-      className="relative h-full w-full flex flex-col"
+      className="relative h-full w-full flex flex-col overflow-y-auto"
       style={{ WebkitAppRegion: "drag" } as CSSProperties}
     >
       {showGuideCoachmark && (
@@ -373,7 +373,7 @@ export function WelcomePage() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
+      <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 sm:justify-center">
         <div className="mb-5">
           <img src={new URL("@/assets/logo-dark.png", import.meta.url).href} className="w-16 h-16" loading="lazy" />
         </div>
@@ -412,7 +412,7 @@ export function WelcomePage() {
               </span>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
               {requiredGuideSteps.map((step) => (
                 <div key={step.id} className={`rounded-xl border px-3 py-2 ${guideStepClass(step.id, step.status)}`}>
                   <div className="flex items-center gap-2">
@@ -446,7 +446,7 @@ export function WelcomePage() {
         <div
           ref={providerGridRef}
           data-testid="welcome-provider-grid"
-          className="grid grid-cols-3 gap-2 w-full max-w-sm mb-4"
+          className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-sm mb-4"
         >
           {providers.map((provider) => (
             <button

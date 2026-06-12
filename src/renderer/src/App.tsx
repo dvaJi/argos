@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Outlet, useRouter } from "@tanstack/react-router";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { createConfigClient } from "@api/ConfigClient";
 import { createOnboardingClient } from "@api/OnboardingClient";
 import { createWindowClient } from "@api/WindowClient";
@@ -178,8 +179,11 @@ export default function App() {
       const currentPath = currentRoute.pathname;
       const isWelcomeRoute = currentPath === "/welcome";
 
+      console.info(`[App] ensureStartupWelcomeState path=${currentPath} isWelcome=${isWelcomeRoute}`);
+
       if (isDevWelcomeOverrideEnabled()) {
         if (!isWelcomeRoute) {
+          console.info("[App] dev override → navigating to /welcome");
           await routerInstance.navigate({ to: "/welcome", replace: true });
         }
         return;
@@ -196,6 +200,7 @@ export default function App() {
 
       if (onboardingState?.status === "completed") {
         if (isWelcomeRoute) {
+          console.info("[App] onboarding complete → navigating to /chat");
           await routerInstance.navigate({ to: "/chat", replace: true });
         }
         return;
@@ -211,12 +216,16 @@ export default function App() {
         }
 
         if (!isWelcomeRoute) {
+          console.info(
+            `[App] initComplete=${initComplete} onboarding=${onboardingState?.status} → navigating to /welcome`,
+          );
           await routerInstance.navigate({ to: "/welcome", replace: true });
         }
         return;
       }
 
       if (isWelcomeRoute) {
+        console.info("[App] init complete but still on /welcome → navigating to /chat");
         await routerInstance.navigate({ to: "/chat", replace: true });
       }
     } finally {
@@ -528,7 +537,7 @@ export default function App() {
       setActiveTab(newTab);
     }
     artifactStore.setState((s) => ({ ...s, visible: false }));
-  }, [routerInstance.state.location.pathname]);
+  }, [routerInstance.state.location.pathname, activeTab]);
 
   useEffect(() => {
     artifactStore.setState((s) => ({ ...s, visible: false }));
@@ -539,6 +548,8 @@ export default function App() {
     setModelCheckOpen(modelCheckState.isDialogOpen);
   }, [modelCheckState.isDialogOpen]);
 
+  const routePath = routerInstance.state.location.pathname;
+
   return (
     <div
       data-testid="app-root"
@@ -546,16 +557,16 @@ export default function App() {
     >
       <AppBar />
       <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir={langState.dir}>
-        <div className="flex flex-row w-full h-full">
-          <WindowSideBar />
+        <WindowSideBar />
 
-          <div
-            data-testid="app-main"
-            className="flex h-full min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-tl-xl border-l border-t border-black/20 bg-background dark:border-white/10"
-          >
-            <div className="min-h-0 flex-1">
+        <div
+          data-testid="app-main"
+          className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-tl-xl border-l border-t border-black/20 bg-background dark:border-white/10"
+        >
+          <div className="min-h-0 flex-1 flex flex-col relative">
+            <ErrorBoundary>
               <Outlet />
-            </div>
+            </ErrorBoundary>
           </div>
         </div>
       </div>
