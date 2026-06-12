@@ -101,7 +101,7 @@
 - [x] Implement `ElectronPathResolver` using `app.getPath()`
 - [x] Implement `ElectronConfigStore` (Map-based, electron-store compatible interface)
 - [x] Implement `ElectronCredentialStore` using `safeStorage`
-- [ ] Implement `ElectronDatabaseProvider` using `better-sqlite3-multiple-ciphers`
+- [x] Implement `ElectronDatabaseProvider` using `better-sqlite3-multiple-ciphers`
 - [x] Implement `ElectronSubprocessRunner` using `child_process`
 - [x] Implement `ElectronEventPublisher` bridging to existing `EventBus`
 - [ ] Wire all adapters in desktop main process
