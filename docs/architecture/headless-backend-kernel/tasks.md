@@ -104,7 +104,7 @@
 - [x] Implement `ElectronDatabaseProvider` using `better-sqlite3-multiple-ciphers`
 - [x] Implement `ElectronSubprocessRunner` using `child_process`
 - [x] Implement `ElectronEventPublisher` bridging to existing `EventBus`
-- [ ] Wire all adapters in desktop main process
+- [x] Wire all adapters in desktop main process
 - [ ] Verify desktop works with extracted backend-core + electron-adapter
 
 ### T3.2 Desktop continues to work

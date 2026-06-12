@@ -5,3 +5,4 @@ export { ElectronCredentialStore } from "./electronSecrets";
 export { ElectronDatabaseProvider } from "./electronDatabase";
 export { ElectronSubprocessRunner } from "./electronSubprocess";
 export { ElectronEventPublisher } from "./electronEventPublisher";
+export { createElectronHostDependencies } from "./electronHostDependencies";
