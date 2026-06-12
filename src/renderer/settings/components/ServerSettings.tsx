@@ -190,6 +190,35 @@ export default function ServerSettings() {
               </p>
             </div>
           )}
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Auth Token</Label>
+              <p className="text-xs text-muted-foreground">
+                Token for authenticating remote connections. Set via --token flag or ARGOS_TOKEN env var.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input readOnly value={config.authToken || "(not set)"} className="font-mono text-xs" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (config.authToken) {
+                    navigator.clipboard.writeText(config.authToken);
+                    toast({ title: "Token copied" });
+                  }
+                }}
+                disabled={!config.authToken}
+              >
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              For remote connections, the server must be started with --token or ARGOS_TOKEN. Local connections do not
+              require a token.
+            </p>
+          </div>
         </div>
       </ScrollArea>
     </div>

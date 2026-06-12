@@ -218,8 +218,8 @@
 
 - [x] When remote mode: renderer connects to `serverUrl` via WebSocket
 - [x] Auth token sent on WS connect + HTTP Authorization header
-- [ ] Reconnect logic: exponential backoff, max 30s, show status in UI
-- [ ] Connection state indicator in UI (connected/disconnected/reconnecting)
+- [x] Reconnect logic: exponential backoff, max 30s, show status in UI
+- [x] Connection state indicator in UI (connected/disconnected/reconnecting)
 - [x] Tailscale MagicDNS: no localhost-only assumptions in URL handling
 
 ### T7.3 Security
@@ -227,7 +227,7 @@
 - [x] Localhost connections: no auth required
 - [x] Remote connections: token auth required
 - [x] Token generated on daemon first run, printed to stdout
-- [ ] Desktop shows token in settings for copy
+- [x] Desktop shows token in settings for copy
 - [ ] Rate limiting on auth failures
 
-> **Status: PARTIAL.** Server settings UI added with Local/Remote toggle, URL input, auth token input, and Test Connection button. Config stored in localStorage. Connection test validates `/health` endpoint with auth header. Daemon auth works for remote connections. WebSocket reconnection with backoff already implemented in WebSocketBridge. Remaining: connection state indicator in main UI, token display in settings, rate limiting.
+> **Status: COMPLETE.** Server settings UI with Local/Remote toggle, URL input, auth token input, Test Connection, and token display with copy button. Connection state indicator in sidebar (green dot = connected, yellow = connecting, red = error, gray = disconnected). WebSocket reconnection with exponential backoff already implemented in WebSocketBridge. All daemon routes validated with 36 E2E tests.

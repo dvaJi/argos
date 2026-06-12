@@ -30,6 +30,7 @@ import type {
   RemoteRuntimeState,
 } from "@shared/presenter";
 import AgentAvatar from "./icons/AgentAvatar";
+import ConnectionIndicator from "./ConnectionIndicator";
 import WindowSideBarSessionItem from "./WindowSideBarSessionItem";
 import { useSidebarStore } from "@/stores/ui/sidebar";
 import { useThemeStore } from "@/stores/theme";
@@ -468,6 +469,8 @@ export default function WindowSideBar() {
             </TooltipTrigger>
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
+
+          <ConnectionIndicator />
         </div>
 
         <div
