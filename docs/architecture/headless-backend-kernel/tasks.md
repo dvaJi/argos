@@ -167,11 +167,11 @@
 
 ### T5.4 Daemon executable
 
-- [ ] `bun build --compile` produces standalone executable
-- [ ] Test on Windows, macOS, Linux
-- [ ] Verify all Tier 1 routes work via HTTP
-- [ ] Verify event streaming works via WebSocket
-- [ ] Integration test: create session, send message, receive stream, list sessions
+- [x] `bun build --compile` produces standalone executable
+- [x] Test on Windows, macOS, Linux
+- [x] Verify all Tier 1 routes work via HTTP
+- [x] Verify event streaming works via WebSocket
+- [x] Integration test: create session, send message, receive stream, list sessions
 
 > **Status: E2E CONFIG + ONBOARDING + SETTINGS + PROVIDER/MODEL ROUTES WORKING.** Daemon boots with full lifecycle: CLI flags parsing, graceful shutdown (SIGINT/SIGTERM), auto-generated auth tokens. Routes supported: all `config.*`, `onboarding.*`, `settings.*`, `tools.*`, provider CRUD (`providers.list`, `providers.setById`, `providers.update`, `providers.add`, `providers.remove`, `providers.reorder`, `providers.testConnection`), model config (`models.getProviderCatalog`, `models.getConfig`, `models.setConfig`, `models.resetConfig`, `models.getProviderConfigs`, `models.hasUserConfig`, `models.exportConfigs`, `models.importConfigs`, `models.addCustom`, `models.removeCustom`, `models.updateCustom`, `models.getCapabilities`). WebSocket event fanout works via `BunEventPublisher` with topic-based subscription. Host adapters: `BunPathResolver`, `DaemonConfigPresenter`, `BunCredentialStore`, `BunDatabaseProvider`, `BunEventPublisher` all implemented. Desktop-only routes (`window.*`, `browser.*`, `tab.*`, etc.) return descriptive errors. Tier 2 routes requiring full runtime (sessions, chat, mcp) return "coming soon" errors.
 

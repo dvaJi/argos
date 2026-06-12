@@ -160,6 +160,30 @@ export async function startDaemon(options?: {
 }
 
 if (import.meta.main) {
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    console.log(`
+Argos Daemon - Headless backend server
+
+Usage: argos-daemon [options]
+
+Options:
+  --host <host>      Bind address (default: 127.0.0.1)
+  --port <port>      Bind port (default: 9527, 0 for auto)
+  --data-dir <path>  Data directory (default: ~/.argos-daemon)
+  --token <token>    Auth token for remote access
+  --log-level <level> Log level: debug, info, warn, error (default: info)
+  -h, --help         Show this help
+
+Environment variables:
+  ARGOS_HOST         Same as --host
+  ARGOS_PORT         Same as --port
+  ARGOS_DATA_DIR     Same as --data-dir
+  ARGOS_TOKEN        Same as --token
+  ARGOS_LOG_LEVEL    Same as --log-level
+`);
+    process.exit(0);
+  }
+
   const parsed = parseArgs(process.argv);
   const opts = mergeOptions(parsed, process.env);
 
