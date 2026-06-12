@@ -14,7 +14,6 @@ import { Toaster } from "sonner";
 import { toast } from "./components/use-toast";
 import { uiSettingsStore, getFontSizeClass } from "./stores/uiSettingsStore";
 import { themeStore, type ThemeMode } from "./stores/theme";
-import { languageStore } from "./stores/language";
 import TranslatePopup from "./components/popup/TranslatePopup";
 import ModelCheckDialog from "./components/settings/ModelCheckDialog";
 import { modelCheckStore } from "./stores/modelCheck";
@@ -83,7 +82,6 @@ export default function App() {
   useFontManager();
 
   const themeState = useStore(themeStore);
-  const langState = useStore(languageStore);
   const modelCheckState = useStore(modelCheckStore);
   const uiSettingsState = useStore(uiSettingsStore);
   const draftState = useStore(draftStore);
@@ -556,7 +554,7 @@ export default function App() {
       className={`flex flex-col h-screen ${isWinMacOS ? "bg-window-background" : "bg-background"}`}
     >
       <AppBar />
-      <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir={langState.dir}>
+      <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir="ltr">
         <WindowSideBar />
 
         <div

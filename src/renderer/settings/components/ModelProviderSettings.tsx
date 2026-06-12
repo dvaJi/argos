@@ -1,4 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useProviderStore, getSortedProviders } from "@/stores/providerStore";
 import { useModelStore, refreshProviderModels } from "@/stores/modelStore";
 import { Icon } from "@iconify/react";
@@ -24,6 +27,73 @@ interface ModelProviderSettingsProps {
   onNavigate?: (params: Record<string, string>) => void;
 }
 
+function reorderSubset(
+  fullList: LLM_PROVIDER[],
+  subsetBefore: LLM_PROVIDER[],
+  subsetAfter: LLM_PROVIDER[],
+  predicate: (provider: LLM_PROVIDER) => boolean,
+): LLM_PROVIDER[] {
+  const nextSubsetMap = new Map(subsetAfter.map((provider, index) => [provider.id, index]));
+  const untouchedSubset = subsetBefore.filter((provider) => !nextSubsetMap.has(provider.id));
+  const completeSubset = [...subsetAfter, ...untouchedSubset];
+  let subsetIndex = 0;
+
+  return fullList.map((provider) => {
+    if (!predicate(provider)) {
+      return provider;
+    }
+
+    const replacement = completeSubset[subsetIndex];
+    subsetIndex += 1;
+    return replacement ?? provider;
+  });
+}
+
+function SortableProviderRow({
+  provider,
+  dimmed,
+  selected,
+  onClick,
+  children,
+}: {
+  provider: LLM_PROVIDER;
+  dimmed?: boolean;
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: provider.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? "z-10" : ""}
+    >
+      <div
+        data-provider-id={provider.id}
+        className={`flex flex-row items-center gap-2 rounded-lg p-2 group hover:bg-accent ${
+          dimmed ? "opacity-60" : ""
+        } ${selected ? "bg-accent text-accent-foreground" : ""}`}
+        onClick={onClick}
+      >
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-move touch-none"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Icon
+            icon="lucide:grip-vertical"
+            className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 drag-handle"
+          />
+        </span>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function ModelProviderSettings({ providerId: routeProviderId, onNavigate }: ModelProviderSettingsProps) {
   const languageStore = useLanguageStore();
   const providerStore = useProviderStore();
@@ -47,6 +117,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const editInputRef = useRef<HTMLInputElement | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const showClearButton = searchQueryBase.trim().length > 0;
 
@@ -185,23 +256,71 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
     setActiveProvider(provider.id);
   };
 
+  const reorderEnabledProviders = useCallback(
+    async (activeId: string, overId: string) => {
+      const oldIndex = enabledProviders.findIndex((provider) => provider.id === activeId);
+      const newIndex = enabledProviders.findIndex((provider) => provider.id === overId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+
+      const nextEnabled = arrayMove(enabledProviders, oldIndex, newIndex);
+      const nextAll = searchQuery.trim()
+        ? reorderSubset(visibleProviders, enabledProviders, nextEnabled, (provider) => provider.enable)
+        : [...nextEnabled, ...allDisabledProviders];
+
+      await providerStore.updateProvidersOrder(nextAll);
+    },
+    [allDisabledProviders, enabledProviders, providerStore, searchQuery, visibleProviders],
+  );
+
+  const reorderDisabledProviders = useCallback(
+    async (activeId: string, overId: string) => {
+      const oldIndex = disabledProviders.findIndex((provider) => provider.id === activeId);
+      const newIndex = disabledProviders.findIndex((provider) => provider.id === overId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+
+      const nextDisabled = arrayMove(disabledProviders, oldIndex, newIndex);
+      const nextAll = searchQuery.trim()
+        ? reorderSubset(visibleProviders, disabledProviders, nextDisabled, (provider) => !provider.enable)
+        : [...allEnabledProviders, ...nextDisabled];
+
+      await providerStore.updateProvidersOrder(nextAll);
+    },
+    [allEnabledProviders, disabledProviders, providerStore, searchQuery, visibleProviders],
+  );
+
+  const handleEnabledDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      await reorderEnabledProviders(String(active.id), String(over.id));
+    },
+    [reorderEnabledProviders],
+  );
+
+  const handleDisabledDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      await reorderDisabledProviders(String(active.id), String(over.id));
+    },
+    [reorderDisabledProviders],
+  );
+
   const renderProviderRow = (provider: LLM_PROVIDER, dimmed: boolean = false) => (
-    <div
+    <SortableProviderRow
       key={provider.id}
-      data-provider-id={provider.id}
-      ref={(el) => {
-        if (provider.id === visibleProviders[0]?.id) {
-          (providerListGuideTargetRef as any).current = el;
-        }
-      }}
-      className={`flex flex-row hover:bg-accent items-center gap-2 rounded-lg p-2 group ${
-        dimmed ? "opacity-60" : ""
-      } ${routeProviderId === provider.id ? "bg-accent text-accent-foreground" : ""}`}
+      provider={provider}
+      dimmed={dimmed}
+      selected={routeProviderId === provider.id}
       onClick={() => void handleProviderRowClick(provider.id)}
     >
-      <Icon
-        icon="lucide:grip-vertical"
-        className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 cursor-move drag-handle"
+      <div
+        ref={(el) => {
+          if (provider.id === visibleProviders[0]?.id) {
+            (providerListGuideTargetRef as any).current = el?.parentElement ?? el;
+          }
+        }}
+        className="contents"
       />
       <ModelIcon modelId={provider.id} customClass="w-4 h-4 text-muted-foreground" isDark={themeStore.isDark} />
       {editingProviderId === provider.id ? (
@@ -236,7 +355,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
           void toggleProviderStatus(provider);
         }}
       />
-    </div>
+    </SortableProviderRow>
   );
 
   useEffect(() => {
@@ -317,7 +436,18 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
                 <div className="text-xs font-medium text-muted-foreground px-2">
                   Enabled ({enabledProviders.length})
                 </div>
-                <div className="space-y-2">{enabledProviders.map((provider) => renderProviderRow(provider))}</div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => void handleEnabledDragEnd(event)}
+                >
+                  <SortableContext
+                    items={enabledProviders.map((provider) => provider.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">{enabledProviders.map((provider) => renderProviderRow(provider))}</div>
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
 
@@ -326,9 +456,20 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
                 <div className="text-xs font-medium text-muted-foreground px-2">
                   Disabled ({disabledProviders.length})
                 </div>
-                <div className="space-y-2">
-                  {disabledProviders.map((provider) => renderProviderRow(provider, true))}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => void handleDisabledDragEnd(event)}
+                >
+                  <SortableContext
+                    items={disabledProviders.map((provider) => provider.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {disabledProviders.map((provider) => renderProviderRow(provider, true))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
 

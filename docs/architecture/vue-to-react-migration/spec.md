@@ -13,7 +13,7 @@ Migrate the DeepChat Electron renderer from Vue 3 to React while preserving all 
 - All 37 Pinia stores converted to TanStack Store
 - All composables converted to React hooks
 - vue-router replaced with TanStack Router
-- i18n removed, all UI text hardcoded in English
+- i18n removed, all UI text hardcoded in English with fixed LTR runtime behavior
 - markstream-vue replaced with custom React markdown renderer
 - All tests pass with @testing-library/react
 - `pnpm run typecheck`, `pnpm run lint`, `pnpm run build`, `pnpm test` all pass

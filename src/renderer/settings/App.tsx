@@ -5,7 +5,6 @@ import { Toaster } from "sonner";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import CloseIcon from "./icons/CloseIcon";
 import { uiSettingsStore, getFontSizeClass, loadSettings as loadUiSettings } from "../src/stores/uiSettingsStore";
-import { languageStore } from "../src/stores/language";
 import { modelCheckStore } from "../src/stores/modelCheck";
 import { Button } from "@shadcn/components/ui/button";
 import ModelCheckDialog from "@/components/settings/ModelCheckDialog";
@@ -93,7 +92,6 @@ export default function SettingsApp() {
   const windowPresenter = useLegacyPresenter("windowPresenter");
 
   const themeState = useStore(themeStore);
-  const langState = useStore(languageStore);
   const modelCheckState = useStore(modelCheckStore);
   const uiSettingsState = useStore(uiSettingsStore);
   const providerState = useStore(providerStore);
@@ -531,8 +529,8 @@ export default function SettingsApp() {
   ]);
 
   useEffect(() => {
-    document.documentElement.dir = langState.dir === "rtl" ? "rtl" : "ltr";
-  }, [langState.dir]);
+    document.documentElement.dir = "ltr";
+  }, []);
 
   useEffect(() => {
     const newClass = getFontSizeClass(uiSettingsState.fontSizeLevel);

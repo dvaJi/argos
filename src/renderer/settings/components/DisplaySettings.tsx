@@ -19,7 +19,6 @@ import {
   setContentProtectionEnabled as updateContentProtection,
   setNotificationsEnabled as updateNotifications,
 } from "@/stores/uiSettingsStore";
-import { useLanguageStore, updateLanguage } from "@/stores/language";
 import { useFloatingButtonStore, setFloatingButtonEnabled } from "@/stores/floatingButton";
 import { useThemeStore, type ThemeMode } from "@/stores/theme";
 import FontSettingsSection from "./display/FontSettingsSection";
@@ -59,40 +58,14 @@ const themePreviewStyles: Record<
   },
 };
 
-const languageOptions = [
-  { value: "system", label: "System" },
-  { value: "zh-CN", label: "简体中文" },
-  { value: "en-US", label: "English (US)" },
-  { value: "zh-TW", label: "繁體中文（台灣）" },
-  { value: "zh-HK", label: "繁體中文（香港）" },
-  { value: "ko-KR", label: "한국어" },
-  { value: "ru-RU", label: "Русский" },
-  { value: "ja-JP", label: "日本語" },
-  { value: "fr-FR", label: "Français" },
-  { value: "fa-IR", label: "فارسی (ایران)" },
-  { value: "pt-BR", label: "Português (Brasil)" },
-  { value: "da-DK", label: "Dansk" },
-  { value: "he-IL", label: "עברית (ישראל)" },
-  { value: "es-ES", label: "Español (España)" },
-  { value: "de-DE", label: "Deutsch (Deutschland)" },
-  { value: "tr-TR", label: "Türkçe" },
-  { value: "id-ID", label: "Bahasa Indonesia" },
-  { value: "ms-MY", label: "Bahasa Melayu" },
-  { value: "it-IT", label: "Italiano" },
-  { value: "pl-PL", label: "Polski" },
-  { value: "vi-VN", label: "Tiếng Việt" },
-];
-
 const fontSizeOptions = ["text-sm", "text-base", "text-lg", "text-xl", "text-2xl"];
 const fontSizeLabels = ["Small", "Default", "Large", "Extra Large", "Extra Extra Large"];
 
 export default function DisplaySettings() {
-  const languageStore = useLanguageStore();
   const uiSettingsStore = useUiSettingsStore();
   const floatingButtonStore = useFloatingButtonStore();
   const themeStore = useThemeStore();
 
-  const [selectedLanguage, setSelectedLanguage] = useState("system");
   const [isUpdatingTheme, setIsUpdatingTheme] = useState(false);
   const [fontSizeLevel, setFontSizeLevel] = useState(() => uiSettingsStore.fontSizeLevel);
   const [isContentProtectionDialogOpen, setIsContentProtectionDialogOpen] = useState(false);
@@ -103,7 +76,7 @@ export default function DisplaySettings() {
   );
 
   const themeMode = themeStore.themeMode;
-  const dir = languageStore.dir;
+  const dir = "ltr";
 
   const themeOptions = useMemo(
     () => [
@@ -145,19 +118,6 @@ export default function DisplaySettings() {
   }, [newContentProtectionValue]);
 
   useEffect(() => {
-    setSelectedLanguage(languageStore.language);
-  }, [languageStore.language]);
-
-  useEffect(() => {
-    const update = async () => {
-      await updateLanguage(selectedLanguage);
-    };
-    if (selectedLanguage !== languageStore.language) {
-      void update();
-    }
-  }, [selectedLanguage, languageStore.language]);
-
-  useEffect(() => {
     updateFontSizeLevel(fontSizeLevel);
   }, [fontSizeLevel]);
 
@@ -175,29 +135,6 @@ export default function DisplaySettings() {
     <>
       <SettingsPageShell title="Appearance" eyebrow="Setup" data-testid="settings-appearance-page">
         <div className="flex w-full flex-col gap-1.5">
-          <div className="flex flex-col gap-2 px-2 py-2">
-            <div className="flex items-center gap-3">
-              <span className="flex min-w-[220px] shrink-0 items-center gap-2 text-sm font-medium" dir={dir}>
-                <Icon icon="lucide:languages" className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">Language</span>
-              </span>
-              <div className="ml-auto w-auto">
-                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                  <SelectTrigger data-testid="language-select" className="h-8!">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languageOptions.map((lang) => (
-                      <SelectItem key={lang.value} value={lang.value} dir={dir}>
-                        {lang.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-2 px-2 py-2">
             <div className="flex items-center gap-3">
               <span className="flex min-w-[220px] shrink-0 items-center gap-2 text-sm font-medium" dir={dir}>

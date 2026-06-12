@@ -53,6 +53,76 @@ import type { DatabaseRepairReport } from "@shared/presenter";
 import type { ProviderImportApplyResult } from "@shared/providerImport";
 
 const PUBLIC_PROVIDER_CONF_URL = "https://github.com/ThinkInAIXYZ/PublicProviderConf";
+const CLOUDFLARE_R2_S3_DOCS_URL = "https://developers.cloudflare.com/r2/api/s3/api/";
+
+type CloudSyncProviderMode = "r2" | "custom";
+
+const CLOUD_SYNC_DEFAULTS = {
+  region: "auto",
+  prefix: "deepchat-backups",
+};
+
+const createDefaultCloudSyncForm = () => ({
+  endpoint: "",
+  bucket: "",
+  region: CLOUD_SYNC_DEFAULTS.region,
+  prefix: CLOUD_SYNC_DEFAULTS.prefix,
+  accessKeyId: "",
+  secretAccessKey: "",
+});
+
+const normalizeCloudEndpoint = (value: string) => value.trim();
+const normalizeCloudBucket = (value: string) => value.trim();
+const normalizeCloudRegion = (value: string) => value.trim() || CLOUD_SYNC_DEFAULTS.region;
+const normalizeCloudPrefix = (value: string) => value.trim() || CLOUD_SYNC_DEFAULTS.prefix;
+const normalizeCloudAccessKeyId = (value: string) => value.trim();
+const normalizeCloudSecret = (value: string) => value.trim();
+
+const validateCloudSyncForm = (
+  form: ReturnType<typeof createDefaultCloudSyncForm>,
+  options: { providerMode: CloudSyncProviderMode; hasStoredSecret: boolean },
+) => {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const endpoint = normalizeCloudEndpoint(form.endpoint);
+  const bucket = normalizeCloudBucket(form.bucket);
+  const region = normalizeCloudRegion(form.region);
+  const prefix = normalizeCloudPrefix(form.prefix);
+  const accessKeyId = normalizeCloudAccessKeyId(form.accessKeyId);
+  const secretAccessKey = normalizeCloudSecret(form.secretAccessKey);
+
+  if (!endpoint) errors.push("endpointRequired");
+  if (!bucket) errors.push("bucketRequired");
+  if (!accessKeyId) errors.push("accessKeyRequired");
+  if (!secretAccessKey && !options.hasStoredSecret) errors.push("secretRequired");
+  if (options.providerMode === "custom" && !region) errors.push("regionRequired");
+
+  if (options.providerMode === "r2" && /^[a-f0-9]{32}$/i.test(accessKeyId)) {
+    warnings.push("r2AccessKeyLooksLikeAccountId");
+  }
+
+  if (
+    options.providerMode === "r2" &&
+    secretAccessKey &&
+    (secretAccessKey.split(".").length >= 3 || secretAccessKey.length > 100)
+  ) {
+    errors.push("r2SecretLooksLikeApiToken");
+  }
+
+  return {
+    canSave: errors.length === 0,
+    errors,
+    warnings,
+    normalized: {
+      endpoint,
+      bucket,
+      region,
+      prefix,
+      accessKeyId,
+      secretAccessKey,
+    },
+  };
+};
 
 export default function DataSettings() {
   const { toast } = useToast();
@@ -86,15 +156,9 @@ export default function DataSettings() {
   const [databaseCurrentPassword, setDatabaseCurrentPassword] = useState("");
   const [databaseNewPassword, setDatabaseNewPassword] = useState("");
   const [databaseConfirmPassword, setDatabaseConfirmPassword] = useState("");
+  const [cloudProviderMode, setCloudProviderMode] = useState<CloudSyncProviderMode>("r2");
   const [cloudPullMode, setCloudPullMode] = useState<"increment" | "overwrite">("increment");
-  const [cloudForm, setCloudForm] = useState({
-    endpoint: "",
-    bucket: "",
-    region: "auto",
-    prefix: "deepchat-backups",
-    accessKeyId: "",
-    secretAccessKey: "",
-  });
+  const [cloudForm, setCloudForm] = useState(createDefaultCloudSyncForm());
 
   const dir = languageStore.dir;
   const isBackupActive = syncStore.isBackingUp;
@@ -108,8 +172,109 @@ export default function DataSettings() {
     else window.open(url, "_blank", "noopener,noreferrer");
   }, []);
 
+  const setCloudProvider = useCallback((mode: CloudSyncProviderMode) => {
+    setCloudProviderMode(mode);
+    if (mode === "r2") {
+      setCloudForm((prev) => ({
+        ...prev,
+        region: prev.region.trim() || CLOUD_SYNC_DEFAULTS.region,
+        prefix: prev.prefix.trim() || CLOUD_SYNC_DEFAULTS.prefix,
+      }));
+    }
+  }, []);
+
   const isRepairActionDisabled = isRepairing || isBackupActive || isImporting;
   const isResetActionDisabled = isResetting || isBackupActive || isImporting;
+  const hasStoredCloudSecret = useMemo(() => Boolean(cloudConfig?.hasSecret), [cloudConfig?.hasSecret]);
+  const cloudValidation = useMemo(
+    () => validateCloudSyncForm(cloudForm, { providerMode: cloudProviderMode, hasStoredSecret: hasStoredCloudSecret }),
+    [cloudForm, cloudProviderMode, hasStoredCloudSecret],
+  );
+  const isCloudSecretWriteUnavailable = useMemo(
+    () => Boolean(cloudForm.secretAccessKey.trim()) && cloudConfig?.safeStorageAvailable === false,
+    [cloudConfig?.safeStorageAvailable, cloudForm.secretAccessKey],
+  );
+  const isCloudSaveDisabled = useMemo(
+    () => Boolean(isCloudBusy) || !cloudValidation.canSave || isCloudSecretWriteUnavailable,
+    [isCloudBusy, cloudValidation.canSave, isCloudSecretWriteUnavailable],
+  );
+  const hasUsableCloudConfig = useMemo(
+    () =>
+      Boolean(
+        cloudConfig?.endpoint?.trim() &&
+        cloudConfig?.bucket?.trim() &&
+        cloudConfig?.accessKeyId?.trim() &&
+        cloudConfig?.hasSecret,
+      ),
+    [cloudConfig],
+  );
+  const isCloudOperationDisabled = useMemo(
+    () => Boolean(isCloudBusy) || !hasUsableCloudConfig,
+    [isCloudBusy, hasUsableCloudConfig],
+  );
+  const cloudSecretPlaceholder = useMemo(() => (hasStoredCloudSecret ? "Configured" : ""), [hasStoredCloudSecret]);
+  const cloudSecretStatusText = useMemo(() => {
+    if (hasStoredCloudSecret && !cloudForm.secretAccessKey) {
+      return "Secret is stored securely. Leave blank to keep the current secret.";
+    }
+    return "Enter a secret to save or replace the stored cloud credential.";
+  }, [hasStoredCloudSecret, cloudForm.secretAccessKey]);
+  const databasePasswordValidation = useMemo(() => {
+    if (databaseEncryptionAction === "disable") return "";
+    if (!databaseNewPassword && !databaseConfirmPassword) return "";
+    if (databaseNewPassword !== databaseConfirmPassword) return "Passwords do not match.";
+    return "";
+  }, [databaseConfirmPassword, databaseEncryptionAction, databaseNewPassword]);
+  const isDatabaseSecurityActionDisabled = useMemo(
+    () =>
+      !isDatabaseSecurityStatusLoaded ||
+      hasDatabaseSecurityStatusError ||
+      isDatabaseSecurityBusy ||
+      isBackupActive ||
+      isImporting ||
+      Boolean(databaseSecurityStatus?.migrationInProgress),
+    [
+      databaseSecurityStatus?.migrationInProgress,
+      hasDatabaseSecurityStatusError,
+      isBackupActive,
+      isDatabaseSecurityBusy,
+      isDatabaseSecurityStatusLoaded,
+      isImporting,
+    ],
+  );
+  const canEnableDatabaseEncryption = useMemo(
+    () =>
+      !isDatabaseSecurityActionDisabled &&
+      !databaseSecurityStatus?.enabled &&
+      Boolean(databaseNewPassword) &&
+      databaseNewPassword === databaseConfirmPassword,
+    [databaseConfirmPassword, databaseNewPassword, databaseSecurityStatus?.enabled, isDatabaseSecurityActionDisabled],
+  );
+  const canChangeDatabasePassword = useMemo(
+    () =>
+      !isDatabaseSecurityActionDisabled &&
+      Boolean(databaseSecurityStatus?.enabled) &&
+      Boolean(databaseCurrentPassword) &&
+      Boolean(databaseNewPassword) &&
+      databaseNewPassword === databaseConfirmPassword,
+    [
+      databaseConfirmPassword,
+      databaseCurrentPassword,
+      databaseNewPassword,
+      databaseSecurityStatus?.enabled,
+      isDatabaseSecurityActionDisabled,
+    ],
+  );
+  const canDisableDatabaseEncryption = useMemo(
+    () =>
+      !isDatabaseSecurityActionDisabled && Boolean(databaseSecurityStatus?.enabled) && Boolean(databaseCurrentPassword),
+    [databaseCurrentPassword, databaseSecurityStatus?.enabled, isDatabaseSecurityActionDisabled],
+  );
+  const canSubmitDatabaseEncryptionDialog = useMemo(() => {
+    if (databaseEncryptionAction === "enable") return canEnableDatabaseEncryption;
+    if (databaseEncryptionAction === "change") return canChangeDatabasePassword;
+    return canDisableDatabaseEncryption;
+  }, [canChangeDatabasePassword, canDisableDatabaseEncryption, canEnableDatabaseEncryption, databaseEncryptionAction]);
 
   const formatBytes = (bytes: number) => {
     if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -137,6 +302,155 @@ export default function DataSettings() {
       duration: 4000,
     });
   }, [syncStore, toast]);
+
+  const persistCloudConfig = useCallback(async (): Promise<boolean> => {
+    if (isCloudSaveDisabled) return false;
+    await saveCloudConfig({
+      endpoint: cloudValidation.normalized.endpoint,
+      bucket: cloudValidation.normalized.bucket,
+      region: cloudValidation.normalized.region,
+      prefix: cloudValidation.normalized.prefix,
+      accessKeyId: cloudValidation.normalized.accessKeyId,
+      secretAccessKey: cloudValidation.normalized.secretAccessKey || undefined,
+    });
+    setCloudForm((prev) => ({ ...prev, secretAccessKey: "" }));
+    return true;
+  }, [cloudValidation.normalized, isCloudSaveDisabled]);
+
+  const handleSaveCloud = useCallback(async () => {
+    const saved = await persistCloudConfig();
+    if (!saved) return;
+    toast({ title: "Cloud config saved", duration: 3000 });
+  }, [persistCloudConfig, toast]);
+
+  const handleTestCloud = useCallback(async () => {
+    const result = await testCloud();
+    if (!result) return;
+    toast({
+      title: result.success ? "Test successful" : "Test failed",
+      description: result.success ? undefined : result.message,
+      variant: result.success ? "default" : "destructive",
+      duration: 4000,
+    });
+  }, [toast]);
+
+  const handleSaveAndTestCloud = useCallback(async () => {
+    const saved = await persistCloudConfig();
+    if (!saved) return;
+    await handleTestCloud();
+  }, [handleTestCloud, persistCloudConfig]);
+
+  const handleUploadToCloud = useCallback(async () => {
+    const result = await uploadToCloud();
+    if (!result) return;
+    toast({
+      title: result.success ? "Upload successful" : "Upload failed",
+      description: result.success ? undefined : result.message,
+      variant: result.success ? "default" : "destructive",
+      duration: 4000,
+    });
+  }, [toast]);
+
+  const handlePullFromCloud = useCallback(async () => {
+    const result = await pullFromCloud(cloudPullMode);
+    if (!result) return;
+    if (result.success) {
+      toast({
+        title: "Pull successful",
+        description: `${result.count ?? 0} item(s) imported`,
+        duration: 4000,
+      });
+    }
+  }, [cloudPullMode, toast]);
+
+  const clearDatabasePasswordFields = useCallback(() => {
+    setDatabaseCurrentPassword("");
+    setDatabaseNewPassword("");
+    setDatabaseConfirmPassword("");
+  }, []);
+
+  const refreshDatabaseSecurityStatus = useCallback(async () => {
+    setHasDatabaseSecurityStatusError(false);
+    try {
+      setDatabaseSecurityStatus(await databaseSecurityClient.getStatus());
+      setIsDatabaseSecurityStatusLoaded(true);
+    } catch (error) {
+      console.error("Failed to load database encryption status:", error);
+      setIsDatabaseSecurityStatusLoaded(Boolean(databaseSecurityStatus));
+      setHasDatabaseSecurityStatusError(true);
+    }
+  }, [databaseSecurityClient, databaseSecurityStatus]);
+
+  const openDatabaseEncryptionDialog = useCallback(
+    (action: "enable" | "change" | "disable") => {
+      if (isDatabaseSecurityActionDisabled) return;
+      setDatabaseEncryptionAction(action);
+      clearDatabasePasswordFields();
+      setIsDatabaseEncryptionDialogOpen(true);
+    },
+    [clearDatabasePasswordFields, isDatabaseSecurityActionDisabled],
+  );
+
+  const closeDatabaseEncryptionDialog = useCallback(() => {
+    if (isDatabaseSecurityBusy) return;
+    setIsDatabaseEncryptionDialogOpen(false);
+    clearDatabasePasswordFields();
+  }, [clearDatabasePasswordFields, isDatabaseSecurityBusy]);
+
+  const runDatabaseSecurityAction = useCallback(
+    async (action: () => Promise<DatabaseSecurityStatus>, successTitle: string) => {
+      if (isDatabaseSecurityBusy) return;
+      setIsDatabaseSecurityBusy(true);
+      try {
+        setDatabaseSecurityStatus(await action());
+        setIsDatabaseSecurityStatusLoaded(true);
+        setHasDatabaseSecurityStatusError(false);
+        clearDatabasePasswordFields();
+        setIsDatabaseEncryptionDialogOpen(false);
+        toast({ title: successTitle, duration: 4000 });
+      } catch (error) {
+        console.error("Database encryption action failed:", error);
+        toast({
+          title: "Database encryption failed",
+          description: error instanceof Error ? error.message : "Could not update database encryption settings.",
+          variant: "destructive",
+          duration: 5000,
+        });
+      } finally {
+        setIsDatabaseSecurityBusy(false);
+      }
+    },
+    [clearDatabasePasswordFields, isDatabaseSecurityBusy, toast],
+  );
+
+  const submitDatabaseEncryptionDialog = useCallback(async () => {
+    if (!canSubmitDatabaseEncryptionDialog) return;
+    if (databaseEncryptionAction === "enable") {
+      await runDatabaseSecurityAction(
+        () => databaseSecurityClient.enable(databaseNewPassword),
+        "Database encryption enabled",
+      );
+      return;
+    }
+    if (databaseEncryptionAction === "change") {
+      await runDatabaseSecurityAction(
+        () => databaseSecurityClient.changePassword(databaseCurrentPassword, databaseNewPassword),
+        "Database password changed",
+      );
+      return;
+    }
+    await runDatabaseSecurityAction(
+      () => databaseSecurityClient.disable(databaseCurrentPassword),
+      "Database encryption disabled",
+    );
+  }, [
+    canSubmitDatabaseEncryptionDialog,
+    databaseCurrentPassword,
+    databaseEncryptionAction,
+    databaseNewPassword,
+    databaseSecurityClient,
+    runDatabaseSecurityAction,
+  ]);
 
   const handleImport = useCallback(async () => {
     if (!selectedBackup) return;
@@ -210,21 +524,22 @@ export default function DataSettings() {
     void (async () => {
       await initializeSync();
       try {
-        setDatabaseSecurityStatus(await databaseSecurityClient.getStatus());
-        setIsDatabaseSecurityStatusLoaded(true);
+        await refreshDatabaseSecurityStatus();
       } catch {
         setHasDatabaseSecurityStatusError(true);
       }
     })();
-  }, [syncStore, databaseSecurityClient]);
+  }, [databaseSecurityClient, refreshDatabaseSecurityStatus, syncStore]);
 
   useEffect(() => {
     if (!cloudConfig) return;
+    const isR2 = cloudConfig.endpoint.includes("r2.cloudflarestorage.com");
+    setCloudProviderMode(isR2 ? "r2" : "custom");
     setCloudForm({
       endpoint: cloudConfig.endpoint,
       bucket: cloudConfig.bucket,
-      region: cloudConfig.region || "auto",
-      prefix: cloudConfig.prefix || "deepchat-backups",
+      region: cloudConfig.region || CLOUD_SYNC_DEFAULTS.region,
+      prefix: cloudConfig.prefix || CLOUD_SYNC_DEFAULTS.prefix,
       accessKeyId: cloudConfig.accessKeyId,
       secretAccessKey: "",
     });
@@ -384,6 +699,73 @@ export default function DataSettings() {
                 </span>
                 <p className="text-xs text-muted-foreground">S3-compatible cloud backup</p>
               </div>
+              <div className="grid w-full gap-1 rounded-lg border border-border bg-muted/30 p-1 sm:w-fit sm:grid-cols-2">
+                <button
+                  type="button"
+                  data-testid="cloud-provider-r2"
+                  className={cn(
+                    "flex h-8 items-center justify-center gap-2 rounded-md px-3 text-xs font-medium transition-colors",
+                    cloudProviderMode === "r2"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => setCloudProvider("r2")}
+                >
+                  <Icon icon="lucide:cloud" className="h-3.5 w-3.5" />
+                  <span>Cloudflare R2</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="cloud-provider-custom"
+                  className={cn(
+                    "flex h-8 items-center justify-center gap-2 rounded-md px-3 text-xs font-medium transition-colors",
+                    cloudProviderMode === "custom"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                  onClick={() => setCloudProvider("custom")}
+                >
+                  <Icon icon="lucide:server-cog" className="h-3.5 w-3.5" />
+                  <span>Custom S3</span>
+                </button>
+              </div>
+
+              {cloudProviderMode === "r2" && (
+                <div className="rounded-md border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-muted-foreground">
+                  <div className="flex gap-2">
+                    <Icon icon="lucide:info" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <p className="text-foreground">Cloudflare R2 setup guide</p>
+                      <div className="grid gap-2">
+                        <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start">
+                          <span className="font-medium text-foreground">Endpoint</span>
+                          <span>Use your account R2 S3 endpoint from Cloudflare.</span>
+                        </div>
+                        <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start">
+                          <span className="font-medium text-foreground">Access Key ID</span>
+                          <span>Use an R2 access key, not the account identifier.</span>
+                        </div>
+                        <div className="grid gap-1 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-start">
+                          <span className="font-medium text-foreground">Secret Access Key</span>
+                          <span>Use the S3 secret for the access key pair, not an API token.</span>
+                        </div>
+                      </div>
+                      <a
+                        href={CLOUDFLARE_R2_S3_DOCS_URL}
+                        className="inline-flex w-fit items-center gap-1 text-blue-600 underline-offset-4 hover:underline dark:text-blue-400"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          openExternalLink(CLOUDFLARE_R2_S3_DOCS_URL);
+                        }}
+                      >
+                        Cloudflare R2 S3 docs
+                        <Icon icon="lucide:external-link" className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <Label className="text-xs">Endpoint</Label>
@@ -393,6 +775,11 @@ export default function DataSettings() {
                     placeholder="https://<account>.r2.cloudflarestorage.com"
                     onChange={(e) => setCloudForm((p) => ({ ...p, endpoint: e.target.value }))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {cloudProviderMode === "r2"
+                      ? "R2 usually uses a Cloudflare account endpoint."
+                      : "Use the S3-compatible HTTPS endpoint for your provider."}
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs">Bucket</Label>
@@ -402,15 +789,17 @@ export default function DataSettings() {
                     onChange={(e) => setCloudForm((p) => ({ ...p, bucket: e.target.value }))}
                   />
                 </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs">Region</Label>
-                  <Input
-                    value={cloudForm.region}
-                    className="h-8!"
-                    placeholder="auto"
-                    onChange={(e) => setCloudForm((p) => ({ ...p, region: e.target.value }))}
-                  />
-                </div>
+                {cloudProviderMode === "custom" && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs">Region</Label>
+                    <Input
+                      value={cloudForm.region}
+                      className="h-8!"
+                      placeholder="auto"
+                      onChange={(e) => setCloudForm((p) => ({ ...p, region: e.target.value }))}
+                    />
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs">Access Key ID</Label>
                   <Input
@@ -419,6 +808,11 @@ export default function DataSettings() {
                     autoComplete="off"
                     onChange={(e) => setCloudForm((p) => ({ ...p, accessKeyId: e.target.value }))}
                   />
+                  {cloudValidation.warnings.includes("r2AccessKeyLooksLikeAccountId") && (
+                    <p data-testid="cloud-access-key-warning" className="text-xs text-amber-600 dark:text-amber-400">
+                      This looks like a Cloudflare account ID, not an R2 access key ID.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="text-xs">Secret Access Key</Label>
@@ -427,72 +821,106 @@ export default function DataSettings() {
                     type="password"
                     className="h-8!"
                     autoComplete="off"
-                    placeholder={cloudConfig?.hasSecret ? "Configured" : ""}
+                    aria-invalid={cloudValidation.errors.includes("r2SecretLooksLikeApiToken") ? "true" : undefined}
+                    placeholder={cloudSecretPlaceholder}
                     onChange={(e) => setCloudForm((p) => ({ ...p, secretAccessKey: e.target.value }))}
                   />
+                  {cloudValidation.errors.includes("r2SecretLooksLikeApiToken") ? (
+                    <p data-testid="cloud-secret-token-error" className="text-xs text-destructive">
+                      This looks like an API token. Use the R2 S3 secret access key instead.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{cloudSecretStatusText}</p>
+                  )}
                 </div>
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <Label className="text-xs">Prefix</Label>
-                  <Input
-                    value={cloudForm.prefix}
-                    className="h-8!"
-                    placeholder="deepchat-backups"
-                    onChange={(e) => setCloudForm((p) => ({ ...p, prefix: e.target.value }))}
-                  />
-                </div>
+                {cloudProviderMode === "custom" && (
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <Label className="text-xs">Prefix</Label>
+                    <Input
+                      value={cloudForm.prefix}
+                      className="h-8!"
+                      placeholder="deepchat-backups"
+                      onChange={(e) => setCloudForm((p) => ({ ...p, prefix: e.target.value }))}
+                    />
+                  </div>
+                )}
               </div>
+              {cloudProviderMode === "r2" && (
+                <details className="group rounded-md border border-border/70 px-3 py-2">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-medium">
+                    <span>Advanced</span>
+                    <Icon
+                      icon="lucide:chevron-down"
+                      className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"
+                    />
+                  </summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs">Region</Label>
+                      <Input
+                        value={cloudForm.region}
+                        className="h-8!"
+                        placeholder="auto"
+                        onChange={(e) => setCloudForm((p) => ({ ...p, region: e.target.value }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Usually keep `auto` for R2 unless your setup needs otherwise.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs">Prefix</Label>
+                      <Input
+                        value={cloudForm.prefix}
+                        className="h-8!"
+                        placeholder="deepchat-backups"
+                        onChange={(e) => setCloudForm((p) => ({ ...p, prefix: e.target.value }))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Customize the cloud backup folder prefix if needed.
+                      </p>
+                    </div>
+                  </div>
+                </details>
+              )}
+
+              {cloudConfig && !cloudConfig.safeStorageAvailable && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Secure system credential storage is unavailable, so saving a new cloud secret may be limited.
+                </p>
+              )}
+
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   variant="default"
                   className="w-full sm:w-auto"
-                  disabled={isCloudBusy}
-                  onClick={async () => {
-                    await saveCloudConfig({
-                      ...cloudForm,
-                      secretAccessKey: cloudForm.secretAccessKey || undefined,
-                    });
-                    setCloudForm((p) => ({ ...p, secretAccessKey: "" }));
-                    toast({ title: "Cloud config saved", duration: 3000 });
-                  }}
+                  data-testid="cloud-save-test"
+                  disabled={isCloudSaveDisabled}
+                  onClick={() => void handleSaveAndTestCloud()}
                 >
-                  <Icon icon="lucide:check" className="h-4 w-4" />
-                  <span className="text-sm font-medium">Save</span>
+                  <Icon
+                    icon={isCloudBusy ? "lucide:loader-2" : "lucide:plug-zap"}
+                    className={`h-4 w-4 ${isCloudBusy ? "animate-spin" : ""}`}
+                  />
+                  <span className="text-sm font-medium">Save & Test</span>
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  disabled={isCloudBusy}
-                  onClick={async () => {
-                    const result = await testCloud();
-                    if (!result) return;
-                    toast({
-                      title: result.success ? "Test successful" : "Test failed",
-                      variant: result.success ? "default" : "destructive",
-                      duration: 4000,
-                    });
-                  }}
+                  data-testid="cloud-save-only"
+                  disabled={isCloudSaveDisabled}
+                  onClick={() => void handleSaveCloud()}
                 >
-                  <Icon
-                    icon={isCloudBusy ? "lucide:loader-2" : "lucide:plug-zap"}
-                    className={`h-4 w-4 text-muted-foreground ${isCloudBusy ? "animate-spin" : ""}`}
-                  />
-                  <span className="text-sm font-medium">Test</span>
+                  <Icon icon="lucide:save" className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Save Only</span>
                 </Button>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  disabled={isCloudBusy}
-                  onClick={async () => {
-                    const result = await uploadToCloud();
-                    if (!result) return;
-                    toast({
-                      title: result.success ? "Upload successful" : "Upload failed",
-                      variant: result.success ? "default" : "destructive",
-                      duration: 4000,
-                    });
-                  }}
+                  disabled={isCloudOperationDisabled}
+                  title={!hasUsableCloudConfig ? "Save and test your cloud configuration first." : ""}
+                  onClick={() => void handleUploadToCloud()}
                 >
                   <Icon icon="lucide:cloud-upload" className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Upload</span>
@@ -500,11 +928,9 @@ export default function DataSettings() {
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  disabled={isCloudBusy}
-                  onClick={async () => {
-                    const result = await pullFromCloud(cloudPullMode);
-                    if (result?.success) toast({ title: "Pull successful", duration: 4000 });
-                  }}
+                  disabled={isCloudOperationDisabled}
+                  title={!hasUsableCloudConfig ? "Save and test your cloud configuration first." : ""}
+                  onClick={() => void handlePullFromCloud()}
                 >
                   <Icon icon="lucide:cloud-download" className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Pull</span>
@@ -528,11 +954,272 @@ export default function DataSettings() {
                   </div>
                 </RadioGroup>
               </div>
+              {!hasUsableCloudConfig && (
+                <p className="text-xs text-muted-foreground">
+                  Save and test your cloud configuration before upload or pull.
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         <PrivacySettingsSection />
+
+        <div className="rounded-xl border border-border bg-card/30 p-4">
+          <div className="flex flex-col gap-4" dir={dir}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex gap-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background text-foreground">
+                  <Icon icon="lucide:user-key" className="h-4 w-4" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="text-sm font-medium">Database Encryption</div>
+                  <p className="text-xs text-muted-foreground">Manage SQLCipher protection for local databases.</p>
+                </div>
+              </div>
+              <span
+                className={cn(
+                  "inline-flex w-fit items-center rounded-md border px-2 py-1 text-xs font-medium",
+                  hasDatabaseSecurityStatusError && !databaseSecurityStatus
+                    ? "border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    : databaseSecurityStatus?.enabled
+                      ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                      : "border-border text-muted-foreground",
+                )}
+              >
+                {hasDatabaseSecurityStatusError && !databaseSecurityStatus
+                  ? "Unknown"
+                  : !databaseSecurityStatus
+                    ? "Loading"
+                    : databaseSecurityStatus.enabled
+                      ? "Enabled"
+                      : "Disabled"}
+              </span>
+            </div>
+
+            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+              <div className="flex justify-between gap-3">
+                <span>Cipher</span>
+                <span className="text-foreground">
+                  {databaseSecurityStatus?.cipher ?? (hasDatabaseSecurityStatusError ? "Unknown" : "Loading")}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>System unlock</span>
+                <span className="text-foreground">
+                  {!databaseSecurityStatus
+                    ? hasDatabaseSecurityStatusError
+                      ? "Unknown"
+                      : "Loading"
+                    : databaseSecurityStatus.safeStorageAvailable
+                      ? "Available"
+                      : "Unavailable"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>Startup unlock</span>
+                <span className="text-foreground">
+                  {!databaseSecurityStatus
+                    ? hasDatabaseSecurityStatusError
+                      ? "Unknown"
+                      : "Loading"
+                    : !databaseSecurityStatus.enabled
+                      ? "Not required"
+                      : databaseSecurityStatus.manualUnlockRequired
+                        ? "Manual"
+                        : "System managed"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>Last migration</span>
+                <span className="text-foreground">
+                  {!databaseSecurityStatus
+                    ? hasDatabaseSecurityStatusError
+                      ? "Unknown"
+                      : "Loading"
+                    : databaseSecurityStatus.lastMigrationAt
+                      ? new Date(databaseSecurityStatus.lastMigrationAt).toLocaleString()
+                      : "Never"}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Passwords can be stored in the system credential store when supported.
+            </p>
+            {databaseSecurityStatus && !databaseSecurityStatus.safeStorageAvailable && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Secure system credential storage is unavailable on this device.
+              </p>
+            )}
+
+            {isDatabaseSecurityStatusLoaded && !hasDatabaseSecurityStatusError && (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {!databaseSecurityStatus?.enabled ? (
+                  <Button
+                    className="w-full justify-center sm:w-36"
+                    disabled={isDatabaseSecurityActionDisabled}
+                    onClick={() => openDatabaseEncryptionDialog("enable")}
+                  >
+                    <span>Set Password</span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center sm:w-36"
+                    disabled={isDatabaseSecurityActionDisabled}
+                    onClick={() => openDatabaseEncryptionDialog("change")}
+                  >
+                    <span>Change Password</span>
+                  </Button>
+                )}
+                {databaseSecurityStatus?.enabled && (
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-center sm:w-36"
+                    disabled={isDatabaseSecurityActionDisabled}
+                    onClick={() => openDatabaseEncryptionDialog("disable")}
+                  >
+                    <span>Disable Encryption</span>
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <Dialog open={isDatabaseEncryptionDialogOpen} onOpenChange={setIsDatabaseEncryptionDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base">
+                    <Icon
+                      icon={
+                        databaseEncryptionAction === "enable"
+                          ? "lucide:shield-lock"
+                          : databaseEncryptionAction === "change"
+                            ? "lucide:key-round"
+                            : "lucide:shield-off"
+                      }
+                      className="h-4 w-4"
+                    />
+                    <span>
+                      {databaseEncryptionAction === "enable"
+                        ? "Enable Database Encryption"
+                        : databaseEncryptionAction === "change"
+                          ? "Change Database Password"
+                          : "Disable Database Encryption"}
+                    </span>
+                  </DialogTitle>
+                  <DialogDescription>
+                    {databaseEncryptionAction === "enable"
+                      ? "Set a password to encrypt your local databases."
+                      : databaseEncryptionAction === "change"
+                        ? "Enter the current password and choose a new one."
+                        : "Enter the current password to disable encryption."}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-3 py-2">
+                  {databaseEncryptionAction !== "enable" && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs" htmlFor="database-current-password">
+                        Current password
+                      </Label>
+                      <Input
+                        id="database-current-password"
+                        value={databaseCurrentPassword}
+                        onChange={(e) => setDatabaseCurrentPassword(e.target.value)}
+                        type="password"
+                        autoComplete="current-password"
+                        className="h-9!"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void submitDatabaseEncryptionDialog();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {databaseEncryptionAction !== "disable" && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs" htmlFor="database-new-password">
+                        New password
+                      </Label>
+                      <Input
+                        id="database-new-password"
+                        value={databaseNewPassword}
+                        onChange={(e) => setDatabaseNewPassword(e.target.value)}
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-9!"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void submitDatabaseEncryptionDialog();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {databaseEncryptionAction !== "disable" && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs" htmlFor="database-confirm-password">
+                        Confirm password
+                      </Label>
+                      <Input
+                        id="database-confirm-password"
+                        value={databaseConfirmPassword}
+                        onChange={(e) => setDatabaseConfirmPassword(e.target.value)}
+                        type="password"
+                        autoComplete="new-password"
+                        className="h-9!"
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void submitDatabaseEncryptionDialog();
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {databasePasswordValidation && <p className="text-xs text-destructive">{databasePasswordValidation}</p>}
+                {databaseSecurityStatus && !databaseSecurityStatus.safeStorageAvailable && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Secure system credential storage is unavailable on this device.
+                  </p>
+                )}
+
+                <DialogFooter className="gap-2 sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isDatabaseSecurityBusy}
+                    onClick={closeDatabaseEncryptionDialog}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={databaseEncryptionAction === "disable" ? "destructive" : "default"}
+                    disabled={!canSubmitDatabaseEncryptionDialog}
+                    onClick={() => void submitDatabaseEncryptionDialog()}
+                  >
+                    <span>
+                      {databaseEncryptionAction === "enable"
+                        ? "Enable"
+                        : databaseEncryptionAction === "change"
+                          ? "Change"
+                          : "Disable"}
+                    </span>
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
 
         <div className="rounded-xl border border-border bg-card/30 p-4">
           <div className="flex flex-col divide-y divide-border" dir={dir}>
