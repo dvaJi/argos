@@ -4,12 +4,16 @@ import type { RouteDispatcher } from "./transport/http";
 import { authenticate } from "./transport/auth";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
+import { BunEventPublisher } from "./host/bun-event-publisher";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
-
-const HOST = process.env.ARGOS_HOST || "127.0.0.1";
-const PORT = parseInt(process.env.ARGOS_PORT || "0", 10) || 9527;
-const TOKEN = process.env.ARGOS_TOKEN || "";
-const DATA_DIR = process.env.ARGOS_DATA_DIR || "";
+import {
+  parseArgs,
+  mergeOptions,
+  ensureDirectories,
+  setupGracefulShutdown,
+  generateToken,
+  type DaemonOptions,
+} from "./lifecycle";
 
 const startTime = Date.now();
 
@@ -18,22 +22,35 @@ function isLocalRequest(request: Request): boolean {
   return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
 }
 
-export function startDaemon(options?: { dispatcher?: RouteDispatcher; dataDir?: string }): {
+export type DaemonHandle = {
   port: number;
   close: () => void;
-} {
-  if (options?.dispatcher) {
-    setRouteDispatcher(options.dispatcher);
-  } else {
-    const paths = new BunPathResolver(options?.dataDir || DATA_DIR || undefined);
-    const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
-    const dispatcher = createDaemonDispatcher(configPresenter);
-    setRouteDispatcher(dispatcher);
-  }
+  eventPublisher: BunEventPublisher;
+};
+
+export function startDaemon(options?: {
+  dispatcher?: RouteDispatcher;
+  dataDir?: string;
+  host?: string;
+  port?: number;
+  token?: string;
+}): DaemonHandle {
+  const paths = new BunPathResolver(options?.dataDir);
+  ensureDirectories(paths);
+
+  const eventPublisher = new BunEventPublisher();
+  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
+
+  const dispatcher = options?.dispatcher ?? createDaemonDispatcher(configPresenter as any, eventPublisher);
+  setRouteDispatcher(dispatcher);
+
+  const host = options?.host || "127.0.0.1";
+  const port = options?.port || 9527;
+  const token = options?.token || "";
 
   const server = serve({
-    hostname: HOST,
-    port: PORT,
+    hostname: host,
+    port,
     async fetch(request, server) {
       const url = new URL(request.url);
 
@@ -45,8 +62,8 @@ export function startDaemon(options?: { dispatcher?: RouteDispatcher; dataDir?: 
         });
       }
 
-      if (!isLocalRequest(request) && TOKEN) {
-        const authResult = authenticate(request, TOKEN);
+      if (!isLocalRequest(request) && token) {
+        const authResult = authenticate(request, token);
         if (!authResult.ok) {
           return Response.json(
             { ok: false, error: { code: "unauthorized", message: authResult.error } },
@@ -60,7 +77,19 @@ export function startDaemon(options?: { dispatcher?: RouteDispatcher; dataDir?: 
       }
 
       if (url.pathname === "/api/v1/events") {
-        const success = server.upgrade(request);
+        const wsToken = url.searchParams.get("token");
+        if (token && wsToken !== token) {
+          return Response.json(
+            { ok: false, error: { code: "unauthorized", message: "Invalid WebSocket token" } },
+            { status: 401 },
+          );
+        }
+
+        const success = (server as any).upgrade(request, {
+          data: {
+            subscriptions: new Set<string>(),
+          },
+        });
         if (!success) {
           return Response.json(
             { ok: false, error: { code: "upgrade_failed", message: "WebSocket upgrade failed" } },
@@ -73,35 +102,66 @@ export function startDaemon(options?: { dispatcher?: RouteDispatcher; dataDir?: 
       return Response.json({ ok: false, error: { code: "not_found", message: "Unknown route" } }, { status: 404 });
     },
     websocket: {
-      open(ws) {
+      open(ws: any) {
+        eventPublisher.addClient(ws);
         ws.subscribe("events");
       },
-      close(ws) {
+      close(ws: any) {
+        eventPublisher.removeClient(ws);
         ws.unsubscribe("events");
       },
-      message(ws, message) {
-        if (typeof message === "string") {
-          try {
-            const parsed = JSON.parse(message);
-            if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
-              for (const eventName of parsed.events) {
-                ws.subscribe(`event:${eventName}`);
-              }
+      message(ws: any, message: string | Buffer) {
+        if (typeof message !== "string") return;
+        try {
+          const parsed = JSON.parse(message);
+          if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
+            for (const eventName of parsed.events) {
+              ws.subscribe(`event:${eventName}`);
+              ws.data.subscriptions.add(eventName);
             }
-          } catch {}
+          } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
+            for (const eventName of parsed.events) {
+              ws.unsubscribe(`event:${eventName}`);
+              ws.data.subscriptions.delete(eventName);
+            }
+          }
+        } catch {
+          // ignore malformed messages
         }
       },
-    },
+    } as any,
   });
 
-  console.log(`Argos daemon listening on http://${HOST}:${server.port}`);
-  console.log(`Health: http://${HOST}:${server.port}/health`);
-  console.log(`Routes: POST http://${HOST}:${server.port}/api/v1/route`);
-  console.log(`Events: ws://${HOST}:${server.port}/api/v1/events`);
+  const serverPort = (server as any).port ?? port;
+  console.log(`[daemon] Listening on http://${host}:${serverPort}`);
+  console.log(`[daemon] Health: http://${host}:${serverPort}/health`);
+  console.log(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
+  console.log(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
 
-  return { port: server.port, close: () => server.stop() };
+  setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() });
+
+  return {
+    port: serverPort,
+    close: () => (server as any).stop(),
+    eventPublisher,
+  };
 }
 
 if (import.meta.main) {
-  startDaemon();
+  const parsed = parseArgs(process.argv);
+  const opts = mergeOptions(parsed, process.env);
+
+  let token = opts.token;
+  if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
+    token = generateToken();
+    console.log(`[daemon] No token provided, generated: ${token}`);
+    console.log(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);
+  }
+
+  startDaemon({
+    dataDir: opts.dataDir,
+    host: opts.host,
+    port: opts.port,
+    token,
+  });
 }

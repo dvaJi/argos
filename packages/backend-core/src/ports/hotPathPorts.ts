@@ -18,11 +18,6 @@ export type SessionListFilters = {
   parentSessionId?: string;
 };
 
-export type SessionRouteContext = {
-  webContentsId: number;
-  windowId: number | null;
-};
-
 export interface SessionRepository {
   create(input: CreateSessionInput, webContentsId: number): Promise<SessionWithState>;
   get(sessionId: string): Promise<SessionWithState | null>;

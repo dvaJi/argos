@@ -146,21 +146,21 @@
 - [x] Implement HTTP route dispatch handler (validates against Zod contracts, pluggable `RouteDispatcher`)
 - [x] Implement WebSocket event handler (subscribe to event topics)
 - [x] Wire `packages/backend-core` dispatch engine to HTTP handler (config routes working)
-- [ ] Wire event bus to WebSocket fanout
+- [x] Wire event bus to WebSocket fanout
 
 ### T5.2 Implement Bun host adapters
 
 - [x] `BunPathResolver` — uses `~/.argos-daemon/` as data root, configurable via `--data-dir`
 - [x] `BunConfigStore` — `DaemonConfigPresenter` JSON-file backed, implements `IConfigPresenter`
-- [ ] `BunCredentialStore` — uses file-based encryption (env var or OS keychain via `security`/`cmdkey`)
-- [ ] `BunDatabaseProvider` — uses `better-sqlite3` or `bun:sqlite`
+- [x] `BunCredentialStore` — uses file-based encryption (env var or OS keychain via `security`/`cmdkey`)
+- [x] `BunDatabaseProvider` — uses `bun:sqlite`
 - [x] `BunSubprocessRunner` — uses `Bun.spawn()` (via `ElectronSubprocessRunner` in electron-adapter)
-- [ ] `BunEventPublisher` — uses in-process subscriber map + WS fanout
+- [x] `BunEventPublisher` — uses in-process subscriber map + WS fanout
 
 ### T5.3 Daemon lifecycle
 
-- [ ] CLI flags: `--host`, `--port`, `--data-dir`, `--token`, `--log-level`
-- [ ] Graceful shutdown (SIGINT/SIGTERM)
+- [x] CLI flags: `--host`, `--port`, `--data-dir`, `--token`, `--log-level`
+- [x] Graceful shutdown (SIGINT/SIGTERM)
 - [ ] Database initialization on first run
 - [ ] Session restore on restart
 - [ ] Error recovery and logging
@@ -173,7 +173,7 @@
 - [ ] Verify event streaming works via WebSocket
 - [ ] Integration test: create session, send message, receive stream, list sessions
 
-> **Status: E2E CONFIG ROUTES WORKING.** Daemon boots, dispatches `config.*` routes through backend-core's `dispatchConfigRoute` with `DaemonConfigPresenter` (JSON-file backed). Tested with curl: `config.getEntries`, `config.setLanguage`, `config.getLanguage`, `config.setTheme`, `config.getTheme`, `config.getDefaultProjectPath`, `config.getFloatingButton`, `config.setFloatingButton`, `config.updateEntries` — all return Zod-validated output. Non-config routes return "not supported in daemon mode". Shared-contracts dependency files (model.ts, types/, etc.) copied into package for Bun runtime resolution.
+> **Status: E2E CONFIG + ONBOARDING + SETTINGS + PROVIDER/MODEL ROUTES WORKING.** Daemon boots with full lifecycle: CLI flags parsing, graceful shutdown (SIGINT/SIGTERM), auto-generated auth tokens. Routes supported: all `config.*`, `onboarding.*`, `settings.*`, `tools.*`, provider CRUD (`providers.list`, `providers.setById`, `providers.update`, `providers.add`, `providers.remove`, `providers.reorder`, `providers.testConnection`), model config (`models.getProviderCatalog`, `models.getConfig`, `models.setConfig`, `models.resetConfig`, `models.getProviderConfigs`, `models.hasUserConfig`, `models.exportConfigs`, `models.importConfigs`, `models.addCustom`, `models.removeCustom`, `models.updateCustom`, `models.getCapabilities`). WebSocket event fanout works via `BunEventPublisher` with topic-based subscription. Host adapters: `BunPathResolver`, `DaemonConfigPresenter`, `BunCredentialStore`, `BunDatabaseProvider`, `BunEventPublisher` all implemented. Desktop-only routes (`window.*`, `browser.*`, `tab.*`, etc.) return descriptive errors. Tier 2 routes requiring full runtime (sessions, chat, mcp) return "coming soon" errors.
 
 ## Milestone 6: Desktop Sidecar
 

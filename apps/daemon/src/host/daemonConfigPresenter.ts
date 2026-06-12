@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
-import type { IConfigPresenter } from "@shared/presenter";
 
 type Store = Record<string, unknown>;
 
@@ -13,7 +12,7 @@ const DEFAULTS: Store = {
   init_complete: false,
 };
 
-export class DaemonConfigPresenter implements IConfigPresenter {
+export class DaemonConfigPresenter {
   private store: Store;
   private filePath: string;
 

@@ -1,13 +1,34 @@
-import type { DeepchatEventName, DeepchatEventPayload } from "@argos/shared-contracts/events";
+import type { ServerWebSocket } from "bun";
 
-type EventEnvelope = {
-  type: "event";
-  name: DeepchatEventName;
-  payload: DeepchatEventPayload<DeepchatEventName>;
+export type WsData = {
+  subscriptions: Set<string>;
 };
 
-export function handleWebSocketUpgrade(): Response {
-  return new Response("WebSocket upgrade handled by Bun server", { status: 200 });
+export function handleWebSocketOpen(ws: ServerWebSocket<WsData>): void {
+  ws.subscribe("events");
 }
 
-export function broadcastEvent(_name: DeepchatEventName, _payload: unknown): void {}
+export function handleWebSocketClose(ws: ServerWebSocket<WsData>): void {
+  ws.unsubscribe("events");
+}
+
+export function handleWebSocketMessage(ws: ServerWebSocket<WsData>, message: string | Buffer): void {
+  if (typeof message !== "string") return;
+
+  try {
+    const parsed = JSON.parse(message);
+    if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
+      for (const eventName of parsed.events) {
+        ws.subscribe(`event:${eventName}`);
+        ws.data.subscriptions.add(eventName);
+      }
+    } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
+      for (const eventName of parsed.events) {
+        ws.unsubscribe(`event:${eventName}`);
+        ws.data.subscriptions.delete(eventName);
+      }
+    }
+  } catch {
+    // ignore malformed messages
+  }
+}
