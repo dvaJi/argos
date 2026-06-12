@@ -1,10 +1,22 @@
 import { hasDeepchatRouteContract, DEEPCHAT_ROUTE_CATALOG } from "@argos/shared-contracts/routes";
-import type { DeepchatRouteName, DeepchatRouteInput, DeepchatRouteOutput } from "@argos/shared-contracts/routes";
+import type { DeepchatRouteName } from "@argos/shared-contracts/routes";
 
-type RouteDispatchRequest = {
+export type RouteDispatchRequest = {
   route: DeepchatRouteName;
-  input: DeepchatRouteInput<DeepchatRouteName>;
+  input: unknown;
 };
+
+export type RouteDispatchResponse =
+  | { ok: true; output: unknown }
+  | { ok: false; error: { code: string; message: string } };
+
+export type RouteDispatcher = (route: DeepchatRouteName, input: unknown) => Promise<unknown>;
+
+let routeDispatcher: RouteDispatcher | null = null;
+
+export function setRouteDispatcher(dispatcher: RouteDispatcher): void {
+  routeDispatcher = dispatcher;
+}
 
 export async function handleRouteDispatch(request: Request): Promise<Response> {
   let body: RouteDispatchRequest;
@@ -29,14 +41,21 @@ export async function handleRouteDispatch(request: Request): Promise<Response> {
   const contract = DEEPCHAT_ROUTE_CATALOG[route];
   if (!contract) {
     return Response.json(
-      { ok: false, error: { code: "no_contract", message: `No contract found for route: ${String(route)}` } },
+      { ok: false, error: { code: "no_contract", message: `No contract for route: ${String(route)}` } },
       { status: 500 },
+    );
+  }
+
+  if (!routeDispatcher) {
+    return Response.json(
+      { ok: false, error: { code: "not_initialized", message: "Route dispatcher not initialized" } },
+      { status: 503 },
     );
   }
 
   try {
     const parsedInput = contract.input.parse(input);
-    const output = await dispatchRoute(route, parsedInput);
+    const output = await routeDispatcher(route, parsedInput);
     const parsedOutput = contract.output.parse(output);
     return Response.json({ ok: true, output: parsedOutput });
   } catch (error) {
@@ -44,8 +63,4 @@ export async function handleRouteDispatch(request: Request): Promise<Response> {
     const code = message.includes("validation") ? "validation_error" : "dispatch_error";
     return Response.json({ ok: false, error: { code, message } }, { status: 500 });
   }
-}
-
-async function dispatchRoute(_route: DeepchatRouteName, _input: unknown): Promise<unknown> {
-  return { message: "Daemon route dispatch not yet implemented. Backend core extraction in progress." };
 }
