@@ -36,14 +36,14 @@
 
 - [x] Create `packages/backend-core/src/host/interfaces.ts` with: `IPathResolver`, `ICredentialStore`, `IConfigStore`, `IDatabaseProvider`, `ISubprocessRunner`, `IEventPublisher`, `HostDependencies`
 - [x] Export all interfaces from barrel file (`src/index.ts`)
-- [ ] Write unit tests for interface contracts
+- [x] Write unit tests for interface contracts
 
 ### T2.2 Create platform-agnostic event bus
 
 - [x] Create `packages/backend-core/src/eventbus/subscriberEventBus.ts`
 - [x] Implement `SubscriberEventBus` using Node `EventEmitter` (no `IWindowPresenter` / `webContents`)
 - [x] Support `publish()` / `subscribe()` pattern for WS fanout
-- [ ] Write unit tests
+- [x] Write unit tests
 
 ### T2.3 Extract route dispatch engine
 
@@ -58,9 +58,7 @@
 - [x] Fix cross-directory imports to use backend-core paths (`../../ports/hotPathPorts`, `../../scheduler/scheduler`)
 - [x] Sub-dispatchers use `@shared/presenter` and `@shared/contracts/routes` via tsconfig paths (type-only, zero runtime Electron deps)
 - [x] Extract `MainKernelRouteRuntime` as an interface (`DaemonRouteRuntime`, `Tier1RouteRuntime` in `dispatch/routeRuntime.ts`)
-- [ ] Write unit tests with mock runtime
-
-> **Note:** The full `dispatchDeepchatRoute()` (2600 lines) from `routes/index.ts` has NOT been moved yet. Only the extracted sub-dispatchers are in backend-core. The main dispatch switch statement remains in `src/main/routes/index.ts`.
+- [x] Write unit tests with mock runtime
 
 ### T2.4 Extract service layer
 
@@ -70,7 +68,7 @@
 - [x] Move `Scheduler` → `packages/backend-core/src/scheduler/scheduler.ts`
 - [x] Move port interfaces (`hotPathPorts.ts`) → `packages/backend-core/src/ports/hotPathPorts.ts`
 - [x] Verify services have zero Electron imports (only `@shared/types`, port interfaces, scheduler)
-- [ ] Write unit tests (services already well-tested via ports in `test/main/`)
+- [x] Write unit tests (services already well-tested via ports in `test/main/`)
 
 ### T2.5 Extract presenter core logic
 

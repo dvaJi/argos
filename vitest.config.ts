@@ -40,6 +40,10 @@ export default defineConfig({
           alias: [
             { find: '@/', replacement: resolve('src/main/') + '/' },
             { find: '@shared', replacement: resolve('src/shared') },
+            { find: '@argos/backend-core', replacement: resolve('packages/backend-core/src') },
+            { find: '@argos/backend-core/', replacement: resolve('packages/backend-core/src/') },
+            { find: '@argos/shared-contracts', replacement: resolve('packages/shared-contracts/src') },
+            { find: '@argos/shared-contracts/', replacement: resolve('packages/shared-contracts/src/') },
             { find: 'electron', replacement: resolve('test/mocks/electron.ts') },
             { find: '@electron-toolkit/utils', replacement: resolve('test/mocks/electron-toolkit-utils.ts') }
           ]
