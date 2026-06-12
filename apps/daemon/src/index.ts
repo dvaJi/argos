@@ -5,7 +5,9 @@ import { authenticate } from "./transport/auth";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
 import { BunEventPublisher } from "./host/bun-event-publisher";
+import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
+import { logger } from "./logging";
 import {
   parseArgs,
   mergeOptions,
@@ -28,15 +30,18 @@ export type DaemonHandle = {
   eventPublisher: BunEventPublisher;
 };
 
-export function startDaemon(options?: {
+export async function startDaemon(options?: {
   dispatcher?: RouteDispatcher;
   dataDir?: string;
   host?: string;
   port?: number;
   token?: string;
-}): DaemonHandle {
+}): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
+
+  logger.info("[daemon] Initializing database...");
+  const db = await initializeDatabase(paths.getDatabasePath());
 
   const eventPublisher = new BunEventPublisher();
   const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
@@ -133,12 +138,19 @@ export function startDaemon(options?: {
   });
 
   const serverPort = (server as any).port ?? port;
-  console.log(`[daemon] Listening on http://${host}:${serverPort}`);
-  console.log(`[daemon] Health: http://${host}:${serverPort}/health`);
-  console.log(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
-  console.log(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
+  logger.info(`[daemon] Listening on http://${host}:${serverPort}`);
+  logger.info(`[daemon] Health: http://${host}:${serverPort}/health`);
+  logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
+  logger.info(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
 
-  setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() });
+  setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() }, () => {
+    try {
+      db.close();
+      logger.info("[daemon] Database closed");
+    } catch {
+      logger.warn("[daemon] Failed to close database cleanly");
+    }
+  });
 
   return {
     port: serverPort,
@@ -151,11 +163,15 @@ if (import.meta.main) {
   const parsed = parseArgs(process.argv);
   const opts = mergeOptions(parsed, process.env);
 
+  if (opts.logLevel) {
+    logger.setLevel(opts.logLevel as any);
+  }
+
   let token = opts.token;
   if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
     token = generateToken();
-    console.log(`[daemon] No token provided, generated: ${token}`);
-    console.log(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);
+    logger.info(`[daemon] No token provided, generated: ${token}`);
+    logger.info(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);
   }
 
   startDaemon({
@@ -163,5 +179,8 @@ if (import.meta.main) {
     host: opts.host,
     port: opts.port,
     token,
+  }).catch((error) => {
+    logger.error("[daemon] Failed to start:", error);
+    process.exit(1);
   });
 }

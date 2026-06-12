@@ -161,9 +161,9 @@
 
 - [x] CLI flags: `--host`, `--port`, `--data-dir`, `--token`, `--log-level`
 - [x] Graceful shutdown (SIGINT/SIGTERM)
-- [ ] Database initialization on first run
+- [x] Database initialization on first run
 - [ ] Session restore on restart
-- [ ] Error recovery and logging
+- [x] Error recovery and logging
 
 ### T5.4 Daemon executable
 
