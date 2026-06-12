@@ -121,10 +121,10 @@
 ### T4.1 Create `packages/client-sdk/`
 
 - [ ] Move `createBridge.ts` (IPC bridge) → `packages/client-sdk/src/ipc-bridge.ts`
-- [ ] Create `packages/client-sdk/src/websocket-bridge.ts` implementing `DeepchatBridge` over WS
-- [ ] Create `packages/client-sdk/src/http-client.ts` for HTTP invoke
-- [ ] WebSocket bridge handles: connect, reconnect, subscribe, event dispatch
-- [ ] Both bridges validate via Zod schemas from shared-contracts
+- [x] Create `packages/client-sdk/src/websocket-bridge.ts` implementing `DeepchatBridge` over WS
+- [x] Create `packages/client-sdk/src/http-client.ts` for HTTP invoke
+- [x] WebSocket bridge handles: connect, reconnect, subscribe, event dispatch
+- [x] Both bridges validate via Zod schemas from shared-contracts
 - [ ] Write unit tests for WebSocketBridge with mock server
 
 ### T4.2 Update renderer to use client-sdk
@@ -133,7 +133,7 @@
 - [ ] Renderer gets bridge from desktop main process (embedded) or settings (remote)
 - [ ] Verify all existing renderer API calls work identically
 
-> **Status: NOT STARTED**
+> **Status: PARTIAL.** WebSocketBridge and HttpClient created with full Zod validation, typed invoke/on, reconnect with exponential backoff, pending message queue. IPC bridge not yet moved (stays in preload for now). Renderer integration deferred to Milestone 6 (desktop sidecar).
 
 ## Milestone 5: Daemon Server
 
