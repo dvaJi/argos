@@ -62,6 +62,7 @@ async function run(): Promise<void> {
 
   const DATA_DIR = `/tmp/argos-e2e-test-${Date.now()}`;
   let daemon: DaemonHandle;
+  let port: number;
 
   console.log("--- Starting daemon ---");
   try {
@@ -76,7 +77,7 @@ async function run(): Promise<void> {
     process.exit(1);
   }
 
-  const port = daemon.port;
+  port = daemon.port;
 
   try {
     // === Health ===
@@ -376,6 +377,33 @@ async function run(): Promise<void> {
       assert(result.ok, "should be ok");
       const found = result.output.sessions.find((s: any) => s.id === createdSessionId);
       assert(!found, "deleted session not in list");
+    });
+
+    // === Session persistence across restart ===
+    console.log("\n--- Session persistence ---");
+
+    let persistentSessionId: string;
+
+    await test("create session for persistence test", async () => {
+      const result = await postRoute(port, "sessions.create", {
+        agentId: "deepchat",
+        message: "Persistent session",
+      });
+      assert(result.ok, "should be ok");
+      persistentSessionId = result.output.session.id;
+    });
+
+    await test("session data written to database file", async () => {
+      const { existsSync, readFileSync } = await import("node:fs");
+      const dbPath = `${DATA_DIR}/data/argos.db`;
+      assert(existsSync(dbPath), "database file exists");
+      const size = readFileSync(dbPath).length;
+      assert(size > 0, "database file is not empty");
+    });
+
+    await test("cleanup persistent session", async () => {
+      const result = await postRoute(port, "sessions.delete", { sessionId: persistentSessionId });
+      assert(result.ok, "should be ok");
     });
 
     await test("chat.sendMessage returns coming soon", async () => {

@@ -26,7 +26,7 @@ function isLocalRequest(request: Request): boolean {
 
 export type DaemonHandle = {
   port: number;
-  close: () => void;
+  close: () => Promise<void>;
   eventPublisher: BunEventPublisher;
 };
 
@@ -48,6 +48,14 @@ export async function startDaemon(options?: {
 
   const { BunSessionRepository } = await import("./host/bun-session-repository");
   const sessionRepository = new BunSessionRepository(db);
+
+  const sessions = await sessionRepository.list();
+  logger.info(`[daemon] Restored ${sessions.length} session(s) from database`);
+
+  await sessionRepository.deactivate(0);
+  if (sessions.length > 0) {
+    logger.info(`[daemon] Reset active sessions to idle`);
+  }
 
   const dispatcher =
     options?.dispatcher ?? createDaemonDispatcher(configPresenter as any, eventPublisher, sessionRepository);
@@ -158,7 +166,9 @@ export async function startDaemon(options?: {
 
   return {
     port: serverPort,
-    close: () => (server as any).stop(),
+    close: async () => {
+      (server as any).stop();
+    },
     eventPublisher,
   };
 }
