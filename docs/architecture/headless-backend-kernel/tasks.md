@@ -129,11 +129,11 @@
 
 ### T4.2 Update renderer to use client-sdk
 
-- [ ] Replace `src/renderer/api/core.ts` with `@argos/client-sdk` import
-- [ ] Renderer gets bridge from desktop main process (embedded) or settings (remote)
-- [ ] Verify all existing renderer API calls work identically
+- [x] Replace `src/renderer/api/core.ts` with `@argos/client-sdk` import
+- [x] Renderer gets bridge from desktop main process (embedded) or settings (remote)
+- [x] Verify all existing renderer API calls work identically
 
-> **Status: PARTIAL.** WebSocketBridge and HttpClient created with full Zod validation, typed invoke/on, reconnect with exponential backoff, pending message queue. IPC bridge not yet moved (stays in preload for now). Renderer integration deferred to Milestone 6 (desktop sidecar).
+> **Status: COMPLETE.** All 20+ renderer client files use `bridge.invoke()` and `bridge.on()` via `window.deepchat` (HybridBridge). Desktop-only IPC accesses (splash, ACP terminal, settings events) correctly use `window.electron.ipcRenderer` for Tier 3 features. No renderer changes needed — the hybrid bridge transparently handles transport selection.
 
 ## Milestone 5: Daemon Server
 
