@@ -5,6 +5,7 @@
 
 export { configInitHook } from "./init/configInitHook";
 export { databaseInitHook } from "./init/databaseInitHook";
+export { daemonSidecarHook } from "./init/daemonSidecarHook";
 export { protocolRegistrationHook } from "./beforeStart/protocolRegistrationHook";
 export { presenterInitHook as presenterHook } from "./ready/presenterInitHook";
 export { eventListenerSetupHook } from "./ready/eventListenerSetupHook";
@@ -23,3 +24,4 @@ export { builtinKnowledgeDestroyHook } from "./beforeQuit/builtinKnowledgeDestro
 export { windowQuittingHook } from "./beforeQuit/windowQuittingHook";
 export { acpCleanupHook } from "./beforeQuit/acpCleanupHook";
 export { scheduledTasksStopHook } from "./beforeQuit/scheduledTasksStopHook";
+export { daemonSidecarStopHook } from "./beforeQuit/daemonSidecarStopHook";

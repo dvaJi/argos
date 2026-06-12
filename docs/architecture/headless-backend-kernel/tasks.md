@@ -180,11 +180,11 @@
 ### T6.1 Sidecar manager in Electron main
 
 - [ ] Bundle daemon executable with desktop app
-- [ ] Spawn daemon on app startup with auto-assigned port
-- [ ] Health check loop (retry `/health` every 500ms, timeout 10s)
-- [ ] Restart daemon on crash (max 3 retries, then show error)
-- [ ] Pass `--data-dir` pointing at existing Electron userData path
-- [ ] Clean shutdown: send SIGTERM on app quit, wait for exit
+- [x] Spawn daemon on app startup with auto-assigned port
+- [x] Health check loop (retry `/health` every 500ms, timeout 10s)
+- [x] Restart daemon on crash (max 3 retries, then show error)
+- [x] Pass `--data-dir` pointing at existing Electron userData path
+- [x] Clean shutdown: send SIGTERM on app quit, wait for exit
 
 ### T6.2 Renderer switches to WebSocket transport
 
@@ -202,7 +202,7 @@
 - [ ] Performance: no regression in startup time or chat latency
 - [ ] `pnpm run format && pnpm run lint && pnpm run typecheck && pnpm run test`
 
-> **Status: NOT STARTED**
+> **Status: PARTIAL.** Sidecar manager implemented with spawn, health check, crash restart, graceful shutdown. Lifecycle hooks registered (INIT phase: start, BEFORE_QUIT: stop). Daemon runs via `bun run` in dev mode. Renderer WebSocket transport not yet wired — requires exposing daemon port to renderer and creating a hybrid bridge adapter.
 
 ## Milestone 7: Remote Attach
 
