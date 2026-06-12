@@ -190,7 +190,7 @@
 
 - [x] Desktop main process provides `ws://127.0.0.1:<port>` to renderer
 - [x] Renderer uses `WebSocketBridge` from client-sdk
-- [ ] Tier 3 routes (window, browser, tab, dialog, upgrade) handled by Electron IPC fallback
+- [x] Tier 3 routes (window, browser, tab, dialog, upgrade) handled by Electron IPC fallback
 - [x] Hybrid transport: WS for daemon routes, IPC for desktop-only routes
 - [ ] Verify all existing UI flows work
 
@@ -228,6 +228,6 @@
 - [x] Remote connections: token auth required
 - [x] Token generated on daemon first run, printed to stdout
 - [x] Desktop shows token in settings for copy
-- [ ] Rate limiting on auth failures
+- [x] Rate limiting on auth failures
 
 > **Status: COMPLETE.** Server settings UI with Local/Remote toggle, URL input, auth token input, Test Connection, and token display with copy button. Connection state indicator in sidebar (green dot = connected, yellow = connecting, red = error, gray = disconnected). WebSocket reconnection with exponential backoff already implemented in WebSocketBridge. All daemon routes validated with 36 E2E tests.

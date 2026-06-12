@@ -24,8 +24,14 @@ const TIER3_PREFIXES = [
   "sync.openFolder",
 ];
 
+const TIER3_EVENT_PREFIXES = ["window.", "browser.", "dialog.", "upgrade."];
+
 function isDesktopOnlyRoute(route: string): boolean {
   return TIER3_PREFIXES.some((prefix) => route === prefix || route.startsWith(prefix));
+}
+
+function isDesktopOnlyEvent(eventName: string): boolean {
+  return TIER3_EVENT_PREFIXES.some((prefix) => eventName.startsWith(prefix));
 }
 
 type EventListener<T = unknown> = (payload: T) => void;
@@ -73,6 +79,10 @@ export class HybridBridge implements DeepchatBridge {
       this.eventListeners.set(eventName, new Set());
     }
     this.eventListeners.get(eventName)!.add(listener as EventListener);
+
+    if (isDesktopOnlyEvent(eventName)) {
+      return this.ipcBridge.on(eventName, listener);
+    }
 
     if (this.wsBridge?.isConnected()) {
       this.resubscribeEvent(eventName, this.eventListeners.get(eventName)!);
