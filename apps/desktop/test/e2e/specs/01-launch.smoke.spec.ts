@@ -1,7 +1,7 @@
 import { test, expect } from "../fixtures/electronApp";
 import { waitForAppReady } from "../helpers/wait";
 
-test("启动应用 @smoke", async ({ app }, testInfo) => {
+test("Launch app @smoke", async ({ app }, testInfo) => {
   await waitForAppReady(app.page);
 
   await expect(app.page.getByTestId("app-main")).toBeVisible();

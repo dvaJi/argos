@@ -21,7 +21,7 @@ const setup = async (pendingModelId: string) => {
     disabledAgentTools: [] as string[],
     pendingStartDeeplink: {
       token: 1,
-      msg: "帮我总结一下这周的迭代状态",
+      msg: "Help me summarize this week's iteration status",
       modelId: pendingModelId,
       systemPrompt: "You are a concise project assistant.",
       mentions: ["README.md", "docs/spec.md"],
@@ -177,7 +177,7 @@ describe("NewThreadPage start deeplink prefill", () => {
     const { draftStore } = await setup("deepseek-chat");
 
     const chatInput = screen.getByTestId("chat-input");
-    expect(chatInput.textContent).toContain("帮我总结一下这周的迭代状态");
+    expect(chatInput.textContent).toContain("Help me summarize this week's iteration status");
     expect(draftStore.systemPrompt).toBe("You are a concise project assistant.");
     expect(draftStore.providerId).toBe("openai");
     expect(draftStore.modelId).toBe("deepseek-chat");

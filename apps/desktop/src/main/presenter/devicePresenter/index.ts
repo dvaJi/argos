@@ -190,7 +190,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Handle Base64 image
       return this.cacheImageFromBase64(imageData, cacheDir, fileName);
     } else {
-      console.warn("不支持的图片格式");
+      console.warn("Unsupported image format");
       return imageData; // Return original data
     }
   }
@@ -224,7 +224,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Return imgcache protocol URL
       return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error("下载图片失败:", error);
+      console.error("Failed to download image:", error);
       // Return original URL on download failure
       return url;
     }
@@ -242,7 +242,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Parse MIME type and actual Base64 data
       const matches = base64Data.match(/^data:([^;]+);base64,(.*)$/);
       if (!matches || matches.length !== 3) {
-        console.warn("无效的Base64图片数据");
+        console.warn("Invalid Base64 image data");
         return base64Data;
       }
 
@@ -262,7 +262,7 @@ export class DevicePresenter implements IDevicePresenter {
       // Return imgcache protocol URL
       return `imgcache://${saveFileName}`;
     } catch (error) {
-      console.error("保存Base64图片失败:", error);
+      console.error("Failed to save Base64 image:", error);
       return base64Data; // Return original data on error
     }
   }
@@ -271,10 +271,10 @@ export class DevicePresenter implements IDevicePresenter {
     return new Promise((resolve, reject) => {
       const response = dialog.showMessageBoxSync({
         type: "warning",
-        buttons: ["确认", "取消"],
+        buttons: ["OK", "Cancel"],
         defaultId: 0,
-        message: "清除本地的所有数据",
-        detail: "注意本操作会导致本地记录彻底删除，你确定么？",
+        message: "Clear all local data",
+        detail: "This will permanently delete local records. Are you sure?",
       });
       if (response === 0) {
         try {
@@ -451,7 +451,7 @@ export class DevicePresenter implements IDevicePresenter {
   private restartAppWithDelay(): void {
     try {
       if (is.dev) {
-        console.log("开发环境下数据重置完成，发送通知到渲染进程");
+        console.log("Data reset complete in dev mode, sending notification to renderer");
         eventBus.sendToRenderer(NOTIFICATION_EVENTS.DATA_RESET_COMPLETE_DEV, SendTarget.ALL_WINDOWS);
         return;
       }
@@ -461,7 +461,7 @@ export class DevicePresenter implements IDevicePresenter {
         app.exit();
       }, 1000);
     } catch (error) {
-      console.error("重启失败:", error);
+      console.error("Restart failed:", error);
       throw error;
     }
   }

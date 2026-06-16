@@ -18,10 +18,10 @@ vi.mock("react-i18next", () => ({
         "chat.workspace.plan.status.in_progress": "In Progress",
         "chat.workspace.plan.status.pending": "Pending",
         "chat.skillDraft.confirmationTitle": "Skill Draft",
-        "chat.skillDraft.confirmationQuestion": "已生成 skill draft：{name}",
-        "chat.skillDraft.actions.view": "查看内容",
-        "chat.skillDraft.actions.install": "安装为 Skill",
-        "chat.skillDraft.actions.discard": "丢弃",
+        "chat.skillDraft.confirmationQuestion": "Generated skill draft: {name}",
+        "chat.skillDraft.actions.view": "View contents",
+        "chat.skillDraft.actions.install": "Install as Skill",
+        "chat.skillDraft.actions.discard": "Discard",
         "chat.skillDraft.previewTitle": "Draft content preview",
       };
       return (messages[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ""));
@@ -120,10 +120,10 @@ describe("MessageBlock basics", () => {
       />,
     );
 
-    expect(container.textContent).toContain("已生成 skill draft：draft-skill");
-    expect(container.textContent).toContain("查看内容");
-    expect(container.textContent).toContain("安装为 Skill");
-    expect(container.textContent).toContain("丢弃");
+    expect(container.textContent).toContain("Generated skill draft: draft-skill");
+    expect(container.textContent).toContain("View contents");
+    expect(container.textContent).toContain("Install as Skill");
+    expect(container.textContent).toContain("Discard");
   });
 
   it("renders skill draft preview and emits the raw action key from the overlay", async () => {
@@ -162,7 +162,7 @@ describe("MessageBlock basics", () => {
     expect(container.textContent).toContain("# Draft body");
     expect(container.textContent).toContain("安装为 Skill");
 
-    const installButton = screen.getAllByRole("button").find((button) => button.textContent?.includes("安装为 Skill"));
+    const installButton = screen.getAllByRole("button").find((button) => button.textContent?.includes("Install as Skill"));
     expect(installButton).toBeTruthy();
     await act(async () => {
       fireEvent.click(installButton!);

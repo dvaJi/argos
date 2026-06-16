@@ -129,7 +129,7 @@ export class OAuthPresenter {
 
       if (!isValid) {
         console.error("[GitHub Copilot][OAuth] Token validation failed - token is invalid");
-        throw new Error("获取的访问令牌无效");
+        throw new Error("The obtained access token is invalid");
       }
 
       // Save the access token to the provider configuration

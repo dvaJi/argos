@@ -19,8 +19,8 @@ const getVisibleMentionLabel = (block: DisplayUserMessageMentionBlock) => {
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
-      if (key === "common.expand") return "展开";
-      if (key === "common.collapse") return "收起";
+      if (key === "common.expand") return "Expand";
+      if (key === "common.collapse") return "Collapse";
       return key;
     },
   }),
@@ -153,7 +153,7 @@ describe("MessageItemUser", () => {
     expect(body.getAttribute("data-user-message-expanded")).toBe("false");
     expect(document.querySelector(".user-message-content--clamped")).toBeTruthy();
     expect(screen.getByTestId("user-message-fade")).toBeTruthy();
-    expect(toggle.textContent).toBe("展开");
+    expect(toggle.textContent).toBe("Expand");
 
     await act(async () => {
       fireEvent.click(toggle);
@@ -161,7 +161,7 @@ describe("MessageItemUser", () => {
 
     expect(body.getAttribute("data-user-message-expanded")).toBe("true");
     expect(screen.queryByTestId("user-message-fade")).toBeNull();
-    expect(screen.getByTestId("user-message-toggle").textContent).toBe("收起");
+    expect(screen.getByTestId("user-message-toggle").textContent).toBe("Collapse");
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("user-message-toggle"));

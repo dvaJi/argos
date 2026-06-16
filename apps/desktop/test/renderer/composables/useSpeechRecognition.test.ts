@@ -159,12 +159,12 @@ describe("useSpeechRecognition", () => {
     expect(recognition.isListening.value).toBe(false);
     expect(recognition.isTranscribing.value).toBe(true);
 
-    resolveTranscription?.("你好，世界");
+    resolveTranscription?.("Hello, world!");
 
     await vi.waitFor(() => {
       expect(recognition.isTranscribing.value).toBe(false);
     });
-    expect(transcripts).toEqual(["你好，世界"]);
+    expect(transcripts).toEqual(["Hello, world!"]);
   });
 
   it("normalizes microphone permission errors", async () => {

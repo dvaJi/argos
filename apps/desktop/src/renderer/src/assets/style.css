@@ -834,7 +834,7 @@
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 
-  /* 主题切换瞬间临时关闭所有过渡，避免上百个元素同时触发颜色过渡导致的重绘卡顿 */
+  /* Briefly disable all transitions during theme switch to prevent hundreds of elements triggering color transitions at once and causing repaint jank */
   .dc-theme-switching,
   .dc-theme-switching *,
   .dc-theme-switching *::before,

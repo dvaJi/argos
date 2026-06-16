@@ -40,19 +40,19 @@ export class TrayPresenter {
     const labels = getContextMenuLabels(locale);
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: labels.open || "打开/隐藏",
+        label: labels.open || "Open/Hide",
         click: () => {
           eventBus.sendToMain(TRAY_EVENTS.SHOW_HIDDEN_WINDOW);
         },
       },
       {
-        label: labels.checkForUpdates || "检查更新",
+        label: labels.checkForUpdates || "Check for updates",
         click: () => {
           eventBus.sendToMain(TRAY_EVENTS.CHECK_FOR_UPDATES);
         },
       },
       {
-        label: labels.quit || "退出",
+        label: labels.quit || "Quit",
         click: async () => {
           app.quit(); // Exit trigger: tray menu
         },

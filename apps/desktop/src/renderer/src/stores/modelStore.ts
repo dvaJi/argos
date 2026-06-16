@@ -226,7 +226,7 @@ const applyUserDefinedModelConfig = async (
       };
     }
   } catch (error) {
-    console.error(`读取模型配置失败: ${providerId}/${model.id}`, error);
+    console.error(`Failed to read model configuration: ${providerId}/${model.id}`, error);
   }
 
   return normalized;
@@ -449,7 +449,7 @@ const refreshCustomModels = async (providerId: string): Promise<boolean> => {
     markProviderModelsReady(providerId);
     return true;
   } catch (error) {
-    console.error(`刷新自定义模型失败: ${providerId}`, error);
+    console.error(`Failed to refresh custom models: ${providerId}`, error);
     return false;
   }
 };
@@ -582,7 +582,7 @@ const refreshStandardModels = async (providerId: string): Promise<boolean> => {
     markProviderModelsReady(providerId);
     return true;
   } catch (error) {
-    console.error(`刷新标准模型失败: ${providerId}`, error);
+    console.error(`Failed to refresh standard models: ${providerId}`, error);
     return false;
   }
 };

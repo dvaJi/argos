@@ -91,7 +91,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
             console.log("contextMenu: final url:", url);
 
             if (!url) {
-              throw new Error("无法获取图片URL，请检查图片源");
+              throw new Error("Could not get image URL; please check the image source");
             }
 
             let fileName = "image.png";
@@ -116,8 +116,8 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
             const { canceled, filePath } = await dialog.showSaveDialog({
               defaultPath: fileName,
               filters: [
-                { name: "图片", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
-                { name: "所有文件", extensions: ["*"] },
+                { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
+                { name: "All Files", extensions: ["*"] },
               ],
             });
 
@@ -133,7 +133,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
               // Handle base64 data
               const base64Data = url.split(",")[1];
               if (!base64Data) {
-                throw new Error("无效的base64图片数据");
+                throw new Error("Invalid base64 image data");
               }
               imageBuffer = Buffer.from(base64Data, "base64");
             } else {
@@ -141,7 +141,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
               try {
                 const response = await net.fetch(url);
                 if (!response.ok) {
-                  throw new Error(`下载图片失败: ${response.status}`);
+                  throw new Error(`Failed to download image: ${response.status}`);
                 }
                 imageBuffer = Buffer.from(await response.arrayBuffer());
               } catch (fetchError) {
@@ -165,7 +165,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
             }
 
             if (!imageBuffer) {
-              throw new Error("无法获取图片数据");
+              throw new Error("Could not get image data");
             }
 
             // Process the image with sharp and save it

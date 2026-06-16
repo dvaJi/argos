@@ -137,53 +137,53 @@ export class ConversationsTable extends BaseTable {
   getMigrationSQL(version: number): string | null {
     if (version === 1) {
       return `
-        -- 添加 is_new 字段
+        -- Add is_new column
         ALTER TABLE conversations ADD COLUMN is_new INTEGER DEFAULT 1;
 
-        -- 移除 user_id 字段
+        -- Remove user_id column
         ALTER TABLE conversations DROP COLUMN user_id;
 
-        -- 更新所有现有会话的 is_new 为 0
+        -- Update all existing conversations' is_new to 0
         UPDATE conversations SET is_new = 0;
       `;
     }
     if (version === 2) {
       return `
-        -- 添加 artifacts 开关
+        -- Add artifacts switch
         ALTER TABLE conversations ADD COLUMN artifacts INTEGER DEFAULT 0;
         UPDATE conversations SET artifacts = 0;
       `;
     }
     if (version === 3) {
       return `
-        --- 添加 enabled_mcp_tools 字段
+        --- Add enabled_mcp_tools column
         ALTER TABLE conversations ADD COLUMN enabled_mcp_tools TEXT DEFAULT '[]';
       `;
     }
     if (version === 4) {
       return `
-        -- 添加 thinking_budget 字段
+        -- Add thinking_budget column
         ALTER TABLE conversations ADD COLUMN thinking_budget INTEGER DEFAULT NULL;
       `;
     }
     if (version === 5) {
       return `
-        -- 回滚脏数据 enabled_mcp_tools
+        -- Roll back dirty enabled_mcp_tools data
         UPDATE conversations SET enabled_mcp_tools = NULL WHERE enabled_mcp_tools = '[]';
       `;
     }
     if (version === 6) {
       return `
-        -- 添加 reasoning_effort 字段
+        -- Add reasoning_effort column
         ALTER TABLE conversations ADD COLUMN reasoning_effort TEXT DEFAULT NULL;
 
-        -- 添加 verbosity 字段
+        -- Add verbosity column
         ALTER TABLE conversations ADD COLUMN verbosity TEXT DEFAULT NULL;
       `;
     }
     if (version === 7) {
       return `
-        -- 添加搜索相关字段
+        -- Add search-related columns
         ALTER TABLE conversations ADD COLUMN enable_search INTEGER DEFAULT NULL;
         ALTER TABLE conversations ADD COLUMN forced_search INTEGER DEFAULT NULL;
         ALTER TABLE conversations ADD COLUMN search_strategy TEXT DEFAULT NULL;
@@ -191,15 +191,15 @@ export class ConversationsTable extends BaseTable {
     }
     if (version === 8) {
       return `
-        -- 添加 agent_workspace_path 字段
+        -- Add agent_workspace_path column
         ALTER TABLE conversations ADD COLUMN agent_workspace_path TEXT DEFAULT NULL;
-        -- 添加 acp_workdir_map 字段
+        -- Add acp_workdir_map column
         ALTER TABLE conversations ADD COLUMN acp_workdir_map TEXT DEFAULT NULL;
       `;
     }
     if (version === 9) {
       return `
-        -- 添加 parent 相关字段
+        -- Add parent-related columns
         ALTER TABLE conversations ADD COLUMN parent_conversation_id TEXT DEFAULT NULL;
         ALTER TABLE conversations ADD COLUMN parent_message_id TEXT DEFAULT NULL;
         ALTER TABLE conversations ADD COLUMN parent_selection TEXT DEFAULT NULL;
@@ -209,7 +209,7 @@ export class ConversationsTable extends BaseTable {
     }
     if (version === 10) {
       return `
-        -- 添加 active_skills 字段
+        -- Add active_skills column
         ALTER TABLE conversations ADD COLUMN active_skills TEXT DEFAULT '[]';
         UPDATE conversations SET active_skills = '[]' WHERE active_skills IS NULL;
       `;

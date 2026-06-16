@@ -141,7 +141,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Error handling
     autoUpdater.on("error", (e) => {
-      console.log("自动更新失败", e.message);
+      console.log("Auto-update failed", e.message);
       this._lock = false;
       this._status = "error";
       this._error = e.message;
@@ -154,12 +154,12 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Check update status
     autoUpdater.on("checking-for-update", () => {
-      console.log("正在检查更新");
+      console.log("Checking for updates");
     });
 
     // No update available
     autoUpdater.on("update-not-available", () => {
-      console.log("无可用更新");
+      console.log("No updates available");
       this._lock = false;
       this._status = "not-available";
       this._error = null;
@@ -173,7 +173,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Update available
     autoUpdater.on("update-available", (info) => {
-      console.log("检测到新版本", info);
+      console.log("Detected new version", info);
       this._lock = false;
 
       // Version fallback guard: when channels are mismatched, electron-updater may "update" the current beta install to an older stable version.
@@ -190,12 +190,12 @@ export class UpgradePresenter implements IUpgradePresenter {
           isDowngradeOrSame = true;
         }
       } catch (e) {
-        console.warn("版本号对比失败，忽略此次更新提示", currentVersion, remoteVersion, e);
+        console.warn("Version comparison failed; skipping this update prompt", currentVersion, remoteVersion, e);
         isDowngradeOrSame = true;
       }
 
       if (isDowngradeOrSame) {
-        console.log("忽略降级或同版本的更新提示", {
+        console.log("Ignoring downgrade or same-version update prompt", {
           current: currentVersion,
           remote: remoteVersion,
         });
@@ -215,9 +215,9 @@ export class UpgradePresenter implements IUpgradePresenter {
       this._progress = null;
 
       if (this._previousUpdateFailed) {
-        console.log("上次更新失败，本次不进行自动更新，改为手动更新");
+        console.log("Previous update failed, skipping auto-update and falling back to manual update");
         this._status = "error";
-        this._error = "自动更新可能不稳定，请手动下载更新";
+        this._error = "Auto-update may be unstable, please download the update manually";
         this.emitStatusChanged({
           status: this._status,
           error: this._error,
@@ -256,7 +256,7 @@ export class UpgradePresenter implements IUpgradePresenter {
 
     // Download complete
     autoUpdater.on("update-downloaded", (info) => {
-      console.log("更新下载完成", info);
+      console.log("Update download completed", info);
       this.markUpdateDownloaded(info);
     });
 
@@ -274,7 +274,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         const content = fs.readFileSync(this._updateMarkerPath, "utf8");
         const updateInfo = JSON.parse(content);
         const currentVersion = app.getVersion();
-        console.log("检查未完成的更新", updateInfo, currentVersion);
+        console.log("Checking for unfinished update", updateInfo, currentVersion);
 
         // If the current version matches the target version, the update is complete
         if (updateInfo.version === currentVersion) {
@@ -290,16 +290,16 @@ export class UpgradePresenter implements IUpgradePresenter {
           const markerIsPre = isPrereleaseVersion(markerVersion);
           const currentIsPre = isPrereleaseVersion(currentVersion);
           if (markerIsPre !== currentIsPre) {
-            console.log("忽略跨渠道的旧 update marker", { marker: markerVersion, currentVersion });
+            console.log("Ignoring old update marker from a different channel", { marker: markerVersion, currentVersion });
             fs.unlinkSync(this._updateMarkerPath);
             return;
           }
         }
 
         // Otherwise the previous update failed; mark as error state
-        console.log("检测到未完成的更新", updateInfo.version);
+        console.log("Detected unfinished update", updateInfo.version);
         this._status = "error";
-        this._error = "上次自动更新未完成";
+        this._error = "Last auto-update was not completed";
         this._versionInfo = updateInfo;
         this._previousUpdateFailed = true; // Mark that the last update failed
 
@@ -320,14 +320,14 @@ export class UpgradePresenter implements IUpgradePresenter {
         });
       }
     } catch (error) {
-      console.error("检查未完成更新失败", error);
+      console.error("Failed to check for unfinished update", error);
       // On error, attempt to delete the marker file
       try {
         if (fs.existsSync(this._updateMarkerPath)) {
           fs.unlinkSync(this._updateMarkerPath);
         }
       } catch (e) {
-        console.error("删除更新标记文件失败", e);
+        console.error("Failed to delete update marker file", e);
       }
     }
   }
@@ -345,9 +345,9 @@ export class UpgradePresenter implements IUpgradePresenter {
       };
 
       fs.writeFileSync(this._updateMarkerPath, JSON.stringify(updateInfo, null, 2), "utf8");
-      console.log("写入更新标记文件成功", this._updateMarkerPath);
+      console.log("Wrote update marker file successfully", this._updateMarkerPath);
     } catch (error) {
-      console.error("写入更新标记文件失败", error);
+      console.error("Failed to write update marker file", error);
     }
   }
 
@@ -617,9 +617,9 @@ export class UpgradePresenter implements IUpgradePresenter {
 
   // Restart and update
   restartToUpdate(): boolean {
-    console.log("重启并更新");
+    console.log("Restart and update");
     if (this._status !== "downloaded") {
-      this.emitError("更新尚未下载完成");
+      this.emitError("Update has not finished downloading");
       return false;
     }
     try {
@@ -631,7 +631,7 @@ export class UpgradePresenter implements IUpgradePresenter {
       this._doQuitAndInstall();
       return true;
     } catch (e) {
-      console.error("重启更新失败", e);
+      console.error("Restart for update failed", e);
       this.emitError(e instanceof Error ? e.message : String(e));
       return false;
     }
@@ -648,7 +648,7 @@ export class UpgradePresenter implements IUpgradePresenter {
         app.exit();
       }, 1000);
     } catch (e) {
-      console.error("重启失败", e);
+      console.error("Restart failed", e);
       this.emitError(e instanceof Error ? e.message : String(e));
     }
   }

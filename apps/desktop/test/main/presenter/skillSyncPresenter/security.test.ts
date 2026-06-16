@@ -456,7 +456,7 @@ describe("Security Module", () => {
   describe("isValidUtf8", () => {
     it("should return true for valid UTF-8", () => {
       expect(isValidUtf8("Hello World")).toBe(true);
-      expect(isValidUtf8("你好世界")).toBe(true);
+      expect(isValidUtf8("café")).toBe(true);
       expect(isValidUtf8("🎉")).toBe(true);
     });
 

@@ -33,7 +33,7 @@ export class OAuthHelper {
           contextIsolation: true,
         },
         autoHideMenuBar: true,
-        title: "登录 GitHub Copilot",
+        title: "Sign in to GitHub Copilot",
       });
 
       // Build the authorization URL
@@ -56,7 +56,7 @@ export class OAuthHelper {
       this.authWindow.on("closed", () => {
         this.authWindow = null;
         if (!resolve) {
-          reject(new Error("用户取消了登录"));
+          reject(new Error("User cancelled the login"));
         }
       });
 
@@ -64,7 +64,7 @@ export class OAuthHelper {
       this.authWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
         console.error("OAuth page load failed:", errorCode, errorDescription);
         this.closeAuthWindow();
-        reject(new Error(`加载授权页面失败: ${errorDescription}`));
+        reject(new Error(`Failed to load authorization page: ${errorDescription}`));
       });
     });
   }
@@ -96,17 +96,17 @@ export class OAuthHelper {
         if (error) {
           console.error("OAuth error:", error);
           eventBus.send(CONFIG_EVENTS.OAUTH_LOGIN_ERROR, SendTarget.ALL_WINDOWS, error);
-          reject(new Error(`OAuth授权失败: ${error}`));
+          reject(new Error(`OAuth authorization failed: ${error}`));
         } else if (code) {
           console.log("OAuth success, received authorization code");
           eventBus.send(CONFIG_EVENTS.OAUTH_LOGIN_SUCCESS, SendTarget.ALL_WINDOWS, code);
           resolve(code);
         } else {
-          reject(new Error("未收到授权码"));
+          reject(new Error("Did not receive authorization code"));
         }
       } catch (error) {
         console.error("Error parsing callback URL:", error);
-        reject(new Error("解析回调URL失败"));
+        reject(new Error("Failed to parse callback URL"));
       }
 
       this.closeAuthWindow();

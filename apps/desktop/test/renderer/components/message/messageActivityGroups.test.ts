@@ -17,10 +17,10 @@ const createBlock = (
 });
 
 const zhDurationLabels: ActivityDurationLabels = {
-  day: "天",
-  hour: "小时",
-  minute: "分钟",
-  second: "秒",
+  day: "day",
+  hour: "hour",
+  minute: "minute",
+  second: "second",
 };
 
 const enDurationLabels: ActivityDurationLabels = {
@@ -230,10 +230,10 @@ describe("messageActivityGroups", () => {
   });
 
   it("formats duration up to days, hours, minutes, and seconds", () => {
-    expect(formatActivityDuration(8_900, zhDurationLabels)).toBe("8秒");
-    expect(formatActivityDuration(192_000, zhDurationLabels)).toBe("3分钟12秒");
-    expect(formatActivityDuration(7_449_000, zhDurationLabels)).toBe("2小时4分钟9秒");
-    expect(formatActivityDuration(97_802_000, zhDurationLabels)).toBe("1天3小时10分钟2秒");
+    expect(formatActivityDuration(8_900, zhDurationLabels)).toBe("8s");
+    expect(formatActivityDuration(192_000, zhDurationLabels)).toBe("3m 12s");
+    expect(formatActivityDuration(7_449_000, zhDurationLabels)).toBe("2h 4m 9s");
+    expect(formatActivityDuration(97_802_000, zhDurationLabels)).toBe("1d 3h 10m 2s");
 
     expect(formatActivityDuration(192_000, enDurationLabels)).toBe("3m 12s");
   });

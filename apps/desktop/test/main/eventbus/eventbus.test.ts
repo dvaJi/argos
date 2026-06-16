@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus, SendTarget } from "../../../src/main/eventbus";
 import type { IWindowPresenter, ITabPresenter } from "../../../src/shared/presenter";
 
-describe("EventBus 事件总线", () => {
+describe("EventBus event bus", () => {
   let eventBus: EventBus;
   let mockWindowPresenter: IWindowPresenter;
   let mockTabPresenter: ITabPresenter;
@@ -27,8 +27,8 @@ describe("EventBus 事件总线", () => {
     } as Partial<ITabPresenter> as ITabPresenter;
   });
 
-  describe("发送事件到主进程", () => {
-    it("应该能够正确发送事件到主进程", () => {
+  describe("send event to main process", () => {
+    it("should correctly send an event to the main process", () => {
       const eventName = "test:event";
       const testData = { message: "test" };
 
@@ -44,7 +44,7 @@ describe("EventBus 事件总线", () => {
       expect(mockListener).toHaveBeenCalledTimes(1);
     });
 
-    it("应该支持发送多个参数", () => {
+    it("should support sending multiple arguments", () => {
       const eventName = "test:multiple-args";
       const arg1 = "first";
       const arg2 = { second: "data" };
@@ -59,12 +59,12 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("发送事件到特定窗口", () => {
+  describe("send event to a specific window", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
     });
 
-    it("应该能够发送事件到特定窗口", () => {
+    it("should send an event to a specific window", () => {
       const eventName = "window:test";
       const windowId = 123;
       const testData = { data: "test" };
@@ -74,7 +74,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToWindow).toHaveBeenCalledWith(windowId, eventName, testData);
     });
 
-    it("当WindowPresenter未设置时应该显示警告", () => {
+    it("should show a warning when WindowPresenter is not set", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
@@ -86,12 +86,12 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("发送事件到渲染进程", () => {
+  describe("send event to renderer process", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
     });
 
-    it("应该能够发送事件到所有窗口（默认行为）", () => {
+    it("should send an event to all windows (default behavior)", () => {
       const eventName = "renderer:test";
       const testData = { message: "test" };
 
@@ -100,7 +100,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToAllWindows).toHaveBeenCalledWith(eventName, testData);
     });
 
-    it("应该能够发送事件到所有窗口（显式指定）", () => {
+    it("should send an event to all windows (explicit)", () => {
       const eventName = "renderer:all";
       const testData = { message: "all windows" };
 
@@ -109,7 +109,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToAllWindows).toHaveBeenCalledWith(eventName, testData);
     });
 
-    it("应该能够发送事件到默认窗口", () => {
+    it("should send an event to the default window", () => {
       const eventName = "renderer:default-window";
       const testData = { message: "default window" };
 
@@ -118,7 +118,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToDefaultWindow).toHaveBeenCalledWith(eventName, true, testData);
     });
 
-    it("应该能够发送事件到默认标签页", () => {
+    it("should send an event to the default tab", () => {
       const eventName = "renderer:default-tab";
       const testData = { message: "default tab" };
 
@@ -128,7 +128,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToDefaultWindow).not.toHaveBeenCalled();
     });
 
-    it("当WindowPresenter未设置时应该显示警告", () => {
+    it("should show a warning when WindowPresenter is not set", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
@@ -139,7 +139,7 @@ describe("EventBus 事件总线", () => {
       consoleSpy.mockRestore();
     });
 
-    it("当WindowPresenter未设置时应该静默跳过可选渲染发送", () => {
+    it("should silently skip optional renderer send when WindowPresenter is not set", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
@@ -151,7 +151,7 @@ describe("EventBus 事件总线", () => {
       consoleSpy.mockRestore();
     });
 
-    it("应该能够通过可选渲染发送路径发送到所有窗口", () => {
+    it("should be able to send to all windows via the optional renderer send path", () => {
       const eventName = "renderer:optional";
       const testData = { message: "optional renderer" };
 
@@ -162,12 +162,12 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("同时发送到主进程和渲染进程", () => {
+  describe("send to both main and renderer", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
     });
 
-    it("应该同时发送事件到主进程和渲染进程", () => {
+    it("should send an event to both main and renderer", () => {
       const eventName = "both:test";
       const testData = { message: "both processes" };
 
@@ -183,7 +183,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToAllWindows).toHaveBeenCalledWith(eventName, testData);
     });
 
-    it("应该使用默认的SendTarget", () => {
+    it("should use the default SendTarget", () => {
       const eventName = "both:default";
       const testData = { message: "default target" };
 
@@ -192,7 +192,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToAllWindows).toHaveBeenCalledWith(eventName, testData);
     });
 
-    it("当WindowPresenter未设置时仍应发送到主进程且不警告", () => {
+    it("should still send to main process without warning when WindowPresenter is not set", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
       const eventName = "both:no-renderer";
@@ -209,14 +209,14 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("webContents 路由相关功能", () => {
+  describe("webContents routing", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
       eventBus.setTabPresenter(mockTabPresenter);
       vi.mocked(mockTabPresenter.getActiveTabId).mockResolvedValue(1);
     });
 
-    it("应该能够发送事件到指定 webContents", async () => {
+    it("should send an event to a specific webContents", async () => {
       const webContentsId = 1;
       const eventName = "web-contents:test";
       const testData = { message: "webContents test" };
@@ -229,7 +229,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToWebContents).toHaveBeenCalledWith(webContentsId, eventName, testData);
     });
 
-    it("应该能够发送事件到活跃窗口内容", async () => {
+    it("should send an event to the active window content", async () => {
       const windowId = 1;
       const eventName = "active-content:test";
       const testData = { message: "active content test" };
@@ -242,7 +242,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToActiveTab).toHaveBeenCalledWith(windowId, eventName, testData);
     });
 
-    it("应该能够广播事件到多个 webContents", async () => {
+    it("should broadcast an event to multiple webContents", async () => {
       const webContentsIds = [1, 2, 3];
       const eventName = "broadcast:test";
       const testData = { message: "broadcast test" };
@@ -258,7 +258,7 @@ describe("EventBus 事件总线", () => {
       expect(mockWindowPresenter.sendToWebContents).toHaveBeenCalledWith(3, eventName, testData);
     });
 
-    it("当WindowPresenter未设置时应该显示警告", () => {
+    it("should show a warning when WindowPresenter is not set", () => {
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
@@ -270,8 +270,8 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("Presenter设置", () => {
-    it("应该能够设置WindowPresenter", () => {
+  describe("Presenter setup", () => {
+    it("should be able to set the WindowPresenter", () => {
       eventBus.setWindowPresenter(mockWindowPresenter);
 
       // Verify setup succeeded (no warning when sending an event)
@@ -282,7 +282,7 @@ describe("EventBus 事件总线", () => {
       consoleSpy.mockRestore();
     });
 
-    it("应该能够设置TabPresenter", () => {
+    it("should be able to set the TabPresenter", () => {
       eventBus.setTabPresenter(mockTabPresenter);
 
       // Verify setup succeeded (no warning when sending an event)
@@ -295,12 +295,12 @@ describe("EventBus 事件总线", () => {
     });
   });
 
-  describe("错误处理", () => {
+  describe("error handling", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
     });
 
-    it("当 webContents 不存在时应该显示警告", async () => {
+    it("should show a warning when the webContents no longer exists", async () => {
       vi.mocked(mockWindowPresenter.sendToWebContents).mockResolvedValue(false);
       const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -314,7 +314,7 @@ describe("EventBus 事件总线", () => {
       consoleSpy.mockRestore();
     });
 
-    it("当发送 webContents 失败时应该记录错误", async () => {
+    it("should log an error when sending to a webContents fails", async () => {
       const error = new Error("Failed to send webContents event");
       vi.mocked(mockWindowPresenter.sendToWebContents).mockRejectedValue(error);
       const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});

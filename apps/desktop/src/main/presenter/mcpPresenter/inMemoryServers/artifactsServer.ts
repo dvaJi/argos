@@ -495,7 +495,7 @@ ${ARTIFACT_INSTRUCTIONS_TAIL}
           const [activeIndex, setActiveIndex] = React.useState(null);
           return (
             <div className="p-8 bg-white rounded-lg shadow-lg">
-              <h1 className="text-2xl font-bold mb-6">营业报表可视化</h1>
+              <h1 className="text-2xl font-bold mb-6">Revenue Report Visualization</h1>
               <Recharts.ResponsiveContainer width="100%" height={400}>
                 <Recharts.LineChart
                   data={data}
@@ -514,10 +514,10 @@ ${ARTIFACT_INSTRUCTIONS_TAIL}
               {activeIndex !== null && (
                 <div className="mt-8 p-4 bg-gray-50 rounded-lg">
                   <h2 className="text-lg font-semibold mb-2">
-                    详细数据 ({data[activeIndex].month})
+                    Details ({data[activeIndex].month})
                   </h2>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>营业额: {data[activeIndex].revenue} 万元</div>
+                    <div>Revenue: {data[activeIndex].revenue} (10k CNY)</div>
                       ...
                   </div>
                 </div>

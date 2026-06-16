@@ -139,7 +139,7 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
     const messageTime = new Date(message.timestamp).toLocaleString();
 
     if (message.role === "user") {
-      lines.push(`## 👤 用户 (${messageTime})`);
+      lines.push(`## User (${messageTime})`);
       lines.push("");
 
       const userContent = message.content as UserMessageContent;
@@ -149,7 +149,7 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
       lines.push("");
 
       if (userContent.files && userContent.files.length > 0) {
-        lines.push("**附件:**");
+        lines.push("**Attachments:**");
         for (const file of userContent.files) {
           lines.push(`- ${file.name ?? ""} (${file.mimeType ?? "unknown"})`);
         }
@@ -157,14 +157,14 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
       }
 
       if (userContent.links && userContent.links.length > 0) {
-        lines.push("**链接:**");
+        lines.push("**Links:**");
         for (const link of userContent.links) {
           lines.push(`- ${link}`);
         }
         lines.push("");
       }
     } else if (message.role === "assistant") {
-      lines.push(`## 🤖 助手 (${messageTime})`);
+      lines.push(`## Assistant (${messageTime})`);
       lines.push("");
 
       const assistantBlocks = message.content as AssistantMessageBlock[];
@@ -179,7 +179,7 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
             break;
           case "reasoning_content":
             if (block.content) {
-              lines.push("### 🤔 思考过程");
+              lines.push("### Thinking");
               lines.push("");
               lines.push("```");
               lines.push(block.content);
@@ -189,10 +189,10 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
             break;
           case "tool_call":
             if (block.tool_call) {
-              lines.push(`### 🔧 工具调用: ${block.tool_call.name ?? ""}`);
+              lines.push(`### Tool call: ${block.tool_call.name ?? ""}`);
               lines.push("");
               if (block.tool_call.params) {
-                lines.push("**参数:**");
+                lines.push("**Parameters:**");
                 lines.push("```json");
                 try {
                   const params = JSON.parse(block.tool_call.params);
@@ -204,7 +204,7 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
                 lines.push("");
               }
               if (block.tool_call.response) {
-                lines.push("**响应:**");
+                lines.push("**Response:**");
                 lines.push("```");
                 lines.push(block.tool_call.response);
                 lines.push("```");
@@ -213,20 +213,20 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
             }
             break;
           case "search":
-            lines.push("### 🔍 网络搜索");
+            lines.push("### Web search");
             if (block.extra?.total !== undefined) {
-              lines.push(`找到 ${block.extra.total} 个搜索结果`);
+              lines.push(`Found ${block.extra.total} search results`);
             }
             lines.push("");
             break;
           case "image":
-            lines.push("### 🖼️ 图片");
-            lines.push("*[图片内容]*");
+            lines.push("### Image");
+            lines.push("*[image content]*");
             lines.push("");
             break;
           case "error":
             if (block.content) {
-              lines.push("### ❌ 错误");
+              lines.push("### Error");
               lines.push("");
               lines.push(`\`${block.content}\``);
               lines.push("");
@@ -234,7 +234,7 @@ function exportToMarkdown(conversation: CONVERSATION, messages: Message[]): stri
             break;
           case "artifact-thinking":
             if (block.content) {
-              lines.push("### 💭 创作思考");
+              lines.push("### Creative thinking");
               lines.push("");
               lines.push("```");
               lines.push(block.content);
@@ -268,26 +268,26 @@ function exportToHtml(conversation: CONVERSATION, messages: Message[]): string {
   const metaRows: string[] = [];
   metaRows.push(
     ...renderTemplate(templates.metaRow, {
-      label: "导出时间",
+      label: "Exported at",
       value: escapeHtml(new Date().toLocaleString()),
     }),
   );
   metaRows.push(
     ...renderTemplate(templates.metaRow, {
-      label: "会话 ID",
+      label: "Session ID",
       value: escapeHtml(conversation.id),
     }),
   );
   metaRows.push(
     ...renderTemplate(templates.metaRow, {
-      label: "消息数量",
+      label: "Message count",
       value: escapeHtml(String(messages.length)),
     }),
   );
   if (conversation.settings.modelId) {
     metaRows.push(
       ...renderTemplate(templates.metaRow, {
-        label: "模型",
+        label: "Model",
         value: escapeHtml(conversation.settings.modelId),
       }),
     );
@@ -295,7 +295,7 @@ function exportToHtml(conversation: CONVERSATION, messages: Message[]): string {
   if (conversation.settings.providerId) {
     metaRows.push(
       ...renderTemplate(templates.metaRow, {
-        label: "服务商",
+        label: "Provider",
         value: escapeHtml(conversation.settings.providerId),
       }),
     );
@@ -529,14 +529,14 @@ function exportToText(conversation: CONVERSATION, messages: Message[]): string {
   lines.push(`${conversation.title}`);
   lines.push("".padEnd(conversation.title.length, "="));
   lines.push("");
-  lines.push(`导出时间: ${new Date().toLocaleString()}`);
-  lines.push(`会话ID: ${conversation.id}`);
-  lines.push(`消息数量: ${messages.length}`);
+  lines.push(`Exported at: ${new Date().toLocaleString()}`);
+  lines.push(`Session ID: ${conversation.id}`);
+  lines.push(`Message count: ${messages.length}`);
   if (conversation.settings.modelId) {
-    lines.push(`模型: ${conversation.settings.modelId}`);
+    lines.push(`Model: ${conversation.settings.modelId}`);
   }
   if (conversation.settings.providerId) {
-    lines.push(`提供商: ${conversation.settings.providerId}`);
+    lines.push(`Provider: ${conversation.settings.providerId}`);
   }
   lines.push("");
   lines.push("".padEnd(80, "-"));
@@ -546,7 +546,7 @@ function exportToText(conversation: CONVERSATION, messages: Message[]): string {
     const messageTime = new Date(message.timestamp).toLocaleString();
 
     if (message.role === "user") {
-      lines.push(`[用户] ${messageTime}`);
+      lines.push(`[User] ${messageTime}`);
       lines.push("");
 
       const userContent = message.content as UserMessageContent;
@@ -556,7 +556,7 @@ function exportToText(conversation: CONVERSATION, messages: Message[]): string {
       lines.push("");
 
       if (userContent.files && userContent.files.length > 0) {
-        lines.push("附件:");
+        lines.push("Attachments:");
         for (const file of userContent.files) {
           lines.push(`- ${file.name} (${file.mimeType})`);
         }
@@ -564,14 +564,14 @@ function exportToText(conversation: CONVERSATION, messages: Message[]): string {
       }
 
       if (userContent.links && userContent.links.length > 0) {
-        lines.push("链接:");
+        lines.push("Links:");
         for (const link of userContent.links) {
           lines.push(`- ${link}`);
         }
         lines.push("");
       }
     } else if (message.role === "assistant") {
-      lines.push(`[助手] ${messageTime}`);
+      lines.push(`[Assistant] ${messageTime}`);
       lines.push("");
 
       const assistantBlocks = message.content as AssistantMessageBlock[];
@@ -586,45 +586,45 @@ function exportToText(conversation: CONVERSATION, messages: Message[]): string {
             break;
           case "reasoning_content":
             if (block.content) {
-              lines.push("[思考过程]");
+              lines.push("[Thinking]");
               lines.push(block.content);
               lines.push("");
             }
             break;
           case "tool_call":
             if (block.tool_call) {
-              lines.push(`[工具调用] ${block.tool_call.name ?? ""}`);
+              lines.push(`[Tool call] ${block.tool_call.name ?? ""}`);
               if (block.tool_call.params) {
-                lines.push("参数:");
+                lines.push("Parameters:");
                 lines.push(block.tool_call.params);
               }
               if (block.tool_call.response) {
-                lines.push("响应:");
+                lines.push("Response:");
                 lines.push(block.tool_call.response);
               }
               lines.push("");
             }
             break;
           case "search":
-            lines.push("[网络搜索]");
+            lines.push("[Web search]");
             if (block.extra?.total !== undefined) {
-              lines.push(`找到 ${block.extra.total} 个搜索结果`);
+              lines.push(`Found ${block.extra.total} search results`);
             }
             lines.push("");
             break;
           case "image":
-            lines.push("[图片内容]");
+            lines.push("[image content]");
             lines.push("");
             break;
           case "error":
             if (block.content) {
-              lines.push(`[错误] ${block.content}`);
+              lines.push(`[Error] ${block.content}`);
               lines.push("");
             }
             break;
           case "artifact-thinking":
             if (block.content) {
-              lines.push("[创作思考]");
+              lines.push("[Creative thinking]");
               lines.push(block.content);
               lines.push("");
             }

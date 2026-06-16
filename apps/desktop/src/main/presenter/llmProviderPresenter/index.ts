@@ -83,8 +83,8 @@ const AUDIO_TRANSCRIPTION_PROMPT = [
   "Return only the transcription text of the audio content.",
   "Do not translate, summarize, explain, add speaker labels, or use markdown.",
   "If there is no discernible speech, return an empty string.",
-  "请只返回音频中的转写文本，不要翻译、总结、解释、添加说话人标签或 Markdown。",
-  "如果没有可辨识的语音，请返回空字符串。",
+  "Please return only the transcribed text from the audio. Do not translate, summarize, interpret, add speaker labels, or use Markdown.",
+  "If there is no recognizable speech, please return an empty string.",
 ].join(" ");
 
 export class LLMProviderPresenter implements ILlmProviderPresenter {

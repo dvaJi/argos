@@ -8,8 +8,8 @@ import { presenter } from "@/presenter";
 
 // Schema definitions
 const BuiltinKnowledgeSearchArgsSchema = z.object({
-  query: z.string().describe("搜索查询内容 (必填)"),
-  topK: z.number().optional().default(5).describe("返回结果数量 (默认5条)"),
+  query: z.string().describe("Search query content (required)"),
+  topK: z.number().optional().default(5).describe("Number of results to return (default 5)"),
 });
 
 export class BuiltinKnowledgeServer {
@@ -62,7 +62,7 @@ export class BuiltinKnowledgeServer {
             configIndex = parseInt(match[1], 10) - 1;
           }
           if (configIndex < 0 || configIndex >= enabledConfigs.length) {
-            throw new Error(`无效的知识库索引: ${configIndex}`);
+            throw new Error(`Invalid knowledge base index: ${configIndex}`);
           }
           return await this.performBuiltinKnowledgeSearch(parameters, enabledConfigs[configIndex]);
         } catch (error) {
@@ -70,7 +70,7 @@ export class BuiltinKnowledgeServer {
             content: [
               {
                 type: "text",
-                text: `搜索失败: ${error instanceof Error ? error.message : String(error)}`,
+                text: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
               },
             ],
           };
@@ -80,7 +80,7 @@ export class BuiltinKnowledgeServer {
         content: [
           {
             type: "text",
-            text: `未知工具: ${name}`,
+            text: `Unknown tool: ${name}`,
           },
         ],
       };
@@ -97,24 +97,24 @@ export class BuiltinKnowledgeServer {
   ): Promise<{ content: MCPTextContent[] }> {
     const { query } = parameters as { query: string; topK?: number };
     if (!query) {
-      throw new Error("查询内容不能为空");
+      throw new Error("Query content cannot be empty");
     }
     try {
       const id = config.id;
       // similarityQuery(id, key)
       const results = await presenter.knowledgePresenter.similarityQuery(id, query);
-      let resultText = `### 查询: ${query}\n\n`;
+      let resultText = `### Query: ${query}\n\n`;
       if (!results || results.length === 0) {
-        resultText += "未找到相关结果。";
+        resultText += "No matching results found.";
       } else {
-        resultText += `找到 ${results.length} 条相关结果:\n\n`;
+        resultText += `Found ${results.length} relevant results:\n\n`;
         results.forEach((result: QueryResult, index: number) => {
           resultText += `#### ${index + 1}. (ID: ${result.id})\n`;
           resultText += `${result.metadata.content || ""}\n\n`;
           if (result.metadata.filePath) {
-            resultText += `文件: ${result.metadata.filePath}\n`;
+            resultText += `File: ${result.metadata.filePath}\n`;
           }
-          resultText += `相似度: ${1 - result.distance}\n\n`;
+          resultText += `Similarity: ${1 - result.distance}\n\n`;
         });
       }
       return {
@@ -130,7 +130,7 @@ export class BuiltinKnowledgeServer {
         content: [
           {
             type: "text",
-            text: `搜索失败: ${error instanceof Error ? error.message : String(error)}`,
+            text: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };

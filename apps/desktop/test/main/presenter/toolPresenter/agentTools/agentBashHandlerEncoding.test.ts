@@ -79,7 +79,7 @@ describe("AgentBashHandler output encoding", () => {
       }
     ).runDetachedShellProcess("dir", "/workspace", 1000, {});
 
-    const bytes = Buffer.from("中文.txt\n", "utf8");
+    const bytes = Buffer.from("chinese.txt\n", "utf8");
     child.stdout.emit("data", bytes.subarray(0, 2));
     child.stdout.emit("data", bytes.subarray(2));
     child.emit("close", 0, null);
@@ -93,7 +93,7 @@ describe("AgentBashHandler output encoding", () => {
         detached: false,
       }),
     );
-    expect(result.output).toBe("中文.txt\n");
+    expect(result.output).toBe("chinese.txt\n");
     expect(result.exitCode).toBe(0);
   });
 });

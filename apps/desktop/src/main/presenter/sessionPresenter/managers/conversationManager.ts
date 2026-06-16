@@ -415,7 +415,7 @@ export class ConversationManager {
     try {
       const sourceConversation = await this.sqlitePresenter.getConversation(targetConversationId);
       if (!sourceConversation) {
-        throw new Error("源会话不存在");
+        throw new Error("Source conversation does not exist");
       }
 
       const newConversationId = await this.sqlitePresenter.createConversation(newTitle);
@@ -430,13 +430,13 @@ export class ConversationManager {
 
       const targetMessage = await this.messageManager.getMessage(targetMessageId);
       if (!targetMessage) {
-        throw new Error("目标消息不存在");
+        throw new Error("Target message does not exist");
       }
 
       let mainTargetId: string | null = null;
       if (targetMessage.is_variant) {
         if (!targetMessage.parentId) {
-          throw new Error("变体消息缺少 parentId，无法定位主消息");
+          throw new Error("Variant message is missing parentId; cannot locate the main message");
         }
         const mainMessage = await this.messageManager.getMainMessageByParentId(
           targetConversationId,
@@ -448,12 +448,12 @@ export class ConversationManager {
       }
 
       if (!mainTargetId) {
-        throw new Error("无法确定用于分叉的历史记录目标主消息ID");
+        throw new Error("Cannot determine the main message ID of the history target for forking");
       }
 
       const forkEndIndex = fullHistory.findIndex((msg) => msg.id === mainTargetId);
       if (forkEndIndex === -1) {
-        throw new Error("目标主消息在会话历史中未找到，无法分叉。");
+        throw new Error("Target main message was not found in session history; cannot fork.");
       }
 
       const messageHistory = fullHistory.slice(0, forkEndIndex + 1);
@@ -523,7 +523,7 @@ export class ConversationManager {
 
       return newConversationId;
     } catch (error) {
-      console.error("分支会话失败:", error);
+      console.error("Failed to fork session:", error);
       throw error;
     }
   }

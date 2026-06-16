@@ -60,7 +60,7 @@ export class KnowledgeStorePresenter {
   async addFile(filePath: string, fileId?: string): Promise<KnowledgeFileResult> {
     try {
       if (fs.existsSync(filePath) === false) {
-        throw new Error("文件不存在，请检查路径是否正确");
+        throw new Error("File does not exist; please check the path");
       }
       // If fileId is empty but filePath already exists in the database, this is a duplicate add — skip
       const existingFile = await this.vectorP.queryFiles({
@@ -122,7 +122,7 @@ export class KnowledgeStorePresenter {
       // Inspect file content
       if (fileInfo.content === undefined || fileInfo.content.length === 0) {
         fileMessage.status = "error";
-        fileMessage.metadata.errorReason = "无法读取文件或文件内容为空，请检查文件是否损坏或格式是否受支持";
+        fileMessage.metadata.errorReason = "Could not read file or file is empty; please check whether the file is corrupted or the format is supported";
         await this.enqueueFileTask(fileMessage.id, async () => this.vectorP.updateFile(fileMessage));
         eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
         return;
@@ -345,7 +345,7 @@ export class KnowledgeStorePresenter {
   async reAddFile(fileId: string): Promise<KnowledgeFileResult> {
     const file = await this.queryFile(fileId);
     if (file == null) {
-      throw new Error("文件不存在，请重新打开知识库后再试");
+      throw new Error("File does not exist; please reopen the knowledge base and try again");
     }
     await this.enqueueFileTask(fileId, async () => this.vectorP.deleteChunksByFile(fileId));
     await this.enqueueFileTask(fileId, async () => this.vectorP.deleteVectorsByFile(fileId));

@@ -1701,7 +1701,7 @@ export class AiSdkProvider extends BaseLLMProvider {
           })) || []
       );
     } catch (error) {
-      console.error("获取AWS Bedrock Anthropic模型列表出错:", error);
+      console.error("Failed to fetch AWS Bedrock Anthropic model list:", error);
       return this.mapConfigDbModels(this.definition.providerDbSourceId).filter((model) =>
         model.id.startsWith("anthropic."),
       );
@@ -2199,7 +2199,7 @@ export class AiSdkProvider extends BaseLLMProvider {
 
     if (preset === "anthropic") {
       const response = await this.runPromptCompletion(
-        `根据下面的上下文，给出3个可能的回复建议，每个建议一行，不要有编号或者额外的解释：\n\n${promptContext}`,
+        `Based on the context below, provide 3 possible reply suggestions, each on its own line, without numbering or extra explanation:\n\n${promptContext}`,
         modelId,
         temperature ?? 0.7,
         maxTokens ?? 128,
@@ -2309,7 +2309,7 @@ export class AiSdkProvider extends BaseLLMProvider {
     switch (preset) {
       case "anthropic":
         return this.runPromptCompletion(
-          `请对以下内容进行摘要:\n\n${text}\n\n请提供一个简洁明了的摘要。`,
+          `Please summarize the following content:\n\n${text}\n\nProvide a concise and clear summary.`,
           modelId,
           temperature,
           maxTokens,
@@ -2342,7 +2342,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         );
       case "chinese-summary":
         return this.runPromptCompletion(
-          `请总结以下内容，使用简洁的语言，突出重点：\n${text}`,
+          `Please summarize the following content in concise language, highlighting the key points:\n${text}`,
           modelId,
           temperature,
           maxTokens,

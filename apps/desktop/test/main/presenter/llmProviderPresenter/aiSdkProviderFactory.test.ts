@@ -258,7 +258,7 @@ describe("AI SDK provider factory", () => {
 
     const result = streamText({
       model: context.model,
-      messages: [{ role: "user", content: "你好" }],
+      messages: [{ role: "user", content: "Café" }],
       maxOutputTokens: 16,
     });
     for await (const _part of result.fullStream) {

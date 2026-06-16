@@ -624,7 +624,7 @@ export class SessionPresenter implements ISessionPresenter {
           try {
             return JSON.parse(result.content) as SearchResult;
           } catch (error) {
-            console.warn("解析搜索结果附件失败:", error);
+            console.warn("Failed to parse search result attachment:", error);
             return null;
           }
         })

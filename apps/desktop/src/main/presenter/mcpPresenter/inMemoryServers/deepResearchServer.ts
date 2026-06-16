@@ -15,69 +15,69 @@ import { nanoid } from "nanoid";
 
 // StartDeepResearchArgsSchema: Parameters for starting deep research.
 const StartDeepResearchArgsSchema = z.object({
-  question: z.string().describe("要开始深度研究的研究问题或主题。"),
+  question: z.string().describe("The research question or topic to start the deep research with."),
 });
 
 // SingleWebSearchArgsSchema: Parameters for a single web search.
 const SingleWebSearchArgsSchema = z.object({
-  session_id: z.string().describe("来自 start_deep_research 的研究会话ID。"),
-  query: z.string().describe("要执行的单个搜索查询。"),
-  max_results: z.number().min(5).max(15).default(10).describe("此搜索查询的最大结果数 (5-15)。"),
+  session_id: z.string().describe("The research session ID returned by start_deep_research."),
+  query: z.string().describe("The single search query to execute."),
+  max_results: z.number().min(5).max(15).default(10).describe("The maximum number of results for this search query (5-15)."),
 });
 
 // RequestResearchDataArgsSchema: Parameters for the LLM to request accumulated search results for reflection.
 const RequestResearchDataArgsSchema = z.object({
-  session_id: z.string().describe("研究会话ID。"),
-  iteration: z.number().describe("当前研究迭代次数。LLM 应自行维护此数值并传入。"),
+  session_id: z.string().describe("The research session ID."),
+  iteration: z.number().describe("The current research iteration count. The LLM should maintain and pass this value itself."),
 });
 
 // SubmitReflectionResultsArgsSchema: Parameters for the LLM to submit reflection results.
 const SubmitReflectionResultsArgsSchema = z.object({
-  session_id: z.string().describe("研究会话ID。"),
-  iteration: z.number().describe("此反思对应的迭代次数。"),
-  needs_more_research: z.boolean().describe("LLM 分析后认为是否需要更多研究。"),
-  missing_information: z.array(z.string()).describe("LLM 识别出的缺失信息列表，如果需要更多研究。"),
-  quality_assessment: z.string().describe("LLM 对当前研究结果的质量评估。"),
-  suggested_queries: z.array(z.string()).describe("LLM 基于当前信息和缺失点，建议的后续搜索查询。"),
-  confidence_score: z.number().min(0).max(1).describe("LLM 对当前研究完整性和准确性的置信度（0-1 范围）。"),
+  session_id: z.string().describe("The research session ID."),
+  iteration: z.number().describe("The iteration count for this reflection."),
+  needs_more_research: z.boolean().describe("Whether the LLM believes more research is needed after analysis."),
+  missing_information: z.array(z.string()).describe("List of missing information identified by the LLM, if more research is needed."),
+  quality_assessment: z.string().describe("The LLM's quality assessment of the current research results."),
+  suggested_queries: z.array(z.string()).describe("Follow-up search queries suggested by the LLM based on current information and gaps."),
+  confidence_score: z.number().min(0).max(1).describe("The LLM's confidence (0-1) in the completeness and accuracy of the current research."),
 });
 
 // GenerateFinalAnswerArgsSchema: Parameters for generating the final research report.
 const GenerateFinalAnswerArgsSchema = z.object({
-  session_id: z.string().describe("来自 start_deep_research 的研究会话ID。"),
-  documentation_prompt: z.string().optional().describe("自定义文档生成提示词。"),
+  session_id: z.string().describe("The research session ID returned by start_deep_research."),
+  documentation_prompt: z.string().optional().describe("Custom documentation generation prompt."),
 });
 
 // Default document generation prompt
 const DEFAULT_DOCUMENTATION_PROMPT = `
-对于所有查询，请广泛搜索网页以获取最新信息。研究多个来源。利用所有提供的工具来收集尽可能多的上下文。适当时包含截图。
-创建文档时请遵循以下指导原则：
-1. 内容质量：
-  清晰、简洁且事实准确
-  结构逻辑清晰
-  主题覆盖全面
-  技术精确，注重细节
-  不含不必要的评论或幽默
-2. 文档风格：
-  专业客观的语气
-  透彻的解释，技术深度适中
-  格式良好，包含适当的标题、列表和代码块
-  术语和命名约定保持一致
-  布局整洁、易读，无多余元素
-3. 代码质量：
-  代码干净、可维护且注释良好
-  遵循最佳实践和现代模式
-  适当的错误处理和边缘情况考虑
-  优化性能和效率
-  遵循语言特定的风格指南
-4. 技术专长：
-  编程语言和框架
-  系统架构和设计模式
-  开发方法论和实践
-  安全考虑和标准
-  行业标准工具和技术
-5. 文档要求：
-  当被要求时，请围绕给定主题创建一份极其详细、全面的 Markdown 文档。
+For all queries, search the web broadly for the latest information. Research multiple sources. Use all available tools to gather as much context as possible. Include screenshots when appropriate.
+Follow the guidelines below when creating documentation:
+1. Content quality:
+  Clear, concise, and factually accurate
+  Logically structured
+  Comprehensive coverage of the topic
+  Technically precise, with attention to detail
+  No unnecessary commentary or humor
+2. Documentation style:
+  Professional and objective tone
+  Thorough explanations with appropriate technical depth
+  Well-formatted, with appropriate headings, lists, and code blocks
+  Consistent terminology and naming conventions
+  Clean, readable layout with no superfluous elements
+3. Code quality:
+  Clean, maintainable, well-commented code
+  Follow best practices and modern patterns
+  Appropriate error handling and edge-case consideration
+  Optimized for performance and efficiency
+  Follow language-specific style guides
+4. Technical expertise:
+  Programming languages and frameworks
+  System architecture and design patterns
+  Development methodologies and practices
+  Security considerations and standards
+  Industry-standard tools and technologies
+5. Documentation requirements:
+  When asked, create an extremely detailed, comprehensive Markdown document on the given topic.
 `;
 // === Interface definitions ===
 
@@ -167,7 +167,7 @@ export class DeepResearchServer {
     // Check if the Bocha API key is provided
     const bochaApiKey = String(env?.BOCHA_API_KEY ?? "");
     if (!bochaApiKey) {
-      throw new Error("需要 BOCHA_API_KEY");
+      throw new Error("BOCHA_API_KEY is required");
     }
     this.bochaApiKey = bochaApiKey;
 
@@ -215,7 +215,7 @@ export class DeepResearchServer {
 
     expiredSessions.forEach((sessionId) => {
       this.researchSessions.delete(sessionId);
-      console.log(`已清理过期研究会话: ${sessionId}`);
+      console.log(`Cleaned up expired research session: ${sessionId}`);
     });
 
     // If the session count exceeds the limit, clean up the least recently accessed sessions
@@ -227,7 +227,7 @@ export class DeepResearchServer {
       const toRemove = sortedSessions.slice(0, this.researchSessions.size - this.MAX_SESSIONS);
       toRemove.forEach(([sessionId]) => {
         this.researchSessions.delete(sessionId);
-        console.log(`因超限已清理旧研究会话: ${sessionId}`);
+        console.log(`Cleaned up old research session due to over-limit: ${sessionId}`);
       });
     }
   }
@@ -236,7 +236,7 @@ export class DeepResearchServer {
   private getSession(sessionId: string): ResearchSession {
     const session = this.researchSessions.get(sessionId);
     if (!session) {
-      throw new Error(`未找到研究会话: ${sessionId}`);
+      throw new Error(`Research session not found: ${sessionId}`);
     }
     session.last_accessed_at = new Date(); // Update last accessed time
     return session;
@@ -266,7 +266,7 @@ export class DeepResearchServer {
   private cleanupSession(sessionId: string): void {
     const removed = this.researchSessions.delete(sessionId);
     if (removed) {
-      console.log(`研究会话已清理: ${sessionId}`);
+      console.log(`Research session cleaned up: ${sessionId}`);
     }
   }
 
@@ -278,7 +278,7 @@ export class DeepResearchServer {
         tools: [
           {
             name: "start_deep_research",
-            description: "启动一个新的深度研究会话。返回 session_id 用于后续操作。",
+            description: "Start a new deep research session. Returns a session_id for subsequent operations.",
             inputSchema: zodToJsonSchema(StartDeepResearchArgsSchema),
             annotations: {
               title: "Start Deep Research",
@@ -287,7 +287,7 @@ export class DeepResearchServer {
           },
           {
             name: "execute_single_web_search",
-            description: "在研究会话内执行一次网页搜索。",
+            description: "Execute a single web search within the research session.",
             inputSchema: zodToJsonSchema(SingleWebSearchArgsSchema),
             annotations: {
               title: "Execute Web Search",
@@ -297,7 +297,7 @@ export class DeepResearchServer {
           },
           {
             name: "request_research_data",
-            description: "请求当前会话中新增的搜索结果和研究背景，供 LLM 反思。",
+            description: "Request the new search results and research context from the current session, for the LLM to reflect on.",
             inputSchema: zodToJsonSchema(RequestResearchDataArgsSchema),
             annotations: {
               title: "Request Research Data",
@@ -306,7 +306,7 @@ export class DeepResearchServer {
           },
           {
             name: "submit_reflection_results",
-            description: "LLM 提交其对研究数据的反思结果（如是否需更多研究、建议查询等）。",
+            description: "LLM submits its reflection on the research data (e.g., whether more research is needed, suggested queries, etc.).",
             inputSchema: zodToJsonSchema(SubmitReflectionResultsArgsSchema),
             annotations: {
               title: "Submit Reflection Results",
@@ -315,7 +315,7 @@ export class DeepResearchServer {
           },
           {
             name: "generate_final_answer",
-            description: "根据累积研究生成最终答案，并清理会话数据。",
+            description: "Generate a final answer from the accumulated research and clean up the session data.",
             inputSchema: zodToJsonSchema(GenerateFinalAnswerArgsSchema),
             annotations: {
               title: "Generate Final Answer",
@@ -343,15 +343,15 @@ export class DeepResearchServer {
           case "generate_final_answer":
             return await this.handleGenerateFinalAnswer(args);
           default:
-            throw new Error(`未知工具: ${name}`);
+            throw new Error(`Unknown tool: ${name}`);
         }
       } catch (error) {
-        console.error("调用工具时出错:", error);
+        console.error("Error invoking tool:", error);
         const errorMessage =
-          error instanceof Error ? error.message : typeof error === "string" ? error : "发生未知错误";
+          error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error occurred";
 
         return {
-          content: [{ type: "text", text: `错误: ${errorMessage}` }],
+          content: [{ type: "text", text: `Error: ${errorMessage}` }],
           isError: true,
         };
       }
@@ -362,7 +362,7 @@ export class DeepResearchServer {
   private async handleStartDeepResearch(args: unknown) {
     const parsed = StartDeepResearchArgsSchema.safeParse(args);
     if (!parsed.success) {
-      throw new Error(`start_deep_research 参数无效: ${parsed.error}`);
+      throw new Error(`start_deep_research: invalid parameters: ${parsed.error}`);
     }
     const { question } = parsed.data;
     const session = this.createSession(question);
@@ -370,7 +370,7 @@ export class DeepResearchServer {
     // Optimization: return a concise response with session_id and next-step instructions
     const response = {
       session_id: session.session_id,
-      next_steps: `研究会话已创建 (ID: ${session.session_id})。LLM 请生成初始搜索查询，并使用 execute_single_web_search 执行搜索。完成后调用 request_research_data 获取数据反思。`,
+      next_steps: `Research session created (ID: ${session.session_id}). The LLM should generate initial search queries and use execute_single_web_search to perform searches. When done, call request_research_data to receive the data for reflection.`,
     };
     return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
   }
@@ -379,7 +379,7 @@ export class DeepResearchServer {
   private async handleSingleWebSearch(args: unknown) {
     const parsed = SingleWebSearchArgsSchema.safeParse(args);
     if (!parsed.success) {
-      throw new Error(`execute_single_web_search 参数无效: ${parsed.error}`);
+      throw new Error(`execute_single_web_search: invalid parameters: ${parsed.error}`);
     }
     const { session_id, query, max_results } = parsed.data;
     const session = this.getSession(session_id);
@@ -391,13 +391,13 @@ export class DeepResearchServer {
       // Optimization: return a concise response with result count and next-step instructions
       const response = {
         results_count: searchResult.results.length,
-        next_steps: `搜索结果已存储。可继续搜索，或调用 request_research_data 获取数据反思。`,
+        next_steps: `Search results have been stored. You may continue searching, or call request_research_data to receive the data for reflection.`,
       };
       return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
     } catch (error) {
       const axiosError = error as { message?: string };
-      console.error("单次网页搜索出错:", axiosError.message);
-      throw new Error(`单次网页搜索失败: ${axiosError.message}`);
+      console.error("Single web search error:", axiosError.message);
+      throw new Error(`Single web search failed: ${axiosError.message}`);
     }
   }
 
@@ -405,7 +405,7 @@ export class DeepResearchServer {
   private async handleRequestResearchData(args: unknown) {
     const parsed = RequestResearchDataArgsSchema.safeParse(args);
     if (!parsed.success) {
-      throw new Error(`request_research_data 参数无效: ${parsed.error}`);
+      throw new Error(`request_research_data: invalid parameters: ${parsed.error}`);
     }
     const { session_id } = parsed.data; // iteration is maintained by the LLM
     const session = this.getSession(session_id);
@@ -417,14 +417,14 @@ export class DeepResearchServer {
     const newConsolidatedResearchContent = newSearchResults
       .map(
         (sr) =>
-          `=== 搜索查询: ${sr.query} ===\n` +
+          `=== Search query: ${sr.query} ===\n` +
           sr.results
             .map(
               (result, idx) =>
-                `[来源 ${idx + 1}] ${result.title}\n` +
+                `[Source ${idx + 1}] ${result.title}\n` +
                 `URL: ${result.url}\n` +
-                `发布日期: ${result.published_date || "未知"}\n` +
-                `内容摘要: ${result.snippet}\n` + // Uses the summary provided by Bocha
+                `Published date: ${result.published_date || "Unknown"}\n` +
+                `Summary: ${result.snippet}\n` + // Uses the summary provided by Bocha
                 `---`,
             )
             .join("\n"),
@@ -435,20 +435,20 @@ export class DeepResearchServer {
     const response = {
       new_search_results_to_reflect: newConsolidatedResearchContent, // Send only new search results
       reflection_instructions: `
-你是一个严谨的研究分析师。你已收到一批新的搜索结果。
-请将这些新增结果与你（LLM）已有的历史研究数据结合，对【整个累积的研究上下文】进行全面评估。
-基于这些【整个累积研究上下文】信息，判断是否已充分回答研究问题：“${session.question}”。
+You are a rigorous research analyst. You have just received a batch of new search results.
+Combine these new results with the historical research data you (the LLM) already have, and perform a comprehensive evaluation of the **entire accumulated research context**.
+Based on this **entire accumulated research context**, decide whether the research question has been sufficiently answered: "${session.question}".
 
-你的任务是生成结构化的 JSON 结果，包含字段：
-- needs_more_research: boolean (是否需更多研究)
-- missing_information: string[] (若需更多研究，列出缺失信息)
-- quality_assessment: string (当前研究质量评估)
-- suggested_queries: string[] (若需更多研究，建议3-5个新查询)
-- confidence_score: number (0-1，当前研究完整性与准确性的置信度)
+Your task is to produce a structured JSON result with the following fields:
+- needs_more_research: boolean (whether more research is needed)
+- missing_information: string[] (if more research is needed, list the missing information)
+- quality_assessment: string (quality assessment of the current research)
+- suggested_queries: string[] (if more research is needed, suggest 3-5 new queries)
+- confidence_score: number (0-1, your confidence in the completeness and accuracy of the current research)
 
-请严格以 JSON 格式输出，不要包含任何额外解释。
+Output strictly as JSON. Do not include any additional explanation.
 `,
-      next_steps: `LLM 请使用上述数据和指令进行反思，然后调用 submit_reflection_results 提交分析结果。`,
+      next_steps: `The LLM should use the data and instructions above to reflect, then call submit_reflection_results to submit the analysis.`,
     };
     return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
   }
@@ -457,7 +457,7 @@ export class DeepResearchServer {
   private async handleSubmitReflectionResults(args: unknown) {
     const parsed = SubmitReflectionResultsArgsSchema.safeParse(args);
     if (!parsed.success) {
-      throw new Error(`submit_reflection_results 参数无效: ${parsed.error}`);
+      throw new Error(`submit_reflection_results: invalid parameters: ${parsed.error}`);
     }
     const {
       session_id,
@@ -488,8 +488,8 @@ export class DeepResearchServer {
 
     // Optimization: return a concise response with only next-step instructions
     const nextStepsMessage = needs_more_research
-      ? `LLM 分析表明需要更多研究。建议的后续查询已更新。LLM 请使用建议查询执行额外搜索。`
-      : `LLM 分析表明已收集足够信息。LLM 请调用 generate_final_answer 生成最终报告。`;
+      ? `The LLM's analysis indicates that more research is needed. The suggested follow-up queries have been updated. The LLM should use the suggested queries to perform additional searches.`
+      : `The LLM's analysis indicates that enough information has been gathered. The LLM should call generate_final_answer to produce the final report.`;
 
     return {
       content: [{ type: "text", text: JSON.stringify({ next_steps: nextStepsMessage }, null, 2) }],
@@ -500,7 +500,7 @@ export class DeepResearchServer {
   private async handleGenerateFinalAnswer(args: unknown) {
     const parsed = GenerateFinalAnswerArgsSchema.safeParse(args);
     if (!parsed.success) {
-      throw new Error(`generate_final_answer 参数无效: ${parsed.error}`);
+      throw new Error(`generate_final_answer: invalid parameters: ${parsed.error}`);
     }
     const { session_id, documentation_prompt } = parsed.data;
     const session = this.getSession(session_id);
@@ -521,7 +521,7 @@ export class DeepResearchServer {
     const finalDocumentationPrompt =
       documentation_prompt ||
       `${DEFAULT_DOCUMENTATION_PROMPT}
-用户当前的系统语言是 ${locale}，请除非另有说明，否则用系统语言回复。`;
+The user's current system language is ${locale}; unless otherwise specified, please respond in the system language.`;
 
     // Build the complete research content for the LLM to generate the final report
     const completeResearchContent = {
@@ -530,7 +530,7 @@ export class DeepResearchServer {
         // Research metadata
         session_id: session.session_id,
         session_created: session.created_at.toISOString(),
-        session_duration: `${Math.round((new Date().getTime() - session.created_at.getTime()) / 1000 / 60)} 分钟`,
+        session_duration: `${Math.round((new Date().getTime() - session.created_at.getTime()) / 1000 / 60)} minutes`,
         total_iterations: researchData.total_iterations,
         total_searches: researchData.total_searches,
         total_sources: researchData.total_results,
@@ -549,37 +549,37 @@ export class DeepResearchServer {
       consolidated_research_content: session.search_results
         .map(
           (sr) =>
-            `=== 搜索查询: ${sr.query} ===\n` +
+            `=== Search query: ${sr.query} ===\n` +
             sr.results
               .map(
                 (result, idx) =>
-                  `[来源 ${idx + 1}] ${result.title}\n` +
+                  `[Source ${idx + 1}] ${result.title}\n` +
                   `URL: ${result.url}\n` +
-                  `发布日期: ${result.published_date || "未知"}\n` +
-                  `内容摘要: ${result.snippet}\n` +
+                  `Published date: ${result.published_date || "Unknown"}\n` +
+                  `Summary: ${result.snippet}\n` +
                   `---`,
               )
               .join("\n"),
         )
         .join("\n\n"),
       documentation_instructions: finalDocumentationPrompt, // Documentation generation instructions
-      summary_instructions: `  // 最终报告生成指令
-请根据上方完整的科研数据，为用户的问题：“${session.question}”生成一份全面且详细的研究报告。
-报告应包括：
-1. 问题概述和研究背景
-2. 主要发现和关键信息点
-3. 不同来源观点的比较分析
-4. 具体的实施建议或解决方案
-5. 相关最新发展和趋势
-6. 参考文献和信息来源
-请确保：
-- 充分利用所有搜索结果中的信息
-- 保持客观性和准确性
-- 提供具体细节和示例
-- 除非另有说明，否则请用用户的系统语言（${locale}）回复
-- 适当引用具体来源和链接
+      summary_instructions: `  // Final report generation instructions
+Based on the complete research data above, generate a comprehensive and detailed research report for the user's question: "${session.question}".
+The report should include:
+1. Problem overview and research background
+2. Main findings and key information points
+3. Comparative analysis of viewpoints from different sources
+4. Concrete implementation recommendations or solutions
+5. Recent developments and trends
+6. References and sources
+Please ensure:
+- Fully leverage the information in all search results
+- Maintain objectivity and accuracy
+- Provide specific details and examples
+- Unless otherwise specified, respond in the user's system language (${locale})
+- Cite specific sources and links as appropriate
 `,
-      cleanup_status: "此响应后会话数据将被清理",
+      cleanup_status: "Session data will be cleaned up after this response",
       original_research_question: researchData.original_question, // Explicitly provide the original research question
     };
 
@@ -629,7 +629,7 @@ export class DeepResearchServer {
         ),
       };
     } catch (error) {
-      console.error(`查询 "${query}" 搜索失败:`, error);
+      console.error(`Query "${query}" search failed:`, error);
       return { query, results: [] }; // Return empty results on failure
     }
   }
@@ -641,7 +641,7 @@ export class DeepResearchServer {
       this.cleanupTimer = null;
     }
     this.researchSessions.clear(); // Clean up all sessions
-    console.log("DeepResearchServer 已销毁，所有会话已清理");
+    console.log("DeepResearchServer destroyed; all sessions cleared");
   }
 
   // Get session statistics (for debugging and monitoring)

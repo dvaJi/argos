@@ -7,9 +7,9 @@ import axios from "axios";
 
 // Schema definitions
 const FastGptKnowledgeSearchArgsSchema = z.object({
-  query: z.string().describe("搜索查询内容 (必填)"),
-  topK: z.number().optional().default(5).describe("返回结果数量 (默认5条)"),
-  scoreThreshold: z.number().optional().default(0.2).describe("相似度阈值 (0-1之间，默认0.2)"),
+  query: z.string().describe("Search query content (required)"),
+  topK: z.number().optional().default(5).describe("Number of results to return (default 5)"),
+  scoreThreshold: z.number().optional().default(0.2).describe("Similarity threshold (0-1, default 0.2)"),
 });
 
 // Data structure returned by the FastGPT API
@@ -49,13 +49,13 @@ export class FastGptKnowledgeServer {
 
   constructor(env?: Record<string, unknown>) {
     if (!env) {
-      throw new Error("需要提供FastGPT知识库配置");
+      throw new Error("FastGPT knowledge base configuration is required");
     }
 
     const envs = env.configs;
 
     if (!Array.isArray(envs) || envs.length === 0) {
-      throw new Error("需要提供至少一个FastGPT知识库配置");
+      throw new Error("At least one FastGPT knowledge base configuration is required");
     }
 
     // Process each config
@@ -67,13 +67,13 @@ export class FastGptKnowledgeServer {
       const endpoint = String(config.endpoint ?? "") || "http://localhost:3000/api";
 
       if (!apiKey) {
-        throw new Error("需要提供FastGPT API Key");
+        throw new Error("FastGPT API Key is required");
       }
       if (!datasetId) {
-        throw new Error("需要提供FastGPT Dataset ID");
+        throw new Error("FastGPT Dataset ID is required");
       }
       if (!description) {
-        throw new Error("需要提供对这个知识库的描述，以方便ai决定是否检索此知识库");
+        throw new Error("A description for this knowledge base is required so the AI can decide whether to retrieve from it");
       }
 
       this.configs.push({
@@ -147,19 +147,19 @@ export class FastGptKnowledgeServer {
 
           // Ensure the index is valid
           if (configIndex < 0 || configIndex >= enabledConfigs.length) {
-            throw new Error(`无效的知识库索引: ${configIndex}`);
+            throw new Error(`Invalid knowledge base index: ${configIndex}`);
           }
           // Resolve the actual config index
           const actualConfigIndex = this.configs.findIndex((config) => config === enabledConfigs[configIndex]);
 
           return await this.performFastGptKnowledgeSearch(parameters, actualConfigIndex);
         } catch (error) {
-          console.error("FastGPT知识库搜索失败:", error);
+          console.error("FastGPT knowledge base search failed:", error);
           return {
             content: [
               {
                 type: "text",
-                text: `搜索失败: ${error instanceof Error ? error.message : String(error)}`,
+                text: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
               },
             ],
           };
@@ -170,7 +170,7 @@ export class FastGptKnowledgeServer {
         content: [
           {
             type: "text",
-            text: `未知工具: ${name}`,
+            text: `Unknown tool: ${name}`,
           },
         ],
       };
@@ -193,7 +193,7 @@ export class FastGptKnowledgeServer {
     };
 
     if (!query) {
-      throw new Error("查询内容不能为空");
+      throw new Error("Query content cannot be empty");
     }
 
     // Get the active config
@@ -221,13 +221,13 @@ export class FastGptKnowledgeServer {
       );
 
       if (response.data.code !== 200) {
-        throw new Error(`FastGPT API错误: ${response.data.statusText}`);
+        throw new Error(`FastGPT API error: ${response.data.statusText}`);
       }
 
       // Process the response data
       const results = response.data.data.list.slice(0, topK).map((record) => {
         return {
-          title: record.sourceName || "未知文档",
+          title: record.sourceName || "Unknown document",
           documentId: record.sourceId,
           content: record.q,
           score: record.score.length > 0 ? record.score[0].value : 0,
@@ -235,15 +235,15 @@ export class FastGptKnowledgeServer {
       });
 
       // Build the response
-      let resultText = `### 查询: ${query}\n\n`;
+      let resultText = `### Query: ${query}\n\n`;
 
       if (results.length === 0) {
-        resultText += "未找到相关结果。";
+        resultText += "No matching results found.";
       } else {
-        resultText += `找到 ${results.length} 条相关结果:\n\n`;
+        resultText += `Found ${results.length} relevant results:\n\n`;
 
         results.forEach((result, index) => {
-          resultText += `#### ${index + 1}. ${result.title} (相关度: ${(result.score * 100).toFixed(2)}%)\n`;
+          resultText += `#### ${index + 1}. ${result.title} (relevance: ${(result.score * 100).toFixed(2)}%)\n`;
           resultText += `${result.content}\n\n`;
         });
       }
@@ -257,9 +257,9 @@ export class FastGptKnowledgeServer {
         ],
       };
     } catch (error) {
-      console.error("FastGPT API请求失败:", error);
+      console.error("FastGPT API request failed:", error);
       if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`FastGPT API错误 (${error.response.status}): ${JSON.stringify(error.response.data)}`);
+        throw new Error(`FastGPT API error (${error.response.status}): ${JSON.stringify(error.response.data)}`);
       }
       throw error;
     }

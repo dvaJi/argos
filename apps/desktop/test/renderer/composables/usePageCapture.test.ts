@@ -106,6 +106,6 @@ describe("usePageCapture", () => {
       height: 144,
     });
     expect(stitchImagesWithWatermarkMock).toHaveBeenCalledWith(["segment-1", "segment-2", "segment-3"], {});
-    expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining("可捕获高度无效"));
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(expect.stringContaining("Invalid capturable height"));
   });
 });

@@ -4,10 +4,10 @@ This document reflects the current structure after retirement. It is intended fo
 
 ## Prerequisites
 
-- Node.js `24.14.1` recommended
+- Node.js `>= 24.14.1` (24.14.1 recommended)
 - pnpm `>= 10.11`
 - Git
-- An editor with TypeScript / Vue support
+- An editor with TypeScript / React support (Tailwind IntelliSense, ES7+ React/Redux/React-Native snippets)
 
 ## Starting the Project
 
@@ -52,25 +52,46 @@ If you see `useLegacyPresenter()`, `window.electron`, or `window.api` in the cur
 ## Project Directory Overview
 
 ```text
-src/
-├── main/
-│   ├── presenter/
-│   │   ├── agentSessionPresenter/        # current session entry
-│   │   ├── agentRuntimePresenter/   # current chat runtime
-│   │   ├── toolPresenter/            # tool routing
-│   │   │   └── agentTools/           # local agent tools
-│   │   ├── llmProviderPresenter/     # provider management
-│   │   │   └── acp/                  # ACP helper
-│   │   ├── mcpPresenter/             # MCP tools/runtime
-│   │   ├── sessionPresenter/         # legacy data compatibility layer
-│   │   └── ...
-│   ├── lib/agentRuntime/             # shared runtime helpers
-│   ├── eventbus.ts
-│   └── events.ts
-├── renderer/src/                     # Vue app
-├── preload/                          # IPC bridge
-├── shared/                           # shared types
-└── test/                             # Vitest
+apps/
+├── desktop/                          # Electron app (this is where you usually start)
+│   ├── src/
+│   │   ├── main/                     # main process
+│   │   │   ├── appMain.ts            # app entry (startApp())
+│   │   │   ├── presenter/
+│   │   │   │   ├── agentSessionPresenter/   # current session entry
+│   │   │   │   ├── agentRuntimePresenter/   # current chat runtime
+│   │   │   │   ├── toolPresenter/            # tool routing
+│   │   │   │   │   └── agentTools/           # local agent tools
+│   │   │   │   ├── llmProviderPresenter/     # provider management
+│   │   │   │   │   └── acp/                  # ACP helper
+│   │   │   │   ├── mcpPresenter/             # MCP tools/runtime
+│   │   │   │   ├── sessionPresenter/         # legacy data compatibility layer
+│   │   │   │   └── ...
+│   │   │   ├── lib/agentRuntime/             # shared runtime helpers
+│   │   │   ├── eventbus.ts
+│   │   │   └── events.ts
+│   │   ├── renderer/                          # React + TanStack Router app
+│   │   │   ├── src/                           # main renderer
+│   │   │   ├── settings/                      # settings renderer
+│   │   │   ├── api/                           # typed *Client boundary (renderer-main)
+│   │   │   ├── floating/                      # floating button renderer
+│   │   │   └── browser/                       # browser overlay renderer
+│   │   ├── preload/                           # secure IPC bridge
+│   │   ├── shared/                            # shared route + event contracts
+│   │   ├── shadcn/                            # shadcn/ui components
+│   │   ├── resources/                         # bundled assets, acp-registry, skills
+│   │   └── test/                              # Vitest suites (main + renderer)
+│   ├── electron-builder.yml
+│   ├── vite.config.ts                         # multi-env (main / preload / renderer)
+│   └── package.json
+└── daemon/                           # background daemon (Bun) for shared backend logic
+
+packages/
+├── backend-core/                     # shared backend logic
+├── client-sdk/                       # IPC bridge implementation
+├── electron-adapter/                 # Electron utilities
+├── shared-contracts/                 # shared route + event type contracts
+└── shared/                           # cross-package utilities
 ```
 
 ## Recommended Order to Enter the Code

@@ -16,7 +16,7 @@ import {
 } from "../helpers/testData";
 import { waitForAppReady, waitForGenerationDone } from "../helpers/wait";
 
-test("会话重启后持久化 @smoke", async ({ app, launchApp }) => {
+test("Persistence after session restart @smoke", async ({ app, launchApp }) => {
   const sessionAToken = createSmokeToken("E2E_SESSION_A");
   const sessionBToken = createSmokeToken("E2E_SESSION_B");
 

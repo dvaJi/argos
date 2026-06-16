@@ -96,7 +96,7 @@ export class BochaSearchServer {
   constructor(env?: Record<string, unknown>) {
     const apiKey = String(env?.apiKey ?? "");
     if (!apiKey) {
-      throw new Error("需要提供Bocha API Key");
+      throw new Error("Bocha API Key is required");
     }
     this.apiKey = apiKey;
 

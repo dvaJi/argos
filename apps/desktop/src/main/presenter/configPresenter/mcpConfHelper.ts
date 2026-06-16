@@ -65,7 +65,7 @@ const PLATFORM_SPECIFIC_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">
     ? {
         "argos/apple-server": {
           args: [],
-          descriptions: "Argos内置Apple系统集成服务 (仅macOS)",
+          descriptions: "Argos built-in Apple system integration service (macOS only)",
           icons: "🍎",
           autoApprove: ["all"],
           type: "inmemory" as MCPServerType,
@@ -114,7 +114,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   // buildInFileSystem has been removed - filesystem capabilities are now provided via Agent tools
   Artifacts: {
     args: [],
-    descriptions: "Argos内置 artifacts mcp服务",
+    descriptions: "Argos built-in artifacts MCP service",
     icons: "🎨",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -124,7 +124,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   bochaSearch: {
     args: [],
-    descriptions: "Argos内置博查搜索服务",
+    descriptions: "Argos built-in Bocha search service",
     icons: "🔍",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -136,7 +136,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   braveSearch: {
     args: [],
-    descriptions: "Argos内置Brave搜索服务",
+    descriptions: "Argos built-in Brave search service",
     icons: "🦁",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -148,7 +148,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   difyKnowledge: {
     args: [],
-    descriptions: "Argos内置Dify知识库检索服务",
+    descriptions: "Argos built-in Dify knowledge base search service",
     icons: "📚",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -167,7 +167,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   ragflowKnowledge: {
     args: [],
-    descriptions: "Argos内置RAGFlow知识库检索服务",
+    descriptions: "Argos built-in RAGFlow knowledge base search service",
     icons: "📚",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -175,7 +175,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
     env: {
       configs: [
         {
-          description: "默认RAGFlow知识库",
+          description: "Default RAGFlow knowledge base",
           apiKey: "YOUR_RAGFLOW_API_KEY",
           datasetIds: ["YOUR_DATASET_ID"],
           endpoint: "http://localhost:8000",
@@ -186,7 +186,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   fastGptKnowledge: {
     args: [],
-    descriptions: "Argos内置FastGPT知识库检索服务",
+    descriptions: "Argos built-in FastGPT knowledge base search service",
     icons: "📚",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -205,7 +205,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   builtinKnowledge: {
     args: [],
-    descriptions: "Argos内置知识库检索服务",
+    descriptions: "Argos built-in knowledge base search service",
     icons: "📚",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -215,7 +215,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   "argos-inmemory/deep-research-server": {
     args: [],
-    descriptions: "Argos内置深度研究服务，使用博查搜索(注意该服务需要较长的上下文模型，请勿在短上下文的模型中使用)",
+    descriptions: "Argos built-in deep research service, uses Bocha search (this service requires a long-context model; do not use it with short-context models)",
     icons: "🔬",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,
@@ -227,7 +227,7 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   "argos-inmemory/auto-prompting-server": {
     args: [],
-    descriptions: "Argos内置自动模板提示词服务",
+    descriptions: "Argos built-in automatic template prompt service",
     icons: "📜",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,

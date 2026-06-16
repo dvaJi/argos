@@ -652,7 +652,7 @@ export class FloatingButtonPresenter {
   private showContextMenu(): void {
     const template = [
       {
-        label: "打开主窗口",
+        label: "Open main window",
         click: () => {
           void this.openMainWindow();
         },
@@ -661,7 +661,7 @@ export class FloatingButtonPresenter {
         type: "separator" as const,
       },
       {
-        label: "退出应用",
+        label: "Quit app",
         click: () => {
           this.exitApplication();
         },

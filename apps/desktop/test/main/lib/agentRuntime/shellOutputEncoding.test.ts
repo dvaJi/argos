@@ -73,13 +73,13 @@ describe("shellOutputEncoding", () => {
     const decoder = createUtf8StreamDecoder((text) => {
       output += text;
     });
-    const bytes = Buffer.from("中文.txt\n", "utf8");
+    const bytes = Buffer.from("chinese.txt\n", "utf8");
 
     decoder.write(bytes.subarray(0, 2));
     decoder.write(bytes.subarray(2));
     decoder.end();
 
-    expect(output).toBe("中文.txt\n");
+    expect(output).toBe("chinese.txt\n");
   });
 
   it("passes string chunks through without re-encoding", () => {
@@ -88,9 +88,9 @@ describe("shellOutputEncoding", () => {
       output += text;
     });
 
-    decoder.write("中文.txt\n");
+    decoder.write("chinese.txt\n");
     decoder.end();
 
-    expect(output).toBe("中文.txt\n");
+    expect(output).toBe("chinese.txt\n");
   });
 });

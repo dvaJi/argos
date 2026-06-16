@@ -391,7 +391,7 @@ export class MessageManager implements IMessageManager {
         console.info("[MessageManager] Skip legacy unfinished message initialization: legacy tables not found.");
         return;
       }
-      console.error("初始化未完成消息失败:", error);
+      console.error("Failed to initialize incomplete message:", error);
     }
   }
   /**

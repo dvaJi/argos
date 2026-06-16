@@ -133,7 +133,7 @@ describe("AihubmixProvider AI SDK runtime headers", () => {
     } as ModelConfig;
 
     for await (const _event of provider.coreStream(
-      [{ role: "user", content: "生成 马斯克 喝酒的视频 2s" }],
+      [{ role: "user", content: "Generate a video of Mars drinking coffee 2s" }],
       "doubao-seedance-2-0-fast-260128",
       modelConfig,
       0.7,

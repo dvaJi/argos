@@ -338,7 +338,7 @@ describe("SkillExecutionService", () => {
       "conv-1",
     );
 
-    const bytes = Buffer.from("中文.txt\n", "utf8");
+    const bytes = Buffer.from("chinese.txt\n", "utf8");
     child.stdout.emit("data", bytes.subarray(0, 2));
     child.stdout.emit("data", bytes.subarray(2));
     child.emit("close", 0);
@@ -355,7 +355,7 @@ describe("SkillExecutionService", () => {
         }),
       }),
     );
-    expect(result).toContain("中文.txt");
+    expect(result).toContain("chinese.txt");
     expect(result).toContain("Exit Code: 0");
   });
 

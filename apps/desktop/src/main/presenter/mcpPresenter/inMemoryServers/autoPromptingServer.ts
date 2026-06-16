@@ -15,19 +15,19 @@ import { isSafeRegexPattern } from "@shared/regexValidator";
 
 // Schema for template parameters
 const TemplateParameterSchema = z.object({
-  name: z.string().describe("参数名"),
-  description: z.string().describe("参数描述"),
-  required: z.boolean().describe("是否为必填参数"),
+  name: z.string().describe("Parameter name"),
+  description: z.string().describe("Parameter description"),
+  required: z.boolean().describe("Whether the parameter is required"),
   // type field removed; all template parameters are strings
 });
 
 // Schema for template definitions
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TemplateDefinitionSchema = z.object({
-  name: z.string().describe("模板名称"),
-  description: z.string().describe("模板描述"),
-  content: z.string().describe("模板内容，包含占位符"),
-  parameters: z.array(TemplateParameterSchema).optional().describe("模板参数列表"),
+  name: z.string().describe("Template name"),
+  description: z.string().describe("Template description"),
+  content: z.string().describe("Template content, may include placeholders"),
+  parameters: z.array(TemplateParameterSchema).optional().describe("Template parameter list"),
 });
 
 // Infer TypeScript types from the Schema via z.infer
@@ -36,14 +36,14 @@ type TemplateDefinition = z.infer<typeof TemplateDefinitionSchema>;
 
 // Schema for the get-template-parameters function arguments
 const GetTemplateParametersArgsSchema = z.object({
-  templateName: z.string().describe("要获取参数的模板名称"),
+  templateName: z.string().describe("Template name whose parameters should be returned"),
 });
 
 // Schema for the fill-template function arguments
 const FillTemplateArgsSchema = z.object({
-  templateName: z.string().describe("要填充的模板名称"),
-  templateArgs: z.record(z.string(), z.string()).optional().describe("填充模板所需的参数键值对"),
-  additionalContent: z.string().optional().describe("用户希望添加到Prompt末尾的额外内容"),
+  templateName: z.string().describe("Template name to fill"),
+  templateArgs: z.record(z.string(), z.string()).optional().describe("Key-value pairs used to fill the template"),
+  additionalContent: z.string().optional().describe("Extra content the user wants appended to the prompt"),
 });
 
 // Convert Zod Schema to JSON Schema
@@ -110,7 +110,7 @@ export class AutoPromptingServer {
       tools: [
         {
           name: "list_all_prompt_template_names",
-          description: "获取所有可用提示词模板的名称列表。",
+          description: "Get the list of names of all available prompt templates.",
           inputSchema: zodToJsonSchema(z.object({})), // no parameters required
           annotations: {
             title: "List Prompt Template Names",
@@ -119,7 +119,7 @@ export class AutoPromptingServer {
         },
         {
           name: "get_prompt_template_parameters",
-          description: "根据提示词模板名称获取其所需的参数列表和描述。",
+          description: "Get the parameter list and descriptions required by a prompt template by name.",
           inputSchema: GetTemplateParametersArgsJsonSchema,
           annotations: {
             title: "Get Template Parameters",
@@ -128,7 +128,7 @@ export class AutoPromptingServer {
         },
         {
           name: "fill_prompt_template",
-          description: "根据提示词模板名称和参数，填充模板内容并生成最终的Prompt。",
+          description: "Fill in template content with the prompt template name and parameters to produce the final prompt.",
           inputSchema: FillTemplateArgsJsonSchema,
           annotations: {
             title: "Fill Prompt Template",

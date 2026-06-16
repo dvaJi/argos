@@ -304,7 +304,7 @@ export class KnowledgePresenter implements IKnowledgePresenter {
       return await rag.addFile(filePath);
     } catch (err) {
       return {
-        error: `添加文件失败: ${err instanceof Error ? err.message : String(err)}`,
+        error: `Failed to add file: ${err instanceof Error ? err.message : String(err)}`,
       };
     }
   }
@@ -320,7 +320,7 @@ export class KnowledgePresenter implements IKnowledgePresenter {
       return await rag.reAddFile(fileId);
     } catch (err) {
       return {
-        error: `重新添加文件失败: ${err instanceof Error ? err.message : String(err)}`,
+        error: `Failed to re-add file: ${err instanceof Error ? err.message : String(err)}`,
       };
     }
   }

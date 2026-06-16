@@ -111,7 +111,7 @@ describe("DeeplinkPresenter", () => {
     expect(chatWindow.show).toHaveBeenCalledTimes(1);
     expect(chatWindow.focus).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(1, DEEPLINK_EVENTS.START, {
-      msg: "你好",
+      msg: "hello",
       modelId: "deepseek-chat",
       systemPrompt: "Be concise",
       mentions: ["README.md", "docs/spec.md"],

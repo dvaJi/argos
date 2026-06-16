@@ -16,7 +16,7 @@ import {
 } from "../helpers/testData";
 import { waitForAppReady, waitForGenerationDone } from "../helpers/wait";
 
-test("基础聊天流程 @smoke", async ({ app }, testInfo) => {
+test("Basic chat flow @smoke", async ({ app }, testInfo) => {
   const firstReplyToken = createSmokeToken("E2E_CHAT_ONE");
   const secondReplyToken = createSmokeToken("E2E_CHAT_TWO");
 

@@ -86,7 +86,7 @@ export class BraveSearchServer {
   constructor(env?: Record<string, unknown>) {
     const apiKey = String(env?.apiKey ?? "");
     if (!apiKey) {
-      throw new Error("需要提供Brave API Key");
+      throw new Error("Brave API Key is required");
     }
     this.apiKey = apiKey;
 
@@ -120,7 +120,7 @@ export class BraveSearchServer {
       this.requestCount.lastReset = now;
     }
     if (this.requestCount.second >= RATE_LIMIT.perSecond || this.requestCount.month >= RATE_LIMIT.perMonth) {
-      throw new Error("限速已超出");
+      throw new Error("Rate limit exceeded");
     }
     this.requestCount.second++;
     this.requestCount.month++;
@@ -173,7 +173,7 @@ export class BraveSearchServer {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Brave Web搜索出错: ${errorMessage}`);
+      throw new Error(`Brave Web search error: ${errorMessage}`);
     }
   }
 
@@ -248,7 +248,7 @@ export class BraveSearchServer {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Brave Local搜索出错: ${errorMessage}`);
+      throw new Error(`Brave Local search error: ${errorMessage}`);
     }
   }
 
@@ -268,7 +268,7 @@ export class BraveSearchServer {
     });
 
     if (response.status !== 200) {
-      throw new Error(`Brave API错误: ${response.status} ${response.statusText}`);
+      throw new Error(`Brave API error: ${response.status} ${response.statusText}`);
     }
 
     return response.data as BravePoiResponse;
@@ -290,7 +290,7 @@ export class BraveSearchServer {
     });
 
     if (response.status !== 200) {
-      throw new Error(`Brave API错误: ${response.status} ${response.statusText}`);
+      throw new Error(`Brave API error: ${response.status} ${response.statusText}`);
     }
 
     return response.data as BraveDescription;
@@ -347,7 +347,7 @@ export class BraveSearchServer {
           case "brave_web_search": {
             const parsed = BraveWebSearchArgsSchema.safeParse(args);
             if (!parsed.success) {
-              throw new Error(`无效的搜索参数: ${parsed.error}`);
+              throw new Error(`Invalid search parameters: ${parsed.error}`);
             }
 
             const { query, count, offset } = parsed.data;
@@ -356,7 +356,7 @@ export class BraveSearchServer {
             // Append a search summary
             const summary = {
               type: "text",
-              text: `为您找到关于"${query}"的${results.length}个结果`,
+              text: `Found ${results.length} results for "${query}"`,
             };
 
             return {
@@ -367,7 +367,7 @@ export class BraveSearchServer {
           case "brave_local_search": {
             const parsed = BraveLocalSearchArgsSchema.safeParse(args);
             if (!parsed.success) {
-              throw new Error(`无效的搜索参数: ${parsed.error}`);
+              throw new Error(`Invalid search parameters: ${parsed.error}`);
             }
 
             const { query, count } = parsed.data;
@@ -378,8 +378,8 @@ export class BraveSearchServer {
             const summary = {
               type: "text",
               text: isLocalResults
-                ? `为您找到关于"${query}"的${results.length}个本地结果`
-                : `未找到本地结果，为您转为网络搜索，找到了${results.length}个结果`,
+                ? `Found ${results.length} local results for "${query}"`
+                : `No local results found, falling back to web search; found ${results.length} result(s)`,
             };
 
             return {
@@ -388,12 +388,12 @@ export class BraveSearchServer {
           }
 
           default:
-            throw new Error(`未知工具: ${name}`);
+            throw new Error(`Unknown tool: ${name}`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
-          content: [{ type: "text", text: `错误: ${errorMessage}` }],
+          content: [{ type: "text", text: `Error: ${errorMessage}` }],
           isError: true,
         };
       }

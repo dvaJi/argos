@@ -7,11 +7,11 @@ import axios from "axios";
 
 // Schema definitions
 const RagflowKnowledgeSearchArgsSchema = z.object({
-  query: z.string().describe("搜索查询内容 (必填)"),
-  topK: z.number().optional().default(5).describe("返回结果数量 (默认5条)"),
-  scoreThreshold: z.number().optional().default(0.2).describe("相似度阈值 (0-1之间，默认0.2)"),
-  keyword: z.boolean().optional().default(false).describe("是否启用关键词匹配 (默认false)"),
-  highlight: z.boolean().optional().default(false).describe("是否高亮匹配的文本 (默认false)"),
+  query: z.string().describe("Search query content (required)"),
+  topK: z.number().optional().default(5).describe("Number of results to return (default 5)"),
+  scoreThreshold: z.number().optional().default(0.2).describe("Similarity threshold (0-1, default 0.2)"),
+  keyword: z.boolean().optional().default(false).describe("Whether to enable keyword matching (default false)"),
+  highlight: z.boolean().optional().default(false).describe("Whether to highlight matched text (default false)"),
 });
 
 // Data structure returned by the RAGFlow API
@@ -57,13 +57,13 @@ export class RagflowKnowledgeServer {
 
   constructor(env?: Record<string, unknown>) {
     if (!env) {
-      throw new Error("需要提供RAGFlow知识库配置");
+      throw new Error("RAGFlow knowledge base configuration is required");
     }
 
     const envs = env.configs;
 
     if (!Array.isArray(envs) || envs.length === 0) {
-      throw new Error("需要提供至少一个RAGFlow知识库配置");
+      throw new Error("At least one RAGFlow knowledge base configuration is required");
     }
 
     // Process each config
@@ -77,13 +77,13 @@ export class RagflowKnowledgeServer {
       const endpoint = String(config.endpoint ?? "") || "http://localhost:8000";
 
       if (!apiKey) {
-        throw new Error("需要提供RAGFlow API Key");
+        throw new Error("RAGFlow API Key is required");
       }
       if (datasetIds.length === 0) {
-        throw new Error("需要提供至少一个RAGFlow Dataset ID");
+        throw new Error("At least one RAGFlow Dataset ID is required");
       }
       if (!description) {
-        throw new Error("需要提供对这个知识库的描述，以方便ai决定是否检索此知识库");
+        throw new Error("A description for this knowledge base is required so the AI can decide whether to retrieve from it");
       }
 
       this.configs.push({
@@ -158,7 +158,7 @@ export class RagflowKnowledgeServer {
 
           // Ensure the index is valid
           if (configIndex < 0 || configIndex >= enabledConfigs.length) {
-            throw new Error(`无效的知识库索引: ${configIndex}`);
+            throw new Error(`Invalid knowledge base index: ${configIndex}`);
           }
 
           // Resolve the actual config index
@@ -166,12 +166,12 @@ export class RagflowKnowledgeServer {
 
           return await this.performRagflowKnowledgeSearch(parameters, actualConfigIndex);
         } catch (error) {
-          console.error("RAGFlow知识库搜索失败:", error);
+          console.error("RAGFlow knowledge base search failed:", error);
           return {
             content: [
               {
                 type: "text",
-                text: `搜索失败: ${error instanceof Error ? error.message : String(error)}`,
+                text: `Search failed: ${error instanceof Error ? error.message : String(error)}`,
               },
             ],
           };
@@ -182,7 +182,7 @@ export class RagflowKnowledgeServer {
         content: [
           {
             type: "text",
-            text: `未知工具: ${name}`,
+            text: `Unknown tool: ${name}`,
           },
         ],
       };
@@ -209,7 +209,7 @@ export class RagflowKnowledgeServer {
     };
 
     if (!query) {
-      throw new Error("查询内容不能为空");
+      throw new Error("Query content cannot be empty");
     }
 
     // Get the active config
@@ -245,12 +245,12 @@ export class RagflowKnowledgeServer {
       );
 
       if (response.data.code !== 0) {
-        throw new Error(`RAGFlow API错误: ${response.data.code}`);
+        throw new Error(`RAGFlow API error: ${response.data.code}`);
       }
 
       // Process the response data
       const results = response.data.data.chunks.map((chunk) => {
-        const docName = chunk.document_keyword || "未知文档";
+        const docName = chunk.document_keyword || "Unknown document";
         const docId = chunk.document_id;
         const content = highlight && chunk.highlight ? chunk.highlight : chunk.content;
         const score = chunk.similarity;
@@ -265,19 +265,19 @@ export class RagflowKnowledgeServer {
       });
 
       // Build the response
-      let resultText = `### 查询: ${query}\n\n`;
+      let resultText = `### Query: ${query}\n\n`;
 
       if (results.length === 0) {
-        resultText += "未找到相关结果。";
+        resultText += "No matching results found.";
       } else {
-        resultText += `找到 ${results.length} 条相关结果:\n\n`;
+        resultText += `Found ${results.length} relevant results:\n\n`;
 
         results.forEach((result, index) => {
-          resultText += `#### ${index + 1}. ${result.title} (相关度: ${(result.score * 100).toFixed(2)}%)\n`;
+          resultText += `#### ${index + 1}. ${result.title} (relevance: ${(result.score * 100).toFixed(2)}%)\n`;
           resultText += `${result.content}\n\n`;
 
           if (result.keywords && result.keywords.length > 0) {
-            resultText += `关键词: ${result.keywords.join(", ")}\n\n`;
+            resultText += `Keywords: ${result.keywords.join(", ")}\n\n`;
           }
         });
       }
@@ -291,9 +291,9 @@ export class RagflowKnowledgeServer {
         ],
       };
     } catch (error) {
-      console.error("RAGFlow API请求失败:", error);
+      console.error("RAGFlow API request failed:", error);
       if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`RAGFlow API错误 (${error.response.status}): ${JSON.stringify(error.response.data)}`);
+        throw new Error(`RAGFlow API error (${error.response.status}): ${JSON.stringify(error.response.data)}`);
       }
       throw error;
     }

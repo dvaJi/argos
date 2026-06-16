@@ -919,7 +919,7 @@ describe("AI SDK runtime", () => {
     const events = [];
     for await (const event of runAiSdkCoreStream(
       context,
-      [{ role: "user", content: "生成 马斯克 喝酒的视频 2s" }],
+      [{ role: "user", content: "Generate a video of Mars drinking coffee 2s" }],
       "doubao-seedance-2-0-fast-260128",
       {
         apiEndpoint: "video",
@@ -937,7 +937,7 @@ describe("AI SDK runtime", () => {
     const payload = JSON.parse(String(requestInit.body)) as Record<string, unknown>;
     expect(payload).toMatchObject({
       model: "doubao-seedance-2-0-fast-260128",
-      prompt: "生成 马斯克 喝酒的视频 2s",
+      prompt: "Generate a video of Mars drinking coffee 2s",
     });
     expect(payload).not.toHaveProperty("duration");
     expect(tracePayloads[0]?.body).not.toHaveProperty("duration");
@@ -1023,7 +1023,7 @@ describe("AI SDK runtime", () => {
     const events = [];
     for await (const event of runAiSdkCoreStream(
       context,
-      [{ role: "user", content: "生成 马斯克 喝酒的视频 5s" }],
+      [{ role: "user", content: "Generate a video of Mars drinking coffee 5s" }],
       "doubao-seedance-2-0-fast-260128",
       {
         apiEndpoint: "video",
@@ -1039,7 +1039,7 @@ describe("AI SDK runtime", () => {
     const payload = JSON.parse(String(requestInit.body)) as Record<string, unknown>;
     expect(payload).toMatchObject({
       model: "doubao-seedance-2-0-fast-260128",
-      prompt: "生成 马斯克 喝酒的视频 5s",
+      prompt: "Generate a video of Mars drinking coffee 5s",
       duration: 5,
     });
     expect(tracePayloads[0]?.body).toMatchObject({

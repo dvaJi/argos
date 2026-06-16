@@ -61,7 +61,7 @@ If you are tracing the current migrated chat path, jump in this order:
 | provider orchestration | `src/main/routes/providers/providerService.ts` | provider query / test boundary |
 | provider runtime ports | `src/main/presenter/runtimePorts.ts` | provider catalog / execution port definitions |
 | provider renderer store | `src/renderer/src/stores/providerStore.ts` | Triggers validation and model queries via `ProviderClient` |
-| permission interaction UI | `src/renderer/src/pages/ChatPage.vue` | Responds via `ChatClient.respondToolInteraction` |
+| permission interaction UI | `src/renderer/src/pages/ChatPage.tsx` | Responds via `ChatClient.respondToolInteraction` |
 
 ### Runtime / persistence
 

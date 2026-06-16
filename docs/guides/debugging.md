@@ -7,7 +7,7 @@ Note:
 - For the current renderer-main boundary, prefer debugging through `renderer/api/*Client`, `window.argos`, and the typed contracts.
 - The `window.api` examples in this document are mainly for legacy compatibility scenarios and should not be treated as the default pattern for new code.
 
-## 🎯 Main Process Debugging
+## Main Process Debugging
 
 ### VSCode Debug Configuration
 
@@ -42,14 +42,7 @@ Add the following in `.vscode/launch.json`:
 
 ### Using Chrome DevTools
 
-Automatically open DevTools on startup:
-
-```typescript
-// src/main/index.ts
-app.whenReady().then(() => {
-  mainWindow.webContents.openDevTools()
-})
-```
+To open DevTools for a specific renderer, find the focused window inside `BrowserWindow.getAllWindows()` and call `openDevTools()`. The renderers include main, settings, browser, floating, and splash. The actual entry point is `src/main/appMain.ts` (`startApp()`), not `src/main/index.ts`.
 
 ### Command-Line Debugging
 
@@ -61,7 +54,7 @@ pnpm run dev:inspect
 chrome://inspect
 ```
 
-## 🖥️ Renderer Debugging
+## Renderer Debugging
 
 ### Chrome DevTools
 
@@ -69,16 +62,11 @@ chrome://inspect
 - Windows/Linux: `Ctrl+Shift+I`
 - macOS: `Cmd+Option+I`
 
-### Vue DevTools
+### React DevTools
 
-1. Install the extension: [Vue.js devtools](https://devtools.vuejs.org/)
-2. Use it in the development-mode Electron build
+The renderer is a React + TanStack Router app. Install [React Developer Tools](https://react.dev/learn/react-developer-tools) and use it in the development-mode Electron build to inspect the component tree, props, and hooks. For shared state, install [Redux DevTools](https://github.com/reduxjs/redux-devtools) (some renderer stores still use it).
 
-### React DevTools (if applicable)
-
-If you have React components, you can install React DevTools.
-
-## 📝 Logging System
+## Logging System
 
 ### Using logger
 
@@ -99,7 +87,7 @@ logger.info('User message', { id: '123', content: 'hello' })
 
 ```typescript
 // Add a tag to make searching easier
-console.log('[AgentPresenter] sendMessage called', { agentId, content })
+console.log('[AgentSessionPresenter] sendMessage called', { agentId, content })
 
 // With timestamp
 console.log(`[${new Date().toISOString()}] Starting Agent Loop`)
@@ -126,7 +114,7 @@ if (DEBUG) {
 }
 ```
 
-## 🔍 Event Debugging
+## Event Debugging
 
 ### Listening to All Events
 
@@ -134,27 +122,46 @@ if (DEBUG) {
 import { eventBus } from '@/eventbus'
 import * as EVENTS from '@/events'
 
-// Listen to STREAM_EVENTS
-Object.values(EVENTS.STREAM_EVENTS).forEach(eventName => {
+// Listen to ACP workspace events
+Object.values(EVENTS.ACP_WORKSPACE_EVENTS ?? {}).forEach(eventName => {
   eventBus.on(eventName, (...args) => {
     console.log(`[EventBus] ${eventName}:`, ...args)
   })
 })
 
-// Listen to CONVERSATION_EVENTS
-Object.values(EVENTS.CONVERSATION_EVENTS).forEach(eventName => {
+// Listen to ACP debug events
+Object.values(EVENTS.ACP_DEBUG_EVENTS ?? {}).forEach(eventName => {
+  eventBus.on(eventName, (...args) => {
+    console.log(`[EventBus] ${eventName}:`, ...args)
+  })
+})
+
+// Stream / conversation events still exist alongside the ACP namespaces
+Object.values(EVENTS.STREAM_EVENTS ?? {}).forEach(eventName => {
+  eventBus.on(eventName, (...args) => {
+    console.log(`[EventBus] ${eventName}:`, ...args)
+  })
+})
+Object.values(EVENTS.CONVERSATION_EVENTS ?? {}).forEach(eventName => {
   eventBus.on(eventName, (...args) => {
     console.log(`[EventBus] ${eventName}:`, ...args)
   })
 })
 ```
 
+Check `@/events` for the current set of namespaces; ACP runtime work uses `ACP_WORKSPACE_EVENTS` and `ACP_DEBUG_EVENTS` while chat-level work still goes through `STREAM_EVENTS` and `CONVERSATION_EVENTS`.
+
 ### Tracking a Specific Event
 
 ```typescript
-// Track tool-call events
-eventBus.on(STREAM_EVENTS.RESPONSE, (data) => {
-  if (data.tool_call) {
+// Track ACP session config-option updates
+eventBus.on(EVENTS.ACP_WORKSPACE_EVENTS.SESSION_CONFIG_OPTIONS_READY, (data) => {
+  console.log('[ACP] config options ready', data)
+})
+
+// Track a chat stream event
+eventBus.on(EVENTS.STREAM_EVENTS.RESPONSE, (data) => {
+  if (data?.tool_call) {
     console.log('[Tool Call]', {
       type: data.tool_call,
       name: data.tool_call_name,
@@ -164,7 +171,7 @@ eventBus.on(STREAM_EVENTS.RESPONSE, (data) => {
 })
 ```
 
-## 🧪 Unit Test Debugging
+## Unit Test Debugging
 
 ### Running Tests in VSCode
 
@@ -176,8 +183,17 @@ Use the debug configuration (see above) to launch test debugging.
 # Watch mode (auto re-run on file changes)
 pnpm test:watch
 
+# Run all desktop tests once
+pnpm test
+
+# Main-process only
+pnpm test:main
+
+# Renderer only
+pnpm test:renderer
+
 # Run a single test file
-pnpm test -- ChatInput.test
+pnpm --filter @argos/desktop exec vitest run test/main/presenter/toolPresenter/agentToolManagerSettings.test.ts
 
 # Show verbose output
 pnpm test -- --reporter=verbose
@@ -190,13 +206,13 @@ pnpm test -- --grep "sendMessage"
 
 ```typescript
 test('sendMessage should create message', async () => {
-  const result = await agentPresenter.sendMessage(...)
+  const result = await agentSessionPresenter.sendMessage(sessionId, content)
   console.log('[TEST] Result:', result)
   expect(result).toBeDefined()
 })
 ```
 
-## 🐛 Common Issue Debugging
+## Common Issue Debugging
 
 ### 1. No Response After Sending a Message
 
@@ -235,7 +251,7 @@ eventBus.on(STREAM_EVENTS.ERROR, (data) => {
 **Troubleshooting steps**:
 
 ```typescript
-// 1. Check the tool routing
+// 1. Check the tool routing (per-conversation ToolMapper in the active session)
 const source = toolMapper.getToolSource(toolName)
 console.log('Tool source:', source)
 
@@ -247,23 +263,40 @@ try {
   console.error('Tool error:', error)
 }
 
-// 3. Check permissions
-const { granted } = await mcpPresenter.checkToolPermission(serverName, toolName)
-console.log('Permission granted:', granted)
+// 3. Inspect the active tool permission state (read-only — permission checks are internal)
+const tools = toolPresenter.getAllToolDefinitions({
+  chatMode: 'agent',
+  conversationId,
+})
+console.log('Active tools:', tools.map((t) => t.function.name))
 ```
 
 **Possible causes**:
 - Incorrect tool name
 - Invalid parameter format
-- Permission denied
+- Permission denied (handled inside `AgentToolManager.callTool` / `McpToolManager`)
 - MCP server not running
 
 ### 3. IPC Call Timeout
 
+The renderer-main boundary has two transports. Prefer the typed one first; the legacy `window.api` example below is shown only for the quarantined settings compatibility surfaces.
+
 **Troubleshooting steps**:
 
 ```typescript
-// 1. Add timeout handling
+// 1. Add timeout handling on the typed bridge
+const timeout = setTimeout(() => {
+  console.error('[Bridge] Timeout waiting for response')
+}, 5000)
+
+const response = await window.argos.invoke('chat.sendMessage', payload)
+clearTimeout(timeout)
+console.log('Response:', response)
+```
+
+For the legacy compatibility surfaces (settings only), the same pattern still applies on `window.api`:
+
+```typescript
 const timeout = setTimeout(() => {
   console.error('[IPC] Timeout waiting for response')
 }, 5000)
@@ -271,7 +304,6 @@ const timeout = setTimeout(() => {
 const response = await window.api.someMethod()
 clearTimeout(timeout)
 
-// 2. Check what the preload exposes
 console.log('[IPC] Available methods:', Object.keys(window.api))
 ```
 
@@ -313,21 +345,23 @@ const measures = performance.getEntriesByName('Agent Loop')
 console.log('[Performance]', measures)
 ```
 
-## 🔧 Recommended Development Tools
+## Recommended Development Tools
 
 ### VSCode Extensions
 
-- **TypeScript Vue Plugin** - TS + Vue support
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
+- **ESLint** - JS/TS linting
+- **oxc / oxlint** - The project uses oxlint; the official VSCode extension provides editor integration
+- **oxfmt** - The project's formatter (run via `pnpm run format`)
+- **Tailwind CSS IntelliSense** - Tailwind class completion (the project uses Tailwind)
+- **ES7+ React/Redux/React-Native snippets** - React renderer snippets
 - **GitLens** - Git enhancements
 - **Inline Bookmarks** - Mark locations in code
 
-### Chrome Extensions
+### Chrome / DevTools
 
-- **Vue.js devtools** - Vue component debugging
-- **React Developer Tools** - React debugging (if used)
-- **Redux DevTools** - State debugging
+- **React Developer Tools** - Inspect the component tree and hooks
+- **Redux DevTools** - Inspect renderer stores that still use Redux
+- **TanStack Query Devtools** - Open from the in-app dev tools if you query through TanStack Query
 
 ### Command-Line Tools
 
@@ -335,7 +369,7 @@ console.log('[Performance]', measures)
 - **ripgrep (rg)** - Fast code search
 - **fd** - Fast file lookup
 
-## 🎓 Debugging Tips Summary
+## Debugging Tips Summary
 
 ### Quickly Locating Issues
 
@@ -348,24 +382,23 @@ console.log('[Performance]', measures)
 
 ```typescript
 // Add breakpoints at key points in the flow
-// 1. Message sending
-agentPresenter.sendMessage(args)
-
-// 2. Agent Loop startup
-sessionManager.startLoop(conversationId, messageId)
-
+// 1. Session orchestration (entry point used by the route layer)
+agentSessionPresenter.sendMessage(sessionId, content)
+// 2. Chat / agent loop (the actual runtime that drives the LLM + tools)
+agentRuntimePresenter.processMessage(sessionId, payload, { projectDir })
 // 3. Tool invocation
 toolPresenter.callTool(request)
-
-// 4. Permission check
-checkToolPermission(serverName, toolName)
+// 4. ACP agent permission resolve (the UI calls this when the user clicks allow/deny)
+llmProviderPresenter.resolveAgentPermission(requestId, granted)
 ```
+
+> The symbols `AgentPresenter`, `SessionManager.startLoop`, and the public `mcpPresenter.checkToolPermission` shown in older versions of this document have been retired. New breakpoint work goes through `agentSessionPresenter`, `agentRuntimePresenter`, and `llmProviderPresenter`.
 
 ### Logging Best Practices
 
 ```typescript
 // Add a module tag
-console.log('[AgentPresenter] Action:', { agentId, action })
+console.log('[AgentSessionPresenter] Action:', { agentId, action })
 
 // Use object spread to avoid heavy string concatenation
 console.log('[ToolExecution]', {
@@ -387,7 +420,7 @@ console.log('Tools:', tools.length)
 console.groupEnd()
 ```
 
-## 🐞 Production Debugging
+## Production Debugging
 
 ### Error Log Collection
 
@@ -412,7 +445,7 @@ ELECTRON_ENABLE_LOGGING=1 pnpm run dev
 # chrome://inspect
 ```
 
-## 📚 Further Reading
+## Further Reading
 
 - [Chrome DevTools docs](https://developer.chrome.com/docs/devtools/)
 - [Electron debugging docs](https://www.electronjs.org/docs/latest/tutorial/debugging-main-process)
@@ -420,4 +453,4 @@ ELECTRON_ENABLE_LOGGING=1 pnpm run dev
 
 ---
 
- happy debugging! 🎉
+ happy debugging! 

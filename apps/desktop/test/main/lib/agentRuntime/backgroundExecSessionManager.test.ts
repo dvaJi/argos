@@ -396,7 +396,7 @@ describe("BackgroundExecSessionManager", () => {
     vi.mocked(spawn).mockReturnValue(child as never);
 
     const result = await manager.start("conv-1", "echo test", "/workspace", { timeout: 0 });
-    const bytes = Buffer.from("中文.txt\n", "utf8");
+    const bytes = Buffer.from("chinese.txt\n", "utf8");
 
     child.stdout.emit("data", bytes.subarray(0, 2));
     child.stdout.emit("data", bytes.subarray(2));
@@ -408,7 +408,7 @@ describe("BackgroundExecSessionManager", () => {
       kind: "completed",
       result: {
         status: "done",
-        output: "中文.txt\n",
+        output: "chinese.txt\n",
         exitCode: 0,
         offloaded: false,
         timedOut: false,

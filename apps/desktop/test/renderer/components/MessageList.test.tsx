@@ -95,7 +95,7 @@ describe("MessageList", () => {
     );
 
     expect(container.querySelector('[data-compaction-indicator="true"]')).toBeTruthy();
-    expect(container.textContent).toContain("上下文已压缩");
+    expect(container.textContent).toContain("Conversation context compacted.");
     expect(container.textContent).toContain("u1");
     expect(container.textContent).toContain("a1");
     expect(container.textContent).toContain("u2");
@@ -105,7 +105,7 @@ describe("MessageList", () => {
     const { container: compactingContainer } = render(
       <MessageList messages={[createCompactionMessage("c1", 1, "compacting")]} />,
     );
-    expect(compactingContainer.textContent).toContain("正在压缩上下文...");
+    expect(compactingContainer.textContent).toContain("Compacting conversation context...");
     const compactingIndicator = compactingContainer.querySelector('[data-compaction-indicator="true"]');
     expect(compactingIndicator?.getAttribute("data-compaction-status")).toBe("compacting");
     expect(compactingContainer.querySelector(".compaction-divider__label--compacting")).toBeTruthy();
@@ -113,7 +113,7 @@ describe("MessageList", () => {
     const { container: compactedContainer } = render(
       <MessageList messages={[createCompactionMessage("c1", 1, "compacted")]} />,
     );
-    expect(compactedContainer.textContent).toContain("上下文已压缩");
+    expect(compactedContainer.textContent).toContain("Conversation context compacted.");
     const compactedIndicator = compactedContainer.querySelector('[data-compaction-indicator="true"]');
     expect(compactedIndicator?.getAttribute("data-compaction-status")).toBe("compacted");
     expect(compactedContainer.querySelector(".compaction-divider__label--compacting")).toBeNull();

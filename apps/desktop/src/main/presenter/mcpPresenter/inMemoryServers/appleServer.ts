@@ -255,14 +255,14 @@ class NotesUtils {
       const script = `
         tell application "Notes"
           try
-            -- 尝试查找指定文件夹
+            -- Try to find the specified folder
             set targetFolder to folder "${folderName.replace(/"/g, '\\"')}"
           on error
-            -- 如果文件夹不存在，创建它
+            -- If the folder does not exist, create it
             set targetFolder to make new folder with properties {name:"${folderName.replace(/"/g, '\\"')}"}
           end try
 
-          -- 在指定文件夹中创建笔记
+          -- Create a note in the specified folder
           set newNote to make new note at targetFolder with properties {name:"${title.replace(/"/g, '\\"')}", body:"${body.replace(/"/g, '\\"')}"}
           return "success"
         end tell

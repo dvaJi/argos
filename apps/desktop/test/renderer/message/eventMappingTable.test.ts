@@ -31,7 +31,7 @@ const mappingTestCases: MappingTestCase[] = [
       content: "Hello world!",
       status: "success",
     },
-    notes: "Markdown 渲染，需安全处理",
+    notes: "Markdown render, needs safe handling",
   },
 
   // Reasoning content mapping
@@ -49,7 +49,7 @@ const mappingTestCases: MappingTestCase[] = [
       content: "Let me think about this...",
       status: "success",
     },
-    notes: "可选 reasoning_time",
+    notes: "Optional reasoning_time",
   },
 
   // Tool call start
@@ -74,7 +74,7 @@ const mappingTestCases: MappingTestCase[] = [
         params: '{"query": "test"}',
       },
     },
-    notes: "新建或激活同 id 块",
+    notes: "Create or activate a block with the same id",
   },
 
   // Tool call running
@@ -95,7 +95,7 @@ const mappingTestCases: MappingTestCase[] = [
         id: "tool-456",
       },
     },
-    notes: "追加参数/中间输出",
+    notes: "Append parameters / intermediate output",
   },
 
   // Tool call end
@@ -118,7 +118,7 @@ const mappingTestCases: MappingTestCase[] = [
         response: "Search completed",
       },
     },
-    notes: "终态，写入 response",
+    notes: "Terminal state, written to response",
   },
 
   // Permission request
@@ -148,7 +148,7 @@ const mappingTestCases: MappingTestCase[] = [
         name: "writeFile",
       },
     },
-    notes: "待用户授权，后续置 granted/denied",
+    notes: "Awaiting user authorization, will become granted/denied",
   },
 
   // Question request
@@ -176,7 +176,7 @@ const mappingTestCases: MappingTestCase[] = [
         name: "question",
       },
     },
-    notes: "等待用户选择或输入",
+    notes: "Awaiting user choice or input",
   },
 
   // Rate limit
@@ -207,7 +207,7 @@ const mappingTestCases: MappingTestCase[] = [
         estimatedWaitTime: 2000,
       },
     },
-    notes: "可根据严重度置 error",
+    notes: "Can be marked as error depending on severity",
   },
 
   // Image data
@@ -231,7 +231,7 @@ const mappingTestCases: MappingTestCase[] = [
         mimeType: "image/png",
       },
     },
-    notes: "Base64，大小与类型受限",
+    notes: "Base64, restricted in size and type",
   },
 
   // Error event
@@ -249,7 +249,7 @@ const mappingTestCases: MappingTestCase[] = [
       content: "Network connection failed",
       status: "error",
     },
-    notes: "错误块仅由错误事件驱动",
+    notes: "Error blocks are driven only by error events",
   },
 
   // End event (does not generate a UI block)
@@ -263,7 +263,7 @@ const mappingTestCases: MappingTestCase[] = [
       },
     },
     expectedBlock: null as any, // Special marker: no block generated
-    notes: "用于收尾：将残留 loading 置为 error/cancel",
+    notes: "For cleanup: set any remaining loading state to error/cancel",
   },
 ];
 

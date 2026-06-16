@@ -124,19 +124,19 @@ export class GithubCopilotProvider extends BaseLLMProvider {
 
         // Provide a more specific error message and remediation guidance
         if (response.status === 404) {
-          errorMessage = `GitHub Copilot 访问被拒绝 (404)。请检查：
-1. 您的 GitHub 账户是否有有效的 GitHub Copilot 订阅
-2. OAuth token 权限不足 - 需要 'read:org' 权限访问 Copilot API
-3. 请重新进行 OAuth 登录以获取正确的权限范围
+          errorMessage = `GitHub Copilot access denied (404). Please check:
+1. Whether your GitHub account has an active GitHub Copilot subscription
+2. Whether the OAuth token has insufficient scope - the 'read:org' scope is required to access the Copilot API
+3. Please redo the OAuth login to obtain the correct scopes
 4. Visit https://github.com/features/copilot to check your subscription status`;
         } else if (response.status === 401) {
-          errorMessage = `GitHub OAuth token 无效或已过期 (401)。请重新登录授权并确保获取了正确的权限范围。`;
+          errorMessage = `GitHub OAuth token is invalid or expired (401). Please log in again and make sure the correct scopes are granted.`;
         } else if (response.status === 403) {
-          errorMessage = `GitHub Copilot 访问被禁止 (403)。请检查：
-1. 您的 GitHub Copilot 订阅是否有效且处于活跃状态
-2. 是否达到了 API 使用限制
-3. OAuth token 是否包含 'read:org' 权限范围
-4. 如果是组织账户，请确保组织已启用 Copilot 并且您有访问权限`;
+          errorMessage = `GitHub Copilot access forbidden (403). Please check:
+1. Whether your GitHub Copilot subscription is valid and active
+2. Whether you have hit the API usage limit
+3. Whether the OAuth token includes the 'read:org' scope
+4. If this is an organization account, ensure the organization has Copilot enabled and you have access`;
         }
 
         throw new Error(errorMessage);
@@ -473,16 +473,16 @@ export class GithubCopilotProvider extends BaseLLMProvider {
         // Special handling for 403 errors
         if (response.status === 403) {
           throw new Error(
-            `GitHub Copilot 访问被拒绝 (403)。\n\n可能的原因：\n` +
-              `1. GitHub Copilot 订阅已过期或未激活\n` +
-              `2. 需要重新认证以获取正确的访问权限\n` +
-              `3. API访问策略已更新，需要使用最新的认证方式\n` +
-              `4. 您的账户可能没有访问此API的权限\n\n` +
-              `建议解决方案：\n` +
+            `GitHub Copilot access denied (403).\n\nPossible causes:\n` +
+              `1. The GitHub Copilot subscription is expired or not active\n` +
+              `2. Re-authentication is required to obtain the correct access permissions\n` +
+              `3. The API access policy has been updated; the latest authentication method is required\n` +
+              `4. Your account may not have permission to access this API\n\n` +
+              `Suggested solutions:\n` +
               `- Visit https://github.com/settings/copilot to check your subscription status\n` +
-              `- 在Argos设置中重新进行 GitHub Copilot 登录\n` +
-              `- 确保您的 GitHub 账户有有效的 Copilot 订阅\n` +
-              `- 如果是企业账户，请联系管理员确认访问权限`,
+              `- Re-login to GitHub Copilot in the Argos settings\n` +
+              `- Make sure your GitHub account has an active Copilot subscription\n` +
+              `- For enterprise accounts, contact your administrator to confirm access`,
           );
         }
 
@@ -644,16 +644,16 @@ export class GithubCopilotProvider extends BaseLLMProvider {
         // Special handling for 403 errors
         if (response.status === 403) {
           throw new Error(
-            `GitHub Copilot 访问被拒绝 (403)。\n\n可能的原因：\n` +
-              `1. GitHub Copilot 订阅已过期或未激活\n` +
-              `2. 需要重新认证以获取正确的访问权限\n` +
-              `3. API访问策略已更新，需要使用最新的认证方式\n` +
-              `4. 您的账户可能没有访问此API的权限\n\n` +
-              `建议解决方案：\n` +
+            `GitHub Copilot access denied (403).\n\nPossible causes:\n` +
+              `1. The GitHub Copilot subscription is expired or not active\n` +
+              `2. Re-authentication is required to obtain the correct access permissions\n` +
+              `3. The API access policy has been updated; the latest authentication method is required\n` +
+              `4. Your account may not have permission to access this API\n\n` +
+              `Suggested solutions:\n` +
               `- Visit https://github.com/settings/copilot to check your subscription status\n` +
-              `- 在Argos设置中重新进行 GitHub Copilot 登录\n` +
-              `- 确保您的 GitHub 账户有有效的 Copilot 订阅\n` +
-              `- 如果是企业账户，请联系管理员确认访问权限`,
+              `- Re-login to GitHub Copilot in the Argos settings\n` +
+              `- Make sure your GitHub account has an active Copilot subscription\n` +
+              `- For enterprise accounts, contact your administrator to confirm access`,
           );
         }
 
@@ -694,7 +694,7 @@ export class GithubCopilotProvider extends BaseLLMProvider {
       [
         {
           role: "user",
-          content: `请总结以下内容，使用简洁的语言，突出重点：\n${text}`,
+          content: `Please summarize the following content in concise language, highlighting the key points:\n${text}`,
         },
       ],
       modelId,
@@ -727,23 +727,23 @@ export class GithubCopilotProvider extends BaseLLMProvider {
 
       // Analyze the error type and provide more specific guidance
       if (errorMsg.includes("404")) {
-        errorMsg = `GitHub Copilot 访问被拒绝 (404)。请检查：
-1. 您的 GitHub 账户是否有有效的 GitHub Copilot 订阅
+        errorMsg = `GitHub Copilot access denied (404). Please check:
+1. Whether your GitHub account has an active GitHub Copilot subscription
 2. Visit https://github.com/features/copilot to check your subscription status
-3. 如果是组织账户，请确保组织已启用 Copilot 并且您有访问权限`;
+3. If this is an organization account, ensure the organization has Copilot enabled and you have access`;
       } else if (errorMsg.includes("401")) {
-        errorMsg = `GitHub OAuth token 无效或已过期 (401)。请重新登录授权并确保获取了正确的权限范围。`;
+        errorMsg = `GitHub OAuth token is invalid or expired (401). Please log in again and make sure the correct scopes are granted.`;
       } else if (errorMsg.includes("403")) {
-        errorMsg = `GitHub Copilot 访问被禁止 (403)。请检查：
-1. 您的 GitHub Copilot 订阅是否有效且处于活跃状态
-2. 是否达到了 API 使用限制
-3. OAuth token 是否包含 'read:org' 权限范围
-4. 如果是组织账户，请确保组织已启用 Copilot 并且您有访问权限`;
+        errorMsg = `GitHub Copilot access forbidden (403). Please check:
+1. Whether your GitHub Copilot subscription is valid and active
+2. Whether you have hit the API usage limit
+3. Whether the OAuth token includes the 'read:org' scope
+4. If this is an organization account, ensure the organization has Copilot enabled and you have access`;
       } else if (errorMsg.includes("fetch failed") || errorMsg.includes("network")) {
-        errorMsg = `网络连接失败。请检查：
-1. 网络连接是否正常
-2. 代理设置是否正确
-3. 防火墙是否阻止了 GitHub API 访问`;
+        errorMsg = `Network connection failed. Please check:
+1. Whether your network connection is working
+2. Whether your proxy settings are correct
+3. Whether a firewall is blocking access to the GitHub API`;
       }
 
       return {
@@ -769,7 +769,7 @@ export class GithubCopilotProvider extends BaseLLMProvider {
       return response.content.trim();
     } catch (error) {
       console.error("Error generating summary title:", error);
-      return "新对话";
+      return "New conversation";
     }
   }
 }
