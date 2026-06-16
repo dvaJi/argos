@@ -3184,7 +3184,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     const manifest = readPackageJsonManifest(normalizedWorkdir);
     const isArgosWorkspace =
       String(manifest?.name ?? "").toLowerCase() === "argos" ||
-      ["format", "i18n", "lint"].every(verificationScripts.includes);
+      ["format", "i18n", "lint"].every((script) => verificationScripts.includes(script));
 
     if (isArgosWorkspace) {
       lines.push(

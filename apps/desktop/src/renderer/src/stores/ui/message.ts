@@ -424,7 +424,7 @@ export function clearStreamingState(): void {
 }
 
 function isEphemeralStreamMessageId(messageId: string): boolean {
-  return EPHEMERAL_STREAM_MESSAGE_PREFIXES.some(messageId.startsWith);
+  return EPHEMERAL_STREAM_MESSAGE_PREFIXES.some((prefix) => messageId.startsWith(prefix));
 }
 
 export function applyStreamingBlocksToMessage(

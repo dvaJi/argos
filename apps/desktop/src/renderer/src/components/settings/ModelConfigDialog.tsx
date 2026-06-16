@@ -88,7 +88,7 @@ export default function ModelConfigDialog({
     "ollama",
     "acp",
     "voiceai",
-  ].some(providerIdLower.includes);
+  ].some((key) => providerIdLower.includes(key));
 
   const showTtsSettings = config.type === ModelType.TTS;
   const showTemperatureControl = true;

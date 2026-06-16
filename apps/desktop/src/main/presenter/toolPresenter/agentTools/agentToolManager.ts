@@ -370,7 +370,7 @@ export class AgentToolManager {
           const allowedTools = await this.getSkillPresenter().getActiveSkillsAllowedTools(context.conversationId);
           const requiredSettingsTools = Object.values(CHAT_SETTINGS_TOOL_NAMES);
           const nonOpenSettingsTools = requiredSettingsTools.filter((tool) => tool !== CHAT_SETTINGS_TOOL_NAMES.open);
-          const hasNonOpenSettingsTool = nonOpenSettingsTools.some(allowedTools.includes);
+          const hasNonOpenSettingsTool = nonOpenSettingsTools.some((tool) => allowedTools.includes(tool));
           const effectiveAllowedTools = hasNonOpenSettingsTool
             ? allowedTools
             : Array.from(new Set([...allowedTools, ...requiredSettingsTools]));

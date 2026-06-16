@@ -61,7 +61,7 @@ function maskSensitiveString(value: string): string {
 
 function isSensitiveHeaderKey(key: string): boolean {
   const lower = key.toLowerCase();
-  return SENSITIVE_HEADER_KEYS.some(lower.includes);
+  return SENSITIVE_HEADER_KEYS.some((key) => lower.includes(key));
 }
 
 function isSensitiveBodyKey(key: string): boolean {

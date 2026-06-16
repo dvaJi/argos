@@ -465,7 +465,7 @@ export function createDaemonDispatcher(
     }
 
     const prefix = getRoutePrefix(route);
-    if (TIER2_PREFIXES.some(route.startsWith)) {
+    if (TIER2_PREFIXES.some((prefix) => route.startsWith(prefix))) {
       throw new Error(
         `Route '${route}' requires additional runtime services not yet available in daemon mode. Coming soon.`,
       );

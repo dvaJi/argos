@@ -284,7 +284,7 @@ export const updateServerStatus = async (serverName: string, noRefresh = false) 
       }
     } else {
       const allServerToolNames = mcpStore.state.tools.map((tool) => tool.function.name);
-      const filteredTools = mcpStore.state.enabledToolNames.filter(allServerToolNames.includes);
+      const filteredTools = mcpStore.state.enabledToolNames.filter((name) => allServerToolNames.includes(name));
       await setEnabledToolNames(filteredTools);
     }
   } catch (error) {

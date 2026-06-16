@@ -177,8 +177,8 @@ export function isVideoGenerationModelId(modelId: string): boolean {
   }
 
   return (
-    VIDEO_GENERATION_MODEL_ID_PREFIXES.some(normalized.startsWith) ||
-    VIDEO_GENERATION_MODEL_ID_MARKERS.some(normalized.includes)
+    VIDEO_GENERATION_MODEL_ID_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
+    VIDEO_GENERATION_MODEL_ID_MARKERS.some((marker) => normalized.includes(marker))
   );
 }
 

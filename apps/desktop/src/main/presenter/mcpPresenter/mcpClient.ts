@@ -91,14 +91,14 @@ function isSessionError(error: unknown): error is SessionError {
     const httpErrorPatterns = ["http 400", "http 404", "bad request", "not found"];
 
     // Check for session-specific errors first (high confidence)
-    const hasSessionPattern = sessionErrorPatterns.some(message.includes);
+    const hasSessionPattern = sessionErrorPatterns.some((pattern) => message.includes(pattern));
     if (hasSessionPattern) {
       return true;
     }
 
     // Check for HTTP errors that might be session-related (lower confidence)
     // Only treat as session error if it's an HTTP transport
-    const hasHttpPattern = httpErrorPatterns.some(message.includes);
+    const hasHttpPattern = httpErrorPatterns.some((pattern) => message.includes(pattern));
     if (hasHttpPattern && (message.includes("posting") || message.includes("endpoint"))) {
       return true;
     }
