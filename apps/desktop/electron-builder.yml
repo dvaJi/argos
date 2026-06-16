@@ -24,7 +24,7 @@ files:
   - "!test/*"
   - "!*.config.ts"
   - "!*.config.js"
-  - "!**/{LICENSE,LICENSE.txt,*.LICENSE.txt,NOTICE.txt,README.md,CHANGELOG.md,CONTRIBUTING.md,CONTRIBUTING.zh.md,README.zh.md,README.jp.md}"
+  - "!**/{LICENSE,LICENSE.txt,*.LICENSE.txt,NOTICE.txt,README.md,CHANGELOG.md,CONTRIBUTING.md}"
   - "!**/{.DS_Store,Thumbs.db}"
   - "!*.md"
 

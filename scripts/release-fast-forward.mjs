@@ -10,7 +10,6 @@ if (process.platform === 'win32') {
   console.error('Windows release automation is not supported.')
   console.error('Please follow the manual release steps in:')
   console.error('- CONTRIBUTING.md')
-  console.error('- CONTRIBUTING.zh.md')
   console.error('- docs/release-flow.md')
   process.exit(1)
 }

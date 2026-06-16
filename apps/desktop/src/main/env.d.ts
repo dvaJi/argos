@@ -10,6 +10,11 @@ declare module "*?asset&asarUnpack" {
   export default src;
 }
 
+declare module "*?raw" {
+  const src: string;
+  export default src;
+}
+
 declare namespace NodeJS {
   interface Process {
     electronApp?: import("node:child_process").ChildProcess;

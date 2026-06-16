@@ -856,6 +856,27 @@
       "icon": "https://cdn.agentclientprotocol.com/registry/v1/latest/kimi.svg"
     },
     {
+      "id": "mimo",
+      "name": "MiMo Code",
+      "version": "0.1.1",
+      "description": "Xiaomi's terminal-native AI coding assistant forked from OpenCode. Supports persistent memory, intelligent context management, subagent orchestration, and the MiMo Auto channel.",
+      "repository": "https://github.com/XiaomiMiMo/MiMo-Code",
+      "website": "https://mimo.xiaomi.com/en/mimocode",
+      "authors": [
+        "Xiaomi MiMo"
+      ],
+      "license": "MIT",
+      "distribution": {
+        "npx": {
+          "package": "@mimo-ai/cli@0.1.1",
+          "args": [
+            "acp"
+          ]
+        }
+      },
+      "icon": "https://cdn.agentclientprotocol.com/registry/v1/latest/mimo.svg"
+    },
+    {
       "id": "minion-code",
       "name": "Minion Code",
       "version": "0.1.44",

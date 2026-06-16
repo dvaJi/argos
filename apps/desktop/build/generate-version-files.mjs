@@ -33,23 +33,23 @@ args.forEach((arg) => {
 
 // Check required parameters
 if (!params.version) {
-  console.error('错误: 缺少版本号参数 (--version=X.Y.Z)')
+  console.error('Error: missing version argument (--version=X.Y.Z)')
   console.log(
-    '使用方法: node update-version.js --version=0.0.6 [--notes="版本更新说明"] [--date="2023-06-15"]'
+    'Usage: node update-version.js --version=0.0.6 [--notes="Release notes"] [--date="2023-06-15"]'
   )
   process.exit(1)
 }
 
 // Ensure version number format is valid
 if (!versionRegex.test(params.version)) {
-  console.error('错误: 版本号格式不正确，应为 X.Y.Z 格式')
+  console.error('Error: invalid version format, expected X.Y.Z')
   process.exit(1)
 }
 
 const template = {
   version: params.version,
   releaseDate: params.date || new Date().toISOString().split('T')[0],
-  releaseNotes: params.notes || '测试版本',
+  releaseNotes: params.notes || 'Test release',
   githubUrl: `https://github.com/dvaJi/argos/releases/tag/v${params.version}`,
   downloadUrl: `https://argos.thinkinai.xyz/#/download`
 }
@@ -68,7 +68,6 @@ platforms.forEach((platform) => {
   if (platform.includes('arm')) {
     arch = 'arm64'
   }
-  // Start of Selection
   if (os === 'windows') {
     platformData.githubUrl = `https://github.com/dvaJi/argos/releases/download/v${params.version}/Argos-${params.version}-windows-${arch}.exe`
   } else if (os === 'mac') {
@@ -79,7 +78,7 @@ platforms.forEach((platform) => {
   // Write file
   const outputPath = path.join(process.cwd(), `${platform}.json`)
   fs.writeFileSync(outputPath, JSON.stringify(platformData, null, 2), 'utf8')
-  console.log(`已生成 ${platform}.json`)
+  console.log(`Generated ${platform}.json`)
 })
 
-console.log('所有版本信息文件生成完成！')
+console.log('All version info files generated!')
