@@ -1,0 +1,84 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  main-release-guard:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Validate release branch naming
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [[ "${HEAD_REF}" != release/* ]]; then
+            echo "PRs targeting main must come from release/<version> branches." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Validate release head exists on dev
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch origin dev --prune
+          if ! git merge-base --is-ancestor "${HEAD_SHA}" origin/dev; then
+            echo "Release PR head must already exist on origin/dev." >&2
+            exit 1
+          fi
+
+  build-check:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        arch: [x64]
+        include:
+          - arch: x64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.14.1'
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: lint
+        run: pnpm run lint
+
+      - name: format:check
+        run: pnpm run format:check
+
+      - name: Configure pnpm workspace for Linux ${{ matrix.arch }}
+        run: pnpm run install:sharp
+        env:
+          TARGET_OS: linux
+          TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Check translations
+        run: pnpm run i18n
+
+      - name: Build
+        run: pnpm run build
+        env:
+          VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}

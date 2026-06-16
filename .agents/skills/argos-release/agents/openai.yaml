@@ -1,0 +1,4 @@
+interface:
+  display_name: "Argos Release"
+  short_description: "Prepare and publish Argos releases"
+  default_prompt: "Use $argos-release to prepare, continue, or publish a Argos version release."

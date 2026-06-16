@@ -1,0 +1,26 @@
+FROM node:22-slim
+
+# Configure npm registry mirror
+RUN npm config set registry https://registry.npmmirror.com 
+
+RUN ldd --version
+# Install build-required system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install dependencies
+RUN npm install \
+    && npm run installRuntime:linux:x64 \
+    && npm install --cpu=wasm32 sharp
+
+# Build command
+CMD ["npm", "run", "build:linux:x64"] 

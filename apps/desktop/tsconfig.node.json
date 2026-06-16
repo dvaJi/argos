@@ -1,0 +1,43 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": [
+    "vite.config.*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "resolveJsonModule": false,
+    "moduleResolution": "bundler",
+    "paths": {
+      "*": [
+        "./*"
+      ],
+      "@/*": [
+        "./src/main/*"
+      ],
+      "@shared/*": [
+        "./src/shared/*"
+      ],
+      "@argos/electron-adapter": [
+        "../../packages/electron-adapter/src"
+      ],
+      "@argos/electron-adapter/*": [
+        "../../packages/electron-adapter/src/*"
+      ],
+      "@argos/backend-core": [
+        "../../packages/backend-core/src"
+      ],
+      "@argos/backend-core/*": [
+        "../../packages/backend-core/src/*"
+      ],
+      "@argos/client-sdk": [
+        "../../packages/client-sdk/src"
+      ],
+      "@argos/client-sdk/*": [
+        "../../packages/client-sdk/src/*"
+      ]
+    }
+  }
+}

@@ -1,0 +1,667 @@
+import { app, shell } from "electron";
+import { IUpgradePresenter, UpdateStatus, UpdateProgress, IConfigPresenter } from "@shared/presenter";
+import { eventBus, SendTarget } from "@/eventbus";
+import { UPDATE_EVENTS, WINDOW_EVENTS } from "@/events";
+import { presenter } from "@/presenter";
+import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import electronUpdater from "electron-updater";
+import type { UpdateInfo } from "electron-updater";
+import { compare } from "compare-versions";
+import fs from "fs";
+import path from "path";
+
+const { autoUpdater } = electronUpdater;
+
+const GITHUB_OWNER = "dvaJi";
+const GITHUB_REPO = "argos";
+const OFFICIAL_DOWNLOAD_URL = "https://argos.aipurrjects.com/#/download";
+const UPDATE_CHANNEL_STABLE = "stable";
+const UPDATE_CHANNEL_BETA = "beta";
+const PRERELEASE_VERSION_REGEX = /-(?:alpha|beta|rc|canary)(?:[.-]\d+)?$/i;
+
+const isPrereleaseVersion = (version: string): boolean => {
+  return PRERELEASE_VERSION_REGEX.test(version);
+};
+
+type ReleaseNoteItem = {
+  version?: string | null;
+  note?: string | null;
+};
+
+// Version info interface
+interface VersionInfo {
+  version: string;
+  releaseDate: string;
+  releaseNotes: string;
+  githubUrl: string;
+  downloadUrl: string;
+  isMock?: boolean;
+}
+
+const normalizeUpdateChannel = (channel?: string): "stable" | "beta" => {
+  return channel === UPDATE_CHANNEL_BETA ? UPDATE_CHANNEL_BETA : UPDATE_CHANNEL_STABLE;
+};
+
+const formatTagVersion = (version: string): string => {
+  return version.startsWith("v") ? version : `v${version}`;
+};
+
+const buildReleaseUrl = (version: string): string => {
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tag/${formatTagVersion(version)}`;
+};
+
+const formatReleaseNotes = (notes?: string | ReleaseNoteItem[] | null): string => {
+  if (!notes) return "";
+  if (typeof notes === "string") return notes;
+  if (!Array.isArray(notes)) return String(notes);
+  const blocks = notes
+    .map((note) => {
+      const title = note.version ? `## ${note.version}` : "";
+      const body = note.note ?? "";
+      return [title, body].filter(Boolean).join("\n");
+    })
+    .filter((entry) => entry.length > 0);
+  return blocks.join("\n\n");
+};
+
+const toVersionInfo = (info: UpdateInfo): VersionInfo => {
+  const releaseUrl = buildReleaseUrl(info.version);
+  return {
+    version: info.version,
+    releaseDate: info.releaseDate || "",
+    releaseNotes: formatReleaseNotes(info.releaseNotes),
+    githubUrl: releaseUrl,
+    downloadUrl: OFFICIAL_DOWNLOAD_URL,
+  };
+};
+
+// Get the auto-update status file path
+const getUpdateMarkerFilePath = () => {
+  return path.join(app.getPath("userData"), "auto_update_marker.json");
+};
+
+export class UpgradePresenter implements IUpgradePresenter {
+  private _lock: boolean = false;
+  private _status: UpdateStatus = "not-available";
+  private _progress: UpdateProgress | null = null;
+  private _error: string | null = null;
+  private _versionInfo: VersionInfo | null = null;
+  private _lastCheckTime: number = 0; // Timestamp of the last update check
+  private _lastCheckType?: string;
+  private _updateMarkerPath: string;
+  private _previousUpdateFailed: boolean = false; // Flag indicating whether the last update failed
+  private _configPresenter: IConfigPresenter; // Config presenter
+  private _isUpdating: boolean = false; // Flag to track if update installation is in progress
+  private _isMockUpdate: boolean = false;
+
+  private emitStatusChanged(payload: {
+    status: UpdateStatus | null;
+    error?: string | null;
+    info?: VersionInfo | null;
+    type?: string;
+  }): void {
+    eventBus.sendToRenderer(UPDATE_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, payload);
+    publishArgosEvent("upgrade.status.changed", {
+      ...payload,
+      version: Date.now(),
+    });
+  }
+
+  private emitProgress(progress: UpdateProgress): void {
+    eventBus.sendToRenderer(UPDATE_EVENTS.PROGRESS, SendTarget.ALL_WINDOWS, progress);
+    publishArgosEvent("upgrade.progress", {
+      ...progress,
+      version: Date.now(),
+    });
+  }
+
+  private emitWillRestart(): void {
+    eventBus.sendToRenderer(UPDATE_EVENTS.WILL_RESTART, SendTarget.ALL_WINDOWS);
+    publishArgosEvent("upgrade.willRestart", {
+      version: Date.now(),
+    });
+  }
+
+  private emitError(error: string): void {
+    eventBus.sendToRenderer(UPDATE_EVENTS.ERROR, SendTarget.ALL_WINDOWS, { error });
+    publishArgosEvent("upgrade.error", {
+      error,
+      version: Date.now(),
+    });
+  }
+
+  constructor(configPresenter: IConfigPresenter) {
+    this._configPresenter = configPresenter;
+    this._updateMarkerPath = getUpdateMarkerFilePath();
+
+    // Configure auto-update
+    autoUpdater.autoDownload = false; // Do not auto-download by default; we control it manually
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // Error handling
+    autoUpdater.on("error", (e) => {
+      console.log("自动更新失败", e.message);
+      this._lock = false;
+      this._status = "error";
+      this._error = e.message;
+      this.emitStatusChanged({
+        status: this._status,
+        error: this._error,
+        info: this._versionInfo,
+      });
+    });
+
+    // Check update status
+    autoUpdater.on("checking-for-update", () => {
+      console.log("正在检查更新");
+    });
+
+    // No update available
+    autoUpdater.on("update-not-available", () => {
+      console.log("无可用更新");
+      this._lock = false;
+      this._status = "not-available";
+      this._error = null;
+      this._progress = null;
+      this._versionInfo = null;
+      this.emitStatusChanged({
+        status: this._status,
+        type: this._lastCheckType,
+      });
+    });
+
+    // Update available
+    autoUpdater.on("update-available", (info) => {
+      console.log("检测到新版本", info);
+      this._lock = false;
+
+      // Version fallback guard: when channels are mismatched, electron-updater may "update" the current beta install to an older stable version.
+      // Compare strictly by semver — reject whenever the remote version is <= the current version. We no longer reject solely on "channel mismatch",
+      // to avoid blocking legitimate channel-convergence upgrades such as "beta → same-version stable release".
+      const currentVersion = app.getVersion();
+      const remoteVersion = info?.version || "";
+
+      let isDowngradeOrSame = false;
+      try {
+        if (!remoteVersion) {
+          isDowngradeOrSame = true;
+        } else if (compare(remoteVersion, currentVersion, "<=")) {
+          isDowngradeOrSame = true;
+        }
+      } catch (e) {
+        console.warn("版本号对比失败，忽略此次更新提示", currentVersion, remoteVersion, e);
+        isDowngradeOrSame = true;
+      }
+
+      if (isDowngradeOrSame) {
+        console.log("忽略降级或同版本的更新提示", {
+          current: currentVersion,
+          remote: remoteVersion,
+        });
+        this._status = "not-available";
+        this._error = null;
+        this._progress = null;
+        this._versionInfo = null;
+        this.emitStatusChanged({
+          status: this._status,
+          type: this._lastCheckType,
+        });
+        return;
+      }
+
+      this._versionInfo = toVersionInfo(info);
+      this._error = null;
+      this._progress = null;
+
+      if (this._previousUpdateFailed) {
+        console.log("上次更新失败，本次不进行自动更新，改为手动更新");
+        this._status = "error";
+        this._error = "自动更新可能不稳定，请手动下载更新";
+        this.emitStatusChanged({
+          status: this._status,
+          error: this._error,
+          info: this._versionInfo,
+        });
+        return;
+      }
+
+      this._status = "available";
+      this.emitStatusChanged({
+        status: this._status,
+        info: this._versionInfo,
+      });
+
+      if (this._lastCheckType === "autoCheck") {
+        this.startDownloadUpdate();
+      }
+    });
+
+    // Download progress
+    autoUpdater.on("download-progress", (progressObj) => {
+      this._lock = true;
+      this._status = "downloading";
+      this._progress = {
+        bytesPerSecond: progressObj.bytesPerSecond,
+        percent: progressObj.percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+      };
+      this.emitStatusChanged({
+        status: this._status,
+        info: this._versionInfo, // Use the saved version info
+      });
+      this.emitProgress(this._progress);
+    });
+
+    // Download complete
+    autoUpdater.on("update-downloaded", (info) => {
+      console.log("更新下载完成", info);
+      this.markUpdateDownloaded(info);
+    });
+
+    // Listen for the app focus event
+    eventBus.on(WINDOW_EVENTS.APP_FOCUS, this.handleAppFocus.bind(this));
+
+    // On app startup, check whether an unfinished update exists
+    this.checkPendingUpdate();
+  }
+
+  // Check whether an unfinished auto-update exists
+  private checkPendingUpdate(): void {
+    try {
+      if (fs.existsSync(this._updateMarkerPath)) {
+        const content = fs.readFileSync(this._updateMarkerPath, "utf8");
+        const updateInfo = JSON.parse(content);
+        const currentVersion = app.getVersion();
+        console.log("检查未完成的更新", updateInfo, currentVersion);
+
+        // If the current version matches the target version, the update is complete
+        if (updateInfo.version === currentVersion) {
+          // Delete the marker file
+          fs.unlinkSync(this._updateMarkerPath);
+          return;
+        }
+
+        // Channel consistency check: if the target version in the marker does not belong to the same channel as the current install (beta vs stable),
+        // the previous "pending update" came from a channel mismatch and should be discarded rather than pinned as previousUpdateFailed
+        const markerVersion = typeof updateInfo.version === "string" ? updateInfo.version : "";
+        if (markerVersion) {
+          const markerIsPre = isPrereleaseVersion(markerVersion);
+          const currentIsPre = isPrereleaseVersion(currentVersion);
+          if (markerIsPre !== currentIsPre) {
+            console.log("忽略跨渠道的旧 update marker", { marker: markerVersion, currentVersion });
+            fs.unlinkSync(this._updateMarkerPath);
+            return;
+          }
+        }
+
+        // Otherwise the previous update failed; mark as error state
+        console.log("检测到未完成的更新", updateInfo.version);
+        this._status = "error";
+        this._error = "上次自动更新未完成";
+        this._versionInfo = updateInfo;
+        this._previousUpdateFailed = true; // Mark that the last update failed
+
+        // Delete the marker file
+        fs.unlinkSync(this._updateMarkerPath);
+
+        // Notify the renderer process
+        this.emitStatusChanged({
+          status: this._status,
+          error: this._error,
+          info: {
+            version: updateInfo.version,
+            releaseDate: updateInfo.releaseDate,
+            releaseNotes: updateInfo.releaseNotes,
+            githubUrl: updateInfo.githubUrl,
+            downloadUrl: updateInfo.downloadUrl,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("检查未完成更新失败", error);
+      // On error, attempt to delete the marker file
+      try {
+        if (fs.existsSync(this._updateMarkerPath)) {
+          fs.unlinkSync(this._updateMarkerPath);
+        }
+      } catch (e) {
+        console.error("删除更新标记文件失败", e);
+      }
+    }
+  }
+
+  // Write the update marker file
+  private writeUpdateMarker(version: string): void {
+    try {
+      const updateInfo = {
+        version,
+        releaseDate: this._versionInfo?.releaseDate || "",
+        releaseNotes: this._versionInfo?.releaseNotes || "",
+        githubUrl: this._versionInfo?.githubUrl || "",
+        downloadUrl: this._versionInfo?.downloadUrl || "",
+        timestamp: Date.now(),
+      };
+
+      fs.writeFileSync(this._updateMarkerPath, JSON.stringify(updateInfo, null, 2), "utf8");
+      console.log("写入更新标记文件成功", this._updateMarkerPath);
+    } catch (error) {
+      console.error("写入更新标记文件失败", error);
+    }
+  }
+
+  private markUpdateDownloaded(info?: UpdateInfo): void {
+    this._isMockUpdate = false;
+    this._lock = false;
+    this._status = "downloaded";
+    this._error = null;
+    this._progress = null;
+
+    if (!this._versionInfo && info) {
+      this._versionInfo = toVersionInfo(info);
+    }
+
+    if (!this._versionInfo) {
+      console.warn("Downloaded update is missing version info, skipping renderer broadcast.");
+      return;
+    }
+
+    this.writeUpdateMarker(this._versionInfo.version);
+    this.emitStatusChanged({
+      status: this._status,
+      info: this._versionInfo,
+    });
+  }
+
+  // Handle the app focus event
+  private handleAppFocus(): void {
+    if (this._configPresenter.getPrivacyModeEnabled()) {
+      return;
+    }
+
+    const now = Date.now();
+    const twelveHoursInMs = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+    // If more than 12 hours have passed since the last update check, re-check
+    if (now - this._lastCheckTime > twelveHoursInMs) {
+      this.checkUpdate("autoCheck");
+    }
+  }
+
+  /**
+   *
+   * @param type Update check type; 'autoCheck' indicates an automatic check
+   *            If omitted, defaults to manual check
+   * @returns
+   */
+  async checkUpdate(type?: string): Promise<void> {
+    if (this._lock) {
+      return;
+    }
+
+    try {
+      this._status = "checking";
+      this._error = null;
+      this._progress = null;
+      this._lastCheckType = type ?? "manualCheck";
+      this.emitStatusChanged({
+        status: this._status,
+      });
+
+      const updateChannel = normalizeUpdateChannel(this._configPresenter.getUpdateChannel());
+      autoUpdater.allowPrerelease = updateChannel === UPDATE_CHANNEL_BETA;
+      autoUpdater.channel = updateChannel === UPDATE_CHANNEL_BETA ? UPDATE_CHANNEL_BETA : "latest";
+
+      await autoUpdater.checkForUpdates();
+      this._lastCheckTime = Date.now();
+    } catch (error: Error | unknown) {
+      this._status = "error";
+      this._error = error instanceof Error ? error.message : String(error);
+      this.emitStatusChanged({
+        status: this._status,
+        error: this._error,
+      });
+    }
+  }
+
+  getUpdateStatus() {
+    return {
+      status: this._status,
+      progress: this._progress,
+      error: this._error,
+      updateInfo: this._versionInfo
+        ? {
+            version: this._versionInfo.version,
+            releaseDate: this._versionInfo.releaseDate,
+            releaseNotes: this._versionInfo.releaseNotes,
+            githubUrl: this._versionInfo.githubUrl,
+            downloadUrl: this._versionInfo.downloadUrl,
+          }
+        : null,
+    };
+  }
+
+  async goDownloadUpgrade(type: "github" | "official"): Promise<void> {
+    const githubFallbackUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
+    if (type === "github") {
+      const url = this._versionInfo?.githubUrl || githubFallbackUrl;
+      if (url) {
+        shell.openExternal(url);
+      }
+    } else if (type === "official") {
+      const url = this._versionInfo?.downloadUrl || OFFICIAL_DOWNLOAD_URL;
+      if (url) {
+        shell.openExternal(url);
+      }
+    }
+  }
+
+  // Start downloading the update (if manually triggered)
+  startDownloadUpdate(): boolean {
+    if (this._status !== "available") {
+      return false;
+    }
+    try {
+      this._status = "downloading";
+      this.emitStatusChanged({
+        status: this._status,
+        info: this._versionInfo, // Use the saved version info
+      });
+      void autoUpdater
+        .downloadUpdate()
+        .then(() => {
+          if (this._status !== "downloaded") {
+            console.log("downloadUpdate resolved before update-downloaded event, applying fallback downloaded status");
+            this.markUpdateDownloaded();
+          }
+        })
+        .catch((error: Error | unknown) => {
+          this._lock = false;
+          this._status = "error";
+          this._error = error instanceof Error ? error.message : String(error);
+          this.emitStatusChanged({
+            status: this._status,
+            error: this._error,
+            info: this._versionInfo,
+          });
+        });
+      return true;
+    } catch (error: Error | unknown) {
+      this._status = "error";
+      this._error = error instanceof Error ? error.message : String(error);
+      this.emitStatusChanged({
+        status: this._status,
+        error: this._error,
+      });
+      return false;
+    }
+  }
+
+  // Execute quit and install update for all platforms
+  private _doQuitAndInstall(): void {
+    console.log("Preparing to quit and install update");
+    this.beginInstallFlow(() => {
+      if (process.platform === "darwin") {
+        console.log("macOS update: calling quitAndInstall with forceRunAfter=true");
+        autoUpdater.quitAndInstall(false, true); // silent=false, forceRunAfter=true
+        return;
+      }
+
+      console.log(`${process.platform} update: calling quitAndInstall`);
+      autoUpdater.quitAndInstall();
+    });
+  }
+
+  private _doMockQuitAndInstall(): void {
+    console.log("Preparing to run mock update restart flow");
+    this.beginInstallFlow(() => {
+      console.log("Mock update: relaunching app instead of invoking installer");
+      app.relaunch();
+      app.exit();
+    });
+  }
+
+  private beginInstallFlow(installAction: () => void): void {
+    try {
+      this.emitWillRestart();
+
+      console.log("Update installation: setting application state for proper quit behavior");
+      this.setUpdatingFlag(true);
+      this.prepareFloatingUiForUpdateInstall();
+      eventBus.sendToMain(WINDOW_EVENTS.SET_APPLICATION_QUITTING, { isQuitting: true });
+
+      setTimeout(() => {
+        installAction();
+      }, 500);
+
+      setTimeout(() => {
+        console.log("Update installation timeout, force quit");
+        app.quit(); // Exit trigger: upgrade
+      }, 30000);
+    } catch (e) {
+      console.error("Failed to start update installation flow", e);
+      this.setUpdatingFlag(false);
+
+      console.log("Resetting application quitting flag after update error");
+      eventBus.sendToMain(WINDOW_EVENTS.SET_APPLICATION_QUITTING, { isQuitting: false });
+
+      this.emitError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  private prepareFloatingUiForUpdateInstall(): void {
+    if (!presenter) {
+      console.log("Update installation: presenter not ready, skipping floating UI cleanup");
+      return;
+    }
+
+    try {
+      presenter.windowPresenter.setApplicationQuitting(true);
+    } catch (error) {
+      console.warn("Update installation: failed to set application quitting flag directly", error);
+    }
+
+    try {
+      presenter.windowPresenter.destroyFloatingChatWindow();
+    } catch (error) {
+      console.warn("Update installation: failed to destroy floating chat window", error);
+    }
+
+    try {
+      presenter.floatingButtonPresenter.destroy();
+    } catch (error) {
+      console.warn("Update installation: failed to destroy floating button window", error);
+    }
+  }
+
+  mockDownloadedUpdate(): boolean {
+    this._isMockUpdate = true;
+    this._lock = false;
+    this._status = "downloaded";
+    this._error = null;
+    this._progress = null;
+    this._versionInfo = {
+      version: "9.9.9-mock",
+      releaseDate: "2026-04-16",
+      releaseNotes:
+        "## Mock Update\n\n- Simulates a downloaded update.\n- Uses the real restart/install UI flow.\n- Intended for floating window shutdown verification.",
+      githubUrl: "",
+      downloadUrl: "",
+      isMock: true,
+    };
+
+    this.emitStatusChanged({
+      status: this._status,
+      info: this._versionInfo,
+    });
+    return true;
+  }
+
+  clearMockUpdate(): boolean {
+    if (!this._isMockUpdate) {
+      return false;
+    }
+
+    this._isMockUpdate = false;
+    this._lock = false;
+    this._status = "not-available";
+    this._error = null;
+    this._progress = null;
+    this._versionInfo = null;
+
+    this.emitStatusChanged({
+      status: this._status,
+    });
+    return true;
+  }
+
+  // Restart and update
+  restartToUpdate(): boolean {
+    console.log("重启并更新");
+    if (this._status !== "downloaded") {
+      this.emitError("更新尚未下载完成");
+      return false;
+    }
+    try {
+      if (this._isMockUpdate) {
+        this._doMockQuitAndInstall();
+        return true;
+      }
+
+      this._doQuitAndInstall();
+      return true;
+    } catch (e) {
+      console.error("重启更新失败", e);
+      this.emitError(e instanceof Error ? e.message : String(e));
+      return false;
+    }
+  }
+
+  // Restart the app
+  restartApp(): void {
+    try {
+      // Send the will-restart notification
+      this.emitWillRestart();
+      // Give the UI layer a moment to save state
+      setTimeout(() => {
+        app.relaunch();
+        app.exit();
+      }, 1000);
+    } catch (e) {
+      console.error("重启失败", e);
+      this.emitError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  // Set update flag and broadcast state
+  private setUpdatingFlag(updating: boolean): void {
+    this._isUpdating = updating;
+    // Broadcast update state to lifecycle manager
+    eventBus.sendToMain(UPDATE_EVENTS.STATE_CHANGED, { isUpdating: updating });
+  }
+
+  // Get update flag
+  isUpdatingInProgress(): boolean {
+    return this._isUpdating;
+  }
+}

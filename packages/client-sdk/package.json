@@ -1,0 +1,20 @@
+{
+  "name": "@argos/client-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@argos/shared": "workspace:*",
+    "@argos/shared-contracts": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "electron": "catalog:",
+    "typescript": "catalog:"
+  }
+}

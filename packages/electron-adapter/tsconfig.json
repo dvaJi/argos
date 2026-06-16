@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": false,
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@argos/backend-core": ["../backend-core/src"],
+      "@argos/backend-core/*": ["../backend-core/src/*"],
+      "@argos/shared-contracts": ["../shared-contracts/src"],
+      "@argos/shared-contracts/*": ["../shared-contracts/src/*"],
+      "@shared/*": ["../shared/src/*"],
+      "@/*": ["../../apps/desktop/src/main/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

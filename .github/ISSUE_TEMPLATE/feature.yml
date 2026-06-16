@@ -1,0 +1,22 @@
+name: Enhancement
+description: Feature or change
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remember: Argos is an open source gift, not a product you bought from a vendor.
+
+        Use English or Chinese. You may keep only one language when filling.
+
+  - type: textarea
+    id: request
+    attributes:
+      label: What do you need?
+      description: Describe the feature or change you want
+      placeholder: |
+        I need ... because ...
+    validations:
+      required: true

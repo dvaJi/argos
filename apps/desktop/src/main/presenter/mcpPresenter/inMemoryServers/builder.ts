@@ -1,0 +1,48 @@
+import { ArtifactsServer } from "./artifactsServer";
+// FileSystemServer has been removed - filesystem capabilities are now provided via Agent tools
+import { BochaSearchServer } from "./bochaSearchServer";
+import { BraveSearchServer } from "./braveSearchServer";
+import { DifyKnowledgeServer } from "./difyKnowledgeServer";
+import { RagflowKnowledgeServer } from "./ragflowKnowledgeServer";
+import { FastGptKnowledgeServer } from "./fastGptKnowledgeServer";
+import { DeepResearchServer } from "./deepResearchServer";
+import { AutoPromptingServer } from "./autoPromptingServer";
+import { ConversationSearchServer } from "./conversationSearchServer";
+import { BuiltinKnowledgeServer } from "./builtinKnowledgeServer";
+import { AppleServer } from "./appleServer";
+
+export function getInMemoryServer(serverName: string, _args: string[], env?: Record<string, unknown>) {
+  switch (serverName) {
+    // buildInFileSystem has been removed - filesystem capabilities are now provided via Agent tools
+    case "Artifacts":
+      return new ArtifactsServer();
+    case "bochaSearch":
+      return new BochaSearchServer(env);
+    case "braveSearch":
+      return new BraveSearchServer(env);
+    case "deepResearch":
+      return new DeepResearchServer(env);
+    case "difyKnowledge":
+      return new DifyKnowledgeServer(env);
+    case "ragflowKnowledge":
+      return new RagflowKnowledgeServer(env);
+    case "fastGptKnowledge":
+      return new FastGptKnowledgeServer(env);
+    case "builtinKnowledge":
+      return new BuiltinKnowledgeServer();
+    case "argos-inmemory/deep-research-server":
+      return new DeepResearchServer(env);
+    case "argos-inmemory/auto-prompting-server":
+      return new AutoPromptingServer();
+    case "argos-inmemory/conversation-search-server":
+      return new ConversationSearchServer();
+    case "argos/apple-server":
+      // Only create the AppleServer on macOS
+      if (process.platform !== "darwin") {
+        throw new Error("Apple Server is only supported on macOS");
+      }
+      return new AppleServer();
+    default:
+      throw new Error(`Unknown in-memory server: ${serverName}`);
+  }
+}

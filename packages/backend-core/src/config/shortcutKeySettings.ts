@@ -1,0 +1,32 @@
+export const CommandKey = "CommandOrControl";
+
+const ShiftKey = "Shift";
+
+export const rendererShortcutKey = {
+  NewConversation: `${CommandKey}+N`,
+  QuickSearch: `${CommandKey}+P`,
+  ToggleSidebar: `${CommandKey}+B`,
+  ToggleWorkspace: `${CommandKey}+J`,
+  NewWindow: `${CommandKey}+${ShiftKey}+N`,
+  CloseWindow: `${CommandKey}+W`,
+  ZoomIn: `${CommandKey}+=`,
+  ZoomOut: `${CommandKey}+-`,
+  ZoomResume: `${CommandKey}+0`,
+  GoSettings: `${CommandKey}+,`,
+  CleanChatHistory: `${CommandKey}+L`,
+  DeleteConversation: `${CommandKey}+D`,
+};
+
+export const systemShortcutKey = {
+  ShowHideWindow: `${CommandKey}+O`,
+  Quit: `${CommandKey}+Q`,
+};
+
+export const defaultShortcutKey = {
+  ...rendererShortcutKey,
+  ...systemShortcutKey,
+};
+
+export type ShortcutKey = keyof typeof defaultShortcutKey;
+
+export type ShortcutKeySetting = Record<ShortcutKey, string>;

@@ -1,0 +1,113 @@
+appId: com.wefonk.argos
+productName: Argos
+directories:
+  buildResources: build
+files:
+  - "!**/.claude/*"
+  - "!**/.github/*"
+  - "!**/.cursor/*"
+  - "!**/.vscode/*"
+  - "!src/*"
+  - "!test/*"
+  - "!vendor/**"
+  - "!docs/*"
+  - "!plugins/**"
+  - "!keys/*"
+  - "!scripts/*"
+  - "!.github/*"
+  - "!electron.vite.config.{js,ts,mjs,cjs}"
+  - "!vite.config.{js,ts,mjs,cjs}"
+  - "!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
+  - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
+  - "!{tsconfig.json,tsconfig.node.json,tsconfig.app.json}"
+  - "!electron-builder.yml"
+  - "!test/*"
+  - "!*.config.ts"
+  - "!*.config.js"
+  - "!**/{LICENSE,LICENSE.txt,*.LICENSE.txt,NOTICE.txt,README.md,CHANGELOG.md,CONTRIBUTING.md,CONTRIBUTING.zh.md,README.zh.md,README.jp.md}"
+  - "!**/{.DS_Store,Thumbs.db}"
+  - "!*.md"
+
+asarUnpack:
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@img/**/*"
+extraResources:
+  - from: ./runtime/
+    to: app.asar.unpacked/runtime
+    filter: ["**/*"]
+  - from: ./resources/cdn/
+    to: app.asar.unpacked/resources/cdn
+    filter: ["**/*"]
+  - from: ./resources/skills/
+    to: app.asar.unpacked/resources/skills
+    filter: ["**/*"]
+  - from: ./build/bundled-plugins/
+    to: app.asar.unpacked/plugins
+    filter: ["**/*.dcplugin"]
+  - from: ./apps/daemon/dist/
+    to: daemon
+    filter: ["argos-daemon*"]
+electronLanguages:
+  - zh-CN
+  - zh-TW
+  - zh-HK
+  - en-US
+  - ja-JP
+  - ko-KR
+  - fr-FR
+  - ru-RU
+  - ja
+  - ru
+  - zh_CN
+  - zh_TW
+  - zh_HK
+  - en
+  - ko
+  - fr
+  - fa-IR
+  - fa
+  - pt-BR
+  - pt
+  - da-DK
+  - da
+  - he-IL
+  - he
+win:
+  executableName: Argos
+nsis:
+  artifactName: ${name}-${version}-windows-${arch}.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  include: build/nsis-installer.nsh
+afterSign: scripts/notarize.js
+afterPack: scripts/afterPack.js
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  gatekeeperAssess: false
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+    - target: zip
+  artifactName: ${name}-${version}-mac-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - tar.gz
+  maintainer: dvaJi
+  category: Utility
+  artifactName: ${name}-${version}-linux-${arch}.${ext}
+  mimeTypes:
+    - x-scheme-handler/argos
+npmRebuild: true
+publish:
+  provider: github
+  owner: dvaJi
+  repo: argos

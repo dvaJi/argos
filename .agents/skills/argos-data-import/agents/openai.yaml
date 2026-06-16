@@ -1,0 +1,4 @@
+interface:
+  display_name: "Argos Data Import"
+  short_description: "Import Argos config and chat data"
+  default_prompt: "Use $argos-data-import to help a third-party tool import Argos provider config, sessions, messages, and encrypted or unencrypted agent.db data."

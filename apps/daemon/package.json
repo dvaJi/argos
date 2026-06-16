@@ -1,0 +1,23 @@
+{
+  "name": "@argos/daemon",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "argos-daemon": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build --compile src/index.ts --outfile dist/argos-daemon",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@argos/backend-core": "workspace:*",
+    "@argos/shared": "workspace:*",
+    "@argos/shared-contracts": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "catalog:"
+  }
+}

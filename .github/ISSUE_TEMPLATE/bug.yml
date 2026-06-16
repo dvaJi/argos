@@ -1,0 +1,35 @@
+name: Bug
+description: Report a problem
+title: "[BUG] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remember: Argos is an open source gift, not a product you bought from a vendor.
+
+        Use English or Chinese. You may keep only one language when filling.
+
+  - type: input
+    id: system-details
+    attributes:
+      label: System details
+      description: CPU, OS, and Argos version
+      placeholder: e.g. M3 Max, macOS 26.0, Argos 0.3.7
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: What's wrong?
+      description: |
+        Briefly describe the problem and how to reproduce it (steps, expected vs actual).
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true

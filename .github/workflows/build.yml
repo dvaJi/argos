@@ -1,0 +1,253 @@
+name: Build Application
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Select build platform'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - windows
+          - linux
+          - mac
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  RTK_INSTALL_GITHUB_TOKEN: ${{ secrets.RTK_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+  RTK_INSTALL_GITHUB_TOKEN_SOURCE: ${{ secrets.RTK_GITHUB_TOKEN != '' && 'RTK_GITHUB_TOKEN' || 'GITHUB_TOKEN' }}
+
+jobs:
+  build-windows:
+    name: build-windows(${{ matrix.arch }})
+    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'windows')
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            platform: win-x64
+            runner: windows-2025-vs2026
+            unpacked: win-unpacked
+          - arch: arm64
+            platform: win-arm64
+            runner: windows-11-arm
+            unpacked: win-arm64-unpacked
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.14.1'
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Configure pnpm workspace for Windows ${{ matrix.arch }}
+        run: pnpm run install:sharp
+        env:
+          TARGET_OS: win32
+          TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Install dependencies
+        run: pnpm install
+        env:
+          npm_config_build_from_source: true
+          npm_config_platform: win32
+          npm_config_arch: ${{ matrix.arch }}
+
+      - name: Report RTK install token source
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          echo "RTK runtime install token source: ${RTK_INSTALL_GITHUB_TOKEN_SOURCE}"
+
+      - name: Install Windows runtimes
+        run: pnpm run installRuntime:win:${{ matrix.arch }}
+        env:
+          GITHUB_TOKEN: ${{ env.RTK_INSTALL_GITHUB_TOKEN }}
+
+      - name: Build Windows
+        run: |
+          pnpm run build
+          pnpm run plugin:bundle -- --name feishu --platform win32 --arch ${{ matrix.arch }}
+          pnpm exec electron-builder --win --${{ matrix.arch }} --publish=never
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
+          VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
+          VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+
+      - name: Verify bundled plugins
+        shell: bash
+        run: |
+          pnpm run plugin:verify -- --name feishu --platform win32 --arch ${{ matrix.arch }} --plugin-root dist/${{ matrix.unpacked }}/resources/app.asar.unpacked/plugins
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: argos-${{ matrix.platform }}
+          path: |
+            dist/*
+            !dist/win-unpacked
+            !dist/win-arm64-unpacked
+
+  build-linux:
+    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'linux')
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        arch: [x64]
+        include:
+          - arch: x64
+            platform: linux-x64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.14.1'
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Configure pnpm workspace for Linux ${{ matrix.arch }}
+        run: pnpm run install:sharp
+        env:
+          TARGET_OS: linux
+          TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # - name: Install Node Runtime
+        # run: pnpm run installRuntime:linux:${{ matrix.arch }}
+
+      - name: Build Linux
+        run: |
+          pnpm run build
+          pnpm run plugin:bundle -- --name feishu --platform linux --arch ${{ matrix.arch }}
+          pnpm exec electron-builder --linux --${{ matrix.arch }} --publish=never
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
+          VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
+          VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+
+      - name: Verify bundled plugins
+        shell: bash
+        run: |
+          pnpm run plugin:verify -- --name feishu --platform linux --arch ${{ matrix.arch }} --plugin-root dist/linux-unpacked/resources/app.asar.unpacked/plugins
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: argos-${{ matrix.platform }}
+          path: |
+            dist/*
+            !dist/linux-unpacked
+
+  build-mac:
+    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'mac')
+    runs-on: macos-15
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+        include:
+          - arch: x64
+            platform: mac-x64
+          - arch: arm64
+            platform: mac-arm64
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.14.1'
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Configure pnpm workspace for macOS ${{ matrix.arch }}
+        run: pnpm run install:sharp
+        env:
+          TARGET_OS: darwin
+          TARGET_ARCH: ${{ matrix.arch }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Report RTK install token source
+        shell: bash
+        run: |
+          echo "RTK runtime install token source: ${RTK_INSTALL_GITHUB_TOKEN_SOURCE}"
+
+      - name: Install Node Runtime
+        run: pnpm run installRuntime:mac:${{ matrix.arch }}
+        env:
+          GITHUB_TOKEN: ${{ env.RTK_INSTALL_GITHUB_TOKEN }}
+
+      - name: Build Mac
+        run: |
+          pnpm run build
+          pnpm run plugin:cua:build:mac:${{ matrix.arch }}
+          pnpm run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
+          pnpm run plugin:bundle -- --name feishu --platform darwin --arch ${{ matrix.arch }}
+          pnpm exec electron-builder --mac --${{ matrix.arch }} --publish=never
+        env:
+          CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.ARGOS_CSC_KEY_PASS }}
+          ARGOS_APPLE_NOTARY_USERNAME: ${{ secrets.ARGOS_APPLE_NOTARY_USERNAME }}
+          ARGOS_APPLE_NOTARY_TEAM_ID: ${{ secrets.ARGOS_APPLE_NOTARY_TEAM_ID }}
+          ARGOS_APPLE_NOTARY_PASSWORD: ${{ secrets.ARGOS_APPLE_NOTARY_PASSWORD }}
+          build_for_release: '2'
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
+          VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
+          NODE_OPTIONS: '--max-old-space-size=4096'
+          VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+
+      - name: Verify bundled plugins
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          APP_DIR="dist/mac/Argos.app"
+          if [ "$TARGET_ARCH" = "arm64" ]; then
+            APP_DIR="dist/mac-arm64/Argos.app"
+          fi
+          PLUGIN_ROOT="${APP_DIR}/Contents/Resources/app.asar.unpacked/plugins"
+          pnpm run plugin:verify -- --name cua --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
+          pnpm run plugin:verify -- --name feishu --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: argos-${{ matrix.platform }}
+          path: |
+            dist/*
+            !dist/mac/*
+            !dist/mac-arm64/*

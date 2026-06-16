@@ -1,0 +1,4 @@
+interface:
+  display_name: "Argos SDD"
+  short_description: "Prepare SDD specs before Argos changes"
+  default_prompt: "Use $argos-sdd before implementing Argos changes to classify the goal and prepare spec, plan, and tasks artifacts."
