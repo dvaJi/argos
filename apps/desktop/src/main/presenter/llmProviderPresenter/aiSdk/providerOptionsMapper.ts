@@ -102,7 +102,7 @@ function supportsSiliconcloudThinking(modelId: string): boolean {
     "zai-org/glm-4.5v",
     "deepseek-ai/deepseek-v3.1",
     "pro/deepseek-ai/deepseek-v3.1",
-  ].some((supportedModel) => normalizedModelId.includes(supportedModel));
+  ].some(normalizedModelId.includes);
 }
 
 function supportsGrokReasoningEffort(modelId: string): boolean {

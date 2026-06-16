@@ -13,7 +13,7 @@ const buildItems = (count: number): SuggestionListItem[] =>
 
 describe("SuggestionList", () => {
   beforeEach(() => {
-    HTMLElement.prototype.scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = vi.fn<(...args: any[]) => any>();
   });
 
   it("renders command suggestions with a command icon instead of a slash tag", () => {
@@ -26,7 +26,7 @@ describe("SuggestionList", () => {
       },
     ];
 
-    const { container } = render(<SuggestionList items={items} query="" command={vi.fn()} />);
+    const { container } = render(<SuggestionList items={items} query="" command={vi.fn<(...args: any[]) => any>()} />);
 
     expect(container.querySelector('[data-icon="lucide:command"]')).toBeTruthy();
     expect(container).toHaveTextContent("/plan");
@@ -36,7 +36,7 @@ describe("SuggestionList", () => {
   it("renders the full upstream item list without truncating", () => {
     const items = buildItems(25);
 
-    const { container } = render(<SuggestionList items={items} query="" command={vi.fn()} />);
+    const { container } = render(<SuggestionList items={items} query="" command={vi.fn<(...args: any[]) => any>()} />);
 
     expect(container.querySelectorAll("button")).toHaveLength(25);
     expect(container).toHaveTextContent("tool-25");
@@ -44,7 +44,7 @@ describe("SuggestionList", () => {
 
   it("keeps keyboard navigation aligned with the full item list", () => {
     const items = buildItems(25);
-    const command = vi.fn();
+    const command = vi.fn<(...args: any[]) => any>();
 
     const { container } = render(<SuggestionList items={items} query="" command={command} />);
 

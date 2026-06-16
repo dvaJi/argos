@@ -27,7 +27,7 @@ function resolvePreferredRecorderMimeType(recorderWindow: RecorderWindow | undef
   }
 
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
-  return candidates.find((candidate) => MediaRecorderCtor.isTypeSupported(candidate)) ?? null;
+  return candidates.find(MediaRecorderCtor.isTypeSupported) ?? null;
 }
 
 export function useAudioRecorder(options: {

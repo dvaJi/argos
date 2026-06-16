@@ -3,7 +3,7 @@ import { AcpSessionManager } from "../../../src/main/presenter/llmProviderPresen
 
 vi.mock("electron", () => ({
   app: {
-    on: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -14,7 +14,7 @@ describe("AcpSessionManager createSession error handling", () => {
     const manager = Object.create(AcpSessionManager.prototype) as any;
     manager.processManager = {
       getConnection: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn new process")),
     };
 
@@ -26,7 +26,7 @@ describe("AcpSessionManager createSession error handling", () => {
   it("rethrows non-shutdown getConnection errors", async () => {
     const manager = Object.create(AcpSessionManager.prototype) as any;
     manager.processManager = {
-      getConnection: vi.fn().mockRejectedValue(new Error("boom")),
+      getConnection: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
     };
 
     await expect(manager.createSession("conv1", agent as any, {} as any, "/tmp")).rejects.toThrow("boom");
@@ -36,11 +36,11 @@ describe("AcpSessionManager createSession error handling", () => {
     const manager = Object.create(AcpSessionManager.prototype) as any;
     const initError = new Error("init failed");
     manager.processManager = {
-      getConnection: vi.fn().mockResolvedValue({}),
-      bindProcess: vi.fn(),
-      unbindProcess: vi.fn().mockRejectedValue(new Error("cleanup failed")),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+      bindProcess: vi.fn<(...args: any[]) => any>(),
+      unbindProcess: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("cleanup failed")),
     };
-    manager.initializeSession = vi.fn().mockRejectedValue(initError);
+    manager.initializeSession = vi.fn<(...args: any[]) => any>().mockRejectedValue(initError);
 
     await expect(manager.createSession("conv1", agent as any, {} as any, "/tmp")).rejects.toThrow("init failed");
     expect(manager.processManager.unbindProcess).toHaveBeenCalledWith("agent1", "conv1");
@@ -48,32 +48,32 @@ describe("AcpSessionManager createSession error handling", () => {
 
   it("continues newSession fallback when persisted-session detach throws", async () => {
     const manager = Object.create(AcpSessionManager.prototype) as any;
-    const throwingDetach = vi.fn(() => {
+    const throwingDetach = vi.fn<(...args: any[]) => any>(() => {
       throw new Error("detach failed");
     });
-    const normalDetach = vi.fn();
+    const normalDetach = vi.fn<(...args: any[]) => any>();
     manager.processManager = {
-      registerSessionWorkdir: vi.fn(),
-      registerSessionListener: vi.fn().mockReturnValue(throwingDetach),
-      registerPermissionResolver: vi.fn().mockReturnValue(normalDetach),
-      clearSession: vi.fn(),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(throwingDetach),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(normalDetach),
+      clearSession: vi.fn<(...args: any[]) => any>(),
     };
     manager.sessionPersistence = {
-      getSessionData: vi.fn().mockResolvedValue({ sessionId: "persisted-session" }),
+      getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-session" }),
     };
-    manager.resolveMcpServersForAgent = vi.fn().mockResolvedValue([]);
+    manager.resolveMcpServersForAgent = vi.fn<(...args: any[]) => any>().mockResolvedValue([]);
 
     const handle = {
       supportsLoadSession: true,
       connection: {
-        loadSession: vi.fn().mockRejectedValue(new Error("load failed")),
-        newSession: vi.fn().mockResolvedValue({ sessionId: "new-session" }),
+        loadSession: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("load failed")),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-session" }),
       },
     };
 
     const session = await manager.initializeSession(handle, "conv1", agent as any, "/tmp", {
-      onSessionUpdate: vi.fn(),
-      onPermission: vi.fn(),
+      onSessionUpdate: vi.fn<(...args: any[]) => any>(),
+      onPermission: vi.fn<(...args: any[]) => any>(),
     });
 
     expect(throwingDetach).toHaveBeenCalledTimes(1);

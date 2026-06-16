@@ -51,18 +51,18 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const resolveConversationWorkdir = vi.fn().mockResolvedValue(resolvedWorkdir);
-    const createSubagentSession = vi.fn().mockResolvedValue(childSession);
+    const resolveConversationWorkdir = vi.fn<(...args: any[]) => any>().mockResolvedValue(resolvedWorkdir);
+    const createSubagentSession = vi.fn<(...args: any[]) => any>().mockResolvedValue(childSession);
 
     const tool = new SubagentOrchestratorTool({
       resolveConversationWorkdir,
       resolveConversationSessionInfo: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementation(async (conversationId: string) =>
           conversationId === parentSession.sessionId ? parentSession : childSession,
         ),
       createSubagentSession,
-      sendConversationMessage: vi.fn(async (conversationId: string, content: string) => {
+      sendConversationMessage: vi.fn<(...args: any[]) => any>(async (conversationId: string, content: string) => {
         handoffMessage = content;
         setTimeout(() => {
           listener?.({
@@ -80,28 +80,28 @@ describe("SubagentOrchestratorTool", () => {
           });
         }, 0);
       }),
-      cancelConversation: vi.fn().mockResolvedValue(undefined),
-      subscribeArgosSessionUpdates: vi.fn((callback) => {
+      cancelConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>((callback) => {
         listener = callback;
         return () => {
           listener = null;
         };
       }),
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     const result = await tool.call(
@@ -148,31 +148,31 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const createSubagentSession = vi.fn().mockResolvedValue(childSession);
-    const cancelConversation = vi.fn().mockResolvedValue(undefined);
+    const createSubagentSession = vi.fn<(...args: any[]) => any>().mockResolvedValue(childSession);
+    const cancelConversation = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     const tool = new SubagentOrchestratorTool({
-      resolveConversationWorkdir: vi.fn().mockResolvedValue(parentSession.projectDir),
-      resolveConversationSessionInfo: vi.fn().mockResolvedValue(parentSession),
+      resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession.projectDir),
+      resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession),
       createSubagentSession,
-      sendConversationMessage: vi.fn().mockResolvedValue(undefined),
+      sendConversationMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       cancelConversation,
-      subscribeArgosSessionUpdates: vi.fn(() => () => undefined),
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>(() => () => undefined),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     const started = await tool.call(
@@ -221,14 +221,14 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const mergeSubagentTape = vi.fn().mockResolvedValue(undefined);
-    const discardSubagentTape = vi.fn().mockResolvedValue(undefined);
+    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const discardSubagentTape = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     const tool = new SubagentOrchestratorTool({
-      resolveConversationWorkdir: vi.fn().mockResolvedValue(parentSession.projectDir),
-      resolveConversationSessionInfo: vi.fn().mockResolvedValue(parentSession),
-      createSubagentSession: vi.fn().mockResolvedValue(childSession),
-      sendConversationMessage: vi.fn(async (conversationId: string) => {
+      resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession.projectDir),
+      resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession),
+      createSubagentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(childSession),
+      sendConversationMessage: vi.fn<(...args: any[]) => any>(async (conversationId: string) => {
         setTimeout(() => {
           listener?.({
             sessionId: conversationId,
@@ -245,8 +245,8 @@ describe("SubagentOrchestratorTool", () => {
           });
         }, 0);
       }),
-      cancelConversation: vi.fn().mockResolvedValue(undefined),
-      subscribeArgosSessionUpdates: vi.fn((callback) => {
+      cancelConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>((callback) => {
         listener = callback;
         return () => {
           listener = null;
@@ -254,21 +254,21 @@ describe("SubagentOrchestratorTool", () => {
       }),
       mergeSubagentTape,
       discardSubagentTape,
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     await tool.call(
@@ -300,8 +300,8 @@ describe("SubagentOrchestratorTool", () => {
   });
 
   it("leaves subagent tape unfinalized when merge fails so it can be retried", async () => {
-    const mergeSubagentTape = vi.fn().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
     const tool = new SubagentOrchestratorTool({
       mergeSubagentTape,
     } as any);
@@ -368,14 +368,14 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const mergeSubagentTape = vi.fn().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const tool = new SubagentOrchestratorTool({
-      resolveConversationWorkdir: vi.fn().mockResolvedValue(parentSession.projectDir),
-      resolveConversationSessionInfo: vi.fn().mockResolvedValue(parentSession),
-      createSubagentSession: vi.fn().mockResolvedValue(childSession),
-      sendConversationMessage: vi.fn(async (conversationId: string) => {
+      resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession.projectDir),
+      resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession),
+      createSubagentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(childSession),
+      sendConversationMessage: vi.fn<(...args: any[]) => any>(async (conversationId: string) => {
         setTimeout(() => {
           listener?.({
             sessionId: conversationId,
@@ -392,29 +392,29 @@ describe("SubagentOrchestratorTool", () => {
           });
         }, 0);
       }),
-      cancelConversation: vi.fn().mockResolvedValue(undefined),
-      subscribeArgosSessionUpdates: vi.fn((callback) => {
+      cancelConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>((callback) => {
         listener = callback;
         return () => {
           listener = null;
         };
       }),
       mergeSubagentTape,
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     const started = await tool.call(
@@ -458,14 +458,14 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const mergeSubagentTape = vi.fn().mockRejectedValue(new Error("merge still failed"));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("merge still failed"));
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const tool = new SubagentOrchestratorTool({
-      resolveConversationWorkdir: vi.fn().mockResolvedValue(parentSession.projectDir),
-      resolveConversationSessionInfo: vi.fn().mockResolvedValue(parentSession),
-      createSubagentSession: vi.fn().mockResolvedValue(childSession),
-      sendConversationMessage: vi.fn(async (conversationId: string) => {
+      resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession.projectDir),
+      resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession),
+      createSubagentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(childSession),
+      sendConversationMessage: vi.fn<(...args: any[]) => any>(async (conversationId: string) => {
         setTimeout(() => {
           listener?.({
             sessionId: conversationId,
@@ -482,29 +482,29 @@ describe("SubagentOrchestratorTool", () => {
           });
         }, 0);
       }),
-      cancelConversation: vi.fn().mockResolvedValue(undefined),
-      subscribeArgosSessionUpdates: vi.fn((callback) => {
+      cancelConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>((callback) => {
         listener = callback;
         return () => {
           listener = null;
         };
       }),
       mergeSubagentTape,
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     const started = await tool.call(
@@ -522,10 +522,10 @@ describe("SubagentOrchestratorTool", () => {
       },
       parentSession.sessionId,
     );
-    const runId = JSON.parse((started.rawData?.toolResult as any).subagentProgress).runId;
+    const runId = JSON.parse(((started.rawData?.toolResult as any) ?? {}).subagentProgress).runId;
 
     const waited = await tool.call({ operation: "wait", runId, timeoutMs: 1000 }, parentSession.sessionId);
-    const waitedProgress = JSON.parse((waited.rawData?.toolResult as any).subagentFinal);
+    const waitedProgress = JSON.parse((waited.rawData?.toolResult ?? "").subagentFinal as any);
 
     expect(mergeSubagentTape).toHaveBeenCalledTimes(2);
     expect(waited.rawData?.isError).toBe(true);
@@ -559,37 +559,37 @@ describe("SubagentOrchestratorTool", () => {
     });
     const abortController = new AbortController();
     let resolveCreate: ((value: ConversationSessionInfo) => void) | null = null;
-    const createSubagentSession = vi.fn(
+    const createSubagentSession = vi.fn<(...args: any[]) => any>(
       () =>
         new Promise<ConversationSessionInfo>((resolve) => {
           resolveCreate = resolve;
         }),
     );
-    const sendConversationMessage = vi.fn().mockResolvedValue(undefined);
-    const cancelConversation = vi.fn().mockResolvedValue(undefined);
+    const sendConversationMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const cancelConversation = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     const tool = new SubagentOrchestratorTool({
-      resolveConversationWorkdir: vi.fn().mockResolvedValue(parentSession.projectDir),
-      resolveConversationSessionInfo: vi.fn().mockResolvedValue(parentSession),
+      resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession.projectDir),
+      resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(parentSession),
       createSubagentSession,
       sendConversationMessage,
       cancelConversation,
-      subscribeArgosSessionUpdates: vi.fn(() => () => undefined),
-      getSkillPresenter: vi.fn(() => ({})),
-      getYoBrowserToolHandler: vi.fn(() => ({})),
-      getFilePresenter: vi.fn(() => ({
-        getMimeType: vi.fn(),
-        prepareFileCompletely: vi.fn(),
+      subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>(() => () => undefined),
+      getSkillPresenter: vi.fn<(...args: any[]) => any>(() => ({})),
+      getYoBrowserToolHandler: vi.fn<(...args: any[]) => any>(() => ({})),
+      getFilePresenter: vi.fn<(...args: any[]) => any>(() => ({
+        getMimeType: vi.fn<(...args: any[]) => any>(),
+        prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
       })),
-      getLlmProviderPresenter: vi.fn(() => ({
-        executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-        generateCompletionStandalone: vi.fn(),
-        generateImageStandalone: vi.fn(),
+      getLlmProviderPresenter: vi.fn<(...args: any[]) => any>(() => ({
+        executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+        generateImageStandalone: vi.fn<(...args: any[]) => any>(),
       })),
-      createSettingsWindow: vi.fn(),
-      sendToWindow: vi.fn(),
-      getApprovedFilePaths: vi.fn(() => []),
-      consumeSettingsApproval: vi.fn(() => false),
+      createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      getApprovedFilePaths: vi.fn<(...args: any[]) => any>(() => []),
+      consumeSettingsApproval: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
 
     const runPromise = tool.call(

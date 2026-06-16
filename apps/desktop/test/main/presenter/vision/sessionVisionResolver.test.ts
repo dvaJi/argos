@@ -4,9 +4,9 @@ import { resolveSessionVisionTarget } from "../../../../src/main/presenter/visio
 describe("resolveSessionVisionTarget", () => {
   it("uses the current session model when it is explicitly known and supports vision", async () => {
     const configPresenter = {
-      isKnownModel: vi.fn().mockReturnValue(true),
-      getModelConfig: vi.fn().mockReturnValue({ vision: true }),
-      resolveArgosAgentConfig: vi.fn().mockResolvedValue({}),
+      isKnownModel: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ vision: true }),
+      resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
     };
 
     const result = await resolveSessionVisionTarget({
@@ -26,9 +26,9 @@ describe("resolveSessionVisionTarget", () => {
 
   it("ignores synthesized session-model vision support when the model is unknown", async () => {
     const configPresenter = {
-      isKnownModel: vi.fn().mockReturnValue(false),
-      getModelConfig: vi.fn().mockReturnValue({ vision: true }),
-      resolveArgosAgentConfig: vi.fn().mockResolvedValue({
+      isKnownModel: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ vision: true }),
+      resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         visionModel: { providerId: "google", modelId: "gemini-2.5-flash" },
       }),
     };

@@ -26,32 +26,32 @@ const {
   workspaceInvalidationState,
   setSessionProjectDirMock,
 } = vi.hoisted(() => ({
-  showArtifactMock: vi.fn(),
-  toggleSectionMock: vi.fn(),
-  clearArtifactMock: vi.fn(),
-  clearFileMock: vi.fn(),
-  clearDiffMock: vi.fn(),
-  selectFileMock: vi.fn(),
-  selectDiffMock: vi.fn(),
-  registerWorkspaceMock: vi.fn().mockResolvedValue(undefined),
-  watchWorkspaceMock: vi.fn().mockResolvedValue(undefined),
-  unwatchWorkspaceMock: vi.fn().mockResolvedValue(undefined),
-  readDirectoryMock: vi.fn().mockResolvedValue([]),
-  getGitStatusMock: vi.fn().mockResolvedValue({
+  showArtifactMock: vi.fn<(...args: any[]) => any>(),
+  toggleSectionMock: vi.fn<(...args: any[]) => any>(),
+  clearArtifactMock: vi.fn<(...args: any[]) => any>(),
+  clearFileMock: vi.fn<(...args: any[]) => any>(),
+  clearDiffMock: vi.fn<(...args: any[]) => any>(),
+  selectFileMock: vi.fn<(...args: any[]) => any>(),
+  selectDiffMock: vi.fn<(...args: any[]) => any>(),
+  registerWorkspaceMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  watchWorkspaceMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  unwatchWorkspaceMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  readDirectoryMock: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  getGitStatusMock: vi.fn<(...args: any[]) => any>().mockResolvedValue({
     workspacePath: "C:/repo",
     branch: "main",
     ahead: 0,
     behind: 0,
     changes: [],
   }),
-  readFilePreviewMock: vi.fn().mockResolvedValue(null),
-  getGitDiffMock: vi.fn().mockResolvedValue(null),
-  expandDirectoryMock: vi.fn().mockResolvedValue([]),
-  openFileMock: vi.fn().mockResolvedValue(undefined),
-  revealFileInFolderMock: vi.fn().mockResolvedValue(undefined),
-  selectDirectoryMock: vi.fn().mockResolvedValue(null),
-  isDirectoryMock: vi.fn().mockResolvedValue(true),
-  getPathForFileMock: vi.fn(() => ""),
+  readFilePreviewMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  getGitDiffMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  expandDirectoryMock: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  openFileMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  revealFileInFolderMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  selectDirectoryMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  isDirectoryMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  getPathForFileMock: vi.fn<(...args: any[]) => any>(() => ""),
   workspaceInvalidationState: {
     listeners: [] as Array<
       (payload: {
@@ -78,7 +78,7 @@ const {
       };
     },
   },
-  setSessionProjectDirMock: vi.fn().mockResolvedValue(undefined),
+  setSessionProjectDirMock: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 }));
 
 const sessionState = {
@@ -169,7 +169,7 @@ vi.mock("@/stores/ui/sidepanel", () => ({
 }));
 
 vi.mock("@api/WorkspaceClient", () => ({
-  createWorkspaceClient: vi.fn(() => ({
+  createWorkspaceClient: vi.fn<(...args: any[]) => any>(() => ({
     registerWorkspace: registerWorkspaceMock,
     watchWorkspace: watchWorkspaceMock,
     unwatchWorkspace: unwatchWorkspaceMock,
@@ -180,20 +180,20 @@ vi.mock("@api/WorkspaceClient", () => ({
     expandDirectory: expandDirectoryMock,
     openFile: openFileMock,
     revealFileInFolder: revealFileInFolderMock,
-    onInvalidated: vi.fn((listener: (payload: unknown) => void) =>
+    onInvalidated: vi.fn<(...args: any[]) => any>((listener: (payload: unknown) => void) =>
       workspaceInvalidationState.subscribe(listener as any),
     ),
   })),
 }));
 
 vi.mock("@api/ProjectClient", () => ({
-  createProjectClient: vi.fn(() => ({
+  createProjectClient: vi.fn<(...args: any[]) => any>(() => ({
     selectDirectory: selectDirectoryMock,
   })),
 }));
 
 vi.mock("@api/FileClient", () => ({
-  createFileClient: vi.fn(() => ({
+  createFileClient: vi.fn<(...args: any[]) => any>(() => ({
     isDirectory: isDirectoryMock,
     getPathForFile: getPathForFileMock,
   })),
@@ -285,8 +285,8 @@ describe("WorkspacePanel", () => {
   });
 
   it("extracts artifact items from assistant blocks and opens preview context", async () => {
-    const onInsertFileReference = vi.fn();
-    const onUpdateWorkspacePath = vi.fn();
+    const onInsertFileReference = vi.fn<(...args: any[]) => any>();
+    const onUpdateWorkspacePath = vi.fn<(...args: any[]) => any>();
     const { container, unmount } = render(
       <WorkspacePanel
         sessionId="s1"
@@ -349,7 +349,7 @@ describe("WorkspacePanel", () => {
       },
     ]);
 
-    const onInsertFileReference = vi.fn();
+    const onInsertFileReference = vi.fn<(...args: any[]) => any>();
     const { unmount } = render(
       <WorkspacePanel sessionId="s1" workspacePath="C:/repo" onInsertFileReference={onInsertFileReference} />,
     );
@@ -438,7 +438,7 @@ describe("WorkspacePanel", () => {
   });
 
   it("sets the workspace when a directory is dropped", async () => {
-    const onUpdateWorkspacePath = vi.fn();
+    const onUpdateWorkspacePath = vi.fn<(...args: any[]) => any>();
     const { container, unmount } = render(
       <WorkspacePanel sessionId="s1" workspacePath={null} onUpdateWorkspacePath={onUpdateWorkspacePath} />,
     );
@@ -469,7 +469,7 @@ describe("WorkspacePanel", () => {
   it("ignores dropped files that are not directories", async () => {
     isDirectoryMock.mockResolvedValue(false);
 
-    const onUpdateWorkspacePath = vi.fn();
+    const onUpdateWorkspacePath = vi.fn<(...args: any[]) => any>();
     const { container, unmount } = render(
       <WorkspacePanel sessionId="s1" workspacePath={null} onUpdateWorkspacePath={onUpdateWorkspacePath} />,
     );

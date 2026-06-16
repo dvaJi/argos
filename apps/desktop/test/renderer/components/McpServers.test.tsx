@@ -45,12 +45,12 @@ const setup = async (
   const config = {
     mcpServers: {
       ...defaultMcpServers,
-      ...(options.config?.mcpServers ?? {}),
+      ...options.config?.mcpServers,
     },
   };
   const mcpStore = {
     mcpInstallCache: "",
-    clearMcpInstallCache: vi.fn(),
+    clearMcpInstallCache: vi.fn<(...args: any[]) => any>(),
     serverList,
     config,
     configLoading: false,
@@ -61,13 +61,13 @@ const setup = async (
     resources: [],
     visibleResources: [],
     serverLoadingStates: {},
-    addServer: vi.fn().mockResolvedValue({ success: true }),
-    updateServer: vi.fn().mockResolvedValue(true),
-    removeServer: vi.fn().mockResolvedValue(true),
-    toggleServer: vi.fn().mockResolvedValue(true),
-    loadTools: vi.fn().mockResolvedValue(undefined),
-    loadPrompts: vi.fn().mockResolvedValue(undefined),
-    loadResources: vi.fn().mockResolvedValue(undefined),
+    addServer: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true }),
+    updateServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+    removeServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+    toggleServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+    loadTools: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    loadPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    loadResources: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   vi.doMock("@/stores/mcp", () => ({
@@ -87,7 +87,7 @@ const setup = async (
 describe("McpServers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal("open", vi.fn());
+    vi.stubGlobal("open", vi.fn<(...args: any[]) => any>());
   });
 
   it("renders the add button in the footer action area", async () => {

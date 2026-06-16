@@ -59,10 +59,7 @@ export function isGeminiGenerateContentTtsModel(modelId: string): boolean {
  */
 export function isChatAudioTtsModel(modelId: string): boolean {
   const id = normalizeTtsModelId(modelId);
-  return (
-    CHAT_AUDIO_TTS_MODEL_PREFIXES.some((prefix) => id.startsWith(prefix)) &&
-    CHAT_AUDIO_TTS_MODEL_MARKER_PATTERN.test(id)
-  );
+  return CHAT_AUDIO_TTS_MODEL_PREFIXES.some(id.startsWith) && CHAT_AUDIO_TTS_MODEL_MARKER_PATTERN.test(id);
 }
 
 /**

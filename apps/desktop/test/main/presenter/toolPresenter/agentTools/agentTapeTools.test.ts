@@ -15,8 +15,8 @@ vi.mock("electron", () => ({
 
 const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
   ({
-    resolveConversationWorkdir: vi.fn().mockResolvedValue("/workspace"),
-    resolveConversationSessionInfo: vi.fn().mockResolvedValue({
+    resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue("/workspace"),
+    resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       sessionId: "conv-1",
       agentId: "argos",
       agentName: "Argos",
@@ -34,7 +34,7 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
       subagentMeta: null,
       availableSubagentSlots: [],
     }),
-    getTapeInfo: vi.fn().mockResolvedValue({
+    getTapeInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       sessionId: "conv-1",
       entries: 3,
       anchors: 1,
@@ -44,7 +44,7 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
       lastTokenUsage: 42,
       migrationState: "ready",
     }),
-    searchTape: vi.fn().mockResolvedValue([
+    searchTape: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         entryId: 2,
         kind: "message",
@@ -54,7 +54,7 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
         createdAt: 10,
       },
     ]),
-    listTapeAnchors: vi.fn().mockResolvedValue([
+    listTapeAnchors: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         sessionId: "conv-1",
         entryId: 1,
@@ -65,7 +65,7 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
         createdAt: 1,
       },
     ]),
-    handoffTape: vi.fn().mockResolvedValue({
+    handoffTape: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       sessionId: "conv-1",
       entryId: 4,
       kind: "anchor",
@@ -74,16 +74,16 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
       meta: { handoff: true },
       createdAt: 20,
     }),
-    createSubagentSession: vi.fn(),
-    sendConversationMessage: vi.fn(),
-    cancelConversation: vi.fn(),
-    subscribeArgosSessionUpdates: vi.fn(() => () => undefined),
+    createSubagentSession: vi.fn<(...args: any[]) => any>(),
+    sendConversationMessage: vi.fn<(...args: any[]) => any>(),
+    cancelConversation: vi.fn<(...args: any[]) => any>(),
+    subscribeArgosSessionUpdates: vi.fn<(...args: any[]) => any>(() => () => undefined),
     getSkillPresenter: () =>
       ({
-        getActiveSkills: vi.fn().mockResolvedValue([]),
-        getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-        listSkillScripts: vi.fn().mockResolvedValue([]),
-        getSkillExtension: vi.fn().mockResolvedValue({
+        getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 1,
           env: {},
           runtimePolicy: { python: "auto", node: "auto" },
@@ -91,23 +91,23 @@ const buildRuntimePort = (overrides: Record<string, unknown> = {}) =>
         }),
       }) as any,
     getYoBrowserToolHandler: () => ({
-      getToolDefinitions: vi.fn().mockReturnValue([]),
-      callTool: vi.fn(),
+      getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     }),
     getFilePresenter: () => ({
-      getMimeType: vi.fn(),
-      prepareFileCompletely: vi.fn(),
+      getMimeType: vi.fn<(...args: any[]) => any>(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     }),
     getLlmProviderPresenter: () => ({
-      executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-      generateCompletionStandalone: vi.fn(),
-      generateImageStandalone: vi.fn(),
+      executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+      generateImageStandalone: vi.fn<(...args: any[]) => any>(),
     }),
-    cacheImage: vi.fn(),
-    createSettingsWindow: vi.fn(),
-    sendToWindow: vi.fn(),
-    getApprovedFilePaths: vi.fn().mockReturnValue([]),
-    consumeSettingsApproval: vi.fn().mockReturnValue(false),
+    cacheImage: vi.fn<(...args: any[]) => any>(),
+    createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+    sendToWindow: vi.fn<(...args: any[]) => any>(),
+    getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     ...overrides,
   }) as any;
 
@@ -115,10 +115,10 @@ const buildManager = (runtimePort = buildRuntimePort()) =>
   new AgentToolManager({
     agentWorkspacePath: "/workspace",
     configPresenter: {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("/skills"),
-      resolveArgosAgentConfig: vi.fn().mockResolvedValue({}),
-      getModelConfig: vi.fn().mockReturnValue({}),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/skills"),
+      resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({}),
     } as any,
     runtimePort,
   });
@@ -154,7 +154,7 @@ describe("Agent tape tools", () => {
   it("does not expose tape tools outside Argos sessions", async () => {
     const manager = buildManager(
       buildRuntimePort({
-        resolveConversationSessionInfo: vi.fn().mockResolvedValue({
+        resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           agentType: "acp",
         }),
       }),

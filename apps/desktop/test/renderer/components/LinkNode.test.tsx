@@ -7,8 +7,8 @@ describe("LinkNode", () => {
     vi.resetModules();
 
     const sidepanelStore = {
-      openBrowser: vi.fn(),
-      selectFile: vi.fn(),
+      openBrowser: vi.fn<(...args: any[]) => any>(),
+      selectFile: vi.fn<(...args: any[]) => any>(),
     };
 
     const sessionStore = {
@@ -65,7 +65,7 @@ describe("LinkNode", () => {
   beforeEach(() => {
     window.api = {
       ...window.api,
-      openExternal: vi.fn().mockResolvedValue(undefined),
+      openExternal: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
   });
 
@@ -95,8 +95,8 @@ describe("LinkNode", () => {
     vi.resetModules();
 
     const sidepanelStore = {
-      openBrowser: vi.fn(),
-      selectFile: vi.fn(),
+      openBrowser: vi.fn<(...args: any[]) => any>(),
+      selectFile: vi.fn<(...args: any[]) => any>(),
     };
 
     vi.doMock("@/stores/ui/sidepanel", () => ({
@@ -197,7 +197,7 @@ describe("LinkNode", () => {
   });
 
   it("keeps same-document fragments inside the current document", async () => {
-    const scrollIntoView = vi.fn();
+    const scrollIntoView = vi.fn<(...args: any[]) => any>();
     const target = document.createElement("div");
     target.id = "details";
     Object.defineProperty(target, "scrollIntoView", {

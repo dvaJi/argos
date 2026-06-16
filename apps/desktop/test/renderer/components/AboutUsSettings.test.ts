@@ -4,15 +4,15 @@ import { DEV_EVENTS } from "@/events";
 
 const presenterMocks = {
   devicePresenter: {
-    getAppVersion: vi.fn().mockResolvedValue("1.0.0-beta.3"),
+    getAppVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("1.0.0-beta.3"),
   },
   configPresenter: {
-    getUpdateChannel: vi.fn().mockResolvedValue("stable"),
-    setUpdateChannel: vi.fn().mockResolvedValue(undefined),
+    getUpdateChannel: vi.fn<(...args: any[]) => any>().mockResolvedValue("stable"),
+    setUpdateChannel: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   },
   windowPresenter: {
-    sendToAllWindows: vi.fn().mockResolvedValue(undefined),
-    focusMainWindow: vi.fn().mockResolvedValue(true),
+    sendToAllWindows: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   },
 };
 
@@ -31,11 +31,11 @@ const upgradeStoreMock = {
   isReadyToInstall: false,
   isMockUpdate: false,
   updateState: "error",
-  refreshStatus: vi.fn().mockResolvedValue("error"),
-  checkUpdate: vi.fn().mockResolvedValue("error"),
-  mockDownloadedUpdate: vi.fn().mockResolvedValue("downloaded"),
-  clearMockUpdate: vi.fn().mockResolvedValue("not-available"),
-  handleUpdate: vi.fn().mockResolvedValue(undefined),
+  refreshStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue("error"),
+  checkUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue("error"),
+  mockDownloadedUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue("downloaded"),
+  clearMockUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue("not-available"),
+  handleUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 };
 
 vi.mock("@api/legacy/presenters", () => ({
@@ -60,7 +60,7 @@ vi.mock("@/stores/theme", () => ({
 
 vi.mock("@/components/use-toast", () => ({
   useToast: () => ({
-    toast: vi.fn(),
+    toast: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 

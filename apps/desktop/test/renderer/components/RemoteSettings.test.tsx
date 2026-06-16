@@ -75,46 +75,46 @@ const setup = async (options: SetupOptions = {}) => {
   };
 
   const remoteControlPresenter = {
-    listRemoteChannels: vi.fn(async () => [
+    listRemoteChannels: vi.fn<(...args: any[]) => any>(async () => [
       { id: "telegram", implemented: true },
       { id: "feishu", implemented: true },
       { id: "qqbot", implemented: true },
       { id: "discord", implemented: true },
       { id: "weixin-ilink", implemented: true },
     ]),
-    getChannelSettings: vi.fn(async () => remoteState.settings),
-    saveChannelSettings: vi.fn(async (_channel: string, nextSettings: any) => {
+    getChannelSettings: vi.fn<(...args: any[]) => any>(async () => remoteState.settings),
+    saveChannelSettings: vi.fn<(...args: any[]) => any>(async (_channel: string, nextSettings: any) => {
       remoteState.settings = { ...nextSettings };
       remoteState.status.enabled = nextSettings.remoteEnabled;
       return { ...remoteState.settings };
     }),
-    getChannelStatus: vi.fn(async () => ({
+    getChannelStatus: vi.fn<(...args: any[]) => any>(async () => ({
       channel: "telegram" as const,
       ...remoteState.status,
     })),
-    getChannelPairingSnapshot: vi.fn(async () => ({
+    getChannelPairingSnapshot: vi.fn<(...args: any[]) => any>(async () => ({
       ...remoteState.pairingSnapshot,
       allowedUserIds: [...remoteState.pairingSnapshot.allowedUserIds],
     })),
-    createChannelPairCode: vi.fn(async () => {
+    createChannelPairCode: vi.fn<(...args: any[]) => any>(async () => {
       remoteState.pairingSnapshot.pairCode = "654321";
       remoteState.pairingSnapshot.pairCodeExpiresAt = 123456789;
       return { code: "654321", expiresAt: 123456789 };
     }),
-    clearChannelPairCode: vi.fn(async () => {
+    clearChannelPairCode: vi.fn<(...args: any[]) => any>(async () => {
       remoteState.pairingSnapshot.pairCode = null;
       remoteState.pairingSnapshot.pairCodeExpiresAt = null;
     }),
-    getChannelBindings: vi.fn(async () =>
+    getChannelBindings: vi.fn<(...args: any[]) => any>(async () =>
       remoteState.bindings.map((binding) => ({
         channel: "telegram" as const,
         ...binding,
       })),
     ),
-    removeChannelBinding: vi.fn(async (_channel: string, endpointKey: string) => {
+    removeChannelBinding: vi.fn<(...args: any[]) => any>(async (_channel: string, endpointKey: string) => {
       remoteState.bindings = remoteState.bindings.filter((binding) => binding.endpointKey !== endpointKey);
     }),
-    removeChannelPrincipal: vi.fn(async (_channel: string, principalId: string) => {
+    removeChannelPrincipal: vi.fn<(...args: any[]) => any>(async (_channel: string, principalId: string) => {
       remoteState.pairingSnapshot.allowedUserIds = remoteState.pairingSnapshot.allowedUserIds.filter(
         (value) => String(value) !== principalId,
       );
@@ -122,7 +122,7 @@ const setup = async (options: SetupOptions = {}) => {
   };
 
   const agentSessionPresenter = {
-    getAgents: vi.fn(async () => [
+    getAgents: vi.fn<(...args: any[]) => any>(async () => [
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "argos-alt", name: "Argos Alt", type: "argos", enabled: false },
       { id: "acp-agent", name: "ACP Agent", type: "acp", enabled: true },
@@ -130,10 +130,10 @@ const setup = async (options: SetupOptions = {}) => {
     ]),
   };
   const projectPresenter = {
-    selectDirectory: vi.fn(async () => null),
+    selectDirectory: vi.fn<(...args: any[]) => any>(async () => null),
   };
 
-  const toast = vi.fn();
+  const toast = vi.fn<(...args: any[]) => any>();
 
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: (name: string) => {

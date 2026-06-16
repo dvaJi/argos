@@ -25,7 +25,7 @@ function createFields(
     thinkingBudgetError: { value: "" },
     budgetRange: { value: options.budgetRange ?? null },
     formatSize: (size: number) => String(size),
-    emit: vi.fn(),
+    emit: vi.fn<(...args: any[]) => any>(),
   });
 }
 

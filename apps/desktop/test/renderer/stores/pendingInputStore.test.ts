@@ -29,20 +29,20 @@ const createPendingItem = (id: string, sessionId: string, mode: "queue" | "steer
 const setupStore = async () => {
   vi.resetModules();
 
-  const unsubscribePendingInputsChanged = vi.fn();
+  const unsubscribePendingInputsChanged = vi.fn<(...args: any[]) => any>();
   const sessionClient = {
-    listPendingInputs: vi.fn(),
-    queuePendingInput: vi.fn(),
-    updateQueuedInput: vi.fn(),
-    moveQueuedInput: vi.fn(),
-    convertPendingInputToSteer: vi.fn(),
-    deletePendingInput: vi.fn(),
-    resumePendingQueue: vi.fn(),
-    onPendingInputsChanged: vi.fn(() => unsubscribePendingInputsChanged),
+    listPendingInputs: vi.fn<(...args: any[]) => any>(),
+    queuePendingInput: vi.fn<(...args: any[]) => any>(),
+    updateQueuedInput: vi.fn<(...args: any[]) => any>(),
+    moveQueuedInput: vi.fn<(...args: any[]) => any>(),
+    convertPendingInputToSteer: vi.fn<(...args: any[]) => any>(),
+    deletePendingInput: vi.fn<(...args: any[]) => any>(),
+    resumePendingQueue: vi.fn<(...args: any[]) => any>(),
+    onPendingInputsChanged: vi.fn<(...args: any[]) => any>(() => unsubscribePendingInputsChanged),
   };
 
   vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
   const { usePendingInputStore } = await import("@/stores/ui/pendingInput");

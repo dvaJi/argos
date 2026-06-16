@@ -19,7 +19,7 @@ const clientInstances: Array<{
 
 vi.mock("@/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
   DiscordRuntime: class MockDiscordRuntime {
-    readonly start = vi.fn(async () => {
+    readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
         state: "running",
         lastError: null,
@@ -30,8 +30,8 @@ vi.mock("@/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
         },
       });
     });
-    readonly stop = vi.fn().mockResolvedValue(undefined);
-    readonly getStatusSnapshot = vi.fn().mockReturnValue({
+    readonly stop = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly getStatusSnapshot = vi.fn<(...args: any[]) => any>().mockReturnValue({
       state: "stopped",
       lastError: null,
       botUser: null,
@@ -45,8 +45,8 @@ vi.mock("@/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
 
 vi.mock("@/presenter/remoteControlPresenter/discord/discordClient", () => ({
   DiscordClient: class MockDiscordClient {
-    readonly sendMessage = vi.fn().mockResolvedValue("msg-1");
-    readonly sendTypingIndicator = vi.fn().mockResolvedValue(undefined);
+    readonly sendMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue("msg-1");
+    readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     constructor(_credentials: unknown) {
       clientInstances.push(this);

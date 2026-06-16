@@ -8,7 +8,7 @@ import { AcpProcessManager, parseLoadSessionCapability } from "@/presenter/llmPr
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    sendToRenderer: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -17,20 +17,20 @@ vi.mock("@/eventbus", () => ({
 
 vi.mock("electron", () => ({
   app: {
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/tmp"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp"),
   },
 }));
 
 vi.mock("cross-spawn", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/lib/agentRuntime/shellEnvHelper", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/agentRuntime/shellEnvHelper")>();
   return {
     ...actual,
-    getShellEnvironment: vi.fn().mockResolvedValue({ PATH: "/shell/bin" }),
+    getShellEnvironment: vi.fn<(...args: any[]) => any>().mockResolvedValue({ PATH: "/shell/bin" }),
   };
 });
 
@@ -44,7 +44,7 @@ class MockSpawnedChild extends EventEmitter {
   killed = false;
   exitCode = null;
   signalCode = null;
-  kill = vi.fn(() => true);
+  kill = vi.fn<(...args: any[]) => any>(() => true);
 }
 
 describe("parseLoadSessionCapability", () => {
@@ -65,7 +65,7 @@ describe("AcpProcessManager config cache fallback", () => {
   const createManager = () =>
     new AcpProcessManager({
       providerId: "acp",
-      resolveLaunchSpec: vi.fn().mockResolvedValue({
+      resolveLaunchSpec: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         agentId: "agent-1",
         source: "manual",
         distributionType: "manual",
@@ -136,7 +136,7 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("falls back when a warmup workdir no longer exists", () => {
     const manager = createManager();
-    const existsSpy = vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    const existsSpy = vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(false);
 
     try {
       const resolved = (manager as any).resolveWorkdir("/tmp/missing-workspace");
@@ -149,7 +149,7 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("buffers early session updates until a listener is registered", () => {
     const manager = createManager();
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     const notification = {
       sessionId: "session-early",
       update: {
@@ -170,7 +170,7 @@ describe("AcpProcessManager config cache fallback", () => {
 
     try {
       const manager = createManager();
-      const handler = vi.fn();
+      const handler = vi.fn<(...args: any[]) => any>();
       const notification = {
         sessionId: "session-expired",
         update: {
@@ -223,14 +223,14 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("uses the session workdir as terminal cwd when the agent does not provide one", async () => {
     const manager = createManager();
-    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-1" });
+    const createTerminal = vi.fn<(...args: any[]) => any>().mockResolvedValue({ terminalId: "term-1" });
 
     (manager as any).terminalManager = {
       createTerminal,
-      terminalOutput: vi.fn(),
-      waitForTerminalExit: vi.fn(),
-      killTerminal: vi.fn(),
-      releaseTerminal: vi.fn(),
+      terminalOutput: vi.fn<(...args: any[]) => any>(),
+      waitForTerminalExit: vi.fn<(...args: any[]) => any>(),
+      killTerminal: vi.fn<(...args: any[]) => any>(),
+      releaseTerminal: vi.fn<(...args: any[]) => any>(),
     };
     (manager as any).sessionWorkdirs.set("session-1", "/tmp/workspace");
 
@@ -252,14 +252,14 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("keeps an explicit terminal cwd when it is inside the session workdir", async () => {
     const manager = createManager();
-    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-1" });
+    const createTerminal = vi.fn<(...args: any[]) => any>().mockResolvedValue({ terminalId: "term-1" });
 
     (manager as any).terminalManager = {
       createTerminal,
-      terminalOutput: vi.fn(),
-      waitForTerminalExit: vi.fn(),
-      killTerminal: vi.fn(),
-      releaseTerminal: vi.fn(),
+      terminalOutput: vi.fn<(...args: any[]) => any>(),
+      waitForTerminalExit: vi.fn<(...args: any[]) => any>(),
+      killTerminal: vi.fn<(...args: any[]) => any>(),
+      releaseTerminal: vi.fn<(...args: any[]) => any>(),
     };
     (manager as any).sessionWorkdirs.set("session-1", "/tmp/workspace");
 
@@ -282,14 +282,14 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("resolves a relative terminal cwd inside the session workdir", async () => {
     const manager = createManager();
-    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-1" });
+    const createTerminal = vi.fn<(...args: any[]) => any>().mockResolvedValue({ terminalId: "term-1" });
 
     (manager as any).terminalManager = {
       createTerminal,
-      terminalOutput: vi.fn(),
-      waitForTerminalExit: vi.fn(),
-      killTerminal: vi.fn(),
-      releaseTerminal: vi.fn(),
+      terminalOutput: vi.fn<(...args: any[]) => any>(),
+      waitForTerminalExit: vi.fn<(...args: any[]) => any>(),
+      killTerminal: vi.fn<(...args: any[]) => any>(),
+      releaseTerminal: vi.fn<(...args: any[]) => any>(),
     };
     (manager as any).sessionWorkdirs.set("session-1", "/tmp/workspace");
 
@@ -312,14 +312,14 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("falls back to the session workdir when explicit terminal cwd escapes it", async () => {
     const manager = createManager();
-    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-1" });
+    const createTerminal = vi.fn<(...args: any[]) => any>().mockResolvedValue({ terminalId: "term-1" });
 
     (manager as any).terminalManager = {
       createTerminal,
-      terminalOutput: vi.fn(),
-      waitForTerminalExit: vi.fn(),
-      killTerminal: vi.fn(),
-      releaseTerminal: vi.fn(),
+      terminalOutput: vi.fn<(...args: any[]) => any>(),
+      waitForTerminalExit: vi.fn<(...args: any[]) => any>(),
+      killTerminal: vi.fn<(...args: any[]) => any>(),
+      releaseTerminal: vi.fn<(...args: any[]) => any>(),
     };
     (manager as any).sessionWorkdirs.set("session-1", "/tmp/workspace");
 
@@ -342,14 +342,14 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("falls back to the ACP temp workdir instead of process.cwd() when session workdir is missing", async () => {
     const manager = createManager();
-    const createTerminal = vi.fn().mockResolvedValue({ terminalId: "term-1" });
+    const createTerminal = vi.fn<(...args: any[]) => any>().mockResolvedValue({ terminalId: "term-1" });
 
     (manager as any).terminalManager = {
       createTerminal,
-      terminalOutput: vi.fn(),
-      waitForTerminalExit: vi.fn(),
-      killTerminal: vi.fn(),
-      releaseTerminal: vi.fn(),
+      terminalOutput: vi.fn<(...args: any[]) => any>(),
+      waitForTerminalExit: vi.fn<(...args: any[]) => any>(),
+      killTerminal: vi.fn<(...args: any[]) => any>(),
+      releaseTerminal: vi.fn<(...args: any[]) => any>(),
     };
 
     const client = (manager as any).createClientProxy();
@@ -386,8 +386,8 @@ describe("AcpProcessManager config cache fallback", () => {
       };
       const manager = new AcpProcessManager({
         providerId: "acp",
-        resolveLaunchSpec: vi.fn().mockResolvedValue(launchSpec),
-        getAgentState: vi.fn().mockResolvedValue({
+        resolveLaunchSpec: vi.fn<(...args: any[]) => any>().mockResolvedValue(launchSpec),
+        getAgentState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           envOverride: {
             PATH: "/user/bin",
             USER_ONLY: "1",
@@ -396,28 +396,28 @@ describe("AcpProcessManager config cache fallback", () => {
       });
 
       const child = new MockSpawnedChild();
-      vi.mocked(spawn).mockReturnValue(child as never);
-      vi.spyOn(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+      vi.spyOn<(...args: any[]) => any>(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
         PATH: "/shell/bin",
       });
-      vi.spyOn((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
-      vi.spyOn((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
-      vi.spyOn((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation(
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation(
         (value: string) => value,
       );
-      vi.spyOn((manager as any).runtimeHelper, "prependBundledRuntimeToEnv").mockImplementation(
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "prependBundledRuntimeToEnv").mockImplementation(
         (env: Record<string, string>) => ({
           ...env,
           PATH: ["/runtime/bin", env.PATH].filter(Boolean).join(":"),
         }),
       );
-      vi.spyOn((manager as any).runtimeHelper, "getDefaultPaths").mockReturnValue(["/default/bin"]);
-      vi.spyOn((manager as any).runtimeHelper, "getUvRuntimePath").mockReturnValue("/runtime/bin");
-      vi.spyOn((manager as any).runtimeHelper, "getNodeRuntimePath").mockReturnValue(null);
-      vi.spyOn((manager as any).runtimeHelper, "isInstalledInSystemDirectory").mockReturnValue(false);
-      vi.spyOn((manager as any).runtimeHelper, "getUserNpmPrefix").mockReturnValue(null);
-      existsSpy = vi.spyOn(fs, "existsSync").mockReturnValue(true);
-      statSpy = vi.spyOn(fs, "statSync").mockReturnValue({
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getDefaultPaths").mockReturnValue(["/default/bin"]);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getUvRuntimePath").mockReturnValue("/runtime/bin");
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getNodeRuntimePath").mockReturnValue(null);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "isInstalledInSystemDirectory").mockReturnValue(false);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getUserNpmPrefix").mockReturnValue(null);
+      existsSpy = vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(true);
+      statSpy = vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockReturnValue({
         isDirectory: () => true,
       } as fs.Stats);
 
@@ -432,7 +432,7 @@ describe("AcpProcessManager config cache fallback", () => {
       );
 
       expect(spawn).toHaveBeenCalled();
-      const spawnArgs = vi.mocked(spawn).mock.calls[0];
+      const spawnArgs = vi.mocked<(...args: any[]) => any>(spawn).mock.calls[0];
       const spawnOptions = spawnArgs?.[2];
       const env = spawnOptions?.env as Record<string, string>;
       const pathValue = normalizePathValue((env.PATH || env.Path || "").replace(/;/g, ":"));
@@ -467,14 +467,14 @@ describe("AcpProcessManager config cache fallback", () => {
       args: [],
       env: {},
     };
-    const existsSpy = vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    vi.mocked(spawn).mockClear();
-    vi.spyOn(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
+    const existsSpy = vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(false);
+    vi.mocked<(...args: any[]) => any>(spawn).mockClear();
+    vi.spyOn<(...args: any[]) => any>(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
       PATH: "/shell/bin",
     });
-    vi.spyOn((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
-    vi.spyOn((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
-    vi.spyOn((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation((value: string) => value);
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation((value: string) => value);
 
     try {
       await expect(
@@ -499,15 +499,15 @@ describe("AcpProcessManager config cache fallback", () => {
     const badHashDir = `${npxRoot}/286fc3b7ffd18687`;
     const otherHashDir = `${npxRoot}/keep-me`;
     const existingDirs = new Set([path.normalize(badHashDir), path.normalize(otherHashDir)]);
-    const renameImpl = vi.fn((from: string, to: string) => {
+    const renameImpl = vi.fn<(...args: any[]) => any>((from: string, to: string) => {
       existingDirs.delete(path.normalize(from));
       existingDirs.add(path.normalize(to));
     });
-    const renameSpy = vi.spyOn(fs, "renameSync").mockImplementation(renameImpl);
+    const renameSpy = vi.spyOn<(...args: any[]) => any>(fs, "renameSync").mockImplementation(renameImpl);
     const existsSpy = vi
       .spyOn(fs, "existsSync")
       .mockImplementation((input) => existingDirs.has(path.normalize(String(input))));
-    const statSpy = vi.spyOn(fs, "statSync").mockImplementation((input) => {
+    const statSpy = vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((input) => {
       if (existingDirs.has(path.normalize(String(input)))) {
         return { isDirectory: () => true } as fs.Stats;
       }
@@ -569,8 +569,8 @@ describe("AcpProcessManager config cache fallback", () => {
     const tmpRoot = "/tmp/argos-acp-npx-skip";
     const npxRoot = `${tmpRoot}/_npx`;
     const badHashDir = `${npxRoot}/286fc3b7ffd18687`;
-    const renameImpl = vi.fn();
-    const renameSpy = vi.spyOn(fs, "renameSync").mockImplementation(renameImpl);
+    const renameImpl = vi.fn<(...args: any[]) => any>();
+    const renameSpy = vi.spyOn<(...args: any[]) => any>(fs, "renameSync").mockImplementation(renameImpl);
 
     try {
       const cases = [
@@ -600,7 +600,7 @@ describe("AcpProcessManager config cache fallback", () => {
         };
         const error = new Error("initialization failed");
         (error as Error & { acpStderr?: string }).acpStderr = testCase.stderr;
-        const spawnOnceSpy = vi.spyOn(manager as any, "spawnProcessOnce").mockRejectedValue(error);
+        const spawnOnceSpy = vi.spyOn<(...args: any[]) => any>(manager as any, "spawnProcessOnce").mockRejectedValue(error);
 
         await expect(
           (manager as any).spawnProcess(
@@ -625,7 +625,7 @@ describe("AcpProcessManager config cache fallback", () => {
 
   it("does not create a temporary session during warmup", async () => {
     const manager = createManager();
-    const newSession = vi.fn().mockResolvedValue({ sessionId: "temp-session" });
+    const newSession = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "temp-session" });
     const handle = {
       providerId: "acp",
       agentId: "agent-1",
@@ -635,7 +635,7 @@ describe("AcpProcessManager config cache fallback", () => {
       restarts: 1,
       lastHeartbeatAt: Date.now(),
       metadata: {},
-      child: { killed: false, exitCode: null, signalCode: null, on: vi.fn() },
+      child: { killed: false, exitCode: null, signalCode: null, on: vi.fn<(...args: any[]) => any>() },
       connection: { newSession },
       readyAt: Date.now(),
       state: "warmup",
@@ -651,7 +651,7 @@ describe("AcpProcessManager config cache fallback", () => {
       }),
     };
 
-    vi.spyOn(manager as any, "spawnProcess").mockResolvedValue(handle);
+    vi.spyOn<(...args: any[]) => any>(manager as any, "spawnProcess").mockResolvedValue(handle);
 
     await manager.warmupProcess(
       {

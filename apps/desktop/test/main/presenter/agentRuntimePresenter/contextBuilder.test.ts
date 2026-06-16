@@ -7,7 +7,7 @@ import {
 } from "@/presenter/agentRuntimePresenter/contextBuilder";
 
 vi.mock("tokenx", () => ({
-  approximateTokenSize: vi.fn((text: string) => {
+  approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => {
     // Simple mock: 1 token per 4 characters
     return Math.ceil(text.length / 4);
   }),
@@ -15,7 +15,7 @@ vi.mock("tokenx", () => ({
 
 function createMockMessageStore(messages: any[] = []) {
   return {
-    getMessages: vi.fn().mockReturnValue(messages),
+    getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue(messages),
   } as any;
 }
 

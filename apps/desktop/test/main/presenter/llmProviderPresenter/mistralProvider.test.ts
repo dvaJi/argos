@@ -4,39 +4,39 @@ import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresent
 import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
 
 const { mockGetProvider, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
-  mockGetProvider: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn(),
+  mockGetProvider: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkGenerateText: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@shared/logger", () => ({
   default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    verbose: vi.fn(),
-    silly: vi.fn(),
-    log: vi.fn(),
+    info: vi.fn<(...args: any[]) => any>(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
+    debug: vi.fn<(...args: any[]) => any>(),
+    verbose: vi.fn<(...args: any[]) => any>(),
+    silly: vi.fn<(...args: any[]) => any>(),
+    log: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    sendToMain: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -58,22 +58,22 @@ vi.mock("@/events", () => ({
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/configPresenter/providerDbLoader", () => ({
   providerDbLoader: {
-    getDb: vi.fn().mockReturnValue(null),
+    getDb: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
     getProvider: mockGetProvider,
-    getModel: vi.fn(),
+    getModel: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
-  runAiSdkCoreStream: vi.fn(),
-  runAiSdkDimensions: vi.fn(),
-  runAiSdkEmbeddings: vi.fn(),
+  runAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+  runAiSdkDimensions: vi.fn<(...args: any[]) => any>(),
+  runAiSdkEmbeddings: vi.fn<(...args: any[]) => any>(),
   runAiSdkGenerateText: mockRunAiSdkGenerateText,
 }));
 
@@ -89,14 +89,14 @@ const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getModelConfig: vi.fn().mockReturnValue(undefined),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
-    setModelConfig: vi.fn(),
-    hasUserModelConfig: vi.fn().mockReturnValue(false),
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    setModelConfig: vi.fn<(...args: any[]) => any>(),
+    hasUserModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
   }) as unknown as IConfigPresenter;
 
 describe("AiSdkProvider mistral", () => {

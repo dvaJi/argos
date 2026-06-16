@@ -5,10 +5,10 @@ const setupStore = async (options?: { hasActiveSession?: boolean; historyHits?: 
   vi.resetModules();
 
   const sessionClient = {
-    searchHistory: vi.fn().mockResolvedValue(options?.historyHits ?? []),
+    searchHistory: vi.fn<(...args: any[]) => any>().mockResolvedValue(options?.historyHits ?? []),
   };
   const settingsClient = {
-    openSettings: vi.fn().mockResolvedValue({ windowId: 9 }),
+    openSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue({ windowId: 9 }),
   };
   const providerStore = {
     sortedProviders: [
@@ -29,23 +29,23 @@ const setupStore = async (options?: { hasActiveSession?: boolean; historyHits?: 
   const sessionStore = {
     sessions: [],
     hasActiveSession: options?.hasActiveSession ?? false,
-    startNewConversation: vi.fn().mockResolvedValue(undefined),
-    closeSession: vi.fn().mockResolvedValue(undefined),
-    selectSession: vi.fn(),
+    startNewConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    closeSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSession: vi.fn<(...args: any[]) => any>(),
   };
   const agentStore = {
     enabledAgents: [],
-    setSelectedAgent: vi.fn(),
+    setSelectedAgent: vi.fn<(...args: any[]) => any>(),
   };
   const pageRouterStore = {
-    goToNewThread: vi.fn(),
+    goToNewThread: vi.fn<(...args: any[]) => any>(),
   };
 
   vi.doMock("@api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("@api/SettingsClient", () => ({
-    createSettingsClient: vi.fn(() => settingsClient),
+    createSettingsClient: vi.fn<(...args: any[]) => any>(() => settingsClient),
   }));
 
   vi.doMock("@/stores/ui/session", () => ({

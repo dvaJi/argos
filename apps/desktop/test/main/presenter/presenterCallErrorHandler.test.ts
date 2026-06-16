@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NOTIFICATION_EVENTS } from "../../../src/main/events";
 
 const mocks = vi.hoisted(() => ({
-  sendToWebContents: vi.fn(),
+  sendToWebContents: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/eventbus", () => ({

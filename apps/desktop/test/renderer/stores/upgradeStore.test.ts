@@ -8,21 +8,21 @@ const upgradeEventHandlers = vi.hoisted(() => ({
 }));
 
 const upgradePresenterMock = vi.hoisted(() => ({
-  checkUpdate: vi.fn().mockResolvedValue(undefined),
-  getUpdateStatus: vi.fn(),
-  goDownloadUpgrade: vi.fn().mockResolvedValue(undefined),
-  mockDownloadedUpdate: vi.fn().mockResolvedValue(true),
-  clearMockUpdate: vi.fn().mockResolvedValue(true),
-  startDownloadUpdate: vi.fn().mockResolvedValue(true),
-  restartToUpdate: vi.fn().mockResolvedValue(true),
+  checkUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  getUpdateStatus: vi.fn<(...args: any[]) => any>(),
+  goDownloadUpgrade: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  mockDownloadedUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  clearMockUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  startDownloadUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  restartToUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
 }));
 
 const devicePresenterMock = vi.hoisted(() => ({
-  getDeviceInfo: vi.fn().mockResolvedValue({ platform: "darwin" }),
+  getDeviceInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({ platform: "darwin" }),
 }));
 
 vi.mock("@api/UpgradeClient", () => ({
-  createUpgradeClient: vi.fn(() => ({
+  createUpgradeClient: vi.fn<(...args: any[]) => any>(() => ({
     checkUpdate: upgradePresenterMock.checkUpdate,
     getUpdateStatus: upgradePresenterMock.getUpdateStatus,
     goDownloadUpgrade: upgradePresenterMock.goDownloadUpgrade,
@@ -30,19 +30,19 @@ vi.mock("@api/UpgradeClient", () => ({
     clearMockUpdate: upgradePresenterMock.clearMockUpdate,
     startDownloadUpdate: upgradePresenterMock.startDownloadUpdate,
     restartToUpdate: upgradePresenterMock.restartToUpdate,
-    onStatusChanged: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
+    onStatusChanged: vi.fn<(...args: any[]) => any>((listener: (payload: Record<string, unknown>) => void) => {
       upgradeEventHandlers.statusChanged = listener;
       return () => undefined;
     }),
-    onProgress: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
+    onProgress: vi.fn<(...args: any[]) => any>((listener: (payload: Record<string, unknown>) => void) => {
       upgradeEventHandlers.progress = listener;
       return () => undefined;
     }),
-    onWillRestart: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
+    onWillRestart: vi.fn<(...args: any[]) => any>((listener: (payload: Record<string, unknown>) => void) => {
       upgradeEventHandlers.willRestart = listener;
       return () => undefined;
     }),
-    onError: vi.fn((listener: (payload: Record<string, unknown>) => void) => {
+    onError: vi.fn<(...args: any[]) => any>((listener: (payload: Record<string, unknown>) => void) => {
       upgradeEventHandlers.error = listener;
       return () => undefined;
     }),
@@ -50,7 +50,7 @@ vi.mock("@api/UpgradeClient", () => ({
 }));
 
 vi.mock("@api/DeviceClient", () => ({
-  createDeviceClient: vi.fn(() => ({
+  createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
     getDeviceInfo: devicePresenterMock.getDeviceInfo,
   })),
 }));
@@ -286,7 +286,7 @@ describe("useUpgradeStore", () => {
   it("returns the current state when syncing presenter status fails", async () => {
     const store = useUpgradeStore();
     const statusHandler = upgradeEventHandlers.statusChanged;
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
 
     statusHandler?.({
       status: "downloaded",

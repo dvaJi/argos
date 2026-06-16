@@ -4,11 +4,11 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { BuiltinKnowledgeServer } from "../../../../src/main/presenter/mcpPresenter/inMemoryServers/builtinKnowledgeServer";
 
 const serverInstances = vi.hoisted(() => [] as Array<{ handlers: Map<unknown, Function> }>);
-const mockGetKnowledgeConfigs = vi.hoisted(() => vi.fn());
-const mockSimilarityQuery = vi.hoisted(() => vi.fn());
+const mockGetKnowledgeConfigs = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
+const mockSimilarityQuery = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
 vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
-  Server: vi.fn(),
+  Server: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/presenter", () => ({
@@ -45,8 +45,8 @@ describe("BuiltinKnowledgeServer", () => {
     ).mockImplementation(() => {
       const instance = {
         handlers: new Map<unknown, Function>(),
-        connect: vi.fn(),
-        setRequestHandler: vi.fn((schema: unknown, handler: Function) => {
+        connect: vi.fn<(...args: any[]) => any>(),
+        setRequestHandler: vi.fn<(...args: any[]) => any>((schema: unknown, handler: Function) => {
           instance.handlers.set(schema, handler);
         }),
       };

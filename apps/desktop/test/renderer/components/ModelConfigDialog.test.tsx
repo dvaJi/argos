@@ -22,7 +22,7 @@ const setup = async (options: SetupOptions) => {
   vi.resetModules();
 
   const modelConfigStore = {
-    getModelConfig: vi.fn().mockResolvedValue({
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       maxTokens: 4096,
       contextLength: 16000,
       temperature: 0.7,
@@ -34,8 +34,8 @@ const setup = async (options: SetupOptions) => {
       verbosity: "medium",
       ...options.modelConfig,
     }),
-    setModelConfig: vi.fn().mockResolvedValue(undefined),
-    resetModelConfig: vi.fn().mockResolvedValue(undefined),
+    setModelConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    resetModelConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const modelStore = {
@@ -51,10 +51,10 @@ const setup = async (options: SetupOptions) => {
         models: options.providerModels ?? [{ id: options.modelId, name: options.modelName }],
       },
     ],
-    addCustomModel: vi.fn().mockResolvedValue(undefined),
-    removeCustomModel: vi.fn().mockResolvedValue(undefined),
-    updateCustomModel: vi.fn().mockResolvedValue(undefined),
-    updateModelStatus: vi.fn().mockResolvedValue(undefined),
+    addCustomModel: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    removeCustomModel: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateCustomModel: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateModelStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const providerStore = {
@@ -62,7 +62,7 @@ const setup = async (options: SetupOptions) => {
   };
 
   const modelClient = {
-    getCapabilities: vi.fn().mockResolvedValue({
+    getCapabilities: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       supportsReasoning: options.reasoningPortrait?.supported ?? true,
       reasoningPortrait: options.reasoningPortrait ?? null,
       thinkingBudgetRange: options.reasoningPortrait?.budget ?? null,
@@ -83,7 +83,7 @@ const setup = async (options: SetupOptions) => {
     useProviderStore: () => providerStore,
   }));
   vi.doMock("@api/ModelClient", () => ({
-    createModelClient: vi.fn(() => modelClient),
+    createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
   const ModelConfigDialog = (await import("@/components/settings/ModelConfigDialog")).default;
@@ -235,11 +235,8 @@ describe("ModelConfigDialog reasoning portraits", () => {
       },
     });
 
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleMode === 'indicator'
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleDisabled === true
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleValue === true
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleLabelKey
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleDescriptionKey
+    expect(container.textContent).toContain("settings.model.modelConfig.reasoningEffort.options.none");
+    expect(container.textContent).toContain("settings.model.modelConfig.reasoningEffort.options.xhigh");
   });
 
   it("keeps budget-backed reasoning as an explicit enable toggle", async () => {
@@ -262,11 +259,8 @@ describe("ModelConfigDialog reasoning portraits", () => {
       },
     });
 
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleMode === 'toggle'
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleDisabled === false
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleValue === false
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleLabelKey
-    // PLACEHOLDER: was (wrapper.vm as any).reasoningToggleDescriptionKey
+    expect(container.textContent).toContain("settings.model.modelConfig.reasoning");
+    expect(container.textContent).toContain("settings.model.modelConfig.thinkingBudget");
   });
 
   it("treats official anthropic effort portraits as editable toggles with conditional subsettings", async () => {

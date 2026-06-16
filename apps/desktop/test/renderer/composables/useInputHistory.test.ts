@@ -33,10 +33,10 @@ vi.mock("@/lib/searchHistory", () => ({
 const fakeEditor = () =>
   ({
     commands: {
-      setContent: vi.fn(),
+      setContent: vi.fn<(...args: any[]) => any>(),
     },
     view: {
-      updateState: vi.fn(),
+      updateState: vi.fn<(...args: any[]) => any>(),
     },
   }) as any;
 

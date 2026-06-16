@@ -3,9 +3,9 @@ import { Scheduler } from "@argos/backend-core/scheduler/scheduler";
 
 function createMockScheduler(): Scheduler {
   return {
-    sleep: vi.fn().mockResolvedValue(undefined),
-    timeout: vi.fn(async <T>({ task }: { task: Promise<T> }) => await task),
-    retry: vi.fn(async <T>({ task }: { task: () => Promise<T> }) => await task()),
+    sleep: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    timeout: vi.fn<(...args: any[]) => any>(async <T>({ task }: { task: Promise<T> }) => await task),
+    retry: vi.fn<(...args: any[]) => any>(async <T>({ task }: { task: () => Promise<T> }) => await task()),
   };
 }
 
@@ -34,7 +34,7 @@ describe("Scheduler", () => {
 
   it("retry calls task function", async () => {
     const scheduler = createMockScheduler();
-    const task = vi.fn().mockResolvedValue("result");
+    const task = vi.fn<(...args: any[]) => any>().mockResolvedValue("result");
     await scheduler.retry({
       task,
       maxAttempts: 3,

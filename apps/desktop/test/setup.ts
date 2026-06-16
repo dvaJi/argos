@@ -81,109 +81,109 @@ function installRendererTestGlobals(): void {
 
   (window as any).electron = {
     ipcRenderer: {
-      invoke: vi.fn(),
-      on: vi.fn(),
-      removeAllListeners: vi.fn(),
-      removeListener: vi.fn(),
-      send: vi.fn(),
+      invoke: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>(),
+      removeAllListeners: vi.fn<(...args: any[]) => any>(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
+      send: vi.fn<(...args: any[]) => any>(),
     },
   };
 
   (window as any).api = {
-    copyImage: vi.fn(),
-    copyText: vi.fn(),
-    formatPathForInput: vi.fn((value: string) => value),
-    getPathForFile: vi.fn(() => ""),
-    getWebContentsId: vi.fn(() => 1),
-    getWindowId: vi.fn(() => 1),
-    openExternal: vi.fn(),
-    readClipboardText: vi.fn(() => ""),
-    toRelativePath: vi.fn((filePath: string) => filePath),
+    copyImage: vi.fn<(...args: any[]) => any>(),
+    copyText: vi.fn<(...args: any[]) => any>(),
+    formatPathForInput: vi.fn<(...args: any[]) => any>((value: string) => value),
+    getPathForFile: vi.fn<(...args: any[]) => any>(() => ""),
+    getWebContentsId: vi.fn<(...args: any[]) => any>(() => 1),
+    getWindowId: vi.fn<(...args: any[]) => any>(() => 1),
+    openExternal: vi.fn<(...args: any[]) => any>(),
+    readClipboardText: vi.fn<(...args: any[]) => any>(() => ""),
+    toRelativePath: vi.fn<(...args: any[]) => any>((filePath: string) => filePath),
   };
 
   (window as any).argos = {
-    invoke: vi.fn((routeName: string, payload?: Record<string, unknown>) =>
+    invoke: vi.fn<(...args: any[]) => any>((routeName: string, payload?: Record<string, unknown>) =>
       Promise.resolve(getDefaultArgosInvokeResult(routeName, payload)),
     ),
-    on: vi.fn(() => vi.fn()),
+    on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
   };
 }
 
 // Mock Electron modules for testing
 vi.mock("electron", () => ({
-  __resetElectronMockState: vi.fn(() => {
+  __resetElectronMockState: vi.fn<(...args: any[]) => any>(() => {
     electronMockState.loginItemSettings = { openAtLogin: false };
   }),
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.2.3"),
-    getAppPath: vi.fn(() => "/mock/app"),
-    getPath: vi.fn(() => "/mock/path"),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.2.3"),
+    getAppPath: vi.fn<(...args: any[]) => any>(() => "/mock/app"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
     isPackaged: false,
-    getLoginItemSettings: vi.fn(() => ({ ...electronMockState.loginItemSettings })),
-    setLoginItemSettings: vi.fn((settings: { openAtLogin?: boolean }) => {
+    getLoginItemSettings: vi.fn<(...args: any[]) => any>(() => ({ ...electronMockState.loginItemSettings })),
+    setLoginItemSettings: vi.fn<(...args: any[]) => any>((settings: { openAtLogin?: boolean }) => {
       electronMockState.loginItemSettings = {
         ...electronMockState.loginItemSettings,
         ...settings,
       };
     }),
-    on: vi.fn(),
-    quit: vi.fn(),
-    isReady: vi.fn(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
+    quit: vi.fn<(...args: any[]) => any>(),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
   },
-  BrowserWindow: vi.fn(() => ({
-    loadURL: vi.fn(),
-    loadFile: vi.fn(),
-    on: vi.fn(),
+  BrowserWindow: vi.fn<(...args: any[]) => any>(() => ({
+    loadURL: vi.fn<(...args: any[]) => any>(),
+    loadFile: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
     webContents: {
-      send: vi.fn(),
-      on: vi.fn(),
-      setWindowOpenHandler: vi.fn(),
-      isDestroyed: vi.fn(() => false),
+      send: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>(),
+      setWindowOpenHandler: vi.fn<(...args: any[]) => any>(),
+      isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
     },
-    isDestroyed: vi.fn(() => false),
-    close: vi.fn(),
-    show: vi.fn(),
-    focus: vi.fn(),
-    hide: vi.fn(),
+    isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+    close: vi.fn<(...args: any[]) => any>(),
+    show: vi.fn<(...args: any[]) => any>(),
+    focus: vi.fn<(...args: any[]) => any>(),
+    hide: vi.fn<(...args: any[]) => any>(),
   })),
   ipcMain: {
-    on: vi.fn(),
-    handle: vi.fn(),
-    removeHandler: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    handle: vi.fn<(...args: any[]) => any>(),
+    removeHandler: vi.fn<(...args: any[]) => any>(),
   },
   ipcRenderer: {
-    invoke: vi.fn(),
-    on: vi.fn(),
-    removeAllListeners: vi.fn(),
-    send: vi.fn(),
+    invoke: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+    removeAllListeners: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   shell: {
-    openExternal: vi.fn(),
+    openExternal: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 // Mock file system operations
 vi.mock("fs", () => {
   const mockedFs = {
-    existsSync: vi.fn(),
-    statSync: vi.fn(),
-    accessSync: vi.fn(),
-    readFileSync: vi.fn(),
-    writeFileSync: vi.fn(),
-    mkdirSync: vi.fn(),
-    readdirSync: vi.fn(),
-    renameSync: vi.fn(),
+    existsSync: vi.fn<(...args: any[]) => any>(),
+    statSync: vi.fn<(...args: any[]) => any>(),
+    accessSync: vi.fn<(...args: any[]) => any>(),
+    readFileSync: vi.fn<(...args: any[]) => any>(),
+    writeFileSync: vi.fn<(...args: any[]) => any>(),
+    mkdirSync: vi.fn<(...args: any[]) => any>(),
+    readdirSync: vi.fn<(...args: any[]) => any>(),
+    renameSync: vi.fn<(...args: any[]) => any>(),
     constants: {
       X_OK: 1,
     },
     promises: {
-      access: vi.fn(),
-      readFile: vi.fn(),
-      writeFile: vi.fn(),
-      mkdir: vi.fn(),
-      readdir: vi.fn(),
-      stat: vi.fn(),
+      access: vi.fn<(...args: any[]) => any>(),
+      readFile: vi.fn<(...args: any[]) => any>(),
+      writeFile: vi.fn<(...args: any[]) => any>(),
+      mkdir: vi.fn<(...args: any[]) => any>(),
+      readdir: vi.fn<(...args: any[]) => any>(),
+      stat: vi.fn<(...args: any[]) => any>(),
     },
   };
 
@@ -199,8 +199,8 @@ vi.mock("path", async () => {
   const actual = await vi.importActual("path");
   return {
     ...actual,
-    join: vi.fn((...args) => args.join("/")),
-    resolve: vi.fn((...args) => args.join("/")),
+    join: vi.fn<(...args: any[]) => any>((...args) => args.join("/")),
+    resolve: vi.fn<(...args: any[]) => any>((...args) => args.join("/")),
   };
 });
 

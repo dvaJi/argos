@@ -1,24 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const setMcpServerEnabledMutate = vi.hoisted(() => vi.fn());
+const setMcpServerEnabledMutate = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
 const mcpClientMock = vi.hoisted(() => ({
-  getMcpServers: vi.fn().mockResolvedValue({}),
-  getMcpEnabled: vi.fn().mockResolvedValue(true),
-  getAllPrompts: vi.fn().mockResolvedValue([]),
-  startServer: vi.fn().mockResolvedValue(undefined),
-  stopServer: vi.fn().mockResolvedValue(undefined),
-  isServerRunning: vi.fn().mockResolvedValue(false),
-  getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-  getMcpClients: vi.fn().mockResolvedValue([]),
-  getAllResources: vi.fn().mockResolvedValue([]),
+  getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+  getMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  getAllPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  startServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  stopServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  isServerRunning: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
+  getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  getMcpClients: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  getAllResources: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
 const configPresenterMock = vi.hoisted(() => ({
-  getCustomPrompts: vi.fn().mockResolvedValue([]),
-  getSetting: vi.fn().mockResolvedValue([]),
-  setSetting: vi.fn().mockResolvedValue(undefined),
-  onCustomPromptsChanged: vi.fn(() => vi.fn()),
+  getCustomPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  onCustomPromptsChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
 }));
 
 const createQueryState = () => ({
@@ -27,23 +27,23 @@ const createQueryState = () => ({
   isLoading: { value: false },
   isFetching: { value: false },
   isRefreshing: { value: false },
-  refresh: vi.fn(async () => ({ status: "success", data: undefined })),
-  refetch: vi.fn(async () => ({ status: "success", data: undefined })),
+  refresh: vi.fn<(...args: any[]) => any>(async () => ({ status: "success", data: undefined })),
+  refetch: vi.fn<(...args: any[]) => any>(async () => ({ status: "success", data: undefined })),
 });
 
 vi.mock("@api/McpClient", () => ({
-  createMcpClient: vi.fn(() => mcpClientMock),
+  createMcpClient: vi.fn<(...args: any[]) => any>(() => mcpClientMock),
 }));
 
 vi.mock("../../../src/renderer/api/ConfigClient", () => ({
-  createConfigClient: vi.fn(() => configPresenterMock),
+  createConfigClient: vi.fn<(...args: any[]) => any>(() => configPresenterMock),
 }));
 
 vi.mock("@/composables/useIpcMutation", () => ({
   useIpcMutation: (options: { mutation?: (...args: any[]) => unknown }) => ({
     mutateAsync: options.mutation?.toString().includes("setMcpServerEnabled")
       ? setMcpServerEnabledMutate
-      : vi.fn().mockResolvedValue(undefined),
+      : vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   }),
 }));
 

@@ -97,7 +97,7 @@ function normalizeStringArray(values: readonly unknown[] | undefined): string[] 
     return [];
   }
 
-  return values.map((value) => normalizeText(value)).filter(Boolean);
+  return values.map(normalizeText).filter(Boolean);
 }
 
 function normalizeVideoReference(value: unknown): VideoGenerationReference | undefined {
@@ -177,8 +177,8 @@ export function isVideoGenerationModelId(modelId: string): boolean {
   }
 
   return (
-    VIDEO_GENERATION_MODEL_ID_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
-    VIDEO_GENERATION_MODEL_ID_MARKERS.some((marker) => normalized.includes(marker))
+    VIDEO_GENERATION_MODEL_ID_PREFIXES.some(normalized.startsWith) ||
+    VIDEO_GENERATION_MODEL_ID_MARKERS.some(normalized.includes)
   );
 }
 
@@ -287,7 +287,7 @@ export function normalizeVideoGenerationOptions(
   const inputReference = normalizeInputReference(value.inputReference);
   const references = Array.isArray(value.references)
     ? value.references
-        .map((item) => normalizeVideoReference(item))
+        .map(normalizeVideoReference)
         .filter((item): item is VideoGenerationReference => item !== undefined)
     : [];
 

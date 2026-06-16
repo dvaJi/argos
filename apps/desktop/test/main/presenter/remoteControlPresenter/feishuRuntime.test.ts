@@ -42,38 +42,38 @@ const createHarness = async (options?: { logger?: { error: (...params: unknown[]
   const streamHandlers: Array<(event: unknown) => Promise<void>> = [];
   let nextMessageId = 1;
   const client = {
-    probeBot: vi.fn().mockResolvedValue({
+    probeBot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       openId: "ou_bot",
       name: "Argos Bot",
     }),
-    startMessageStream: vi.fn().mockImplementation(async (params: { onMessage: (event: unknown) => Promise<void> }) => {
+    startMessageStream: vi.fn<(...args: any[]) => any>().mockImplementation(async (params: { onMessage: (event: unknown) => Promise<void> }) => {
       onMessage = params.onMessage;
       streamHandlers.push(params.onMessage);
     }),
-    stop: vi.fn(),
-    sendText: vi.fn().mockImplementation(async () => `om_bot_${nextMessageId++}`),
-    updateText: vi.fn().mockResolvedValue(undefined),
-    sendMarkdown: vi.fn().mockImplementation(async () => `om_bot_${nextMessageId++}`),
-    updateMarkdown: vi.fn().mockResolvedValue(undefined),
-    deleteMessage: vi.fn().mockResolvedValue(undefined),
-    downloadMessageResource: vi.fn().mockResolvedValue({
+    stop: vi.fn<(...args: any[]) => any>(),
+    sendText: vi.fn<(...args: any[]) => any>().mockImplementation(async () => `om_bot_${nextMessageId++}`),
+    updateText: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    sendMarkdown: vi.fn<(...args: any[]) => any>().mockImplementation(async () => `om_bot_${nextMessageId++}`),
+    updateMarkdown: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    deleteMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    downloadMessageResource: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       data: Buffer.from("file").toString("base64"),
       mediaType: "text/plain",
     }),
-    sendCard: vi.fn().mockResolvedValue(undefined),
+    sendCard: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const parser = {
-    parseEvent: vi.fn((event: { parsed?: FeishuInboundMessage | null }) => event.parsed ?? null),
+    parseEvent: vi.fn<(...args: any[]) => any>((event: { parsed?: FeishuInboundMessage | null }) => event.parsed ?? null),
   };
   const router = {
-    handleMessage: vi.fn().mockResolvedValue({
+    handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       replies: [],
     }),
   };
   const deliveryStates = new Map<string, any>();
   const bindingStore = {
-    getRemoteDeliveryState: vi.fn((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
-    rememberRemoteDeliveryState: vi.fn((endpointKey: string, state: any) => {
+    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
+    rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string, state: any) => {
       deliveryStates.set(endpointKey, {
         ...state,
         segments: state.segments.map((segment: any) => ({
@@ -82,7 +82,7 @@ const createHarness = async (options?: { logger?: { error: (...params: unknown[]
         })),
       });
     }),
-    clearRemoteDeliveryState: vi.fn((endpointKey: string) => {
+    clearRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => {
       deliveryStates.delete(endpointKey);
     }),
   };
@@ -158,7 +158,7 @@ describe("FeishuRuntime", () => {
           sessionId: "session-1",
           eventId: "msg-1",
           getSnapshot: vi
-            .fn()
+            .fn<(...args: any[]) => any>()
             .mockResolvedValueOnce({
               messageId: "msg-1",
               text: "",
@@ -303,7 +303,7 @@ describe("FeishuRuntime", () => {
           sessionId: "session-1",
           eventId: "msg-1",
           getSnapshot: vi
-            .fn()
+            .fn<(...args: any[]) => any>()
             .mockResolvedValueOnce({
               messageId: "msg-1",
               text: "Partial answer",
@@ -395,7 +395,7 @@ describe("FeishuRuntime", () => {
           sessionId: "session-1",
           eventId: "msg-1",
           getSnapshot: vi
-            .fn()
+            .fn<(...args: any[]) => any>()
             .mockResolvedValueOnce({
               messageId: "msg-1",
               text: firstText,
@@ -489,7 +489,7 @@ describe("FeishuRuntime", () => {
           sessionId: "session-1",
           eventId: "msg-1",
           getSnapshot: vi
-            .fn()
+            .fn<(...args: any[]) => any>()
             .mockResolvedValueOnce({
               messageId: "msg-1",
               text: initialText,
@@ -575,7 +575,7 @@ describe("FeishuRuntime", () => {
           sessionId: "session-1",
           eventId: "msg-1",
           getSnapshot: vi
-            .fn()
+            .fn<(...args: any[]) => any>()
             .mockResolvedValueOnce({
               messageId: "msg-1",
               text: "Let me inspect these files.",
@@ -709,7 +709,7 @@ describe("FeishuRuntime", () => {
         conversation: {
           sessionId: "session-1",
           eventId: "msg-1",
-          getSnapshot: vi.fn().mockResolvedValue({
+          getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             messageId: "msg-1",
             text: "",
             traceText: '📖 read_file: "/tmp/report.md"',
@@ -760,7 +760,7 @@ describe("FeishuRuntime", () => {
       conversation: {
         sessionId: "session-1",
         eventId: "msg-1",
-        getSnapshot: vi.fn().mockReturnValue(deferred.promise),
+        getSnapshot: vi.fn<(...args: any[]) => any>().mockReturnValue(deferred.promise),
       },
     });
 
@@ -857,7 +857,7 @@ describe("FeishuRuntime", () => {
 
   it("sends a safe generic error reply while logging detailed diagnostics", async () => {
     const logger = {
-      error: vi.fn(),
+      error: vi.fn<(...args: any[]) => any>(),
     };
     const harness = await createHarness({ logger });
     const error = new Error("database credentials: secret-token");
@@ -1094,7 +1094,7 @@ describe("FeishuRuntime", () => {
         conversation: {
           sessionId: "session-1",
           eventId: "msg-1",
-          getSnapshot: vi.fn().mockReturnValue(deferred.promise),
+          getSnapshot: vi.fn<(...args: any[]) => any>().mockReturnValue(deferred.promise),
         },
       };
     });
@@ -1164,7 +1164,7 @@ describe("FeishuRuntime", () => {
         conversation: {
           sessionId: "session-1",
           eventId: "msg-1",
-          getSnapshot: vi.fn().mockResolvedValue({
+          getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             messageId: null,
             text: "",
             completed: false,
@@ -1219,7 +1219,7 @@ describe("FeishuRuntime", () => {
         conversation: {
           sessionId: "session-1",
           eventId: "msg-1",
-          getSnapshot: vi.fn().mockReturnValue(deferred.promise),
+          getSnapshot: vi.fn<(...args: any[]) => any>().mockReturnValue(deferred.promise),
         },
       };
     });
@@ -1279,7 +1279,7 @@ describe("FeishuRuntime", () => {
       conversation: {
         sessionId: "session-1",
         eventId: "msg-1",
-        getSnapshot: vi.fn().mockResolvedValue({
+        getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           messageId: "msg-1",
           text: "Partial answer",
           statusText: "Waiting for your response...",

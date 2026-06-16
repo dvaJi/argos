@@ -3,8 +3,8 @@ import { shouldRejectAgentBinaryRead } from "../../../src/main/lib/binaryReadGua
 import { isLikelyTextFile } from "@/presenter/filePresenter/mime";
 
 vi.mock("@/presenter/filePresenter/mime", () => ({
-  detectMimeType: vi.fn(),
-  isLikelyTextFile: vi.fn(),
+  detectMimeType: vi.fn<(...args: any[]) => any>(),
+  isLikelyTextFile: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("binaryReadGuard", () => {
@@ -13,13 +13,13 @@ describe("binaryReadGuard", () => {
   });
 
   it("falls back to text detection for application/octet-stream", async () => {
-    vi.mocked(isLikelyTextFile).mockResolvedValue(true);
+    vi.mocked<(...args: any[]) => any>(isLikelyTextFile).mockResolvedValue(true);
 
     await expect(shouldRejectAgentBinaryRead("/tmp/maybe-text.bin", "application/octet-stream")).resolves.toBe(false);
   });
 
   it("still rejects octet-stream files that do not look like text", async () => {
-    vi.mocked(isLikelyTextFile).mockResolvedValue(false);
+    vi.mocked<(...args: any[]) => any>(isLikelyTextFile).mockResolvedValue(false);
 
     await expect(shouldRejectAgentBinaryRead("/tmp/blob.bin", "application/octet-stream")).resolves.toBe(true);
   });

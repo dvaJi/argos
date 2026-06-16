@@ -144,7 +144,7 @@ describe("AI SDK stream adapter", () => {
   });
 
   it("maps image file parts and caches the emitted data url", async () => {
-    const cacheImage = vi.fn().mockResolvedValue("cached://image");
+    const cacheImage = vi.fn<(...args: any[]) => any>().mockResolvedValue("cached://image");
     const events = await collectEvents(
       [
         {
@@ -180,8 +180,8 @@ describe("AI SDK stream adapter", () => {
   });
 
   it("falls back to the original image data url when image caching fails", async () => {
-    const cacheImage = vi.fn().mockRejectedValue(new Error("cache failed"));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const cacheImage = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("cache failed"));
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
     const events = await collectEvents(
       [
@@ -220,7 +220,7 @@ describe("AI SDK stream adapter", () => {
   });
 
   it("skips file parts with missing or non-image media types", async () => {
-    const cacheImage = vi.fn();
+    const cacheImage = vi.fn<(...args: any[]) => any>();
     const events = await collectEvents(
       [
         {

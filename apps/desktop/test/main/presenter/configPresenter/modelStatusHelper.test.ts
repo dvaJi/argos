@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ModelStatusHelper } from "../../../../src/main/presenter/configPresenter/modelStatusHelper";
 
 const { send } = vi.hoisted(() => ({
-  send: vi.fn(),
+  send: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/eventbus", () => ({

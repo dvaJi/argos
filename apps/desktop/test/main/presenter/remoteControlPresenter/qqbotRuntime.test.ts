@@ -11,18 +11,18 @@ import {
 } from "@/presenter/remoteControlPresenter/types";
 
 const createRuntime = () => {
-  const onFatalError = vi.fn();
+  const onFatalError = vi.fn<(...args: any[]) => any>();
   const router = {
-    handleMessage: vi.fn(),
+    handleMessage: vi.fn<(...args: any[]) => any>(),
   };
   const client = {
-    sendC2CMessage: vi.fn(),
-    sendGroupMessage: vi.fn(),
+    sendC2CMessage: vi.fn<(...args: any[]) => any>(),
+    sendGroupMessage: vi.fn<(...args: any[]) => any>(),
   };
   const bindingStore = {
-    rememberRemoteDeliveryState: vi.fn(),
-    getRemoteDeliveryState: vi.fn(),
-    clearRemoteDeliveryState: vi.fn(),
+    rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>(),
+    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>(),
+    clearRemoteDeliveryState: vi.fn<(...args: any[]) => any>(),
   };
 
   const runtime = new QQBotRuntime({
@@ -96,7 +96,7 @@ const createExecution = (
     ...snapshot,
   }));
 
-  const getSnapshot = vi.fn(async () => normalizedSnapshots[Math.min(index++, snapshots.length - 1)]);
+  const getSnapshot = vi.fn<(...args: any[]) => any>(async () => normalizedSnapshots[Math.min(index++, snapshots.length - 1)]);
 
   return {
     getSnapshot,
@@ -655,14 +655,14 @@ describe("QQBotRuntime", () => {
 
     const { runtime, router, client } = createRuntime();
     activateRuntime(runtime);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => undefined);
     client.sendC2CMessage.mockResolvedValue({ id: "internal-error-msg-1" });
 
     let snapshotCallCount = 0;
     const execution = {
       sessionId: "session-1",
       eventId: "assistant-msg-1",
-      getSnapshot: vi.fn(async () => {
+      getSnapshot: vi.fn<(...args: any[]) => any>(async () => {
         if (snapshotCallCount === 0) {
           snapshotCallCount += 1;
           return {
@@ -709,7 +709,7 @@ describe("QQBotRuntime", () => {
     const { runtime, onFatalError } = createRuntime();
     const gateway = (runtime as any).gateway;
 
-    gateway.start = vi.fn().mockImplementation(async () => {
+    gateway.start = vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
       gateway.deps.onStatusChange?.({
         state: "error",
         lastError: "fatal qqbot error",

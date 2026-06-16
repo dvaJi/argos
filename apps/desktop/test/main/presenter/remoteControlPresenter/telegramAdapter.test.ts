@@ -20,7 +20,7 @@ const clientInstances: Array<{
 
 vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
   TelegramPoller: class MockTelegramPoller {
-    readonly start = vi.fn(async () => {
+    readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
         state: "running",
         lastError: null,
@@ -30,8 +30,8 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
         },
       });
     });
-    readonly stop = vi.fn().mockResolvedValue(undefined);
-    readonly getStatusSnapshot = vi.fn().mockReturnValue({
+    readonly stop = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly getStatusSnapshot = vi.fn<(...args: any[]) => any>().mockReturnValue({
       state: "stopped",
       lastError: null,
       botUser: null,
@@ -45,9 +45,9 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
 
 vi.mock("@/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
   TelegramClient: class MockTelegramClient {
-    readonly setMyCommands = vi.fn().mockResolvedValue(undefined);
-    readonly sendMessage = vi.fn().mockResolvedValue(101);
-    readonly sendChatAction = vi.fn().mockResolvedValue(undefined);
+    readonly setMyCommands = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly sendMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue(101);
+    readonly sendChatAction = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     constructor(_botToken: string) {
       clientInstances.push(this);
@@ -161,7 +161,7 @@ describe("TelegramAdapter", () => {
   });
 
   it("forwards fatal errors from the wrapped poller", async () => {
-    const onFatalError = vi.fn().mockResolvedValue(undefined);
+    const onFatalError = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     const adapter = new TelegramAdapter(
       {
         channelId: "default",

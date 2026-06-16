@@ -114,7 +114,7 @@ const createDefaultState = (now: number): GuidedOnboardingState => ({
   completedAt: null,
   lastActiveAt: now,
   currentStepId: null,
-  steps: GUIDED_ONBOARDING_STEP_IDS.map((id) => createDefaultStepState(id)),
+  steps: GUIDED_ONBOARDING_STEP_IDS.map(createDefaultStepState),
 });
 
 const resolveStepMap = <TStepId extends string>(

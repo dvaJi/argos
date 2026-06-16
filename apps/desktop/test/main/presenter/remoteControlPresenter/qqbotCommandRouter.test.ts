@@ -17,7 +17,7 @@ const createMessage = (overrides: Partial<Parameters<QQBotCommandRouter["handleM
 });
 
 const createBindingStore = () => ({
-  getQQBotConfig: vi.fn().mockReturnValue({
+  getQQBotConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
     pairedUserIds: ["user_openid_1"],
     pairedGroupIds: ["group_openid_1"],
     bindings: {},
@@ -25,10 +25,10 @@ const createBindingStore = () => ({
 });
 
 const createRunner = (overrides: Record<string, unknown> = {}) => ({
-  getPendingInteraction: vi.fn().mockResolvedValue(null),
-  getDefaultAgentId: vi.fn().mockResolvedValue("argos"),
-  getDefaultWorkdir: vi.fn().mockResolvedValue(null),
-  isSessionModelLocked: vi.fn().mockResolvedValue(false),
+  getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  getDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+  getDefaultWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
   ...overrides,
 });
 
@@ -36,15 +36,15 @@ describe("QQBotCommandRouter", () => {
   it("returns the auth error for unauthorized groups", async () => {
     const router = new QQBotCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: false,
           message: "This QQ group is not authorized.",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {} as any,
       bindingStore: {} as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -63,20 +63,20 @@ describe("QQBotCommandRouter", () => {
 
   it("switches models directly from text args", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         modelId: "gpt-4o",
         agentId: "argos",
       }),
-      listAvailableModelProviders: vi.fn().mockResolvedValue([
+      listAvailableModelProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           providerId: "openai",
           providerName: "OpenAI",
           models: [{ modelId: "gpt-5", modelName: "GPT-5" }],
         },
       ]),
-      setSessionModel: vi.fn().mockResolvedValue({
+      setSessionModel: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         modelId: "gpt-5",
@@ -85,15 +85,15 @@ describe("QQBotCommandRouter", () => {
     });
     const router = new QQBotCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           principalId: "user_openid_1",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -118,21 +118,21 @@ describe("QQBotCommandRouter", () => {
   it("reports authorized groups in /status", async () => {
     const router = new QQBotCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           principalId: "group_openid_1",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        getStatus: vi.fn().mockResolvedValue({
+        getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           session: null,
           isGenerating: false,
           pendingInteraction: null,
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,

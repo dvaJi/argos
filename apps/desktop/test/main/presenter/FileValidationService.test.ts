@@ -16,8 +16,8 @@ import os from "os";
 
 // Mock the mime detection module
 vi.mock("../../../src/main/presenter/filePresenter/mime", () => ({
-  detectMimeType: vi.fn(),
-  getMimeTypeAdapterMap: vi.fn(),
+  detectMimeType: vi.fn<(...args: any[]) => any>(),
+  getMimeTypeAdapterMap: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("FileValidationService", () => {

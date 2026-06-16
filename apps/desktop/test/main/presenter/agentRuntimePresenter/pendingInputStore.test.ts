@@ -4,7 +4,7 @@ import { ArgosPendingInputStore } from "@/presenter/agentRuntimePresenter/pendin
 import type { ArgosPendingInputRow } from "@/presenter/sqlitePresenter/tables/argosPendingInputs";
 
 vi.mock("nanoid", () => ({
-  nanoid: vi.fn(),
+  nanoid: vi.fn<(...args: any[]) => any>(),
 }));
 
 function createQueueRow(
@@ -33,7 +33,7 @@ function createStore(initialRows: ArgosPendingInputRow[]) {
   const rows = new Map(initialRows.map((row) => [row.id, { ...row }]));
 
   const argosPendingInputsTable = {
-    insert: vi.fn((row: any) => {
+    insert: vi.fn<(...args: any[]) => any>((row: any) => {
       const now = Date.now();
       rows.set(row.id, {
         id: row.id,
@@ -48,14 +48,14 @@ function createStore(initialRows: ArgosPendingInputRow[]) {
         updated_at: row.updatedAt ?? row.createdAt ?? now,
       });
     }),
-    get: vi.fn((id: string) => rows.get(id)),
-    listBySession: vi.fn((sessionId: string) =>
+    get: vi.fn<(...args: any[]) => any>((id: string) => rows.get(id)),
+    listBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
       Array.from(rows.values()).filter((row) => row.session_id === sessionId),
     ),
-    listActiveBySession: vi.fn((sessionId: string) =>
+    listActiveBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
       Array.from(rows.values()).filter((row) => row.session_id === sessionId && row.state !== "consumed"),
     ),
-    countActiveBySession: vi.fn(
+    countActiveBySession: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         Array.from(rows.values()).filter(
           (row) =>
@@ -64,10 +64,10 @@ function createStore(initialRows: ArgosPendingInputRow[]) {
             !(row.mode === "queue" && row.state === "claimed"),
         ).length,
     ),
-    update: vi.fn(),
-    delete: vi.fn(),
-    deleteBySession: vi.fn(),
-    listClaimed: vi.fn(() => Array.from(rows.values()).filter((row) => row.state === "claimed")),
+    update: vi.fn<(...args: any[]) => any>(),
+    delete: vi.fn<(...args: any[]) => any>(),
+    deleteBySession: vi.fn<(...args: any[]) => any>(),
+    listClaimed: vi.fn<(...args: any[]) => any>(() => Array.from(rows.values()).filter((row) => row.state === "claimed")),
   };
 
   const sqlitePresenter = {
@@ -86,7 +86,7 @@ describe("ArgosPendingInputStore", () => {
   });
 
   it("assigns the next queue order after claimed queue rows for pending inserts", () => {
-    vi.mocked(nanoid).mockReturnValue("queued-next");
+    vi.mocked<(...args: any[]) => any>(nanoid).mockReturnValue("queued-next");
     const { store, argosPendingInputsTable } = createStore([createQueueRow("claimed-1", "session-1", 1, "claimed")]);
 
     const record = store.createQueueInput("session-1", "hello");
@@ -103,7 +103,7 @@ describe("ArgosPendingInputStore", () => {
   });
 
   it("assigns the next queue order after all queue rows for claimed inserts", () => {
-    vi.mocked(nanoid).mockReturnValue("claimed-next");
+    vi.mocked<(...args: any[]) => any>(nanoid).mockReturnValue("claimed-next");
     const { store, argosPendingInputsTable } = createStore([
       createQueueRow("pending-1", "session-1", 1, "pending"),
       createQueueRow("claimed-2", "session-1", 2, "claimed"),

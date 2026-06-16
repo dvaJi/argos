@@ -329,10 +329,7 @@ export function getUserShell(): { shell: string; args: string[] } {
   }
 
   const fallbackShells = getFallbackShellCandidates(platform);
-  const shell =
-    resolveShellPath(process.env.SHELL) ??
-    fallbackShells.map((candidate) => resolveShellPath(candidate)).find(Boolean) ??
-    "/bin/sh";
+  const shell = resolveShellPath(process.env.SHELL) ?? fallbackShells.map(resolveShellPath).find(Boolean) ?? "/bin/sh";
 
   return { shell, args: ["-c"] };
 }

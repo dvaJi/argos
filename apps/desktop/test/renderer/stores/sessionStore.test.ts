@@ -48,48 +48,48 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
   const sessionStatusListeners: Array<(payload: any) => void> = [];
 
   const sessionClient = {
-    list: vi.fn().mockResolvedValue({ sessions: [] }),
-    getActive: vi.fn().mockResolvedValue({ session: null }),
-    listLightweight: vi.fn().mockResolvedValue({
+    list: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessions: [] }),
+    getActive: vi.fn<(...args: any[]) => any>().mockResolvedValue({ session: null }),
+    listLightweight: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       items: [],
       hasMore: false,
       nextCursor: null,
     }),
-    getLightweightByIds: vi.fn().mockResolvedValue([]),
-    create: vi.fn().mockResolvedValue({
+    getLightweightByIds: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    create: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       session: createSession(),
     }),
     setSessionModel: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockImplementation(async (_sessionId: string, providerId: string, modelId: string) =>
         createSession({ providerId, modelId }),
       ),
-    toggleSessionPinned: vi.fn().mockResolvedValue(undefined),
-    activate: vi.fn().mockResolvedValue({ activated: true }),
-    deactivate: vi.fn().mockResolvedValue({ deactivated: true }),
-    onUpdated: vi.fn((listener: (payload: any) => void) => {
+    toggleSessionPinned: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    activate: vi.fn<(...args: any[]) => any>().mockResolvedValue({ activated: true }),
+    deactivate: vi.fn<(...args: any[]) => any>().mockResolvedValue({ deactivated: true }),
+    onUpdated: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
       sessionListeners.push(listener);
       return () => undefined;
     }),
-    onStatusChanged: vi.fn((listener: (payload: any) => void) => {
+    onStatusChanged: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
       sessionStatusListeners.push(listener);
       return () => undefined;
     }),
   };
   const chatClient = {
-    sendMessage: vi.fn().mockResolvedValue({
+    sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       accepted: true,
       requestId: null,
       messageId: null,
     }),
   };
   const tabClient = {
-    notifyRendererReady: vi.fn().mockResolvedValue(undefined),
-    notifyRendererActivated: vi.fn().mockResolvedValue(undefined),
+    notifyRendererReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    notifyRendererActivated: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const pageRouter = {
-    goToChat: vi.fn(),
-    goToNewThread: vi.fn(),
+    goToChat: vi.fn<(...args: any[]) => any>(),
+    goToNewThread: vi.fn<(...args: any[]) => any>(),
     currentRoute: "chat",
   };
   const onboardingCurrentStepId = options.onboardingCurrentStepId ?? null;
@@ -152,7 +152,7 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
     ],
   });
   const onboardingClient = {
-    getState: vi.fn().mockResolvedValue({
+    getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       version: 1,
       status: onboardingCurrentStepId ? "active" : "idle",
       startedAt: onboardingCurrentStepId ? 1 : null,
@@ -211,11 +211,11 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
       ],
     }),
     setStepStatus: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockImplementation(async ({ stepId }: { stepId: "first-chat" | "switch-model" }) =>
         resolveOnboardingStateAfterCompletion(stepId),
       ),
-    complete: vi.fn().mockResolvedValue({
+    complete: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       version: 1,
       status: "completed",
       startedAt: 1,
@@ -233,19 +233,19 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
       enabled: agent.enabled ?? true,
       ...agent,
     })),
-    setSelectedAgent: vi.fn((id: string | null) => {
+    setSelectedAgent: vi.fn<(...args: any[]) => any>((id: string | null) => {
       agentStore.selectedAgentId = id;
     }),
   };
-  const settings = { ...(options.initialSettings ?? {}) };
+  const settings = { ...options.initialSettings };
   const configClient = {
-    getSetting: vi.fn(async <T>(key: string) => {
+    getSetting: vi.fn<(...args: any[]) => any>(async <T>(key: string) => {
       if (options.failGetSetting) {
         throw new Error("failed to read setting");
       }
       return settings[key] as T | undefined;
     }),
-    setSetting: vi.fn(async <T>(key: string, value: T) => {
+    setSetting: vi.fn<(...args: any[]) => any>(async <T>(key: string, value: T) => {
       if (options.failSetSetting) {
         throw new Error("failed to write setting");
       }
@@ -254,19 +254,19 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
   };
 
   vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
   vi.doMock("../../../src/renderer/api/OnboardingClient", () => ({
-    createOnboardingClient: vi.fn(() => onboardingClient),
+    createOnboardingClient: vi.fn<(...args: any[]) => any>(() => onboardingClient),
   }));
   vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("../../../src/renderer/api/ChatClient", () => ({
-    createChatClient: vi.fn(() => chatClient),
+    createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
   }));
   vi.doMock("@api/TabClient", () => ({
-    createTabClient: vi.fn(() => tabClient),
+    createTabClient: vi.fn<(...args: any[]) => any>(() => tabClient),
   }));
 
   vi.doMock("@/stores/ui/pageRouter", () => ({
@@ -275,17 +275,17 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
   vi.doMock("@/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  const clearStreamingState = vi.fn();
-  const setCurrentSessionId = vi.fn();
+  const clearStreamingState = vi.fn<(...args: any[]) => any>();
+  const setCurrentSessionId = vi.fn<(...args: any[]) => any>();
   vi.doMock("@/stores/ui/message", () => ({
     useMessageStore: () => ({
       clearStreamingState,
-      loadMessages: vi.fn(),
+      loadMessages: vi.fn<(...args: any[]) => any>(),
       setCurrentSessionId,
     }),
   }));
   (window as any).api = {
-    getWebContentsId: vi.fn(() => 1),
+    getWebContentsId: vi.fn<(...args: any[]) => any>(() => 1),
   };
 
   const { useSessionStore } = await import("@/stores/ui/session");
@@ -732,7 +732,7 @@ describe("sessionStore onboarding progress", () => {
       }),
     );
 
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+    const dispatchSpy = vi.spyOn<(...args: any[]) => any>(window, "dispatchEvent");
     const { store } = await setupStore({
       onboardingCurrentStepId: "first-chat",
     });

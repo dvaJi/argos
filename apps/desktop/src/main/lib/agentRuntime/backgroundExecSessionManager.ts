@@ -1165,7 +1165,7 @@ class BackgroundExecUtilityProxy {
       path.resolve(path.dirname(modulePath), "../backgroundExecUtilityHost.js"),
       path.resolve(process.cwd(), "out/main/backgroundExecUtilityHost.js"),
     ];
-    return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
+    return candidates.find(fs.existsSync) ?? candidates[0];
   }
 
   private handleHostMessage(message: unknown): void {

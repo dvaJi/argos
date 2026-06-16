@@ -10,14 +10,14 @@ describe("AcpRegistryMigrationService", () => {
     ]);
 
     const configPresenter = {
-      getSetting: vi.fn((key: string) => settings.get(key)),
-      setSetting: vi.fn((key: string, value: unknown) => {
+      getSetting: vi.fn<(...args: any[]) => any>((key: string) => settings.get(key)),
+      setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
         settings.set(key, value);
       }),
     } as any;
 
     const sqlitePresenter = {
-      migrateAcpAgentReferences: vi.fn().mockResolvedValue(undefined),
+      migrateAcpAgentReferences: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     } as any;
 
     const service = new AcpRegistryMigrationService(configPresenter, sqlitePresenter);
@@ -40,12 +40,12 @@ describe("AcpRegistryMigrationService", () => {
 
   it("skips when migration version is already applied", async () => {
     const configPresenter = {
-      getSetting: vi.fn().mockReturnValue(1),
-      setSetting: vi.fn(),
+      getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(1),
+      setSetting: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const sqlitePresenter = {
-      migrateAcpAgentReferences: vi.fn(),
+      migrateAcpAgentReferences: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const service = new AcpRegistryMigrationService(configPresenter, sqlitePresenter);
@@ -57,7 +57,7 @@ describe("AcpRegistryMigrationService", () => {
 
   it("compensates install state for enabled registry agents only", async () => {
     const configPresenter = {
-      listAcpRegistryAgents: vi.fn().mockResolvedValue([
+      listAcpRegistryAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           id: "kimi",
           enabled: true,
@@ -90,7 +90,7 @@ describe("AcpRegistryMigrationService", () => {
           installState: null,
         },
       ]),
-      ensureAcpAgentInstalled: vi.fn().mockResolvedValue(undefined),
+      ensureAcpAgentInstalled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     } as any;
 
     const sqlitePresenter = {} as any;

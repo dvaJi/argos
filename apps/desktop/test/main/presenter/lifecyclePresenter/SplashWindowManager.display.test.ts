@@ -4,7 +4,7 @@ import { WINDOW_EVENTS } from "../../../../src/main/events";
 
 const createdWindows = vi.hoisted(() => [] as MockBrowserWindow[]);
 const mockIpcMain = vi.hoisted(() => ({
-  on: vi.fn(),
+  on: vi.fn<(...args: any[]) => any>(),
 }));
 const splashLoadMocks = vi.hoisted(() => ({
   loadURL: undefined as ((url: string) => Promise<void>) | undefined,
@@ -15,33 +15,33 @@ class MockBrowserWindow {
   private static nextWebContentsId = 1;
   public visible = false;
   public destroyed = false;
-  public readonly show = vi.fn(() => {
+  public readonly show = vi.fn<(...args: any[]) => any>(() => {
     this.visible = true;
   });
-  public readonly focus = vi.fn();
-  public readonly close = vi.fn(() => {
+  public readonly focus = vi.fn<(...args: any[]) => any>();
+  public readonly close = vi.fn<(...args: any[]) => any>(() => {
     this.destroyed = true;
     this.emit("closed");
   });
-  public readonly loadURL = vi.fn((url: string) => {
+  public readonly loadURL = vi.fn<(...args: any[]) => any>((url: string) => {
     return splashLoadMocks.loadURL?.(url) ?? Promise.resolve();
   });
-  public readonly loadFile = vi.fn((filePath: string) => {
+  public readonly loadFile = vi.fn<(...args: any[]) => any>((filePath: string) => {
     return splashLoadMocks.loadFile?.(filePath) ?? Promise.resolve();
   });
   public readonly webContents = {
     id: MockBrowserWindow.nextWebContentsId++,
-    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+    on: vi.fn<(...args: any[]) => any>((event: string, handler: (...args: unknown[]) => void) => {
       this.addHandler(this.webContentsHandlers, event, handler);
     }),
-    once: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+    once: vi.fn<(...args: any[]) => any>((event: string, handler: (...args: unknown[]) => void) => {
       const wrappedHandler = (...args: unknown[]) => {
         this.removeHandler(this.webContentsHandlers, event, wrappedHandler);
         handler(...args);
       };
       this.addHandler(this.webContentsHandlers, event, wrappedHandler);
     }),
-    send: vi.fn(),
+    send: vi.fn<(...args: any[]) => any>(),
   };
 
   private readonly handlers = new Map<string, Array<(...args: unknown[]) => void>>();
@@ -110,7 +110,7 @@ vi.mock("electron", () => ({
   BrowserWindow: MockBrowserWindow,
   ipcMain: mockIpcMain,
   nativeImage: {
-    createFromPath: vi.fn(() => ({})),
+    createFromPath: vi.fn<(...args: any[]) => any>(() => ({})),
   },
 }));
 
@@ -302,13 +302,13 @@ describe("SplashWindowManager display gating", () => {
 
   it("falls back to an inline splash renderer when the dev page is unavailable", async () => {
     process.env.VITE_DEV_SERVER_URL = "http://localhost:5173";
-    splashLoadMocks.loadURL = vi.fn(async (url: string) => {
+    splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async (url: string) => {
       if (url.startsWith("data:text/html")) {
         return;
       }
       throw new Error("dev renderer unavailable");
     });
-    splashLoadMocks.loadFile = vi.fn(async () => {
+    splashLoadMocks.loadFile = vi.fn<(...args: any[]) => any>(async () => {
       throw new Error("file renderer unavailable");
     });
 
@@ -329,16 +329,16 @@ describe("SplashWindowManager display gating", () => {
 
   it("stops splash renderer fallback quietly after the hidden splash is suppressed", async () => {
     process.env.VITE_DEV_SERVER_URL = "http://localhost:5173";
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    splashLoadMocks.loadURL = vi.fn(async () => {
+    const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
+    splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async () => {
       eventBus.sendToMain(WINDOW_EVENTS.WINDOW_CREATED, {
         windowId: 1,
         isMainWindow: true,
       });
       throw new Error("dev renderer unavailable");
     });
-    splashLoadMocks.loadFile = vi.fn(async () => {
+    splashLoadMocks.loadFile = vi.fn<(...args: any[]) => any>(async () => {
       throw new Error("file renderer unavailable");
     });
 

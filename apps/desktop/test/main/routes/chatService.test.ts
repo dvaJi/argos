@@ -2,39 +2,39 @@ import { ChatService } from "@/routes/chat/chatService";
 
 describe("ChatService", () => {
   const createScheduler = () => ({
-    sleep: vi.fn(),
-    timeout: vi.fn(async <T>({ task }: { task: Promise<T> }) => await task),
-    retry: vi.fn(),
+    sleep: vi.fn<(...args: any[]) => any>(),
+    timeout: vi.fn<(...args: any[]) => any>(async <T>({ task }: { task: Promise<T> }) => await task),
+    retry: vi.fn<(...args: any[]) => any>(),
   });
 
   it("sends messages through the scheduler after resolving the session owner", async () => {
     const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn().mockResolvedValue({
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         agentId: "argos",
       }),
     };
     const messageRepository = {
-      listBySession: vi.fn(),
-      get: vi.fn(),
+      listBySession: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn().mockResolvedValue({
+      sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         requestId: null,
         messageId: null,
       }),
-      steerActiveTurn: vi.fn().mockResolvedValue(undefined),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn().mockResolvedValue({
+      steerActiveTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         resumed: true,
       }),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue("argos"),
+      getAgentType: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn(),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
     };
 
     const service = new ChatService({
@@ -62,30 +62,30 @@ describe("ChatService", () => {
   it("steers the active turn without claiming the normal send lock", async () => {
     const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn().mockResolvedValue({
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         agentId: "argos",
       }),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn(),
-      steerActiveTurn: vi.fn().mockResolvedValue(undefined),
-      cancelGeneration: vi.fn(),
-      respondToolInteraction: vi.fn(),
+      sendMessage: vi.fn<(...args: any[]) => any>(),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      cancelGeneration: vi.fn<(...args: any[]) => any>(),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
 
     const service = new ChatService({
       sessionRepository: sessionRepository as any,
       messageRepository: {
-        listBySession: vi.fn(),
-        get: vi.fn(),
+        listBySession: vi.fn<(...args: any[]) => any>(),
+        get: vi.fn<(...args: any[]) => any>(),
       } as any,
       providerExecutionPort,
       providerCatalogPort: {
-        getAgentType: vi.fn(),
+        getAgentType: vi.fn<(...args: any[]) => any>(),
       } as any,
       sessionPermissionPort: {
-        clearSessionPermissions: vi.fn(),
+        clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
       },
       scheduler,
     });
@@ -106,26 +106,26 @@ describe("ChatService", () => {
   it("resolves stopStream by request id and clears permissions before cancelling", async () => {
     const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     const messageRepository = {
-      listBySession: vi.fn(),
-      get: vi.fn().mockResolvedValue({
+      listBySession: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "message-1",
         sessionId: "session-1",
       }),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn(),
-      steerActiveTurn: vi.fn(),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn(),
+      sendMessage: vi.fn<(...args: any[]) => any>(),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>(),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn(),
+      getAgentType: vi.fn<(...args: any[]) => any>(),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn(),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
     };
 
     const service = new ChatService({
@@ -148,26 +148,26 @@ describe("ChatService", () => {
   it("attempts both stopStream cleanups even if clearing permissions fails", async () => {
     const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     const messageRepository = {
-      listBySession: vi.fn(),
-      get: vi.fn().mockResolvedValue({
+      listBySession: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "message-1",
         sessionId: "session-1",
       }),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn(),
-      steerActiveTurn: vi.fn(),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn(),
+      sendMessage: vi.fn<(...args: any[]) => any>(),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>(),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn(),
+      getAgentType: vi.fn<(...args: any[]) => any>(),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockRejectedValue(new Error("permission cleanup failed")),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("permission cleanup failed")),
     };
 
     const service = new ChatService({
@@ -189,10 +189,10 @@ describe("ChatService", () => {
   it("responds to tool interactions through the provider execution port", async () => {
     const scheduler = createScheduler();
     const providerExecutionPort = {
-      sendMessage: vi.fn(),
-      steerActiveTurn: vi.fn(),
-      cancelGeneration: vi.fn(),
-      respondToolInteraction: vi.fn().mockResolvedValue({
+      sendMessage: vi.fn<(...args: any[]) => any>(),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>(),
+      cancelGeneration: vi.fn<(...args: any[]) => any>(),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         resumed: true,
         waitingForUserMessage: false,
       }),
@@ -200,18 +200,18 @@ describe("ChatService", () => {
 
     const service = new ChatService({
       sessionRepository: {
-        get: vi.fn(),
+        get: vi.fn<(...args: any[]) => any>(),
       } as any,
       messageRepository: {
-        listBySession: vi.fn(),
-        get: vi.fn(),
+        listBySession: vi.fn<(...args: any[]) => any>(),
+        get: vi.fn<(...args: any[]) => any>(),
       } as any,
       providerExecutionPort,
       providerCatalogPort: {
-        getAgentType: vi.fn(),
+        getAgentType: vi.fn<(...args: any[]) => any>(),
       } as any,
       sessionPermissionPort: {
-        clearSessionPermissions: vi.fn(),
+        clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
       },
       scheduler,
     });
@@ -249,26 +249,26 @@ describe("ChatService", () => {
     const timeoutError = new Error("timed out");
     timeoutError.name = "TimeoutError";
     const sessionRepository = {
-      get: vi.fn().mockResolvedValue({
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         agentId: "argos",
       }),
     };
     const messageRepository = {
-      listBySession: vi.fn().mockResolvedValue([]),
-      get: vi.fn(),
+      listBySession: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn().mockRejectedValue(timeoutError),
-      steerActiveTurn: vi.fn(),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn(),
+      sendMessage: vi.fn<(...args: any[]) => any>().mockRejectedValue(timeoutError),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>(),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue("argos"),
+      getAgentType: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockRejectedValue(new Error("permission cleanup failed")),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("permission cleanup failed")),
     };
 
     const service = new ChatService({
@@ -293,8 +293,8 @@ describe("ChatService", () => {
       return error;
     };
     const scheduler = {
-      sleep: vi.fn(),
-      timeout: vi.fn(
+      sleep: vi.fn<(...args: any[]) => any>(),
+      timeout: vi.fn<(...args: any[]) => any>(
         async <T>({ task, signal, reason }: { task: Promise<T>; signal?: AbortSignal; reason: string }) => {
           if (signal?.aborted) {
             throw createAbortError(reason);
@@ -320,11 +320,11 @@ describe("ChatService", () => {
           });
         },
       ),
-      retry: vi.fn(),
+      retry: vi.fn<(...args: any[]) => any>(),
     };
     let resolveSession!: (value: { id: string; agentId: string }) => void;
     const sessionRepository = {
-      get: vi.fn().mockImplementation(
+      get: vi.fn<(...args: any[]) => any>().mockImplementation(
         async () =>
           await new Promise<{ id: string; agentId: string }>((resolve) => {
             resolveSession = resolve;
@@ -332,20 +332,20 @@ describe("ChatService", () => {
       ),
     };
     const messageRepository = {
-      listBySession: vi.fn().mockResolvedValue([]),
-      get: vi.fn(),
+      listBySession: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     const providerExecutionPort = {
-      sendMessage: vi.fn().mockResolvedValue(undefined),
-      steerActiveTurn: vi.fn().mockResolvedValue(undefined),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn(),
+      sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue("argos"),
+      getAgentType: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn().mockResolvedValue(undefined),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
 
     const service = new ChatService({
@@ -379,19 +379,19 @@ describe("ChatService", () => {
   it("rejects a new send while another stream is still active for the session", async () => {
     const scheduler = createScheduler();
     const sessionRepository = {
-      get: vi.fn().mockResolvedValue({
+      get: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         agentId: "argos",
       }),
     };
     const messageRepository = {
-      listBySession: vi.fn(),
-      get: vi.fn(),
+      listBySession: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>(),
     };
     let resolveFirstSend!: (value: { requestId: string; messageId: string }) => void;
     const providerExecutionPort = {
       sendMessage: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(
           async () =>
             await new Promise<{ requestId: string; messageId: string }>((resolve) => {
@@ -402,15 +402,15 @@ describe("ChatService", () => {
           requestId: "assistant-1",
           messageId: "assistant-1",
         }),
-      steerActiveTurn: vi.fn().mockResolvedValue(undefined),
-      cancelGeneration: vi.fn().mockResolvedValue(undefined),
-      respondToolInteraction: vi.fn(),
+      steerActiveTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      respondToolInteraction: vi.fn<(...args: any[]) => any>(),
     };
     const providerCatalogPort = {
-      getAgentType: vi.fn().mockResolvedValue("argos"),
+      getAgentType: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn(),
+      clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
     };
 
     const service = new ChatService({

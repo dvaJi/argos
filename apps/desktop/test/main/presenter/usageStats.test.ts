@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../src/main/presenter/configPresenter/providerDbLoader", () => ({
   providerDbLoader: {
-    getModel: vi.fn((providerId: string, modelId: string) => {
+    getModel: vi.fn<(...args: any[]) => any>((providerId: string, modelId: string) => {
       if (providerId === "anthropic" && modelId === "claude-sonnet") {
         return {
           cost: {

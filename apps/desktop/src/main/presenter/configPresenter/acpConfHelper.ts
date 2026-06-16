@@ -288,7 +288,7 @@ export class AcpConfHelper {
     return raw
       .map((agent) => normalizeManualAgent(agent, { enabled: agent?.enabled as boolean | undefined }))
       .filter((agent): agent is AcpManualAgent => Boolean(agent))
-      .map((agent) => clone(agent));
+      .map(clone);
   }
 
   getSharedMcpSelections(): string[] {
@@ -548,6 +548,6 @@ export class AcpConfHelper {
         .map(([name]) => name),
     );
 
-    return selections.filter((selection) => validServerNames.has(selection));
+    return selections.filter(validServerNames.has);
   }
 }

@@ -5,26 +5,26 @@ import { AcpTerminalManager } from "@/presenter/llmProviderPresenter/acp/acpTerm
 import { spawn } from "node-pty";
 
 vi.mock("node-pty", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => (name === "temp" ? "/tmp" : "/tmp")),
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => (name === "temp" ? "/tmp" : "/tmp")),
   },
 }));
 
 describe("AcpTerminalManager", () => {
   const createPty = () => ({
-    onData: vi.fn(),
-    onExit: vi.fn(),
-    kill: vi.fn(),
+    onData: vi.fn<(...args: any[]) => any>(),
+    onExit: vi.fn<(...args: any[]) => any>(),
+    kill: vi.fn<(...args: any[]) => any>(),
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(fs, "mkdirSync").mockImplementation(() => undefined);
-    vi.mocked(spawn).mockReturnValue(createPty() as never);
+    vi.spyOn<(...args: any[]) => any>(fs, "mkdirSync").mockImplementation(() => undefined);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(createPty() as never);
   });
 
   it("uses the provided cwd when one is supplied", async () => {
@@ -86,7 +86,7 @@ describe("AcpTerminalManager", () => {
 
   it("retains the latest terminal output when outputByteLimit is exceeded", async () => {
     const pty = createPty();
-    vi.mocked(spawn).mockReturnValue(pty as never);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(pty as never);
     const manager = new AcpTerminalManager();
 
     const response = await manager.createTerminal({

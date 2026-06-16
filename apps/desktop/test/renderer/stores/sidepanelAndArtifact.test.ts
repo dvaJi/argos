@@ -10,12 +10,12 @@ describe("artifact store", () => {
     const sidepanelStore = {
       open: true,
       activeTab: "workspace",
-      getSessionState: vi.fn(() => sessionState),
-      selectArtifact: vi.fn((_sessionId: string, context: unknown) => {
+      getSessionState: vi.fn<(...args: any[]) => any>(() => sessionState),
+      selectArtifact: vi.fn<(...args: any[]) => any>((_sessionId: string, context: unknown) => {
         sessionState.selectedArtifactContext = context;
       }),
-      clearArtifact: vi.fn(),
-      setViewMode: vi.fn(),
+      clearArtifact: vi.fn<(...args: any[]) => any>(),
+      setViewMode: vi.fn<(...args: any[]) => any>(),
     };
 
     vi.doMock("@/stores/ui/sidepanel", () => ({

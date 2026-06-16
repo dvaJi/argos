@@ -68,7 +68,7 @@ const setup = async (
 
   const ModelSelect = (await import("@/components/ModelSelect")).default;
 
-  const onUpdateModel = vi.fn();
+  const onUpdateModel = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <ModelSelect

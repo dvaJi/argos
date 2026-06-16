@@ -8,32 +8,32 @@ import { IConfigPresenter } from "../../../src/shared/presenter";
 
 // Mock all external dependencies
 const mockConfigPresenter: IConfigPresenter = {
-  getKnowledgeConfigs: vi.fn(),
-  diffKnowledgeConfigs: vi.fn(),
-  setKnowledgeConfigs: vi.fn(),
+  getKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+  diffKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+  setKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
 } as any;
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn().mockReturnValue("/mock/user/data"),
+    getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/user/data"),
   },
 }));
 
 vi.mock("fs/promises", () => ({
   default: {
-    mkdir: vi.fn().mockResolvedValue(undefined),
-    readFile: vi.fn(),
-    writeFile: vi.fn(),
-    unlink: vi.fn(),
-    stat: vi.fn(),
+    mkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    readFile: vi.fn<(...args: any[]) => any>(),
+    writeFile: vi.fn<(...args: any[]) => any>(),
+    unlink: vi.fn<(...args: any[]) => any>(),
+    stat: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("path", () => ({
   default: {
-    join: vi.fn((...args) => args.join("/")),
-    extname: vi.fn(),
-    dirname: vi.fn(),
+    join: vi.fn<(...args: any[]) => any>((...args) => args.join("/")),
+    extname: vi.fn<(...args: any[]) => any>(),
+    dirname: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -56,13 +56,13 @@ describe("FilePresenter Integration with FileValidationService", () => {
     vi.clearAllMocks();
 
     // Create mock FileValidationService
-    mockValidateFile = vi.fn();
-    mockGetSupportedExtensions = vi.fn();
+    mockValidateFile = vi.fn<(...args: any[]) => any>();
+    mockGetSupportedExtensions = vi.fn<(...args: any[]) => any>();
 
     mockFileValidationService = {
       validateFile: mockValidateFile,
       getSupportedExtensions: mockGetSupportedExtensions,
-      getSupportedMimeTypes: vi.fn(),
+      getSupportedMimeTypes: vi.fn<(...args: any[]) => any>(),
     };
 
     // Create FilePresenter with mocked service
@@ -72,9 +72,9 @@ describe("FilePresenter Integration with FileValidationService", () => {
   describe("constructor", () => {
     it("should initialize with provided FileValidationService", () => {
       const customService = {
-        validateFile: vi.fn(),
-        getSupportedExtensions: vi.fn(),
-        getSupportedMimeTypes: vi.fn(),
+        validateFile: vi.fn<(...args: any[]) => any>(),
+        getSupportedExtensions: vi.fn<(...args: any[]) => any>(),
+        getSupportedMimeTypes: vi.fn<(...args: any[]) => any>(),
       };
 
       const presenter = new FilePresenter(mockConfigPresenter, customService);
@@ -184,7 +184,7 @@ describe("FilePresenter Integration with FileValidationService", () => {
 
   describe("error handling", () => {
     it("should log errors when validation fails", async () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
       const error = new Error("Validation error");
       mockValidateFile.mockRejectedValue(error);
       mockGetSupportedExtensions.mockReturnValue([]);
@@ -197,7 +197,7 @@ describe("FilePresenter Integration with FileValidationService", () => {
     });
 
     it("should log errors when getting supported extensions fails", () => {
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
       const error = new Error("Extensions error");
       mockGetSupportedExtensions.mockImplementation(() => {
         throw error;

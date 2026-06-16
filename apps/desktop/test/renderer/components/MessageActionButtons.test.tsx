@@ -4,9 +4,9 @@ import MessageActionButtons from "@/components/message/MessageActionButtons";
 
 describe("MessageActionButtons", () => {
   it("calls callback props on clicks", async () => {
-    const onOpenWorkspace = vi.fn();
-    const onClean = vi.fn();
-    const onScrollToBottom = vi.fn();
+    const onOpenWorkspace = vi.fn<(...args: any[]) => any>();
+    const onClean = vi.fn<(...args: any[]) => any>();
+    const onScrollToBottom = vi.fn<(...args: any[]) => any>();
 
     render(
       <MessageActionButtons

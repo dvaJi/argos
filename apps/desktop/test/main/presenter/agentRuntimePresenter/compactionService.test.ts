@@ -10,14 +10,14 @@ import type { SessionSummaryState } from "@/presenter/agentRuntimePresenter/sess
 import type { ArgosAgentConfig } from "@shared/types/agent-interface";
 
 vi.mock("tokenx", () => ({
-  approximateTokenSize: vi.fn((text: string) => text.length),
+  approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),
 }));
 
 vi.mock("@/presenter/agentRuntimePresenter/contextBuilder", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/presenter/agentRuntimePresenter/contextBuilder")>();
   return {
     ...actual,
-    buildHistoryTurns: vi.fn(actual.buildHistoryTurns),
+    buildHistoryTurns: vi.fn<(...args: any[]) => any>(actual.buildHistoryTurns),
   };
 });
 
@@ -134,8 +134,8 @@ function createService(options?: {
     } satisfies SessionSummaryState);
 
   const sessionStore = {
-    getSummaryState: vi.fn().mockReturnValue(summaryState),
-    compareAndSetSummaryState: vi.fn().mockReturnValue(
+    getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(summaryState),
+    compareAndSetSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(
       options?.compareAndSetResult ?? {
         applied: true,
         currentState: {
@@ -148,22 +148,22 @@ function createService(options?: {
   } as any;
 
   const messageStore = {
-    getMessages: vi.fn().mockReturnValue([]),
+    getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
   } as any;
 
   const llmProviderPresenter = {
-    executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-    generateText: vi.fn().mockResolvedValue({
+    executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    generateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       content: "generated summary",
     }),
   } as any;
 
   const configPresenter = {
-    getModelConfig: vi.fn().mockReturnValue({ contextLength: 4096 }),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    getAutoCompactionEnabled: vi.fn().mockReturnValue(true),
-    getAutoCompactionTriggerThreshold: vi.fn().mockReturnValue(80),
-    getAutoCompactionRetainRecentPairs: vi.fn().mockReturnValue(2),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ contextLength: 4096 }),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getAutoCompactionEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    getAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>().mockReturnValue(80),
+    getAutoCompactionRetainRecentPairs: vi.fn<(...args: any[]) => any>().mockReturnValue(2),
   } as any;
 
   const sessionConfig: ArgosAgentConfig = {
@@ -172,7 +172,7 @@ function createService(options?: {
     autoCompactionRetainRecentPairs: 2,
     ...options?.sessionConfig,
   };
-  const resolveSessionConfig = vi.fn().mockImplementation(async () => sessionConfig);
+  const resolveSessionConfig = vi.fn<(...args: any[]) => any>().mockImplementation(async () => sessionConfig);
 
   const service = new CompactionService(
     sessionStore,
@@ -453,7 +453,7 @@ describe("CompactionService", () => {
       makeAssistantRecord(6, "reply three"),
     ]);
 
-    const buildHistoryTurns = vi.mocked(contextBuilderModule.buildHistoryTurns);
+    const buildHistoryTurns = vi.mocked<(...args: any[]) => any>(contextBuilderModule.buildHistoryTurns);
 
     await service.prepareForNextUserTurn({
       sessionId: "s1",
@@ -510,7 +510,7 @@ describe("CompactionService", () => {
       newUserContent: "latest turn",
     });
 
-    const buildHistoryTurns = vi.mocked(contextBuilderModule.buildHistoryTurns);
+    const buildHistoryTurns = vi.mocked<(...args: any[]) => any>(contextBuilderModule.buildHistoryTurns);
     const records = buildHistoryTurns.mock.calls.at(-1)?.[0] ?? [];
     expect(records.map((record) => record.id)).toContain("assistant-2");
     expect(records.map((record) => record.id)).not.toContain("user-3");
@@ -567,7 +567,7 @@ describe("CompactionService", () => {
       projectedMessages: [],
     });
 
-    const buildHistoryTurns = vi.mocked(contextBuilderModule.buildHistoryTurns);
+    const buildHistoryTurns = vi.mocked<(...args: any[]) => any>(contextBuilderModule.buildHistoryTurns);
     const records = buildHistoryTurns.mock.calls.at(-1)?.[0] ?? [];
     expect(records.map((record) => record.id)).toContain("assistant-2");
   });

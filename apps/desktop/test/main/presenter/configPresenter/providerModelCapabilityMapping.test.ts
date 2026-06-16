@@ -28,7 +28,7 @@ describe("ConfigPresenter provider model capability mapping", () => {
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       providerModelHelper: {
-        getProviderModels: vi.fn().mockReturnValue([
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
           {
             id: "gpt-5.4",
             name: "GPT-5.4",
@@ -39,9 +39,9 @@ describe("ConfigPresenter provider model capability mapping", () => {
             reasoning: false,
           },
         ]),
-        getCustomModels: vi.fn().mockReturnValue([]),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       },
-      getModelConfig: vi.fn().mockReturnValue({ endpointType: undefined }),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ endpointType: undefined }),
     }) as InstanceType<typeof ConfigPresenter>;
 
     const models = presenter.getProviderModels("new-api");
@@ -57,11 +57,11 @@ describe("ConfigPresenter provider model capability mapping", () => {
 
   it("preserves explicit stored reasoning support when capability registry has no match", async () => {
     const { ConfigPresenter, modelCapabilities } = await loadConfigPresenter();
-    vi.spyOn(modelCapabilities, "supportsReasoning").mockReturnValue(false);
+    vi.spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning").mockReturnValue(false);
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       providerModelHelper: {
-        getProviderModels: vi.fn().mockReturnValue([
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
           {
             id: "vendor-special",
             name: "Vendor Special",
@@ -72,9 +72,9 @@ describe("ConfigPresenter provider model capability mapping", () => {
             reasoning: true,
           },
         ]),
-        getCustomModels: vi.fn().mockReturnValue([]),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       },
-      getModelConfig: vi.fn().mockReturnValue({ endpointType: undefined }),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ endpointType: undefined }),
     }) as InstanceType<typeof ConfigPresenter>;
 
     const models = presenter.getProviderModels("new-api");
@@ -95,7 +95,7 @@ describe("ConfigPresenter provider model capability mapping", () => {
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       providerModelHelper: {
-        getProviderModels: vi.fn().mockReturnValue([
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
           {
             id: "claude-opus-4-7",
             name: "Claude Opus 4.7",
@@ -106,9 +106,9 @@ describe("ConfigPresenter provider model capability mapping", () => {
             reasoning: false,
           },
         ]),
-        getCustomModels: vi.fn().mockReturnValue([]),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       },
-      getModelConfig: vi.fn().mockReturnValue({ endpointType: undefined }),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ endpointType: undefined }),
     }) as InstanceType<typeof ConfigPresenter>;
 
     const models = presenter.getProviderModels("fork-api");
@@ -130,13 +130,13 @@ describe("ConfigPresenter provider model capability mapping", () => {
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       providerHelper: {
-        getProviderById: vi.fn().mockReturnValue({
+        getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue({
           id: "my-anthropic-proxy",
           apiType: "anthropic",
         }),
       },
       providerModelHelper: {
-        getProviderModels: vi.fn().mockReturnValue([
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
           {
             id: "claude-opus-4-7",
             name: "Claude Opus 4.7",
@@ -146,9 +146,9 @@ describe("ConfigPresenter provider model capability mapping", () => {
             reasoning: false,
           },
         ]),
-        getCustomModels: vi.fn().mockReturnValue([]),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       },
-      getModelConfig: vi.fn().mockReturnValue({ endpointType: undefined }),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ endpointType: undefined }),
     }) as InstanceType<typeof ConfigPresenter>;
 
     const models = presenter.getProviderModels("my-anthropic-proxy");
@@ -166,17 +166,17 @@ describe("ConfigPresenter provider model capability mapping", () => {
     const { ConfigPresenter } = await loadConfigPresenter();
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       providerHelper: {
-        getProviderById: vi.fn().mockReturnValue({
+        getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue({
           id: "zenmux",
           apiType: "openai",
         }),
       },
       providerModelHelper: {
-        getProviderModels: vi.fn().mockReturnValue([]),
-        getCustomModels: vi.fn().mockReturnValue([]),
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       },
-      getModelConfig: vi.fn().mockReturnValue({ endpointType: undefined }),
-      getCustomModels: vi.fn().mockReturnValue([]),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ endpointType: undefined }),
+      getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     }) as InstanceType<typeof ConfigPresenter>;
 
     expect(presenter.getCapabilityProviderId("zenmux", "anthropic/claude-opus-4-7")).toBe("anthropic");

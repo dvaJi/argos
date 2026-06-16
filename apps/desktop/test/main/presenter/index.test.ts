@@ -16,12 +16,12 @@ describe("Presenter startup", () => {
     const pluginError = new Error("corrupt plugin package");
     const presenter = Object.create(Presenter.prototype) as any;
     presenter.pluginPresenter = {
-      initialize: vi.fn().mockRejectedValue(pluginError),
+      initialize: vi.fn<(...args: any[]) => any>().mockRejectedValue(pluginError),
     };
     presenter.mcpPresenter = {
-      initialize: vi.fn().mockResolvedValue(undefined),
+      initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const consoleError = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => undefined);
 
     await presenter.initializeMcp();
 

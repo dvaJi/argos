@@ -14,16 +14,16 @@ describe("Settings App", () => {
   it("notifies main when the settings router is ready", async () => {
     vi.resetModules();
 
-    const isReady = vi.fn().mockResolvedValue(undefined);
-    const ipcOn = vi.fn();
-    const ipcSend = vi.fn();
-    const initializeModelStore = vi.fn().mockResolvedValue(undefined);
+    const isReady = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const ipcOn = vi.fn<(...args: any[]) => any>();
+    const ipcSend = vi.fn<(...args: any[]) => any>();
+    const initializeModelStore = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     (window as any).electron = {
       ipcRenderer: {
         on: ipcOn,
-        removeListener: vi.fn(),
-        removeAllListeners: vi.fn(),
+        removeListener: vi.fn<(...args: any[]) => any>(),
+        removeAllListeners: vi.fn<(...args: any[]) => any>(),
         send: ipcSend,
       },
     };
@@ -32,42 +32,42 @@ describe("Settings App", () => {
       useProviderStore: () => ({
         providers: [],
         initialized: false,
-        initialize: vi.fn().mockResolvedValue(undefined),
-        ensureInitialized: vi.fn().mockResolvedValue(undefined),
-        primeProviders: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        ensureInitialized: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        primeProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/providerDeeplinkImport", () => ({
       useProviderDeeplinkImportStore: () => ({
         preview: null,
         previewToken: 0,
-        openPreview: vi.fn(),
-        clearPreview: vi.fn(),
+        openPreview: vi.fn<(...args: any[]) => any>(),
+        clearPreview: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/modelStore", () => ({
       useModelStore: () => ({
         initialize: initializeModelStore,
-        ensureProviderModelsReady: vi.fn().mockResolvedValue(undefined),
+        ensureProviderModelsReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/ollamaStore", () => ({
       useOllamaStore: () => ({
-        initialize: vi.fn().mockResolvedValue(undefined),
-        ensureProviderReady: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        ensureProviderReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/mcp", () => ({
       useMcpStore: () => ({
         mcpEnabled: false,
-        setMcpEnabled: vi.fn().mockResolvedValue(undefined),
-        setMcpInstallCache: vi.fn(),
+        setMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        setMcpInstallCache: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/uiSettingsStore", () => ({
       useUiSettingsStore: () => ({
         fontSizeClass: "text-base",
-        loadSettings: vi.fn().mockResolvedValue(undefined),
+        loadSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/language", () => ({
@@ -80,7 +80,7 @@ describe("Settings App", () => {
       useModelCheckStore: () => ({
         isDialogOpen: false,
         currentProviderId: null,
-        closeDialog: vi.fn(),
+        closeDialog: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/theme", () => ({
@@ -91,13 +91,13 @@ describe("Settings App", () => {
     }));
     vi.doMock("../../../src/renderer/src/lib/storeInitializer", () => ({
       useMcpInstallDeeplinkHandler: () => ({
-        setup: vi.fn(),
-        cleanup: vi.fn(),
+        setup: vi.fn<(...args: any[]) => any>(),
+        cleanup: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/composables/useFontManager", () => ({
       useFontManager: () => ({
-        setupFontListener: vi.fn(),
+        setupFontListener: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/composables/useDeviceVersion", () => ({
@@ -108,7 +108,7 @@ describe("Settings App", () => {
     }));
     vi.doMock("@/components/use-toast", () => ({
       useToast: () => ({
-        toast: vi.fn(() => ({ dismiss: vi.fn() })),
+        toast: vi.fn<(...args: any[]) => any>(() => ({ dismiss: vi.fn<(...args: any[]) => any>() })),
       }),
     }));
 
@@ -126,21 +126,21 @@ describe("Settings App", () => {
   it("processes MCP deeplinks while the settings window is already open", async () => {
     vi.resetModules();
 
-    const push = vi.fn().mockResolvedValue(undefined);
-    const isReady = vi.fn().mockResolvedValue(undefined);
-    const ipcOn = vi.fn();
-    const ipcSend = vi.fn();
+    const push = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const isReady = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const ipcOn = vi.fn<(...args: any[]) => any>();
+    const ipcSend = vi.fn<(...args: any[]) => any>();
     const mcpStore = {
       mcpEnabled: false,
-      setMcpEnabled: vi.fn().mockResolvedValue(undefined),
-      setMcpInstallCache: vi.fn(),
+      setMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      setMcpInstallCache: vi.fn<(...args: any[]) => any>(),
     };
 
     (window as any).electron = {
       ipcRenderer: {
         on: ipcOn,
-        removeListener: vi.fn(),
-        removeAllListeners: vi.fn(),
+        removeListener: vi.fn<(...args: any[]) => any>(),
+        removeAllListeners: vi.fn<(...args: any[]) => any>(),
         send: ipcSend,
       },
     };
@@ -148,25 +148,25 @@ describe("Settings App", () => {
     vi.doMock("../../../src/renderer/src/stores/providerStore", () => ({
       useProviderStore: () => ({
         providers: [],
-        initialize: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/providerDeeplinkImport", () => ({
       useProviderDeeplinkImportStore: () => ({
         preview: null,
         previewToken: 0,
-        openPreview: vi.fn(),
-        clearPreview: vi.fn(),
+        openPreview: vi.fn<(...args: any[]) => any>(),
+        clearPreview: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/modelStore", () => ({
       useModelStore: () => ({
-        initialize: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/ollamaStore", () => ({
       useOllamaStore: () => ({
-        initialize: vi.fn().mockResolvedValue(undefined),
+        initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       }),
     }));
     vi.doMock("../../../src/renderer/src/stores/mcp", () => ({
@@ -174,7 +174,7 @@ describe("Settings App", () => {
     }));
     vi.doMock("../../../src/renderer/src/composables/useFontManager", () => ({
       useFontManager: () => ({
-        setupFontListener: vi.fn(),
+        setupFontListener: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("../../../src/renderer/src/composables/useDeviceVersion", () => ({
@@ -185,7 +185,7 @@ describe("Settings App", () => {
     }));
     vi.doMock("@/components/use-toast", () => ({
       useToast: () => ({
-        toast: vi.fn(() => ({ dismiss: vi.fn() })),
+        toast: vi.fn<(...args: any[]) => any>(() => ({ dismiss: vi.fn<(...args: any[]) => any>() })),
       }),
     }));
 

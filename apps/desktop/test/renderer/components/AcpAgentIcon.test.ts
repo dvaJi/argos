@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 
-const getAcpRegistryIconMarkup = vi.fn();
+const getAcpRegistryIconMarkup = vi.fn<(...args: any[]) => any>();
 
 vi.mock("@api/ConfigClient", () => ({
-  createConfigClient: vi.fn(() => ({
+  createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
     getAcpRegistryIconMarkup,
   })),
 }));

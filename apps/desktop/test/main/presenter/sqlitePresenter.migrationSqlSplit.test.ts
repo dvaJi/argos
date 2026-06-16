@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("better-sqlite3-multiple-ciphers", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("sqlitePresenter migration SQL splitting", () => {
@@ -11,10 +11,10 @@ describe("sqlitePresenter migration SQL splitting", () => {
 
   it("ignores line and block comments when splitting migration SQL blocks", async () => {
     const { SQLitePresenter } = await import("../../../src/main/presenter/sqlitePresenter");
-    const exec = vi.fn();
-    const insertVersion = vi.fn();
-    const transaction = vi.fn((callback: () => void) => callback);
-    const prepare = vi.fn((statement: string) => {
+    const exec = vi.fn<(...args: any[]) => any>();
+    const insertVersion = vi.fn<(...args: any[]) => any>();
+    const transaction = vi.fn<(...args: any[]) => any>((callback: () => void) => callback);
+    const prepare = vi.fn<(...args: any[]) => any>((statement: string) => {
       if (statement === "INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)") {
         return {
           run: insertVersion,

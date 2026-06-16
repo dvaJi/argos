@@ -15,9 +15,9 @@ describe("ProviderModelList", () => {
     vi.resetModules();
 
     const modelStore = {
-      removeCustomModel: vi.fn().mockResolvedValue(undefined),
-      enableAllModels: vi.fn(),
-      disableAllModels: vi.fn(),
+      removeCustomModel: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      enableAllModels: vi.fn<(...args: any[]) => any>(),
+      disableAllModels: vi.fn<(...args: any[]) => any>(),
     };
 
     vi.doMock("@/stores/modelStore", () => ({

@@ -16,16 +16,16 @@ import {
 // Mock fs module
 vi.mock("fs", () => ({
   promises: {
-    stat: vi.fn(),
-    readdir: vi.fn(),
-    readFile: vi.fn(),
+    stat: vi.fn<(...args: any[]) => any>(),
+    readdir: vi.fn<(...args: any[]) => any>(),
+    readFile: vi.fn<(...args: any[]) => any>(),
   },
-  realpathSync: vi.fn(),
+  realpathSync: vi.fn<(...args: any[]) => any>(),
 }));
 
 // Mock security module to avoid complex fs interactions in unit tests
 vi.mock("../../../../src/main/presenter/skillSyncPresenter/security", () => ({
-  resolveSafePath: vi.fn((target, base) => {
+  resolveSafePath: vi.fn<(...args: any[]) => any>((target, base) => {
     // Simple mock: return null for paths with ../ or paths outside base
     if (target.includes("..")) return null;
     const resolved = path.resolve(base, target);
@@ -37,10 +37,10 @@ vi.mock("../../../../src/main/presenter/skillSyncPresenter/security", () => ({
     }
     return null;
   }),
-  isFilenameSafe: vi.fn((name) => {
+  isFilenameSafe: vi.fn<(...args: any[]) => any>((name) => {
     return name && !name.includes("/") && !name.includes("\\") && name !== "." && name !== "..";
   }),
-  validateFileSize: vi.fn().mockResolvedValue({ valid: true, size: 1024 }),
+  validateFileSize: vi.fn<(...args: any[]) => any>().mockResolvedValue({ valid: true, size: 1024 }),
   MAX_FILE_SIZE: 10 * 1024 * 1024,
 }));
 
@@ -232,7 +232,7 @@ describe("ToolScanner", () => {
     });
 
     it("should return true when skills directory exists", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
@@ -241,7 +241,7 @@ describe("ToolScanner", () => {
     });
 
     it("should return false when skills directory does not exist", async () => {
-      vi.mocked(fs.promises.stat).mockRejectedValueOnce(new Error("ENOENT"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockRejectedValueOnce(new Error("ENOENT"));
 
       const result = await scanner.isToolAvailable("claude-code");
       expect(result).toBe(false);
@@ -256,7 +256,7 @@ describe("ToolScanner", () => {
     });
 
     it("should return unavailable when directory does not exist", async () => {
-      vi.mocked(fs.promises.stat).mockRejectedValueOnce(new Error("ENOENT"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockRejectedValueOnce(new Error("ENOENT"));
 
       const result = await scanner.scanTool("claude-code");
       expect(result.available).toBe(false);
@@ -267,23 +267,23 @@ describe("ToolScanner", () => {
       const skillsDir = path.join(homedir(), ".claude/skills/");
 
       // Mock stat for skills directory
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
       // Mock readdir for skills directory
-      vi.mocked(fs.promises.readdir).mockResolvedValueOnce([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValueOnce([
         { name: "my-skill", isDirectory: () => true, isFile: () => false },
       ] as unknown as fs.Dirent[]);
 
       // Mock stat for SKILL.md file
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isFile: () => true,
         mtime: new Date("2024-01-01"),
       } as fs.Stats);
 
       // Mock readFile for SKILL.md content
-      vi.mocked(fs.promises.readFile).mockResolvedValueOnce(`---
+      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValueOnce(`---
 name: my-skill
 description: A test skill
 ---
@@ -291,7 +291,7 @@ description: A test skill
 # Instructions`);
 
       // Mock stat for file info
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         mtime: new Date("2024-01-01"),
       } as fs.Stats);
 
@@ -312,7 +312,7 @@ description: A test skill
   describe("scanExternalTools", () => {
     it("should skip project-level tools when no project root provided", async () => {
       // Mock all user-level tools as unavailable
-      vi.mocked(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
 
       const results = await scanner.scanExternalTools();
 
@@ -326,7 +326,7 @@ description: A test skill
 
     it("should include project-level tools when project root provided", async () => {
       // Mock all tools as unavailable
-      vi.mocked(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
 
       const results = await scanner.scanExternalTools("/my/project");
 
@@ -348,12 +348,12 @@ description: A test skill
       const skillsDir = path.join(homedir(), ".claude/skills/");
 
       // Mock directory exists
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
       // Mock readdir with malicious directory name
-      vi.mocked(fs.promises.readdir).mockResolvedValueOnce([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValueOnce([
         { name: "../../../etc", isDirectory: () => true, isFile: () => false },
       ] as unknown as fs.Dirent[]);
 
@@ -366,11 +366,11 @@ description: A test skill
     it("should reject files with path traversal in names", async () => {
       const skillsDir = "/project/.cursor/skills/";
 
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
-      vi.mocked(fs.promises.readdir).mockResolvedValueOnce([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValueOnce([
         { name: "../../../etc/passwd.md", isFile: () => true, isDirectory: () => false },
       ] as unknown as fs.Dirent[]);
 
@@ -395,23 +395,23 @@ description: A test skill
 
   describe("Security - Filename Validation", () => {
     it("should skip files with unsafe names during scanning", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
-      vi.mocked(fs.promises.readdir).mockResolvedValueOnce([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValueOnce([
         { name: "valid-skill", isDirectory: () => true, isFile: () => false },
         { name: ".", isDirectory: () => true, isFile: () => false },
         { name: "..", isDirectory: () => true, isFile: () => false },
       ] as unknown as fs.Dirent[]);
 
       // Mock the valid skill
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isFile: () => true,
         mtime: new Date(),
       } as fs.Stats);
-      vi.mocked(fs.promises.readFile).mockResolvedValueOnce("---\nname: valid\n---\n# Content");
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValueOnce("---\nname: valid\n---\n# Content");
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         mtime: new Date(),
       } as fs.Stats);
 
@@ -426,21 +426,21 @@ description: A test skill
     it("should skip oversized files during scanning", async () => {
       const { validateFileSize } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
 
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isDirectory: () => true,
       } as fs.Stats);
 
-      vi.mocked(fs.promises.readdir).mockResolvedValueOnce([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValueOnce([
         { name: "large-skill", isDirectory: () => true, isFile: () => false },
       ] as unknown as fs.Dirent[]);
 
       // Mock SKILL.md file exists
-      vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         isFile: () => true,
       } as fs.Stats);
 
       // Mock oversized file
-      vi.mocked(validateFileSize).mockResolvedValueOnce({
+      vi.mocked<(...args: any[]) => any>(validateFileSize).mockResolvedValueOnce({
         valid: false,
         size: 15 * 1024 * 1024,
         error: "File too large",

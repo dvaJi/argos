@@ -15,7 +15,7 @@ import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
 import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn() },
+  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -30,13 +30,13 @@ vi.mock("@/events", () => ({
 vi.mock("@/presenter", () => ({
   presenter: {
     commandPermissionService: {
-      extractCommandSignature: vi.fn().mockReturnValue("mock-signature"),
-      approve: vi.fn(),
+      extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
+      approve: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn() },
-    settingsPermissionService: { approve: vi.fn() },
+    filePermissionService: { approve: vi.fn<(...args: any[]) => any>() },
+    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>() },
     mcpPresenter: {
-      grantPermission: vi.fn().mockResolvedValue(undefined),
+      grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
   },
 }));
@@ -56,10 +56,10 @@ function createIo(overrides?: Partial<IoParams>): IoParams {
     requestId: "req-1",
     messageId: "m1",
     messageStore: {
-      addSearchResult: vi.fn(),
-      updateAssistantContent: vi.fn(),
-      finalizeAssistantMessage: vi.fn(),
-      setMessageError: vi.fn(),
+      addSearchResult: vi.fn<(...args: any[]) => any>(),
+      updateAssistantContent: vi.fn<(...args: any[]) => any>(),
+      finalizeAssistantMessage: vi.fn<(...args: any[]) => any>(),
+      setMessageError: vi.fn<(...args: any[]) => any>(),
     } as any,
     abortSignal: new AbortController().signal,
     ...overrides,
@@ -98,8 +98,8 @@ function makeAgentImageGenerationTool(): MCPToolDefinition {
 
 function createMockToolPresenter(responses: Record<string, string> = {}): IToolPresenter {
   return {
-    getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-    callTool: vi.fn(async (request) => {
+    getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    callTool: vi.fn<(...args: any[]) => any>(async (request) => {
       const name = request.function.name;
       const responseText = responses[name] ?? `result for ${name}`;
       return {
@@ -111,7 +111,7 @@ function createMockToolPresenter(responses: Record<string, string> = {}): IToolP
         },
       };
     }),
-    buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+    buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
   } as unknown as IToolPresenter;
 }
 
@@ -143,7 +143,7 @@ async function executeTools(
   const flushHandle =
     rendererFlushHandle ??
     ({
-      flush: vi.fn(() => {
+      flush: vi.fn<(...args: any[]) => any>(() => {
         eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
@@ -152,7 +152,7 @@ async function executeTools(
         });
         io.messageStore.updateAssistantContent(io.messageId, state.blocks);
       }),
-      schedule: vi.fn(() => {
+      schedule: vi.fn<(...args: any[]) => any>(() => {
         eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
@@ -161,7 +161,7 @@ async function executeTools(
         });
         io.messageStore.updateAssistantContent(io.messageId, state.blocks);
       }),
-      rescheduleRenderer: vi.fn(() => {
+      rescheduleRenderer: vi.fn<(...args: any[]) => any>(() => {
         eventBus.sendToRenderer("stream:response", "all", {
           conversationId: io.sessionId,
           eventId: io.messageId,
@@ -291,7 +291,7 @@ describe("dispatch", () => {
       };
       const toolPresenter = {
         ...createMockToolPresenter(),
-        callTool: vi.fn(async (_request, options) => {
+        callTool: vi.fn<(...args: any[]) => any>(async (_request, options) => {
           options?.onProgress?.({
             kind: "agent_plan",
             toolCallId: "tc-plan",
@@ -376,7 +376,7 @@ describe("dispatch", () => {
       });
       const toolPresenter = {
         ...createMockToolPresenter(),
-        callTool: vi.fn(async (request) => {
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => {
           started.push(request.id);
           if (request.id === "tc-read-a") {
             firstReadStarted?.();
@@ -453,13 +453,13 @@ describe("dispatch", () => {
       const tools = [makeAgentTool("read")];
       const toolPresenter = {
         ...createMockToolPresenter(),
-        preCheckToolPermission: vi.fn(async (request) => {
+        preCheckToolPermission: vi.fn<(...args: any[]) => any>(async (request) => {
           if (request.id === "tc-read-a") {
             throw new Error("pre-check failed");
           }
           return null;
         }),
-        callTool: vi.fn(async (request) => ({
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => ({
           content: `result for ${request.id}`,
           rawData: {
             toolCallId: request.id,
@@ -527,7 +527,7 @@ describe("dispatch", () => {
       });
       const toolPresenter = {
         ...createMockToolPresenter(),
-        callTool: vi.fn(async (request) => {
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => {
           const name = request.function.name;
           started.push(name);
           if (name === "write") {
@@ -722,7 +722,7 @@ describe("dispatch", () => {
       const tools = [makeTool("skill_manage")];
       const toolPresenter = {
         ...createMockToolPresenter(),
-        callTool: vi.fn().mockResolvedValue({
+        callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           content: '{"success":true,"action":"create","draftId":"draft-1","skillName":"draft-skill"}',
           rawData: {
             toolCallId: "tc1",
@@ -801,7 +801,7 @@ describe("dispatch", () => {
           }),
         }),
       );
-      expect((state.blocks[1].extra?.questionOptions as any[]).map((option) => option.label)).toEqual([
+      expect((state.blocks[1].extra!.questionOptions as any[]).map((option) => option.label)).toEqual([
         "chat.skillDraft.actions.view",
         "chat.skillDraft.actions.install",
         "chat.skillDraft.actions.discard",
@@ -810,16 +810,16 @@ describe("dispatch", () => {
 
     it("does not emit PreToolUse for question interactions that pause execution", async () => {
       const hooks = {
-        onPreToolUse: vi.fn(),
-        onPermissionRequest: vi.fn(),
-        onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn(),
+        onPreToolUse: vi.fn<(...args: any[]) => any>(),
+        onPermissionRequest: vi.fn<(...args: any[]) => any>(),
+        onPostToolUse: vi.fn<(...args: any[]) => any>(),
+        onPostToolUseFailure: vi.fn<(...args: any[]) => any>(),
       };
       const toolPresenter = createMockToolPresenter();
       const rendererFlushHandle = {
-        flush: vi.fn(),
-        schedule: vi.fn(),
-        rescheduleRenderer: vi.fn(),
+        flush: vi.fn<(...args: any[]) => any>(),
+        schedule: vi.fn<(...args: any[]) => any>(),
+        rescheduleRenderer: vi.fn<(...args: any[]) => any>(),
       };
 
       state.blocks.push({
@@ -870,20 +870,20 @@ describe("dispatch", () => {
 
     it("does not emit PreToolUse before a pre-checked permission pause", async () => {
       const hooks = {
-        onPreToolUse: vi.fn(),
-        onPermissionRequest: vi.fn(),
-        onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn(),
+        onPreToolUse: vi.fn<(...args: any[]) => any>(),
+        onPermissionRequest: vi.fn<(...args: any[]) => any>(),
+        onPostToolUse: vi.fn<(...args: any[]) => any>(),
+        onPostToolUseFailure: vi.fn<(...args: any[]) => any>(),
       };
       const toolPresenter = createMockToolPresenter() as IToolPresenter & {
         preCheckToolPermission: ReturnType<typeof vi.fn>;
       };
       const rendererFlushHandle = {
-        flush: vi.fn(),
-        schedule: vi.fn(),
-        rescheduleRenderer: vi.fn(),
+        flush: vi.fn<(...args: any[]) => any>(),
+        schedule: vi.fn<(...args: any[]) => any>(),
+        rescheduleRenderer: vi.fn<(...args: any[]) => any>(),
       };
-      toolPresenter.preCheckToolPermission = vi.fn().mockResolvedValue({
+      toolPresenter.preCheckToolPermission = vi.fn<(...args: any[]) => any>().mockResolvedValue({
         needsPermission: true,
         permissionType: "write",
         description: "Need permission",
@@ -963,7 +963,7 @@ describe("dispatch", () => {
       const tools = [makeTool("skill_view")];
       const toolPresenter = {
         ...createMockToolPresenter(),
-        callTool: vi.fn().mockResolvedValue({
+        callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           content: '{"success":true,"name":"argos-settings","isPinned":true}',
           rawData: {
             toolCallId: "tc1",
@@ -1245,7 +1245,7 @@ describe("dispatch", () => {
       const toolPresenter = createMockToolPresenter({ search: "result" });
       const conversation: any[] = [];
       const hooks = {
-        onInterleavedReasoningGap: vi.fn(),
+        onInterleavedReasoningGap: vi.fn<(...args: any[]) => any>(),
       };
 
       state.blocks.push({
@@ -1541,8 +1541,8 @@ describe("dispatch", () => {
     it("promotes image previews from structured tool output into assistant image blocks", async () => {
       const tools = [makeTool("tool_image")];
       const toolPresenter = {
-        getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-        callTool: vi.fn(async (request) => ({
+        getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => ({
           content: "[image]",
           rawData: {
             toolCallId: request.id,
@@ -1563,7 +1563,7 @@ describe("dispatch", () => {
             ],
           },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+        buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
       } as unknown as IToolPresenter;
 
       state.blocks.push({
@@ -1618,8 +1618,8 @@ describe("dispatch", () => {
     it("promotes image_generate previews into assistant image blocks", async () => {
       const tools = [makeAgentImageGenerationTool()];
       const toolPresenter = {
-        getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-        callTool: vi.fn(async (request) => ({
+        getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => ({
           content: '{"ok":true,"imageCount":1}',
           rawData: {
             toolCallId: request.id,
@@ -1636,7 +1636,7 @@ describe("dispatch", () => {
             ],
           },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+        buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
       } as unknown as IToolPresenter;
 
       state.blocks.push({
@@ -1692,8 +1692,8 @@ describe("dispatch", () => {
     it("promotes same-name MCP image_generate previews into assistant image blocks", async () => {
       const tools = [makeTool(IMAGE_GENERATE_TOOL_NAME)];
       const toolPresenter = {
-        getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-        callTool: vi.fn(async (request) => ({
+        getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => ({
           content: '{"ok":true,"imageCount":1}',
           rawData: {
             toolCallId: request.id,
@@ -1709,7 +1709,7 @@ describe("dispatch", () => {
             ],
           },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+        buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
       } as unknown as IToolPresenter;
 
       state.blocks.push({
@@ -1764,8 +1764,8 @@ describe("dispatch", () => {
     it("does not promote image_generate previews when the tool result is an error", async () => {
       const tools = [makeAgentImageGenerationTool()];
       const toolPresenter = {
-        getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-        callTool: vi.fn(async (request) => ({
+        getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        callTool: vi.fn<(...args: any[]) => any>(async (request) => ({
           content: "generation failed",
           rawData: {
             toolCallId: request.id,
@@ -1781,7 +1781,7 @@ describe("dispatch", () => {
             ],
           },
         })),
-        buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+        buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
       } as unknown as IToolPresenter;
 
       state.blocks.push({
@@ -1821,7 +1821,7 @@ describe("dispatch", () => {
 
     it("offloads large yo_browser responses into a stub", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-offload-"));
-      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+      getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
 
       const tools = [makeTool("cdp_send")];
       const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
@@ -1878,7 +1878,7 @@ describe("dispatch", () => {
       const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
       const conversation: any[] = [];
       const hooks = {
-        normalizeToolResult: vi.fn().mockResolvedValue("English screenshot summary"),
+        normalizeToolResult: vi.fn<(...args: any[]) => any>().mockResolvedValue("English screenshot summary"),
       };
 
       state.blocks.push({
@@ -1936,8 +1936,8 @@ describe("dispatch", () => {
 
     it("turns offload write failures into tool errors instead of falling back to raw content", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-offload-fail-"));
-      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
-      const writeFileSpy = vi.spyOn(fs, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+      getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
+      const writeFileSpy = vi.spyOn<(...args: any[]) => any>(fs, "writeFile").mockRejectedValueOnce(new Error("disk full"));
 
       const tools = [makeTool("cdp_send")];
       const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
@@ -1989,10 +1989,10 @@ describe("dispatch", () => {
       const tools = [makeTool("read")];
       const toolPresenter = createMockToolPresenter();
       const hooks = {
-        onPreToolUse: vi.fn(),
-        onPermissionRequest: vi.fn(),
-        onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn(),
+        onPreToolUse: vi.fn<(...args: any[]) => any>(),
+        onPermissionRequest: vi.fn<(...args: any[]) => any>(),
+        onPostToolUse: vi.fn<(...args: any[]) => any>(),
+        onPostToolUseFailure: vi.fn<(...args: any[]) => any>(),
       };
       const conversation: any[] = [];
 
@@ -2144,7 +2144,7 @@ describe("dispatch", () => {
 
     it("cleans offload files when a tail tool is downgraded during batch fitting", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-tail-offload-"));
-      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+      getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
 
       const tools = [makeTool("read"), makeTool("exec")];
       const toolPresenter = createMockToolPresenter();
@@ -2196,7 +2196,7 @@ describe("dispatch", () => {
       expect(executed.terminalError).toBeUndefined();
       expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
       expect(state.blocks[1].tool_call?.response).not.toContain("[Tool output offloaded]");
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow();
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow("expected error");
     });
 
     it("drops search side effects for downgraded tail tool results", async () => {
@@ -2283,7 +2283,7 @@ describe("dispatch", () => {
 
     it("marks the tool as error when offload succeeds but context budget cannot fit the result", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-offload-clean-"));
-      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+      getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
 
       const tools = [makeTool("cdp_send")];
       const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
@@ -2327,22 +2327,22 @@ describe("dispatch", () => {
       const toolMessage = conversation.find((message: any) => message.role === "tool");
       expect(toolMessage.content).toContain("remaining context window is too small");
       expect(state.blocks[0].status).toBe("error");
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow();
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow("expected error");
     });
 
     it("returns terminalError when even the minimal tool failure stub cannot fit", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-terminal-clean-"));
-      getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+      getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
 
       const tools = [makeTool("cdp_send")];
       const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
       const toolPresenter = createMockToolPresenter({ cdp_send: longScreenshot });
       const conversation: any[] = [];
       const hooks = {
-        onPreToolUse: vi.fn(),
-        onPermissionRequest: vi.fn(),
-        onPostToolUse: vi.fn(),
-        onPostToolUseFailure: vi.fn(),
+        onPreToolUse: vi.fn<(...args: any[]) => any>(),
+        onPermissionRequest: vi.fn<(...args: any[]) => any>(),
+        onPostToolUse: vi.fn<(...args: any[]) => any>(),
+        onPostToolUseFailure: vi.fn<(...args: any[]) => any>(),
       };
 
       state.blocks.push({
@@ -2389,7 +2389,7 @@ describe("dispatch", () => {
         params: '{"method":"Page.captureScreenshot"}',
         error: expect.stringContaining("remaining context window is too small"),
       });
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow();
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow("expected error");
     });
   });
 

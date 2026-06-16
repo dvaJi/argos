@@ -8,7 +8,7 @@ describe("messageStore reactivity", () => {
 
   it("forwards stream state reactively from the stream store", async () => {
     const sessionClient = {
-      restore: vi.fn().mockResolvedValue({
+      restore: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         session: { id: "s1" },
         messages: [],
         nextCursor: null,
@@ -21,31 +21,31 @@ describe("messageStore reactivity", () => {
       failed: [] as Array<(payload: any) => void>,
     };
     const chatClient = {
-      onStreamUpdated: vi.fn((listener: (payload: any) => void) => {
+      onStreamUpdated: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
         streamListeners.updated.push(listener);
         return () => undefined;
       }),
-      onStreamCompleted: vi.fn((listener: (payload: any) => void) => {
+      onStreamCompleted: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
         streamListeners.completed.push(listener);
         return () => undefined;
       }),
-      onStreamFailed: vi.fn((listener: (payload: any) => void) => {
+      onStreamFailed: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
         streamListeners.failed.push(listener);
         return () => undefined;
       }),
     };
 
     vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-      createSessionClient: vi.fn(() => sessionClient),
+      createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
     }));
     vi.doMock("../../../src/renderer/api/ChatClient", () => ({
-      createChatClient: vi.fn(() => chatClient),
+      createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
     }));
 
     (window as any).electron = {
       ipcRenderer: {
-        on: vi.fn(),
-        removeListener: vi.fn(),
+        on: vi.fn<(...args: any[]) => any>(),
+        removeListener: vi.fn<(...args: any[]) => any>(),
       },
     };
 

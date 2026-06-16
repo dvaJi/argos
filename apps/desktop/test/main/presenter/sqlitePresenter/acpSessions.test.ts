@@ -37,7 +37,7 @@ describeIfSqlite("AcpSessionsTable storage", () => {
       await table.upsert("conv-a", "agent-a", { sessionId: "remote-1", status: "idle" });
       await table.upsert("conv-b", "agent-b", { sessionId: "remote-1", status: "idle" });
 
-      await expect(table.upsert("conv-c", "agent-a", { sessionId: "remote-1", status: "idle" })).rejects.toThrow();
+      await expect(table.upsert("conv-c", "agent-a", { sessionId: "remote-1", status: "idle" })).rejects.toThrow("expected error");
 
       expect(await table.getByAgentAndSessionId("agent-a", "remote-1")).toMatchObject({
         conversationId: "conv-a",

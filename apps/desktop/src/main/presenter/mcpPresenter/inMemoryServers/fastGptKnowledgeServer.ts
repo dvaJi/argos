@@ -73,7 +73,9 @@ export class FastGptKnowledgeServer {
         throw new Error("FastGPT Dataset ID is required");
       }
       if (!description) {
-        throw new Error("A description for this knowledge base is required so the AI can decide whether to retrieve from it");
+        throw new Error(
+          "A description for this knowledge base is required so the AI can decide whether to retrieve from it",
+        );
       }
 
       this.configs.push({

@@ -8,8 +8,8 @@ const setup = async (
 ) => {
   vi.resetModules();
 
-  const toast = vi.fn();
-  const openExternal = vi.fn();
+  const toast = vi.fn<(...args: any[]) => any>();
+  const openExternal = vi.fn<(...args: any[]) => any>();
   const syncStore = {
     syncEnabled: true,
     syncFolderPath: "/tmp/argos-sync",
@@ -18,19 +18,19 @@ const setup = async (
     isImporting: false,
     importResult: null,
     backups: [] as Array<{ fileName: string; createdAt: number; size: number }>,
-    initialize: vi.fn().mockResolvedValue(undefined),
-    selectSyncFolder: vi.fn(),
-    openSyncFolder: vi.fn(),
-    refreshBackups: vi.fn().mockResolvedValue(undefined),
-    startBackup: vi.fn().mockResolvedValue(null),
-    importData: vi.fn().mockResolvedValue(null),
-    clearImportResult: vi.fn(),
-    setSyncEnabled: vi.fn(),
-    setSyncFolderPath: vi.fn(),
+    initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSyncFolder: vi.fn<(...args: any[]) => any>(),
+    openSyncFolder: vi.fn<(...args: any[]) => any>(),
+    refreshBackups: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    startBackup: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    importData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    clearImportResult: vi.fn<(...args: any[]) => any>(),
+    setSyncEnabled: vi.fn<(...args: any[]) => any>(),
+    setSyncFolderPath: vi.fn<(...args: any[]) => any>(),
   };
   const uiSettingsStore = {
     privacyModeEnabled: false,
-    setPrivacyModeEnabled: vi.fn((value: boolean) => {
+    setPrivacyModeEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       uiSettingsStore.privacyModeEnabled = value;
       return Promise.resolve();
     }),
@@ -38,7 +38,7 @@ const setup = async (
   const databaseSecurityClient = {
     getStatus:
       options.databaseSecurityGetStatus ??
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         enabled: false,
         cipher: "sqlcipher",
         safeStorageAvailable: true,
@@ -48,7 +48,7 @@ const setup = async (
         migrationInProgress: false,
         lastMigrationAt: undefined,
       }),
-    enable: vi.fn().mockResolvedValue({
+    enable: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       enabled: true,
       cipher: "sqlcipher",
       safeStorageAvailable: true,
@@ -58,20 +58,20 @@ const setup = async (
       migrationInProgress: false,
       lastMigrationAt: Date.now(),
     }),
-    changePassword: vi.fn(),
-    disable: vi.fn(),
+    changePassword: vi.fn<(...args: any[]) => any>(),
+    disable: vi.fn<(...args: any[]) => any>(),
   };
 
   const presenterMocks = {
     configPresenter: {
-      refreshProviderDb: vi.fn().mockResolvedValue({
+      refreshProviderDb: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         status: "updated",
         lastUpdated: Date.now(),
         providersCount: 1,
       }),
     },
     sqlitePresenter: {
-      repairSchema: vi.fn().mockResolvedValue({
+      repairSchema: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         startedAt: Date.now(),
         finishedAt: Date.now(),
         status: "healthy",
@@ -95,10 +95,10 @@ const setup = async (
       }),
     },
     devicePresenter: {
-      resetDataByType: vi.fn().mockResolvedValue(undefined),
+      resetDataByType: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
     yoBrowserPresenter: {
-      clearSandboxData: vi.fn().mockResolvedValue(undefined),
+      clearSandboxData: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
   };
 
@@ -256,7 +256,7 @@ describe("DataSettings", () => {
 
   it("shows database encryption status as unknown when status loading fails", async () => {
     const { container } = await setup({
-      databaseSecurityGetStatus: vi.fn().mockRejectedValue(new Error("status unavailable")),
+      databaseSecurityGetStatus: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("status unavailable")),
     });
 
     expect(container.textContent).toContain("settings.data.databaseEncryption.unknown");
@@ -271,7 +271,7 @@ describe("DataSettings", () => {
   it("shows an error toast when updating privacy mode fails", async () => {
     const { toast, uiSettingsStore } = await setup();
 
-    uiSettingsStore.setPrivacyModeEnabled = vi.fn().mockRejectedValue(new Error("IPC failed"));
+    uiSettingsStore.setPrivacyModeEnabled = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("IPC failed"));
 
     await fireEvent.click(screen.getByTestId("privacy-mode-switch"));
     await act(async () => {});

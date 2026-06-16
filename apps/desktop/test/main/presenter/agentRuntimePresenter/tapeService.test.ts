@@ -10,7 +10,7 @@ import type { ChatMessageRecord } from "@shared/types/agent-interface";
 function createTapeTableMock() {
   const entries: any[] = [];
   const table = {
-    ensureBootstrapAnchor: vi.fn((sessionId: string) => {
+    ensureBootstrapAnchor: vi.fn<(...args: any[]) => any>((sessionId: string) => {
       if (entries.some((entry) => entry.session_id === sessionId && entry.name === "session/start")) {
         return;
       }
@@ -22,7 +22,7 @@ function createTapeTableMock() {
         idempotent: true,
       });
     }),
-    append: vi.fn((input: any) => {
+    append: vi.fn<(...args: any[]) => any>((input: any) => {
       const provenanceKey =
         input.provenanceKey !== undefined
           ? input.provenanceKey
@@ -55,35 +55,35 @@ function createTapeTableMock() {
       entries.push(row);
       return row;
     }),
-    appendAnchor: vi.fn((input: any) =>
+    appendAnchor: vi.fn<(...args: any[]) => any>((input: any) =>
       table.append({
         ...input,
         kind: "anchor",
         payload: { name: input.name, state: input.state },
       }),
     ),
-    appendEvent: vi.fn((input: any) =>
+    appendEvent: vi.fn<(...args: any[]) => any>((input: any) =>
       table.append({
         ...input,
         kind: "event",
         payload: { name: input.name, data: input.data },
       }),
     ),
-    getBySession: vi.fn((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId)),
-    getLatestAnchor: vi.fn(
+    getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId)),
+    getLatestAnchor: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         entries
           .filter((entry) => entry.session_id === sessionId && entry.kind === "anchor")
           .sort((left, right) => right.entry_id - left.entry_id)[0],
     ),
-    getAnchors: vi.fn((sessionId: string, limit: number = 20) =>
+    getAnchors: vi.fn<(...args: any[]) => any>((sessionId: string, limit: number = 20) =>
       entries
         .filter((entry) => entry.session_id === sessionId && entry.kind === "anchor")
         .sort((left, right) => right.entry_id - left.entry_id)
         .slice(0, Math.min(Math.max(Math.floor(limit), 1), 100))
         .reverse(),
     ),
-    getLatestSummaryAnchor: vi.fn(
+    getLatestSummaryAnchor: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         entries
           .filter(
@@ -94,19 +94,19 @@ function createTapeTableMock() {
           )
           .sort((left, right) => right.entry_id - left.entry_id)[0],
     ),
-    getByProvenanceKey: vi.fn((sessionId: string, provenanceKey: string) =>
+    getByProvenanceKey: vi.fn<(...args: any[]) => any>((sessionId: string, provenanceKey: string) =>
       entries.find((entry) => entry.session_id === sessionId && entry.provenance_key === provenanceKey),
     ),
-    countBySession: vi.fn((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId).length),
-    countAnchorsBySession: vi.fn(
+    countBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId).length),
+    countAnchorsBySession: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         entries.filter((entry) => entry.session_id === sessionId && entry.kind === "anchor").length,
     ),
-    countEntriesAfter: vi.fn(
+    countEntriesAfter: vi.fn<(...args: any[]) => any>(
       (sessionId: string, entryId: number) =>
         entries.filter((entry) => entry.session_id === sessionId && entry.entry_id > entryId).length,
     ),
-    search: vi.fn((sessionId: string, query: string, options: any = {}) => {
+    search: vi.fn<(...args: any[]) => any>((sessionId: string, query: string, options: any = {}) => {
       const normalizedQuery = query.trim();
       if (!normalizedQuery) {
         return [];
@@ -126,7 +126,7 @@ function createTapeTableMock() {
         .sort((left, right) => right.entry_id - left.entry_id)
         .slice(0, Math.min(Math.max(limit, 1), 100));
     }),
-    deleteBySession: vi.fn((sessionId: string) => {
+    deleteBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
       for (let index = entries.length - 1; index >= 0; index -= 1) {
         if (entries[index].session_id === sessionId) {
           entries.splice(index, 1);
@@ -177,11 +177,11 @@ describe("ArgosTapeService", () => {
       }),
     ];
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue(records),
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue(records),
     };
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     const first = service.ensureSessionTapeReady("s1", messageStore as any);
@@ -199,10 +199,10 @@ describe("ArgosTapeService", () => {
     const { table, entries } = createTapeTableMock();
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue([
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([
         createRecord({ id: "u1" }),
         createRecord({
           id: "a1",
@@ -278,17 +278,17 @@ describe("ArgosTapeService", () => {
       }),
     ];
     const legacyMessageStore = {
-      getMessages: vi.fn().mockReturnValue(records),
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue(records),
     };
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     const legacyContext = buildContext("s1", "next", "System", 10000, 4096, legacyMessageStore as any);
     const tapeReady = service.ensureSessionTapeReady("s1", legacyMessageStore as any);
     const tapeOnlyStore = {
-      getMessages: vi.fn(() => {
+      getMessages: vi.fn<(...args: any[]) => any>(() => {
         throw new Error("buildContext must use provided tape history records");
       }),
     };
@@ -304,10 +304,10 @@ describe("ArgosTapeService", () => {
     const { table, entries } = createTapeTableMock();
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue([
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([
         createRecord({ id: "u1", orderSeq: 1 }),
         createRecord({
           id: "a1",
@@ -344,7 +344,7 @@ describe("ArgosTapeService", () => {
   it("migrates legacy session summary into a tape anchor during backfill", () => {
     const { table, entries } = createTapeTableMock();
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue([
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([
         createRecord({ id: "u1", orderSeq: 1 }),
         createRecord({
           id: "a1",
@@ -357,7 +357,7 @@ describe("ArgosTapeService", () => {
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
       argosSessionsTable: {
-        getSummaryState: vi.fn().mockReturnValue({
+        getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue({
           summary_text: "legacy compacted state",
           summary_cursor_order_seq: 3,
           summary_updated_at: 200,
@@ -397,7 +397,7 @@ describe("ArgosTapeService", () => {
       },
     ];
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue([
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([
         createRecord({
           id: "a1",
           orderSeq: 1,
@@ -410,7 +410,7 @@ describe("ArgosTapeService", () => {
     };
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     service.ensureSessionTapeReady("s1", messageStore as any);
@@ -449,7 +449,7 @@ describe("ArgosTapeService", () => {
     ];
     const messageStore = {
       getMessages: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockReturnValueOnce([
           createRecord({
             id: "a1",
@@ -475,7 +475,7 @@ describe("ArgosTapeService", () => {
     };
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     service.ensureSessionTapeReady("s1", messageStore as any);
@@ -502,7 +502,7 @@ describe("ArgosTapeService", () => {
     const { table, entries } = createTapeTableMock();
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     const fork = service.createFork("s1", "fork-1");
@@ -528,7 +528,7 @@ describe("ArgosTapeService", () => {
     const { table, entries } = createTapeTableMock();
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     table.ensureBootstrapAnchor("parent");
@@ -554,11 +554,11 @@ describe("ArgosTapeService", () => {
     const { table, entries } = createTapeTableMock();
     const original = createRecord({ id: "u1", orderSeq: 1 });
     const messageStore = {
-      getMessages: vi.fn().mockReturnValue([original]),
+      getMessages: vi.fn<(...args: any[]) => any>().mockReturnValue([original]),
     };
     const service = new ArgosTapeService({
       argosTapeEntriesTable: table,
-      argosSessionsTable: { getSummaryState: vi.fn().mockReturnValue(null) },
+      argosSessionsTable: { getSummaryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null) },
     } as any);
 
     service.ensureSessionTapeReady("s1", messageStore as any);

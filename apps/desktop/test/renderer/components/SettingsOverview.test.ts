@@ -2,13 +2,13 @@ import { createElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const navigate = vi.fn();
-const listRecentActivity = vi.fn();
-const ensureInitialized = vi.fn();
-const initializeModels = vi.fn();
-const loadConfig = vi.fn();
-const initializeSync = vi.fn();
-const fetchAgents = vi.fn();
+const navigate = vi.fn<(...args: any[]) => any>();
+const listRecentActivity = vi.fn<(...args: any[]) => any>();
+const ensureInitialized = vi.fn<(...args: any[]) => any>();
+const initializeModels = vi.fn<(...args: any[]) => any>();
+const loadConfig = vi.fn<(...args: any[]) => any>();
+const initializeSync = vi.fn<(...args: any[]) => any>();
+const fetchAgents = vi.fn<(...args: any[]) => any>();
 
 describe("SettingsOverview", () => {
   beforeEach(() => {

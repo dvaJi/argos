@@ -9,15 +9,15 @@ vi.mock("@iconify/react", () => ({
 
 vi.mock("@api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
-    openFile: vi.fn(),
-    revealFileInFolder: vi.fn(),
+    openFile: vi.fn<(...args: any[]) => any>(),
+    revealFileInFolder: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 
 describe("WorkspaceFileNode drag support", () => {
   const mountNode = (node = { name: "App.vue", path: "/repo/src/App.vue", isDirectory: false }) => {
-    const onInsertPath = vi.fn();
-    const onAppendPath = vi.fn();
+    const onInsertPath = vi.fn<(...args: any[]) => any>();
+    const onAppendPath = vi.fn<(...args: any[]) => any>();
     const result = render(
       <WorkspaceFileNode node={node} depth={0} onInsertPath={onInsertPath} onAppendPath={onAppendPath} />,
     );
@@ -28,7 +28,7 @@ describe("WorkspaceFileNode drag support", () => {
     const { container } = mountNode();
 
     const dataTransfer = {
-      setData: vi.fn(),
+      setData: vi.fn<(...args: any[]) => any>(),
       effectAllowed: "all",
     } as unknown as DataTransfer;
 

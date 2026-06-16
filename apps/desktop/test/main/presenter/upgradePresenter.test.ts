@@ -22,28 +22,28 @@ const {
 
   return {
     autoUpdaterState,
-    sendToMainMock: vi.fn(),
-    sendToRendererMock: vi.fn(),
-    floatingButtonDestroyMock: vi.fn(),
-    destroyFloatingChatWindowMock: vi.fn(),
-    setApplicationQuittingMock: vi.fn(),
-    appQuitMock: vi.fn(),
-    appRelaunchMock: vi.fn(),
-    appExitMock: vi.fn(),
-    appGetVersionMock: vi.fn(() => "1.0.0"),
+    sendToMainMock: vi.fn<(...args: any[]) => any>(),
+    sendToRendererMock: vi.fn<(...args: any[]) => any>(),
+    floatingButtonDestroyMock: vi.fn<(...args: any[]) => any>(),
+    destroyFloatingChatWindowMock: vi.fn<(...args: any[]) => any>(),
+    setApplicationQuittingMock: vi.fn<(...args: any[]) => any>(),
+    appQuitMock: vi.fn<(...args: any[]) => any>(),
+    appRelaunchMock: vi.fn<(...args: any[]) => any>(),
+    appExitMock: vi.fn<(...args: any[]) => any>(),
+    appGetVersionMock: vi.fn<(...args: any[]) => any>(() => "1.0.0"),
   };
 });
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn(() => "/tmp/argos-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp/argos-test"),
     getVersion: appGetVersionMock,
     quit: appQuitMock,
     relaunch: appRelaunchMock,
     exit: appExitMock,
   },
   shell: {
-    openExternal: vi.fn(),
+    openExternal: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -55,19 +55,19 @@ vi.mock("electron-updater", () => ({
       autoInstallOnAppQuit: true,
       allowPrerelease: false,
       channel: "latest",
-      on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      on: vi.fn<(...args: any[]) => any>((event: string, handler: (...args: unknown[]) => void) => {
         autoUpdaterState.listeners.set(event, handler);
       }),
-      checkForUpdates: vi.fn(),
-      downloadUpdate: vi.fn(),
-      quitAndInstall: vi.fn(),
+      checkForUpdates: vi.fn<(...args: any[]) => any>(),
+      downloadUpdate: vi.fn<(...args: any[]) => any>(),
+      quitAndInstall: vi.fn<(...args: any[]) => any>(),
     },
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
     sendToMain: sendToMainMock,
     sendToRenderer: sendToRendererMock,
   },
@@ -105,7 +105,7 @@ describe("UpgradePresenter", () => {
     appExitMock.mockReset();
     appGetVersionMock.mockReset();
     appGetVersionMock.mockReturnValue("1.0.0");
-    vi.mocked(electronUpdater.autoUpdater.checkForUpdates).mockReset();
+    vi.mocked<(...args: any[]) => any>(electronUpdater.autoUpdater.checkForUpdates).mockReset();
   });
 
   afterEach(async () => {
@@ -115,7 +115,7 @@ describe("UpgradePresenter", () => {
 
   it("destroys floating UI before quitAndInstall during update restart", async () => {
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);
@@ -138,7 +138,7 @@ describe("UpgradePresenter", () => {
 
   it("relaunches the app for mock downloaded updates without calling quitAndInstall", async () => {
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);
@@ -159,12 +159,12 @@ describe("UpgradePresenter", () => {
 
   it("skips app-focus auto check when privacy mode is enabled", () => {
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
-      getPrivacyModeEnabled: vi.fn(() => true),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => true),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);
-    const checkSpy = vi.spyOn(presenter, "checkUpdate").mockResolvedValue(undefined);
+    const checkSpy = vi.spyOn<(...args: any[]) => any>(presenter, "checkUpdate").mockResolvedValue(undefined);
 
     (presenter as any).handleAppFocus();
 
@@ -174,11 +174,11 @@ describe("UpgradePresenter", () => {
 
   it("keeps manual update checks available while privacy mode is enabled", async () => {
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
-      getPrivacyModeEnabled: vi.fn(() => true),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => true),
     } as any;
 
-    vi.mocked(electronUpdater.autoUpdater.checkForUpdates).mockResolvedValue(undefined as never);
+    vi.mocked<(...args: any[]) => any>(electronUpdater.autoUpdater.checkForUpdates).mockResolvedValue(undefined as never);
 
     const presenter = new UpgradePresenter(configPresenter);
 
@@ -190,8 +190,8 @@ describe("UpgradePresenter", () => {
   it("ignores cross-channel downgrades when current install is a prerelease", () => {
     appGetVersionMock.mockReturnValue("1.0.5-beta.5");
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
-      getPrivacyModeEnabled: vi.fn(() => false),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);
@@ -210,8 +210,8 @@ describe("UpgradePresenter", () => {
   it("accepts in-channel upgrades from one beta to a newer beta", () => {
     appGetVersionMock.mockReturnValue("1.0.5-beta.2");
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "beta"),
-      getPrivacyModeEnabled: vi.fn(() => false),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "beta"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);
@@ -228,8 +228,8 @@ describe("UpgradePresenter", () => {
     // Beta testing complete and 1.0.5 stable released; upgrading from 1.0.5-beta.5 to 1.0.5 should be allowed
     appGetVersionMock.mockReturnValue("1.0.5-beta.5");
     const configPresenter = {
-      getUpdateChannel: vi.fn(() => "stable"),
-      getPrivacyModeEnabled: vi.fn(() => false),
+      getUpdateChannel: vi.fn<(...args: any[]) => any>(() => "stable"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any;
 
     const presenter = new UpgradePresenter(configPresenter);

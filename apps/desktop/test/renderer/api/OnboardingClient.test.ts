@@ -82,8 +82,8 @@ describe("OnboardingClient", () => {
   it("returns parsed state for all onboarding routes", async () => {
     const state = createState();
     const bridge: ArgosBridge = {
-      invoke: vi.fn(async () => ({ state })),
-      on: vi.fn(() => vi.fn()),
+      invoke: vi.fn<(...args: any[]) => any>(async () => ({ state })),
+      on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     };
 
     const client = createOnboardingClient(bridge);
@@ -102,8 +102,8 @@ describe("OnboardingClient", () => {
 
   it("throws when onboarding response shape is invalid", async () => {
     const bridge: ArgosBridge = {
-      invoke: vi.fn(async () => ({})),
-      on: vi.fn(() => vi.fn()),
+      invoke: vi.fn<(...args: any[]) => any>(async () => ({})),
+      on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     };
 
     const client = createOnboardingClient(bridge);

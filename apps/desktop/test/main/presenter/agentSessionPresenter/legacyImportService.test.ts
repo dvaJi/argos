@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => {
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => {
       if (name === "userData") {
         return "/mock/userData";
       }
@@ -12,7 +12,7 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("better-sqlite3-multiple-ciphers", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 import { LegacyChatImportService } from "@/presenter/agentSessionPresenter/legacyImportService";
@@ -33,7 +33,7 @@ function createMockSqlitePresenter() {
       conversations = next;
     },
     newSessionsTable: {
-      create: vi.fn(
+      create: vi.fn<(...args: any[]) => any>(
         (
           id: string,
           _agentId: string,
@@ -47,7 +47,7 @@ function createMockSqlitePresenter() {
           });
         },
       ),
-      get: vi.fn((id: string) => {
+      get: vi.fn<(...args: any[]) => any>((id: string) => {
         const row = sessionStore.get(id);
         return row
           ? {
@@ -56,22 +56,22 @@ function createMockSqlitePresenter() {
             }
           : undefined;
       }),
-      getActiveSkills: vi.fn((id: string) => sessionStore.get(id)?.activeSkills ?? []),
-      getDisabledAgentTools: vi.fn().mockReturnValue([]),
-      updateActiveSkills: vi.fn((id: string, activeSkills: string[]) => {
+      getActiveSkills: vi.fn<(...args: any[]) => any>((id: string) => sessionStore.get(id)?.activeSkills ?? []),
+      getDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      updateActiveSkills: vi.fn<(...args: any[]) => any>((id: string, activeSkills: string[]) => {
         const row = sessionStore.get(id);
         if (!row) return;
         row.activeSkills = [...activeSkills];
       }),
-      updateDisabledAgentTools: vi.fn(),
+      updateDisabledAgentTools: vi.fn<(...args: any[]) => any>(),
     },
     argosSessionsTable: {
-      get: vi.fn(() => undefined),
-      create: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(() => undefined),
+      create: vi.fn<(...args: any[]) => any>(),
     },
     legacyImportStatusTable: {
-      get: vi.fn((key: string) => statusStore.get(key)),
-      upsert: vi.fn((key: string, data: any) => {
+      get: vi.fn<(...args: any[]) => any>((key: string) => statusStore.get(key)),
+      upsert: vi.fn<(...args: any[]) => any>((key: string, data: any) => {
         statusStore.set(key, {
           import_key: key,
           status: data.status,
@@ -86,11 +86,11 @@ function createMockSqlitePresenter() {
         });
       }),
     },
-    runTransaction: vi.fn(async (operations: () => void) => {
+    runTransaction: vi.fn<(...args: any[]) => any>(async (operations: () => void) => {
       operations();
     }),
-    getConversationCount: vi.fn(async () => conversations.length),
-    getConversationList: vi.fn(async (page: number, pageSize: number) => {
+    getConversationCount: vi.fn<(...args: any[]) => any>(async () => conversations.length),
+    getConversationList: vi.fn<(...args: any[]) => any>(async (page: number, pageSize: number) => {
       const start = (page - 1) * pageSize;
       return {
         total: conversations.length,
@@ -98,15 +98,15 @@ function createMockSqlitePresenter() {
       };
     }),
     argosMessagesTable: {
-      get: vi.fn(() => undefined),
-      insert: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(() => undefined),
+      insert: vi.fn<(...args: any[]) => any>(),
     },
     argosMessageSearchResultsTable: {
-      listByMessageId: vi.fn(() => []),
-      insert: vi.fn(),
+      listByMessageId: vi.fn<(...args: any[]) => any>(() => []),
+      insert: vi.fn<(...args: any[]) => any>(),
     },
     newEnvironmentsTable: {
-      rebuildFromSessions: vi.fn(),
+      rebuildFromSessions: vi.fn<(...args: any[]) => any>(),
     },
   };
 }
@@ -214,7 +214,7 @@ describe("LegacyChatImportService", () => {
   });
 
   it("keeps the import successful when rebuilding environments fails", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => undefined);
     sqlitePresenter.newEnvironmentsTable.rebuildFromSessions.mockImplementation(() => {
       throw new Error("boom");
     });

@@ -7,8 +7,8 @@ describe("BrowserActivityOverlay", () => {
     vi.useFakeTimers();
     vi.stubGlobal("matchMedia", () => ({
       matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+      addEventListener: vi.fn<(...args: any[]) => any>(),
+      removeEventListener: vi.fn<(...args: any[]) => any>(),
     }));
   });
 

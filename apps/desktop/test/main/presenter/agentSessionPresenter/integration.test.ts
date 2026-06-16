@@ -7,11 +7,11 @@ import type { ReasoningEffort, Verbosity } from "@shared/types/model-db";
 
 vi.mock("nanoid", () => {
   let counter = 0;
-  return { nanoid: vi.fn(() => `id-${++counter}`) };
+  return { nanoid: vi.fn<(...args: any[]) => any>(() => `id-${++counter}`) };
 });
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn(), sendToMain: vi.fn(), on: vi.fn() },
+  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), sendToMain: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -38,14 +38,14 @@ vi.mock("@/events", async (importOriginal) => {
 vi.mock("@/presenter", () => ({
   presenter: {
     commandPermissionService: {
-      extractCommandSignature: vi.fn().mockReturnValue("mock-signature"),
-      approve: vi.fn(),
-      clearConversation: vi.fn(),
+      extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn(), clearConversation: vi.fn() },
-    settingsPermissionService: { approve: vi.fn(), clearConversation: vi.fn() },
+    filePermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
+    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
     mcpPresenter: {
-      grantPermission: vi.fn().mockResolvedValue(undefined),
+      grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
   },
 }));
@@ -101,7 +101,7 @@ function createMockSqlitePresenter() {
 
   return {
     newSessionsTable: {
-      create: vi.fn(
+      create: vi.fn<(...args: any[]) => any>(
         (id: string, agentId: string, title: string, projectDir: string | null, options?: { isDraft?: boolean }) => {
           const now = Date.now();
           sessionsStore.set(id, {
@@ -116,8 +116,8 @@ function createMockSqlitePresenter() {
           });
         },
       ),
-      get: vi.fn((id: string) => sessionsStore.get(id)),
-      list: vi.fn(
+      get: vi.fn<(...args: any[]) => any>((id: string) => sessionsStore.get(id)),
+      list: vi.fn<(...args: any[]) => any>(
         (filters?: { agentId?: string; projectDir?: string; includeSubagents?: boolean; parentSessionId?: string }) => {
           return Array.from(sessionsStore.values())
             .filter((row) => {
@@ -141,18 +141,18 @@ function createMockSqlitePresenter() {
             .sort((left, right) => right.updated_at - left.updated_at);
         },
       ),
-      getDisabledAgentTools: vi.fn().mockReturnValue([]),
-      updateDisabledAgentTools: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn((id: string) => sessionsStore.delete(id)),
+      getDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      updateDisabledAgentTools: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>((id: string) => sessionsStore.delete(id)),
     },
     newEnvironmentsTable: {
-      syncPath: vi.fn(),
-      listPathsForSession: vi.fn().mockReturnValue([]),
-      syncForSession: vi.fn(),
+      syncPath: vi.fn<(...args: any[]) => any>(),
+      listPathsForSession: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      syncForSession: vi.fn<(...args: any[]) => any>(),
     },
     argosSessionsTable: {
-      create: vi.fn(
+      create: vi.fn<(...args: any[]) => any>(
         (
           id: string,
           providerId: string,
@@ -186,8 +186,8 @@ function createMockSqlitePresenter() {
           });
         },
       ),
-      get: vi.fn((id: string) => argosSessionsStore.get(id)),
-      getGenerationSettings: vi.fn((id: string) => {
+      get: vi.fn<(...args: any[]) => any>((id: string) => argosSessionsStore.get(id)),
+      getGenerationSettings: vi.fn<(...args: any[]) => any>((id: string) => {
         const row = argosSessionsStore.get(id);
         if (!row) return null;
         return {
@@ -200,7 +200,7 @@ function createMockSqlitePresenter() {
           ...(row.verbosity !== null ? { verbosity: row.verbosity } : {}),
         };
       }),
-      getSummaryState: vi.fn((id: string) => {
+      getSummaryState: vi.fn<(...args: any[]) => any>((id: string) => {
         const row = argosSessionsStore.get(id);
         if (!row) {
           return null;
@@ -211,19 +211,19 @@ function createMockSqlitePresenter() {
           summary_updated_at: row.summary_updated_at ?? null,
         };
       }),
-      updatePermissionMode: vi.fn((id: string, mode: "default" | "full_access") => {
+      updatePermissionMode: vi.fn<(...args: any[]) => any>((id: string, mode: "default" | "full_access") => {
         const row = argosSessionsStore.get(id);
         if (row) {
           row.permission_mode = mode;
         }
       }),
-      updateSessionModel: vi.fn((id: string, providerId: string, modelId: string) => {
+      updateSessionModel: vi.fn<(...args: any[]) => any>((id: string, providerId: string, modelId: string) => {
         const row = argosSessionsStore.get(id);
         if (!row) return;
         row.provider_id = providerId;
         row.model_id = modelId;
       }),
-      updateGenerationSettings: vi.fn((id: string, settings: Record<string, unknown>) => {
+      updateGenerationSettings: vi.fn<(...args: any[]) => any>((id: string, settings: Record<string, unknown>) => {
         const row = argosSessionsStore.get(id);
         if (!row) return;
         if ("systemPrompt" in settings) row.system_prompt = settings.systemPrompt ?? null;
@@ -234,7 +234,7 @@ function createMockSqlitePresenter() {
         if ("reasoningEffort" in settings) row.reasoning_effort = settings.reasoningEffort ?? null;
         if ("verbosity" in settings) row.verbosity = settings.verbosity ?? null;
       }),
-      updateSummaryState: vi.fn(
+      updateSummaryState: vi.fn<(...args: any[]) => any>(
         (
           id: string,
           state: {
@@ -250,7 +250,7 @@ function createMockSqlitePresenter() {
           row.summary_updated_at = state.summaryUpdatedAt;
         },
       ),
-      updateSummaryStateIfMatches: vi.fn(
+      updateSummaryStateIfMatches: vi.fn<(...args: any[]) => any>(
         (
           id: string,
           state: {
@@ -280,17 +280,17 @@ function createMockSqlitePresenter() {
           return true;
         },
       ),
-      resetSummaryState: vi.fn((id: string) => {
+      resetSummaryState: vi.fn<(...args: any[]) => any>((id: string) => {
         const row = argosSessionsStore.get(id);
         if (!row) return;
         row.summary_text = null;
         row.summary_cursor_order_seq = 1;
         row.summary_updated_at = null;
       }),
-      delete: vi.fn((id: string) => argosSessionsStore.delete(id)),
+      delete: vi.fn<(...args: any[]) => any>((id: string) => argosSessionsStore.delete(id)),
     },
     argosMessagesTable: {
-      insert: vi.fn((row: any) => {
+      insert: vi.fn<(...args: any[]) => any>((row: any) => {
         const now = Date.now();
         const record = {
           ...row,
@@ -304,11 +304,11 @@ function createMockSqlitePresenter() {
         messagesStore.set(row.id, record);
         messagesList.push(record);
       }),
-      updateContent: vi.fn((id: string, content: string) => {
+      updateContent: vi.fn<(...args: any[]) => any>((id: string, content: string) => {
         const msg = messagesStore.get(id);
         if (msg) msg.content = content;
       }),
-      updateContentAndStatus: vi.fn((id: string, content: string, status: string, metadata?: string) => {
+      updateContentAndStatus: vi.fn<(...args: any[]) => any>((id: string, content: string, status: string, metadata?: string) => {
         const msg = messagesStore.get(id);
         if (msg) {
           msg.content = content;
@@ -316,50 +316,50 @@ function createMockSqlitePresenter() {
           if (metadata) msg.metadata = metadata;
         }
       }),
-      updateStatus: vi.fn((id: string, status: string) => {
+      updateStatus: vi.fn<(...args: any[]) => any>((id: string, status: string) => {
         const msg = messagesStore.get(id);
         if (msg) msg.status = status;
       }),
-      getBySession: vi.fn((sessionId: string) => {
+      getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         return messagesList
           .filter((m) => m.session_id === sessionId)
           .sort((a: any, b: any) => a.order_seq - b.order_seq);
       }),
-      getBySessionUpToOrderSeq: vi.fn((sessionId: string, maxOrderSeq: number) => {
+      getBySessionUpToOrderSeq: vi.fn<(...args: any[]) => any>((sessionId: string, maxOrderSeq: number) => {
         return messagesList
           .filter((m) => m.session_id === sessionId && m.order_seq <= maxOrderSeq)
           .sort((a: any, b: any) => a.order_seq - b.order_seq);
       }),
-      getByStatus: vi.fn((status: string) =>
+      getByStatus: vi.fn<(...args: any[]) => any>((status: string) =>
         messagesList.filter((m) => m.status === status).sort((a, b) => b.updated_at - a.updated_at),
       ),
-      getIdsBySession: vi.fn((sessionId: string) => {
+      getIdsBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         return messagesList
           .filter((m) => m.session_id === sessionId)
           .sort((a: any, b: any) => a.order_seq - b.order_seq)
           .map((m: any) => m.id);
       }),
-      getIdsFromOrderSeq: vi.fn((sessionId: string, fromOrderSeq: number) => {
+      getIdsFromOrderSeq: vi.fn<(...args: any[]) => any>((sessionId: string, fromOrderSeq: number) => {
         return messagesList
           .filter((m) => m.session_id === sessionId && m.order_seq >= fromOrderSeq)
           .map((m: any) => m.id);
       }),
-      get: vi.fn((id: string) => messagesStore.get(id)),
-      getLastUserMessageBeforeOrAtOrderSeq: vi.fn((sessionId: string, orderSeq: number) => {
+      get: vi.fn<(...args: any[]) => any>((id: string) => messagesStore.get(id)),
+      getLastUserMessageBeforeOrAtOrderSeq: vi.fn<(...args: any[]) => any>((sessionId: string, orderSeq: number) => {
         return messagesList
           .filter((m) => m.session_id === sessionId && m.role === "user" && m.order_seq <= orderSeq)
           .sort((a: any, b: any) => b.order_seq - a.order_seq)[0];
       }),
-      getMaxOrderSeq: vi.fn((sessionId: string) => {
+      getMaxOrderSeq: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         const msgs = messagesList.filter((m) => m.session_id === sessionId);
         if (msgs.length === 0) return 0;
         return Math.max(...msgs.map((m: any) => m.order_seq));
       }),
-      delete: vi.fn((id: string) => {
+      delete: vi.fn<(...args: any[]) => any>((id: string) => {
         messagesStore.delete(id);
         messagesList = messagesList.filter((item) => item.id !== id);
       }),
-      deleteFromOrderSeq: vi.fn((sessionId: string, fromOrderSeq: number) => {
+      deleteFromOrderSeq: vi.fn<(...args: any[]) => any>((sessionId: string, fromOrderSeq: number) => {
         const idsToDelete = messagesList
           .filter((m) => m.session_id === sessionId && m.order_seq >= fromOrderSeq)
           .map((m) => m.id);
@@ -369,13 +369,13 @@ function createMockSqlitePresenter() {
           messagesStore.delete(id);
         }
       }),
-      deleteBySession: vi.fn((sessionId: string) => {
+      deleteBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         messagesList = messagesList.filter((m) => m.session_id !== sessionId);
         for (const [id, msg] of messagesStore) {
           if (msg.session_id === sessionId) messagesStore.delete(id);
         }
       }),
-      recoverPendingMessages: vi.fn(() => {
+      recoverPendingMessages: vi.fn<(...args: any[]) => any>(() => {
         let count = 0;
         for (const msg of messagesStore.values()) {
           if (msg.status === "pending") {
@@ -387,44 +387,44 @@ function createMockSqlitePresenter() {
       }),
     },
     argosUserMessagesTable: {
-      upsert: vi.fn(),
-      get: vi.fn().mockReturnValue(undefined),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosUserMessageFilesTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosUserMessageLinksTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosAssistantBlocksTable: {
-      replaceForMessage: vi.fn((messageId: string, blocks: any[]) => {
+      replaceForMessage: vi.fn<(...args: any[]) => any>((messageId: string, blocks: any[]) => {
         assistantBlocksStore.set(messageId, buildAssistantBlockRows(messageId, blocks));
       }),
-      listByMessageId: vi.fn((messageId: string) => assistantBlocksStore.get(messageId) ?? []),
-      listByMessageIds: vi.fn((messageIds: string[]) =>
+      listByMessageId: vi.fn<(...args: any[]) => any>((messageId: string) => assistantBlocksStore.get(messageId) ?? []),
+      listByMessageIds: vi.fn<(...args: any[]) => any>((messageIds: string[]) =>
         messageIds.flatMap((messageId) => assistantBlocksStore.get(messageId) ?? []),
       ),
-      delete: vi.fn((messageId: string) => {
+      delete: vi.fn<(...args: any[]) => any>((messageId: string) => {
         assistantBlocksStore.delete(messageId);
       }),
-      deleteByMessageIds: vi.fn((messageIds: string[]) => {
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>((messageIds: string[]) => {
         for (const messageId of messageIds) {
           assistantBlocksStore.delete(messageId);
         }
       }),
-      deleteBySession: vi.fn((sessionId: string) => {
+      deleteBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         for (const message of messagesStore.values()) {
           if (message.session_id === sessionId) {
             assistantBlocksStore.delete(message.id);
@@ -433,27 +433,27 @@ function createMockSqlitePresenter() {
       }),
     },
     argosMessageTracesTable: {
-      insert: vi.fn().mockReturnValue(1),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      countByMessageId: vi.fn().mockReturnValue(0),
-      deleteByMessageIds: vi.fn(),
-      deleteBySessionId: vi.fn(),
+      insert: vi.fn<(...args: any[]) => any>().mockReturnValue(1),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      countByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySessionId: vi.fn<(...args: any[]) => any>(),
     },
     argosMessageSearchResultsTable: {
-      add: vi.fn(),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      deleteByMessageIds: vi.fn(),
-      deleteBySessionId: vi.fn(),
+      add: vi.fn<(...args: any[]) => any>(),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySessionId: vi.fn<(...args: any[]) => any>(),
     },
     argosSearchDocumentsTable: {
-      upsert: vi.fn(),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
-      refreshSessionTitle: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
+      refreshSessionTitle: vi.fn<(...args: any[]) => any>(),
     },
     argosPendingInputsTable: {
-      insert: vi.fn((row: any) => {
+      insert: vi.fn<(...args: any[]) => any>((row: any) => {
         const now = row.createdAt ?? Date.now();
         pendingInputsStore.set(row.id, {
           id: row.id,
@@ -468,18 +468,18 @@ function createMockSqlitePresenter() {
           updated_at: row.updatedAt ?? now,
         });
       }),
-      get: vi.fn((id: string) => pendingInputsStore.get(id)),
-      listBySession: vi.fn((sessionId: string) =>
+      get: vi.fn<(...args: any[]) => any>((id: string) => pendingInputsStore.get(id)),
+      listBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
         Array.from(pendingInputsStore.values())
           .filter((row) => row.session_id === sessionId)
           .sort((left, right) => left.created_at - right.created_at),
       ),
-      listClaimed: vi.fn(() =>
+      listClaimed: vi.fn<(...args: any[]) => any>(() =>
         Array.from(pendingInputsStore.values())
           .filter((row) => row.state === "claimed")
           .sort((left, right) => left.created_at - right.created_at),
       ),
-      listActiveBySession: vi.fn((sessionId: string) =>
+      listActiveBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
         Array.from(pendingInputsStore.values())
           .filter((row) => row.session_id === sessionId && row.state !== "consumed")
           .sort((left, right) => {
@@ -491,7 +491,7 @@ function createMockSqlitePresenter() {
             return left.created_at - right.created_at;
           }),
       ),
-      countActiveBySession: vi.fn(
+      countActiveBySession: vi.fn<(...args: any[]) => any>(
         (sessionId: string) =>
           Array.from(pendingInputsStore.values()).filter(
             (row) =>
@@ -500,7 +500,7 @@ function createMockSqlitePresenter() {
               !(row.mode === "queue" && row.state === "claimed"),
           ).length,
       ),
-      update: vi.fn((id: string, fields: any) => {
+      update: vi.fn<(...args: any[]) => any>((id: string, fields: any) => {
         const row = pendingInputsStore.get(id);
         if (!row) return;
         pendingInputsStore.set(id, {
@@ -509,10 +509,10 @@ function createMockSqlitePresenter() {
           updated_at: Date.now(),
         });
       }),
-      delete: vi.fn((id: string) => {
+      delete: vi.fn<(...args: any[]) => any>((id: string) => {
         pendingInputsStore.delete(id);
       }),
-      deleteBySession: vi.fn((sessionId: string) => {
+      deleteBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => {
         for (const [id, row] of pendingInputsStore.entries()) {
           if (row.session_id === sessionId) {
             pendingInputsStore.delete(id);
@@ -532,8 +532,8 @@ function createMockSqlitePresenter() {
 
 function createMockLlmProviderPresenter() {
   return {
-    getProviderInstance: vi.fn().mockReturnValue({
-      coreStream: vi.fn(function () {
+    getProviderInstance: vi.fn<(...args: any[]) => any>().mockReturnValue({
+      coreStream: vi.fn<(...args: any[]) => any>(function () {
         return (async function* () {
           yield { type: "text", content: "Hello from LLM" };
           yield {
@@ -544,43 +544,43 @@ function createMockLlmProviderPresenter() {
         })();
       }),
     }),
-    executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-    generateText: vi.fn().mockResolvedValue({
+    executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    generateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       content: ["## Current Goal", "- Continue the conversation"].join("\n"),
     }),
-    setAcpWorkdir: vi.fn().mockResolvedValue(undefined),
-    summaryTitles: vi.fn().mockResolvedValue("Generated Integration Title"),
+    setAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    summaryTitles: vi.fn<(...args: any[]) => any>().mockResolvedValue("Generated Integration Title"),
   } as any;
 }
 
 function createMockConfigPresenter() {
   return {
-    getDefaultModel: vi.fn().mockReturnValue({ providerId: "openai", modelId: "gpt-4" }),
-    getModelConfig: vi.fn().mockReturnValue({ temperature: 0.7, maxTokens: 4096, contextLength: 128000 }),
-    getDefaultSystemPrompt: vi.fn().mockResolvedValue("You are a helpful assistant."),
-    getAutoCompactionEnabled: vi.fn().mockReturnValue(true),
-    getAutoCompactionTriggerThreshold: vi.fn().mockReturnValue(80),
-    getAutoCompactionRetainRecentPairs: vi.fn().mockReturnValue(2),
-    supportsReasoningCapability: vi.fn().mockReturnValue(false),
-    getThinkingBudgetRange: vi.fn().mockReturnValue({}),
-    supportsReasoningEffortCapability: vi.fn().mockReturnValue(false),
-    getReasoningEffortDefault: vi.fn().mockReturnValue(undefined),
-    supportsVerbosityCapability: vi.fn().mockReturnValue(false),
-    getVerbosityDefault: vi.fn().mockReturnValue(undefined),
-    getSkillsEnabled: vi.fn().mockReturnValue(false),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    getAcpAgents: vi.fn().mockResolvedValue([]),
+    getDefaultModel: vi.fn<(...args: any[]) => any>().mockReturnValue({ providerId: "openai", modelId: "gpt-4" }),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ temperature: 0.7, maxTokens: 4096, contextLength: 128000 }),
+    getDefaultSystemPrompt: vi.fn<(...args: any[]) => any>().mockResolvedValue("You are a helpful assistant."),
+    getAutoCompactionEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    getAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>().mockReturnValue(80),
+    getAutoCompactionRetainRecentPairs: vi.fn<(...args: any[]) => any>().mockReturnValue(2),
+    supportsReasoningCapability: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    getThinkingBudgetRange: vi.fn<(...args: any[]) => any>().mockReturnValue({}),
+    supportsReasoningEffortCapability: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    getReasoningEffortDefault: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    supportsVerbosityCapability: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    getVerbosityDefault: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
   } as any;
 }
 
 function createMockToolPresenter() {
   return {
-    getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-    callTool: vi.fn().mockResolvedValue({
+    getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       content: "tool result",
       rawData: { toolCallId: "tc1", content: "tool result", isError: false },
     }),
-    buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+    buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
   } as any;
 }
 
@@ -733,7 +733,7 @@ describe("Integration: ACP hooks bridge", () => {
     llmProvider = createMockLlmProviderPresenter();
     configPresenter = createMockConfigPresenter();
     configPresenter.getAcpAgents.mockResolvedValue([{ id: "coder", name: "Coder" }]);
-    hookDispatcher = { dispatchEvent: vi.fn() };
+    hookDispatcher = { dispatchEvent: vi.fn<(...args: any[]) => any>() };
 
     const argosAgent = new AgentRuntimePresenter(
       llmProvider,
@@ -868,7 +868,7 @@ describe("Integration: multi-turn context", () => {
   it("persists the initial user message before the first assistant stream responds", async () => {
     let releaseFirstTurn: (() => void) | null = null;
     const providerInstance = {
-      coreStream: vi.fn().mockImplementationOnce(async function* () {
+      coreStream: vi.fn<(...args: any[]) => any>().mockImplementationOnce(async function* () {
         await new Promise<void>((resolve) => {
           releaseFirstTurn = resolve;
         });
@@ -897,7 +897,7 @@ describe("Integration: multi-turn context", () => {
     let releaseSecondTurn: (() => void) | null = null;
     const providerInstance = {
       coreStream: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(async function* () {
           yield { type: "text", content: "First response" };
           yield { type: "stop", stop_reason: "end_turn" };
@@ -936,7 +936,7 @@ describe("Integration: multi-turn context", () => {
     let releaseFirstTurn: (() => void) | null = null;
     const providerInstance = {
       coreStream: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(async function* () {
           await new Promise<void>((resolve) => {
             releaseFirstTurn = resolve;
@@ -982,7 +982,7 @@ describe("Integration: multi-turn context", () => {
     let releaseFirstTurn: (() => void) | null = null;
     const providerInstance = {
       coreStream: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(async function* () {
           await new Promise<void>((resolve) => {
             releaseFirstTurn = resolve;
@@ -1044,7 +1044,7 @@ describe("Integration: multi-turn context", () => {
     const steerFileContent = "S".repeat(8000);
     const providerInstance = {
       coreStream: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(async function* () {
           await new Promise<void>((resolve) => {
             releaseFirstTurn = resolve;
@@ -1115,7 +1115,7 @@ describe("Integration: multi-turn context", () => {
 
   it("pauses queued prompts until a tool follow-up answer is actually sent", async () => {
     const providerInstance = {
-      coreStream: vi.fn(async function* (messages: any[]) {
+      coreStream: vi.fn<(...args: any[]) => any>(async function* (messages: any[]) {
         const lastUserMessage = messages.filter((message) => message.role === "user").at(-1);
         yield {
           type: "text",
@@ -1202,8 +1202,8 @@ describe("Integration: multi-turn context", () => {
   it("sendMessage starts a fresh turn from an errored session", async () => {
     const providerInstance = {
       coreStream: vi
-        .fn()
-        .mockImplementationOnce(async function* () {
+        .fn<(...args: any[]) => any>()
+        .mockImplementationOnce(async () => {
           throw new Error("provider offline");
         })
         .mockImplementation(async function* () {
@@ -1240,11 +1240,12 @@ describe("Integration: multi-turn context", () => {
     let releaseFirstTurn: (() => void) | null = null;
     const providerInstance = {
       coreStream: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockImplementationOnce(async function* () {
           await new Promise<void>((resolve) => {
             releaseFirstTurn = resolve;
           });
+          yield; // unreachable but satisfies generator requirement
           throw new Error("network down");
         })
         .mockImplementation(async function* () {
@@ -1305,7 +1306,7 @@ describe("Integration: crash recovery", () => {
       },
     ]);
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "log").mockImplementation(() => {});
 
     // Creating the agent triggers crash recovery
     new AgentRuntimePresenter(llmProvider, configPresenter, sqlitePresenter, createMockToolPresenter());

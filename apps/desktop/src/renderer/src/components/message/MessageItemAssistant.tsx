@@ -48,7 +48,7 @@ const isAudioBlock = (block: DisplayAssistantMessageBlock): boolean => {
   if (data.startsWith("data:audio/")) return true;
   if (data.startsWith("imgcache://") || data.startsWith("http://") || data.startsWith("https://")) {
     const lower = data.toLowerCase();
-    return AUDIO_EXTENSIONS.some((ext) => lower.includes(ext));
+    return AUDIO_EXTENSIONS.some(lower.includes);
   }
   return false;
 };
@@ -63,7 +63,7 @@ const isVideoUrl = (value: string): boolean => {
       ? new URL(value.replace("imgcache://", "https://imgcache.local/"))
       : new URL(value);
     const pathname = normalizedUrl.pathname.toLowerCase();
-    return VIDEO_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+    return VIDEO_EXTENSIONS.some(pathname.endsWith);
   } catch {
     const lower = value.toLowerCase();
     return VIDEO_EXTENSIONS.some(

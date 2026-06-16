@@ -75,10 +75,10 @@ const {
     },
   };
 
-  const sendToRendererMock = vi.fn();
-  const menuPopupMock = vi.fn();
-  const getAgentsMock = vi.fn(async () => presenterState.agents);
-  const getSessionListMock = vi.fn(async () => presenterState.sessions);
+  const sendToRendererMock = vi.fn<(...args: any[]) => any>();
+  const menuPopupMock = vi.fn<(...args: any[]) => any>();
+  const getAgentsMock = vi.fn<(...args: any[]) => any>(async () => presenterState.agents);
+  const getSessionListMock = vi.fn<(...args: any[]) => any>(async () => presenterState.sessions);
 
   return {
     electronState: {
@@ -104,53 +104,53 @@ const BrowserWindow = vi.hoisted(() => class BrowserWindow {});
 vi.mock("electron", () => ({
   BrowserWindow,
   ipcMain: {
-    on: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
+    on: vi.fn<(...args: any[]) => any>((channel: string, handler: (...args: unknown[]) => unknown) => {
       electronState.eventHandlers.set(channel, handler);
     }),
-    handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
+    handle: vi.fn<(...args: any[]) => any>((channel: string, handler: (...args: unknown[]) => unknown) => {
       electronState.invokeHandlers.set(channel, handler);
     }),
-    removeHandler: vi.fn((channel: string) => {
+    removeHandler: vi.fn<(...args: any[]) => any>((channel: string) => {
       electronState.invokeHandlers.delete(channel);
     }),
-    removeAllListeners: vi.fn((channel: string) => {
+    removeAllListeners: vi.fn<(...args: any[]) => any>((channel: string) => {
       electronState.eventHandlers.delete(channel);
     }),
   },
   screen: {
-    getDisplayMatching: vi.fn(() => ({
+    getDisplayMatching: vi.fn<(...args: any[]) => any>(() => ({
       workArea: electronState.workArea,
     })),
   },
   Menu: {
-    buildFromTemplate: vi.fn(() => ({
+    buildFromTemplate: vi.fn<(...args: any[]) => any>(() => ({
       popup: menuPopupMock,
     })),
   },
   app: {
-    quit: vi.fn(),
+    quit: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/floatingButtonPresenter/FloatingButtonWindow", () => ({
   FloatingButtonWindow: class MockFloatingButtonWindow {
-    public create = vi.fn().mockResolvedValue(undefined);
-    public show = vi.fn();
-    public destroy = vi.fn();
-    public exists = vi.fn(() => floatingWindowState.exists);
-    public getState = vi.fn(() => null);
-    public getBounds = vi.fn(() => ({ ...floatingWindowState.bounds }));
-    public setBounds = vi.fn((bounds) => {
+    public create = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    public show = vi.fn<(...args: any[]) => any>();
+    public destroy = vi.fn<(...args: any[]) => any>();
+    public exists = vi.fn<(...args: any[]) => any>(() => floatingWindowState.exists);
+    public getState = vi.fn<(...args: any[]) => any>(() => null);
+    public getBounds = vi.fn<(...args: any[]) => any>(() => ({ ...floatingWindowState.bounds }));
+    public setBounds = vi.fn<(...args: any[]) => any>((bounds) => {
       floatingWindowState.bounds = { ...bounds };
     });
-    public setOpacity = vi.fn((opacity: number) => {
+    public setOpacity = vi.fn<(...args: any[]) => any>((opacity: number) => {
       floatingWindowState.opacity = opacity;
     });
-    public getDockSide = vi.fn(() => floatingWindowState.dockSide);
-    public setDockSide = vi.fn((dockSide: "left" | "right") => {
+    public getDockSide = vi.fn<(...args: any[]) => any>(() => floatingWindowState.dockSide);
+    public setDockSide = vi.fn<(...args: any[]) => any>((dockSide: "left" | "right") => {
       floatingWindowState.dockSide = dockSide;
     });
-    public getWindow = vi.fn(() => ({
+    public getWindow = vi.fn<(...args: any[]) => any>(() => ({
       isDestroyed: () => false,
       webContents: {
         id: 1,
@@ -169,17 +169,17 @@ vi.mock("../../../../src/main/presenter/index", () => ({
     agentSessionPresenter: {
       getAgents: getAgentsMock,
       getSessionList: getSessionListMock,
-      activateSession: vi.fn(),
+      activateSession: vi.fn<(...args: any[]) => any>(),
     },
     windowPresenter: {
       mainWindow: null,
-      getAllWindows: vi.fn(() => []),
-      getFocusedWindow: vi.fn(() => null),
-      createAppWindow: vi.fn(async () => null),
-      show: vi.fn(),
+      getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
+      getFocusedWindow: vi.fn<(...args: any[]) => any>(() => null),
+      createAppWindow: vi.fn<(...args: any[]) => any>(async () => null),
+      show: vi.fn<(...args: any[]) => any>(),
     },
     tabPresenter: {
-      getWindowType: vi.fn(() => "chat"),
+      getWindowType: vi.fn<(...args: any[]) => any>(() => "chat"),
     },
   },
 }));
@@ -191,11 +191,11 @@ describe("FloatingButtonPresenter drag layout sync", () => {
 
   const createConfigPresenter = () =>
     ({
-      getFloatingButtonEnabled: vi.fn(() => true),
-      getLanguage: vi.fn(() => "zh-CN"),
-      getCurrentThemeIsDark: vi.fn(async () => false),
-      getFloatingButtonBounds: vi.fn(() => null),
-      setFloatingButtonBounds: vi.fn(),
+      getFloatingButtonEnabled: vi.fn<(...args: any[]) => any>(() => true),
+      getLanguage: vi.fn<(...args: any[]) => any>(() => "zh-CN"),
+      getCurrentThemeIsDark: vi.fn<(...args: any[]) => any>(async () => false),
+      getFloatingButtonBounds: vi.fn<(...args: any[]) => any>(() => null),
+      setFloatingButtonBounds: vi.fn<(...args: any[]) => any>(),
     }) as any;
 
   const emitEvent = async (channel: string, payload?: unknown) => {

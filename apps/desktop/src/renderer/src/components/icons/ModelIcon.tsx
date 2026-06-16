@@ -215,12 +215,12 @@ export default function ModelIcon({ modelId, customClass = "w-4 h-4", isDark = f
 
   const iconKey = useMemo(() => {
     const modelIdLower = modelId.toLowerCase();
-    const matchedIcon = iconKeys.find((key) => modelIdLower.includes(key));
+    const matchedIcon = iconKeys.find(modelIdLower.includes);
     if (matchedIcon) return matchedIcon;
 
     const apiType = provider?.apiType?.toLowerCase();
     if (apiType) {
-      const apiMatchedIcon = iconKeys.find((key) => apiType.includes(key));
+      const apiMatchedIcon = iconKeys.find(apiType.includes);
       if (apiMatchedIcon) return apiMatchedIcon;
     }
 

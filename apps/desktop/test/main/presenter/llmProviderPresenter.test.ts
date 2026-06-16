@@ -7,10 +7,10 @@ import { ApiEndpointType, ModelType } from "../../../src/shared/model";
 
 const { mockRunAiSdkCoreStream, mockRunAiSdkDimensions, mockRunAiSdkEmbeddings, mockRunAiSdkGenerateText } = vi.hoisted(
   () => ({
-    mockRunAiSdkCoreStream: vi.fn(),
-    mockRunAiSdkDimensions: vi.fn(),
-    mockRunAiSdkEmbeddings: vi.fn(),
-    mockRunAiSdkGenerateText: vi.fn().mockResolvedValue({ content: "mock completion" }),
+    mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+    mockRunAiSdkDimensions: vi.fn<(...args: any[]) => any>(),
+    mockRunAiSdkEmbeddings: vi.fn<(...args: any[]) => any>(),
+    mockRunAiSdkGenerateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "mock completion" }),
   }),
 );
 
@@ -18,33 +18,33 @@ const { mockRunAiSdkCoreStream, mockRunAiSdkDimensions, mockRunAiSdkEmbeddings, 
 vi.mock("electron", () => {
   return {
     app: {
-      getName: vi.fn(() => "Argos"),
-      getVersion: vi.fn(() => "0.0.0-test"),
-      getPath: vi.fn(() => "/mock/path"),
-      isReady: vi.fn(() => true),
-      on: vi.fn(),
+      getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+      getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+      getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+      isReady: vi.fn<(...args: any[]) => any>(() => true),
+      on: vi.fn<(...args: any[]) => any>(),
     },
     session: {},
     ipcMain: {
-      on: vi.fn(),
-      handle: vi.fn(),
-      removeHandler: vi.fn(),
+      on: vi.fn<(...args: any[]) => any>(),
+      handle: vi.fn<(...args: any[]) => any>(),
+      removeHandler: vi.fn<(...args: any[]) => any>(),
     },
-    BrowserWindow: vi.fn(() => ({
-      loadURL: vi.fn(),
-      loadFile: vi.fn(),
-      on: vi.fn(),
-      webContents: { send: vi.fn(), on: vi.fn(), isDestroyed: vi.fn(() => false) },
-      isDestroyed: vi.fn(() => false),
-      close: vi.fn(),
-      show: vi.fn(),
-      hide: vi.fn(),
+    BrowserWindow: vi.fn<(...args: any[]) => any>(() => ({
+      loadURL: vi.fn<(...args: any[]) => any>(),
+      loadFile: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>(),
+      webContents: { send: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>(), isDestroyed: vi.fn<(...args: any[]) => any>(() => false) },
+      isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+      close: vi.fn<(...args: any[]) => any>(),
+      show: vi.fn<(...args: any[]) => any>(),
+      hide: vi.fn<(...args: any[]) => any>(),
     })),
     dialog: {
-      showOpenDialog: vi.fn(),
+      showOpenDialog: vi.fn<(...args: any[]) => any>(),
     },
     shell: {
-      openExternal: vi.fn(),
+      openExternal: vi.fn<(...args: any[]) => any>(),
     },
   };
 });
@@ -52,10 +52,10 @@ vi.mock("electron", () => {
 // Mock eventBus
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -64,13 +64,13 @@ vi.mock("@/eventbus", () => ({
 
 const presenterRuntimeMock = vi.hoisted(() => ({
   toolPresenter: {
-    getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-    preCheckToolPermission: vi.fn().mockResolvedValue(null),
-    callTool: vi.fn().mockResolvedValue({ content: "Mock tool response", rawData: {} }),
+    getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    preCheckToolPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "Mock tool response", rawData: {} }),
   },
   mcpPresenter: {
-    getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-    callTool: vi.fn().mockResolvedValue({ content: "Mock tool response", rawData: {} }),
+    getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "Mock tool response", rawData: {} }),
   },
   yoBrowserPresenter: {},
 }));
@@ -83,7 +83,7 @@ vi.mock("@/presenter", () => ({
 // Mock proxy config
 vi.mock("@/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
@@ -98,36 +98,36 @@ describe("LLMProviderPresenter Integration Tests", () => {
   let llmProviderPresenter: LLMProviderPresenter;
   let mockConfigPresenter: ConfigPresenter;
   const mockSqlitePresenter: ISQLitePresenter = {
-    getAcpSession: vi.fn().mockResolvedValue(null),
-    upsertAcpSession: vi.fn().mockResolvedValue(undefined),
-    updateAcpSessionId: vi.fn().mockResolvedValue(undefined),
-    updateAcpWorkdir: vi.fn().mockResolvedValue(undefined),
-    updateAcpSessionStatus: vi.fn().mockResolvedValue(undefined),
-    deleteAcpSession: vi.fn().mockResolvedValue(undefined),
-    deleteAcpSessions: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn(),
-    createConversation: vi.fn(),
-    deleteConversation: vi.fn(),
-    renameConversation: vi.fn(),
-    getConversation: vi.fn(),
-    updateConversation: vi.fn(),
-    getConversationList: vi.fn(),
-    getConversationCount: vi.fn(),
-    insertMessage: vi.fn(),
-    queryMessages: vi.fn(),
-    deleteAllMessages: vi.fn(),
-    runTransaction: vi.fn(),
-    getMessage: vi.fn(),
-    getMessageVariants: vi.fn(),
-    updateMessage: vi.fn(),
-    updateMessageParentId: vi.fn(),
-    deleteMessage: vi.fn(),
-    getMaxOrderSeq: vi.fn(),
-    addMessageAttachment: vi.fn(),
-    getMessageAttachments: vi.fn(),
-    getLastUserMessage: vi.fn(),
-    getMainMessageByParentId: vi.fn(),
-    deleteAllMessagesInConversation: vi.fn(),
+    getAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    upsertAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateAcpSessionId: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateAcpSessionStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    deleteAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    deleteAcpSessions: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    close: vi.fn<(...args: any[]) => any>(),
+    createConversation: vi.fn<(...args: any[]) => any>(),
+    deleteConversation: vi.fn<(...args: any[]) => any>(),
+    renameConversation: vi.fn<(...args: any[]) => any>(),
+    getConversation: vi.fn<(...args: any[]) => any>(),
+    updateConversation: vi.fn<(...args: any[]) => any>(),
+    getConversationList: vi.fn<(...args: any[]) => any>(),
+    getConversationCount: vi.fn<(...args: any[]) => any>(),
+    insertMessage: vi.fn<(...args: any[]) => any>(),
+    queryMessages: vi.fn<(...args: any[]) => any>(),
+    deleteAllMessages: vi.fn<(...args: any[]) => any>(),
+    runTransaction: vi.fn<(...args: any[]) => any>(),
+    getMessage: vi.fn<(...args: any[]) => any>(),
+    getMessageVariants: vi.fn<(...args: any[]) => any>(),
+    updateMessage: vi.fn<(...args: any[]) => any>(),
+    updateMessageParentId: vi.fn<(...args: any[]) => any>(),
+    deleteMessage: vi.fn<(...args: any[]) => any>(),
+    getMaxOrderSeq: vi.fn<(...args: any[]) => any>(),
+    addMessageAttachment: vi.fn<(...args: any[]) => any>(),
+    getMessageAttachments: vi.fn<(...args: any[]) => any>(),
+    getLastUserMessage: vi.fn<(...args: any[]) => any>(),
+    getMainMessageByParentId: vi.fn<(...args: any[]) => any>(),
+    deleteAllMessagesInConversation: vi.fn<(...args: any[]) => any>(),
   } as unknown as ISQLitePresenter;
 
   // Mock OpenAI Compatible Provider config
@@ -143,9 +143,9 @@ describe("LLMProviderPresenter Integration Tests", () => {
   beforeAll(() => {
     // Mock ConfigPresenter methods
     const mockConfigPresenterInstance = {
-      getProviders: vi.fn().mockReturnValue([mockProvider]),
-      getProviderById: vi.fn().mockReturnValue(mockProvider),
-      getModelConfig: vi.fn().mockReturnValue({
+      getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue([mockProvider]),
+      getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue(mockProvider),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
         maxTokens: 4096,
         contextLength: 4096,
         temperature: 0.7,
@@ -153,20 +153,20 @@ describe("LLMProviderPresenter Integration Tests", () => {
         functionCall: false,
         reasoning: false,
       }),
-      getSetting: vi.fn().mockImplementation((key: string) => {
+      getSetting: vi.fn<(...args: any[]) => any>().mockImplementation((key: string) => {
         if (key === "azureApiVersion") return "2024-02-01";
         return undefined;
       }),
-      setModelStatus: vi.fn(),
-      updateCustomModel: vi.fn(),
-      setProviderModels: vi.fn(),
-      getCustomModels: vi.fn().mockReturnValue([]),
-      getProviderModels: vi.fn().mockReturnValue([]),
-      getModelStatus: vi.fn().mockReturnValue(true),
-      enableModel: vi.fn(),
-      setCustomModels: vi.fn(),
-      addCustomModel: vi.fn(),
-      removeCustomModel: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      updateCustomModel: vi.fn<(...args: any[]) => any>(),
+      setProviderModels: vi.fn<(...args: any[]) => any>(),
+      getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+      enableModel: vi.fn<(...args: any[]) => any>(),
+      setCustomModels: vi.fn<(...args: any[]) => any>(),
+      addCustomModel: vi.fn<(...args: any[]) => any>(),
+      removeCustomModel: vi.fn<(...args: any[]) => any>(),
     };
 
     mockConfigPresenter = mockConfigPresenterInstance as unknown as ConfigPresenter;
@@ -180,19 +180,19 @@ describe("LLMProviderPresenter Integration Tests", () => {
 
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
-        json: vi.fn().mockResolvedValue({
+        json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           data: [{ id: "mock-gpt-thinking" }, { id: "gpt-4-mock" }, { id: "mock-gpt-markdown" }],
         }),
-        text: vi.fn().mockResolvedValue(""),
+        text: vi.fn<(...args: any[]) => any>().mockResolvedValue(""),
       }),
     );
 
     // Reset mock implementations
-    mockConfigPresenter.getProviders = vi.fn().mockReturnValue([mockProvider]);
-    mockConfigPresenter.getProviderById = vi.fn().mockReturnValue(mockProvider);
-    mockConfigPresenter.getModelConfig = vi.fn().mockReturnValue({
+    mockConfigPresenter.getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([mockProvider]);
+    mockConfigPresenter.getProviderById = vi.fn<(...args: any[]) => any>().mockReturnValue(mockProvider);
+    mockConfigPresenter.getModelConfig = vi.fn<(...args: any[]) => any>().mockReturnValue({
       maxTokens: 4096,
       contextLength: 4096,
       temperature: 0.7,
@@ -201,11 +201,11 @@ describe("LLMProviderPresenter Integration Tests", () => {
       reasoning: false,
       type: "chat",
     });
-    mockConfigPresenter.enableModel = vi.fn();
-    mockConfigPresenter.setProviderModels = vi.fn();
-    mockConfigPresenter.getCustomModels = vi.fn().mockReturnValue([]);
-    mockConfigPresenter.getProviderModels = vi.fn().mockReturnValue([]);
-    mockConfigPresenter.getModelStatus = vi.fn().mockReturnValue(true);
+    mockConfigPresenter.enableModel = vi.fn<(...args: any[]) => any>();
+    mockConfigPresenter.setProviderModels = vi.fn<(...args: any[]) => any>();
+    mockConfigPresenter.getCustomModels = vi.fn<(...args: any[]) => any>().mockReturnValue([]);
+    mockConfigPresenter.getProviderModels = vi.fn<(...args: any[]) => any>().mockReturnValue([]);
+    mockConfigPresenter.getModelStatus = vi.fn<(...args: any[]) => any>().mockReturnValue(true);
 
     // Create new instance for each test
     llmProviderPresenter = new LLMProviderPresenter(
@@ -248,7 +248,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
     });
 
     it("defers provider bootstrap until a provider instance is requested", async () => {
-      const fetchSpy = vi.spyOn(AiSdkProvider.prototype, "fetchModels").mockResolvedValue([]);
+      const fetchSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "fetchModels").mockResolvedValue([]);
 
       const presenter = new LLMProviderPresenter(
         mockConfigPresenter,
@@ -278,8 +278,8 @@ describe("LLMProviderPresenter Integration Tests", () => {
         enable: true,
       };
 
-      mockConfigPresenter.getProviders = vi.fn().mockReturnValue([novitaProvider]);
-      mockConfigPresenter.getProviderById = vi.fn().mockReturnValue(novitaProvider);
+      mockConfigPresenter.getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([novitaProvider]);
+      mockConfigPresenter.getProviderById = vi.fn<(...args: any[]) => any>().mockReturnValue(novitaProvider);
 
       llmProviderPresenter = new LLMProviderPresenter(
         mockConfigPresenter,
@@ -365,23 +365,23 @@ describe("LLMProviderPresenter Integration Tests", () => {
     it("falls back to completion transcription when audio endpoint is unsupported", async () => {
       vi.stubGlobal(
         "fetch",
-        vi.fn().mockImplementation(async (input: string | URL | Request) => {
+        vi.fn<(...args: any[]) => any>().mockImplementation(async (input: string | URL | Request) => {
           const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
           if (url.endsWith("/audio/transcriptions")) {
             return {
               ok: false,
               status: 404,
-              text: vi.fn().mockResolvedValue("mock transcription failure"),
+              text: vi.fn<(...args: any[]) => any>().mockResolvedValue("mock transcription failure"),
             };
           }
 
           return {
             ok: true,
-            json: vi.fn().mockResolvedValue({
+            json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
               data: [{ id: "mock-gpt-thinking" }, { id: "gpt-4-mock" }, { id: "mock-gpt-markdown" }],
             }),
-            text: vi.fn().mockResolvedValue(""),
+            text: vi.fn<(...args: any[]) => any>().mockResolvedValue(""),
           };
         }),
       );
@@ -398,7 +398,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
     }, 15000);
 
     it("normalizes audio MIME type casing before transcription validation", async () => {
-      const transcribeSpy = vi.spyOn(AiSdkProvider.prototype, "transcribeAudio").mockResolvedValue("mock transcript");
+      const transcribeSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "transcribeAudio").mockResolvedValue("mock transcript");
 
       const transcript = await llmProviderPresenter.transcribeAudioStandalone(
         "mock-openai-api",
@@ -419,7 +419,7 @@ describe("LLMProviderPresenter Integration Tests", () => {
     }, 15000);
 
     it("should generate images through the standalone image runtime", async () => {
-      mockConfigPresenter.getModelConfig = vi.fn().mockReturnValue({
+      mockConfigPresenter.getModelConfig = vi.fn<(...args: any[]) => any>().mockReturnValue({
         maxTokens: 4096,
         contextLength: 4096,
         temperature: 0.7,
@@ -490,13 +490,13 @@ describe("LLMProviderPresenter Integration Tests", () => {
     });
 
     it("should swallow ACP warmup shutdown errors", async () => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const mockAcpProvider = {
         warmupProcess: vi
-          .fn()
+          .fn<(...args: any[]) => any>()
           .mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
       };
-      vi.spyOn(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
+      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
 
       await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).resolves.toBeUndefined();
       warnSpy.mockRestore();
@@ -504,15 +504,15 @@ describe("LLMProviderPresenter Integration Tests", () => {
 
     it("should rethrow non-shutdown ACP warmup errors", async () => {
       const mockAcpProvider = {
-        warmupProcess: vi.fn().mockRejectedValue(new Error("boom")),
+        warmupProcess: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
       };
-      vi.spyOn(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
+      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
 
       await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).rejects.toThrow("boom");
     });
 
     it("should handle provider check failure for invalid config", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
+      vi.stubGlobal("fetch", vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("Network error")));
 
       // Create a provider with an invalid config
       const invalidProvider: LLM_PROVIDER = {
@@ -527,9 +527,9 @@ describe("LLMProviderPresenter Integration Tests", () => {
       // Create a new LLMProviderPresenter instance to test the invalid config
       // Avoid polluting other tests' provider state
       const invalidMockConfig = {
-        getProviders: vi.fn().mockReturnValue([invalidProvider]),
-        getProviderById: vi.fn().mockReturnValue(invalidProvider),
-        getModelConfig: vi.fn().mockReturnValue({
+        getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue([invalidProvider]),
+        getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue(invalidProvider),
+        getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           maxTokens: 4096,
           contextLength: 4096,
           temperature: 0.7,
@@ -538,17 +538,17 @@ describe("LLMProviderPresenter Integration Tests", () => {
           reasoning: false,
           type: "chat",
         }),
-        getSetting: vi.fn(),
-        setModelStatus: vi.fn(),
-        updateCustomModel: vi.fn(),
-        setProviderModels: vi.fn(),
-        getCustomModels: vi.fn().mockReturnValue([]),
-        getProviderModels: vi.fn().mockReturnValue([]),
-        getModelStatus: vi.fn().mockReturnValue(true),
-        enableModel: vi.fn(),
-        setCustomModels: vi.fn(),
-        addCustomModel: vi.fn(),
-        removeCustomModel: vi.fn(),
+        getSetting: vi.fn<(...args: any[]) => any>(),
+        setModelStatus: vi.fn<(...args: any[]) => any>(),
+        updateCustomModel: vi.fn<(...args: any[]) => any>(),
+        setProviderModels: vi.fn<(...args: any[]) => any>(),
+        getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+        enableModel: vi.fn<(...args: any[]) => any>(),
+        setCustomModels: vi.fn<(...args: any[]) => any>(),
+        addCustomModel: vi.fn<(...args: any[]) => any>(),
+        removeCustomModel: vi.fn<(...args: any[]) => any>(),
       } as unknown as ConfigPresenter;
 
       const invalidLlmProvider = new LLMProviderPresenter(

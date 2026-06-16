@@ -31,8 +31,8 @@ describe("uiSettingsStore", () => {
     vi.resetModules();
     mountedUnmountFns = [];
 
-    unsubscribe = vi.fn();
-    invoke = vi.fn(async (routeName: string, input: any) => {
+    unsubscribe = vi.fn<(...args: any[]) => any>();
+    invoke = vi.fn<(...args: any[]) => any>(async (routeName: string, input: any) => {
       if (routeName === "settings.getSnapshot") {
         return {
           version: 1,
@@ -66,7 +66,7 @@ describe("uiSettingsStore", () => {
 
       throw new Error(`Unexpected route in test: ${routeName}`);
     });
-    on = vi.fn(() => unsubscribe);
+    on = vi.fn<(...args: any[]) => any>(() => unsubscribe);
 
     Object.assign(window, {
       argos: {
@@ -145,7 +145,7 @@ describe("uiSettingsStore", () => {
   });
 
   it("keeps privacy mode unchanged when the typed settings update fails", async () => {
-    invoke = vi.fn(async (routeName: string, input: any) => {
+    invoke = vi.fn<(...args: any[]) => any>(async (routeName: string, input: any) => {
       if (routeName === "settings.getSnapshot") {
         return {
           version: 1,
@@ -180,7 +180,7 @@ describe("uiSettingsStore", () => {
   it("waits for the initial snapshot before applying an update result", async () => {
     let resolveSnapshot!: (value: { version: number; values: Partial<SettingsSnapshotValues> }) => void;
 
-    invoke = vi.fn((routeName: string, input: any) => {
+    invoke = vi.fn<(...args: any[]) => any>((routeName: string, input: any) => {
       if (routeName === "settings.getSnapshot") {
         return new Promise((resolve) => {
           resolveSnapshot = resolve;

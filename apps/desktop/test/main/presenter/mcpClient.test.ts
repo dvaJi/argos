@@ -7,17 +7,17 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const fsExistsSyncMock = vi.hoisted(() => vi.fn());
+const fsExistsSyncMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
 // Mock electron modules
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((pathType: string) => {
+    getPath: vi.fn<(...args: any[]) => any>((pathType: string) => {
       if (pathType === "home") return "/mock/home";
       return "/mock/app";
     }),
-    getAppPath: vi.fn(() => "/mock/app"),
-    getVersion: vi.fn(() => "1.0.0"),
+    getAppPath: vi.fn<(...args: any[]) => any>(() => "/mock/app"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "1.0.0"),
   },
 }));
 
@@ -32,11 +32,11 @@ vi.mock("fs", () => ({
 // Mock eventBus
 vi.mock("../../../src/main/eventbus", () => ({
   eventBus: {
-    emit: vi.fn(),
-    send: vi.fn(),
-    on: vi.fn(),
-    off: vi.fn(),
-    once: vi.fn(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+    off: vi.fn<(...args: any[]) => any>(),
+    once: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "all-windows",
@@ -45,18 +45,18 @@ vi.mock("../../../src/main/eventbus", () => ({
 
 // Mock presenter
 const presenterMocks = vi.hoisted(() => ({
-  handleSamplingRequest: vi.fn(),
-  cancelSamplingRequest: vi.fn(),
-  executeWithRateLimit: vi.fn(),
-  generateCompletionStandalone: vi.fn(),
-  getProviderModels: vi.fn(),
-  getCustomModels: vi.fn(),
+  handleSamplingRequest: vi.fn<(...args: any[]) => any>(),
+  cancelSamplingRequest: vi.fn<(...args: any[]) => any>(),
+  executeWithRateLimit: vi.fn<(...args: any[]) => any>(),
+  generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+  getProviderModels: vi.fn<(...args: any[]) => any>(),
+  getCustomModels: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("../../../src/main/presenter", () => ({
   presenter: {
     configPresenter: {
-      getMcpServers: vi.fn(),
+      getMcpServers: vi.fn<(...args: any[]) => any>(),
       getProviderModels: presenterMocks.getProviderModels,
       getCustomModels: presenterMocks.getCustomModels,
     },
@@ -85,45 +85,45 @@ vi.mock("../../../src/main/events", () => ({
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/inMemoryServers/builder", () => ({
-  getInMemoryServer: vi.fn(),
+  getInMemoryServer: vi.fn<(...args: any[]) => any>(),
 }));
 
 // Mock MCP SDK modules
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-  Client: vi.fn().mockImplementation(() => ({
-    connect: vi.fn().mockResolvedValue(undefined),
-    callTool: vi.fn(),
-    listTools: vi.fn(),
-    listPrompts: vi.fn(),
-    getPrompt: vi.fn(),
-    listResources: vi.fn(),
-    readResource: vi.fn(),
-    setNotificationHandler: vi.fn(),
-    setRequestHandler: vi.fn(),
+  Client: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
+    connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    callTool: vi.fn<(...args: any[]) => any>(),
+    listTools: vi.fn<(...args: any[]) => any>(),
+    listPrompts: vi.fn<(...args: any[]) => any>(),
+    getPrompt: vi.fn<(...args: any[]) => any>(),
+    listResources: vi.fn<(...args: any[]) => any>(),
+    readResource: vi.fn<(...args: any[]) => any>(),
+    setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+    setRequestHandler: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-  StdioClientTransport: vi.fn().mockImplementation(() => ({
+  StdioClientTransport: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
     stderr: {
-      on: vi.fn(),
+      on: vi.fn<(...args: any[]) => any>(),
     },
-    close: vi.fn(),
+    close: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
-  SSEClientTransport: vi.fn(),
+  SSEClientTransport: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/inMemory.js", () => ({
   InMemoryTransport: {
-    createLinkedPair: vi.fn(() => [vi.fn(), vi.fn()]),
+    createLinkedPair: vi.fn<(...args: any[]) => any>(() => [vi.fn<(...args: any[]) => any>(), vi.fn<(...args: any[]) => any>()]),
   },
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
-  StreamableHTTPClientTransport: vi.fn(),
+  StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("McpClient Runtime Command Processing Tests", () => {
@@ -133,7 +133,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
   };
 
   beforeEach(() => {
-    mockFsExistsSync = vi.mocked(fs.existsSync);
+    mockFsExistsSync = vi.mocked<(...args: any[]) => any>(fs.existsSync);
     vi.clearAllMocks();
     mockFsExistsSync.mockReset();
     mockFsExistsSync.mockReturnValue(false);
@@ -146,27 +146,27 @@ describe("McpClient Runtime Command Processing Tests", () => {
     mockGenerateCompletionStandalone.mockReset();
     mockGetProviderModels.mockReset();
     mockGetCustomModels.mockReset();
-    vi.mocked(Client).mockImplementation(
+    vi.mocked<(...args: any[]) => any>(Client).mockImplementation(
       () =>
         ({
-          connect: vi.fn().mockResolvedValue(undefined),
-          callTool: vi.fn(),
-          listTools: vi.fn(),
-          listPrompts: vi.fn(),
-          getPrompt: vi.fn(),
-          listResources: vi.fn(),
-          readResource: vi.fn(),
-          setNotificationHandler: vi.fn(),
-          setRequestHandler: vi.fn(),
+          connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+          callTool: vi.fn<(...args: any[]) => any>(),
+          listTools: vi.fn<(...args: any[]) => any>(),
+          listPrompts: vi.fn<(...args: any[]) => any>(),
+          getPrompt: vi.fn<(...args: any[]) => any>(),
+          listResources: vi.fn<(...args: any[]) => any>(),
+          readResource: vi.fn<(...args: any[]) => any>(),
+          setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+          setRequestHandler: vi.fn<(...args: any[]) => any>(),
         }) as any,
     );
-    vi.mocked(StdioClientTransport).mockImplementation(
+    vi.mocked<(...args: any[]) => any>(StdioClientTransport).mockImplementation(
       () =>
         ({
           stderr: {
-            on: vi.fn(),
+            on: vi.fn<(...args: any[]) => any>(),
           },
-          close: vi.fn(),
+          close: vi.fn<(...args: any[]) => any>(),
         }) as any,
     );
   });
@@ -387,7 +387,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
       await client.connect();
 
-      const transportCalls = vi.mocked(StdioClientTransport).mock.calls;
+      const transportCalls = vi.mocked<(...args: any[]) => any>(StdioClientTransport).mock.calls;
       const transportOptions = transportCalls[transportCalls.length - 1][0] as {
         env: Record<string, string>;
       };

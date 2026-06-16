@@ -167,7 +167,7 @@ const applyToolsSnapshot = (toolDefs: MCPToolDefinition[] = []) => {
 const syncEnabledToolsWithDefinitions = async (toolDefs: MCPToolDefinition[] = []) => {
   const allToolNames = toolDefs.map((tool) => tool.function.name);
   const availableSet = new Set(allToolNames);
-  const filtered = mcpStore.state.enabledToolNames.filter((name) => availableSet.has(name));
+  const filtered = mcpStore.state.enabledToolNames.filter(availableSet.has);
   const next = filtered.length > 0 || allToolNames.length === 0 ? filtered : allToolNames;
   await setEnabledToolNames(next);
 };
@@ -284,7 +284,7 @@ export const updateServerStatus = async (serverName: string, noRefresh = false) 
       }
     } else {
       const allServerToolNames = mcpStore.state.tools.map((tool) => tool.function.name);
-      const filteredTools = mcpStore.state.enabledToolNames.filter((name) => allServerToolNames.includes(name));
+      const filteredTools = mcpStore.state.enabledToolNames.filter(allServerToolNames.includes);
       await setEnabledToolNames(filteredTools);
     }
   } catch (error) {
@@ -764,7 +764,7 @@ export const getAllServerList = () => {
 
 export const getServerList = () => getAllServerList().filter((server) => !isPluginOwnedServerConfig(server));
 
-export const getPluginServerList = () => getAllServerList().filter((server) => isPluginOwnedServerConfig(server));
+export const getPluginServerList = () => getAllServerList().filter(isPluginOwnedServerConfig);
 
 export const getEnabledServers = () =>
   mcpStore.state.config.mcpEnabled ? getServerList().filter((server) => server.enabled) : [];

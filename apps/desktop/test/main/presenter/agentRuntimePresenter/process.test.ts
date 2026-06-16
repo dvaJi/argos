@@ -10,7 +10,7 @@ import type { ProcessParams } from "@/presenter/agentRuntimePresenter/types";
 import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn() },
+  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -25,13 +25,13 @@ vi.mock("@/events", () => ({
 vi.mock("@/presenter", () => ({
   presenter: {
     commandPermissionService: {
-      extractCommandSignature: vi.fn().mockReturnValue("mock-signature"),
-      approve: vi.fn(),
+      extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
+      approve: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn() },
-    settingsPermissionService: { approve: vi.fn() },
+    filePermissionService: { approve: vi.fn<(...args: any[]) => any>() },
+    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>() },
     mcpPresenter: {
-      grantPermission: vi.fn().mockResolvedValue(undefined),
+      grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
   },
 }));
@@ -49,11 +49,11 @@ const DEFAULT_INTERLEAVED_REASONING = {
 
 function createMockMessageStore() {
   return {
-    addSearchResult: vi.fn(),
-    getMessage: vi.fn().mockReturnValue(null),
-    updateAssistantContent: vi.fn(),
-    finalizeAssistantMessage: vi.fn(),
-    setMessageError: vi.fn(),
+    addSearchResult: vi.fn<(...args: any[]) => any>(),
+    getMessage: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+    updateAssistantContent: vi.fn<(...args: any[]) => any>(),
+    finalizeAssistantMessage: vi.fn<(...args: any[]) => any>(),
+    setMessageError: vi.fn<(...args: any[]) => any>(),
   } as any;
 }
 
@@ -71,8 +71,8 @@ function makeTool(name: string): MCPToolDefinition {
 
 function createMockToolPresenter(responses: Record<string, string> = {}): IToolPresenter {
   return {
-    getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-    callTool: vi.fn(async (request) => {
+    getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    callTool: vi.fn<(...args: any[]) => any>(async (request) => {
       const name = request.function.name;
       const responseText = responses[name] ?? `result for ${name}`;
       return {
@@ -80,7 +80,7 @@ function createMockToolPresenter(responses: Record<string, string> = {}): IToolP
         rawData: { toolCallId: request.id, content: responseText, isError: false },
       };
     }),
-    buildToolSystemPrompt: vi.fn().mockReturnValue(""),
+    buildToolSystemPrompt: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
   } as unknown as IToolPresenter;
 }
 
@@ -114,7 +114,7 @@ describe("processStream", () => {
     const tools: MCPToolDefinition[] = [];
     const toolPresenter = createMockToolPresenter();
 
-    const coreStream = vi.fn(function* () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function* () {
       yield* makeStreamEvents({ type: "text", content: "Hello" }, { type: "stop", stop_reason: "complete" });
     }) as unknown as ProcessParams["coreStream"];
 
@@ -169,7 +169,7 @@ describe("processStream", () => {
   it("flushes ACP provider permission blocks immediately and keeps live permission updates mutable", async () => {
     let releaseStream: (() => void) | null = null;
     let commitDecision: ((granted: boolean) => void) | null = null;
-    const coreStream = vi.fn(async function* () {
+    const coreStream = vi.fn<(...args: any[]) => any>(async function* () {
       yield {
         type: "tool_call_start",
         tool_call_id: "tc1",
@@ -210,7 +210,7 @@ describe("processStream", () => {
       yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
     }) as unknown as ProcessParams["coreStream"];
 
-    const onStreamingProviderPermission = vi.fn((_permission, _tool, resolvePermission: (granted: boolean) => void) => {
+    const onStreamingProviderPermission = vi.fn<(...args: any[]) => any>((_permission, _tool, resolvePermission: (granted: boolean) => void) => {
       commitDecision = resolvePermission;
     });
     const params = createParams({
@@ -278,7 +278,7 @@ describe("processStream", () => {
   it("treats AbortError thrown before the first event as aborted without writing an error block", async () => {
     const abortError = new Error("Aborted");
     abortError.name = "AbortError";
-    const coreStream = vi.fn(async function* () {
+    const coreStream = vi.fn<(...args: any[]) => any>(async function* () {
       throw abortError;
     }) as unknown as ProcessParams["coreStream"];
 
@@ -299,7 +299,7 @@ describe("processStream", () => {
 
   it("single tool call → loop once, finalize", async () => {
     let callCount = 0;
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount === 1) {
         return (async function* () {
@@ -346,7 +346,7 @@ describe("processStream", () => {
   });
 
   it("yields after completed tool calls when a pending input should run next", async () => {
-    const coreStream = vi.fn(() =>
+    const coreStream = vi.fn<(...args: any[]) => any>(() =>
       (async function* () {
         yield {
           type: "tool_call_start",
@@ -362,7 +362,7 @@ describe("processStream", () => {
       })(),
     ) as unknown as ProcessParams["coreStream"];
 
-    const shouldYieldForPendingInput = vi.fn(() => true);
+    const shouldYieldForPendingInput = vi.fn<(...args: any[]) => any>(() => true);
     const toolPresenter = createMockToolPresenter({ get_weather: "Sunny, 72F" });
     const params = createParams({
       coreStream,
@@ -392,7 +392,7 @@ describe("processStream", () => {
     const toolPresenter = {
       ...createMockToolPresenter(),
       callTool: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockResolvedValueOnce({
           content: '{"success":true,"name":"argos-settings","isPinned":true}',
           rawData: {
@@ -415,9 +415,9 @@ describe("processStream", () => {
           },
         }),
     } as unknown as IToolPresenter;
-    const refreshTools = vi.fn().mockResolvedValue([makeTool("skill_view"), makeTool("argos_settings_set_theme")]);
+    const refreshTools = vi.fn<(...args: any[]) => any>().mockResolvedValue([makeTool("skill_view"), makeTool("argos_settings_set_theme")]);
 
-    const coreStream = vi.fn(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
+    const coreStream = vi.fn<(...args: any[]) => any>(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
       callCount++;
       if (callCount === 1) {
         expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
@@ -477,7 +477,7 @@ describe("processStream", () => {
     let callCount = 0;
     const toolPresenter = {
       ...createMockToolPresenter(),
-      callTool: vi.fn().mockResolvedValue({
+      callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         content: '{"success":true,"name":"argos-settings","filePath":"references/guide.md","isPinned":false}',
         rawData: {
           toolCallId: "tc1",
@@ -490,9 +490,9 @@ describe("processStream", () => {
         },
       }),
     } as unknown as IToolPresenter;
-    const refreshTools = vi.fn().mockResolvedValue([makeTool("argos_settings_set_theme")]);
+    const refreshTools = vi.fn<(...args: any[]) => any>().mockResolvedValue([makeTool("argos_settings_set_theme")]);
 
-    const coreStream = vi.fn(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
+    const coreStream = vi.fn<(...args: any[]) => any>(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
       callCount++;
       if (callCount === 1) {
         expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
@@ -534,11 +534,11 @@ describe("processStream", () => {
 
   it("offloads large tool results before the next provider call", async () => {
     tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-process-offload-"));
-    getPathSpy = vi.spyOn(app, "getPath").mockReturnValue(tempHome);
+    getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
 
     let callCount = 0;
     const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount === 1) {
         return (async function* () {
@@ -587,7 +587,7 @@ describe("processStream", () => {
       get_time: "3:00 PM",
     });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount === 1) {
         return (async function* () {
@@ -649,7 +649,7 @@ describe("processStream", () => {
         rawData: { toolCallId: "tc2", content: "b".repeat(4000), isError: false },
       });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount === 1) {
         return (async function* () {
@@ -708,7 +708,7 @@ describe("processStream", () => {
     let callCount = 0;
     const toolPresenter = createMockToolPresenter({ get_weather: "Sunny" });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount <= 2) {
         return (async function* () {
@@ -750,7 +750,7 @@ describe("processStream", () => {
     let callCount = 0;
     const toolPresenter = createMockToolPresenter({ get_weather: "Sunny" });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       const round = callCount;
       if (round <= 2) {
@@ -812,7 +812,7 @@ describe("processStream", () => {
     let callCount = 0;
     const toolPresenter = createMockToolPresenter({ action: "done" });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       return (async function* () {
         yield {
@@ -846,7 +846,7 @@ describe("processStream", () => {
   it("abort during stream", async () => {
     const abortController = new AbortController();
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       return (async function* () {
         yield { type: "text", content: "First" } as LLMCoreStreamEvent;
         abortController.abort();
@@ -907,7 +907,7 @@ describe("processStream", () => {
       ]),
     });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       return (async function* () {
         abortController.abort();
         yield { type: "text", content: "ignored" } as LLMCoreStreamEvent;
@@ -953,7 +953,7 @@ describe("processStream", () => {
       return { content: "ok", rawData: { toolCallId: "tc1", content: "ok", isError: false } };
     });
 
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       callCount++;
       if (callCount === 1) {
         return (async function* () {
@@ -1000,7 +1000,7 @@ describe("processStream", () => {
   });
 
   it("stream error event → finalizeError", async () => {
-    const coreStream = vi.fn(function* () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function* () {
       yield { type: "text", content: "Partial" } as LLMCoreStreamEvent;
       yield { type: "error", error_message: "Rate limit exceeded" } as LLMCoreStreamEvent;
     }) as unknown as ProcessParams["coreStream"];
@@ -1021,7 +1021,7 @@ describe("processStream", () => {
   });
 
   it("context window error event is finalized as an error", async () => {
-    const coreStream = vi.fn(function* () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function* () {
       yield {
         type: "error",
         error_message: "maximum context length exceeded",
@@ -1039,7 +1039,7 @@ describe("processStream", () => {
   });
 
   it("terminal tool output failure stops before the next provider call", async () => {
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       return (async function* () {
         yield {
           type: "tool_call_start",
@@ -1076,7 +1076,7 @@ describe("processStream", () => {
   });
 
   it("stream exception → catch finalizeError", async () => {
-    const coreStream = vi.fn(function () {
+    const coreStream = vi.fn<(...args: any[]) => any>(function () {
       return (async function* () {
         yield { type: "text", content: "Start" } as LLMCoreStreamEvent;
         throw new Error("Connection lost");

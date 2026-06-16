@@ -30,14 +30,14 @@ const buildToolDefinition = (name: string, serverName: string): MCPToolDefinitio
 
 const buildAgentToolRuntimeMock = (overrides: Record<string, unknown> = {}) =>
   ({
-    resolveConversationWorkdir: vi.fn().mockResolvedValue(null),
-    resolveConversationSessionInfo: vi.fn().mockResolvedValue(null),
+    resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     getSkillPresenter: () =>
       ({
-        getActiveSkills: vi.fn().mockResolvedValue([]),
-        getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-        listSkillScripts: vi.fn().mockResolvedValue([]),
-        getSkillExtension: vi.fn().mockResolvedValue({
+        getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 1,
           env: {},
           runtimePolicy: { python: "auto", node: "auto" },
@@ -45,36 +45,36 @@ const buildAgentToolRuntimeMock = (overrides: Record<string, unknown> = {}) =>
         }),
       }) as any,
     getYoBrowserToolHandler: () => ({
-      getToolDefinitions: vi.fn().mockReturnValue([]),
-      callTool: vi.fn(),
+      getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     }),
     getFilePresenter: () => ({
-      getMimeType: vi.fn(),
-      prepareFileCompletely: vi.fn(),
+      getMimeType: vi.fn<(...args: any[]) => any>(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     }),
     getLlmProviderPresenter: () => ({
-      executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-      generateCompletionStandalone: vi.fn(),
-      generateImageStandalone: vi.fn(),
+      executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+      generateImageStandalone: vi.fn<(...args: any[]) => any>(),
     }),
-    createSettingsWindow: vi.fn(),
-    sendToWindow: vi.fn().mockReturnValue(true),
-    getApprovedFilePaths: vi.fn().mockReturnValue([]),
-    consumeSettingsApproval: vi.fn().mockReturnValue(false),
+    createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+    sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     ...overrides,
   }) as any;
 
 describe("ToolPresenter", () => {
   it("reserves image_generate for the built-in agent tool when MCP exposes the same name", async () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, "mcp-images")]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, "mcp-images")]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -96,7 +96,7 @@ describe("ToolPresenter", () => {
     expect(imageGenerateDefs[0].server.name).toBe("agent-image-generation");
 
     const agentToolManager = (toolPresenter as any).agentToolManager;
-    const callToolSpy = vi.fn().mockResolvedValue("agent-image");
+    const callToolSpy = vi.fn<(...args: any[]) => any>().mockResolvedValue("agent-image");
     agentToolManager.callTool = callToolSpy;
 
     await toolPresenter.callTool({
@@ -123,14 +123,14 @@ describe("ToolPresenter", () => {
   it("deduplicates agent tools when MCP tool names overlap", async () => {
     const mcpDefs = [buildToolDefinition("shared", "mcp")];
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue(mcpDefs),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue(mcpDefs),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
 
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -139,8 +139,8 @@ describe("ToolPresenter", () => {
       commandPermissionHandler: new CommandPermissionService(),
       agentToolRuntime: buildAgentToolRuntimeMock({
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn().mockReturnValue([buildToolDefinition("shared", "yo-browser")]),
-          callTool: vi.fn(),
+          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([buildToolDefinition("shared", "yo-browser")]),
+          callTool: vi.fn<(...args: any[]) => any>(),
         }),
       }),
     });
@@ -158,13 +158,13 @@ describe("ToolPresenter", () => {
 
   it("falls back to jsonrepair when tool arguments are malformed", async () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
     const runtimePort = buildAgentToolRuntimeMock();
 
@@ -182,7 +182,7 @@ describe("ToolPresenter", () => {
     });
 
     const agentToolManager = (toolPresenter as any).agentToolManager;
-    const callToolSpy = vi.fn().mockResolvedValue("ok");
+    const callToolSpy = vi.fn<(...args: any[]) => any>().mockResolvedValue("ok");
     agentToolManager.callTool = callToolSpy;
 
     const result = await toolPresenter.callTool({
@@ -231,13 +231,13 @@ describe("ToolPresenter", () => {
   it("filters disabled agent tools while preserving MCP tools", async () => {
     const mcpDefs = [buildToolDefinition("shared", "mcp"), buildToolDefinition("mcp_only", "mcp")];
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue(mcpDefs),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue(mcpDefs),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
     const runtimePort = buildAgentToolRuntimeMock();
 
@@ -265,13 +265,13 @@ describe("ToolPresenter", () => {
 
   it("omits YoBrowser prompt text when no yobrowser tools are enabled", () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -320,13 +320,13 @@ describe("ToolPresenter", () => {
 
   it("includes question guidance only when argos_question is enabled", () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -371,13 +371,13 @@ describe("ToolPresenter", () => {
 
   it("includes progress guidance only when update_plan is enabled", () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -414,13 +414,13 @@ describe("ToolPresenter", () => {
 
   it("describes only enabled tape tools in the tape prompt", () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({
@@ -453,13 +453,13 @@ describe("ToolPresenter", () => {
 
   it("describes the question schema and returns actionable validation errors", async () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
     const runtimePort = buildAgentToolRuntimeMock();
 
@@ -511,13 +511,13 @@ describe("ToolPresenter", () => {
 
   it("guides search and directory discovery through exec", () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn(),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
     const configPresenter = {
-      getSkillsEnabled: vi.fn().mockReturnValue(false),
-      getSkillsPath: vi.fn().mockReturnValue("C:\\\\skills"),
-      getModelConfig: vi.fn(),
+      getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:\\\\skills"),
+      getModelConfig: vi.fn<(...args: any[]) => any>(),
     };
 
     const toolPresenter = new ToolPresenter({

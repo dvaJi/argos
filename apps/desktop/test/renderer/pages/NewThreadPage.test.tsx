@@ -27,8 +27,8 @@ const setup = async (pendingModelId: string) => {
       mentions: ["README.md", "docs/spec.md"],
       autoSend: false,
     },
-    toGenerationSettings: vi.fn(() => undefined),
-    clearPendingStartDeeplink: vi.fn(() => {
+    toGenerationSettings: vi.fn<(...args: any[]) => any>(() => undefined),
+    clearPendingStartDeeplink: vi.fn<(...args: any[]) => any>(() => {
       draftStore.pendingStartDeeplink = null;
     }),
   };
@@ -40,7 +40,7 @@ const setup = async (pendingModelId: string) => {
     defaultProjectPath: null as string | null,
     selectionSource: "manual" as "none" | "manual" | "default",
     projects: [{ name: "demo", path: "/workspace/demo" }] as Array<{ name: string; path: string }>,
-    selectProject: vi.fn((path: string | null, source?: "none" | "manual" | "default") => {
+    selectProject: vi.fn<(...args: any[]) => any>((path: string | null, source?: "none" | "manual" | "default") => {
       const normalizedPath = path?.trim() || null;
       projectStore.selectedProject = normalizedPath
         ? {
@@ -50,12 +50,12 @@ const setup = async (pendingModelId: string) => {
         : null;
       projectStore.selectionSource = normalizedPath || source === "manual" ? (source ?? "manual") : "none";
     }),
-    openFolderPicker: vi.fn(),
+    openFolderPicker: vi.fn<(...args: any[]) => any>(),
   };
   const sessionStore = {
-    selectSession: vi.fn(),
-    sendMessage: vi.fn(),
-    createSession: vi.fn(),
+    selectSession: vi.fn<(...args: any[]) => any>(),
+    sendMessage: vi.fn<(...args: any[]) => any>(),
+    createSession: vi.fn<(...args: any[]) => any>(),
   };
   const agentStore = {
     selectedAgentId: "argos",
@@ -65,7 +65,7 @@ const setup = async (pendingModelId: string) => {
   const getChatSelectableModelGroups = () => modelStore.enabledModels;
   const modelStore = {
     initialized: true,
-    initialize: vi.fn().mockImplementation(async () => {
+    initialize: vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
       modelStore.initialized = true;
     }),
     enabledModels: [
@@ -81,7 +81,7 @@ const setup = async (pendingModelId: string) => {
     get chatSelectableModelGroups() {
       return getChatSelectableModelGroups();
     },
-    findChatSelectableModel: vi.fn((providerId: string, modelId: string) => {
+    findChatSelectableModel: vi.fn<(...args: any[]) => any>((providerId: string, modelId: string) => {
       const group = getChatSelectableModelGroups().find((entry: any) => entry.providerId === providerId);
       const model = group?.models.find((entry: any) => entry.id === modelId);
       if (!group || !model) {
@@ -89,7 +89,7 @@ const setup = async (pendingModelId: string) => {
       }
       return { providerId, providerName: providerId, model };
     }),
-    pickFirstChatSelectableModel: vi.fn(() => {
+    pickFirstChatSelectableModel: vi.fn<(...args: any[]) => any>(() => {
       const firstGroup = getChatSelectableModelGroups()[0];
       const firstModel = firstGroup?.models[0];
       return firstGroup && firstModel
@@ -102,8 +102,8 @@ const setup = async (pendingModelId: string) => {
     }),
   };
   const configClient = {
-    getSetting: vi.fn().mockResolvedValue(undefined),
-    resolveArgosAgentConfig: vi.fn().mockResolvedValue({
+    getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       defaultModelPreset: {
         providerId: "openai",
         modelId: "gpt-4o-mini",
@@ -114,7 +114,7 @@ const setup = async (pendingModelId: string) => {
     }),
   };
   const sessionClient = {
-    ensureAcpDraftSession: vi.fn(),
+    ensureAcpDraftSession: vi.fn<(...args: any[]) => any>(),
   };
 
   vi.doMock("@/stores/ui/project", () => ({
@@ -133,13 +133,13 @@ const setup = async (pendingModelId: string) => {
     useDraftStore: () => draftStore,
   }));
   vi.doMock("@api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
   vi.doMock("@api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("@/lib/startupDeferred", () => ({
-    scheduleStartupDeferredTask: vi.fn((task: () => void | Promise<void>) => {
+    scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       void task();
       return () => {};
     }),

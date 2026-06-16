@@ -4,11 +4,11 @@ describe("useLegacyPresenter", () => {
   beforeEach(() => {
     vi.resetModules();
     (window as any).api = {
-      getWebContentsId: vi.fn(() => 1),
+      getWebContentsId: vi.fn<(...args: any[]) => any>(() => 1),
     };
     (window as any).electron = {
       ipcRenderer: {
-        invoke: vi.fn().mockResolvedValue({ ok: true }),
+        invoke: vi.fn<(...args: any[]) => any>().mockResolvedValue({ ok: true }),
       },
     };
   });

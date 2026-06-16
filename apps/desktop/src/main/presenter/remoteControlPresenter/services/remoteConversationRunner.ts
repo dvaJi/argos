@@ -886,7 +886,7 @@ export class RemoteConversationRunner {
     session: Pick<SessionWithState, "id" | "projectDir" | "agentId">,
     input: RemoteConversationInput,
   ): Promise<MessageFile[]> {
-    const inputAttachments = input.attachments?.filter((attachment) => Boolean(attachment)) ?? [];
+    const inputAttachments = input.attachments?.filter(Boolean) ?? [];
     const attachments = inputAttachments.filter((attachment) => {
       const shouldUse = hasAttachmentDownloadSource(attachment);
       if (!shouldUse) {

@@ -8,12 +8,12 @@ vi.mock("react-i18next", () => ({
 }));
 
 const configClient = {
-  getSetting: vi.fn().mockResolvedValue(false),
-  setSetting: vi.fn(),
+  getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
+  setSetting: vi.fn<(...args: any[]) => any>(),
 };
 
 vi.mock("@api/ConfigClient", () => ({
-  createConfigClient: vi.fn(() => configClient),
+  createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
 }));
 
 vi.mock("@/components/think-content", () => ({

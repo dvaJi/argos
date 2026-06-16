@@ -32,7 +32,7 @@ vi.mock("@iconify/react", () => ({
 
 vi.mock("@api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
-    previewFile: vi.fn(),
+    previewFile: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 
@@ -125,7 +125,7 @@ const createFile = (overrides: Partial<MessageFile> = {}): MessageFile => ({
 describe("MessageItemUser", () => {
   beforeEach(() => {
     window.api = {
-      copyText: vi.fn(),
+      copyText: vi.fn<(...args: any[]) => any>(),
     } as typeof window.api;
   });
 

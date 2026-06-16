@@ -15,19 +15,19 @@ const { wsInstances, MockWebSocket } = vi.hoisted(() => {
   }> = [];
 
   class MockWebSocket {
-    readonly addEventListener = vi.fn((type: string, listener: EventListener) => {
+    readonly addEventListener = vi.fn<(...args: any[]) => any>((type: string, listener: EventListener) => {
       const listeners = this.listeners.get(type) ?? new Set<EventListener>();
       listeners.add(listener);
       this.listeners.set(type, listeners);
     });
-    readonly removeEventListener = vi.fn((type: string, listener: EventListener) => {
+    readonly removeEventListener = vi.fn<(...args: any[]) => any>((type: string, listener: EventListener) => {
       this.listeners.get(type)?.delete(listener);
     });
-    readonly send = vi.fn();
-    readonly close = vi.fn(() => {
+    readonly send = vi.fn<(...args: any[]) => any>();
+    readonly close = vi.fn<(...args: any[]) => any>(() => {
       this.closed = true;
     });
-    readonly terminate = vi.fn(() => {
+    readonly terminate = vi.fn<(...args: any[]) => any>(() => {
       this.terminated = true;
     });
     readonly listeners = new Map<string, Set<EventListener>>();
@@ -66,17 +66,17 @@ describe("QQBotGatewaySession", () => {
 
   it("fully tears down failed connection attempts", async () => {
     const client = {
-      getGatewayUrl: vi.fn().mockResolvedValue("wss://qqbot.example/gateway"),
-      getAccessToken: vi.fn(),
+      getGatewayUrl: vi.fn<(...args: any[]) => any>().mockResolvedValue("wss://qqbot.example/gateway"),
+      getAccessToken: vi.fn<(...args: any[]) => any>(),
     };
-    const onDispatch = vi.fn();
+    const onDispatch = vi.fn<(...args: any[]) => any>();
     const session = new QQBotGatewaySession({
       client: client as any,
       onDispatch,
     });
     const abortController = new AbortController();
-    const addAbortSpy = vi.spyOn(abortController.signal, "addEventListener");
-    const removeAbortSpy = vi.spyOn(abortController.signal, "removeEventListener");
+    const addAbortSpy = vi.spyOn<(...args: any[]) => any>(abortController.signal, "addEventListener");
+    const removeAbortSpy = vi.spyOn<(...args: any[]) => any>(abortController.signal, "removeEventListener");
 
     const startPromise = session.start(abortController.signal);
     await Promise.resolve();
@@ -103,12 +103,12 @@ describe("QQBotGatewaySession", () => {
 
   it("rejects immediately when start receives an already aborted signal", async () => {
     const client = {
-      getGatewayUrl: vi.fn(),
-      getAccessToken: vi.fn(),
+      getGatewayUrl: vi.fn<(...args: any[]) => any>(),
+      getAccessToken: vi.fn<(...args: any[]) => any>(),
     };
     const session = new QQBotGatewaySession({
       client: client as any,
-      onDispatch: vi.fn(),
+      onDispatch: vi.fn<(...args: any[]) => any>(),
     });
     const abortController = new AbortController();
     abortController.abort();
@@ -123,15 +123,15 @@ describe("QQBotGatewaySession", () => {
     vi.useFakeTimers();
 
     const client = {
-      getGatewayUrl: vi.fn(),
-      getAccessToken: vi.fn(),
+      getGatewayUrl: vi.fn<(...args: any[]) => any>(),
+      getAccessToken: vi.fn<(...args: any[]) => any>(),
     };
     const session = new QQBotGatewaySession({
       client: client as any,
-      onDispatch: vi.fn(),
+      onDispatch: vi.fn<(...args: any[]) => any>(),
     });
     (session as any).startedOnce = true;
-    (session as any).connectOnce = vi.fn().mockRejectedValue(new Error("transient failure"));
+    (session as any).connectOnce = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("transient failure"));
 
     const startPromise = session.start();
     await Promise.resolve();

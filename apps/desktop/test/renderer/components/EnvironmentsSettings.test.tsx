@@ -76,7 +76,7 @@ async function setup(overrides?: {
 }) {
   vi.resetModules();
 
-  const toast = vi.fn();
+  const toast = vi.fn<(...args: any[]) => any>();
   const projectStore = {
     defaultProjectPath: overrides && "defaultProjectPath" in overrides ? (overrides.defaultProjectPath ?? null) : null,
     environments: overrides?.environments ?? [
@@ -97,10 +97,10 @@ async function setup(overrides?: {
         exists: true,
       },
     ],
-    refreshEnvironmentData: vi.fn().mockResolvedValue(undefined),
-    openDirectory: vi.fn().mockResolvedValue(undefined),
-    setDefaultProject: vi.fn().mockResolvedValue(undefined),
-    clearDefaultProject: vi.fn().mockResolvedValue(undefined),
+    refreshEnvironmentData: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    openDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    setDefaultProject: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    clearDefaultProject: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   vi.doMock("@/stores/ui/project", () => ({
@@ -108,7 +108,7 @@ async function setup(overrides?: {
   }));
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
-      pathExists: vi.fn().mockResolvedValue(overrides?.pathExists ?? true),
+      pathExists: vi.fn<(...args: any[]) => any>().mockResolvedValue(overrides?.pathExists ?? true),
     }),
   }));
   vi.doMock("@/components/use-toast", () => ({

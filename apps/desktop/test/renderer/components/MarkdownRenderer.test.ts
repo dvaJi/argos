@@ -2,14 +2,14 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/stores/artifact", () => ({
   useArtifactStore: () => ({
-    showArtifact: vi.fn(),
+    showArtifact: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 
 vi.mock("@/stores/reference", () => ({
   useReferenceStore: () => ({
-    hideReference: vi.fn(),
-    showReference: vi.fn(),
+    hideReference: vi.fn<(...args: any[]) => any>(),
+    showReference: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 
@@ -26,14 +26,14 @@ vi.mock("@/stores/uiSettingsStore", () => ({
 }));
 
 vi.mock("@api/SessionClient", () => ({
-  createSessionClient: vi.fn(() => ({
-    getSearchResults: vi.fn().mockResolvedValue([]),
+  createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
+    getSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
   })),
 }));
 
 vi.mock("@/components/markdown/useMarkdownLinkNavigation", () => ({
   useMarkdownLinkNavigation: () => ({
-    navigateLink: vi.fn().mockResolvedValue(true),
+    navigateLink: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
 }));
 

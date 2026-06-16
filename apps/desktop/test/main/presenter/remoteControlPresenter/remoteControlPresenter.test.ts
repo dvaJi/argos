@@ -20,7 +20,7 @@ let pollerStartImplementation: () => Promise<void> = async () => {};
 
 vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
   TelegramPoller: class MockTelegramPoller {
-    readonly start = vi.fn(async () => {
+    readonly start = vi.fn<(...args: any[]) => any>(async () => {
       await pollerStartImplementation();
       this.deps.onStatusChange?.({
         state: "running",
@@ -31,8 +31,8 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
         },
       });
     });
-    readonly stop = vi.fn().mockResolvedValue(undefined);
-    readonly getStatusSnapshot = vi.fn().mockReturnValue({
+    readonly stop = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly getStatusSnapshot = vi.fn<(...args: any[]) => any>().mockReturnValue({
       state: "stopped",
       lastError: null,
       botUser: null,
@@ -48,7 +48,7 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
 
 vi.mock("@/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
   TelegramClient: class MockTelegramClient {
-    readonly setMyCommands = vi.fn().mockResolvedValue(undefined);
+    readonly setMyCommands = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     constructor(_botToken: string) {
       telegramClientInstances.push(this);
@@ -83,12 +83,12 @@ const createConfigPresenter = () => {
   ]);
 
   return {
-    getSetting: vi.fn((key: string) => store.get(key)),
-    setSetting: vi.fn((key: string, value: unknown) => {
+    getSetting: vi.fn<(...args: any[]) => any>((key: string) => store.get(key)),
+    setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store.set(key, value);
     }),
-    getAgentType: vi.fn(async (agentId: string) => (agentId === "acp-agent" ? "acp" : "argos")),
-    listAgents: vi.fn().mockResolvedValue([
+    getAgentType: vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "acp-agent" ? "acp" : "argos")),
+    listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "acp-agent", name: "ACP Agent", type: "acp", enabled: true },
     ]),
@@ -110,8 +110,8 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
@@ -151,8 +151,8 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
@@ -179,8 +179,8 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
@@ -240,8 +240,8 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
@@ -351,7 +351,7 @@ describe("RemoteControlPresenter", () => {
 
   it("falls back to the built-in argos agent when saving an invalid default agent", async () => {
     const configPresenter = createConfigPresenter();
-    const listAgents = vi.fn().mockResolvedValue([
+    const listAgents = vi.fn<(...args: any[]) => any>().mockResolvedValue([
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "argos-alt", name: "Alt", type: "argos", enabled: false },
     ]);
@@ -425,11 +425,11 @@ describe("RemoteControlPresenter", () => {
 
   it("returns the SQLite agent id when candidate uses the legacy alias key", async () => {
     const configPresenter = createConfigPresenter();
-    const listAgents = vi.fn().mockResolvedValue([
+    const listAgents = vi.fn<(...args: any[]) => any>().mockResolvedValue([
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "claude-acp", name: "Claude (ACP)", type: "acp", enabled: true },
     ]);
-    const getAgentType = vi.fn(async (agentId: string) => (agentId === "claude-acp" ? "acp" : "argos"));
+    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "claude-acp" ? "acp" : "argos"));
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {
@@ -455,11 +455,11 @@ describe("RemoteControlPresenter", () => {
 
   it("keeps a legacy SQLite agent id intact when the candidate matches it", async () => {
     const configPresenter = createConfigPresenter();
-    const listAgents = vi.fn().mockResolvedValue([
+    const listAgents = vi.fn<(...args: any[]) => any>().mockResolvedValue([
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "claude-code-acp", name: "Claude Code (ACP)", type: "acp", enabled: true },
     ]);
-    const getAgentType = vi.fn(async (agentId: string) => (agentId === "claude-code-acp" ? "acp" : "argos"));
+    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "claude-code-acp" ? "acp" : "argos"));
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {
@@ -485,7 +485,7 @@ describe("RemoteControlPresenter", () => {
 
   it("falls back to channel default when no alias-equivalent agent exists", async () => {
     const configPresenter = createConfigPresenter();
-    const listAgents = vi.fn().mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]);
+    const listAgents = vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]);
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {
@@ -673,18 +673,18 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
 
-    const startLoginSpy = vi.spyOn(WeixinIlinkClient, "startLogin").mockResolvedValueOnce({
+    const startLoginSpy = vi.spyOn<(...args: any[]) => any>(WeixinIlinkClient, "startLogin").mockResolvedValueOnce({
       sessionKey: "wx-session",
       loginUrl: "https://liteapp.weixin.qq.com/mock-login",
       messageKey: "settings.remote.weixinIlink.loginWindowOpened",
     });
-    const waitLoginSpy = vi.spyOn(WeixinIlinkClient, "waitForLogin").mockResolvedValueOnce({
+    const waitLoginSpy = vi.spyOn<(...args: any[]) => any>(WeixinIlinkClient, "waitForLogin").mockResolvedValueOnce({
       connected: true,
       accountId: "wx-account-1",
       ownerUserId: "owner-1",
@@ -700,7 +700,7 @@ describe("RemoteControlPresenter", () => {
       message: undefined,
     });
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(BrowserWindow).mock.results[0]?.value.loadURL).toHaveBeenCalledWith(
+    expect(vi.mocked<(...args: any[]) => any>(BrowserWindow).mock.results[0]?.value.loadURL).toHaveBeenCalledWith(
       "https://liteapp.weixin.qq.com/mock-login",
     );
 
@@ -746,13 +746,13 @@ describe("RemoteControlPresenter", () => {
       agentSessionPresenter: {} as any,
       agentRuntimePresenter: {} as any,
       windowPresenter: {
-        getFocusedWindow: vi.fn(() => undefined),
-        getAllWindows: vi.fn(() => []),
+        getFocusedWindow: vi.fn<(...args: any[]) => any>(() => undefined),
+        getAllWindows: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       tabPresenter: {} as any,
     });
 
-    const waitLoginSpy = vi.spyOn(WeixinIlinkClient, "waitForLogin").mockResolvedValue({
+    const waitLoginSpy = vi.spyOn<(...args: any[]) => any>(WeixinIlinkClient, "waitForLogin").mockResolvedValue({
       connected: true,
       accountId: "wx-account-1",
       ownerUserId: "owner-1",

@@ -15,7 +15,7 @@ describe("AgentBashHandler", () => {
     const originalCommand = 'find . -type f -name "*.ts" -o -name "*.vue" | grep "^./src"';
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand,
       command: 'rtk find . -type f -name "*.ts" -o -name "*.vue" | grep "^./src"',
       env: { PATH: "/bin" },
@@ -73,7 +73,7 @@ describe("AgentBashHandler", () => {
   it("does not fall back for ordinary rewritten command failures", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: 'rg -n "todo" src',
       command: 'rtk run -- rg -n "todo" src',
       env: { PATH: "/bin" },
@@ -82,7 +82,7 @@ describe("AgentBashHandler", () => {
       rtkMode: "rewrite",
     });
 
-    const runShellProcess = vi.spyOn(handler as never, "runShellProcess" as never).mockResolvedValue({
+    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
       kind: "completed",
       output: "permission denied",
       exitCode: 2,
@@ -106,7 +106,7 @@ describe("AgentBashHandler", () => {
   it("does not fall back when the rewritten command times out", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: 'find . -name "*.ts"',
       command: 'rtk find . -name "*.ts"',
       env: { PATH: "/bin" },
@@ -115,7 +115,7 @@ describe("AgentBashHandler", () => {
       rtkMode: "rewrite",
     });
 
-    const runShellProcess = vi.spyOn(handler as never, "runShellProcess" as never).mockResolvedValue({
+    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
       kind: "completed",
       output: "Error: rtk find does not support compound predicates or actions",
       exitCode: null,
@@ -138,7 +138,7 @@ describe("AgentBashHandler", () => {
   it("builds fallback shell env when RTK settings are unavailable", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
       PATH: "/shell/bin:/usr/local/bin",
     });
 
@@ -161,7 +161,7 @@ describe("AgentBashHandler", () => {
     const originalCommand = 'find . -type f -name "*.ts" -o -name "*.vue"';
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand,
       command: originalCommand,
       env: { PATH: "/bin" },
@@ -171,7 +171,7 @@ describe("AgentBashHandler", () => {
       rtkFallbackReason: "Bypassed RTK rewrite: unsupported find compound predicates or actions",
     });
 
-    const runShellProcess = vi.spyOn(handler as never, "runShellProcess" as never);
+    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never);
     const startSpy = vi
       .spyOn(backgroundExecSessionManager, "start")
       .mockResolvedValue({ sessionId: "bg_123", status: "running" });
@@ -207,7 +207,7 @@ describe("AgentBashHandler", () => {
     const externalCwd = path.resolve("/external/project");
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: "pwd",
       command: "pwd",
       env: { PATH: "/bin" },
@@ -216,7 +216,7 @@ describe("AgentBashHandler", () => {
       rtkMode: "bypass",
     });
 
-    const runShellProcess = vi.spyOn(handler as never, "runShellProcess" as never).mockResolvedValue({
+    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
       kind: "completed",
       output: externalCwd,
       exitCode: 0,
@@ -246,7 +246,7 @@ describe("AgentBashHandler", () => {
   it("rejects an external cwd when external access is not enabled", async () => {
     const externalCwd = path.resolve("/external/project");
     const handler = new AgentBashHandler(["/workspace"]);
-    const runShellProcess = vi.spyOn(handler as never, "runShellProcess" as never);
+    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never);
 
     await expect(
       handler.executeCommand({
@@ -262,7 +262,7 @@ describe("AgentBashHandler", () => {
   it("returns a running session when foreground exec exceeds yieldMs", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: "bun run dev caps gpt-4o",
       command: "bun run dev caps gpt-4o",
       env: { PATH: "/bin" },
@@ -277,8 +277,8 @@ describe("AgentBashHandler", () => {
     const waitSpy = vi
       .spyOn(backgroundExecSessionManager, "waitForCompletionOrYield")
       .mockResolvedValue({ kind: "running", sessionId: "bg_yield" });
-    const writeSpy = vi.spyOn(backgroundExecSessionManager, "write").mockImplementation(() => {});
-    const removeSpy = vi.spyOn(backgroundExecSessionManager, "remove").mockResolvedValue();
+    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    const removeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "remove").mockResolvedValue();
 
     const result = await handler.executeCommand(
       {
@@ -309,7 +309,7 @@ describe("AgentBashHandler", () => {
   it("cleans up completed foreground sessions that finish inside the yield window", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: "pnpm test --help",
       command: "pnpm test --help",
       env: { PATH: "/bin" },
@@ -318,12 +318,12 @@ describe("AgentBashHandler", () => {
       rtkMode: "bypass",
     });
 
-    vi.spyOn(backgroundExecSessionManager, "start").mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "start").mockResolvedValue({
       sessionId: "bg_done",
       status: "running",
     });
-    const writeSpy = vi.spyOn(backgroundExecSessionManager, "write").mockImplementation(() => {});
-    vi.spyOn(backgroundExecSessionManager, "waitForCompletionOrYield").mockResolvedValue({
+    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "waitForCompletionOrYield").mockResolvedValue({
       kind: "completed",
       result: {
         status: "done",
@@ -333,7 +333,7 @@ describe("AgentBashHandler", () => {
         timedOut: false,
       },
     });
-    const removeSpy = vi.spyOn(backgroundExecSessionManager, "remove").mockResolvedValue();
+    const removeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "remove").mockResolvedValue();
 
     const result = await handler.executeCommand(
       {
@@ -354,7 +354,7 @@ describe("AgentBashHandler", () => {
   it("keeps completed foreground sessions when output was offloaded", async () => {
     const handler = new AgentBashHandler(["/workspace"]);
 
-    vi.spyOn(handler as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(handler as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: "pnpm test --reporter=json",
       command: "pnpm test --reporter=json",
       env: { PATH: "/bin" },
@@ -363,11 +363,11 @@ describe("AgentBashHandler", () => {
       rtkMode: "bypass",
     });
 
-    vi.spyOn(backgroundExecSessionManager, "start").mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "start").mockResolvedValue({
       sessionId: "bg_offloaded",
       status: "running",
     });
-    vi.spyOn(backgroundExecSessionManager, "waitForCompletionOrYield").mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "waitForCompletionOrYield").mockResolvedValue({
       kind: "completed",
       result: {
         status: "done",
@@ -378,8 +378,8 @@ describe("AgentBashHandler", () => {
         timedOut: false,
       },
     });
-    const writeSpy = vi.spyOn(backgroundExecSessionManager, "write").mockImplementation(() => {});
-    const removeSpy = vi.spyOn(backgroundExecSessionManager, "remove").mockResolvedValue();
+    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    const removeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "remove").mockResolvedValue();
 
     const result = await handler.executeCommand(
       {

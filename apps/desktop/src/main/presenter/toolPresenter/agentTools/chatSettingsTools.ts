@@ -73,7 +73,7 @@ const fontSizeSchema = z
   .object({
     level: z
       .union(
-        FONT_SIZE_LEVELS.map((value) => z.literal(value)) as [
+        FONT_SIZE_LEVELS.map(z.literal) as [
           z.ZodLiteral<0>,
           z.ZodLiteral<1>,
           z.ZodLiteral<2>,

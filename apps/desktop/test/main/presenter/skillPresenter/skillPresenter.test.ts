@@ -8,77 +8,77 @@ const DEFAULT_SKILLS_DIR = "/mock/home/.argos/skills";
 const { newSessionActiveSkillsStore, skillSessionStatePort } = vi.hoisted(() => ({
   newSessionActiveSkillsStore: new Map<string, string[]>(),
   skillSessionStatePort: {
-    hasNewSession: vi.fn(),
-    getPersistedNewSessionSkills: vi.fn((conversationId: string) => {
+    hasNewSession: vi.fn<(...args: any[]) => any>(),
+    getPersistedNewSessionSkills: vi.fn<(...args: any[]) => any>((conversationId: string) => {
       return newSessionActiveSkillsStore.get(conversationId) ?? [];
     }),
-    setPersistedNewSessionSkills: vi.fn((conversationId: string, skills: string[]) => {
+    setPersistedNewSessionSkills: vi.fn<(...args: any[]) => any>((conversationId: string, skills: string[]) => {
       newSessionActiveSkillsStore.set(conversationId, [...skills]);
     }),
-    repairImportedLegacySessionSkills: vi.fn(async (conversationId: string) => {
+    repairImportedLegacySessionSkills: vi.fn<(...args: any[]) => any>(async (conversationId: string) => {
       return newSessionActiveSkillsStore.get(conversationId) ?? [];
     }),
   },
 }));
 
 const discoveryWorkerMock = vi.hoisted(() => ({
-  discoverSkillMetadataInWorker: vi.fn(),
-  logSkillDiscoveryWorkerWarnings: vi.fn(),
+  discoverSkillMetadataInWorker: vi.fn<(...args: any[]) => any>(),
+  logSkillDiscoveryWorkerWarnings: vi.fn<(...args: any[]) => any>(),
 }));
 
 // Mock external dependencies
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn().mockImplementation((name: string) => {
+    getPath: vi.fn<(...args: any[]) => any>().mockImplementation((name: string) => {
       if (name === "home") return "/mock/home";
       if (name === "temp") return "/mock/temp";
       return "/mock/" + name;
     }),
-    getAppPath: vi.fn().mockReturnValue("/mock/app"),
+    getAppPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/app"),
     isPackaged: false,
   },
   shell: {
-    openPath: vi.fn().mockResolvedValue(""),
+    openPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(""),
   },
 }));
 
 vi.mock("fs", () => ({
   default: {
-    existsSync: vi.fn(),
-    mkdirSync: vi.fn(),
-    readdirSync: vi.fn(),
-    readFileSync: vi.fn(),
-    writeFileSync: vi.fn(),
-    rmSync: vi.fn(),
-    copyFileSync: vi.fn(),
-    renameSync: vi.fn(),
-    statSync: vi.fn().mockReturnValue({
+    existsSync: vi.fn<(...args: any[]) => any>(),
+    mkdirSync: vi.fn<(...args: any[]) => any>(),
+    readdirSync: vi.fn<(...args: any[]) => any>(),
+    readFileSync: vi.fn<(...args: any[]) => any>(),
+    writeFileSync: vi.fn<(...args: any[]) => any>(),
+    rmSync: vi.fn<(...args: any[]) => any>(),
+    copyFileSync: vi.fn<(...args: any[]) => any>(),
+    renameSync: vi.fn<(...args: any[]) => any>(),
+    statSync: vi.fn<(...args: any[]) => any>().mockReturnValue({
       isFile: () => true,
       size: 1024,
       mtimeMs: Date.now(),
     }),
     promises: {
-      stat: vi.fn().mockResolvedValue({
+      stat: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         isFile: () => true,
         size: 1024,
       }),
-      readFile: vi.fn().mockResolvedValue("test"),
+      readFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("test"),
     },
-    mkdtempSync: vi.fn().mockReturnValue("/mock/temp/argos-skill-123"),
+    mkdtempSync: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/temp/argos-skill-123"),
   },
 }));
 
 vi.mock("path", () => ({
   default: {
-    join: vi.fn((...args: string[]) => args.join("/")),
-    dirname: vi.fn((p: string) => p.split("/").slice(0, -1).join("/")),
-    basename: vi.fn((p: string) => p.split("/").pop() || ""),
-    extname: vi.fn((p: string) => {
+    join: vi.fn<(...args: any[]) => any>((...args: string[]) => args.join("/")),
+    dirname: vi.fn<(...args: any[]) => any>((p: string) => p.split("/").slice(0, -1).join("/")),
+    basename: vi.fn<(...args: any[]) => any>((p: string) => p.split("/").pop() || ""),
+    extname: vi.fn<(...args: any[]) => any>((p: string) => {
       const base = p.split("/").pop() || "";
       const idx = base.lastIndexOf(".");
       return idx >= 0 ? base.slice(idx) : "";
     }),
-    resolve: vi.fn((...args: string[]) => {
+    resolve: vi.fn<(...args: any[]) => any>((...args: string[]) => {
       let resolved = "";
       for (const part of args.filter(Boolean)) {
         if (part.startsWith("/")) {
@@ -89,39 +89,39 @@ vi.mock("path", () => ({
       }
       return resolved || "/";
     }),
-    relative: vi.fn((from: string, to: string) => {
+    relative: vi.fn<(...args: any[]) => any>((from: string, to: string) => {
       if (to.startsWith(from)) {
         return to.substring(from.length + 1);
       }
       return "../" + to;
     }),
-    isAbsolute: vi.fn((p: string) => p.startsWith("/")),
+    isAbsolute: vi.fn<(...args: any[]) => any>((p: string) => p.startsWith("/")),
     sep: "/",
   },
 }));
 
 vi.mock("chokidar", () => ({
-  watch: vi.fn(() => ({
-    on: vi.fn().mockReturnThis(),
-    close: vi.fn(),
+  watch: vi.fn<(...args: any[]) => any>(() => ({
+    on: vi.fn<(...args: any[]) => any>().mockReturnThis(),
+    close: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
 vi.mock("gray-matter", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("fflate", () => ({
-  unzipSync: vi.fn(),
+  unzipSync: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("node:crypto", () => ({
-  randomUUID: vi.fn().mockReturnValue("12345678-1234-1234-1234-123456789abc"),
+  randomUUID: vi.fn<(...args: any[]) => any>().mockReturnValue("12345678-1234-1234-1234-123456789abc"),
 }));
 
 vi.mock("../../../../src/main/eventbus", () => ({
   eventBus: {
-    sendToRenderer: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "all",
@@ -141,7 +141,7 @@ vi.mock("../../../../src/main/events", () => ({
 
 vi.mock("@shared/logger", () => ({
   default: {
-    warn: vi.fn(),
+    warn: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -237,8 +237,8 @@ describe("SkillPresenter", () => {
     (randomUUID as Mock).mockReturnValue("12345678-1234-1234-1234-123456789abc");
 
     mockConfigPresenter = {
-      getSkillsPath: vi.fn().mockReturnValue(""),
-      getSetting: vi.fn().mockReturnValue(undefined),
+      getSkillsPath: vi.fn<(...args: any[]) => any>().mockReturnValue(""),
+      getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
     } as unknown as IConfigPresenter;
 
     // Setup default mocks
@@ -430,7 +430,7 @@ describe("SkillPresenter", () => {
         throw new Error("Read error");
       });
 
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
       const skills = await skillPresenter.discoverSkills();
 
       expect(skills.length).toBe(0);
@@ -480,8 +480,8 @@ describe("SkillPresenter", () => {
       const firstPath = `${DEFAULT_SKILLS_DIR}/a-first/SKILL.md`;
       const secondPath = `${DEFAULT_SKILLS_DIR}/z-second/SKILL.md`;
 
-      (skillPresenter as any).collectSkillManifestPaths = vi.fn().mockReturnValue([secondPath, firstPath]);
-      (skillPresenter as any).parseSkillMetadata = vi.fn().mockImplementation(async (skillPath: string) => ({
+      (skillPresenter as any).collectSkillManifestPaths = vi.fn<(...args: any[]) => any>().mockReturnValue([secondPath, firstPath]);
+      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockImplementation(async (skillPath: string) => ({
         name: "duplicate-skill",
         description: "Duplicate skill",
         path: skillPath,
@@ -516,7 +516,7 @@ describe("SkillPresenter", () => {
         skills: [workerSkill],
         warnings: [],
       });
-      (skillPresenter as any).parseSkillMetadata = vi.fn();
+      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>();
 
       const skills = await skillPresenter.discoverSkills();
 
@@ -538,7 +538,7 @@ describe("SkillPresenter", () => {
         data: { name: "fallback-skill", description: "Fallback skill description" },
         content: "# Fallback skill",
       });
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
       const skills = await skillPresenter.discoverSkills();
 
@@ -679,7 +679,7 @@ describe("SkillPresenter", () => {
 
     it("should return null for non-existent skill", async () => {
       await skillPresenter.discoverSkills();
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
       const content = await skillPresenter.loadSkillContent("non-existent");
 
@@ -1209,7 +1209,7 @@ describe("SkillPresenter", () => {
         return { isFile: () => true, size: 0, mtimeMs: now };
       });
 
-      const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(now);
+      const dateNowSpy = vi.spyOn<(...args: any[]) => any>(Date, "now").mockReturnValue(now);
 
       (skillPresenter as any).cleanupExpiredDrafts();
 
@@ -1956,7 +1956,7 @@ describe("SkillPresenter", () => {
 
       metadataCache.set(originalMetadata.name, originalMetadata);
       metadataCache.set(existingDuplicate.name, existingDuplicate);
-      (skillPresenter as any).parseSkillMetadata = vi.fn().mockResolvedValue(createSkillMetadata("skill-b", "skill-a"));
+      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockResolvedValue(createSkillMetadata("skill-b", "skill-a"));
 
       skillPresenter.watchSkillFiles();
       const changeHandler = getWatcherHandler("change");
@@ -1982,7 +1982,7 @@ describe("SkillPresenter", () => {
       const renamedMetadata = createSkillMetadata("skill-c", "skill-a");
 
       metadataCache.set(originalMetadata.name, originalMetadata);
-      (skillPresenter as any).parseSkillMetadata = vi.fn().mockResolvedValue(renamedMetadata);
+      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockResolvedValue(renamedMetadata);
 
       skillPresenter.watchSkillFiles();
       const changeHandler = getWatcherHandler("change");
@@ -2000,7 +2000,7 @@ describe("SkillPresenter", () => {
       const duplicateMetadata = createSkillMetadata("skill-b", "skill-candidate");
 
       metadataCache.set(existingMetadata.name, existingMetadata);
-      (skillPresenter as any).parseSkillMetadata = vi.fn().mockResolvedValue(duplicateMetadata);
+      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockResolvedValue(duplicateMetadata);
 
       skillPresenter.watchSkillFiles();
       const addHandler = getWatcherHandler("add");

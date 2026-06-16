@@ -1790,7 +1790,7 @@ export class SkillPresenter implements ISkillPresenter {
   async validateSkillNames(names: string[]): Promise<string[]> {
     const available = await this.getMetadataList();
     const availableNames = new Set(available.map((s) => s.name));
-    return names.filter((name) => availableNames.has(name));
+    return names.filter(availableNames.has);
   }
 
   /**
@@ -1807,7 +1807,7 @@ export class SkillPresenter implements ISkillPresenter {
     for (const skillName of activeSkills) {
       const metadata = this.metadataCache.get(skillName);
       if (metadata?.allowedTools && this.isSkillVisible(metadata)) {
-        metadata.allowedTools.forEach((tool) => allowedTools.add(tool));
+        metadata.allowedTools.forEach(allowedTools.add);
       }
     }
 

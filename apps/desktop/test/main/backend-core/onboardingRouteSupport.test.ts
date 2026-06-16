@@ -10,8 +10,8 @@ import {
 function createMockConfigPresenter() {
   const store: Record<string, unknown> = {};
   return {
-    getSetting: vi.fn((key: string) => store[key]),
-    setSetting: vi.fn((key: string, value: unknown) => {
+    getSetting: vi.fn<(...args: any[]) => any>((key: string) => store[key]),
+    setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store[key] = value;
     }),
   };

@@ -215,7 +215,8 @@ const DEFAULT_INMEMORY_SERVERS: Record<string, Omit<MCPServerConfig, "enabled">>
   },
   "argos-inmemory/deep-research-server": {
     args: [],
-    descriptions: "Argos built-in deep research service, uses Bocha search (this service requires a long-context model; do not use it with short-context models)",
+    descriptions:
+      "Argos built-in deep research service, uses Bocha search (this service requires a long-context model; do not use it with short-context models)",
     icons: "🔬",
     autoApprove: ["all"],
     type: "inmemory" as MCPServerType,

@@ -39,14 +39,14 @@ const parseQuestionOption = (value: unknown): QuestionOption | null => {
 
 export const parseQuestionOptions = (raw: unknown): QuestionOption[] => {
   if (Array.isArray(raw)) {
-    return raw.map((item) => parseQuestionOption(item)).filter((item): item is QuestionOption => Boolean(item));
+    return raw.map(parseQuestionOption).filter((item): item is QuestionOption => Boolean(item));
   }
 
   if (typeof raw === "string" && raw.trim()) {
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (Array.isArray(parsed)) {
-        return parsed.map((item) => parseQuestionOption(item)).filter((item): item is QuestionOption => Boolean(item));
+        return parsed.map(parseQuestionOption).filter((item): item is QuestionOption => Boolean(item));
       }
     } catch {
       return [];

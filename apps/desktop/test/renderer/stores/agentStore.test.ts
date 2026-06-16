@@ -30,22 +30,22 @@ const setupStore = async (options?: {
 
   const agentChangedListeners: AgentChangedListener[] = [];
   const sessionClient = {
-    getAgents: vi.fn(async () => options?.initialAgents ?? []),
+    getAgents: vi.fn<(...args: any[]) => any>(async () => options?.initialAgents ?? []),
   };
   const configClient = {
-    listAgents: vi.fn(async () => options?.listAgentsResult ?? []),
-    onAgentsChanged: vi.fn((listener: AgentChangedListener) => {
+    listAgents: vi.fn<(...args: any[]) => any>(async () => options?.listAgentsResult ?? []),
+    onAgentsChanged: vi.fn<(...args: any[]) => any>((listener: AgentChangedListener) => {
       agentChangedListeners.push(listener);
       return () => undefined;
     }),
   };
 
   vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
 
   vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
   const { useAgentStore } = await import("@/stores/ui/agent");

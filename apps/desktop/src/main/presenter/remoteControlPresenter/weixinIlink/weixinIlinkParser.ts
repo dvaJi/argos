@@ -124,11 +124,7 @@ export class WeixinIlinkParser {
       return null;
     }
 
-    const text = (raw.item_list ?? [])
-      .map((item) => extractTextFromItem(item))
-      .filter(Boolean)
-      .join("\n")
-      .trim();
+    const text = (raw.item_list ?? []).map(extractTextFromItem).filter(Boolean).join("\n").trim();
     const attachments = (raw.item_list ?? [])
       .map((item, index) => extractAttachmentFromItem(item, index))
       .filter((attachment): attachment is NonNullable<typeof attachment> => Boolean(attachment));

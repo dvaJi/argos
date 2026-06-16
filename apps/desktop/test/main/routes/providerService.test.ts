@@ -2,15 +2,15 @@ import { ProviderService } from "@/routes/providers/providerService";
 
 describe("ProviderService", () => {
   const createScheduler = () => ({
-    sleep: vi.fn(),
-    timeout: vi.fn(async <T>({ task }: { task: Promise<T> }) => await task),
-    retry: vi.fn(),
+    sleep: vi.fn<(...args: any[]) => any>(),
+    timeout: vi.fn<(...args: any[]) => any>(async <T>({ task }: { task: Promise<T> }) => await task),
+    retry: vi.fn<(...args: any[]) => any>(),
   });
 
   it("lists provider and custom models through the provider catalog port", async () => {
     const scheduler = createScheduler();
     const providerCatalogPort = {
-      getProviderModels: vi.fn(() => [
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "gpt-5.4",
           name: "GPT-5.4",
@@ -18,7 +18,7 @@ describe("ProviderService", () => {
           providerId: "openai",
         },
       ]),
-      getCustomModels: vi.fn(() => [
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "gpt-5.4-mini-custom",
           name: "GPT-5.4 Mini Custom",
@@ -32,7 +32,7 @@ describe("ProviderService", () => {
     const service = new ProviderService({
       providerCatalogPort: providerCatalogPort as any,
       providerExecutionPort: {
-        testConnection: vi.fn(),
+        testConnection: vi.fn<(...args: any[]) => any>(),
       },
       scheduler,
     });
@@ -65,7 +65,7 @@ describe("ProviderService", () => {
   it("tests provider connections through the provider execution port", async () => {
     const scheduler = createScheduler();
     const providerExecutionPort = {
-      testConnection: vi.fn().mockResolvedValue({
+      testConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         isOk: true,
         errorMsg: null,
       }),
@@ -73,8 +73,8 @@ describe("ProviderService", () => {
 
     const service = new ProviderService({
       providerCatalogPort: {
-        getProviderModels: vi.fn(() => []),
-        getCustomModels: vi.fn(() => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(() => []),
+        getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
       } as any,
       providerExecutionPort,
       scheduler,

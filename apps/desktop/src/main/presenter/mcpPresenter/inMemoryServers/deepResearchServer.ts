@@ -22,13 +22,20 @@ const StartDeepResearchArgsSchema = z.object({
 const SingleWebSearchArgsSchema = z.object({
   session_id: z.string().describe("The research session ID returned by start_deep_research."),
   query: z.string().describe("The single search query to execute."),
-  max_results: z.number().min(5).max(15).default(10).describe("The maximum number of results for this search query (5-15)."),
+  max_results: z
+    .number()
+    .min(5)
+    .max(15)
+    .default(10)
+    .describe("The maximum number of results for this search query (5-15)."),
 });
 
 // RequestResearchDataArgsSchema: Parameters for the LLM to request accumulated search results for reflection.
 const RequestResearchDataArgsSchema = z.object({
   session_id: z.string().describe("The research session ID."),
-  iteration: z.number().describe("The current research iteration count. The LLM should maintain and pass this value itself."),
+  iteration: z
+    .number()
+    .describe("The current research iteration count. The LLM should maintain and pass this value itself."),
 });
 
 // SubmitReflectionResultsArgsSchema: Parameters for the LLM to submit reflection results.
@@ -36,10 +43,18 @@ const SubmitReflectionResultsArgsSchema = z.object({
   session_id: z.string().describe("The research session ID."),
   iteration: z.number().describe("The iteration count for this reflection."),
   needs_more_research: z.boolean().describe("Whether the LLM believes more research is needed after analysis."),
-  missing_information: z.array(z.string()).describe("List of missing information identified by the LLM, if more research is needed."),
+  missing_information: z
+    .array(z.string())
+    .describe("List of missing information identified by the LLM, if more research is needed."),
   quality_assessment: z.string().describe("The LLM's quality assessment of the current research results."),
-  suggested_queries: z.array(z.string()).describe("Follow-up search queries suggested by the LLM based on current information and gaps."),
-  confidence_score: z.number().min(0).max(1).describe("The LLM's confidence (0-1) in the completeness and accuracy of the current research."),
+  suggested_queries: z
+    .array(z.string())
+    .describe("Follow-up search queries suggested by the LLM based on current information and gaps."),
+  confidence_score: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("The LLM's confidence (0-1) in the completeness and accuracy of the current research."),
 });
 
 // GenerateFinalAnswerArgsSchema: Parameters for generating the final research report.
@@ -297,7 +312,8 @@ export class DeepResearchServer {
           },
           {
             name: "request_research_data",
-            description: "Request the new search results and research context from the current session, for the LLM to reflect on.",
+            description:
+              "Request the new search results and research context from the current session, for the LLM to reflect on.",
             inputSchema: zodToJsonSchema(RequestResearchDataArgsSchema),
             annotations: {
               title: "Request Research Data",
@@ -306,7 +322,8 @@ export class DeepResearchServer {
           },
           {
             name: "submit_reflection_results",
-            description: "LLM submits its reflection on the research data (e.g., whether more research is needed, suggested queries, etc.).",
+            description:
+              "LLM submits its reflection on the research data (e.g., whether more research is needed, suggested queries, etc.).",
             inputSchema: zodToJsonSchema(SubmitReflectionResultsArgsSchema),
             annotations: {
               title: "Submit Reflection Results",

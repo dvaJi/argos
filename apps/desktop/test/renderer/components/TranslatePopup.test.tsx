@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 
-const translateText = vi.fn();
+const translateText = vi.fn<(...args: any[]) => any>();
 
 vi.mock("@api/SessionClient", () => ({
-  createSessionClient: vi.fn(() => ({
+  createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
     translateText,
   })),
 }));
@@ -81,15 +81,15 @@ describe("TranslatePopup", () => {
   });
 
   it("attaches drag listeners only during dragging and coalesces pointer moves in rAF", async () => {
-    const addEventListenerSpy = vi.spyOn(window, "addEventListener");
-    const removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
+    const addEventListenerSpy = vi.spyOn<(...args: any[]) => any>(window, "addEventListener");
+    const removeEventListenerSpy = vi.spyOn<(...args: any[]) => any>(window, "removeEventListener");
     const rafCallbacks: FrameRequestCallback[] = [];
 
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback: FrameRequestCallback) => {
+    vi.spyOn<(...args: any[]) => any>(window, "requestAnimationFrame").mockImplementation((callback: FrameRequestCallback) => {
       rafCallbacks.push(callback);
       return rafCallbacks.length;
     });
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
+    vi.spyOn<(...args: any[]) => any>(window, "cancelAnimationFrame").mockImplementation(() => undefined);
 
     render((await import("@/components/popup/TranslatePopup")).default);
 

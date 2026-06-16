@@ -31,20 +31,20 @@ vi.mock("@agentclientprotocol/sdk", () => ({
   PROTOCOL_VERSION: 1,
   ClientSideConnection: class {
     closed = new Promise<void>(() => {});
-    initialize = vi.fn(async () => sdkMock.initializeResponse);
+    initialize = vi.fn<(...args: any[]) => any>(async () => sdkMock.initializeResponse);
   },
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/tmp"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp"),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    sendToRenderer: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -52,7 +52,7 @@ vi.mock("@/eventbus", () => ({
 }));
 
 vi.mock("@/routes/publishArgosEvent", () => ({
-  publishArgosEvent: vi.fn(),
+  publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 
 class MockChild extends EventEmitter {
@@ -63,7 +63,7 @@ class MockChild extends EventEmitter {
   killed = false;
   exitCode = null;
   signalCode = null;
-  kill = vi.fn(() => true);
+  kill = vi.fn<(...args: any[]) => any>(() => true);
 }
 
 describe("AcpProcessManager initialized capabilities", () => {
@@ -71,10 +71,10 @@ describe("AcpProcessManager initialized capabilities", () => {
     const { AcpProcessManager } = await import("@/presenter/llmProviderPresenter/acp/acpProcessManager");
     const manager = new AcpProcessManager({
       providerId: "acp",
-      resolveLaunchSpec: vi.fn(),
+      resolveLaunchSpec: vi.fn<(...args: any[]) => any>(),
     });
     const child = new MockChild();
-    vi.spyOn(manager as any, "spawnAgentProcess").mockResolvedValue(child);
+    vi.spyOn<(...args: any[]) => any>(manager as any, "spawnAgentProcess").mockResolvedValue(child);
 
     const handle = await (manager as any).spawnProcessOnce(
       {

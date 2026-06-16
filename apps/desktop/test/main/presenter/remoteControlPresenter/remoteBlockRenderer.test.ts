@@ -28,7 +28,7 @@ describe("remoteBlockRenderer", () => {
           timestamp: 2,
         },
       ],
-      loadSearchResults: vi.fn().mockResolvedValue([]),
+      loadSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     });
 
     expect(renderBlocks).toEqual([
@@ -67,7 +67,7 @@ describe("remoteBlockRenderer", () => {
           },
         },
       ],
-      loadSearchResults: vi.fn().mockResolvedValue([]),
+      loadSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     });
 
     expect(renderBlocks).toHaveLength(2);
@@ -107,7 +107,7 @@ describe("remoteBlockRenderer", () => {
           },
         },
       ],
-      loadSearchResults: vi.fn().mockResolvedValue([]),
+      loadSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     });
 
     expect(renderBlocks[1].truncated).toBe(true);
@@ -115,7 +115,7 @@ describe("remoteBlockRenderer", () => {
   });
 
   it("renders stored search results with titles and links", async () => {
-    const loadSearchResults = vi.fn().mockResolvedValue([
+    const loadSearchResults = vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         title: "Result A",
         url: "https://example.com/a",
@@ -167,7 +167,7 @@ describe("remoteBlockRenderer", () => {
           },
         },
       ],
-      loadSearchResults: vi.fn().mockResolvedValue([]),
+      loadSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     });
 
     expect(renderBlocks[0]).toEqual(

@@ -138,20 +138,20 @@ function createLegacyStore(initial: Record<string, unknown>): StoreLike<Record<s
   const state = { ...initial };
   return {
     store: state,
-    get: vi.fn((key: string, defaultValue?: unknown) =>
+    get: vi.fn<(...args: any[]) => any>((key: string, defaultValue?: unknown) =>
       state[key] === undefined ? defaultValue : state[key],
     ) as StoreLike<Record<string, unknown>>["get"],
-    set: vi.fn((keyOrValues: string | Record<string, unknown>, value?: unknown) => {
+    set: vi.fn<(...args: any[]) => any>((keyOrValues: string | Record<string, unknown>, value?: unknown) => {
       if (typeof keyOrValues === "string") {
         state[keyOrValues] = value;
         return;
       }
       Object.assign(state, keyOrValues);
     }) as StoreLike<Record<string, unknown>>["set"],
-    delete: vi.fn((key: string) => {
+    delete: vi.fn<(...args: any[]) => any>((key: string) => {
       delete state[key];
     }),
-    has: vi.fn((key: string) => state[key] !== undefined),
+    has: vi.fn<(...args: any[]) => any>((key: string) => state[key] !== undefined),
   };
 }
 
@@ -172,19 +172,19 @@ function createConfigTables(
   const mcpSettings = overrides.mcpSettings ?? {};
   const agentSettings = overrides.agentSettings ?? {};
   return {
-    listProviders: vi.fn(() => overrides.providers ?? []),
-    getProviderOrder: vi.fn(() => overrides.providerOrder ?? []),
-    getProviderTimestamps: vi.fn(() => overrides.providerTimestamps ?? {}),
-    listModelStatusEntries: vi.fn(() => modelStatuses),
-    getModelStatus: vi.fn((key: string) => modelStatuses[key]),
-    hasModelStatus: vi.fn((key: string) => Object.hasOwn(modelStatuses, key)),
-    listMcpServers: vi.fn(() => overrides.mcpServers ?? {}),
-    listMcpSettings: vi.fn(() => mcpSettings),
-    getMcpSetting: vi.fn((key: string) => mcpSettings[key]),
-    listAgentSettings: vi.fn(() => agentSettings),
-    getAgentSetting: vi.fn((key: string) => agentSettings[key]),
-    getAgentMcpSelections: vi.fn(() => overrides.agentSelections ?? []),
-    hasConfigMigration: vi.fn(() => overrides.hasMigration ?? false),
+    listProviders: vi.fn<(...args: any[]) => any>(() => overrides.providers ?? []),
+    getProviderOrder: vi.fn<(...args: any[]) => any>(() => overrides.providerOrder ?? []),
+    getProviderTimestamps: vi.fn<(...args: any[]) => any>(() => overrides.providerTimestamps ?? {}),
+    listModelStatusEntries: vi.fn<(...args: any[]) => any>(() => modelStatuses),
+    getModelStatus: vi.fn<(...args: any[]) => any>((key: string) => modelStatuses[key]),
+    hasModelStatus: vi.fn<(...args: any[]) => any>((key: string) => Object.hasOwn(modelStatuses, key)),
+    listMcpServers: vi.fn<(...args: any[]) => any>(() => overrides.mcpServers ?? {}),
+    listMcpSettings: vi.fn<(...args: any[]) => any>(() => mcpSettings),
+    getMcpSetting: vi.fn<(...args: any[]) => any>((key: string) => mcpSettings[key]),
+    listAgentSettings: vi.fn<(...args: any[]) => any>(() => agentSettings),
+    getAgentSetting: vi.fn<(...args: any[]) => any>((key: string) => agentSettings[key]),
+    getAgentMcpSelections: vi.fn<(...args: any[]) => any>(() => overrides.agentSelections ?? []),
+    hasConfigMigration: vi.fn<(...args: any[]) => any>(() => overrides.hasMigration ?? false),
   } as unknown as ConfigTables;
 }
 

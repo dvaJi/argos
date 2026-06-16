@@ -1,33 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SHORTCUT_EVENTS, TRAY_EVENTS } from "@/events";
 
-const registerMock = vi.hoisted(() => vi.fn());
-const unregisterAllMock = vi.hoisted(() => vi.fn());
-const buildFromTemplateMock = vi.hoisted(() => vi.fn((template) => ({ template })));
-const setApplicationMenuMock = vi.hoisted(() => vi.fn());
+const registerMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
+const unregisterAllMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
+const buildFromTemplateMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>((template) => ({ template })));
+const setApplicationMenuMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const presenterMock = vi.hoisted(() => ({
   windowPresenter: {
-    getFocusedWindow: vi.fn(),
-    getAllWindows: vi.fn(),
-    sendToWebContents: vi.fn(),
+    getFocusedWindow: vi.fn<(...args: any[]) => any>(),
+    getAllWindows: vi.fn<(...args: any[]) => any>(),
+    sendToWebContents: vi.fn<(...args: any[]) => any>(),
     mainWindow: null as any,
-    getSettingsWindowId: vi.fn(() => null),
-    show: vi.fn(),
-    close: vi.fn(),
-    closeSettingsWindow: vi.fn(),
+    getSettingsWindowId: vi.fn<(...args: any[]) => any>(() => null),
+    show: vi.fn<(...args: any[]) => any>(),
+    close: vi.fn<(...args: any[]) => any>(),
+    closeSettingsWindow: vi.fn<(...args: any[]) => any>(),
   },
 }));
 const eventBusMock = vi.hoisted(() => ({
-  send: vi.fn(),
-  sendToMain: vi.fn(),
+  send: vi.fn<(...args: any[]) => any>(),
+  sendToMain: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getLocale: vi.fn(() => "en-US"),
-    getSystemLocale: vi.fn(() => "en-US"),
-    quit: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getLocale: vi.fn<(...args: any[]) => any>(() => "en-US"),
+    getSystemLocale: vi.fn<(...args: any[]) => any>(() => "en-US"),
+    quit: vi.fn<(...args: any[]) => any>(),
   },
   globalShortcut: {
     register: registerMock,
@@ -58,8 +58,8 @@ vi.mock("@/eventbus", () => ({
 
 function createConfigPresenter(shortcuts = {}) {
   return {
-    getShortcutKey: vi.fn(() => shortcuts),
-    getLanguage: vi.fn(() => "en-US"),
+    getShortcutKey: vi.fn<(...args: any[]) => any>(() => shortcuts),
+    getLanguage: vi.fn<(...args: any[]) => any>(() => "en-US"),
   } as any;
 }
 
@@ -91,8 +91,8 @@ describe("ShortcutPresenter", () => {
     vi.clearAllMocks();
     const chatWindow = {
       id: 7,
-      isFocused: vi.fn(() => true),
-      isDestroyed: vi.fn(() => false),
+      isFocused: vi.fn<(...args: any[]) => any>(() => true),
+      isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
       webContents: {
         id: 42,
       },
@@ -149,7 +149,7 @@ describe("ShortcutPresenter", () => {
     presenterMock.windowPresenter.getAllWindows.mockReturnValue([
       {
         id: 7,
-        isFocused: vi.fn(() => false),
+        isFocused: vi.fn<(...args: any[]) => any>(() => false),
         webContents: {
           id: 42,
         },
@@ -157,7 +157,7 @@ describe("ShortcutPresenter", () => {
     ]);
     presenterMock.windowPresenter.getFocusedWindow.mockReturnValue({
       id: 7,
-      isFocused: vi.fn(() => false),
+      isFocused: vi.fn<(...args: any[]) => any>(() => false),
       webContents: {
         id: 42,
       },
@@ -182,7 +182,7 @@ describe("ShortcutPresenter", () => {
     presenterMock.windowPresenter.getAllWindows.mockReturnValue([
       {
         id: 7,
-        isFocused: vi.fn(() => false),
+        isFocused: vi.fn<(...args: any[]) => any>(() => false),
         webContents: {
           id: 42,
         },
@@ -190,7 +190,7 @@ describe("ShortcutPresenter", () => {
     ]);
     presenterMock.windowPresenter.getFocusedWindow.mockReturnValue({
       id: 99,
-      isFocused: vi.fn(() => true),
+      isFocused: vi.fn<(...args: any[]) => any>(() => true),
       webContents: {
         id: 77,
       },

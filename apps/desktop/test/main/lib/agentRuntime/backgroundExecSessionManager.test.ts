@@ -5,17 +5,17 @@ import fs from "fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockUtilityProcessFork } = vi.hoisted(() => ({
-  mockUtilityProcessFork: vi.fn(),
+  mockUtilityProcessFork: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("child_process", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getAppPath: vi.fn(() => "/mock/app"),
-    getPath: vi.fn((name: string) => (name === "userData" ? "/mock/userData" : "/mock/home")),
+    getAppPath: vi.fn<(...args: any[]) => any>(() => "/mock/app"),
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => (name === "userData" ? "/mock/userData" : "/mock/home")),
   },
   utilityProcess: {
     fork: mockUtilityProcessFork,
@@ -30,9 +30,9 @@ vi.mock("@electron-toolkit/utils", () => ({
 
 vi.mock("@shared/logger", () => ({
   default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
+    info: vi.fn<(...args: any[]) => any>(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -47,16 +47,16 @@ class MockChildProcess extends EventEmitter {
   stdout = new MockStream();
   stderr = new MockStream();
   stdin = {
-    write: vi.fn(),
-    end: vi.fn(),
+    write: vi.fn<(...args: any[]) => any>(),
+    end: vi.fn<(...args: any[]) => any>(),
     destroyed: false,
   };
   pid = 321;
 }
 
 class MockUtilityProcess extends EventEmitter {
-  postMessage = vi.fn();
-  kill = vi.fn();
+  postMessage = vi.fn<(...args: any[]) => any>();
+  kill = vi.fn<(...args: any[]) => any>();
 }
 
 function mockStats(kind: "file" | "directory"): fs.Stats {
@@ -80,11 +80,11 @@ describe("BackgroundExecSessionManager", () => {
     manager = new BackgroundExecSessionManager();
     clearInterval((manager as never).cleanupIntervalId);
     mockUtilityProcessFork.mockReset();
-    vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) =>
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(true);
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) =>
       String(candidate).includes("workspace") ? mockStats("directory") : mockStats("file"),
     );
-    vi.spyOn(fs, "accessSync").mockReturnValue(undefined);
+    vi.spyOn<(...args: any[]) => any>(fs, "accessSync").mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -140,8 +140,8 @@ describe("BackgroundExecSessionManager", () => {
     });
     setSession(session);
 
-    const previewSpy = vi.spyOn(manager as never, "readLastCharsFromFile" as never).mockReturnValue("persisted-");
-    const readSpy = vi.spyOn(manager as never, "readFromFile" as never).mockReturnValue("persisted-");
+    const previewSpy = vi.spyOn<(...args: any[]) => any>(manager as never, "readLastCharsFromFile" as never).mockReturnValue("persisted-");
+    const readSpy = vi.spyOn<(...args: any[]) => any>(manager as never, "readFromFile" as never).mockReturnValue("persisted-");
 
     const list = manager.list("conv-1");
     const poll = await manager.poll("conv-1", "bg_123");
@@ -159,7 +159,7 @@ describe("BackgroundExecSessionManager", () => {
   it("disables future offload attempts after an append failure", async () => {
     const session = createSession();
     const originalAppendFile = fs.promises.appendFile;
-    const appendFileMock = vi.fn().mockRejectedValue(new Error("disk full"));
+    const appendFileMock = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("disk full"));
 
     Object.defineProperty(fs.promises, "appendFile", {
       configurable: true,
@@ -233,7 +233,7 @@ describe("BackgroundExecSessionManager", () => {
   it("clears the yield timer when the session closes before the yield window elapses", async () => {
     vi.useFakeTimers();
 
-    const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+    const clearTimeoutSpy = vi.spyOn<(...args: any[]) => any>(globalThis, "clearTimeout");
     const session = createSession({
       status: "running",
       outputBuffer: "build complete",
@@ -281,7 +281,7 @@ describe("BackgroundExecSessionManager", () => {
 
   it("merges the prepared env on top of process env when starting a session", async () => {
     const child = new MockChildProcess();
-    vi.mocked(spawn).mockReturnValue(child as never);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
     process.env.BASELINE_FLAG = "baseline";
 
     try {
@@ -321,7 +321,7 @@ describe("BackgroundExecSessionManager", () => {
     });
     process.env.PSModulePath = "C:\\PowerShell\\Modules";
     const child = new MockChildProcess();
-    vi.mocked(spawn).mockReturnValue(child as never);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
 
     await manager.start("conv-1", "dir", "/workspace", { timeout: 0 });
 
@@ -340,8 +340,8 @@ describe("BackgroundExecSessionManager", () => {
       value: "darwin",
     });
     process.env.SHELL = "/missing/zsh";
-    vi.spyOn(fs, "existsSync").mockImplementation((candidate) => normalizedPath(candidate).endsWith("/workspace"));
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockImplementation((candidate) => normalizedPath(candidate).endsWith("/workspace"));
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) => {
       const value = normalizedPath(candidate);
       if (value.endsWith("/workspace")) {
         return mockStats("directory");
@@ -351,14 +351,14 @@ describe("BackgroundExecSessionManager", () => {
       }
       throw new Error("missing");
     });
-    vi.spyOn(fs, "accessSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "accessSync").mockImplementation((candidate) => {
       if (String(candidate) === "/bin/sh") {
         return undefined;
       }
       throw new Error("not executable");
     });
     const child = new MockChildProcess();
-    vi.mocked(spawn).mockReturnValue(child as never);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
 
     await manager.start("conv-1", "echo test", "/workspace", { timeout: 0 });
 
@@ -377,10 +377,10 @@ describe("BackgroundExecSessionManager", () => {
       value: "darwin",
     });
     process.env.SHELL = "/bin/zsh";
-    vi.spyOn(fs, "existsSync").mockImplementation(
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockImplementation(
       (candidate) => !normalizedPath(candidate).endsWith("/missing/workspace"),
     );
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) =>
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) =>
       String(candidate) === "/bin/zsh" ? mockStats("file") : mockStats("directory"),
     );
 
@@ -393,7 +393,7 @@ describe("BackgroundExecSessionManager", () => {
 
   it("decodes split UTF-8 output from running sessions", async () => {
     const child = new MockChildProcess();
-    vi.mocked(spawn).mockReturnValue(child as never);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
 
     const result = await manager.start("conv-1", "echo test", "/workspace", { timeout: 0 });
     const bytes = Buffer.from("chinese.txt\n", "utf8");

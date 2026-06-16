@@ -4,11 +4,11 @@ import type { LLM_PROVIDER } from "../../../../src/shared/presenter";
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    send: vi.fn(),
-    sendToMain: vi.fn(),
-    sendToRenderer: vi.fn(),
-    emit: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -21,15 +21,15 @@ vi.mock("@/presenter", () => ({
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn(() => "/mock/path"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getLocale: vi.fn(() => "en-US"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getLocale: vi.fn<(...args: any[]) => any>(() => "en-US"),
   },
   nativeTheme: {
     shouldUseDarkColors: false,
   },
   shell: {
-    openPath: vi.fn(),
+    openPath: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -96,13 +96,13 @@ describe("cleanupDeprecatedBuiltinProviders", () => {
     ]);
 
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn((key: string) => {
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>((key: string) => {
         selectionStore.delete(key);
       }),
     };
-    const getProviders = vi.fn().mockReturnValue([createProvider("openai"), createProvider("laoshi")]);
-    const setProviders = vi.fn();
+    const getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([createProvider("openai"), createProvider("laoshi")]);
+    const setProviders = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
@@ -131,11 +131,11 @@ describe("cleanupDeprecatedBuiltinProviders", () => {
     const selectionStore = new Map<string, unknown>([["defaultModel", { providerId: "openai", modelId: "gpt-4o" }]]);
 
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>(),
     };
-    const getProviders = vi.fn().mockReturnValue([createProvider("openai")]);
-    const setProviders = vi.fn();
+    const getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([createProvider("openai")]);
+    const setProviders = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
@@ -161,12 +161,12 @@ describe("cleanupDeprecatedBuiltinAgentSelections", () => {
   });
 
   it("clears deprecated model selections persisted in builtin agent config", () => {
-    const getBuiltinArgosConfig = vi.fn().mockReturnValue({
+    const getBuiltinArgosConfig = vi.fn<(...args: any[]) => any>().mockReturnValue({
       defaultModelPreset: { providerId: "laoshi", modelId: "test-default" },
       assistantModel: { providerId: "qwenlm", modelId: "test-assistant" },
       visionModel: { providerId: "laoshi", modelId: "test-vision" },
     });
-    const updateBuiltinArgosConfig = vi.fn();
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       getBuiltinArgosConfig,
@@ -187,12 +187,12 @@ describe("cleanupDeprecatedBuiltinAgentSelections", () => {
   });
 
   it("does nothing when builtin agent config only references live providers", () => {
-    const getBuiltinArgosConfig = vi.fn().mockReturnValue({
+    const getBuiltinArgosConfig = vi.fn<(...args: any[]) => any>().mockReturnValue({
       defaultModelPreset: { providerId: "openai", modelId: "gpt-4o" },
       assistantModel: { providerId: "anthropic", modelId: "claude-sonnet" },
       visionModel: { providerId: "google", modelId: "gemini-2.5-flash" },
     });
-    const updateBuiltinArgosConfig = vi.fn();
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       getBuiltinArgosConfig,
@@ -220,18 +220,18 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
       ["assistantModel", createModelSelection("openai", "gpt-4o-mini")],
     ]);
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>(),
     };
     const builtinConfig = {
       defaultModelPreset: createModelSelection("laoshi", "legacy-default"),
       assistantModel: createModelSelection("qwenlm", "legacy-assistant"),
     };
-    const updateBuiltinArgosConfig = vi.fn();
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
-      getBuiltinArgosConfig: vi.fn(() => builtinConfig),
+      getBuiltinArgosConfig: vi.fn<(...args: any[]) => any>(() => builtinConfig),
       updateBuiltinArgosConfig,
     });
 
@@ -254,19 +254,19 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
       ["defaultVisionModel", createModelSelection("google", "gemini-2.5-flash")],
     ]);
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn((key: string) => {
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>((key: string) => {
         selectionStore.delete(key);
       }),
     };
     const builtinConfig = {
       visionModel: createModelSelection("qwenlm", "legacy-vision"),
     };
-    const updateBuiltinArgosConfig = vi.fn();
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
-      getBuiltinArgosConfig: vi.fn(() => builtinConfig),
+      getBuiltinArgosConfig: vi.fn<(...args: any[]) => any>(() => builtinConfig),
       updateBuiltinArgosConfig,
     });
 
@@ -290,8 +290,8 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
       ["defaultVisionModel", createModelSelection("google", "gemini-2.5-flash")],
     ]);
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn((key: string) => {
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>((key: string) => {
         selectionStore.delete(key);
       }),
     };
@@ -300,11 +300,11 @@ describe("reconcileLegacyBuiltinAgentSelections", () => {
       assistantModel: createModelSelection("openai", "gpt-4.1-mini"),
       visionModel: createModelSelection("google", "gemini-2.5-pro"),
     };
-    const updateBuiltinArgosConfig = vi.fn();
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
-      getBuiltinArgosConfig: vi.fn(() => builtinConfig),
+      getBuiltinArgosConfig: vi.fn<(...args: any[]) => any>(() => builtinConfig),
       updateBuiltinArgosConfig,
     });
 
@@ -337,10 +337,10 @@ describe("setAgentRepository", () => {
       visionModel: createModelSelection("laoshi", "legacy-vision"),
     };
     const store = {
-      get: vi.fn((key: string) => selectionStore.get(key)),
-      delete: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>((key: string) => selectionStore.get(key)),
+      delete: vi.fn<(...args: any[]) => any>(),
     };
-    const updateBuiltinArgosConfig = vi.fn(
+    const updateBuiltinArgosConfig = vi.fn<(...args: any[]) => any>(
       (updates: {
         defaultModelPreset?: { providerId: string; modelId: string } | null;
         assistantModel?: { providerId: string; modelId: string } | null;
@@ -353,8 +353,8 @@ describe("setAgentRepository", () => {
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       store,
-      initializeUnifiedAgents: vi.fn(),
-      getBuiltinArgosConfig: vi.fn(() => builtinConfig),
+      initializeUnifiedAgents: vi.fn<(...args: any[]) => any>(),
+      getBuiltinArgosConfig: vi.fn<(...args: any[]) => any>(() => builtinConfig),
       updateBuiltinArgosConfig,
     });
 
@@ -375,13 +375,13 @@ describe("setAgentRepository", () => {
 
   it("runs legacy reconciliation before deprecated builtin cleanup", () => {
     const callOrder: string[] = [];
-    const initializeUnifiedAgents = vi.fn(() => {
+    const initializeUnifiedAgents = vi.fn<(...args: any[]) => any>(() => {
       callOrder.push("initializeUnifiedAgents");
     });
-    const reconcileLegacyBuiltinAgentSelections = vi.fn(() => {
+    const reconcileLegacyBuiltinAgentSelections = vi.fn<(...args: any[]) => any>(() => {
       callOrder.push("reconcileLegacyBuiltinAgentSelections");
     });
-    const cleanupDeprecatedBuiltinAgentSelections = vi.fn(() => {
+    const cleanupDeprecatedBuiltinAgentSelections = vi.fn<(...args: any[]) => any>(() => {
       callOrder.push("cleanupDeprecatedBuiltinAgentSelections");
     });
     const agentRepository = {} as never;

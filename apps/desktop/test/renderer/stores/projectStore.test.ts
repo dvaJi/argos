@@ -9,23 +9,23 @@ const setupStore = async (overrides?: {
   const defaultProjectPathListeners: Array<(payload: { path: string | null; version: number }) => void> = [];
   const projectPresenter = {
     getRecentProjects: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockResolvedValue(overrides?.recentProjects ?? [{ path: "/work/recent", name: "recent", icon: null }]),
-    getEnvironments: vi.fn().mockResolvedValue([]),
-    openDirectory: vi.fn().mockResolvedValue(undefined),
-    selectDirectory: vi.fn().mockResolvedValue(null),
+    getEnvironments: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    openDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
   };
   const configClient = {
-    getDefaultProjectPath: vi.fn().mockResolvedValue(overrides?.defaultProjectPath ?? null),
-    setDefaultProjectPath: vi.fn().mockResolvedValue(undefined),
-    onDefaultProjectPathChanged: vi.fn((listener: (payload: { path: string | null; version: number }) => void) => {
+    getDefaultProjectPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(overrides?.defaultProjectPath ?? null),
+    setDefaultProjectPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    onDefaultProjectPathChanged: vi.fn<(...args: any[]) => any>((listener: (payload: { path: string | null; version: number }) => void) => {
       defaultProjectPathListeners.push(listener);
       return () => undefined;
     }),
   };
 
   vi.doMock("../../../src/renderer/api/ProjectClient", () => ({
-    createProjectClient: vi.fn(() => ({
+    createProjectClient: vi.fn<(...args: any[]) => any>(() => ({
       listRecent: projectPresenter.getRecentProjects,
       listEnvironments: projectPresenter.getEnvironments,
       openDirectory: projectPresenter.openDirectory,
@@ -33,7 +33,7 @@ const setupStore = async (overrides?: {
     })),
   }));
   vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
 
   const { useProjectStore } = await import("@/stores/ui/project");

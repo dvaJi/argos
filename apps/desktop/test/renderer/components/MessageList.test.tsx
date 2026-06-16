@@ -25,7 +25,7 @@ vi.mock("@/components/message/MessageBlockAction", () => ({
 vi.mock("@/composables/message/useMessageCapture", () => ({
   useMessageCapture: () => ({
     isCapturing: false,
-    captureMessage: vi.fn().mockResolvedValue(undefined),
+    captureMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   }),
 }));
 

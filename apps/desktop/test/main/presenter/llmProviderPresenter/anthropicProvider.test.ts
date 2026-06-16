@@ -3,24 +3,24 @@ import type { IConfigPresenter, LLM_PROVIDER } from "../../../../src/shared/pres
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 const { mockRunAiSdkCoreStream, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
-  mockRunAiSdkCoreStream: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn().mockResolvedValue({ content: "ok" }),
+  mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkGenerateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "ok" }),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -54,9 +54,9 @@ const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getDbProviderModels: vi.fn().mockReturnValue([
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getDbProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
       {
         id: "claude-sonnet-4-5-20250929",
         name: "Claude Sonnet 4.5",
@@ -68,9 +68,9 @@ const createConfigPresenter = (): IConfigPresenter =>
         reasoning: true,
       },
     ]),
-    getModelConfig: vi.fn().mockReturnValue(undefined),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
   }) as unknown as IConfigPresenter;
 
 describe("AiSdkProvider anthropic", () => {
@@ -169,9 +169,9 @@ describe("AiSdkProvider anthropic", () => {
   });
 
   it("fetches remote models for custom anthropic-compatible providers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({
+      json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         data: [{ id: "claude-3-7-sonnet-latest", display_name: "Claude 3.7 Sonnet" }],
       }),
     });
@@ -207,9 +207,9 @@ describe("AiSdkProvider anthropic", () => {
   });
 
   it("throws refresh errors for custom anthropic-compatible providers when remote fetch fails", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: false,
-      text: vi.fn().mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}'),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}'),
     });
     vi.stubGlobal("fetch", fetchMock);
 

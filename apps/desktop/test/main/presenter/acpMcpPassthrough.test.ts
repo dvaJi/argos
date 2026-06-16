@@ -6,9 +6,9 @@ import { AcpSessionManager } from "../../../src/main/presenter/llmProviderPresen
 
 vi.mock("electron", () => ({
   app: {
-    on: vi.fn(),
-    getPath: vi.fn(() => "/tmp"),
-    getVersion: vi.fn(() => "0.0.0-test"),
+    on: vi.fn<(...args: any[]) => any>(),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
   },
 }));
 
@@ -58,8 +58,8 @@ describe("ACP MCP passthrough helpers", () => {
 describe("AcpSessionManager MCP server injection", () => {
   it("passes only compatible selected MCP servers to newSession", async () => {
     const configPresenter = {
-      getAgentMcpSelections: vi.fn().mockResolvedValue(["stdio-1", "http-1"]),
-      getMcpServers: vi.fn().mockResolvedValue({
+      getAgentMcpSelections: vi.fn<(...args: any[]) => any>().mockResolvedValue(["stdio-1", "http-1"]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         "stdio-1": {
           type: "stdio",
           command: "node",
@@ -89,14 +89,14 @@ describe("AcpSessionManager MCP server injection", () => {
       providerId: "acp",
       processManager: {} as any,
       sessionPersistence: {
-        getSessionData: vi.fn().mockResolvedValue(null),
+        getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
       } as any,
       configPresenter: configPresenter as any,
     });
 
     const handle = {
       connection: {
-        newSession: vi.fn().mockResolvedValue({ sessionId: "s1" }),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "s1" }),
       },
       availableModes: [],
       currentModeId: null,
@@ -115,19 +115,19 @@ describe("AcpSessionManager MCP server injection", () => {
 describe("AcpSessionManager loadSession fallback behavior", () => {
   const createBaseConfigPresenter = () =>
     ({
-      getAgentMcpSelections: vi.fn().mockResolvedValue([]),
-      getMcpServers: vi.fn().mockResolvedValue({}),
+      getAgentMcpSelections: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
     }) as any;
   const createProcessManager = () =>
     ({
-      registerSessionWorkdir: vi.fn(),
-      registerSessionListener: vi.fn().mockReturnValue(vi.fn()),
-      registerPermissionResolver: vi.fn().mockReturnValue(vi.fn()),
-      clearSession: vi.fn(),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(vi.fn<(...args: any[]) => any>()),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(vi.fn<(...args: any[]) => any>()),
+      clearSession: vi.fn<(...args: any[]) => any>(),
     }) as any;
   const createSessionHooks = () => ({
-    onSessionUpdate: vi.fn(),
-    onPermission: vi.fn(),
+    onSessionUpdate: vi.fn<(...args: any[]) => any>(),
+    onPermission: vi.fn<(...args: any[]) => any>(),
   });
   const createWarmupConfigState = () => ({
     source: "configOptions" as const,
@@ -151,7 +151,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       providerId: "acp",
       processManager: createProcessManager(),
       sessionPersistence: {
-        getSessionData: vi.fn().mockResolvedValue({ sessionId: "persisted-1" }),
+        getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-1" }),
       } as any,
       configPresenter: createBaseConfigPresenter(),
     });
@@ -161,8 +161,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       supportsLoadSession: true,
       configState: warmupConfigState,
       connection: {
-        loadSession: vi.fn().mockResolvedValue({}),
-        newSession: vi.fn().mockResolvedValue({ sessionId: "new-1" }),
+        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-1" }),
       },
       availableModes: [],
       currentModeId: null,
@@ -192,7 +192,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       providerId: "acp",
       processManager: createProcessManager(),
       sessionPersistence: {
-        getSessionData: vi.fn().mockResolvedValue({ sessionId: "persisted-2" }),
+        getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-2" }),
       } as any,
       configPresenter: createBaseConfigPresenter(),
     });
@@ -200,8 +200,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
     const handle = {
       supportsLoadSession: true,
       connection: {
-        loadSession: vi.fn().mockRejectedValue(new Error("session not found")),
-        newSession: vi.fn().mockResolvedValue({ sessionId: "new-2" }),
+        loadSession: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("session not found")),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-2" }),
       },
       availableModes: [],
       currentModeId: null,
@@ -226,7 +226,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       providerId: "acp",
       processManager: {} as any,
       sessionPersistence: {
-        getSessionData: vi.fn().mockResolvedValue({ sessionId: "persisted-3" }),
+        getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-3" }),
       } as any,
       configPresenter: createBaseConfigPresenter(),
     });
@@ -234,8 +234,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
     const handle = {
       supportsLoadSession: false,
       connection: {
-        loadSession: vi.fn().mockResolvedValue({}),
-        newSession: vi.fn().mockResolvedValue({ sessionId: "new-3" }),
+        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-3" }),
       },
       availableModes: [],
       currentModeId: null,
@@ -259,7 +259,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       providerId: "acp",
       processManager: {} as any,
       sessionPersistence: {
-        getSessionData: vi.fn().mockResolvedValue(null),
+        getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
       } as any,
       configPresenter: createBaseConfigPresenter(),
     });
@@ -269,8 +269,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       supportsLoadSession: false,
       configState: warmupConfigState,
       connection: {
-        loadSession: vi.fn().mockResolvedValue({}),
-        newSession: vi.fn().mockResolvedValue({ sessionId: "new-4" }),
+        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-4" }),
       },
       availableModes: [],
       currentModeId: null,

@@ -15,10 +15,10 @@ interface ServiceHarnessOptions {
 
 const createServiceHarness = (tasks: ScheduledTask[], options: ServiceHarnessOptions = {}) => {
   let settings = { version: 1 as const, tasks };
-  const showNotification = vi.fn().mockResolvedValue(undefined);
-  const sendToWindow = vi.fn();
-  const focusMainWindow = vi.fn();
-  const createSessionForTask = options.createSessionForTask ?? vi.fn().mockResolvedValue({ sessionId: "session-1" });
+  const showNotification = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+  const sendToWindow = vi.fn<(...args: any[]) => any>();
+  const focusMainWindow = vi.fn<(...args: any[]) => any>();
+  const createSessionForTask = options.createSessionForTask ?? vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "session-1" });
 
   const service = new ScheduledTasksService({
     configPresenter: {

@@ -52,7 +52,7 @@ const setup = async () => {
 
   const ModelChooser = (await import("@/components/ModelChooser")).default;
 
-  const onUpdateModel = vi.fn();
+  const onUpdateModel = vi.fn<(...args: any[]) => any>();
 
   const result = render(<ModelChooser type={[ModelType.Chat]} onUpdateModel={onUpdateModel} />);
 

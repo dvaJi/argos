@@ -58,7 +58,7 @@ const VERTEX_SCHEMA_TYPE_MAP: Record<string, string> = {
 
 function normalizeVertexSchemaNode(node: unknown): unknown {
   if (Array.isArray(node)) {
-    return node.map((item) => normalizeVertexSchemaNode(item));
+    return node.map(normalizeVertexSchemaNode);
   }
 
   if (!isObjectRecord(node)) {

@@ -2,19 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockGenerateImage, mockGenerateText, mockStreamText, mockCreateAiSdkProviderContext, mockCacheImage } =
   vi.hoisted(() => ({
-    mockGenerateImage: vi.fn(),
-    mockGenerateText: vi.fn(),
-    mockStreamText: vi.fn(),
-    mockCreateAiSdkProviderContext: vi.fn(),
-    mockCacheImage: vi.fn(),
+    mockGenerateImage: vi.fn<(...args: any[]) => any>(),
+    mockGenerateText: vi.fn<(...args: any[]) => any>(),
+    mockStreamText: vi.fn<(...args: any[]) => any>(),
+    mockCreateAiSdkProviderContext: vi.fn<(...args: any[]) => any>(),
+    mockCacheImage: vi.fn<(...args: any[]) => any>(),
   }));
 
 vi.mock("ai", () => ({
-  generateId: vi.fn(() => "generated-id"),
+  generateId: vi.fn<(...args: any[]) => any>(() => "generated-id"),
   generateImage: mockGenerateImage,
   generateText: mockGenerateText,
   streamText: mockStreamText,
-  embedMany: vi.fn(),
+  embedMany: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/presenter", () => ({
@@ -27,7 +27,7 @@ vi.mock("@/presenter", () => ({
 
 vi.mock("@/presenter/llmProviderPresenter/aiSdk/providerFactory", () => ({
   createAiSdkProviderContext: mockCreateAiSdkProviderContext,
-  normalizeGeminiBaseUrl: vi.fn((baseUrl?: string) => {
+  normalizeGeminiBaseUrl: vi.fn<(...args: any[]) => any>((baseUrl?: string) => {
     const normalized = (baseUrl || "").trim().replace(/\/+$/, "");
     if (!normalized) {
       return "https://generativelanguage.googleapis.com/v1beta";
@@ -495,7 +495,7 @@ describe("AI SDK runtime", () => {
   });
 
   it("uses normal chat streaming for non-TTS MiMo Pro models", async () => {
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(...args: any[]) => any>();
     vi.stubGlobal("fetch", fetchMock);
 
     const context = {
@@ -532,7 +532,7 @@ describe("AI SDK runtime", () => {
   });
 
   it("includes an assistant role message for chat-audio TTS requests", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
       new Response(
         JSON.stringify({
           choices: [
@@ -615,7 +615,7 @@ describe("AI SDK runtime", () => {
   });
 
   it("extracts chat-audio TTS data from content audio parts", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
       new Response(
         JSON.stringify({
           choices: [
@@ -691,7 +691,7 @@ describe("AI SDK runtime", () => {
   });
 
   it("fails cleanly when chat-audio TTS content is text without audio data", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
       new Response(
         JSON.stringify({
           choices: [
@@ -749,7 +749,7 @@ describe("AI SDK runtime", () => {
 
   it("uses Gemini generateContent compatibility mode for AIHubMix Gemini TTS models", async () => {
     const pcmBase64 = Buffer.from([0, 0, 255, 127]).toString("base64");
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
       new Response(
         JSON.stringify({
           candidates: [
@@ -858,7 +858,7 @@ describe("AI SDK runtime", () => {
     const expectedBase64 = Buffer.from(videoBytes).toString("base64");
     const tracePayloads: Array<{ body?: Record<string, unknown> }> = [];
     const fetchMock = vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -911,7 +911,7 @@ describe("AI SDK runtime", () => {
         "APP-Code": "SMUE7630",
       },
       shouldUseVideoGeneration: () => true,
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -962,7 +962,7 @@ describe("AI SDK runtime", () => {
     const expectedBase64 = Buffer.from(videoBytes).toString("base64");
     const tracePayloads: Array<{ body?: Record<string, unknown> }> = [];
     const fetchMock = vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -1015,7 +1015,7 @@ describe("AI SDK runtime", () => {
         "APP-Code": "SMUE7630",
       },
       shouldUseVideoGeneration: () => true,
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1070,10 +1070,10 @@ describe("AI SDK runtime", () => {
         apiType: "anthropic",
       },
       configPresenter: {
-        supportsTemperatureControl: vi.fn().mockReturnValue(false),
+        supportsTemperatureControl: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       },
       defaultHeaders: {},
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1105,11 +1105,11 @@ describe("AI SDK runtime", () => {
           apiType: "openai-compatible",
         },
         configPresenter: {
-          getCapabilityProviderId: vi.fn().mockReturnValue("anthropic"),
-          supportsTemperatureControl: vi.fn().mockReturnValue(false),
+          getCapabilityProviderId: vi.fn<(...args: any[]) => any>().mockReturnValue("anthropic"),
+          supportsTemperatureControl: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
         },
         defaultHeaders: {},
-        emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+        emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
           tracePayloads.push(payload);
         }),
       } as any;
@@ -1149,11 +1149,11 @@ describe("AI SDK runtime", () => {
         capabilityProviderId: "anthropic",
       },
       configPresenter: {
-        getCapabilityProviderId: vi.fn().mockReturnValue("anthropic"),
-        supportsTemperatureControl: vi.fn().mockReturnValue(false),
+        getCapabilityProviderId: vi.fn<(...args: any[]) => any>().mockReturnValue("anthropic"),
+        supportsTemperatureControl: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       },
       defaultHeaders: {},
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1193,10 +1193,10 @@ describe("AI SDK runtime", () => {
         apiType: "anthropic",
       },
       configPresenter: {
-        supportsTemperatureControl: vi.fn().mockReturnValue(true),
+        supportsTemperatureControl: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
       },
       defaultHeaders: {},
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1227,7 +1227,7 @@ describe("AI SDK runtime", () => {
       },
       configPresenter: {},
       defaultHeaders: {},
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1259,7 +1259,7 @@ describe("AI SDK runtime", () => {
       },
       configPresenter: {},
       defaultHeaders: {},
-      emitRequestTrace: vi.fn(async (_modelConfig, payload) => {
+      emitRequestTrace: vi.fn<(...args: any[]) => any>(async (_modelConfig, payload) => {
         tracePayloads.push(payload);
       }),
     } as any;
@@ -1293,7 +1293,7 @@ describe("AI SDK runtime", () => {
       apiType: "anthropic",
       model: {},
     });
-    const portraitSpy = vi.spyOn(modelCapabilities, "getReasoningPortrait").mockReturnValue({
+    const portraitSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "getReasoningPortrait").mockReturnValue({
       supported: true,
       defaultEnabled: false,
       mode: "effort",
@@ -1310,7 +1310,7 @@ describe("AI SDK runtime", () => {
       },
       supportsOfficialAnthropicReasoning: true,
       configPresenter: {
-        supportsTemperatureControl: vi.fn().mockReturnValue(true),
+        supportsTemperatureControl: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
       },
       defaultHeaders: {},
     } as any;

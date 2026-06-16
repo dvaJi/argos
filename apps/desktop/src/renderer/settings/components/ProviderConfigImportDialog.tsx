@@ -228,7 +228,7 @@ export default function ProviderConfigImportDialog({
     if (!sourceId) return;
     setSelectedProvidersBySource((prev) => ({
       ...prev,
-      [sourceId]: currentSourceProviders.filter((p) => isProviderSelectable(p)).map((p) => p.id),
+      [sourceId]: currentSourceProviders.filter(isProviderSelectable).map((p) => p.id),
     }));
   };
 

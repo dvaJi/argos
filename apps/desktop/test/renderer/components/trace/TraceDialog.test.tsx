@@ -2,18 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 
 const { listMessageTracesMock } = vi.hoisted(() => ({
-  listMessageTracesMock: vi.fn(),
+  listMessageTracesMock: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@api/SessionClient", () => ({
-  createSessionClient: vi.fn(() => ({
+  createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
     listMessageTraces: listMessageTracesMock,
   })),
 }));
 
 vi.mock("@api/DeviceClient", () => ({
-  createDeviceClient: vi.fn(() => ({
-    copyText: vi.fn(),
+  createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
+    copyText: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
@@ -25,11 +25,11 @@ vi.mock("@/stores/uiSettingsStore", () => ({
 
 vi.mock("stream-monaco", () => ({
   useMonaco: () => ({
-    createEditor: vi.fn(),
-    updateCode: vi.fn(),
-    cleanupEditor: vi.fn(),
-    getEditorView: vi.fn().mockReturnValue({
-      updateOptions: vi.fn(),
+    createEditor: vi.fn<(...args: any[]) => any>(),
+    updateCode: vi.fn<(...args: any[]) => any>(),
+    cleanupEditor: vi.fn<(...args: any[]) => any>(),
+    getEditorView: vi.fn<(...args: any[]) => any>().mockReturnValue({
+      updateOptions: vi.fn<(...args: any[]) => any>(),
     }),
   }),
 }));

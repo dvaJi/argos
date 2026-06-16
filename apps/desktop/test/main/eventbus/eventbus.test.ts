@@ -12,18 +12,18 @@ describe("EventBus event bus", () => {
 
     // Mock WindowPresenter
     mockWindowPresenter = {
-      sendToWindow: vi.fn(),
-      sendToAllWindows: vi.fn(),
-      sendToDefaultWindow: vi.fn(),
-      sendToDefaultTab: vi.fn(),
-      sendToWebContents: vi.fn().mockResolvedValue(true),
-      sendToActiveTab: vi.fn().mockResolvedValue(true),
+      sendToWindow: vi.fn<(...args: any[]) => any>(),
+      sendToAllWindows: vi.fn<(...args: any[]) => any>(),
+      sendToDefaultWindow: vi.fn<(...args: any[]) => any>(),
+      sendToDefaultTab: vi.fn<(...args: any[]) => any>(),
+      sendToWebContents: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+      sendToActiveTab: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     } as Partial<IWindowPresenter> as IWindowPresenter;
 
     // Mock TabPresenter
     mockTabPresenter = {
-      getTab: vi.fn(),
-      getActiveTabId: vi.fn(),
+      getTab: vi.fn<(...args: any[]) => any>(),
+      getActiveTabId: vi.fn<(...args: any[]) => any>(),
     } as Partial<ITabPresenter> as ITabPresenter;
   });
 
@@ -33,7 +33,7 @@ describe("EventBus event bus", () => {
       const testData = { message: "test" };
 
       // Listen for the event
-      const mockListener = vi.fn();
+      const mockListener = vi.fn<(...args: any[]) => any>();
       eventBus.on(eventName, mockListener);
 
       // Send the event
@@ -50,7 +50,7 @@ describe("EventBus event bus", () => {
       const arg2 = { second: "data" };
       const arg3 = 123;
 
-      const mockListener = vi.fn();
+      const mockListener = vi.fn<(...args: any[]) => any>();
       eventBus.on(eventName, mockListener);
 
       eventBus.sendToMain(eventName, arg1, arg2, arg3);
@@ -75,7 +75,7 @@ describe("EventBus event bus", () => {
     });
 
     it("should show a warning when WindowPresenter is not set", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
       newEventBus.sendToWindow("test:event", 1, "data");
@@ -129,7 +129,7 @@ describe("EventBus event bus", () => {
     });
 
     it("should show a warning when WindowPresenter is not set", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
       newEventBus.sendToRenderer("test:event", SendTarget.ALL_WINDOWS, "data");
@@ -140,7 +140,7 @@ describe("EventBus event bus", () => {
     });
 
     it("should silently skip optional renderer send when WindowPresenter is not set", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
       const sent = newEventBus.sendToRendererIfAvailable("test:event", SendTarget.ALL_WINDOWS, "data");
@@ -171,7 +171,7 @@ describe("EventBus event bus", () => {
       const eventName = "both:test";
       const testData = { message: "both processes" };
 
-      const mockListener = vi.fn();
+      const mockListener = vi.fn<(...args: any[]) => any>();
       eventBus.on(eventName, mockListener);
 
       eventBus.send(eventName, SendTarget.ALL_WINDOWS, testData);
@@ -193,11 +193,11 @@ describe("EventBus event bus", () => {
     });
 
     it("should still send to main process without warning when WindowPresenter is not set", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
       const eventName = "both:no-renderer";
       const testData = { message: "main only" };
-      const mockListener = vi.fn();
+      const mockListener = vi.fn<(...args: any[]) => any>();
       newEventBus.on(eventName, mockListener);
 
       newEventBus.send(eventName, SendTarget.ALL_WINDOWS, testData);
@@ -213,7 +213,7 @@ describe("EventBus event bus", () => {
     beforeEach(() => {
       eventBus.setWindowPresenter(mockWindowPresenter);
       eventBus.setTabPresenter(mockTabPresenter);
-      vi.mocked(mockTabPresenter.getActiveTabId).mockResolvedValue(1);
+      vi.mocked<(...args: any[]) => any>(mockTabPresenter.getActiveTabId).mockResolvedValue(1);
     });
 
     it("should send an event to a specific webContents", async () => {
@@ -259,7 +259,7 @@ describe("EventBus event bus", () => {
     });
 
     it("should show a warning when WindowPresenter is not set", () => {
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       const newEventBus = new EventBus();
 
       newEventBus.sendToWebContents(1, "test:event", "data");
@@ -275,7 +275,7 @@ describe("EventBus event bus", () => {
       eventBus.setWindowPresenter(mockWindowPresenter);
 
       // Verify setup succeeded (no warning when sending an event)
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       eventBus.sendToRenderer("test:event", SendTarget.ALL_WINDOWS, "data");
 
       expect(consoleSpy).not.toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe("EventBus event bus", () => {
       eventBus.setTabPresenter(mockTabPresenter);
 
       // Verify setup succeeded (no warning when sending an event)
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
       eventBus.setWindowPresenter(mockWindowPresenter);
       eventBus.sendToWebContents(1, "test:event", "data");
 
@@ -301,8 +301,8 @@ describe("EventBus event bus", () => {
     });
 
     it("should show a warning when the webContents no longer exists", async () => {
-      vi.mocked(mockWindowPresenter.sendToWebContents).mockResolvedValue(false);
-      const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.mocked<(...args: any[]) => any>(mockWindowPresenter.sendToWebContents).mockResolvedValue(false);
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
       eventBus.sendToWebContents(999, "test:event", "data");
 
@@ -316,8 +316,8 @@ describe("EventBus event bus", () => {
 
     it("should log an error when sending to a webContents fails", async () => {
       const error = new Error("Failed to send webContents event");
-      vi.mocked(mockWindowPresenter.sendToWebContents).mockRejectedValue(error);
-      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.mocked<(...args: any[]) => any>(mockWindowPresenter.sendToWebContents).mockRejectedValue(error);
+      const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
 
       eventBus.sendToWebContents(1, "test:event", "data");
 

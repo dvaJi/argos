@@ -7,26 +7,26 @@ describe("DatabaseInitializer", () => {
 
   it("attempts one schema repair and retries initialization for repairable schema errors", async () => {
     const presenterInstance = {
-      runTransaction: vi.fn().mockResolvedValue(undefined),
-      close: vi.fn(),
+      runTransaction: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      close: vi.fn<(...args: any[]) => any>(),
     };
 
     const SQLitePresenter = vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockImplementationOnce(() => {
         throw new Error("table argos_sessions has no column named reasoning_visibility");
       })
       .mockImplementationOnce(() => presenterInstance);
-    const repairSQLiteDatabaseFile = vi.fn();
-    const isDestructiveDatabaseError = vi.fn().mockReturnValue(false);
-    const classifySchemaError = vi.fn().mockReturnValue({
+    const repairSQLiteDatabaseFile = vi.fn<(...args: any[]) => any>();
+    const isDestructiveDatabaseError = vi.fn<(...args: any[]) => any>().mockReturnValue(false);
+    const classifySchemaError = vi.fn<(...args: any[]) => any>().mockReturnValue({
       reason: "missing-column",
       dedupeKey: "missing-column:reasoning_visibility",
     });
 
     vi.doMock("electron", () => ({
       app: {
-        getPath: vi.fn().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
+        getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
       },
     }));
     vi.doMock("@/presenter/sqlitePresenter", () => ({
@@ -53,19 +53,19 @@ describe("DatabaseInitializer", () => {
   });
 
   it("does not attempt schema repair for destructive database errors", async () => {
-    const SQLitePresenter = vi.fn().mockImplementation(() => {
+    const SQLitePresenter = vi.fn<(...args: any[]) => any>().mockImplementation(() => {
       throw new Error("database disk image is malformed");
     });
-    const repairSQLiteDatabaseFile = vi.fn();
-    const isDestructiveDatabaseError = vi.fn().mockReturnValue(true);
-    const classifySchemaError = vi.fn().mockReturnValue({
+    const repairSQLiteDatabaseFile = vi.fn<(...args: any[]) => any>();
+    const isDestructiveDatabaseError = vi.fn<(...args: any[]) => any>().mockReturnValue(true);
+    const classifySchemaError = vi.fn<(...args: any[]) => any>().mockReturnValue({
       reason: "missing-table",
       dedupeKey: "missing-table:argos_sessions",
     });
 
     vi.doMock("electron", () => ({
       app: {
-        getPath: vi.fn().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
+        getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
       },
     }));
     vi.doMock("@/presenter/sqlitePresenter", () => ({

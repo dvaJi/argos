@@ -4,7 +4,7 @@ import { ArgosMessageStore } from "@/presenter/agentRuntimePresenter/messageStor
 import { DASHBOARD_STATS_BACKFILL_KEY, type UsageStatsRecordInput } from "@/presenter/usageStats";
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn(), sendToMain: vi.fn(), on: vi.fn() },
+  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), sendToMain: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -25,23 +25,23 @@ vi.mock("@/events", async (importOriginal) => {
 vi.mock("@/presenter", () => ({
   presenter: {
     commandPermissionService: {
-      extractCommandSignature: vi.fn().mockReturnValue("mock-signature"),
-      approve: vi.fn(),
-      clearConversation: vi.fn(),
+      extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn(), clearConversation: vi.fn() },
-    settingsPermissionService: { approve: vi.fn(), clearConversation: vi.fn() },
+    filePermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
+    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
     mcpPresenter: {
-      grantPermission: vi.fn().mockResolvedValue(undefined),
+      grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
   },
 }));
 
 vi.mock("@/lib/agentRuntime/rtkRuntimeService", () => ({
   rtkRuntimeService: {
-    startHealthCheck: vi.fn().mockResolvedValue(undefined),
-    retryHealthCheck: vi.fn().mockResolvedValue(undefined),
-    getDashboardData: vi.fn().mockResolvedValue({
+    startHealthCheck: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    retryHealthCheck: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getDashboardData: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       scope: "argos",
       enabled: true,
       effectiveEnabled: true,
@@ -138,15 +138,15 @@ function aggregateUsageRows(rows: UsageStatsRow[]) {
 
 function createMockArgosAgent() {
   return {
-    initSession: vi.fn().mockResolvedValue(undefined),
-    destroySession: vi.fn().mockResolvedValue(undefined),
-    getSessionState: vi.fn().mockResolvedValue(null),
-    processMessage: vi.fn().mockResolvedValue(undefined),
-    cancelGeneration: vi.fn().mockResolvedValue(undefined),
-    getMessages: vi.fn().mockResolvedValue([]),
-    getMessageIds: vi.fn().mockResolvedValue([]),
-    getMessage: vi.fn().mockResolvedValue(null),
-    getSessionCompactionState: vi.fn().mockResolvedValue({
+    initSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    destroySession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getSessionState: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    processMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getMessages: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    getMessageIds: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    getMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    getSessionCompactionState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "idle",
       cursorOrderSeq: 1,
       summaryUpdatedAt: null,
@@ -156,12 +156,12 @@ function createMockArgosAgent() {
 
 function createMockLlmProviderPresenter() {
   return {
-    summaryTitles: vi.fn().mockResolvedValue("Usage Dashboard"),
-    generateText: vi.fn().mockResolvedValue({ content: "" }),
-    setAcpWorkdir: vi.fn().mockResolvedValue(undefined),
-    prepareAcpSession: vi.fn().mockResolvedValue(undefined),
-    clearAcpSession: vi.fn().mockResolvedValue(undefined),
-    getAcpSessionCommands: vi.fn().mockResolvedValue([]),
+    summaryTitles: vi.fn<(...args: any[]) => any>().mockResolvedValue("Usage Dashboard"),
+    generateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "" }),
+    setAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    prepareAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    clearAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getAcpSessionCommands: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
   };
 }
 
@@ -170,13 +170,13 @@ function createMockConfigPresenter() {
   const providers = [{ id: "openai", name: "OpenAI" }];
 
   return {
-    getDefaultModel: vi.fn().mockReturnValue({ providerId: "openai", modelId: "gpt-4o" }),
-    getModelConfig: vi.fn().mockReturnValue({}),
-    getAcpAgents: vi.fn().mockResolvedValue([]),
-    getProviders: vi.fn().mockReturnValue(providers),
-    getProviderById: vi.fn((providerId: string) => providers.find((item) => item.id === providerId)),
-    getSetting: vi.fn((key: string) => store.get(key)),
-    setSetting: vi.fn((key: string, value: unknown) => {
+    getDefaultModel: vi.fn<(...args: any[]) => any>().mockReturnValue({ providerId: "openai", modelId: "gpt-4o" }),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({}),
+    getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue(providers),
+    getProviderById: vi.fn<(...args: any[]) => any>((providerId: string) => providers.find((item) => item.id === providerId)),
+    getSetting: vi.fn<(...args: any[]) => any>((key: string) => store.get(key)),
+    setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store.set(key, value);
     }),
     store,
@@ -389,27 +389,27 @@ function createMockSqlitePresenter() {
     argosSessionsTable,
     argosMessagesTable,
     argosAssistantBlocksTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      listByMessageIds: vi.fn().mockReturnValue([]),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     },
     argosSearchDocumentsTable: {
-      upsert: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
     },
     argosUsageStatsTable,
     newSessionsTable: {
-      create: vi.fn(),
-      get: vi.fn().mockReturnValue(null),
-      list: vi.fn().mockReturnValue([]),
-      update: vi.fn(),
-      delete: vi.fn(),
-      getDisabledAgentTools: vi.fn().mockReturnValue([]),
-      updateDisabledAgentTools: vi.fn(),
-      getActiveSkills: vi.fn().mockReturnValue([]),
+      create: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      list: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      getDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      updateDisabledAgentTools: vi.fn<(...args: any[]) => any>(),
+      getActiveSkills: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     },
     legacyImportStatusTable: {
-      get: vi.fn().mockReturnValue(null),
-      upsert: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      upsert: vi.fn<(...args: any[]) => any>(),
     },
   } as any;
 }

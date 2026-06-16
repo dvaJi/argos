@@ -3,8 +3,8 @@ import { render, screen, act } from "@testing-library/react";
 import SvgArtifact from "@/components/artifacts/SvgArtifact";
 
 vi.mock("@api/DeviceClient", () => ({
-  createDeviceClient: vi.fn(() => ({
-    sanitizeSvgContent: vi.fn(async (content: string) => content),
+  createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
+    sanitizeSvgContent: vi.fn<(...args: any[]) => any>(async (content: string) => content),
   })),
 }));
 

@@ -72,7 +72,7 @@ const setup = async (options: SetupOptions = {}) => {
     selectedAgentId: options.selectedAgentId ?? "argos",
     selectedAgentName: "Argos",
     enabledAgents: options.enabledAgents ?? [{ id: "acp-a", name: "ACP A", type: "acp" as const, enabled: true }],
-    setSelectedAgent: vi.fn((id: string | null) => {
+    setSelectedAgent: vi.fn<(...args: any[]) => any>((id: string | null) => {
       operations.push(`set:${id ?? "all"}`);
       agentStore.selectedAgentId = id;
     }),
@@ -83,51 +83,51 @@ const setup = async (options: SetupOptions = {}) => {
     activeSessionId: options.activeSession?.id ?? "session-1",
     activeSession: options.activeSession ?? null,
     hasActiveSession: options.hasActiveSession ?? true,
-    startNewConversation: vi.fn().mockResolvedValue(undefined),
-    selectSession: vi.fn(async (id: string) => {
+    startNewConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSession: vi.fn<(...args: any[]) => any>(async (id: string) => {
       operations.push(`select:${id}`);
       sessionStore.activeSessionId = id;
     }),
-    closeSession: vi.fn(async () => {
+    closeSession: vi.fn<(...args: any[]) => any>(async () => {
       operations.push("close");
       sessionStore.hasActiveSession = false;
       sessionStore.activeSessionId = null;
     }),
-    renameSession: vi.fn(),
-    clearSessionMessages: vi.fn(),
-    deleteSession: vi.fn(async (id: string) => {
+    renameSession: vi.fn<(...args: any[]) => any>(),
+    clearSessionMessages: vi.fn<(...args: any[]) => any>(),
+    deleteSession: vi.fn<(...args: any[]) => any>(async (id: string) => {
       operations.push(`delete:${id}`);
     }),
-    toggleSessionPinned: vi.fn(async (id: string, pinned: boolean) => {
+    toggleSessionPinned: vi.fn<(...args: any[]) => any>(async (id: string, pinned: boolean) => {
       operations.push(`pin:${id}:${pinned}`);
     }),
-    toggleGroupMode: vi.fn(),
-    getPinnedSessions: vi.fn(() => options.pinnedSessions ?? []),
-    getFilteredGroups: vi.fn(() => options.groups ?? []),
+    toggleGroupMode: vi.fn<(...args: any[]) => any>(),
+    getPinnedSessions: vi.fn<(...args: any[]) => any>(() => options.pinnedSessions ?? []),
+    getFilteredGroups: vi.fn<(...args: any[]) => any>(() => options.groups ?? []),
   };
 
   const themeStore = { isDark: false };
   const sidebarStore = {
     collapsed: options.collapsed ?? false,
-    toggleSidebar: vi.fn(() => {
+    toggleSidebar: vi.fn<(...args: any[]) => any>(() => {
       sidebarStore.collapsed = !sidebarStore.collapsed;
     }),
-    setCollapsed: vi.fn((value: boolean) => {
+    setCollapsed: vi.fn<(...args: any[]) => any>((value: boolean) => {
       sidebarStore.collapsed = value;
     }),
   };
-  const pageRouterStore = { goToNewThread: vi.fn() };
+  const pageRouterStore = { goToNewThread: vi.fn<(...args: any[]) => any>() };
   const spotlightStore = {
     open: false,
-    toggleSpotlight: vi.fn(() => {
+    toggleSpotlight: vi.fn<(...args: any[]) => any>(() => {
       spotlightStore.open = !spotlightStore.open;
     }),
   };
   const settingsClient = {
-    openSettings: vi.fn().mockResolvedValue({ windowId: 99 }),
+    openSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue({ windowId: 99 }),
   };
   const deviceClient = {
-    getDeviceInfo: vi.fn().mockResolvedValue({
+    getDeviceInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       platform: options.platform ?? "darwin",
       osVersion: "",
       osVersionMetadata: [],
@@ -153,10 +153,10 @@ const setup = async (options: SetupOptions = {}) => {
     useSpotlightStore: () => spotlightStore,
   }));
   vi.doMock("@api/SettingsClient", () => ({
-    createSettingsClient: vi.fn(() => settingsClient),
+    createSettingsClient: vi.fn<(...args: any[]) => any>(() => settingsClient),
   }));
   vi.doMock("@api/DeviceClient", () => ({
-    createDeviceClient: vi.fn(() => deviceClient),
+    createDeviceClient: vi.fn<(...args: any[]) => any>(() => deviceClient),
   }));
 
   const WindowSideBar = (await import("@/components/WindowSideBar")).default;

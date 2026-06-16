@@ -4,7 +4,7 @@ import { AgentPlanTool, UPDATE_PLAN_TOOL_NAME } from "@/presenter/toolPresenter/
 describe("AgentPlanTool", () => {
   it("updates session plan state and emits a progress snapshot", () => {
     const tool = new AgentPlanTool();
-    const onProgress = vi.fn();
+    const onProgress = vi.fn<(...args: any[]) => any>();
 
     const result = tool.call(
       {

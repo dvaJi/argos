@@ -5,7 +5,7 @@ import { providersImportApplyRoute, providersImportScanRoute } from "../../../..
 describe("dispatchProviderRoute providers.listSummaries", () => {
   it("returns lightweight provider summaries without model arrays", async () => {
     const configPresenter = {
-      getProviders: vi.fn(() => [
+      getProviders: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "openai",
           name: "OpenAI",
@@ -53,13 +53,13 @@ describe("dispatchProviderRoute providers.listSummaries", () => {
 describe("dispatchProviderRoute provider import routes", () => {
   it("dispatches scan and apply through ProviderImportService", async () => {
     const providerImportService = {
-      scan: vi.fn(() => ({
+      scan: vi.fn<(...args: any[]) => any>(() => ({
         sessionId: "scan-1",
         sourceOrder: ["cc-switch", "alma", "cherry-studio", "hermes", "openclaw"],
         sources: [],
         providers: [],
       })),
-      apply: vi.fn(() => ({
+      apply: vi.fn<(...args: any[]) => any>(() => ({
         summary: {
           imported: 0,
           created: 0,

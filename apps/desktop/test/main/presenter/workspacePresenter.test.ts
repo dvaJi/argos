@@ -25,11 +25,11 @@ const { chokidarState, sendToRendererMock, execFileMock } = vi.hoisted(() => {
         const watcher = {
           paths,
           options,
-          on: vi.fn((eventName: string, handler: (...args: unknown[]) => unknown) => {
+          on: vi.fn<(...args: any[]) => any>((eventName: string, handler: (...args: unknown[]) => unknown) => {
             handlers.set(eventName, [...(handlers.get(eventName) ?? []), handler]);
             return watcher;
           }),
-          close: vi.fn().mockResolvedValue(undefined),
+          close: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
           async emit(eventName: string, ...args: unknown[]) {
             for (const handler of handlers.get(eventName) ?? []) {
               await handler(...args);
@@ -40,18 +40,18 @@ const { chokidarState, sendToRendererMock, execFileMock } = vi.hoisted(() => {
         return watcher;
       },
     },
-    sendToRendererMock: vi.fn(),
-    execFileMock: vi.fn(),
+    sendToRendererMock: vi.fn<(...args: any[]) => any>(),
+    execFileMock: vi.fn<(...args: any[]) => any>(),
   };
 });
 
 vi.mock("electron", () => ({
   shell: {
-    showItemInFolder: vi.fn(),
-    openPath: vi.fn().mockResolvedValue(""),
+    showItemInFolder: vi.fn<(...args: any[]) => any>(),
+    openPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(""),
   },
   protocol: {
-    registerSchemesAsPrivileged: vi.fn(),
+    registerSchemesAsPrivileged: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -75,7 +75,7 @@ vi.mock("path", async () => {
 
 vi.mock("chokidar", () => ({
   FSWatcher: class {},
-  watch: vi.fn((paths: unknown, options: unknown) => chokidarState.createWatcher(paths, options)),
+  watch: vi.fn<(...args: any[]) => any>((paths: unknown, options: unknown) => chokidarState.createWatcher(paths, options)),
 }));
 
 vi.mock("child_process", () => ({
@@ -164,7 +164,7 @@ describe("WorkspacePresenter watchers", () => {
     );
 
     presenter = new WorkspacePresenter({
-      prepareFileCompletely: vi.fn(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     } as any);
   });
 
@@ -287,7 +287,7 @@ describe("WorkspacePresenter readFilePreview", () => {
 
   it("classifies html, pdf, and svg files with workspace preview URLs", async () => {
     const prepareFileCompletely = vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockResolvedValueOnce({
         path: path.join(workspacePath, "index.html"),
         name: "index.html",
@@ -355,7 +355,7 @@ describe("WorkspacePresenter readFilePreview", () => {
   });
 
   it("keeps unsupported files as binary without previewUrl", async () => {
-    const prepareFileCompletely = vi.fn().mockResolvedValue({
+    const prepareFileCompletely = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       path: path.join(workspacePath, "archive.zip"),
       name: "archive.zip",
       mimeType: "application/zip",
@@ -406,7 +406,7 @@ describe("WorkspacePresenter resolveMarkdownLinkedFile", () => {
 
   it("resolves relative links from the source markdown file directory", async () => {
     const presenter = new WorkspacePresenter({
-      prepareFileCompletely: vi.fn(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     } as any);
 
     await presenter.registerWorkspace(workspacePath);
@@ -427,7 +427,7 @@ describe("WorkspacePresenter resolveMarkdownLinkedFile", () => {
 
   it("falls back to the workspace root when no source markdown file is provided", async () => {
     const presenter = new WorkspacePresenter({
-      prepareFileCompletely: vi.fn(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     } as any);
 
     await presenter.registerWorkspace(workspacePath);
@@ -446,7 +446,7 @@ describe("WorkspacePresenter resolveMarkdownLinkedFile", () => {
   });
 
   it("authorizes files resolved outside the workspace for subsequent preview reads", async () => {
-    const prepareFileCompletely = vi.fn().mockResolvedValue({
+    const prepareFileCompletely = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       path: outsideFilePath,
       name: "outside.html",
       mimeType: "text/html",
@@ -486,7 +486,7 @@ describe("WorkspacePresenter resolveMarkdownLinkedFile", () => {
 
   it("supports file urls and absolute file paths", async () => {
     const presenter = new WorkspacePresenter({
-      prepareFileCompletely: vi.fn(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     } as any);
 
     await presenter.registerWorkspace(workspacePath);
@@ -505,7 +505,7 @@ describe("WorkspacePresenter resolveMarkdownLinkedFile", () => {
   });
 
   it("returns null for missing files without authorizing them", async () => {
-    const prepareFileCompletely = vi.fn();
+    const prepareFileCompletely = vi.fn<(...args: any[]) => any>();
     const presenter = new WorkspacePresenter({
       prepareFileCompletely,
     } as any);

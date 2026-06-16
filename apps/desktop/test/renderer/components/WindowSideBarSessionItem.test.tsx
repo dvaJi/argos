@@ -32,9 +32,9 @@ const mountComponent = async (options?: {
 
   const WindowSideBarSessionItem = (await import("@/components/WindowSideBarSessionItem")).default;
 
-  const onSelect = vi.fn();
-  const onTogglePin = vi.fn();
-  const onDelete = vi.fn();
+  const onSelect = vi.fn<(...args: any[]) => any>();
+  const onTogglePin = vi.fn<(...args: any[]) => any>();
+  const onDelete = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <WindowSideBarSessionItem

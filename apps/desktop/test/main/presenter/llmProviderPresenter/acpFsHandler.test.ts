@@ -143,7 +143,7 @@ describe("AcpFsHandler", () => {
           path: path.join(testDir, "nonexistent.txt"),
           sessionId: "test-session",
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow("expected error");
     });
 
     it("throws invalidParams for files exceeding maxReadSize", async () => {

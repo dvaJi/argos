@@ -31,22 +31,22 @@ async function setup(options?: { provider?: LLM_PROVIDER; updatedProvider?: LLM_
       },
     ],
     providers: [options?.updatedProvider ?? provider],
-    ensureDefaultProvidersReady: vi.fn().mockResolvedValue(undefined),
-    updateProviderApi: vi.fn().mockResolvedValue({
+    ensureDefaultProvidersReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProviderApi: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       updated: options?.updatedProvider ?? createProvider({ ...provider, apiKey: "updated-key" }),
     }),
-    checkProvider: vi.fn().mockResolvedValue({ isOk: true }),
-    getAzureApiVersion: vi.fn().mockResolvedValue("2024-02-01"),
-    getGeminiSafety: vi.fn().mockResolvedValue("BLOCK_MEDIUM_AND_ABOVE"),
-    removeProvider: vi.fn().mockResolvedValue(undefined),
+    checkProvider: vi.fn<(...args: any[]) => any>().mockResolvedValue({ isOk: true }),
+    getAzureApiVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("2024-02-01"),
+    getGeminiSafety: vi.fn<(...args: any[]) => any>().mockResolvedValue("BLOCK_MEDIUM_AND_ABOVE"),
+    removeProvider: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const modelStore = {
     allProviderModels: [],
     customModels: [],
-    refreshProviderModels: vi.fn().mockResolvedValue(undefined),
-    updateModelStatus: vi.fn().mockResolvedValue(undefined),
-    disableAllModels: vi.fn().mockResolvedValue(undefined),
+    refreshProviderModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateModelStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    disableAllModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   vi.doMock("@/stores/providerStore", () => ({
@@ -62,7 +62,7 @@ async function setup(options?: { provider?: LLM_PROVIDER; updatedProvider?: LLM_
   }));
   vi.doMock("@/stores/modelCheck", () => ({
     useModelCheckStore: () => ({
-      openDialog: vi.fn(),
+      openDialog: vi.fn<(...args: any[]) => any>(),
     }),
   }));
 
@@ -70,8 +70,8 @@ async function setup(options?: { provider?: LLM_PROVIDER; updatedProvider?: LLM_
     await import("../../../src/renderer/settings/components/ModelProviderSettingsDetail")
   ).default;
 
-  const onProviderConfigured = vi.fn();
-  const onProviderModelEnabled = vi.fn();
+  const onProviderConfigured = vi.fn<(...args: any[]) => any>();
+  const onProviderModelEnabled = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <ModelProviderSettingsDetail

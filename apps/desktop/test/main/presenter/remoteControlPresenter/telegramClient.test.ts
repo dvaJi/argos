@@ -5,9 +5,9 @@ describe("TelegramClient", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
-        json: vi.fn().mockResolvedValue({
+        json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           ok: true,
           result: {
             message_id: 42,
@@ -43,7 +43,7 @@ describe("TelegramClient", () => {
     );
 
     expect(messageId).toBe(42);
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/sendMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
@@ -76,7 +76,7 @@ describe("TelegramClient", () => {
       { parseMode: "HTML" },
     );
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/sendMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toMatchObject({
       text: "<b>hello</b>",
@@ -97,7 +97,7 @@ describe("TelegramClient", () => {
       parseMode: "HTML",
     });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/editMessageText");
     expect(JSON.parse(fetchCall[1]!.body as string)).toMatchObject({
       chat_id: 100,
@@ -119,7 +119,7 @@ describe("TelegramClient", () => {
       replyMarkup: null,
     });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/editMessageReplyMarkup");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
@@ -141,7 +141,7 @@ describe("TelegramClient", () => {
       messageId: 31,
     });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/deleteMessage");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,
@@ -158,7 +158,7 @@ describe("TelegramClient", () => {
       showAlert: true,
     });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/answerCallbackQuery");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       callback_query_id: "callback-1",
@@ -176,7 +176,7 @@ describe("TelegramClient", () => {
       emoji: null,
     });
 
-    const fetchCall = vi.mocked(fetch).mock.calls[0];
+    const fetchCall = vi.mocked<(...args: any[]) => any>(fetch).mock.calls[0];
     expect(fetchCall[0]).toContain("/setMessageReaction");
     expect(JSON.parse(fetchCall[1]!.body as string)).toEqual({
       chat_id: 100,

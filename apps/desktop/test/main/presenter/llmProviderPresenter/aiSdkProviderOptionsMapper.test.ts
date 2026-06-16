@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockGetThinkingBudgetRange, mockGetModel, mockGetReasoningPortrait, mockSupportsReasoning } = vi.hoisted(
   () => ({
-    mockGetThinkingBudgetRange: vi.fn().mockReturnValue({}),
-    mockGetModel: vi.fn().mockReturnValue(undefined),
-    mockGetReasoningPortrait: vi.fn().mockReturnValue(null),
-    mockSupportsReasoning: vi.fn().mockReturnValue(false),
+    mockGetThinkingBudgetRange: vi.fn<(...args: any[]) => any>().mockReturnValue({}),
+    mockGetModel: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    mockGetReasoningPortrait: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+    mockSupportsReasoning: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
   }),
 );
 

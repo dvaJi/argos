@@ -51,13 +51,13 @@ const setup = async (options?: {
     providers,
     sortedProviders: providers,
     initialized: { value: true },
-    ensureInitialized: vi.fn().mockResolvedValue(undefined),
-    refreshProviders: vi.fn().mockResolvedValue(undefined),
-    updateProviderConfig: vi.fn().mockResolvedValue(undefined),
-    updateProviderApi: vi.fn().mockResolvedValue(undefined),
-    updateProviderStatus: vi.fn().mockResolvedValue(undefined),
-    addCustomProvider: vi.fn().mockResolvedValue(undefined),
-    updateProvidersOrder: vi.fn(),
+    ensureInitialized: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    refreshProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProviderConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProviderApi: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProviderStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    addCustomProvider: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProvidersOrder: vi.fn<(...args: any[]) => any>(),
     defaultProviders: [],
   };
 
@@ -69,16 +69,16 @@ const setup = async (options?: {
       },
     ],
     customModels: [],
-    refreshAllModels: vi.fn().mockResolvedValue(undefined),
-    refreshProviderModels: vi.fn().mockResolvedValue(undefined),
-    ensureProviderModelsReady: vi.fn().mockResolvedValue(undefined),
+    refreshAllModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    refreshProviderModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    ensureProviderModelsReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const router = {
-    push: vi.fn(async ({ params }: { params?: Record<string, string> }) => {}),
-    replace: vi.fn(),
+    push: vi.fn<(...args: any[]) => any>(async ({ params }: { params?: Record<string, string> }) => {}),
+    replace: vi.fn<(...args: any[]) => any>(),
   };
-  const completeStep = vi.fn().mockResolvedValue({
+  const completeStep = vi.fn<(...args: any[]) => any>().mockResolvedValue({
     status: "active",
     currentStepId: "mcp",
     steps: [],
@@ -113,23 +113,23 @@ const setup = async (options?: {
       stepIndex: { value: 1 },
       totalSteps: { value: 6 },
       canGoPrevious: { value: true },
-      dismissGuide: vi.fn(),
+      dismissGuide: vi.fn<(...args: any[]) => any>(),
       completeStep,
-      skipStep: vi.fn().mockResolvedValue(null),
-      activatePreviousStep: vi.fn().mockResolvedValue(null),
-      forceComplete: vi.fn().mockResolvedValue(null),
+      skipStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      activatePreviousStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      forceComplete: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
-      focusMainWindow: vi.fn().mockResolvedValue(true),
+      focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     }),
   }));
 
   const ModelProviderSettings = (await import("../../../src/renderer/settings/components/ModelProviderSettings"))
     .default;
 
-  const result = render(<ModelProviderSettings routeProviderId={routeProviderId} />);
+  const result = render(<ModelProviderSettings providerId={routeProviderId} />);
 
   await waitForGuideTargetSync();
 
@@ -327,10 +327,8 @@ describe("ModelProviderSettings", () => {
       ],
     });
 
-    const overlay = screen.queryByTestId("guided-overlay");
-    if (overlay) {
-      expect(overlay.getAttribute("data-target-testid")).toBe("provider-models-tab-trigger");
-    }
+    const overlay = screen.getByTestId("guided-overlay");
+    expect(overlay.getAttribute("data-target-testid")).toBe("provider-models-tab-trigger");
 
     modelStore.allProviderModels = [
       {
@@ -341,9 +339,7 @@ describe("ModelProviderSettings", () => {
 
     await waitForGuideTargetSync();
 
-    const updatedOverlay = screen.queryByTestId("guided-overlay");
-    if (updatedOverlay) {
-      expect(updatedOverlay.getAttribute("data-target-testid")).toBe("provider-model-toggle-anthropic-claude-sonnet");
-    }
+    const updatedOverlay = screen.getByTestId("guided-overlay");
+    expect(updatedOverlay.getAttribute("data-target-testid")).toBe("provider-model-toggle-anthropic-claude-sonnet");
   });
 });

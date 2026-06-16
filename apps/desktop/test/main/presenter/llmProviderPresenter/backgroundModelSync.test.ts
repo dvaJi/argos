@@ -8,61 +8,61 @@ const eventState = vi.hoisted(() => ({
 }));
 
 const { mockModelsList, mockGetProxyUrl } = vi.hoisted(() => ({
-  mockModelsList: vi.fn().mockResolvedValue({ data: [] }),
-  mockGetProxyUrl: vi.fn().mockReturnValue(null),
+  mockModelsList: vi.fn<(...args: any[]) => any>().mockResolvedValue({ data: [] }),
+  mockGetProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
   session: {},
   ipcMain: {
-    on: vi.fn(),
-    handle: vi.fn(),
-    removeHandler: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    handle: vi.fn<(...args: any[]) => any>(),
+    removeHandler: vi.fn<(...args: any[]) => any>(),
   },
-  BrowserWindow: vi.fn(() => ({
-    loadURL: vi.fn(),
-    loadFile: vi.fn(),
-    on: vi.fn(),
-    webContents: { send: vi.fn(), on: vi.fn(), isDestroyed: vi.fn(() => false) },
-    isDestroyed: vi.fn(() => false),
-    close: vi.fn(),
-    show: vi.fn(),
-    hide: vi.fn(),
+  BrowserWindow: vi.fn<(...args: any[]) => any>(() => ({
+    loadURL: vi.fn<(...args: any[]) => any>(),
+    loadFile: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+    webContents: { send: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>(), isDestroyed: vi.fn<(...args: any[]) => any>(() => false) },
+    isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+    close: vi.fn<(...args: any[]) => any>(),
+    show: vi.fn<(...args: any[]) => any>(),
+    hide: vi.fn<(...args: any[]) => any>(),
   })),
   dialog: {
-    showOpenDialog: vi.fn(),
+    showOpenDialog: vi.fn<(...args: any[]) => any>(),
   },
   shell: {
-    openExternal: vi.fn(),
+    openExternal: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/presenter", () => ({
   presenter: {
     devicePresenter: {
-      cacheImage: vi.fn(),
+      cacheImage: vi.fn<(...args: any[]) => any>(),
     },
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn((eventName: string, handler: (...args: unknown[]) => void) => {
+    on: vi.fn<(...args: any[]) => any>((eventName: string, handler: (...args: unknown[]) => void) => {
       const handlers = eventState.handlers.get(eventName) ?? [];
       handlers.push(handler);
       eventState.handlers.set(eventName, handlers);
     }),
-    sendToRenderer: vi.fn(),
-    sendToMain: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -92,10 +92,10 @@ vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
 
 vi.mock("../../../../src/main/presenter/configPresenter/modelCapabilities", () => ({
   modelCapabilities: {
-    supportsReasoningEffort: vi.fn().mockReturnValue(false),
-    supportsVerbosity: vi.fn().mockReturnValue(false),
-    supportsReasoning: vi.fn().mockReturnValue(false),
-    resolveProviderId: vi.fn((providerId: string) => providerId),
+    supportsReasoningEffort: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    supportsVerbosity: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    supportsReasoning: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    resolveProviderId: vi.fn<(...args: any[]) => any>((providerId: string) => providerId),
   },
 }));
 
@@ -111,11 +111,11 @@ const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
 
 const createConfigPresenter = (provider = createProvider()) =>
   ({
-    getProviders: vi.fn().mockReturnValue([provider]),
-    getProviderById: vi.fn().mockReturnValue(provider),
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getModelConfig: vi.fn().mockReturnValue({
+    getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue([provider]),
+    getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue(provider),
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
       maxTokens: 4096,
       contextLength: 8192,
       temperature: 0.7,
@@ -124,27 +124,27 @@ const createConfigPresenter = (provider = createProvider()) =>
       reasoning: false,
       type: "chat",
     }),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    refreshProviderDb: vi.fn().mockResolvedValue({
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    refreshProviderDb: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "updated",
       lastUpdated: Date.now(),
       providersCount: 1,
     }),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
-    updateCustomModel: vi.fn(),
-    addCustomModel: vi.fn(),
-    removeCustomModel: vi.fn(),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    updateCustomModel: vi.fn<(...args: any[]) => any>(),
+    addCustomModel: vi.fn<(...args: any[]) => any>(),
+    removeCustomModel: vi.fn<(...args: any[]) => any>(),
   }) as unknown as IConfigPresenter;
 
 const mockSqlitePresenter = {
-  getAcpSession: vi.fn().mockResolvedValue(null),
-  upsertAcpSession: vi.fn().mockResolvedValue(undefined),
-  updateAcpSessionId: vi.fn().mockResolvedValue(undefined),
-  updateAcpWorkdir: vi.fn().mockResolvedValue(undefined),
-  updateAcpSessionStatus: vi.fn().mockResolvedValue(undefined),
-  deleteAcpSession: vi.fn().mockResolvedValue(undefined),
-  deleteAcpSessions: vi.fn().mockResolvedValue(undefined),
+  getAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  upsertAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  updateAcpSessionId: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  updateAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  updateAcpSessionStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  deleteAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  deleteAcpSessions: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 } as unknown as ISQLitePresenter;
 
 const emitMainEvent = async (eventName: string, ...args: unknown[]) => {
@@ -167,7 +167,7 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("does not trigger an extra startup refresh for non DB-backed providers", async () => {
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(createConfigPresenter(), mockSqlitePresenter);
     await Promise.resolve();
@@ -178,7 +178,7 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("re-syncs enabled DB-backed provider models when provider-db updates", async () => {
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     new LLMProviderPresenter(
       createConfigPresenter(
@@ -204,7 +204,7 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("ignores provider-db updates for providers that do not use the provider DB catalog", async () => {
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     new LLMProviderPresenter(createConfigPresenter(), mockSqlitePresenter);
     await Promise.resolve();
@@ -220,7 +220,7 @@ describe("LLMProviderPresenter background model sync", () => {
 
   it("coalesces duplicate background refreshes for the same provider", async () => {
     let resolveRefresh: (() => void) | null = null;
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockReturnValue(
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockReturnValue(
       new Promise<void>((resolve) => {
         resolveRefresh = resolve;
       }),
@@ -273,7 +273,7 @@ describe("LLMProviderPresenter background model sync", () => {
       baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     });
     const configPresenter = createConfigPresenter(provider);
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
     await presenter.refreshModels("doubao");
@@ -299,7 +299,7 @@ describe("LLMProviderPresenter background model sync", () => {
       providersCount: 1,
       message: "network down",
     });
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
 
@@ -309,7 +309,7 @@ describe("LLMProviderPresenter background model sync", () => {
 
   it("does not refresh provider DB for providers that manage models themselves", async () => {
     const configPresenter = createConfigPresenter();
-    const refreshSpy = vi.spyOn(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
     await presenter.refreshModels("novita");
@@ -322,7 +322,7 @@ describe("LLMProviderPresenter background model sync", () => {
     const refreshSpy = vi
       .spyOn(AiSdkProvider.prototype, "refreshModels")
       .mockRejectedValue(new Error("refresh failed"));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
     const presenter = new LLMProviderPresenter(
       createConfigPresenter(

@@ -9,14 +9,14 @@ afterEach(() => {
 describe("createBridge", () => {
   it("invokes typed routes through the shared IPC channel", async () => {
     const ipcRenderer = {
-      invoke: vi.fn().mockResolvedValue({
+      invoke: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         version: 1,
         values: {
           fontSizeLevel: 2,
         },
       }),
-      on: vi.fn(),
-      removeListener: vi.fn(),
+      on: vi.fn<(...args: any[]) => any>(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     };
 
     const bridge = createBridge(ipcRenderer);
@@ -39,15 +39,15 @@ describe("createBridge", () => {
     let registeredListener: ((event: unknown, payload: unknown) => void) | undefined;
 
     const ipcRenderer = {
-      invoke: vi.fn(),
-      on: vi.fn((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
+      invoke: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
         registeredListener = listener;
       }),
-      removeListener: vi.fn(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     };
 
     const bridge = createBridge(ipcRenderer);
-    const listener = vi.fn();
+    const listener = vi.fn<(...args: any[]) => any>();
     const unsubscribe = bridge.on("settings.changed", listener);
 
     expect(ipcRenderer.on).toHaveBeenCalledWith(ARGOS_EVENT_CHANNEL, expect.any(Function));
@@ -83,16 +83,16 @@ describe("createBridge", () => {
     let registeredListener: ((event: unknown, payload: unknown) => void) | undefined;
 
     const ipcRenderer = {
-      invoke: vi.fn(),
-      on: vi.fn((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
+      invoke: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
         registeredListener = listener;
       }),
-      removeListener: vi.fn(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     };
 
     const bridge = createBridge(ipcRenderer);
-    const firstListener = vi.fn();
-    const secondListener = vi.fn();
+    const firstListener = vi.fn<(...args: any[]) => any>();
+    const secondListener = vi.fn<(...args: any[]) => any>();
 
     const unsubscribeFirst = bridge.on("settings.changed", firstListener);
     const unsubscribeSecond = bridge.on("settings.changed", secondListener);
@@ -126,21 +126,21 @@ describe("createBridge", () => {
 
   it("continues dispatching when one event listener throws", () => {
     let registeredListener: ((event: unknown, payload: unknown) => void) | undefined;
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
 
     const ipcRenderer = {
-      invoke: vi.fn(),
-      on: vi.fn((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
+      invoke: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>((_channel: string, listener: (event: unknown, payload: unknown) => void) => {
         registeredListener = listener;
       }),
-      removeListener: vi.fn(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     };
 
     const bridge = createBridge(ipcRenderer);
-    const failingListener = vi.fn(() => {
+    const failingListener = vi.fn<(...args: any[]) => any>(() => {
       throw new Error("listener failed");
     });
-    const succeedingListener = vi.fn();
+    const succeedingListener = vi.fn<(...args: any[]) => any>();
 
     bridge.on("settings.changed", failingListener);
     bridge.on("settings.changed", succeedingListener);
@@ -169,11 +169,11 @@ describe("createBridge", () => {
 
   it("rejects invalid route responses", async () => {
     const ipcRenderer = {
-      invoke: vi.fn().mockResolvedValue({
+      invoke: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         stopped: "yes",
       }),
-      on: vi.fn(),
-      removeListener: vi.fn(),
+      on: vi.fn<(...args: any[]) => any>(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     };
 
     const bridge = createBridge(ipcRenderer);
@@ -182,6 +182,6 @@ describe("createBridge", () => {
       bridge.invoke("chat.stopStream", {
         sessionId: "session-1",
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("expected error");
   });
 });

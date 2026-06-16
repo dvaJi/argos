@@ -19,14 +19,14 @@ const createMessage = (overrides: Partial<Parameters<FeishuAuthGuard["ensureAuth
 describe("FeishuAuthGuard", () => {
   it("pairs a user with a valid one-time code", () => {
     const store = {
-      getFeishuPairingState: vi.fn().mockReturnValue({
+      getFeishuPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 0,
       }),
-      addFeishuPairedUser: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn(),
+      addFeishuPairedUser: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>(),
     } as any;
     const guard = new FeishuAuthGuard(store);
 
@@ -39,14 +39,14 @@ describe("FeishuAuthGuard", () => {
 
   it("expires the pairing code after too many invalid attempts", () => {
     const store = {
-      getFeishuPairingState: vi.fn().mockReturnValue({
+      getFeishuPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 4,
       }),
-      addFeishuPairedUser: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn().mockReturnValue({
+      addFeishuPairedUser: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>().mockReturnValue({
         attempts: 5,
         exhausted: true,
       }),

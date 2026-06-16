@@ -3,7 +3,7 @@ import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
 
 describe("extractToolCallImagePreviews", () => {
   it("extracts and caches MCP structured image output", async () => {
-    const cacheImage = vi.fn(async () => "imgcache://cached.png");
+    const cacheImage = vi.fn<(...args: any[]) => any>(async () => "imgcache://cached.png");
 
     const previews = await extractToolCallImagePreviews({
       toolName: "draw",
@@ -44,7 +44,7 @@ describe("extractToolCallImagePreviews", () => {
   });
 
   it("extracts explicit image references from JSON output", async () => {
-    const cacheImage = vi.fn(async () => "imgcache://output.webp");
+    const cacheImage = vi.fn<(...args: any[]) => any>(async () => "imgcache://output.webp");
 
     const previews = await extractToolCallImagePreviews({
       content: JSON.stringify({
@@ -67,7 +67,7 @@ describe("extractToolCallImagePreviews", () => {
   });
 
   it("preserves preview metadata when image caching fails", async () => {
-    const cacheImage = vi.fn(async () => {
+    const cacheImage = vi.fn<(...args: any[]) => any>(async () => {
       throw new Error("cache failed");
     });
 
@@ -87,7 +87,7 @@ describe("extractToolCallImagePreviews", () => {
   });
 
   it("preserves preview metadata when image caching returns the original data URL", async () => {
-    const cacheImage = vi.fn(async (data: string) => data);
+    const cacheImage = vi.fn<(...args: any[]) => any>(async (data: string) => data);
 
     const previews = await extractToolCallImagePreviews({
       content: [{ type: "image", data: "AAAA", mimeType: "image/png" }],
@@ -105,7 +105,7 @@ describe("extractToolCallImagePreviews", () => {
   });
 
   it("preserves preview metadata when image caching returns a normalized data URL", async () => {
-    const cacheImage = vi.fn(async () => "  DATA:IMAGE/PNG;base64,AAAA  ");
+    const cacheImage = vi.fn<(...args: any[]) => any>(async () => "  DATA:IMAGE/PNG;base64,AAAA  ");
 
     const previews = await extractToolCallImagePreviews({
       content: [{ type: "image", data: "AAAA", mimeType: "image/png" }],

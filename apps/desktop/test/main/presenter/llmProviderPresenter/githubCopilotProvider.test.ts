@@ -5,16 +5,16 @@ import { getGlobalGitHubCopilotDeviceFlow } from "../../../../src/main/presenter
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/githubCopilotDeviceFlow", () => ({
-  getGlobalGitHubCopilotDeviceFlow: vi.fn(() => ({
-    getCopilotToken: vi.fn(),
-    checkExistingAuth: vi.fn(),
+  getGlobalGitHubCopilotDeviceFlow: vi.fn<(...args: any[]) => any>(() => ({
+    getCopilotToken: vi.fn<(...args: any[]) => any>(),
+    checkExistingAuth: vi.fn<(...args: any[]) => any>(),
   })),
-  GitHubCopilotDeviceFlow: vi.fn(),
+  GitHubCopilotDeviceFlow: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("GithubCopilotProvider request timeout", () => {
@@ -26,7 +26,7 @@ describe("GithubCopilotProvider request timeout", () => {
   it("aborts completion requests when the model timeout elapses", async () => {
     vi.useFakeTimers();
 
-    const fetchMock = vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockImplementation((_url: string, options?: RequestInit) => {
       return new Promise((_, reject) => {
         const signal = options?.signal as AbortSignal | undefined;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
@@ -42,10 +42,10 @@ describe("GithubCopilotProvider request timeout", () => {
     };
     provider.provider = { id: "github-copilot", name: "GitHub Copilot" };
     provider.configPresenter = {
-      getModelConfig: vi.fn().mockReturnValue({ timeout: 25 }),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ timeout: 25 }),
     };
     provider.baseApiUrl = "https://api.githubcopilot.com";
-    provider.getCopilotToken = vi.fn().mockResolvedValue("token");
+    provider.getCopilotToken = vi.fn<(...args: any[]) => any>().mockResolvedValue("token");
 
     const completionAssertion = expect(
       provider.completions([{ role: "user", content: "hello" }] as any, "gpt-5"),
@@ -66,7 +66,7 @@ describe("GithubCopilotProvider request timeout", () => {
   it("aborts streamed requests when the model timeout elapses", async () => {
     vi.useFakeTimers();
 
-    const fetchMock = vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockImplementation((_url: string, options?: RequestInit) => {
       return new Promise((_, reject) => {
         const signal = options?.signal as AbortSignal | undefined;
         signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
@@ -81,7 +81,7 @@ describe("GithubCopilotProvider request timeout", () => {
     };
     provider.provider = { id: "github-copilot", name: "GitHub Copilot" };
     provider.baseApiUrl = "https://api.githubcopilot.com";
-    provider.getCopilotToken = vi.fn().mockResolvedValue("token");
+    provider.getCopilotToken = vi.fn<(...args: any[]) => any>().mockResolvedValue("token");
 
     const nextAssertion = expect(
       provider
@@ -118,8 +118,8 @@ describe("GithubCopilotProvider request timeout", () => {
       copilotClientId: "old-client",
     };
     provider.configPresenter = {
-      getProviderModels: vi.fn(() => []),
-      getCustomModels: vi.fn(() => []),
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => []),
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
     };
     provider.models = [];
     provider.customModels = [];
@@ -127,7 +127,7 @@ describe("GithubCopilotProvider request timeout", () => {
     provider.tokenExpiresAt = 123;
     provider.deviceFlow = { id: "old-flow" };
 
-    vi.mocked(getGlobalGitHubCopilotDeviceFlow).mockReturnValueOnce({ id: "new-flow" } as any);
+    vi.mocked<(...args: any[]) => any>(getGlobalGitHubCopilotDeviceFlow).mockReturnValueOnce({ id: "new-flow" } as any);
 
     provider.updateConfig({
       id: "github-copilot",
@@ -194,8 +194,8 @@ describe("GithubCopilotProvider request timeout", () => {
       copilotClientId: "old-client",
     };
     provider.configPresenter = {
-      getProviderModels: vi.fn(() => []),
-      getCustomModels: vi.fn(() => []),
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => []),
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
     };
     provider.models = [];
     provider.customModels = [];
@@ -203,7 +203,7 @@ describe("GithubCopilotProvider request timeout", () => {
     provider.tokenExpiresAt = 123;
     provider.deviceFlow = { id: "old-flow" };
 
-    vi.mocked(getGlobalGitHubCopilotDeviceFlow).mockImplementationOnce(() => {
+    vi.mocked<(...args: any[]) => any>(getGlobalGitHubCopilotDeviceFlow).mockImplementationOnce(() => {
       throw new Error("device flow init failed");
     });
 

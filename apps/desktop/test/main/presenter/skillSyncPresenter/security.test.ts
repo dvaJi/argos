@@ -34,15 +34,15 @@ import {
 // Mock fs module
 vi.mock("fs", () => ({
   promises: {
-    stat: vi.fn(),
-    access: vi.fn(),
-    readdir: vi.fn(),
+    stat: vi.fn<(...args: any[]) => any>(),
+    access: vi.fn<(...args: any[]) => any>(),
+    readdir: vi.fn<(...args: any[]) => any>(),
   },
   constants: {
     R_OK: 4,
     W_OK: 2,
   },
-  realpathSync: vi.fn(),
+  realpathSync: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("Security Module", () => {
@@ -59,7 +59,7 @@ describe("Security Module", () => {
   describe("resolveSafePath", () => {
     it("should return null for path traversal attempts", () => {
       // Mock realpathSync to throw (path doesn't exist)
-      vi.mocked(fs.realpathSync).mockImplementation(() => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation(() => {
         throw new Error("ENOENT");
       });
 
@@ -71,7 +71,7 @@ describe("Security Module", () => {
       const basePath = platformPath.resolve("/base");
       const targetPath = platformPath.join(basePath, "subdir", "file.md");
 
-      vi.mocked(fs.realpathSync).mockImplementation((p) => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => {
         if (String(p) === targetPath || String(p) === platformPath.normalize(targetPath)) {
           return targetPath;
         }
@@ -87,7 +87,7 @@ describe("Security Module", () => {
       const symlinkPath = platformPath.join(basePath, "symlink");
       const realTarget = platformPath.resolve("/other/directory"); // Outside base
 
-      vi.mocked(fs.realpathSync).mockImplementation((p) => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => {
         if (String(p) === basePath) return basePath;
         if (String(p).includes("symlink")) return realTarget;
         throw new Error("ENOENT");
@@ -101,7 +101,7 @@ describe("Security Module", () => {
       const basePath = platformPath.resolve("/base");
       const parentPath = platformPath.join(basePath, "subdir");
 
-      vi.mocked(fs.realpathSync).mockImplementation((p) => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => {
         if (String(p) === basePath) return basePath;
         if (String(p) === parentPath) return parentPath;
         throw new Error("ENOENT");
@@ -144,14 +144,14 @@ describe("Security Module", () => {
 
   describe("isPathWithinBase", () => {
     it("should return true for paths within base", () => {
-      vi.mocked(fs.realpathSync).mockImplementation((p) => String(p));
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => String(p));
 
       const basePath = platformPath.resolve("/base");
       expect(isPathWithinBase(platformPath.join(basePath, "subdir"), basePath)).toBe(true);
     });
 
     it("should return false for paths outside base", () => {
-      vi.mocked(fs.realpathSync).mockImplementation(() => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation(() => {
         throw new Error("ENOENT");
       });
 
@@ -165,7 +165,7 @@ describe("Security Module", () => {
 
   describe("validateFileSize", () => {
     it("should return valid for files under limit", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isFile: () => true,
         size: 1024,
       } as fs.Stats);
@@ -176,7 +176,7 @@ describe("Security Module", () => {
     });
 
     it("should return invalid for files over limit", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isFile: () => true,
         size: MAX_FILE_SIZE + 1,
       } as fs.Stats);
@@ -187,7 +187,7 @@ describe("Security Module", () => {
     });
 
     it("should return invalid for non-files", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isFile: () => false,
         size: 0,
       } as fs.Stats);
@@ -198,7 +198,7 @@ describe("Security Module", () => {
     });
 
     it("should handle stat errors", async () => {
-      vi.mocked(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockRejectedValue(new Error("ENOENT"));
 
       const result = await validateFileSize("/nonexistent");
       expect(result.valid).toBe(false);
@@ -206,7 +206,7 @@ describe("Security Module", () => {
     });
 
     it("should use custom size limit", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isFile: () => true,
         size: 100,
       } as fs.Stats);
@@ -218,12 +218,12 @@ describe("Security Module", () => {
 
   describe("validateFolderSize", () => {
     it("should return valid for folders under limit", async () => {
-      vi.mocked(fs.promises.readdir).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValue([
         { name: "file1.md", isFile: () => true, isDirectory: () => false },
         { name: "file2.md", isFile: () => true, isDirectory: () => false },
       ] as unknown as fs.Dirent[]);
 
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         size: 1024,
       } as fs.Stats);
 
@@ -233,11 +233,11 @@ describe("Security Module", () => {
     });
 
     it("should return invalid for folders over limit", async () => {
-      vi.mocked(fs.promises.readdir).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValue([
         { name: "large.bin", isFile: () => true, isDirectory: () => false },
       ] as unknown as fs.Dirent[]);
 
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         size: MAX_SKILL_FOLDER_SIZE + 1,
       } as fs.Stats);
 
@@ -253,14 +253,14 @@ describe("Security Module", () => {
 
   describe("checkReadPermission", () => {
     it("should return true when readable", async () => {
-      vi.mocked(fs.promises.access).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockResolvedValue(undefined);
 
       const result = await checkReadPermission("/readable/file");
       expect(result).toBe(true);
     });
 
     it("should return false when not readable", async () => {
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error("EACCES"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockRejectedValue(new Error("EACCES"));
 
       const result = await checkReadPermission("/unreadable/file");
       expect(result).toBe(false);
@@ -269,7 +269,7 @@ describe("Security Module", () => {
 
   describe("checkWritePermission", () => {
     it("should return true when writable", async () => {
-      vi.mocked(fs.promises.access).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockResolvedValue(undefined);
 
       const result = await checkWritePermission("/writable/file");
       expect(result).toBe(true);
@@ -279,10 +279,10 @@ describe("Security Module", () => {
       const parentPath = platformPath.resolve("/parent");
       const targetPath = platformPath.join(parentPath, "newfile");
 
-      vi.mocked(fs.promises.access)
+      vi.mocked<(...args: any[]) => any>(fs.promises.access)
         .mockRejectedValueOnce(new Error("ENOENT")) // file doesn't exist
         .mockResolvedValue(undefined); // parent is writable
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isDirectory: () => true,
       } as fs.Stats);
 
@@ -291,7 +291,7 @@ describe("Security Module", () => {
     });
 
     it("should return false when neither file nor parent is writable", async () => {
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error("EACCES"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockRejectedValue(new Error("EACCES"));
 
       const result = await checkWritePermission("/unwritable/file");
       expect(result).toBe(false);
@@ -300,17 +300,17 @@ describe("Security Module", () => {
 
   describe("isDirectoryAccessible", () => {
     it("should return true for accessible directories", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isDirectory: () => true,
       } as fs.Stats);
-      vi.mocked(fs.promises.access).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockResolvedValue(undefined);
 
       const result = await isDirectoryAccessible("/accessible/dir");
       expect(result).toBe(true);
     });
 
     it("should return false for files", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isDirectory: () => false,
       } as fs.Stats);
 
@@ -319,10 +319,10 @@ describe("Security Module", () => {
     });
 
     it("should return false for inaccessible directories", async () => {
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isDirectory: () => true,
       } as fs.Stats);
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error("EACCES"));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockRejectedValue(new Error("EACCES"));
 
       const result = await isDirectoryAccessible("/inaccessible/dir");
       expect(result).toBe(false);
@@ -494,9 +494,9 @@ describe("Security Module", () => {
       const basePath = platformPath.resolve("/base");
       const sourcePath = platformPath.join(basePath, "skill.md");
 
-      vi.mocked(fs.realpathSync).mockImplementation((p) => String(p));
-      vi.mocked(fs.promises.access).mockResolvedValue(undefined);
-      vi.mocked(fs.promises.stat).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => String(p));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
         isFile: () => true,
         size: 1024,
       } as fs.Stats);
@@ -527,8 +527,8 @@ describe("Security Module", () => {
       const basePath = platformPath.resolve("/base");
       const targetPath = platformPath.join(basePath, "output", "skill.md");
 
-      vi.mocked(fs.realpathSync).mockImplementation((p) => String(p));
-      vi.mocked(fs.promises.access).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => String(p));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockResolvedValue(undefined);
 
       const result = await validateExportOperation(targetPath, "cursor", "my-skill", basePath);
 
@@ -537,7 +537,7 @@ describe("Security Module", () => {
     });
 
     it("should return invalid for path outside base", async () => {
-      vi.mocked(fs.realpathSync).mockImplementation(() => {
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation(() => {
         throw new Error("ENOENT");
       });
 
@@ -548,8 +548,8 @@ describe("Security Module", () => {
     });
 
     it("should return invalid when no write permission", async () => {
-      vi.mocked(fs.realpathSync).mockImplementation((p) => String(p));
-      vi.mocked(fs.promises.access).mockRejectedValue(new Error("EACCES"));
+      vi.mocked<(...args: any[]) => any>(fs.realpathSync).mockImplementation((p) => String(p));
+      vi.mocked<(...args: any[]) => any>(fs.promises.access).mockRejectedValue(new Error("EACCES"));
 
       const result = await validateExportOperation("/base/output/skill.md", "cursor", "my-skill", "/base");
 

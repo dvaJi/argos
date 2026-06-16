@@ -43,14 +43,14 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           source: "agent",
           function: { name: "tool_alpha", description: "Alpha tool" },
@@ -64,8 +64,8 @@ describe("ArgosAgentsSettings", () => {
       ]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [
@@ -77,7 +77,7 @@ describe("ArgosAgentsSettings", () => {
           ],
         },
       ],
-      findModelByIdOrName: vi.fn((modelId: string) =>
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>((modelId: string) =>
         modelId === "gpt-image-1"
           ? {
               providerId: "openai",
@@ -188,18 +188,18 @@ describe("ArgosAgentsSettings", () => {
       },
     };
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -213,7 +213,7 @@ describe("ArgosAgentsSettings", () => {
     vi.doMock("@/stores/modelStore", () => ({
       useModelStore: () => ({
         allProviderModels: [],
-        findModelByIdOrName: vi.fn(() => null),
+        findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
       }),
     }));
     vi.doMock("@iconify/react", () => ({
@@ -245,22 +245,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -317,22 +317,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -405,22 +405,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -471,8 +471,8 @@ describe("ArgosAgentsSettings", () => {
     vi.resetModules();
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([]),
-      getSystemPrompts: vi.fn().mockResolvedValue([
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           id: "writer",
           name: "Writer",
@@ -484,20 +484,20 @@ describe("ArgosAgentsSettings", () => {
           content: "You write concise code.",
         },
       ]),
-      updateArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -576,22 +576,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValueOnce([existingAgent]).mockResolvedValueOnce([existingAgent, createdAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue(createdAgent),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValueOnce([existingAgent]).mockResolvedValueOnce([existingAgent, createdAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(createdAgent),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -673,22 +673,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue("/workspaces/selected"),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue("/workspaces/selected"),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({
@@ -811,22 +811,22 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn().mockResolvedValue([existingAgent, acpAgent, uninstalledRegistryAgent]),
-      getSystemPrompts: vi.fn().mockResolvedValue([]),
-      updateArgosAgent: vi.fn().mockResolvedValue(existingAgent),
-      createArgosAgent: vi.fn().mockResolvedValue({ id: "argos-new" }),
-      deleteArgosAgent: vi.fn().mockResolvedValue(undefined),
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent, acpAgent, uninstalledRegistryAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const toolPresenter = {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
     const projectPresenter = {
-      getRecentProjects: vi.fn().mockResolvedValue([]),
-      selectDirectory: vi.fn().mockResolvedValue(null),
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const modelStore = {
       allProviderModels: [],
-      findModelByIdOrName: vi.fn(() => null),
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
     vi.doMock("@api/legacy/presenters", () => ({

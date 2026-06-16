@@ -25,12 +25,12 @@ const setup = async () => {
     results: [resultItem],
     activeIndex: 0,
     loading: false,
-    closeSpotlight: vi.fn(),
-    setQuery: vi.fn(),
-    setActiveItem: vi.fn(),
-    moveActiveItem: vi.fn(),
-    executeItem: vi.fn(),
-    executeActiveItem: vi.fn(),
+    closeSpotlight: vi.fn<(...args: any[]) => any>(),
+    setQuery: vi.fn<(...args: any[]) => any>(),
+    setActiveItem: vi.fn<(...args: any[]) => any>(),
+    moveActiveItem: vi.fn<(...args: any[]) => any>(),
+    executeItem: vi.fn<(...args: any[]) => any>(),
+    executeActiveItem: vi.fn<(...args: any[]) => any>(),
   };
 
   vi.doMock("@/stores/ui/spotlight", () => ({

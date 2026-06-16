@@ -5,8 +5,8 @@ vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-const chatInputFocusMock = vi.fn();
-const chatInputTriggerAttachMock = vi.fn();
+const chatInputFocusMock = vi.fn<(...args: any[]) => any>();
+const chatInputTriggerAttachMock = vi.fn<(...args: any[]) => any>();
 
 const setup = async () => {
   vi.resetModules();
@@ -21,14 +21,14 @@ const setup = async () => {
     defaultProjectPath: null,
     selectionSource: "manual" as const,
     projects: [],
-    selectProject: vi.fn(),
-    openFolderPicker: vi.fn(),
+    selectProject: vi.fn<(...args: any[]) => any>(),
+    openFolderPicker: vi.fn<(...args: any[]) => any>(),
   };
 
   const sessionStore = {
-    createSession: vi.fn().mockResolvedValue(undefined),
-    selectSession: vi.fn().mockResolvedValue(undefined),
-    sendMessage: vi.fn().mockResolvedValue(undefined),
+    createSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const agentStore = {
@@ -39,7 +39,7 @@ const setup = async () => {
 
   const modelStore = {
     initialized: true,
-    initialize: vi.fn().mockResolvedValue(undefined),
+    initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     enabledModels: [
       {
         providerId: "openai",
@@ -48,8 +48,8 @@ const setup = async () => {
       },
     ],
     chatSelectableModelGroups: [] as any[],
-    findChatSelectableModel: vi.fn(),
-    pickFirstChatSelectableModel: vi.fn(() => ({
+    findChatSelectableModel: vi.fn<(...args: any[]) => any>(),
+    pickFirstChatSelectableModel: vi.fn<(...args: any[]) => any>(() => ({
       providerId: "openai",
       providerName: "OpenAI",
       model: { id: "gpt-4.1", name: "GPT-4.1" },
@@ -76,22 +76,22 @@ const setup = async () => {
     forceInterleavedThinkingCompat: undefined as boolean | undefined,
     imageGeneration: undefined as Record<string, unknown> | undefined,
     pendingStartDeeplink: null as null,
-    updateGenerationSettings: vi.fn(),
-    toGenerationSettings: vi.fn(() => undefined),
-    resetGenerationSettings: vi.fn(),
+    updateGenerationSettings: vi.fn<(...args: any[]) => any>(),
+    toGenerationSettings: vi.fn<(...args: any[]) => any>(() => undefined),
+    resetGenerationSettings: vi.fn<(...args: any[]) => any>(),
   };
 
   const configClient = {
-    getSetting: vi.fn().mockResolvedValue(undefined),
-    resolveArgosAgentConfig: vi.fn().mockResolvedValue({
+    getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       disabledAgentTools: [],
       permissionMode: "full_access",
     }),
-    openSettings: vi.fn().mockResolvedValue(undefined),
+    openSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const sessionClient = {
-    ensureAcpDraftSession: vi.fn().mockResolvedValue(null),
+    ensureAcpDraftSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
   };
 
   vi.doMock("@/stores/ui/project", () => ({
@@ -110,13 +110,13 @@ const setup = async () => {
     useDraftStore: () => draftStore,
   }));
   vi.doMock("@api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
   vi.doMock("@api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("@/lib/startupDeferred", () => ({
-    scheduleStartupDeferredTask: vi.fn((task: () => void | Promise<void>) => {
+    scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       void task();
       return () => {};
     }),
@@ -132,11 +132,11 @@ const setup = async () => {
       stepIndex: { value: 3 },
       totalSteps: { value: 3 },
       canGoPrevious: { value: true },
-      dismissGuide: vi.fn(),
-      completeStep: vi.fn().mockResolvedValue(null),
-      skipStep: vi.fn().mockResolvedValue(null),
-      activatePreviousStep: vi.fn().mockResolvedValue(null),
-      forceComplete: vi.fn().mockResolvedValue(null),
+      dismissGuide: vi.fn<(...args: any[]) => any>(),
+      completeStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      skipStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      activatePreviousStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      forceComplete: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
 

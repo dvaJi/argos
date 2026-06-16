@@ -4,7 +4,7 @@ import MessageBlockToolCall from "@/components/message/MessageBlockToolCall";
 import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
 const { selectSessionMock } = vi.hoisted(() => ({
-  selectSessionMock: vi.fn(),
+  selectSessionMock: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -65,7 +65,7 @@ const createBlock = (overrides: Partial<DisplayAssistantMessageBlock> = {}): Dis
   tool_call: {
     name: "edit_text",
     response: "",
-    ...(overrides.tool_call ?? {}),
+    ...overrides.tool_call,
   },
 });
 

@@ -11,7 +11,7 @@ describe("createThrottle", () => {
   });
 
   it("executes immediately on first call", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled();
@@ -20,7 +20,7 @@ describe("createThrottle", () => {
   });
 
   it("throttles subsequent calls within interval", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled(); // immediate
@@ -35,7 +35,7 @@ describe("createThrottle", () => {
   });
 
   it("allows execution after interval has passed", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled();
@@ -48,7 +48,7 @@ describe("createThrottle", () => {
   });
 
   it("flush() runs immediately regardless of interval", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled(); // immediate
@@ -62,7 +62,7 @@ describe("createThrottle", () => {
   });
 
   it("flush() clears pending timer", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled(); // immediate
@@ -77,7 +77,7 @@ describe("createThrottle", () => {
   });
 
   it("cancel() prevents pending execution", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled(); // immediate
@@ -91,7 +91,7 @@ describe("createThrottle", () => {
   });
 
   it("reschedule() resets the trailing timer from now", () => {
-    const fn = vi.fn();
+    const fn = vi.fn<(...args: any[]) => any>();
     const throttled = createThrottle(fn, 100);
 
     throttled(); // immediate

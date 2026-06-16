@@ -24,7 +24,7 @@
     "e2e:smoke:ci": "playwright test -c apps/desktop/test/e2e/playwright.ci.config.ts",
     "format:check": "oxfmt --check .",
     "format": "oxfmt .",
-    "lint": "pnpm run lint:agent-cleanup && pnpm run lint:architecture && oxlint .",
+    "lint": "pnpm run lint:agent-cleanup && pnpm run lint:architecture && oxlint --deny-warnings .",
     "lint:architecture": "node scripts/architecture-guard.mjs",
     "lint:agent-cleanup": "node scripts/agent-cleanup-guard.mjs",
     "architecture:baseline": "node scripts/generate-architecture-baseline.mjs",

@@ -54,13 +54,13 @@ describe("MessageBlock basics", () => {
     vi.restoreAllMocks();
     window.electron = {
       ipcRenderer: {
-        invoke: vi.fn(),
+        invoke: vi.fn<(...args: any[]) => any>(),
       },
     } as never;
   });
 
   it("emits continue for needContinue action", async () => {
-    const onContinue = vi.fn();
+    const onContinue = vi.fn<(...args: any[]) => any>();
     render(
       <MessageBlockAction
         messageId="m1"
@@ -127,7 +127,7 @@ describe("MessageBlock basics", () => {
   });
 
   it("renders skill draft preview and emits the raw action key from the overlay", async () => {
-    const onRespond = vi.fn();
+    const onRespond = vi.fn<(...args: any[]) => any>();
     const { container } = render(
       <ChatToolInteractionOverlay
         interaction={{
@@ -162,7 +162,9 @@ describe("MessageBlock basics", () => {
     expect(container.textContent).toContain("# Draft body");
     expect(container.textContent).toContain("安装为 Skill");
 
-    const installButton = screen.getAllByRole("button").find((button) => button.textContent?.includes("Install as Skill"));
+    const installButton = screen
+      .getAllByRole("button")
+      .find((button) => button.textContent?.includes("Install as Skill"));
     expect(installButton).toBeTruthy();
     await act(async () => {
       fireEvent.click(installButton!);

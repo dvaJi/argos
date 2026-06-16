@@ -279,10 +279,7 @@ const getProcessLogLines = (block: AssistantMessageBlock): string[] => {
 };
 
 export const buildRemoteTraceText = (blocks: AssistantMessageBlock[]): string =>
-  blocks
-    .flatMap((block) => getProcessLogLines(block))
-    .join("\n")
-    .trim();
+  blocks.flatMap(getProcessLogLines).join("\n").trim();
 
 const isRenderableNarrativeBlock = (block: AssistantMessageBlock): boolean =>
   (block.type === "content" || block.type === "reasoning_content") &&

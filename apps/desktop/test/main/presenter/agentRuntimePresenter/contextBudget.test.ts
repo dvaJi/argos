@@ -8,7 +8,7 @@ import {
 } from "@/presenter/agentRuntimePresenter/contextBudget";
 
 vi.mock("tokenx", () => ({
-  approximateTokenSize: vi.fn((text: string) => text.length),
+  approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),
 }));
 
 describe("agent request context budget", () => {

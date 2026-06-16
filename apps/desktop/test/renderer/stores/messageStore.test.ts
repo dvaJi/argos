@@ -29,13 +29,13 @@ const setupStore = async () => {
   vi.resetModules();
 
   const sessionClient = {
-    restore: vi.fn().mockResolvedValue({
+    restore: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       session: { id: "s1" },
       messages: [],
       nextCursor: null,
       hasMore: false,
     }),
-    listMessagesPage: vi.fn().mockResolvedValue({
+    listMessagesPage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       messages: [],
       nextCursor: null,
       hasMore: false,
@@ -51,30 +51,30 @@ const setupStore = async () => {
     error: [] as Array<(event: unknown, payload: any) => void>,
   };
   const chatClient = {
-    onStreamUpdated: vi.fn((listener: (payload: any) => void) => {
+    onStreamUpdated: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
       streamListeners.updated.push(listener);
       return () => undefined;
     }),
-    onStreamCompleted: vi.fn((listener: (payload: any) => void) => {
+    onStreamCompleted: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
       streamListeners.completed.push(listener);
       return () => undefined;
     }),
-    onStreamFailed: vi.fn((listener: (payload: any) => void) => {
+    onStreamFailed: vi.fn<(...args: any[]) => any>((listener: (payload: any) => void) => {
       streamListeners.failed.push(listener);
       return () => undefined;
     }),
   };
 
   vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("../../../src/renderer/api/ChatClient", () => ({
-    createChatClient: vi.fn(() => chatClient),
+    createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
   }));
 
   (window as any).electron = {
     ipcRenderer: {
-      on: vi.fn((channel: string, listener: (event: unknown, payload: any) => void) => {
+      on: vi.fn<(...args: any[]) => any>((channel: string, listener: (event: unknown, payload: any) => void) => {
         if (channel === "stream:end") {
           ipcListeners.end.push(listener);
         }
@@ -82,7 +82,7 @@ const setupStore = async () => {
           ipcListeners.error.push(listener);
         }
       }),
-      removeListener: vi.fn(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
     },
   };
   const { useMessageStore } = await import("@/stores/ui/message");

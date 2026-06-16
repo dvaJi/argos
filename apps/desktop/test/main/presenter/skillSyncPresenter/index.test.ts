@@ -16,39 +16,39 @@ import type { ISkillPresenter } from "../../../../src/shared/presenter";
 import type { ImportPreview, ExportPreview } from "../../../../src/shared/types/skillSync";
 
 const scanWorkerMock = vi.hoisted(() => ({
-  scanExternalToolsInWorker: vi.fn(),
-  scanAndDetectDiscoveriesInWorker: vi.fn(),
+  scanExternalToolsInWorker: vi.fn<(...args: any[]) => any>(),
+  scanAndDetectDiscoveriesInWorker: vi.fn<(...args: any[]) => any>(),
 }));
 
 // Mock electron app
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn().mockReturnValue("/tmp"),
+    getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/tmp"),
   },
 }));
 
 // Mock fs module
 vi.mock("fs", () => ({
   promises: {
-    stat: vi.fn(),
-    readdir: vi.fn(),
-    readFile: vi.fn(),
-    writeFile: vi.fn(),
-    mkdir: vi.fn(),
-    rm: vi.fn(),
-    access: vi.fn(),
+    stat: vi.fn<(...args: any[]) => any>(),
+    readdir: vi.fn<(...args: any[]) => any>(),
+    readFile: vi.fn<(...args: any[]) => any>(),
+    writeFile: vi.fn<(...args: any[]) => any>(),
+    mkdir: vi.fn<(...args: any[]) => any>(),
+    rm: vi.fn<(...args: any[]) => any>(),
+    access: vi.fn<(...args: any[]) => any>(),
   },
   constants: {
     R_OK: 4,
     W_OK: 2,
   },
-  realpathSync: vi.fn((p) => String(p)),
+  realpathSync: vi.fn<(...args: any[]) => any>((p) => String(p)),
 }));
 
 // Mock eventbus
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    sendToRenderer: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "all",
@@ -71,28 +71,28 @@ vi.mock("@/events", () => ({
 
 // Mock security module
 vi.mock("../../../../src/main/presenter/skillSyncPresenter/security", () => ({
-  isValidToolId: vi.fn((id) => ["claude-code", "cursor", "windsurf", "copilot", "kiro", "antigravity"].includes(id)),
-  isValidConflictStrategy: vi.fn((s) =>
+  isValidToolId: vi.fn<(...args: any[]) => any>((id) => ["claude-code", "cursor", "windsurf", "copilot", "kiro", "antigravity"].includes(id)),
+  isValidConflictStrategy: vi.fn<(...args: any[]) => any>((s) =>
     [ConflictStrategy.SKIP, ConflictStrategy.OVERWRITE, ConflictStrategy.RENAME].includes(s),
   ),
-  isValidSkillName: vi.fn((name) => name && !name.includes("/") && name !== ".." && name !== "."),
-  sanitizeSkillName: vi.fn((name) => name?.replace(/[<>:"/\\|?*]/g, "-")),
-  checkReadPermission: vi.fn().mockResolvedValue(true),
-  checkWritePermission: vi.fn().mockResolvedValue(true),
-  isPathWithinBase: vi.fn().mockReturnValue(true),
-  validateFolderSize: vi.fn().mockResolvedValue({ valid: true, totalSize: 1024 }),
+  isValidSkillName: vi.fn<(...args: any[]) => any>((name) => name && !name.includes("/") && name !== ".." && name !== "."),
+  sanitizeSkillName: vi.fn<(...args: any[]) => any>((name) => name?.replace(/[<>:"/\\|?*]/g, "-")),
+  checkReadPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  checkWritePermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+  isPathWithinBase: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+  validateFolderSize: vi.fn<(...args: any[]) => any>().mockResolvedValue({ valid: true, totalSize: 1024 }),
 }));
 
 // Mock toolScanner
 vi.mock("../../../../src/main/presenter/skillSyncPresenter/toolScanner", () => ({
   toolScanner: {
-    scanExternalTools: vi.fn(),
-    scanTool: vi.fn(),
-    getTool: vi.fn(),
-    getAllTools: vi.fn(),
-    isToolAvailable: vi.fn(),
+    scanExternalTools: vi.fn<(...args: any[]) => any>(),
+    scanTool: vi.fn<(...args: any[]) => any>(),
+    getTool: vi.fn<(...args: any[]) => any>(),
+    getAllTools: vi.fn<(...args: any[]) => any>(),
+    isToolAvailable: vi.fn<(...args: any[]) => any>(),
   },
-  resolveSkillsDir: vi.fn((tool, projectRoot) => {
+  resolveSkillsDir: vi.fn<(...args: any[]) => any>((tool, projectRoot) => {
     if (tool.isProjectLevel && !projectRoot) {
       throw new Error("Project root required");
     }
@@ -103,10 +103,10 @@ vi.mock("../../../../src/main/presenter/skillSyncPresenter/toolScanner", () => (
 // Mock formatConverter
 vi.mock("../../../../src/main/presenter/skillSyncPresenter/formatConverter", () => ({
   formatConverter: {
-    parseExternal: vi.fn(),
-    serializeToExternal: vi.fn(),
-    serializeToSkillMd: vi.fn(),
-    getConversionWarnings: vi.fn(),
+    parseExternal: vi.fn<(...args: any[]) => any>(),
+    serializeToExternal: vi.fn<(...args: any[]) => any>(),
+    serializeToSkillMd: vi.fn<(...args: any[]) => any>(),
+    getConversionWarnings: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -127,25 +127,25 @@ describe("SkillSyncPresenter", () => {
 
     // Create mock skill presenter
     mockSkillPresenter = {
-      getMetadataList: vi.fn().mockResolvedValue([]),
-      installFromFolder: vi.fn().mockResolvedValue({ success: true }),
-      loadSkillContent: vi.fn().mockResolvedValue({ content: "# Skill Content" }),
-      readSkillFile: vi.fn().mockResolvedValue("---\nname: test\ndescription: Test\n---\n"),
-      getSkillExtension: vi.fn().mockResolvedValue({
+      getMetadataList: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      installFromFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true }),
+      loadSkillContent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "# Skill Content" }),
+      readSkillFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("---\nname: test\ndescription: Test\n---\n"),
+      getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         version: 1,
         env: {},
         runtimePolicy: { python: "auto", node: "auto" },
         scriptOverrides: {},
       }),
-      saveSkillWithExtension: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      saveSkillExtension: vi.fn().mockResolvedValue(undefined),
-      listSkillScripts: vi.fn().mockResolvedValue([]),
+      saveSkillWithExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      saveSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     } as unknown as ISkillPresenter;
 
     // Create mock config presenter
     mockConfigPresenter = {
-      getSetting: vi.fn().mockResolvedValue(null),
-      setSetting: vi.fn().mockResolvedValue(undefined),
+      getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
 
     presenter = new SkillSyncPresenter(mockSkillPresenter, mockConfigPresenter as any);
@@ -158,7 +158,7 @@ describe("SkillSyncPresenter", () => {
   describe("scanExternalTools", () => {
     it("should scan all external tools", async () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
-      vi.mocked(toolScanner.scanExternalTools).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(toolScanner.scanExternalTools).mockResolvedValue([
         {
           toolId: "claude-code",
           toolName: "Claude Code",
@@ -193,7 +193,7 @@ describe("SkillSyncPresenter", () => {
           skills: [],
         },
       ]);
-      vi.mocked(toolScanner.getAllTools).mockReturnValue([
+      vi.mocked<(...args: any[]) => any>(toolScanner.getAllTools).mockReturnValue([
         {
           id: "codex",
           name: "OpenAI Codex",
@@ -224,7 +224,7 @@ describe("SkillSyncPresenter", () => {
     it("falls back to main-thread scan when the worker fails", async () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
       scanWorkerMock.scanExternalToolsInWorker.mockRejectedValue(new Error("worker failed"));
-      vi.mocked(toolScanner.scanExternalTools).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(toolScanner.scanExternalTools).mockResolvedValue([
         {
           toolId: "claude-code",
           toolName: "Claude Code",
@@ -233,7 +233,7 @@ describe("SkillSyncPresenter", () => {
           skills: [],
         },
       ]);
-      const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
 
       const results = await presenter.scanExternalTools();
 
@@ -250,7 +250,7 @@ describe("SkillSyncPresenter", () => {
   describe("scanTool", () => {
     it("should scan a specific tool", async () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
-      vi.mocked(toolScanner.scanTool).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(toolScanner.scanTool).mockResolvedValue({
         toolId: "cursor",
         toolName: "Cursor",
         available: true,
@@ -273,7 +273,7 @@ describe("SkillSyncPresenter", () => {
   describe("previewImport", () => {
     it("should return empty for invalid tool ID", async () => {
       const { isValidToolId } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidToolId).mockReturnValue(false);
+      vi.mocked<(...args: any[]) => any>(isValidToolId).mockReturnValue(false);
 
       const result = await presenter.previewImport("invalid-tool", ["skill1"]);
 
@@ -285,8 +285,8 @@ describe("SkillSyncPresenter", () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
       const { formatConverter } = await import("../../../../src/main/presenter/skillSyncPresenter/formatConverter");
 
-      vi.mocked(isValidToolId).mockReturnValue(true);
-      vi.mocked(toolScanner.scanTool).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(isValidToolId).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(toolScanner.scanTool).mockResolvedValue({
         toolId: "claude-code",
         toolName: "Claude Code",
         available: true,
@@ -300,7 +300,7 @@ describe("SkillSyncPresenter", () => {
           },
         ],
       });
-      vi.mocked(toolScanner.getTool).mockReturnValue({
+      vi.mocked<(...args: any[]) => any>(toolScanner.getTool).mockReturnValue({
         id: "claude-code",
         name: "Claude Code",
         skillsDir: "~/.claude/skills/",
@@ -317,13 +317,13 @@ describe("SkillSyncPresenter", () => {
           supportsScripts: true,
         },
       });
-      vi.mocked(formatConverter.parseExternal).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(formatConverter.parseExternal).mockResolvedValue({
         name: "existing-skill",
         description: "A skill",
         instructions: "Do something",
       });
-      vi.mocked(fs.promises.readFile).mockResolvedValue("# Content");
-      vi.mocked(mockSkillPresenter.getMetadataList).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValue("# Content");
+      vi.mocked<(...args: any[]) => any>(mockSkillPresenter.getMetadataList).mockResolvedValue([
         { name: "existing-skill", path: "/local/path", skillRoot: "/local" },
       ] as any);
 
@@ -338,7 +338,7 @@ describe("SkillSyncPresenter", () => {
   describe("executeImport", () => {
     it("should reject invalid conflict strategies", async () => {
       const { isValidConflictStrategy } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(false);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(false);
 
       const previews: ImportPreview[] = [
         {
@@ -364,7 +364,7 @@ describe("SkillSyncPresenter", () => {
 
     it("should skip conflicts when strategy is SKIP", async () => {
       const { isValidConflictStrategy } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
 
       const previews: ImportPreview[] = [
         {
@@ -392,11 +392,11 @@ describe("SkillSyncPresenter", () => {
       const { isValidConflictStrategy } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
       const { formatConverter } = await import("../../../../src/main/presenter/skillSyncPresenter/formatConverter");
 
-      vi.mocked(isValidConflictStrategy).mockReturnValue(true);
-      vi.mocked(formatConverter.serializeToSkillMd).mockReturnValue("---\nname: skill1\n---\n# Content");
-      vi.mocked(fs.promises.mkdir).mockResolvedValue(undefined);
-      vi.mocked(fs.promises.writeFile).mockResolvedValue(undefined);
-      vi.mocked(fs.promises.rm).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToSkillMd).mockReturnValue("---\nname: skill1\n---\n# Content");
+      vi.mocked<(...args: any[]) => any>(fs.promises.mkdir).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.writeFile).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.rm).mockResolvedValue(undefined);
 
       const previews: ImportPreview[] = [
         {
@@ -430,7 +430,7 @@ describe("SkillSyncPresenter", () => {
   describe("previewExport", () => {
     it("should return empty for invalid tool ID", async () => {
       const { isValidToolId } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidToolId).mockReturnValue(false);
+      vi.mocked<(...args: any[]) => any>(isValidToolId).mockReturnValue(false);
 
       const result = await presenter.previewExport(["skill1"], "invalid-tool");
 
@@ -442,8 +442,8 @@ describe("SkillSyncPresenter", () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
       const { formatConverter } = await import("../../../../src/main/presenter/skillSyncPresenter/formatConverter");
 
-      vi.mocked(isValidToolId).mockReturnValue(true);
-      vi.mocked(toolScanner.getTool).mockReturnValue({
+      vi.mocked<(...args: any[]) => any>(isValidToolId).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(toolScanner.getTool).mockReturnValue({
         id: "windsurf",
         name: "Windsurf",
         skillsDir: ".windsurf/rules/",
@@ -461,21 +461,21 @@ describe("SkillSyncPresenter", () => {
         },
         isProjectLevel: true,
       });
-      vi.mocked(formatConverter.parseExternal).mockResolvedValue({
+      vi.mocked<(...args: any[]) => any>(formatConverter.parseExternal).mockResolvedValue({
         name: "skill1",
         description: "Test",
         instructions: "Do something",
         allowedTools: ["Read", "Write"],
       });
-      vi.mocked(formatConverter.serializeToExternal).mockReturnValue("# Skill1\n\nDo something");
-      vi.mocked(formatConverter.getConversionWarnings).mockReturnValue([
+      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToExternal).mockReturnValue("# Skill1\n\nDo something");
+      vi.mocked<(...args: any[]) => any>(formatConverter.getConversionWarnings).mockReturnValue([
         { type: "feature_loss", message: "Tool restrictions will be lost", field: "allowedTools" },
       ]);
-      vi.mocked(mockSkillPresenter.getMetadataList).mockResolvedValue([
+      vi.mocked<(...args: any[]) => any>(mockSkillPresenter.getMetadataList).mockResolvedValue([
         { name: "skill1", path: "/local/skill1/SKILL.md", skillRoot: "/local/skill1" },
       ] as any);
-      vi.mocked(fs.promises.readFile).mockResolvedValue("---\nname: skill1\n---\n# Content");
-      vi.mocked(fs.promises.readdir).mockResolvedValue([]);
+      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValue("---\nname: skill1\n---\n# Content");
+      vi.mocked<(...args: any[]) => any>(fs.promises.readdir).mockResolvedValue([]);
 
       presenter.setProjectRoot("/project");
       const result = await presenter.previewExport(["skill1"], "windsurf");
@@ -488,7 +488,7 @@ describe("SkillSyncPresenter", () => {
   describe("executeExport", () => {
     it("should reject invalid conflict strategies", async () => {
       const { isValidConflictStrategy } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(false);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(false);
 
       const previews: ExportPreview[] = [
         {
@@ -510,7 +510,7 @@ describe("SkillSyncPresenter", () => {
 
     it("should skip conflicts when strategy is SKIP", async () => {
       const { isValidConflictStrategy } = await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
 
       const previews: ExportPreview[] = [
         {
@@ -537,8 +537,8 @@ describe("SkillSyncPresenter", () => {
     it("should check write permission before exporting", async () => {
       const { isValidConflictStrategy, checkWritePermission } =
         await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(true);
-      vi.mocked(checkWritePermission).mockResolvedValue(false);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(checkWritePermission).mockResolvedValue(false);
 
       const previews: ExportPreview[] = [
         {
@@ -559,10 +559,10 @@ describe("SkillSyncPresenter", () => {
     it("should export successfully when writable", async () => {
       const { isValidConflictStrategy, checkWritePermission } =
         await import("../../../../src/main/presenter/skillSyncPresenter/security");
-      vi.mocked(isValidConflictStrategy).mockReturnValue(true);
-      vi.mocked(checkWritePermission).mockResolvedValue(true);
-      vi.mocked(fs.promises.mkdir).mockResolvedValue(undefined);
-      vi.mocked(fs.promises.writeFile).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
+      vi.mocked<(...args: any[]) => any>(checkWritePermission).mockResolvedValue(true);
+      vi.mocked<(...args: any[]) => any>(fs.promises.mkdir).mockResolvedValue(undefined);
+      vi.mocked<(...args: any[]) => any>(fs.promises.writeFile).mockResolvedValue(undefined);
 
       const previews: ExportPreview[] = [
         {
@@ -596,7 +596,7 @@ describe("SkillSyncPresenter", () => {
         { id: "claude-code", name: "Claude Code" },
         { id: "cursor", name: "Cursor" },
       ];
-      vi.mocked(toolScanner.getAllTools).mockReturnValue(tools as any);
+      vi.mocked<(...args: any[]) => any>(toolScanner.getAllTools).mockReturnValue(tools as any);
 
       const result = presenter.getRegisteredTools();
 
@@ -608,7 +608,7 @@ describe("SkillSyncPresenter", () => {
   describe("isToolAvailable", () => {
     it("should check tool availability", async () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
-      vi.mocked(toolScanner.isToolAvailable).mockResolvedValue(true);
+      vi.mocked<(...args: any[]) => any>(toolScanner.isToolAvailable).mockResolvedValue(true);
 
       const result = await presenter.isToolAvailable("claude-code");
 
@@ -624,7 +624,7 @@ describe("SkillSyncPresenter", () => {
   describe("setProjectRoot", () => {
     it("should set project root for project-level tools", async () => {
       const { toolScanner } = await import("../../../../src/main/presenter/skillSyncPresenter/toolScanner");
-      vi.mocked(toolScanner.isToolAvailable).mockResolvedValue(true);
+      vi.mocked<(...args: any[]) => any>(toolScanner.isToolAvailable).mockResolvedValue(true);
 
       presenter.setProjectRoot("/my/project");
       await presenter.isToolAvailable("cursor");

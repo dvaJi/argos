@@ -1,28 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NewSessionManager } from "@/presenter/agentSessionPresenter/sessionManager";
 
-vi.mock("nanoid", () => ({ nanoid: vi.fn(() => "mock-id-123") }));
+vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-id-123") }));
 
 function createMockSqlitePresenter() {
   return {
     newSessionsTable: {
-      create: vi.fn(),
-      get: vi.fn(),
-      list: vi.fn().mockReturnValue([]),
-      getDisabledAgentTools: vi.fn().mockReturnValue([]),
-      updateDisabledAgentTools: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
+      create: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>(),
+      list: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      updateDisabledAgentTools: vi.fn<(...args: any[]) => any>(),
+      update: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
     },
     newEnvironmentsTable: {
-      listPathsForSession: vi.fn().mockReturnValue([]),
-      syncPath: vi.fn(),
-      syncForSession: vi.fn(),
+      listPathsForSession: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      syncPath: vi.fn<(...args: any[]) => any>(),
+      syncForSession: vi.fn<(...args: any[]) => any>(),
     },
     argosSearchDocumentsTable: {
-      upsert: vi.fn(),
-      refreshSessionTitle: vi.fn(),
-      deleteBySession: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      refreshSessionTitle: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
   } as any;
 }

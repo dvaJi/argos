@@ -3,21 +3,21 @@ import { ChannelAdapter } from "@/presenter/remoteControlPresenter/channelAdapte
 import type { ChannelAdapterConfig, SendMessageOptions } from "@/presenter/remoteControlPresenter/types/channel";
 
 class TestChannelAdapter extends ChannelAdapter {
-  readonly performConnectSpy = vi.fn(async () => {
+  readonly performConnectSpy = vi.fn<(...args: any[]) => any>(async () => {
     this.setStatus({
       connected: true,
       state: "running",
       lastError: null,
     });
   });
-  readonly performDisconnectSpy = vi.fn(async () => {
+  readonly performDisconnectSpy = vi.fn<(...args: any[]) => any>(async () => {
     this.setStatus({
       connected: false,
       state: "stopped",
     });
   });
-  readonly sendMessage = vi.fn(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
-  readonly sendTypingIndicator = vi.fn(async (_chatId: string) => {});
+  readonly sendMessage = vi.fn<(...args: any[]) => any>(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
+  readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>(async (_chatId: string) => {});
 
   protected async performConnect(_signal: AbortSignal): Promise<void> {
     await this.performConnectSpy();
@@ -39,7 +39,7 @@ const createConfig = (): ChannelAdapterConfig => ({
 describe("ChannelAdapter", () => {
   it("connects idempotently and exposes status snapshots", async () => {
     const adapter = new TestChannelAdapter(createConfig());
-    const statusChange = vi.fn();
+    const statusChange = vi.fn<(...args: any[]) => any>();
     adapter.on("statusChange", statusChange);
 
     await Promise.all([adapter.connect(), adapter.connect()]);

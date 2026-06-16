@@ -3,88 +3,88 @@ import { ArgosMessageStore } from "@/presenter/agentRuntimePresenter/messageStor
 import { cloneBlocksForRenderer } from "@/presenter/agentRuntimePresenter/echo";
 import logger from "@shared/logger";
 
-vi.mock("nanoid", () => ({ nanoid: vi.fn(() => "mock-msg-id") }));
+vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-msg-id") }));
 vi.mock("@shared/logger", () => ({
   default: {
-    error: vi.fn(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 function createMockSqlitePresenter() {
   return {
     newSessionsTable: {
-      get: vi.fn().mockReturnValue({ title: "Session Title" }),
+      get: vi.fn<(...args: any[]) => any>().mockReturnValue({ title: "Session Title" }),
     },
     argosMessagesTable: {
-      insert: vi.fn(),
-      updateContent: vi.fn(),
-      updateStatus: vi.fn(),
-      updateContentAndStatus: vi.fn(),
-      getBySession: vi.fn().mockReturnValue([]),
-      getByStatus: vi.fn().mockReturnValue([]),
-      getIdsBySession: vi.fn().mockReturnValue([]),
-      getIdsFromOrderSeq: vi.fn().mockReturnValue([]),
-      get: vi.fn(),
-      getMaxOrderSeq: vi.fn().mockReturnValue(0),
-      deleteBySession: vi.fn(),
-      delete: vi.fn(),
-      deleteFromOrderSeq: vi.fn(),
-      recoverPendingMessages: vi.fn().mockReturnValue(0),
+      insert: vi.fn<(...args: any[]) => any>(),
+      updateContent: vi.fn<(...args: any[]) => any>(),
+      updateStatus: vi.fn<(...args: any[]) => any>(),
+      updateContentAndStatus: vi.fn<(...args: any[]) => any>(),
+      getBySession: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getByStatus: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getIdsBySession: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getIdsFromOrderSeq: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      get: vi.fn<(...args: any[]) => any>(),
+      getMaxOrderSeq: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteFromOrderSeq: vi.fn<(...args: any[]) => any>(),
+      recoverPendingMessages: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
     },
     argosSessionsTable: {
-      get: vi.fn(),
+      get: vi.fn<(...args: any[]) => any>(),
     },
     argosUserMessagesTable: {
-      upsert: vi.fn(),
-      get: vi.fn(),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      get: vi.fn<(...args: any[]) => any>(),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosUserMessageFilesTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosUserMessageLinksTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosAssistantBlocksTable: {
-      replaceForMessage: vi.fn(),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      listByMessageIds: vi.fn().mockReturnValue([]),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      replaceForMessage: vi.fn<(...args: any[]) => any>(),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      listByMessageIds: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosSearchDocumentsTable: {
-      upsert: vi.fn(),
-      delete: vi.fn(),
-      deleteByMessageIds: vi.fn(),
-      deleteBySession: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySession: vi.fn<(...args: any[]) => any>(),
     },
     argosMessageTracesTable: {
-      insert: vi.fn().mockReturnValue(1),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      countByMessageId: vi.fn().mockReturnValue(0),
-      deleteByMessageIds: vi.fn(),
-      deleteBySessionId: vi.fn(),
+      insert: vi.fn<(...args: any[]) => any>().mockReturnValue(1),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      countByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySessionId: vi.fn<(...args: any[]) => any>(),
     },
     argosMessageSearchResultsTable: {
-      add: vi.fn(),
-      listByMessageId: vi.fn().mockReturnValue([]),
-      deleteByMessageIds: vi.fn(),
-      deleteBySessionId: vi.fn(),
+      add: vi.fn<(...args: any[]) => any>(),
+      listByMessageId: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      deleteByMessageIds: vi.fn<(...args: any[]) => any>(),
+      deleteBySessionId: vi.fn<(...args: any[]) => any>(),
     },
     argosUsageStatsTable: {
-      upsert: vi.fn(),
+      upsert: vi.fn<(...args: any[]) => any>(),
     },
   } as any;
 }
@@ -272,7 +272,7 @@ describe("ArgosMessageStore", () => {
             cacheWriteInputTokens: 12,
           }),
         ),
-      ).not.toThrow();
+      ).not.toThrow("expected error");
       expect(logger.error).toHaveBeenCalledWith(
         "Failed to persist argos usage stats",
         { messageId: "m1", source: "live" },
@@ -413,7 +413,7 @@ describe("ArgosMessageStore", () => {
 
       expect(blocks[0]).not.toHaveProperty("action_type");
       expect(blocks[1]).not.toHaveProperty("action_type");
-      expect(() => cloneBlocksForRenderer(blocks)).not.toThrow();
+      expect(() => cloneBlocksForRenderer(blocks)).not.toThrow("expected error");
     });
 
     it("keeps only valid persisted action_type values on assistant blocks", () => {
@@ -452,7 +452,7 @@ describe("ArgosMessageStore", () => {
 
       expect(blocks[0]).not.toHaveProperty("action_type");
       expect(blocks[1].action_type).toBe("tool_call_permission");
-      expect(() => cloneBlocksForRenderer(blocks)).not.toThrow();
+      expect(() => cloneBlocksForRenderer(blocks)).not.toThrow("expected error");
     });
   });
 
@@ -497,11 +497,11 @@ describe("ArgosMessageStore", () => {
     });
 
     it("does not delete rows when tape retraction append fails inside transaction", () => {
-      const transaction = vi.fn((operation: () => unknown) => () => operation());
-      sqlitePresenter.getDatabase = vi.fn().mockReturnValue({ transaction });
+      const transaction = vi.fn<(...args: any[]) => any>((operation: () => unknown) => () => operation());
+      sqlitePresenter.getDatabase = vi.fn<(...args: any[]) => any>().mockReturnValue({ transaction });
       sqlitePresenter.argosTapeEntriesTable = {
-        ensureBootstrapAnchor: vi.fn(),
-        appendEvent: vi.fn(() => {
+        ensureBootstrapAnchor: vi.fn<(...args: any[]) => any>(),
+        appendEvent: vi.fn<(...args: any[]) => any>(() => {
           throw new Error("append failed");
         }),
       };
@@ -517,11 +517,11 @@ describe("ArgosMessageStore", () => {
 
   describe("updateCompactionMessage", () => {
     it("records compaction status updates in tape with revision provenance", () => {
-      const appendEvent = vi.fn();
-      const transaction = vi.fn((operation: () => unknown) => () => operation());
-      sqlitePresenter.getDatabase = vi.fn().mockReturnValue({ transaction });
+      const appendEvent = vi.fn<(...args: any[]) => any>();
+      const transaction = vi.fn<(...args: any[]) => any>((operation: () => unknown) => () => operation());
+      sqlitePresenter.getDatabase = vi.fn<(...args: any[]) => any>().mockReturnValue({ transaction });
       sqlitePresenter.argosTapeEntriesTable = {
-        ensureBootstrapAnchor: vi.fn(),
+        ensureBootstrapAnchor: vi.fn<(...args: any[]) => any>(),
         appendEvent,
       };
       sqlitePresenter.argosMessagesTable.get.mockReturnValue(

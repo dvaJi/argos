@@ -93,8 +93,7 @@ class ProviderHttpError extends Error {
 }
 
 const isOpenAIImageGenerationModel = (modelId: string): boolean =>
-  OPENAI_IMAGE_GENERATION_MODELS.includes(modelId) ||
-  OPENAI_IMAGE_GENERATION_MODEL_PREFIXES.some((prefix) => modelId.startsWith(prefix));
+  OPENAI_IMAGE_GENERATION_MODELS.includes(modelId) || OPENAI_IMAGE_GENERATION_MODEL_PREFIXES.some(modelId.startsWith);
 
 const shouldUseOpenAIImageGenerationRoute = (modelId: string, modelConfig: ModelConfig): boolean =>
   isOpenAIImageGenerationModel(modelId) ||
@@ -1442,7 +1441,7 @@ export class AiSdkProvider extends BaseLLMProvider {
           .filter((model) => {
             if (typeof model.id !== "string") return false;
             const lower = model.id.toLowerCase();
-            return !NON_CHAT_PATTERNS.some((p) => lower.includes(p));
+            return !NON_CHAT_PATTERNS.some(lower.includes);
           })
           .map((model) => ({
             id: model.id as string,

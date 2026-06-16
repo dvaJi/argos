@@ -19,7 +19,7 @@ function createMessageRow(orderSeq: number) {
 
 function createMockDb(rows: ReturnType<typeof createMessageRow>[]) {
   return {
-    prepare: vi.fn((sql: string) => {
+    prepare: vi.fn<(...args: any[]) => any>((sql: string) => {
       if (sql.includes("FROM argos_messages m") && sql.includes("ORDER BY m.order_seq DESC")) {
         return {
           all: (
@@ -47,11 +47,11 @@ function createMockDb(rows: ReturnType<typeof createMessageRow>[]) {
       }
 
       return {
-        all: vi.fn(),
-        get: vi.fn(),
+        all: vi.fn<(...args: any[]) => any>(),
+        get: vi.fn<(...args: any[]) => any>(),
       };
     }),
-    exec: vi.fn(),
+    exec: vi.fn<(...args: any[]) => any>(),
   } as any;
 }
 

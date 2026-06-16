@@ -93,8 +93,8 @@ async function setup(
   } = {},
 ) {
   vi.resetModules();
-  const getUsageDashboard = options.getUsageDashboard ?? vi.fn().mockResolvedValue(data);
-  const retryRtkHealthCheck = options.retryRtkHealthCheck ?? vi.fn().mockResolvedValue(undefined);
+  const getUsageDashboard = options.getUsageDashboard ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(data);
+  const retryRtkHealthCheck = options.retryRtkHealthCheck ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
@@ -245,7 +245,7 @@ describe("DashboardSettings", () => {
   });
 
   it("shows RTK retry action when health check fails", async () => {
-    const retryRtkHealthCheck = vi.fn().mockResolvedValue(undefined);
+    const retryRtkHealthCheck = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     const { getUsageDashboard } = await setup(
       buildDashboard({
         rtk: {
@@ -388,7 +388,7 @@ describe("DashboardSettings", () => {
 
   it("does not reschedule timers when an async dashboard load resolves after unmount", async () => {
     let resolveDashboard: ((value: UsageDashboardData) => void) | null = null;
-    const getUsageDashboard = vi.fn().mockImplementation(
+    const getUsageDashboard = vi.fn<(...args: any[]) => any>().mockImplementation(
       () =>
         new Promise<UsageDashboardData>((resolve) => {
           resolveDashboard = resolve;

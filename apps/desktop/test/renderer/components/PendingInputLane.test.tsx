@@ -112,7 +112,7 @@ describe("PendingInputLane", () => {
   });
 
   it("shows resume queue action only when requested and emits the event", async () => {
-    const onResumeQueue = vi.fn();
+    const onResumeQueue = vi.fn<(...args: any[]) => any>();
     const { container } = render(
       <PendingInputLane
         steerItems={[]}

@@ -356,25 +356,25 @@ const getDefaultArgosInvokeResult = (
 // Mock Electron IPC for renderer process
 vi.mock("electron", () => ({
   ipcRenderer: {
-    invoke: vi.fn(),
-    on: vi.fn(),
-    removeAllListeners: vi.fn(),
-    send: vi.fn(),
+    invoke: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+    removeAllListeners: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 function startupWorkloadStoreMock() {
   return {
-    useStartupWorkloadStore: vi.fn(() => ({
-      connect: vi.fn(),
-      disconnect: vi.fn(),
+    useStartupWorkloadStore: vi.fn<(...args: any[]) => any>(() => ({
+      connect: vi.fn<(...args: any[]) => any>(),
+      disconnect: vi.fn<(...args: any[]) => any>(),
       connected: false,
       runIds: { main: null, settings: null },
       mainTasks: [],
       settingsTasks: [],
-      getTask: vi.fn(() => null),
-      isTaskRunning: vi.fn(() => false),
-      isSectionReady: vi.fn(() => false),
+      getTask: vi.fn<(...args: any[]) => any>(() => null),
+      isTaskRunning: vi.fn<(...args: any[]) => any>(() => false),
+      isSectionReady: vi.fn<(...args: any[]) => any>(() => false),
     })),
   };
 }
@@ -384,7 +384,7 @@ vi.mock("../src/renderer/src/stores/startupWorkloadStore", startupWorkloadStoreM
 
 // Mock @iconify/react
 vi.mock("@iconify/react", () => ({
-  addCollection: vi.fn(),
+  addCollection: vi.fn<(...args: any[]) => any>(),
   Icon: () => null,
 }));
 
@@ -392,11 +392,11 @@ vi.mock("@iconify/react", () => ({
 Object.defineProperty(window, "electron", {
   value: {
     ipcRenderer: {
-      invoke: vi.fn(),
-      on: vi.fn(),
-      removeAllListeners: vi.fn(),
-      removeListener: vi.fn(),
-      send: vi.fn(),
+      invoke: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>(),
+      removeAllListeners: vi.fn<(...args: any[]) => any>(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
+      send: vi.fn<(...args: any[]) => any>(),
     },
   },
   writable: true,
@@ -404,15 +404,15 @@ Object.defineProperty(window, "electron", {
 
 Object.defineProperty(window, "api", {
   value: {
-    copyImage: vi.fn(),
-    copyText: vi.fn(),
-    formatPathForInput: vi.fn((value) => value),
-    getPathForFile: vi.fn(() => ""),
-    getWebContentsId: vi.fn(() => 1),
-    getWindowId: vi.fn(() => 1),
-    openExternal: vi.fn(),
-    readClipboardText: vi.fn(() => ""),
-    toRelativePath: vi.fn((filePath: string, basePath?: string) => {
+    copyImage: vi.fn<(...args: any[]) => any>(),
+    copyText: vi.fn<(...args: any[]) => any>(),
+    formatPathForInput: vi.fn<(...args: any[]) => any>((value) => value),
+    getPathForFile: vi.fn<(...args: any[]) => any>(() => ""),
+    getWebContentsId: vi.fn<(...args: any[]) => any>(() => 1),
+    getWindowId: vi.fn<(...args: any[]) => any>(() => 1),
+    openExternal: vi.fn<(...args: any[]) => any>(),
+    readClipboardText: vi.fn<(...args: any[]) => any>(() => ""),
+    toRelativePath: vi.fn<(...args: any[]) => any>((filePath: string, basePath?: string) => {
       if (typeof filePath !== "string" || typeof basePath !== "string") {
         return filePath;
       }
@@ -438,7 +438,7 @@ Object.defineProperty(window, "api", {
       return filePath;
     }),
     devicePresenter: {
-      getDeviceInfo: vi.fn(() =>
+      getDeviceInfo: vi.fn<(...args: any[]) => any>(() =>
         Promise.resolve({
           platform: "darwin",
           arch: "arm64",
@@ -447,10 +447,10 @@ Object.defineProperty(window, "api", {
       ),
     },
     windowPresenter: {
-      minimize: vi.fn(),
-      maximize: vi.fn(),
-      close: vi.fn(),
-      isMaximized: vi.fn(() => Promise.resolve(false)),
+      minimize: vi.fn<(...args: any[]) => any>(),
+      maximize: vi.fn<(...args: any[]) => any>(),
+      close: vi.fn<(...args: any[]) => any>(),
+      isMaximized: vi.fn<(...args: any[]) => any>(() => Promise.resolve(false)),
     },
   },
   writable: true,
@@ -458,10 +458,10 @@ Object.defineProperty(window, "api", {
 
 Object.defineProperty(window, "argos", {
   value: {
-    invoke: vi.fn((routeName: string, payload?: Record<string, unknown>) =>
+    invoke: vi.fn<(...args: any[]) => any>((routeName: string, payload?: Record<string, unknown>) =>
       Promise.resolve(getDefaultArgosInvokeResult(routeName, payload)),
     ),
-    on: vi.fn(() => vi.fn()),
+    on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
   },
   writable: true,
 });

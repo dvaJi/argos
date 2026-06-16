@@ -128,7 +128,7 @@ export class ArgosSearchDocumentsTable extends BaseTable {
       )
       .all(...FTS_TRIGGER_NAMES) as Array<{ name: string }>;
     const existing = new Set(rows.map((row) => row.name));
-    return FTS_TRIGGER_NAMES.every((name) => existing.has(name));
+    return FTS_TRIGGER_NAMES.every(existing.has);
   }
 
   upsert(row: {

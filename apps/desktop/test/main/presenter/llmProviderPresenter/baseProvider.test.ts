@@ -11,11 +11,11 @@ import { BaseLLMProvider } from "../../../../src/main/presenter/llmProviderPrese
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    sendToMain: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -108,12 +108,12 @@ class TestProvider extends BaseLLMProvider {
 
 describe("BaseLLMProvider tool XML conversion", () => {
   const configPresenter = {
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getLanguage: vi.fn().mockReturnValue("zh-CN"),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(false),
-    updateCustomModel: vi.fn(),
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue("zh-CN"),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    updateCustomModel: vi.fn<(...args: any[]) => any>(),
   } as unknown as IConfigPresenter;
 
   it("normalizes discriminated union tool schemas before building XML", () => {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    send: vi.fn(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "all",
@@ -31,9 +31,9 @@ function createConfigPresenter(rateLimit?: { enabled: boolean; qpsLimit: number 
   return {
     provider,
     presenter: {
-      getProviders: vi.fn(() => [provider]),
-      getProviderById: vi.fn(() => provider),
-      setProviderById: vi.fn((providerId: string, nextProvider: typeof provider) => {
+      getProviders: vi.fn<(...args: any[]) => any>(() => [provider]),
+      getProviderById: vi.fn<(...args: any[]) => any>(() => provider),
+      setProviderById: vi.fn<(...args: any[]) => any>((providerId: string, nextProvider: typeof provider) => {
         if (providerId === provider.id) {
           Object.assign(provider, nextProvider);
         }
@@ -77,7 +77,7 @@ describe("RateLimitManager", () => {
 
     await manager.executeWithRateLimit("openai");
 
-    const onQueued = vi.fn();
+    const onQueued = vi.fn<(...args: any[]) => any>();
     const queuedPromise = manager.executeWithRateLimit("openai", { onQueued });
     await Promise.resolve();
 

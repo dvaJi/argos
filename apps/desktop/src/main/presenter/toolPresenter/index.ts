@@ -462,7 +462,7 @@ export class ToolPresenter implements IToolPresenter {
   }
 
   private buildFilesystemPrompt(toolNames: Set<string>, offloadPath: string): string {
-    const filesystemTools = FILESYSTEM_TOOL_ORDER.filter((toolName) => toolNames.has(toolName));
+    const filesystemTools = FILESYSTEM_TOOL_ORDER.filter(toolNames.has);
     if (filesystemTools.length === 0) {
       return "";
     }
@@ -501,7 +501,7 @@ export class ToolPresenter implements IToolPresenter {
       );
     }
 
-    const hasOffloadTools = Array.from(toolNames).some((toolName) => OFFLOAD_TOOL_NAMES.has(toolName));
+    const hasOffloadTools = Array.from(toolNames).some(OFFLOAD_TOOL_NAMES.has);
     if (hasOffloadTools) {
       lines.push("Tool outputs may be offloaded when large.");
       lines.push(`When you see an offload stub, the full output is stored at: ${offloadPath}`);

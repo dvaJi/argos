@@ -86,7 +86,7 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     bridge.on("chat.stream.updated", handler);
 
     const ws = (bridge as any).ws;
@@ -101,8 +101,8 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    const handler1 = vi.fn();
-    const handler2 = vi.fn();
+    const handler1 = vi.fn<(...args: any[]) => any>();
+    const handler2 = vi.fn<(...args: any[]) => any>();
     const unsub1 = bridge.on("chat.stream.updated", handler1);
     bridge.on("chat.stream.updated", handler2);
 
@@ -120,7 +120,7 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     bridge.on("sessions.updated", handler);
 
     const ws = (bridge as any).ws;
@@ -142,7 +142,7 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     bridge.on("*", handler);
 
     const ws = (bridge as any).ws;
@@ -163,7 +163,7 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     bridge.on("chat.stream.updated", handler);
 
     const ws = (bridge as any).ws;
@@ -179,7 +179,7 @@ describe("WebSocketBridge", () => {
   it("queues messages when not connected", async () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
 
-    const handler = vi.fn();
+    const handler = vi.fn<(...args: any[]) => any>();
     bridge.on("chat.stream.updated", handler);
 
     expect((bridge as any).pendingMessages.length).toBeGreaterThan(0);
@@ -190,7 +190,7 @@ describe("WebSocketBridge", () => {
   it("flushes pending messages on connect", async () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
 
-    bridge.on("chat.stream.updated", vi.fn());
+    bridge.on("chat.stream.updated", vi.fn<(...args: any[]) => any>());
     const pendingCount = (bridge as any).pendingMessages.length;
     expect(pendingCount).toBeGreaterThan(0);
 
@@ -214,8 +214,8 @@ describe("WebSocketBridge", () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
     await bridge.connect();
 
-    bridge.on("chat.stream.updated", vi.fn());
-    bridge.on("sessions.updated", vi.fn());
+    bridge.on("chat.stream.updated", vi.fn<(...args: any[]) => any>());
+    bridge.on("sessions.updated", vi.fn<(...args: any[]) => any>());
 
     const ws = (bridge as any).ws;
     const subscribeMessages = ws.sentMessages

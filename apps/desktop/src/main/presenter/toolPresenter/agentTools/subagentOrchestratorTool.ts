@@ -977,7 +977,7 @@ export class SubagentOrchestratorTool {
 
       try {
         if (mode === "parallel") {
-          await Promise.all(tasks.map((task) => runTask(task)));
+          await Promise.all(tasks.map(runTask));
         } else {
           for (const task of tasks) {
             if (abortController.signal.aborted) {

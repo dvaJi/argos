@@ -6,7 +6,7 @@ import type { ISkillPresenter } from "../../../../src/shared/types/skill";
 import { SkillExecutionService } from "../../../../src/main/presenter/skillPresenter/skillExecutionService";
 
 vi.mock("child_process", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
@@ -21,14 +21,14 @@ vi.mock("../../../../src/main/lib/agentRuntime/shellEnvHelper", async (importOri
 
   return {
     ...actual,
-    getShellEnvironment: vi.fn().mockResolvedValue({ PATH: "/shell/bin" }),
-    getUserShell: vi.fn().mockReturnValue({ shell: "/bin/zsh", args: ["-c"] }),
+    getShellEnvironment: vi.fn<(...args: any[]) => any>().mockResolvedValue({ PATH: "/shell/bin" }),
+    getUserShell: vi.fn<(...args: any[]) => any>().mockReturnValue({ shell: "/bin/zsh", args: ["-c"] }),
   };
 });
 
 vi.mock("../../../../src/main/lib/agentRuntime/rtkRuntimeService", () => ({
   rtkRuntimeService: {
-    prepareShellCommand: vi.fn().mockImplementation(async (command: string, env: Record<string, string>) => ({
+    prepareShellCommand: vi.fn<(...args: any[]) => any>().mockImplementation(async (command: string, env: Record<string, string>) => ({
       originalCommand: command,
       command,
       env,
@@ -52,15 +52,15 @@ describe("SkillExecutionService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(shellEnvHelper.getUserShell).mockReturnValue({ shell: "/bin/zsh", args: ["-c"] });
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
-    vi.mocked(fs.promises.stat).mockResolvedValue({
+    vi.mocked<(...args: any[]) => any>(shellEnvHelper.getUserShell).mockReturnValue({ shell: "/bin/zsh", args: ["-c"] });
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(false);
+    vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
       isDirectory: () => true,
     } as never);
 
     skillPresenter = {
-      getActiveSkills: vi.fn().mockResolvedValue(["ocr"]),
-      getMetadataList: vi.fn().mockResolvedValue([
+      getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(["ocr"]),
+      getMetadataList: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           name: "ocr",
           description: "OCR helper",
@@ -68,15 +68,15 @@ describe("SkillExecutionService", () => {
           skillRoot: "/skills/ocr",
         },
       ]),
-      readSkillFile: vi.fn().mockResolvedValue("---\nname: ocr\ndescription: OCR helper\n---\n"),
-      getSkillExtension: vi.fn().mockResolvedValue({
+      readSkillFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("---\nname: ocr\ndescription: OCR helper\n---\n"),
+      getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         version: 1,
         env: { API_KEY: "secret" },
         runtimePolicy: { python: "auto", node: "auto" },
         scriptOverrides: {},
       }),
-      saveSkillWithExtension: vi.fn().mockResolvedValue({ success: true, skillName: "ocr" }),
-      listSkillScripts: vi.fn().mockResolvedValue([
+      saveSkillWithExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "ocr" }),
+      listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           name: "run.py",
           relativePath: "scripts/run.py",
@@ -87,11 +87,11 @@ describe("SkillExecutionService", () => {
       ]),
     } as unknown as ISkillPresenter;
 
-    resolveConversationWorkdir = vi.fn().mockResolvedValue("/workspace/session");
+    resolveConversationWorkdir = vi.fn<(...args: any[]) => any>().mockResolvedValue("/workspace/session");
     service = new SkillExecutionService(
       skillPresenter,
       {
-        getSetting: vi.fn().mockReturnValue(true),
+        getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
       } as never,
       {
         resolveConversationWorkdir,
@@ -109,7 +109,7 @@ describe("SkillExecutionService", () => {
   const resolvePath = (targetPath: string) => path.resolve(targetPath);
 
   it("builds spawn plan with session workdir cwd and skill root env", async () => {
-    vi.spyOn(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
       command: "uv",
       mode: "uv",
     });
@@ -133,7 +133,7 @@ describe("SkillExecutionService", () => {
 
   it("falls back to skill root cwd when the session workdir is unavailable", async () => {
     resolveConversationWorkdir.mockResolvedValueOnce(null);
-    vi.spyOn(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
       command: "uv",
       mode: "uv",
     });
@@ -150,10 +150,10 @@ describe("SkillExecutionService", () => {
   });
 
   it("falls back to skill root cwd when the resolved session workdir is not a directory", async () => {
-    vi.mocked(fs.promises.stat).mockResolvedValueOnce({
+    vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
       isDirectory: () => false,
     } as never);
-    vi.spyOn(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(service as never, "resolveRuntimeCommand" as never).mockResolvedValue({
       command: "uv",
       mode: "uv",
     });
@@ -170,8 +170,8 @@ describe("SkillExecutionService", () => {
   });
 
   it("falls back to bundled uv for python auto runtime", async () => {
-    vi.spyOn(service as never, "hasCommand" as never).mockResolvedValue(false);
-    vi.spyOn(service as never, "getBundledRuntimeCommand" as never).mockImplementation((command: "uv" | "node") =>
+    vi.spyOn<(...args: any[]) => any>(service as never, "hasCommand" as never).mockResolvedValue(false);
+    vi.spyOn<(...args: any[]) => any>(service as never, "getBundledRuntimeCommand" as never).mockImplementation((command: "uv" | "node") =>
       command === "uv" ? "/runtime/uv" : null,
     );
 
@@ -184,9 +184,9 @@ describe("SkillExecutionService", () => {
   });
 
   it("reports unavailable python runtime when uv and system python are missing", async () => {
-    vi.spyOn(service as never, "hasCommand" as never).mockResolvedValue(false);
-    vi.spyOn(service as never, "getBundledRuntimeCommand" as never).mockReturnValue(null);
-    vi.spyOn(service as never, "findSystemPythonRuntime" as never).mockResolvedValue(null);
+    vi.spyOn<(...args: any[]) => any>(service as never, "hasCommand" as never).mockResolvedValue(false);
+    vi.spyOn<(...args: any[]) => any>(service as never, "getBundledRuntimeCommand" as never).mockReturnValue(null);
+    vi.spyOn<(...args: any[]) => any>(service as never, "findSystemPythonRuntime" as never).mockResolvedValue(null);
 
     await expect((service as never).resolvePythonRuntime("auto", { PATH: "/bin" }, "/skill")).rejects.toThrow(
       "No compatible Python runtime found for this skill",
@@ -194,7 +194,7 @@ describe("SkillExecutionService", () => {
   });
 
   it("switches to shell spawn mode when RTK rewrites the command", async () => {
-    vi.mocked(rtkRuntimeService.prepareShellCommand).mockResolvedValueOnce({
+    vi.mocked<(...args: any[]) => any>(rtkRuntimeService.prepareShellCommand).mockResolvedValueOnce({
       originalCommand: "node /skills/ocr/scripts/run.py",
       command: "rtk run -- node /skills/ocr/scripts/run.py",
       env: { PATH: "/shell/bin", API_KEY: "secret", RTK_DB_PATH: "/mock/rtk.db" },
@@ -245,29 +245,29 @@ describe("SkillExecutionService", () => {
       configurable: true,
       value: "win32",
     });
-    vi.mocked(shellEnvHelper.getUserShell).mockReturnValue({
+    vi.mocked<(...args: any[]) => any>(shellEnvHelper.getUserShell).mockReturnValue({
       shell: "powershell.exe",
       args: ["-NoProfile", "-Command"],
     });
 
     class MockStream extends EventEmitter {
-      destroy = vi.fn();
+      destroy = vi.fn<(...args: any[]) => any>();
     }
 
     class MockChild extends EventEmitter {
       stdout = new MockStream();
       stderr = new MockStream();
       stdin = {
-        write: vi.fn(),
-        end: vi.fn(),
-        destroy: vi.fn(),
+        write: vi.fn<(...args: any[]) => any>(),
+        end: vi.fn<(...args: any[]) => any>(),
+        destroy: vi.fn<(...args: any[]) => any>(),
       };
-      kill = vi.fn();
+      kill = vi.fn<(...args: any[]) => any>();
     }
 
     const child = new MockChild();
-    vi.mocked(spawn).mockReturnValue(child as never);
-    vi.spyOn(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
 
     const resultPromise = (service as never).runForeground(
       {
@@ -306,23 +306,23 @@ describe("SkillExecutionService", () => {
     });
 
     class MockStream extends EventEmitter {
-      destroy = vi.fn();
+      destroy = vi.fn<(...args: any[]) => any>();
     }
 
     class MockChild extends EventEmitter {
       stdout = new MockStream();
       stderr = new MockStream();
       stdin = {
-        write: vi.fn(),
-        end: vi.fn(),
-        destroy: vi.fn(),
+        write: vi.fn<(...args: any[]) => any>(),
+        end: vi.fn<(...args: any[]) => any>(),
+        destroy: vi.fn<(...args: any[]) => any>(),
       };
-      kill = vi.fn();
+      kill = vi.fn<(...args: any[]) => any>();
     }
 
     const child = new MockChild();
-    vi.mocked(spawn).mockReturnValue(child as never);
-    vi.spyOn(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
 
     const resultPromise = (service as never).runForeground(
       {
@@ -363,20 +363,20 @@ describe("SkillExecutionService", () => {
     vi.useFakeTimers();
 
     class MockStream extends EventEmitter {
-      setEncoding = vi.fn();
-      destroy = vi.fn();
+      setEncoding = vi.fn<(...args: any[]) => any>();
+      destroy = vi.fn<(...args: any[]) => any>();
     }
 
     class MockChild extends EventEmitter {
       stdout = new MockStream();
       stderr = new MockStream();
       stdin = {
-        write: vi.fn(),
-        end: vi.fn(),
-        destroy: vi.fn(),
+        write: vi.fn<(...args: any[]) => any>(),
+        end: vi.fn<(...args: any[]) => any>(),
+        destroy: vi.fn<(...args: any[]) => any>(),
       };
-      unref = vi.fn();
-      kill = vi.fn((signal?: NodeJS.Signals) => {
+      unref = vi.fn<(...args: any[]) => any>();
+      kill = vi.fn<(...args: any[]) => any>((signal?: NodeJS.Signals) => {
         if (signal === "SIGKILL") {
           this.emit("close", null);
         }
@@ -385,8 +385,8 @@ describe("SkillExecutionService", () => {
     }
 
     const child = new MockChild();
-    vi.mocked(spawn).mockReturnValue(child as never);
-    vi.spyOn(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue(null);
 
     const resultPromise = (service as never).runForeground(
       {
@@ -414,31 +414,31 @@ describe("SkillExecutionService", () => {
 
   it("falls back to capped in-memory buffering when foreground offload fails", async () => {
     class MockStream extends EventEmitter {
-      setEncoding = vi.fn();
+      setEncoding = vi.fn<(...args: any[]) => any>();
     }
 
     class MockChild extends EventEmitter {
       stdout = new MockStream();
       stderr = new MockStream();
       stdin = {
-        write: vi.fn(),
-        end: vi.fn(),
-        destroy: vi.fn(),
+        write: vi.fn<(...args: any[]) => any>(),
+        end: vi.fn<(...args: any[]) => any>(),
+        destroy: vi.fn<(...args: any[]) => any>(),
       };
-      kill = vi.fn();
+      kill = vi.fn<(...args: any[]) => any>();
     }
 
     const child = new MockChild();
     const originalAppendFile = fs.promises.appendFile;
-    const appendFileMock = vi.fn().mockRejectedValue(new Error("disk full"));
+    const appendFileMock = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("disk full"));
     Object.defineProperty(fs.promises, "appendFile", {
       configurable: true,
       value: appendFileMock,
     });
-    const previewSpy = vi.spyOn(service as never, "readLastCharsFromFile" as never).mockReturnValue("");
+    const previewSpy = vi.spyOn<(...args: any[]) => any>(service as never, "readLastCharsFromFile" as never).mockReturnValue("");
 
-    vi.mocked(spawn).mockReturnValue(child as never);
-    vi.spyOn(service as never, "createForegroundOutputPath" as never).mockReturnValue("/mock/session/skill.log");
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue("/mock/session/skill.log");
 
     const resultPromise = (service as never).runForeground(
       {

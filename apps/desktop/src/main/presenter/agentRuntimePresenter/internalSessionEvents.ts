@@ -50,10 +50,7 @@ const extractBlockText = (block: AssistantMessageBlock): string[] => {
 const toDisplayLines = (text: string): string[] => text.split(/\r?\n/);
 
 export const buildAssistantResponseMarkdown = (blocks: AssistantMessageBlock[]): string =>
-  blocks
-    .flatMap((block) => extractBlockText(block))
-    .flatMap((text) => toDisplayLines(text))
-    .join("\n");
+  blocks.flatMap(extractBlockText).flatMap(toDisplayLines).join("\n");
 
 export const buildAssistantPreviewMarkdown = (blocks: AssistantMessageBlock[]): string => {
   const lines = buildAssistantResponseMarkdown(blocks)

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("better-sqlite3-multiple-ciphers", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("sqlitePresenter error classification", () => {

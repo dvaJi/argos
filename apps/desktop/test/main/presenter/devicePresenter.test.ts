@@ -4,9 +4,9 @@ import { DevicePresenter } from "../../../src/main/presenter/devicePresenter/ind
 // Mock eventBus (imported by DevicePresenter via @/eventbus)
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    emit: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -16,7 +16,7 @@ vi.mock("@/eventbus", () => ({
 // Mock svgSanitizer (imported by DevicePresenter via @/lib/svgSanitizer)
 vi.mock("@/lib/svgSanitizer", () => ({
   svgSanitizer: {
-    sanitize: vi.fn(),
+    sanitize: vi.fn<(...args: any[]) => any>(),
   },
 }));
 

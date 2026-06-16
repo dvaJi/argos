@@ -79,7 +79,7 @@ export default function BrowserActivityOverlay() {
         window.clearTimeout(haloFadeTimerRef.current);
       }
 
-      activityCleanupTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      activityCleanupTimersRef.current.forEach(window.clearTimeout);
       activityCleanupTimersRef.current.clear();
     };
   }, []);

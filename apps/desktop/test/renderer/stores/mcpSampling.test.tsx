@@ -80,7 +80,7 @@ const setupSamplingStore = async (options?: {
     get chatSelectableModelGroups() {
       return getChatSelectableModelGroups();
     },
-    findChatSelectableModel: vi.fn((providerId: string, modelId: string) => {
+    findChatSelectableModel: vi.fn<(...args: any[]) => any>((providerId: string, modelId: string) => {
       const group = getChatSelectableModelGroups().find((entry: any) => entry.providerId === providerId);
       const model = group?.models.find((entry: any) => entry.id === modelId);
       if (!group || !model) {
@@ -88,7 +88,7 @@ const setupSamplingStore = async (options?: {
       }
       return { providerId, providerName: providerId, model };
     }),
-    pickFirstChatSelectableModel: vi.fn(() => {
+    pickFirstChatSelectableModel: vi.fn<(...args: any[]) => any>(() => {
       const firstGroup = getChatSelectableModelGroups()[0];
       const firstModel = firstGroup?.models[0];
       return firstGroup && firstModel
@@ -99,7 +99,7 @@ const setupSamplingStore = async (options?: {
           }
         : null;
     }),
-    initialize: vi.fn().mockImplementation(async () => {
+    initialize: vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
       if (options?.initializeModels) {
         await options.initializeModels();
       }
@@ -117,14 +117,14 @@ const setupSamplingStore = async (options?: {
     modelId: undefined as string | undefined,
   };
   const mcpClient = {
-    onSamplingRequest: vi.fn((listener: any) => {
+    onSamplingRequest: vi.fn<(...args: any[]) => any>((listener: any) => {
       samplingRequestListener = listener;
-      return vi.fn();
+      return vi.fn<(...args: any[]) => any>();
     }),
-    onSamplingCancelled: vi.fn(() => vi.fn()),
-    onSamplingDecision: vi.fn(() => vi.fn()),
-    submitSamplingDecision: vi.fn().mockResolvedValue(undefined),
-    cancelSamplingRequest: vi.fn().mockResolvedValue(undefined),
+    onSamplingCancelled: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+    onSamplingDecision: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+    submitSamplingDecision: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    cancelSamplingRequest: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   vi.doMock("@api/McpClient", () => ({

@@ -4,15 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UiSettingsHelper } from "@/presenter/configPresenter/uiSettingsHelper";
 
 vi.mock("font-list", () => {
-  const getFonts = vi.fn();
+  const getFonts = vi.fn<(...args: any[]) => any>();
   return { default: { getFonts } };
 });
 
-const getFontsMock = vi.mocked(fontList.getFonts);
+const getFontsMock = vi.mocked<(...args: any[]) => any>(fontList.getFonts);
 
 const createHelper = (initialSettings: Record<string, unknown> = {}) => {
   const settings = { ...initialSettings };
-  const setSetting = vi.fn(<T>(key: string, value: T) => {
+  const setSetting = vi.fn<(...args: any[]) => any>(<T>(key: string, value: T) => {
     settings[key] = value;
   });
 

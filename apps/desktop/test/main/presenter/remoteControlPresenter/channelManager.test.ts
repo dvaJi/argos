@@ -22,17 +22,17 @@ class FakeAdapter extends EventEmitter implements IChannelAdapter {
     super();
   }
 
-  readonly connect = vi.fn(async () => {
+  readonly connect = vi.fn<(...args: any[]) => any>(async () => {
     this.connected = true;
   });
-  readonly disconnect = vi.fn(async () => {
+  readonly disconnect = vi.fn<(...args: any[]) => any>(async () => {
     this.connected = false;
   });
-  readonly sendMessage = vi.fn(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
-  readonly sendTypingIndicator = vi.fn(async (_chatId: string) => {});
-  readonly onTextUpdate = vi.fn(async (_chatId: string, _fullText: string) => {});
-  readonly onStreamComplete = vi.fn(async (_chatId: string, _finalText: string) => false);
-  readonly onStreamError = vi.fn(async (_chatId: string, _error: string) => {});
+  readonly sendMessage = vi.fn<(...args: any[]) => any>(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
+  readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>(async (_chatId: string) => {});
+  readonly onTextUpdate = vi.fn<(...args: any[]) => any>(async (_chatId: string, _fullText: string) => {});
+  readonly onStreamComplete = vi.fn<(...args: any[]) => any>(async (_chatId: string, _finalText: string) => false);
+  readonly onStreamError = vi.fn<(...args: any[]) => any>(async (_chatId: string, _error: string) => {});
 
   getStatusSnapshot(): ChannelStatusSnapshot {
     return {

@@ -20,42 +20,42 @@ describe("AgentToolManager YoBrowser routing", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    yoBrowserCallTool = vi.fn();
+    yoBrowserCallTool = vi.fn<(...args: any[]) => any>();
     manager = new AgentToolManager({
       agentWorkspacePath: null,
       configPresenter: {
         getSkillsEnabled: () => false,
         getSkillsPath: () => os.tmpdir(),
-        getModelConfig: vi.fn(),
-        resolveArgosAgentConfig: vi.fn().mockResolvedValue({}),
+        getModelConfig: vi.fn<(...args: any[]) => any>(),
+        resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       } as any,
       runtimePort: {
-        resolveConversationWorkdir: vi.fn().mockResolvedValue(null),
-        resolveConversationSessionInfo: vi.fn().mockResolvedValue(null),
+        resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+        resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
         getSkillPresenter: () =>
           ({
-            getActiveSkills: vi.fn().mockResolvedValue([]),
-            getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-            listSkillScripts: vi.fn().mockResolvedValue([]),
-            getSkillExtension: vi.fn(),
+            getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getSkillExtension: vi.fn<(...args: any[]) => any>(),
           }) as any,
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn().mockReturnValue([]),
+          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
           callTool: yoBrowserCallTool,
         }),
         getFilePresenter: () => ({
-          getMimeType: vi.fn(),
-          prepareFileCompletely: vi.fn(),
+          getMimeType: vi.fn<(...args: any[]) => any>(),
+          prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
         }),
         getLlmProviderPresenter: () => ({
-          executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-          generateCompletionStandalone: vi.fn(),
-          generateImageStandalone: vi.fn(),
+          executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+          generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+          generateImageStandalone: vi.fn<(...args: any[]) => any>(),
         }),
-        createSettingsWindow: vi.fn(),
-        sendToWindow: vi.fn().mockReturnValue(true),
-        getApprovedFilePaths: vi.fn().mockReturnValue([]),
-        consumeSettingsApproval: vi.fn().mockReturnValue(false),
+        createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+        sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+        getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       } as any,
     });
   });

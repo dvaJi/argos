@@ -10,7 +10,7 @@ import { createSettingsClient } from "../../../src/renderer/api/SettingsClient";
 describe("renderer api clients", () => {
   function createBridge(): ArgosBridge {
     return {
-      invoke: vi.fn().mockImplementation(async (routeName: string, payload?: Record<string, unknown>) => {
+      invoke: vi.fn<(...args: any[]) => any>().mockImplementation(async (routeName: string, payload?: Record<string, unknown>) => {
         switch (routeName) {
           case "config.getEntries":
             return { version: 0, values: {} };
@@ -96,7 +96,7 @@ describe("renderer api clients", () => {
             return {};
         }
       }),
-      on: vi.fn(() => vi.fn()),
+      on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     };
   }
 
@@ -108,7 +108,7 @@ describe("renderer api clients", () => {
     await client.getSystemFonts();
     await client.update([{ key: "fontSizeLevel", value: 3 }]);
     await client.openSettings({ routeName: "settings-display", section: "fonts" });
-    client.onChanged(vi.fn());
+    client.onChanged(vi.fn<(...args: any[]) => any>());
 
     expect(bridge.invoke).toHaveBeenNthCalledWith(1, "settings.getSnapshot", {
       keys: ["fontSizeLevel"],
@@ -143,7 +143,7 @@ describe("renderer api clients", () => {
     await sessionClient.activate("session-1");
     await sessionClient.deactivate();
     await sessionClient.getActive();
-    sessionClient.onUpdated(vi.fn());
+    sessionClient.onUpdated(vi.fn<(...args: any[]) => any>());
     await chatClient.sendMessage("session-1", "follow up");
     await chatClient.steerActiveTurn("session-1", "refine active answer");
     await chatClient.stopStream({ requestId: "message-1" });
@@ -161,10 +161,10 @@ describe("renderer api clients", () => {
       providerId: "openai",
       modelId: "gpt-5.4",
     });
-    chatClient.onStreamUpdated(vi.fn());
-    chatClient.onStreamCompleted(vi.fn());
-    chatClient.onStreamFailed(vi.fn());
-    chatClient.onPlanUpdated(vi.fn());
+    chatClient.onStreamUpdated(vi.fn<(...args: any[]) => any>());
+    chatClient.onStreamCompleted(vi.fn<(...args: any[]) => any>());
+    chatClient.onStreamFailed(vi.fn<(...args: any[]) => any>());
+    chatClient.onPlanUpdated(vi.fn<(...args: any[]) => any>());
 
     expect(bridge.invoke).toHaveBeenNthCalledWith(1, "sessions.create", {
       agentId: "argos",
@@ -251,13 +251,13 @@ describe("renderer api clients", () => {
     await configClient.getDefaultProjectPath();
     await configClient.getKnowledgeConfigs();
     await configClient.setKnowledgeConfigs([knowledgeConfig]);
-    configClient.onLanguageChanged(vi.fn());
-    configClient.onCustomPromptsChanged(vi.fn());
+    configClient.onLanguageChanged(vi.fn<(...args: any[]) => any>());
+    configClient.onCustomPromptsChanged(vi.fn<(...args: any[]) => any>());
 
     await providerClient.getProviderSummaries();
     await providerClient.getProviderRateLimitStatus("openai");
     await providerClient.refreshModels("openai");
-    providerClient.onProvidersChanged(vi.fn());
+    providerClient.onProvidersChanged(vi.fn<(...args: any[]) => any>());
 
     await modelClient.getModelConfig("gpt-5.4", "openai");
     await modelClient.setModelConfig("gpt-5.4", "openai", {
@@ -270,9 +270,9 @@ describe("renderer api clients", () => {
       type: "chat",
     });
     await modelClient.getCapabilities("openai", "gpt-5.4");
-    modelClient.onModelsChanged(vi.fn());
-    modelClient.onModelStatusChanged(vi.fn());
-    modelClient.onModelConfigChanged(vi.fn());
+    modelClient.onModelsChanged(vi.fn<(...args: any[]) => any>());
+    modelClient.onModelStatusChanged(vi.fn<(...args: any[]) => any>());
+    modelClient.onModelConfigChanged(vi.fn<(...args: any[]) => any>());
 
     expect(bridge.invoke).toHaveBeenNthCalledWith(1, "config.getEntries", {
       keys: ["input_chatMode"],
@@ -421,13 +421,13 @@ describe("renderer api clients", () => {
     });
     expect(payload.selections[0].providerIds).not.toBe(providerIds);
     expect(payload.selections[0].providerOptions).not.toBe(providerOptions);
-    expect(() => structuredClone(payload)).not.toThrow();
+    expect(() => structuredClone(payload)).not.toThrow("expected error");
   });
 
   it("subscribes to browser activity events", () => {
     const bridge = createBridge();
     const browserClient = createBrowserClient(bridge);
-    const listener = vi.fn();
+    const listener = vi.fn<(...args: any[]) => any>();
 
     browserClient.onActivityChanged(listener);
 

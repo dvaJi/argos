@@ -4,8 +4,8 @@ import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const childProcessMocks = vi.hoisted(() => {
-  const execFileAsync = vi.fn()
-  const execFile = vi.fn() as ReturnType<typeof vi.fn> & {
+  const execFileAsync = vi.fn<(...args: any[]) => any>()
+  const execFile = vi.fn<(...args: any[]) => any>() as ReturnType<typeof vi.fn> & {
     [key: symbol]: ReturnType<typeof vi.fn>
   }
   const customPromisify = Symbol.for('nodejs.util.promisify.custom')

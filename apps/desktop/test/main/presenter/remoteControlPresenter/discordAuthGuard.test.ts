@@ -19,14 +19,14 @@ const createMessage = (overrides: Partial<Parameters<DiscordAuthGuard["ensureAut
 describe("DiscordAuthGuard", () => {
   it("pairs the current discord endpoint with a valid code", () => {
     const store = {
-      getDiscordPairingState: vi.fn().mockReturnValue({
+      getDiscordPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 0,
       }),
-      addDiscordPairedChannel: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn(),
+      addDiscordPairedChannel: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>(),
     } as any;
     const guard = new DiscordAuthGuard(store);
 
@@ -39,7 +39,7 @@ describe("DiscordAuthGuard", () => {
 
   it("silences unmentioned guild messages before authorization", () => {
     const store = {
-      isDiscordPairedChannel: vi.fn().mockReturnValue(false),
+      isDiscordPairedChannel: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     } as any;
     const guard = new DiscordAuthGuard(store);
 

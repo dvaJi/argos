@@ -43,7 +43,7 @@ describe("CUA plugin settings", () => {
     const pluginWindow = window as CuaSettingsWindow;
 
     pluginWindow.argosPlugin = {
-      getStatus: vi.fn().mockResolvedValue({
+      getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         enabled: true,
         runtime: {
           state: "ready",
@@ -59,14 +59,14 @@ describe("CUA plugin settings", () => {
           },
         ],
       }),
-      invokeAction: vi.fn().mockResolvedValue({
+      invokeAction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
         data: {
           accessibility: "granted",
           screenRecording: "denied",
         },
       }),
-      disable: vi.fn(),
+      disable: vi.fn<(...args: any[]) => any>(),
     };
 
     await runSettingsScript();
@@ -84,7 +84,7 @@ describe("CUA plugin settings", () => {
     const pluginWindow = window as CuaSettingsWindow;
 
     pluginWindow.argosPlugin = {
-      getStatus: vi.fn().mockResolvedValue({
+      getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         enabled: true,
         runtime: {
           state: "installed",
@@ -101,8 +101,8 @@ describe("CUA plugin settings", () => {
           },
         ],
       }),
-      invokeAction: vi.fn(),
-      disable: vi.fn(),
+      invokeAction: vi.fn<(...args: any[]) => any>(),
+      disable: vi.fn<(...args: any[]) => any>(),
     };
 
     await runSettingsScript();

@@ -95,7 +95,7 @@ const setup = async (options?: {
 
   const toolPresenter = {
     getAllToolDefinitions: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockResolvedValue([
         buildTool("read", "agent-filesystem"),
         buildTool("exec", "agent-filesystem"),
@@ -107,14 +107,14 @@ const setup = async (options?: {
   };
 
   const agentSessionPresenter = {
-    getSessionDisabledAgentTools: vi.fn().mockResolvedValue([...(options?.disabledAgentTools ?? [])]),
-    updateSessionDisabledAgentTools: vi.fn().mockImplementation(async (_id: string, tools: string[]) => tools),
+    getSessionDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([...(options?.disabledAgentTools ?? [])]),
+    updateSessionDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockImplementation(async (_id: string, tools: string[]) => tools),
   };
 
   const windowPresenter = {
-    createSettingsWindow: vi.fn().mockResolvedValue(undefined),
-    getSettingsWindowId: vi.fn().mockReturnValue(1),
-    sendToWindow: vi.fn(),
+    createSettingsWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getSettingsWindowId: vi.fn<(...args: any[]) => any>().mockReturnValue(1),
+    sendToWindow: vi.fn<(...args: any[]) => any>(),
   };
 
   vi.doMock("@/stores/mcp", () => ({
@@ -133,19 +133,19 @@ const setup = async (options?: {
     useProjectStore: () => projectStore,
   }));
   vi.doMock("@api/ToolClient", () => ({
-    createToolClient: vi.fn(() => ({
+    createToolClient: vi.fn<(...args: any[]) => any>(() => ({
       getAllToolDefinitions: toolPresenter.getAllToolDefinitions,
     })),
   }));
   vi.doMock("@api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => ({
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
       getSessionDisabledAgentTools: agentSessionPresenter.getSessionDisabledAgentTools,
       updateSessionDisabledAgentTools: agentSessionPresenter.updateSessionDisabledAgentTools,
     })),
   }));
   vi.doMock("@api/SkillClient", () => ({
-    createSkillClient: vi.fn(() => ({
-      onSessionChanged: vi.fn(
+    createSkillClient: vi.fn<(...args: any[]) => any>(() => ({
+      onSessionChanged: vi.fn<(...args: any[]) => any>(
         (
           listener: (payload: {
             conversationId?: string | null;
@@ -164,7 +164,7 @@ const setup = async (options?: {
     })),
   }));
   vi.doMock("@api/SettingsClient", () => ({
-    createSettingsClient: vi.fn(() => ({
+    createSettingsClient: vi.fn<(...args: any[]) => any>(() => ({
       openSettings: windowPresenter.createSettingsWindow,
     })),
   }));
@@ -173,7 +173,7 @@ const setup = async (options?: {
   }));
 
   const McpIndicator = (await import("@/components/chat-input/McpIndicator")).default;
-  const onToggleSubagents = vi.fn();
+  const onToggleSubagents = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <McpIndicator

@@ -3,9 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockGetPath = vi.fn();
-const mockGetAppPath = vi.fn();
-const mockNetFetch = vi.fn();
+const mockGetPath = vi.fn<(...args: any[]) => any>();
+const mockGetAppPath = vi.fn<(...args: any[]) => any>();
+const mockNetFetch = vi.fn<(...args: any[]) => any>();
 
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
@@ -124,7 +124,7 @@ describe("AcpRegistryService", () => {
     const manifest = createManifest();
     writeBuiltInManifest(manifest);
 
-    const globalFetch = vi.fn();
+    const globalFetch = vi.fn<(...args: any[]) => any>();
     vi.stubGlobal("fetch", globalFetch);
 
     const AcpRegistryService = await importService();
@@ -140,15 +140,15 @@ describe("AcpRegistryService", () => {
 
   it("writes refreshed icon cache and prunes stale cached icons", async () => {
     const manifest = createManifest();
-    const globalFetch = vi.fn().mockResolvedValue({
+    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue(JSON.stringify(manifest)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
     });
     vi.stubGlobal("fetch", globalFetch);
 
     mockNetFetch.mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
     });
 
     const staleIconDir = path.join(userDataRoot, "acp-registry", "icons");
@@ -172,15 +172,15 @@ describe("AcpRegistryService", () => {
     const manifest = createManifest();
     writeBuiltInManifest(manifest);
 
-    const globalFetch = vi.fn().mockResolvedValue({
+    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue(JSON.stringify(manifest)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
     });
     vi.stubGlobal("fetch", globalFetch);
 
     mockNetFetch.mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
     });
 
     const AcpRegistryService = await importService();
@@ -196,9 +196,9 @@ describe("AcpRegistryService", () => {
 
   it("preserves existing cached icon when refreshing a new icon fails", async () => {
     const manifest = createManifest();
-    const globalFetch = vi.fn().mockResolvedValue({
+    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue(JSON.stringify(manifest)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
     });
     vi.stubGlobal("fetch", globalFetch);
 
@@ -234,10 +234,10 @@ describe("AcpRegistryService", () => {
     fs.mkdirSync(emptyAppRoot, { recursive: true });
     fs.mkdirSync(emptyCwd, { recursive: true });
     mockGetAppPath.mockReturnValue(emptyAppRoot);
-    vi.spyOn(process, "cwd").mockReturnValue(emptyCwd);
-    const globalFetch = vi.fn().mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(process, "cwd").mockReturnValue(emptyCwd);
+    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      text: vi.fn().mockResolvedValue(JSON.stringify(duplicateManifest)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(duplicateManifest)),
     });
     vi.stubGlobal("fetch", globalFetch);
 

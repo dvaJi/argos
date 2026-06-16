@@ -4,9 +4,9 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-  getPath: vi.fn(),
-  getAppPath: vi.fn(),
-  send: vi.fn(),
+  getPath: vi.fn<(...args: any[]) => any>(),
+  getAppPath: vi.fn<(...args: any[]) => any>(),
+  send: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("fs", async () => {
@@ -125,11 +125,11 @@ describe("ProviderDbLoader", () => {
       ttlHours: 4,
     });
 
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: 304,
       ok: false,
       headers: {
-        get: vi.fn().mockReturnValue('"etag-1"'),
+        get: vi.fn<(...args: any[]) => any>().mockReturnValue('"etag-1"'),
       },
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -150,7 +150,7 @@ describe("ProviderDbLoader", () => {
     writeBuiltInDb(createAggregate(["builtin"]));
     writeCachedDb(createAggregate(["openai"]));
 
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(...args: any[]) => any>();
     vi.stubGlobal("fetch", fetchMock);
 
     const ProviderDbLoader = await importLoader();
@@ -173,7 +173,7 @@ describe("ProviderDbLoader", () => {
       ttlHours: 4,
     });
 
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(...args: any[]) => any>();
     vi.stubGlobal("fetch", fetchMock);
 
     const ProviderDbLoader = await importLoader();
@@ -196,11 +196,11 @@ describe("ProviderDbLoader", () => {
       ttlHours: 4,
     });
 
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: 304,
       ok: false,
       headers: {
-        get: vi.fn().mockReturnValue('"etag-2"'),
+        get: vi.fn<(...args: any[]) => any>().mockReturnValue('"etag-2"'),
       },
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -227,13 +227,13 @@ describe("ProviderDbLoader", () => {
     writeCachedDb(createAggregate(["openai"]));
 
     const refreshedAggregate = createAggregate(["openai", "anthropic"]);
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: 200,
       ok: true,
       headers: {
-        get: vi.fn().mockReturnValue('"etag-3"'),
+        get: vi.fn<(...args: any[]) => any>().mockReturnValue('"etag-3"'),
       },
-      text: vi.fn().mockResolvedValue(JSON.stringify(refreshedAggregate)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(refreshedAggregate)),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -255,13 +255,13 @@ describe("ProviderDbLoader", () => {
     writeCachedDb(createAggregate(["openai"]));
 
     const refreshedAggregate = createAggregate(["openai", "anthropic"]);
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: 200,
       ok: true,
       headers: {
-        get: vi.fn().mockReturnValue('"etag-privacy"'),
+        get: vi.fn<(...args: any[]) => any>().mockReturnValue('"etag-privacy"'),
       },
-      text: vi.fn().mockResolvedValue(JSON.stringify(refreshedAggregate)),
+      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(refreshedAggregate)),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -287,7 +287,7 @@ describe("ProviderDbLoader", () => {
       ttlHours: 4,
     });
 
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+    vi.stubGlobal("fetch", vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("network down")));
 
     const ProviderDbLoader = await importLoader();
     const loader = new ProviderDbLoader();

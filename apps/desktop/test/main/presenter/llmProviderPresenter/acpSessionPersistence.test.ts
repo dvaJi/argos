@@ -7,15 +7,15 @@ import type { AcpSessionEntity, ISQLitePresenter } from "../../../../src/shared/
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn(() => "/home/tester"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/home/tester"),
   },
 }));
 
 describe("AcpSessionPersistence remote session sync", () => {
   beforeEach(() => {
     const usableDirectories = new Set([process.cwd(), path.dirname(process.cwd()), "/home/tester"]);
-    vi.mocked(fs.existsSync).mockImplementation((target) => usableDirectories.has(String(target)));
-    vi.mocked(fs.statSync).mockImplementation(
+    vi.mocked<(...args: any[]) => any>(fs.existsSync).mockImplementation((target) => usableDirectories.has(String(target)));
+    vi.mocked<(...args: any[]) => any>(fs.statSync).mockImplementation(
       (target) =>
         ({
           isDirectory: () => usableDirectories.has(String(target)),
@@ -26,14 +26,14 @@ describe("AcpSessionPersistence remote session sync", () => {
   it("falls back from missing persisted workdirs to the default workdir", () => {
     const homeDir = process.cwd();
     const missingDir = path.join(homeDir, "missing-workdir-for-acp-test");
-    vi.mocked(app.getPath).mockReturnValue(homeDir);
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockReturnValue(homeDir);
 
     const persistence = new AcpSessionPersistence({} as ISQLitePresenter);
 
     expect(persistence.isWorkdirUsable(missingDir)).toBe(false);
     expect(persistence.resolveWorkdir(missingDir)).toBe(homeDir);
 
-    vi.mocked(app.getPath).mockReturnValue("/home/tester");
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockReturnValue("/home/tester");
   });
 
   it("imports remote sessions once and updates the existing link on later syncs", async () => {
@@ -41,9 +41,9 @@ describe("AcpSessionPersistence remote session sync", () => {
     const localWorkdir = path.dirname(workspaceDir);
     let storedSession: AcpSessionEntity | null = null;
     const sqlitePresenter = {
-      getAcpSessionByAgentAndSessionId: vi.fn(async () => storedSession),
-      createConversation: vi.fn(async () => "conv-imported"),
-      updateAcpSessionStatus: vi.fn(async (_conversationId, _agentId, status) => {
+      getAcpSessionByAgentAndSessionId: vi.fn<(...args: any[]) => any>(async () => storedSession),
+      createConversation: vi.fn<(...args: any[]) => any>(async () => "conv-imported"),
+      updateAcpSessionStatus: vi.fn<(...args: any[]) => any>(async (_conversationId, _agentId, status) => {
         if (storedSession) {
           storedSession = {
             ...storedSession,
@@ -51,7 +51,7 @@ describe("AcpSessionPersistence remote session sync", () => {
           };
         }
       }),
-      upsertAcpSession: vi.fn(
+      upsertAcpSession: vi.fn<(...args: any[]) => any>(
         async (
           conversationId: string,
           agentId: string,
@@ -154,14 +154,14 @@ describe("AcpSessionPersistence remote session sync", () => {
       markCreateStarted = resolve;
     });
     const sqlitePresenter = {
-      getAcpSessionByAgentAndSessionId: vi.fn(async () => storedSession),
-      createConversation: vi.fn(async () => {
+      getAcpSessionByAgentAndSessionId: vi.fn<(...args: any[]) => any>(async () => storedSession),
+      createConversation: vi.fn<(...args: any[]) => any>(async () => {
         markCreateStarted();
         await createGate;
         return "conv-imported";
       }),
-      deleteConversation: vi.fn().mockResolvedValue(undefined),
-      upsertAcpSession: vi.fn(
+      deleteConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      upsertAcpSession: vi.fn<(...args: any[]) => any>(
         async (
           conversationId: string,
           agentId: string,
@@ -240,14 +240,14 @@ describe("AcpSessionPersistence remote session sync", () => {
     };
     let lookupCount = 0;
     const sqlitePresenter = {
-      getAcpSessionByAgentAndSessionId: vi.fn(async () => {
+      getAcpSessionByAgentAndSessionId: vi.fn<(...args: any[]) => any>(async () => {
         lookupCount += 1;
         return lookupCount === 1 ? null : existingSession;
       }),
-      createConversation: vi.fn(async () => "conv-duplicate"),
-      deleteConversation: vi.fn().mockResolvedValue(undefined),
+      createConversation: vi.fn<(...args: any[]) => any>(async () => "conv-duplicate"),
+      deleteConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       upsertAcpSession: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockRejectedValueOnce(new Error("UNIQUE constraint failed: acp_sessions.agent_id"))
         .mockResolvedValue(undefined),
     } as unknown as ISQLitePresenter;
@@ -293,10 +293,10 @@ describe("AcpSessionPersistence remote session sync", () => {
     const workspaceDir = process.cwd();
     const saveError = new Error("database unavailable");
     const sqlitePresenter = {
-      getAcpSessionByAgentAndSessionId: vi.fn().mockResolvedValue(null),
-      createConversation: vi.fn(async () => "conv-failed"),
-      deleteConversation: vi.fn().mockResolvedValue(undefined),
-      upsertAcpSession: vi.fn().mockRejectedValue(saveError),
+      getAcpSessionByAgentAndSessionId: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      createConversation: vi.fn<(...args: any[]) => any>(async () => "conv-failed"),
+      deleteConversation: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      upsertAcpSession: vi.fn<(...args: any[]) => any>().mockRejectedValue(saveError),
     } as unknown as ISQLitePresenter;
     const persistence = new AcpSessionPersistence(sqlitePresenter);
 
@@ -344,13 +344,13 @@ describe("AcpSessionPersistence remote session sync", () => {
     });
     let saveCount = 0;
     const sqlitePresenter = {
-      getAcpSession: vi.fn(async () => ({
+      getAcpSession: vi.fn<(...args: any[]) => any>(async () => ({
         ...storedSession,
         metadata: {
           ...storedSession.metadata,
         },
       })),
-      upsertAcpSession: vi.fn(
+      upsertAcpSession: vi.fn<(...args: any[]) => any>(
         async (
           conversationId: string,
           agentId: string,
@@ -397,12 +397,12 @@ describe("AcpSessionPersistence remote session sync", () => {
   it("keeps remote cwd metadata while using a local fallback for missing imported workdirs", async () => {
     const fallbackDir = process.cwd();
     const remoteMissingDir = path.join(fallbackDir, "remote-missing");
-    vi.mocked(app.getPath).mockReturnValue(fallbackDir);
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockReturnValue(fallbackDir);
 
     const sqlitePresenter = {
-      getAcpSessionByAgentAndSessionId: vi.fn(async () => null),
-      createConversation: vi.fn(async () => "conv-imported"),
-      upsertAcpSession: vi.fn().mockResolvedValue(undefined),
+      getAcpSessionByAgentAndSessionId: vi.fn<(...args: any[]) => any>(async () => null),
+      createConversation: vi.fn<(...args: any[]) => any>(async () => "conv-imported"),
+      upsertAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     } as unknown as ISQLitePresenter;
     const persistence = new AcpSessionPersistence(sqlitePresenter);
 
@@ -441,7 +441,7 @@ describe("AcpSessionPersistence remote session sync", () => {
         }),
       );
     } finally {
-      vi.mocked(app.getPath).mockReturnValue("/home/tester");
+      vi.mocked<(...args: any[]) => any>(app.getPath).mockReturnValue("/home/tester");
     }
   });
 });

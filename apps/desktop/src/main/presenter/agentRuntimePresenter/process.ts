@@ -27,7 +27,7 @@ function isAbortError(error: unknown): boolean {
 
 function isContextWindowErrorMessage(message: string): boolean {
   const normalized = message.toLowerCase();
-  return CONTEXT_WINDOW_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+  return CONTEXT_WINDOW_ERROR_PATTERNS.some(normalized.includes);
 }
 
 function getLatestErrorMessage(state: StreamState): string | null {

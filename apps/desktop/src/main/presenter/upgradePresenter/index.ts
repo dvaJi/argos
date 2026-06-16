@@ -290,7 +290,10 @@ export class UpgradePresenter implements IUpgradePresenter {
           const markerIsPre = isPrereleaseVersion(markerVersion);
           const currentIsPre = isPrereleaseVersion(currentVersion);
           if (markerIsPre !== currentIsPre) {
-            console.log("Ignoring old update marker from a different channel", { marker: markerVersion, currentVersion });
+            console.log("Ignoring old update marker from a different channel", {
+              marker: markerVersion,
+              currentVersion,
+            });
             fs.unlinkSync(this._updateMarkerPath);
             return;
           }

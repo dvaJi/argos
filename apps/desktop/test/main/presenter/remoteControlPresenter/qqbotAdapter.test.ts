@@ -21,7 +21,7 @@ const clientInstances: Array<{
 
 vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
   QQBotRuntime: class MockQQBotRuntime {
-    readonly start = vi.fn(async () => {
+    readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
         state: "running",
         lastError: null,
@@ -31,8 +31,8 @@ vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
         },
       });
     });
-    readonly stop = vi.fn().mockResolvedValue(undefined);
-    readonly getStatusSnapshot = vi.fn().mockReturnValue({
+    readonly stop = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly getStatusSnapshot = vi.fn<(...args: any[]) => any>().mockReturnValue({
       state: "stopped",
       lastError: null,
       botUser: null,
@@ -46,16 +46,16 @@ vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
 
 vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotClient", () => ({
   QQBotClient: class MockQQBotClient {
-    readonly sendC2CMessage = vi.fn().mockResolvedValue({
+    readonly sendC2CMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "msg_reply_1",
     });
-    readonly sendGroupMessage = vi.fn().mockResolvedValue({
+    readonly sendGroupMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "msg_reply_2",
     });
-    readonly sendC2CImage = vi.fn().mockResolvedValue({
+    readonly sendC2CImage = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "msg_image_1",
     });
-    readonly sendGroupImage = vi.fn().mockResolvedValue({
+    readonly sendGroupImage = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "msg_image_2",
     });
 
@@ -104,7 +104,7 @@ describe("QQBotAdapter", () => {
   });
 
   it("forwards fatal errors from the wrapped runtime", async () => {
-    const onFatalError = vi.fn().mockResolvedValue(undefined);
+    const onFatalError = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     const adapter = new QQBotAdapter(
       {
         channelId: "default",

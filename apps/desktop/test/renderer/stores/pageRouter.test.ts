@@ -3,13 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 const setupStore = async (options?: { activeAgentSession?: { id: string } | null }) => {
   vi.resetModules();
   const sessionClient = {
-    getActive: vi.fn().mockResolvedValue({
+    getActive: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       session: options?.activeAgentSession ?? null,
     }),
   };
 
   vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
   const { usePageRouterStore } = await import("@/stores/ui/pageRouter");
@@ -95,11 +95,11 @@ describe("pageRouter.initialize", () => {
     vi.resetModules();
 
     const sessionClient = {
-      getActive: vi.fn().mockRejectedValue(new Error("boom")),
+      getActive: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
     };
 
     vi.doMock("../../../src/renderer/api/SessionClient", () => ({
-      createSessionClient: vi.fn(() => sessionClient),
+      createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
     }));
 
     const { usePageRouterStore } = await import("@/stores/ui/pageRouter");

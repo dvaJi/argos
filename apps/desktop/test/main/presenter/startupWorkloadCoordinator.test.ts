@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const publishArgosEventMock = vi.hoisted(() => vi.fn());
+const publishArgosEventMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
 vi.mock("@/routes/publishArgosEvent", () => ({
   publishArgosEvent: publishArgosEventMock,

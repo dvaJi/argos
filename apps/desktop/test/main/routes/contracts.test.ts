@@ -169,7 +169,7 @@ describe("main kernel contracts", () => {
         pluginId: "",
         actionId: "runtime.getStatus",
       }),
-    ).toThrow();
+    ).toThrow("expected error");
   });
 
   it("bounds audio transcription route payload fields", () => {
@@ -180,7 +180,7 @@ describe("main kernel contracts", () => {
         audioBase64: "A".repeat(15_000_001),
         mimeType: "audio/wav",
       }),
-    ).toThrow();
+    ).toThrow("expected error");
 
     expect(() =>
       modelsTranscribeAudioRoute.input.parse({
@@ -189,7 +189,7 @@ describe("main kernel contracts", () => {
         audioBase64: "AQID",
         mimeType: "a".repeat(256),
       }),
-    ).toThrow();
+    ).toThrow("expected error");
   });
 
   it("validates typed settings updates through the shared route contract", () => {
@@ -197,7 +197,7 @@ describe("main kernel contracts", () => {
       settingsUpdateRoute.input.parse({
         changes: [{ key: "fontSizeLevel", value: "wrong-type" }],
       }),
-    ).toThrow();
+    ).toThrow("expected error");
 
     expect(
       settingsUpdateRoute.input.parse({
@@ -221,7 +221,7 @@ describe("main kernel contracts", () => {
       configListAgentsRoute.output.parse({
         agents: [{ id: "agent-1", enabled: true }],
       }),
-    ).toThrow();
+    ).toThrow("expected error");
 
     expect(
       configListAgentsRoute.output.parse({
@@ -504,7 +504,7 @@ describe("main kernel contracts", () => {
         providerId: "",
         modelId: "gpt-5.4",
       }),
-    ).toThrow();
+    ).toThrow("expected error");
 
     expect(
       providersListSummariesRoute.output.parse({
@@ -538,7 +538,7 @@ describe("main kernel contracts", () => {
       ARGOS_ROUTE_CATALOG["config.updateEntries"].input.parse({
         changes: [{ key: "input_deepThinking", value: "true" }],
       }),
-    ).toThrow();
+    ).toThrow("expected error");
 
     expect(
       ARGOS_ROUTE_CATALOG["config.updateEntries"].input.parse({
@@ -717,7 +717,7 @@ describe("main kernel contracts", () => {
           },
         ],
       }),
-    ).not.toThrow();
+    ).not.toThrow("expected error");
 
     expect(() =>
       chatStreamFailedEvent.payload.parse({
@@ -726,6 +726,6 @@ describe("main kernel contracts", () => {
         messageId: "message-1",
         failedAt: Date.now(),
       }),
-    ).toThrow();
+    ).toThrow("expected error");
   });
 });

@@ -13,7 +13,7 @@ function safeSerialize(value: unknown): unknown {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => safeSerialize(item));
+    return value.map(safeSerialize);
   }
 
   const serialized: Record<string, unknown> = {};
@@ -36,7 +36,7 @@ function safeSerialize(value: unknown): unknown {
 
 function toSerializablePayloads(payloads: unknown[]) {
   try {
-    return payloads.map((payload) => safeSerialize(payload));
+    return payloads.map(safeSerialize);
   } catch (error) {
     console.warn("error on payload serialization", error);
     return payloads;

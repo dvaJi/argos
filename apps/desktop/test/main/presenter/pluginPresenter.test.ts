@@ -51,26 +51,26 @@ const createPluginPresenter = async (
   const { PluginPresenter } = await import("@/presenter/pluginPresenter");
   const mcpServers: Record<string, unknown> = {};
   const configPresenter = {
-    getMcpServers: vi.fn().mockImplementation(async () => mcpServers),
-    addMcpServer: vi.fn().mockImplementation(async (serverName: string, config: unknown) => {
+    getMcpServers: vi.fn<(...args: any[]) => any>().mockImplementation(async () => mcpServers),
+    addMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string, config: unknown) => {
       mcpServers[serverName] = config;
     }),
-    updateMcpServer: vi.fn().mockImplementation(async (serverName: string, config: unknown) => {
+    updateMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string, config: unknown) => {
       mcpServers[serverName] = config;
     }),
-    removeMcpServer: vi.fn().mockImplementation(async (serverName: string) => {
+    removeMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string) => {
       delete mcpServers[serverName];
     }),
-    getMcpEnabled: vi.fn().mockResolvedValue(options.mcpEnabled ?? true),
+    getMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(options.mcpEnabled ?? true),
   };
   const mcpPresenter = {
-    isReady: vi.fn(() => true),
-    isServerRunning: vi.fn().mockResolvedValue(false),
-    startServer: vi.fn().mockResolvedValue(undefined),
-    stopServer: vi.fn().mockResolvedValue(undefined),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    isServerRunning: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
+    startServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    stopServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const skillPresenter = {
-    unregisterPluginSkillsByOwner: vi.fn().mockResolvedValue(undefined),
+    unregisterPluginSkillsByOwner: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const presenter = new PluginPresenter({
     platform,
@@ -175,7 +175,7 @@ const createBundledFixture = async (
   await mkdir(packageRoot, { recursive: true });
   await mkdir(userDataPath, { recursive: true });
   await writeFile(packagePath, Buffer.from(zipSync(files, { level: 6 })));
-  vi.mocked(app.getPath).mockImplementation((name: string) => {
+  vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => {
     if (name === "userData") {
       return userDataPath;
     }
@@ -277,7 +277,7 @@ const createDirectoryFixture = async (
   );
   await writeFile(path.join(installedRoot, "plugin.json"), `${JSON.stringify(staleInstalledManifest, null, 2)}\n`);
   await writeFile(path.join(installedRoot, "mcp", "legacy.mjs"), 'console.log("legacy")\n');
-  vi.mocked(app.getPath).mockImplementation((name: string) => {
+  vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => {
     if (name === "userData") {
       return userDataPath;
     }
@@ -299,7 +299,7 @@ const createDirectoryFixture = async (
 describe("PluginPresenter", () => {
   afterEach(async () => {
     process.chdir(originalCwd);
-    vi.mocked(app.getPath).mockImplementation(() => "/mock/path");
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation(() => "/mock/path");
     await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
@@ -385,7 +385,7 @@ describe("PluginPresenter", () => {
 
     expect(action).toMatchObject({ ok: true });
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
+    expect(vi.mocked<(...args: any[]) => any>(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
       path.join(fixture.userDataPath, "plugins", fixture.pluginId, "settings", "index.html"),
       {
         query: {
@@ -416,7 +416,7 @@ describe("PluginPresenter", () => {
 
     expect(action).toMatchObject({ ok: true });
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
+    expect(vi.mocked<(...args: any[]) => any>(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
       path.join(fixture.userDataPath, "plugins", fixture.pluginId, "settings", "index.html"),
       {
         query: {
@@ -458,7 +458,7 @@ describe("PluginPresenter", () => {
 
     expect(action).toMatchObject({ ok: true });
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
+    expect(vi.mocked<(...args: any[]) => any>(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
       path.join(fixture.userDataPath, "plugins", fixture.pluginId, "settings", "index.html"),
       {
         query: {
@@ -489,7 +489,7 @@ describe("PluginPresenter", () => {
 
     expect(action).toMatchObject({ ok: true });
     expect(BrowserWindow).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
+    expect(vi.mocked<(...args: any[]) => any>(BrowserWindow).mock.results[0]?.value.loadFile).toHaveBeenCalledWith(
       path.join(fixture.installedRoot, "settings", "index.html"),
       {
         query: {

@@ -14,7 +14,7 @@ export const isDeepLinkUrl = (value: string | null | undefined): value is string
 export const normalizeDeepLinkUrl = (value: string): string => value.trim();
 
 export const findDeepLinkArg = (argv: readonly string[]): string | null => {
-  const matched = argv.find((arg) => isDeepLinkUrl(arg));
+  const matched = argv.find(isDeepLinkUrl);
   return matched ? normalizeDeepLinkUrl(matched) : null;
 };
 

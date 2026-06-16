@@ -621,7 +621,7 @@ export class RtkRuntimeService {
     const summaryRecord = asRecord(parsed.summary) ?? {};
     const daily = Array.isArray(parsed.daily)
       ? parsed.daily
-          .map((entry) => asRecord(entry))
+          .map(asRecord)
           .filter((entry): entry is Record<string, unknown> => entry !== null)
           .map((entry) => ({
             date: typeof entry.date === "string" ? entry.date : "",

@@ -5,20 +5,20 @@ import { unzipSync, zipSync } from "fflate";
 import * as fsMock from "fs";
 
 const configImportMocks = vi.hoisted(() => ({
-  importLegacyConfig: vi.fn(),
-  ensureConfigMigrationMarker: vi.fn(),
-  readManifest: vi.fn(),
+  importLegacyConfig: vi.fn<(...args: any[]) => any>(),
+  ensureConfigMigrationMarker: vi.fn<(...args: any[]) => any>(),
+  readManifest: vi.fn<(...args: any[]) => any>(),
 }));
 
 const cloudStorageMocks = vi.hoisted(() => ({
-  testConnection: vi.fn(),
-  uploadBackup: vi.fn(),
-  listRemoteBackups: vi.fn(),
-  downloadLatest: vi.fn(),
+  testConnection: vi.fn<(...args: any[]) => any>(),
+  uploadBackup: vi.fn<(...args: any[]) => any>(),
+  listRemoteBackups: vi.fn<(...args: any[]) => any>(),
+  downloadLatest: vi.fn<(...args: any[]) => any>(),
 }));
 
 const mainPresenterMocks = vi.hoisted(() => ({
-  broadcastConversationThreadListUpdate: vi.fn(),
+  broadcastConversationThreadListUpdate: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("better-sqlite3-multiple-ciphers", async () => {
@@ -282,7 +282,7 @@ vi.mock("../../../src/main/presenter/syncPresenter/configImportService", async (
 });
 
 vi.mock("../../../src/main/presenter/syncPresenter/cloudStorageService", () => ({
-  CloudStorageService: vi.fn(() => cloudStorageMocks),
+  CloudStorageService: vi.fn<(...args: any[]) => any>(() => cloudStorageMocks),
 }));
 
 vi.mock("../../../src/main/presenter/index", () => ({
@@ -333,7 +333,7 @@ describe("SyncPresenter backup import", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "argos-temp-"));
     syncDir = fs.mkdtempSync(path.join(os.tmpdir(), "argos-sync-"));
 
-    getPathSpy = vi.spyOn(app, "getPath").mockImplementation((type: string) => {
+    getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockImplementation((type: string) => {
       if (type === "userData") {
         return userDataDir;
       }
@@ -343,20 +343,20 @@ describe("SyncPresenter backup import", () => {
       return os.tmpdir();
     });
 
-    dbPragma = vi.fn();
+    dbPragma = vi.fn<(...args: any[]) => any>();
     sqlitePresenter = {
-      close: vi.fn(),
-      reopen: vi.fn(),
-      getDatabase: vi.fn(() => ({
+      close: vi.fn<(...args: any[]) => any>(),
+      reopen: vi.fn<(...args: any[]) => any>(),
+      getDatabase: vi.fn<(...args: any[]) => any>(() => ({
         open: true,
         pragma: dbPragma,
       })),
       configTables: {
-        hasConfigMigration: vi.fn(() => true),
+        hasConfigMigration: vi.fn<(...args: any[]) => any>(() => true),
       },
-      getDatabasePassword: vi.fn(() => undefined),
-      clearNewAgentData: vi.fn(),
-      importLegacyChatDb: vi.fn(async () => ({
+      getDatabasePassword: vi.fn<(...args: any[]) => any>(() => undefined),
+      clearNewAgentData: vi.fn<(...args: any[]) => any>(),
+      importLegacyChatDb: vi.fn<(...args: any[]) => any>(async () => ({
         importedSessions: 0,
         importedMessages: 0,
         importedSearchResults: 0,
@@ -364,11 +364,11 @@ describe("SyncPresenter backup import", () => {
     };
 
     configPresenter = {
-      getSyncFolderPath: vi.fn(() => syncDir),
-      getSyncEnabled: vi.fn(() => true),
-      getLastSyncTime: vi.fn(() => 0),
-      setLastSyncTime: vi.fn(),
-      getResolvedCloudSyncConfig: vi.fn(() => ({
+      getSyncFolderPath: vi.fn<(...args: any[]) => any>(() => syncDir),
+      getSyncEnabled: vi.fn<(...args: any[]) => any>(() => true),
+      getLastSyncTime: vi.fn<(...args: any[]) => any>(() => 0),
+      setLastSyncTime: vi.fn<(...args: any[]) => any>(),
+      getResolvedCloudSyncConfig: vi.fn<(...args: any[]) => any>(() => ({
         endpoint: "https://r2.example.com",
         bucket: "argos",
         region: "auto",

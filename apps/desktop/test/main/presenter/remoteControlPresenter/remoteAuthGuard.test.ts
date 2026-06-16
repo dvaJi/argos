@@ -16,7 +16,7 @@ const createMessage = (overrides: Partial<Parameters<RemoteAuthGuard["ensureAuth
 describe("RemoteAuthGuard", () => {
   it("authorizes allowed private users by numeric id", () => {
     const store = {
-      isAllowedUser: vi.fn().mockReturnValue(true),
+      isAllowedUser: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     } as any;
     const guard = new RemoteAuthGuard(store);
 
@@ -29,7 +29,7 @@ describe("RemoteAuthGuard", () => {
 
   it("rejects non-private chats", () => {
     const guard = new RemoteAuthGuard({
-      isAllowedUser: vi.fn().mockReturnValue(true),
+      isAllowedUser: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     } as any);
 
     const result = guard.ensureAuthorized(createMessage({ chatType: "group" }));
@@ -44,14 +44,14 @@ describe("RemoteAuthGuard", () => {
 
   it("pairs a user with a valid one-time code", () => {
     const store = {
-      getTelegramPairingState: vi.fn().mockReturnValue({
+      getTelegramPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 0,
       }),
-      addAllowedUser: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn(),
+      addAllowedUser: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>(),
     } as any;
     const guard = new RemoteAuthGuard(store);
 
@@ -64,14 +64,14 @@ describe("RemoteAuthGuard", () => {
 
   it("rejects expired pair codes and clears them", () => {
     const store = {
-      getTelegramPairingState: vi.fn().mockReturnValue({
+      getTelegramPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() - 1,
         failedAttempts: 0,
       }),
-      addAllowedUser: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn(),
+      addAllowedUser: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>(),
     } as any;
     const guard = new RemoteAuthGuard(store);
 
@@ -84,14 +84,14 @@ describe("RemoteAuthGuard", () => {
 
   it("expires the pairing code after too many invalid attempts", () => {
     const store = {
-      getTelegramPairingState: vi.fn().mockReturnValue({
+      getTelegramPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 4,
       }),
-      addAllowedUser: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn().mockReturnValue({
+      addAllowedUser: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>().mockReturnValue({
         attempts: 5,
         exhausted: true,
       }),

@@ -6,7 +6,7 @@ import { ModelType } from "../../../../src/shared/model";
 describe("dispatchModelRoute models.getProviderCatalog", () => {
   it("includes provider DB-only models when resolving persisted model status", async () => {
     const configPresenter = {
-      getProviderModels: vi.fn(() => [
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "gpt-5",
           name: "GPT-5",
@@ -14,7 +14,7 @@ describe("dispatchModelRoute models.getProviderCatalog", () => {
           providerId: "aihubmix",
         },
       ]),
-      getCustomModels: vi.fn(() => [
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "custom-chat",
           name: "Custom Chat",
@@ -23,7 +23,7 @@ describe("dispatchModelRoute models.getProviderCatalog", () => {
           isCustom: true,
         },
       ]),
-      getDbProviderModels: vi.fn(() => [
+      getDbProviderModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "text-embedding-3-small",
           name: "text-embedding-3-small",
@@ -43,7 +43,7 @@ describe("dispatchModelRoute models.getProviderCatalog", () => {
           type: ModelType.Chat,
         },
       ]),
-      getBatchModelStatus: vi.fn((_providerId: string, modelIds: string[]) =>
+      getBatchModelStatus: vi.fn<(...args: any[]) => any>((_providerId: string, modelIds: string[]) =>
         Object.fromEntries(modelIds.map((modelId) => [modelId, modelId.includes("embedding")])),
       ),
     };

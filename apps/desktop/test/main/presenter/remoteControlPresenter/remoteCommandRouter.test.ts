@@ -28,8 +28,8 @@ const createCallbackQuery = (overrides: Partial<Parameters<RemoteCommandRouter["
 });
 
 const createBindingStore = () => ({
-  getEndpointKey: vi.fn().mockReturnValue("telegram:100:0"),
-  getTelegramConfig: vi.fn().mockReturnValue({
+  getEndpointKey: vi.fn<(...args: any[]) => any>().mockReturnValue("telegram:100:0"),
+  getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
     allowlist: [123],
     bindings: {
       "telegram:100:0": { sessionId: "session-1", updatedAt: 1 },
@@ -37,22 +37,22 @@ const createBindingStore = () => ({
     streamMode: "draft",
     defaultWorkdir: "",
   }),
-  createModelMenuState: vi.fn().mockReturnValue("menu-token"),
-  getModelMenuState: vi.fn(),
-  clearModelMenuState: vi.fn(),
-  createAgentMenuState: vi.fn().mockReturnValue("agent-token"),
-  getAgentMenuState: vi.fn(),
-  clearAgentMenuState: vi.fn(),
-  createPendingInteractionState: vi.fn().mockReturnValue("pending-token"),
-  getPendingInteractionState: vi.fn(),
-  clearPendingInteractionState: vi.fn(),
+  createModelMenuState: vi.fn<(...args: any[]) => any>().mockReturnValue("menu-token"),
+  getModelMenuState: vi.fn<(...args: any[]) => any>(),
+  clearModelMenuState: vi.fn<(...args: any[]) => any>(),
+  createAgentMenuState: vi.fn<(...args: any[]) => any>().mockReturnValue("agent-token"),
+  getAgentMenuState: vi.fn<(...args: any[]) => any>(),
+  clearAgentMenuState: vi.fn<(...args: any[]) => any>(),
+  createPendingInteractionState: vi.fn<(...args: any[]) => any>().mockReturnValue("pending-token"),
+  getPendingInteractionState: vi.fn<(...args: any[]) => any>(),
+  clearPendingInteractionState: vi.fn<(...args: any[]) => any>(),
 });
 
 const createRunner = (overrides: Record<string, unknown> = {}) => ({
-  getPendingInteraction: vi.fn().mockResolvedValue(null),
-  getDefaultAgentId: vi.fn().mockResolvedValue("argos"),
-  getDefaultWorkdir: vi.fn().mockResolvedValue(null),
-  isSessionModelLocked: vi.fn().mockResolvedValue(false),
+  getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  getDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+  getDefaultWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
   ...overrides,
 });
 
@@ -74,22 +74,22 @@ describe("RemoteCommandRouter", () => {
   it("returns pairing guidance for unauthorized plain text", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: false,
           message: "pair first",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {} as any,
       bindingStore: {
-        getEndpointKey: vi.fn().mockReturnValue("telegram:100:0"),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getEndpointKey: vi.fn<(...args: any[]) => any>().mockReturnValue("telegram:100:0"),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           allowlist: [],
           bindings: {},
           streamMode: "draft",
         }),
       } as any,
-      getPollerStatus: vi.fn().mockReturnValue({
+      getPollerStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -107,27 +107,27 @@ describe("RemoteCommandRouter", () => {
     const conversation = {
       sessionId: "session-1",
       eventId: "msg-1",
-      getSnapshot: vi.fn(),
+      getSnapshot: vi.fn<(...args: any[]) => any>(),
     };
     const runner = {
-      sendText: vi.fn().mockResolvedValue(conversation),
-      getDefaultAgentId: vi.fn().mockResolvedValue("argos"),
-      getDefaultWorkdir: vi.fn().mockResolvedValue(null),
-      isSessionModelLocked: vi.fn().mockResolvedValue(false),
-      getPendingInteraction: vi.fn().mockResolvedValue(null),
+      sendText: vi.fn<(...args: any[]) => any>().mockResolvedValue(conversation),
+      getDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+      getDefaultWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
     const bindingStore = createBindingStore();
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn().mockReturnValue({
+      getPollerStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -145,19 +145,19 @@ describe("RemoteCommandRouter", () => {
 
   it("returns usage help for an invalid /use command", async () => {
     const runner = createRunner({
-      useSessionByIndex: vi.fn(),
+      useSessionByIndex: vi.fn<(...args: any[]) => any>(),
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn().mockReturnValue({
+      getPollerStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -183,16 +183,16 @@ describe("RemoteCommandRouter", () => {
   it("reports runtime state for /status", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        getDefaultAgentId: vi.fn().mockResolvedValue("argos-alt"),
-        getDefaultWorkdir: vi.fn().mockResolvedValue("/workspaces/remote"),
-        getStatus: vi.fn().mockResolvedValue({
+        getDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-alt"),
+        getDefaultWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue("/workspaces/remote"),
+        getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           session: {
             id: "session-1",
             title: "Remote chat",
@@ -206,7 +206,7 @@ describe("RemoteCommandRouter", () => {
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn().mockReturnValue({
+      getPollerStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -233,27 +233,27 @@ describe("RemoteCommandRouter", () => {
   });
 
   it("blocks /model when the current session is ACP-backed", async () => {
-    const listAvailableModelProviders = vi.fn();
+    const listAvailableModelProviders = vi.fn<(...args: any[]) => any>();
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        getCurrentSession: vi.fn().mockResolvedValue({
+        getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           id: "session-1",
           title: "ACP Remote",
           agentId: "acp-agent",
           modelId: "acp-agent",
         }),
-        isSessionModelLocked: vi.fn().mockResolvedValue(true),
+        isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
         listAvailableModelProviders,
       }) as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn().mockReturnValue({
+      getPollerStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -279,12 +279,12 @@ describe("RemoteCommandRouter", () => {
   it("shows /model and /open in help output", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn(),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {} as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -304,19 +304,19 @@ describe("RemoteCommandRouter", () => {
   it("returns guidance when /open is used without a bound session", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        open: vi.fn().mockResolvedValue({
+        open: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           status: "noSession",
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -337,19 +337,19 @@ describe("RemoteCommandRouter", () => {
   it("returns a desktop window hint when /open cannot find a chat window", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        open: vi.fn().mockResolvedValue({
+        open: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           status: "windowNotFound",
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -370,14 +370,14 @@ describe("RemoteCommandRouter", () => {
   it("returns the formatted session label when /open succeeds", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        open: vi.fn().mockResolvedValue({
+        open: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           status: "ok",
           session: {
             id: "session-1",
@@ -386,7 +386,7 @@ describe("RemoteCommandRouter", () => {
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -406,19 +406,19 @@ describe("RemoteCommandRouter", () => {
 
   it("returns a prompt when /model is used without a bound session", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue(null),
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -438,13 +438,13 @@ describe("RemoteCommandRouter", () => {
 
   it("creates a provider menu for /model", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         providerId: "openai",
         modelId: "gpt-5",
       }),
-      listAvailableModelProviders: vi.fn().mockResolvedValue([
+      listAvailableModelProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           providerId: "openai",
           providerName: "OpenAI",
@@ -460,15 +460,15 @@ describe("RemoteCommandRouter", () => {
     const bindingStore = createBindingStore();
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -515,13 +515,13 @@ describe("RemoteCommandRouter", () => {
     });
 
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         providerId: "openai",
         modelId: "gpt-5",
       }),
-      setSessionModel: vi.fn().mockResolvedValue({
+      setSessionModel: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         providerId: "anthropic",
@@ -530,15 +530,15 @@ describe("RemoteCommandRouter", () => {
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -567,15 +567,15 @@ describe("RemoteCommandRouter", () => {
 
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner() as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -600,7 +600,7 @@ describe("RemoteCommandRouter", () => {
 
   it("routes plain text to a pending permission response before opening a new turn", async () => {
     const runner = {
-      getPendingInteraction: vi.fn().mockResolvedValue({
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         type: "permission",
         messageId: "assistant-1",
         toolCallId: "tool-1",
@@ -612,26 +612,26 @@ describe("RemoteCommandRouter", () => {
           command: "git push",
         },
       }),
-      respondToPendingInteraction: vi.fn().mockResolvedValue({
+      respondToPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         waitingForUserMessage: false,
         execution: {
           sessionId: "session-1",
           eventId: "assistant-1",
-          getSnapshot: vi.fn(),
+          getSnapshot: vi.fn<(...args: any[]) => any>(),
         },
       }),
     };
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -656,14 +656,14 @@ describe("RemoteCommandRouter", () => {
     const bindingStore = createBindingStore();
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {
-        getPendingInteraction: vi.fn().mockResolvedValue({
+        getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           type: "question",
           messageId: "assistant-2",
           toolCallId: "tool-2",
@@ -678,7 +678,7 @@ describe("RemoteCommandRouter", () => {
         }),
       } as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -729,14 +729,14 @@ describe("RemoteCommandRouter", () => {
     bindingStore.getPendingInteractionState.mockReturnValue(null);
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {
-        getPendingInteraction: vi.fn().mockResolvedValue({
+        getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           type: "permission",
           messageId: "assistant-3",
           toolCallId: "tool-3",
@@ -750,7 +750,7 @@ describe("RemoteCommandRouter", () => {
         }),
       } as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -799,7 +799,7 @@ describe("RemoteCommandRouter", () => {
       execution: null;
     }>();
     const runner = {
-      getPendingInteraction: vi.fn().mockResolvedValue({
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         type: "permission",
         messageId: "assistant-4",
         toolCallId: "tool-4",
@@ -811,19 +811,19 @@ describe("RemoteCommandRouter", () => {
           command: "git push",
         },
       }),
-      respondToPendingInteraction: vi.fn().mockReturnValue(deferred.promise),
+      respondToPendingInteraction: vi.fn<(...args: any[]) => any>().mockReturnValue(deferred.promise),
     };
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userId: 123,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await Promise.race([
@@ -866,12 +866,12 @@ describe("RemoteCommandRouter", () => {
   it("shows /agent in help output", async () => {
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn(),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {} as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -886,16 +886,16 @@ describe("RemoteCommandRouter", () => {
 
   it("returns a prompt when /agent is used without a bound session", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue(null),
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userId: 123 }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userId: 123 }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -912,14 +912,14 @@ describe("RemoteCommandRouter", () => {
 
   it("renders an agent menu for /agent", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         agentId: "argos",
         providerId: "openai",
         modelId: "gpt-5",
       }),
-      listAvailableAgents: vi.fn().mockResolvedValue([
+      listAvailableAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           agentId: "argos",
           agentName: "Argos",
@@ -937,12 +937,12 @@ describe("RemoteCommandRouter", () => {
     const bindingStore = createBindingStore();
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userId: 123 }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userId: 123 }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -981,7 +981,7 @@ describe("RemoteCommandRouter", () => {
         },
       ],
     });
-    const setChannelDefaultAgent = vi.fn().mockResolvedValue({
+    const setChannelDefaultAgent = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       session: {
         id: "session-2",
         title: "New Chat",
@@ -997,7 +997,7 @@ describe("RemoteCommandRouter", () => {
       },
     });
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         agentId: "argos",
@@ -1008,12 +1008,12 @@ describe("RemoteCommandRouter", () => {
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userId: 123 }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userId: 123 }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -1049,7 +1049,7 @@ describe("RemoteCommandRouter", () => {
       ],
     });
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote chat",
         agentId: "argos",
@@ -1057,17 +1057,17 @@ describe("RemoteCommandRouter", () => {
         modelId: "gpt-5",
       }),
       setChannelDefaultAgent: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockRejectedValue(new Error("Cannot switch to ACP agent: this channel has no default workdir set.")),
     });
     const router = new RemoteCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userId: 123 }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userId: 123 }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: bindingStore as any,
-      getPollerStatus: vi.fn(),
+      getPollerStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(createCallbackQuery({ data: "agent:agent-token:a:0" }));

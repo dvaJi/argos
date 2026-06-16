@@ -22,33 +22,33 @@ describe("WelcomePage", () => {
     vi.useFakeTimers();
 
     const router = {
-      replace: vi.fn().mockResolvedValue(undefined),
+      replace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const pageRouter = {
-      goToNewThread: vi.fn(),
+      goToNewThread: vi.fn<(...args: any[]) => any>(),
     };
     const configPresenter = {
-      setSetting: vi.fn().mockResolvedValue(undefined),
+      setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
-    const openSettings = vi.fn().mockResolvedValue(undefined);
-    const onboardingSetStepStatus = vi.fn().mockResolvedValue({
+    const openSettings = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const onboardingSetStepStatus = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "provider-api-key",
     });
-    const onboardingStart = vi.fn().mockResolvedValue({
+    const onboardingStart = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
 
     vi.doMock("@api/ConfigClient", () => ({
-      createConfigClient: vi.fn(() => ({
+      createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
     vi.doMock("@api/OnboardingClient", () => ({
-      createOnboardingClient: vi.fn(() => ({
-        getState: vi.fn().mockResolvedValue({
+      createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
+        getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
           status: "active",
           startedAt: 1,
@@ -196,33 +196,33 @@ describe("WelcomePage", () => {
     vi.useFakeTimers();
 
     const router = {
-      replace: vi.fn().mockResolvedValue(undefined),
+      replace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const pageRouter = {
-      goToNewThread: vi.fn(),
+      goToNewThread: vi.fn<(...args: any[]) => any>(),
     };
     const configPresenter = {
-      setSetting: vi.fn().mockResolvedValue(undefined),
+      setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
-    const openSettings = vi.fn().mockResolvedValue(undefined);
-    const onboardingSetStepStatus = vi.fn().mockResolvedValue({
+    const openSettings = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const onboardingSetStepStatus = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
-    const onboardingStart = vi.fn().mockResolvedValue({
+    const onboardingStart = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
 
     vi.doMock("@api/ConfigClient", () => ({
-      createConfigClient: vi.fn(() => ({
+      createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
     vi.doMock("@api/OnboardingClient", () => ({
-      createOnboardingClient: vi.fn(() => ({
-        getState: vi.fn().mockResolvedValue({
+      createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
+        getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
           status: "active",
           startedAt: 1,
@@ -333,33 +333,33 @@ describe("WelcomePage", () => {
     vi.resetModules();
 
     const router = {
-      replace: vi.fn().mockResolvedValue(undefined),
+      replace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const pageRouter = {
-      goToNewThread: vi.fn(),
+      goToNewThread: vi.fn<(...args: any[]) => any>(),
     };
     const configPresenter = {
-      setSetting: vi.fn().mockResolvedValue(undefined),
+      setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
-    const openSettings = vi.fn().mockResolvedValue(undefined);
-    const onboardingSetStepStatus = vi.fn().mockResolvedValue({
+    const openSettings = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const onboardingSetStepStatus = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
-    const onboardingStart = vi.fn().mockResolvedValue({
+    const onboardingStart = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
 
     vi.doMock("@api/ConfigClient", () => ({
-      createConfigClient: vi.fn(() => ({
+      createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
     vi.doMock("@api/OnboardingClient", () => ({
-      createOnboardingClient: vi.fn(() => ({
-        getState: vi.fn().mockResolvedValue({
+      createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
+        getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
           status: "active",
           startedAt: 1,
@@ -468,25 +468,25 @@ describe("WelcomePage", () => {
     vi.resetModules();
 
     const router = {
-      replace: vi.fn().mockResolvedValue(undefined),
+      replace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const pageRouter = {
-      goToNewThread: vi.fn(),
+      goToNewThread: vi.fn<(...args: any[]) => any>(),
     };
-    const openSettings = vi.fn().mockResolvedValue(undefined);
-    const onboardingStart = vi.fn().mockResolvedValue({
+    const openSettings = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const onboardingStart = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "first-chat",
     });
 
     vi.doMock("@api/ConfigClient", () => ({
-      createConfigClient: vi.fn(() => ({
+      createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         openSettings,
       })),
     }));
     vi.doMock("@api/OnboardingClient", () => ({
-      createOnboardingClient: vi.fn(() => ({
-        getState: vi.fn().mockResolvedValue({
+      createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
+        getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 1,
           status: "active",
           startedAt: 1,
@@ -571,29 +571,29 @@ describe("WelcomePage", () => {
     vi.resetModules();
 
     const router = {
-      replace: vi.fn().mockResolvedValue(undefined),
+      replace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const pageRouter = {
-      goToNewThread: vi.fn(),
+      goToNewThread: vi.fn<(...args: any[]) => any>(),
     };
-    const openSettings = vi.fn().mockResolvedValue(undefined);
-    const onboardingSetStepStatus = vi.fn().mockResolvedValue({
+    const openSettings = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    const onboardingSetStepStatus = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "select-provider",
     });
-    const onboardingStart = vi.fn().mockResolvedValue({
+    const onboardingStart = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       status: "active",
       currentStepId: "first-chat",
     });
 
     vi.doMock("@api/ConfigClient", () => ({
-      createConfigClient: vi.fn(() => ({
+      createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         openSettings,
       })),
     }));
     vi.doMock("@api/OnboardingClient", () => ({
-      createOnboardingClient: vi.fn(() => ({
-        getState: vi.fn().mockResolvedValue({
+      createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
+        getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
           status: "active",
           startedAt: 1,

@@ -3,12 +3,12 @@ import type { StreamState, IoParams } from "@/presenter/agentRuntimePresenter/ty
 import { createState } from "@/presenter/agentRuntimePresenter/types";
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn() },
+  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
 vi.mock("@/routes/publishArgosEvent", () => ({
-  publishArgosEvent: vi.fn(),
+  publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/events", () => ({
@@ -29,7 +29,7 @@ function createIo(): IoParams {
     requestId: "req-1",
     messageId: "m1",
     messageStore: {
-      updateAssistantContent: vi.fn(),
+      updateAssistantContent: vi.fn<(...args: any[]) => any>(),
     } as any,
     abortSignal: new AbortController().signal,
   };

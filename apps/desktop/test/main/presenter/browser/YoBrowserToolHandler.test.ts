@@ -3,8 +3,8 @@ import { YoBrowserToolHandler } from "@/presenter/browser/YoBrowserToolHandler";
 
 vi.mock("@shared/logger", () => ({
   default: {
-    warn: vi.fn(),
-    error: vi.fn(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -26,14 +26,14 @@ describe("YoBrowserToolHandler", () => {
 
   const createPresenter = () =>
     ({
-      getBrowserStatus: vi.fn().mockResolvedValue(readyStatus),
-      loadUrl: vi.fn().mockResolvedValue({ initialized: true }),
-      getBrowserPage: vi.fn().mockResolvedValue({
+      getBrowserStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(readyStatus),
+      loadUrl: vi.fn<(...args: any[]) => any>().mockResolvedValue({ initialized: true }),
+      getBrowserPage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "page-1",
         url: "https://example.com",
         status: "ready",
       }),
-      sendCdpCommand: vi.fn().mockResolvedValue({ ok: true }),
+      sendCdpCommand: vi.fn<(...args: any[]) => any>().mockResolvedValue({ ok: true }),
     }) as any;
 
   it("exposes only the simplified YoBrowser tool names", () => {

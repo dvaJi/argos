@@ -4,7 +4,7 @@ import { getUsableContextLength } from "@/presenter/agentRuntimePresenter/contex
 import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
 
 vi.mock("tokenx", () => ({
-  approximateTokenSize: vi.fn((text: string) => text.length),
+  approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),
 }));
 
 describe("ToolOutputGuard", () => {

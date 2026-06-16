@@ -6,18 +6,18 @@ import type { IConfigPresenter } from "../../../src/shared/presenter";
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => (name === "userData" ? "/mock/user/data" : "/mock")),
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => (name === "userData" ? "/mock/user/data" : "/mock")),
   },
 }));
 
 vi.mock("fs/promises", () => ({
   default: {
-    mkdir: vi.fn().mockResolvedValue(undefined),
-    readFile: vi.fn(),
-    realpath: vi.fn(),
-    writeFile: vi.fn(),
-    unlink: vi.fn(),
-    stat: vi.fn(),
+    mkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    readFile: vi.fn<(...args: any[]) => any>(),
+    realpath: vi.fn<(...args: any[]) => any>(),
+    writeFile: vi.fn<(...args: any[]) => any>(),
+    unlink: vi.fn<(...args: any[]) => any>(),
+    stat: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -32,14 +32,14 @@ vi.mock("nanoid");
 
 describe("FilePresenter.readFile", () => {
   const mockConfigPresenter = {
-    getKnowledgeConfigs: vi.fn(),
-    diffKnowledgeConfigs: vi.fn(),
-    setKnowledgeConfigs: vi.fn(),
+    getKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+    diffKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+    setKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
   } as unknown as IConfigPresenter;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(fs.realpath).mockImplementation(async (targetPath: string) => {
+    vi.mocked<(...args: any[]) => any>(fs.realpath).mockImplementation(async (targetPath: string) => {
       if (targetPath === "/mock/user/data") {
         return "/mock/user/data";
       }
@@ -54,7 +54,7 @@ describe("FilePresenter.readFile", () => {
   });
 
   it("reads relative files from the user data directory", async () => {
-    vi.mocked(fs.readFile).mockResolvedValue("hello world" as never);
+    vi.mocked<(...args: any[]) => any>(fs.readFile).mockResolvedValue("hello world" as never);
     const presenter = new FilePresenter(mockConfigPresenter);
 
     const content = await presenter.readFile("notes/today.md");

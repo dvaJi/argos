@@ -175,9 +175,7 @@ const normalizeManifest = (value: unknown): RegistryManifest | null => {
 
   const version = typeof record.version === "string" ? record.version.trim() : "";
   const rawAgents = Array.isArray(record.agents) ? record.agents : [];
-  const agents = rawAgents
-    .map((agent) => normalizeAgent(agent))
-    .filter((agent): agent is AcpRegistryAgent => Boolean(agent));
+  const agents = rawAgents.map(normalizeAgent).filter((agent): agent is AcpRegistryAgent => Boolean(agent));
   const agentIds = new Set<string>();
 
   for (const agent of agents) {

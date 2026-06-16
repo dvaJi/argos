@@ -19,15 +19,15 @@ const createMessage = (overrides: Partial<Parameters<QQBotAuthGuard["ensureAutho
 describe("QQBotAuthGuard", () => {
   it("pairs a c2c user with a valid code", () => {
     const store = {
-      getQQBotPairingState: vi.fn().mockReturnValue({
+      getQQBotPairingState: vi.fn<(...args: any[]) => any>().mockReturnValue({
         code: "123456",
         expiresAt: Date.now() + 60_000,
         failedAttempts: 0,
       }),
-      addQQBotPairedUser: vi.fn(),
-      addQQBotPairedGroup: vi.fn(),
-      clearPairCode: vi.fn(),
-      recordPairCodeFailure: vi.fn(),
+      addQQBotPairedUser: vi.fn<(...args: any[]) => any>(),
+      addQQBotPairedGroup: vi.fn<(...args: any[]) => any>(),
+      clearPairCode: vi.fn<(...args: any[]) => any>(),
+      recordPairCodeFailure: vi.fn<(...args: any[]) => any>(),
     } as any;
     const guard = new QQBotAuthGuard(store);
 
@@ -40,7 +40,7 @@ describe("QQBotAuthGuard", () => {
 
   it("authorizes a paired group independently from c2c users", () => {
     const store = {
-      isQQBotPairedGroup: vi.fn().mockReturnValue(true),
+      isQQBotPairedGroup: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     } as any;
     const guard = new QQBotAuthGuard(store);
 

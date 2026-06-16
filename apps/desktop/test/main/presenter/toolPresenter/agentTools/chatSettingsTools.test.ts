@@ -9,22 +9,22 @@ import {
 
 describe("ChatSettingsToolHandler", () => {
   const configPresenter = {
-    getCopyWithCotEnabled: vi.fn(),
-    setCopyWithCotEnabled: vi.fn(),
-    getSetting: vi.fn(),
-    setSetting: vi.fn(),
-    setLanguage: vi.fn(),
-    setTheme: vi.fn(),
-    getSkillsEnabled: vi.fn(),
+    getCopyWithCotEnabled: vi.fn<(...args: any[]) => any>(),
+    setCopyWithCotEnabled: vi.fn<(...args: any[]) => any>(),
+    getSetting: vi.fn<(...args: any[]) => any>(),
+    setSetting: vi.fn<(...args: any[]) => any>(),
+    setLanguage: vi.fn<(...args: any[]) => any>(),
+    setTheme: vi.fn<(...args: any[]) => any>(),
+    getSkillsEnabled: vi.fn<(...args: any[]) => any>(),
   } as any;
 
   const skillPresenter = {
-    getActiveSkills: vi.fn(),
+    getActiveSkills: vi.fn<(...args: any[]) => any>(),
   } as any;
 
   const windowPresenter = {
-    createSettingsWindow: vi.fn(),
-    sendToWindow: vi.fn(),
+    createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+    sendToWindow: vi.fn<(...args: any[]) => any>(),
   } as any;
 
   const buildHandler = () =>
@@ -51,9 +51,7 @@ describe("ChatSettingsToolHandler", () => {
     const result = await handler.toggle({ setting: "copyWithCotEnabled", enabled: true }, "conv-1");
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errorCode).toBe("skill_inactive");
-    }
+    expect(result.errorCode).toBe("skill_inactive");
     expect(configPresenter.setCopyWithCotEnabled).not.toHaveBeenCalled();
   });
 
@@ -62,9 +60,8 @@ describe("ChatSettingsToolHandler", () => {
     const result = await handler.toggle({ setting: "unknownSetting", enabled: "true" }, "conv-1");
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errorCode).toBe("invalid_request");
-    }
+    expect(result).not.toHaveProperty("previousValue");
+    expect(result).toHaveProperty("errorCode", "invalid_request");
     expect(configPresenter.setCopyWithCotEnabled).not.toHaveBeenCalled();
   });
 

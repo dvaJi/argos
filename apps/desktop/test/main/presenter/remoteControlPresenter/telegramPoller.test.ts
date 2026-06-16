@@ -10,19 +10,19 @@ const createClient = () => {
   let nextMessageId = 100;
 
   return {
-    getMe: vi.fn().mockResolvedValue({
+    getMe: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: 123,
       username: "argos_bot",
     }),
-    getUpdates: vi.fn(),
-    sendMessage: vi.fn().mockImplementation(async () => nextMessageId++),
-    sendMessageDraft: vi.fn().mockResolvedValue(undefined),
-    sendChatAction: vi.fn().mockResolvedValue(undefined),
-    setMessageReaction: vi.fn().mockResolvedValue(undefined),
-    answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
-    editMessageText: vi.fn().mockResolvedValue(undefined),
-    editMessageReplyMarkup: vi.fn().mockResolvedValue(undefined),
-    deleteMessage: vi.fn().mockResolvedValue(undefined),
+    getUpdates: vi.fn<(...args: any[]) => any>(),
+    sendMessage: vi.fn<(...args: any[]) => any>().mockImplementation(async () => nextMessageId++),
+    sendMessageDraft: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    sendChatAction: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    setMessageReaction: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    answerCallbackQuery: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    editMessageText: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    editMessageReplyMarkup: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    deleteMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 };
 
@@ -30,13 +30,13 @@ const createBindingStore = () => {
   const deliveryStates = new Map<string, any>();
 
   return {
-    getPollOffset: vi.fn().mockReturnValue(0),
-    setPollOffset: vi.fn(),
-    getTelegramConfig: vi.fn().mockReturnValue({
+    getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+    setPollOffset: vi.fn<(...args: any[]) => any>(),
+    getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
       streamMode: "draft",
     }),
-    getRemoteDeliveryState: vi.fn((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
-    rememberRemoteDeliveryState: vi.fn((endpointKey: string, state: any) => {
+    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
+    rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string, state: any) => {
       deliveryStates.set(endpointKey, {
         ...state,
         segments: state.segments.map((segment: any) => ({
@@ -45,11 +45,11 @@ const createBindingStore = () => {
         })),
       });
     }),
-    clearRemoteDeliveryState: vi.fn((endpointKey: string) => {
+    clearRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => {
       deliveryStates.delete(endpointKey);
     }),
-    createPendingInteractionState: vi.fn().mockReturnValue("pending-token"),
-    getEndpointKey: vi.fn().mockReturnValue("telegram:100:0"),
+    createPendingInteractionState: vi.fn<(...args: any[]) => any>().mockReturnValue("pending-token"),
+    getEndpointKey: vi.fn<(...args: any[]) => any>().mockReturnValue("telegram:100:0"),
     _getDeliveryState: (endpointKey: string) => deliveryStates.get(endpointKey) ?? null,
   };
 };
@@ -89,13 +89,13 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn(),
+        parseUpdate: vi.fn<(...args: any[]) => any>(),
       } as any,
       router: {} as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -111,7 +111,7 @@ describe("TelegramPoller", () => {
   });
 
   it("stops retrying and reports error on Telegram 409 conflict", async () => {
-    const onFatalError = vi.fn();
+    const onFatalError = vi.fn<(...args: any[]) => any>();
     const client = createClient();
     client.getUpdates.mockRejectedValue(
       new TelegramApiRequestError(
@@ -123,13 +123,13 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn(),
+        parseUpdate: vi.fn<(...args: any[]) => any>(),
       } as any,
       router: {} as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -152,20 +152,20 @@ describe("TelegramPoller", () => {
   it("keeps retrying transient failures without auto-disable callback", async () => {
     vi.useFakeTimers();
 
-    const onFatalError = vi.fn();
+    const onFatalError = vi.fn<(...args: any[]) => any>();
     const client = createClient();
     client.getUpdates.mockRejectedValueOnce(new Error("network timeout")).mockImplementation(createBlockingUpdates());
 
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn(),
+        parseUpdate: vi.fn<(...args: any[]) => any>(),
       } as any,
       router: {} as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -202,13 +202,13 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn(),
+        parseUpdate: vi.fn<(...args: any[]) => any>(),
       } as any,
       router: {} as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -229,9 +229,9 @@ describe("TelegramPoller", () => {
   });
 
   it("logs per-update delivery failures, advances offset, and keeps polling", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const onFatalError = vi.fn();
-    const setPollOffset = vi.fn();
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
+    const onFatalError = vi.fn<(...args: any[]) => any>();
+    const setPollOffset = vi.fn<(...args: any[]) => any>();
     const client = createClient();
     client.sendMessage.mockRejectedValue(new TelegramApiRequestError("Bad Request: chat not found", 400));
     client.getUpdates
@@ -256,7 +256,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "message",
           updateId: 1,
           chatId: 100,
@@ -269,14 +269,14 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: ["running"],
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
         setPollOffset,
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -330,7 +330,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "message",
           updateId: 1,
           chatId: 100,
@@ -343,12 +343,12 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           conversation: {
             sessionId: "session-1",
             eventId: "msg-1",
-            getSnapshot: vi.fn().mockResolvedValue({
+            getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
               messageId: "msg-1",
               text: "pong",
               completed: true,
@@ -418,7 +418,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "message",
           updateId: 1,
           chatId: 100,
@@ -431,12 +431,12 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           conversation: {
             sessionId: "session-1",
             eventId: "msg-1",
-            getSnapshot: vi.fn().mockResolvedValue({
+            getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
               messageId: "msg-1",
               text: "**fallback**",
               completed: true,
@@ -503,7 +503,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -516,13 +516,13 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
               getSnapshot: vi
-                .fn()
+                .fn<(...args: any[]) => any>()
                 .mockResolvedValueOnce({
                   messageId: "msg-1",
                   text: "",
@@ -707,7 +707,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -720,13 +720,13 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
               getSnapshot: vi
-                .fn()
+                .fn<(...args: any[]) => any>()
                 .mockResolvedValueOnce({
                   messageId: "msg-1",
                   text: firstText,
@@ -856,7 +856,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -869,12 +869,12 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
-              getSnapshot: vi.fn().mockResolvedValue({
+              getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
                 messageId: "msg-1",
                 text: updatedText,
                 traceText: "",
@@ -943,7 +943,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -956,13 +956,13 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
               getSnapshot: vi
-                .fn()
+                .fn<(...args: any[]) => any>()
                 .mockResolvedValueOnce({
                   messageId: "msg-1",
                   text: "Partial answer",
@@ -1072,7 +1072,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -1085,12 +1085,12 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
-              getSnapshot: vi.fn().mockResolvedValueOnce({
+              getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValueOnce({
                 messageId: "msg-1",
                 text: "Final answer",
                 traceText: "",
@@ -1188,7 +1188,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -1201,13 +1201,13 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
               getSnapshot: vi
-                .fn()
+                .fn<(...args: any[]) => any>()
                 .mockResolvedValueOnce({
                   messageId: "msg-1",
                   text: "Let me inspect these files.",
@@ -1367,7 +1367,7 @@ describe("TelegramPoller", () => {
       const poller = new TelegramPoller({
         client: client as any,
         parser: {
-          parseUpdate: vi.fn().mockReturnValue({
+          parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
             kind: "message",
             updateId: 1,
             chatId: 100,
@@ -1380,12 +1380,12 @@ describe("TelegramPoller", () => {
           }),
         } as any,
         router: {
-          handleMessage: vi.fn().mockResolvedValue({
+          handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
             replies: [],
             conversation: {
               sessionId: "session-1",
               eventId: "msg-1",
-              getSnapshot: vi.fn().mockResolvedValue({
+              getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
                 messageId: "msg-1",
                 text: "",
                 traceText: '📖 read_file: "/tmp/report.md"',
@@ -1447,7 +1447,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "message",
           updateId: 1,
           chatId: 100,
@@ -1463,14 +1463,14 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: ["running"],
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -1521,7 +1521,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -1534,7 +1534,7 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           outboundActions: [
             {
@@ -1559,9 +1559,9 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -1634,7 +1634,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -1647,12 +1647,12 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockReturnValue(routePromise),
+        handleMessage: vi.fn<(...args: any[]) => any>().mockReturnValue(routePromise),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -1703,7 +1703,7 @@ describe("TelegramPoller", () => {
   });
 
   it("ignores expired callback query and not-modified edit errors", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
     const client = createClient();
     client.answerCallbackQuery.mockRejectedValue(
       new TelegramApiRequestError(
@@ -1742,7 +1742,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -1755,7 +1755,7 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           outboundActions: [
             {
@@ -1780,9 +1780,9 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -1836,7 +1836,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -1849,7 +1849,7 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           outboundActions: [
             {
@@ -1865,9 +1865,9 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,
@@ -1926,7 +1926,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "message",
           updateId: 1,
           chatId: 100,
@@ -1939,12 +1939,12 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           conversation: {
             sessionId: "session-1",
             eventId: "msg-1",
-            getSnapshot: vi.fn().mockResolvedValue({
+            getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
               messageId: "msg-1",
               text: "Partial answer",
               statusText: "Waiting for your response...",
@@ -2041,7 +2041,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -2054,7 +2054,7 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           outboundActions: [
             {
@@ -2094,7 +2094,7 @@ describe("TelegramPoller", () => {
       conversation: {
         sessionId: "session-1",
         eventId: "msg-1",
-        getSnapshot: vi.fn().mockResolvedValue({
+        getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           messageId: "msg-1",
           text: "Done",
           finalText: "Done",
@@ -2158,7 +2158,7 @@ describe("TelegramPoller", () => {
     const poller = new TelegramPoller({
       client: client as any,
       parser: {
-        parseUpdate: vi.fn().mockReturnValue({
+        parseUpdate: vi.fn<(...args: any[]) => any>().mockReturnValue({
           kind: "callback_query",
           updateId: 2,
           chatId: 100,
@@ -2171,7 +2171,7 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       router: {
-        handleMessage: vi.fn().mockResolvedValue({
+        handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           replies: [],
           outboundActions: [
             {
@@ -2188,9 +2188,9 @@ describe("TelegramPoller", () => {
         }),
       } as any,
       bindingStore: {
-        getPollOffset: vi.fn().mockReturnValue(0),
-        setPollOffset: vi.fn(),
-        getTelegramConfig: vi.fn().mockReturnValue({
+        getPollOffset: vi.fn<(...args: any[]) => any>().mockReturnValue(0),
+        setPollOffset: vi.fn<(...args: any[]) => any>(),
+        getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
           streamMode: "draft",
         }),
       } as any,

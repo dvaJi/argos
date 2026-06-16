@@ -4,14 +4,14 @@ import type { IAgentImplementation, Agent } from "@shared/types/agent-interface"
 
 function createMockAgent(): IAgentImplementation {
   return {
-    initSession: vi.fn(),
-    destroySession: vi.fn(),
-    getSessionState: vi.fn(),
-    processMessage: vi.fn(),
-    cancelGeneration: vi.fn(),
-    getMessages: vi.fn(),
-    getMessageIds: vi.fn(),
-    getMessage: vi.fn(),
+    initSession: vi.fn<(...args: any[]) => any>(),
+    destroySession: vi.fn<(...args: any[]) => any>(),
+    getSessionState: vi.fn<(...args: any[]) => any>(),
+    processMessage: vi.fn<(...args: any[]) => any>(),
+    cancelGeneration: vi.fn<(...args: any[]) => any>(),
+    getMessages: vi.fn<(...args: any[]) => any>(),
+    getMessageIds: vi.fn<(...args: any[]) => any>(),
+    getMessage: vi.fn<(...args: any[]) => any>(),
   };
 }
 

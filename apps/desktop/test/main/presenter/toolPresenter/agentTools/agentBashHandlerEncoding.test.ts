@@ -4,20 +4,20 @@ import fs from "fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("child_process", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => (name === "home" ? "/mock/home" : "/mock/userData")),
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => (name === "home" ? "/mock/home" : "/mock/userData")),
   },
 }));
 
 vi.mock("@shared/logger", () => ({
   default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
+    info: vi.fn<(...args: any[]) => any>(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -26,7 +26,7 @@ vi.mock("../../../../../src/main/lib/agentRuntime/shellEnvHelper", async (import
 
   return {
     ...actual,
-    getUserShell: vi.fn().mockReturnValue({ shell: "powershell.exe", args: ["-NoProfile", "-Command"] }),
+    getUserShell: vi.fn<(...args: any[]) => any>().mockReturnValue({ shell: "powershell.exe", args: ["-NoProfile", "-Command"] }),
   };
 });
 
@@ -38,10 +38,10 @@ class MockChild extends EventEmitter {
   stdout = new MockStream();
   stderr = new MockStream();
   stdin = {
-    write: vi.fn(),
-    end: vi.fn(),
+    write: vi.fn<(...args: any[]) => any>(),
+    end: vi.fn<(...args: any[]) => any>(),
   };
-  kill = vi.fn();
+  kill = vi.fn<(...args: any[]) => any>();
 }
 
 describe("AgentBashHandler output encoding", () => {
@@ -61,9 +61,9 @@ describe("AgentBashHandler output encoding", () => {
       value: "win32",
     });
     const child = new MockChild();
-    vi.mocked(spawn).mockReturnValue(child as never);
-    vi.spyOn(fs, "existsSync").mockReturnValue(true);
-    vi.spyOn(fs, "statSync").mockReturnValue({
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(true);
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockReturnValue({
       isDirectory: () => true,
     } as fs.Stats);
 

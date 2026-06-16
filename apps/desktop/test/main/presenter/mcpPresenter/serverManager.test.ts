@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const eventBusMocks = vi.hoisted(() => ({
-  send: vi.fn(),
-  sendToRenderer: vi.fn(),
+  send: vi.fn<(...args: any[]) => any>(),
+  sendToRenderer: vi.fn<(...args: any[]) => any>(),
 }));
 
 const clientMocks = vi.hoisted(() => ({
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-  isServerRunning: vi.fn(),
+  connect: vi.fn<(...args: any[]) => any>(),
+  disconnect: vi.fn<(...args: any[]) => any>(),
+  isServerRunning: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/eventbus", () => ({
@@ -29,12 +29,12 @@ vi.mock("@/events", () => ({
 
 vi.mock("@/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn(() => ""),
+    getProxyUrl: vi.fn<(...args: any[]) => any>(() => ""),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/mcpPresenter/mcpClient", () => ({
-  McpClient: vi.fn().mockImplementation(() => ({
+  McpClient: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
     connect: clientMocks.connect,
     disconnect: clientMocks.disconnect,
     isServerRunning: clientMocks.isServerRunning,
@@ -50,7 +50,7 @@ describe("ServerManager plugin MCP errors", () => {
     clientMocks.connect.mockResolvedValue(undefined);
     clientMocks.disconnect.mockResolvedValue(undefined);
     clientMocks.isServerRunning.mockReturnValue(true);
-    vi.mocked(McpClient).mockImplementation(
+    vi.mocked<(...args: any[]) => any>(McpClient).mockImplementation(
       () =>
         ({
           connect: clientMocks.connect,
@@ -62,10 +62,10 @@ describe("ServerManager plugin MCP errors", () => {
 
   function createConfigPresenter(servers: Record<string, any>) {
     return {
-      getMcpServers: vi.fn().mockResolvedValue(servers),
-      getLanguage: vi.fn().mockReturnValue("en-US"),
-      getEffectiveNpmRegistry: vi.fn().mockReturnValue(null),
-      getPrivacyModeEnabled: vi.fn().mockReturnValue(false),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue(servers),
+      getLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue("en-US"),
+      getEffectiveNpmRegistry: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     };
   }
 

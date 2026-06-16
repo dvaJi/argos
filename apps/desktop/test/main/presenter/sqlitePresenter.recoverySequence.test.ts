@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("better-sqlite3-multiple-ciphers", () => ({
-  default: vi.fn(),
+  default: vi.fn<(...args: any[]) => any>(),
 }));
 
 describe("sqlitePresenter destructive recovery sequence", () => {
@@ -14,13 +14,13 @@ describe("sqlitePresenter destructive recovery sequence", () => {
     const callOrder: string[] = [];
     const destructiveError = new Error("SQLITE_CORRUPT: malformed page");
 
-    vi.spyOn(SQLitePresenter.prototype as any, "initializeDatabase")
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "initializeDatabase")
       .mockImplementationOnce(function (this: any) {
         callOrder.push("initializeDatabase:first");
         this.db = {
           open: true,
-          pragma: vi.fn(),
-          close: vi.fn(),
+          pragma: vi.fn<(...args: any[]) => any>(),
+          close: vi.fn<(...args: any[]) => any>(),
         };
         throw destructiveError;
       })
@@ -28,13 +28,13 @@ describe("sqlitePresenter destructive recovery sequence", () => {
         callOrder.push("initializeDatabase:retry");
       });
 
-    vi.spyOn(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
       callOrder.push("backupDatabase");
     });
-    vi.spyOn(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
       callOrder.push("closeDatabaseSilently");
     });
-    vi.spyOn(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
       callOrder.push("cleanupDatabaseFiles");
     });
 
@@ -53,15 +53,15 @@ describe("sqlitePresenter destructive recovery sequence", () => {
     const { SQLitePresenter } = await import("../../../src/main/presenter/sqlitePresenter");
     const callOrder: string[] = [];
     const destructiveError = new Error("SQLITE_CORRUPT: malformed page");
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
 
-    vi.spyOn(SQLitePresenter.prototype as any, "initializeDatabase")
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "initializeDatabase")
       .mockImplementationOnce(function (this: any) {
         callOrder.push("initializeDatabase:first");
         this.db = {
           open: true,
-          pragma: vi.fn(),
-          close: vi.fn(),
+          pragma: vi.fn<(...args: any[]) => any>(),
+          close: vi.fn<(...args: any[]) => any>(),
         };
         throw destructiveError;
       })
@@ -69,19 +69,19 @@ describe("sqlitePresenter destructive recovery sequence", () => {
         callOrder.push("initializeDatabase:retry");
         this.db = {
           open: true,
-          pragma: vi.fn(),
-          close: vi.fn(),
+          pragma: vi.fn<(...args: any[]) => any>(),
+          close: vi.fn<(...args: any[]) => any>(),
         };
         throw destructiveError;
       });
 
-    const backupSpy = vi.spyOn(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
+    const backupSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
       callOrder.push("backupDatabase");
     });
-    const closeSpy = vi.spyOn(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
+    const closeSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
       callOrder.push("closeDatabaseSilently");
     });
-    const cleanupSpy = vi.spyOn(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
+    const cleanupSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
       callOrder.push("cleanupDatabaseFiles");
     });
 

@@ -155,12 +155,12 @@ const createConfigPresenter = (initialProviders?: LLM_PROVIDER[]) => {
   const defaults = providers.map((provider) => ({ ...provider }));
 
   return {
-    getProviders: vi.fn(() => providers),
-    getDefaultProviders: vi.fn(() => defaults),
-    updateProvidersBatch: vi.fn((input: { providers: LLM_PROVIDER[] }) => {
+    getProviders: vi.fn<(...args: any[]) => any>(() => providers),
+    getDefaultProviders: vi.fn<(...args: any[]) => any>(() => defaults),
+    updateProvidersBatch: vi.fn<(...args: any[]) => any>((input: { providers: LLM_PROVIDER[] }) => {
       providers = input.providers;
     }),
-    addCustomModel: vi.fn(),
+    addCustomModel: vi.fn<(...args: any[]) => any>(),
     getCurrentProviders: () => providers,
   };
 };
@@ -206,7 +206,7 @@ describe("ProviderImportService", () => {
   it("does not expose source read errors in scan results", async () => {
     homeDir = createHome();
     writeFile(path.join(homeDir, ".hermes/config.yaml"), "llm:\n  providers: [");
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
@@ -283,7 +283,7 @@ describe("ProviderImportService", () => {
         "      baseUrl: https://windows.example.com/v1",
       ].join("\n"),
     );
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {
@@ -508,7 +508,7 @@ describe("ProviderImportService", () => {
         },
       },
     ]);
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const configPresenter = createConfigPresenter();
     const service = new ProviderImportService(configPresenter as any, {

@@ -5,9 +5,9 @@ import type { DisplayAssistantMessageBlock } from "@/components/chat/messageList
 import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
 
 const { syncArtifactMock, completeArtifactMock, getSearchResultsMock } = vi.hoisted(() => ({
-  syncArtifactMock: vi.fn(),
-  completeArtifactMock: vi.fn(),
-  getSearchResultsMock: vi.fn().mockResolvedValue([]),
+  syncArtifactMock: vi.fn<(...args: any[]) => any>(),
+  completeArtifactMock: vi.fn<(...args: any[]) => any>(),
+  getSearchResultsMock: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
 vi.mock("@/stores/artifact", () => ({

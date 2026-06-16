@@ -9,30 +9,30 @@ import fs from "fs";
 // Mock all external dependencies
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn().mockReturnValue("/mock/user/data"),
-    getAppPath: vi.fn().mockReturnValue("/mock/app/path"),
+    getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/user/data"),
+    getAppPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/app/path"),
   },
 }));
 
 vi.mock("fs", () => ({
   default: {
-    existsSync: vi.fn().mockReturnValue(false),
-    mkdirSync: vi.fn(),
-    rmSync: vi.fn(),
+    existsSync: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    mkdirSync: vi.fn<(...args: any[]) => any>(),
+    rmSync: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("path", () => ({
   default: {
-    join: vi.fn((...args) => args.join("/")),
+    join: vi.fn<(...args: any[]) => any>((...args) => args.join("/")),
   },
 }));
 
 // Mock the eventBus
 vi.mock("../../../src/main/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    emit: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -40,69 +40,69 @@ vi.mock("../../../src/main/eventbus", () => ({
 vi.mock("../../../src/main/presenter", () => ({
   presenter: {
     dialogPresenter: {
-      showDialog: vi.fn(),
+      showDialog: vi.fn<(...args: any[]) => any>(),
     },
   },
 }));
 
 // Mock DuckDBPresenter
 vi.mock("../../../src/main/presenter/knowledgePresenter/database/duckdbPresenter", () => ({
-  DuckDBPresenter: vi.fn().mockImplementation(function () {
+  DuckDBPresenter: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
-      open: vi.fn(),
-      initialize: vi.fn(),
-      close: vi.fn(),
+      open: vi.fn<(...args: any[]) => any>(),
+      initialize: vi.fn<(...args: any[]) => any>(),
+      close: vi.fn<(...args: any[]) => any>(),
     };
   }),
 }));
 
 // Mock KnowledgeStorePresenter
 vi.mock("../../../src/main/presenter/knowledgePresenter/knowledgeStorePresenter", () => ({
-  KnowledgeStorePresenter: vi.fn().mockImplementation(() => ({
-    addFile: vi.fn(),
-    deleteFile: vi.fn(),
-    reAddFile: vi.fn(),
-    queryFile: vi.fn(),
-    listFiles: vi.fn().mockResolvedValue([]),
-    close: vi.fn(),
-    destroy: vi.fn(),
-    similarityQuery: vi.fn(),
-    pauseAllRunningTasks: vi.fn(),
-    resumeAllPausedTasks: vi.fn(),
-    updateConfig: vi.fn(),
+  KnowledgeStorePresenter: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
+    addFile: vi.fn<(...args: any[]) => any>(),
+    deleteFile: vi.fn<(...args: any[]) => any>(),
+    reAddFile: vi.fn<(...args: any[]) => any>(),
+    queryFile: vi.fn<(...args: any[]) => any>(),
+    listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    close: vi.fn<(...args: any[]) => any>(),
+    destroy: vi.fn<(...args: any[]) => any>(),
+    similarityQuery: vi.fn<(...args: any[]) => any>(),
+    pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
+    resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
+    updateConfig: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
 // Mock KnowledgeTaskPresenter
 vi.mock("../../../src/main/presenter/knowledgePresenter/knowledgeTaskPresenter", () => ({
-  KnowledgeTaskPresenter: vi.fn().mockImplementation(() => ({
-    getStatus: vi.fn().mockReturnValue({ totalTasks: 0 }),
+  KnowledgeTaskPresenter: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
+    getStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ totalTasks: 0 }),
   })),
 }));
 
 // Mock text splitters
 vi.mock("../../../src/main/lib/textsplitters", () => ({
   RecursiveCharacterTextSplitter: {
-    getSeparatorsForLanguage: vi.fn().mockReturnValue(["\n\n", "\n", " ", ""]),
+    getSeparatorsForLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue(["\n\n", "\n", " ", ""]),
   },
   SupportedTextSplitterLanguages: ["javascript", "python", "markdown"],
 }));
 
 // Mock vector utils
 vi.mock("../../../src/main/utils/vector", () => ({
-  getMetric: vi.fn().mockReturnValue("cosine"),
+  getMetric: vi.fn<(...args: any[]) => any>().mockReturnValue("cosine"),
 }));
 
 // Mock the dependencies
 const mockConfigPresenter: IConfigPresenter = {
-  getKnowledgeConfigs: vi.fn(),
-  diffKnowledgeConfigs: vi.fn(),
-  setKnowledgeConfigs: vi.fn(),
+  getKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+  diffKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
+  setKnowledgeConfigs: vi.fn<(...args: any[]) => any>(),
 } as any;
 
 const mockFilePresenter: IFilePresenter = {
-  validateFileForKnowledgeBase: vi.fn(),
-  getSupportedExtensions: vi.fn(),
+  validateFileForKnowledgeBase: vi.fn<(...args: any[]) => any>(),
+  getSupportedExtensions: vi.fn<(...args: any[]) => any>(),
 } as any;
 
 const createKnowledgeConfig = (id: string) => ({
@@ -129,26 +129,26 @@ describe("KnowledgePresenter Validation Methods", () => {
         mockImplementation: (factory: () => unknown) => void;
       }
     ).mockImplementation(() => ({
-      open: vi.fn(),
-      initialize: vi.fn(),
-      close: vi.fn(),
+      open: vi.fn<(...args: any[]) => any>(),
+      initialize: vi.fn<(...args: any[]) => any>(),
+      close: vi.fn<(...args: any[]) => any>(),
     }));
     (
       KnowledgeStorePresenter as unknown as {
         mockImplementation: (factory: () => unknown) => void;
       }
     ).mockImplementation(() => ({
-      addFile: vi.fn(),
-      deleteFile: vi.fn(),
-      reAddFile: vi.fn(),
-      queryFile: vi.fn(),
-      listFiles: vi.fn().mockResolvedValue([]),
-      close: vi.fn(),
-      destroy: vi.fn(),
-      similarityQuery: vi.fn(),
-      pauseAllRunningTasks: vi.fn(),
-      resumeAllPausedTasks: vi.fn(),
-      updateConfig: vi.fn(),
+      addFile: vi.fn<(...args: any[]) => any>(),
+      deleteFile: vi.fn<(...args: any[]) => any>(),
+      reAddFile: vi.fn<(...args: any[]) => any>(),
+      queryFile: vi.fn<(...args: any[]) => any>(),
+      listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      close: vi.fn<(...args: any[]) => any>(),
+      destroy: vi.fn<(...args: any[]) => any>(),
+      similarityQuery: vi.fn<(...args: any[]) => any>(),
+      pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
+      resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
+      updateConfig: vi.fn<(...args: any[]) => any>(),
     }));
     (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([]);
     knowledgePresenter = new KnowledgePresenter(mockConfigPresenter, mockDbDir, mockFilePresenter);
@@ -303,7 +303,7 @@ describe("KnowledgePresenter Validation Methods", () => {
     it("should list files for configs saved through ConfigPresenter", async () => {
       const config = createKnowledgeConfig("knowledge-1");
       (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([config]);
-      (knowledgePresenter as any).getVectorDatabasePresenter = vi.fn().mockResolvedValue({});
+      (knowledgePresenter as any).getVectorDatabasePresenter = vi.fn<(...args: any[]) => any>().mockResolvedValue({});
 
       const result = await knowledgePresenter.listFiles(config.id);
 
@@ -314,7 +314,7 @@ describe("KnowledgePresenter Validation Methods", () => {
     it("should reuse one store creation when listFiles is called concurrently", async () => {
       const config = createKnowledgeConfig("knowledge-1");
       (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([config]);
-      const getVectorDatabasePresenter = vi.fn().mockImplementation(
+      const getVectorDatabasePresenter = vi.fn<(...args: any[]) => any>().mockImplementation(
         () =>
           new Promise((resolve) => {
             setTimeout(() => resolve({}), 0);
@@ -358,7 +358,7 @@ describe("KnowledgePresenter Validation Methods", () => {
 
     it("should remove the init task before destroying a resolved store during delete", async () => {
       const config = createKnowledgeConfig("knowledge-1");
-      const destroy = vi.fn().mockImplementation(() => {
+      const destroy = vi.fn<(...args: any[]) => any>().mockImplementation(() => {
         expect((knowledgePresenter as any).storePresenterInitTasks.has(config.id)).toBe(false);
         return Promise.resolve();
       });
@@ -379,7 +379,7 @@ describe("KnowledgePresenter Validation Methods", () => {
 
     it("should close cached store and clear cache when disabling after initialization failed", async () => {
       const config = createKnowledgeConfig("knowledge-1");
-      const close = vi.fn().mockResolvedValue(undefined);
+      const close = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
       (knowledgePresenter as any).storePresenterCache.set(config.id, { close });
       (knowledgePresenter as any).storePresenterInitTasks.set(config.id, Promise.reject(new Error("failed init")));
 
@@ -391,10 +391,10 @@ describe("KnowledgePresenter Validation Methods", () => {
 
     it("should close the vector database and preserve the error when store creation fails", async () => {
       const config = createKnowledgeConfig("knowledge-1");
-      const close = vi.fn().mockResolvedValue(undefined);
+      const close = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
       const error = new Error("store constructor failed");
       (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([config]);
-      (knowledgePresenter as any).getVectorDatabasePresenter = vi.fn().mockResolvedValue({ close });
+      (knowledgePresenter as any).getVectorDatabasePresenter = vi.fn<(...args: any[]) => any>().mockResolvedValue({ close });
       (KnowledgeStorePresenter as unknown as Mock).mockImplementationOnce(() => {
         throw error;
       });

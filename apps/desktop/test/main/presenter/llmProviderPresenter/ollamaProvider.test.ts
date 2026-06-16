@@ -4,7 +4,7 @@ import type { IConfigPresenter, LLM_PROVIDER, MODEL_META, OllamaModel } from "..
 import { OllamaProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/ollamaProvider";
 
 const { mockExecFile, mockOllamaConstructorOptions } = vi.hoisted(() => ({
-  mockExecFile: vi.fn(),
+  mockExecFile: vi.fn<(...args: any[]) => any>(),
   mockOllamaConstructorOptions: [] as unknown[],
 }));
 
@@ -18,15 +18,15 @@ vi.mock("ollama", () => ({
       mockOllamaConstructorOptions.push(options ?? {});
     }
 
-    abort = vi.fn();
+    abort = vi.fn<(...args: any[]) => any>();
   },
 }));
 
 vi.mock("@shared/logger", () => ({
   default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
+    info: vi.fn<(...args: any[]) => any>(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -45,9 +45,9 @@ vi.mock("../../../../src/main/presenter/devicePresenter", () => ({
 vi.mock("@/presenter", () => ({
   presenter: {
     configPresenter: {
-      getProvider: vi.fn(),
-      getProviderModels: vi.fn(() => []),
-      getCustomModels: vi.fn(() => []),
+      getProvider: vi.fn<(...args: any[]) => any>(),
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => []),
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
     },
   },
 }));
@@ -93,7 +93,7 @@ describe("OllamaProvider.fetchModels", () => {
       callback(null, "", "");
     });
     configPresenter = {
-      getProviderModels: vi.fn(() => [
+      getProviderModels: vi.fn<(...args: any[]) => any>(() => [
         {
           id: "deepseek-r1:1.5b",
           name: "deepseek-r1:1.5b",
@@ -107,9 +107,9 @@ describe("OllamaProvider.fetchModels", () => {
           type: ModelType.Chat,
         } satisfies MODEL_META,
       ]),
-      getCustomModels: vi.fn(() => []),
-      setProviderModels: vi.fn(),
-      ensureModelStatus: vi.fn(),
+      getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
+      setProviderModels: vi.fn<(...args: any[]) => any>(),
+      ensureModelStatus: vi.fn<(...args: any[]) => any>(),
     } as unknown as IConfigPresenter;
 
     provider = {
@@ -152,7 +152,7 @@ describe("OllamaProvider.fetchModels", () => {
   it("merges local and running models, keeps running-only models, and preserves capabilities", async () => {
     const ollamaProvider = new OllamaProvider(provider, configPresenter);
 
-    vi.spyOn(ollamaProvider, "listModels").mockResolvedValue([
+    vi.spyOn<(...args: any[]) => any>(ollamaProvider, "listModels").mockResolvedValue([
       createModel("deepseek-r1:1.5b", {
         family: "deepseek",
         parameterSize: "1.5b",
@@ -166,7 +166,7 @@ describe("OllamaProvider.fetchModels", () => {
         capabilities: ["embedding"],
       }),
     ]);
-    vi.spyOn(ollamaProvider, "listRunningModels").mockResolvedValue([
+    vi.spyOn<(...args: any[]) => any>(ollamaProvider, "listRunningModels").mockResolvedValue([
       createModel("deepseek-r1:1.5b", {
         family: "deepseek",
         parameterSize: "1.5b",
@@ -212,8 +212,8 @@ describe("OllamaProvider.fetchModels", () => {
   it("uses ollama list output as the local model source when the SDK list is empty", async () => {
     const ollamaProvider = new OllamaProvider(provider, configPresenter);
     (ollamaProvider as any).ollama = {
-      list: vi.fn(async () => ({ models: [] })),
-      show: vi.fn(async () => {
+      list: vi.fn<(...args: any[]) => any>(async () => ({ models: [] })),
+      show: vi.fn<(...args: any[]) => any>(async () => {
         throw new Error("show unavailable");
       }),
     };
@@ -249,14 +249,14 @@ describe("OllamaProvider.fetchModels", () => {
   it("confirms pull success against the ollama list model set", async () => {
     const ollamaProvider = new OllamaProvider(provider, configPresenter);
     (ollamaProvider as any).ollama = {
-      pull: vi.fn(async () => ({
+      pull: vi.fn<(...args: any[]) => any>(async () => ({
         async *[Symbol.asyncIterator]() {
           yield { status: "pulling manifest" };
           yield { status: "success" };
         },
       })),
-      list: vi.fn(async () => ({ models: [] })),
-      show: vi.fn(async () => {
+      list: vi.fn<(...args: any[]) => any>(async () => ({ models: [] })),
+      show: vi.fn<(...args: any[]) => any>(async () => {
         throw new Error("show unavailable");
       }),
     };
@@ -285,13 +285,13 @@ describe("OllamaProvider.fetchModels", () => {
     process.env.ARGOS_ALLOW_INSECURE_TLS = "1";
     const ollamaProvider = new OllamaProvider(provider, configPresenter);
     (ollamaProvider as any).ollama = {
-      pull: vi.fn(async () => ({
+      pull: vi.fn<(...args: any[]) => any>(async () => ({
         async *[Symbol.asyncIterator]() {
           yield { status: "success" };
         },
       })),
-      list: vi.fn(async () => ({ models: [{ ...createModel("qwen3:8b") }] })),
-      show: vi.fn(async () => {
+      list: vi.fn<(...args: any[]) => any>(async () => ({ models: [{ ...createModel("qwen3:8b") }] })),
+      show: vi.fn<(...args: any[]) => any>(async () => {
         throw new Error("show unavailable");
       }),
     };
@@ -309,13 +309,13 @@ describe("OllamaProvider.fetchModels", () => {
   it("treats latest tags from ollama list as a successful untagged pull", async () => {
     const ollamaProvider = new OllamaProvider(provider, configPresenter);
     (ollamaProvider as any).ollama = {
-      pull: vi.fn(async () => ({
+      pull: vi.fn<(...args: any[]) => any>(async () => ({
         async *[Symbol.asyncIterator]() {
           yield { status: "success" };
         },
       })),
-      list: vi.fn(async () => ({ models: [] })),
-      show: vi.fn(async () => {
+      list: vi.fn<(...args: any[]) => any>(async () => ({ models: [] })),
+      show: vi.fn<(...args: any[]) => any>(async () => {
         throw new Error("show unavailable");
       }),
     };
@@ -348,12 +348,12 @@ describe("OllamaProvider.fetchModels", () => {
     ollamaProvider.configPresenter = configPresenter;
     ollamaProvider.models = [];
     ollamaProvider.customModels = [];
-    ollamaProvider.ollama = { id: "old-client", abort: vi.fn() };
+    ollamaProvider.ollama = { id: "old-client", abort: vi.fn<(...args: any[]) => any>() };
     ollamaProvider.activeStreams = 0;
     ollamaProvider.activeStreamResolvers = [];
     ollamaProvider.isDraining = false;
     ollamaProvider.configUpdateChain = Promise.resolve();
-    ollamaProvider.createOllamaClient = vi.fn(() => ({ id: "new-client" }));
+    ollamaProvider.createOllamaClient = vi.fn<(...args: any[]) => any>(() => ({ id: "new-client" }));
 
     ollamaProvider.updateConfig({
       ...provider,

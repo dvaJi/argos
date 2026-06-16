@@ -43,12 +43,12 @@ describe("SkillTools", () => {
     vi.clearAllMocks();
 
     mockSkillPresenter = {
-      getSkillsDir: vi.fn().mockResolvedValue("/mock/skills"),
-      discoverSkills: vi.fn().mockResolvedValue(mockSkillMetadata),
-      getMetadataList: vi.fn().mockResolvedValue(mockSkillMetadata),
-      getMetadataPrompt: vi.fn().mockResolvedValue("# Skills"),
-      loadSkillContent: vi.fn().mockResolvedValue({ name: "test", content: "# Test" }),
-      viewSkill: vi.fn().mockResolvedValue({
+      getSkillsDir: vi.fn<(...args: any[]) => any>().mockResolvedValue("/mock/skills"),
+      discoverSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(mockSkillMetadata),
+      getMetadataList: vi.fn<(...args: any[]) => any>().mockResolvedValue(mockSkillMetadata),
+      getMetadataPrompt: vi.fn<(...args: any[]) => any>().mockResolvedValue("# Skills"),
+      loadSkillContent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ name: "test", content: "# Test" }),
+      viewSkill: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         success: true,
         name: "code-review",
         category: "engineering",
@@ -57,34 +57,34 @@ describe("SkillTools", () => {
         content: "# Code Review",
         isPinned: true,
       } satisfies SkillViewResult),
-      manageDraftSkill: vi.fn().mockResolvedValue({
+      manageDraftSkill: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         success: true,
         action: "create",
         draftId: "draft-abc123",
         skillName: "code-review",
       }),
-      installBuiltinSkills: vi.fn().mockResolvedValue(undefined),
-      installFromFolder: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      installFromZip: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      installFromUrl: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      uninstallSkill: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      readSkillFile: vi.fn().mockResolvedValue("---\nname: test\ndescription: Test\n---\n"),
-      updateSkillFile: vi.fn().mockResolvedValue({ success: true }),
-      saveSkillWithExtension: vi.fn().mockResolvedValue({ success: true, skillName: "test" }),
-      getSkillFolderTree: vi.fn().mockResolvedValue([]),
-      openSkillsFolder: vi.fn().mockResolvedValue(undefined),
-      getSkillExtension: vi.fn().mockResolvedValue(defaultExtension),
-      saveSkillExtension: vi.fn().mockResolvedValue(undefined),
-      listSkillScripts: vi.fn().mockResolvedValue([]),
-      getActiveSkills: vi.fn().mockResolvedValue([]),
-      setActiveSkills: vi.fn().mockResolvedValue([]),
-      validateSkillNames: vi.fn().mockImplementation((names: string[]) => {
+      installBuiltinSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      installFromFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      installFromZip: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      installFromUrl: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      uninstallSkill: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      readSkillFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("---\nname: test\ndescription: Test\n---\n"),
+      updateSkillFile: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true }),
+      saveSkillWithExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({ success: true, skillName: "test" }),
+      getSkillFolderTree: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      openSkillsFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue(defaultExtension),
+      saveSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      setActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      validateSkillNames: vi.fn<(...args: any[]) => any>().mockImplementation((names: string[]) => {
         const available = new Set(mockSkillMetadata.map((skill) => skill.name));
-        return Promise.resolve(names.filter((name) => available.has(name)));
+        return Promise.resolve(names.filter(available.has));
       }),
-      getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-      watchSkillFiles: vi.fn(),
-      stopWatching: vi.fn(),
+      getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      watchSkillFiles: vi.fn<(...args: any[]) => any>(),
+      stopWatching: vi.fn<(...args: any[]) => any>(),
     } as unknown as ISkillPresenter;
 
     skillTools = new SkillTools(mockSkillPresenter);

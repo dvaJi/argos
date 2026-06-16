@@ -7,7 +7,7 @@ import {
 import { useAudioRecorder } from "@/components/chat/composables/useAudioRecorder";
 
 class FakeMediaRecorder {
-  static isTypeSupported = vi.fn((mimeType: string) => ["audio/webm;codecs=opus", "audio/webm"].includes(mimeType));
+  static isTypeSupported = vi.fn<(...args: any[]) => any>((mimeType: string) => ["audio/webm;codecs=opus", "audio/webm"].includes(mimeType));
 
   mimeType = "audio/webm";
   state: "inactive" | "recording" = "inactive";
@@ -26,11 +26,11 @@ class FakeMediaRecorder {
     }
   }
 
-  start = vi.fn(() => {
+  start = vi.fn<(...args: any[]) => any>(() => {
     this.state = "recording";
   });
 
-  stop = vi.fn(() => {
+  stop = vi.fn<(...args: any[]) => any>(() => {
     this.state = "inactive";
     this.ondataavailable?.({
       data: new Blob([new Uint8Array([1, 2, 3, 4])], { type: this.mimeType }),
@@ -38,24 +38,24 @@ class FakeMediaRecorder {
     this.onstop?.();
   });
 
-  abort = vi.fn(() => {
+  abort = vi.fn<(...args: any[]) => any>(() => {
     this.state = "inactive";
   });
 }
 
 class FakeAudioContext {
-  decodeAudioData = vi.fn(async () => ({
+  decodeAudioData = vi.fn<(...args: any[]) => any>(async () => ({
     numberOfChannels: 1,
     length: 4,
     sampleRate: 16000,
     getChannelData: () => new Float32Array([0, -0.5, 0.5, 1]),
   }));
 
-  close = vi.fn(async () => undefined);
+  close = vi.fn<(...args: any[]) => any>(async () => undefined);
 }
 
 class DeferredStopMediaRecorder {
-  static isTypeSupported = vi.fn(() => false);
+  static isTypeSupported = vi.fn<(...args: any[]) => any>(() => false);
   static instances: DeferredStopMediaRecorder[] = [];
 
   mimeType = "audio/webm";
@@ -68,11 +68,11 @@ class DeferredStopMediaRecorder {
     DeferredStopMediaRecorder.instances.push(this);
   }
 
-  start = vi.fn(() => {
+  start = vi.fn<(...args: any[]) => any>(() => {
     this.state = "recording";
   });
 
-  stop = vi.fn(() => {
+  stop = vi.fn<(...args: any[]) => any>(() => {
     this.state = "inactive";
   });
 
@@ -97,7 +97,7 @@ describe("useSpeechRecognition", () => {
         MediaRecorder: FakeMediaRecorder as any,
         navigator: {
           mediaDevices: {
-            getUserMedia: vi.fn(),
+            getUserMedia: vi.fn<(...args: any[]) => any>(),
           },
         } as any,
         AudioContext: FakeAudioContext as any,
@@ -123,7 +123,7 @@ describe("useSpeechRecognition", () => {
     const transcriptionPromise = new Promise<string>((resolve) => {
       resolveTranscription = resolve;
     });
-    const transcribe = vi.fn(async ({ mimeType, filename, audioBase64 }) => {
+    const transcribe = vi.fn<(...args: any[]) => any>(async ({ mimeType, filename, audioBase64 }) => {
       expect(mimeType).toBe("audio/wav");
       expect(filename).toMatch(/^recording-\d+\.wav$/);
       expect(audioBase64.length).toBeGreaterThan(0);
@@ -135,8 +135,8 @@ describe("useSpeechRecognition", () => {
         MediaRecorder: FakeMediaRecorder as any,
         navigator: {
           mediaDevices: {
-            getUserMedia: vi.fn(async () => ({
-              getTracks: () => [{ stop: vi.fn() }],
+            getUserMedia: vi.fn<(...args: any[]) => any>(async () => ({
+              getTracks: () => [{ stop: vi.fn<(...args: any[]) => any>() }],
             })),
           },
         } as any,
@@ -168,21 +168,21 @@ describe("useSpeechRecognition", () => {
   });
 
   it("normalizes microphone permission errors", async () => {
-    const onError = vi.fn();
+    const onError = vi.fn<(...args: any[]) => any>();
     const recognition = useSpeechRecognition({
       speechWindow: {
         MediaRecorder: FakeMediaRecorder as any,
         navigator: {
           mediaDevices: {
-            getUserMedia: vi.fn(async () => {
+            getUserMedia: vi.fn<(...args: any[]) => any>(async () => {
               throw new DOMException("Permission denied", "NotAllowedError");
             }),
           },
         } as any,
         AudioContext: FakeAudioContext as any,
       },
-      onTranscript: vi.fn(),
-      transcribe: vi.fn(),
+      onTranscript: vi.fn<(...args: any[]) => any>(),
+      transcribe: vi.fn<(...args: any[]) => any>(),
       onError,
     });
 
@@ -193,21 +193,21 @@ describe("useSpeechRecognition", () => {
   it("times out stalled transcription, reports error, and clears loading", async () => {
     vi.useFakeTimers();
 
-    const onError = vi.fn();
-    const transcribe = vi.fn(() => new Promise<string>(() => undefined));
+    const onError = vi.fn<(...args: any[]) => any>();
+    const transcribe = vi.fn<(...args: any[]) => any>(() => new Promise<string>(() => undefined));
     const recognition = useSpeechRecognition({
       speechWindow: {
         MediaRecorder: FakeMediaRecorder as any,
         navigator: {
           mediaDevices: {
-            getUserMedia: vi.fn(async () => ({
-              getTracks: () => [{ stop: vi.fn() }],
+            getUserMedia: vi.fn<(...args: any[]) => any>(async () => ({
+              getTracks: () => [{ stop: vi.fn<(...args: any[]) => any>() }],
             })),
           },
         } as any,
         AudioContext: FakeAudioContext as any,
       },
-      onTranscript: vi.fn(),
+      onTranscript: vi.fn<(...args: any[]) => any>(),
       transcribe,
       onError,
       transcriptionTimeoutMs: 10,
@@ -232,11 +232,11 @@ describe("useSpeechRecognition", () => {
   });
 
   it("reports unsupported environments", async () => {
-    const onUnsupported = vi.fn();
+    const onUnsupported = vi.fn<(...args: any[]) => any>();
     const recognition = useSpeechRecognition({
       speechWindow: {},
-      onTranscript: vi.fn(),
-      transcribe: vi.fn(),
+      onTranscript: vi.fn<(...args: any[]) => any>(),
+      transcribe: vi.fn<(...args: any[]) => any>(),
       onUnsupported,
     });
 
@@ -247,14 +247,14 @@ describe("useSpeechRecognition", () => {
 
 describe("useAudioRecorder", () => {
   it("does not emit recorded audio after cleanup disposes the active recorder", async () => {
-    const onRecorded = vi.fn();
-    const stopTrack = vi.fn();
+    const onRecorded = vi.fn<(...args: any[]) => any>();
+    const stopTrack = vi.fn<(...args: any[]) => any>();
     const recorder = useAudioRecorder({
       recorderWindow: {
         MediaRecorder: DeferredStopMediaRecorder as any,
         navigator: {
           mediaDevices: {
-            getUserMedia: vi.fn(async () => ({
+            getUserMedia: vi.fn<(...args: any[]) => any>(async () => ({
               getTracks: () => [{ stop: stopTrack }],
             })),
           },

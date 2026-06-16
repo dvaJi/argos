@@ -27,13 +27,13 @@ async function setup(options?: {
 }) {
   vi.resetModules();
 
-  const toast = vi.fn();
+  const toast = vi.fn<(...args: any[]) => any>();
   const llmproviderPresenter = {
-    getKeyStatus: vi.fn().mockResolvedValue(null),
-    refreshModels: vi.fn().mockResolvedValue(undefined),
+    getKeyStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    refreshModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const modelCheckStore = {
-    openDialog: vi.fn(),
+    openDialog: vi.fn<(...args: any[]) => any>(),
   };
 
   vi.doMock("@api/legacy/presenters", () => ({
@@ -71,14 +71,14 @@ async function setup(options?: {
     TooltipProvider: passthrough("TooltipProvider"),
     TooltipTrigger: passthrough("TooltipTrigger"),
   }));
-  vi.mock("@iconify/react", () => ({
+  vi.doMock("@iconify/react", () => ({
     Icon: () => <i />,
   }));
 
   const ProviderApiConfig = (await import("../../../src/renderer/settings/components/ProviderApiConfig")).default;
 
-  const onApiHostChange = vi.fn();
-  const onValidateKey = vi.fn();
+  const onApiHostChange = vi.fn<(...args: any[]) => any>();
+  const onValidateKey = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <ProviderApiConfig
@@ -206,8 +206,8 @@ describe("ProviderApiConfig", () => {
   });
 
   it("requests the presenter with safeCall disabled so refresh errors can surface", async () => {
-    const useLegacyPresenter = vi.fn((name: string) => {
-      if (name === "llmproviderPresenter") return { getKeyStatus: vi.fn(), refreshModels: vi.fn() };
+    const useLegacyPresenter = vi.fn<(...args: any[]) => any>((name: string) => {
+      if (name === "llmproviderPresenter") return { getKeyStatus: vi.fn<(...args: any[]) => any>(), refreshModels: vi.fn<(...args: any[]) => any>() };
       throw new Error(`Unexpected presenter: ${name}`);
     });
 
@@ -216,10 +216,10 @@ describe("ProviderApiConfig", () => {
       useLegacyPresenter,
     }));
     vi.doMock("@/stores/modelCheck", () => ({
-      useModelCheckStore: () => ({ openDialog: vi.fn() }),
+      useModelCheckStore: () => ({ openDialog: vi.fn<(...args: any[]) => any>() }),
     }));
     vi.doMock("@/components/use-toast", () => ({
-      useToast: () => ({ toast: vi.fn() }),
+      useToast: () => ({ toast: vi.fn<(...args: any[]) => any>() }),
     }));
     vi.doMock("@shadcn/components/ui/input", () => ({
       Input: (props: any) => <input value={props.value ?? ""} onChange={props.onChange} />,

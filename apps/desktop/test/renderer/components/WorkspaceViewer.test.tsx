@@ -41,11 +41,11 @@ describe("WorkspaceViewer", () => {
       } as const);
 
     const sidepanelStore = {
-      getSessionState: vi.fn(() => sessionState),
-      setViewMode: vi.fn(),
+      getSessionState: vi.fn<(...args: any[]) => any>(() => sessionState),
+      setViewMode: vi.fn<(...args: any[]) => any>(),
     };
 
-    const openFileMock = vi.fn().mockResolvedValue(undefined);
+    const openFileMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
     vi.doMock("react-i18next", () => ({
       useTranslation: () => ({
@@ -107,7 +107,7 @@ describe("WorkspaceViewer", () => {
   };
 
   it("shows a maximize button and emits toggle-fullscreen", async () => {
-    const onToggleFullscreen = vi.fn();
+    const onToggleFullscreen = vi.fn<(...args: any[]) => any>();
     const { container } = await setup({
       props: {
         onToggleFullscreen,

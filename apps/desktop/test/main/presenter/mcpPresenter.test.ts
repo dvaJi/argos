@@ -1,25 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const serverManagerMocks = vi.hoisted(() => ({
-  startServer: vi.fn(),
-  stopServer: vi.fn(),
-  isServerRunning: vi.fn(),
-  getRunningClients: vi.fn().mockResolvedValue([]),
-  testNpmRegistrySpeed: vi.fn().mockResolvedValue("https://registry.npmjs.org/"),
-  getNpmRegistry: vi.fn().mockReturnValue("https://registry.npmjs.org/"),
-  updateNpmRegistryInBackground: vi.fn().mockResolvedValue(undefined),
-  loadRegistryFromCache: vi.fn(),
-  refreshNpmRegistry: vi.fn().mockResolvedValue("https://registry.npmjs.org/"),
-  getUvRegistry: vi.fn().mockReturnValue(null),
+  startServer: vi.fn<(...args: any[]) => any>(),
+  stopServer: vi.fn<(...args: any[]) => any>(),
+  isServerRunning: vi.fn<(...args: any[]) => any>(),
+  getRunningClients: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  testNpmRegistrySpeed: vi.fn<(...args: any[]) => any>().mockResolvedValue("https://registry.npmjs.org/"),
+  getNpmRegistry: vi.fn<(...args: any[]) => any>().mockReturnValue("https://registry.npmjs.org/"),
+  updateNpmRegistryInBackground: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+  loadRegistryFromCache: vi.fn<(...args: any[]) => any>(),
+  refreshNpmRegistry: vi.fn<(...args: any[]) => any>().mockResolvedValue("https://registry.npmjs.org/"),
+  getUvRegistry: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
 }));
 
 const toolManagerMocks = vi.hoisted(() => ({
-  getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-  getRunningClients: vi.fn().mockResolvedValue([]),
+  getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  getRunningClients: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/serverManager", () => ({
-  ServerManager: vi.fn().mockImplementation(() => ({
+  ServerManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
     startServer: serverManagerMocks.startServer,
     stopServer: serverManagerMocks.stopServer,
     isServerRunning: serverManagerMocks.isServerRunning,
@@ -34,20 +34,20 @@ vi.mock("../../../src/main/presenter/mcpPresenter/serverManager", () => ({
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/toolManager", () => ({
-  ToolManager: vi.fn().mockImplementation(() => ({
+  ToolManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
     getAllToolDefinitions: toolManagerMocks.getAllToolDefinitions,
     getRunningClients: toolManagerMocks.getRunningClients,
   })),
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/mcprouterManager", () => ({
-  McpRouterManager: vi.fn().mockImplementation(() => ({})),
+  McpRouterManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({})),
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    send: vi.fn(),
-    sendToRenderer: vi.fn(),
+    send: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -99,20 +99,20 @@ describe("McpPresenter#setMcpServerEnabled", () => {
     enabledServers: string[] = [],
   ) =>
     ({
-      setMcpServerEnabled: vi.fn().mockResolvedValue(undefined),
-      getMcpEnabled: vi.fn().mockResolvedValue(mcpEnabled),
-      setMcpEnabled: vi.fn().mockResolvedValue(undefined),
-      getMcpServers: vi.fn().mockResolvedValue(servers),
-      getEnabledMcpServers: vi.fn().mockResolvedValue(enabledServers),
-      getLanguage: vi.fn().mockReturnValue("en-US"),
-      getPrivacyModeEnabled: vi.fn(() => privacyModeEnabled),
+      setMcpServerEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      getMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(mcpEnabled),
+      setMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue(servers),
+      getEnabledMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue(enabledServers),
+      getLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue("en-US"),
+      getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => privacyModeEnabled),
     }) as any;
 
   it("starts a server immediately after enabling it when MCP is active", async () => {
     const configPresenter = createConfigPresenter(true);
     const presenter = new McpPresenter(configPresenter);
-    const startSpy = vi.spyOn(presenter, "startServer").mockResolvedValue(undefined);
-    const stopSpy = vi.spyOn(presenter, "stopServer").mockResolvedValue(undefined);
+    const startSpy = vi.spyOn<(...args: any[]) => any>(presenter, "startServer").mockResolvedValue(undefined);
+    const stopSpy = vi.spyOn<(...args: any[]) => any>(presenter, "stopServer").mockResolvedValue(undefined);
 
     await presenter.setMcpServerEnabled("demo-server", true);
 
@@ -127,8 +127,8 @@ describe("McpPresenter#setMcpServerEnabled", () => {
   it("stops a server immediately after disabling it when MCP is active", async () => {
     const configPresenter = createConfigPresenter(true);
     const presenter = new McpPresenter(configPresenter);
-    const startSpy = vi.spyOn(presenter, "startServer").mockResolvedValue(undefined);
-    const stopSpy = vi.spyOn(presenter, "stopServer").mockResolvedValue(undefined);
+    const startSpy = vi.spyOn<(...args: any[]) => any>(presenter, "startServer").mockResolvedValue(undefined);
+    const stopSpy = vi.spyOn<(...args: any[]) => any>(presenter, "stopServer").mockResolvedValue(undefined);
 
     await presenter.setMcpServerEnabled("demo-server", false);
 
@@ -140,8 +140,8 @@ describe("McpPresenter#setMcpServerEnabled", () => {
   it("only persists config when MCP is globally disabled", async () => {
     const configPresenter = createConfigPresenter(false);
     const presenter = new McpPresenter(configPresenter);
-    const startSpy = vi.spyOn(presenter, "startServer").mockResolvedValue(undefined);
-    const stopSpy = vi.spyOn(presenter, "stopServer").mockResolvedValue(undefined);
+    const startSpy = vi.spyOn<(...args: any[]) => any>(presenter, "startServer").mockResolvedValue(undefined);
+    const stopSpy = vi.spyOn<(...args: any[]) => any>(presenter, "stopServer").mockResolvedValue(undefined);
 
     await presenter.setMcpServerEnabled("demo-server", true);
 
@@ -185,7 +185,7 @@ describe("McpPresenter#setMcpServerEnabled", () => {
       ["regular", "plugin"],
     );
     const presenter = new McpPresenter(configPresenter);
-    const startSpy = vi.spyOn(presenter, "startServer").mockResolvedValue(undefined);
+    const startSpy = vi.spyOn<(...args: any[]) => any>(presenter, "startServer").mockResolvedValue(undefined);
 
     await presenter.setMcpEnabled(true);
 
@@ -204,7 +204,7 @@ describe("McpPresenter#setMcpServerEnabled", () => {
     (presenter as any).serverManager = {
       getRunningClients: serverManagerMocks.getRunningClients,
     };
-    const stopSpy = vi.spyOn(presenter, "stopServer").mockResolvedValue(undefined);
+    const stopSpy = vi.spyOn<(...args: any[]) => any>(presenter, "stopServer").mockResolvedValue(undefined);
 
     await presenter.setMcpEnabled(false);
 
@@ -253,7 +253,7 @@ describe("McpPresenter#setMcpServerEnabled", () => {
     const presenter = new McpPresenter(configPresenter);
     const runtimeError = new Error("runtime failed");
 
-    vi.spyOn(presenter, "startServer").mockRejectedValue(runtimeError);
+    vi.spyOn<(...args: any[]) => any>(presenter, "startServer").mockRejectedValue(runtimeError);
 
     await expect(presenter.setMcpServerEnabled("demo-server", true)).rejects.toThrow("runtime failed");
     expect(configPresenter.setMcpServerEnabled).toHaveBeenCalledWith("demo-server", true);

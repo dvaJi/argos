@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const eventBusMocks = vi.hoisted(() => ({
-  on: vi.fn(),
-  off: vi.fn(),
-  send: vi.fn(),
-  sendToRenderer: vi.fn(),
+  on: vi.fn<(...args: any[]) => any>(),
+  off: vi.fn<(...args: any[]) => any>(),
+  send: vi.fn<(...args: any[]) => any>(),
+  sendToRenderer: vi.fn<(...args: any[]) => any>(),
 }));
 
 const presenterMocks = vi.hoisted(() => ({
   agentSessionPresenter: {
-    getSession: vi.fn(),
+    getSession: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -42,7 +42,7 @@ describe("ToolManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -70,8 +70,8 @@ describe("ToolManager", () => {
         descriptions: "",
         ...serverConfig,
       },
-      listTools: vi.fn().mockResolvedValue(tools),
-      callTool: vi.fn().mockResolvedValue({
+      listTools: vi.fn<(...args: any[]) => any>().mockResolvedValue(tools),
+      callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         content: "ok",
         isError: false,
       }),
@@ -80,25 +80,25 @@ describe("ToolManager", () => {
 
   function createConfigPresenter(serverName: string) {
     return {
-      getSetting: vi.fn(() => {
+      getSetting: vi.fn<(...args: any[]) => any>(() => {
         throw new Error("input_chatMode should not be read");
       }),
-      getMcpServers: vi.fn().mockResolvedValue({
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         [serverName]: {
           autoApprove: ["all"],
         },
       }),
-      getAcpAgents: vi.fn().mockResolvedValue([]),
-      getAgentMcpSelections: vi.fn().mockResolvedValue([]),
-      getLanguage: vi.fn().mockReturnValue("en-US"),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getAgentMcpSelections: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue("en-US"),
     };
   }
 
   function createServerManager(clients: unknown[]) {
     return {
-      getRunningClients: vi.fn().mockResolvedValue(clients),
-      setServerLastError: vi.fn(),
-      clearServerLastError: vi.fn(),
+      getRunningClients: vi.fn<(...args: any[]) => any>().mockResolvedValue(clients),
+      setServerLastError: vi.fn<(...args: any[]) => any>(),
+      clearServerLastError: vi.fn<(...args: any[]) => any>(),
     };
   }
 

@@ -2,15 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import path from "path";
 
 const mocks = vi.hoisted(() => {
-  const pragma = vi.fn();
-  const key = vi.fn();
-  const close = vi.fn();
+  const pragma = vi.fn<(...args: any[]) => any>();
+  const key = vi.fn<(...args: any[]) => any>();
+  const close = vi.fn<(...args: any[]) => any>();
 
   return {
     pragma,
     key,
     close,
-    databaseCtor: vi.fn(() => ({
+    databaseCtor: vi.fn<(...args: any[]) => any>(() => ({
       pragma,
       key,
       close,

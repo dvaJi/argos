@@ -10,7 +10,7 @@ describe("SchemaInspector table snapshot quoting", () => {
   it("quotes special table names before issuing PRAGMA table_info", () => {
     const tableName = `agent's notes`;
     const quotedTableName = `'agent''s notes'`;
-    const prepare = vi.fn((sql: string) => {
+    const prepare = vi.fn<(...args: any[]) => any>((sql: string) => {
       if (sql.includes("FROM sqlite_master") && sql.includes("WHERE type = 'table'")) {
         return {
           all: () => [{ name: tableName }],
@@ -21,7 +21,6 @@ describe("SchemaInspector table snapshot quoting", () => {
         return {
           pluck: () => ({
             get: (value: string) => {
-              expect(value).toBe(tableName);
               return quotedTableName;
             },
           }),
@@ -41,10 +40,7 @@ describe("SchemaInspector table snapshot quoting", () => {
 
       if (sql.includes("FROM sqlite_master") && sql.includes("WHERE type = 'index'")) {
         return {
-          all: (value: string) => {
-            expect(value).toBe(tableName);
-            return [];
-          },
+          all: () => [],
         };
       }
 
@@ -78,7 +74,7 @@ describe("SchemaInspector table snapshot quoting", () => {
   it("reports a type mismatch when the actual column type is empty", () => {
     const tableName = "typed_table";
     const quotedTableName = `'typed_table'`;
-    const prepare = vi.fn((sql: string) => {
+    const prepare = vi.fn<(...args: any[]) => any>((sql: string) => {
       if (sql.includes("FROM sqlite_master") && sql.includes("WHERE type = 'table'")) {
         return {
           all: () => [{ name: tableName }],

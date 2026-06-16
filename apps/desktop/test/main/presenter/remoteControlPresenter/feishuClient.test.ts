@@ -5,11 +5,11 @@ import path from "node:path";
 
 const clientConfigs: unknown[] = [];
 const wsClientConfigs: unknown[] = [];
-const wsStart = vi.fn().mockResolvedValue(undefined);
-const wsClose = vi.fn();
-const register = vi.fn();
-const messageResourceGet = vi.fn();
-const imageCreate = vi.fn();
+const wsStart = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+const wsClose = vi.fn<(...args: any[]) => any>();
+const register = vi.fn<(...args: any[]) => any>();
+const messageResourceGet = vi.fn<(...args: any[]) => any>();
+const imageCreate = vi.fn<(...args: any[]) => any>();
 
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
@@ -32,12 +32,12 @@ vi.mock("@larksuiteoapi/node-sdk", () => ({
     info: "info",
   },
   Client: class MockClient {
-    readonly request = vi.fn();
+    readonly request = vi.fn<(...args: any[]) => any>();
     readonly im = {
       message: {
-        reply: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
+        reply: vi.fn<(...args: any[]) => any>(),
+        create: vi.fn<(...args: any[]) => any>(),
+        update: vi.fn<(...args: any[]) => any>(),
       },
       messageResource: {
         get: messageResourceGet,
@@ -89,7 +89,7 @@ describe("FeishuClient", () => {
     });
 
     await client.startMessageStream({
-      onMessage: vi.fn().mockResolvedValue(undefined),
+      onMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     });
 
     expect(clientConfigs).toContainEqual(

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getPathMock, openPathMock, existsSyncMock } = vi.hoisted(() => ({
-  getPathMock: vi.fn((name: string) => {
+  getPathMock: vi.fn<(...args: any[]) => any>((name: string) => {
     if (name === "temp") {
       return "/system/temp";
     }
@@ -13,8 +13,8 @@ const { getPathMock, openPathMock, existsSyncMock } = vi.hoisted(() => ({
     }
     return `/mock/${name}`;
   }),
-  openPathMock: vi.fn(),
-  existsSyncMock: vi.fn(),
+  openPathMock: vi.fn<(...args: any[]) => any>(),
+  existsSyncMock: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
@@ -37,20 +37,20 @@ import { ProjectPresenter } from "@/presenter/projectPresenter/index";
 function createMockSqlitePresenter() {
   return {
     newProjectsTable: {
-      getAll: vi.fn().mockReturnValue([]),
-      getRecent: vi.fn().mockReturnValue([]),
-      upsert: vi.fn(),
-      delete: vi.fn(),
+      getAll: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getRecent: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      upsert: vi.fn<(...args: any[]) => any>(),
+      delete: vi.fn<(...args: any[]) => any>(),
     },
     newEnvironmentsTable: {
-      list: vi.fn().mockReturnValue([]),
+      list: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     },
   } as any;
 }
 
 function createMockDevicePresenter() {
   return {
-    selectDirectory: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+    selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue({ canceled: true, filePaths: [] }),
   } as any;
 }
 

@@ -4,8 +4,8 @@ import MermaidArtifact from "@/components/artifacts/MermaidArtifact";
 
 vi.mock("mermaid", () => ({
   default: {
-    initialize: vi.fn(),
-    run: vi.fn().mockResolvedValue(undefined),
+    initialize: vi.fn<(...args: any[]) => any>(),
+    run: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   },
 }));
 

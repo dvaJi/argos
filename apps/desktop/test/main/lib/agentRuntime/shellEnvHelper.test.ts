@@ -3,12 +3,12 @@ import fs from "fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("child_process", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => {
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => {
       if (name === "home") {
         return process.platform === "win32" ? "C:\\Users\\tester" : "/Users/tester";
       }
@@ -25,7 +25,7 @@ class MockStream extends EventEmitter {}
 class MockChild extends EventEmitter {
   stdout = new MockStream();
   stderr = new MockStream();
-  kill = vi.fn(() => true);
+  kill = vi.fn<(...args: any[]) => any>(() => true);
 }
 
 function mockShellStats(): fs.Stats {
@@ -50,8 +50,8 @@ describe("shellEnvHelper", () => {
   beforeEach(() => {
     clearShellEnvironmentCache();
     process.env = { ...originalEnv };
-    vi.spyOn(fs, "statSync").mockReturnValue(mockShellStats());
-    vi.spyOn(fs, "accessSync").mockReturnValue(undefined);
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockReturnValue(mockShellStats());
+    vi.spyOn<(...args: any[]) => any>(fs, "accessSync").mockReturnValue(undefined);
   });
 
   afterEach(() => {
@@ -71,7 +71,7 @@ describe("shellEnvHelper", () => {
     process.env.SHELL = "/bin/zsh";
     process.env.PATH = "/usr/bin:/bin";
 
-    vi.mocked(spawn).mockImplementation((shell, args) => {
+    vi.mocked<(...args: any[]) => any>(spawn).mockImplementation((shell, args) => {
       const child = new MockChild();
       const command = String(args?.[3] ?? "");
       const { start, end } = getMarkers(command);
@@ -114,7 +114,7 @@ describe("shellEnvHelper", () => {
     process.env.SHELL = "/bin/zsh";
     process.env.PATH = "/usr/bin:/bin";
 
-    vi.mocked(spawn)
+    vi.mocked<(...args: any[]) => any>(spawn)
       .mockImplementationOnce(() => {
         const child = new MockChild();
         queueMicrotask(() => {
@@ -156,7 +156,7 @@ describe("shellEnvHelper", () => {
     });
     process.env.SHELL = "/missing/zsh";
     process.env.PATH = "/usr/bin:/bin";
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) => {
       if (String(candidate) === "/bin/sh") {
         return mockShellStats();
       }
@@ -173,13 +173,13 @@ describe("shellEnvHelper", () => {
     });
     process.env.SHELL = "/bin/zsh";
     process.env.PATH = "/usr/bin:/bin";
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) => {
       if (["/bin/zsh", "/bin/sh"].includes(String(candidate))) {
         return mockShellStats();
       }
       throw new Error("missing");
     });
-    vi.spyOn(fs, "accessSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "accessSync").mockImplementation((candidate) => {
       if (String(candidate) === "/bin/zsh") {
         throw new Error("not executable");
       }
@@ -196,7 +196,7 @@ describe("shellEnvHelper", () => {
     });
     process.env.SHELL = "/missing/zsh";
     process.env.PATH = "/usr/bin:/bin";
-    vi.spyOn(fs, "statSync").mockImplementation(() => {
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation(() => {
       throw new Error("missing");
     });
 
@@ -210,14 +210,14 @@ describe("shellEnvHelper", () => {
     });
     process.env.SHELL = "/missing/zsh";
     process.env.PATH = "/usr/bin:/bin";
-    vi.spyOn(fs, "statSync").mockImplementation((candidate) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) => {
       if (String(candidate) === "/bin/sh") {
         return mockShellStats();
       }
       throw new Error("missing");
     });
 
-    vi.mocked(spawn).mockImplementation((shell, args) => {
+    vi.mocked<(...args: any[]) => any>(spawn).mockImplementation((shell, args) => {
       const child = new MockChild();
       const command = String(args?.[1] ?? "");
       const { start, end } = getMarkers(command);

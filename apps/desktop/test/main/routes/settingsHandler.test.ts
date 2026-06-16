@@ -22,11 +22,11 @@ describe("SettingsRouteHandler", () => {
     };
 
     return {
-      readSnapshot: vi.fn(() => ({ ...snapshot })),
-      applyChange: vi.fn((change) => {
+      readSnapshot: vi.fn<(...args: any[]) => any>(() => ({ ...snapshot })),
+      applyChange: vi.fn<(...args: any[]) => any>((change) => {
         (snapshot as Record<string, unknown>)[change.key] = change.value;
       }),
-      listSystemFonts: vi.fn().mockResolvedValue(["Inter", "JetBrains Mono"]),
+      listSystemFonts: vi.fn<(...args: any[]) => any>().mockResolvedValue(["Inter", "JetBrains Mono"]),
     };
   };
 

@@ -13,17 +13,17 @@ class MockWebContents extends EventEmitter {
     reject: (error: Error) => void;
   } | null = null;
   debugger = {
-    isAttached: vi.fn(() => false),
-    detach: vi.fn(),
-    attach: vi.fn(),
-    sendCommand: vi.fn(async () => ({})),
+    isAttached: vi.fn<(...args: any[]) => any>(() => false),
+    detach: vi.fn<(...args: any[]) => any>(),
+    attach: vi.fn<(...args: any[]) => any>(),
+    sendCommand: vi.fn<(...args: any[]) => any>(async () => ({})),
   };
   session = {};
   navigationHistory = {
-    canGoBack: vi.fn(() => false),
-    canGoForward: vi.fn(() => false),
+    canGoBack: vi.fn<(...args: any[]) => any>(() => false),
+    canGoForward: vi.fn<(...args: any[]) => any>(() => false),
   };
-  loadURL = vi.fn((url: string) => {
+  loadURL = vi.fn<(...args: any[]) => any>((url: string) => {
     this.url = url;
     this.loading = true;
     this.emit("did-start-loading");
@@ -32,11 +32,11 @@ class MockWebContents extends EventEmitter {
       this.pendingLoad = { resolve, reject };
     });
   });
-  isLoading = vi.fn(() => this.loading);
-  reload = vi.fn();
-  goBack = vi.fn();
-  goForward = vi.fn();
-  sendInputEvent = vi.fn();
+  isLoading = vi.fn<(...args: any[]) => any>(() => this.loading);
+  reload = vi.fn<(...args: any[]) => any>();
+  goBack = vi.fn<(...args: any[]) => any>();
+  goForward = vi.fn<(...args: any[]) => any>();
+  sendInputEvent = vi.fn<(...args: any[]) => any>();
 
   getURL() {
     return this.url;
@@ -101,12 +101,12 @@ describe("BrowserTab", () => {
   const createTab = () => {
     const webContents = new MockWebContents();
     const cdpManager = {
-      createSession: vi.fn(async () => undefined),
-      getDOM: vi.fn(async () => "<html></html>"),
-      evaluateScript: vi.fn(async () => 1),
+      createSession: vi.fn<(...args: any[]) => any>(async () => undefined),
+      getDOM: vi.fn<(...args: any[]) => any>(async () => "<html></html>"),
+      evaluateScript: vi.fn<(...args: any[]) => any>(async () => 1),
     };
     const screenshotManager = {
-      captureScreenshot: vi.fn(async () => "image-data"),
+      captureScreenshot: vi.fn<(...args: any[]) => any>(async () => "image-data"),
     };
     const tab = new BrowserTab(webContents as any, cdpManager as any, screenshotManager as any);
 
@@ -433,7 +433,7 @@ describe("BrowserTab", () => {
 
   it("does not touch debugger state after webContents is already destroyed", () => {
     const { tab, webContents } = createTab();
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
     webContents.destroyed = true;
     Object.defineProperty(webContents, "debugger", {
       get: () => {
@@ -441,20 +441,20 @@ describe("BrowserTab", () => {
       },
     });
 
-    expect(() => tab.destroy()).not.toThrow();
+    expect(() => tab.destroy()).not.toThrow("expected error");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("suppresses debugger detach races caused by destroyed Electron objects", () => {
     const { tab, webContents } = createTab();
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
     Object.defineProperty(webContents, "debugger", {
       get: () => {
         throw new TypeError("Object has been destroyed");
       },
     });
 
-    expect(() => tab.destroy()).not.toThrow();
+    expect(() => tab.destroy()).not.toThrow("expected error");
     expect(warnSpy).not.toHaveBeenCalled();
   });
 });

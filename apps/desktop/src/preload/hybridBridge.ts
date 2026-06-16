@@ -32,7 +32,7 @@ function isDesktopOnlyRoute(route: string): boolean {
 }
 
 function isDesktopOnlyEvent(eventName: string): boolean {
-  return TIER3_EVENT_PREFIXES.some((prefix) => eventName.startsWith(prefix));
+  return TIER3_EVENT_PREFIXES.some(eventName.startsWith);
 }
 
 type EventListener<T = unknown> = (payload: T) => void;

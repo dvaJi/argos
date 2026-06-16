@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ArgosSessionsTable } from "@/presenter/sqlitePresenter/tables/argosSessions";
 
 describe("ArgosSessionsTable.updateSummaryStateIfMatches", () => {
-  const run = vi.fn();
-  const prepare = vi.fn();
+  const run = vi.fn<(...args: any[]) => any>();
+  const prepare = vi.fn<(...args: any[]) => any>();
   const db = {
     prepare,
   } as any;
@@ -64,14 +64,14 @@ describe("ArgosSessionsTable.updateSummaryStateIfMatches", () => {
   });
 
   it("restores the v23 recovery migration for missing forward columns", () => {
-    const get = vi.fn((param?: string) => {
+    const get = vi.fn<(...args: any[]) => any>((param?: string) => {
       if (param === "argos_sessions") {
         return { name: "argos_sessions" };
       }
 
       return undefined;
     });
-    const all = vi.fn(() => [
+    const all = vi.fn<(...args: any[]) => any>(() => [
       { name: "id" },
       { name: "provider_id" },
       { name: "model_id" },
@@ -185,10 +185,10 @@ describe("ArgosSessionsTable.updateSummaryStateIfMatches", () => {
   });
 
   it("aborts table creation when the recorded schema version is newer than supported", () => {
-    const exec = vi.fn();
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const exec = vi.fn<(...args: any[]) => any>();
+    const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
     const guardedDb = {
-      prepare: vi.fn((sql: string) => {
+      prepare: vi.fn<(...args: any[]) => any>((sql: string) => {
         if (sql === "SELECT name FROM sqlite_master WHERE type='table' AND name=?") {
           return {
             get: (param?: string) => {

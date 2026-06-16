@@ -149,52 +149,52 @@ function createRuntime() {
   };
 
   const configPresenter = {
-    getSetting: vi.fn((key: keyof typeof settings) => settings[key]),
-    setSetting: vi.fn((key: keyof typeof settings, value: unknown) => {
+    getSetting: vi.fn<(...args: any[]) => any>((key: keyof typeof settings) => settings[key]),
+    setSetting: vi.fn<(...args: any[]) => any>((key: keyof typeof settings, value: unknown) => {
       (settings as Record<string, unknown>)[key] = value;
     }),
-    getFontFamily: vi.fn(() => settings.fontFamily),
-    setFontFamily: vi.fn((value?: string | null) => {
+    getFontFamily: vi.fn<(...args: any[]) => any>(() => settings.fontFamily),
+    setFontFamily: vi.fn<(...args: any[]) => any>((value?: string | null) => {
       settings.fontFamily = value ?? "";
     }),
-    getCodeFontFamily: vi.fn(() => settings.codeFontFamily),
-    setCodeFontFamily: vi.fn((value?: string | null) => {
+    getCodeFontFamily: vi.fn<(...args: any[]) => any>(() => settings.codeFontFamily),
+    setCodeFontFamily: vi.fn<(...args: any[]) => any>((value?: string | null) => {
       settings.codeFontFamily = value ?? "";
     }),
-    getAutoScrollEnabled: vi.fn(() => settings.autoScrollEnabled),
-    setAutoScrollEnabled: vi.fn((value: boolean) => {
+    getAutoScrollEnabled: vi.fn<(...args: any[]) => any>(() => settings.autoScrollEnabled),
+    setAutoScrollEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.autoScrollEnabled = value;
     }),
-    getAutoCompactionEnabled: vi.fn(() => settings.autoCompactionEnabled),
-    setAutoCompactionEnabled: vi.fn((value: boolean) => {
+    getAutoCompactionEnabled: vi.fn<(...args: any[]) => any>(() => settings.autoCompactionEnabled),
+    setAutoCompactionEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.autoCompactionEnabled = value;
     }),
-    getAutoCompactionTriggerThreshold: vi.fn(() => settings.autoCompactionTriggerThreshold),
-    setAutoCompactionTriggerThreshold: vi.fn((value: number) => {
+    getAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>(() => settings.autoCompactionTriggerThreshold),
+    setAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>((value: number) => {
       settings.autoCompactionTriggerThreshold = value;
     }),
-    getAutoCompactionRetainRecentPairs: vi.fn(() => settings.autoCompactionRetainRecentPairs),
-    setAutoCompactionRetainRecentPairs: vi.fn((value: number) => {
+    getAutoCompactionRetainRecentPairs: vi.fn<(...args: any[]) => any>(() => settings.autoCompactionRetainRecentPairs),
+    setAutoCompactionRetainRecentPairs: vi.fn<(...args: any[]) => any>((value: number) => {
       settings.autoCompactionRetainRecentPairs = value;
     }),
-    getContentProtectionEnabled: vi.fn(() => settings.contentProtectionEnabled),
-    setContentProtectionEnabled: vi.fn((value: boolean) => {
+    getContentProtectionEnabled: vi.fn<(...args: any[]) => any>(() => settings.contentProtectionEnabled),
+    setContentProtectionEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.contentProtectionEnabled = value;
     }),
-    getPrivacyModeEnabled: vi.fn(() => settings.privacyModeEnabled),
-    setPrivacyModeEnabled: vi.fn((value: boolean) => {
+    getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => settings.privacyModeEnabled),
+    setPrivacyModeEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.privacyModeEnabled = value;
     }),
-    getNotificationsEnabled: vi.fn(() => settings.notificationsEnabled),
-    setNotificationsEnabled: vi.fn((value: boolean) => {
+    getNotificationsEnabled: vi.fn<(...args: any[]) => any>(() => settings.notificationsEnabled),
+    setNotificationsEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.notificationsEnabled = value;
     }),
-    getLaunchAtLoginEnabled: vi.fn(() => settings.launchAtLoginEnabled),
-    setLaunchAtLoginEnabled: vi.fn((value: boolean) => {
+    getLaunchAtLoginEnabled: vi.fn<(...args: any[]) => any>(() => settings.launchAtLoginEnabled),
+    setLaunchAtLoginEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.launchAtLoginEnabled = value;
     }),
-    getSystemFonts: vi.fn().mockResolvedValue(["Inter", "JetBrains Mono"]),
-    getProviderModels: vi.fn(() => [
+    getSystemFonts: vi.fn<(...args: any[]) => any>().mockResolvedValue(["Inter", "JetBrains Mono"]),
+    getProviderModels: vi.fn<(...args: any[]) => any>(() => [
       {
         id: "gpt-5.4",
         name: "GPT-5.4",
@@ -202,27 +202,27 @@ function createRuntime() {
         providerId: "openai",
       },
     ]),
-    getCustomModels: vi.fn(() => []),
-    getAgentType: vi.fn(async (agentId: string) => (agentId === "argos" ? "argos" : null)),
-    getCopyWithCotEnabled: vi.fn(() => settings.copyWithCotEnabled),
-    setCopyWithCotEnabled: vi.fn((value: boolean) => {
+    getCustomModels: vi.fn<(...args: any[]) => any>(() => []),
+    getAgentType: vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "argos" ? "argos" : null)),
+    getCopyWithCotEnabled: vi.fn<(...args: any[]) => any>(() => settings.copyWithCotEnabled),
+    setCopyWithCotEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.copyWithCotEnabled = value;
     }),
-    getLoggingEnabled: vi.fn(() => settings.loggingEnabled),
-    setLoggingEnabled: vi.fn((value: boolean) => {
+    getLoggingEnabled: vi.fn<(...args: any[]) => any>(() => settings.loggingEnabled),
+    setLoggingEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.loggingEnabled = value;
     }),
-    setTraceDebugEnabled: vi.fn((value: boolean) => {
+    setTraceDebugEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
       settings.traceDebugEnabled = value;
     }),
-    getKnowledgeConfigs: vi.fn(() => knowledgeConfigs),
-    setKnowledgeConfigs: vi.fn((configs: typeof knowledgeConfigs) => {
+    getKnowledgeConfigs: vi.fn<(...args: any[]) => any>(() => knowledgeConfigs),
+    setKnowledgeConfigs: vi.fn<(...args: any[]) => any>((configs: typeof knowledgeConfigs) => {
       knowledgeConfigs.splice(0, knowledgeConfigs.length, ...configs);
     }),
   } as unknown as IConfigPresenter;
 
   const agentSessionPresenter = {
-    createSession: vi.fn().mockResolvedValue({
+    createSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "session-1",
       agentId: "argos",
       title: "New Chat",
@@ -239,7 +239,7 @@ function createRuntime() {
       providerId: "openai",
       modelId: "gpt-5.4",
     }),
-    getSession: vi.fn().mockResolvedValue({
+    getSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "session-1",
       agentId: "argos",
       title: "Restored",
@@ -256,7 +256,7 @@ function createRuntime() {
       providerId: "openai",
       modelId: "gpt-5.4",
     }),
-    getMessages: vi.fn().mockResolvedValue([
+    getMessages: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         id: "message-1",
         sessionId: "session-1",
@@ -270,11 +270,11 @@ function createRuntime() {
         updatedAt: 1,
       },
     ]),
-    getSessionList: vi.fn().mockResolvedValue([]),
-    getActiveSession: vi.fn().mockResolvedValue(null),
-    activateSession: vi.fn().mockResolvedValue(undefined),
-    deactivateSession: vi.fn().mockResolvedValue(undefined),
-    getSessionGenerationSettings: vi.fn().mockResolvedValue({
+    getSessionList: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    getActiveSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    activateSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    deactivateSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getSessionGenerationSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       systemPrompt: "",
       temperature: 0.7,
       contextLength: 32000,
@@ -282,7 +282,7 @@ function createRuntime() {
       timeout: 5000,
     }),
     updateSessionGenerationSettings: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockImplementation(async (_sessionId: string, settings: { timeout?: number }) => ({
         systemPrompt: "",
         temperature: 0.7,
@@ -290,12 +290,12 @@ function createRuntime() {
         maxTokens: 4096,
         timeout: settings.timeout ?? 5000,
       })),
-    sendMessage: vi.fn().mockResolvedValue({
+    sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       requestId: "message-2",
       messageId: "message-2",
     }),
-    steerActiveTurn: vi.fn().mockResolvedValue(undefined),
-    compactSession: vi.fn().mockResolvedValue({
+    steerActiveTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    compactSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       compacted: true,
       state: {
         status: "compacted",
@@ -303,53 +303,53 @@ function createRuntime() {
         summaryUpdatedAt: 123,
       },
     }),
-    cancelGeneration: vi.fn().mockResolvedValue(undefined),
-    getMessage: vi.fn().mockResolvedValue({
+    cancelGeneration: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "message-1",
       sessionId: "session-1",
     }),
-    respondToolInteraction: vi.fn().mockResolvedValue({
+    respondToolInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       resumed: true,
     }),
-    clearSessionPermissions: vi.fn(),
+    clearSessionPermissions: vi.fn<(...args: any[]) => any>(),
   } as unknown as IAgentSessionPresenter;
 
   const llmProviderPresenter = {
-    check: vi.fn().mockResolvedValue({
+    check: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       isOk: true,
       errorMsg: null,
     }),
   } as unknown as ILlmProviderPresenter;
 
   const windowPresenter = {
-    createSettingsWindow: vi.fn().mockResolvedValue(9),
-    previewFile: vi.fn(),
-    minimize: vi.fn((windowId: number) => {
+    createSettingsWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
+    previewFile: vi.fn<(...args: any[]) => any>(),
+    minimize: vi.fn<(...args: any[]) => any>((windowId: number) => {
       const window = browserWindowState.windows.get(windowId);
       if (window) {
         window.focused = false;
       }
     }),
-    maximize: vi.fn((windowId: number) => {
+    maximize: vi.fn<(...args: any[]) => any>((windowId: number) => {
       const window = browserWindowState.windows.get(windowId);
       if (window) {
         window.maximized = !window.maximized;
       }
     }),
-    close: vi.fn((windowId: number) => {
+    close: vi.fn<(...args: any[]) => any>((windowId: number) => {
       const window = browserWindowState.windows.get(windowId);
       if (window) {
         window.destroyed = true;
       }
     }),
-    hide: vi.fn((windowId: number) => {
+    hide: vi.fn<(...args: any[]) => any>((windowId: number) => {
       const window = browserWindowState.windows.get(windowId);
       if (window) {
         window.focused = false;
       }
     }),
-    isMainWindowFocused: vi.fn((windowId: number) => browserWindowState.windows.get(windowId)?.focused ?? false),
-    getFloatingChatWindow: vi.fn(() => ({
+    isMainWindowFocused: vi.fn<(...args: any[]) => any>((windowId: number) => browserWindowState.windows.get(windowId)?.focused ?? false),
+    getFloatingChatWindow: vi.fn<(...args: any[]) => any>(() => ({
       getWindow: () => browserWindowState.windows.get(19) ?? null,
     })),
   } as unknown as IWindowPresenter & {
@@ -359,8 +359,8 @@ function createRuntime() {
   };
 
   const devicePresenter = {
-    getAppVersion: vi.fn().mockResolvedValue("1.2.3"),
-    getDeviceInfo: vi.fn().mockResolvedValue({
+    getAppVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("1.2.3"),
+    getDeviceInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       platform: "win32",
       arch: "x64",
       cpuModel: "AMD Ryzen",
@@ -368,16 +368,16 @@ function createRuntime() {
       osVersion: "Windows 11",
       osVersionMetadata: [{ name: "23H2", build: 22631 }],
     }),
-    selectDirectory: vi.fn().mockResolvedValue({
+    selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       canceled: false,
       filePaths: ["C:/workspace"],
     }),
-    restartApp: vi.fn().mockResolvedValue(undefined),
-    sanitizeSvgContent: vi.fn().mockResolvedValue("<svg />"),
+    restartApp: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    sanitizeSvgContent: vi.fn<(...args: any[]) => any>().mockResolvedValue("<svg />"),
   } as unknown as IDevicePresenter;
 
   const projectPresenter = {
-    getRecentProjects: vi.fn().mockResolvedValue([
+    getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         path: "C:/workspace",
         name: "workspace",
@@ -385,7 +385,7 @@ function createRuntime() {
         lastAccessedAt: 123,
       },
     ]),
-    getEnvironments: vi.fn().mockResolvedValue([
+    getEnvironments: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         path: "C:/workspace",
         name: "workspace",
@@ -395,68 +395,68 @@ function createRuntime() {
         exists: true,
       },
     ]),
-    openDirectory: vi.fn().mockResolvedValue(undefined),
-    selectDirectory: vi.fn().mockResolvedValue("C:/selected-workspace"),
+    openDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue("C:/selected-workspace"),
   } as unknown as IProjectPresenter;
 
   const filePresenter = {
-    getMimeType: vi.fn().mockResolvedValue("text/plain"),
-    prepareFile: vi.fn().mockResolvedValue(preparedFile),
-    prepareDirectory: vi.fn().mockResolvedValue({
+    getMimeType: vi.fn<(...args: any[]) => any>().mockResolvedValue("text/plain"),
+    prepareFile: vi.fn<(...args: any[]) => any>().mockResolvedValue(preparedFile),
+    prepareDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       name: "workspace",
       path: "/workspace",
       type: "directory",
     }),
-    readFile: vi.fn().mockResolvedValue("hello world"),
-    isDirectory: vi.fn().mockResolvedValue(true),
-    writeImageBase64: vi.fn().mockResolvedValue("/tmp/capture.png"),
+    readFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("hello world"),
+    isDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+    writeImageBase64: vi.fn<(...args: any[]) => any>().mockResolvedValue("/tmp/capture.png"),
   } as unknown as IFilePresenter;
 
   const workspacePresenter = {
-    registerWorkspace: vi.fn().mockResolvedValue(undefined),
-    registerWorkdir: vi.fn().mockResolvedValue(undefined),
-    unregisterWorkspace: vi.fn().mockResolvedValue(undefined),
-    unregisterWorkdir: vi.fn().mockResolvedValue(undefined),
-    watchWorkspace: vi.fn().mockResolvedValue(undefined),
-    unwatchWorkspace: vi.fn().mockResolvedValue(undefined),
-    readDirectory: vi.fn().mockResolvedValue([
+    registerWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    registerWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    unregisterWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    unregisterWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    watchWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    unwatchWorkspace: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    readDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         name: "src",
         path: "/workspace/src",
         isDirectory: true,
       },
     ]),
-    expandDirectory: vi.fn().mockResolvedValue([
+    expandDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         name: "app.ts",
         path: "/workspace/src/app.ts",
         isDirectory: false,
       },
     ]),
-    revealFileInFolder: vi.fn().mockResolvedValue(undefined),
-    openFile: vi.fn().mockResolvedValue(undefined),
-    readFilePreview: vi.fn().mockResolvedValue(workspacePreview),
-    resolveMarkdownLinkedFile: vi.fn().mockResolvedValue({
+    revealFileInFolder: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    openFile: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    readFilePreview: vi.fn<(...args: any[]) => any>().mockResolvedValue(workspacePreview),
+    resolveMarkdownLinkedFile: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       path: "/workspace/docs/guide.md",
       name: "guide.md",
       relativePath: "docs/guide.md",
       workspaceRoot: "/workspace",
     }),
-    getGitStatus: vi.fn().mockResolvedValue({
+    getGitStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       workspacePath: "/workspace",
       branch: "main",
       ahead: 0,
       behind: 0,
       changes: [],
     }),
-    getGitDiff: vi.fn().mockResolvedValue({
+    getGitDiff: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       workspacePath: "/workspace",
       filePath: "/workspace/src/app.ts",
       relativePath: "src/app.ts",
       staged: "",
       unstaged: "diff --git a/src/app.ts b/src/app.ts",
     }),
-    searchFiles: vi.fn().mockResolvedValue([
+    searchFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       {
         name: "app.ts",
         path: "/workspace/src/app.ts",
@@ -466,8 +466,8 @@ function createRuntime() {
   } as unknown as IWorkspacePresenter;
 
   const yoBrowserPresenter = {
-    getBrowserStatus: vi.fn().mockResolvedValue(browserStatus),
-    loadUrl: vi.fn(async (sessionId: string, url: string, timeoutMs?: number, hostWindowId?: number) => ({
+    getBrowserStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(browserStatus),
+    loadUrl: vi.fn<(...args: any[]) => any>(async (sessionId: string, url: string, timeoutMs?: number, hostWindowId?: number) => ({
       ...browserStatus,
       page: {
         ...browserStatus.page,
@@ -476,20 +476,20 @@ function createRuntime() {
         updatedAt: timeoutMs ?? 2,
       },
     })),
-    attachSessionBrowser: vi.fn().mockResolvedValue(true),
-    updateSessionBrowserBounds: vi.fn().mockResolvedValue(undefined),
-    detachSessionBrowser: vi.fn().mockResolvedValue(undefined),
-    destroySessionBrowser: vi.fn().mockResolvedValue(undefined),
-    goBack: vi.fn().mockResolvedValue(undefined),
-    goForward: vi.fn().mockResolvedValue(undefined),
-    reload: vi.fn().mockResolvedValue(undefined),
+    attachSessionBrowser: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+    updateSessionBrowserBounds: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    detachSessionBrowser: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    destroySessionBrowser: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    goBack: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    goForward: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    reload: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   } as unknown as IYoBrowserPresenter;
 
   const tabPresenter = {
-    onRendererTabReady: vi.fn().mockResolvedValue(undefined),
-    onRendererTabActivated: vi.fn().mockResolvedValue(undefined),
-    captureTabArea: vi.fn().mockResolvedValue("data:image/png;base64,capture"),
-    stitchImagesWithWatermark: vi.fn().mockResolvedValue("data:image/png;base64,stitched"),
+    onRendererTabReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    onRendererTabActivated: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    captureTabArea: vi.fn<(...args: any[]) => any>().mockResolvedValue("data:image/png;base64,capture"),
+    stitchImagesWithWatermark: vi.fn<(...args: any[]) => any>().mockResolvedValue("data:image/png;base64,stitched"),
   } as unknown as ITabPresenter;
 
   return {

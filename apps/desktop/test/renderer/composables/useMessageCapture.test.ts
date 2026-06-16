@@ -4,13 +4,13 @@ import { useMessageCapture } from "@/composables/message/useMessageCapture";
 vi.mock("@/composables/usePageCapture", () => ({
   usePageCapture: () => ({
     isCapturing: { value: false },
-    captureAndCopy: vi.fn().mockResolvedValue(true),
+    captureAndCopy: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
 }));
 vi.mock("@api/legacy/presenters", () => ({
   useLegacyPresenter: (name: string) => {
     if (name === "devicePresenter") {
-      return { getAppVersion: vi.fn().mockResolvedValue("1.0.0") };
+      return { getAppVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("1.0.0") };
     }
     return {};
   },

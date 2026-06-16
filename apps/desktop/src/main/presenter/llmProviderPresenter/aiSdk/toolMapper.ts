@@ -82,7 +82,7 @@ function mergeVariantProperties(variants: JsonSchema[]): Record<string, unknown>
 
 function normalizeSchemaNode(node: unknown): unknown {
   if (Array.isArray(node)) {
-    return node.map((item) => normalizeSchemaNode(item));
+    return node.map(normalizeSchemaNode);
   }
 
   if (!isObjectSchema(node)) {

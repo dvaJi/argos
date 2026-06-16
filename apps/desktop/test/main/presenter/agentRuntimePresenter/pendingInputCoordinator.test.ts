@@ -4,7 +4,7 @@ import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    sendToRenderer: vi.fn(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "all",
@@ -18,7 +18,7 @@ vi.mock("@/events", () => ({
 }));
 
 vi.mock("@/routes/publishArgosEvent", () => ({
-  publishArgosEvent: vi.fn(),
+  publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 
 function createRecord(
@@ -45,13 +45,13 @@ function createRecord(
 
 function createCoordinator(records: Map<string, PendingSessionInputRecord>) {
   const store = {
-    getInput: vi.fn((itemId: string) => records.get(itemId) ?? null),
-    releaseClaimedQueueInput: vi.fn((itemId: string) => records.get(itemId)!),
-    releaseClaimedInput: vi.fn((itemId: string) => records.get(itemId)!),
-    consumeQueueInput: vi.fn((itemId: string) => {
+    getInput: vi.fn<(...args: any[]) => any>((itemId: string) => records.get(itemId) ?? null),
+    releaseClaimedQueueInput: vi.fn<(...args: any[]) => any>((itemId: string) => records.get(itemId)!),
+    releaseClaimedInput: vi.fn<(...args: any[]) => any>((itemId: string) => records.get(itemId)!),
+    consumeQueueInput: vi.fn<(...args: any[]) => any>((itemId: string) => {
       records.delete(itemId);
     }),
-    consumeSteerInput: vi.fn((itemId: string) => {
+    consumeSteerInput: vi.fn<(...args: any[]) => any>((itemId: string) => {
       const record = records.get(itemId);
       if (record) {
         records.set(itemId, {

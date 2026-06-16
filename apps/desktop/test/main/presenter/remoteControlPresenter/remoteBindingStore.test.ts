@@ -4,8 +4,8 @@ import { RemoteBindingStore } from "@/presenter/remoteControlPresenter/services/
 const createConfigPresenter = () => {
   const store = new Map<string, unknown>();
   return {
-    getSetting: vi.fn((key: string) => store.get(key)),
-    setSetting: vi.fn((key: string, value: unknown) => {
+    getSetting: vi.fn<(...args: any[]) => any>((key: string) => store.get(key)),
+    setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store.set(key, value);
     }),
   };

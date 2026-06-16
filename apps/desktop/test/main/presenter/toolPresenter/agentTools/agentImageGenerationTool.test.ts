@@ -23,18 +23,18 @@ describe("Agent image generation tool", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    generateImageStandalone = vi.fn();
-    resolveConversationSessionInfo = vi.fn().mockResolvedValue({
+    generateImageStandalone = vi.fn<(...args: any[]) => any>();
+    resolveConversationSessionInfo = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       agentId: "argos",
       agentType: "argos",
     });
     configPresenter = {
       getSkillsEnabled: () => false,
       getSkillsPath: () => os.tmpdir(),
-      resolveArgosAgentConfig: vi.fn().mockResolvedValue({
+      resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         imageGenerationModel: { providerId: "openai", modelId: "gpt-image-1" },
       }),
-      getModelConfig: vi.fn().mockReturnValue({
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
         type: ModelType.ImageGeneration,
         apiEndpoint: ApiEndpointType.Image,
         vision: false,
@@ -48,32 +48,32 @@ describe("Agent image generation tool", () => {
       agentWorkspacePath: null,
       configPresenter,
       runtimePort: {
-        resolveConversationWorkdir: vi.fn().mockResolvedValue(null),
+        resolveConversationWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
         resolveConversationSessionInfo,
         getSkillPresenter: () =>
           ({
-            getActiveSkills: vi.fn().mockResolvedValue([]),
-            getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-            listSkillScripts: vi.fn().mockResolvedValue([]),
-            getSkillExtension: vi.fn(),
+            getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getSkillExtension: vi.fn<(...args: any[]) => any>(),
           }) as any,
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn().mockReturnValue([]),
-          callTool: vi.fn(),
+          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+          callTool: vi.fn<(...args: any[]) => any>(),
         }),
         getFilePresenter: () => ({
-          getMimeType: vi.fn(),
-          prepareFileCompletely: vi.fn(),
+          getMimeType: vi.fn<(...args: any[]) => any>(),
+          prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
         }),
         getLlmProviderPresenter: () => ({
-          executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-          generateCompletionStandalone: vi.fn(),
+          executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+          generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
           generateImageStandalone,
         }),
-        createSettingsWindow: vi.fn(),
-        sendToWindow: vi.fn().mockReturnValue(true),
-        getApprovedFilePaths: vi.fn().mockReturnValue([]),
-        consumeSettingsApproval: vi.fn().mockReturnValue(false),
+        createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+        sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+        getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       },
     });
   });

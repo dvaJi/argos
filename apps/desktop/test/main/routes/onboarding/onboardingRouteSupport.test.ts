@@ -13,8 +13,8 @@ describe("onboardingRouteSupport", () => {
     const store = new Map<string, unknown>();
 
     const presenter = {
-      getSetting: vi.fn(<T>(key: string) => store.get(key) as T | undefined),
-      setSetting: vi.fn((key: string, value: unknown) => {
+      getSetting: vi.fn<(...args: any[]) => any>(<T>(key: string) => store.get(key) as T | undefined),
+      setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
         store.set(key, value);
       }),
     } as unknown as IConfigPresenter;

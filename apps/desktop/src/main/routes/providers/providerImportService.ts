@@ -1453,7 +1453,7 @@ export class ProviderImportService {
     }
 
     const entries = appDataPath
-      .map((entry) => toObjectValue(entry))
+      .map(toObjectValue)
       .filter((entry) => toStringValue(entry.dataPath))
       .sort((left, right) => {
         const leftExecutableExists = fs.existsSync(toStringValue(left.executablePath));

@@ -8,7 +8,7 @@ function hasAudioExtension(value: string | undefined): boolean {
   }
 
   const normalized = value.trim().toLowerCase();
-  return AUDIO_FILE_EXTENSIONS.some((extension) => normalized.endsWith(extension));
+  return AUDIO_FILE_EXTENSIONS.some(normalized.endsWith);
 }
 
 export function isAudioAttachment(file: MessageFile): boolean {

@@ -4,17 +4,17 @@ import type { MessageFile } from "@shared/types/agent-interface";
 import { useChatInputFiles } from "@/components/chat/composables/useChatInputFiles";
 
 const { toastMock, fileClient } = vi.hoisted(() => ({
-  toastMock: vi.fn(),
+  toastMock: vi.fn<(...args: any[]) => any>(),
   fileClient: {
-    getMimeType: vi.fn(),
-    prepareFile: vi.fn(),
-    prepareDirectory: vi.fn(),
-    readFile: vi.fn(),
-    isDirectory: vi.fn(),
-    writeImageBase64: vi.fn(),
-    getPathForFile: vi.fn(),
-    toRelativePath: vi.fn(),
-    formatPathForInput: vi.fn(),
+    getMimeType: vi.fn<(...args: any[]) => any>(),
+    prepareFile: vi.fn<(...args: any[]) => any>(),
+    prepareDirectory: vi.fn<(...args: any[]) => any>(),
+    readFile: vi.fn<(...args: any[]) => any>(),
+    isDirectory: vi.fn<(...args: any[]) => any>(),
+    writeImageBase64: vi.fn<(...args: any[]) => any>(),
+    getPathForFile: vi.fn<(...args: any[]) => any>(),
+    toRelativePath: vi.fn<(...args: any[]) => any>(),
+    formatPathForInput: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -29,15 +29,15 @@ vi.mock("@api/FileClient", () => ({
 }));
 
 vi.mock("@/lib/image", () => ({
-  calculateImageTokens: vi.fn(() => 12),
-  getClipboardImageInfo: vi.fn(() =>
+  calculateImageTokens: vi.fn<(...args: any[]) => any>(() => 12),
+  getClipboardImageInfo: vi.fn<(...args: any[]) => any>(() =>
     Promise.resolve({
       width: 100,
       height: 100,
       compressedBase64: "data:image/jpeg;base64,thumb",
     }),
   ),
-  imageFileToBase64: vi.fn(() => Promise.resolve("data:image/png;base64,image")),
+  imageFileToBase64: vi.fn<(...args: any[]) => any>(() => Promise.resolve("data:image/png;base64,image")),
 }));
 
 function createFileList(files: File[]): FileList {
@@ -79,7 +79,7 @@ describe("useChatInputFiles", () => {
       token: 10,
       path: "/tmp/report.docx",
     };
-    const emit = vi.fn();
+    const emit = vi.fn<(...args: any[]) => any>();
     const target = { files: createFileList([new File(["docx"], "report.docx")]), value: "x" };
     fileClient.getPathForFile.mockReturnValue("/tmp/report.docx");
     fileClient.getMimeType.mockResolvedValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -100,8 +100,8 @@ describe("useChatInputFiles", () => {
   });
 
   it("shows a destructive toast when selected files fail processing", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const emit = vi.fn();
+    const consoleSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
+    const emit = vi.fn<(...args: any[]) => any>();
     const target = { files: createFileList([new File(["bad"], "broken.docx")]), value: "x" };
     fileClient.getPathForFile.mockReturnValue("/tmp/broken.docx");
     fileClient.getMimeType.mockResolvedValue("application/vnd.openxmlformats-officedocument.wordprocessingml.document");

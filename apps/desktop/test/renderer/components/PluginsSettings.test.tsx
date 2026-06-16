@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 
 const pluginClient = {
-  listPlugins: vi.fn(),
-  enablePlugin: vi.fn(),
-  disablePlugin: vi.fn(),
-  invokeAction: vi.fn(),
+  listPlugins: vi.fn<(...args: any[]) => any>(),
+  enablePlugin: vi.fn<(...args: any[]) => any>(),
+  disablePlugin: vi.fn<(...args: any[]) => any>(),
+  invokeAction: vi.fn<(...args: any[]) => any>(),
 };
 
 vi.mock("@api/PluginClient", () => ({
@@ -17,15 +17,15 @@ vi.mock("@/composables/useGuidedOnboardingStep", () => ({
     showGuide: { value: false },
     stepIndex: { value: 1 },
     totalSteps: { value: 6 },
-    dismissGuide: vi.fn(),
-    completeStep: vi.fn().mockResolvedValue(null),
-    skipStep: vi.fn().mockResolvedValue(null),
+    dismissGuide: vi.fn<(...args: any[]) => any>(),
+    completeStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    skipStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
   }),
 }));
 
 vi.mock("@api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
-    focusMainWindow: vi.fn().mockResolvedValue(true),
+    focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
 }));
 

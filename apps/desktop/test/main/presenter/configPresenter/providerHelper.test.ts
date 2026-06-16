@@ -3,7 +3,7 @@ import { ProviderHelper } from "../../../../src/main/presenter/configPresenter/p
 import type { LLM_PROVIDER } from "../../../../src/shared/presenter";
 
 const { send } = vi.hoisted(() => ({
-  send: vi.fn(),
+  send: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@/eventbus", () => ({
@@ -58,8 +58,8 @@ describe("ProviderHelper.removeProviderAtomic", () => {
       setSetting: (key, value) => store.set(key, value),
       defaultProviders: providers,
     });
-    const deleteProviderModelStatuses = vi.fn();
-    const clearProviderModelStore = vi.fn();
+    const deleteProviderModelStatuses = vi.fn<(...args: any[]) => any>();
+    const clearProviderModelStore = vi.fn<(...args: any[]) => any>();
 
     helper.setCleanupHooks({
       deleteProviderModelStatuses,

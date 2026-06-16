@@ -137,7 +137,10 @@ export const conversationExportTemplates: ExportTemplates = {
       "      </div>",
     ],
     assistantToolName: '        <div class="section-caption">{{value}}</div>',
-    assistantToolParams: ['        <div class="section-label">Parameters</div>', '        <pre class="code">{{value}}</pre>'],
+    assistantToolParams: [
+      '        <div class="section-label">Parameters</div>',
+      '        <pre class="code">{{value}}</pre>',
+    ],
     assistantToolResponse: [
       '        <div class="section-label">Response</div>',
       '        <pre class="code">{{value}}</pre>',

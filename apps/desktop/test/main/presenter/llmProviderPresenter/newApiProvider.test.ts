@@ -6,46 +6,46 @@ import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/l
 import { modelCapabilities } from "../../../../src/main/presenter/configPresenter/modelCapabilities";
 
 const { mockRunAiSdkCoreStream } = vi.hoisted(() => ({
-  mockRunAiSdkCoreStream: vi.fn(),
+  mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@shared/logger", () => ({
   default: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    verbose: vi.fn(),
-    silly: vi.fn(),
-    log: vi.fn(),
+    info: vi.fn<(...args: any[]) => any>(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
+    debug: vi.fn<(...args: any[]) => any>(),
+    verbose: vi.fn<(...args: any[]) => any>(),
+    silly: vi.fn<(...args: any[]) => any>(),
+    log: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/presenter", () => ({
   presenter: {
     devicePresenter: {
-      cacheImage: vi.fn(),
+      cacheImage: vi.fn<(...args: any[]) => any>(),
     },
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    sendToMain: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -70,15 +70,15 @@ vi.mock("@/events", () => ({
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
   runAiSdkCoreStream: mockRunAiSdkCoreStream,
-  runAiSdkDimensions: vi.fn(),
-  runAiSdkEmbeddings: vi.fn(),
-  runAiSdkGenerateText: vi.fn(),
+  runAiSdkDimensions: vi.fn<(...args: any[]) => any>(),
+  runAiSdkEmbeddings: vi.fn<(...args: any[]) => any>(),
+  runAiSdkGenerateText: vi.fn<(...args: any[]) => any>(),
 }));
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
@@ -100,20 +100,20 @@ const createConfigPresenter = (
   providerModelsByProviderId: Record<string, unknown[]> = {},
 ): IConfigPresenter =>
   ({
-    getProviders: vi.fn().mockReturnValue([]),
-    getProviderModels: vi.fn((providerId: string) => providerModelsByProviderId[providerId] ?? []),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getDbProviderModels: vi.fn().mockReturnValue([]),
-    getModelConfig: vi.fn((modelId: string) => ({
+    getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getProviderModels: vi.fn<(...args: any[]) => any>((providerId: string) => providerModelsByProviderId[providerId] ?? []),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getDbProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getModelConfig: vi.fn<(...args: any[]) => any>((modelId: string) => ({
       type: ModelType.Chat,
       apiEndpoint: ApiEndpointType.Chat,
       ...modelConfigById[modelId],
     })),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    getModelStatus: vi.fn().mockReturnValue(false),
-    setProviderModels: vi.fn(),
-    hasUserModelConfig: vi.fn().mockReturnValue(false),
-    setModelConfig: vi.fn(),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    hasUserModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+    setModelConfig: vi.fn<(...args: any[]) => any>(),
   }) as unknown as IConfigPresenter;
 
 describe("NewApiProvider capability routing", () => {
@@ -281,15 +281,15 @@ describe("NewApiProvider capability routing", () => {
         },
       },
     } as any;
-    const capabilityMatchSpy = vi.spyOn(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
+    const capabilityMatchSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
       providerId: "anthropic",
       modelId: "claude-opus-4-8",
       model: capabilityModel,
     });
-    const supportsReasoningSpy = vi.spyOn(modelCapabilities, "supportsReasoning").mockReturnValue(true);
-    const fetchMock = vi.fn().mockResolvedValue({
+    const supportsReasoningSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning").mockReturnValue(true);
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({
+      json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         data: [
           {
             id: "claude-opus-4-8",
@@ -343,19 +343,19 @@ describe("NewApiProvider capability routing", () => {
   });
 
   it("infers anthropic for Claude-owned models with empty supported endpoint types", async () => {
-    vi.spyOn(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
+    vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
       providerId: "anthropic",
       modelId: "claude-opus-4-8",
       model: {
         id: "claude-opus-4-8",
       } as any,
     });
-    vi.spyOn(modelCapabilities, "supportsReasoning").mockReturnValue(true);
+    vi.spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning").mockReturnValue(true);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
-        json: vi.fn().mockResolvedValue({
+        json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           data: [
             {
               id: "claude-opus-4-8",
@@ -389,19 +389,19 @@ describe("NewApiProvider capability routing", () => {
   });
 
   it("infers gemini for Google-owned models with empty supported endpoint types", async () => {
-    vi.spyOn(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
+    vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
       providerId: "google",
       modelId: "gemini-3.5-flash",
       model: {
         id: "gemini-3.5-flash",
       } as any,
     });
-    vi.spyOn(modelCapabilities, "supportsReasoning").mockReturnValue(false);
+    vi.spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning").mockReturnValue(false);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
-        json: vi.fn().mockResolvedValue({
+        json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           data: [
             {
               id: "gemini-3.5-flash",
@@ -435,7 +435,7 @@ describe("NewApiProvider capability routing", () => {
   });
 
   it("keeps OpenAI-compatible owners on openai endpoints while using provider DB capability matches", () => {
-    const capabilityMatchSpy = vi.spyOn(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
+    const capabilityMatchSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
       providerId: "alibaba-cn",
       modelId: "qwen3.7-max",
       model: {
@@ -475,9 +475,9 @@ describe("NewApiProvider capability routing", () => {
   it("does not overwrite user-owned model configs during provider refresh", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: true,
-        json: vi.fn().mockResolvedValue({
+        json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           data: [
             {
               id: "claude-opus-4-8",
@@ -491,7 +491,7 @@ describe("NewApiProvider capability routing", () => {
     );
 
     const configPresenter = createConfigPresenter();
-    vi.mocked(configPresenter.hasUserModelConfig).mockReturnValue(true);
+    vi.mocked<(...args: any[]) => any>(configPresenter.hasUserModelConfig).mockReturnValue(true);
     const provider = new AiSdkProvider(createProvider(), configPresenter);
     const models = await (provider as any).fetchProviderModels();
 

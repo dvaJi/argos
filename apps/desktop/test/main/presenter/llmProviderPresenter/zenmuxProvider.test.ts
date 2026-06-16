@@ -4,29 +4,29 @@ import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresent
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/presenter", () => ({
   presenter: {
     devicePresenter: {
-      cacheImage: vi.fn(),
+      cacheImage: vi.fn<(...args: any[]) => any>(),
     },
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    sendToMain: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -51,26 +51,26 @@ vi.mock("@/events", () => ({
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
 vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
-  runAiSdkCoreStream: vi.fn(),
-  runAiSdkDimensions: vi.fn(),
-  runAiSdkEmbeddings: vi.fn(),
-  runAiSdkGenerateText: vi.fn(),
+  runAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+  runAiSdkDimensions: vi.fn<(...args: any[]) => any>(),
+  runAiSdkEmbeddings: vi.fn<(...args: any[]) => any>(),
+  runAiSdkGenerateText: vi.fn<(...args: any[]) => any>(),
 }));
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getDbProviderModels: vi.fn().mockReturnValue([]),
-    getModelConfig: vi.fn().mockReturnValue(undefined),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getDbProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
   }) as unknown as IConfigPresenter;
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
@@ -105,9 +105,9 @@ describe("AiSdkProvider zenmux", () => {
   });
 
   it("fetches model metadata from the shared OpenAI-compatible path and keeps the ZenMux group", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({
+      json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         data: [{ id: "moonshotai/kimi-k2.5" }],
       }),
     });

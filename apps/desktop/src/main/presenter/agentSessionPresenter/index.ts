@@ -1887,7 +1887,7 @@ export class AgentSessionPresenter {
           throw new Error(`Session ${sessionId} is no longer available.`);
         }
         const deleted = await this.deleteSessionInternal(sessionId);
-        deleted.forEach((deletedSessionId) => deletedSessionIdSet.add(deletedSessionId));
+        deleted.forEach(deletedSessionIdSet.add);
         deletedSessionIds.push(...deleted);
       }
     } catch (error) {
@@ -1956,7 +1956,7 @@ export class AgentSessionPresenter {
         continue;
       }
       const deleted = await this.deleteSessionInternal(session.id);
-      deleted.forEach((sessionId) => deletedSessionIdSet.add(sessionId));
+      deleted.forEach(deletedSessionIdSet.add);
       deletedSessionIds.push(...deleted);
     }
 

@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 

@@ -13,27 +13,27 @@ const {
   mockRunAiSdkEmbeddings,
   mockRunAiSdkGenerateText,
 } = vi.hoisted(() => ({
-  mockGetProxyUrl: vi.fn().mockReturnValue(null),
-  mockRunAiSdkCoreStream: vi.fn(),
-  mockRunAiSdkDimensions: vi.fn(),
-  mockRunAiSdkEmbeddings: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn(),
+  mockGetProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+  mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkDimensions: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkEmbeddings: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkGenerateText: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -86,12 +86,12 @@ const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getModelConfig: vi.fn().mockReturnValue(undefined),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
   }) as unknown as IConfigPresenter;
 
 describe("AiSdkProvider openai-compatible", () => {
@@ -112,9 +112,9 @@ describe("AiSdkProvider openai-compatible", () => {
   });
 
   it("fetches models over the provider HTTP endpoint instead of the legacy SDK client", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({
+      json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         data: [{ id: "gpt-4o" }],
       }),
     });
@@ -183,9 +183,9 @@ describe("AiSdkProvider openai-compatible", () => {
   });
 
   it("submits audio transcriptions using OpenAI multipart format", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({ text: "hello world" }),
+      json: vi.fn<(...args: any[]) => any>().mockResolvedValue({ text: "hello world" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -219,10 +219,10 @@ describe("AiSdkProvider openai-compatible", () => {
   it("marks unsupported audio transcription endpoints for fallback", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
+      vi.fn<(...args: any[]) => any>().mockResolvedValue({
         ok: false,
         status: 404,
-        text: vi.fn().mockResolvedValue("Not Found"),
+        text: vi.fn<(...args: any[]) => any>().mockResolvedValue("Not Found"),
       }),
     );
 

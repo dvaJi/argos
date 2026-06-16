@@ -33,17 +33,17 @@ const setup = async (query: Record<string, string> = {}) => {
         },
       },
     },
-    setMcpEnabled: vi.fn().mockResolvedValue(undefined),
-    getNpmRegistryStatus: vi.fn().mockResolvedValue({
+    setMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getNpmRegistryStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       currentRegistry: null,
       isFromCache: false,
       autoDetectEnabled: true,
       customRegistry: undefined,
     }),
-    refreshNpmRegistry: vi.fn().mockResolvedValue(undefined),
-    setAutoDetectNpmRegistry: vi.fn().mockResolvedValue(undefined),
-    setCustomNpmRegistry: vi.fn().mockResolvedValue(undefined),
-    clearNpmRegistryCache: vi.fn().mockResolvedValue(undefined),
+    refreshNpmRegistry: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    setAutoDetectNpmRegistry: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    setCustomNpmRegistry: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    clearNpmRegistryCache: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   vi.doMock("@/stores/mcp", () => ({
@@ -54,14 +54,14 @@ const setup = async (query: Record<string, string> = {}) => {
       showGuide: { value: false },
       stepIndex: { value: 1 },
       totalSteps: { value: 6 },
-      dismissGuide: vi.fn(),
-      completeStep: vi.fn().mockResolvedValue(null),
-      skipStep: vi.fn().mockResolvedValue(null),
+      dismissGuide: vi.fn<(...args: any[]) => any>(),
+      completeStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      skipStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
-      focusMainWindow: vi.fn().mockResolvedValue(true),
+      focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     }),
   }));
 

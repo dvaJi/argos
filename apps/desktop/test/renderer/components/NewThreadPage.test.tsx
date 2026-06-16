@@ -6,7 +6,7 @@ vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-const chatInputTriggerAttachMock = vi.fn();
+const chatInputTriggerAttachMock = vi.fn<(...args: any[]) => any>();
 const chatInputPendingSkillsSnapshotRef: { value: string[] } = { value: [] };
 
 const setup = async (options?: {
@@ -42,14 +42,14 @@ const setup = async (options?: {
     selectionSource: "manual" as "manual" | "default",
     defaultProjectPath: options?.defaultProjectPath ?? null,
     projects: [],
-    selectProject: vi.fn(),
-    openFolderPicker: vi.fn(),
+    selectProject: vi.fn<(...args: any[]) => any>(),
+    openFolderPicker: vi.fn<(...args: any[]) => any>(),
   };
 
   const sessionStore = {
-    createSession: vi.fn().mockResolvedValue(undefined),
-    selectSession: vi.fn().mockResolvedValue(undefined),
-    sendMessage: vi.fn().mockResolvedValue(undefined),
+    createSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
   const agentStore = {
@@ -59,7 +59,7 @@ const setup = async (options?: {
 
   const modelStore = {
     initialized: options?.modelStoreInitialized ?? true,
-    initialize: vi.fn().mockImplementation(async () => {
+    initialize: vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
       if (options?.initializeModels) {
         await options.initializeModels();
       }
@@ -67,8 +67,8 @@ const setup = async (options?: {
     }),
     enabledModels: [] as any[],
     chatSelectableModelGroups: [] as any[],
-    findChatSelectableModel: vi.fn(),
-    pickFirstChatSelectableModel: vi.fn(),
+    findChatSelectableModel: vi.fn<(...args: any[]) => any>(),
+    pickFirstChatSelectableModel: vi.fn<(...args: any[]) => any>(),
   };
   Object.defineProperty(modelStore, "chatSelectableModelGroups", {
     get: () => modelStore.enabledModels,
@@ -87,17 +87,17 @@ const setup = async (options?: {
     thinkingBudget: undefined as number | undefined,
     reasoningEffort: undefined as ReasoningEffort | undefined,
     verbosity: undefined as Verbosity | undefined,
-    toGenerationSettings: vi.fn(() => undefined),
-    resetGenerationSettings: vi.fn(),
+    toGenerationSettings: vi.fn<(...args: any[]) => any>(() => undefined),
+    resetGenerationSettings: vi.fn<(...args: any[]) => any>(),
   };
 
   const configClient = {
-    getSetting: vi.fn((key: string) => {
+    getSetting: vi.fn<(...args: any[]) => any>((key: string) => {
       if (key === "defaultModel") return Promise.resolve(options?.defaultModel);
       if (key === "preferredModel") return Promise.resolve(options?.preferredModel);
       return Promise.resolve(undefined);
     }),
-    resolveArgosAgentConfig: vi.fn().mockResolvedValue(
+    resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue(
       options?.resolvedAgentConfig ?? {
         disabledAgentTools: [],
         permissionMode: "full_access",
@@ -107,11 +107,11 @@ const setup = async (options?: {
 
   const sessionClient = {
     ensureAcpDraftSession: vi
-      .fn()
+      .fn<(...args: any[]) => any>()
       .mockImplementation(options?.ensureAcpDraftSession ?? (() => Promise.resolve({ id: "draft-1" }))),
   };
 
-  const isDirectoryMock = vi.fn((path: string) => {
+  const isDirectoryMock = vi.fn<(...args: any[]) => any>((path: string) => {
     const resolver = options?.isDirectory ?? true;
     return Promise.resolve(typeof resolver === "function" ? resolver(path) : resolver);
   });
@@ -132,18 +132,18 @@ const setup = async (options?: {
     useDraftStore: () => draftStore,
   }));
   vi.doMock("@api/ConfigClient", () => ({
-    createConfigClient: vi.fn(() => configClient),
+    createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
   vi.doMock("@api/SessionClient", () => ({
-    createSessionClient: vi.fn(() => sessionClient),
+    createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
   vi.doMock("@api/FileClient", () => ({
-    createFileClient: vi.fn(() => ({
+    createFileClient: vi.fn<(...args: any[]) => any>(() => ({
       isDirectory: isDirectoryMock,
     })),
   }));
   vi.doMock("@/lib/startupDeferred", () => ({
-    scheduleStartupDeferredTask: vi.fn((task: () => void | Promise<void>) => {
+    scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       if (!options?.deferStartupTasks) void task();
       return () => {};
     }),

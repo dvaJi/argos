@@ -12,7 +12,7 @@ describe("internalSessionEvents", () => {
   });
 
   it("swallows subscriber errors when emitting session updates", () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
     const unsubscribe = subscribeArgosInternalSessionUpdates(() => {
       throw new Error("listener failed");
     });
@@ -25,7 +25,7 @@ describe("internalSessionEvents", () => {
           status: "idle",
           updatedAt: Date.now(),
         }),
-      ).not.toThrow();
+      ).not.toThrow("expected error");
 
       expect(consoleError).toHaveBeenCalledWith(
         "[ArgosInternalSessionEvents] Failed to emit session update:",

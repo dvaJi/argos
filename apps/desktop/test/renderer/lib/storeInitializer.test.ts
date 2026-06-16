@@ -6,17 +6,17 @@ describe("initAppStores", () => {
 
     const callOrder: string[] = [];
     const startupWorkloadStore = {
-      connect: vi.fn(() => {
+      connect: vi.fn<(...args: any[]) => any>(() => {
         callOrder.push("workloadConnect");
       }),
     };
     const uiSettingsStore = {
-      loadSettings: vi.fn(async () => {
+      loadSettings: vi.fn<(...args: any[]) => any>(async () => {
         callOrder.push("loadSettings");
       }),
     };
     const providerStore = {
-      initialize: vi.fn(async () => {
+      initialize: vi.fn<(...args: any[]) => any>(async () => {
         callOrder.push("providerInitialize");
       }),
     };
@@ -40,8 +40,8 @@ describe("initAppStores", () => {
     }));
     vi.doMock("@/lib/ipcSubscription", () => ({
       createIpcSubscriptionScope: () => ({
-        on: vi.fn(),
-        cleanup: vi.fn(),
+        on: vi.fn<(...args: any[]) => any>(),
+        cleanup: vi.fn<(...args: any[]) => any>(),
       }),
     }));
     vi.doMock("@/events", () => ({

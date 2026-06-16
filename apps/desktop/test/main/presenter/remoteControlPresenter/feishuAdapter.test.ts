@@ -19,7 +19,7 @@ const clientInstances: Array<{
 
 vi.mock("@/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
   FeishuRuntime: class MockFeishuRuntime {
-    readonly start = vi.fn(async () => {
+    readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
         state: "running",
         lastError: null,
@@ -29,8 +29,8 @@ vi.mock("@/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
         },
       });
     });
-    readonly stop = vi.fn().mockResolvedValue(undefined);
-    readonly getStatusSnapshot = vi.fn().mockReturnValue({
+    readonly stop = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+    readonly getStatusSnapshot = vi.fn<(...args: any[]) => any>().mockReturnValue({
       state: "stopped",
       lastError: null,
       botUser: null,
@@ -44,8 +44,8 @@ vi.mock("@/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
 
 vi.mock("@/presenter/remoteControlPresenter/feishu/feishuClient", () => ({
   FeishuClient: class MockFeishuClient {
-    readonly sendText = vi.fn().mockResolvedValue("om_1");
-    readonly sendImage = vi.fn().mockResolvedValue("om_image_1");
+    readonly sendText = vi.fn<(...args: any[]) => any>().mockResolvedValue("om_1");
+    readonly sendImage = vi.fn<(...args: any[]) => any>().mockResolvedValue("om_image_1");
 
     constructor(_credentials: unknown) {
       clientInstances.push(this);
@@ -94,7 +94,7 @@ describe("FeishuAdapter", () => {
   });
 
   it("forwards fatal errors from the wrapped runtime", async () => {
-    const onFatalError = vi.fn().mockResolvedValue(undefined);
+    const onFatalError = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     const adapter = new FeishuAdapter(
       {
         channelId: "default",

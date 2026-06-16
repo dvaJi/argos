@@ -12,8 +12,8 @@ describe("WeixinIlinkRuntime", () => {
       router: {} as any,
       bindingStore: {} as any,
       logger: {
-        info: vi.fn(),
-        error: vi.fn(),
+        info: vi.fn<(...args: any[]) => any>(),
+        error: vi.fn<(...args: any[]) => any>(),
       },
       ...overrides,
     });
@@ -56,13 +56,13 @@ describe("WeixinIlinkRuntime", () => {
       sourceMessageId: "assistant-message",
     };
     const client = {
-      sendTextMessage: vi.fn().mockResolvedValue(undefined),
-      sendImageMessage: vi.fn().mockResolvedValue(undefined),
+      sendTextMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      sendImageMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     const bindingStore = {
-      getRemoteDeliveryState: vi.fn().mockReturnValue(null),
-      rememberRemoteDeliveryState: vi.fn(),
-      clearRemoteDeliveryState: vi.fn(),
+      getRemoteDeliveryState: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>(),
+      clearRemoteDeliveryState: vi.fn<(...args: any[]) => any>(),
     };
     const runtime = createRuntime({
       client: client as any,
@@ -79,7 +79,7 @@ describe("WeixinIlinkRuntime", () => {
       {
         sessionId: "session-1",
         eventId: "assistant-message",
-        getSnapshot: vi.fn().mockResolvedValue({
+        getSnapshot: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           messageId: "assistant-message",
           text: "",
           traceText: "",

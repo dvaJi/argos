@@ -9,9 +9,9 @@ import { DEFAULT_IMPORTANT_HOOK_EVENTS } from "../../../src/shared/hooksNotifica
 
 vi.mock("electron-log", () => ({
   default: {
-    warn: vi.fn(),
-    info: vi.fn(),
-    error: vi.fn(),
+    warn: vi.fn<(...args: any[]) => any>(),
+    info: vi.fn<(...args: any[]) => any>(),
+    error: vi.fn<(...args: any[]) => any>(),
   },
 }));
 

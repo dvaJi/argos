@@ -4,7 +4,7 @@ import type { MentionOptions, MentionNodeAttrs } from "@tiptap/extension-mention
 export const Mention = TipTMention.extend({
   addOptions() {
     return {
-      ...(this.parent?.() ?? {}),
+      ...this.parent?.(),
     } as MentionOptions<any, MentionNodeAttrs>;
   },
 

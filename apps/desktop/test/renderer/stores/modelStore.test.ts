@@ -3,21 +3,21 @@ import { ModelType } from "../../../src/shared/model";
 
 const createQueryCache = () => {
   return {
-    ensure: vi.fn((options: any) => ({
+    ensure: vi.fn<(...args: any[]) => any>((options: any) => ({
       key: options.key,
       query: options.query,
       state: { value: { data: undefined } },
     })),
-    invalidateQueries: vi.fn(async () => undefined),
-    refresh: vi.fn(async (entry: any) => {
+    invalidateQueries: vi.fn<(...args: any[]) => any>(async () => undefined),
+    refresh: vi.fn<(...args: any[]) => any>(async (entry: any) => {
       entry.state.value = { data: await entry.query() };
       return entry.state.value;
     }),
-    fetch: vi.fn(async (entry: any) => {
+    fetch: vi.fn<(...args: any[]) => any>(async (entry: any) => {
       entry.state.value = { data: await entry.query() };
       return entry.state.value;
     }),
-    setQueriesData: vi.fn(),
+    setQueriesData: vi.fn<(...args: any[]) => any>(),
   };
 };
 
@@ -26,25 +26,25 @@ const setupStore = async (overrides?: { modelClient?: Record<string, any>; provi
 
   const queryCache = createQueryCache();
   const agentModelStore = {
-    refreshAgentModels: vi.fn(),
+    refreshAgentModels: vi.fn<(...args: any[]) => any>(),
   };
   const modelConfigStore = {
-    getModelConfig: vi.fn(async () => null),
+    getModelConfig: vi.fn<(...args: any[]) => any>(async () => null),
   };
   const modelClient = {
-    getDbProviderModels: vi.fn(async () => []),
-    getProviderModels: vi.fn(async () => []),
-    getCustomModels: vi.fn(async () => []),
-    getBatchModelStatus: vi.fn(async () => ({})),
-    getModelList: vi.fn(async () => []),
-    updateModelStatus: vi.fn(async () => undefined),
-    addCustomModel: vi.fn(async () => undefined),
-    removeCustomModel: vi.fn(async () => true),
-    updateCustomModel: vi.fn(async () => true),
-    onModelsChanged: vi.fn(() => vi.fn()),
-    onModelStatusChanged: vi.fn(() => vi.fn()),
-    onModelBatchStatusChanged: vi.fn(() => vi.fn()),
-    onModelConfigChanged: vi.fn(() => vi.fn()),
+    getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+    getProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+    getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+    getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({})),
+    getModelList: vi.fn<(...args: any[]) => any>(async () => []),
+    updateModelStatus: vi.fn<(...args: any[]) => any>(async () => undefined),
+    addCustomModel: vi.fn<(...args: any[]) => any>(async () => undefined),
+    removeCustomModel: vi.fn<(...args: any[]) => any>(async () => true),
+    updateCustomModel: vi.fn<(...args: any[]) => any>(async () => true),
+    onModelsChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+    onModelStatusChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+    onModelBatchStatusChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+    onModelConfigChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     ...overrides?.modelClient,
   };
   const providerRecords = overrides?.providerStore?.providers ?? [
@@ -60,7 +60,7 @@ const setupStore = async (overrides?: { modelClient?: Record<string, any>; provi
         ...provider,
         apiType: provider.apiType ?? "openai",
       })),
-    ensureInitialized: vi.fn(async () => undefined),
+    ensureInitialized: vi.fn<(...args: any[]) => any>(async () => undefined),
     ...overrides?.providerStore,
   };
 
@@ -77,11 +77,11 @@ const setupStore = async (overrides?: { modelClient?: Record<string, any>; provi
   }));
 
   vi.doMock("../../../src/renderer/api/ModelClient", () => ({
-    createModelClient: vi.fn(() => modelClient),
+    createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
   vi.doMock("@/composables/useIpcMutation", () => ({
-    useIpcMutation: () => ({ mutateAsync: vi.fn() }),
+    useIpcMutation: () => ({ mutateAsync: vi.fn<(...args: any[]) => any>() }),
   }));
 
   const { useModelStore } = await import("@/stores/modelStore");
@@ -131,11 +131,11 @@ describe("modelStore.refreshProviderModels", () => {
         ],
       },
       modelClient: {
-        onModelsChanged: vi.fn((listener) => {
+        onModelsChanged: vi.fn<(...args: any[]) => any>((listener) => {
           modelsChangedListener = listener;
-          return vi.fn();
+          return vi.fn<(...args: any[]) => any>();
         }),
-        getDbProviderModels: vi.fn().mockImplementation(async (providerId: string) =>
+        getDbProviderModels: vi.fn<(...args: any[]) => any>().mockImplementation(async (providerId: string) =>
           providerId === "openai"
             ? [
                 {
@@ -149,9 +149,9 @@ describe("modelStore.refreshProviderModels", () => {
               ]
             : [],
         ),
-        getProviderModels: vi.fn(async () => []),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({})),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({})),
       },
     });
 
@@ -196,7 +196,7 @@ describe("modelStore.refreshProviderModels", () => {
         providers: [{ id: "ollama", enable: true, apiType: "ollama", name: "Ollama" }],
       },
       modelClient: {
-        getDbProviderModels: vi.fn(async () => [
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => [
           {
             id: "deepseek-r1:32b",
             name: "deepseek-r1:32b",
@@ -205,7 +205,7 @@ describe("modelStore.refreshProviderModels", () => {
             maxTokens: 2048,
           },
         ]),
-        getProviderModels: vi.fn(async () => [
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [
           {
             id: "deepseek-r1:1.5b",
             name: "deepseek-r1:1.5b",
@@ -221,8 +221,8 @@ describe("modelStore.refreshProviderModels", () => {
             maxTokens: 2048,
           },
         ]),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({})),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({})),
       },
     });
 
@@ -321,10 +321,10 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store, modelClient } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(() => deferredModels.promise),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(() => deferredModels.promise),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5": true })),
       },
     });
 
@@ -354,13 +354,13 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store, modelClient } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
         getProviderModels: vi
-          .fn()
+          .fn<(...args: any[]) => any>()
           .mockImplementationOnce(() => deferredModels.promise)
           .mockResolvedValue([model]),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5.1": true })),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5.1": true })),
       },
     });
 
@@ -387,9 +387,9 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [sparseModel]),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-sparse": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [sparseModel]),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-sparse": true })),
       },
     });
 
@@ -448,9 +448,9 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => [dbModel]),
-        getProviderModels: vi.fn(async () => [storedModel]),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5.4": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => [dbModel]),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [storedModel]),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5.4": true })),
       },
     });
 
@@ -497,10 +497,10 @@ describe("modelStore.refreshProviderModels", () => {
         providers: [{ id: "aihubmix", enable: true, name: "AIHubMix" }],
       },
       modelClient: {
-        getDbProviderModels: vi.fn(async () => [dbEmbeddingModel]),
-        getProviderModels: vi.fn(async () => []),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({ "text-embedding-3-small": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => [dbEmbeddingModel]),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "text-embedding-3-small": true })),
       },
     });
 
@@ -545,9 +545,9 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => [dbModel]),
-        getProviderModels: vi.fn(async () => [storedModel]),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5.4": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => [dbModel]),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [storedModel]),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5.4": true })),
       },
     });
 
@@ -578,9 +578,9 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [storedModel]),
-        getBatchModelStatus: vi.fn(async () => ({ "custom-chat": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [storedModel]),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "custom-chat": true })),
       },
     });
 
@@ -613,9 +613,9 @@ describe("modelStore.refreshProviderModels", () => {
     };
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [storedModel]),
-        getBatchModelStatus: vi.fn(async () => ({ "custom-chat": true })),
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [storedModel]),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "custom-chat": true })),
       },
     });
 
@@ -640,8 +640,8 @@ describe("modelStore.refreshProviderModels", () => {
         providers: [{ id: "ollama", apiType: "ollama" }],
       },
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [
           {
             id: "deepseek-r1:1.5b",
             name: "deepseek-r1:1.5b",
@@ -649,7 +649,7 @@ describe("modelStore.refreshProviderModels", () => {
             isCustom: false,
           },
         ]),
-        getBatchModelStatus: vi.fn(async () => ({ "deepseek-r1:1.5b": true })),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "deepseek-r1:1.5b": true })),
       },
     });
 
@@ -667,8 +667,8 @@ describe("modelStore.initialize", () => {
         providers: [{ id: "openai", enable: true }],
       },
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [
           {
             id: "gpt-5",
             name: "GPT-5",
@@ -676,8 +676,8 @@ describe("modelStore.initialize", () => {
             isCustom: false,
           },
         ]),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5": true })),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5": true })),
       },
     });
 
@@ -696,8 +696,8 @@ describe("modelStore.initialize", () => {
   it("does not mark the store initialized when only one provider is materialized", async () => {
     const { store } = await setupStore({
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async () => [
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async () => [
           {
             id: "gpt-5",
             name: "GPT-5",
@@ -705,8 +705,8 @@ describe("modelStore.initialize", () => {
             isCustom: false,
           },
         ]),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async () => ({ "gpt-5": true })),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async () => ({ "gpt-5": true })),
       },
     });
 
@@ -730,8 +730,8 @@ describe("modelStore.initialize", () => {
         ],
       },
       modelClient: {
-        getDbProviderModels: vi.fn(async () => []),
-        getProviderModels: vi.fn(async (providerId: string) => {
+        getDbProviderModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getProviderModels: vi.fn<(...args: any[]) => any>(async (providerId: string) => {
           if (providerId === "ollama") {
             throw new Error("catalog stale");
           }
@@ -744,8 +744,8 @@ describe("modelStore.initialize", () => {
             },
           ];
         }),
-        getCustomModels: vi.fn(async () => []),
-        getBatchModelStatus: vi.fn(async (providerId: string) => (providerId === "openai" ? { "gpt-5": true } : {})),
+        getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async (providerId: string) => (providerId === "openai" ? { "gpt-5": true } : {})),
       },
     });
 

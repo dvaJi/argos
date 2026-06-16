@@ -93,9 +93,9 @@ describe("Feishu plugin settings", () => {
 
     document.getElementById("message")!.textContent = "stale failure";
     pluginWindow.argosPlugin = {
-      getStatus: vi.fn().mockResolvedValue(status),
-      invokeAction: vi.fn().mockResolvedValue({ ok: true, data: {} }),
-      disable: vi.fn(),
+      getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(status),
+      invokeAction: vi.fn<(...args: any[]) => any>().mockResolvedValue({ ok: true, data: {} }),
+      disable: vi.fn<(...args: any[]) => any>(),
     };
 
     await runSettingsScript();
@@ -109,7 +109,7 @@ describe("Feishu plugin settings", () => {
     const pluginWindow = window as FeishuSettingsWindow;
 
     pluginWindow.argosPlugin = {
-      getStatus: vi.fn().mockResolvedValue({
+      getStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         enabled: true,
         mcpServers: [
           {
@@ -120,8 +120,8 @@ describe("Feishu plugin settings", () => {
           },
         ],
       }),
-      invokeAction: vi.fn().mockResolvedValue({ ok: true, data: {} }),
-      disable: vi.fn(),
+      invokeAction: vi.fn<(...args: any[]) => any>().mockResolvedValue({ ok: true, data: {} }),
+      disable: vi.fn<(...args: any[]) => any>(),
     };
 
     await runSettingsScript();

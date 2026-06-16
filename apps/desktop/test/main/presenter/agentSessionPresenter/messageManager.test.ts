@@ -19,23 +19,23 @@ const mockMessage: ChatMessageRecord = {
 
 function createMocks() {
   const mockAgent = {
-    getMessages: vi.fn().mockResolvedValue([mockMessage]),
-    getMessageIds: vi.fn().mockResolvedValue(["m1"]),
-    getMessage: vi.fn().mockResolvedValue(mockMessage),
-    initSession: vi.fn(),
-    destroySession: vi.fn(),
-    getSessionState: vi.fn(),
-    processMessage: vi.fn(),
-    cancelGeneration: vi.fn(),
+    getMessages: vi.fn<(...args: any[]) => any>().mockResolvedValue([mockMessage]),
+    getMessageIds: vi.fn<(...args: any[]) => any>().mockResolvedValue(["m1"]),
+    getMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(mockMessage),
+    initSession: vi.fn<(...args: any[]) => any>(),
+    destroySession: vi.fn<(...args: any[]) => any>(),
+    getSessionState: vi.fn<(...args: any[]) => any>(),
+    processMessage: vi.fn<(...args: any[]) => any>(),
+    cancelGeneration: vi.fn<(...args: any[]) => any>(),
   };
 
   const agentRegistry = {
-    resolve: vi.fn().mockReturnValue(mockAgent),
-    getAll: vi.fn().mockReturnValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
+    resolve: vi.fn<(...args: any[]) => any>().mockReturnValue(mockAgent),
+    getAll: vi.fn<(...args: any[]) => any>().mockReturnValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
   } as unknown as AgentRegistry;
 
   const sessionManager = {
-    get: vi.fn().mockReturnValue({
+    get: vi.fn<(...args: any[]) => any>().mockReturnValue({
       id: "s1",
       agentId: "argos",
       title: "Test",

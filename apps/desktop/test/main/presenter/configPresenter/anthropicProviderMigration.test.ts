@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    send: vi.fn(),
-    sendToMain: vi.fn(),
-    sendToRenderer: vi.fn(),
-    emit: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -19,15 +19,15 @@ vi.mock("@/presenter", () => ({
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn(() => "/mock/path"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getLocale: vi.fn(() => "en-US"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getLocale: vi.fn<(...args: any[]) => any>(() => "en-US"),
   },
   nativeTheme: {
     shouldUseDarkColors: false,
   },
   shell: {
-    openPath: vi.fn(),
+    openPath: vi.fn<(...args: any[]) => any>(),
   },
 }));
 

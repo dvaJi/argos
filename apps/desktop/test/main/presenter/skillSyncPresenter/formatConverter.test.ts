@@ -9,9 +9,9 @@ import type { CanonicalSkill } from "../../../../src/shared/types/skillSync";
 // Mock fs module
 vi.mock("fs", () => ({
   promises: {
-    stat: vi.fn(),
-    readdir: vi.fn(),
-    readFile: vi.fn(),
+    stat: vi.fn<(...args: any[]) => any>(),
+    readdir: vi.fn<(...args: any[]) => any>(),
+    readFile: vi.fn<(...args: any[]) => any>(),
   },
 }));
 

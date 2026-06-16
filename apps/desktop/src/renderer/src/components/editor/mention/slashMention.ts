@@ -18,7 +18,7 @@ export const SlashMention = TipTMention.extend({
 
   addOptions() {
     return {
-      ...(this.parent?.() ?? {}),
+      ...this.parent?.(),
     } as MentionOptions<any, MentionNodeAttrs>;
   },
 

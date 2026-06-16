@@ -1,10 +1,10 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 const modelClient = vi.hoisted(() => ({
-  getCapabilities: vi.fn(),
+  getCapabilities: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("@api/ModelClient", () => ({
-  createModelClient: vi.fn(() => modelClient),
+  createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
 }));
 
 import { useModelCapabilities } from "@/composables/useModelCapabilities";

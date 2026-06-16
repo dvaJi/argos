@@ -3,7 +3,7 @@ import { extractPlainUrlFromClipboard, normalizeSingleHttpUrl } from "@/lib/clip
 
 function createClipboardData(data: Record<string, string>) {
   return {
-    getData: vi.fn((format: string) => data[format] || ""),
+    getData: vi.fn<(...args: any[]) => any>((format: string) => data[format] || ""),
   };
 }
 

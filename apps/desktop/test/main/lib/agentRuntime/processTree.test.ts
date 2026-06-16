@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("child_process", () => ({
-  spawn: vi.fn(),
+  spawn: vi.fn<(...args: any[]) => any>(),
 }));
 
 import { spawn } from "child_process";
@@ -54,7 +54,7 @@ describe("terminateProcessTree", () => {
       value: "win32",
     });
 
-    vi.mocked(spawn).mockImplementation(() => {
+    vi.mocked<(...args: any[]) => any>(spawn).mockImplementation(() => {
       const child = new MockSpawnedProcess();
       queueMicrotask(() => child.emit("close"));
       return child as never;
@@ -79,7 +79,7 @@ describe("terminateProcessTree", () => {
       value: "linux",
     });
 
-    process.kill = vi.fn(((_pid: number, signal?: NodeJS.Signals) => {
+    process.kill = vi.fn<(...args: any[]) => any>(((_pid: number, signal?: NodeJS.Signals) => {
       if (_pid === -654 && signal === "SIGKILL") {
         queueMicrotask(() => {
           target.signalCode = "SIGKILL";
@@ -107,7 +107,7 @@ describe("terminateProcessTree", () => {
       value: "linux",
     });
 
-    vi.mocked(spawn).mockImplementation((command, args) => {
+    vi.mocked<(...args: any[]) => any>(spawn).mockImplementation((command, args) => {
       if (command === "pgrep") {
         const parentPid = args[1];
         if (parentPid === "777") {
@@ -122,7 +122,7 @@ describe("terminateProcessTree", () => {
       return new MockSpawnedProcess() as never;
     });
 
-    process.kill = vi.fn(((pid: number, signal?: NodeJS.Signals) => {
+    process.kill = vi.fn<(...args: any[]) => any>(((pid: number, signal?: NodeJS.Signals) => {
       if (pid === -777) {
         const error = new Error("group not found") as NodeJS.ErrnoException;
         error.code = "ESRCH";

@@ -16,11 +16,11 @@ const server = {
   isRunning: false,
 };
 
-const renderCard = (onClick = vi.fn()) => {
-  const onToggle = vi.fn();
-  const onViewTools = vi.fn();
-  const onViewPrompts = vi.fn();
-  const onViewResources = vi.fn();
+const renderCard = (onClick = vi.fn<(...args: any[]) => any>()) => {
+  const onToggle = vi.fn<(...args: any[]) => any>();
+  const onViewTools = vi.fn<(...args: any[]) => any>();
+  const onViewPrompts = vi.fn<(...args: any[]) => any>();
+  const onViewResources = vi.fn<(...args: any[]) => any>();
 
   const result = render(
     <McpServerCard

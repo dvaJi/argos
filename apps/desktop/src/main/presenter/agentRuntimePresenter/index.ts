@@ -3034,9 +3034,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
 
     const normalizedAvailableSkills = this.normalizeSkillMetadata(availableSkills);
     const availableSkillNames = new Set(normalizedAvailableSkills.map((skill) => skill.name));
-    const normalizedActiveSkills = this.normalizeSkillNames(
-      activeSkillNames.filter((skillName) => availableSkillNames.has(skillName)),
-    );
+    const normalizedActiveSkills = this.normalizeSkillNames(activeSkillNames.filter(availableSkillNames.has));
     const agentToolNames = this.getAgentToolNames(toolDefinitions);
     const fingerprint = this.buildSystemPromptFingerprint({
       providerId,
@@ -3143,8 +3141,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   }
 
   private buildPermissionRulesPrompt(agentToolNames: Set<string>): string {
-    const readOnlyTools = ["read"].filter((toolName) => agentToolNames.has(toolName));
-    const serializedTools = ["write", "edit", "exec", "process"].filter((toolName) => agentToolNames.has(toolName));
+    const readOnlyTools = ["read"].filter(agentToolNames.has);
+    const serializedTools = ["write", "edit", "exec", "process"].filter(agentToolNames.has);
 
     if (readOnlyTools.length === 0 && serializedTools.length === 0) {
       return "";
@@ -3186,7 +3184,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     const manifest = readPackageJsonManifest(normalizedWorkdir);
     const isArgosWorkspace =
       String(manifest?.name ?? "").toLowerCase() === "argos" ||
-      ["format", "i18n", "lint"].every((scriptName) => verificationScripts.includes(scriptName));
+      ["format", "i18n", "lint"].every(verificationScripts.includes);
 
     if (isArgosWorkspace) {
       lines.push(
@@ -4037,7 +4035,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
 
       const text = typeof parsed.text === "string" ? parsed.text : "";
       const files = Array.isArray((parsed as { files?: unknown }).files)
-        ? ((parsed as { files?: unknown }).files as MessageFile[]).filter((file) => Boolean(file))
+        ? ((parsed as { files?: unknown }).files as MessageFile[]).filter(Boolean)
         : [];
       return { text, files };
     } catch {
@@ -4222,16 +4220,14 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     };
 
     if (Array.isArray(raw)) {
-      return raw
-        .map((item) => parseOption(item))
-        .filter((item): item is { label: string; description?: string } => Boolean(item));
+      return raw.map(parseOption).filter((item): item is { label: string; description?: string } => Boolean(item));
     }
     if (typeof raw === "string" && raw.trim()) {
       try {
         const parsed = JSON.parse(raw) as unknown;
         if (Array.isArray(parsed)) {
           return parsed
-            .map((item) => parseOption(item))
+            .map(parseOption)
             .filter((item): item is { label: string; description?: string } => Boolean(item));
         }
       } catch {

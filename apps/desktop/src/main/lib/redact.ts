@@ -61,7 +61,7 @@ function maskSensitiveString(value: string): string {
 
 function isSensitiveHeaderKey(key: string): boolean {
   const lower = key.toLowerCase();
-  return SENSITIVE_HEADER_KEYS.some((sensitiveKey) => lower.includes(sensitiveKey));
+  return SENSITIVE_HEADER_KEYS.some(lower.includes);
 }
 
 function isSensitiveBodyKey(key: string): boolean {
@@ -105,7 +105,7 @@ export function redactBody(body: unknown): unknown {
   }
 
   if (Array.isArray(body)) {
-    return body.map((item) => redactBody(item));
+    return body.map(redactBody);
   }
 
   if (typeof body === "object") {

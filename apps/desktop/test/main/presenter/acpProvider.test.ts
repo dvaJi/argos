@@ -7,17 +7,17 @@ import type { AcpConfigState } from "../../../src/shared/types/presenters";
 
 vi.mock("electron", () => ({
   app: {
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/tmp"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp"),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
-    emit: vi.fn(),
-    send: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    emit: vi.fn<(...args: any[]) => any>(),
+    send: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -27,15 +27,15 @@ vi.mock("@/eventbus", () => ({
 vi.mock("@/presenter", () => ({
   presenter: {
     mcpPresenter: {
-      getAllToolDefinitions: vi.fn().mockResolvedValue([]),
-      callTool: vi.fn().mockResolvedValue({ content: "", rawData: {} }),
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      callTool: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "", rawData: {} }),
     },
   },
 }));
 
 vi.mock("@/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
@@ -67,10 +67,10 @@ describe("AcpProvider runDebugAction error handling", () => {
   it("returns error result when process manager is shutting down", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getConnection: vi.fn().mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
+      getConnection: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
     };
 
     const result = await provider.runDebugAction({
@@ -90,10 +90,10 @@ describe("AcpProvider runDebugAction error handling", () => {
   it("rethrows non-shutdown getConnection errors", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getConnection: vi.fn().mockRejectedValue(new Error("boom")),
+      getConnection: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
     };
 
     await expect(
@@ -106,11 +106,11 @@ describe("AcpProvider runDebugAction error handling", () => {
   });
 
   it("skips warmup when the selected workdir is unavailable", async () => {
-    const warmupProcess = vi.fn().mockResolvedValue(undefined);
+    const warmupProcess = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.getAgentById = vi.fn().mockResolvedValue(agent);
+    provider.getAgentById = vi.fn<(...args: any[]) => any>().mockResolvedValue(agent);
     provider.sessionPersistence = {
-      isWorkdirUsable: vi.fn().mockReturnValue(false),
+      isWorkdirUsable: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     };
     provider.processManager = {
       warmupProcess,
@@ -123,17 +123,17 @@ describe("AcpProvider runDebugAction error handling", () => {
   });
 
   it("does not let undefined debug payload cwd overwrite the resolved workdir", async () => {
-    const newSession = vi.fn().mockResolvedValue({ sessionId: "debug-session" });
+    const newSession = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "debug-session" });
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      registerSessionWorkdir: vi.fn(),
-      registerSessionListener: vi.fn().mockReturnValue(() => {}),
-      registerPermissionResolver: vi.fn().mockReturnValue(() => {}),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
         mcpCapabilities: undefined,
         connection: {
@@ -144,7 +144,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.sessionManager = {
-      resolveMcpServersForAgent: vi.fn().mockResolvedValue([]),
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
 
     const result = await provider.runDebugAction({
@@ -164,13 +164,13 @@ describe("AcpProvider runDebugAction error handling", () => {
   });
 
   it("reports debug initialize state without sending a second initialize request", async () => {
-    const initialize = vi.fn();
+    const initialize = vi.fn<(...args: any[]) => any>();
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.acpRuntime = {
-      toConnectionRef: vi.fn().mockReturnValue({
+      toConnectionRef: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "agent1:/tmp/debug-workdir",
         agentId: "agent1",
         workdir: "/tmp/debug-workdir",
@@ -179,8 +179,8 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
         connection: { initialize },
         status: "ready",
@@ -188,7 +188,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.sessionManager = {
-      resolveMcpServersForAgent: vi.fn().mockResolvedValue([]),
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
 
     const result = await provider.runDebugAction({
@@ -214,8 +214,8 @@ describe("AcpProvider runDebugAction error handling", () => {
         title: "Remote Session",
       },
     ];
-    const listSessions = vi.fn().mockResolvedValue({ sessions, nextCursor: null });
-    const syncRemoteSessions = vi.fn().mockResolvedValue({
+    const listSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessions, nextCursor: null });
+    const syncRemoteSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       imported: 1,
       updated: 0,
       skipped: 0,
@@ -224,11 +224,11 @@ describe("AcpProvider runDebugAction error handling", () => {
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.provider = { id: "acp", name: "ACP" };
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
         supportsSessionList: true,
         connection: {
@@ -279,22 +279,22 @@ describe("AcpProvider runDebugAction error handling", () => {
         title: "Remote Session",
       },
     ];
-    const listSessions = vi.fn().mockResolvedValue({ sessions, nextCursor: null });
-    const syncRemoteSessions = vi.fn().mockResolvedValue({
+    const listSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessions, nextCursor: null });
+    const syncRemoteSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       imported: 1,
       updated: 0,
       skipped: 0,
       sessions: [{ sessionId: "remote-1", conversationId: "conv-1", status: "imported" }],
     });
-    const isWorkdirUsable = vi.fn((workdir: string) => workdir === "/tmp/fallback");
+    const isWorkdirUsable = vi.fn<(...args: any[]) => any>((workdir: string) => workdir === "/tmp/fallback");
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.provider = { id: "acp", name: "ACP" };
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/fallback",
         supportsSessionList: true,
         connection: {
@@ -338,23 +338,23 @@ describe("AcpProvider runDebugAction error handling", () => {
         title: "Remote Session",
       },
     ];
-    const listSessions = vi.fn().mockResolvedValue({ sessions, nextCursor: null });
-    const syncRemoteSessions = vi.fn().mockResolvedValue({
+    const listSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessions, nextCursor: null });
+    const syncRemoteSessions = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       imported: 1,
       updated: 0,
       skipped: 0,
       sessions: [{ sessionId: "remote-1", conversationId: "conv-1", status: "imported" }],
     });
-    const isWorkdirUsable = vi.fn((workdir: string) => workdir === "/tmp/default-workdir");
-    const resolveWorkdir = vi.fn().mockReturnValue("/tmp/default-workdir");
+    const isWorkdirUsable = vi.fn<(...args: any[]) => any>((workdir: string) => workdir === "/tmp/default-workdir");
+    const resolveWorkdir = vi.fn<(...args: any[]) => any>().mockReturnValue("/tmp/default-workdir");
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.provider = { id: "acp", name: "ACP" };
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/stale-workdir",
         supportsSessionList: true,
         connection: {
@@ -393,20 +393,20 @@ describe("AcpProvider runDebugAction error handling", () => {
   });
 
   it("binds the forked debug session workdir and listeners", async () => {
-    const unstableForkSession = vi.fn().mockResolvedValue({ sessionId: "forked-session" });
-    const registerSessionWorkdir = vi.fn();
-    const registerSessionListener = vi.fn().mockReturnValue(() => {});
-    const registerPermissionResolver = vi.fn().mockReturnValue(() => {});
+    const unstableForkSession = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "forked-session" });
+    const registerSessionWorkdir = vi.fn<(...args: any[]) => any>();
+    const registerSessionListener = vi.fn<(...args: any[]) => any>().mockReturnValue(() => {});
+    const registerPermissionResolver = vi.fn<(...args: any[]) => any>().mockReturnValue(() => {});
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       registerSessionWorkdir,
       registerSessionListener,
       registerPermissionResolver,
-      getConnection: vi.fn().mockResolvedValue({
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
         supportsSessionFork: true,
         connection: {
@@ -417,7 +417,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.sessionManager = {
-      resolveMcpServersForAgent: vi.fn().mockResolvedValue([]),
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     };
 
     const result = await provider.runDebugAction({
@@ -441,17 +441,17 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("uses real ACP MCP selections for debug sessions", async () => {
     const mcpServers = [{ name: "fs", command: "node", args: ["server.js"] }];
-    const newSession = vi.fn().mockResolvedValue({ sessionId: "debug-session" });
+    const newSession = vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "debug-session" });
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.configPresenter = {
-      getAcpAgents: vi.fn().mockResolvedValue([agent]),
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getDebugEvents: vi.fn().mockReturnValue([]),
-      registerSessionWorkdir: vi.fn(),
-      registerSessionListener: vi.fn().mockReturnValue(() => {}),
-      registerPermissionResolver: vi.fn().mockReturnValue(() => {}),
-      getConnection: vi.fn().mockResolvedValue({
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
         mcpCapabilities: undefined,
         connection: {
@@ -462,7 +462,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.sessionManager = {
-      resolveMcpServersForAgent: vi.fn().mockResolvedValue(mcpServers),
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(mcpServers),
     };
 
     const result = await provider.runDebugAction({
@@ -482,7 +482,7 @@ describe("AcpProvider runDebugAction error handling", () => {
   it("returns cached ACP session commands", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.sessionManager = {
-      getSession: vi.fn().mockReturnValue({
+      getSession: vi.fn<(...args: any[]) => any>().mockReturnValue({
         availableCommands: [{ name: "review", description: "run review", input: null }],
       }),
     };
@@ -525,14 +525,14 @@ describe("AcpProvider runDebugAction error handling", () => {
   it("prepares ACP session without prompt and emits ready events", async () => {
     const configState = createConfigState();
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.getAgentById = vi.fn().mockResolvedValue({ id: "agent1", name: "Agent 1" });
+    provider.getAgentById = vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "agent1", name: "Agent 1" });
     provider.sessionPersistence = {
-      isWorkdirUsable: vi.fn().mockReturnValue(true),
-      resolveWorkdir: vi.fn((workdir) => workdir),
-      updateWorkdir: vi.fn().mockResolvedValue(undefined),
+      isWorkdirUsable: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+      resolveWorkdir: vi.fn<(...args: any[]) => any>((workdir) => workdir),
+      updateWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     provider.sessionManager = {
-      getOrCreateSession: vi.fn().mockResolvedValue({
+      getOrCreateSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/workspace",
         currentModeId: "default",
         availableModes: [{ id: "default", name: "Default", description: "" }],
@@ -587,14 +587,14 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("falls back when prepareSession receives an unavailable workdir", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.getAgentById = vi.fn().mockResolvedValue({ id: "agent1", name: "Agent 1" });
+    provider.getAgentById = vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "agent1", name: "Agent 1" });
     provider.sessionPersistence = {
-      isWorkdirUsable: vi.fn().mockReturnValue(false),
-      resolveWorkdir: vi.fn().mockReturnValue("/tmp/fallback"),
-      updateWorkdir: vi.fn().mockResolvedValue(undefined),
+      isWorkdirUsable: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
+      resolveWorkdir: vi.fn<(...args: any[]) => any>().mockReturnValue("/tmp/fallback"),
+      updateWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
     provider.sessionManager = {
-      getOrCreateSession: vi.fn().mockResolvedValue({
+      getOrCreateSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/fallback",
         currentModeId: undefined,
         availableModes: undefined,
@@ -616,9 +616,9 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("updates mode on bound handle by conversation id", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
-    const setSessionMode = vi.fn().mockResolvedValue(undefined);
+    const setSessionMode = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     provider.sessionManager = {
-      getSession: vi.fn().mockReturnValue({
+      getSession: vi.fn<(...args: any[]) => any>().mockReturnValue({
         sessionId: "s-1",
         agentId: "agent1",
         workdir: "/tmp/workspace",
@@ -628,7 +628,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     };
     provider.processManager = {
-      updateBoundProcessMode: vi.fn().mockReturnValue(true),
+      updateBoundProcessMode: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     };
 
     await provider.setSessionMode("conv-a", "default");
@@ -640,17 +640,17 @@ describe("AcpProvider runDebugAction error handling", () => {
   it("still emits mode event when bound handle is unavailable", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.sessionManager = {
-      getSession: vi.fn().mockReturnValue({
+      getSession: vi.fn<(...args: any[]) => any>().mockReturnValue({
         sessionId: "s-2",
         agentId: "agent1",
         workdir: "/tmp/workspace",
         currentModeId: "default",
         availableModes: [{ id: "default", name: "Default", description: "" }],
-        connection: { setSessionMode: vi.fn().mockResolvedValue(undefined) },
+        connection: { setSessionMode: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined) },
       }),
     };
     provider.processManager = {
-      updateBoundProcessMode: vi.fn().mockReturnValue(false),
+      updateBoundProcessMode: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
     };
 
     await provider.setSessionMode("conv-b", "default");
@@ -672,7 +672,7 @@ describe("AcpProvider runDebugAction error handling", () => {
     const configState = createConfigState();
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.processManager = {
-      getProcessConfigState: vi.fn().mockReturnValue(configState),
+      getProcessConfigState: vi.fn<(...args: any[]) => any>().mockReturnValue(configState),
     };
 
     expect(provider.getProcessConfigOptions("agent1", "/tmp/workspace")).toEqual(configState);
@@ -706,7 +706,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       workdir: "/tmp/workspace",
       configState: initialConfig,
       connection: {
-        setSessionConfigOption: vi.fn().mockResolvedValue({
+        setSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           configOptions: updatedConfigOptions,
         }),
       },
@@ -714,10 +714,10 @@ describe("AcpProvider runDebugAction error handling", () => {
 
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.sessionManager = {
-      getSession: vi.fn().mockReturnValue(session),
+      getSession: vi.fn<(...args: any[]) => any>().mockReturnValue(session),
     };
     provider.processManager = {
-      updateBoundProcessConfigState: vi.fn().mockReturnValue(true),
+      updateBoundProcessConfigState: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     };
 
     const nextState = await provider.setSessionConfigOption("conv-1", "model", "gpt-5-mini");
@@ -812,7 +812,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       availableModes: [{ id: "code", name: "code", description: "" }],
       configState: initialConfig,
       connection: {
-        setSessionConfigOption: vi.fn().mockResolvedValue({
+        setSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           configOptions: [
             {
               id: "safe_edits",
@@ -827,13 +827,13 @@ describe("AcpProvider runDebugAction error handling", () => {
 
     const provider = Object.create(AcpProvider.prototype) as any;
     provider.sessionManager = {
-      getSession: vi.fn().mockReturnValue(session),
+      getSession: vi.fn<(...args: any[]) => any>().mockReturnValue(session),
     };
     provider.processManager = {
-      updateBoundProcessConfigState: vi.fn().mockReturnValue(true),
+      updateBoundProcessConfigState: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     };
-    provider.emitSessionModesReady = vi.fn();
-    provider.emitSessionConfigOptionsReady = vi.fn();
+    provider.emitSessionModesReady = vi.fn<(...args: any[]) => any>();
+    provider.emitSessionConfigOptionsReady = vi.fn<(...args: any[]) => any>();
 
     const nextState = await provider.setSessionConfigOption("conv-2", "safe_edits", true);
 
@@ -880,31 +880,31 @@ describe("AcpProvider runDebugAction error handling", () => {
 
     try {
       const provider = Object.create(AcpProvider.prototype) as any;
-      provider.emitRequestTrace = vi.fn().mockResolvedValue(undefined);
+      provider.emitRequestTrace = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
       provider.promptController = {
-        begin: vi.fn().mockReturnValue({
+        begin: vi.fn<(...args: any[]) => any>().mockReturnValue({
           id: "turn-timeout",
           sessionId: "session-timeout",
           conversationId: "conv-timeout",
           userMessageId: null,
           startedAt: Date.now(),
         }),
-        complete: vi.fn(),
-        fail: vi.fn().mockReturnValue({
+        complete: vi.fn<(...args: any[]) => any>(),
+        fail: vi.fn<(...args: any[]) => any>().mockReturnValue({
           id: "turn-timeout",
           completedAt: Date.now(),
         }),
       };
       provider.sessionPersistence = {
-        startTurn: vi.fn().mockResolvedValue(undefined),
-        finishTurn: vi.fn().mockResolvedValue(undefined),
+        startTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        finishTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
       };
 
-      const cancel = vi.fn().mockResolvedValue(undefined);
-      const prompt = vi.fn().mockImplementation(() => new Promise(() => {}));
+      const cancel = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+      const prompt = vi.fn<(...args: any[]) => any>().mockImplementation(() => new Promise(() => {}));
       const queue = {
-        push: vi.fn(),
-        done: vi.fn(),
+        push: vi.fn<(...args: any[]) => any>(),
+        done: vi.fn<(...args: any[]) => any>(),
       };
 
       const runPrompt = provider["runPrompt"](
@@ -937,38 +937,38 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("marks the system prompt as sent only after the ACP prompt succeeds", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.emitRequestTrace = vi.fn().mockResolvedValue(undefined);
+    provider.emitRequestTrace = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     provider.promptController = {
-      begin: vi.fn().mockReturnValue({
+      begin: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-system",
         sessionId: "session-system",
         conversationId: "conv-system",
         userMessageId: null,
         startedAt: Date.now(),
       }),
-      complete: vi.fn().mockReturnValue({
+      complete: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-system",
         completedAt: Date.now(),
       }),
-      fail: vi.fn(),
+      fail: vi.fn<(...args: any[]) => any>(),
     };
     provider.sessionPersistence = {
-      startTurn: vi.fn().mockResolvedValue(undefined),
-      finishTurn: vi.fn().mockResolvedValue(undefined),
+      startTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      finishTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
 
     let resolvePrompt!: (value: { stopReason: string }) => void;
-    const prompt = vi.fn(
+    const prompt = vi.fn<(...args: any[]) => any>(
       () =>
         new Promise<{ stopReason: string }>((resolve) => {
           resolvePrompt = resolve;
         }),
     );
     const queue = {
-      push: vi.fn(),
-      done: vi.fn(),
+      push: vi.fn<(...args: any[]) => any>(),
+      done: vi.fn<(...args: any[]) => any>(),
     };
-    const onPromptSucceeded = vi.fn();
+    const onPromptSucceeded = vi.fn<(...args: any[]) => any>();
 
     const runPrompt = provider["runPrompt"](
       {
@@ -996,32 +996,32 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("does not mark the system prompt when prompt dispatch fails first", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.emitRequestTrace = vi.fn().mockRejectedValue(new Error("trace failed"));
+    provider.emitRequestTrace = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("trace failed"));
     provider.promptController = {
-      begin: vi.fn().mockReturnValue({
+      begin: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-trace",
         sessionId: "session-trace",
         conversationId: "conv-trace",
         userMessageId: null,
         startedAt: Date.now(),
       }),
-      complete: vi.fn(),
-      fail: vi.fn().mockReturnValue({
+      complete: vi.fn<(...args: any[]) => any>(),
+      fail: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-trace",
         completedAt: Date.now(),
       }),
     };
     provider.sessionPersistence = {
-      startTurn: vi.fn().mockResolvedValue(undefined),
-      finishTurn: vi.fn().mockResolvedValue(undefined),
+      startTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      finishTurn: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     };
 
-    const prompt = vi.fn().mockResolvedValue({ stopReason: "end_turn" });
+    const prompt = vi.fn<(...args: any[]) => any>().mockResolvedValue({ stopReason: "end_turn" });
     const queue = {
-      push: vi.fn(),
-      done: vi.fn(),
+      push: vi.fn<(...args: any[]) => any>(),
+      done: vi.fn<(...args: any[]) => any>(),
     };
-    const onPromptSucceeded = vi.fn();
+    const onPromptSucceeded = vi.fn<(...args: any[]) => any>();
 
     await provider["runPrompt"](
       {
@@ -1048,39 +1048,39 @@ describe("AcpProvider runDebugAction error handling", () => {
 
   it("awaits turn start persistence before sending the ACP prompt", async () => {
     const provider = Object.create(AcpProvider.prototype) as any;
-    provider.emitRequestTrace = vi.fn().mockResolvedValue(undefined);
+    provider.emitRequestTrace = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     provider.promptController = {
-      begin: vi.fn().mockReturnValue({
+      begin: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-start",
         sessionId: "session-start",
         conversationId: "conv-start",
         userMessageId: null,
         startedAt: Date.now(),
       }),
-      complete: vi.fn().mockReturnValue({
+      complete: vi.fn<(...args: any[]) => any>().mockReturnValue({
         id: "turn-start",
         completedAt: Date.now(),
       }),
-      fail: vi.fn(),
+      fail: vi.fn<(...args: any[]) => any>(),
     };
 
     let resolveStart!: () => void;
-    const startTurn = vi.fn(
+    const startTurn = vi.fn<(...args: any[]) => any>(
       () =>
         new Promise<void>((resolve) => {
           resolveStart = resolve;
         }),
     );
-    const finishTurn = vi.fn().mockResolvedValue(undefined);
+    const finishTurn = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     provider.sessionPersistence = {
       startTurn,
       finishTurn,
     };
 
-    const prompt = vi.fn().mockResolvedValue({ stopReason: "end_turn" });
+    const prompt = vi.fn<(...args: any[]) => any>().mockResolvedValue({ stopReason: "end_turn" });
     const queue = {
-      push: vi.fn(),
-      done: vi.fn(),
+      push: vi.fn<(...args: any[]) => any>(),
+      done: vi.fn<(...args: any[]) => any>(),
     };
 
     const runPrompt = provider["runPrompt"](

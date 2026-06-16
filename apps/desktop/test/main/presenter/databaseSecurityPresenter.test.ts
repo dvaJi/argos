@@ -3,20 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const stores = new Map<string, Record<string, unknown>>();
   const safeStorage = {
-    isEncryptionAvailable: vi.fn(() => true),
-    encryptString: vi.fn((value: string) => Buffer.from(`wrapped:${value}`, "utf8")),
-    decryptString: vi.fn((value: Buffer) => value.toString("utf8").replace(/^wrapped:/, "")),
-    getSelectedStorageBackend: vi.fn(() => "basic_text"),
+    isEncryptionAvailable: vi.fn<(...args: any[]) => any>(() => true),
+    encryptString: vi.fn<(...args: any[]) => any>((value: string) => Buffer.from(`wrapped:${value}`, "utf8")),
+    decryptString: vi.fn<(...args: any[]) => any>((value: Buffer) => value.toString("utf8").replace(/^wrapped:/, "")),
+    getSelectedStorageBackend: vi.fn<(...args: any[]) => any>(() => "basic_text"),
   };
   const app = {
-    getPath: vi.fn(() => "/tmp/argos-test"),
-    quit: vi.fn(),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/tmp/argos-test"),
+    quit: vi.fn<(...args: any[]) => any>(),
   };
-  const openSQLiteDatabase = vi.fn(() => ({
-    prepare: vi.fn(() => ({
-      get: vi.fn(() => ({ name: "schema_versions" })),
+  const openSQLiteDatabase = vi.fn<(...args: any[]) => any>(() => ({
+    prepare: vi.fn<(...args: any[]) => any>(() => ({
+      get: vi.fn<(...args: any[]) => any>(() => ({ name: "schema_versions" })),
     })),
-    close: vi.fn(),
+    close: vi.fn<(...args: any[]) => any>(),
   }));
 
   return {
@@ -110,7 +110,7 @@ describe("DatabaseSecurityPresenter", () => {
 
     const { DatabaseSecurityPresenter } = await import("../../../src/main/presenter/databaseSecurityPresenter");
     const presenter = new DatabaseSecurityPresenter({ dbPath: "/tmp/argos-test/agent.db" });
-    const unlockProvider = vi.fn();
+    const unlockProvider = vi.fn<(...args: any[]) => any>();
 
     await expect(presenter.resolveStartupPassword(unlockProvider)).resolves.toBe("secret");
     expect(unlockProvider).not.toHaveBeenCalled();
@@ -164,7 +164,7 @@ describe("DatabaseSecurityPresenter", () => {
     const migrateDatabase = vi
       .spyOn(presenter as unknown as { migrateDatabase: () => Promise<void> }, "migrateDatabase")
       .mockResolvedValue(undefined);
-    const cleanupLegacyProviderJsonForDatabaseEncryption = vi.fn(() => 1);
+    const cleanupLegacyProviderJsonForDatabaseEncryption = vi.fn<(...args: any[]) => any>(() => 1);
 
     await presenter.enableEncryption({
       password: "secret",

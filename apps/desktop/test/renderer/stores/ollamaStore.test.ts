@@ -33,22 +33,22 @@ const setupStore = async (overrides?: {
     | null = null;
 
   const providerClient = {
-    listOllamaRunningModels: vi.fn(async () => [createModel("qwen3:8b")]),
-    listOllamaModels: vi.fn(async () => [createModel("deepseek-r1:1.5b")]),
-    refreshModels: vi.fn(async () => undefined),
-    pullOllamaModels: vi.fn(async () => true),
-    onOllamaPullProgress: vi.fn(() => vi.fn()),
+    listOllamaRunningModels: vi.fn<(...args: any[]) => any>(async () => [createModel("qwen3:8b")]),
+    listOllamaModels: vi.fn<(...args: any[]) => any>(async () => [createModel("deepseek-r1:1.5b")]),
+    refreshModels: vi.fn<(...args: any[]) => any>(async () => undefined),
+    pullOllamaModels: vi.fn<(...args: any[]) => any>(async () => true),
+    onOllamaPullProgress: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     ...overrides?.providerClient,
   };
   const modelClient = {
-    onModelsChanged: vi.fn((listener) => {
+    onModelsChanged: vi.fn<(...args: any[]) => any>((listener) => {
       modelsChangedListener = listener;
-      return vi.fn();
+      return vi.fn<(...args: any[]) => any>();
     }),
     ...overrides?.modelClient,
   };
   const modelStore = {
-    refreshProviderModels: vi.fn(async () => undefined),
+    refreshProviderModels: vi.fn<(...args: any[]) => any>(async () => undefined),
     ...overrides?.modelStore,
   };
   const providerStore = {
@@ -57,17 +57,17 @@ const setupStore = async (overrides?: {
   };
 
   vi.doMock("../../../src/renderer/api/ProviderClient", () => ({
-    createProviderClient: vi.fn(() => providerClient),
+    createProviderClient: vi.fn<(...args: any[]) => any>(() => providerClient),
   }));
 
   vi.doMock("../../../src/renderer/api/ModelClient", () => ({
-    createModelClient: vi.fn(() => modelClient),
+    createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
   vi.doMock("@api/legacy/runtime", () => ({
     createLegacyIpcSubscriptionScope: () => ({
-      on: vi.fn(),
-      cleanup: vi.fn(),
+      on: vi.fn<(...args: any[]) => any>(),
+      cleanup: vi.fn<(...args: any[]) => any>(),
     }),
   }));
 
@@ -127,13 +127,13 @@ describe("ollamaStore", () => {
     let shouldFail = true;
     const { store, providerClient, modelStore } = await setupStore({
       providerClient: {
-        listOllamaModels: vi.fn(async () => {
+        listOllamaModels: vi.fn<(...args: any[]) => any>(async () => {
           if (shouldFail) {
             throw new Error("ollama offline");
           }
           return [createModel("deepseek-r1:1.5b")];
         }),
-        listOllamaRunningModels: vi.fn(async () => []),
+        listOllamaRunningModels: vi.fn<(...args: any[]) => any>(async () => []),
       },
     });
 

@@ -176,10 +176,7 @@ export function resolveWorkspacePreviewRequest(requestUrl: string): string | nul
   const previewFilePath = fileRegistry.getPathById(parsedUrl.hostname);
   if (previewFilePath) {
     try {
-      const decodedSegments = parsedUrl.pathname
-        .split("/")
-        .filter(Boolean)
-        .map((segment) => decodeURIComponent(segment));
+      const decodedSegments = parsedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
 
       if (decodedSegments.length > 1) {
         return null;
@@ -203,10 +200,7 @@ export function resolveWorkspacePreviewRequest(requestUrl: string): string | nul
   let relativePath = "";
 
   try {
-    const decodedSegments = parsedUrl.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((segment) => decodeURIComponent(segment));
+    const decodedSegments = parsedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
 
     relativePath = decodedSegments.length > 0 ? path.join(...decodedSegments) : "";
   } catch {

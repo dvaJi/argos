@@ -35,7 +35,7 @@ const getVisibleBlockText = (block: DisplayUserMessageRichBlock) => {
 
 const getVisibleMessageText = (message: DisplayUserMessage) => {
   const blocks = message.content.content;
-  if (blocks && blocks.length > 0) return blocks.map((block) => getVisibleBlockText(block)).join("");
+  if (blocks && blocks.length > 0) return blocks.map(getVisibleBlockText).join("");
   return message.content.text || "";
 };
 

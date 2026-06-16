@@ -589,9 +589,7 @@ export class CompactionService {
 
     const summaryableTurns = turns.slice(0, turns.length - params.protectedTurnCount);
     const rawTailTurns = turns.slice(turns.length - params.protectedTurnCount);
-    const summaryBlocks = summaryableTurns.map((turn) =>
-      turn.records.map((record) => serializeRecord(record)).join("\n\n"),
-    );
+    const summaryBlocks = summaryableTurns.map((turn) => turn.records.map(serializeRecord).join("\n\n"));
     const summaryableRecords = summaryableTurns.flatMap((turn) => turn.records);
     const summaryRange =
       summaryableRecords.length > 0

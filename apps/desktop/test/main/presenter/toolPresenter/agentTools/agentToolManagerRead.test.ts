@@ -56,16 +56,16 @@ describe("AgentToolManager read routing", () => {
     vi.clearAllMocks();
     workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "argos-read-"));
     filePresenter = {
-      getMimeType: vi.fn(),
-      prepareFileCompletely: vi.fn(),
+      getMimeType: vi.fn<(...args: any[]) => any>(),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     };
     llmProviderPresenter = {
-      executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-      generateCompletionStandalone: vi.fn(),
-      generateImageStandalone: vi.fn(),
+      executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+      generateImageStandalone: vi.fn<(...args: any[]) => any>(),
     };
-    resolveConversationWorkdir = vi.fn().mockResolvedValue(null);
-    resolveConversationSessionInfo = vi.fn().mockResolvedValue({
+    resolveConversationWorkdir = vi.fn<(...args: any[]) => any>().mockResolvedValue(null);
+    resolveConversationSessionInfo = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       agentId: "argos",
       providerId: "openai",
       modelId: "gpt-4",
@@ -73,13 +73,13 @@ describe("AgentToolManager read routing", () => {
     configPresenter = {
       getSkillsEnabled: () => false,
       getSkillsPath: () => workspaceDir,
-      isKnownModel: vi.fn().mockReturnValue(true),
-      getModelConfig: vi.fn().mockReturnValue({
+      isKnownModel: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+      getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
         temperature: 0.2,
         maxTokens: 1200,
         vision: false,
       }),
-      resolveArgosAgentConfig: vi.fn().mockResolvedValue({}),
+      resolveArgosAgentConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
     };
     manager = new AgentToolManager({
       agentWorkspacePath: workspaceDir,
@@ -89,10 +89,10 @@ describe("AgentToolManager read routing", () => {
         resolveConversationSessionInfo,
         getSkillPresenter: () =>
           ({
-            getActiveSkills: vi.fn().mockResolvedValue([]),
-            getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-            listSkillScripts: vi.fn().mockResolvedValue([]),
-            getSkillExtension: vi.fn().mockResolvedValue({
+            getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+            getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
               version: 1,
               env: {},
               runtimePolicy: { python: "auto", node: "auto" },
@@ -100,15 +100,15 @@ describe("AgentToolManager read routing", () => {
             }),
           }) as any,
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn().mockReturnValue([]),
-          callTool: vi.fn(),
+          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+          callTool: vi.fn<(...args: any[]) => any>(),
         }),
         getFilePresenter: () => filePresenter,
         getLlmProviderPresenter: () => llmProviderPresenter,
-        createSettingsWindow: vi.fn(),
-        sendToWindow: vi.fn().mockReturnValue(true),
-        getApprovedFilePaths: vi.fn().mockReturnValue([]),
-        consumeSettingsApproval: vi.fn().mockReturnValue(false),
+        createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+        sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+        getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       },
     });
   });
@@ -397,7 +397,7 @@ describe("AgentToolManager read routing", () => {
       vision: providerId === "openai" && modelId === "gpt-4o",
     }));
     llmProviderPresenter.generateCompletionStandalone.mockResolvedValue("visible image description");
-    const resolveVisionTargetSpy = vi.spyOn(sessionVisionResolverModule, "resolveSessionVisionTarget");
+    const resolveVisionTargetSpy = vi.spyOn<(...args: any[]) => any>(sessionVisionResolverModule, "resolveSessionVisionTarget");
     const abortController = new AbortController();
 
     await manager.callTool("read", { path: "image-resolver-signal.png" }, "conv1", {

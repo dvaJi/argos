@@ -10,11 +10,11 @@ const createProviderDeeplinkImportStore = () => {
   const store = {
     preview: null as Record<string, unknown> | null,
     previewToken: 0,
-    openPreview: vi.fn((payload: Record<string, unknown>) => {
+    openPreview: vi.fn<(...args: any[]) => any>((payload: Record<string, unknown>) => {
       store.previewToken += 1;
       store.preview = { ...payload };
     }),
-    clearPreview: vi.fn(() => {
+    clearPreview: vi.fn<(...args: any[]) => any>(() => {
       store.preview = null;
     }),
   };
@@ -34,7 +34,7 @@ const mountSettingsApp = async (options?: {
   vi.resetModules();
 
   let shouldFailProviderNavigationOnce = options?.failProviderNavigationOnce ?? false;
-  const push = vi.fn().mockImplementation(async (target: { name?: string; params?: any }) => {
+  const push = vi.fn<(...args: any[]) => any>().mockImplementation(async (target: { name?: string; params?: any }) => {
     if (shouldFailProviderNavigationOnce && target?.name === "settings-provider") {
       shouldFailProviderNavigationOnce = false;
       throw new Error("navigate failed");
@@ -58,45 +58,45 @@ const mountSettingsApp = async (options?: {
           },
         ],
     initialize: options?.failPreviewApply
-      ? vi.fn().mockRejectedValue(new Error("sync failed"))
-      : vi.fn().mockResolvedValue(undefined),
+      ? vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("sync failed"))
+      : vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     ensureInitialized: options?.failPreviewApply
-      ? vi.fn().mockRejectedValue(new Error("sync failed"))
-      : vi.fn().mockImplementation(async () => {
+      ? vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("sync failed"))
+      : vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
           providerStore.initialized = true;
         }),
-    primeProviders: vi.fn().mockResolvedValue(undefined),
+    primeProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     updateProviderApi: options?.failImport
-      ? vi.fn().mockRejectedValue(new Error("apply failed"))
-      : vi.fn().mockResolvedValue(undefined),
-    updateProviderStatus: vi.fn().mockImplementation(async (providerId: string, enable: boolean) => {
+      ? vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("apply failed"))
+      : vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    updateProviderStatus: vi.fn<(...args: any[]) => any>().mockImplementation(async (providerId: string, enable: boolean) => {
       const provider = providerStore.providers.find((item: any) => item.id === providerId);
       if (provider) {
         provider.enable = enable;
       }
     }),
-    addCustomProvider: vi.fn().mockImplementation(async (provider: Record<string, unknown>) => {
+    addCustomProvider: vi.fn<(...args: any[]) => any>().mockImplementation(async (provider: Record<string, unknown>) => {
       providerStore.providers.push(provider as any);
     }),
   };
 
   const modelStore = {
-    initialize: vi.fn().mockResolvedValue(undefined),
-    refreshProviderModels: vi.fn().mockResolvedValue(undefined),
-    ensureProviderModelsReady: vi.fn().mockResolvedValue(undefined),
+    initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    refreshProviderModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    ensureProviderModelsReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const providerDeeplinkImportStore = createProviderDeeplinkImportStore();
-  const toast = vi.fn(() => ({ dismiss: vi.fn() }));
-  const ipcOn = vi.fn();
+  const toast = vi.fn<(...args: any[]) => any>(() => ({ dismiss: vi.fn<(...args: any[]) => any>() }));
+  const ipcOn = vi.fn<(...args: any[]) => any>();
   const pendingProviderInstallQueue: Array<Record<string, unknown>> = [];
-  const consumePendingSettingsProviderInstall = vi.fn().mockImplementation(async () => {
+  const consumePendingSettingsProviderInstall = vi.fn<(...args: any[]) => any>().mockImplementation(async () => {
     if (shouldFailConsumeOnce) {
       shouldFailConsumeOnce = false;
       throw new Error("consume failed");
     }
     return pendingProviderInstallQueue.shift() ?? null;
   });
-  const setPendingSettingsProviderInstall = vi.fn().mockImplementation(async (payload: Record<string, unknown>) => {
+  const setPendingSettingsProviderInstall = vi.fn<(...args: any[]) => any>().mockImplementation(async (payload: Record<string, unknown>) => {
     if (options?.failRequeue) {
       throw new Error("requeue failed");
     }
@@ -109,9 +109,9 @@ const mountSettingsApp = async (options?: {
   (window as any).electron = {
     ipcRenderer: {
       on: ipcOn,
-      removeListener: vi.fn(),
-      removeAllListeners: vi.fn(),
-      send: vi.fn(),
+      removeListener: vi.fn<(...args: any[]) => any>(),
+      removeAllListeners: vi.fn<(...args: any[]) => any>(),
+      send: vi.fn<(...args: any[]) => any>(),
     },
   };
 
@@ -126,21 +126,21 @@ const mountSettingsApp = async (options?: {
   }));
   vi.doMock("../../../src/renderer/src/stores/ollamaStore", () => ({
     useOllamaStore: () => ({
-      initialize: vi.fn().mockResolvedValue(undefined),
-      ensureProviderReady: vi.fn().mockResolvedValue(undefined),
+      initialize: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      ensureProviderReady: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     }),
   }));
   vi.doMock("../../../src/renderer/src/stores/mcp", () => ({
     useMcpStore: () => ({
       mcpEnabled: false,
-      setMcpEnabled: vi.fn().mockResolvedValue(undefined),
-      setMcpInstallCache: vi.fn(),
+      setMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      setMcpInstallCache: vi.fn<(...args: any[]) => any>(),
     }),
   }));
   vi.doMock("../../../src/renderer/src/stores/uiSettingsStore", () => ({
     useUiSettingsStore: () => ({
       fontSizeClass: "text-base",
-      loadSettings: vi.fn().mockResolvedValue(undefined),
+      loadSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     }),
   }));
   vi.doMock("../../../src/renderer/src/stores/language", () => ({
@@ -153,7 +153,7 @@ const mountSettingsApp = async (options?: {
     useModelCheckStore: () => ({
       isDialogOpen: false,
       currentProviderId: null,
-      closeDialog: vi.fn(),
+      closeDialog: vi.fn<(...args: any[]) => any>(),
     }),
   }));
   vi.doMock("../../../src/renderer/src/stores/theme", () => ({
@@ -164,13 +164,13 @@ const mountSettingsApp = async (options?: {
   }));
   vi.doMock("../../../src/renderer/src/lib/storeInitializer", () => ({
     useMcpInstallDeeplinkHandler: () => ({
-      setup: vi.fn(),
-      cleanup: vi.fn(),
+      setup: vi.fn<(...args: any[]) => any>(),
+      cleanup: vi.fn<(...args: any[]) => any>(),
     }),
   }));
   vi.doMock("../../../src/renderer/src/composables/useFontManager", () => ({
     useFontManager: () => ({
-      setupFontListener: vi.fn(),
+      setupFontListener: vi.fn<(...args: any[]) => any>(),
     }),
   }));
   vi.doMock("../../../src/renderer/src/composables/useDeviceVersion", () => ({

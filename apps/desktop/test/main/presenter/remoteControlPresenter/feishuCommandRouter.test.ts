@@ -18,7 +18,7 @@ const createMessage = (overrides: Partial<Parameters<FeishuCommandRouter["handle
 });
 
 const createBindingStore = () => ({
-  getFeishuConfig: vi.fn().mockReturnValue({
+  getFeishuConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
     pairedUserOpenIds: ["ou_123"],
     bindings: {},
     defaultWorkdir: "",
@@ -26,29 +26,29 @@ const createBindingStore = () => ({
 });
 
 const createRunner = (overrides: Record<string, unknown> = {}) => ({
-  getPendingInteraction: vi.fn().mockResolvedValue(null),
-  getDefaultAgentId: vi.fn().mockResolvedValue("argos"),
-  getDefaultWorkdir: vi.fn().mockResolvedValue(null),
-  isSessionModelLocked: vi.fn().mockResolvedValue(false),
+  getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  getDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+  getDefaultWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+  isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
   ...overrides,
 });
 
 describe("FeishuCommandRouter", () => {
   it("surfaces failed attachment downloads before sending to the runner", async () => {
     const runner = createRunner({
-      sendInput: vi.fn(),
+      sendInput: vi.fn<(...args: any[]) => any>(),
     });
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -81,16 +81,16 @@ describe("FeishuCommandRouter", () => {
   it("ignores group messages that do not mention the bot", async () => {
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: false,
           message: "",
           silent: true,
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {} as any,
       bindingStore: {} as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -107,21 +107,21 @@ describe("FeishuCommandRouter", () => {
 
   it("switches models directly from text args", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         modelId: "gpt-4o",
         agentId: "argos",
       }),
-      isSessionModelLocked: vi.fn().mockResolvedValue(false),
-      listAvailableModelProviders: vi.fn().mockResolvedValue([
+      isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
+      listAvailableModelProviders: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           providerId: "openai",
           providerName: "OpenAI",
           models: [{ modelId: "gpt-5", modelName: "GPT-5" }],
         },
       ]),
-      setSessionModel: vi.fn().mockResolvedValue({
+      setSessionModel: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         modelId: "gpt-5",
@@ -130,15 +130,15 @@ describe("FeishuCommandRouter", () => {
     });
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -161,27 +161,27 @@ describe("FeishuCommandRouter", () => {
   });
 
   it("blocks /model when the current Feishu session is ACP-backed", async () => {
-    const listAvailableModelProviders = vi.fn();
+    const listAvailableModelProviders = vi.fn<(...args: any[]) => any>();
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        getCurrentSession: vi.fn().mockResolvedValue({
+        getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           id: "session-1",
           title: "ACP Remote",
           modelId: "acp-agent",
           agentId: "acp-agent",
         }),
-        isSessionModelLocked: vi.fn().mockResolvedValue(true),
+        isSessionModelLocked: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
         listAvailableModelProviders,
       }) as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -207,19 +207,19 @@ describe("FeishuCommandRouter", () => {
   it("returns a desktop window hint when /open cannot find a chat window", async () => {
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: createRunner({
-        open: vi.fn().mockResolvedValue({
+        open: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           status: "windowNotFound",
         }),
       }) as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({
         state: "running",
         lastError: null,
         botUser: null,
@@ -243,7 +243,7 @@ describe("FeishuCommandRouter", () => {
 
   it("routes pending permission replies before opening a new turn", async () => {
     const runner = {
-      getPendingInteraction: vi.fn().mockResolvedValue({
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         type: "permission",
         messageId: "assistant-1",
         toolCallId: "tool-1",
@@ -255,26 +255,26 @@ describe("FeishuCommandRouter", () => {
           command: "git push",
         },
       }),
-      respondToPendingInteraction: vi.fn().mockResolvedValue({
+      respondToPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         waitingForUserMessage: false,
         execution: {
           sessionId: "session-1",
           eventId: "assistant-1",
-          getSnapshot: vi.fn(),
+          getSnapshot: vi.fn<(...args: any[]) => any>(),
         },
       }),
     };
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -298,14 +298,14 @@ describe("FeishuCommandRouter", () => {
   it("re-sends the current pending question as a card action", async () => {
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: {
-        getPendingInteraction: vi.fn().mockResolvedValue({
+        getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           type: "question",
           messageId: "assistant-2",
           toolCallId: "tool-2",
@@ -320,7 +320,7 @@ describe("FeishuCommandRouter", () => {
         }),
       } as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -353,7 +353,7 @@ describe("FeishuCommandRouter", () => {
 
   it("parses option numbers for pending questions", async () => {
     const runner = {
-      getPendingInteraction: vi.fn().mockResolvedValue({
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         type: "question",
         messageId: "assistant-3",
         toolCallId: "tool-3",
@@ -366,22 +366,22 @@ describe("FeishuCommandRouter", () => {
           multiple: false,
         },
       }),
-      respondToPendingInteraction: vi.fn().mockResolvedValue({
+      respondToPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         waitingForUserMessage: false,
         execution: null,
       }),
     };
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -399,7 +399,7 @@ describe("FeishuCommandRouter", () => {
 
   it("treats prefixed numeric text as custom input instead of an option", async () => {
     const runner = {
-      getPendingInteraction: vi.fn().mockResolvedValue({
+      getPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         type: "question",
         messageId: "assistant-4",
         toolCallId: "tool-4",
@@ -412,22 +412,22 @@ describe("FeishuCommandRouter", () => {
           multiple: false,
         },
       }),
-      respondToPendingInteraction: vi.fn().mockResolvedValue({
+      respondToPendingInteraction: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         waitingForUserMessage: false,
         execution: null,
       }),
     };
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({
           ok: true,
           userOpenId: "ou_123",
         }),
-        pair: vi.fn(),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn(),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     const result = await router.handleMessage(
@@ -445,14 +445,14 @@ describe("FeishuCommandRouter", () => {
 
   it("lists agents for /agent without args", async () => {
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         agentId: "argos",
         providerId: "openai",
         modelId: "gpt-5",
       }),
-      listAvailableAgents: vi.fn().mockResolvedValue([
+      listAvailableAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           agentId: "argos",
           agentName: "Argos",
@@ -469,12 +469,12 @@ describe("FeishuCommandRouter", () => {
     });
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userOpenId: "ou_123" }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userOpenId: "ou_123" }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({ state: "running", lastError: null, botUser: null }),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ state: "running", lastError: null, botUser: null }),
     });
 
     const result = await router.handleMessage(
@@ -490,7 +490,7 @@ describe("FeishuCommandRouter", () => {
   });
 
   it("switches the channel default agent for /agent <id>", async () => {
-    const setChannelDefaultAgent = vi.fn().mockResolvedValue({
+    const setChannelDefaultAgent = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       session: {
         id: "session-2",
         title: "New Chat",
@@ -506,7 +506,7 @@ describe("FeishuCommandRouter", () => {
       },
     });
     const runner = createRunner({
-      getCurrentSession: vi.fn().mockResolvedValue({
+      getCurrentSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         id: "session-1",
         title: "Remote",
         agentId: "argos",
@@ -514,18 +514,18 @@ describe("FeishuCommandRouter", () => {
         modelId: "gpt-5",
       }),
       listAvailableAgents: vi
-        .fn()
+        .fn<(...args: any[]) => any>()
         .mockResolvedValue([{ agentId: "codex", agentName: "Codex", agentType: "acp", source: "registry" }]),
       setChannelDefaultAgent,
     });
     const router = new FeishuCommandRouter({
       authGuard: {
-        ensureAuthorized: vi.fn().mockReturnValue({ ok: true, userOpenId: "ou_123" }),
-        pair: vi.fn(),
+        ensureAuthorized: vi.fn<(...args: any[]) => any>().mockReturnValue({ ok: true, userOpenId: "ou_123" }),
+        pair: vi.fn<(...args: any[]) => any>(),
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn().mockReturnValue({ state: "running", lastError: null, botUser: null }),
+      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ state: "running", lastError: null, botUser: null }),
     });
 
     const result = await router.handleMessage(

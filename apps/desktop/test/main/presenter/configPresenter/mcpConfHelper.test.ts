@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockStores = vi.hoisted(() => new Map<string, Record<string, any>>());
-const mockKnowledgeSupported = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const mockKnowledgeSupported = vi.hoisted(() => vi.fn<(...args: any[]) => any>().mockResolvedValue(true));
 
 const clone = <T>(value: T): T => {
   const cloneFn = (globalThis as typeof globalThis & { structuredClone?: (value: T) => T }).structuredClone;
@@ -44,8 +44,8 @@ vi.mock("electron-store", () => ({
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    send: vi.fn(),
-    sendToRenderer: vi.fn(),
+    send: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -186,7 +186,7 @@ describe("McpConfHelper", () => {
 
     mcpStore.set("mcpServers", {
       builtinKnowledge: {
-        ...(mcpStore.get("mcpServers").builtinKnowledge ?? {}),
+        ...mcpStore.get("mcpServers").builtinKnowledge,
         env: {
           configs: [legacyConfig],
         },
@@ -208,7 +208,7 @@ describe("McpConfHelper", () => {
 
     mcpStore.set("mcpServers", {
       builtinKnowledge: {
-        ...(mcpStore.get("mcpServers").builtinKnowledge ?? {}),
+        ...mcpStore.get("mcpServers").builtinKnowledge,
         env: {
           configs: [legacyConfig],
         },

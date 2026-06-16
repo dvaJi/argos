@@ -3,25 +3,25 @@ import type { AWS_BEDROCK_PROVIDER, IConfigPresenter } from "../../../../src/sha
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 const { mockBedrockSend, mockRunAiSdkCoreStream, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
-  mockBedrockSend: vi.fn(),
-  mockRunAiSdkCoreStream: vi.fn(),
-  mockRunAiSdkGenerateText: vi.fn().mockResolvedValue({ content: "ok" }),
+  mockBedrockSend: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
+  mockRunAiSdkGenerateText: vi.fn<(...args: any[]) => any>().mockResolvedValue({ content: "ok" }),
 }));
 
 vi.mock("electron", () => ({
   app: {
-    getName: vi.fn(() => "Argos"),
-    getVersion: vi.fn(() => "0.0.0-test"),
-    getPath: vi.fn(() => "/mock/path"),
-    isReady: vi.fn(() => true),
-    on: vi.fn(),
+    getName: vi.fn<(...args: any[]) => any>(() => "Argos"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
+    getPath: vi.fn<(...args: any[]) => any>(() => "/mock/path"),
+    isReady: vi.fn<(...args: any[]) => any>(() => true),
+    on: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
 vi.mock("@/eventbus", () => ({
   eventBus: {
-    on: vi.fn(),
-    sendToRenderer: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -39,9 +39,9 @@ vi.mock("@/events", () => ({
 }));
 
 vi.mock("@aws-sdk/client-bedrock", () => ({
-  BedrockClient: vi.fn().mockImplementation(() => ({
+  BedrockClient: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
     config: {
-      region: vi.fn().mockResolvedValue("us-east-1"),
+      region: vi.fn<(...args: any[]) => any>().mockResolvedValue("us-east-1"),
     },
     send: mockBedrockSend,
   })),
@@ -61,9 +61,9 @@ vi.mock("../../../../src/main/presenter/llmProviderPresenter/aiSdk", () => ({
 
 const createConfigPresenter = (): IConfigPresenter =>
   ({
-    getProviderModels: vi.fn().mockReturnValue([]),
-    getCustomModels: vi.fn().mockReturnValue([]),
-    getDbProviderModels: vi.fn().mockReturnValue([
+    getProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getDbProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([
       {
         id: "anthropic.claude-3-5-sonnet-20240620-v1:0",
         name: "Claude 3.5 Sonnet",
@@ -75,10 +75,10 @@ const createConfigPresenter = (): IConfigPresenter =>
         reasoning: false,
       },
     ]),
-    getModelConfig: vi.fn().mockReturnValue(undefined),
-    getSetting: vi.fn().mockReturnValue(undefined),
-    setProviderModels: vi.fn(),
-    getModelStatus: vi.fn().mockReturnValue(true),
+    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
+    setProviderModels: vi.fn<(...args: any[]) => any>(),
+    getModelStatus: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
   }) as unknown as IConfigPresenter;
 
 const createProvider = (overrides?: Partial<AWS_BEDROCK_PROVIDER>): AWS_BEDROCK_PROVIDER => ({

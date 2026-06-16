@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const sendToRendererMock = vi.fn();
-const overlayUpdateBoundsMock = vi.fn(async () => undefined);
-const overlaySendActivityMock = vi.fn();
-const overlayHideMock = vi.fn();
-const overlayDestroyMock = vi.fn();
+const sendToRendererMock = vi.fn<(...args: any[]) => any>();
+const overlayUpdateBoundsMock = vi.fn<(...args: any[]) => any>(async () => undefined);
+const overlaySendActivityMock = vi.fn<(...args: any[]) => any>();
+const overlayHideMock = vi.fn<(...args: any[]) => any>();
+const overlayDestroyMock = vi.fn<(...args: any[]) => any>();
 
 class MockWebContents extends EventEmitter {
   id: number;
@@ -18,17 +18,17 @@ class MockWebContents extends EventEmitter {
     reject: (error: Error) => void;
   } | null = null;
   debugger = {
-    isAttached: vi.fn(() => false),
-    detach: vi.fn(),
-    attach: vi.fn(),
-    sendCommand: vi.fn(async () => ({})),
+    isAttached: vi.fn<(...args: any[]) => any>(() => false),
+    detach: vi.fn<(...args: any[]) => any>(),
+    attach: vi.fn<(...args: any[]) => any>(),
+    sendCommand: vi.fn<(...args: any[]) => any>(async () => ({})),
   };
   session = {};
   navigationHistory = {
-    canGoBack: vi.fn(() => false),
-    canGoForward: vi.fn(() => false),
+    canGoBack: vi.fn<(...args: any[]) => any>(() => false),
+    canGoForward: vi.fn<(...args: any[]) => any>(() => false),
   };
-  loadURL = vi.fn((url: string) => {
+  loadURL = vi.fn<(...args: any[]) => any>((url: string) => {
     this.url = url;
     this.loading = true;
     this.emit("did-start-loading");
@@ -37,19 +37,19 @@ class MockWebContents extends EventEmitter {
       this.pendingLoad = { resolve, reject };
     });
   });
-  goBack = vi.fn();
-  goForward = vi.fn();
-  reload = vi.fn(() => {
+  goBack = vi.fn<(...args: any[]) => any>();
+  goForward = vi.fn<(...args: any[]) => any>();
+  reload = vi.fn<(...args: any[]) => any>(() => {
     this.loading = true;
     this.emit("did-start-loading");
   });
-  reloadIgnoringCache = vi.fn();
-  isLoading = vi.fn(() => this.loading);
-  close = vi.fn(() => {
+  reloadIgnoringCache = vi.fn<(...args: any[]) => any>();
+  isLoading = vi.fn<(...args: any[]) => any>(() => this.loading);
+  close = vi.fn<(...args: any[]) => any>(() => {
     this.destroyed = true;
     this.emit("destroyed");
   });
-  sendInputEvent = vi.fn();
+  sendInputEvent = vi.fn<(...args: any[]) => any>();
 
   constructor(id: number) {
     super();
@@ -94,15 +94,15 @@ class MockWebContents extends EventEmitter {
 }
 
 class MockContentView {
-  addChildView = vi.fn();
-  removeChildView = vi.fn();
+  addChildView = vi.fn<(...args: any[]) => any>();
+  removeChildView = vi.fn<(...args: any[]) => any>();
 }
 
 class MockBrowserWindow extends EventEmitter {
   contentView = new MockContentView();
   webContents = {
-    focus: vi.fn(),
-    isDestroyed: vi.fn(() => false),
+    focus: vi.fn<(...args: any[]) => any>(),
+    isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
   };
   destroyed = false;
   visible = true;
@@ -148,9 +148,9 @@ describe("YoBrowserPresenter", () => {
     vi.doMock("electron", () => {
       class MockWebContentsView {
         webContents: MockWebContents;
-        setBorderRadius = vi.fn();
-        setBackgroundColor = vi.fn();
-        setBounds = vi.fn();
+        setBorderRadius = vi.fn<(...args: any[]) => any>();
+        setBackgroundColor = vi.fn<(...args: any[]) => any>();
+        setBounds = vi.fn<(...args: any[]) => any>();
 
         constructor(options: Record<string, any>) {
           viewConfigs.push(options);
@@ -160,7 +160,7 @@ describe("YoBrowserPresenter", () => {
 
       return {
         app: {
-          getPath: vi.fn(() => "C:/mock-user-data"),
+          getPath: vi.fn<(...args: any[]) => any>(() => "C:/mock-user-data"),
         },
         BrowserWindow: {
           fromId: (id: number) => windows.get(id) ?? null,
@@ -171,9 +171,9 @@ describe("YoBrowserPresenter", () => {
 
     vi.doMock("@shared/logger", () => ({
       default: {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
+        info: vi.fn<(...args: any[]) => any>(),
+        warn: vi.fn<(...args: any[]) => any>(),
+        error: vi.fn<(...args: any[]) => any>(),
       },
     }));
 
@@ -200,13 +200,13 @@ describe("YoBrowserPresenter", () => {
 
     vi.doMock("@/presenter/browser/DownloadManager", () => ({
       DownloadManager: class {
-        downloadFile = vi.fn();
+        downloadFile = vi.fn<(...args: any[]) => any>();
       },
     }));
 
     vi.doMock("@/presenter/browser/yoBrowserSession", () => ({
       getYoBrowserSession: () => ({}),
-      clearYoBrowserSessionData: vi.fn(),
+      clearYoBrowserSessionData: vi.fn<(...args: any[]) => any>(),
     }));
 
     vi.doMock("@/presenter/browser/YoBrowserOverlayWindow", () => ({
@@ -221,22 +221,22 @@ describe("YoBrowserPresenter", () => {
     const { YoBrowserPresenter } = await import("@/presenter/browser/YoBrowserPresenter");
 
     const windowPresenter = {
-      show: vi.fn((windowId: number) => {
+      show: vi.fn<(...args: any[]) => any>((windowId: number) => {
         const target = windows.get(windowId);
         if (target) {
           target.visible = true;
           target.focused = true;
         }
       }),
-      hide: vi.fn((windowId: number) => {
+      hide: vi.fn<(...args: any[]) => any>((windowId: number) => {
         const target = windows.get(windowId);
         if (target) {
           target.visible = false;
         }
       }),
-      closeWindow: vi.fn(async () => undefined),
-      getFocusedWindow: vi.fn(() => windows.get(1) ?? null),
-      getAllWindows: vi.fn(() => Array.from(windows.values())),
+      closeWindow: vi.fn<(...args: any[]) => any>(async () => undefined),
+      getFocusedWindow: vi.fn<(...args: any[]) => any>(() => windows.get(1) ?? null),
+      getAllWindows: vi.fn<(...args: any[]) => any>(() => Array.from(windows.values())),
     };
 
     const presenter = new YoBrowserPresenter(windowPresenter as any);
@@ -302,7 +302,7 @@ describe("YoBrowserPresenter", () => {
     windows.set(1, new MockBrowserWindow(1));
 
     const loadPromise = presenter.loadUrl("session-a", "https://example.com", 5000);
-    const rejection = expect(loadPromise).rejects.toThrow("Timed out waiting for dom-ready: https://example.com");
+    const rejection = await expect(loadPromise).rejects.toThrow("Timed out waiting for dom-ready: https://example.com");
     await vi.advanceTimersByTimeAsync(5050);
     await rejection;
   }, 7000);

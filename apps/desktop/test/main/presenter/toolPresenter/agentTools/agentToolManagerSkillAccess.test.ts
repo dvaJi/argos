@@ -58,22 +58,22 @@ describe("AgentToolManager skill file access", () => {
       configPresenter,
       runtimePort: {
         resolveConversationWorkdir,
-        resolveConversationSessionInfo: vi.fn().mockResolvedValue(null),
+        resolveConversationSessionInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
         getSkillPresenter: () => skillPresenter as any,
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn().mockReturnValue([]),
-          callTool: vi.fn(),
+          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+          callTool: vi.fn<(...args: any[]) => any>(),
         }),
         getFilePresenter: () => filePresenter,
         getLlmProviderPresenter: () => ({
-          executeWithRateLimit: vi.fn().mockResolvedValue(undefined),
-          generateCompletionStandalone: vi.fn(),
-          generateImageStandalone: vi.fn(),
+          executeWithRateLimit: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+          generateCompletionStandalone: vi.fn<(...args: any[]) => any>(),
+          generateImageStandalone: vi.fn<(...args: any[]) => any>(),
         }),
-        createSettingsWindow: vi.fn(),
-        sendToWindow: vi.fn().mockReturnValue(true),
-        getApprovedFilePaths: vi.fn().mockReturnValue([]),
-        consumeSettingsApproval: vi.fn().mockReturnValue(false),
+        createSettingsWindow: vi.fn<(...args: any[]) => any>(),
+        sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+        getApprovedFilePaths: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+        consumeSettingsApproval: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
       },
     });
 
@@ -89,13 +89,13 @@ describe("AgentToolManager skill file access", () => {
     await fs.writeFile(skillFilePath, "active skill file", "utf-8");
 
     filePresenter = {
-      getMimeType: vi.fn().mockResolvedValue("text/plain"),
-      prepareFileCompletely: vi.fn(),
+      getMimeType: vi.fn<(...args: any[]) => any>().mockResolvedValue("text/plain"),
+      prepareFileCompletely: vi.fn<(...args: any[]) => any>(),
     };
-    resolveConversationWorkdir = vi.fn().mockResolvedValue(null);
+    resolveConversationWorkdir = vi.fn<(...args: any[]) => any>().mockResolvedValue(null);
     skillPresenter = {
-      getActiveSkills: vi.fn().mockResolvedValue(["skill-a"]),
-      getMetadataList: vi.fn().mockResolvedValue([
+      getActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(["skill-a"]),
+      getMetadataList: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         {
           name: "skill-a",
           description: "Skill A",
@@ -103,9 +103,9 @@ describe("AgentToolManager skill file access", () => {
           skillRoot,
         },
       ]),
-      getActiveSkillsAllowedTools: vi.fn().mockResolvedValue([]),
-      listSkillScripts: vi.fn().mockResolvedValue([]),
-      getSkillExtension: vi.fn().mockResolvedValue({
+      getActiveSkillsAllowedTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      listSkillScripts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         version: 1,
         env: {},
         runtimePolicy: { python: "auto", node: "auto" },
@@ -208,7 +208,7 @@ describe("AgentToolManager skill file access", () => {
 
   it("allows exec cwd under active skill roots in full access mode", async () => {
     const manager = buildManager();
-    vi.spyOn(AgentBashHandler.prototype as never, "prepareCommand" as never).mockResolvedValue({
+    vi.spyOn<(...args: any[]) => any>(AgentBashHandler.prototype as never, "prepareCommand" as never).mockResolvedValue({
       originalCommand: "pwd",
       command: "pwd",
       env: { PATH: "/bin" },

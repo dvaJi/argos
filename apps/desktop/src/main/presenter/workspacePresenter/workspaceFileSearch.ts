@@ -53,7 +53,7 @@ export async function searchWorkspaceFiles(workspacePath: string, query: string)
           return false;
         }
       })
-      .map((filePath) => buildFileNode(filePath));
+      .map(buildFileNode);
     return filtered;
   }
 

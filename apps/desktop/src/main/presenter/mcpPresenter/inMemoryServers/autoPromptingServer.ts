@@ -128,7 +128,8 @@ export class AutoPromptingServer {
         },
         {
           name: "fill_prompt_template",
-          description: "Fill in template content with the prompt template name and parameters to produce the final prompt.",
+          description:
+            "Fill in template content with the prompt template name and parameters to produce the final prompt.",
           inputSchema: FillTemplateArgsJsonSchema,
           annotations: {
             title: "Fill Prompt Template",

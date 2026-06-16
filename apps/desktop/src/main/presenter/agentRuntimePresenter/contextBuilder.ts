@@ -183,7 +183,7 @@ function buildNonImageFileContext(files: MessageFile[], excludeAudio: boolean = 
 }
 
 function buildAudioMetadataContext(files: MessageFile[]): string {
-  const audioFiles = files.filter((file) => isAudioFile(file));
+  const audioFiles = files.filter(isAudioFile);
   if (audioFiles.length === 0) {
     return "";
   }
@@ -302,7 +302,7 @@ function buildStructuredAttachmentText(imageCount: number, audioCount: number): 
 }
 
 function buildImageMetadataContext(files: MessageFile[]): string {
-  const imageFiles = files.filter((file) => isImageFile(file));
+  const imageFiles = files.filter(isImageFile);
   if (imageFiles.length === 0) {
     return "";
   }
@@ -332,8 +332,8 @@ export function buildUserMessageContent(
   const text = input.text ?? "";
   const files = Array.isArray(input.files) ? input.files : [];
 
-  const imageFiles = files.filter((file) => isImageFile(file));
-  const audioFiles = files.filter((file) => isAudioFile(file));
+  const imageFiles = files.filter(isImageFile);
+  const audioFiles = files.filter(isAudioFile);
   const audioParts: Array<{
     type: "input_audio";
     input_audio: {
@@ -584,7 +584,7 @@ export function recordToChatMessages(
       assistantMessage.reasoning_content = reasoning;
       const reasoningProviderOptions = blocks
         .filter((block) => block.type === "reasoning_content")
-        .map((block) => getBlockProviderOptions(block))
+        .map(getBlockProviderOptions)
         .find(Boolean);
       if (reasoningProviderOptions) {
         assistantMessage.reasoning_provider_options = reasoningProviderOptions;

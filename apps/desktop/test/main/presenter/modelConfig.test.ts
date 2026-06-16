@@ -459,7 +459,7 @@ describe("Model Configuration Tests", () => {
 
   describe("Interleaved Thinking Defaults", () => {
     it("derives interleaved thinking from the provider reasoning portrait", () => {
-      const getDbSpy = vi.spyOn(providerDbLoader, "getDb").mockReturnValue({
+      const getDbSpy = vi.spyOn<(...args: any[]) => any>(providerDbLoader, "getDb").mockReturnValue({
         providers: {
           zenmux: {
             id: "zenmux",
@@ -467,7 +467,7 @@ describe("Model Configuration Tests", () => {
           },
         },
       } as any);
-      const portraitSpy = vi.spyOn(modelCapabilities, "getReasoningPortrait").mockReturnValue({
+      const portraitSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "getReasoningPortrait").mockReturnValue({
         supported: true,
         defaultEnabled: true,
         interleaved: true,
@@ -506,7 +506,7 @@ describe("Model Configuration Tests", () => {
     });
 
     it("derives anthropic reasoning visibility from provider portraits", () => {
-      const getDbSpy = vi.spyOn(providerDbLoader, "getDb").mockReturnValue({
+      const getDbSpy = vi.spyOn<(...args: any[]) => any>(providerDbLoader, "getDb").mockReturnValue({
         providers: {
           anthropic: {
             id: "anthropic",
@@ -514,7 +514,7 @@ describe("Model Configuration Tests", () => {
           },
         },
       } as any);
-      const portraitSpy = vi.spyOn(modelCapabilities, "getReasoningPortrait").mockReturnValue({
+      const portraitSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "getReasoningPortrait").mockReturnValue({
         supported: true,
         defaultEnabled: false,
         mode: "effort",
@@ -534,7 +534,7 @@ describe("Model Configuration Tests", () => {
     });
 
     it("derives anthropic reasoning visibility for zenmux anthropic routes", () => {
-      const getDbSpy = vi.spyOn(providerDbLoader, "getDb").mockReturnValue({
+      const getDbSpy = vi.spyOn<(...args: any[]) => any>(providerDbLoader, "getDb").mockReturnValue({
         providers: {
           zenmux: {
             id: "zenmux",
@@ -570,7 +570,7 @@ describe("Model Configuration Tests", () => {
     });
 
     it("preserves non-anthropic reasoning visibility values from provider portraits", () => {
-      const getDbSpy = vi.spyOn(providerDbLoader, "getDb").mockReturnValue({
+      const getDbSpy = vi.spyOn<(...args: any[]) => any>(providerDbLoader, "getDb").mockReturnValue({
         providers: {
           openai: {
             id: "openai",

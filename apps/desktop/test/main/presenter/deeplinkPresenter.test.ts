@@ -1,33 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEEPLINK_EVENTS, NOTIFICATION_EVENTS, SETTINGS_EVENTS } from "@/events";
 
-const browserWindowFromIdMock = vi.hoisted(() => vi.fn());
+const browserWindowFromIdMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const electronAppMock = vi.hoisted(() => ({
-  setAsDefaultProtocolClient: vi.fn(),
+  setAsDefaultProtocolClient: vi.fn<(...args: any[]) => any>(),
 }));
 
 const presenterMock = vi.hoisted(() => ({
   windowPresenter: {
-    createSettingsWindow: vi.fn().mockResolvedValue(9),
-    createAppWindow: vi.fn().mockResolvedValue(1),
-    sendToWindow: vi.fn().mockReturnValue(true),
-    setPendingSettingsProviderInstall: vi.fn(),
-    getAllWindows: vi.fn().mockReturnValue([]),
-    getFocusedWindow: vi.fn().mockReturnValue(null),
+    createSettingsWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
+    createAppWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(1),
+    sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
+    setPendingSettingsProviderInstall: vi.fn<(...args: any[]) => any>(),
+    getAllWindows: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+    getFocusedWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
   configPresenter: {
-    getProviderById: vi.fn(),
+    getProviderById: vi.fn<(...args: any[]) => any>(),
   },
   mcpPresenter: {
-    isReady: vi.fn().mockReturnValue(true),
+    isReady: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
   },
 }));
 
 const eventBusMock = vi.hoisted(() => ({
-  once: vi.fn(),
-  on: vi.fn(),
-  off: vi.fn(),
-  sendToRenderer: vi.fn(),
+  once: vi.fn<(...args: any[]) => any>(),
+  on: vi.fn<(...args: any[]) => any>(),
+  off: vi.fn<(...args: any[]) => any>(),
+  sendToRenderer: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron", () => ({
@@ -88,11 +88,11 @@ describe("DeeplinkPresenter", () => {
       id: 1,
       isDestroyed: () => false,
       isMinimized: () => false,
-      show: vi.fn(),
-      focus: vi.fn(),
+      show: vi.fn<(...args: any[]) => any>(),
+      focus: vi.fn<(...args: any[]) => any>(),
       webContents: {
         isLoadingMainFrame: () => false,
-        once: vi.fn(),
+        once: vi.fn<(...args: any[]) => any>(),
       },
     };
     const settingsWindow = {
@@ -126,11 +126,11 @@ describe("DeeplinkPresenter", () => {
       id: 1,
       isDestroyed: () => false,
       isMinimized: () => false,
-      show: vi.fn(),
-      focus: vi.fn(),
+      show: vi.fn<(...args: any[]) => any>(),
+      focus: vi.fn<(...args: any[]) => any>(),
       webContents: {
         isLoadingMainFrame: () => false,
-        once: vi.fn(),
+        once: vi.fn<(...args: any[]) => any>(),
       },
     };
 
@@ -363,7 +363,7 @@ describe("DeeplinkPresenter", () => {
     };
     const rawData = Buffer.from(JSON.stringify(payload)).toString("base64");
     const url = `argos:provider/install?v=1&data=${rawData}`;
-    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const consoleLogSpy = vi.spyOn<(...args: any[]) => any>(console, "log").mockImplementation(() => {});
 
     await deeplinkPresenter.handleDeepLink(url);
 

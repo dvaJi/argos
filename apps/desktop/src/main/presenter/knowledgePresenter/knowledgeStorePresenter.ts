@@ -122,7 +122,8 @@ export class KnowledgeStorePresenter {
       // Inspect file content
       if (fileInfo.content === undefined || fileInfo.content.length === 0) {
         fileMessage.status = "error";
-        fileMessage.metadata.errorReason = "Could not read file or file is empty; please check whether the file is corrupted or the format is supported";
+        fileMessage.metadata.errorReason =
+          "Could not read file or file is empty; please check whether the file is corrupted or the format is supported";
         await this.enqueueFileTask(fileMessage.id, async () => this.vectorP.updateFile(fileMessage));
         eventBus.sendToRenderer(RAG_EVENTS.FILE_UPDATED, SendTarget.ALL_WINDOWS, fileMessage);
         return;

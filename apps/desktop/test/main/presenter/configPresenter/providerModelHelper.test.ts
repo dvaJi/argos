@@ -16,9 +16,9 @@ const storeStates = vi.hoisted(
 );
 
 const eventBusMocks = vi.hoisted(() => ({
-  on: vi.fn(),
-  send: vi.fn(),
-  sendToRenderer: vi.fn(),
+  on: vi.fn<(...args: any[]) => any>(),
+  send: vi.fn<(...args: any[]) => any>(),
+  sendToRenderer: vi.fn<(...args: any[]) => any>(),
 }));
 
 vi.mock("electron-store", () => ({
@@ -40,11 +40,11 @@ vi.mock("electron-store", () => ({
       const data = structuredClone(options.defaults ?? {});
       const state = {
         data,
-        get: vi.fn((key: string) => data[key]),
-        set: vi.fn((key: string, value: unknown) => {
+        get: vi.fn<(...args: any[]) => any>((key: string) => data[key]),
+        set: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
           data[key] = value;
         }),
-        clear: vi.fn(() => {
+        clear: vi.fn<(...args: any[]) => any>(() => {
           Object.keys(data).forEach((key) => {
             delete data[key];
           });
@@ -81,21 +81,21 @@ vi.mock("@/eventbus", () => ({
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: string) => {
+    getPath: vi.fn<(...args: any[]) => any>((name: string) => {
       if (name === "userData") return "C:/mock-user-data";
       return "C:/mock-home";
     }),
-    getVersion: vi.fn(() => "1.0.0"),
-    getAppPath: vi.fn(() => "C:/mock-app"),
+    getVersion: vi.fn<(...args: any[]) => any>(() => "1.0.0"),
+    getAppPath: vi.fn<(...args: any[]) => any>(() => "C:/mock-app"),
   },
   nativeTheme: {
     themeSource: "system",
     shouldUseDarkColors: false,
-    on: vi.fn(),
+    on: vi.fn<(...args: any[]) => any>(),
   },
   shell: {
-    openExternal: vi.fn(),
-    openPath: vi.fn(),
+    openExternal: vi.fn<(...args: any[]) => any>(),
+    openPath: vi.fn<(...args: any[]) => any>(),
   },
 }));
 
@@ -140,8 +140,8 @@ describe("ProviderModelHelper cache", () => {
     const helper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: () => undefined as unknown as ModelConfig,
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -164,8 +164,8 @@ describe("ProviderModelHelper cache", () => {
     const helper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: () => undefined as unknown as ModelConfig,
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -192,8 +192,8 @@ describe("ProviderModelHelper cache", () => {
     const helper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: () => undefined as unknown as ModelConfig,
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -219,8 +219,8 @@ describe("ProviderModelHelper cache", () => {
     const helper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: () => undefined as unknown as ModelConfig,
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -243,8 +243,8 @@ describe("ProviderModelHelper cache", () => {
     const helper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: () => undefined as unknown as ModelConfig,
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     helper.getProviderModelStore(":providerId");
@@ -282,20 +282,20 @@ describe("ConfigPresenter provider model cache invalidation", () => {
     const cacheKey = (providerId: string, modelId: string) => `${providerId}:${modelId}`;
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       modelConfigHelper: {
-        getModelConfig: vi.fn((modelId: string, providerId?: string) =>
+        getModelConfig: vi.fn<(...args: any[]) => any>((modelId: string, providerId?: string) =>
           providerId ? configState.get(cacheKey(providerId, modelId)) : undefined,
         ),
-        setModelConfig: vi.fn((modelId: string, providerId: string, config: ModelConfig) => {
+        setModelConfig: vi.fn<(...args: any[]) => any>((modelId: string, providerId: string, config: ModelConfig) => {
           configState.set(cacheKey(providerId, modelId), config);
           return config;
         }),
-        resetModelConfig: vi.fn((modelId: string, providerId: string) => {
+        resetModelConfig: vi.fn<(...args: any[]) => any>((modelId: string, providerId: string) => {
           configState.delete(cacheKey(providerId, modelId));
         }),
-        importConfigs: vi.fn(),
+        importConfigs: vi.fn<(...args: any[]) => any>(),
       },
       providerHelper: {
-        getProviderById: vi.fn().mockReturnValue(undefined),
+        getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
       },
     }) as InstanceType<typeof ConfigPresenter>;
     const presenterWithHelper = presenter as InstanceType<typeof ConfigPresenter> & {
@@ -305,8 +305,8 @@ describe("ConfigPresenter provider model cache invalidation", () => {
     presenterWithHelper.providerModelHelper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: (modelId: string, providerId?: string) => presenter.getModelConfig(modelId, providerId),
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     presenterWithHelper.providerModelHelper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -345,12 +345,12 @@ describe("ConfigPresenter provider model cache invalidation", () => {
     const cacheKey = (providerId: string, modelId: string) => `${providerId}:${modelId}`;
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
       modelConfigHelper: {
-        getModelConfig: vi.fn((modelId: string, providerId?: string) =>
+        getModelConfig: vi.fn<(...args: any[]) => any>((modelId: string, providerId?: string) =>
           providerId ? configState.get(cacheKey(providerId, modelId)) : undefined,
         ),
-        setModelConfig: vi.fn(),
-        resetModelConfig: vi.fn(),
-        importConfigs: vi.fn(() => {
+        setModelConfig: vi.fn<(...args: any[]) => any>(),
+        resetModelConfig: vi.fn<(...args: any[]) => any>(),
+        importConfigs: vi.fn<(...args: any[]) => any>(() => {
           configState.set(
             cacheKey("openai", "gpt-5"),
             createModelConfig({
@@ -360,7 +360,7 @@ describe("ConfigPresenter provider model cache invalidation", () => {
         }),
       },
       providerHelper: {
-        getProviderById: vi.fn().mockReturnValue(undefined),
+        getProviderById: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
       },
     }) as InstanceType<typeof ConfigPresenter>;
     const presenterWithHelper = presenter as InstanceType<typeof ConfigPresenter> & {
@@ -370,8 +370,8 @@ describe("ConfigPresenter provider model cache invalidation", () => {
     presenterWithHelper.providerModelHelper = new ProviderModelHelper({
       userDataPath: "C:/mock-user-data",
       getModelConfig: (modelId: string, providerId?: string) => presenter.getModelConfig(modelId, providerId),
-      setModelStatus: vi.fn(),
-      deleteModelStatus: vi.fn(),
+      setModelStatus: vi.fn<(...args: any[]) => any>(),
+      deleteModelStatus: vi.fn<(...args: any[]) => any>(),
     });
 
     presenterWithHelper.providerModelHelper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -407,7 +407,7 @@ describe("ConfigPresenter provider DB model mapping", () => {
 
     vi.doMock("../../../../src/main/presenter/configPresenter/providerDbLoader", () => ({
       providerDbLoader: {
-        getDb: vi.fn(() => ({
+        getDb: vi.fn<(...args: any[]) => any>(() => ({
           providers: {
             aihubmix: {
               id: "aihubmix",
@@ -437,7 +437,7 @@ describe("ConfigPresenter provider DB model mapping", () => {
 
     const { ConfigPresenter } = await import("../../../../src/main/presenter/configPresenter/index");
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {
-      supportsReasoningCapability: vi.fn(() => false),
+      supportsReasoningCapability: vi.fn<(...args: any[]) => any>(() => false),
     }) as InstanceType<typeof ConfigPresenter>;
 
     const models = presenter.getDbProviderModels("aihubmix");

@@ -3,7 +3,7 @@ import { SettingsRouteHandler } from "@argos/backend-core/dispatch/settings/sett
 
 function createMockAdapter() {
   return {
-    readSnapshot: vi.fn().mockReturnValue({
+    readSnapshot: vi.fn<(...args: any[]) => any>().mockReturnValue({
       fontSizeLevel: 1,
       fontFamily: "",
       codeFontFamily: "",
@@ -20,8 +20,8 @@ function createMockAdapter() {
       copyWithCotEnabled: false,
       loggingEnabled: false,
     }),
-    applyChange: vi.fn(),
-    listSystemFonts: vi.fn().mockResolvedValue(["Arial", "Helvetica"]),
+    applyChange: vi.fn<(...args: any[]) => any>(),
+    listSystemFonts: vi.fn<(...args: any[]) => any>().mockResolvedValue(["Arial", "Helvetica"]),
   };
 }
 

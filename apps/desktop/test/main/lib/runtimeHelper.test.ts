@@ -4,8 +4,8 @@ import { RuntimeHelper } from "../../../src/main/lib/runtimeHelper";
 
 vi.mock("electron", () => ({
   app: {
-    getAppPath: vi.fn().mockReturnValue("/mock/app"),
-    getPath: vi.fn().mockReturnValue("/mock/home"),
+    getAppPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/app"),
+    getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("/mock/home"),
   },
 }));
 
@@ -33,7 +33,7 @@ describe("RuntimeHelper", () => {
     const helper = RuntimeHelper.getInstance();
     (helper as never).rtkRuntimePath = "/mock/runtime/rtk";
 
-    vi.spyOn(fs, "existsSync").mockImplementation((targetPath) => {
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockImplementation((targetPath) => {
       return String(targetPath) === "/mock/runtime/rtk/rtk.exe";
     });
 
@@ -46,7 +46,7 @@ describe("RuntimeHelper", () => {
       value: "win32",
     });
 
-    vi.spyOn(fs, "existsSync").mockReturnValue(false);
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(false);
 
     const helper = RuntimeHelper.getInstance();
     helper.initializeRuntimes(true);

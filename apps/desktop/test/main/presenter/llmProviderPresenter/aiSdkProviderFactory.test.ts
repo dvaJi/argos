@@ -3,7 +3,7 @@ import { streamText } from "ai";
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({
   proxyConfig: {
-    getProxyUrl: vi.fn().mockReturnValue(null),
+    getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },
 }));
 
@@ -222,7 +222,7 @@ describe("AI SDK provider factory", () => {
   });
 
   it("uses normalized gemini urls with google auth headers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
       new Response(
         'data: {"candidates":[{"content":{"parts":[{"text":"hello"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}\n\n',
         {

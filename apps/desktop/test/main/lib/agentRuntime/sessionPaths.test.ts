@@ -31,7 +31,7 @@ describe("sessionPaths offload path sanitization", () => {
     const filePath = resolveToolOffloadPath("session-a", 'bad<>:"/\\\\|?*\u0001name. ');
     const fileName = path.basename(filePath!);
 
-    expect(fileName).toMatch(/^tool_[^<>:"/\\|?*\u0000-\u001f]+\.offload$/);
+    expect(fileName).toMatch(/^tool_[^<>:"/\\|?*\x00-\x1f]+\.offload$/);
     expect(fileName).not.toContain(":");
     expect(fileName).not.toMatch(/[. ]\.offload$/);
   });

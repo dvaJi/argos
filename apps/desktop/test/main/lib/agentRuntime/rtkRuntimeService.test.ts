@@ -18,20 +18,20 @@ vi.mock("path", async (importOriginal) => {
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn((name: "userData" | "temp") => (name === "userData" ? "/mock/userData" : "/mock/temp")),
+    getPath: vi.fn<(...args: any[]) => any>((name: "userData" | "temp") => (name === "userData" ? "/mock/userData" : "/mock/temp")),
   },
 }));
 
-function createService(runCommand = vi.fn()) {
+function createService(runCommand = vi.fn<(...args: any[]) => any>()) {
   const service = new RtkRuntimeService({
     runtimeHelper: {
-      initializeRuntimes: vi.fn(),
-      refreshRuntimes: vi.fn(),
-      replaceWithRuntimeCommand: vi.fn((command: string) => command),
-      getRtkRuntimePath: vi.fn().mockReturnValue("/runtime/rtk"),
-      prependBundledRuntimeToEnv: vi.fn((env: Record<string, string>) => env),
+      initializeRuntimes: vi.fn<(...args: any[]) => any>(),
+      refreshRuntimes: vi.fn<(...args: any[]) => any>(),
+      replaceWithRuntimeCommand: vi.fn<(...args: any[]) => any>((command: string) => command),
+      getRtkRuntimePath: vi.fn<(...args: any[]) => any>().mockReturnValue("/runtime/rtk"),
+      prependBundledRuntimeToEnv: vi.fn<(...args: any[]) => any>((env: Record<string, string>) => env),
     },
-    getShellEnvironment: vi.fn().mockResolvedValue({ PATH: "/shell/bin" }),
+    getShellEnvironment: vi.fn<(...args: any[]) => any>().mockResolvedValue({ PATH: "/shell/bin" }),
     runCommand,
     getPath: (name) =>
       name === "userData" ? path.join(os.tmpdir(), "argos-rtk-userData") : path.join(os.tmpdir(), "argos-rtk-temp"),
@@ -62,16 +62,16 @@ function createCommandResult(code: number | null, stdout = "", stderr = "") {
   };
 }
 
-function createHealthCheckService(runCommand = vi.fn()) {
+function createHealthCheckService(runCommand = vi.fn<(...args: any[]) => any>()) {
   return new RtkRuntimeService({
     runtimeHelper: {
-      initializeRuntimes: vi.fn(),
-      refreshRuntimes: vi.fn(),
-      replaceWithRuntimeCommand: vi.fn((command: string) => (command === "rtk" ? "/runtime/rtk/rtk.exe" : command)),
-      getRtkRuntimePath: vi.fn().mockReturnValue("/runtime/rtk"),
-      prependBundledRuntimeToEnv: vi.fn((env: Record<string, string>) => env),
+      initializeRuntimes: vi.fn<(...args: any[]) => any>(),
+      refreshRuntimes: vi.fn<(...args: any[]) => any>(),
+      replaceWithRuntimeCommand: vi.fn<(...args: any[]) => any>((command: string) => (command === "rtk" ? "/runtime/rtk/rtk.exe" : command)),
+      getRtkRuntimePath: vi.fn<(...args: any[]) => any>().mockReturnValue("/runtime/rtk"),
+      prependBundledRuntimeToEnv: vi.fn<(...args: any[]) => any>((env: Record<string, string>) => env),
     },
-    getShellEnvironment: vi.fn().mockResolvedValue({ PATH: "/shell/bin" }),
+    getShellEnvironment: vi.fn<(...args: any[]) => any>().mockResolvedValue({ PATH: "/shell/bin" }),
     runCommand,
     getPath: (name) =>
       name === "userData" ? path.join(os.tmpdir(), "argos-rtk-userData") : path.join(os.tmpdir(), "argos-rtk-temp"),
@@ -85,7 +85,7 @@ function createHealthCheckRunCommand({
   bundledVersion?: ReturnType<typeof createCommandResult>;
   pathVersion?: ReturnType<typeof createCommandResult>;
 } = {}) {
-  return vi.fn(async (command: string, args: string[]) => {
+  return vi.fn<(...args: any[]) => any>(async (command: string, args: string[]) => {
     if (command === "/runtime/rtk/rtk.exe" && args[0] === "--version") {
       return bundledVersion;
     }
@@ -109,7 +109,7 @@ function expectNoHealthCommandProbes(calls: [command: string, args: string[], op
 
 describe("RtkRuntimeService", () => {
   it("keeps simple find commands eligible for rewrite", async () => {
-    const runCommand = vi.fn().mockResolvedValue({
+    const runCommand = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       code: 0,
       stdout: 'rtk find . -name "*.ts"\n',
       stderr: "",
@@ -121,7 +121,7 @@ describe("RtkRuntimeService", () => {
     const result = await service.prepareShellCommand(
       'find . -name "*.ts"',
       {},
-      { getSetting: vi.fn().mockReturnValue(true) },
+      { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) },
     );
 
     expect(runCommand).toHaveBeenCalledWith(
@@ -141,7 +141,7 @@ describe("RtkRuntimeService", () => {
   });
 
   it("uses rewrite output when RTK reports a missing global hook", async () => {
-    const runCommand = vi.fn().mockResolvedValue({
+    const runCommand = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       code: 3,
       stdout: "rtk git status\n",
       stderr: "No hook installed\n",
@@ -150,7 +150,7 @@ describe("RtkRuntimeService", () => {
     });
     const service = createService(runCommand);
 
-    const result = await service.prepareShellCommand("git status", {}, { getSetting: vi.fn().mockReturnValue(true) });
+    const result = await service.prepareShellCommand("git status", {}, { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) });
 
     expect(result.originalCommand).toBe("git status");
     expect(result.command).toBe("rtk git status");
@@ -165,10 +165,10 @@ describe("RtkRuntimeService", () => {
     'find . \\( -name "*.ts" -o -name "*.vue" \\)',
     'find . -name "*.ts" -exec cat {} \\;',
   ])("bypasses rewrite for unsupported find shape: %s", async (command) => {
-    const runCommand = vi.fn();
+    const runCommand = vi.fn<(...args: any[]) => any>();
     const service = createService(runCommand);
 
-    const result = await service.prepareShellCommand(command, {}, { getSetting: vi.fn().mockReturnValue(true) });
+    const result = await service.prepareShellCommand(command, {}, { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) });
 
     expect(runCommand).not.toHaveBeenCalled();
     expect(result.originalCommand).toBe(command);

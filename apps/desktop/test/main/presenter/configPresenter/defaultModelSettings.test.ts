@@ -10,8 +10,8 @@ describe("ConfigPresenter defaultModel settings", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSetting = vi.fn();
-    mockSetSetting = vi.fn();
+    mockGetSetting = vi.fn<(...args: any[]) => any>();
+    mockSetSetting = vi.fn<(...args: any[]) => any>();
     configPresenterProxy = {
       getSetting: mockGetSetting,
       setSetting: mockSetSetting,
