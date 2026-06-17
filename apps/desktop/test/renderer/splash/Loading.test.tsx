@@ -1,10 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
-vi.mock("../../../src/renderer/src/assets/argos-mark.svg", () => ({
-  default: "argos-mark.svg",
-}));
-
 import Loading from "../../../src/renderer/splash/Loading";
 import { DATABASE_UNLOCK_REQUEST_CHANNEL } from "@shared/contracts/databaseSecurity";
 
@@ -56,18 +52,24 @@ describe("Loading (splash)", () => {
     vi.useRealTimers();
   });
 
-  it("renders the splash shell with brand mark, wordmark, hairline arc, and no legacy loader-letter nodes", () => {
+  it("renders the splash shell with brand mark, wordmark, status list, and no legacy loader-letter nodes", () => {
     const { container } = render(<Loading />);
     const shell = container.querySelector(".splash-shell");
     expect(shell).toBeTruthy();
 
     expect(screen.getByTestId("splash-brand-mark")).toBeTruthy();
     expect(screen.getByText(/^Argos$/)).toBeTruthy();
-    expect(screen.getByTestId("splash-arc")).toBeTruthy();
+    expect(screen.getByTestId("splash-status")).toBeTruthy();
 
     expect(container.querySelector(".loader-letter")).toBeNull();
     expect(container.querySelector(".loader")).toBeNull();
     expect(container.querySelector(".status-breathe")).toBeNull();
+  });
+
+  it("shows a calm placeholder status line before any splash-update arrives", () => {
+    render(<Loading />);
+    const list = screen.getByTestId("splash-status");
+    expect(within(list).getByText(/Starting Argos/)).toBeTruthy();
   });
 
   it("renders 3 status rows when a splash-update event fires with 3 activities", () => {
@@ -89,8 +91,8 @@ describe("Loading (splash)", () => {
     expect(container.querySelectorAll(".splash-status__row--failed").length).toBe(1);
   });
 
-  it("advances the hairline arc to 100% when all 3 activities are completed", () => {
-    render(<Loading />);
+  it("marks all status rows as completed when all 3 activities are completed", () => {
+    const { container } = render(<Loading />);
     act(() => {
       emit("splash-update", {
         activities: [
@@ -100,11 +102,8 @@ describe("Loading (splash)", () => {
         ],
       });
     });
-    const arc = screen.getByTestId("splash-arc");
-    const fill = arc.querySelector(".splash-arc__fill") as HTMLElement;
-    const head = arc.querySelector(".splash-arc__head") as HTMLElement;
-    expect(fill.style.width).toBe("100%");
-    expect(head.style.left).toBe("100%");
+    expect(container.querySelectorAll(".splash-status__row--done").length).toBe(3);
+    expect(container.querySelectorAll(".splash-status__row--active").length).toBe(0);
   });
 
   it("mounts the unlock panel when a DATABASE_UNLOCK_REQUEST_CHANNEL event fires", () => {

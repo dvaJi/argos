@@ -124,15 +124,17 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     child = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
-      shell: isDev,
+      shell: false,
+      windowsHide: true,
     });
 
     child.stdout?.on("data", (data: Buffer) => {
       const line = data.toString().trim();
-      if (line.includes("Listening on http://")) {
-        const match = line.match(/:(\d+)/);
-        if (match) {
-          currentPort = parseInt(match[1], 10);
+      const urlMatch = line.match(/Listening on (https?:\/\/[^ ]+)/);
+      if (urlMatch) {
+        const portMatch = urlMatch[1].match(/:(\d+)(?:\/|$)/);
+        if (portMatch) {
+          currentPort = parseInt(portMatch[1], 10);
           onPortAssigned?.(currentPort);
         }
       }

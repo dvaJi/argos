@@ -7,7 +7,10 @@ import {
   type DatabaseUnlockProgressPayload,
   type DatabaseUnlockRequestPayload,
 } from "@shared/contracts/databaseSecurity";
-import argosMarkSrc from "../src/assets/argos-mark.svg";
+import logoSrc from "../src/assets/logo.png";
+import logoDarkSrc from "../src/assets/logo-dark.png";
+import { TextShimmer } from "../../components/agent-elements/text-shimmer";
+import "../../components/agent-elements/agent-ui.css";
 import "./loading.css";
 
 type SplashActivityStatus = "running" | "completed" | "failed";
@@ -48,74 +51,68 @@ const getActivityLabel = (name: string) => {
     .join(" ");
 };
 
-function BrandMark() {
+/**
+ * Emblem — the calm, logo-led centerpiece.
+ * The real Argos logo (logo.png / logo-dark.png) materializes with a soft
+ * blur-in. A single cyan "memory pulse" arc travels once around the mark
+ * (like context being loaded) and a center glow breathes gently behind it.
+ * No particles, sparkles, spinners or fake progress.
+ */
+function Emblem() {
   return (
-    <img
-      src={argosMarkSrc}
-      alt=""
-      aria-hidden="true"
-      data-testid="splash-brand-mark"
-      className="splash-brand"
-      width={32}
-      height={32}
-    />
-  );
-}
-
-function HairlineArc({
-  completed,
-  total,
-  paused,
-  done,
-}: {
-  completed: number;
-  total: number;
-  paused: boolean;
-  done: boolean;
-}) {
-  const safeTotal = Math.max(total, 1);
-  const pct = Math.min(100, Math.max(0, (completed / safeTotal) * 100));
-  const className = ["splash-arc", paused ? "splash-arc--paused" : "", done ? "splash-arc--done" : ""]
-    .filter(Boolean)
-    .join(" ");
-  return (
-    <div
-      className={className}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={safeTotal}
-      aria-valuenow={completed}
-      data-testid="splash-arc"
-    >
-      <div className="splash-arc__track" />
-      <div className="splash-arc__fill" style={{ width: `${pct}%` }} />
-      <div className="splash-arc__head" style={{ left: `${pct}%` }} />
+    <div className="splash-emblem" data-testid="splash-brand-mark">
+      <span className="splash-glow" aria-hidden="true" />
+      <svg className="splash-pulse-ring" viewBox="0 0 160 160" fill="none" aria-hidden="true">
+        <circle className="splash-pulse-ring__track" cx="80" cy="80" r="54" />
+        <circle className="splash-pulse-ring__arc" cx="80" cy="80" r="54" pathLength={100} />
+      </svg>
+      <div className="splash-logo" aria-hidden="true">
+        <img className="splash-logo__img splash-logo__img--dark" src={logoDarkSrc} alt="" draggable={false} />
+        <img className="splash-logo__img splash-logo__img--light" src={logoSrc} alt="" draggable={false} />
+      </div>
     </div>
   );
 }
 
 function StatusList({ activities }: { activities: SplashActivityItem[] }) {
-  if (activities.length === 0) {
-    return null;
-  }
   return (
     <div className="splash-status" data-testid="splash-status">
-      {activities.map((activity) => {
-        const rowClass = [
-          "splash-status__row",
-          activity.status === "running" ? "splash-status__row--active" : "",
-          activity.status === "completed" ? "splash-status__row--done" : "",
-          activity.status === "failed" ? "splash-status__row--failed" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        return (
-          <div key={activity.key} className={rowClass}>
-            <span className="splash-status__glyph" aria-hidden="true" />
-            <span className="splash-status__label">{getActivityLabel(activity.name)}</span>
-          </div>
-        );
-      })}
+      {activities.length === 0 ? (
+        <div className="splash-status__row splash-status__row--pending">
+          <span className="splash-status__glyph" aria-hidden="true" />
+          <span className="splash-status__label">
+            <TextShimmer as="span" duration={1.8}>
+              Starting Argos…
+            </TextShimmer>
+          </span>
+        </div>
+      ) : (
+        activities.map((activity, index) => {
+          const rowClass = [
+            "splash-status__row",
+            activity.status === "running" ? "splash-status__row--active" : "",
+            activity.status === "completed" ? "splash-status__row--done" : "",
+            activity.status === "failed" ? "splash-status__row--failed" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const label = getActivityLabel(activity.name);
+          return (
+            <div key={activity.key} className={rowClass} style={{ "--splash-row-i": index } as React.CSSProperties}>
+              <span className="splash-status__glyph" aria-hidden="true" />
+              <span className="splash-status__label">
+                {activity.status === "running" ? (
+                  <TextShimmer as="span" duration={1.8}>
+                    {label}
+                  </TextShimmer>
+                ) : (
+                  label
+                )}
+              </span>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
@@ -273,17 +270,12 @@ export default function Loading() {
     };
   }, [handleSplashUpdate, handleUnlockRequest, handleUnlockProgress]);
 
-  const completedCount = activities.filter((a) => a.status === "completed").length;
-  const totalCount = activities.length;
-  const allDone = totalCount > 0 && completedCount === totalCount;
-
   return (
     <div className="splash-shell">
       {mode === "loading" && (
         <div className="splash-stage" data-testid="splash-stage">
-          <BrandMark />
+          <Emblem />
           <h1 className="splash-wordmark">Argos</h1>
-          <HairlineArc completed={completedCount} total={Math.max(totalCount, 1)} paused={false} done={allDone} />
           <StatusList activities={activities} />
         </div>
       )}
@@ -291,9 +283,8 @@ export default function Loading() {
       {mode === "system-unlock" && (
         <div className="splash-unlock" data-testid="splash-system-unlock">
           <div className="splash-stage">
-            <BrandMark />
+            <Emblem />
             <h1 className="splash-wordmark">Argos</h1>
-            <HairlineArc completed={0} total={1} paused done={false} />
             <UnlockPanel
               requestId={requestId}
               unlockReason={unlockReason}

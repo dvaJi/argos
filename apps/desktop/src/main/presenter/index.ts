@@ -251,6 +251,11 @@ export class Presenter implements IPresenter {
     const dbDir = path.join(app.getPath("userData"), "app_db");
     this.knowledgePresenter = new KnowledgePresenter(this.configPresenter, dbDir, this.filePresenter);
 
+    // Wire up knowledge support check after knowledgePresenter is created
+    (
+      this.configPresenter as IConfigPresenter & { setBuiltinKnowledgeSupported?: (fn: () => Promise<boolean>) => void }
+    ).setBuiltinKnowledgeSupported?.(() => this.knowledgePresenter.isSupported());
+
     // Initialize generic Workspace presenter (for all Agent modes)
     this.workspacePresenter = new WorkspacePresenter(this.filePresenter);
 

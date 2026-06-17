@@ -2171,6 +2171,11 @@ export class ConfigPresenter implements IConfigPresenter {
 
   // ===================== MCP configuration related methods =====================
 
+  // Set the builtin knowledge support check (deferred to avoid circular import issues)
+  setBuiltinKnowledgeSupported(fn: () => Promise<boolean>): void {
+    this.mcpConfHelper.setBuiltinKnowledgeSupported(fn);
+  }
+
   // Get MCP server configuration
   async getMcpServers(): Promise<Record<string, MCPServerConfig>> {
     return await this.mcpConfHelper.getMcpServers();

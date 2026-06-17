@@ -4,7 +4,6 @@ import { MCP_EVENTS } from "@/events";
 // app is used in DEFAULT_INMEMORY_SERVERS but removed buildInFileSystem
 // import { app } from 'electron'
 import { compare } from "compare-versions";
-import { presenter } from "..";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
 // NPM Registry cache interface
@@ -282,8 +281,10 @@ export const SYSTEM_INMEM_MCP_SERVERS: Record<string, MCPServerConfig> = {
 
 export class McpConfHelper {
   private mcpStore: StoreLike<IMcpSettings & Record<string, unknown>>;
+  private isBuiltinKnowledgeSupported?: () => Promise<boolean>;
 
-  constructor(storeFactory?: StoreFactory) {
+  constructor(storeFactory?: StoreFactory, options?: { isBuiltinKnowledgeSupported?: () => Promise<boolean> }) {
+    this.isBuiltinKnowledgeSupported = options?.isBuiltinKnowledgeSupported;
     // Initialize MCP settings storage
     if (storeFactory) {
       this.mcpStore = storeFactory<IMcpSettings>({
@@ -325,6 +326,10 @@ export class McpConfHelper {
         },
       };
     }
+  }
+
+  setBuiltinKnowledgeSupported(fn: () => Promise<boolean>): void {
+    this.isBuiltinKnowledgeSupported = fn;
   }
 
   getStoreForMigration(): StoreLike<Record<string, unknown>> {
@@ -598,7 +603,9 @@ export class McpConfHelper {
     }
 
     // Remove incompatible services
-    const builtinKnowledgeSupported = await presenter.knowledgePresenter.isSupported();
+    const builtinKnowledgeSupported = this.isBuiltinKnowledgeSupported
+      ? await this.isBuiltinKnowledgeSupported()
+      : false;
     if (!builtinKnowledgeSupported) {
       console.warn(
         "Built-in knowledge base service is not supported in current environment, removing related services",

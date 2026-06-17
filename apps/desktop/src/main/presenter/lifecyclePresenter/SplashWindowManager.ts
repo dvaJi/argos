@@ -147,7 +147,7 @@ export class SplashWindowManager implements ISplashWindowManager {
     try {
       this.splashWindow = new BrowserWindow({
         width: 420,
-        height: 340,
+        height: 280,
         icon: iconFile,
         resizable: false,
         movable: false,

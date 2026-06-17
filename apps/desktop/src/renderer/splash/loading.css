@@ -1,17 +1,141 @@
-/* Splash surface — its own design layer, isolated from the main app theme.
-   The splash probes prefers-color-scheme at first paint and switches
-   --splash-* tokens. No box-shadow. No body gradient. No transform: rotate.
-   All radii land on the 6px calm cap or below. */
+/* Splash — calm, logo-led ("Logo Fold-In" + "Memory Pulse" + real status).
+   Isolated from the main app theme. Probes prefers-color-scheme at first
+   paint and switches --splash-* tokens. Plain CSS only (no animation
+   library) so the splash paints instantly and cannot fail. Motion is brief
+   and calm: the logo materializes, one cyan pulse travels around it, a
+   center glow breathes, real status rows stream in. Everything collapses to
+   a static state under prefers-reduced-motion. */
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes splash-stage-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes splash-logo-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+/* Gentle perpetual breathe so the mark keeps "pulsing" after the reveal. */
+@keyframes splash-logo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+/* A thin cyan arc travels once around the mark, then fades. */
+@keyframes splash-pulse-travel {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  16% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* Center glow breathes gently behind the logo. */
+@keyframes splash-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  45% {
+    opacity: 0.6;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0.32;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-wordmark {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+    letter-spacing: 0.34em;
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    letter-spacing: var(--tracking-mono);
+  }
+}
+
+@keyframes splash-row-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Calm dot pulse for the active (in-flight) status row — not a spinner. */
+@keyframes splash-dot {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes splash-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Shell
+   ========================================================================== */
 
 .splash-shell {
-  --splash-bg: hsl(225 30% 6%);
-  --splash-bg-elevated: hsl(225 24% 9%);
+  --splash-bg: hsl(225 34% 7%);
+  --splash-bg-elevated: hsl(225 28% 10%);
   --splash-ink: hsl(220 30% 100%);
-  --splash-ink-dim: hsl(220 20% 100% / 0.62);
-  --splash-ink-faint: hsl(220 20% 100% / 0.32);
+  --splash-ink-dim: hsl(220 20% 100% / 0.64);
+  --splash-ink-faint: hsl(220 20% 100% / 0.34);
   --splash-accent: var(--accent-400);
   --splash-border: hsl(220 30% 100% / 0.1);
-  --splash-border-strong: hsl(220 30% 100% / 0.18);
+  --splash-border-strong: hsl(220 30% 100% / 0.16);
 
   position: relative;
   min-height: 100vh;
@@ -31,135 +155,176 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 28px 24px;
 }
 
 @media (prefers-color-scheme: light) {
   .splash-shell {
-    --splash-bg: hsl(220 14% 98%);
+    --splash-bg: hsl(220 16% 97%);
     --splash-bg-elevated: hsl(0 0% 100%);
     --splash-ink: hsl(220 56% 8%);
-    --splash-ink-dim: hsl(220 28% 28%);
-    --splash-ink-faint: hsl(220 14% 50%);
+    --splash-ink-dim: hsl(220 24% 30%);
+    --splash-ink-faint: hsl(220 14% 52%);
     --splash-accent: var(--accent-500);
     --splash-border: hsl(220 30% 0% / 0.08);
-    --splash-border-strong: hsl(220 30% 0% / 0.16);
+    --splash-border-strong: hsl(220 30% 0% / 0.14);
   }
 }
 
+/* ==========================================================================
+   Stage
+   ========================================================================== */
+
 .splash-stage {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   width: 100%;
-  max-width: 280px;
+  max-width: 300px;
+  animation: splash-stage-in 320ms var(--dc-ease-glide) both;
 }
 
-.splash-brand {
-  display: block;
-  color: var(--splash-ink);
-  margin-bottom: 4px;
-}
+/* ==========================================================================
+   Emblem — logo + memory pulse + center glow
+   ========================================================================== */
 
-.splash-wordmark {
-  font-family: var(--font-mono-display);
-  font-size: 11px;
-  font-weight: var(--weight-mono);
-  letter-spacing: var(--tracking-mono);
-  color: var(--splash-ink-dim);
-  text-transform: uppercase;
-  margin: 0;
-}
-
-/* Hairline progress arc — the only loader. 1px tall, 200px wide, 6px ends. */
-.splash-arc {
+.splash-emblem {
   position: relative;
-  width: 200px;
-  height: 1px;
-  margin: 8px 0 16px;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.splash-arc__track {
+.splash-glow {
+  position: absolute;
+  z-index: 0;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--splash-accent) 0%, transparent 64%);
+  opacity: 0;
+  pointer-events: none;
+  animation: splash-glow 1300ms var(--dc-ease-soft) 180ms forwards;
+}
+
+.splash-pulse-ring {
   position: absolute;
   inset: 0;
-  height: 1px;
-  background: var(--splash-ink-faint);
-  border-radius: var(--radius-pill);
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  overflow: visible;
 }
 
-.splash-arc__fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 1px;
-  background: var(--splash-accent);
-  border-radius: var(--radius-pill);
-  width: 0%;
-  transition: width var(--dc-motion-snap) var(--dc-ease-snap);
+.splash-pulse-ring__track {
+  fill: none;
+  stroke: var(--splash-ink-faint);
+  stroke-width: 1;
+  stroke-opacity: 0.28;
 }
 
-.splash-arc__head {
-  position: absolute;
-  top: 50%;
-  left: 0%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  background: var(--splash-accent);
-  border-radius: var(--radius-pill);
-  transition: left var(--dc-motion-snap) var(--dc-ease-snap);
-  box-shadow: 0 0 0 1px var(--splash-accent); /* uses opacity on the ring, not blur */
-}
-
-.splash-arc__head::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--splash-accent);
-  opacity: 0.18;
-}
-
-.splash-arc--paused .splash-arc__fill {
-  background: var(--splash-ink-dim);
-  transition: none;
-}
-
-.splash-arc--paused .splash-arc__head {
-  background: var(--splash-ink-faint);
-  box-shadow: 0 0 0 1px var(--splash-ink-faint);
-}
-
-.splash-arc--paused .splash-arc__head::after {
-  border-color: var(--splash-ink-faint);
-}
-
-.splash-arc--done .splash-arc__head {
+.splash-pulse-ring__arc {
+  fill: none;
+  stroke: var(--splash-accent);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-dasharray: 24 76;
+  stroke-dashoffset: 100;
+  /* start at 12 o'clock and travel clockwise */
+  transform: rotate(-90deg);
+  transform-box: view-box;
+  transform-origin: 80px 80px;
+  filter: drop-shadow(0 0 3px var(--splash-accent));
   opacity: 0;
-  transition: opacity 400ms var(--dc-ease-glide);
+  animation: splash-pulse-travel 2600ms linear 300ms infinite;
 }
 
-/* 3-line status list — always visible. No mount/unmount, no fade. */
+.splash-logo {
+  position: relative;
+  z-index: 2;
+  width: 78px;
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: splash-logo-in 560ms var(--dc-ease-glide) 140ms forwards;
+}
+
+.splash-logo__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+  animation: splash-logo-breathe 2600ms var(--dc-ease-soft) 800ms infinite;
+}
+
+.splash-logo__img--dark {
+  display: block;
+}
+
+.splash-logo__img--light {
+  display: none;
+}
+
+@media (prefers-color-scheme: light) {
+  .splash-logo__img--dark {
+    display: none;
+  }
+
+  .splash-logo__img--light {
+    display: block;
+  }
+}
+
+/* ==========================================================================
+   Wordmark
+   ========================================================================== */
+
+.splash-wordmark {
+  margin: 0;
+  font-family: var(--font-mono-display);
+  font-size: 12px;
+  font-weight: var(--weight-mono);
+  text-transform: uppercase;
+  color: var(--splash-ink-dim);
+  opacity: 0;
+  animation: splash-wordmark 560ms var(--dc-ease-glide) 420ms forwards;
+}
+
+/* ==========================================================================
+   Status list — real startup steps, calm dots (no spinner)
+   ========================================================================== */
+
 .splash-status {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
-  max-width: 280px;
-  margin-top: 4px;
+  margin-top: 2px;
+  min-height: 18px;
 }
 
 .splash-status__row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 16px;
+  gap: 9px;
   font-family: var(--font-mono-display);
-  font-size: 12px;
+  font-size: 11.5px;
   letter-spacing: var(--tracking-mono);
-  line-height: 1.32;
+  line-height: 1.3;
   color: var(--splash-ink-dim);
+  opacity: 0;
+  transform: translateY(4px);
+  animation: splash-row-in 240ms var(--dc-ease-glide) forwards;
+  animation-delay: calc(var(--splash-row-i, 0) * 70ms + 160ms);
 }
 
 .splash-status__row--active {
@@ -167,34 +332,44 @@
 }
 
 .splash-status__row--done {
-  color: var(--splash-ink-faint);
+  color: var(--splash-ink-dim);
 }
 
 .splash-status__row--failed {
   color: var(--status-failed-ink);
 }
 
+/* Drive TextShimmer with splash tokens: dim edges, cyan highlight sweep. */
+.splash-status__row--pending,
+.splash-status__row--active {
+  --an-foreground-subtle: var(--splash-ink-faint);
+  --an-foreground-muted: var(--splash-accent);
+}
+
 .splash-status__glyph {
-  flex: 0 0 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--splash-ink-faint);
 }
 
+.splash-status__row--pending .splash-status__glyph {
+  background: var(--splash-ink-faint);
+  animation: splash-dot 1.4s var(--dc-ease-soft) infinite;
+}
+
 .splash-status__row--active .splash-status__glyph {
-  background: var(--status-running-ink);
+  background: var(--splash-accent);
+  animation: splash-dot 1.1s var(--dc-ease-soft) infinite;
 }
 
 .splash-status__row--done .splash-status__glyph {
-  background: transparent;
-  border: 1px solid var(--splash-ink-faint);
+  background: var(--splash-accent);
 }
 
 .splash-status__row--failed .splash-status__glyph {
   background: var(--status-failed-ink);
-  transform: rotate(45deg);
-  border-radius: 0;
 }
 
 .splash-status__label {
@@ -204,25 +379,31 @@
   white-space: nowrap;
 }
 
-/* Unlock panel — centered, 1px frame, 6px radius, no fill. */
+/* ==========================================================================
+   Unlock panel
+   ========================================================================== */
+
 .splash-unlock {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 28px;
 }
 
 .splash-unlock__panel {
+  position: relative;
+  z-index: 1;
   display: flex;
-  width: min(340px, 100%);
+  width: min(320px, 100%);
   flex-direction: column;
   gap: 11px;
   padding: var(--grid-6);
   border: 1px solid var(--splash-border-strong);
   border-radius: var(--radius-md);
   background: transparent;
+  animation: splash-panel-in 320ms var(--dc-ease-glide) both;
 }
 
 .splash-unlock__title {
@@ -316,4 +497,51 @@
   font-size: 11px;
   letter-spacing: var(--tracking-mono);
   line-height: 1.45;
+}
+
+/* ==========================================================================
+   Reduced motion — everything settles instantly.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-stage,
+  .splash-unlock__panel,
+  .splash-wordmark,
+  .splash-logo,
+  .splash-logo__img {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .splash-glow {
+    animation: none !important;
+    opacity: 0.32 !important;
+  }
+
+  .splash-pulse-ring__arc {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .splash-status__row {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .splash-status__row--pending .splash-status__glyph,
+  .splash-status__row--active .splash-status__glyph {
+    animation: none !important;
+  }
+
+  /* Static gradient text instead of the traveling shimmer. */
+  .splash-status .an-text-shimmer {
+    animation: none !important;
+  }
+
+  .splash-wordmark {
+    letter-spacing: var(--tracking-mono) !important;
+  }
 }
