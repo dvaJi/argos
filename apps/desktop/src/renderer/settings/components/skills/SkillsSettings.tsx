@@ -183,10 +183,9 @@ export default function SkillsSettings() {
                 <SkillCard
                   key={skill.name}
                   skill={skill}
-                  extension={skillsStore.skillExtensions[skill.name]}
-                  scripts={skillsStore.skillScripts[skill.name] || []}
                   onEdit={() => openEditor(skill)}
                   onDelete={() => confirmDelete(skill)}
+                  onClick={() => openEditor(skill)}
                 />
               ))}
             </div>
