@@ -31,12 +31,16 @@ describe("sqlitePresenter destructive recovery sequence", () => {
     vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
       callOrder.push("backupDatabase");
     });
-    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
-      callOrder.push("closeDatabaseSilently");
-    });
-    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
-      callOrder.push("cleanupDatabaseFiles");
-    });
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(
+      () => {
+        callOrder.push("closeDatabaseSilently");
+      },
+    );
+    vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(
+      () => {
+        callOrder.push("cleanupDatabaseFiles");
+      },
+    );
 
     new SQLitePresenter("C:/tmp/argos-agent.db");
 
@@ -75,15 +79,21 @@ describe("sqlitePresenter destructive recovery sequence", () => {
         throw destructiveError;
       });
 
-    const backupSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "backupDatabase").mockImplementation(() => {
-      callOrder.push("backupDatabase");
-    });
-    const closeSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently").mockImplementation(() => {
-      callOrder.push("closeDatabaseSilently");
-    });
-    const cleanupSpy = vi.spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles").mockImplementation(() => {
-      callOrder.push("cleanupDatabaseFiles");
-    });
+    const backupSpy = vi
+      .spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "backupDatabase")
+      .mockImplementation(() => {
+        callOrder.push("backupDatabase");
+      });
+    const closeSpy = vi
+      .spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "closeDatabaseSilently")
+      .mockImplementation(() => {
+        callOrder.push("closeDatabaseSilently");
+      });
+    const cleanupSpy = vi
+      .spyOn<(...args: any[]) => any>(SQLitePresenter.prototype as any, "cleanupDatabaseFiles")
+      .mockImplementation(() => {
+        callOrder.push("cleanupDatabaseFiles");
+      });
 
     expect(() => new SQLitePresenter("C:/tmp/argos-agent.db")).toThrow(destructiveError);
 

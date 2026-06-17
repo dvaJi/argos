@@ -85,10 +85,12 @@ describe("TranslatePopup", () => {
     const removeEventListenerSpy = vi.spyOn<(...args: any[]) => any>(window, "removeEventListener");
     const rafCallbacks: FrameRequestCallback[] = [];
 
-    vi.spyOn<(...args: any[]) => any>(window, "requestAnimationFrame").mockImplementation((callback: FrameRequestCallback) => {
-      rafCallbacks.push(callback);
-      return rafCallbacks.length;
-    });
+    vi.spyOn<(...args: any[]) => any>(window, "requestAnimationFrame").mockImplementation(
+      (callback: FrameRequestCallback) => {
+        rafCallbacks.push(callback);
+        return rafCallbacks.length;
+      },
+    );
     vi.spyOn<(...args: any[]) => any>(window, "cancelAnimationFrame").mockImplementation(() => undefined);
 
     render((await import("@/components/popup/TranslatePopup")).default);

@@ -26,7 +26,9 @@ vi.mock("../../../../../src/main/lib/agentRuntime/shellEnvHelper", async (import
 
   return {
     ...actual,
-    getUserShell: vi.fn<(...args: any[]) => any>().mockReturnValue({ shell: "powershell.exe", args: ["-NoProfile", "-Command"] }),
+    getUserShell: vi
+      .fn<(...args: any[]) => any>()
+      .mockReturnValue({ shell: "powershell.exe", args: ["-NoProfile", "-Command"] }),
   };
 });
 

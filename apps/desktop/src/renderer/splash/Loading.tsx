@@ -130,13 +130,13 @@ export default function Loading() {
   }, [requestId]);
 
   useEffect(() => {
-    window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
-    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
-    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
+    const offSplash = window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
+    const offUnlock = window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
+    const offProgress = window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
     return () => {
-      window.electron?.ipcRenderer?.removeListener?.("splash-update", handleSplashUpdate);
-      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
-      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
+      offSplash?.();
+      offUnlock?.();
+      offProgress?.();
     };
   }, [handleSplashUpdate, handleUnlockRequest, handleUnlockProgress]);
 

@@ -400,21 +400,32 @@ describe("AcpProcessManager config cache fallback", () => {
       vi.spyOn<(...args: any[]) => any>(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
         PATH: "/shell/bin",
       });
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(
+        () => {},
+      );
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation(
+        (value: string) => value,
+      );
       vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation(
         (value: string) => value,
       );
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "prependBundledRuntimeToEnv").mockImplementation(
-        (env: Record<string, string>) => ({
-          ...env,
-          PATH: ["/runtime/bin", env.PATH].filter(Boolean).join(":"),
-        }),
+      vi.spyOn<(...args: any[]) => any>(
+        (manager as any).runtimeHelper,
+        "prependBundledRuntimeToEnv",
+      ).mockImplementation((env: Record<string, string>) => ({
+        ...env,
+        PATH: ["/runtime/bin", env.PATH].filter(Boolean).join(":"),
+      }));
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getDefaultPaths").mockReturnValue([
+        "/default/bin",
+      ]);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getUvRuntimePath").mockReturnValue(
+        "/runtime/bin",
       );
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getDefaultPaths").mockReturnValue(["/default/bin"]);
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getUvRuntimePath").mockReturnValue("/runtime/bin");
       vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getNodeRuntimePath").mockReturnValue(null);
-      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "isInstalledInSystemDirectory").mockReturnValue(false);
+      vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "isInstalledInSystemDirectory").mockReturnValue(
+        false,
+      );
       vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "getUserNpmPrefix").mockReturnValue(null);
       existsSpy = vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(true);
       statSpy = vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockReturnValue({
@@ -472,9 +483,15 @@ describe("AcpProcessManager config cache fallback", () => {
     vi.spyOn<(...args: any[]) => any>(shellEnvHelper, "getShellEnvironment").mockResolvedValue({
       PATH: "/shell/bin",
     });
-    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(() => {});
-    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation((value: string) => value);
-    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation((value: string) => value);
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "initializeRuntimes").mockImplementation(
+      () => {},
+    );
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "expandPath").mockImplementation(
+      (value: string) => value,
+    );
+    vi.spyOn<(...args: any[]) => any>((manager as any).runtimeHelper, "replaceWithRuntimeCommand").mockImplementation(
+      (value: string) => value,
+    );
 
     try {
       await expect(
@@ -600,7 +617,9 @@ describe("AcpProcessManager config cache fallback", () => {
         };
         const error = new Error("initialization failed");
         (error as Error & { acpStderr?: string }).acpStderr = testCase.stderr;
-        const spawnOnceSpy = vi.spyOn<(...args: any[]) => any>(manager as any, "spawnProcessOnce").mockRejectedValue(error);
+        const spawnOnceSpy = vi
+          .spyOn<(...args: any[]) => any>(manager as any, "spawnProcessOnce")
+          .mockRejectedValue(error);
 
         await expect(
           (manager as any).spawnProcess(

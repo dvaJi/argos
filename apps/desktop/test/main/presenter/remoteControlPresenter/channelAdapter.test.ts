@@ -16,7 +16,9 @@ class TestChannelAdapter extends ChannelAdapter {
       state: "stopped",
     });
   });
-  readonly sendMessage = vi.fn<(...args: any[]) => any>(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
+  readonly sendMessage = vi.fn<(...args: any[]) => any>(
+    async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {},
+  );
   readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>(async (_chatId: string) => {});
 
   protected async performConnect(_signal: AbortSignal): Promise<void> {

@@ -101,7 +101,9 @@ describe("cleanupDeprecatedBuiltinProviders", () => {
         selectionStore.delete(key);
       }),
     };
-    const getProviders = vi.fn<(...args: any[]) => any>().mockReturnValue([createProvider("openai"), createProvider("laoshi")]);
+    const getProviders = vi
+      .fn<(...args: any[]) => any>()
+      .mockReturnValue([createProvider("openai"), createProvider("laoshi")]);
     const setProviders = vi.fn<(...args: any[]) => any>();
 
     const presenter = Object.assign(Object.create(ConfigPresenter.prototype), {

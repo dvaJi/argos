@@ -18,7 +18,8 @@ const createServiceHarness = (tasks: ScheduledTask[], options: ServiceHarnessOpt
   const showNotification = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
   const sendToWindow = vi.fn<(...args: any[]) => any>();
   const focusMainWindow = vi.fn<(...args: any[]) => any>();
-  const createSessionForTask = options.createSessionForTask ?? vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "session-1" });
+  const createSessionForTask =
+    options.createSessionForTask ?? vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "session-1" });
 
   const service = new ScheduledTasksService({
     configPresenter: {

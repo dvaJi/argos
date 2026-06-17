@@ -67,7 +67,9 @@ const buildAgentToolRuntimeMock = (overrides: Record<string, unknown> = {}) =>
 describe("ToolPresenter", () => {
   it("reserves image_generate for the built-in agent tool when MCP exposes the same name", async () => {
     const mcpPresenter = {
-      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, "mcp-images")]),
+      getAllToolDefinitions: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue([buildToolDefinition(IMAGE_GENERATE_TOOL_NAME, "mcp-images")]),
       callTool: vi.fn<(...args: any[]) => any>(),
     } as any;
 
@@ -139,7 +141,9 @@ describe("ToolPresenter", () => {
       commandPermissionHandler: new CommandPermissionService(),
       agentToolRuntime: buildAgentToolRuntimeMock({
         getYoBrowserToolHandler: () => ({
-          getToolDefinitions: vi.fn<(...args: any[]) => any>().mockReturnValue([buildToolDefinition("shared", "yo-browser")]),
+          getToolDefinitions: vi
+            .fn<(...args: any[]) => any>()
+            .mockReturnValue([buildToolDefinition("shared", "yo-browser")]),
           callTool: vi.fn<(...args: any[]) => any>(),
         }),
       }),

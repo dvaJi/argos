@@ -300,7 +300,10 @@ describe("SubagentOrchestratorTool", () => {
   });
 
   it("leaves subagent tape unfinalized when merge fails so it can be retried", async () => {
-    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
+    const mergeSubagentTape = vi
+      .fn<(...args: any[]) => any>()
+      .mockRejectedValueOnce(new Error("merge failed"))
+      .mockResolvedValueOnce(undefined);
     const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
     const tool = new SubagentOrchestratorTool({
       mergeSubagentTape,
@@ -368,7 +371,10 @@ describe("SubagentOrchestratorTool", () => {
       subagentEnabled: false,
       availableSubagentSlots: [],
     });
-    const mergeSubagentTape = vi.fn<(...args: any[]) => any>().mockRejectedValueOnce(new Error("merge failed")).mockResolvedValueOnce(undefined);
+    const mergeSubagentTape = vi
+      .fn<(...args: any[]) => any>()
+      .mockRejectedValueOnce(new Error("merge failed"))
+      .mockResolvedValueOnce(undefined);
     const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => undefined);
 
     const tool = new SubagentOrchestratorTool({

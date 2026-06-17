@@ -82,13 +82,15 @@ describe("AgentBashHandler", () => {
       rtkMode: "rewrite",
     });
 
-    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
-      kind: "completed",
-      output: "permission denied",
-      exitCode: 2,
-      timedOut: false,
-      offloaded: false,
-    });
+    const runShellProcess = vi
+      .spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never)
+      .mockResolvedValue({
+        kind: "completed",
+        output: "permission denied",
+        exitCode: 2,
+        timedOut: false,
+        offloaded: false,
+      });
 
     const result = await handler.executeCommand({
       command: 'rg -n "todo" src',
@@ -115,13 +117,15 @@ describe("AgentBashHandler", () => {
       rtkMode: "rewrite",
     });
 
-    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
-      kind: "completed",
-      output: "Error: rtk find does not support compound predicates or actions",
-      exitCode: null,
-      timedOut: true,
-      offloaded: false,
-    });
+    const runShellProcess = vi
+      .spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never)
+      .mockResolvedValue({
+        kind: "completed",
+        output: "Error: rtk find does not support compound predicates or actions",
+        exitCode: null,
+        timedOut: true,
+        offloaded: false,
+      });
 
     const result = await handler.executeCommand({
       command: 'find . -name "*.ts"',
@@ -216,13 +220,15 @@ describe("AgentBashHandler", () => {
       rtkMode: "bypass",
     });
 
-    const runShellProcess = vi.spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never).mockResolvedValue({
-      kind: "completed",
-      output: externalCwd,
-      exitCode: 0,
-      timedOut: false,
-      offloaded: false,
-    });
+    const runShellProcess = vi
+      .spyOn<(...args: any[]) => any>(handler as never, "runShellProcess" as never)
+      .mockResolvedValue({
+        kind: "completed",
+        output: externalCwd,
+        exitCode: 0,
+        timedOut: false,
+        offloaded: false,
+      });
 
     await handler.executeCommand(
       {
@@ -277,7 +283,9 @@ describe("AgentBashHandler", () => {
     const waitSpy = vi
       .spyOn(backgroundExecSessionManager, "waitForCompletionOrYield")
       .mockResolvedValue({ kind: "running", sessionId: "bg_yield" });
-    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    const writeSpy = vi
+      .spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write")
+      .mockImplementation(() => {});
     const removeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "remove").mockResolvedValue();
 
     const result = await handler.executeCommand(
@@ -322,7 +330,9 @@ describe("AgentBashHandler", () => {
       sessionId: "bg_done",
       status: "running",
     });
-    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    const writeSpy = vi
+      .spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write")
+      .mockImplementation(() => {});
     vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "waitForCompletionOrYield").mockResolvedValue({
       kind: "completed",
       result: {
@@ -378,7 +388,9 @@ describe("AgentBashHandler", () => {
         timedOut: false,
       },
     });
-    const writeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write").mockImplementation(() => {});
+    const writeSpy = vi
+      .spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "write")
+      .mockImplementation(() => {});
     const removeSpy = vi.spyOn<(...args: any[]) => any>(backgroundExecSessionManager, "remove").mockResolvedValue();
 
     const result = await handler.executeCommand(

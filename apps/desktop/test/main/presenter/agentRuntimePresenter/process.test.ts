@@ -210,9 +210,11 @@ describe("processStream", () => {
       yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
     }) as unknown as ProcessParams["coreStream"];
 
-    const onStreamingProviderPermission = vi.fn<(...args: any[]) => any>((_permission, _tool, resolvePermission: (granted: boolean) => void) => {
-      commitDecision = resolvePermission;
-    });
+    const onStreamingProviderPermission = vi.fn<(...args: any[]) => any>(
+      (_permission, _tool, resolvePermission: (granted: boolean) => void) => {
+        commitDecision = resolvePermission;
+      },
+    );
     const params = createParams({
       providerId: "acp",
       modelId: "claude-code-acp",
@@ -415,47 +417,51 @@ describe("processStream", () => {
           },
         }),
     } as unknown as IToolPresenter;
-    const refreshTools = vi.fn<(...args: any[]) => any>().mockResolvedValue([makeTool("skill_view"), makeTool("argos_settings_set_theme")]);
+    const refreshTools = vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue([makeTool("skill_view"), makeTool("argos_settings_set_theme")]);
 
-    const coreStream = vi.fn<(...args: any[]) => any>(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
-      callCount++;
-      if (callCount === 1) {
-        expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
+    const coreStream = vi.fn<(...args: any[]) => any>(
+      function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
+        callCount++;
+        if (callCount === 1) {
+          expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
+          return (async function* () {
+            yield {
+              type: "tool_call_start",
+              tool_call_id: "tc1",
+              tool_call_name: "skill_view",
+            } as LLMCoreStreamEvent;
+            yield {
+              type: "tool_call_end",
+              tool_call_id: "tc1",
+              tool_call_arguments_complete: '{"name":"argos-settings"}',
+            } as LLMCoreStreamEvent;
+            yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
+          })();
+        }
+        if (callCount === 2) {
+          expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view", "argos_settings_set_theme"]);
+          return (async function* () {
+            yield {
+              type: "tool_call_start",
+              tool_call_id: "tc2",
+              tool_call_name: "argos_settings_set_theme",
+            } as LLMCoreStreamEvent;
+            yield {
+              type: "tool_call_end",
+              tool_call_id: "tc2",
+              tool_call_arguments_complete: '{"theme":"dark"}',
+            } as LLMCoreStreamEvent;
+            yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
+          })();
+        }
         return (async function* () {
-          yield {
-            type: "tool_call_start",
-            tool_call_id: "tc1",
-            tool_call_name: "skill_view",
-          } as LLMCoreStreamEvent;
-          yield {
-            type: "tool_call_end",
-            tool_call_id: "tc1",
-            tool_call_arguments_complete: '{"name":"argos-settings"}',
-          } as LLMCoreStreamEvent;
-          yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
+          yield { type: "text", content: "Done" } as LLMCoreStreamEvent;
+          yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
         })();
-      }
-      if (callCount === 2) {
-        expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view", "argos_settings_set_theme"]);
-        return (async function* () {
-          yield {
-            type: "tool_call_start",
-            tool_call_id: "tc2",
-            tool_call_name: "argos_settings_set_theme",
-          } as LLMCoreStreamEvent;
-          yield {
-            type: "tool_call_end",
-            tool_call_id: "tc2",
-            tool_call_arguments_complete: '{"theme":"dark"}',
-          } as LLMCoreStreamEvent;
-          yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
-        })();
-      }
-      return (async function* () {
-        yield { type: "text", content: "Done" } as LLMCoreStreamEvent;
-        yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
-      })();
-    }) as unknown as ProcessParams["coreStream"];
+      },
+    ) as unknown as ProcessParams["coreStream"];
 
     const params = createParams({
       coreStream,
@@ -492,30 +498,32 @@ describe("processStream", () => {
     } as unknown as IToolPresenter;
     const refreshTools = vi.fn<(...args: any[]) => any>().mockResolvedValue([makeTool("argos_settings_set_theme")]);
 
-    const coreStream = vi.fn<(...args: any[]) => any>(function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
-      callCount++;
-      if (callCount === 1) {
+    const coreStream = vi.fn<(...args: any[]) => any>(
+      function (_messages, _modelId, _modelConfig, _temperature, _maxTokens, tools) {
+        callCount++;
+        if (callCount === 1) {
+          expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
+          return (async function* () {
+            yield {
+              type: "tool_call_start",
+              tool_call_id: "tc1",
+              tool_call_name: "skill_view",
+            } as LLMCoreStreamEvent;
+            yield {
+              type: "tool_call_end",
+              tool_call_id: "tc1",
+              tool_call_arguments_complete: '{"name":"argos-settings","file_path":"references/guide.md"}',
+            } as LLMCoreStreamEvent;
+            yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
+          })();
+        }
         expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
         return (async function* () {
-          yield {
-            type: "tool_call_start",
-            tool_call_id: "tc1",
-            tool_call_name: "skill_view",
-          } as LLMCoreStreamEvent;
-          yield {
-            type: "tool_call_end",
-            tool_call_id: "tc1",
-            tool_call_arguments_complete: '{"name":"argos-settings","file_path":"references/guide.md"}',
-          } as LLMCoreStreamEvent;
-          yield { type: "stop", stop_reason: "tool_use" } as LLMCoreStreamEvent;
+          yield { type: "text", content: "Done" } as LLMCoreStreamEvent;
+          yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
         })();
-      }
-      expect(tools.map((tool) => tool.function.name)).toEqual(["skill_view"]);
-      return (async function* () {
-        yield { type: "text", content: "Done" } as LLMCoreStreamEvent;
-        yield { type: "stop", stop_reason: "complete" } as LLMCoreStreamEvent;
-      })();
-    }) as unknown as ProcessParams["coreStream"];
+      },
+    ) as unknown as ProcessParams["coreStream"];
 
     const params = createParams({
       coreStream,

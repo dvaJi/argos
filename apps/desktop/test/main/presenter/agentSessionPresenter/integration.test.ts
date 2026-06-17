@@ -11,7 +11,11 @@ vi.mock("nanoid", () => {
 });
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), sendToMain: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>() },
+  eventBus: {
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+  },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -42,8 +46,14 @@ vi.mock("@/presenter", () => ({
       approve: vi.fn<(...args: any[]) => any>(),
       clearConversation: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
-    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
+    filePermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
+    settingsPermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
     mcpPresenter: {
       grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
@@ -308,14 +318,16 @@ function createMockSqlitePresenter() {
         const msg = messagesStore.get(id);
         if (msg) msg.content = content;
       }),
-      updateContentAndStatus: vi.fn<(...args: any[]) => any>((id: string, content: string, status: string, metadata?: string) => {
-        const msg = messagesStore.get(id);
-        if (msg) {
-          msg.content = content;
-          msg.status = status;
-          if (metadata) msg.metadata = metadata;
-        }
-      }),
+      updateContentAndStatus: vi.fn<(...args: any[]) => any>(
+        (id: string, content: string, status: string, metadata?: string) => {
+          const msg = messagesStore.get(id);
+          if (msg) {
+            msg.content = content;
+            msg.status = status;
+            if (metadata) msg.metadata = metadata;
+          }
+        },
+      ),
       updateStatus: vi.fn<(...args: any[]) => any>((id: string, status: string) => {
         const msg = messagesStore.get(id);
         if (msg) msg.status = status;
@@ -556,7 +568,9 @@ function createMockLlmProviderPresenter() {
 function createMockConfigPresenter() {
   return {
     getDefaultModel: vi.fn<(...args: any[]) => any>().mockReturnValue({ providerId: "openai", modelId: "gpt-4" }),
-    getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({ temperature: 0.7, maxTokens: 4096, contextLength: 128000 }),
+    getModelConfig: vi
+      .fn<(...args: any[]) => any>()
+      .mockReturnValue({ temperature: 0.7, maxTokens: 4096, contextLength: 128000 }),
     getDefaultSystemPrompt: vi.fn<(...args: any[]) => any>().mockResolvedValue("You are a helpful assistant."),
     getAutoCompactionEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     getAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>().mockReturnValue(80),

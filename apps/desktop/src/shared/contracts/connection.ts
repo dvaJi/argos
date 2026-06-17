@@ -5,6 +5,7 @@ export const ConnectionStateSchema = z.object({
   url: z.string().nullable(),
   connected: z.boolean(),
   lastError: z.string().nullable(),
+  workspaceId: z.string().optional(),
 });
 
 export type ConnectionState = z.infer<typeof ConnectionStateSchema>;
@@ -14,4 +15,5 @@ export const CONNECTION_STATE_DEFAULT: ConnectionState = {
   url: null,
   connected: false,
   lastError: null,
+  workspaceId: undefined,
 };

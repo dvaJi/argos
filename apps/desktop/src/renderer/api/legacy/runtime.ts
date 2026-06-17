@@ -3,11 +3,6 @@ import type { ElectronAPI } from "@electron-toolkit/preload";
 type LegacyIpcRenderer = ElectronAPI["ipcRenderer"];
 type LegacyIpcListener = (...args: any[]) => void;
 
-type LegacyIpcRegistration = {
-  channel: string;
-  listener: LegacyIpcListener;
-};
-
 function getLegacyApi() {
   return typeof window === "undefined" ? null : (window.api ?? null);
 }
@@ -81,13 +76,7 @@ export function onLegacyIpcChannel(channel: string, listener: LegacyIpcListener)
     return () => {};
   }
 
-  ipcRenderer.on(channel, listener);
-
-  return () => {
-    if (typeof ipcRenderer.removeListener === "function") {
-      ipcRenderer.removeListener(channel, listener);
-    }
-  };
+  return ipcRenderer.on(channel, listener);
 }
 
 export function sendLegacyIpc(channel: string, ...args: unknown[]) {
@@ -96,25 +85,17 @@ export function sendLegacyIpc(channel: string, ...args: unknown[]) {
 }
 
 export function createLegacyIpcSubscriptionScope() {
-  const registrations: LegacyIpcRegistration[] = [];
+  const unsubscribers: Array<() => void> = [];
 
   const on = (channel: string, listener: LegacyIpcListener) => {
     const unsubscribe = onLegacyIpcChannel(channel, listener);
-    registrations.push({ channel, listener });
+    unsubscribers.push(unsubscribe);
     return unsubscribe;
   };
 
   const cleanup = () => {
-    const ipcRenderer = getLegacyIpcRenderer();
-    if (!ipcRenderer) {
-      registrations.length = 0;
-      return;
-    }
-
-    for (const registration of registrations.splice(0)) {
-      if (typeof ipcRenderer.removeListener === "function") {
-        ipcRenderer.removeListener(registration.channel, registration.listener);
-      }
+    for (const unsubscribe of unsubscribers.splice(0)) {
+      unsubscribe();
     }
   };
 

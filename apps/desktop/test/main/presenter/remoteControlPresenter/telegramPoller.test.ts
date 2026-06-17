@@ -35,7 +35,9 @@ const createBindingStore = () => {
     getTelegramConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({
       streamMode: "draft",
     }),
-    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
+    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>(
+      (endpointKey: string) => deliveryStates.get(endpointKey) ?? null,
+    ),
     rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string, state: any) => {
       deliveryStates.set(endpointKey, {
         ...state,

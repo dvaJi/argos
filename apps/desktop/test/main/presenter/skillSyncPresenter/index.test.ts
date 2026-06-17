@@ -71,11 +71,15 @@ vi.mock("@/events", () => ({
 
 // Mock security module
 vi.mock("../../../../src/main/presenter/skillSyncPresenter/security", () => ({
-  isValidToolId: vi.fn<(...args: any[]) => any>((id) => ["claude-code", "cursor", "windsurf", "copilot", "kiro", "antigravity"].includes(id)),
+  isValidToolId: vi.fn<(...args: any[]) => any>((id) =>
+    ["claude-code", "cursor", "windsurf", "copilot", "kiro", "antigravity"].includes(id),
+  ),
   isValidConflictStrategy: vi.fn<(...args: any[]) => any>((s) =>
     [ConflictStrategy.SKIP, ConflictStrategy.OVERWRITE, ConflictStrategy.RENAME].includes(s),
   ),
-  isValidSkillName: vi.fn<(...args: any[]) => any>((name) => name && !name.includes("/") && name !== ".." && name !== "."),
+  isValidSkillName: vi.fn<(...args: any[]) => any>(
+    (name) => name && !name.includes("/") && name !== ".." && name !== ".",
+  ),
   sanitizeSkillName: vi.fn<(...args: any[]) => any>((name) => name?.replace(/[<>:"/\\|?*]/g, "-")),
   checkReadPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   checkWritePermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
@@ -393,7 +397,9 @@ describe("SkillSyncPresenter", () => {
       const { formatConverter } = await import("../../../../src/main/presenter/skillSyncPresenter/formatConverter");
 
       vi.mocked<(...args: any[]) => any>(isValidConflictStrategy).mockReturnValue(true);
-      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToSkillMd).mockReturnValue("---\nname: skill1\n---\n# Content");
+      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToSkillMd).mockReturnValue(
+        "---\nname: skill1\n---\n# Content",
+      );
       vi.mocked<(...args: any[]) => any>(fs.promises.mkdir).mockResolvedValue(undefined);
       vi.mocked<(...args: any[]) => any>(fs.promises.writeFile).mockResolvedValue(undefined);
       vi.mocked<(...args: any[]) => any>(fs.promises.rm).mockResolvedValue(undefined);
@@ -467,7 +473,9 @@ describe("SkillSyncPresenter", () => {
         instructions: "Do something",
         allowedTools: ["Read", "Write"],
       });
-      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToExternal).mockReturnValue("# Skill1\n\nDo something");
+      vi.mocked<(...args: any[]) => any>(formatConverter.serializeToExternal).mockReturnValue(
+        "# Skill1\n\nDo something",
+      );
       vi.mocked<(...args: any[]) => any>(formatConverter.getConversionWarnings).mockReturnValue([
         { type: "feature_loss", message: "Tool restrictions will be lost", field: "allowedTools" },
       ]);

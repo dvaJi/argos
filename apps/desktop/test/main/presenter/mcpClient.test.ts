@@ -118,7 +118,10 @@ vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
 
 vi.mock("@modelcontextprotocol/sdk/inMemory.js", () => ({
   InMemoryTransport: {
-    createLinkedPair: vi.fn<(...args: any[]) => any>(() => [vi.fn<(...args: any[]) => any>(), vi.fn<(...args: any[]) => any>()]),
+    createLinkedPair: vi.fn<(...args: any[]) => any>(() => [
+      vi.fn<(...args: any[]) => any>(),
+      vi.fn<(...args: any[]) => any>(),
+    ]),
   },
 }));
 

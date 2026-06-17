@@ -28,7 +28,9 @@ class FakeAdapter extends EventEmitter implements IChannelAdapter {
   readonly disconnect = vi.fn<(...args: any[]) => any>(async () => {
     this.connected = false;
   });
-  readonly sendMessage = vi.fn<(...args: any[]) => any>(async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {});
+  readonly sendMessage = vi.fn<(...args: any[]) => any>(
+    async (_chatId: string, _text: string, _opts?: SendMessageOptions) => {},
+  );
   readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>(async (_chatId: string) => {});
   readonly onTextUpdate = vi.fn<(...args: any[]) => any>(async (_chatId: string, _fullText: string) => {});
   readonly onStreamComplete = vi.fn<(...args: any[]) => any>(async (_chatId: string, _finalText: string) => false);

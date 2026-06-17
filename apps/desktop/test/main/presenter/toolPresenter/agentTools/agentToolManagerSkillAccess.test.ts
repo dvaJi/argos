@@ -208,14 +208,16 @@ describe("AgentToolManager skill file access", () => {
 
   it("allows exec cwd under active skill roots in full access mode", async () => {
     const manager = buildManager();
-    vi.spyOn<(...args: any[]) => any>(AgentBashHandler.prototype as never, "prepareCommand" as never).mockResolvedValue({
-      originalCommand: "pwd",
-      command: "pwd",
-      env: { PATH: "/bin" },
-      rewritten: false,
-      rtkApplied: false,
-      rtkMode: "bypass",
-    });
+    vi.spyOn<(...args: any[]) => any>(AgentBashHandler.prototype as never, "prepareCommand" as never).mockResolvedValue(
+      {
+        originalCommand: "pwd",
+        command: "pwd",
+        env: { PATH: "/bin" },
+        rewritten: false,
+        rtkApplied: false,
+        rtkMode: "bypass",
+      },
+    );
     const runShellProcess = vi
       .spyOn(AgentBashHandler.prototype as never, "runShellProcess" as never)
       .mockResolvedValue({

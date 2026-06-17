@@ -67,7 +67,9 @@ function createStore(initialRows: ArgosPendingInputRow[]) {
     update: vi.fn<(...args: any[]) => any>(),
     delete: vi.fn<(...args: any[]) => any>(),
     deleteBySession: vi.fn<(...args: any[]) => any>(),
-    listClaimed: vi.fn<(...args: any[]) => any>(() => Array.from(rows.values()).filter((row) => row.state === "claimed")),
+    listClaimed: vi.fn<(...args: any[]) => any>(() =>
+      Array.from(rows.values()).filter((row) => row.state === "claimed"),
+    ),
   };
 
   const sqlitePresenter = {

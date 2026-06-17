@@ -5,11 +5,13 @@ import { createIpcSubscriptionScope } from "@/lib/ipcSubscription";
 import { mcpStore } from "@/stores/mcp";
 import { router } from "@/router";
 import { initTheme } from "@/stores/theme";
+import { initWorkspaceStore } from "@/stores/ui/workspace";
 
 export const initAppStores = async () => {
   console.info("[Startup][Renderer] initAppStores begin");
 
   await Promise.all([loadSettings(), initializeProviders(), initTheme()]);
+  initWorkspaceStore();
   console.info("[Startup][Renderer] initAppStores critical stores ready");
 };
 

@@ -18,10 +18,12 @@ const setupStore = async (overrides?: {
   const configClient = {
     getDefaultProjectPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(overrides?.defaultProjectPath ?? null),
     setDefaultProjectPath: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    onDefaultProjectPathChanged: vi.fn<(...args: any[]) => any>((listener: (payload: { path: string | null; version: number }) => void) => {
-      defaultProjectPathListeners.push(listener);
-      return () => undefined;
-    }),
+    onDefaultProjectPathChanged: vi.fn<(...args: any[]) => any>(
+      (listener: (payload: { path: string | null; version: number }) => void) => {
+        defaultProjectPathListeners.push(listener);
+        return () => undefined;
+      },
+    ),
   };
 
   vi.doMock("../../../src/renderer/api/ProjectClient", () => ({

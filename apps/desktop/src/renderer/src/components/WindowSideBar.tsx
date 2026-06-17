@@ -32,6 +32,7 @@ import type {
 import AgentAvatar from "./icons/AgentAvatar";
 import ConnectionIndicator from "./ConnectionIndicator";
 import WindowSideBarSessionItem from "./WindowSideBarSessionItem";
+import WorkspaceSelector from "./WorkspaceSelector";
 import { useSidebarStore } from "@/stores/ui/sidebar";
 import { useThemeStore } from "@/stores/theme";
 
@@ -481,6 +482,12 @@ export default function WindowSideBar() {
           aria-hidden={collapsed ? true : undefined}
           inert={collapsed ? true : undefined}
         >
+          {!collapsed && (
+            <div className="px-3 pt-2 pb-1 shrink-0">
+              <WorkspaceSelector />
+            </div>
+          )}
+
           <div className="flex items-center justify-between px-3 h-10 shrink-0">
             <span className="text-sm font-medium text-foreground truncate">{selectedAgentName}</span>
             <div className="flex items-center gap-0.5">

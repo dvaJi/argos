@@ -10,92 +10,94 @@ import { createSettingsClient } from "../../../src/renderer/api/SettingsClient";
 describe("renderer api clients", () => {
   function createBridge(): ArgosBridge {
     return {
-      invoke: vi.fn<(...args: any[]) => any>().mockImplementation(async (routeName: string, payload?: Record<string, unknown>) => {
-        switch (routeName) {
-          case "config.getEntries":
-            return { version: 0, values: {} };
-          case "config.updateEntries":
-            return {
-              version: 1,
-              values: Object.fromEntries(
-                Array.isArray(payload?.changes)
-                  ? payload.changes
-                      .filter(
-                        (change): change is { key: string; value: unknown } =>
-                          Boolean(change) &&
-                          typeof change === "object" &&
-                          typeof (change as { key?: unknown }).key === "string",
-                      )
-                      .map((change) => [change.key, change.value])
-                  : [],
-              ),
-            };
-          case "config.getSystemPrompts":
-            return { prompts: [], defaultPromptId: "empty", prompt: "" };
-          case "config.getDefaultProjectPath":
-            return { path: null };
-          case "config.getKnowledgeConfigs":
-            return { configs: [] };
-          case "config.setKnowledgeConfigs":
-            return { configs: payload?.configs ?? [] };
-          case "providers.list":
-          case "providers.listSummaries":
-            return { providers: [] };
-          case "providers.getRateLimitStatus":
-            return {
-              status: {
-                config: { enabled: false, qpsLimit: 1 },
-                currentQps: 0,
-                queueLength: 0,
-                lastRequestTime: 0,
-              },
-            };
-          case "providers.refreshModels":
-            return { success: true };
-          case "providers.import.apply":
-            return {
-              summary: {
-                imported: 0,
-                created: 0,
-                updated: 0,
-                skipped: 0,
-                overwritten: 0,
-                models: 0,
-              },
-              results: [],
-            };
-          case "models.getConfig":
-            return {
-              config: {
-                maxTokens: 4096,
-                contextLength: 128000,
-                temperature: 1,
-                vision: true,
-                functionCall: true,
-                reasoning: false,
-                type: "chat",
-              },
-            };
-          case "models.setConfig":
-            return { config: payload?.config ?? {} };
-          case "models.getCapabilities":
-            return {
-              capabilities: {
-                supportsReasoning: true,
-                reasoningPortrait: null,
-                thinkingBudgetRange: null,
-                supportsSearch: null,
-                searchDefaults: null,
-                supportsTemperatureControl: true,
-                temperatureCapability: true,
-              },
-            };
-          case "browser.updateCurrentWindowBounds":
-            return { updated: true };
-          default:
-            return {};
-        }
-      }),
+      invoke: vi
+        .fn<(...args: any[]) => any>()
+        .mockImplementation(async (routeName: string, payload?: Record<string, unknown>) => {
+          switch (routeName) {
+            case "config.getEntries":
+              return { version: 0, values: {} };
+            case "config.updateEntries":
+              return {
+                version: 1,
+                values: Object.fromEntries(
+                  Array.isArray(payload?.changes)
+                    ? payload.changes
+                        .filter(
+                          (change): change is { key: string; value: unknown } =>
+                            Boolean(change) &&
+                            typeof change === "object" &&
+                            typeof (change as { key?: unknown }).key === "string",
+                        )
+                        .map((change) => [change.key, change.value])
+                    : [],
+                ),
+              };
+            case "config.getSystemPrompts":
+              return { prompts: [], defaultPromptId: "empty", prompt: "" };
+            case "config.getDefaultProjectPath":
+              return { path: null };
+            case "config.getKnowledgeConfigs":
+              return { configs: [] };
+            case "config.setKnowledgeConfigs":
+              return { configs: payload?.configs ?? [] };
+            case "providers.list":
+            case "providers.listSummaries":
+              return { providers: [] };
+            case "providers.getRateLimitStatus":
+              return {
+                status: {
+                  config: { enabled: false, qpsLimit: 1 },
+                  currentQps: 0,
+                  queueLength: 0,
+                  lastRequestTime: 0,
+                },
+              };
+            case "providers.refreshModels":
+              return { success: true };
+            case "providers.import.apply":
+              return {
+                summary: {
+                  imported: 0,
+                  created: 0,
+                  updated: 0,
+                  skipped: 0,
+                  overwritten: 0,
+                  models: 0,
+                },
+                results: [],
+              };
+            case "models.getConfig":
+              return {
+                config: {
+                  maxTokens: 4096,
+                  contextLength: 128000,
+                  temperature: 1,
+                  vision: true,
+                  functionCall: true,
+                  reasoning: false,
+                  type: "chat",
+                },
+              };
+            case "models.setConfig":
+              return { config: payload?.config ?? {} };
+            case "models.getCapabilities":
+              return {
+                capabilities: {
+                  supportsReasoning: true,
+                  reasoningPortrait: null,
+                  thinkingBudgetRange: null,
+                  supportsSearch: null,
+                  searchDefaults: null,
+                  supportsTemperatureControl: true,
+                  temperatureCapability: true,
+                },
+              };
+            case "browser.updateCurrentWindowBounds":
+              return { updated: true };
+            default:
+              return {};
+          }
+        }),
       on: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
     };
   }

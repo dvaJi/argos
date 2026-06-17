@@ -7,6 +7,7 @@ export type DaemonOptions = {
   port?: number;
   dataDir?: string;
   token?: string;
+  withToken?: boolean;
   logLevel?: string;
 };
 
@@ -24,6 +25,8 @@ export function parseArgs(argv: string[]): DaemonOptions {
       opts.dataDir = args[++i];
     } else if (arg === "--token" && args[i + 1]) {
       opts.token = args[++i];
+    } else if (arg === "--with-token") {
+      opts.withToken = true;
     } else if (arg === "--log-level" && args[i + 1]) {
       opts.logLevel = args[++i];
     }
@@ -38,6 +41,7 @@ export function mergeOptions(parsed: DaemonOptions, env: Record<string, string |
     port: parsed.port ?? (parseInt(env.ARGOS_PORT || "0", 10) || 9527),
     dataDir: parsed.dataDir || env.ARGOS_DATA_DIR || undefined,
     token: parsed.token || env.ARGOS_TOKEN || undefined,
+    withToken: parsed.withToken || false,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",
   };
 }

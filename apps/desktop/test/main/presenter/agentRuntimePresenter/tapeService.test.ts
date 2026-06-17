@@ -69,7 +69,9 @@ function createTapeTableMock() {
         payload: { name: input.name, data: input.data },
       }),
     ),
-    getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId)),
+    getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
+      entries.filter((entry) => entry.session_id === sessionId),
+    ),
     getLatestAnchor: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         entries
@@ -97,7 +99,9 @@ function createTapeTableMock() {
     getByProvenanceKey: vi.fn<(...args: any[]) => any>((sessionId: string, provenanceKey: string) =>
       entries.find((entry) => entry.session_id === sessionId && entry.provenance_key === provenanceKey),
     ),
-    countBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => entries.filter((entry) => entry.session_id === sessionId).length),
+    countBySession: vi.fn<(...args: any[]) => any>(
+      (sessionId: string) => entries.filter((entry) => entry.session_id === sessionId).length,
+    ),
     countAnchorsBySession: vi.fn<(...args: any[]) => any>(
       (sessionId: string) =>
         entries.filter((entry) => entry.session_id === sessionId && entry.kind === "anchor").length,

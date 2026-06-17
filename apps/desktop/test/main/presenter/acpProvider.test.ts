@@ -70,7 +70,9 @@ describe("AcpProvider runDebugAction error handling", () => {
       getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
     };
     provider.processManager = {
-      getConnection: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
+      getConnection: vi
+        .fn<(...args: any[]) => any>()
+        .mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
     };
 
     const result = await provider.runDebugAction({

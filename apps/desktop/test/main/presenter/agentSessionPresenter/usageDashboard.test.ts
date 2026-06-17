@@ -4,7 +4,11 @@ import { ArgosMessageStore } from "@/presenter/agentRuntimePresenter/messageStor
 import { DASHBOARD_STATS_BACKFILL_KEY, type UsageStatsRecordInput } from "@/presenter/usageStats";
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), sendToMain: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>() },
+  eventBus: {
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+  },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -29,8 +33,14 @@ vi.mock("@/presenter", () => ({
       approve: vi.fn<(...args: any[]) => any>(),
       clearConversation: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
-    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
+    filePermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
+    settingsPermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
     mcpPresenter: {
       grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
@@ -174,7 +184,9 @@ function createMockConfigPresenter() {
     getModelConfig: vi.fn<(...args: any[]) => any>().mockReturnValue({}),
     getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue(providers),
-    getProviderById: vi.fn<(...args: any[]) => any>((providerId: string) => providers.find((item) => item.id === providerId)),
+    getProviderById: vi.fn<(...args: any[]) => any>((providerId: string) =>
+      providers.find((item) => item.id === providerId),
+    ),
     getSetting: vi.fn<(...args: any[]) => any>((key: string) => store.get(key)),
     setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store.set(key, value);

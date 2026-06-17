@@ -34,7 +34,11 @@ vi.mock("electron", () => {
       loadURL: vi.fn<(...args: any[]) => any>(),
       loadFile: vi.fn<(...args: any[]) => any>(),
       on: vi.fn<(...args: any[]) => any>(),
-      webContents: { send: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>(), isDestroyed: vi.fn<(...args: any[]) => any>(() => false) },
+      webContents: {
+        send: vi.fn<(...args: any[]) => any>(),
+        on: vi.fn<(...args: any[]) => any>(),
+        isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+      },
       isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
       close: vi.fn<(...args: any[]) => any>(),
       show: vi.fn<(...args: any[]) => any>(),
@@ -398,7 +402,9 @@ describe("LLMProviderPresenter Integration Tests", () => {
     }, 15000);
 
     it("normalizes audio MIME type casing before transcription validation", async () => {
-      const transcribeSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "transcribeAudio").mockResolvedValue("mock transcript");
+      const transcribeSpy = vi
+        .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "transcribeAudio")
+        .mockResolvedValue("mock transcript");
 
       const transcript = await llmProviderPresenter.transcribeAudioStandalone(
         "mock-openai-api",
@@ -496,7 +502,9 @@ describe("LLMProviderPresenter Integration Tests", () => {
           .fn<(...args: any[]) => any>()
           .mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
       };
-      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
+      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(
+        mockAcpProvider as any,
+      );
 
       await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).resolves.toBeUndefined();
       warnSpy.mockRestore();
@@ -506,7 +514,9 @@ describe("LLMProviderPresenter Integration Tests", () => {
       const mockAcpProvider = {
         warmupProcess: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
       };
-      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(mockAcpProvider as any);
+      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(
+        mockAcpProvider as any,
+      );
 
       await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).rejects.toThrow("boom");
     });

@@ -209,7 +209,9 @@ describe("AiSdkProvider anthropic", () => {
   it("throws refresh errors for custom anthropic-compatible providers when remote fetch fails", async () => {
     const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: false,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}'),
+      text: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue('{"error":{"type":"Unauthorized","message":"Invalid API key"}}'),
     });
     vi.stubGlobal("fetch", fetchMock);
 

@@ -93,7 +93,8 @@ class ProviderHttpError extends Error {
 }
 
 const isOpenAIImageGenerationModel = (modelId: string): boolean =>
-  OPENAI_IMAGE_GENERATION_MODELS.includes(modelId) || OPENAI_IMAGE_GENERATION_MODEL_PREFIXES.some((prefix) => modelId.startsWith(prefix));
+  OPENAI_IMAGE_GENERATION_MODELS.includes(modelId) ||
+  OPENAI_IMAGE_GENERATION_MODEL_PREFIXES.some((prefix) => modelId.startsWith(prefix));
 
 const shouldUseOpenAIImageGenerationRoute = (modelId: string, modelConfig: ModelConfig): boolean =>
   isOpenAIImageGenerationModel(modelId) ||

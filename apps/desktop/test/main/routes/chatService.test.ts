@@ -167,7 +167,9 @@ describe("ChatService", () => {
       getAgentType: vi.fn<(...args: any[]) => any>(),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("permission cleanup failed")),
+      clearSessionPermissions: vi
+        .fn<(...args: any[]) => any>()
+        .mockRejectedValue(new Error("permission cleanup failed")),
     };
 
     const service = new ChatService({
@@ -268,7 +270,9 @@ describe("ChatService", () => {
       getAgentType: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
     };
     const sessionPermissionPort = {
-      clearSessionPermissions: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("permission cleanup failed")),
+      clearSessionPermissions: vi
+        .fn<(...args: any[]) => any>()
+        .mockRejectedValue(new Error("permission cleanup failed")),
     };
 
     const service = new ChatService({

@@ -96,7 +96,9 @@ const createExecution = (
     ...snapshot,
   }));
 
-  const getSnapshot = vi.fn<(...args: any[]) => any>(async () => normalizedSnapshots[Math.min(index++, snapshots.length - 1)]);
+  const getSnapshot = vi.fn<(...args: any[]) => any>(
+    async () => normalizedSnapshots[Math.min(index++, snapshots.length - 1)],
+  );
 
   return {
     getSnapshot,

@@ -46,10 +46,12 @@ const createHarness = async (options?: { logger?: { error: (...params: unknown[]
       openId: "ou_bot",
       name: "Argos Bot",
     }),
-    startMessageStream: vi.fn<(...args: any[]) => any>().mockImplementation(async (params: { onMessage: (event: unknown) => Promise<void> }) => {
-      onMessage = params.onMessage;
-      streamHandlers.push(params.onMessage);
-    }),
+    startMessageStream: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (params: { onMessage: (event: unknown) => Promise<void> }) => {
+        onMessage = params.onMessage;
+        streamHandlers.push(params.onMessage);
+      }),
     stop: vi.fn<(...args: any[]) => any>(),
     sendText: vi.fn<(...args: any[]) => any>().mockImplementation(async () => `om_bot_${nextMessageId++}`),
     updateText: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -63,7 +65,9 @@ const createHarness = async (options?: { logger?: { error: (...params: unknown[]
     sendCard: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
   const parser = {
-    parseEvent: vi.fn<(...args: any[]) => any>((event: { parsed?: FeishuInboundMessage | null }) => event.parsed ?? null),
+    parseEvent: vi.fn<(...args: any[]) => any>(
+      (event: { parsed?: FeishuInboundMessage | null }) => event.parsed ?? null,
+    ),
   };
   const router = {
     handleMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue({
@@ -72,7 +76,9 @@ const createHarness = async (options?: { logger?: { error: (...params: unknown[]
   };
   const deliveryStates = new Map<string, any>();
   const bindingStore = {
-    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string) => deliveryStates.get(endpointKey) ?? null),
+    getRemoteDeliveryState: vi.fn<(...args: any[]) => any>(
+      (endpointKey: string) => deliveryStates.get(endpointKey) ?? null,
+    ),
     rememberRemoteDeliveryState: vi.fn<(...args: any[]) => any>((endpointKey: string, state: any) => {
       deliveryStates.set(endpointKey, {
         ...state,

@@ -394,7 +394,9 @@ describe("KnowledgePresenter Validation Methods", () => {
       const close = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
       const error = new Error("store constructor failed");
       (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([config]);
-      (knowledgePresenter as any).getVectorDatabasePresenter = vi.fn<(...args: any[]) => any>().mockResolvedValue({ close });
+      (knowledgePresenter as any).getVectorDatabasePresenter = vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue({ close });
       (KnowledgeStorePresenter as unknown as Mock).mockImplementationOnce(() => {
         throw error;
       });

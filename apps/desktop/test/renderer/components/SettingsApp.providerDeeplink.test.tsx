@@ -69,15 +69,19 @@ const mountSettingsApp = async (options?: {
     updateProviderApi: options?.failImport
       ? vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("apply failed"))
       : vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    updateProviderStatus: vi.fn<(...args: any[]) => any>().mockImplementation(async (providerId: string, enable: boolean) => {
-      const provider = providerStore.providers.find((item: any) => item.id === providerId);
-      if (provider) {
-        provider.enable = enable;
-      }
-    }),
-    addCustomProvider: vi.fn<(...args: any[]) => any>().mockImplementation(async (provider: Record<string, unknown>) => {
-      providerStore.providers.push(provider as any);
-    }),
+    updateProviderStatus: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (providerId: string, enable: boolean) => {
+        const provider = providerStore.providers.find((item: any) => item.id === providerId);
+        if (provider) {
+          provider.enable = enable;
+        }
+      }),
+    addCustomProvider: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (provider: Record<string, unknown>) => {
+        providerStore.providers.push(provider as any);
+      }),
   };
 
   const modelStore = {
@@ -96,12 +100,14 @@ const mountSettingsApp = async (options?: {
     }
     return pendingProviderInstallQueue.shift() ?? null;
   });
-  const setPendingSettingsProviderInstall = vi.fn<(...args: any[]) => any>().mockImplementation(async (payload: Record<string, unknown>) => {
-    if (options?.failRequeue) {
-      throw new Error("requeue failed");
-    }
-    pendingProviderInstallQueue.push(payload);
-  });
+  const setPendingSettingsProviderInstall = vi
+    .fn<(...args: any[]) => any>()
+    .mockImplementation(async (payload: Record<string, unknown>) => {
+      if (options?.failRequeue) {
+        throw new Error("requeue failed");
+      }
+      pendingProviderInstallQueue.push(payload);
+    });
   const queuePendingProviderInstall = (payload: Record<string, unknown>) => {
     pendingProviderInstallQueue.push(payload);
   };

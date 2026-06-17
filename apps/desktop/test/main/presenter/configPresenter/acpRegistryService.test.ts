@@ -148,7 +148,9 @@ describe("AcpRegistryService", () => {
 
     mockNetFetch.mockResolvedValue({
       ok: true,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
+      text: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
     });
 
     const staleIconDir = path.join(userDataRoot, "acp-registry", "icons");
@@ -180,7 +182,9 @@ describe("AcpRegistryService", () => {
 
     mockNetFetch.mockResolvedValue({
       ok: true,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
+      text: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
     });
 
     const AcpRegistryService = await importService();

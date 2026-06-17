@@ -31,7 +31,9 @@ function createMocks() {
 
   const agentRegistry = {
     resolve: vi.fn<(...args: any[]) => any>().mockReturnValue(mockAgent),
-    getAll: vi.fn<(...args: any[]) => any>().mockReturnValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
+    getAll: vi
+      .fn<(...args: any[]) => any>()
+      .mockReturnValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
   } as unknown as AgentRegistry;
 
   const sessionManager = {

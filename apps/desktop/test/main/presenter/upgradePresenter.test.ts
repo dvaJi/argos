@@ -178,7 +178,9 @@ describe("UpgradePresenter", () => {
       getPrivacyModeEnabled: vi.fn<(...args: any[]) => any>(() => true),
     } as any;
 
-    vi.mocked<(...args: any[]) => any>(electronUpdater.autoUpdater.checkForUpdates).mockResolvedValue(undefined as never);
+    vi.mocked<(...args: any[]) => any>(electronUpdater.autoUpdater.checkForUpdates).mockResolvedValue(
+      undefined as never,
+    );
 
     const presenter = new UpgradePresenter(configPresenter);
 

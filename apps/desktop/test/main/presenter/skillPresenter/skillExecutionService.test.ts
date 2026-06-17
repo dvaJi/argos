@@ -28,15 +28,17 @@ vi.mock("../../../../src/main/lib/agentRuntime/shellEnvHelper", async (importOri
 
 vi.mock("../../../../src/main/lib/agentRuntime/rtkRuntimeService", () => ({
   rtkRuntimeService: {
-    prepareShellCommand: vi.fn<(...args: any[]) => any>().mockImplementation(async (command: string, env: Record<string, string>) => ({
-      originalCommand: command,
-      command,
-      env,
-      rewritten: false,
-      usedRtk: false,
-      rtkApplied: false,
-      rtkMode: "bypass",
-    })),
+    prepareShellCommand: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (command: string, env: Record<string, string>) => ({
+        originalCommand: command,
+        command,
+        env,
+        rewritten: false,
+        usedRtk: false,
+        rtkApplied: false,
+        rtkMode: "bypass",
+      })),
   },
 }));
 
@@ -52,7 +54,10 @@ describe("SkillExecutionService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked<(...args: any[]) => any>(shellEnvHelper.getUserShell).mockReturnValue({ shell: "/bin/zsh", args: ["-c"] });
+    vi.mocked<(...args: any[]) => any>(shellEnvHelper.getUserShell).mockReturnValue({
+      shell: "/bin/zsh",
+      args: ["-c"],
+    });
     vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockReturnValue(false);
     vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValue({
       isDirectory: () => true,
@@ -68,7 +73,9 @@ describe("SkillExecutionService", () => {
           skillRoot: "/skills/ocr",
         },
       ]),
-      readSkillFile: vi.fn<(...args: any[]) => any>().mockResolvedValue("---\nname: ocr\ndescription: OCR helper\n---\n"),
+      readSkillFile: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue("---\nname: ocr\ndescription: OCR helper\n---\n"),
       getSkillExtension: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         version: 1,
         env: { API_KEY: "secret" },
@@ -171,8 +178,8 @@ describe("SkillExecutionService", () => {
 
   it("falls back to bundled uv for python auto runtime", async () => {
     vi.spyOn<(...args: any[]) => any>(service as never, "hasCommand" as never).mockResolvedValue(false);
-    vi.spyOn<(...args: any[]) => any>(service as never, "getBundledRuntimeCommand" as never).mockImplementation((command: "uv" | "node") =>
-      command === "uv" ? "/runtime/uv" : null,
+    vi.spyOn<(...args: any[]) => any>(service as never, "getBundledRuntimeCommand" as never).mockImplementation(
+      (command: "uv" | "node") => (command === "uv" ? "/runtime/uv" : null),
     );
 
     const runtime = await (service as never).resolvePythonRuntime("auto", { PATH: "/bin" }, "/skill");
@@ -435,10 +442,14 @@ describe("SkillExecutionService", () => {
       configurable: true,
       value: appendFileMock,
     });
-    const previewSpy = vi.spyOn<(...args: any[]) => any>(service as never, "readLastCharsFromFile" as never).mockReturnValue("");
+    const previewSpy = vi
+      .spyOn<(...args: any[]) => any>(service as never, "readLastCharsFromFile" as never)
+      .mockReturnValue("");
 
     vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(child as never);
-    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue("/mock/session/skill.log");
+    vi.spyOn<(...args: any[]) => any>(service as never, "createForegroundOutputPath" as never).mockReturnValue(
+      "/mock/session/skill.log",
+    );
 
     const resultPromise = (service as never).runForeground(
       {

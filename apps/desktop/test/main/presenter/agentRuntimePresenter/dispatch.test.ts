@@ -1937,7 +1937,9 @@ describe("dispatch", () => {
     it("turns offload write failures into tool errors instead of falling back to raw content", async () => {
       tempHome = await fs.mkdtemp(path.join(os.tmpdir(), "argos-dispatch-offload-fail-"));
       getPathSpy = vi.spyOn<(...args: any[]) => any>(app, "getPath").mockReturnValue(tempHome);
-      const writeFileSpy = vi.spyOn<(...args: any[]) => any>(fs, "writeFile").mockRejectedValueOnce(new Error("disk full"));
+      const writeFileSpy = vi
+        .spyOn<(...args: any[]) => any>(fs, "writeFile")
+        .mockRejectedValueOnce(new Error("disk full"));
 
       const tools = [makeTool("cdp_send")];
       const longScreenshot = JSON.stringify({ data: "x".repeat(7000) });
@@ -2196,7 +2198,9 @@ describe("dispatch", () => {
       expect(executed.terminalError).toBeUndefined();
       expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
       expect(state.blocks[1].tool_call?.response).not.toContain("[Tool output offloaded]");
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow("expected error");
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow(
+        "expected error",
+      );
     });
 
     it("drops search side effects for downgraded tail tool results", async () => {
@@ -2327,7 +2331,9 @@ describe("dispatch", () => {
       const toolMessage = conversation.find((message: any) => message.role === "tool");
       expect(toolMessage.content).toContain("remaining context window is too small");
       expect(state.blocks[0].status).toBe("error");
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow("expected error");
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow(
+        "expected error",
+      );
     });
 
     it("returns terminalError when even the minimal tool failure stub cannot fit", async () => {
@@ -2389,7 +2395,9 @@ describe("dispatch", () => {
         params: '{"method":"Page.captureScreenshot"}',
         error: expect.stringContaining("remaining context window is too small"),
       });
-      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow("expected error");
+      await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow(
+        "expected error",
+      );
     });
   });
 

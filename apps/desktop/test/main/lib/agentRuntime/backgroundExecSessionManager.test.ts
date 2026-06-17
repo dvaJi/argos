@@ -140,8 +140,12 @@ describe("BackgroundExecSessionManager", () => {
     });
     setSession(session);
 
-    const previewSpy = vi.spyOn<(...args: any[]) => any>(manager as never, "readLastCharsFromFile" as never).mockReturnValue("persisted-");
-    const readSpy = vi.spyOn<(...args: any[]) => any>(manager as never, "readFromFile" as never).mockReturnValue("persisted-");
+    const previewSpy = vi
+      .spyOn<(...args: any[]) => any>(manager as never, "readLastCharsFromFile" as never)
+      .mockReturnValue("persisted-");
+    const readSpy = vi
+      .spyOn<(...args: any[]) => any>(manager as never, "readFromFile" as never)
+      .mockReturnValue("persisted-");
 
     const list = manager.list("conv-1");
     const poll = await manager.poll("conv-1", "bg_123");
@@ -340,7 +344,9 @@ describe("BackgroundExecSessionManager", () => {
       value: "darwin",
     });
     process.env.SHELL = "/missing/zsh";
-    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockImplementation((candidate) => normalizedPath(candidate).endsWith("/workspace"));
+    vi.spyOn<(...args: any[]) => any>(fs, "existsSync").mockImplementation((candidate) =>
+      normalizedPath(candidate).endsWith("/workspace"),
+    );
     vi.spyOn<(...args: any[]) => any>(fs, "statSync").mockImplementation((candidate) => {
       const value = normalizedPath(candidate);
       if (value.endsWith("/workspace")) {

@@ -18,7 +18,9 @@ vi.mock("path", async (importOriginal) => {
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn<(...args: any[]) => any>((name: "userData" | "temp") => (name === "userData" ? "/mock/userData" : "/mock/temp")),
+    getPath: vi.fn<(...args: any[]) => any>((name: "userData" | "temp") =>
+      name === "userData" ? "/mock/userData" : "/mock/temp",
+    ),
   },
 }));
 
@@ -67,7 +69,9 @@ function createHealthCheckService(runCommand = vi.fn<(...args: any[]) => any>())
     runtimeHelper: {
       initializeRuntimes: vi.fn<(...args: any[]) => any>(),
       refreshRuntimes: vi.fn<(...args: any[]) => any>(),
-      replaceWithRuntimeCommand: vi.fn<(...args: any[]) => any>((command: string) => (command === "rtk" ? "/runtime/rtk/rtk.exe" : command)),
+      replaceWithRuntimeCommand: vi.fn<(...args: any[]) => any>((command: string) =>
+        command === "rtk" ? "/runtime/rtk/rtk.exe" : command,
+      ),
       getRtkRuntimePath: vi.fn<(...args: any[]) => any>().mockReturnValue("/runtime/rtk"),
       prependBundledRuntimeToEnv: vi.fn<(...args: any[]) => any>((env: Record<string, string>) => env),
     },
@@ -150,7 +154,11 @@ describe("RtkRuntimeService", () => {
     });
     const service = createService(runCommand);
 
-    const result = await service.prepareShellCommand("git status", {}, { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) });
+    const result = await service.prepareShellCommand(
+      "git status",
+      {},
+      { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) },
+    );
 
     expect(result.originalCommand).toBe("git status");
     expect(result.command).toBe("rtk git status");
@@ -168,7 +176,11 @@ describe("RtkRuntimeService", () => {
     const runCommand = vi.fn<(...args: any[]) => any>();
     const service = createService(runCommand);
 
-    const result = await service.prepareShellCommand(command, {}, { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) });
+    const result = await service.prepareShellCommand(
+      command,
+      {},
+      { getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(true) },
+    );
 
     expect(runCommand).not.toHaveBeenCalled();
     expect(result.originalCommand).toBe(command);

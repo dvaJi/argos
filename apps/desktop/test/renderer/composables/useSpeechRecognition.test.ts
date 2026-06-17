@@ -7,7 +7,9 @@ import {
 import { useAudioRecorder } from "@/components/chat/composables/useAudioRecorder";
 
 class FakeMediaRecorder {
-  static isTypeSupported = vi.fn<(...args: any[]) => any>((mimeType: string) => ["audio/webm;codecs=opus", "audio/webm"].includes(mimeType));
+  static isTypeSupported = vi.fn<(...args: any[]) => any>((mimeType: string) =>
+    ["audio/webm;codecs=opus", "audio/webm"].includes(mimeType),
+  );
 
   mimeType = "audio/webm";
   state: "inactive" | "recording" = "inactive";

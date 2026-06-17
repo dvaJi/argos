@@ -474,7 +474,9 @@ describe("FeishuCommandRouter", () => {
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ state: "running", lastError: null, botUser: null }),
+      getRuntimeStatus: vi
+        .fn<(...args: any[]) => any>()
+        .mockReturnValue({ state: "running", lastError: null, botUser: null }),
     });
 
     const result = await router.handleMessage(
@@ -525,7 +527,9 @@ describe("FeishuCommandRouter", () => {
       } as any,
       runner: runner as any,
       bindingStore: createBindingStore() as any,
-      getRuntimeStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ state: "running", lastError: null, botUser: null }),
+      getRuntimeStatus: vi
+        .fn<(...args: any[]) => any>()
+        .mockReturnValue({ state: "running", lastError: null, botUser: null }),
     });
 
     const result = await router.handleMessage(

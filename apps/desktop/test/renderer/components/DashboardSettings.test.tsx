@@ -94,7 +94,8 @@ async function setup(
 ) {
   vi.resetModules();
   const getUsageDashboard = options.getUsageDashboard ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(data);
-  const retryRtkHealthCheck = options.retryRtkHealthCheck ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+  const retryRtkHealthCheck =
+    options.retryRtkHealthCheck ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({

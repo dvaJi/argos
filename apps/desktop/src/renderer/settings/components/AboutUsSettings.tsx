@@ -77,14 +77,14 @@ export default function AboutUsSettings() {
 
   useEffect(() => {
     const handler = () => void handleExternalCheckUpdate();
-    window.electron?.ipcRenderer?.on(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+    const off = window.electron?.ipcRenderer?.on(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
     void (async () => {
       setAppVersion(await devicePresenter.getAppVersion());
       setUpdateChannel(await configPresenter.getUpdateChannel());
       await upgrade.refreshStatus();
     })();
     return () => {
-      window.electron?.ipcRenderer?.removeListener(SETTINGS_EVENTS.CHECK_FOR_UPDATES, handler);
+      off?.();
     };
   }, [devicePresenter, configPresenter, upgrade, handleExternalCheckUpdate]);
 

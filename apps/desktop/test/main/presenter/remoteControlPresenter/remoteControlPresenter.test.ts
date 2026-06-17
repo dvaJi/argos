@@ -87,7 +87,9 @@ const createConfigPresenter = () => {
     setSetting: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
       store.set(key, value);
     }),
-    getAgentType: vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "acp-agent" ? "acp" : "argos")),
+    getAgentType: vi.fn<(...args: any[]) => any>(async (agentId: string) =>
+      agentId === "acp-agent" ? "acp" : "argos",
+    ),
     listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "acp-agent", name: "ACP Agent", type: "acp", enabled: true },
@@ -429,7 +431,9 @@ describe("RemoteControlPresenter", () => {
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "claude-acp", name: "Claude (ACP)", type: "acp", enabled: true },
     ]);
-    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "claude-acp" ? "acp" : "argos"));
+    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) =>
+      agentId === "claude-acp" ? "acp" : "argos",
+    );
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {
@@ -459,7 +463,9 @@ describe("RemoteControlPresenter", () => {
       { id: "argos", name: "Argos", type: "argos", enabled: true },
       { id: "claude-code-acp", name: "Claude Code (ACP)", type: "acp", enabled: true },
     ]);
-    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) => (agentId === "claude-code-acp" ? "acp" : "argos"));
+    const getAgentType = vi.fn<(...args: any[]) => any>(async (agentId: string) =>
+      agentId === "claude-code-acp" ? "acp" : "argos",
+    );
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {
@@ -485,7 +491,9 @@ describe("RemoteControlPresenter", () => {
 
   it("falls back to channel default when no alias-equivalent agent exists", async () => {
     const configPresenter = createConfigPresenter();
-    const listAgents = vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]);
+    const listAgents = vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]);
 
     const presenter = new RemoteControlPresenter({
       configPresenter: {

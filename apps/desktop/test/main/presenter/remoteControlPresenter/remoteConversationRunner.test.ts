@@ -46,7 +46,9 @@ describe("RemoteConversationRunner", () => {
       {
         configPresenter: createConfigPresenter() as any,
         agentSessionPresenter: {
-          createDetachedSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(createSession({ agentId: "argos-alt" })),
+          createDetachedSession: vi
+            .fn<(...args: any[]) => any>()
+            .mockResolvedValue(createSession({ agentId: "argos-alt" })),
         } as any,
         agentRuntimePresenter: {} as any,
         windowPresenter: {} as any,
@@ -577,7 +579,9 @@ describe("RemoteConversationRunner", () => {
     const toolOutputImage = Buffer.from("tool output image");
     await fs.writeFile(path.join(cacheDir, "generated.png"), cachedImage);
     await fs.writeFile(path.join(cacheDir, "screenshot.png"), screenshotImage);
-    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => (name === "userData" ? userData : "/mock/path"));
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) =>
+      name === "userData" ? userData : "/mock/path",
+    );
 
     const assistantMessage = {
       id: "assistant-images",
@@ -740,7 +744,9 @@ describe("RemoteConversationRunner", () => {
   it("persists generated remote images in user data when no workspace is available", async () => {
     const userData = await fs.mkdtemp(path.join(os.tmpdir(), "argos-user-data-"));
     const image = Buffer.from("generated image without workspace");
-    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) => (name === "userData" ? userData : "/mock/path"));
+    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) =>
+      name === "userData" ? userData : "/mock/path",
+    );
 
     const assistantMessage = {
       id: "assistant-images-no-workspace",
@@ -1522,7 +1528,9 @@ describe("RemoteConversationRunner", () => {
 
   it("switches the channel default agent and starts a new session", async () => {
     const setChannelDefaultAgentId = vi.fn<(...args: any[]) => any>();
-    const createDetachedSession = vi.fn<(...args: any[]) => any>().mockResolvedValue(createSession({ id: "session-new", agentId: "codex" }));
+    const createDetachedSession = vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue(createSession({ id: "session-new", agentId: "codex" }));
     const configPresenter = createConfigPresenter({
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([
         { id: "argos", name: "Argos", type: "argos", enabled: true },
@@ -1557,7 +1565,9 @@ describe("RemoteConversationRunner", () => {
 
   it("rejects an unknown agent id", async () => {
     const configPresenter = createConfigPresenter({
-      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
+      listAgents: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
     });
     const runner = new RemoteConversationRunner(
       {

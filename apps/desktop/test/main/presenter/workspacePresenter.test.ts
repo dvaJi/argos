@@ -75,7 +75,9 @@ vi.mock("path", async () => {
 
 vi.mock("chokidar", () => ({
   FSWatcher: class {},
-  watch: vi.fn<(...args: any[]) => any>((paths: unknown, options: unknown) => chokidarState.createWatcher(paths, options)),
+  watch: vi.fn<(...args: any[]) => any>((paths: unknown, options: unknown) =>
+    chokidarState.createWatcher(paths, options),
+  ),
 }));
 
 vi.mock("child_process", () => ({

@@ -107,8 +107,12 @@ const setup = async (options?: {
   };
 
   const agentSessionPresenter = {
-    getSessionDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockResolvedValue([...(options?.disabledAgentTools ?? [])]),
-    updateSessionDisabledAgentTools: vi.fn<(...args: any[]) => any>().mockImplementation(async (_id: string, tools: string[]) => tools),
+    getSessionDisabledAgentTools: vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue([...(options?.disabledAgentTools ?? [])]),
+    updateSessionDisabledAgentTools: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (_id: string, tools: string[]) => tools),
   };
 
   const windowPresenter = {

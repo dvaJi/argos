@@ -576,7 +576,10 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValueOnce([existingAgent]).mockResolvedValueOnce([existingAgent, createdAgent]),
+      listAgents: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValueOnce([existingAgent])
+        .mockResolvedValueOnce([existingAgent, createdAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(createdAgent),
@@ -811,7 +814,9 @@ describe("ArgosAgentsSettings", () => {
     };
 
     const configPresenter = {
-      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent, acpAgent, uninstalledRegistryAgent]),
+      listAgents: vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue([existingAgent, acpAgent, uninstalledRegistryAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),

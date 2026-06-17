@@ -189,6 +189,7 @@ Options:
   --port <port>      Bind port (default: 9527, 0 for auto)
   --data-dir <path>  Data directory (default: ~/.argos-daemon)
   --token <token>    Auth token for remote access
+  --with-token       Auto-generate an auth token and print it
   --log-level <level> Log level: debug, info, warn, error (default: info)
   -h, --help         Show this help
 
@@ -210,7 +211,10 @@ Environment variables:
   }
 
   let token = opts.token;
-  if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
+  if (opts.withToken) {
+    token = generateToken();
+    console.log(`\n  Token: ${token}\n`);
+  } else if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
     token = generateToken();
     logger.info(`[daemon] No token provided, generated: ${token}`);
     logger.info(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);

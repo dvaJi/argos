@@ -14,7 +14,9 @@ vi.mock("electron", () => ({
 describe("AcpSessionPersistence remote session sync", () => {
   beforeEach(() => {
     const usableDirectories = new Set([process.cwd(), path.dirname(process.cwd()), "/home/tester"]);
-    vi.mocked<(...args: any[]) => any>(fs.existsSync).mockImplementation((target) => usableDirectories.has(String(target)));
+    vi.mocked<(...args: any[]) => any>(fs.existsSync).mockImplementation((target) =>
+      usableDirectories.has(String(target)),
+    );
     vi.mocked<(...args: any[]) => any>(fs.statSync).mockImplementation(
       (target) =>
         ({

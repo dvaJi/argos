@@ -397,7 +397,10 @@ describe("AgentToolManager read routing", () => {
       vision: providerId === "openai" && modelId === "gpt-4o",
     }));
     llmProviderPresenter.generateCompletionStandalone.mockResolvedValue("visible image description");
-    const resolveVisionTargetSpy = vi.spyOn<(...args: any[]) => any>(sessionVisionResolverModule, "resolveSessionVisionTarget");
+    const resolveVisionTargetSpy = vi.spyOn<(...args: any[]) => any>(
+      sessionVisionResolverModule,
+      "resolveSessionVisionTarget",
+    );
     const abortController = new AbortController();
 
     await manager.callTool("read", { path: "image-resolver-signal.png" }, "conv1", {

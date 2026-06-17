@@ -480,14 +480,18 @@ describe("SkillPresenter", () => {
       const firstPath = `${DEFAULT_SKILLS_DIR}/a-first/SKILL.md`;
       const secondPath = `${DEFAULT_SKILLS_DIR}/z-second/SKILL.md`;
 
-      (skillPresenter as any).collectSkillManifestPaths = vi.fn<(...args: any[]) => any>().mockReturnValue([secondPath, firstPath]);
-      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockImplementation(async (skillPath: string) => ({
-        name: "duplicate-skill",
-        description: "Duplicate skill",
-        path: skillPath,
-        skillRoot: path.dirname(skillPath),
-        category: null,
-      }));
+      (skillPresenter as any).collectSkillManifestPaths = vi
+        .fn<(...args: any[]) => any>()
+        .mockReturnValue([secondPath, firstPath]);
+      (skillPresenter as any).parseSkillMetadata = vi
+        .fn<(...args: any[]) => any>()
+        .mockImplementation(async (skillPath: string) => ({
+          name: "duplicate-skill",
+          description: "Duplicate skill",
+          path: skillPath,
+          skillRoot: path.dirname(skillPath),
+          category: null,
+        }));
 
       const skills = await skillPresenter.discoverSkills();
 
@@ -1956,7 +1960,9 @@ describe("SkillPresenter", () => {
 
       metadataCache.set(originalMetadata.name, originalMetadata);
       metadataCache.set(existingDuplicate.name, existingDuplicate);
-      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockResolvedValue(createSkillMetadata("skill-b", "skill-a"));
+      (skillPresenter as any).parseSkillMetadata = vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue(createSkillMetadata("skill-b", "skill-a"));
 
       skillPresenter.watchSkillFiles();
       const changeHandler = getWatcherHandler("change");
@@ -2000,7 +2006,9 @@ describe("SkillPresenter", () => {
       const duplicateMetadata = createSkillMetadata("skill-b", "skill-candidate");
 
       metadataCache.set(existingMetadata.name, existingMetadata);
-      (skillPresenter as any).parseSkillMetadata = vi.fn<(...args: any[]) => any>().mockResolvedValue(duplicateMetadata);
+      (skillPresenter as any).parseSkillMetadata = vi
+        .fn<(...args: any[]) => any>()
+        .mockResolvedValue(duplicateMetadata);
 
       skillPresenter.watchSkillFiles();
       const addHandler = getWatcherHandler("add");

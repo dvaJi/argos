@@ -107,13 +107,9 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   }, [open]);
 
   useEffect(() => {
-    if (window.electron) {
-      window.electron.ipcRenderer.on(ACP_DEBUG_EVENTS.EVENT, handleDebugEvent);
-    }
+    const off = window.electron?.ipcRenderer?.on(ACP_DEBUG_EVENTS.EVENT, handleDebugEvent);
     return () => {
-      if (window.electron) {
-        window.electron.ipcRenderer.removeListener(ACP_DEBUG_EVENTS.EVENT, handleDebugEvent);
-      }
+      off?.();
     };
   }, [agentId]);
 

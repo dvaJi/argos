@@ -223,9 +223,9 @@ export default function AcpSettings() {
       const timer = setTimeout(() => void loadAcpData(), 80);
       return () => clearTimeout(timer);
     };
-    window.electron?.ipcRenderer?.on(CONFIG_EVENTS.AGENTS_CHANGED, handler);
+    const off = window.electron?.ipcRenderer?.on(CONFIG_EVENTS.AGENTS_CHANGED, handler);
     return () => {
-      window.electron?.ipcRenderer?.removeListener(CONFIG_EVENTS.AGENTS_CHANGED, handler);
+      off?.();
     };
   }, []);
 

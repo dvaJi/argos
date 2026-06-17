@@ -138,7 +138,9 @@ function createMockSqlitePresenter() {
       }
     }),
     get: vi.fn<(...args: any[]) => any>((id: string) => pendingRows.find((row) => row.id === id)),
-    listBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => pendingRows.filter((row) => row.session_id === sessionId)),
+    listBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
+      pendingRows.filter((row) => row.session_id === sessionId),
+    ),
     listClaimed: vi.fn<(...args: any[]) => any>(() => pendingRows.filter((row) => row.state === "claimed")),
     listActiveBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
       pendingRows.filter((row) => row.session_id === sessionId && row.state !== "consumed"),
@@ -297,7 +299,9 @@ function createMockSqlitePresenter() {
           payload: { name: input.name, data: input.data },
         });
       }),
-      getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) => tapeEntries.filter((entry) => entry.session_id === sessionId)),
+      getBySession: vi.fn<(...args: any[]) => any>((sessionId: string) =>
+        tapeEntries.filter((entry) => entry.session_id === sessionId),
+      ),
       getLatestAnchor: vi.fn<(...args: any[]) => any>(
         (sessionId: string) =>
           tapeEntries
@@ -454,7 +458,9 @@ function createMockConfigPresenter() {
     getReasoningEffortDefault: vi.fn<(...args: any[]) => any>().mockReturnValue("medium"),
     supportsVerbosityCapability: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     getVerbosityDefault: vi.fn<(...args: any[]) => any>().mockReturnValue("medium"),
-    getCapabilityProviderId: vi.fn<(...args: any[]) => any>().mockImplementation((providerId: string, _modelId: string) => providerId),
+    getCapabilityProviderId: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation((providerId: string, _modelId: string) => providerId),
     getSkillsEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     getAutoCompactionEnabled: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     getAutoCompactionTriggerThreshold: vi.fn<(...args: any[]) => any>().mockReturnValue(80),
@@ -2242,15 +2248,19 @@ describe("AgentRuntimePresenter", () => {
         },
         reserveTokens: 4096,
       };
-      vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "prepareForNextUserTurn").mockResolvedValue(compactionIntent);
-      const applyCompaction = vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "applyCompaction").mockResolvedValue({
-        succeeded: true,
-        summaryState: {
-          summaryText: "rolled summary",
-          summaryCursorOrderSeq: 3,
-          summaryUpdatedAt: 123,
-        },
-      });
+      vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "prepareForNextUserTurn").mockResolvedValue(
+        compactionIntent,
+      );
+      const applyCompaction = vi
+        .spyOn<(...args: any[]) => any>((agent as any).compactionService, "applyCompaction")
+        .mockResolvedValue({
+          succeeded: true,
+          summaryState: {
+            summaryText: "rolled summary",
+            summaryCursorOrderSeq: 3,
+            summaryUpdatedAt: 123,
+          },
+        });
 
       await agent.initSession("s1", { providerId: "openai", modelId: "gpt-4" });
       await agent.processMessage("s1", "Hello");
@@ -3911,7 +3921,10 @@ describe("AgentRuntimePresenter", () => {
     });
 
     it("does not manually compact ACP sessions", async () => {
-      const prepareSpy = vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "prepareForManualCompaction");
+      const prepareSpy = vi.spyOn<(...args: any[]) => any>(
+        (agent as any).compactionService,
+        "prepareForManualCompaction",
+      );
       await agent.initSession("s1", {
         providerId: "acp",
         modelId: "claude-code-acp",
@@ -3924,7 +3937,10 @@ describe("AgentRuntimePresenter", () => {
     });
 
     it("does not manually compact while the session is generating", async () => {
-      const prepareSpy = vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "prepareForManualCompaction");
+      const prepareSpy = vi.spyOn<(...args: any[]) => any>(
+        (agent as any).compactionService,
+        "prepareForManualCompaction",
+      );
       await agent.initSession("s1", {
         providerId: "openai",
         modelId: "gpt-4",
@@ -3988,7 +4004,9 @@ describe("AgentRuntimePresenter", () => {
 
       const abortController = new AbortController();
       abortController.abort();
-      vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "applyCompaction").mockRejectedValueOnce(new Error("late failure"));
+      vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "applyCompaction").mockRejectedValueOnce(
+        new Error("late failure"),
+      );
 
       await expect(
         (agent as any).applyCompactionIntent(
@@ -4221,7 +4239,10 @@ describe("AgentRuntimePresenter", () => {
     };
 
     it("handles question_option and resumes assistant message", async () => {
-      const prepareForResumeTurn = vi.spyOn<(...args: any[]) => any>((agent as any).compactionService, "prepareForResumeTurn");
+      const prepareForResumeTurn = vi.spyOn<(...args: any[]) => any>(
+        (agent as any).compactionService,
+        "prepareForResumeTurn",
+      );
       await agent.initSession("s1", { providerId: "openai", modelId: "gpt-4" });
       makeAssistantRow({
         blocks: [
@@ -4444,7 +4465,10 @@ describe("AgentRuntimePresenter", () => {
         skillName: "draft-skill",
         installedSkillName: "draft-skill",
       });
-      const invalidateSystemPromptCache = vi.spyOn<(...args: any[]) => any>(agent as any, "invalidateSystemPromptCache");
+      const invalidateSystemPromptCache = vi.spyOn<(...args: any[]) => any>(
+        agent as any,
+        "invalidateSystemPromptCache",
+      );
       const invalidateToolProfileCache = vi.spyOn<(...args: any[]) => any>(agent as any, "invalidateToolProfileCache");
       await agent.initSession("s1", { providerId: "openai", modelId: "gpt-4" });
       invalidateSystemPromptCache.mockClear();
@@ -5370,11 +5394,13 @@ describe("AgentRuntimePresenter", () => {
       sqlitePresenter.argosMessagesTable.get.mockImplementation((id: string) => (id === row.id ? row : undefined));
       sqlitePresenter.argosMessagesTable.getBySession.mockReturnValue([row]);
 
-      const executeDeferredToolCallSpy = vi.spyOn<(...args: any[]) => any>(agent as any, "executeDeferredToolCall").mockResolvedValue({
-        responseText: "terminal failure",
-        isError: true,
-        terminalError: "terminal failure",
-      });
+      const executeDeferredToolCallSpy = vi
+        .spyOn<(...args: any[]) => any>(agent as any, "executeDeferredToolCall")
+        .mockResolvedValue({
+          responseText: "terminal failure",
+          isError: true,
+          terminalError: "terminal failure",
+        });
 
       try {
         const result = await agent.respondToolInteraction("s1", "m1", "tc1", {
@@ -5709,7 +5735,9 @@ describe("AgentRuntimePresenter", () => {
           server: { name: "agent", icons: "", description: "" },
         },
       ]);
-      const emitMessageRefreshSpy = vi.spyOn<(...args: any[]) => any>(agent as any, "emitMessageRefresh").mockImplementation(() => {});
+      const emitMessageRefreshSpy = vi
+        .spyOn<(...args: any[]) => any>(agent as any, "emitMessageRefresh")
+        .mockImplementation(() => {});
       toolPresenter.callTool.mockImplementationOnce(async (_request: unknown, options?: any) => {
         options?.onProgress?.({
           kind: "subagent_orchestrator",

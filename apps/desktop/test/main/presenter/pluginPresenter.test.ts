@@ -55,9 +55,11 @@ const createPluginPresenter = async (
     addMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string, config: unknown) => {
       mcpServers[serverName] = config;
     }),
-    updateMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string, config: unknown) => {
-      mcpServers[serverName] = config;
-    }),
+    updateMcpServer: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (serverName: string, config: unknown) => {
+        mcpServers[serverName] = config;
+      }),
     removeMcpServer: vi.fn<(...args: any[]) => any>().mockImplementation(async (serverName: string) => {
       delete mcpServers[serverName];
     }),

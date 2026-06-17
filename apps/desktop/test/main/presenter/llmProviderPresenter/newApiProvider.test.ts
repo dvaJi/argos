@@ -101,7 +101,9 @@ const createConfigPresenter = (
 ): IConfigPresenter =>
   ({
     getProviders: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
-    getProviderModels: vi.fn<(...args: any[]) => any>((providerId: string) => providerModelsByProviderId[providerId] ?? []),
+    getProviderModels: vi.fn<(...args: any[]) => any>(
+      (providerId: string) => providerModelsByProviderId[providerId] ?? [],
+    ),
     getCustomModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     getDbProviderModels: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
     getModelConfig: vi.fn<(...args: any[]) => any>((modelId: string) => ({
@@ -281,12 +283,16 @@ describe("NewApiProvider capability routing", () => {
         },
       },
     } as any;
-    const capabilityMatchSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
-      providerId: "anthropic",
-      modelId: "claude-opus-4-8",
-      model: capabilityModel,
-    });
-    const supportsReasoningSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning").mockReturnValue(true);
+    const capabilityMatchSpy = vi
+      .spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch")
+      .mockReturnValue({
+        providerId: "anthropic",
+        modelId: "claude-opus-4-8",
+        model: capabilityModel,
+      });
+    const supportsReasoningSpy = vi
+      .spyOn<(...args: any[]) => any>(modelCapabilities, "supportsReasoning")
+      .mockReturnValue(true);
     const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
       json: vi.fn<(...args: any[]) => any>().mockResolvedValue({
@@ -435,13 +441,15 @@ describe("NewApiProvider capability routing", () => {
   });
 
   it("keeps OpenAI-compatible owners on openai endpoints while using provider DB capability matches", () => {
-    const capabilityMatchSpy = vi.spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch").mockReturnValue({
-      providerId: "alibaba-cn",
-      modelId: "qwen3.7-max",
-      model: {
-        id: "qwen3.7-max",
-      } as any,
-    });
+    const capabilityMatchSpy = vi
+      .spyOn<(...args: any[]) => any>(modelCapabilities, "findCapabilityModelMatch")
+      .mockReturnValue({
+        providerId: "alibaba-cn",
+        modelId: "qwen3.7-max",
+        model: {
+          id: "qwen3.7-max",
+        } as any,
+      });
     const provider = new AiSdkProvider(
       createProvider(),
       createConfigPresenter(

@@ -30,7 +30,11 @@ vi.mock("electron", () => ({
     loadURL: vi.fn<(...args: any[]) => any>(),
     loadFile: vi.fn<(...args: any[]) => any>(),
     on: vi.fn<(...args: any[]) => any>(),
-    webContents: { send: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>(), isDestroyed: vi.fn<(...args: any[]) => any>(() => false) },
+    webContents: {
+      send: vi.fn<(...args: any[]) => any>(),
+      on: vi.fn<(...args: any[]) => any>(),
+      isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+    },
     isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
     close: vi.fn<(...args: any[]) => any>(),
     show: vi.fn<(...args: any[]) => any>(),
@@ -167,7 +171,9 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("does not trigger an extra startup refresh for non DB-backed providers", async () => {
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(createConfigPresenter(), mockSqlitePresenter);
     await Promise.resolve();
@@ -178,7 +184,9 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("re-syncs enabled DB-backed provider models when provider-db updates", async () => {
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     new LLMProviderPresenter(
       createConfigPresenter(
@@ -204,7 +212,9 @@ describe("LLMProviderPresenter background model sync", () => {
   });
 
   it("ignores provider-db updates for providers that do not use the provider DB catalog", async () => {
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     new LLMProviderPresenter(createConfigPresenter(), mockSqlitePresenter);
     await Promise.resolve();
@@ -273,7 +283,9 @@ describe("LLMProviderPresenter background model sync", () => {
       baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
     });
     const configPresenter = createConfigPresenter(provider);
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
     await presenter.refreshModels("doubao");
@@ -299,7 +311,9 @@ describe("LLMProviderPresenter background model sync", () => {
       providersCount: 1,
       message: "network down",
     });
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
 
@@ -309,7 +323,9 @@ describe("LLMProviderPresenter background model sync", () => {
 
   it("does not refresh provider DB for providers that manage models themselves", async () => {
     const configPresenter = createConfigPresenter();
-    const refreshSpy = vi.spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels").mockResolvedValue(undefined);
+    const refreshSpy = vi
+      .spyOn<(...args: any[]) => any>(AiSdkProvider.prototype, "refreshModels")
+      .mockResolvedValue(undefined);
 
     const presenter = new LLMProviderPresenter(configPresenter, mockSqlitePresenter);
     await presenter.refreshModels("novita");

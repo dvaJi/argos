@@ -5,7 +5,11 @@ import { AgentSessionPresenter } from "@/presenter/agentSessionPresenter/index";
 vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-session-id") }));
 
 vi.mock("@/eventbus", () => ({
-  eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), sendToMain: vi.fn<(...args: any[]) => any>(), on: vi.fn<(...args: any[]) => any>() },
+  eventBus: {
+    sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    sendToMain: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+  },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
@@ -30,8 +34,14 @@ vi.mock("@/presenter", () => ({
       approve: vi.fn<(...args: any[]) => any>(),
       clearConversation: vi.fn<(...args: any[]) => any>(),
     },
-    filePermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
-    settingsPermissionService: { approve: vi.fn<(...args: any[]) => any>(), clearConversation: vi.fn<(...args: any[]) => any>() },
+    filePermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
+    settingsPermissionService: {
+      approve: vi.fn<(...args: any[]) => any>(),
+      clearConversation: vi.fn<(...args: any[]) => any>(),
+    },
     mcpPresenter: {
       grantPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     },
@@ -115,7 +125,9 @@ function createMockConfigPresenter() {
     getSetting: vi.fn<(...args: any[]) => any>().mockReturnValue(undefined),
     getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
     getAcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
-    listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
+    listAgents: vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue([{ id: "argos", name: "Argos", type: "argos", enabled: true }]),
     getAgentType: vi.fn<(...args: any[]) => any>().mockImplementation(async (agentId: string) => {
       if (agentId === "argos") {
         return "argos";

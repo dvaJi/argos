@@ -410,7 +410,9 @@ description: A test skill
         isFile: () => true,
         mtime: new Date(),
       } as fs.Stats);
-      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValueOnce("---\nname: valid\n---\n# Content");
+      vi.mocked<(...args: any[]) => any>(fs.promises.readFile).mockResolvedValueOnce(
+        "---\nname: valid\n---\n# Content",
+      );
       vi.mocked<(...args: any[]) => any>(fs.promises.stat).mockResolvedValueOnce({
         mtime: new Date(),
       } as fs.Stats);

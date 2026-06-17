@@ -207,7 +207,8 @@ describe("ProviderApiConfig", () => {
 
   it("requests the presenter with safeCall disabled so refresh errors can surface", async () => {
     const useLegacyPresenter = vi.fn<(...args: any[]) => any>((name: string) => {
-      if (name === "llmproviderPresenter") return { getKeyStatus: vi.fn<(...args: any[]) => any>(), refreshModels: vi.fn<(...args: any[]) => any>() };
+      if (name === "llmproviderPresenter")
+        return { getKeyStatus: vi.fn<(...args: any[]) => any>(), refreshModels: vi.fn<(...args: any[]) => any>() };
       throw new Error(`Unexpected presenter: ${name}`);
     });
 

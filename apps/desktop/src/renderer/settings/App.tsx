@@ -478,16 +478,12 @@ export default function SettingsApp() {
       void handleProviderInstall();
     };
 
-    if (window?.electron?.ipcRenderer) {
-      window.electron.ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-      window.electron.ipcRenderer.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
-    }
+    const offNav = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+    const offInst = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
 
     return () => {
-      if (window?.electron?.ipcRenderer) {
-        window.electron.ipcRenderer.removeListener(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-        window.electron.ipcRenderer.removeListener(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
-      }
+      offNav?.();
+      offInst?.();
     };
   }, [handleSettingsNavigate, handleProviderInstall]);
 

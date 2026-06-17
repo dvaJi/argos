@@ -348,7 +348,9 @@ function createRuntime() {
         window.focused = false;
       }
     }),
-    isMainWindowFocused: vi.fn<(...args: any[]) => any>((windowId: number) => browserWindowState.windows.get(windowId)?.focused ?? false),
+    isMainWindowFocused: vi.fn<(...args: any[]) => any>(
+      (windowId: number) => browserWindowState.windows.get(windowId)?.focused ?? false,
+    ),
     getFloatingChatWindow: vi.fn<(...args: any[]) => any>(() => ({
       getWindow: () => browserWindowState.windows.get(19) ?? null,
     })),
@@ -467,15 +469,17 @@ function createRuntime() {
 
   const yoBrowserPresenter = {
     getBrowserStatus: vi.fn<(...args: any[]) => any>().mockResolvedValue(browserStatus),
-    loadUrl: vi.fn<(...args: any[]) => any>(async (sessionId: string, url: string, timeoutMs?: number, hostWindowId?: number) => ({
-      ...browserStatus,
-      page: {
-        ...browserStatus.page,
-        id: `${sessionId}-${hostWindowId ?? "none"}`,
-        url,
-        updatedAt: timeoutMs ?? 2,
-      },
-    })),
+    loadUrl: vi.fn<(...args: any[]) => any>(
+      async (sessionId: string, url: string, timeoutMs?: number, hostWindowId?: number) => ({
+        ...browserStatus,
+        page: {
+          ...browserStatus.page,
+          id: `${sessionId}-${hostWindowId ?? "none"}`,
+          url,
+          updatedAt: timeoutMs ?? 2,
+        },
+      }),
+    ),
     attachSessionBrowser: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     updateSessionBrowserBounds: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     detachSessionBrowser: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),

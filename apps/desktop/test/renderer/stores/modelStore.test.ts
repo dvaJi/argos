@@ -745,7 +745,9 @@ describe("modelStore.initialize", () => {
           ];
         }),
         getCustomModels: vi.fn<(...args: any[]) => any>(async () => []),
-        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async (providerId: string) => (providerId === "openai" ? { "gpt-5": true } : {})),
+        getBatchModelStatus: vi.fn<(...args: any[]) => any>(async (providerId: string) =>
+          providerId === "openai" ? { "gpt-5": true } : {},
+        ),
       },
     });
 
