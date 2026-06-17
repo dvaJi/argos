@@ -21,6 +21,7 @@ import type { SkillMetadata } from "@shared/types/skill";
 import SkillCard from "./SkillCard";
 import SkillInstallDialog from "./SkillInstallDialog";
 import SkillEditorSheet from "./SkillEditorSheet";
+import SkillsSourceTabs from "./SkillsSourceTabs";
 import SyncStatusSection from "./SyncStatusSection";
 import SyncPromptDialog from "./SyncPromptDialog";
 import { SkillSyncDialog } from "./SkillSyncDialog";
@@ -32,6 +33,7 @@ export default function SkillsSettings() {
   const configPresenter = useLegacyPresenter("configPresenter");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<string>("all");
   const [draftSuggestionsEnabled, setDraftSuggestionsEnabled] = useState(false);
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
@@ -45,10 +47,24 @@ export default function SkillsSettings() {
   const loading = skillsStore.loading;
 
   const filteredSkills = useMemo(() => {
-    if (!searchQuery) return skills;
-    const q = searchQuery.toLowerCase();
-    return skills.filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
-  }, [skills, searchQuery]);
+    let result = skills;
+
+    if (activeTab !== "all") {
+      result = result.filter((s) => {
+        const sourceId = s.sourceId ?? s.source ?? "unknown";
+        return sourceId === activeTab;
+      });
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q),
+      );
+    }
+
+    return result;
+  }, [skills, activeTab, searchQuery]);
 
   useEffect(() => {
     const init = async () => {
@@ -134,6 +150,8 @@ export default function SkillsSettings() {
           </Button>
         </template>
 
+        <SkillsSourceTabs skills={skills} activeTab={activeTab} onTabChange={setActiveTab} />
+
         <div>
           <Separator className="my-4" />
 
@@ -173,7 +191,13 @@ export default function SkillsSettings() {
           {!loading && filteredSkills.length === 0 && (
             <div className="flex flex-col items-center justify-center py-8">
               <Icon icon="lucide:wand-sparkles" className="w-12 h-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground text-sm">{searchQuery ? "No results" : "No skills installed"}</p>
+              <p className="text-muted-foreground text-sm">
+                {searchQuery
+                  ? "No results"
+                  : activeTab === "all"
+                    ? "No skills installed"
+                    : `No skills from this source`}
+              </p>
             </div>
           )}
 
