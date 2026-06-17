@@ -3,6 +3,7 @@ import { useSelector } from "@tanstack/react-store";
 import { agentStore } from "@/stores/ui/agent";
 import { createSettingsClient } from "@api/SettingsClient";
 import AgentAvatar from "@/components/icons/AgentAvatar";
+import logoDark from "@/assets/logo-dark.png";
 
 const settingsClient = createSettingsClient();
 
@@ -24,7 +25,7 @@ export function AgentWelcomePage() {
     <div className="h-full w-full flex flex-col" style={{ WebkitAppRegion: "drag" } as CSSProperties}>
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="mb-5">
-          <img src={new URL("@/assets/logo-dark.png", import.meta.url).href} className="w-16 h-16" loading="lazy" />
+          <img src={logoDark} className="w-16 h-16" loading="lazy" />
         </div>
 
         <h1 className="mb-10 text-3xl font-semibold text-foreground">Select an Agent</h1>

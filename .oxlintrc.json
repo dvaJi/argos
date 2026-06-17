@@ -6,20 +6,20 @@
     "react/exhaustive-deps": "off"
   },
   "ignorePatterns": [
-    "**/node_modules",
-    "**/dist",
-    "**/out",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/out/**",
     ".gitignore",
     ".github",
     ".cursor",
     ".vscode",
-    "build/**",
-    "resources/**",
-    "scripts/**",
-    "runtime/**",
-    "docs/**",
-    "test/**",
-    "src/shared/**",
-    "src/shadcn/**"
+    "**/build/**",
+    "**/resources/**",
+    "**/scripts/**",
+    "**/runtime/**",
+    "**/docs/**",
+    "**/test/**",
+    "**/src/shared/**",
+    "**/src/shadcn/**"
   ]
 }

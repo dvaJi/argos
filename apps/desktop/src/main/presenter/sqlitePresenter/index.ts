@@ -291,50 +291,9 @@ export class SQLitePresenter implements ISQLitePresenter {
   private initializeDatabase(): void {
     this.db = openSQLiteDatabase(this.dbPath, this.password);
     this.db.prepare("SELECT 1").get();
-    this.renameLegacyArgosTables();
     this.initTables();
     this.initVersionTable();
     this.migrate();
-  }
-
-  private renameLegacyArgosTables(): void {
-    const legacyTableMap: Array<[string, string]> = [
-      ["deepchat_sessions", "argos_sessions"],
-      ["deepchat_messages", "argos_messages"],
-      ["deepchat_user_messages", "argos_user_messages"],
-      ["deepchat_user_message_files", "argos_user_message_files"],
-      ["deepchat_user_message_links", "argos_user_message_links"],
-      ["deepchat_assistant_blocks", "argos_assistant_blocks"],
-      ["deepchat_message_traces", "argos_message_traces"],
-      ["deepchat_message_search_results", "argos_message_search_results"],
-      ["deepchat_search_documents", "argos_search_documents"],
-      ["deepchat_pending_inputs", "argos_pending_inputs"],
-      ["deepchat_usage_stats", "argos_usage_stats"],
-      ["deepchat_tape_entries", "argos_tape_entries"],
-    ];
-
-    for (const [legacyName, newName] of legacyTableMap) {
-      try {
-        const legacyExists = this.db
-          .prepare("SELECT 1 FROM sqlite_master WHERE type IN ('table','view') AND name = ?")
-          .get(legacyName);
-        if (!legacyExists) {
-          continue;
-        }
-
-        const newExists = this.db
-          .prepare("SELECT 1 FROM sqlite_master WHERE type IN ('table','view') AND name = ?")
-          .get(newName);
-        if (newExists) {
-          continue;
-        }
-
-        this.db.exec(`ALTER TABLE "${legacyName}" RENAME TO "${newName}";`);
-        console.log(`[migration] Renamed legacy table ${legacyName} -> ${newName}`);
-      } catch (error) {
-        console.warn(`[migration] Failed to rename legacy table ${legacyName}:`, error);
-      }
-    }
   }
 
   private handleInitializationError(error: unknown): void {

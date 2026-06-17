@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@shadcn/components/ui/dropdown-menu";
 import ChatInputBox from "@/components/chat/ChatInputBox";
+import logoDark from "@/assets/logo-dark.png";
 import ChatInputToolbar from "@/components/chat/ChatInputToolbar";
 import ChatStatusBar from "@/components/chat/ChatStatusBar";
 import { useToast } from "@/components/use-toast";
@@ -716,7 +717,7 @@ export function NewThreadPage() {
       <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="mb-4">
-            <img src={new URL("@/assets/logo-dark.png", import.meta.url).href} className="w-14 h-14" loading="lazy" />
+            <img src={logoDark} className="w-14 h-14" loading="lazy" />
           </div>
 
           <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>

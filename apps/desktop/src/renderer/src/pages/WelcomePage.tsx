@@ -6,6 +6,7 @@ import { goToNewThread as goToNewThreadAction } from "@/stores/ui/pageRouter";
 import { createConfigClient } from "@api/ConfigClient";
 import { createOnboardingClient } from "@api/OnboardingClient";
 import { persistGuidedOnboardingResumeIntent, type GuidedOnboardingResumeTrigger } from "@/lib/onboardingResume";
+import logoDark from "@/assets/logo-dark.png";
 import {
   getNextGuidedOnboardingStepId,
   getPreviousGuidedOnboardingStepId,
@@ -375,7 +376,7 @@ export function WelcomePage() {
 
       <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 sm:justify-center">
         <div className="mb-5">
-          <img src={new URL("@/assets/logo-dark.png", import.meta.url).href} className="w-16 h-16" loading="lazy" />
+          <img src={logoDark} className="w-16 h-16" loading="lazy" />
         </div>
 
         <h1 className="text-3xl font-semibold text-foreground mb-2">Welcome</h1>

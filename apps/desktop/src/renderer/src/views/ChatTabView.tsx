@@ -80,22 +80,23 @@ export function ChatTabView() {
           activeSessionId: sessionStore.state.activeSessionId ?? null,
         });
       } finally {
-        if (cancelled) return;
-        setIsReady(true);
-        console.info("[Startup][Renderer] ChatTabView interactive ready");
+        if (!cancelled) {
+          setIsReady(true);
+          console.info("[Startup][Renderer] ChatTabView interactive ready");
 
-        if (!sessionStore.state.hasLoadedInitialPage) {
-          void fetchSessions();
-        }
-
-        markStartupInteractive();
-        cancelDeferredHydrationRef.current = scheduleStartupDeferredTask(async () => {
-          console.info("[Startup][Renderer] ChatTabView deferred hydration begin");
-          if (criticalLoadPromises) {
-            await criticalLoadPromises;
+          if (!sessionStore.state.hasLoadedInitialPage) {
+            void fetchSessions();
           }
-          console.info("[Startup][Renderer] ChatTabView deferred hydration complete");
-        });
+
+          markStartupInteractive();
+          cancelDeferredHydrationRef.current = scheduleStartupDeferredTask(async () => {
+            console.info("[Startup][Renderer] ChatTabView deferred hydration begin");
+            if (criticalLoadPromises) {
+              await criticalLoadPromises;
+            }
+            console.info("[Startup][Renderer] ChatTabView deferred hydration complete");
+          });
+        }
       }
     };
 
