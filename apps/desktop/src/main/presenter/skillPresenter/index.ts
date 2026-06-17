@@ -30,6 +30,19 @@ import logger from "@shared/logger";
 import { normalizeSkillAllowedTools } from "./toolNameMapping";
 import { discoverSkillMetadataInWorker, logSkillDiscoveryWorkerWarnings } from "./discoveryWorker";
 
+interface ExternalSkillSource {
+  id: string;
+  label: string;
+  dir: string;
+}
+
+const EXTERNAL_SKILL_SOURCES: ExternalSkillSource[] = [
+  { id: "claude-code", label: "Claude Code", dir: "~/.claude/skills" },
+  { id: "codex", label: "OpenAI Codex", dir: "~/.codex/skills" },
+  { id: "cursor", label: "Cursor", dir: "~/.cursor/skills" },
+  { id: "agents", label: "Global", dir: "~/.agents/skills" },
+];
+
 /**
  * Skill system configuration constants
  */
@@ -309,13 +322,24 @@ export class SkillPresenter implements ISkillPresenter {
         maxDepth: SKILL_CONFIG.FOLDER_TREE_MAX_DEPTH,
       });
       logSkillDiscoveryWorkerWarnings(workerResult.warnings);
-      discoveredSkills = workerResult.skills;
+      discoveredSkills = workerResult.skills.map((skill) => ({
+        ...skill,
+        source: "global" as const,
+        sourceLabel: "Argos",
+      }));
     } catch (error) {
       console.warn("[SkillPresenter] Worker discovery failed, falling back to main thread:", error);
-      discoveredSkills = await this.discoverSkillsOnMainThread();
+      discoveredSkills = (await this.discoverSkillsOnMainThread()).map((skill) => ({
+        ...skill,
+        source: "global" as const,
+        sourceLabel: "Argos",
+      }));
     }
 
-    for (const metadata of [...discoveredSkills, ...(await this.discoverPluginSkillsOnMainThread())]) {
+    const externalSkills = await this.discoverExternalSkills();
+    const pluginSkills = await this.discoverPluginSkillsOnMainThread();
+
+    for (const metadata of [...discoveredSkills, ...externalSkills, ...pluginSkills]) {
       if (this.metadataCache.has(metadata.name)) {
         logger.warn("[SkillPresenter] Duplicate skill name discovered. Keeping the first entry.", {
           name: metadata.name,
@@ -386,6 +410,37 @@ export class SkillPresenter implements ISkillPresenter {
     }
 
     return discovered;
+  }
+
+  private async discoverExternalSkills(): Promise<SkillMetadata[]> {
+    const results: SkillMetadata[] = [];
+    const homeDir = app.getPath("home");
+
+    for (const source of EXTERNAL_SKILL_SOURCES) {
+      const expandedDir = source.dir.replace("~", homeDir);
+      if (!fs.existsSync(expandedDir)) continue;
+
+      try {
+        const workerResult = await discoverSkillMetadataInWorker({
+          skillsDir: expandedDir,
+          sidecarDirName: SKILL_CONFIG.SIDECAR_DIR,
+          maxDepth: 1,
+        });
+
+        for (const skill of workerResult.skills) {
+          results.push({
+            ...skill,
+            source: "external",
+            sourceId: source.id,
+            sourceLabel: source.label,
+          });
+        }
+      } catch (error) {
+        console.warn(`[SkillPresenter] Failed to discover skills from ${source.label}:`, error);
+      }
+    }
+
+    return results;
   }
 
   /**
