@@ -29,6 +29,12 @@ export interface SkillMetadata {
   allowedTools?: string[];
   /** Plugin owner id when the skill is contributed by a plugin */
   ownerPluginId?: string;
+  /** Source where this skill was discovered */
+  source?: "builtin" | "global" | "external";
+  /** Identifier for external source (e.g., "claude-code", "codex") */
+  sourceId?: string;
+  /** Human-readable source label (e.g., "Claude Code", "OpenAI Codex") */
+  sourceLabel?: string;
 }
 
 /**
