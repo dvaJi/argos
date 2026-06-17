@@ -198,3 +198,38 @@ if (!catalogListenerRegistered) {
 export function useSkillsStore() {
   return useStore(skillsStore);
 }
+
+export interface SkillSourceGroup {
+  id: string;
+  label: string;
+  skills: SkillMetadata[];
+}
+
+export function groupSkillsBySource(skills: SkillMetadata[]): SkillSourceGroup[] {
+  const sourceMap = new Map<string, { label: string; skills: SkillMetadata[] }>();
+
+  for (const skill of skills) {
+    const sourceId = skill.sourceId ?? skill.source ?? "unknown";
+    const label = skill.sourceLabel ?? skill.source ?? "Unknown";
+    const existing = sourceMap.get(sourceId);
+    if (existing) {
+      existing.skills.push(skill);
+    } else {
+      sourceMap.set(sourceId, { label, skills: [skill] });
+    }
+  }
+
+  const groups: SkillSourceGroup[] = [];
+  for (const [id, { label, skills }] of sourceMap) {
+    groups.push({ id, label, skills });
+  }
+
+  // Sort: builtin/Argos first, then alphabetical
+  groups.sort((a, b) => {
+    if (a.id === "builtin" || a.label === "Argos") return -1;
+    if (b.id === "builtin" || b.label === "Argos") return 1;
+    return a.label.localeCompare(b.label);
+  });
+
+  return groups;
+}
