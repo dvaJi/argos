@@ -957,7 +957,7 @@ export class PluginPresenter {
   private isPluginPlatformSupported(manifest: ArgosPluginManifest): boolean {
     const platforms = new Set(manifest.engines.platforms.map((platform) => platform.toLowerCase()));
     const aliases = this.platform === "darwin" ? ["darwin", "macos", "mac"] : [this.platform];
-    return aliases.some(platforms.has);
+    return aliases.some((alias) => platforms.has(alias));
   }
 
   private installResolvedPlugin(plugin: ResolvedOfficialPlugin): string {

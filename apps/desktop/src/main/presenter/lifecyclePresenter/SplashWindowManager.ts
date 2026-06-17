@@ -157,7 +157,7 @@ export class SplashWindowManager implements ISplashWindowManager {
         show: false, // Hide initially; wait for ready-to-show to avoid a white flash
         autoHideMenuBar: true,
         skipTaskbar: true,
-        backgroundColor: "#020817",
+        backgroundColor: "#0B0E14",
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
@@ -586,42 +586,139 @@ export class SplashWindowManager implements ISplashWindowManager {
     <title>Argos</title>
     <style>
       * { box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; margin: 0; background: #020817; color: #fff; overflow: hidden; }
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      .shell { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 32px; }
-      .panel { width: min(340px, 100%); display: flex; flex-direction: column; gap: 11px; }
-      .title { font-size: 22px; font-weight: 600; }
-      .subtitle, .hint, label { color: rgba(255,255,255,.72); font-size: 13px; line-height: 1.45; }
-      label { margin-top: 8px; font-size: 12px; }
-      input { height: 36px; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; outline: none; background: rgba(255,255,255,.08); color: white; padding: 0 10px; }
-      input:focus { border-color: rgba(255,255,255,.42); }
+      :root {
+        --splash-bg: #0B0E14;
+        --splash-ink: #FFFFFF;
+        --splash-ink-dim: rgba(255,255,255,0.62);
+        --splash-ink-faint: rgba(255,255,255,0.32);
+        --splash-accent: #22B8FF;
+        --splash-border: rgba(255,255,255,0.10);
+        --splash-border-strong: rgba(255,255,255,0.18);
+        --status-failed-ink: #F87171;
+        --status-running-bg: rgba(34,184,255,0.08);
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --splash-bg: #F5F6F8;
+          --splash-ink: #0E1623;
+          --splash-ink-dim: #414C60;
+          --splash-ink-faint: #6B7585;
+          --splash-accent: #0072B5;
+          --splash-border: rgba(14,22,35,0.08);
+          --splash-border-strong: rgba(14,22,35,0.16);
+          --status-failed-ink: #DC2626;
+          --status-running-bg: rgba(0,114,181,0.08);
+          color-scheme: light;
+        }
+      }
+      html, body {
+        width: 100%; height: 100%; margin: 0;
+        background: var(--splash-bg); color: var(--splash-ink);
+        overflow: hidden;
+        font-family: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .shell {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        padding: 24px;
+      }
+      .stage {
+        display: flex; flex-direction: column; align-items: center; gap: 16px;
+        width: 100%; max-width: 340px;
+      }
+      .wordmark {
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--splash-ink-dim); margin: 0;
+      }
+      .arc {
+        position: relative; width: 200px; height: 1px; margin: 8px 0 16px;
+      }
+      .arc__track, .arc__fill {
+        position: absolute; inset: 0; height: 1px; border-radius: 999px;
+      }
+      .arc__track { background: var(--splash-ink-faint); }
+      .arc__fill { background: var(--splash-accent); width: 0%; transition: width 90ms cubic-bezier(0.2,0,0,1); }
+      .arc__head {
+        position: absolute; top: 50%; left: 0%;
+        width: 6px; height: 6px; margin: -3px 0 0 -3px;
+        background: var(--splash-accent); border-radius: 999px;
+        transition: left 90ms cubic-bezier(0.2,0,0,1);
+      }
+      .panel {
+        display: flex; flex-direction: column; gap: 11px; width: 100%;
+        padding: 24px;
+        border: 1px solid var(--splash-border-strong); border-radius: 6px;
+        background: transparent;
+      }
+      .title {
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--splash-ink); margin: 0;
+      }
+      .subtitle, .hint, label {
+        color: var(--splash-ink-dim); font-size: 13px; line-height: 1.45; margin: 0;
+      }
+      label {
+        margin-top: 8px; font-size: 11px;
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        letter-spacing: 0.04em; text-transform: uppercase;
+      }
+      input {
+        height: 36px; border: 1px solid var(--splash-border); border-radius: 6px;
+        outline: none; background: transparent; color: var(--splash-ink);
+        padding: 0 10px;
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+        font-size: 13px; caret-color: var(--splash-accent);
+        transition: border-color 90ms cubic-bezier(0.2,0,0,1);
+      }
+      input:focus { border-color: var(--splash-accent); }
+      .error {
+        color: var(--status-failed-ink); font-size: 11px;
+        font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+      }
       .actions { display: flex; gap: 8px; margin-top: 4px; }
-      button { height: 34px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; background: rgba(255,255,255,.08); color: white; padding: 0 14px; font-size: 13px; }
-      button.primary { border-color: #60a5fa; background: #2563eb; }
-      button:disabled { opacity: .58; }
-      .error { color: #fca5a5; font-size: 12px; }
+      button {
+        height: 34px; border: 1px solid var(--splash-border); border-radius: 6px;
+        background: transparent; color: var(--splash-ink);
+        padding: 0 14px; font-size: 13px; cursor: pointer;
+        transition: background-color 90ms cubic-bezier(0.2,0,0,1);
+      }
+      button:hover:not(:disabled) { background: var(--status-running-bg); }
+      button:disabled { cursor: default; opacity: 0.5; }
+      button.primary { border-color: var(--splash-accent); color: var(--splash-accent); }
       [hidden] { display: none !important; }
     </style>
   </head>
   <body>
     <div class="shell">
-      <form id="panel" class="panel">
-        <div class="title">Argos</div>
-        <div id="subtitle" class="subtitle">Unlocking local database</div>
-        <label id="label" for="password" hidden>SQLite password</label>
-        <input id="password" type="password" autocomplete="current-password" hidden />
-        <div id="error" class="error" hidden>Wrong password. Try again.</div>
-        <div id="actions" class="actions" hidden>
-          <button id="submit" class="primary" type="submit" disabled>Unlock</button>
-          <button id="quit" type="button">Quit</button>
+      <div class="stage">
+        <h1 class="wordmark">Argos</h1>
+        <div class="arc" aria-hidden="true">
+          <div class="arc__track"></div>
+          <div class="arc__fill" id="arcFill"></div>
+          <div class="arc__head" id="arcHead"></div>
         </div>
-        <p id="hint" class="hint">Argos is reading the saved password from the system credential store.</p>
-      </form>
+        <form id="panel" class="panel">
+          <h2 id="title" class="title">Argos</h2>
+          <p id="subtitle" class="subtitle">Unlocking local database</p>
+          <label id="label" for="password" hidden>SQLite password</label>
+          <input id="password" type="password" autocomplete="current-password" hidden />
+          <div id="error" class="error" hidden>Wrong password. Try again.</div>
+          <div id="actions" class="actions" hidden>
+            <button id="submit" class="primary" type="submit" disabled>Unlock</button>
+            <button id="quit" type="button">Quit</button>
+          </div>
+          <p id="hint" class="hint">Argos is reading the saved password from the system credential store.</p>
+        </form>
+      </div>
     </div>
     <script>
       const ipc = window.electron && window.electron.ipcRenderer
       let requestId = ''
       const panel = document.getElementById('panel')
+      const title = document.getElementById('title')
       const subtitle = document.getElementById('subtitle')
       const label = document.getElementById('label')
       const password = document.getElementById('password')
@@ -630,8 +727,15 @@ export class SplashWindowManager implements ISplashWindowManager {
       const submit = document.getElementById('submit')
       const quit = document.getElementById('quit')
       const hint = document.getElementById('hint')
+      const arcFill = document.getElementById('arcFill')
+      const arcHead = document.getElementById('arcHead')
+      const setArc = (pct) => {
+        arcFill.style.width = pct + '%'
+        arcHead.style.left = pct + '%'
+      }
       const setUnlock = (payload) => {
         requestId = payload.requestId
+        title.textContent = 'Argos'
         subtitle.textContent = 'Local database is encrypted'
         label.hidden = false
         password.hidden = false
@@ -665,8 +769,10 @@ export class SplashWindowManager implements ISplashWindowManager {
       ipc && ipc.on(${requestChannel}, (_event, payload) => setUnlock(payload))
       ipc && ipc.on(${progressChannel}, (_event, payload) => {
         if (payload && payload.active && !requestId) {
+          title.textContent = 'Argos'
           subtitle.textContent = 'Unlocking local database'
           hint.textContent = 'Argos is reading the saved password from the system credential store.'
+          setArc(35)
         }
       })
     </script>

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 export type SidecarOptions = {
@@ -26,7 +27,14 @@ function findDaemonExecutable(): string {
   const isDev = process.env.NODE_ENV === "development";
 
   if (isDev) {
-    return join(process.cwd(), "apps", "daemon", "src", "index.ts");
+    // The electron main bundle runs with cwd = apps/desktop, so the daemon source
+    // at <repo-root>/apps/daemon/src/index.ts resolves incorrectly as a doubled
+    // path. Try candidate roots and pick the first that exists.
+    const candidates = [
+      join(process.cwd(), "apps", "daemon", "src", "index.ts"), // cwd = repo root
+      join(process.cwd(), "..", "daemon", "src", "index.ts"), // cwd = apps/desktop
+    ];
+    return candidates.find((c) => existsSync(c)) ?? candidates[0];
   }
 
   const platform = process.platform;

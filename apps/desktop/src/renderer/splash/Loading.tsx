@@ -7,7 +7,7 @@ import {
   type DatabaseUnlockProgressPayload,
   type DatabaseUnlockRequestPayload,
 } from "@shared/contracts/databaseSecurity";
-import logoSrc from "../src/assets/logo.png";
+import argosMarkSrc from "../src/assets/argos-mark.svg";
 import "./loading.css";
 
 type SplashActivityStatus = "running" | "completed" | "failed";
@@ -48,6 +48,139 @@ const getActivityLabel = (name: string) => {
     .join(" ");
 };
 
+function BrandMark() {
+  return (
+    <img
+      src={argosMarkSrc}
+      alt=""
+      aria-hidden="true"
+      data-testid="splash-brand-mark"
+      className="splash-brand"
+      width={32}
+      height={32}
+    />
+  );
+}
+
+function HairlineArc({
+  completed,
+  total,
+  paused,
+  done,
+}: {
+  completed: number;
+  total: number;
+  paused: boolean;
+  done: boolean;
+}) {
+  const safeTotal = Math.max(total, 1);
+  const pct = Math.min(100, Math.max(0, (completed / safeTotal) * 100));
+  const className = ["splash-arc", paused ? "splash-arc--paused" : "", done ? "splash-arc--done" : ""]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div
+      className={className}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={safeTotal}
+      aria-valuenow={completed}
+      data-testid="splash-arc"
+    >
+      <div className="splash-arc__track" />
+      <div className="splash-arc__fill" style={{ width: `${pct}%` }} />
+      <div className="splash-arc__head" style={{ left: `${pct}%` }} />
+    </div>
+  );
+}
+
+function StatusList({ activities }: { activities: SplashActivityItem[] }) {
+  if (activities.length === 0) {
+    return null;
+  }
+  return (
+    <div className="splash-status" data-testid="splash-status">
+      {activities.map((activity) => {
+        const rowClass = [
+          "splash-status__row",
+          activity.status === "running" ? "splash-status__row--active" : "",
+          activity.status === "completed" ? "splash-status__row--done" : "",
+          activity.status === "failed" ? "splash-status__row--failed" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return (
+          <div key={activity.key} className={rowClass}>
+            <span className="splash-status__glyph" aria-hidden="true" />
+            <span className="splash-status__label">{getActivityLabel(activity.name)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function UnlockPanel(props: {
+  requestId: string;
+  unlockReason: DatabaseUnlockRequestPayload["reason"];
+  safeStorageAvailable: boolean;
+  unlockSubmitting: boolean;
+  password: string;
+  passwordInputRef: React.RefObject<HTMLInputElement | null>;
+  onPasswordChange: (next: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  busy: boolean;
+  title: string;
+  subtitle: string;
+  hint: string;
+  errorMessage?: string;
+  primaryLabel: string;
+  cancelLabel: string;
+}) {
+  return (
+    <form
+      className="splash-unlock__panel"
+      onSubmit={(e) => {
+        e.preventDefault();
+        props.onSubmit();
+      }}
+      data-testid="splash-unlock-panel"
+    >
+      <h1 className="splash-unlock__title">{props.title}</h1>
+      <p className="splash-unlock__subtitle">{props.subtitle}</p>
+      <label className="splash-unlock__label" htmlFor="database-password">
+        SQLite password
+      </label>
+      <input
+        id="database-password"
+        ref={props.passwordInputRef}
+        className="splash-unlock__input"
+        type="password"
+        autoComplete="current-password"
+        autoFocus
+        disabled={props.busy}
+        value={props.password}
+        onChange={(e) => props.onPasswordChange(e.target.value)}
+      />
+      {props.errorMessage ? <div className="splash-unlock__message">{props.errorMessage}</div> : null}
+      <div className="splash-unlock__actions">
+        <button
+          className="splash-unlock__button splash-unlock__button--primary"
+          type="submit"
+          disabled={!props.password || props.busy}
+        >
+          {props.busy ? "Opening..." : props.primaryLabel}
+        </button>
+        <button className="splash-unlock__button" type="button" onClick={props.onCancel}>
+          {props.cancelLabel}
+        </button>
+      </div>
+      <p className="splash-unlock__hint">{props.hint}</p>
+    </form>
+  );
+}
+
 export default function Loading() {
   const [activities, setActivities] = useState<SplashActivityItem[]>([]);
   const [mode, setMode] = useState<"loading" | "system-unlock" | "unlock">("loading");
@@ -62,7 +195,7 @@ export default function Loading() {
     setActivities(payload.activities?.slice(0, 3) ?? []);
   }, []);
 
-  const unlockMessage = useMemo(() => {
+  const unlockError = useMemo(() => {
     if (unlockReason === "invalid") {
       return "Wrong password. Try again.";
     }
@@ -130,109 +263,78 @@ export default function Loading() {
   }, [requestId]);
 
   useEffect(() => {
-    const offSplash = window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
-    const offUnlock = window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
-    const offProgress = window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
+    window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
+    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
+    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
     return () => {
-      offSplash?.();
-      offUnlock?.();
-      offProgress?.();
+      window.electron?.ipcRenderer?.removeListener?.("splash-update", handleSplashUpdate);
+      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
+      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
     };
   }, [handleSplashUpdate, handleUnlockRequest, handleUnlockProgress]);
 
+  const completedCount = activities.filter((a) => a.status === "completed").length;
+  const totalCount = activities.length;
+  const allDone = totalCount > 0 && completedCount === totalCount;
+
   return (
     <div className="splash-shell">
-      {mode === "unlock" && (
-        <div className="unlock-stage">
-          <form
-            className="unlock-panel"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitUnlock();
-            }}
-          >
-            <div className="unlock-title">Argos</div>
-            <div className="unlock-subtitle">Local database is encrypted</div>
-            <label className="unlock-label" htmlFor="database-password">
-              SQLite password
-            </label>
-            <input
-              id="database-password"
-              ref={passwordInputRef}
-              className="unlock-input"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              disabled={unlockSubmitting}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            {unlockMessage && <div className="unlock-message">{unlockMessage}</div>}
-            <div className="unlock-actions">
-              <button
-                className="unlock-button unlock-button--primary"
-                type="submit"
-                disabled={!password || unlockSubmitting}
-              >
-                {unlockSubmitting ? "Opening..." : "Unlock"}
-              </button>
-              <button className="unlock-button" type="button" onClick={cancelUnlock}>
-                Quit
-              </button>
-            </div>
-            <p className="unlock-hint">{unlockHint}</p>
-          </form>
+      {mode === "loading" && (
+        <div className="splash-stage" data-testid="splash-stage">
+          <BrandMark />
+          <h1 className="splash-wordmark">Argos</h1>
+          <HairlineArc completed={completedCount} total={Math.max(totalCount, 1)} paused={false} done={allDone} />
+          <StatusList activities={activities} />
         </div>
       )}
 
       {mode === "system-unlock" && (
-        <div className="unlock-stage">
-          <div className="unlock-panel">
-            <div className="unlock-title">Argos</div>
-            <div className="unlock-subtitle">Unlocking local database</div>
-            <p className="unlock-hint">Argos is reading the saved password from the system credential store.</p>
+        <div className="splash-unlock" data-testid="splash-system-unlock">
+          <div className="splash-stage">
+            <BrandMark />
+            <h1 className="splash-wordmark">Argos</h1>
+            <HairlineArc completed={0} total={1} paused done={false} />
+            <UnlockPanel
+              requestId={requestId}
+              unlockReason={unlockReason}
+              safeStorageAvailable={safeStorageAvailable}
+              unlockSubmitting={unlockSubmitting}
+              password={password}
+              passwordInputRef={passwordInputRef}
+              onPasswordChange={setPassword}
+              onSubmit={submitUnlock}
+              onCancel={cancelUnlock}
+              busy={unlockSubmitting}
+              title="Argos"
+              subtitle="Unlocking local database"
+              hint="Argos is reading the saved password from the system credential store."
+              errorMessage={unlockError}
+              primaryLabel="Unlock"
+              cancelLabel="Quit"
+            />
           </div>
         </div>
       )}
 
-      {mode === "loading" && (
-        <div className="loader-stage">
-          <div className="loader-wrapper">
-            <span className="loader-letter">D</span>
-            <span className="loader-letter">e</span>
-            <span className="loader-letter">e</span>
-            <span className="loader-letter">p</span>
-            <span className="loader-letter">C</span>
-            <span className="loader-letter">h</span>
-            <span className="loader-letter">a</span>
-            <span className="loader-letter">t</span>
-            <div className="loader" />
-          </div>
-        </div>
-      )}
-
-      {mode === "loading" && activities.length > 0 && (
-        <div className="activity-feed">
-          {activities.map((activity) => (
-            <div key={activity.key} className="activity-item">
-              {activity.status === "completed" && <span className="status-icon status-icon--completed">✔</span>}
-              {activity.status === "failed" && <span className="status-icon status-icon--failed">!</span>}
-              {activity.status !== "completed" && activity.status !== "failed" && (
-                <span className="status-dot status-dot--running" aria-hidden="true" />
-              )}
-              <span className="activity-label">{getActivityLabel(activity.name)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {mode === "loading" && (
-        <div className="logo-corner">
-          <img
-            src={logoSrc}
-            alt="Argos Logo"
-            className="logo-mark"
-            style={{ filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.24))" }}
+      {mode === "unlock" && (
+        <div className="splash-unlock" data-testid="splash-unlock">
+          <UnlockPanel
+            requestId={requestId}
+            unlockReason={unlockReason}
+            safeStorageAvailable={safeStorageAvailable}
+            unlockSubmitting={unlockSubmitting}
+            password={password}
+            passwordInputRef={passwordInputRef}
+            onPasswordChange={setPassword}
+            onSubmit={submitUnlock}
+            onCancel={cancelUnlock}
+            busy={unlockSubmitting}
+            title="Argos"
+            subtitle="Local database is encrypted"
+            hint={unlockHint}
+            errorMessage={unlockError}
+            primaryLabel="Unlock"
+            cancelLabel="Quit"
           />
         </div>
       )}

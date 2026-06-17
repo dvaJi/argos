@@ -39,7 +39,6 @@
     "build": "pnpm run typecheck && pnpm --filter @argos/desktop build",
     "build:daemon": "cd apps/daemon && bun run build",
     "release:ff": "node scripts/release-fast-forward.mjs",
-    "postinstall": "echo skipping postinstall",
     "build:unpack": "pnpm run build && electron-builder --config apps/desktop/electron-builder.yml --dir",
     "plugin:validate": "node scripts/plugin.mjs validate",
     "plugin:package": "node scripts/plugin.mjs package",

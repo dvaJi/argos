@@ -390,13 +390,15 @@ export class WindowPresenter implements IWindowPresenter {
 
         // Send to the WebContents of every tab in the window (async)
         try {
-          const tabPresenterInstance = presenter.tabPresenter as TabPresenter;
-          const tabsData = await tabPresenterInstance.getWindowTabsData(window.id);
-          if (tabsData && tabsData.length > 0) {
-            for (const tabData of tabsData) {
-              const tab = await tabPresenterInstance.getTab(tabData.id);
-              if (tab && !tab.webContents.isDestroyed()) {
-                tab.webContents.send(channel, ...args);
+          const tabPresenterInstance = presenter?.tabPresenter as TabPresenter | undefined;
+          if (tabPresenterInstance) {
+            const tabsData = await tabPresenterInstance.getWindowTabsData(window.id);
+            if (tabsData && tabsData.length > 0) {
+              for (const tabData of tabsData) {
+                const tab = await tabPresenterInstance.getTab(tabData.id);
+                if (tab && !tab.webContents.isDestroyed()) {
+                  tab.webContents.send(channel, ...args);
+                }
               }
             }
           }
