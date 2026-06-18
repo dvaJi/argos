@@ -1261,14 +1261,6 @@ export class WindowPresenter implements IWindowPresenter {
     this.flushPendingSettingsMessages();
   }
 
-  private handleSettingsWindowNavigationStart(windowId: number, isMainFrame: boolean, isSameDocument: boolean): void {
-    if (!isMainFrame || isSameDocument || this.settingsWindow?.id !== windowId) {
-      return;
-    }
-
-    this.settingsWindowReady = false;
-  }
-
   private tryNavigateSettingsWindowByUrl(channel: string, args: unknown[]): boolean {
     if (
       channel !== SETTINGS_EVENTS.NAVIGATE ||
@@ -1383,23 +1375,8 @@ export class WindowPresenter implements IWindowPresenter {
     });
   }
 
-  private resetSettingsWindowState(clearQueue = false): void {
-    this.settingsWindowReady = false;
-    if (clearQueue) {
-      this.pendingSettingsMessages = [];
-      this.clearPendingSettingsProviderInstalls();
-    }
-  }
-
   private clonePendingSettingsProviderInstall(preview: ProviderInstallPreview): ProviderInstallPreview {
     return { ...preview };
-  }
-
-  private clearPendingSettingsProviderInstalls(): void {
-    this.pendingSettingsProviderInstalls.forEach((preview) => {
-      preview.apiKey = "";
-    });
-    this.pendingSettingsProviderInstalls = [];
   }
 
   public isApplicationQuitting(): boolean {

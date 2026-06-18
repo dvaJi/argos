@@ -212,7 +212,7 @@ export default defineConfig(({ mode }) => {
           },
           notBundle: externalDeps.filter((d) => d !== '@electron-toolkit/preload'),
           options: {
-            plugins: [pathAliasPlugin(projectRoot)] as any,
+            plugins: [pathAliasPlugin(projectRoot)],
             build: {
               outDir: resolve('out/preload'),
               rolldownOptions: {
@@ -227,7 +227,7 @@ export default defineConfig(({ mode }) => {
                 },
               },
             },
-          },
+          } as any,
         },
       }),
     ],

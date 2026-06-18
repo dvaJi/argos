@@ -61,11 +61,11 @@ export function subscribe(callback: (config: ServerConfig) => void): () => void 
   };
 
   eventTarget.addEventListener(SERVER_CONFIG_CHANGED_EVENT, handleCustom as EventListener);
-  eventTarget.addEventListener("storage", handleStorage);
+  eventTarget.addEventListener("storage", handleStorage as EventListener);
 
   return () => {
     eventTarget.removeEventListener?.(SERVER_CONFIG_CHANGED_EVENT, handleCustom as EventListener);
-    eventTarget.removeEventListener?.("storage", handleStorage);
+    eventTarget.removeEventListener?.("storage", handleStorage as EventListener);
   };
 }
 
