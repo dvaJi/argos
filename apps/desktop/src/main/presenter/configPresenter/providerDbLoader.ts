@@ -7,7 +7,7 @@ import { eventBus, SendTarget } from "@/eventbus";
 import { PROVIDER_DB_EVENTS } from "@/events";
 
 const DEFAULT_PROVIDER_DB_URL =
-  "https://raw.githubusercontent.com/dvaJi/PublicProviderConf/refs/heads/dev/dist/all.json";
+  "https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json";
 
 type MetaFile = {
   sourceUrl: string;

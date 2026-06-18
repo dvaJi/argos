@@ -7,7 +7,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const DEFAULT_URL =
-  'https://raw.githubusercontent.com/dvaJi/PublicProviderConf/refs/heads/dev/dist/all.json'
+  'https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json'
 
 const log = (...args) => console.log('[fetch-provider-db]', ...args)
 const warn = (...args) => console.warn('[fetch-provider-db]', ...args)
