@@ -68,9 +68,9 @@ export const eventListenerSetupHook: LifecycleHook = {
     // Tray check for updates
     eventBus.on(TRAY_EVENTS.CHECK_FOR_UPDATES, async () => {
       try {
-        const settingsWindowId = await presenter.windowPresenter.createSettingsWindow();
+        const settingsWindowId = await presenter.windowPresenter.navigateToSettings();
         if (settingsWindowId == null) {
-          console.warn("eventListenerSetupHook: Failed to open settings window for update check.");
+          console.warn("eventListenerSetupHook: Failed to navigate to settings for update check.");
           return;
         }
 
@@ -87,7 +87,7 @@ export const eventListenerSetupHook: LifecycleHook = {
         navigateToAbout();
         triggerUpdateCheck();
       } catch (error) {
-        console.error("eventListenerSetupHook: Failed to route tray update check to settings window:", error);
+        console.error("eventListenerSetupHook: Failed to route tray update check to settings:", error);
       }
     });
 

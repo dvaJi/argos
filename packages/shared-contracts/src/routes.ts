@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { RouteContract } from "./common";
 import {
   browserAttachCurrentWindowRoute,
+  browserClearSandboxDataRoute,
   browserDestroyRoute,
   browserDetachRoute,
   browserGetStatusRoute,
@@ -19,9 +20,11 @@ import {
 } from "./routes/chat.routes";
 import {
   databaseSecurityChangePasswordRoute,
+  databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
   databaseSecurityGetStatusRoute,
+  databaseSecurityRepairSchemaRoute,
 } from "./routes/database-security.routes";
 import {
   configAddCustomPromptRoute,
@@ -399,6 +402,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [browserGoBackRoute.name]: browserGoBackRoute,
   [browserGoForwardRoute.name]: browserGoForwardRoute,
   [browserReloadRoute.name]: browserReloadRoute,
+  [browserClearSandboxDataRoute.name]: browserClearSandboxDataRoute,
   [tabNotifyRendererReadyRoute.name]: tabNotifyRendererReadyRoute,
   [tabNotifyRendererActivatedRoute.name]: tabNotifyRendererActivatedRoute,
   [tabCaptureCurrentAreaRoute.name]: tabCaptureCurrentAreaRoute,
@@ -547,6 +551,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [databaseSecurityEnableRoute.name]: databaseSecurityEnableRoute,
   [databaseSecurityChangePasswordRoute.name]: databaseSecurityChangePasswordRoute,
   [databaseSecurityDisableRoute.name]: databaseSecurityDisableRoute,
+  [databaseSecurityDiagnoseSchemaRoute.name]: databaseSecurityDiagnoseSchemaRoute,
+  [databaseSecurityRepairSchemaRoute.name]: databaseSecurityRepairSchemaRoute,
   [skillsListMetadataRoute.name]: skillsListMetadataRoute,
   [skillsGetDirectoryRoute.name]: skillsGetDirectoryRoute,
   [skillsInstallFromFolderRoute.name]: skillsInstallFromFolderRoute,

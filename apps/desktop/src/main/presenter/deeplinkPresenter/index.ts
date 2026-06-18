@@ -363,9 +363,9 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         return;
       }
 
-      const settingsWindowId = await presenter.windowPresenter.createSettingsWindow();
+      const settingsWindowId = await presenter.windowPresenter.navigateToSettings();
       if (!settingsWindowId) {
-        console.error("Failed to open Settings window for MCP install deeplink");
+        console.error("Failed to navigate to settings for MCP install deeplink");
         return;
       }
 
@@ -384,9 +384,9 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
 
     try {
       const preview = this.parseProviderInstallParams(params);
-      const settingsWindowId = await presenter.windowPresenter.createSettingsWindow();
+      const settingsWindowId = await presenter.windowPresenter.navigateToSettings();
       if (!settingsWindowId) {
-        this.notifyProviderImportError("Failed to open settings window for provider deeplink.");
+        this.notifyProviderImportError("Failed to navigate to settings for provider deeplink.");
         return;
       }
 

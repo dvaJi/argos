@@ -1,9 +1,13 @@
 import type { ArgosBridge } from "@shared/contracts/bridge";
 import {
   databaseSecurityChangePasswordRoute,
+  databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
   databaseSecurityGetStatusRoute,
+  databaseSecurityRepairSchemaRoute,
+  type DatabaseRepairReport,
+  type DatabaseSchemaDiagnosis,
   type DatabaseSecurityStatus,
 } from "@shared/contracts/routes";
 import { getArgosBridge } from "./core";
@@ -32,11 +36,23 @@ export function createDatabaseSecurityClient(bridge: ArgosBridge = getArgosBridg
     return result.status;
   }
 
+  async function diagnoseSchema(): Promise<DatabaseSchemaDiagnosis> {
+    const result = await bridge.invoke(databaseSecurityDiagnoseSchemaRoute.name, {});
+    return result.diagnosis;
+  }
+
+  async function repairSchema(): Promise<DatabaseRepairReport> {
+    const result = await bridge.invoke(databaseSecurityRepairSchemaRoute.name, {});
+    return result.report;
+  }
+
   return {
     getStatus,
     enable,
     changePassword,
     disable,
+    diagnoseSchema,
+    repairSchema,
   };
 }
 

@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { useLegacyPresenter } from "@api/legacy/presenters";
-import CloseIcon from "./icons/CloseIcon";
+import { ArrowLeft } from "lucide-react";
 import { uiSettingsStore, getFontSizeClass, loadSettings as loadUiSettings } from "../src/stores/uiSettingsStore";
 import { modelCheckStore } from "../src/stores/modelCheck";
 import { Button } from "@shadcn/components/ui/button";
@@ -11,7 +11,7 @@ import ModelCheckDialog from "@/components/settings/ModelCheckDialog";
 import { useDeviceVersion } from "../src/composables/useDeviceVersion";
 import { NOTIFICATION_EVENTS, SETTINGS_EVENTS } from "@/events";
 import { toast } from "@/components/use-toast";
-import { themeStore } from "@/stores/theme";
+import { themeStore, initTheme } from "@/stores/theme";
 import {
   providerStore,
   initialize as initializeProviders,
@@ -549,9 +549,10 @@ export default function SettingsApp() {
     });
 
     const init = async () => {
-      const [settingsLoadResult, routerReadyResult] = await Promise.allSettled([
+      const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
         loadUiSettings(),
         routerInstance.load(),
+        initTheme(),
       ]);
 
       if (settingsLoadResult.status === "rejected") {
@@ -559,6 +560,10 @@ export default function SettingsApp() {
           `${SETTINGS_STARTUP_LOG_PREFIX} failed to load UI settings during startup:`,
           settingsLoadResult.reason,
         );
+      }
+
+      if (themeResult.status === "rejected") {
+        console.error(`${SETTINGS_STARTUP_LOG_PREFIX} theme init failed:`, themeResult.reason);
       }
 
       if (routerReadyResult.status === "rejected") {
@@ -612,17 +617,19 @@ export default function SettingsApp() {
   return (
     <div data-testid="settings-page" className={`w-full h-screen flex flex-col ${isWinMacOS ? "" : "bg-background"}`}>
       <div
-        className={`w-full h-9 window-drag-region shrink-0 justify-end flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${
+        className={`w-full h-9 window-drag-region shrink-0 justify-start flex flex-row relative border border-b-0 border-window-inner-border box-border rounded-t-[10px] ${
           isMacOS ? "" : "rounded-t-none"
         } ${isMacOS ? "bg-window-background" : "bg-window-background/10"}`}
       >
         <div className="absolute bottom-0 left-0 w-full h-[1px] bg-border z-10" />
         {!isMacOS && (
           <Button
-            className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-red-700/80 hover:text-white text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
+            variant="ghost"
+            className="window-no-drag-region shrink-0 h-9 rounded-none gap-1.5 px-3 text-muted-foreground hover:text-foreground"
             onClick={closeWindow}
           >
-            <CloseIcon />
+            <ArrowLeft className="size-4" />
+            <span className="text-xs font-medium">Back to chat</span>
           </Button>
         )}
       </div>

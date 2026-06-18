@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@shadcn/components/ui/tooltip";
 import { Button } from "@shadcn/components/ui/button";
@@ -11,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@shadcn/components/ui/dialog";
-import { createSettingsClient } from "@api/SettingsClient";
 import { createRemoteControlRuntime } from "@api/RemoteControlRuntime";
 import { createDeviceClient } from "@api/DeviceClient";
 import { useAgentStore, selectedAgent as getSelectedAgent } from "@/stores/ui/agent";
@@ -43,11 +43,11 @@ type ShortcutPlatform = "mac" | "other";
 const PIN_FEEDBACK_DURATION_MS: Record<PinFeedbackMode, number> = { pinning: 560, unpinning: 460 };
 const getPinFeedbackMode = (nextPinned: boolean): PinFeedbackMode => (nextPinned ? "pinning" : "unpinning");
 
-const settingsClient = createSettingsClient();
 const remoteControlRuntime = createRemoteControlRuntime();
 const deviceClient = createDeviceClient();
 
 export default function WindowSideBar() {
+  const navigate = useNavigate();
   const agentStore = useAgentStore();
   const sessionStore = useSessionStore();
   const sidebarStore = useSidebarStore();
@@ -184,8 +184,8 @@ export default function WindowSideBar() {
   }, [sessionStore]);
 
   const openSettings = useCallback(() => {
-    void settingsClient.openSettings();
-  }, []);
+    void navigate({ to: "/settings/overview" });
+  }, [navigate]);
 
   const togglePinnedSection = useCallback(() => {
     setIsPinnedSectionCollapsed((prev) => !prev);

@@ -16,10 +16,14 @@ import {
   mcpClearNpmRegistryCacheRoute,
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
+  mcpGetMcpRouterApiKeyRoute,
   mcpGetNpmRegistryStatusRoute,
   mcpGetPromptRoute,
   mcpGetServersRoute,
+  mcpInstallMcpRouterServerRoute,
+  mcpIsServerInstalledRoute,
   mcpIsServerRunningRoute,
+  mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
   mcpListToolDefinitionsRoute,
@@ -29,10 +33,12 @@ import {
   mcpSetAutoDetectNpmRegistryRoute,
   mcpSetCustomNpmRegistryRoute,
   mcpSetEnabledRoute,
+  mcpSetMcpRouterApiKeyRoute,
   mcpSetServerEnabledRoute,
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
+  mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
 } from "@shared/contracts/routes";
 import type {
@@ -160,6 +166,34 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     await bridge.invoke(mcpClearNpmRegistryCacheRoute.name, {});
   }
 
+  async function listMcpRouterServers(page: number, limit: number) {
+    const result = await bridge.invoke(mcpListMcpRouterServersRoute.name, { page, limit });
+    return result.servers;
+  }
+
+  async function installMcpRouterServer(serverKey: string) {
+    const result = await bridge.invoke(mcpInstallMcpRouterServerRoute.name, { serverKey });
+    return result.installed;
+  }
+
+  async function getMcpRouterApiKey() {
+    const result = await bridge.invoke(mcpGetMcpRouterApiKeyRoute.name, {});
+    return result.apiKey;
+  }
+
+  async function setMcpRouterApiKey(key: string) {
+    await bridge.invoke(mcpSetMcpRouterApiKeyRoute.name, { key });
+  }
+
+  async function isServerInstalled(source: string, sourceId: string) {
+    const result = await bridge.invoke(mcpIsServerInstalledRoute.name, { source, sourceId });
+    return result.installed;
+  }
+
+  async function updateMcpRouterServersAuth(apiKey: string) {
+    await bridge.invoke(mcpUpdateMcpRouterServersAuthRoute.name, { apiKey });
+  }
+
   function onServerStarted(listener: (payload: { serverName: string; version: number }) => void) {
     return bridge.on(mcpServerStartedEvent.name, listener);
   }
@@ -231,6 +265,12 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
     setCustomNpmRegistry,
     setAutoDetectNpmRegistry,
     clearNpmRegistryCache,
+    listMcpRouterServers,
+    installMcpRouterServer,
+    getMcpRouterApiKey,
+    setMcpRouterApiKey,
+    isServerInstalled,
+    updateMcpRouterServersAuth,
     onServerStarted,
     onServerStopped,
     onConfigChanged,

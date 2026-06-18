@@ -1,7 +1,11 @@
 # Taste (Continuously Learned by [CommandCode][cmd])
 
 [cmd]: https://commandcode.ai/
-
+
+
+# Architecture
+- The Vite root for the renderer is `apps/desktop/src/renderer/` (see `vite.config.ts` line 121). Shared React components like `agent-elements/` live at `apps/desktop/src/components/agent-elements/` — sibling to `renderer/`, NOT under `src/renderer/src/`. Relative imports from `src/renderer/splash/` or `src/renderer/src/assets/` to these shared components need `../../../components/...` (three `..`s), not `../../components/...`. The splash `loading.css` comment about "agent-ui.css not being importable across directories" is outdated/misleading — the path was just wrong, not impossible. Confidence: 0.80
+- Prefer migrating to and removing legacy code over maintaining it. When given the choice between keeping an unused/dead prop (e.g. an `onNavigate?()` callback that's never wired) and deleting it along with its call sites, delete it. The user's stated stance: "we should just migrate everything and get rid of legacy stuff." Confidence: 0.70
 
 # Testing
 - Add a `vite-env.d.ts` (or extend `src/main/env.d.ts`) with `declare module '*?raw' { const content: string; export default content; }` before importing `*.svg?raw` / `*.json?raw` / etc. in test files — the project has no ambient declaration for Vite's `?raw` suffix, so TypeScript fails with TS2307 even though vitest runs fine. Confidence: 0.90

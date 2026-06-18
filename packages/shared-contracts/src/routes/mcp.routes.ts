@@ -258,3 +258,77 @@ export const mcpClearNpmRegistryCacheRoute = defineRouteContract({
     cleared: z.literal(true),
   }),
 });
+
+const McpRouterServerSchema = z.object({
+  uuid: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  name: z.string(),
+  author_name: z.string(),
+  title: z.string(),
+  description: z.string(),
+  content: z.string().optional(),
+  server_key: z.string(),
+  config_name: z.string().optional(),
+  server_url: z.string().optional(),
+});
+
+export const mcpListMcpRouterServersRoute = defineRouteContract({
+  name: "mcp.listMcpRouterServers",
+  input: z.object({
+    page: z.number(),
+    limit: z.number(),
+  }),
+  output: z.object({
+    servers: z.array(McpRouterServerSchema),
+  }),
+});
+
+export const mcpInstallMcpRouterServerRoute = defineRouteContract({
+  name: "mcp.installMcpRouterServer",
+  input: z.object({
+    serverKey: z.string(),
+  }),
+  output: z.object({
+    installed: z.boolean(),
+  }),
+});
+
+export const mcpGetMcpRouterApiKeyRoute = defineRouteContract({
+  name: "mcp.getMcpRouterApiKey",
+  input: z.object({}),
+  output: z.object({
+    apiKey: z.string(),
+  }),
+});
+
+export const mcpSetMcpRouterApiKeyRoute = defineRouteContract({
+  name: "mcp.setMcpRouterApiKey",
+  input: z.object({
+    key: z.string(),
+  }),
+  output: z.object({
+    set: z.literal(true),
+  }),
+});
+
+export const mcpIsServerInstalledRoute = defineRouteContract({
+  name: "mcp.isServerInstalled",
+  input: z.object({
+    source: z.string(),
+    sourceId: z.string(),
+  }),
+  output: z.object({
+    installed: z.boolean(),
+  }),
+});
+
+export const mcpUpdateMcpRouterServersAuthRoute = defineRouteContract({
+  name: "mcp.updateMcpRouterServersAuth",
+  input: z.object({
+    apiKey: z.string(),
+  }),
+  output: z.object({
+    updated: z.literal(true),
+  }),
+});

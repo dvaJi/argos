@@ -38,6 +38,9 @@
       ],
       "@shadcn/*": [
         "./src/shadcn/*"
+      ],
+      "@settings/*": [
+        "./src/renderer/settings/*"
       ]
     }
   }

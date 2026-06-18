@@ -22,6 +22,7 @@ function pathAliasPlugin(projectRoot: string): Plugin {
   const sharedDir = path.join(projectRoot, 'src', 'shared')
   const apiDir = path.join(projectRoot, 'src', 'renderer', 'api')
   const shadcnDir = path.join(projectRoot, 'src', 'shadcn')
+  const settingsDir = path.join(projectRoot, 'src', 'renderer', 'settings')
 
   const toFwd = (p: string) => p.split(path.sep).join('/')
 
@@ -42,6 +43,8 @@ function pathAliasPlugin(projectRoot: string): Plugin {
         aliasedPath = path.resolve(apiDir, source.slice(5))
       } else if (source.startsWith('@shadcn/')) {
         aliasedPath = path.resolve(shadcnDir, source.slice(8))
+      } else if (source.startsWith('@settings/')) {
+        aliasedPath = path.resolve(settingsDir, source.slice(10))
       }
 
       if (!aliasedPath) return null
@@ -124,6 +127,7 @@ export default defineConfig(({ mode }) => {
         '@api': resolve('src/renderer/api'),
         '@shared': resolve('src/shared'),
         '@shadcn': resolve('src/shadcn'),
+        '@settings': resolve('src/renderer/settings'),
       },
     },
     optimizeDeps: {
@@ -147,7 +151,6 @@ export default defineConfig(({ mode }) => {
           browserOverlay: resolve('src/renderer/browser-overlay/index.html'),
           floating: resolve('src/renderer/floating/index.html'),
           splash: resolve('src/renderer/splash/index.html'),
-          settings: resolve('src/renderer/settings/index.html'),
         },
       },
     },

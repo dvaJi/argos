@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useRouter } from "@tanstack/react-router";
 import { useProviderStore, getSortedProviders } from "@/stores/providerStore";
 import { useModelStore, refreshProviderModels } from "@/stores/modelStore";
 import { Icon } from "@iconify/react";
@@ -24,7 +25,6 @@ import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSet
 
 interface ModelProviderSettingsProps {
   providerId?: string;
-  onNavigate?: (params: Record<string, string>) => void;
 }
 
 function reorderSubset(
@@ -94,12 +94,13 @@ function SortableProviderRow({
   );
 }
 
-export default function ModelProviderSettings({ providerId: routeProviderId, onNavigate }: ModelProviderSettingsProps) {
+export default function ModelProviderSettings({ providerId: routeProviderId }: ModelProviderSettingsProps) {
   const languageStore = useLanguageStore();
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
   const windowPresenter = useLegacyPresenter("windowPresenter");
+  const router = useRouter();
 
   const guideRootRef = useRef<HTMLDivElement | null>(null);
   const providerDetailRef = useRef<HTMLDivElement | null>(null);
@@ -145,7 +146,9 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
         state,
         router: {
           navigate: (opts: { to: string; params?: Record<string, string>; replace?: boolean }) => {
-            if (onNavigate && opts.params) onNavigate(opts.params);
+            const to = opts.to as any;
+            const params = opts.params as any;
+            void router.navigate({ to, params, replace: opts.replace });
             return Promise.resolve();
           },
         },
@@ -153,7 +156,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
         windowPresenter,
       });
     },
-    [onNavigate, routeProviderId, windowPresenter],
+    [router, routeProviderId, windowPresenter],
   );
 
   useEffect(() => {
@@ -194,9 +197,29 @@ export default function ModelProviderSettings({ providerId: routeProviderId, onN
     return provider;
   }, [providerStore.providers, routeProviderId]);
 
-  const setActiveProvider = (id: string) => {
-    onNavigate?.({ providerId: id });
+  const navigateToProvider = (id: string) => {
+    void router.navigate({ to: `/provider/${id}` as any });
   };
+
+  const setActiveProvider = (id: string) => {
+    navigateToProvider(id);
+  };
+
+  // When the user lands on `/provider` with no `providerId` in the URL, the
+  // detail pane is gated on `routeProviderId` and stays empty. Auto-select the
+  // first available provider so the API key / model UI is visible immediately.
+  // Runs once per providerId-less entry; subsequent clicks already call
+  // `setActiveProvider` explicitly.
+  useEffect(() => {
+    if (routeProviderId || !providerStore.initialized) return;
+    if (visibleProviders.length === 0) return;
+    const fallback = allEnabledProviders[0] ?? visibleProviders[0];
+    if (fallback) {
+      navigateToProvider(fallback.id);
+    }
+    // Intentionally only react to the empty-id case so we don't fight user clicks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeProviderId, providerStore.initialized, visibleProviders]);
 
   const handleProviderRowClick = async (id: string) => {
     setActiveProvider(id);

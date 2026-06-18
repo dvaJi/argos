@@ -11,13 +11,7 @@ import { ScrollArea } from "@shadcn/components/ui/scroll-area";
 import { Badge } from "@shadcn/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
 import { Switch } from "@shadcn/components/ui/switch";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@shadcn/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@shadcn/components/ui/sheet";
 import { useToast } from "@/components/use-toast";
 import { useSkillsStore, loadSkillRuntime, saveSkillWithExtension } from "@/stores/skillsStore";
 import { useLegacyPresenter } from "@api/legacy/presenters";
@@ -242,18 +236,14 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
           <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
             <Input
               value={row.key}
-              onChange={(e) =>
-                setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)))
-              }
+              onChange={(e) => setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)))}
               className="col-span-5"
               placeholder="Key"
             />
             <Input
               value={row.value}
               type="password"
-              onChange={(e) =>
-                setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))
-              }
+              onChange={(e) => setEnvRows((p) => p.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)))}
               className="col-span-6"
               placeholder="Value"
             />
@@ -323,7 +313,9 @@ export default function SkillEditorSheet({ skill, open, onOpenChange, onSaved }:
           <SheetDescription>{skill?.name}</SheetDescription>
         </SheetHeader>
         <ScrollArea className="mt-4 min-h-0 flex-1">
-          {skill && <SkillEditorForm key={skill.name} skill={skill} onSaved={onSaved} onClose={() => onOpenChange(false)} />}
+          {skill && (
+            <SkillEditorForm key={skill.name} skill={skill} onSaved={onSaved} onClose={() => onOpenChange(false)} />
+          )}
         </ScrollArea>
       </SheetContent>
     </Sheet>

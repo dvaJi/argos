@@ -6,6 +6,7 @@ import {
 } from "@shared/contracts/events";
 import {
   browserAttachCurrentWindowRoute,
+  browserClearSandboxDataRoute,
   browserDestroyRoute,
   browserDetachRoute,
   browserGetStatusRoute,
@@ -92,6 +93,11 @@ export function createBrowserClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.status;
   }
 
+  async function clearSandboxData() {
+    const result = await bridge.invoke(browserClearSandboxDataRoute.name, {});
+    return result.cleared;
+  }
+
   async function openExternal(url: string) {
     await openRuntimeExternal(url);
   }
@@ -143,6 +149,7 @@ export function createBrowserClient(bridge: ArgosBridge = getArgosBridge()) {
     goBack,
     goForward,
     reload,
+    clearSandboxData,
     openExternal,
     onOpenRequested,
     onOpenRequestedForCurrentWindow,

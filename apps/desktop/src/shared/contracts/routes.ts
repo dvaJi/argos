@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { RouteContract } from "./common";
 import {
   browserAttachCurrentWindowRoute,
+  browserClearSandboxDataRoute,
   browserDestroyRoute,
   browserDetachRoute,
   browserGetStatusRoute,
@@ -19,9 +20,11 @@ import {
 } from "./routes/chat.routes";
 import {
   databaseSecurityChangePasswordRoute,
+  databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
   databaseSecurityGetStatusRoute,
+  databaseSecurityRepairSchemaRoute,
 } from "./routes/database-security.routes";
 import {
   configAddCustomPromptRoute,
@@ -98,10 +101,14 @@ import {
   mcpClearNpmRegistryCacheRoute,
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
+  mcpGetMcpRouterApiKeyRoute,
   mcpGetNpmRegistryStatusRoute,
   mcpGetPromptRoute,
   mcpGetServersRoute,
+  mcpInstallMcpRouterServerRoute,
+  mcpIsServerInstalledRoute,
   mcpIsServerRunningRoute,
+  mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
   mcpListToolDefinitionsRoute,
@@ -111,10 +118,12 @@ import {
   mcpSetAutoDetectNpmRegistryRoute,
   mcpSetCustomNpmRegistryRoute,
   mcpSetEnabledRoute,
+  mcpSetMcpRouterApiKeyRoute,
   mcpSetServerEnabledRoute,
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
+  mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
 } from "./routes/mcp.routes";
 import {
@@ -271,7 +280,11 @@ import {
   syncUploadToCloudRoute,
   syncPullFromCloudRoute,
 } from "./routes/sync.routes";
-import { systemOpenSettingsRoute } from "./routes/system.routes";
+import {
+  systemOpenSettingsRoute,
+  systemConsumePendingProviderInstallRoute,
+  systemSetPendingProviderInstallRoute,
+} from "./routes/system.routes";
 import { toolsListDefinitionsRoute } from "./routes/tools.routes";
 import {
   tabCaptureCurrentAreaRoute,
@@ -399,6 +412,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [browserGoBackRoute.name]: browserGoBackRoute,
   [browserGoForwardRoute.name]: browserGoForwardRoute,
   [browserReloadRoute.name]: browserReloadRoute,
+  [browserClearSandboxDataRoute.name]: browserClearSandboxDataRoute,
   [tabNotifyRendererReadyRoute.name]: tabNotifyRendererReadyRoute,
   [tabNotifyRendererActivatedRoute.name]: tabNotifyRendererActivatedRoute,
   [tabCaptureCurrentAreaRoute.name]: tabCaptureCurrentAreaRoute,
@@ -547,6 +561,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [databaseSecurityEnableRoute.name]: databaseSecurityEnableRoute,
   [databaseSecurityChangePasswordRoute.name]: databaseSecurityChangePasswordRoute,
   [databaseSecurityDisableRoute.name]: databaseSecurityDisableRoute,
+  [databaseSecurityDiagnoseSchemaRoute.name]: databaseSecurityDiagnoseSchemaRoute,
+  [databaseSecurityRepairSchemaRoute.name]: databaseSecurityRepairSchemaRoute,
   [skillsListMetadataRoute.name]: skillsListMetadataRoute,
   [skillsGetDirectoryRoute.name]: skillsGetDirectoryRoute,
   [skillsInstallFromFolderRoute.name]: skillsInstallFromFolderRoute,
@@ -586,6 +602,12 @@ export const ARGOS_ROUTE_CATALOG = {
   [mcpSetCustomNpmRegistryRoute.name]: mcpSetCustomNpmRegistryRoute,
   [mcpSetAutoDetectNpmRegistryRoute.name]: mcpSetAutoDetectNpmRegistryRoute,
   [mcpClearNpmRegistryCacheRoute.name]: mcpClearNpmRegistryCacheRoute,
+  [mcpListMcpRouterServersRoute.name]: mcpListMcpRouterServersRoute,
+  [mcpInstallMcpRouterServerRoute.name]: mcpInstallMcpRouterServerRoute,
+  [mcpGetMcpRouterApiKeyRoute.name]: mcpGetMcpRouterApiKeyRoute,
+  [mcpSetMcpRouterApiKeyRoute.name]: mcpSetMcpRouterApiKeyRoute,
+  [mcpIsServerInstalledRoute.name]: mcpIsServerInstalledRoute,
+  [mcpUpdateMcpRouterServersAuthRoute.name]: mcpUpdateMcpRouterServersAuthRoute,
   [syncGetBackupStatusRoute.name]: syncGetBackupStatusRoute,
   [syncListBackupsRoute.name]: syncListBackupsRoute,
   [syncStartBackupRoute.name]: syncStartBackupRoute,
@@ -607,6 +629,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [dialogErrorRoute.name]: dialogErrorRoute,
   [toolsListDefinitionsRoute.name]: toolsListDefinitionsRoute,
   [systemOpenSettingsRoute.name]: systemOpenSettingsRoute,
+  [systemConsumePendingProviderInstallRoute.name]: systemConsumePendingProviderInstallRoute,
+  [systemSetPendingProviderInstallRoute.name]: systemSetPendingProviderInstallRoute,
 } satisfies Record<string, RouteContract>;
 
 export type ArgosRouteCatalog = typeof ARGOS_ROUTE_CATALOG;

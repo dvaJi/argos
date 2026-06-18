@@ -27,6 +27,7 @@ import {
   browserGoBackRoute,
   browserGoForwardRoute,
   browserLoadUrlRoute,
+  browserClearSandboxDataRoute,
   browserReloadRoute,
   browserUpdateCurrentWindowBoundsRoute,
   chatRespondToolInteractionRoute,
@@ -49,9 +50,11 @@ import {
   configUpdateCustomPromptRoute,
   configUpdateSystemPromptRoute,
   databaseSecurityChangePasswordRoute,
+  databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityDisableRoute,
   databaseSecurityEnableRoute,
   databaseSecurityGetStatusRoute,
+  databaseSecurityRepairSchemaRoute,
   dialogErrorRoute,
   dialogRespondRoute,
   deviceGetAppVersionRoute,
@@ -74,10 +77,14 @@ import {
   mcpClearNpmRegistryCacheRoute,
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
+  mcpGetMcpRouterApiKeyRoute,
   mcpGetNpmRegistryStatusRoute,
   mcpGetPromptRoute,
   mcpGetServersRoute,
+  mcpInstallMcpRouterServerRoute,
+  mcpIsServerInstalledRoute,
   mcpIsServerRunningRoute,
+  mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
   mcpListToolDefinitionsRoute,
@@ -87,10 +94,12 @@ import {
   mcpSetAutoDetectNpmRegistryRoute,
   mcpSetCustomNpmRegistryRoute,
   mcpSetEnabledRoute,
+  mcpSetMcpRouterApiKeyRoute,
   mcpSetServerEnabledRoute,
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
+  mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
   modelsGetProviderCatalogRoute,
   onboardingCompleteRoute,
@@ -197,6 +206,8 @@ import {
   syncUploadToCloudRoute,
   syncPullFromCloudRoute,
   systemOpenSettingsRoute,
+  systemConsumePendingProviderInstallRoute,
+  systemSetPendingProviderInstallRoute,
   tabCaptureCurrentAreaRoute,
   tabNotifyRendererActivatedRoute,
   tabNotifyRendererReadyRoute,
@@ -1389,6 +1400,12 @@ export async function dispatchArgosRoute(
       });
     }
 
+    case browserClearSandboxDataRoute.name: {
+      browserClearSandboxDataRoute.input.parse(rawInput);
+      await runtime.yoBrowserPresenter.clearSandboxData();
+      return browserClearSandboxDataRoute.output.parse({ cleared: true });
+    }
+
     case tabNotifyRendererReadyRoute.name: {
       tabNotifyRendererReadyRoute.input.parse(rawInput);
       await runtime.tabPresenter.onRendererTabReady(context.webContentsId);
@@ -1533,6 +1550,20 @@ export async function dispatchArgosRoute(
         },
       });
       return databaseSecurityDisableRoute.output.parse({ status });
+    }
+
+    case databaseSecurityDiagnoseSchemaRoute.name: {
+      databaseSecurityDiagnoseSchemaRoute.input.parse(rawInput);
+      const sqlitePresenter = getDatabaseSecuritySQLitePresenter(runtime);
+      const diagnosis = await sqlitePresenter.diagnoseSchema();
+      return databaseSecurityDiagnoseSchemaRoute.output.parse({ diagnosis });
+    }
+
+    case databaseSecurityRepairSchemaRoute.name: {
+      databaseSecurityRepairSchemaRoute.input.parse(rawInput);
+      const sqlitePresenter = getDatabaseSecuritySQLitePresenter(runtime);
+      const report = await sqlitePresenter.repairSchema();
+      return databaseSecurityRepairSchemaRoute.output.parse({ report });
     }
 
     case onboardingGetStateRoute.name: {
@@ -2378,6 +2409,60 @@ export async function dispatchArgosRoute(
       return mcpClearNpmRegistryCacheRoute.output.parse({ cleared: true });
     }
 
+    case mcpListMcpRouterServersRoute.name: {
+      const input = mcpListMcpRouterServersRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.listMcpRouterServers) {
+        throw new Error("MCPRouter marketplace is not available");
+      }
+      const result = await runtime.mcpPresenter.listMcpRouterServers(input.page, input.limit);
+      return mcpListMcpRouterServersRoute.output.parse(result);
+    }
+
+    case mcpInstallMcpRouterServerRoute.name: {
+      const input = mcpInstallMcpRouterServerRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.installMcpRouterServer) {
+        throw new Error("MCPRouter install is not available");
+      }
+      const installed = await runtime.mcpPresenter.installMcpRouterServer(input.serverKey);
+      return mcpInstallMcpRouterServerRoute.output.parse({ installed });
+    }
+
+    case mcpGetMcpRouterApiKeyRoute.name: {
+      mcpGetMcpRouterApiKeyRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.getMcpRouterApiKey) {
+        throw new Error("MCPRouter API key is not available");
+      }
+      const apiKey = await runtime.mcpPresenter.getMcpRouterApiKey();
+      return mcpGetMcpRouterApiKeyRoute.output.parse({ apiKey });
+    }
+
+    case mcpSetMcpRouterApiKeyRoute.name: {
+      const input = mcpSetMcpRouterApiKeyRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.setMcpRouterApiKey) {
+        throw new Error("MCPRouter API key is not available");
+      }
+      await runtime.mcpPresenter.setMcpRouterApiKey(input.key);
+      return mcpSetMcpRouterApiKeyRoute.output.parse({ set: true as const });
+    }
+
+    case mcpIsServerInstalledRoute.name: {
+      const input = mcpIsServerInstalledRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.isServerInstalled) {
+        throw new Error("Server installation check is not available");
+      }
+      const installed = await runtime.mcpPresenter.isServerInstalled(input.source, input.sourceId);
+      return mcpIsServerInstalledRoute.output.parse({ installed });
+    }
+
+    case mcpUpdateMcpRouterServersAuthRoute.name: {
+      const input = mcpUpdateMcpRouterServersAuthRoute.input.parse(rawInput);
+      if (!runtime.mcpPresenter.updateMcpRouterServersAuth) {
+        throw new Error("MCPRouter auth update is not available");
+      }
+      await runtime.mcpPresenter.updateMcpRouterServersAuth(input.apiKey);
+      return mcpUpdateMcpRouterServersAuthRoute.output.parse({ updated: true as const });
+    }
+
     case syncGetBackupStatusRoute.name: {
       syncGetBackupStatusRoute.input.parse(rawInput);
       const status = await runtime.syncPresenter.getBackupStatus();
@@ -2597,8 +2682,20 @@ export async function dispatchArgosRoute(
             }
           : undefined;
 
-      const windowId = await runtime.windowPresenter.createSettingsWindow(navigation);
+      const windowId = await runtime.windowPresenter.navigateToSettings(navigation);
       return systemOpenSettingsRoute.output.parse({ windowId });
+    }
+
+    case systemConsumePendingProviderInstallRoute.name: {
+      systemConsumePendingProviderInstallRoute.input.parse(rawInput);
+      const preview = runtime.windowPresenter.consumePendingSettingsProviderInstall();
+      return systemConsumePendingProviderInstallRoute.output.parse({ preview });
+    }
+
+    case systemSetPendingProviderInstallRoute.name: {
+      const input = systemSetPendingProviderInstallRoute.input.parse(rawInput);
+      runtime.windowPresenter.setPendingSettingsProviderInstall(input.preview);
+      return systemSetPendingProviderInstallRoute.output.parse({ success: true });
     }
   }
 

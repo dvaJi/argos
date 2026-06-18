@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
 import { Input } from "@shadcn/components/ui/input";
 import { Separator } from "@shadcn/components/ui/separator";
-import { useLegacyPresenter } from "@api/legacy/presenters";
+import { createMcpClient } from "@api/McpClient";
 import { useToast } from "@/components/use-toast";
 
 interface McpBuiltinMarketProps {
@@ -26,7 +26,7 @@ type MarketItem = {
 };
 
 export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuiltinMarketProps) {
-  const mcpP = useLegacyPresenter("mcpPresenter");
+  const mcpClient = createMcpClient();
   const { toast } = useToast();
 
   const [items, setItems] = useState<MarketItem[]>([]);
@@ -41,7 +41,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
 
   const loadApiKey = async () => {
     try {
-      const key = await mcpP.getMcpRouterApiKey?.();
+      const key = await mcpClient.getMcpRouterApiKey();
       setApiKeyInput(key || "");
     } catch {}
   };
@@ -49,9 +49,9 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
   const saveApiKey = async () => {
     try {
       const newKey = apiKeyInput.trim();
-      await mcpP.setMcpRouterApiKey?.(newKey);
+      await mcpClient.setMcpRouterApiKey(newKey);
       if (newKey) {
-        await mcpP.updateMcpRouterServersAuth?.(newKey);
+        await mcpClient.updateMcpRouterServersAuth(newKey);
       }
       toast({ title: "Saved" });
     } catch (e) {
@@ -67,7 +67,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
     const installed = new Set<string>();
     for (const item of currentItems) {
       try {
-        const isInstalled = await mcpP.isServerInstalled?.("mcprouter", item.server_key);
+        const isInstalled = await mcpClient.isServerInstalled("mcprouter", item.server_key);
         if (isInstalled) installed.add(item.server_key);
       } catch (e) {
         console.error("Failed to check installation status:", e);
@@ -82,8 +82,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
     setShowPullToLoad(false);
 
     try {
-      const data = await mcpP.listMcpRouterServers?.(page, 20);
-      const list = data?.servers || [];
+      const list = await mcpClient.listMcpRouterServers(page, 20);
       if (list.length === 0) {
         setHasMore(false);
         setCanPullMore(false);
@@ -143,8 +142,8 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
         });
         return;
       }
-      await mcpP.setMcpRouterApiKey?.(apiKeyInput.trim());
-      const ok = await mcpP.installMcpRouterServer?.(item.server_key);
+      await mcpClient.setMcpRouterApiKey(apiKeyInput.trim());
+      const ok = await mcpClient.installMcpRouterServer(item.server_key);
       if (ok) {
         toast({ title: "Installed successfully" });
         setInstalledServers((prev) => new Set([...prev, item.server_key]));

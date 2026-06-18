@@ -15,7 +15,7 @@ import {
   SheetTitle,
 } from "@shadcn/components/ui/sheet";
 import { useToast } from "@/components/use-toast";
-import { useLegacyPresenter } from "@api/legacy/presenters";
+import { createFileClient } from "@api/FileClient";
 import { nanoid } from "nanoid";
 import { getMimeTypeIcon } from "@/lib/utils";
 import type { FileItem } from "@shared/presenter";
@@ -62,7 +62,7 @@ const defaultForm: PromptForm = {
 
 export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit }: PromptEditorSheetProps) {
   const { toast } = useToast();
-  const filePresenter = useLegacyPresenter("filePresenter");
+  const fileClient = createFileClient();
 
   const [form, setForm] = useState<PromptForm>({ ...defaultForm });
 
@@ -133,8 +133,8 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
         await Promise.all(
           Array.from(files).map(async (file) => {
             const path = window.api.getPathForFile(file);
-            const mimeType = await filePresenter.getMimeType(path);
-            const fileInfo: MessageFile = await filePresenter.prepareFile(path, mimeType);
+            const mimeType = await fileClient.getMimeType(path);
+            const fileInfo = (await fileClient.prepareFile(path, mimeType)) as unknown as MessageFile;
             newFiles.push({
               id: nanoid(8),
               name: fileInfo.name,

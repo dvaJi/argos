@@ -269,6 +269,9 @@ export interface IWindowPresenter {
   createSettingsWindow(
     navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
   ): Promise<number | null>;
+  navigateToSettings(
+    navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
+  ): Promise<number | null>;
   closeSettingsWindow(): void;
   getSettingsWindowId(): number | null;
   focusMainWindow(): boolean;

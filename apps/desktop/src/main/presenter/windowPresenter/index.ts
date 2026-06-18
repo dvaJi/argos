@@ -93,19 +93,19 @@ export class WindowPresenter implements IWindowPresenter {
       this.createAppWindow();
     });
 
-    // Listen for shortcut event: go settings (now opens independent Settings Window)
+    // Listen for shortcut event: navigate to settings in main window
     eventBus.on(SHORTCUT_EVENTS.GO_SETTINGS, async () => {
       try {
-        await this.openOrFocusSettingsWindow();
+        await this.navigateToSettings();
       } catch (err) {
-        console.error("Failed to open/focus settings window via eventBus:", err);
+        console.error("Failed to navigate to settings via eventBus:", err);
       }
     });
 
-    // Allow renderer to request opening/focusing settings via IPC
+    // Allow renderer to request navigating to settings via IPC
     ipcMain.on(SHORTCUT_EVENTS.GO_SETTINGS, async () => {
       try {
-        await this.openOrFocusSettingsWindow();
+        await this.navigateToSettings();
       } catch (err) {
         console.error("Failed to open/focus settings window via IPC:", err);
       }
@@ -158,14 +158,41 @@ export class WindowPresenter implements IWindowPresenter {
   }
 
   /**
-   * @deprecated Use openOrFocusSettingsWindow() instead. Settings is now an independent window.
+   * @deprecated Use navigateToSettings() instead. Settings is now a route in the main window.
    * Open Settings tab if not exists, otherwise focus existing one in the given window.
    * This method is kept for backward compatibility.
    */
   public async openOrFocusSettingsTab(_windowId: number): Promise<void> {
-    console.warn("openOrFocusSettingsTab is deprecated. Use openOrFocusSettingsWindow() instead.");
-    // Redirect to new Settings Window
-    await this.openOrFocusSettingsWindow();
+    console.warn("openOrFocusSettingsTab is deprecated. Use navigateToSettings() instead.");
+    await this.navigateToSettings();
+  }
+
+  /**
+   * Navigate the main window to the settings route.
+   * If settings navigation payload is provided, sends it to the renderer.
+   * Returns the main window ID.
+   */
+  public async navigateToSettings(navigation?: SettingsNavigationPayload): Promise<number | null> {
+    const mainWindow = this.mainWindow;
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      console.warn("Cannot navigate to settings: no valid main window found.");
+      return null;
+    }
+
+    console.log("Navigating main window to settings.");
+    mainWindow.show();
+    mainWindow.focus();
+    activateAppOnMac();
+
+    if (navigation) {
+      this.sendToWindow(mainWindow.id, SETTINGS_EVENTS.NAVIGATE, navigation);
+    } else {
+      this.sendToWindow(mainWindow.id, SETTINGS_EVENTS.NAVIGATE, {
+        routeName: "settings-overview",
+      });
+    }
+
+    return mainWindow.id;
   }
 
   /**
@@ -1143,171 +1170,23 @@ export class WindowPresenter implements IWindowPresenter {
   }
 
   /**
+   * @deprecated Use navigateToSettings() instead. Settings is now a route in the main window.
    * Create or show Settings Window (singleton pattern)
    */
   public async createSettingsWindow(navigation?: SettingsNavigationPayload): Promise<number | null> {
-    const settingsStartupStart = Date.now();
-    console.info("[Startup][Settings][Main] createSettingsWindow start");
-    // If settings window already exists, just show and focus it
-    if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
-      console.log("Settings window already exists, showing and focusing.");
-      this.settingsWindow.show();
-      this.settingsWindow.focus();
-      activateAppOnMac();
-      if (navigation) {
-        if (this.settingsWindowReady) {
-          this.sendToWindow(this.settingsWindow.id, SETTINGS_EVENTS.NAVIGATE, navigation);
-        } else {
-          this.pendingSettingsMessages.push({
-            channel: SETTINGS_EVENTS.NAVIGATE,
-            args: [navigation],
-          });
-
-          const targetUrl = this.getSettingsWindowTargetUrl(navigation);
-          console.log(`Settings window is not ready, reloading to target URL: ${targetUrl}`);
-          console.info("[Startup][Settings][Main] loadURL start", targetUrl);
-          await this.settingsWindow.loadURL(targetUrl);
-          console.info(
-            `[Startup][Settings][Main] loadURL end windowId=${this.settingsWindow.id} elapsed=${Date.now() - settingsStartupStart}ms`,
-          );
-        }
-      }
-      return this.settingsWindow.id;
-    }
-
-    console.log("Creating new settings window.");
-
-    // Choose icon based on platform
-    const iconFile = nativeImage.createFromPath(process.platform === "win32" ? iconWin : icon);
-
-    // Initialize window state manager to remember position and size
-    const settingsWindowState = windowStateManager({
-      file: "settings-window-state.json",
-      defaultWidth: 1300,
-      defaultHeight: 800,
-    });
-
-    // Create Settings Window with state persistence
-    const settingsWindow = new BrowserWindow({
-      x: settingsWindowState.x,
-      y: settingsWindowState.y,
-      width: settingsWindowState.width,
-      height: settingsWindowState.height,
-      show: false,
-      autoHideMenuBar: true,
-      fullscreenable: false,
-
-      icon: iconFile,
-      title: "Argos - Settings",
-      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : undefined,
-      transparent: process.platform === "darwin",
-      vibrancy: process.platform === "darwin" ? "under-window" : undefined,
-      visualEffectState: process.platform === "darwin" ? "followWindow" : undefined,
-      backgroundMaterial: process.platform === "win32" ? "mica" : undefined,
-      backgroundColor: "#00ffffff",
-      maximizable: true,
-      minimizable: true,
-      frame: process.platform === "darwin",
-      hasShadow: true,
-      trafficLightPosition: process.platform === "darwin" ? { x: 12, y: 10 } : undefined,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: join(__dirname, "../preload/index.mjs"),
-        sandbox: false,
-        devTools: is.dev,
-      },
-      roundedCorners: true,
-    });
-
-    if (!settingsWindow) {
-      console.error("Failed to create settings window.");
-      return null;
-    }
-
-    this.settingsWindow = settingsWindow;
-    this.resetSettingsWindowState();
-    this.startupWorkloadCoordinator?.createRun("settings");
-    const windowId = settingsWindow.id;
-    const settingsWebContentsId = settingsWindow.webContents.id;
-
-    if (navigation) {
-      this.pendingSettingsMessages.push({
-        channel: SETTINGS_EVENTS.NAVIGATE,
-        args: [navigation],
-      });
-    }
-
-    // Manage window state to track position and size changes
-    settingsWindowState.manage(settingsWindow);
-    settingsWindow.webContents.on("destroyed", () => {
-      releasePresenterCallErrorStateForWebContents(settingsWebContentsId);
-    });
-
-    // Ensure links with target="_blank" open in the user's default browser
-    settingsWindow.webContents.setWindowOpenHandler(({ url }) => {
-      openExternalUrl(url, "settings window");
-      return { action: "deny" };
-    });
-
-    // Apply content protection settings
-    const contentProtectionEnabled = this.configPresenter.getContentProtectionEnabled();
-    this.updateContentProtection(settingsWindow, contentProtectionEnabled);
-
-    // Window event listeners
-    settingsWindow.on("ready-to-show", () => {
-      console.info(
-        `[Startup][Settings][Main] ready-to-show windowId=${windowId} elapsed=${Date.now() - settingsStartupStart}ms`,
-      );
-      if (!settingsWindow.isDestroyed()) {
-        settingsWindow.show();
-      }
-    });
-
-    settingsWindow.webContents.on("did-start-navigation", (details) => {
-      this.handleSettingsWindowNavigationStart(windowId, details.isMainFrame, details.isSameDocument);
-    });
-
-    settingsWindow.on("closed", () => {
-      console.log(`Settings window ${windowId} closed.`);
-      // Unmanage window state when window is closed
-      settingsWindowState.unmanage();
-      this.startupWorkloadCoordinator?.cancelTarget("settings");
-      this.settingsWindow = null;
-      this.resetSettingsWindowState(true);
-    });
-
-    // Load settings renderer HTML
-    const targetUrl = this.getSettingsWindowTargetUrl(navigation);
-    console.log(`Loading settings renderer URL: ${targetUrl}`);
-    console.info("[Startup][Settings][Main] loadURL start", targetUrl);
-    await settingsWindow.loadURL(targetUrl);
-
-    console.info(
-      `[Startup][Settings][Main] loadURL end windowId=${windowId} elapsed=${Date.now() - settingsStartupStart}ms`,
-    );
-
-    // Open DevTools in development mode
-    if (is.dev) {
-      settingsWindow.webContents.openDevTools({ mode: "detach" });
-    }
-
-    console.log(`Settings window ${windowId} created successfully.`);
-    return windowId;
+    console.warn("createSettingsWindow is deprecated. Use navigateToSettings() instead.");
+    return this.navigateToSettings(navigation);
   }
 
   /**
    * Open or focus Settings Window (replaces openOrFocusSettingsTab)
    */
   public async openOrFocusSettingsWindow(): Promise<void> {
-    await this.createSettingsWindow();
+    await this.navigateToSettings();
   }
 
   public getSettingsWindowId(): number | null {
-    if (this.settingsWindow && !this.settingsWindow.isDestroyed()) {
-      return this.settingsWindow.id;
-    }
-    return null;
+    return this.mainWindowId;
   }
 
   public focusMainWindow(): boolean {

@@ -43,6 +43,7 @@ import { useLanguageStore } from "@/stores/language";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import { createOnboardingClient } from "@api/OnboardingClient";
 import { createDatabaseSecurityClient } from "@api/DatabaseSecurityClient";
+import { createBrowserClient } from "@api/BrowserClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/use-toast";
 import PrivacySettingsSection from "./common/PrivacySettingsSection";
@@ -129,11 +130,10 @@ export default function DataSettings() {
   const languageStore = useLanguageStore();
   const syncStore = useSyncStore();
   const devicePresenter = useLegacyPresenter("devicePresenter");
-  const yoBrowserPresenter = useLegacyPresenter("yoBrowserPresenter");
   const configPresenter = useLegacyPresenter("configPresenter");
-  const sqlitePresenter = useLegacyPresenter("sqlitePresenter");
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
+  const browserClient = createBrowserClient();
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isProviderImportDialogOpen, setIsProviderImportDialogOpen] = useState(false);
@@ -510,7 +510,7 @@ export default function DataSettings() {
     if (isClearingSandbox) return;
     setIsClearingSandbox(true);
     try {
-      await yoBrowserPresenter.clearSandboxData();
+      await browserClient.clearSandboxData();
       toast({ title: "Sandbox data cleared", duration: 4000 });
     } catch {
       toast({ title: "Failed to clear", variant: "destructive", duration: 4000 });
@@ -518,7 +518,7 @@ export default function DataSettings() {
       setIsClearingSandbox(false);
       setIsClearSandboxDialogOpen(false);
     }
-  }, [isClearingSandbox, yoBrowserPresenter, toast]);
+  }, [isClearingSandbox, browserClient, toast]);
 
   useEffect(() => {
     void (async () => {
@@ -1259,7 +1259,7 @@ export default function DataSettings() {
                   if (isRepairActionDisabled) return;
                   setIsRepairing(true);
                   try {
-                    const result = await sqlitePresenter.repairSchema();
+                    const result = await databaseSecurityClient.repairSchema();
                     setLastRepairReport(result || null);
                     toast({ title: "Repair completed", duration: 4000 });
                   } catch {

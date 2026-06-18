@@ -7,9 +7,12 @@ import {
   windowMinimizeCurrentRoute,
   windowPreviewFileRoute,
   windowToggleMaximizeCurrentRoute,
+  systemConsumePendingProviderInstallRoute,
+  systemSetPendingProviderInstallRoute,
 } from "@shared/contracts/routes";
 import { getArgosBridge } from "./core";
 import { getRuntimeWindowId } from "./runtime";
+import type { ProviderInstallPreview } from "@shared/presenter";
 
 export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
   async function getCurrentState() {
@@ -37,6 +40,15 @@ export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
 
   async function previewFile(filePath: string) {
     return await bridge.invoke(windowPreviewFileRoute.name, { filePath });
+  }
+
+  async function consumePendingSettingsProviderInstall(): Promise<ProviderInstallPreview | null> {
+    const result = await bridge.invoke(systemConsumePendingProviderInstallRoute.name, {});
+    return result.preview;
+  }
+
+  async function setPendingSettingsProviderInstall(preview: ProviderInstallPreview): Promise<void> {
+    await bridge.invoke(systemSetPendingProviderInstallRoute.name, { preview });
   }
 
   function onStateChanged(
@@ -80,6 +92,8 @@ export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
     closeCurrent,
     closeFloatingCurrent,
     previewFile,
+    consumePendingSettingsProviderInstall,
+    setPendingSettingsProviderInstall,
     onStateChanged,
     onCurrentStateChanged,
   };

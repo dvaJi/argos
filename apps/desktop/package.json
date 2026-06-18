@@ -69,7 +69,7 @@
     "pdf-parse-new": "^1.4.1",
     "radix-ui": "catalog:",
     "react": "catalog:",
-    "react-day-picker": "catalog:",
+    "react-day-picker": "^10.0.1",
     "react-dom": "catalog:",
     "recharts": "catalog:",
     "run-applescript": "^7.1.0",

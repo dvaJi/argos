@@ -32,7 +32,8 @@
       "@/*": ["./src/renderer/src/*"],
       "@api/*": ["./src/renderer/api/*"],
       "@shared/*": ["./src/shared/*"],
-      "@shadcn/*": ["./src/shadcn/*"]
+      "@shadcn/*": ["./src/shadcn/*"],
+      "@settings/*": ["./src/renderer/settings/*"]
     }
   }
 }

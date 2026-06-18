@@ -60,6 +60,28 @@ const setup = async (
     }),
     changePassword: vi.fn<(...args: any[]) => any>(),
     disable: vi.fn<(...args: any[]) => any>(),
+    repairSchema: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+      startedAt: Date.now(),
+      finishedAt: Date.now(),
+      status: "healthy",
+      backupPath: null,
+      diagnosisBeforeRepair: {
+        checkedAt: Date.now(),
+        isHealthy: true,
+        issues: [],
+        repairableIssues: [],
+        manualIssues: [],
+      },
+      diagnosisAfterRepair: {
+        checkedAt: Date.now(),
+        isHealthy: true,
+        issues: [],
+        repairableIssues: [],
+        manualIssues: [],
+      },
+      repairedIssues: [],
+      remainingIssues: [],
+    }),
   };
 
   const presenterMocks = {
@@ -68,30 +90,6 @@ const setup = async (
         status: "updated",
         lastUpdated: Date.now(),
         providersCount: 1,
-      }),
-    },
-    sqlitePresenter: {
-      repairSchema: vi.fn<(...args: any[]) => any>().mockResolvedValue({
-        startedAt: Date.now(),
-        finishedAt: Date.now(),
-        status: "healthy",
-        backupPath: null,
-        diagnosisBeforeRepair: {
-          checkedAt: Date.now(),
-          isHealthy: true,
-          issues: [],
-          repairableIssues: [],
-          manualIssues: [],
-        },
-        diagnosisAfterRepair: {
-          checkedAt: Date.now(),
-          isHealthy: true,
-          issues: [],
-          repairableIssues: [],
-          manualIssues: [],
-        },
-        repairedIssues: [],
-        remainingIssues: [],
       }),
     },
     devicePresenter: {
@@ -141,6 +139,7 @@ const setup = async (
     syncStore,
     uiSettingsStore,
     databaseSecurityClient,
+    browserClient,
     presenterMocks,
   };
 };
@@ -364,12 +363,12 @@ describe("DataSettings", () => {
   });
 
   it("runs schema repair and shows a healthy toast summary", async () => {
-    const { container, toast, presenterMocks } = await setup();
+    const { container, toast, databaseSecurityClient } = await setup();
 
     await fireEvent.click(findRepairButton(container));
     await act(async () => {});
 
-    expect(presenterMocks.sqlitePresenter.repairSchema).toHaveBeenCalledTimes(1);
+    expect(databaseSecurityClient.repairSchema).toHaveBeenCalledTimes(1);
     expect(toast).toHaveBeenCalledWith({
       title: "settings.data.databaseRepair.toastHealthyTitle",
       description: "settings.data.databaseRepair.toastHealthyDescription",
@@ -378,7 +377,7 @@ describe("DataSettings", () => {
   });
 
   it("disables schema repair during backup and blocks both click and auto-run paths", async () => {
-    const { container, syncStore, presenterMocks } = await setup();
+    const { container, syncStore, databaseSecurityClient } = await setup();
 
     syncStore.isBackingUp = true;
     await act(async () => {});
@@ -392,13 +391,13 @@ describe("DataSettings", () => {
     );
     await act(async () => {});
 
-    expect(presenterMocks.sqlitePresenter.repairSchema).not.toHaveBeenCalled();
+    expect(databaseSecurityClient.repairSchema).not.toHaveBeenCalled();
   });
 
   it("renders repair summary and manual hint after a repair run with remaining issues", async () => {
-    const { container, presenterMocks } = await setup();
+    const { container, databaseSecurityClient } = await setup();
 
-    presenterMocks.sqlitePresenter.repairSchema.mockResolvedValueOnce({
+    databaseSecurityClient.repairSchema.mockResolvedValueOnce({
       startedAt: Date.now(),
       finishedAt: Date.now(),
       status: "repaired",

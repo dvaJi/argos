@@ -10,7 +10,6 @@ import {
 import logoSrc from "../src/assets/logo.png";
 import logoDarkSrc from "../src/assets/logo-dark.png";
 import { TextShimmer } from "../../components/agent-elements/text-shimmer";
-import "../../components/agent-elements/agent-ui.css";
 import "./loading.css";
 
 type SplashActivityStatus = "running" | "completed" | "failed";

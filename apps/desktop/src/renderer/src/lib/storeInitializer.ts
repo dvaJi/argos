@@ -22,11 +22,11 @@ export const useMcpInstallDeeplinkHandler = () => {
     const currentRoute = router.state.location;
     const currentPath = currentRoute.pathname;
 
-    if (currentPath !== "/mcp") {
-      await (router.navigate as any)({ to: "/mcp" });
+    if (currentPath !== "/settings/mcp") {
+      await (router.navigate as any)({ to: "/settings/mcp" });
     } else {
       await (router.navigate as any)({
-        to: "/mcp",
+        to: "/settings/mcp",
         search: (prev: Record<string, unknown>) => prev,
         replace: true,
       });
