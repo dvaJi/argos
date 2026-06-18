@@ -468,7 +468,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
                     items={enabledProviders.map((provider) => provider.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    <div className="space-y-2">{enabledProviders.map(renderProviderRow)}</div>
+                    <div className="space-y-2">{enabledProviders.map((p) => renderProviderRow(p))}</div>
                   </SortableContext>
                 </DndContext>
               </div>

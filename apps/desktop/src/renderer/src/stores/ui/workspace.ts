@@ -16,21 +16,6 @@ import { fetchSessions as originalFetchSessions } from "./session";
 
 export type { WorkspaceEntry, WorkspaceMode };
 
-declare global {
-  interface Window {
-    argos?: {
-      workspace?: {
-        switchTo: (id: string) => Promise<void>;
-        list: () => WorkspaceEntry[];
-        getActive: () => WorkspaceEntry | undefined;
-        add: (entry: Omit<WorkspaceEntry, "id" | "createdAt">) => WorkspaceEntry;
-        remove: (id: string) => void;
-        rename: (id: string, name: string) => void;
-      };
-    };
-  }
-}
-
 export const workspaceStore = new Store<WorkspaceConfig>({
   ...DEFAULT_WORKSPACE_CONFIG,
 });

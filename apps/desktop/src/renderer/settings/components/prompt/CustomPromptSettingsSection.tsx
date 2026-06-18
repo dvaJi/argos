@@ -184,7 +184,11 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
 
     const exportPrompts = useCallback(() => {
       try {
-        const data = JSON.stringify(prompts.map(structuredClone), null, 2);
+        const data = JSON.stringify(
+          prompts.map((p) => structuredClone(p)),
+          null,
+          2,
+        );
         const blob = new Blob([data], { type: "application/json" });
         downloadBlob(blob, "prompts.json");
         toast({ title: "Export successful" });
