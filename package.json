@@ -85,6 +85,8 @@
     "oxlint": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:",
+    "vite-plugin-electron": "catalog:",
+    "vite-plugin-electron-renderer": "catalog:",
     "yaml": "catalog:"
   }
 }
