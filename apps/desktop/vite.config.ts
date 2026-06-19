@@ -143,7 +143,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: resolve('out/renderer'),
       emptyOutDir: true,
-      minify: 'esbuild',
       cssCodeSplit: false,
       rolldownOptions: {
         input: {
