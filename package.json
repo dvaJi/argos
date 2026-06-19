@@ -2,7 +2,7 @@
   "name": "argos",
   "version": "0.1.0",
   "description": "Argos, a simple and easy-to-use Agent client",
-  "main": "./out/main/index.js",
+  "main": "./apps/desktop/out/main/index.js",
   "author": "dvaJi",
   "type": "module",
   "engines": {
