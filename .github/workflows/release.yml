@@ -177,7 +177,7 @@ jobs:
         run: |
           pnpm run build
           pnpm run plugin:bundle -- --name feishu --platform win32 --arch ${{ matrix.arch }}
-          pnpm exec electron-builder --win --${{ matrix.arch }} --publish=never
+          pnpm exec electron-builder --config apps/desktop/electron-builder.yml --win --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
@@ -240,7 +240,7 @@ jobs:
         run: |
           pnpm run build
           pnpm run plugin:bundle -- --name feishu --platform linux --arch ${{ matrix.arch }}
-          pnpm exec electron-builder --linux --${{ matrix.arch }} --publish=never
+          pnpm exec electron-builder --config apps/desktop/electron-builder.yml --linux --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
@@ -316,7 +316,7 @@ jobs:
           pnpm run plugin:cua:build:mac:${{ matrix.arch }}
           pnpm run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
           pnpm run plugin:bundle -- --name feishu --platform darwin --arch ${{ matrix.arch }}
-          pnpm exec electron-builder --mac --${{ matrix.arch }} --publish=never
+          pnpm exec electron-builder --config apps/desktop/electron-builder.yml --mac --${{ matrix.arch }} --publish=never
         env:
           CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.ARGOS_CSC_KEY_PASS }}
