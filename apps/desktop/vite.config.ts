@@ -4,7 +4,7 @@ import { resolve } from 'path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm'
+import monacoEditorPlugin from '@dvaji/vite-plugin-monaco-editor'
 import tailwindcss from '@tailwindcss/vite'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
 

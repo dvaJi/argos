@@ -158,7 +158,7 @@
     "vite": "catalog:",
     "vite-plugin-electron": "catalog:",
     "vite-plugin-electron-renderer": "catalog:",
-    "vite-plugin-monaco-editor-esm": "^2.0.2",
+    "@dvaji/vite-plugin-monaco-editor": "^2.0.0",
     "vite-plugin-svgr": "^5.2.0",
     "vitest": "catalog:",
     "yaml": "catalog:"
