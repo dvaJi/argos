@@ -81,11 +81,11 @@ nsis:
   createDesktopShortcut: always
   allowToChangeInstallationDirectory: true
   oneClick: false
-  include: build/nsis-installer.nsh
+  include: apps/desktop/build/nsis-installer.nsh
 afterSign: scripts/notarize.js
 afterPack: scripts/afterPack.js
 mac:
-  entitlementsInherit: build/entitlements.mac.plist
+  entitlementsInherit: apps/desktop/build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
