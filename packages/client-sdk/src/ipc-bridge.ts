@@ -85,7 +85,7 @@ export function createBridge(ipcRenderer: IpcRendererLike): ArgosBridge {
       const contract = getArgosRouteContract(routeName);
       const normalizedInput = contract.input.parse(input);
       const output = await ipcRenderer.invoke(ARGOS_ROUTE_INVOKE_CHANNEL, routeName, normalizedInput);
-      return contract.output.parse(output);
+      return contract.output.parse(output) as ArgosRouteOutput<T>;
     },
 
     on<T extends ArgosEventName>(eventName: T, listener: (payload: ArgosEventEnvelope<T>["payload"]) => void) {

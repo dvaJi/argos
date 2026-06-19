@@ -186,7 +186,7 @@ export const ProviderModelSummarySchema = z.object({
   functionCall: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   enableSearch: z.boolean().optional(),
-  type: z.nativeEnum(ModelType).optional(),
+  type: z.enum(ModelType).optional(),
   contextLength: z.number().int().optional(),
   maxTokens: z.number().int().optional(),
   description: z.string().optional(),

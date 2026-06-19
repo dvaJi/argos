@@ -1,7 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 // Artifacts-related constant definitions
@@ -580,7 +579,7 @@ export class ArtifactsServer {
               "Do not call this function repeatedly if instructions or definitions for the requested artifact type are already available in the current context. " +
               "Specify the desired artifact category through the type parameter: code, documents, html, svg, mermaid, or react. " +
               "After obtaining the instructions, use them appropriately and avoid duplicate calls for the same type.",
-            inputSchema: zodToJsonSchema(GetArtifactInstructionsArgsSchema),
+            inputSchema: toJSONSchema(GetArtifactInstructionsArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Get Artifact Instructions",
               readOnlyHint: true,

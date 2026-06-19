@@ -13,8 +13,7 @@
     "@argos/shared-contracts": "workspace:*",
     "level": "catalog:",
     "yaml": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "catalog:"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:"

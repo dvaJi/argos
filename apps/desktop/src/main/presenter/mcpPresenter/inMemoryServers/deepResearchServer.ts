@@ -4,8 +4,7 @@
 // Uses a reflection-based incremental iterative research mode.
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import axios from "axios";
 import { presenter } from "@/presenter";
@@ -294,7 +293,7 @@ export class DeepResearchServer {
           {
             name: "start_deep_research",
             description: "Start a new deep research session. Returns a session_id for subsequent operations.",
-            inputSchema: zodToJsonSchema(StartDeepResearchArgsSchema),
+            inputSchema: toJSONSchema(StartDeepResearchArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Start Deep Research",
               destructiveHint: false,
@@ -303,7 +302,7 @@ export class DeepResearchServer {
           {
             name: "execute_single_web_search",
             description: "Execute a single web search within the research session.",
-            inputSchema: zodToJsonSchema(SingleWebSearchArgsSchema),
+            inputSchema: toJSONSchema(SingleWebSearchArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Execute Web Search",
               readOnlyHint: false,
@@ -314,7 +313,7 @@ export class DeepResearchServer {
             name: "request_research_data",
             description:
               "Request the new search results and research context from the current session, for the LLM to reflect on.",
-            inputSchema: zodToJsonSchema(RequestResearchDataArgsSchema),
+            inputSchema: toJSONSchema(RequestResearchDataArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Request Research Data",
               readOnlyHint: true,
@@ -324,7 +323,7 @@ export class DeepResearchServer {
             name: "submit_reflection_results",
             description:
               "LLM submits its reflection on the research data (e.g., whether more research is needed, suggested queries, etc.).",
-            inputSchema: zodToJsonSchema(SubmitReflectionResultsArgsSchema),
+            inputSchema: toJSONSchema(SubmitReflectionResultsArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Submit Reflection Results",
               destructiveHint: false,
@@ -333,7 +332,7 @@ export class DeepResearchServer {
           {
             name: "generate_final_answer",
             description: "Generate a final answer from the accumulated research and clean up the session data.",
-            inputSchema: zodToJsonSchema(GenerateFinalAnswerArgsSchema),
+            inputSchema: toJSONSchema(GenerateFinalAnswerArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Generate Final Answer",
               destructiveHint: true,

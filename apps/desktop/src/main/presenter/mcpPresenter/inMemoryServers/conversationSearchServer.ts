@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { presenter } from "@/presenter"; // import the global presenter object
 import { isSafeRegexPattern } from "@shared/regexValidator";
@@ -429,7 +428,7 @@ export class ConversationSearchServer {
           {
             name: "search_conversations",
             description: "Search historical conversation records, supports title and content search",
-            inputSchema: zodToJsonSchema(SearchConversationsArgsSchema),
+            inputSchema: toJSONSchema(SearchConversationsArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Search Conversations",
               readOnlyHint: true,
@@ -439,7 +438,7 @@ export class ConversationSearchServer {
             name: "search_messages",
             description:
               "Search historical message records, supports filtering by conversation ID, role and other conditions",
-            inputSchema: zodToJsonSchema(SearchMessagesArgsSchema),
+            inputSchema: toJSONSchema(SearchMessagesArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Search Messages",
               readOnlyHint: true,
@@ -448,7 +447,7 @@ export class ConversationSearchServer {
           {
             name: "get_conversation_history",
             description: "Get complete history of a specific conversation",
-            inputSchema: zodToJsonSchema(GetConversationHistoryArgsSchema),
+            inputSchema: toJSONSchema(GetConversationHistoryArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Get Conversation History",
               readOnlyHint: true,
@@ -457,7 +456,7 @@ export class ConversationSearchServer {
           {
             name: "get_conversation_stats",
             description: "Get conversation statistics including totals, recent activity and more",
-            inputSchema: zodToJsonSchema(GetConversationStatsArgsSchema),
+            inputSchema: toJSONSchema(GetConversationStatsArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Get Conversation Stats",
               readOnlyHint: true,

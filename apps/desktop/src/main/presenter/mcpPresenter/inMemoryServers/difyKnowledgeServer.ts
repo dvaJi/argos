@@ -1,7 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import axios from "axios";
 
@@ -131,7 +130,7 @@ export class DifyKnowledgeServer {
           return {
             name: `dify_knowledge_search${suffix}`,
             description: config.description,
-            inputSchema: zodToJsonSchema(DifyKnowledgeSearchArgsSchema),
+            inputSchema: toJSONSchema(DifyKnowledgeSearchArgsSchema, { unrepresentable: "any" }),
             annotations: {
               title: "Dify Knowledge Search",
               readOnlyHint: true,

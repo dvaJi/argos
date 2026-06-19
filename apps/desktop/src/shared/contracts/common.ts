@@ -31,8 +31,15 @@ export const ToolCallImagePreviewSchema = z.object({
   source: z.enum(["tool_output", "file_read", "screenshot", "mcp_image"]),
 });
 
-export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValueSchema), z.record(JsonValueSchema)]),
+export const JsonValueSchema: z.ZodType<JsonValue, unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
 );
 
 export const FileMetadataValueSchema = z.union([JsonValueSchema, z.date()]);
@@ -94,7 +101,7 @@ export const AppErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
   retriable: z.boolean().default(false),
-  details: z.record(JsonValueSchema).optional(),
+  details: z.record(z.string(), JsonValueSchema).optional(),
 });
 
 export const PermissionModeSchema = z.enum(["default", "full_access"]);
@@ -143,7 +150,7 @@ export const MessageFileSchema = z.object({
   mimeType: z.string().optional(),
   token: z.number().optional(),
   thumbnail: z.string().optional(),
-  metadata: z.record(FileMetadataValueSchema).optional(),
+  metadata: z.record(z.string(), FileMetadataValueSchema).optional(),
 });
 
 export const SendMessageInputSchema = z.object({
@@ -186,7 +193,7 @@ export const ProviderModelSummarySchema = z.object({
   functionCall: z.boolean().optional(),
   reasoning: z.boolean().optional(),
   enableSearch: z.boolean().optional(),
-  type: z.nativeEnum(ModelType).optional(),
+  type: z.enum(ModelType).optional(),
   contextLength: z.number().int().optional(),
   maxTokens: z.number().int().optional(),
   description: z.string().optional(),
@@ -339,7 +346,7 @@ export const AssistantMessageBlockSchema = z.object({
       server_description: z.string().optional(),
     })
     .optional(),
-  extra: z.record(JsonValueSchema).optional(),
+  extra: z.record(z.string(), JsonValueSchema).optional(),
   action_type: z.enum(["tool_call_permission", "question_request", "rate_limit"]).optional(),
 });
 

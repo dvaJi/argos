@@ -1,7 +1,6 @@
 import type { IConfigPresenter, MCPToolDefinition } from "@shared/presenter";
 import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { z } from "zod";
+import { toJSONSchema, z } from "zod";
 import fs from "fs";
 import path from "path";
 import { app, nativeImage } from "electron";
@@ -540,7 +539,7 @@ export class AgentToolManager {
           name: "read",
           description:
             "Read the contents of a file. Supports pagination via offset/limit for large files (auto-truncated at 4500 chars if not specified). For image files, returns an English description of visible content instead of raw pixels. When invoked from a skill context with relative paths, provide base_directory as the skill's root directory.",
-          parameters: zodToJsonSchema(schemas.read) as {
+          parameters: toJSONSchema(schemas.read, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -558,7 +557,7 @@ export class AgentToolManager {
           name: "write",
           description:
             "Write content to a file. For skill files, provide base_directory as the skill's root directory.",
-          parameters: zodToJsonSchema(schemas.write) as {
+          parameters: toJSONSchema(schemas.write, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -576,7 +575,7 @@ export class AgentToolManager {
           name: "edit",
           description:
             "Make precise text or line replacements in a file by matching exact text strings. Set replaceAll=false to replace only the first match.",
-          parameters: zodToJsonSchema(schemas.edit) as {
+          parameters: toJSONSchema(schemas.edit, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -594,7 +593,7 @@ export class AgentToolManager {
           name: "exec",
           description:
             "Execute a shell command in the current working directory or an explicit cwd. External cwd paths are allowed in Full Access mode; default mode asks for approval. Use background: true when you know the command should detach immediately. Otherwise foreground exec waits briefly, and long-running commands may auto-background and return a session ID for use with the process tool.",
-          parameters: zodToJsonSchema(schemas.exec) as {
+          parameters: toJSONSchema(schemas.exec, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -612,7 +611,7 @@ export class AgentToolManager {
           name: "process",
           description:
             "Manage background exec sessions created by explicit background exec calls or by long-running foreground exec calls that yielded a sessionId. Use poll to check output and status, log to get full output with pagination, write to send input to stdin, kill to terminate, and remove to clean up completed sessions.",
-          parameters: zodToJsonSchema(schemas.process) as {
+          parameters: toJSONSchema(schemas.process, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -636,7 +635,7 @@ export class AgentToolManager {
           name: QUESTION_TOOL_NAME,
           description:
             "Pause the agent loop and ask the user one structured clarification question when missing user preferences, implementation direction, output shape, or risk decisions would materially change the result. Do not use this for casual conversation or for facts you can discover from the repo, tools, or existing context. The loop resumes only after the user responds.",
-          parameters: zodToJsonSchema(questionToolSchema) as {
+          parameters: toJSONSchema(questionToolSchema, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -1554,7 +1553,7 @@ export class AgentToolManager {
           name: "skill_list",
           description:
             "List all available skills and their activation status. Skills provide specialized expertise and behavioral guidance.",
-          parameters: zodToJsonSchema(schemas.skill_list) as {
+          parameters: toJSONSchema(schemas.skill_list, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -1572,7 +1571,7 @@ export class AgentToolManager {
           name: "skill_view",
           description:
             "Inspect a specific skill before relying on it. Returns the rendered SKILL.md body or a requested supporting file under the skill root.",
-          parameters: zodToJsonSchema(schemas.skill_view) as {
+          parameters: toJSONSchema(schemas.skill_view, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -1590,7 +1589,7 @@ export class AgentToolManager {
           name: "skill_manage",
           description:
             "Create or edit temporary draft skills in the conversation draft area. Use the returned draftId for follow-up draft operations. This cannot modify installed skills.",
-          parameters: zodToJsonSchema(schemas.skill_manage) as {
+          parameters: toJSONSchema(schemas.skill_manage, { unrepresentable: "any" }) as {
             type: string;
             properties: Record<string, unknown>;
             required?: string[];
@@ -1612,7 +1611,7 @@ export class AgentToolManager {
         name: "skill_run",
         description:
           "Run a bundled script from a pinned skill. This is the preferred way to execute skill-local Python, Node, or shell helpers without guessing paths.",
-        parameters: zodToJsonSchema(this.skillSchemas.skill_run) as {
+        parameters: toJSONSchema(this.skillSchemas.skill_run, { unrepresentable: "any" }) as {
           type: string;
           properties: Record<string, unknown>;
           required?: string[];

@@ -2,8 +2,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { z } from "zod";
+import { toJSONSchema, z } from "zod";
 import { runAppleScript } from "run-applescript";
 import { run } from "@jxa/run";
 
@@ -1156,7 +1155,7 @@ export class AppleServer {
         {
           name: "calendar",
           description: "Search, create, and open calendar events in Apple Calendar app",
-          inputSchema: zodToJsonSchema(CalendarArgsSchema),
+          inputSchema: toJSONSchema(CalendarArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Calendar",
             destructiveHint: false,
@@ -1165,7 +1164,7 @@ export class AppleServer {
         {
           name: "contacts",
           description: "Search and retrieve contacts from Apple Contacts app",
-          inputSchema: zodToJsonSchema(ContactsArgsSchema),
+          inputSchema: toJSONSchema(ContactsArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Contacts",
             readOnlyHint: true,
@@ -1174,7 +1173,7 @@ export class AppleServer {
         {
           name: "mail",
           description: "Interact with Apple Mail app - read unread emails, search emails, and send emails",
-          inputSchema: zodToJsonSchema(MailArgsSchema),
+          inputSchema: toJSONSchema(MailArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Mail",
             destructiveHint: false,
@@ -1184,7 +1183,7 @@ export class AppleServer {
         {
           name: "maps",
           description: "Search locations, manage guides, save favorites, and get directions using Apple Maps",
-          inputSchema: zodToJsonSchema(MapsArgsSchema),
+          inputSchema: toJSONSchema(MapsArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Maps",
             destructiveHint: false,
@@ -1193,7 +1192,7 @@ export class AppleServer {
         {
           name: "messages",
           description: "Interact with Apple Messages app - send, read, schedule messages and check unread messages",
-          inputSchema: zodToJsonSchema(MessagesArgsSchema),
+          inputSchema: toJSONSchema(MessagesArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Messages",
             destructiveHint: false,
@@ -1203,7 +1202,7 @@ export class AppleServer {
         {
           name: "notes",
           description: "Search, retrieve and create notes in Apple Notes app",
-          inputSchema: zodToJsonSchema(NotesArgsSchema),
+          inputSchema: toJSONSchema(NotesArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Notes",
             destructiveHint: false,
@@ -1212,7 +1211,7 @@ export class AppleServer {
         {
           name: "reminders",
           description: "Search, create, and open reminders in Apple Reminders app",
-          inputSchema: zodToJsonSchema(RemindersArgsSchema),
+          inputSchema: toJSONSchema(RemindersArgsSchema, { unrepresentable: "any" }),
           annotations: {
             title: "Apple Reminders",
             destructiveHint: false,

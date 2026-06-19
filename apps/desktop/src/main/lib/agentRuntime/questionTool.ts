@@ -22,7 +22,7 @@ const questionOptionSchema = z.object({
 });
 
 export const questionToolSchema = z
-  .object({
+  .strictObject({
     header: z.string().trim().max(30).optional().describe("Optional short title for this single question."),
     question: z
       .string()
@@ -50,7 +50,6 @@ export const questionToolSchema = z
       .default(true)
       .describe("Whether free-form input is allowed for this question. The field name is `custom`, not `allowOther`."),
   })
-  .strict()
   .describe(
     "Ask exactly one blocking clarification question. For multiple clarifications, use multiple argos_question tool calls instead of sending a `questions` array.",
   );

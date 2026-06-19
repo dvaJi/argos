@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import type { MCPToolDefinition } from "@shared/presenter";
 
 const yoBrowserSchemas = {
@@ -29,7 +28,7 @@ const yoBrowserSchemas = {
 export const YO_BROWSER_TOOL_NAMES = ["load_url", "get_browser_status", "cdp_send"] as const;
 
 function asParameters(schema: z.ZodTypeAny) {
-  return zodToJsonSchema(schema) as {
+  return toJSONSchema(schema, { unrepresentable: "any" }) as {
     type: string;
     properties: Record<string, unknown>;
     required?: string[];

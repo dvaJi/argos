@@ -33,27 +33,30 @@ export const subagentOrchestratorSchema = z
   .superRefine((value, ctx) => {
     if (value.operation === "run") {
       if (!value.mode) {
-        ctx.addIssue({
+        ctx.issues.push({
           code: z.ZodIssueCode.custom,
           path: ["mode"],
           message: "mode is required when operation is run.",
+          input: undefined,
         });
       }
       if (!value.tasks?.length) {
-        ctx.addIssue({
+        ctx.issues.push({
           code: z.ZodIssueCode.custom,
           path: ["tasks"],
           message: "tasks is required when operation is run.",
+          input: undefined,
         });
       }
       return;
     }
 
     if (value.operation !== "list" && !value.runId) {
-      ctx.addIssue({
+      ctx.issues.push({
         code: z.ZodIssueCode.custom,
         path: ["runId"],
         message: `runId is required when operation is ${value.operation}.`,
+        input: undefined,
       });
     }
   });

@@ -14,17 +14,15 @@ import {
   ThemeModeSchema,
 } from "../domainSchemas";
 
-const AgentInstallStateSchema = z
-  .object({
-    status: z.enum(["not_installed", "installing", "installed", "error"]),
-    distributionType: z.enum(["binary", "npx", "uvx", "manual"]).nullable().optional(),
-    version: z.string().nullable().optional(),
-    installedAt: TimestampMsSchema.nullable().optional(),
-    lastCheckedAt: TimestampMsSchema.nullable().optional(),
-    installDir: z.string().nullable().optional(),
-    error: z.string().nullable().optional(),
-  })
-  .passthrough();
+const AgentInstallStateSchema = z.looseObject({
+  status: z.enum(["not_installed", "installing", "installed", "error"]),
+  distributionType: z.enum(["binary", "npx", "uvx", "manual"]).nullable().optional(),
+  version: z.string().nullable().optional(),
+  installedAt: TimestampMsSchema.nullable().optional(),
+  lastCheckedAt: TimestampMsSchema.nullable().optional(),
+  installDir: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
+});
 
 const AgentSchema = AgentBootstrapItemSchema.extend({
   config: ArgosAgentConfigSchema.nullable().optional(),

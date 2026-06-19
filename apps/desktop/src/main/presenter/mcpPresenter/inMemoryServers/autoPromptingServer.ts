@@ -5,8 +5,7 @@ import {
   type CallToolRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { toJSONSchema, z } from "zod";
 import { presenter } from "@/presenter";
 import { Prompt } from "@shared/presenter";
 import { isSafeRegexPattern } from "@shared/regexValidator";
@@ -47,8 +46,8 @@ const FillTemplateArgsSchema = z.object({
 });
 
 // Convert Zod Schema to JSON Schema
-const GetTemplateParametersArgsJsonSchema = zodToJsonSchema(GetTemplateParametersArgsSchema);
-const FillTemplateArgsJsonSchema = zodToJsonSchema(FillTemplateArgsSchema);
+const GetTemplateParametersArgsJsonSchema = toJSONSchema(GetTemplateParametersArgsSchema, { unrepresentable: "any" });
+const FillTemplateArgsJsonSchema = toJSONSchema(FillTemplateArgsSchema, { unrepresentable: "any" });
 
 // --- MCP Server implementation ---
 export class AutoPromptingServer {
@@ -111,7 +110,7 @@ export class AutoPromptingServer {
         {
           name: "list_all_prompt_template_names",
           description: "Get the list of names of all available prompt templates.",
-          inputSchema: zodToJsonSchema(z.object({})), // no parameters required
+          inputSchema: toJSONSchema(z.object({}), { unrepresentable: "any" }), // no parameters required
           annotations: {
             title: "List Prompt Template Names",
             readOnlyHint: true,
@@ -161,7 +160,7 @@ export class AutoPromptingServer {
       const parsed = GetTemplateParametersArgsSchema.safeParse(args);
       if (!parsed.success) {
         throw new Error(
-          `Invalid parameters for get_prompt_template_parameters: ${parsed.error.errors.map((e) => e.message).join(", ")}`,
+          `Invalid parameters for get_prompt_template_parameters: ${parsed.error.issues.map((e) => e.message).join(", ")}`,
         );
       }
 
@@ -181,7 +180,7 @@ export class AutoPromptingServer {
       const parsed = FillTemplateArgsSchema.safeParse(args);
       if (!parsed.success) {
         throw new Error(
-          `Invalid parameters for fill_prompt_template: ${parsed.error.errors.map((e) => e.message).join(", ")}`,
+          `Invalid parameters for fill_prompt_template: ${parsed.error.issues.map((e) => e.message).join(", ")}`,
         );
       }
 

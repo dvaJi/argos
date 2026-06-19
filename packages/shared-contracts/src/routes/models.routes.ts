@@ -50,7 +50,7 @@ export const modelsAddCustomRoute = defineRouteContract({
       providerId: true,
       group: true,
       isCustom: true,
-    }).passthrough(),
+    }).loose(),
   }),
   output: z.object({
     model: ProviderModelSummarySchema,

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import type { MCPToolDefinition } from "@shared/presenter";
 import { createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
 import type { AgentToolRuntimePort } from "./runtimePorts";
@@ -72,17 +71,15 @@ const tapeSearchSchema = z.object({
     .describe("Optional inclusive ISO date/time or millisecond timestamp upper bound."),
 });
 
-const tapeHandoffSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1)
-      .optional()
-      .describe("Handoff name. Values without a prefix are normalized to handoff/<name>."),
-    summary: z.string().trim().optional().default("").describe("Compact durable summary for the handoff anchor."),
-  })
-  .strict();
+const tapeHandoffSchema = z.strictObject({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("Handoff name. Values without a prefix are normalized to handoff/<name>."),
+  summary: z.string().trim().optional().default("").describe("Compact durable summary for the handoff anchor."),
+});
 
 const tapeToolSchemas = {
   [TAPE_TOOL_NAMES.info]: tapeInfoSchema,
@@ -105,7 +102,7 @@ function buildToolDefinition(name: TapeToolName, description: string, schema: z.
     function: {
       name,
       description,
-      parameters: zodToJsonSchema(schema) as {
+      parameters: z.toJSONSchema(schema, { unrepresentable: "any" }) as {
         type: string;
         properties: Record<string, unknown>;
         required?: string[];
