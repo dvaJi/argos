@@ -16,7 +16,7 @@
     "typecheck:node": "tsgo --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsgo --noEmit -p tsconfig.app.tsgo.json",
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "pnpm exec electron-builder install-app-deps"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.16.1",
