@@ -17,13 +17,24 @@ runs:
       shell: bash
       run: node scripts/ensure-pnpm-store.mjs
 
-    - name: Setup Node.js with pnpm cache
+    - name: Get pnpm store path
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          pnpm-store-${{ runner.os }}-
+
+    - name: Setup Node.js
       if: env.ACT != 'true'
       uses: actions/setup-node@v6
       with:
         node-version: "24.14.1"
-        cache: pnpm
-        cache-dependency-path: pnpm-lock.yaml
 
     - name: Setup Node.js under act
       if: env.ACT == 'true'
