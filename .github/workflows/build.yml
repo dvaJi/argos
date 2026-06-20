@@ -22,9 +22,33 @@ env:
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  preflight:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-build
+
+      - name: Build and validate packaging inputs
+        run: |
+          pnpm run build
+          pnpm run packaging:validate
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
+          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
+          VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
+          VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+
   build-windows:
     name: build-windows(${{ matrix.arch }})
+    needs: preflight
     if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'windows')
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -43,30 +67,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: '24.14.1'
-          package-manager-cache: false
+          setup-bun: "true"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Configure pnpm workspace for Windows ${{ matrix.arch }}
-        run: pnpm run install:sharp
-        env:
-          TARGET_OS: win32
-          TARGET_ARCH: ${{ matrix.arch }}
-
-      - name: Install dependencies
-        run: pnpm install
-        env:
-          npm_config_build_from_source: true
-          npm_config_platform: win32
-          npm_config_arch: ${{ matrix.arch }}
+      - name: Restore Windows runtime cache
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: runtime
+          key: runtime-v2-win32-${{ matrix.arch }}-${{ hashFiles('package.json', 'scripts/**') }}
 
       - name: Report RTK install token source
         if: matrix.arch == 'x64'
@@ -75,6 +85,7 @@ jobs:
           echo "RTK runtime install token source: ${RTK_INSTALL_GITHUB_TOKEN_SOURCE}"
 
       - name: Install Windows runtimes
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: pnpm run installRuntime:win:${{ matrix.arch }}
         env:
           GITHUB_TOKEN: ${{ env.RTK_INSTALL_GITHUB_TOKEN }}
@@ -82,6 +93,7 @@ jobs:
       - name: Build Windows
         run: |
           pnpm run build
+          pnpm run build:daemon
           pnpm run plugin:bundle -- --name feishu --platform win32 --arch ${{ matrix.arch }}
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --win --${{ matrix.arch }} --publish=never
         env:
@@ -89,6 +101,8 @@ jobs:
           VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+          ARGOS_TARGET_OS: win32
+          ARGOS_TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Verify bundled plugins
         shell: bash
@@ -105,6 +119,7 @@ jobs:
             !dist/win-arm64-unpacked
 
   build-linux:
+    needs: preflight
     if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'linux')
     runs-on: ubuntu-22.04
     strategy:
@@ -118,33 +133,27 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: '24.14.1'
-          package-manager-cache: false
+          setup-bun: "true"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+      - name: Restore Linux runtime cache
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: runtime
+          key: runtime-v2-linux-${{ matrix.arch }}-${{ hashFiles('package.json', 'scripts/**') }}
 
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Configure pnpm workspace for Linux ${{ matrix.arch }}
-        run: pnpm run install:sharp
+      - name: Install Linux runtimes
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
+        run: pnpm run installRuntime:linux:${{ matrix.arch }}
         env:
-          TARGET_OS: linux
-          TARGET_ARCH: ${{ matrix.arch }}
-
-      - name: Install dependencies
-        run: pnpm install
-
-      # - name: Install Node Runtime
-        # run: pnpm run installRuntime:linux:${{ matrix.arch }}
+          GITHUB_TOKEN: ${{ env.RTK_INSTALL_GITHUB_TOKEN }}
 
       - name: Build Linux
         run: |
           pnpm run build
+          pnpm run build:daemon
           pnpm run plugin:bundle -- --name feishu --platform linux --arch ${{ matrix.arch }}
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --linux --${{ matrix.arch }} --publish=never
         env:
@@ -152,6 +161,8 @@ jobs:
           VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+          ARGOS_TARGET_OS: linux
+          ARGOS_TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Verify bundled plugins
         shell: bash
@@ -167,6 +178,7 @@ jobs:
             !dist/linux-unpacked
 
   build-mac:
+    needs: preflight
     if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'mac')
     runs-on: macos-15
     strategy:
@@ -182,26 +194,16 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: ./.github/actions/setup-build
         with:
-          node-version: '24.14.1'
-          package-manager-cache: false
+          setup-bun: "true"
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Configure pnpm workspace for macOS ${{ matrix.arch }}
-        run: pnpm run install:sharp
-        env:
-          TARGET_OS: darwin
-          TARGET_ARCH: ${{ matrix.arch }}
-
-      - name: Install dependencies
-        run: pnpm install
+      - name: Restore macOS runtime cache
+        id: runtime-cache
+        uses: actions/cache@v4
+        with:
+          path: runtime
+          key: runtime-v2-darwin-${{ matrix.arch }}-${{ hashFiles('package.json', 'scripts/**') }}
 
       - name: Report RTK install token source
         shell: bash
@@ -209,6 +211,7 @@ jobs:
           echo "RTK runtime install token source: ${RTK_INSTALL_GITHUB_TOKEN_SOURCE}"
 
       - name: Install Node Runtime
+        if: steps.runtime-cache.outputs.cache-hit != 'true'
         run: pnpm run installRuntime:mac:${{ matrix.arch }}
         env:
           GITHUB_TOKEN: ${{ env.RTK_INSTALL_GITHUB_TOKEN }}
@@ -216,6 +219,7 @@ jobs:
       - name: Build Mac
         run: |
           pnpm run build
+          pnpm run build:daemon
           pnpm run plugin:cua:build:mac:${{ matrix.arch }}
           pnpm run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
           pnpm run plugin:bundle -- --name feishu --platform darwin --arch ${{ matrix.arch }}
@@ -232,6 +236,8 @@ jobs:
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           NODE_OPTIONS: '--max-old-space-size=4096'
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
+          ARGOS_TARGET_OS: darwin
+          ARGOS_TARGET_ARCH: ${{ matrix.arch }}
 
       - name: Verify bundled plugins
         shell: bash

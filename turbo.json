@@ -1,25 +1,50 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "remoteCache": {
+    "enabled": true
+  },
+  "globalPassThroughEnv": ["CI", "GITHUB_ACTIONS"],
   "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["out/**", "dist/**"]
+      "outputs": [],
+      "outputLogs": "new-only"
     },
     "typecheck": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["transit"],
+      "outputs": []
     },
     "typecheck:node": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["transit"],
+      "outputs": []
     },
     "typecheck:web": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["transit"],
+      "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["transit"],
+      "outputs": ["coverage/**"]
     },
-    "lint": {},
-    "format": {},
-    "format:check": {},
+    "lint": {
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "format": {
+      "cache": false,
+      "outputs": []
+    },
+    "format:check": {
+      "dependsOn": ["transit"],
+      "outputs": []
+    },
+    "packaging:validate": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

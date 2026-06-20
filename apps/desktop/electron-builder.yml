@@ -1,7 +1,7 @@
 appId: com.wefonk.argos
 productName: Argos
 directories:
-  buildResources: build
+  buildResources: apps/desktop/build
 files:
   - "!**/.claude/*"
   - "!**/.github/*"
@@ -35,10 +35,10 @@ extraResources:
   - from: ./runtime/
     to: app.asar.unpacked/runtime
     filter: ["**/*"]
-  - from: ./resources/cdn/
+  - from: ./apps/desktop/resources/cdn/
     to: app.asar.unpacked/resources/cdn
     filter: ["**/*"]
-  - from: ./resources/skills/
+  - from: ./apps/desktop/resources/skills/
     to: app.asar.unpacked/resources/skills
     filter: ["**/*"]
   - from: ./build/bundled-plugins/

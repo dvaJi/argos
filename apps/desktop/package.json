@@ -9,6 +9,7 @@
     "dev:inspect": "cross-env ELECTRON_INSPECT=9229 vite",
     "dev:linux": "vite",
     "build": "vite build",
+    "packaging:validate": "node ../../scripts/validate-packaging-inputs.mjs",
     "start": "electron .",
     "test": "vitest",
     "test:main": "vitest --config vitest.config.ts test/main",

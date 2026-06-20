@@ -1,0 +1,66 @@
+name: Setup Argos build
+description: Install toolchains and restore dependency, Turbo, and Electron download caches.
+
+inputs:
+  setup-bun:
+    description: Install Bun for daemon compilation.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v6
+
+    - name: Initialize pnpm store
+      shell: bash
+      run: node scripts/ensure-pnpm-store.mjs
+
+    - name: Setup Node.js with pnpm cache
+      if: env.ACT != 'true'
+      uses: actions/setup-node@v6
+      with:
+        node-version: "24.14.1"
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+
+    - name: Setup Node.js under act
+      if: env.ACT == 'true'
+      uses: actions/setup-node@v6
+      with:
+        node-version: "24.14.1"
+
+    - name: Restore Turbo local-cache fallback
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-v2-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'apps/*/turbo.json', 'packages/*/turbo.json') }}-${{ github.sha }}
+        restore-keys: |
+          turbo-v2-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'apps/*/turbo.json', 'packages/*/turbo.json') }}-
+          turbo-v2-
+        enableCrossOsArchive: true
+
+    - name: Restore Electron downloads
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~/.cache/electron-builder
+          ~/Library/Caches/electron
+          ~/Library/Caches/electron-builder
+          ~/AppData/Local/electron/Cache
+          ~/AppData/Local/electron-builder/Cache
+        key: electron-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'apps/desktop/electron-builder.yml') }}
+        restore-keys: |
+          electron-v2-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Setup Bun
+      if: inputs.setup-bun == 'true'
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: "1.3.14"
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
