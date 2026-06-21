@@ -63,12 +63,14 @@ describe("AcpSessionManager createSession error handling", () => {
     };
     manager.resolveMcpServersForAgent = vi.fn<(...args: any[]) => any>().mockResolvedValue([]);
 
+    const request = vi.fn(async (method: string, _params: any) => {
+      if (method === "session/load") throw new Error("load failed");
+      if (method === "session/new") return { sessionId: "new-session" };
+      return {};
+    });
     const handle = {
       supportsLoadSession: true,
-      connection: {
-        loadSession: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("load failed")),
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-session" }),
-      },
+      connection: { agent: { request } },
     };
 
     const session = await manager.initializeSession(handle, "conv1", agent as any, "/tmp", {
@@ -79,7 +81,7 @@ describe("AcpSessionManager createSession error handling", () => {
     expect(throwingDetach).toHaveBeenCalledTimes(1);
     expect(normalDetach).toHaveBeenCalledTimes(1);
     expect(manager.processManager.clearSession).toHaveBeenCalledWith("persisted-session");
-    expect(handle.connection.newSession).toHaveBeenCalledWith({
+    expect(request).toHaveBeenCalledWith("session/new", {
       cwd: "/tmp",
       mcpServers: [],
     });
