@@ -1,6 +1,6 @@
 # Main Kernel Migration Scoreboard
 
-Generated on 2026-04-20.
+Generated on 2026-06-21.
 Current phase: P5.
 
 Phase 0 establishes the comparison baseline. Later phases should update this report and compare against this checkpoint.
@@ -18,7 +18,7 @@ Phase 0 establishes the comparison baseline. Later phases should update this rep
 | `renderer.quarantine.windowApi.count` | 2 | baseline |
 | `renderer.quarantine.sourceFile.count` | 3 | baseline |
 | `hotpath.presenterEdge.count` | 10 | baseline |
-| `runtime.rawTimer.count` | 122 | baseline |
+| `runtime.rawTimer.count` | 163 | baseline |
 | `migrated.rawChannel.count` | 4 | baseline |
 | `bridge.active.count` | 0 | baseline |
 | `bridge.expired.count` | 0 | baseline |

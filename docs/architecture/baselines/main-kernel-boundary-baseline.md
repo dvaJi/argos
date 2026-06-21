@@ -1,6 +1,6 @@
 # Main Kernel Boundary Baseline
 
-Generated on 2026-04-20.
+Generated on 2026-06-21.
 Current phase: P5.
 
 ## Metric Snapshot
@@ -18,7 +18,7 @@ Current phase: P5.
 | `renderer.quarantine.windowApi.count` | 2 |
 | `renderer.quarantine.sourceFile.count` | 3 |
 | `hotpath.presenterEdge.count` | 10 |
-| `runtime.rawTimer.count` | 122 |
+| `runtime.rawTimer.count` | 163 |
 | `migrated.rawChannel.count` | 4 |
 | `bridge.active.count` | 0 |
 | `bridge.expired.count` | 0 |
@@ -40,9 +40,9 @@ Current phase: P5.
 - Source files: 3 / 3
 - Delete condition: remove after settings compatibility surfaces stop importing the quarantine adapters.
 
-- `src/renderer/api/legacy/presenterTransport.ts`
-- `src/renderer/api/legacy/presenters.ts`
-- `src/renderer/api/legacy/runtime.ts`
+- `apps/desktop/src/renderer/api/legacy/presenterTransport.ts`
+- `apps/desktop/src/renderer/api/legacy/presenters.ts`
+- `apps/desktop/src/renderer/api/legacy/runtime.ts`
 
 ## Phase Gates
 
@@ -59,56 +59,56 @@ Current phase: P5.
 
 - Direct edge count: 10
 
-- `src/main/presenter/agentRuntimePresenter/index.ts -> src/main/eventbus.ts`
-- `src/main/presenter/agentSessionPresenter/index.ts -> src/main/eventbus.ts`
-- `src/main/presenter/index.ts -> src/main/eventbus.ts`
-- `src/main/presenter/index.ts -> src/main/presenter/agentRuntimePresenter/index.ts`
-- `src/main/presenter/index.ts -> src/main/presenter/agentSessionPresenter/index.ts`
-- `src/main/presenter/index.ts -> src/main/presenter/llmProviderPresenter/index.ts`
-- `src/main/presenter/index.ts -> src/main/presenter/sessionPresenter/index.ts`
-- `src/main/presenter/llmProviderPresenter/index.ts -> src/main/eventbus.ts`
-- `src/main/presenter/sessionPresenter/index.ts -> src/main/eventbus.ts`
-- `src/main/presenter/sessionPresenter/index.ts -> src/main/presenter/index.ts`
+- `apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts -> apps/desktop/src/main/eventbus.ts`
+- `apps/desktop/src/main/presenter/agentSessionPresenter/index.ts -> apps/desktop/src/main/eventbus.ts`
+- `apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/eventbus.ts`
+- `apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts`
+- `apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/agentSessionPresenter/index.ts`
+- `apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/llmProviderPresenter/index.ts`
+- `apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/sessionPresenter/index.ts`
+- `apps/desktop/src/main/presenter/llmProviderPresenter/index.ts -> apps/desktop/src/main/eventbus.ts`
+- `apps/desktop/src/main/presenter/sessionPresenter/index.ts -> apps/desktop/src/main/eventbus.ts`
+- `apps/desktop/src/main/presenter/sessionPresenter/index.ts -> apps/desktop/src/main/presenter/index.ts`
 
 ## Renderer legacy presenter helpers
 
 - Total count: 1
 
-- `src/renderer/api/legacy/presenters.ts`: 1
+- `apps/desktop/src/renderer/api/legacy/presenters.ts`: 1
 
 ## Renderer window.electron
 
 - Total count: 2
 
-- `src/renderer/api/legacy/presenterTransport.ts`: 1
-- `src/renderer/api/legacy/runtime.ts`: 1
+- `apps/desktop/src/renderer/api/legacy/presenterTransport.ts`: 1
+- `apps/desktop/src/renderer/api/legacy/runtime.ts`: 1
 
 ## Renderer window.api
 
 - Total count: 2
 
-- `src/renderer/api/legacy/runtime.ts`: 2
+- `apps/desktop/src/renderer/api/legacy/runtime.ts`: 2
 
 ## Raw Timers
 
-- Total count: 122
+- Total count: 163
 
-- `src/main/presenter/githubCopilotDeviceFlow.ts`: 6
-- `src/main/presenter/browser/BrowserTab.ts`: 5
-- `src/main/presenter/devicePresenter/index.ts`: 5
-- `src/renderer/src/components/message/MessageToolbar.vue`: 4
-- `src/renderer/src/composables/message/useMessageScroll.ts`: 4
-- `src/main/lib/agentRuntime/backgroundExecSessionManager.ts`: 3
-- `src/main/presenter/configPresenter/acpInitHelper.ts`: 3
-- `src/main/presenter/skillPresenter/skillExecutionService.ts`: 3
-- `src/main/presenter/tabPresenter.ts`: 3
-- `src/main/presenter/upgradePresenter/index.ts`: 3
-- `src/renderer/src/stores/mcp.ts`: 3
-- `src/main/lib/agentRuntime/rtkRuntimeService.ts`: 2
+- `apps/desktop/src/main/presenter/githubCopilotDeviceFlow.ts`: 6
+- `apps/desktop/src/main/presenter/browser/BrowserTab.ts`: 5
+- `apps/desktop/src/main/presenter/devicePresenter/index.ts`: 5
+- `apps/desktop/src/main/presenter/llmProviderPresenter/aiSdk/runtime.ts`: 5
+- `apps/desktop/src/renderer/src/composables/message/useMessageScroll.ts`: 5
+- `apps/desktop/src/main/presenter/sidecarManager/index.ts`: 4
+- `apps/desktop/src/renderer/src/components/message/MessageToolbar.tsx`: 4
+- `apps/desktop/src/main/lib/agentRuntime/backgroundExecSessionManager.ts`: 3
+- `apps/desktop/src/main/presenter/configPresenter/acpInitHelper.ts`: 3
+- `apps/desktop/src/main/presenter/lifecyclePresenter/SplashWindowManager.ts`: 3
+- `apps/desktop/src/main/presenter/skillPresenter/skillExecutionService.ts`: 3
+- `apps/desktop/src/main/presenter/tabPresenter.ts`: 3
 
 ## Migrated Path Raw Channel Literals
 
 - Total count: 4
 
-- `src/main/presenter/windowPresenter/index.ts`: 4
+- `apps/desktop/src/main/presenter/windowPresenter/index.ts`: 4
 

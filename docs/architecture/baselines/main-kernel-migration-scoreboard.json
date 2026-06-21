@@ -1,6 +1,6 @@
 {
   "program": "main-kernel-refactor",
-  "generatedOn": "2026-04-20",
+  "generatedOn": "2026-06-21",
   "currentPhase": "P5",
   "metrics": {
     "renderer.usePresenter.count": 1,
@@ -14,7 +14,7 @@
     "renderer.quarantine.windowApi.count": 2,
     "renderer.quarantine.sourceFile.count": 3,
     "hotpath.presenterEdge.count": 10,
-    "runtime.rawTimer.count": 122,
+    "runtime.rawTimer.count": 163,
     "migrated.rawChannel.count": 4,
     "bridge.active.count": 0,
     "bridge.expired.count": 0
@@ -58,18 +58,18 @@
     }
   ],
   "hotPathEdges": [
-    "src/main/presenter/agentRuntimePresenter/index.ts -> src/main/eventbus.ts",
-    "src/main/presenter/agentSessionPresenter/index.ts -> src/main/eventbus.ts",
-    "src/main/presenter/index.ts -> src/main/eventbus.ts",
-    "src/main/presenter/index.ts -> src/main/presenter/agentRuntimePresenter/index.ts",
-    "src/main/presenter/index.ts -> src/main/presenter/agentSessionPresenter/index.ts",
-    "src/main/presenter/index.ts -> src/main/presenter/llmProviderPresenter/index.ts",
-    "src/main/presenter/index.ts -> src/main/presenter/sessionPresenter/index.ts",
-    "src/main/presenter/llmProviderPresenter/index.ts -> src/main/eventbus.ts",
-    "src/main/presenter/sessionPresenter/index.ts -> src/main/eventbus.ts",
-    "src/main/presenter/sessionPresenter/index.ts -> src/main/presenter/index.ts"
+    "apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts -> apps/desktop/src/main/eventbus.ts",
+    "apps/desktop/src/main/presenter/agentSessionPresenter/index.ts -> apps/desktop/src/main/eventbus.ts",
+    "apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/eventbus.ts",
+    "apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts",
+    "apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/agentSessionPresenter/index.ts",
+    "apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/llmProviderPresenter/index.ts",
+    "apps/desktop/src/main/presenter/index.ts -> apps/desktop/src/main/presenter/sessionPresenter/index.ts",
+    "apps/desktop/src/main/presenter/llmProviderPresenter/index.ts -> apps/desktop/src/main/eventbus.ts",
+    "apps/desktop/src/main/presenter/sessionPresenter/index.ts -> apps/desktop/src/main/eventbus.ts",
+    "apps/desktop/src/main/presenter/sessionPresenter/index.ts -> apps/desktop/src/main/presenter/index.ts"
   ],
   "migratedRawChannels": {
-    "src/main/presenter/windowPresenter/index.ts": 4
+    "apps/desktop/src/main/presenter/windowPresenter/index.ts": 4
   }
 }

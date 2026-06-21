@@ -1,13 +1,14 @@
 # Zero Inbound Candidates
 
-Generated on 2026-04-20.
+Generated on 2026-06-21.
 
 These files have no in-repo importers inside their scope and need manual classification before deletion.
 
 ## main
 
-- Candidate count: 15
+- Candidate count: 16
 
+- `backgroundExecUtilityHostEntry.ts`
 - `env.d.ts`
 - `lib\system.ts`
 - `lib\terminalHelper.ts`
@@ -26,17 +27,18 @@ These files have no in-repo importers inside their scope and need manual classif
 
 ## renderer
 
-- Candidate count: 44
+- Candidate count: 50
 
-- `components\ChatConfig.vue`
-- `components\ChatConfig\ConfigSwitchField.vue`
-- `components\FileItem.vue`
-- `components\ModelSelect.vue`
-- `components\ScrollablePopover.vue`
-- `components\artifacts\ArtifactBlock.vue`
-- `components\chat-input\SkillsIndicator.vue`
-- `components\chat-input\VoiceCallWidget.vue`
-- `components\chat-input\components\ToolbarButton.vue`
+- `App.tsx`
+- `components\ChatConfig.tsx`
+- `components\ChatConfig\ConfigSwitchField.tsx`
+- `components\FileItem.tsx`
+- `components\ModelSelect.tsx`
+- `components\ScrollablePopover.tsx`
+- `components\artifacts\ArtifactBlock.tsx`
+- `components\chat-input\SkillsIndicator.tsx`
+- `components\chat-input\VoiceCallWidget.tsx`
+- `components\chat-input\components\ToolbarButton.tsx`
 - `components\chat-input\composables\useAgentMcpData.ts`
 - `components\chat-input\composables\useContextLength.ts`
 - `components\chat-input\composables\useDragAndDrop.ts`
@@ -44,32 +46,37 @@ These files have no in-repo importers inside their scope and need manual classif
 - `components\chat-input\composables\useInputSettings.ts`
 - `components\chat-input\composables\usePromptInputFiles.ts`
 - `components\chat-input\composables\useRateLimitStatus.ts`
-- `components\editor\mention\PromptParamsDialog.vue`
+- `components\chat\composables\useSpeechRecognition.ts`
+- `components\chat\composables\useVoiceInput.ts`
+- `components\editor\mention\PromptParamsDialog.tsx`
 - `components\editor\mention\mention.ts`
 - `components\editor\mention\slashMention.ts`
-- `components\mcp-config\AgentMcpSelector.vue`
-- `components\message\MessageActionButtons.vue`
-- `components\message\MessageItemPlaceholder.vue`
-- `components\message\ReferencePreview.vue`
-- `components\settings\ModelConfigItem.vue`
+- `components\mcp-config\AgentMcpSelector.tsx`
+- `components\mcp-config\const.ts`
+- `components\message\MessageActionButtons.tsx`
+- `components\message\MessageItemPlaceholder.tsx`
+- `components\message\ReferencePreview.tsx`
+- `components\settings\ModelConfigItem.tsx`
 - `composables\message\useMessageScroll.ts`
 - `composables\useArtifactCodeEditor.ts`
 - `composables\useArtifactContext.ts`
 - `composables\useArtifactExport.ts`
 - `composables\useArtifactViewMode.ts`
+- `composables\useIpcMutation.ts`
+- `composables\useIpcQuery.ts`
+- `composables\usePageCapture.example.ts`
 - `composables\useSearchConfig.ts`
 - `composables\useViewportSize.ts`
 - `env.d.ts`
 - `lib\float.cursor.ts`
 - `lib\gemini.ts`
 - `lib\sanitizeText.ts`
-- `main.ts`
+- `main.tsx`
 - `stores\floatingButton.ts`
 - `stores\prompts.ts`
-- `stores\providerDeeplinkImport.ts`
 - `stores\shortcutKey.ts`
 - `stores\sync.ts`
 - `stores\systemPromptStore.ts`
 - `utils\maxOutputTokens.ts`
-- `views\SettingsTabView.vue`
+- `views\SettingsTabView.tsx`
 
