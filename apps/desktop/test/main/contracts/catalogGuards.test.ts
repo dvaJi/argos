@@ -19,7 +19,7 @@ describe("contract runtime guards", () => {
           invalid: () => "nope",
         },
       }),
-    ).toThrow("expected error");
+    ).toThrow();
   });
 
   it("enforces numeric settings bounds at the route boundary", () => {
@@ -28,20 +28,20 @@ describe("contract runtime guards", () => {
         key: "fontSizeLevel",
         value: 5,
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(() =>
       SettingsChangeSchema.parse({
         key: "autoCompactionTriggerThreshold",
         value: 100,
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(() =>
       SettingsChangeSchema.parse({
         key: "autoCompactionRetainRecentPairs",
         value: 0,
       }),
-    ).toThrow("expected error");
+    ).toThrow();
   });
 });

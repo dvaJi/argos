@@ -19,7 +19,7 @@ describe("sessionPaths offload path sanitization", () => {
     const filePath = resolveToolOffloadPath("session-a", toolCallId);
 
     expect(filePath).toBe(
-      path.join(homeDir, ".argos", "sessions", "session-a", `tool_function.cdp_send_11_${fingerprint}.offload`),
+      path.resolve(homeDir, ".argos", "sessions", "session-a", `tool_function.cdp_send_11_${fingerprint}.offload`),
     );
     expect(path.basename(filePath!)).not.toContain(":");
     expect(path.basename(filePath!)).toMatch(/\.offload$/);

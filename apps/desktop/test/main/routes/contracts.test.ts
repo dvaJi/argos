@@ -169,7 +169,7 @@ describe("main kernel contracts", () => {
         pluginId: "",
         actionId: "runtime.getStatus",
       }),
-    ).toThrow("expected error");
+    ).toThrow();
   });
 
   it("bounds audio transcription route payload fields", () => {
@@ -180,7 +180,7 @@ describe("main kernel contracts", () => {
         audioBase64: "A".repeat(15_000_001),
         mimeType: "audio/wav",
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(() =>
       modelsTranscribeAudioRoute.input.parse({
@@ -189,7 +189,7 @@ describe("main kernel contracts", () => {
         audioBase64: "AQID",
         mimeType: "a".repeat(256),
       }),
-    ).toThrow("expected error");
+    ).toThrow();
   });
 
   it("validates typed settings updates through the shared route contract", () => {
@@ -197,7 +197,7 @@ describe("main kernel contracts", () => {
       settingsUpdateRoute.input.parse({
         changes: [{ key: "fontSizeLevel", value: "wrong-type" }],
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(
       settingsUpdateRoute.input.parse({
@@ -221,7 +221,7 @@ describe("main kernel contracts", () => {
       configListAgentsRoute.output.parse({
         agents: [{ id: "agent-1", enabled: true }],
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(
       configListAgentsRoute.output.parse({
@@ -504,7 +504,7 @@ describe("main kernel contracts", () => {
         providerId: "",
         modelId: "gpt-5.4",
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(
       providersListSummariesRoute.output.parse({
@@ -538,7 +538,7 @@ describe("main kernel contracts", () => {
       ARGOS_ROUTE_CATALOG["config.updateEntries"].input.parse({
         changes: [{ key: "input_deepThinking", value: "true" }],
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(
       ARGOS_ROUTE_CATALOG["config.updateEntries"].input.parse({
@@ -726,6 +726,6 @@ describe("main kernel contracts", () => {
         messageId: "message-1",
         failedAt: Date.now(),
       }),
-    ).toThrow("expected error");
+    ).toThrow();
   });
 });

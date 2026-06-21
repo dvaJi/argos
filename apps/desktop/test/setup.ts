@@ -163,6 +163,26 @@ vi.mock("electron", () => ({
   },
 }));
 
+// Mock @electron-toolkit/utils for testing (the real package imports
+// { BrowserWindow } from "electron" via ESM and breaks outside Electron).
+vi.mock("@electron-toolkit/utils", () => ({
+  is: {
+    dev: false,
+    mac: false,
+    windows: false,
+    linux: false,
+    main: true,
+    renderer: false,
+  },
+  platform: process.platform,
+  electronApp: {
+    setAppUserModelId: vi.fn<(...args: any[]) => any>(),
+  },
+  optimizer: {
+    watchWindowShortcuts: vi.fn<(...args: any[]) => any>(),
+  },
+}));
+
 // Mock file system operations
 vi.mock("fs", () => {
   const mockedFs = {

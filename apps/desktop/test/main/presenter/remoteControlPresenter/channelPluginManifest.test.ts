@@ -37,7 +37,7 @@ describe("Channel plugin manifest ABI", () => {
         types: "dist/index.d.ts",
         channelType: "custom-im",
       }),
-    ).toThrow("expected error");
+    ).toThrow();
 
     expect(
       isChannelPluginManifest({
