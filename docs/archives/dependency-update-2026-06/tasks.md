@@ -56,5 +56,5 @@
 - [x] Full test suite at known-failure baseline (145 failed / 1584 passed) — **0 new regressions** across all phases.
 - [ ] (Deferred) Regenerate `docs/architecture/baselines/` in a separate hygiene commit (architecture-guard passes with the current committed baselines).
 - [x] Removed `@agentclientprotocol/sdk` from `minimumReleaseAgeExclude` (0.28.1 now past 24h gate; `--frozen-lockfile` passes).
-- [ ] (Deferred) Regenerate `docs/architecture/baselines/` in a separate hygiene commit (architecture-guard passes with the current committed baselines).
-- [ ] Move this folder to `docs/archives/` once stable.
+- [x] Regenerated `docs/architecture/baselines/` (commit `e1289aa`); architecture-guard green.
+- [x] Move this folder to `docs/archives/` once stable.
