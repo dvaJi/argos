@@ -39,6 +39,31 @@ vi.mock("@/presenter/proxyConfig", () => ({
   },
 }));
 
+// Maps the new acp.agent.request/notify(method, params) API onto the
+// method-named mocks these tests were written against.
+const acpAgentFromMethods = (methods: Record<string, (p: any) => any>) => {
+  const nameByMethod: Record<string, string> = {
+    initialize: "initialize",
+    "session/new": "newSession",
+    "session/load": "loadSession",
+    "session/prompt": "prompt",
+    "session/cancel": "cancel",
+    "session/set_mode": "setSessionMode",
+    "session/set_config_option": "setSessionConfigOption",
+    "session/list": "listSessions",
+    "session/resume": "resumeSession",
+    "session/close": "closeSession",
+    "session/fork": "forkSession",
+    authenticate: "authenticate",
+  };
+  const dispatch = async (method: string, params: any) => {
+    const fn = methods[nameByMethod[method] ?? method];
+    return fn ? await fn(params) : undefined;
+  };
+  const request = vi.fn<(...args: any[]) => any>(dispatch);
+  return { request, notify: request };
+};
+
 describe("AcpProvider runDebugAction error handling", () => {
   const agent = { id: "agent1", name: "Agent 1" };
   const createConfigState = (modelValue = "gpt-5"): AcpConfigState => ({
@@ -139,7 +164,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/debug-workdir",
         mcpCapabilities: undefined,
         connection: {
-          newSession,
+          agent: acpAgentFromMethods({ newSession }),
         },
         status: "ready",
         agentId: "agent1",
@@ -184,7 +209,7 @@ describe("AcpProvider runDebugAction error handling", () => {
       getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
       getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
         workdir: "/tmp/debug-workdir",
-        connection: { initialize },
+        connection: { agent: acpAgentFromMethods({ initialize }) },
         status: "ready",
         agentId: "agent1",
       }),
@@ -234,7 +259,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/debug-workdir",
         supportsSessionList: true,
         connection: {
-          listSessions,
+          agent: acpAgentFromMethods({ listSessions }),
         },
         status: "ready",
         agentId: "agent1",
@@ -300,7 +325,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/fallback",
         supportsSessionList: true,
         connection: {
-          listSessions,
+          agent: acpAgentFromMethods({ listSessions }),
         },
         status: "ready",
         agentId: "agent1",
@@ -360,7 +385,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/stale-workdir",
         supportsSessionList: true,
         connection: {
-          listSessions,
+          agent: acpAgentFromMethods({ listSessions }),
         },
         status: "ready",
         agentId: "agent1",
@@ -412,7 +437,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/debug-workdir",
         supportsSessionFork: true,
         connection: {
-          unstable_forkSession: unstableForkSession,
+          agent: acpAgentFromMethods({ forkSession: unstableForkSession }),
         },
         status: "ready",
         agentId: "agent1",
@@ -457,7 +482,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/debug-workdir",
         mcpCapabilities: undefined,
         connection: {
-          newSession,
+          agent: acpAgentFromMethods({ newSession }),
         },
         status: "ready",
         agentId: "agent1",
@@ -626,7 +651,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/workspace",
         currentModeId: "default",
         availableModes: [{ id: "default", name: "Default", description: "" }],
-        connection: { setSessionMode },
+        connection: { agent: acpAgentFromMethods({ setSessionMode }) },
       }),
     };
     provider.processManager = {
@@ -648,7 +673,11 @@ describe("AcpProvider runDebugAction error handling", () => {
         workdir: "/tmp/workspace",
         currentModeId: "default",
         availableModes: [{ id: "default", name: "Default", description: "" }],
-        connection: { setSessionMode: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined) },
+        connection: {
+          agent: acpAgentFromMethods({
+            setSessionMode: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+          }),
+        },
       }),
     };
     provider.processManager = {
@@ -702,15 +731,16 @@ describe("AcpProvider runDebugAction error handling", () => {
         currentValue: true,
       },
     ];
+    const setSessionConfigOption = vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue({ configOptions: updatedConfigOptions });
     const session = {
       sessionId: "s-1",
       agentId: "agent1",
       workdir: "/tmp/workspace",
       configState: initialConfig,
       connection: {
-        setSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue({
-          configOptions: updatedConfigOptions,
-        }),
+        agent: acpAgentFromMethods({ setSessionConfigOption }),
       },
     };
 
@@ -724,7 +754,7 @@ describe("AcpProvider runDebugAction error handling", () => {
 
     const nextState = await provider.setSessionConfigOption("conv-1", "model", "gpt-5-mini");
 
-    expect(session.connection.setSessionConfigOption).toHaveBeenCalledWith({
+    expect(setSessionConfigOption).toHaveBeenCalledWith({
       sessionId: "s-1",
       configId: "model",
       value: "gpt-5-mini",
@@ -814,15 +844,17 @@ describe("AcpProvider runDebugAction error handling", () => {
       availableModes: [{ id: "code", name: "code", description: "" }],
       configState: initialConfig,
       connection: {
-        setSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue({
-          configOptions: [
-            {
-              id: "safe_edits",
-              name: "Safe Edits",
-              type: "boolean",
-              currentValue: true,
-            },
-          ],
+        agent: acpAgentFromMethods({
+          setSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+            configOptions: [
+              {
+                id: "safe_edits",
+                name: "Safe Edits",
+                type: "boolean",
+                currentValue: true,
+              },
+            ],
+          }),
         }),
       },
     };
@@ -914,8 +946,7 @@ describe("AcpProvider runDebugAction error handling", () => {
           sessionId: "session-timeout",
           conversationId: "conv-timeout",
           connection: {
-            prompt,
-            cancel,
+            agent: acpAgentFromMethods({ prompt, cancel }),
           },
         },
         [],
@@ -977,7 +1008,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         sessionId: "session-system",
         conversationId: "conv-system",
         connection: {
-          prompt,
+          agent: acpAgentFromMethods({ prompt }),
         },
       },
       [{ type: "text", text: "System instructions:\nBe precise." }],
@@ -1030,7 +1061,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         sessionId: "session-trace",
         conversationId: "conv-trace",
         connection: {
-          prompt,
+          agent: acpAgentFromMethods({ prompt }),
         },
       },
       [{ type: "text", text: "System instructions:\nBe precise." }],
@@ -1090,7 +1121,7 @@ describe("AcpProvider runDebugAction error handling", () => {
         sessionId: "session-start",
         conversationId: "conv-start",
         connection: {
-          prompt,
+          agent: acpAgentFromMethods({ prompt }),
         },
       },
       [],

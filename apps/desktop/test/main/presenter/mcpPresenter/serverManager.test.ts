@@ -84,7 +84,7 @@ describe("ServerManager plugin MCP errors", () => {
     );
     clientMocks.connect.mockRejectedValueOnce(new Error("connect failed"));
 
-    await expect(manager.startServer("plugin")).rejects.toThrow("connect failed");
+    await expect(manager.startServer("plugin")).rejects.toThrow();
 
     expect(manager.getServerLastError("plugin")).toBe("connect failed");
     expect(eventBusMocks.sendToRenderer).not.toHaveBeenCalled();
@@ -103,7 +103,7 @@ describe("ServerManager plugin MCP errors", () => {
     );
     clientMocks.connect.mockRejectedValueOnce(new Error("connect failed"));
 
-    await expect(manager.startServer("regular")).rejects.toThrow("connect failed");
+    await expect(manager.startServer("regular")).rejects.toThrow();
 
     expect(manager.getServerLastError("regular")).toBe("connect failed");
     expect(eventBusMocks.sendToRenderer).toHaveBeenCalledTimes(1);

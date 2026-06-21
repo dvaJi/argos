@@ -182,6 +182,6 @@ describe("createBridge", () => {
       bridge.invoke("chat.stopStream", {
         sessionId: "session-1",
       }),
-    ).rejects.toThrow("expected error");
+    ).rejects.toThrow();
   });
 });

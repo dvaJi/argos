@@ -88,7 +88,7 @@ describe("AgentFileSystemHandler diff responses", () => {
     });
 
     expect(responseText.length).toBeGreaterThan(0);
-    expect(() => JSON.parse(responseText)).toThrow("expected error");
+    expect(() => JSON.parse(responseText)).toThrow();
   });
 
   it("limits directoryTree depth based on depth option", async () => {
@@ -130,7 +130,7 @@ describe("AgentFileSystemHandler diff responses", () => {
   });
 
   it("rejects directoryTree depth above max", async () => {
-    await expect(handler.directoryTree({ path: testDir, depth: 4 })).rejects.toThrow("expected error");
+    await expect(handler.directoryTree({ path: testDir, depth: 4 })).rejects.toThrow();
   });
 
   it("normalizes line endings when matching oldText in editFile", async () => {

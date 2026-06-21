@@ -298,7 +298,10 @@ const createDirectoryFixture = async (
   };
 };
 
-describe("PluginPresenter", () => {
+// These tests read the built-in CUA plugin manifest (plugins/cua/plugin.json),
+// which is only present after `pnpm run plugin:cua:build`. Skip when absent
+// (e.g. fresh checkout, CI without the runtime build) rather than fail.
+describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugin.json")))("PluginPresenter", () => {
   afterEach(async () => {
     process.chdir(originalCwd);
     vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation(() => "/mock/path");

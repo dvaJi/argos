@@ -2199,7 +2199,7 @@ describe("dispatch", () => {
       expect(state.blocks[1].tool_call?.response).toContain("remaining context window is too small");
       expect(state.blocks[1].tool_call?.response).not.toContain("[Tool output offloaded]");
       await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc2.offload"))).rejects.toThrow(
-        "expected error",
+        "ENOENT",
       );
     });
 
@@ -2332,7 +2332,7 @@ describe("dispatch", () => {
       expect(toolMessage.content).toContain("remaining context window is too small");
       expect(state.blocks[0].status).toBe("error");
       await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow(
-        "expected error",
+        "ENOENT",
       );
     });
 
@@ -2396,7 +2396,7 @@ describe("dispatch", () => {
         error: expect.stringContaining("remaining context window is too small"),
       });
       await expect(fs.access(path.join(tempHome, ".argos", "sessions", "s1", "tool_tc1.offload"))).rejects.toThrow(
-        "expected error",
+        "ENOENT",
       );
     });
   });
