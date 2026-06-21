@@ -1,11 +1,11 @@
 import { BaseFileAdapter } from "./BaseFileAdapter";
 import fs from "fs/promises";
-import pdfParse from "pdf-parse-new";
+import pdfParse, { type Result } from "pdf-parse-new";
 
 export class PdfFileAdapter extends BaseFileAdapter {
   private fileContent: string | undefined;
   private maxFileSize: number;
-  private pdfData: (pdfParse.Result & { pageContents?: string[] }) | undefined;
+  private pdfData: (Result & { pageContents?: string[] }) | undefined;
 
   constructor(filePath: string, maxFileSize: number) {
     super(filePath);
@@ -16,7 +16,7 @@ export class PdfFileAdapter extends BaseFileAdapter {
     return "PDF Document";
   }
 
-  private async loadPdfData(): Promise<(pdfParse.Result & { pageContents?: string[] }) | undefined> {
+  private async loadPdfData(): Promise<(Result & { pageContents?: string[] }) | undefined> {
     if (!this.pdfData) {
       const stats = await fs.stat(this.filePath);
       if (stats.size <= this.maxFileSize) {

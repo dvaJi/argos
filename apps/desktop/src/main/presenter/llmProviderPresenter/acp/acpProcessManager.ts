@@ -4,10 +4,10 @@ import { Readable, Writable } from "node:stream";
 import { app } from "electron";
 import * as fs from "fs";
 import * as path from "path";
-import { ClientSideConnection, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
-import type { ClientSideConnection as ClientSideConnectionType, Client } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
-import type { Stream } from "@agentclientprotocol/sdk/dist/stream.js";
+import { client as createAcpClientApp, methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
+import type { Client, ClientApp, ClientConnection } from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk";
+import type { Stream } from "@agentclientprotocol/sdk";
 import type {
   AcpDebugEventEntry,
   AcpAgentConfig,
@@ -40,7 +40,7 @@ import { AcpDebugLog } from "@/presenter/acpClientPresenter/connection/AcpDebugL
 
 export interface AcpProcessHandle extends AgentProcessHandle {
   child: ChildProcessWithoutNullStreams;
-  connection: ClientSideConnectionType;
+  connection: ClientConnection;
   agent: AcpAgentConfig;
   readyAt: number;
   state: "warmup" | "bound";
@@ -756,8 +756,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     const child = await this.spawnAgentProcess(agent, workdir, launchSpec);
     const stderrChunks: string[] = [];
     const stream = this.createAgentStream(agent.id, child);
-    const client = this.createClientProxy();
-    const connection = new ClientSideConnection(() => client, stream);
+    const connection = this.createClientApp().connect(stream);
     const handleSeed: Partial<AcpProcessHandle> = {};
     let readyHandle: AcpProcessHandle | null = null;
 
@@ -835,7 +834,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         action: "initialize",
         payload: initPayload,
       });
-      const initPromise = connection.initialize(initPayload);
+      const initPromise = connection.agent.request(acpMethods.agent.initialize, initPayload);
 
       let timeoutHandle: NodeJS.Timeout | null = null;
       let initializationSettled = false;
@@ -881,7 +880,6 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       const resultData = initResult as unknown as {
         sessionId?: string;
         configOptions?: schema.SessionConfigOption[] | null;
-        models?: schema.SessionModelState | null;
         modes?: schema.SessionModeState | null;
         protocolVersion?: schema.ProtocolVersion;
         agentInfo?: schema.Implementation | null;
@@ -899,7 +897,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         payload: initResult,
       });
 
-      const capabilitySnapshot = buildCapabilitySnapshot(initResult);
+      const capabilitySnapshot = buildCapabilitySnapshot(initResult as schema.InitializeResponse);
       handleSeed.capabilitySnapshot = capabilitySnapshot;
       handleSeed.agentInfo = capabilitySnapshot.agentInfo;
       handleSeed.agentCapabilities = capabilitySnapshot.agentCapabilities;
@@ -920,10 +918,6 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       if (resultData.sessionId) {
         console.info(`[ACP] Session ID: ${resultData.sessionId}`);
       }
-      if (resultData.models) {
-        console.info(`[ACP] Available models: ${resultData.models.availableModels?.length ?? 0}`);
-        console.info(`[ACP] Current model: ${resultData.models.currentModelId}`);
-      }
       const initAvailableModes = resultData.modes?.availableModes?.map((m) => ({
         id: m.id,
         name: m.name ?? m.id,
@@ -935,7 +929,6 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       }
       handleSeed.configState = normalizeAcpConfigState({
         configOptions: resultData.configOptions,
-        models: resultData.models,
         modes: resultData.modes,
       });
       handleSeed.availableModes = initAvailableModes;
@@ -1530,13 +1523,28 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     });
   }
 
+  private createClientApp(): ClientApp {
+    const client = this.createClientProxy();
+    return createAcpClientApp({ name: "Argos" })
+      .onRequest(acpMethods.client.session.requestPermission, (ctx) => client.requestPermission(ctx.params))
+      .onNotification(acpMethods.client.session.update, (ctx) => {
+        client.sessionUpdate(ctx.params);
+      })
+      .onRequest(acpMethods.client.fs.readTextFile, (ctx) => client.readTextFile!(ctx.params))
+      .onRequest(acpMethods.client.fs.writeTextFile, (ctx) => client.writeTextFile!(ctx.params))
+      .onRequest(acpMethods.client.terminal.create, (ctx) => client.createTerminal!(ctx.params))
+      .onRequest(acpMethods.client.terminal.output, (ctx) => client.terminalOutput!(ctx.params))
+      .onRequest(acpMethods.client.terminal.waitForExit, (ctx) => client.waitForTerminalExit!(ctx.params))
+      .onRequest(acpMethods.client.terminal.kill, (ctx) => client.killTerminal!(ctx.params))
+      .onRequest(acpMethods.client.terminal.release, (ctx) => client.releaseTerminal!(ctx.params));
+  }
+
   private createClientProxy(): Client {
     return {
       requestPermission: async (params) => this.dispatchPermissionRequest(params),
       sessionUpdate: async (notification) => {
         this.dispatchSessionUpdate(notification);
       },
-      // File system operations
       readTextFile: async (params) => {
         const handler = this.getFsHandler(params.sessionId);
         return await handler.readTextFile(params);
@@ -1545,7 +1553,6 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         const handler = this.getFsHandler(params.sessionId);
         return await handler.writeTextFile(params);
       },
-      // Terminal operations
       createTerminal: async (params) => {
         return this.terminalManager.createTerminal({
           ...params,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import { convertMcpConfigToAcpFormat } from "../../../src/main/presenter/llmProviderPresenter/acp/mcpConfigConverter";
 import { filterMcpServersByTransportSupport } from "../../../src/main/presenter/llmProviderPresenter/acp/mcpTransportFilter";
 import { AcpSessionManager } from "../../../src/main/presenter/llmProviderPresenter/acp/acpSessionManager";
@@ -11,6 +11,11 @@ vi.mock("electron", () => ({
     getVersion: vi.fn<(...args: any[]) => any>(() => "0.0.0-test"),
   },
 }));
+
+const acpAgentRequest = (handlers: Record<string, (params: any) => any>) =>
+  vi.fn(async (method: string, params: any) => handlers[method]?.(params));
+
+const callsFor = (mock: { mock: { calls: any[][] } }, method: string) => mock.mock.calls.filter((c) => c[0] === method);
 
 describe("ACP MCP passthrough helpers", () => {
   it("converts stdio MCP config to ACP format", () => {
@@ -94,10 +99,9 @@ describe("AcpSessionManager MCP server injection", () => {
       configPresenter: configPresenter as any,
     });
 
+    const request = acpAgentRequest({ "session/new": async () => ({ sessionId: "s1" }) });
     const handle = {
-      connection: {
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "s1" }),
-      },
+      connection: { agent: { request } },
       availableModes: [],
       currentModeId: null,
       mcpCapabilities: { http: false, sse: false },
@@ -105,7 +109,7 @@ describe("AcpSessionManager MCP server injection", () => {
 
     await (manager as any).initializeSession(handle, "conv1", { id: "agent1", name: "Agent 1" }, "/tmp");
 
-    expect(handle.connection.newSession).toHaveBeenCalledWith({
+    expect(request).toHaveBeenCalledWith("session/new", {
       cwd: "/tmp",
       mcpServers: [{ name: "stdio-1", command: "node", args: ["server.js"], env: [] }],
     });
@@ -157,13 +161,14 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
     });
 
     const warmupConfigState = createWarmupConfigState();
+    const request = acpAgentRequest({
+      "session/load": async () => ({}),
+      "session/new": async () => ({ sessionId: "new-1" }),
+    });
     const handle = {
       supportsLoadSession: true,
       configState: warmupConfigState,
-      connection: {
-        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-1" }),
-      },
+      connection: { agent: { request } },
       availableModes: [],
       currentModeId: null,
       mcpCapabilities: {},
@@ -177,12 +182,12 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       createSessionHooks(),
     );
 
-    expect(handle.connection.loadSession).toHaveBeenCalledWith({
+    expect(request).toHaveBeenCalledWith("session/load", {
       cwd: "/tmp",
       mcpServers: [],
       sessionId: "persisted-1",
     });
-    expect(handle.connection.newSession).not.toHaveBeenCalled();
+    expect(callsFor(request, "session/new")).toHaveLength(0);
     expect(result.sessionId).toBe("persisted-1");
     expect(result.configState).toEqual(warmupConfigState);
   });
@@ -197,12 +202,15 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       configPresenter: createBaseConfigPresenter(),
     });
 
+    const request = acpAgentRequest({
+      "session/load": async () => {
+        throw new Error("session not found");
+      },
+      "session/new": async () => ({ sessionId: "new-2" }),
+    });
     const handle = {
       supportsLoadSession: true,
-      connection: {
-        loadSession: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("session not found")),
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-2" }),
-      },
+      connection: { agent: { request } },
       availableModes: [],
       currentModeId: null,
       mcpCapabilities: {},
@@ -216,8 +224,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       createSessionHooks(),
     );
 
-    expect(handle.connection.loadSession).toHaveBeenCalledTimes(1);
-    expect(handle.connection.newSession).toHaveBeenCalledTimes(1);
+    expect(callsFor(request, "session/load")).toHaveLength(1);
+    expect(callsFor(request, "session/new")).toHaveLength(1);
     expect(result.sessionId).toBe("new-2");
   });
 
@@ -231,12 +239,13 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       configPresenter: createBaseConfigPresenter(),
     });
 
+    const request = acpAgentRequest({
+      "session/load": async () => ({}),
+      "session/new": async () => ({ sessionId: "new-3" }),
+    });
     const handle = {
       supportsLoadSession: false,
-      connection: {
-        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-3" }),
-      },
+      connection: { agent: { request } },
       availableModes: [],
       currentModeId: null,
       mcpCapabilities: {},
@@ -249,8 +258,8 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       "/tmp",
     );
 
-    expect(handle.connection.loadSession).not.toHaveBeenCalled();
-    expect(handle.connection.newSession).toHaveBeenCalledTimes(1);
+    expect(callsFor(request, "session/load")).toHaveLength(0);
+    expect(callsFor(request, "session/new")).toHaveLength(1);
     expect(result.sessionId).toBe("new-3");
   });
 
@@ -265,13 +274,14 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
     });
 
     const warmupConfigState = createWarmupConfigState();
+    const request = acpAgentRequest({
+      "session/load": async () => ({}),
+      "session/new": async () => ({ sessionId: "new-4" }),
+    });
     const handle = {
       supportsLoadSession: false,
       configState: warmupConfigState,
-      connection: {
-        loadSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
-        newSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "new-4" }),
-      },
+      connection: { agent: { request } },
       availableModes: [],
       currentModeId: null,
       mcpCapabilities: {},
@@ -284,7 +294,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
       "/tmp",
     );
 
-    expect(handle.connection.newSession).toHaveBeenCalledTimes(1);
+    expect(callsFor(request, "session/new")).toHaveLength(1);
     expect(result.sessionId).toBe("new-4");
     expect(result.configState).toEqual(warmupConfigState);
   });

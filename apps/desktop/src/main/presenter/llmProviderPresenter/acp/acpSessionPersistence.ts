@@ -1,6 +1,6 @@
 import { app } from "electron";
 import * as fs from "fs";
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import type {
   CONVERSATION_SETTINGS,
   AcpTurnFinishPayload,

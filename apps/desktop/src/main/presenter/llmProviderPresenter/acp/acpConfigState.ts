@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import type { AcpConfigOption, AcpConfigOptionValue, AcpConfigState } from "@shared/presenter";
 
 export const LEGACY_MODEL_CONFIG_ID = "__acp_legacy_model__";
@@ -6,7 +6,6 @@ export const LEGACY_MODE_CONFIG_ID = "__acp_legacy_mode__";
 
 type NormalizableConfigStateInput = {
   configOptions?: schema.SessionConfigOption[] | null;
-  models?: schema.SessionModelState | null;
   modes?: schema.SessionModeState | null;
 };
 
@@ -55,28 +54,6 @@ const normalizeConfigOption = (option: schema.SessionConfigOption): AcpConfigOpt
   };
 };
 
-const buildLegacyModelOption = (models?: schema.SessionModelState | null): AcpConfigOption | undefined => {
-  if (!models?.availableModels?.length) {
-    return undefined;
-  }
-
-  return {
-    id: LEGACY_MODEL_CONFIG_ID,
-    label: "Model",
-    description: null,
-    type: "select",
-    category: "model",
-    currentValue: models.currentModelId,
-    options: models.availableModels.map((model) => ({
-      value: model.modelId,
-      label: model.name,
-      description: model.description ?? null,
-      groupId: null,
-      groupLabel: null,
-    })),
-  };
-};
-
 const buildLegacyModeOption = (modes?: schema.SessionModeState | null): AcpConfigOption | undefined => {
   if (!modes?.availableModes?.length) {
     return undefined;
@@ -112,9 +89,7 @@ export const normalizeAcpConfigState = (input: NormalizableConfigStateInput): Ac
     };
   }
 
-  const options = [buildLegacyModelOption(input.models), buildLegacyModeOption(input.modes)].filter(
-    (option): option is AcpConfigOption => Boolean(option),
-  );
+  const options = [buildLegacyModeOption(input.modes)].filter((option): option is AcpConfigOption => Boolean(option));
 
   return {
     source: "legacy",

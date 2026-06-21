@@ -7,11 +7,11 @@ import type {
   PermissionResolver,
   SessionNotificationHandler,
 } from "./acpProcessManager";
-import type { ClientSideConnection as ClientSideConnectionType } from "@agentclientprotocol/sdk";
+import { methods as acpMethods, type ClientConnection } from "@agentclientprotocol/sdk";
 import { AcpSessionPersistence } from "./acpSessionPersistence";
 import { convertMcpConfigToAcpFormat } from "./mcpConfigConverter";
 import { filterMcpServersByTransportSupport } from "./mcpTransportFilter";
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import {
   createEmptyAcpConfigState,
   getAcpConfigOptionByCategory,
@@ -33,11 +33,7 @@ interface SessionHooks {
   onPermission: PermissionResolver;
 }
 
-type AcpConnectionWithUnstableSessionLifecycle = ClientSideConnectionType & {
-  unstable_resumeSession?: (params: schema.ResumeSessionRequest) => Promise<schema.ResumeSessionResponse>;
-  unstable_closeSession?: (params: schema.CloseSessionRequest) => Promise<schema.CloseSessionResponse>;
-  unstable_forkSession?: (params: schema.ForkSessionRequest) => Promise<schema.ForkSessionResponse>;
-};
+type AcpConnectionWithUnstableSessionLifecycle = ClientConnection;
 
 const summarizeMcpServers = (mcpServers: schema.McpServer[]) =>
   mcpServers.map((server) => {
@@ -54,14 +50,12 @@ const summarizeSessionResponse = (
   sessionId: "sessionId" in response ? response.sessionId : undefined,
   keys: Object.keys(response as Record<string, unknown>),
   configOptionCount: response.configOptions?.length ?? 0,
-  modelCount: response.models?.availableModels?.length ?? 0,
-  currentModelId: response.models?.currentModelId,
   modeCount: response.modes?.availableModes?.length ?? 0,
   currentModeId: response.modes?.currentModeId,
 });
 
 export interface AcpSessionRecord extends AgentSessionState {
-  connection: ClientSideConnectionType;
+  connection: ClientConnection;
   detachHandlers: Array<() => void>;
   workdir: string;
   configState?: AcpConfigState;
@@ -255,7 +249,7 @@ export class AcpSessionManager {
       availableModes.some((mode) => mode.id === currentModeId)
     ) {
       try {
-        await handle.connection.setSessionMode({
+        await handle.connection.agent.request(acpMethods.agent.session.setMode, {
           sessionId: session.sessionId,
           modeId: currentModeId,
         });
@@ -338,7 +332,7 @@ export class AcpSessionManager {
         | undefined;
 
       const connection = handle.connection as AcpConnectionWithUnstableSessionLifecycle;
-      const canResumeSession = Boolean(handle.supportsSessionResume && connection.unstable_resumeSession);
+      const canResumeSession = Boolean(handle.supportsSessionResume);
       const canLoadSession = Boolean(handle.supportsLoadSession);
       console.info(`[ACP] Initializing ACP session for agent ${agent.id}:`, {
         conversationId,
@@ -368,7 +362,7 @@ export class AcpSessionManager {
           });
           this.processManager.registerSessionWorkdir(persistedSessionId, workdir, conversationId);
           detachHandlers = this.attachSessionHooks(agent.id, persistedSessionId, hooks);
-          const resumeResponse = await connection.unstable_resumeSession!({
+          const resumeResponse = await connection.agent.request(acpMethods.agent.session.resume, {
             cwd: workdir,
             mcpServers,
             sessionId: persistedSessionId,
@@ -378,7 +372,6 @@ export class AcpSessionManager {
           responseModeState = resumeResponse.modes ?? undefined;
           const resumedConfigState = normalizeAcpConfigState({
             configOptions: resumeResponse.configOptions,
-            models: resumeResponse.models,
             modes: resumeResponse.modes,
           });
           if (hasAcpConfigStateData(resumedConfigState)) {
@@ -437,7 +430,7 @@ export class AcpSessionManager {
           });
           this.processManager.registerSessionWorkdir(persistedSessionId, workdir, conversationId);
           detachHandlers = this.attachSessionHooks(agent.id, persistedSessionId, hooks);
-          const loadResponse = await handle.connection.loadSession({
+          const loadResponse = await handle.connection.agent.request(acpMethods.agent.session.load, {
             cwd: workdir,
             mcpServers,
             sessionId: persistedSessionId,
@@ -447,7 +440,6 @@ export class AcpSessionManager {
           responseModeState = loadResponse.modes ?? undefined;
           const loadedConfigState = normalizeAcpConfigState({
             configOptions: loadResponse.configOptions,
-            models: loadResponse.models,
             modes: loadResponse.modes,
           });
           if (hasAcpConfigStateData(loadedConfigState)) {
@@ -501,7 +493,7 @@ export class AcpSessionManager {
           action: "session/new",
           payload: newSessionRequestSummary,
         });
-        const response = await handle.connection.newSession({
+        const response = await handle.connection.agent.request(acpMethods.agent.session.new, {
           cwd: workdir,
           mcpServers,
         });
@@ -510,7 +502,6 @@ export class AcpSessionManager {
         responseModeState = response.modes ?? undefined;
         const nextConfigState = normalizeAcpConfigState({
           configOptions: response.configOptions,
-          models: response.models,
           modes: response.modes,
         });
         if (hasAcpConfigStateData(nextConfigState)) {

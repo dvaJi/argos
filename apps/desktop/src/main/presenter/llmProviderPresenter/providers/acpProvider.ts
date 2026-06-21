@@ -1,5 +1,5 @@
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
-import type { ClientSideConnection as ClientSideConnectionType } from "@agentclientprotocol/sdk";
+import { methods as acpMethods } from "@agentclientprotocol/sdk";
+import type * as schema from "@agentclientprotocol/sdk";
 import { BaseLLMProvider, SUMMARY_TITLES_PROMPT } from "../baseProvider";
 import type {
   AcpConfigState,
@@ -95,18 +95,7 @@ type PendingPermissionState = {
   reject: (error: Error) => void;
 };
 
-type AcpConnectionWithModelSelection = {
-  unstable_setSessionModel?: (params: schema.SetSessionModelRequest) => Promise<schema.SetSessionModelResponse>;
-};
-
-type AcpConnectionWithDebugLifecycle = ClientSideConnectionType &
-  AcpConnectionWithModelSelection & {
-    authenticate?: (params: schema.AuthenticateRequest) => Promise<schema.AuthenticateResponse>;
-    listSessions?: (params: schema.ListSessionsRequest) => Promise<schema.ListSessionsResponse>;
-    unstable_resumeSession?: (params: schema.ResumeSessionRequest) => Promise<schema.ResumeSessionResponse>;
-    unstable_closeSession?: (params: schema.CloseSessionRequest) => Promise<schema.CloseSessionResponse>;
-    unstable_forkSession?: (params: schema.ForkSessionRequest) => Promise<schema.ForkSessionResponse>;
-  };
+type AcpSetSessionModelRequest = { sessionId: string; modelId: string };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -125,15 +114,8 @@ const summarizePromptBlocks = (blocks: schema.ContentBlock[]) =>
     };
   });
 
-async function setSessionModelCompat(
-  connection: AcpConnectionWithModelSelection,
-  params: schema.SetSessionModelRequest,
-): Promise<schema.SetSessionModelResponse> {
-  if (!connection.unstable_setSessionModel) {
-    throw new Error("[ACP] Session model selection is not supported by this SDK connection.");
-  }
-
-  return connection.unstable_setSessionModel(params);
+async function setSessionModelCompat(_connection: unknown, _params: AcpSetSessionModelRequest): Promise<unknown> {
+  throw new Error("[ACP] Session model selection is not supported by this SDK connection.");
 }
 
 export class AcpProvider extends BaseLLMProvider {
@@ -425,7 +407,7 @@ export class AcpProvider extends BaseLLMProvider {
     } finally {
       if (session) {
         try {
-          await session.connection.cancel({ sessionId: session.sessionId });
+          await session.connection.agent.notify(acpMethods.agent.session.cancel, { sessionId: session.sessionId });
         } catch (error) {
           console.warn("[ACP] cancel failed:", error);
         }
@@ -570,7 +552,7 @@ export class AcpProvider extends BaseLLMProvider {
       }
       throw error;
     }
-    const connection = handle.connection as AcpConnectionWithDebugLifecycle;
+    const connection = handle.connection;
     const events: AcpDebugEventEntry[] =
       typeof this.processManager.getDebugEvents === "function" ? [...this.processManager.getDebugEvents(agent.id)] : [];
 
@@ -699,9 +681,6 @@ export class AcpProvider extends BaseLLMProvider {
           break;
         }
         case "authenticate": {
-          if (!connection.authenticate) {
-            throw new Error("authenticate is not supported by this SDK connection");
-          }
           const methodId =
             isPlainObject(request.payload) && typeof request.payload.methodId === "string"
               ? request.payload.methodId
@@ -714,7 +693,7 @@ export class AcpProvider extends BaseLLMProvider {
             body._meta = request.payload._meta;
           }
           pushEvent({ kind: "request", action: "authenticate", payload: body });
-          const response = await connection.authenticate(body);
+          const response = await connection.agent.request(acpMethods.agent.authenticate, body);
           pushEvent({
             kind: "response",
             action: "authenticate",
@@ -742,7 +721,7 @@ export class AcpProvider extends BaseLLMProvider {
             }
           }
           pushEvent({ kind: "request", action: "newSession", payload: body });
-          const response = await connection.newSession(body);
+          const response = await connection.agent.request(acpMethods.agent.session.new, body);
           activeSessionId = response.sessionId;
           this.processManager.registerSessionWorkdir(activeSessionId, body.cwd);
           attachSession(activeSessionId);
@@ -787,7 +766,7 @@ export class AcpProvider extends BaseLLMProvider {
           });
           this.processManager.registerSessionWorkdir(sessionToLoad, body.cwd);
           attachSession(sessionToLoad);
-          const response = await connection.loadSession(body);
+          const response = await connection.agent.request(acpMethods.agent.session.load, body);
           activeSessionId = sessionToLoad;
           pushEvent({
             kind: "response",
@@ -798,9 +777,6 @@ export class AcpProvider extends BaseLLMProvider {
           break;
         }
         case "sessionList": {
-          if (!connection.listSessions) {
-            throw new Error("session/list is not supported by this SDK connection");
-          }
           if (!handle.supportsSessionList) {
             throw new Error("Agent did not advertise sessionCapabilities.list");
           }
@@ -826,7 +802,7 @@ export class AcpProvider extends BaseLLMProvider {
           do {
             const pageBody = { ...body, cursor };
             pushEvent({ kind: "request", action: "session/list", payload: pageBody });
-            const response = await connection.listSessions(pageBody);
+            const response = await connection.agent.request(acpMethods.agent.session.list, pageBody);
             allSessions.push(...response.sessions);
             cursor = response.nextCursor;
             pushEvent({
@@ -857,9 +833,6 @@ export class AcpProvider extends BaseLLMProvider {
           break;
         }
         case "sessionResume": {
-          if (!connection.unstable_resumeSession) {
-            throw new Error("session/resume is not supported by this SDK connection");
-          }
           if (!handle.supportsSessionResume) {
             throw new Error("Agent did not advertise sessionCapabilities.resume");
           }
@@ -896,7 +869,7 @@ export class AcpProvider extends BaseLLMProvider {
           });
           this.processManager.registerSessionWorkdir(sessionToResume, body.cwd);
           attachSession(sessionToResume);
-          const response = await connection.unstable_resumeSession(body);
+          const response = await connection.agent.request(acpMethods.agent.session.resume, body);
           activeSessionId = sessionToResume;
           pushEvent({
             kind: "response",
@@ -907,9 +880,6 @@ export class AcpProvider extends BaseLLMProvider {
           break;
         }
         case "sessionClose": {
-          if (!connection.unstable_closeSession) {
-            throw new Error("session/close is not supported by this SDK connection");
-          }
           if (!handle.supportsSessionClose) {
             throw new Error("Agent did not advertise sessionCapabilities.close");
           }
@@ -931,7 +901,7 @@ export class AcpProvider extends BaseLLMProvider {
             sessionId: sessionToClose,
             payload: body,
           });
-          const response = await connection.unstable_closeSession(body);
+          const response = await connection.agent.request(acpMethods.agent.session.close, body);
           this.processManager.clearSession(sessionToClose);
           activeSessionId = undefined;
           pushEvent({
@@ -943,9 +913,6 @@ export class AcpProvider extends BaseLLMProvider {
           break;
         }
         case "sessionFork": {
-          if (!connection.unstable_forkSession) {
-            throw new Error("session/fork is not supported by this SDK connection");
-          }
           if (!handle.supportsSessionFork) {
             throw new Error("Agent did not advertise sessionCapabilities.fork");
           }
@@ -980,7 +947,7 @@ export class AcpProvider extends BaseLLMProvider {
             sessionId: sessionToFork,
             payload: body,
           });
-          const response = await connection.unstable_forkSession(body);
+          const response = await connection.agent.request(acpMethods.agent.session.fork, body);
           activeSessionId = response.sessionId;
           this.processManager.registerSessionWorkdir(activeSessionId, body.cwd);
           attachSession(activeSessionId);
@@ -1006,7 +973,10 @@ export class AcpProvider extends BaseLLMProvider {
             payload: body,
           });
           attachSession(activeSessionId);
-          const response = await connection.prompt(body as schema.PromptRequest);
+          const response = await connection.agent.request(
+            acpMethods.agent.session.prompt,
+            body as schema.PromptRequest,
+          );
           pushEvent({
             kind: "response",
             action: "prompt",
@@ -1029,7 +999,7 @@ export class AcpProvider extends BaseLLMProvider {
             payload: body,
           });
           attachSession(activeSessionId);
-          await connection.cancel(body as schema.CancelNotification);
+          await connection.agent.notify(acpMethods.agent.session.cancel, body as schema.CancelNotification);
           pushEvent({
             kind: "response",
             action: "cancel",
@@ -1052,7 +1022,10 @@ export class AcpProvider extends BaseLLMProvider {
             payload: body,
           });
           attachSession(activeSessionId);
-          const response = await connection.setSessionMode(body as schema.SetSessionModeRequest);
+          const response = await connection.agent.request(
+            acpMethods.agent.session.setMode,
+            body as schema.SetSessionModeRequest,
+          );
           pushEvent({
             kind: "response",
             action: "setSessionMode",
@@ -1075,7 +1048,7 @@ export class AcpProvider extends BaseLLMProvider {
             payload: body,
           });
           attachSession(activeSessionId);
-          const response = await setSessionModelCompat(connection, body as schema.SetSessionModelRequest);
+          const response = await setSessionModelCompat(connection, body as AcpSetSessionModelRequest);
           pushEvent({
             kind: "response",
             action: "setSessionModel",
@@ -1091,7 +1064,7 @@ export class AcpProvider extends BaseLLMProvider {
           }
           const body = isPlainObject(request.payload) ? request.payload : {};
           pushEvent({ kind: "request", action: `ext:${method}`, payload: body });
-          const response = await connection.extMethod(method, body);
+          const response = await connection.agent.request(method, body);
           pushEvent({
             kind: "response",
             action: `ext:${method}`,
@@ -1107,7 +1080,7 @@ export class AcpProvider extends BaseLLMProvider {
           }
           const body = isPlainObject(request.payload) ? request.payload : {};
           pushEvent({ kind: "request", action: `ext:${method}`, payload: body });
-          await connection.extNotification(method, body);
+          await connection.agent.notify(method, body);
           pushEvent({
             kind: "response",
             action: `ext:${method}`,
@@ -1215,7 +1188,7 @@ export class AcpProvider extends BaseLLMProvider {
         body: requestBody,
       });
 
-      const promptRequest = session.connection.prompt({
+      const promptRequest = session.connection.agent.request(acpMethods.agent.session.prompt, {
         sessionId: requestBody.sessionId,
         prompt: requestBody.prompt,
       });
@@ -1258,7 +1231,7 @@ export class AcpProvider extends BaseLLMProvider {
     } catch (error) {
       if (timeoutMs && error instanceof Error && error.name === "AbortError") {
         try {
-          await session.connection.cancel({ sessionId: session.sessionId });
+          await session.connection.agent.notify(acpMethods.agent.session.cancel, { sessionId: session.sessionId });
         } catch (cancelError) {
           console.warn("[ACP] cancel after timeout failed:", cancelError);
         }
@@ -1714,7 +1687,10 @@ export class AcpProvider extends BaseLLMProvider {
         `[ACP] Changing session mode: "${previousMode}" -> "${modeId}" ` +
           `(conversation: ${conversationId}, agent: ${session.agentId})`,
       );
-      await session.connection.setSessionMode({ sessionId: session.sessionId, modeId });
+      await session.connection.agent.request(acpMethods.agent.session.setMode, {
+        sessionId: session.sessionId,
+        modeId,
+      });
       session.currentModeId = modeId;
       session.configState =
         updateAcpConfigStateValue(session.configState, LEGACY_MODE_CONFIG_ID, modeId) ?? session.configState;
@@ -1802,7 +1778,10 @@ export class AcpProvider extends BaseLLMProvider {
       if (typeof value !== "string") {
         throw new Error("[ACP] Legacy mode config option expects a string value");
       }
-      await session.connection.setSessionMode({ sessionId: session.sessionId, modeId: value });
+      await session.connection.agent.request(acpMethods.agent.session.setMode, {
+        sessionId: session.sessionId,
+        modeId: value,
+      });
       session.currentModeId = value;
       nextConfigState = updateAcpConfigStateValue(session.configState, configId, value) ?? session.configState ?? null;
     } else if (configId === LEGACY_MODEL_CONFIG_ID) {
@@ -1817,13 +1796,13 @@ export class AcpProvider extends BaseLLMProvider {
     } else {
       const response =
         typeof value === "boolean"
-          ? await session.connection.setSessionConfigOption({
+          ? await session.connection.agent.request(acpMethods.agent.session.setConfigOption, {
               sessionId: session.sessionId,
               configId,
               type: "boolean",
               value,
             })
-          : await session.connection.setSessionConfigOption({
+          : await session.connection.agent.request(acpMethods.agent.session.setConfigOption, {
               sessionId: session.sessionId,
               configId,
               value,

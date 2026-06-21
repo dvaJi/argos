@@ -5,7 +5,7 @@ import type { IPty } from "node-pty";
 import { nanoid } from "nanoid";
 import { app } from "electron";
 import { RequestError } from "@agentclientprotocol/sdk";
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 
 interface TerminalState {
   id: string;

@@ -1,4 +1,5 @@
 import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
+import { methods as acpMethods } from "@agentclientprotocol/sdk";
 import {
   AcpSessionPersistence,
   type AcpProcessHandle,
@@ -48,7 +49,7 @@ export class AcpClientPresenter {
 
   async cancel(input: CancelAcpPromptInput): Promise<void> {
     const session = this.sessionManager.getSessionById(input.sessionId);
-    await session?.connection.cancel({ sessionId: input.sessionId });
+    await session?.connection.agent.notify(acpMethods.agent.session.cancel, { sessionId: input.sessionId });
     this.promptController.cancel(input.sessionId);
   }
 

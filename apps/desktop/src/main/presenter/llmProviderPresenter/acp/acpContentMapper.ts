@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import type { AcpConfigState } from "@shared/presenter";
 import type { AssistantMessageBlock } from "@shared/chat";
 import { createStreamEvent, type LLMCoreStreamEvent } from "@shared/types/core/llm-events";
@@ -226,17 +226,18 @@ export class AcpContentMapper {
     if (!entries.length) return;
 
     // Store structured plan entries
-    payload.planEntries = entries.map((entry) => ({
+    const planEntries: PlanEntry[] = entries.map((entry) => ({
       content: entry.content,
       priority: entry.priority ?? null,
       status: entry.status ?? null,
     }));
+    payload.planEntries = planEntries;
 
     // Create dedicated plan block
     payload.events.push(createStreamEvent.reasoning("")); // Empty event for plan
     payload.blocks.push(
       this.createBlock("plan", "", {
-        extra: { plan_entries: payload.planEntries },
+        extra: { plan_entries: planEntries },
       }),
     );
   }

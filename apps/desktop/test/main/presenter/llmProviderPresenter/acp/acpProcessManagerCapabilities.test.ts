@@ -27,13 +27,51 @@ const sdkMock = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@agentclientprotocol/sdk", () => ({
-  PROTOCOL_VERSION: 1,
-  ClientSideConnection: class {
-    closed = new Promise<void>(() => {});
-    initialize = vi.fn<(...args: any[]) => any>(async () => sdkMock.initializeResponse);
-  },
-}));
+vi.mock("@agentclientprotocol/sdk", () => {
+  const connection = {
+    closed: new Promise<void>(() => {}),
+    agent: {
+      request: vi.fn<(...args: any[]) => any>(async () => sdkMock.initializeResponse),
+      notify: vi.fn<(...args: any[]) => any>(async () => undefined),
+    },
+  };
+  const app = {
+    onRequest: vi.fn<(...args: any[]) => any>(() => app),
+    onNotification: vi.fn<(...args: any[]) => any>(() => app),
+    connect: vi.fn<(...args: any[]) => any>(() => connection),
+  };
+  return {
+    PROTOCOL_VERSION: 1,
+    methods: {
+      agent: {
+        initialize: "initialize",
+        session: {
+          new: "session/new",
+          load: "session/load",
+          resume: "session/resume",
+          close: "session/close",
+          fork: "session/fork",
+          setMode: "session/set_mode",
+          setConfigOption: "session/set_config_option",
+          prompt: "session/prompt",
+          cancel: "session/cancel",
+        },
+      },
+      client: {
+        session: { requestPermission: "session/request_permission", update: "session/update" },
+        fs: { readTextFile: "fs/read_text_file", writeTextFile: "fs/write_text_file" },
+        terminal: {
+          create: "terminal/create",
+          output: "terminal/output",
+          release: "terminal/release",
+          waitForExit: "terminal/wait_for_exit",
+          kill: "terminal/kill",
+        },
+      },
+    },
+    client: () => app,
+  };
+});
 
 vi.mock("electron", () => ({
   app: {

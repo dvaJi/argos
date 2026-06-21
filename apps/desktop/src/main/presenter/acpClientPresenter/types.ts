@@ -1,4 +1,4 @@
-import type * as schema from "@agentclientprotocol/sdk/dist/schema/index.js";
+import type * as schema from "@agentclientprotocol/sdk";
 import type { AcpAgentConfig, AgentSessionLifecycleStatus } from "@shared/presenter";
 import type { AssistantMessageBlock } from "@shared/chat";
 import type { ArgosAgentEvent as SharedArgosAgentEvent } from "@shared/contracts/acp";
