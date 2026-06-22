@@ -703,7 +703,7 @@ describe("Integration: createSession end-to-end", () => {
 
     const sessions = await agentPresenter.getSessionList();
     expect(sessions).toHaveLength(1);
-    expect(sessions[0].status).toBe("idle");
+    expect(sessions[0].status).toBe("done");
     expect(sessions[0].providerId).toBe("openai");
   });
 
@@ -1235,7 +1235,7 @@ describe("Integration: multi-turn context", () => {
     await new Promise((r) => setTimeout(r, 80));
 
     const recoveredSession = await agentPresenter.getSession(session.id);
-    expect(recoveredSession?.status).toBe("idle");
+    expect(recoveredSession?.status).toBe("done");
     expect(providerInstance.coreStream).toHaveBeenCalledTimes(2);
 
     const messages = sqlitePresenter.argosMessagesTable.getBySession(session.id);
@@ -1285,7 +1285,7 @@ describe("Integration: multi-turn context", () => {
     await new Promise((r) => setTimeout(r, 80));
 
     const recoveredSession = await agentPresenter.getSession(session.id);
-    expect(recoveredSession?.status).toBe("idle");
+    expect(recoveredSession?.status).toBe("done");
     expect(providerInstance.coreStream).toHaveBeenCalledTimes(2);
 
     const messages = sqlitePresenter.argosMessagesTable.getBySession(session.id);

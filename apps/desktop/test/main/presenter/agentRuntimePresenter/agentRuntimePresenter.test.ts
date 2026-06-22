@@ -893,12 +893,12 @@ describe("AgentRuntimePresenter", () => {
       expect(processStream).toHaveBeenCalledTimes(2);
 
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if ((await agent.getSessionState("s1"))?.status === "idle") {
+        if ((await agent.getSessionState("s1"))?.status === "done") {
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      expect((await agent.getSessionState("s1"))?.status).toBe("idle");
+      expect((await agent.getSessionState("s1"))?.status).toBe("done");
     });
 
     it("aborts the active stream and runs steer as the next turn", async () => {
@@ -955,12 +955,12 @@ describe("AgentRuntimePresenter", () => {
       expect(processStream).toHaveBeenCalledTimes(2);
 
       for (let attempt = 0; attempt < 20; attempt += 1) {
-        if ((await agent.getSessionState("s1"))?.status === "idle") {
+        if ((await agent.getSessionState("s1"))?.status === "done") {
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      expect((await agent.getSessionState("s1"))?.status).toBe("idle");
+      expect((await agent.getSessionState("s1"))?.status).toBe("done");
     });
 
     it("dispatches lifecycle hooks through new session bridge", async () => {
@@ -1956,17 +1956,17 @@ describe("AgentRuntimePresenter", () => {
       expect(systemPrompt).not.toContain("- skill-a");
     });
 
-    it("transitions status: idle → generating → idle", async () => {
+    it("transitions status: idle → generating → done", async () => {
       await agent.initSession("s1", { providerId: "openai", modelId: "gpt-4" });
       await agent.processMessage("s1", "Hello");
 
-      // Should emit generating then idle
+      // Should emit generating then done
       const statusCalls = (eventBus.sendToRenderer as ReturnType<typeof vi.fn>).mock.calls.filter(
         (c: any[]) => c[0] === "session:status-changed",
       );
       expect(statusCalls).toHaveLength(2);
       expect(statusCalls[0][2]).toEqual({ sessionId: "s1", status: "generating" });
-      expect(statusCalls[1][2]).toEqual({ sessionId: "s1", status: "idle" });
+      expect(statusCalls[1][2]).toEqual({ sessionId: "s1", status: "done" });
     });
 
     it("transitions to error status on exception", async () => {
@@ -3231,7 +3231,7 @@ describe("AgentRuntimePresenter", () => {
         }),
       );
       // ... but the stale run must NOT clobber the session status set by the newer run.
-      expect((await agent.getSessionState("s1"))?.status).toBe("idle");
+      expect((await agent.getSessionState("s1"))?.status).toBe("done");
     });
 
     it("cancels generation only when the event id matches the active assistant message", async () => {
@@ -3924,7 +3924,7 @@ describe("AgentRuntimePresenter", () => {
       (agent as any).runtimeState.get("s1").status = "generating";
 
       await expect(agent.compactSession("s1")).rejects.toThrow(
-        "Manual compaction is only available when the session is idle.",
+        "Manual compaction is only available when the session is idle, done, or blocked.",
       );
       expect(prepareSpy).not.toHaveBeenCalled();
     });
