@@ -16,33 +16,32 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 #### Bug Fixes and Minor Feature Improvements
 
-- Develop directly on the `dev` branch
-- Code submitted to the `dev` branch must ensure:
+- Develop on `master` (this fork has a single integration branch; there is no `dev`/`main`).
+- Code submitted to `master` must ensure:
   - Basic functionality works
   - No compilation errors
   - Project can start normally with `pnpm run dev`
 
 #### Major Features or Refactoring
 
-- Create a new feature branch named `feature/featurename`
-- Merge the feature branch back to `dev` branch upon completion
+- Create a new feature branch named `feature/featurename` off `master`.
+- Open a Pull Request against `master` and merge it upon completion.
 
 #### Maintainer Release Flow
 
-- Keep `dev` as the integration branch and `main` as the stable mirror.
-- Cut a short-lived `release/<version>` branch from an existing commit on `dev`.
-- Open `release/<version> -> main` for review and CI, but do not use the GitHub merge button to land it.
-- macOS and Linux maintainers can land the approved release with `pnpm run release:ff -- release/<version> --tag v<version>`.
+- `master` is the integration branch.
+- Cut a short-lived `release/<version>` branch from an existing commit on `master`.
+- macOS and Linux maintainers land the release with `pnpm run release:ff -- release/<version> --tag v<version>`.
 - Windows maintainers must use the documented manual release steps instead of `pnpm run release:ff`.
-- Create the release tag on the same commit after `main` has been fast-forwarded.
+- Create the release tag on the same commit after `master` has been fast-forwarded.
 - See [docs/release-flow.md](./docs/release-flow.md) for the full maintainer procedure, manual fallback, and guardrails.
 
 ### External Contributors
 
 1. Fork this repository to your personal account
-2. Create your development branch from `dev`
+2. Create your development branch from `master`
 3. Develop in your forked repository
-4. Submit a Pull Request to the `dev` branch of the original repository
+4. Submit a Pull Request to the `master` branch of this repository
 5. Describe the Issues fixed in your PR description (if applicable)
 
 ## Local Development Setup
@@ -186,9 +185,9 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 1. Keep PRs focused; describe what changed and which issues are addressed.
 2. Include screenshots/GIFs for UI changes and note any docs updates (README/CONTRIBUTING/docs).
 3. Verify format + lint + typecheck + relevant tests locally; note anything not run.
-4. Target the `dev` branch; external contributors should fork-first and open PRs against `dev`.
+4. Target the `master` branch; external contributors should fork-first and open PRs against `master`.
 5. At least one maintainer approval is required before merge.
-6. PRs targeting `main` are reserved for `release/<version>` branches and are review-only; maintainers land them with the documented `ff-only` flow in [docs/release-flow.md](./docs/release-flow.md).
+6. Releases are cut from short-lived `release/<version>` branches and landed on `master` with the documented `ff-only` flow in [docs/release-flow.md](./docs/release-flow.md).
 
 ## Any Questions?
 
