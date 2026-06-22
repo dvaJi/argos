@@ -61,3 +61,21 @@ mistakes.
   (`minimax-global` uses it). Don't assume a provider-db source implies openai-completions.
 - **`credentialStrategy` can legitimately differ** between sibling providers: the fork's
   `minimax` uses `"anthropic"`; `minimax-global` uses `"api-key"`. Don't "normalize" them.
+
+## 2026-06 — cross-platform targeting (#1776 port)
+
+- **Thread a new optional param through ALL callers.** Adding `arch` to the settings-nav
+  helpers meant updating every call site (`windowPresenter` was the only `src/main` caller;
+  renderer callers use the defaults). The typecheck catches missing args, but grep first to
+  size it. Renderer callers can be left as-is when the param is optional and defaults are fine.
+- **`supportedTargets` (platform/arch) takes precedence over `supportedPlatforms`** — keep
+  both, fall back to the legacy field. Don't remove `supportedPlatforms`.
+- **Manifest shape differs:** the fork uses `ArgosPluginManifest` with an `engines` object
+  (`engines.platforms`/`engines.targets`), not a top-level `supportedPlatforms`. Map source
+  fields onto the fork's manifest shape, don't invent a parallel structure.
+- **Scope discipline:** a "targeting" port (platform/arch filtering) is distinct from
+  "runtime UX on platform X" (e.g. win32 CUA permission probes, Windows `launch_app` arg
+  preflight). The latter needs platform-specific runtime builds and belongs in a separate
+  PR. Defer with a clear reason rather than force a half-built feature through the gate.
+- **The fork's `mcpClient.cleanupResources`/`closeTransport` are async** (from the shutdown
+  port) — don't regress them when touching `mcpClient`.

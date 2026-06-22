@@ -60,3 +60,21 @@ Legend: `fork file` ← `source file` · role
 - `apps/desktop/src/renderer/src/routeTree.gen.ts` is **generated** — never commit.
 - `gh pr create` needs `--repo dvaJi/argos` (two remotes confuse gh's default).
 - Base branch: `master` (no `dev`/`main`).
+
+## Settings navigation / plugin targeting
+
+- `apps/desktop/src/shared/settingsNavigation.ts` ← `src/shared/settingsNavigation.ts`
+  · `SETTINGS_NAVIGATION_ITEMS` + `getSettingsRouteItems`/`getSettingsNavigationItems`/
+  `getSettingsNavigationGroups`/`isSettingsNavigationItemSupported`/`resolveSettingsNavigationPath`.
+  Item fields: `supportedPlatforms?` (legacy) and `supportedTargets?` (`platform/arch`, preferred).
+  `getPlatformAliases` accepts `darwin/macos/mac`, `win32/windows/win`.
+- `apps/desktop/src/shared/types/plugin.ts` ← `src/shared/types/plugin.ts`
+  · fork uses `ArgosPluginManifest` with `engines.platforms`/`engines.targets` (not a top-level
+  `supportedPlatforms`); `PluginSettingsApiStatus` carries `platform` + `arch`.
+- `apps/desktop/src/preload/index.ts` (+`index.d.ts`, `plugin-settings-preload.ts`)
+  · exposes `getArch: () => process.arch`; plugin settings status reports `platform` + `arch`.
+- `apps/desktop/src/main/presenter/pluginPresenter/index.ts` · `isPluginPlatformSupported`
+  honors `engines.targets`; deps include `arch?: NodeJS.Architecture`.
+- `apps/desktop/src/main/presenter/windowPresenter/index.ts` · passes `process.arch` to
+  `resolveSettingsNavigationPath` (the only src/main caller of the nav helpers).
+- `plugins/cua/plugin.json` · `engines.targets` + per-arch runtime detect entries.
