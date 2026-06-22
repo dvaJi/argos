@@ -19,29 +19,35 @@ const toolManagerMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/serverManager", () => ({
-  ServerManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    startServer: serverManagerMocks.startServer,
-    stopServer: serverManagerMocks.stopServer,
-    isServerRunning: serverManagerMocks.isServerRunning,
-    getRunningClients: serverManagerMocks.getRunningClients,
-    testNpmRegistrySpeed: serverManagerMocks.testNpmRegistrySpeed,
-    getNpmRegistry: serverManagerMocks.getNpmRegistry,
-    updateNpmRegistryInBackground: serverManagerMocks.updateNpmRegistryInBackground,
-    loadRegistryFromCache: serverManagerMocks.loadRegistryFromCache,
-    refreshNpmRegistry: serverManagerMocks.refreshNpmRegistry,
-    getUvRegistry: serverManagerMocks.getUvRegistry,
-  })),
+  ServerManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      startServer: serverManagerMocks.startServer,
+      stopServer: serverManagerMocks.stopServer,
+      isServerRunning: serverManagerMocks.isServerRunning,
+      getRunningClients: serverManagerMocks.getRunningClients,
+      testNpmRegistrySpeed: serverManagerMocks.testNpmRegistrySpeed,
+      getNpmRegistry: serverManagerMocks.getNpmRegistry,
+      updateNpmRegistryInBackground: serverManagerMocks.updateNpmRegistryInBackground,
+      loadRegistryFromCache: serverManagerMocks.loadRegistryFromCache,
+      refreshNpmRegistry: serverManagerMocks.refreshNpmRegistry,
+      getUvRegistry: serverManagerMocks.getUvRegistry,
+    };
+  }),
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/toolManager", () => ({
-  ToolManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    getAllToolDefinitions: toolManagerMocks.getAllToolDefinitions,
-    getRunningClients: toolManagerMocks.getRunningClients,
-  })),
+  ToolManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      getAllToolDefinitions: toolManagerMocks.getAllToolDefinitions,
+      getRunningClients: toolManagerMocks.getRunningClients,
+    };
+  }),
 }));
 
 vi.mock("../../../src/main/presenter/mcpPresenter/mcprouterManager", () => ({
-  McpRouterManager: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({})),
+  McpRouterManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {};
+  }),
 }));
 
 vi.mock("@/eventbus", () => ({

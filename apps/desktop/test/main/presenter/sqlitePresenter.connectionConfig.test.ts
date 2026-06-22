@@ -10,11 +10,13 @@ const mocks = vi.hoisted(() => {
     pragma,
     key,
     close,
-    databaseCtor: vi.fn<(...args: any[]) => any>(() => ({
-      pragma,
-      key,
-      close,
-    })),
+    databaseCtor: vi.fn<(...args: any[]) => any>(function () {
+      return {
+        pragma,
+        key,
+        close,
+      };
+    }),
   };
 });
 

@@ -58,26 +58,30 @@ vi.mock("../../../src/main/presenter/knowledgePresenter/database/duckdbPresenter
 
 // Mock KnowledgeStorePresenter
 vi.mock("../../../src/main/presenter/knowledgePresenter/knowledgeStorePresenter", () => ({
-  KnowledgeStorePresenter: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    addFile: vi.fn<(...args: any[]) => any>(),
-    deleteFile: vi.fn<(...args: any[]) => any>(),
-    reAddFile: vi.fn<(...args: any[]) => any>(),
-    queryFile: vi.fn<(...args: any[]) => any>(),
-    listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
-    close: vi.fn<(...args: any[]) => any>(),
-    destroy: vi.fn<(...args: any[]) => any>(),
-    similarityQuery: vi.fn<(...args: any[]) => any>(),
-    pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
-    resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
-    updateConfig: vi.fn<(...args: any[]) => any>(),
-  })),
+  KnowledgeStorePresenter: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      addFile: vi.fn<(...args: any[]) => any>(),
+      deleteFile: vi.fn<(...args: any[]) => any>(),
+      reAddFile: vi.fn<(...args: any[]) => any>(),
+      queryFile: vi.fn<(...args: any[]) => any>(),
+      listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      close: vi.fn<(...args: any[]) => any>(),
+      destroy: vi.fn<(...args: any[]) => any>(),
+      similarityQuery: vi.fn<(...args: any[]) => any>(),
+      pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
+      resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
+      updateConfig: vi.fn<(...args: any[]) => any>(),
+    };
+  }),
 }));
 
 // Mock KnowledgeTaskPresenter
 vi.mock("../../../src/main/presenter/knowledgePresenter/knowledgeTaskPresenter", () => ({
-  KnowledgeTaskPresenter: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    getStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ totalTasks: 0 }),
-  })),
+  KnowledgeTaskPresenter: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      getStatus: vi.fn<(...args: any[]) => any>().mockReturnValue({ totalTasks: 0 }),
+    };
+  }),
 }));
 
 // Mock text splitters
@@ -128,28 +132,32 @@ describe("KnowledgePresenter Validation Methods", () => {
       DuckDBPresenter as unknown as {
         mockImplementation: (factory: () => unknown) => void;
       }
-    ).mockImplementation(() => ({
-      open: vi.fn<(...args: any[]) => any>(),
-      initialize: vi.fn<(...args: any[]) => any>(),
-      close: vi.fn<(...args: any[]) => any>(),
-    }));
+    ).mockImplementation(function () {
+      return {
+        open: vi.fn<(...args: any[]) => any>(),
+        initialize: vi.fn<(...args: any[]) => any>(),
+        close: vi.fn<(...args: any[]) => any>(),
+      };
+    });
     (
       KnowledgeStorePresenter as unknown as {
         mockImplementation: (factory: () => unknown) => void;
       }
-    ).mockImplementation(() => ({
-      addFile: vi.fn<(...args: any[]) => any>(),
-      deleteFile: vi.fn<(...args: any[]) => any>(),
-      reAddFile: vi.fn<(...args: any[]) => any>(),
-      queryFile: vi.fn<(...args: any[]) => any>(),
-      listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
-      close: vi.fn<(...args: any[]) => any>(),
-      destroy: vi.fn<(...args: any[]) => any>(),
-      similarityQuery: vi.fn<(...args: any[]) => any>(),
-      pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
-      resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
-      updateConfig: vi.fn<(...args: any[]) => any>(),
-    }));
+    ).mockImplementation(function () {
+      return {
+        addFile: vi.fn<(...args: any[]) => any>(),
+        deleteFile: vi.fn<(...args: any[]) => any>(),
+        reAddFile: vi.fn<(...args: any[]) => any>(),
+        queryFile: vi.fn<(...args: any[]) => any>(),
+        listFiles: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        close: vi.fn<(...args: any[]) => any>(),
+        destroy: vi.fn<(...args: any[]) => any>(),
+        similarityQuery: vi.fn<(...args: any[]) => any>(),
+        pauseAllRunningTasks: vi.fn<(...args: any[]) => any>(),
+        resumeAllPausedTasks: vi.fn<(...args: any[]) => any>(),
+        updateConfig: vi.fn<(...args: any[]) => any>(),
+      };
+    });
     (mockConfigPresenter.getKnowledgeConfigs as Mock).mockReturnValue([]);
     knowledgePresenter = new KnowledgePresenter(mockConfigPresenter, mockDbDir, mockFilePresenter);
   });
@@ -397,7 +405,7 @@ describe("KnowledgePresenter Validation Methods", () => {
       (knowledgePresenter as any).getVectorDatabasePresenter = vi
         .fn<(...args: any[]) => any>()
         .mockResolvedValue({ close });
-      (KnowledgeStorePresenter as unknown as Mock).mockImplementationOnce(() => {
+      (KnowledgeStorePresenter as unknown as Mock).mockImplementationOnce(function () {
         throw error;
       });
 

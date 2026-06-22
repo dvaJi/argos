@@ -90,26 +90,30 @@ vi.mock("../../../src/main/presenter/mcpPresenter/inMemoryServers/builder", () =
 
 // Mock MCP SDK modules
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
-  Client: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    callTool: vi.fn<(...args: any[]) => any>(),
-    listTools: vi.fn<(...args: any[]) => any>(),
-    listPrompts: vi.fn<(...args: any[]) => any>(),
-    getPrompt: vi.fn<(...args: any[]) => any>(),
-    listResources: vi.fn<(...args: any[]) => any>(),
-    readResource: vi.fn<(...args: any[]) => any>(),
-    setNotificationHandler: vi.fn<(...args: any[]) => any>(),
-    setRequestHandler: vi.fn<(...args: any[]) => any>(),
-  })),
+  Client: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      callTool: vi.fn<(...args: any[]) => any>(),
+      listTools: vi.fn<(...args: any[]) => any>(),
+      listPrompts: vi.fn<(...args: any[]) => any>(),
+      getPrompt: vi.fn<(...args: any[]) => any>(),
+      listResources: vi.fn<(...args: any[]) => any>(),
+      readResource: vi.fn<(...args: any[]) => any>(),
+      setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+      setRequestHandler: vi.fn<(...args: any[]) => any>(),
+    };
+  }),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-  StdioClientTransport: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    stderr: {
-      on: vi.fn<(...args: any[]) => any>(),
-    },
-    close: vi.fn<(...args: any[]) => any>(),
-  })),
+  StdioClientTransport: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      stderr: {
+        on: vi.fn<(...args: any[]) => any>(),
+      },
+      close: vi.fn<(...args: any[]) => any>(),
+    };
+  }),
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
@@ -149,29 +153,27 @@ describe("McpClient Runtime Command Processing Tests", () => {
     mockGenerateCompletionStandalone.mockReset();
     mockGetProviderModels.mockReset();
     mockGetCustomModels.mockReset();
-    vi.mocked<(...args: any[]) => any>(Client).mockImplementation(
-      () =>
-        ({
-          connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-          callTool: vi.fn<(...args: any[]) => any>(),
-          listTools: vi.fn<(...args: any[]) => any>(),
-          listPrompts: vi.fn<(...args: any[]) => any>(),
-          getPrompt: vi.fn<(...args: any[]) => any>(),
-          listResources: vi.fn<(...args: any[]) => any>(),
-          readResource: vi.fn<(...args: any[]) => any>(),
-          setNotificationHandler: vi.fn<(...args: any[]) => any>(),
-          setRequestHandler: vi.fn<(...args: any[]) => any>(),
-        }) as any,
-    );
-    vi.mocked<(...args: any[]) => any>(StdioClientTransport).mockImplementation(
-      () =>
-        ({
-          stderr: {
-            on: vi.fn<(...args: any[]) => any>(),
-          },
-          close: vi.fn<(...args: any[]) => any>(),
-        }) as any,
-    );
+    vi.mocked<(...args: any[]) => any>(Client).mockImplementation(function () {
+      return {
+        connect: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+        callTool: vi.fn<(...args: any[]) => any>(),
+        listTools: vi.fn<(...args: any[]) => any>(),
+        listPrompts: vi.fn<(...args: any[]) => any>(),
+        getPrompt: vi.fn<(...args: any[]) => any>(),
+        listResources: vi.fn<(...args: any[]) => any>(),
+        readResource: vi.fn<(...args: any[]) => any>(),
+        setNotificationHandler: vi.fn<(...args: any[]) => any>(),
+        setRequestHandler: vi.fn<(...args: any[]) => any>(),
+      } as any;
+    });
+    vi.mocked<(...args: any[]) => any>(StdioClientTransport).mockImplementation(function () {
+      return {
+        stderr: {
+          on: vi.fn<(...args: any[]) => any>(),
+        },
+        close: vi.fn<(...args: any[]) => any>(),
+      } as any;
+    });
   });
 
   afterEach(() => {

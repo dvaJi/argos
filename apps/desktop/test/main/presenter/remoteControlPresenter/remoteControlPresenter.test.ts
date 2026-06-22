@@ -102,6 +102,24 @@ describe("RemoteControlPresenter", () => {
     pollerInstances.length = 0;
     telegramClientInstances.length = 0;
     pollerStartImplementation = async () => {};
+    vi.mocked<(...args: any[]) => any>(BrowserWindow).mockImplementation(function () {
+      return {
+        loadURL: vi.fn<(...args: any[]) => any>(),
+        loadFile: vi.fn<(...args: any[]) => any>(),
+        on: vi.fn<(...args: any[]) => any>(),
+        webContents: {
+          send: vi.fn<(...args: any[]) => any>(),
+          on: vi.fn<(...args: any[]) => any>(),
+          setWindowOpenHandler: vi.fn<(...args: any[]) => any>(),
+          isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+        },
+        isDestroyed: vi.fn<(...args: any[]) => any>(() => false),
+        close: vi.fn<(...args: any[]) => any>(),
+        show: vi.fn<(...args: any[]) => any>(),
+        focus: vi.fn<(...args: any[]) => any>(),
+        hide: vi.fn<(...args: any[]) => any>(),
+      };
+    });
   });
 
   it("serializes runtime rebuilds so only one poller starts per token", async () => {

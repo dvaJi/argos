@@ -13,10 +13,12 @@ describe("DatabaseInitializer", () => {
 
     const SQLitePresenter = vi
       .fn<(...args: any[]) => any>()
-      .mockImplementationOnce(() => {
+      .mockImplementationOnce(function () {
         throw new Error("table argos_sessions has no column named reasoning_visibility");
       })
-      .mockImplementationOnce(() => presenterInstance);
+      .mockImplementationOnce(function () {
+        return presenterInstance;
+      });
     const repairSQLiteDatabaseFile = vi.fn<(...args: any[]) => any>();
     const isDestructiveDatabaseError = vi.fn<(...args: any[]) => any>().mockReturnValue(false);
     const classifySchemaError = vi.fn<(...args: any[]) => any>().mockReturnValue({
@@ -53,7 +55,7 @@ describe("DatabaseInitializer", () => {
   });
 
   it("does not attempt schema repair for destructive database errors", async () => {
-    const SQLitePresenter = vi.fn<(...args: any[]) => any>().mockImplementation(() => {
+    const SQLitePresenter = vi.fn<(...args: any[]) => any>().mockImplementation(function () {
       throw new Error("database disk image is malformed");
     });
     const repairSQLiteDatabaseFile = vi.fn<(...args: any[]) => any>();
