@@ -866,6 +866,18 @@ export class Presenter implements IPresenter {
 
   // Clean up on application exit, closing database connections
   async destroy(): Promise<void> {
+    try {
+      await this.pluginPresenter.shutdown();
+    } catch (error) {
+      console.error("PluginPresenter.shutdown failed during presenter destroy:", error);
+    }
+
+    try {
+      await this.mcpPresenter.shutdown();
+    } catch (error) {
+      console.error("McpPresenter.shutdown failed during presenter destroy:", error);
+    }
+
     await this.destroyRemoteControl();
     this.floatingButtonPresenter.destroy(); // Destroy the floating button
     this.tabPresenter.destroy();

@@ -420,6 +420,22 @@ export class McpPresenter implements IMCPPresenter {
     eventBus.send(MCP_EVENTS.SERVER_STOPPED, SendTarget.ALL_WINDOWS, serverName);
   }
 
+  // Stop every running MCP server. Used during app shutdown to release stdio
+  // child processes and transports cleanly. Stops run in parallel so the
+  // grace-period cost (terminateProcessTree) does not serialize per server.
+  async shutdown(): Promise<void> {
+    const runningClients = await this.serverManager.getRunningClients();
+    await Promise.all(
+      runningClients.map(async (client) => {
+        try {
+          await this.stopServer(client.serverName);
+        } catch (error) {
+          console.error(`[MCP] Failed to stop server ${client.serverName} during shutdown:`, error);
+        }
+      }),
+    );
+  }
+
   getServerLastError(serverName: string): string | undefined {
     return this.serverManager.getServerLastError(serverName);
   }
