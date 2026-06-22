@@ -1,66 +1,46 @@
 # Test Failure Groups
 
-Baseline refreshed on `2026-06-21`.
+Baseline refreshed on `2026-06-21`. **Suite is green** as of commit `f9130c1`.
 
-Totals: **169 failed / 2047 passed / 71 skipped** of 2287 tests (vitest, `pnpm test`).
+Totals: **0 failed / 2267 passed / 71 skipped** of 2338 tests (vitest, `pnpm test`).
 
-> Note: an `@electron-toolkit/utils` module-load failure previously masked ~525
-> tests. Fixing it (global mock in `test/setup.ts`, 2026-06-21) made the suite
-> comprehensive and is what raised the total from ~1762 to 2287. Most of the
-> previously hidden tests pass; the failures below are genuine pre-existing drift.
+The suite was previously understating itself: a broken `@electron-toolkit/utils`
+load masked ~525 tests, and 11 provider test files couldn't load due to a
+circular import (`baseProvider → devicePresenter → @/presenter barrel → providers`).
+Fixing those (global mocks + lazy presenter access) made the suite comprehensive.
 
-## Fixed in the 2026-06 cleanup pass
+## Real source bugs fixed (the failing tests were telling the truth)
 
-- Global `@electron-toolkit/utils` mock in `test/setup.ts` — unblocked 20+ tests
-  across `sqlitePresenter`/`windowPresenter`/`YoBrowserPresenter` and revealed the
-  rest of the suite.
-- `acpProvider.test.ts` — connection mocks migrated to `connection.agent.request`
-  (masked regression from the ACP SDK 0.28 migration). 23/23 pass.
-- Placeholder throw assertions (`.toThrow("expected error")` / `"connect failed"`)
-  replaced across `catalogGuards`, `routes/contracts`, `channelPluginManifest`,
-  `serverManager`, `channelAdapter`, `agentFileSystemHandler`, `createBridge`,
-  `dispatch` (now `"ENOENT"`), `acpFsHandler`.
-- `sessionPaths` — expected path built with `path.resolve` (Windows drive-letter).
-- `acpSessionManager.test.ts` — updated to `connection.agent.request` API.
+- `skillPresenter/index.ts` — `Set.prototype.add` passed unbound to `forEach`
+  (same class as the `Set.has` fix in commit `c1f9ccd`); skill filtering threw.
+- `windowPresenter/index.ts` — 3 settings-lifecycle methods accidentally deleted
+  (`resetSettingsWindowState`, `handleSettingsWindowNavigationStart`,
+  `clearPendingSettingsProviderInstalls`); left pending provider-install apiKeys
+  un-zeroed on close (security) and settings window state stuck. Restored + rewired.
+- `configPresenter/mcpConfHelper.ts` — in-memory fallback store lacked `has()`,
+  so legacy-key detection silently failed.
+- Circular import broken via lazy presenter access in `devicePresenter` and
+  `githubCopilotDeviceFlow`.
+- `pluginPresenter/toolPolicyStore.ts` — `new ElectronStore()` at module load
+  (import-time side effect) threw outside Electron; made lazy.
+- `Set.prototype.has` binding bugs across 8 sites (commit `c1f9ccd`).
 
-## Environment-gated (skipped, not failing)
+## Test rework patterns applied (no production behavior change)
+
+- Arrow constructor mocks → regular functions (vitest 4 `new` semantics).
+- Placeholder `.toThrow("expected error"|"connect failed")` → `.toThrow()` / `.toThrow("ENOENT")`.
+- `StoreFactory` migration: helpers now take a `storeFactory`; tests pass one
+  backed by an in-memory map (providerModelHelper, acpConfHelper, modelConfig,
+  providerDbModelConfig).
+- Source-flow drift: `system.openSettings` → `navigateToSettings`; `scheduledTasks`
+  dep wired into the dispatcher test runtime.
+- Relative import depth corrected for build-script tests.
+
+## Environment-gated (skipped with reasons, not failing)
 
 - `pluginPresenter.test.ts` — `describe.skipIf` when `plugins/cua/plugin.json` is
   absent (only present after `pnpm run plugin:cua:build`). 28 tests.
 - `acpFsHandler.test.ts` — symlink tests `it.skipIf(os.platform() === "win32")`
   (needs Developer Mode/admin). 2 tests.
-
-## Remaining — shared root causes (highest leverage, investigate first)
-
-- **`Set.prototype.has` called on incompatible receiver** — `agentRuntimePresenter.test.ts` (12),
-  `skillPresenter/skillPresenter.test.ts` (17), `toolPresenter/toolPresenter.test.ts` (5).
-  Looks like one mock-binding pattern losing `this` on a shared `Set`; ~34 failures.
-- **`Cannot read properties of undefined (reading '0')`** — `agentRuntimePresenter.test.ts` (25).
-  Indexing into an undefined array; likely a shared mock returning the wrong shape.
-
-## Remaining — mock-constructor / wiring drift
-
-- `KnowledgePresenter.test.ts` (16) — "is not a constructor" mock setup.
-- `routes/dispatcher.test.ts` (14) — `setSessionCreator` / route registration changed.
-- `agentSessionPresenter/integration.test.ts` (13) — `configPresenter.getAgentType()` hard dependency + call-count drift.
-- `mcpPresenter.test.ts` (9), `builtinKnowledgeServer.test.ts` (3), `mcpClient.test.ts` (1) — stale MCP runtime mocks.
-- `configPresenter/acpConfHelper.test.ts` (3), `mcpConfHelper.test.ts` (1), `providerModelHelper.test.ts` (5) — assertion/value drift.
-- `deeplinkPresenter.test.ts` (5) — mock call-signature drift.
-- `lifecyclePresenter/DatabaseInitializer.test.ts` (1), `remoteControlPresenter.test.ts` (1) — constructor/connection mock.
-- `windowPresenter.test.ts` (2) — settings-navigation queue + `resetSettingsWindowState` not a function.
-- `sqlitePresenter.connectionConfig.test.ts` (2) — SQLCipher/WAL path needs the native binary.
-
-## Remaining — build-script / fixture resolution
-
-- `scripts/afterPack.test.ts` (2), `scripts/signCuaHelper.test.ts` (2) — `Cannot find module '/scripts/...'` (absolute-path import resolves differently under vitest).
-
-## Remaining — single assertion drift (low effort each)
-
-- `modelConfig.test.ts` (1), `providerDbModelConfig.test.ts` (1), `SyncPresenter.test.ts` (1),
-  `YoBrowserPresenter.test.ts` (1, timeout on dom-ready).
-
-## Historical renderer notes (carry-over from 2026-04-03)
-
-- `jsdom` navigation not implemented in several renderer tests — environment
-  limitation, not a business-behavior error.
-- `pinia` mocks in renderer store tests can pollute `setActivePinia/createPinia`.
+- Global mocks in `test/setup.ts`: `@electron-toolkit/utils`, `electron-store`,
+  `electron`, `fs`, `path` — overridable per-file.
