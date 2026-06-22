@@ -123,9 +123,9 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 rounded-full text-muted-foreground"
-                    disabled={!isGenerating}
-                    title={isGenerating ? "Interrupt & send" : "Start a turn to steer"}
-                    aria-label={isGenerating ? "Interrupt & send" : "Start a turn to steer"}
+                    disabled={disableSteerAction}
+                    title={isGenerating ? "Interrupt & send" : "Send next"}
+                    aria-label={isGenerating ? "Interrupt & send" : "Send next"}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSteerQueueItem(element.id);

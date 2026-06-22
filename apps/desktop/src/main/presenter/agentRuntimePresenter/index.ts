@@ -883,6 +883,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       };
     } catch (err) {
       console.error("[ArgosAgent] processMessage error:", err);
+      if (streamRunId) {
+        this.clearActiveGeneration(sessionId, streamRunId);
+      }
       const aborted = this.isAbortError(err) || preStreamAbortSignal.aborted;
       if (context?.pendingQueueItemId && !consumedPendingQueueItem) {
         try {
@@ -2639,6 +2642,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
 
     const pendingInputSource: ProcessPendingInputSource = nextSteerInput ? "steer" : "queue";
     let claimedInput: PendingSessionInputRecord;
+    let projectDir: string | null;
 
     this.drainingPendingQueues.add(sessionId);
     try {
@@ -2646,6 +2650,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         pendingInputSource === "steer"
           ? this.pendingInputCoordinator.claimSteerInput(sessionId, nextPendingInput.id)
           : this.pendingInputCoordinator.claimQueuedInput(sessionId, nextPendingInput.id);
+      projectDir = this.resolveProjectDir(sessionId);
     } catch (error) {
       this.drainingPendingQueues.delete(sessionId);
       console.error("[ArgosAgent] drainPendingQueueIfPossible error:", error);
@@ -2657,7 +2662,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
 
     void this.processMessage(sessionId, claimedInput.payload, {
-      projectDir: this.resolveProjectDir(sessionId),
+      projectDir,
       pendingQueueItemId: claimedInput.id,
       pendingQueueItemSource: pendingInputSource,
     })
@@ -3062,6 +3067,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       return true;
     } catch (error) {
       console.error("[ArgosAgent] resumeAssistantMessage error:", error);
+      if (streamRunId) {
+        this.clearActiveGeneration(sessionId, streamRunId);
+      }
       if (this.isAbortError(error) || preStreamAbortSignal?.aborted) {
         this.clearSessionAbortController(sessionId, preStreamAbortController ?? undefined);
         this.settleAbortedTurn(sessionId, messageId, streamRunId);
