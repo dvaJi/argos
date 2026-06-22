@@ -5349,7 +5349,11 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
   }
 
-  private setSessionStatus(sessionId: string, status: ArgosSessionState["status"]): void {
+  private setSessionStatus(
+    sessionId: string,
+    status: ArgosSessionState["status"],
+    reason?: string,
+  ): void {
     const current = this.runtimeState.get(sessionId);
     if (!current) {
       return;
@@ -5361,11 +5365,13 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     eventBus.sendToRenderer(SESSION_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
       sessionId,
       status,
+      reason,
     });
     publishArgosEvent("sessions.status.changed", {
       sessionId,
       status,
       version: Date.now(),
+      reason,
     });
     publishArgosEvent("sessions.updated", {
       sessionIds: [sessionId],
