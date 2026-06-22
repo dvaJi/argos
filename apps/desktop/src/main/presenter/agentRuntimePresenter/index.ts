@@ -1367,7 +1367,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       if (remainingPending.length > 0) {
         emitResolvedToolHook?.();
         this.messageStore.updateMessageStatus(messageId, "pending");
-        this.setSessionStatus(sessionId, "generating");
+        this.setSessionStatus(sessionId, "blocked", "tool_permission");
         return { resumed: false };
       }
 
@@ -2332,6 +2332,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         projectDir,
       });
 
+      const self = this;
       const result = await processStream({
         messages,
         tools,
@@ -2401,10 +2402,15 @@ export class AgentRuntimePresenter implements IAgentImplementation {
               onQueued: (snapshot) => {
                 queuedForRateLimit = true;
                 emitRateLimitWaitingMessage(sessionId, rateLimitMessageId, activeGeneration.runId, snapshot);
+                const current = self.runtimeState.get(sessionId);
+                if (current?.status === "generating") {
+                  self.setSessionStatus(sessionId, "blocked", "rate_limit");
+                }
               },
             });
             if (queuedForRateLimit) {
               clearRateLimitWaitingMessage(sessionId, rateLimitMessageId, activeGeneration.runId);
+              self.setSessionStatus(sessionId, "generating");
               queuedForRateLimit = false;
             }
             if (abortController.signal.aborted) {
@@ -2479,6 +2485,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
               permission,
               tool,
             });
+            const current = this.runtimeState.get(sessionId);
+            if (current?.status === "generating") {
+              this.setSessionStatus(sessionId, "blocked", "tool_permission");
+            }
           },
           onStreamingProviderPermission: (permission, tool, commitDecision) => {
             this.registerActiveProviderPermission(sessionId, messageId, permission, tool, commitDecision);
