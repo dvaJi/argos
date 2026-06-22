@@ -11,7 +11,7 @@ Status: `pending` · `in-progress` · `PR #N` · `done` · `blocked` · `skip`
 | Source SHA | Source PR | Feature | Status |
 |---|---|---|---|
 | `b5a26d85` | #1793 | Stop MCP servers on quit (plugin/mcp shutdown) | done (merged PR #2) |
-| `3ea97717` | #1786 | Harden chat steer-abort queue | pending — **large**: route-API refactor (`sessions.steerPendingInput` replaces `resumePendingQueue`) + ~450-line `agentRuntimePresenter` rework; coordinate with React renderer. Defer. |
+| `3ea97717` | #1786 | Harden chat steer-abort queue | done (merged PR #5) — steer now aborts active turn (keeping partial output); stop auto-drains queue; pause/resume mechanism removed; single-owner abort settlement; `sessions.steerPendingInput` route replaces `resumePendingQueue`. |
 | `f171c4ff` | #1792 | Remove device-code login | **skip** — `openaiCodexAuth/` and all codex device-login refs are absent in the fork; nothing to remove. |
 | `351af841` | #1788 | OpenAI Codex runtime provider | pending — **large** (1628 ins) and adds `openaiCodexAuth/` that #1792 later removes. Defer until the fork's OpenAI-Codex stance is decided. |
 | `9cb9b581` | #1789 | API-key providers | done (merged PR #3) — added huggingface/upstage/minimax-global/moonshot-ai/alibaba-token-plan(±cn); skipped nvidia/fireworks/stepfun (already present) |
