@@ -37,7 +37,7 @@ const setupStore = async () => {
     moveQueuedInput: vi.fn<(...args: any[]) => any>(),
     convertPendingInputToSteer: vi.fn<(...args: any[]) => any>(),
     deletePendingInput: vi.fn<(...args: any[]) => any>(),
-    resumePendingQueue: vi.fn<(...args: any[]) => any>(),
+    steerPendingInput: vi.fn<(...args: any[]) => any>(),
     onPendingInputsChanged: vi.fn<(...args: any[]) => any>(() => unsubscribePendingInputsChanged),
   };
 

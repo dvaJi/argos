@@ -35,6 +35,7 @@ import type {
   UsageDashboardData,
   UsageDashboardBreakdownItem,
   UsageStatsBackfillStatus,
+  PendingSessionInputRecord,
 } from "@shared/types/agent-interface";
 import type { Message } from "@shared/chat";
 import type { SearchResult } from "@shared/types/core/search";
@@ -872,16 +873,16 @@ export class AgentSessionPresenter {
     await agent.deletePendingInput(sessionId, itemId);
   }
 
-  async resumePendingQueue(sessionId: string): Promise<void> {
+  async steerPendingInput(sessionId: string, itemId: string): Promise<PendingSessionInputRecord> {
     const session = this.sessionManager.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
     }
     const agent = await this.resolveAgentImplementation(session.agentId);
-    if (!agent.resumePendingQueue) {
-      throw new Error(`Agent ${session.agentId} does not support pending queue resume.`);
+    if (!agent.steerPendingInput) {
+      throw new Error(`Agent ${session.agentId} does not support pending input steering.`);
     }
-    await agent.resumePendingQueue(sessionId);
+    return agent.steerPendingInput(sessionId, itemId);
   }
 
   async retryMessage(sessionId: string, messageId: string): Promise<void> {

@@ -42,7 +42,6 @@ import {
   sessionsMoveToAgentRoute,
   sessionsQueuePendingInputRoute,
   sessionsRenameRoute,
-  sessionsResumePendingQueueRoute,
   sessionsRetryMessageRoute,
   sessionsRestoreRoute,
 } from "@shared/contracts/routes";
@@ -53,13 +52,14 @@ import {
   sessionsSetPermissionModeRoute,
   sessionsSetProjectDirRoute,
   sessionsSetSubagentEnabledRoute,
+  sessionsSteerPendingInputRoute,
   sessionsTogglePinnedRoute,
   sessionsTranslateTextRoute,
   sessionsUpdateDisabledAgentToolsRoute,
   sessionsUpdateGenerationSettingsRoute,
   sessionsUpdateQueuedInputRoute,
 } from "@shared/contracts/routes";
-import type { CreateSessionInput, SendMessageInput } from "@shared/types/agent-interface";
+import type { CreateSessionInput, PendingSessionInputRecord, SendMessageInput } from "@shared/types/agent-interface";
 import { getArgosBridge } from "./core";
 
 export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
@@ -176,8 +176,9 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     });
   }
 
-  async function resumePendingQueue(sessionId: string) {
-    await bridge.invoke(sessionsResumePendingQueueRoute.name, { sessionId });
+  async function steerPendingInput(sessionId: string, itemId: string) {
+    const result = await bridge.invoke(sessionsSteerPendingInputRoute.name, { sessionId, itemId });
+    return result as { item: PendingSessionInputRecord };
   }
 
   async function retryMessage(sessionId: string, messageId: string) {
@@ -459,7 +460,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     moveQueuedInput,
     convertPendingInputToSteer,
     deletePendingInput,
-    resumePendingQueue,
+    steerPendingInput,
     retryMessage,
     deleteMessage,
     editUserMessage,

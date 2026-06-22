@@ -217,8 +217,21 @@ export const sessionsMoveQueuedInputRoute = defineRouteContract({
   }),
 });
 
+// Low-level, non-interrupting promote (queue -> steer lane) used by integration tests and external
+// agent callers. Interactive clients use sessions.steerPendingInput, which promotes *and* interrupts.
 export const sessionsConvertPendingInputToSteerRoute = defineRouteContract({
   name: "sessions.convertPendingInputToSteer",
+  input: z.object({
+    sessionId: EntityIdSchema,
+    itemId: EntityIdSchema,
+  }),
+  output: z.object({
+    item: PendingSessionInputRecordSchema,
+  }),
+});
+
+export const sessionsSteerPendingInputRoute = defineRouteContract({
+  name: "sessions.steerPendingInput",
   input: z.object({
     sessionId: EntityIdSchema,
     itemId: EntityIdSchema,
@@ -236,16 +249,6 @@ export const sessionsDeletePendingInputRoute = defineRouteContract({
   }),
   output: z.object({
     deleted: z.literal(true),
-  }),
-});
-
-export const sessionsResumePendingQueueRoute = defineRouteContract({
-  name: "sessions.resumePendingQueue",
-  input: z.object({
-    sessionId: EntityIdSchema,
-  }),
-  output: z.object({
-    resumed: z.literal(true),
   }),
 });
 
