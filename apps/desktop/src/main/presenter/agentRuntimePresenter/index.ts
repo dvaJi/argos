@@ -377,6 +377,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     eventBus.on(MCP_EVENTS.SERVER_STOPPED, this.handleToolRegistryChanged);
     eventBus.on(MCP_EVENTS.SERVER_STATUS_CHANGED, this.handleToolRegistryChanged);
     eventBus.on(MCP_EVENTS.INITIALIZED, this.handleToolRegistryChanged);
+    eventBus.on(SESSION_EVENTS.ACTIVATED, this.handleSessionActivated);
   }
 
   private requireSessionPermissionPort(): SessionPermissionPort {
@@ -5462,4 +5463,17 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     this.sessionProjectDirs.set(sessionId, persisted);
     return persisted;
   }
+
+  markSessionViewed(sessionId: string): void {
+    const state = this.runtimeState.get(sessionId);
+    if (state && state.status === "done") {
+      this.setSessionStatus(sessionId, "idle");
+    }
+  }
+
+  private handleSessionActivated = (payload: { sessionId?: string; webContentsId?: number }): void => {
+    if (payload?.sessionId) {
+      this.markSessionViewed(payload.sessionId);
+    }
+  };
 }
