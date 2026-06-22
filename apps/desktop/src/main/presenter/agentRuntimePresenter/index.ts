@@ -1374,7 +1374,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       if (waitingForUserMessage) {
         emitResolvedToolHook?.();
         this.messageStore.updateMessageStatus(messageId, "sent");
-        this.setSessionStatus(sessionId, "idle");
+        this.setSessionStatus(sessionId, "done");
         return { resumed: false, waitingForUserMessage: true };
       }
 
@@ -2892,7 +2892,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (result.status === "completed") {
       this.dispatchTerminalHooks(sessionId, state, result);
       if (isActive) {
-        this.setSessionStatus(sessionId, "idle");
+        this.setSessionStatus(sessionId, "done");
       }
       return;
     }
