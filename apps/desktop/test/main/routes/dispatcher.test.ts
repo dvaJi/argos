@@ -323,6 +323,7 @@ function createRuntime() {
 
   const windowPresenter = {
     createSettingsWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
+    navigateToSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
     previewFile: vi.fn<(...args: any[]) => any>(),
     minimize: vi.fn<(...args: any[]) => any>((windowId: number) => {
       const window = browserWindowState.windows.get(windowId);
@@ -509,6 +510,16 @@ function createRuntime() {
       workspacePresenter,
       yoBrowserPresenter,
       tabPresenter,
+      scheduledTasks: {
+        setSessionCreator: vi.fn<(...args: any[]) => any>(),
+        start: vi.fn<(...args: any[]) => any>(),
+        stop: vi.fn<(...args: any[]) => any>(),
+        list: vi.fn<(...args: any[]) => any>().mockReturnValue({ tasks: [] }),
+        upsert: vi.fn<(...args: any[]) => any>(),
+        delete: vi.fn<(...args: any[]) => any>(),
+        toggle: vi.fn<(...args: any[]) => any>(),
+        fireNow: vi.fn<(...args: any[]) => any>(),
+      } as any,
     }),
     configPresenter,
     llmProviderPresenter,
@@ -1720,7 +1731,7 @@ describe("dispatchArgosRoute", () => {
       },
     );
 
-    expect(windowPresenter.createSettingsWindow).toHaveBeenCalledWith({
+    expect(windowPresenter.navigateToSettings).toHaveBeenCalledWith({
       routeName: "settings-display",
       params: undefined,
       section: "fonts",
