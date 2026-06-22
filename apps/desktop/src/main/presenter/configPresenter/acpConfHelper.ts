@@ -548,6 +548,6 @@ export class AcpConfHelper {
         .map(([name]) => name),
     );
 
-    return selections.filter(validServerNames.has);
+    return selections.filter((name) => validServerNames.has(name));
   }
 }

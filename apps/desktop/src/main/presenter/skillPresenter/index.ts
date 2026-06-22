@@ -1845,7 +1845,7 @@ export class SkillPresenter implements ISkillPresenter {
   async validateSkillNames(names: string[]): Promise<string[]> {
     const available = await this.getMetadataList();
     const availableNames = new Set(available.map((s) => s.name));
-    return names.filter(availableNames.has);
+    return names.filter((name) => availableNames.has(name));
   }
 
   /**

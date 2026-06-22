@@ -167,7 +167,7 @@ const applyToolsSnapshot = (toolDefs: MCPToolDefinition[] = []) => {
 const syncEnabledToolsWithDefinitions = async (toolDefs: MCPToolDefinition[] = []) => {
   const allToolNames = toolDefs.map((tool) => tool.function.name);
   const availableSet = new Set(allToolNames);
-  const filtered = mcpStore.state.enabledToolNames.filter(availableSet.has);
+  const filtered = mcpStore.state.enabledToolNames.filter((name) => availableSet.has(name));
   const next = filtered.length > 0 || allToolNames.length === 0 ? filtered : allToolNames;
   await setEnabledToolNames(next);
 };

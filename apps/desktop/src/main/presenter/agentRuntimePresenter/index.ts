@@ -3034,7 +3034,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
 
     const normalizedAvailableSkills = this.normalizeSkillMetadata(availableSkills);
     const availableSkillNames = new Set(normalizedAvailableSkills.map((skill) => skill.name));
-    const normalizedActiveSkills = this.normalizeSkillNames(activeSkillNames.filter(availableSkillNames.has));
+    const normalizedActiveSkills = this.normalizeSkillNames(activeSkillNames.filter((name) => availableSkillNames.has(name)));
     const agentToolNames = this.getAgentToolNames(toolDefinitions);
     const fingerprint = this.buildSystemPromptFingerprint({
       providerId,
@@ -3141,8 +3141,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   }
 
   private buildPermissionRulesPrompt(agentToolNames: Set<string>): string {
-    const readOnlyTools = ["read"].filter(agentToolNames.has);
-    const serializedTools = ["write", "edit", "exec", "process"].filter(agentToolNames.has);
+    const readOnlyTools = ["read"].filter((name) => agentToolNames.has(name));
+    const serializedTools = ["write", "edit", "exec", "process"].filter((name) => agentToolNames.has(name));
 
     if (readOnlyTools.length === 0 && serializedTools.length === 0) {
       return "";
