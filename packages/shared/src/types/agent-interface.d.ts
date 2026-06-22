@@ -11,7 +11,7 @@ import type { AgentPlanDisplayItem } from "./agent-plan";
  * v2: multi-turn chat with MCP tool calling, no permission checks.
  */
 
-export type SessionStatus = "idle" | "generating" | "error";
+export type SessionStatus = "idle" | "generating" | "blocked" | "done" | "error";
 export type PermissionMode = "default" | "full_access";
 export type SessionCompactionStatus = "idle" | "compacting" | "compacted";
 
