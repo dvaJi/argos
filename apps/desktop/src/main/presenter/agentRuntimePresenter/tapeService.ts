@@ -10,6 +10,8 @@ import type { ArgosMessageStore } from "./messageStore";
 import type { ArgosTapeEntryRow, ArgosTapeSearchInput } from "../sqlitePresenter/tables/argosTapeEntries";
 import { appendMessageRecordToTape } from "./tapeFacts";
 import { buildEffectiveTapeView, getLastEffectiveTokenUsage, searchEffectiveTapeRows } from "./tapeEffectiveView";
+import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "./tapeViewManifest";
+import type { ArgosTapeViewManifest } from "@shared/types/tape-view-manifest";
 
 export type TapeMigrationState = "none" | "ready";
 
@@ -219,6 +221,80 @@ export class ArgosTapeService {
 
   appendMessageRecord(record: ChatMessageRecord): number {
     return appendMessageRecordToTape(this.table, record, "live");
+  }
+
+  getViewManifestSourceMaps(sessionId: string): {
+    latestEntryId: number;
+    anchorEntryIds: number[];
+    entryIdByMessageId: Map<string, number>;
+  } {
+    const table = this.table;
+    if (!table) {
+      return { latestEntryId: 0, anchorEntryIds: [], entryIdByMessageId: new Map() };
+    }
+
+    const rows = table.getBySession(sessionId);
+    const entryIdByMessageId = new Map<string, number>();
+    let latestEntryId = 0;
+    const anchorEntryIds: number[] = [];
+
+    for (const row of rows) {
+      latestEntryId = Math.max(latestEntryId, row.entry_id);
+      if (row.kind === "anchor") {
+        anchorEntryIds.push(row.entry_id);
+        continue;
+      }
+      if (row.kind === "message" && row.source_type === "message" && row.source_id) {
+        entryIdByMessageId.set(row.source_id, row.entry_id);
+      }
+    }
+
+    return { latestEntryId, anchorEntryIds, entryIdByMessageId };
+  }
+
+  appendViewManifest(manifest: ArgosTapeViewManifest): ArgosTapeEntryRow | null {
+    const table = this.table;
+    if (!table) {
+      return null;
+    }
+
+    table.ensureBootstrapAnchor(manifest.sessionId);
+    return table.appendEvent({
+      sessionId: manifest.sessionId,
+      name: TAPE_VIEW_MANIFEST_EVENT_NAME,
+      source: {
+        type: "runtime_event",
+        id: manifest.messageId,
+        seq: manifest.requestSeq,
+      },
+      provenanceKey: `view:${manifest.sessionId}:${manifest.messageId}:${manifest.requestSeq}:${manifest.hashes.manifestHash}`,
+      data: { manifest },
+      meta: {
+        viewId: manifest.viewId,
+        requestSeq: manifest.requestSeq,
+        parentViewId: manifest.parentViewId ?? null,
+      },
+      createdAt: manifest.assembledAt,
+      idempotent: true,
+    });
+  }
+
+  getLastViewManifestId(sessionId: string): string | null {
+    const table = this.table;
+    if (!table) {
+      return null;
+    }
+
+    const rows = table.getBySession(sessionId);
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const row = rows[i];
+      if (row.kind === "event" && row.name === TAPE_VIEW_MANIFEST_EVENT_NAME) {
+        const meta = parseJsonObject(row.meta_json);
+        const viewId = meta.viewId;
+        return typeof viewId === "string" ? viewId : null;
+      }
+    }
+    return null;
   }
 
   getMessageRecords(sessionId: string): ChatMessageRecord[] {
