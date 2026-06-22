@@ -390,7 +390,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
   }
 
   function onStatusChanged(
-    listener: (payload: { sessionId: string; status: "idle" | "generating" | "error"; version: number }) => void,
+    listener: (payload: { sessionId: string; status: "idle" | "generating" | "blocked" | "done" | "error"; version: number }) => void,
   ) {
     return bridge.on(sessionsStatusChangedEvent.name, listener);
   }

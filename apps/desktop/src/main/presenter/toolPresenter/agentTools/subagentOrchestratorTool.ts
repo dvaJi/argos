@@ -91,7 +91,7 @@ type MutableTaskState = {
     toolCallId: string;
   } | null;
   resultSummary?: string;
-  runtimeStatus?: "idle" | "generating" | "error";
+  runtimeStatus?: "idle" | "generating" | "blocked" | "done" | "error";
   started: boolean;
   cancelRequested: boolean;
   tapeFinalized: boolean;
