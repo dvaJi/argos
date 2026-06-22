@@ -42,4 +42,11 @@ describe("settings navigation helpers", () => {
     expect(resolveSettingsNavigationPath("settings-plugins", undefined, "win32", "x64")).toBe("/plugins");
     expect(resolveSettingsNavigationPath("settings-plugins", undefined, "win32", "ia32")).toBe("/overview");
   });
+
+  it("still filters by platform when arch is not provided (legacy call sites)", () => {
+    // Supported platform, no arch -> visible (matches a target's platform prefix).
+    expect(getSettingsNavigationItems("win32").some((item) => item.routeName === "settings-plugins")).toBe(true);
+    // Unsupported platform, no arch -> hidden.
+    expect(getSettingsNavigationItems("freebsd").some((item) => item.routeName === "settings-plugins")).toBe(false);
+  });
 });

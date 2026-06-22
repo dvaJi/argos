@@ -286,12 +286,18 @@ export const isSettingsNavigationItemSupported = (
   arch?: string,
 ): boolean => {
   if (item.supportedTargets?.length) {
-    if (!platform || !arch) {
+    const targets = item.supportedTargets.map((target) => target.trim().toLowerCase());
+    if (!platform) {
+      // No platform context: can't filter, keep the item visible.
       return true;
     }
-    const normalizedArch = arch.trim().toLowerCase();
     const aliases = getPlatformAliases(platform);
-    const targets = item.supportedTargets.map((target) => target.trim().toLowerCase());
+    if (!arch) {
+      // Legacy platform-only call: match on platform alone (any arch) so
+      // unsupported platforms are still filtered out.
+      return [...aliases].some((platformAlias) => targets.some((target) => target.startsWith(`${platformAlias}/`)));
+    }
+    const normalizedArch = arch.trim().toLowerCase();
     return [...aliases].some((platformAlias) => targets.includes(`${platformAlias}/${normalizedArch}`));
   }
 

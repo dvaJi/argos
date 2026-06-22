@@ -1036,7 +1036,7 @@ export class McpClient {
 
       // If the error indicates unsupported, cache an empty array
       if (isUnsupportedCapabilityError(error)) {
-        console.warn(`Server ${this.serverName} does not support listTools`);
+        console.info(`Server ${this.serverName} does not support listTools`);
         this.cachedTools = [];
         return this.cachedTools;
       } else {
