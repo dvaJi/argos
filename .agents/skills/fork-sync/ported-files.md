@@ -39,6 +39,21 @@ Legend: `fork file` ← `source file` · role
   (e.g. `IMCPPresenter`). Note: the fork consolidated many interfaces into
   `legacy.presenters.d.ts`; the source spreads them across several `*.presenter.d.ts`.
 
+## Provider registry / catalog
+
+- `apps/desktop/src/main/presenter/configPresenter/providers.ts` (`DEFAULT_PROVIDERS`)
+  ← `src/main/presenter/configPresenter/providers.ts` · the default provider config list
+  (`id/name/apiType/apiKey/baseUrl/enable/websites`). Fork style: double quotes, semicolons.
+- `apps/desktop/src/main/presenter/llmProviderPresenter/providerRegistry.ts`
+  ← `src/main/presenter/llmProviderPresenter/providerRegistry.ts` · `[id, createDefinition({...})]`
+  map. Fork helpers/presets: `OPENAI_BASE`, `ENGLISH_SUMMARY_OPENAI`, `CHINESE_SUMMARY_OPENAI`,
+  `modelSource: "provider-db"`, `credentialStrategy: "api-key"`/`"anthropic"`. The fork's
+  `AiSdkModelSourceStrategy` / `AiSdkKeyStatusStrategy` unions gate valid values.
+- `apps/desktop/src/shared/providerDbCatalog.ts` (`PROVIDER_DB_BACKED_PROVIDER_IDS`)
+  ← `src/shared/providerDbCatalog.ts` · ids backed by the provider DB.
+- `apps/desktop/src/main/presenter/configPresenter/providerId.ts` (`PROVIDER_ID_ALIASES`)
+  ← `src/main/presenter/configPresenter/providerId.ts` · id→catalog alias map + `resolveProviderId`.
+
 ## Conventions / tooling
 
 - `pnpm-lock.yaml` is **tracked** (commit it when deps change).

@@ -300,6 +300,60 @@ export class PluginPresenter {
     this.removeResourceRecordsByOwner(pluginId);
   }
 
+  // Stop every plugin-owned MCP server, unregister all plugin tool policies,
+  // and close plugin settings windows. Called during app shutdown so stdio MCP
+  // servers spawned by plugins do not outlive the app. Server stops run in
+  // parallel to keep quit fast.
+  async shutdown(): Promise<void> {
+    const pluginIds = new Set(this.getInstallations().map((installation) => installation.pluginId));
+    const servers = await this.configPresenter.getMcpServers();
+
+    await Promise.all(
+      Object.entries(servers).map(async ([serverName, serverConfig]) => {
+        const ownerPluginId =
+          serverConfig.ownerPluginId ?? (serverConfig.source === "plugin" ? serverConfig.sourceId : undefined);
+        if (!ownerPluginId) {
+          return;
+        }
+        pluginIds.add(ownerPluginId);
+
+        try {
+          if (await this.mcpPresenter.isServerRunning(serverName)) {
+            await this.mcpPresenter.stopServer(serverName);
+          }
+        } catch (error) {
+          console.warn("[PluginHost] Failed to stop plugin-owned MCP server during shutdown:", {
+            pluginId: ownerPluginId,
+            serverName,
+            error,
+          });
+        }
+      }),
+    );
+
+    for (const pluginId of pluginIds) {
+      unregisterPluginToolPolicies(pluginId);
+    }
+
+    this.closeAllPluginSettingsWindows();
+  }
+
+  private closeAllPluginSettingsWindows(): void {
+    // Snapshot first: window.close() fires a 'closed' handler that deletes
+    // from this.settingsWindows, which would mutate the Map mid-iteration.
+    const windows = Array.from(this.settingsWindows.values());
+    for (const window of windows) {
+      try {
+        if (!window.isDestroyed()) {
+          window.close();
+        }
+      } catch {
+        // ignore
+      }
+    }
+    this.settingsWindows.clear();
+  }
+
   private async removePersistedInstallation(pluginId: string): Promise<void> {
     await this.disableByOwner(pluginId);
     this.removeInstallationRecord(pluginId);
