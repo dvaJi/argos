@@ -17,13 +17,13 @@ function makeRecord(overrides: Partial<ChatMessageRecord> = {}): ChatMessageReco
     orderSeq: 1,
     role: "user",
     content: JSON.stringify({ text: "Hello" }),
-    status: "delivered",
+    status: "sent",
     isContextEdge: 0,
-    metadata: null,
+    metadata: "{}",
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
-  } as ChatMessageRecord;
+  };
 }
 
 describe("stableJsonStringify", () => {

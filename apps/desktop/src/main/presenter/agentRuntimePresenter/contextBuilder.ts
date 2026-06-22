@@ -839,21 +839,22 @@ function filterRecordsFromCursor(records: ChatMessageRecord[], summaryCursorOrde
   return records.filter((record) => record.orderSeq >= cursor);
 }
 
-function countSelectedTurns(turns: HistoryTurn[], availableTokens: number, fallbackProtectedTurnCount: number): number {
-  if (availableTokens <= 0 || turns.length === 0) return 0;
+function selectTurnHistoryTurns(
+  turns: HistoryTurn[],
+  availableTokens: number,
+  fallbackProtectedTurnCount: number,
+): HistoryTurn[] {
+  if (availableTokens <= 0 || turns.length === 0) return [];
   const total = turns.reduce((sum, turn) => sum + turn.tokens, 0);
-  if (total <= availableTokens) return turns.length;
+  if (total <= availableTokens) return turns;
 
-  const protectedCount = Math.max(0, Math.min(fallbackProtectedTurnCount, turns.length));
-  let count = turns.length;
+  const remainingTurns = [...turns];
+  const protectedCount = Math.max(0, Math.min(fallbackProtectedTurnCount, remainingTurns.length));
   let remaining = total;
-  let dropIndex = 0;
-  while (count > protectedCount && remaining > availableTokens) {
-    remaining -= turns[dropIndex]?.tokens ?? 0;
-    dropIndex++;
-    count--;
+  while (remainingTurns.length > protectedCount && remaining > availableTokens) {
+    remaining -= remainingTurns.shift()!.tokens;
   }
-  return count;
+  return remainingTurns;
 }
 
 export function buildContext(
@@ -909,13 +910,19 @@ export function buildContextWithMetadata(
   const newUserTokens = estimateMessageTokens(newUserMessage);
   const available =
     contextLength - systemPromptTokens - newUserTokens - reserveTokens - (options.extraReserveTokens ?? 0);
-  const selectedHistory = selectTurnHistory(historyTurns, available, options.fallbackProtectedTurnCount ?? 0);
 
-  // Determine which records were included vs excluded by the budget selection.
-  // selectTurnHistory drops turns from the front until the budget fits, so the
-  // selected turns are the trailing N turns.
-  const selectedTurnCount = countSelectedTurns(historyTurns, available, options.fallbackProtectedTurnCount ?? 0);
-  const selectedTurns = historyTurns.slice(historyTurns.length - selectedTurnCount);
+  // Select turns within budget, then flatten and apply emergency truncation if needed.
+  const selectedTurns = selectTurnHistoryTurns(historyTurns, available, options.fallbackProtectedTurnCount ?? 0);
+  const flattenedHistory = flattenTurns(selectedTurns);
+  const selectedHistory =
+    estimateMessagesTokens(flattenedHistory) <= available
+      ? flattenedHistory
+      : truncateContext(flattenedHistory, available);
+
+  // Track which records were included vs excluded by the budget selection.
+  // Note: truncateContext may drop individual messages within a selected turn's
+  // first records in extreme budget-pressure edge cases; this is documented as a
+  // known approximation in the manifest metadata.
   const selectedRecordIds = new Set(selectedTurns.flatMap((turn) => turn.records.map((r) => r.id)));
 
   const includedRecords: ContextIncludedRecord[] = [];
