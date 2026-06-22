@@ -1232,6 +1232,8 @@ export class WindowPresenter implements IWindowPresenter {
       this.windows.delete(windowId);
       this.settingsWindow.close();
     }
+
+    this.resetSettingsWindowState(true);
   }
 
   /**
@@ -1261,6 +1263,14 @@ export class WindowPresenter implements IWindowPresenter {
     this.flushPendingSettingsMessages();
   }
 
+  private handleSettingsWindowNavigationStart(windowId: number, isMainFrame: boolean, isSameDocument: boolean): void {
+    if (!isMainFrame || isSameDocument || this.settingsWindow?.id !== windowId) {
+      return;
+    }
+
+    this.settingsWindowReady = false;
+  }
+
   private tryNavigateSettingsWindowByUrl(channel: string, args: unknown[]): boolean {
     if (
       channel !== SETTINGS_EVENTS.NAVIGATE ||
@@ -1286,6 +1296,7 @@ export class WindowPresenter implements IWindowPresenter {
     this.pendingSettingsMessages.push({ channel, args: [navigation] });
     console.log(`Reloading settings window to target URL: ${targetUrl}`);
     console.info("[Startup][Settings][Main] loadURL start", targetUrl);
+    this.handleSettingsWindowNavigationStart(this.settingsWindow.id, true, false);
     void this.settingsWindow.webContents
       .loadURL(targetUrl)
       .then(() => {
@@ -1377,6 +1388,21 @@ export class WindowPresenter implements IWindowPresenter {
 
   private clonePendingSettingsProviderInstall(preview: ProviderInstallPreview): ProviderInstallPreview {
     return { ...preview };
+  }
+
+  private resetSettingsWindowState(clearQueue = false): void {
+    this.settingsWindowReady = false;
+    if (clearQueue) {
+      this.pendingSettingsMessages = [];
+      this.clearPendingSettingsProviderInstalls();
+    }
+  }
+
+  private clearPendingSettingsProviderInstalls(): void {
+    this.pendingSettingsProviderInstalls.forEach((preview) => {
+      preview.apiKey = "";
+    });
+    this.pendingSettingsProviderInstalls = [];
   }
 
   public isApplicationQuitting(): boolean {

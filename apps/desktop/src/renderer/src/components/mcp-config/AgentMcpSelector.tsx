@@ -47,7 +47,9 @@ export const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections
       setAvailableServers(filtered);
 
       const visibleServerNames = new Set(filtered.map((server) => server.name));
-      const next = Array.isArray(currentSelections) ? currentSelections.filter((name) => visibleServerNames.has(name)) : [];
+      const next = Array.isArray(currentSelections)
+        ? currentSelections.filter((name) => visibleServerNames.has(name))
+        : [];
       setSelections(next);
     } finally {
       setLoading(false);

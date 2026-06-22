@@ -1,33 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StoreFactory } from "@argos/backend-core";
 
 const mockStores = vi.hoisted(() => new Map<string, Record<string, any>>());
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-vi.mock("electron-store", () => ({
-  default: class MockElectronStore {
-    private readonly data: Record<string, any>;
-
-    constructor(options: { name: string; defaults?: Record<string, any> }) {
-      if (!mockStores.has(options.name)) {
-        mockStores.set(options.name, clone(options.defaults ?? {}));
+const createStoreFactory = (): StoreFactory => (options) => {
+  if (!mockStores.has(options.name)) {
+    mockStores.set(options.name, clone(options.defaults ?? {}));
+  }
+  const data = mockStores.get(options.name)!;
+  return {
+    get: ((key: string) => data[key]) as never,
+    set: ((keyOrValues: string | Record<string, unknown>, value?: unknown) => {
+      if (typeof keyOrValues === "string") {
+        data[keyOrValues] = value;
+      } else {
+        Object.assign(data, keyOrValues);
       }
-      this.data = mockStores.get(options.name)!;
-    }
-
-    get(key: string) {
-      return this.data[key];
-    }
-
-    set(key: string, value: any) {
-      this.data[key] = value;
-    }
-
-    delete(key: string) {
-      delete this.data[key];
-    }
-  },
-}));
+    }) as never,
+    delete: ((key: string) => {
+      delete data[key];
+    }) as never,
+    get store() {
+      return data;
+    },
+  };
+};
 
 vi.mock("../../../../src/main/presenter/configPresenter/mcpConfHelper", () => ({
   McpConfHelper: class MockMcpConfHelper {
@@ -89,7 +88,7 @@ describe("AcpConfHelper registry-first migration", () => {
     });
 
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper();
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
 
     expect(helper.getAgentState("kimi")).toEqual(
       expect.objectContaining({
@@ -114,7 +113,7 @@ describe("AcpConfHelper registry-first migration", () => {
 
   it("persists registry env overrides and validates shared MCP selections", async () => {
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper();
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
 
     helper.setAgentEnvOverride("claude-code-acp", {
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -166,7 +165,7 @@ describe("AcpConfHelper registry-first migration", () => {
     });
 
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper();
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
 
     expect(helper.getSharedMcpSelections()).toEqual(["github", "legacy-extra"]);
     expect(helper.getAgentState("claude-acp")).toEqual(

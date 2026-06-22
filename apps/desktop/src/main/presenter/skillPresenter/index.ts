@@ -1862,7 +1862,7 @@ export class SkillPresenter implements ISkillPresenter {
     for (const skillName of activeSkills) {
       const metadata = this.metadataCache.get(skillName);
       if (metadata?.allowedTools && this.isSkillVisible(metadata)) {
-        metadata.allowedTools.forEach(allowedTools.add);
+        metadata.allowedTools.forEach((tool) => allowedTools.add(tool));
       }
     }
 

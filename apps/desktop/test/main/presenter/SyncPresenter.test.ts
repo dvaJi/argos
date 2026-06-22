@@ -282,7 +282,9 @@ vi.mock("../../../src/main/presenter/syncPresenter/configImportService", async (
 });
 
 vi.mock("../../../src/main/presenter/syncPresenter/cloudStorageService", () => ({
-  CloudStorageService: vi.fn<(...args: any[]) => any>(() => cloudStorageMocks),
+  CloudStorageService: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return cloudStorageMocks;
+  }),
 }));
 
 vi.mock("../../../src/main/presenter/index", () => ({

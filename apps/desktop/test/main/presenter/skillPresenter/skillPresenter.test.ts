@@ -1572,6 +1572,24 @@ describe("SkillPresenter", () => {
   describe("skill runtime extensions", () => {
     beforeEach(async () => {
       mockSkillTree(["test-skill"]);
+      // Restore path mocks that may have been overridden by installFromFolder tests
+      (path.relative as Mock).mockImplementation((from: string, to: string) => {
+        if (to.startsWith(from)) {
+          return to.substring(from.length + 1);
+        }
+        return "../" + to;
+      });
+      (path.resolve as Mock).mockImplementation((...args: string[]) => {
+        let resolved = "";
+        for (const part of args.filter(Boolean)) {
+          if (part.startsWith("/")) {
+            resolved = part;
+            continue;
+          }
+          resolved = resolved ? `${resolved.replace(/\/+$/, "")}/${part}` : `/${part}`;
+        }
+        return resolved || "/";
+      });
       (fs.existsSync as Mock).mockImplementation((target: string) => !target.includes("/scripts"));
       (fs.readFileSync as Mock).mockReturnValue("test");
       (matter as unknown as Mock).mockReturnValue({

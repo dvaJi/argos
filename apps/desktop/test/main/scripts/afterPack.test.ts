@@ -4,7 +4,7 @@ import path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const loadAfterPack = async () => {
-  return (await import('../../../scripts/afterPack.js')).default as (context: {
+  return (await import('../../../../../scripts/afterPack.js')).default as (context: {
     targets: Array<{ name: string }>
     appOutDir: string
     electronPlatformName: string

@@ -183,6 +183,46 @@ vi.mock("@electron-toolkit/utils", () => ({
   },
 }));
 
+// Mock electron-store with an in-memory implementation so importers that
+// instantiate it at runtime (without a per-file mock) don't require an
+// Electron app context (which throws "Please specify the projectName option").
+// Per-file vi.mock("electron-store", ...) overrides this where needed.
+vi.mock("electron-store", () => {
+  class MockElectronStore {
+    private data: Record<string, unknown>;
+
+    constructor(options?: { defaults?: Record<string, unknown> }) {
+      this.data = JSON.parse(JSON.stringify(options?.defaults ?? {}));
+    }
+
+    get<T>(key: string): T {
+      return this.data[key] as T;
+    }
+
+    set(key: string, value: unknown): void {
+      this.data[key] = value;
+    }
+
+    delete(key: string): void {
+      delete this.data[key];
+    }
+
+    has(key: string): boolean {
+      return key in this.data;
+    }
+
+    clear(): void {
+      this.data = {};
+    }
+
+    get store(): Record<string, unknown> {
+      return this.data;
+    }
+  }
+
+  return { default: MockElectronStore };
+});
+
 // Mock file system operations
 vi.mock("fs", () => {
   const mockedFs = {

@@ -400,7 +400,8 @@ describe("McpClient Runtime Command Processing Tests", () => {
       expect(transportOptions.env.TOKEN).toBe("123");
       expect(transportOptions.env.EMPTY).toBe("");
       expect(transportOptions.env).not.toHaveProperty("SKIP");
-      expect(transportOptions.env.PATH).toContain("/custom/bin");
+      const pathKey = process.platform === "win32" ? "Path" : "PATH";
+      expect(transportOptions.env[pathKey]).toContain("/custom/bin");
     });
   });
 

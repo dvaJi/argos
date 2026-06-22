@@ -34,11 +34,13 @@ vi.mock("@/presenter/proxyConfig", () => ({
 }));
 
 vi.mock("../../../../src/main/presenter/mcpPresenter/mcpClient", () => ({
-  McpClient: vi.fn<(...args: any[]) => any>().mockImplementation(() => ({
-    connect: clientMocks.connect,
-    disconnect: clientMocks.disconnect,
-    isServerRunning: clientMocks.isServerRunning,
-  })),
+  McpClient: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
+    return {
+      connect: clientMocks.connect,
+      disconnect: clientMocks.disconnect,
+      isServerRunning: clientMocks.isServerRunning,
+    };
+  }),
 }));
 
 import { ServerManager } from "../../../../src/main/presenter/mcpPresenter/serverManager";
@@ -50,14 +52,13 @@ describe("ServerManager plugin MCP errors", () => {
     clientMocks.connect.mockResolvedValue(undefined);
     clientMocks.disconnect.mockResolvedValue(undefined);
     clientMocks.isServerRunning.mockReturnValue(true);
-    vi.mocked<(...args: any[]) => any>(McpClient).mockImplementation(
-      () =>
-        ({
-          connect: clientMocks.connect,
-          disconnect: clientMocks.disconnect,
-          isServerRunning: clientMocks.isServerRunning,
-        }) as never,
-    );
+    vi.mocked<(...args: any[]) => any>(McpClient).mockImplementation(function () {
+      return {
+        connect: clientMocks.connect,
+        disconnect: clientMocks.disconnect,
+        isServerRunning: clientMocks.isServerRunning,
+      } as never;
+    });
   });
 
   function createConfigPresenter(servers: Record<string, any>) {

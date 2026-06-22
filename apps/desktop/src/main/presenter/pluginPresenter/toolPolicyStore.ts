@@ -12,29 +12,40 @@ type ToolPolicySettings = {
   policies: StoredToolPolicy[];
 };
 
-const store = new ElectronStore<ToolPolicySettings>({
-  name: "plugin-tool-policies",
-  defaults: {
-    policies: [],
-  },
-});
+// Lazily instantiated to avoid an import-time side effect (electron-store
+// requires an Electron app context to derive projectName; instantiating at
+// module load breaks unit tests and any importer that isn't inside Electron).
+let store: ElectronStore<ToolPolicySettings> | null = null;
+const getStore = (): ElectronStore<ToolPolicySettings> => {
+  if (!store) {
+    store = new ElectronStore<ToolPolicySettings>({
+      name: "plugin-tool-policies",
+      defaults: {
+        policies: [],
+      },
+    });
+  }
+  return store;
+};
 
 export function registerPluginToolPolicy(policy: StoredToolPolicy): void {
-  const policies = store.get("policies") ?? [];
+  const s = getStore();
+  const policies = s.get("policies") ?? [];
   const filtered = policies.filter((item) => !(item.pluginId === policy.pluginId && item.serverId === policy.serverId));
-  store.set("policies", [...filtered, policy]);
+  s.set("policies", [...filtered, policy]);
 }
 
 export function unregisterPluginToolPolicies(pluginId: string): void {
-  const policies = store.get("policies") ?? [];
-  store.set(
+  const s = getStore();
+  const policies = s.get("policies") ?? [];
+  s.set(
     "policies",
     policies.filter((policy) => policy.pluginId !== pluginId),
   );
 }
 
 export function getPluginToolPolicy(serverId: string, toolName: string): PluginToolPolicyDecision | null {
-  const policies = store.get("policies") ?? [];
+  const policies = getStore().get("policies") ?? [];
   for (const policy of policies) {
     if (!policy.enabled || policy.serverId !== serverId) {
       continue;

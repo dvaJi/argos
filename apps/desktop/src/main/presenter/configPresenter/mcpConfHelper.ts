@@ -321,6 +321,7 @@ export class McpConfHelper {
         delete: (key: string) => {
           delete (data as Record<string, unknown>)[key];
         },
+        has: (key: string) => key in (data as Record<string, unknown>),
         get store() {
           return data;
         },

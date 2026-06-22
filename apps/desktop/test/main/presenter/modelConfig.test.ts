@@ -5,56 +5,39 @@ import { DEFAULT_MODEL_TIMEOUT } from "../../../src/shared/modelConfigDefaults";
 import { ModelConfig } from "../../../src/shared/presenter";
 import { providerDbLoader } from "../../../src/main/presenter/configPresenter/providerDbLoader";
 import { modelCapabilities } from "../../../src/main/presenter/configPresenter/modelCapabilities";
+import type { StoreFactory } from "@argos/backend-core";
 
-// Mock electron-store with in-memory storage
+// Shared in-memory store state backing the StoreFactory so configs persist across helper instances
 const mockStores = new Map<string, Record<string, any>>();
 
 const CURRENT_VERSION = "1.0.0";
 
-vi.mock("electron-store", () => {
+const createStoreFactory = (): StoreFactory => (options) => {
+  if (!mockStores.has(options.name)) {
+    mockStores.set(options.name, {});
+  }
+  const data = mockStores.get(options.name)!;
   return {
-    default: class MockElectronStore {
-      private storePath: string;
-      private data: Record<string, any>;
-
-      constructor(options: { name: string }) {
-        this.storePath = options.name;
-        if (!mockStores.has(this.storePath)) {
-          mockStores.set(this.storePath, {});
-        }
-        this.data = mockStores.get(this.storePath)!;
+    get: ((key: string) => data[key]) as never,
+    set: ((keyOrValues: string | Record<string, unknown>, value?: unknown) => {
+      if (typeof keyOrValues === "string") {
+        data[keyOrValues] = value;
+      } else {
+        Object.assign(data, keyOrValues);
       }
-
-      get(key: string) {
-        return this.data[key];
-      }
-
-      set(key: string, value: any) {
-        this.data[key] = value;
-      }
-
-      delete(key: string) {
-        delete this.data[key];
-      }
-
-      has(key: string) {
-        return key in this.data;
-      }
-
-      clear() {
-        Object.keys(this.data).forEach((key) => delete this.data[key]);
-      }
-
-      get store() {
-        return { ...this.data };
-      }
-
-      get path() {
-        return `/mock/path/${this.storePath}.json`;
-      }
+    }) as never,
+    delete: ((key: string) => {
+      delete data[key];
+    }) as never,
+    has: ((key: string) => key in data) as never,
+    clear: (() => {
+      Object.keys(data).forEach((key) => delete data[key]);
+    }) as never,
+    get store() {
+      return { ...data };
     },
   };
-});
+};
 
 describe("Model Configuration Tests", () => {
   let modelConfigHelper: ModelConfigHelper;
@@ -71,7 +54,7 @@ describe("Model Configuration Tests", () => {
     mockStores.clear();
 
     // Initialize test instances
-    modelConfigHelper = new ModelConfigHelper(CURRENT_VERSION);
+    modelConfigHelper = new ModelConfigHelper(CURRENT_VERSION, createStoreFactory());
   });
 
   afterEach(() => {
@@ -407,7 +390,7 @@ describe("Model Configuration Tests", () => {
       const providerKey = helperAny.generateCacheKey(providerId, providerManagedModelId);
       const userKey = helperAny.generateCacheKey(providerId, userManagedModelId);
 
-      const refreshedHelper = new ModelConfigHelper("2.0.0");
+      const refreshedHelper = new ModelConfigHelper("2.0.0", createStoreFactory());
 
       expect(refreshedHelper.hasUserConfig(userManagedModelId, providerId)).toBe(true);
       expect(refreshedHelper.getModelConfig(userManagedModelId, providerId).maxTokens).toBe(userConfig.maxTokens);

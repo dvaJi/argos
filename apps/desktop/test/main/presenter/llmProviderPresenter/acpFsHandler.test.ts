@@ -243,23 +243,26 @@ describe("AcpFsHandler", () => {
     });
 
     // Symlink creation requires Developer Mode (or admin) on Windows.
-    it.skipIf(os.platform() === "win32")("rejects writes through symlinks that resolve outside the workspace", async () => {
-      const outsideFile = path.join(os.tmpdir(), `acp-outside-write-${Date.now()}.txt`);
-      const linkPath = path.join(testDir, "outside-write-link.txt");
-      await fs.writeFile(outsideFile, "outside");
-      await fs.symlink(outsideFile, linkPath);
+    it.skipIf(os.platform() === "win32")(
+      "rejects writes through symlinks that resolve outside the workspace",
+      async () => {
+        const outsideFile = path.join(os.tmpdir(), `acp-outside-write-${Date.now()}.txt`);
+        const linkPath = path.join(testDir, "outside-write-link.txt");
+        await fs.writeFile(outsideFile, "outside");
+        await fs.symlink(outsideFile, linkPath);
 
-      try {
-        await expect(
-          handler.writeTextFile({
-            path: linkPath,
-            content: "should not write",
-            sessionId: "test-session",
-          }),
-        ).rejects.toThrow(/Path escapes workspace/);
-      } finally {
-        await fs.unlink(outsideFile).catch(() => {});
-      }
-    });
+        try {
+          await expect(
+            handler.writeTextFile({
+              path: linkPath,
+              content: "should not write",
+              sessionId: "test-session",
+            }),
+          ).rejects.toThrow(/Path escapes workspace/);
+        } finally {
+          await fs.unlink(outsideFile).catch(() => {});
+        }
+      },
+    );
   });
 });

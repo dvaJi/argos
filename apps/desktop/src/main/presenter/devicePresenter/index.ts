@@ -11,7 +11,11 @@ import { is } from "@electron-toolkit/utils";
 import { eventBus, SendTarget } from "../../eventbus";
 import { NOTIFICATION_EVENTS } from "../../events";
 import { svgSanitizer } from "../../lib/svgSanitizer";
-import { presenter } from "../index";
+
+// Lazy-loaded to avoid a circular dependency: this module is imported by
+// baseProvider, which the @/presenter barrel re-exports. Eagerly importing the
+// barrel here makes BaseLLMProvider undefined at provider class-definition time.
+const getPresenter = async () => (await import("../index")).presenter;
 const execAsync = promisify(exec);
 
 function toMimeType(value: unknown): string {
@@ -339,6 +343,7 @@ export class DevicePresenter implements IDevicePresenter {
           // Delete chat data
           console.log("Resetting chat data...");
           try {
+            const presenter = await getPresenter();
             if (presenter.sqlitePresenter) {
               presenter.sqlitePresenter.close();
               console.log("SQLite database connection closed");
@@ -374,6 +379,7 @@ export class DevicePresenter implements IDevicePresenter {
           // Delete knowledge base data
           console.log("Resetting knowledge base data...");
           try {
+            const presenter = await getPresenter();
             if (presenter.knowledgePresenter) {
               await presenter.knowledgePresenter.destroy();
               console.log("Knowledge database connections closed");
@@ -420,6 +426,7 @@ export class DevicePresenter implements IDevicePresenter {
           // Delete entire user data directory
           console.log("Performing complete reset of user data...");
           try {
+            const presenter = await getPresenter();
             if (presenter.sqlitePresenter) {
               presenter.sqlitePresenter.close();
               console.log("SQLite database connection closed");

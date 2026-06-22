@@ -9,6 +9,7 @@ const electronAppMock = vi.hoisted(() => ({
 const presenterMock = vi.hoisted(() => ({
   windowPresenter: {
     createSettingsWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
+    navigateToSettings: vi.fn<(...args: any[]) => any>().mockResolvedValue(9),
     createAppWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(1),
     sendToWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(true),
     setPendingSettingsProviderInstall: vi.fn<(...args: any[]) => any>(),
@@ -55,6 +56,7 @@ describe("DeeplinkPresenter", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     presenterMock.windowPresenter.createSettingsWindow.mockResolvedValue(9);
+    presenterMock.windowPresenter.navigateToSettings.mockResolvedValue(9);
     presenterMock.windowPresenter.createAppWindow.mockResolvedValue(1);
     presenterMock.windowPresenter.sendToWindow.mockReturnValue(true);
     presenterMock.windowPresenter.setPendingSettingsProviderInstall.mockReset();
@@ -111,7 +113,7 @@ describe("DeeplinkPresenter", () => {
     expect(chatWindow.show).toHaveBeenCalledTimes(1);
     expect(chatWindow.focus).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(1, DEEPLINK_EVENTS.START, {
-      msg: "hello",
+      msg: "你好",
       modelId: "deepseek-chat",
       systemPrompt: "Be concise",
       mentions: ["README.md", "docs/spec.md"],
@@ -164,7 +166,7 @@ describe("DeeplinkPresenter", () => {
 
     await deeplinkPresenter.handleDeepLink(url);
 
-    expect(presenterMock.windowPresenter.createSettingsWindow).toHaveBeenCalledTimes(1);
+    expect(presenterMock.windowPresenter.navigateToSettings).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(9, DEEPLINK_EVENTS.MCP_INSTALL, {
       mcpConfig: JSON.stringify({
         mcpServers: {
@@ -217,7 +219,7 @@ describe("DeeplinkPresenter", () => {
 
     await deeplinkPresenter.handleDeepLink(url);
 
-    expect(presenterMock.windowPresenter.createSettingsWindow).toHaveBeenCalledTimes(1);
+    expect(presenterMock.windowPresenter.navigateToSettings).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.setPendingSettingsProviderInstall).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "builtin",

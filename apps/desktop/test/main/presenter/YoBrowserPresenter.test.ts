@@ -302,7 +302,8 @@ describe("YoBrowserPresenter", () => {
     windows.set(1, new MockBrowserWindow(1));
 
     const loadPromise = presenter.loadUrl("session-a", "https://example.com", 5000);
-    const rejection = await expect(loadPromise).rejects.toThrow("Timed out waiting for dom-ready: https://example.com");
+    await Promise.resolve();
+    const rejection = expect(loadPromise).rejects.toThrow("Timed out waiting for dom-ready: https://example.com");
     await vi.advanceTimersByTimeAsync(5050);
     await rejection;
   }, 7000);

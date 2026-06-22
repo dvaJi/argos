@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModelConfig } from "../../../../src/shared/presenter";
 import { ModelType } from "../../../../src/shared/model";
+import type { StoreFactory } from "@argos/backend-core";
 
 const storeStates = vi.hoisted(
   () =>
@@ -15,57 +16,50 @@ const storeStates = vi.hoisted(
     >(),
 );
 
+const createStoreFactory = (): StoreFactory => (options) => {
+  const name = options.name;
+  const existing = storeStates.get(name);
+  if (existing) {
+    return {
+      get: existing.get as never,
+      set: existing.set as never,
+      delete: vi.fn<(...args: any[]) => any>(),
+      clear: existing.clear,
+      get store() {
+        return existing.data;
+      },
+    };
+  }
+
+  const data = structuredClone(options.defaults ?? {}) as Record<string, unknown>;
+  const state = {
+    data,
+    get: vi.fn<(...args: any[]) => any>((key: string) => data[key]),
+    set: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
+      data[key] = value;
+    }),
+    clear: vi.fn<(...args: any[]) => any>(() => {
+      Object.keys(data).forEach((key) => {
+        delete data[key];
+      });
+    }),
+  };
+  storeStates.set(name, state);
+  return {
+    get: state.get as never,
+    set: state.set as never,
+    delete: vi.fn<(...args: any[]) => any>(),
+    clear: state.clear,
+    get store() {
+      return data;
+    },
+  };
+};
+
 const eventBusMocks = vi.hoisted(() => ({
   on: vi.fn<(...args: any[]) => any>(),
   send: vi.fn<(...args: any[]) => any>(),
   sendToRenderer: vi.fn<(...args: any[]) => any>(),
-}));
-
-vi.mock("electron-store", () => ({
-  default: class MockElectronStore {
-    private readonly state: {
-      data: Record<string, unknown>;
-      get: ReturnType<typeof vi.fn>;
-      set: ReturnType<typeof vi.fn>;
-      clear: ReturnType<typeof vi.fn>;
-    };
-
-    constructor(options: { name: string; defaults?: Record<string, unknown> }) {
-      const existing = storeStates.get(options.name);
-      if (existing) {
-        this.state = existing;
-        return;
-      }
-
-      const data = structuredClone(options.defaults ?? {});
-      const state = {
-        data,
-        get: vi.fn<(...args: any[]) => any>((key: string) => data[key]),
-        set: vi.fn<(...args: any[]) => any>((key: string, value: unknown) => {
-          data[key] = value;
-        }),
-        clear: vi.fn<(...args: any[]) => any>(() => {
-          Object.keys(data).forEach((key) => {
-            delete data[key];
-          });
-        }),
-      };
-      storeStates.set(options.name, state);
-      this.state = state;
-    }
-
-    get(key: string) {
-      return this.state.get(key);
-    }
-
-    set(key: string, value: unknown) {
-      this.state.set(key, value);
-    }
-
-    clear() {
-      this.state.clear();
-    }
-  },
 }));
 
 vi.mock("@/eventbus", () => ({
@@ -142,6 +136,7 @@ describe("ProviderModelHelper cache", () => {
       getModelConfig: () => undefined as unknown as ModelConfig,
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -166,6 +161,7 @@ describe("ProviderModelHelper cache", () => {
       getModelConfig: () => undefined as unknown as ModelConfig,
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -194,6 +190,7 @@ describe("ProviderModelHelper cache", () => {
       getModelConfig: () => undefined as unknown as ModelConfig,
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -221,6 +218,7 @@ describe("ProviderModelHelper cache", () => {
       getModelConfig: () => undefined as unknown as ModelConfig,
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     helper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -245,6 +243,7 @@ describe("ProviderModelHelper cache", () => {
       getModelConfig: () => undefined as unknown as ModelConfig,
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     helper.getProviderModelStore(":providerId");
@@ -307,6 +306,7 @@ describe("ConfigPresenter provider model cache invalidation", () => {
       getModelConfig: (modelId: string, providerId?: string) => presenter.getModelConfig(modelId, providerId),
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     presenterWithHelper.providerModelHelper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);
@@ -372,6 +372,7 @@ describe("ConfigPresenter provider model cache invalidation", () => {
       getModelConfig: (modelId: string, providerId?: string) => presenter.getModelConfig(modelId, providerId),
       setModelStatus: vi.fn<(...args: any[]) => any>(),
       deleteModelStatus: vi.fn<(...args: any[]) => any>(),
+      storeFactory: createStoreFactory(),
     });
 
     presenterWithHelper.providerModelHelper.setProviderModels("openai", [createBaseModel("openai", "gpt-5")]);

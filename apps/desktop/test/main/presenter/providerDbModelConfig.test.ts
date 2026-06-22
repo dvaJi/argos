@@ -1,44 +1,38 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { StoreFactory } from "@argos/backend-core";
 
-// Mock electron-store with in-memory storage to persist user configs across helper instances
+// Shared in-memory store state backing the StoreFactory so user configs persist across helper instances
 const state = vi.hoisted(() => ({
   mockStores: new Map<string, Record<string, any>>(),
   mockDb: null as any,
 }));
-vi.mock("electron-store", () => {
+
+const createStoreFactory = (): StoreFactory => (options) => {
+  if (!state.mockStores.has(options.name)) {
+    state.mockStores.set(options.name, {});
+  }
+  const data = state.mockStores.get(options.name)!;
   return {
-    default: class MockElectronStore {
-      private storePath: string;
-      private data: Record<string, any>;
-      constructor(options: { name: string }) {
-        this.storePath = options.name;
-        if (!state.mockStores.has(this.storePath)) state.mockStores.set(this.storePath, {});
-        this.data = state.mockStores.get(this.storePath)!;
+    get: ((key: string) => data[key]) as never,
+    set: ((keyOrValues: string | Record<string, unknown>, value?: unknown) => {
+      if (typeof keyOrValues === "string") {
+        data[keyOrValues] = value;
+      } else {
+        Object.assign(data, keyOrValues);
       }
-      get(key: string) {
-        return this.data[key];
-      }
-      set(key: string, value: any) {
-        this.data[key] = value;
-      }
-      delete(key: string) {
-        delete this.data[key];
-      }
-      has(key: string) {
-        return key in this.data;
-      }
-      clear() {
-        Object.keys(this.data).forEach((k) => delete this.data[k]);
-      }
-      get store() {
-        return { ...this.data };
-      }
-      get path() {
-        return `/mock/${this.storePath}.json`;
-      }
+    }) as never,
+    delete: ((key: string) => {
+      delete data[key];
+    }) as never,
+    has: ((key: string) => key in data) as never,
+    clear: (() => {
+      Object.keys(data).forEach((k) => delete data[k]);
+    }) as never,
+    get store() {
+      return { ...data };
     },
   };
-});
+};
 
 // Mock providerDbLoader with a mutable in-memory aggregate
 vi.mock("../../../src/main/presenter/configPresenter/providerDbLoader", () => {
@@ -182,7 +176,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("returns provider DB config on strict provider+model match", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg = helper.getModelConfig("test-model", "test-provider");
     expect(cfg.maxTokens).toBe(2000);
     expect(cfg.contextLength).toBe(10000);
@@ -200,7 +194,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("applies partial fallbacks when limit fields are missing", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg1 = helper.getModelConfig("partial-limit", "test-provider");
     expect(cfg1.contextLength).toBe(16000);
     expect(cfg1.maxTokens).toBe(4096);
@@ -218,7 +212,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("caps provider-derived maxTokens defaults at 32000", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg = helper.getModelConfig("large-output", "test-provider");
 
     expect(cfg.contextLength).toBe(200000);
@@ -226,7 +220,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("preserves explicit tool_call=false from provider DB", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg = helper.getModelConfig("tool-call-disabled", "test-provider");
     expect(cfg.contextLength).toBe(16000);
     expect(cfg.maxTokens).toBe(4096);
@@ -234,7 +228,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("falls back to safe defaults when providerId is not provided", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg = helper.getModelConfig("test-model");
     expect(cfg.contextLength).toBe(16000);
     expect(cfg.maxTokens).toBe(4096);
@@ -243,7 +237,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("prefers user config over provider DB and persists across restart", () => {
-    const helper1 = new ModelConfigHelper("1.0.0");
+    const helper1 = new ModelConfigHelper("1.0.0", createStoreFactory());
     const userCfg = {
       maxTokens: 64000,
       contextLength: 128000,
@@ -258,18 +252,18 @@ describe("Provider DB strict matching + user overrides", () => {
     expect(read1).toMatchObject({ ...userCfg, isUserDefined: true });
 
     // Simulate app restart: new helper instance, same version
-    const helper2 = new ModelConfigHelper("1.0.0");
+    const helper2 = new ModelConfigHelper("1.0.0", createStoreFactory());
     const read2 = helper2.getModelConfig("test-model", "test-provider");
     expect(read2).toMatchObject({ ...userCfg, isUserDefined: true });
 
     // Simulate version bump: non-user entries would be cleared, user entries remain
-    const helper3 = new ModelConfigHelper("2.0.0");
+    const helper3 = new ModelConfigHelper("2.0.0", createStoreFactory());
     const read3 = helper3.getModelConfig("test-model", "test-provider");
     expect(read3).toMatchObject({ ...userCfg, isUserDefined: true });
   });
 
   it("caps legacy provider-managed cache values on read while preserving user values", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const helperAny = helper as any;
     const providerCacheKey = helperAny.generateCacheKey("test-provider", "large-output");
 
@@ -318,7 +312,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("matches DB with case-insensitive provider/model IDs for provider data (strictly lowercase in DB)", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
     const cfg = helper.getModelConfig("TEST-MODEL", "TEST-PROVIDER");
     // DB lookup lowercases internally
     expect(cfg.contextLength).toBe(10000);
@@ -326,7 +320,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("prefers portrait defaults over legacy reasoning defaults", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     const cfg = helper.getModelConfig("claude-portrait", "test-provider");
 
@@ -336,7 +330,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("preserves provider portrait sentinel budgets", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     const cfg = helper.getModelConfig("gemini-budget", "test-provider");
 
@@ -345,7 +339,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("keeps none as the provider default effort without enabling reasoning", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     const cfg = helper.getModelConfig("gpt-5.2", "test-provider");
 
@@ -355,7 +349,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("forces Moonshot Kimi defaults to the thinking-enabled temperature when reasoning defaults on", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     const cfg = helper.getModelConfig("moonshotai/kimi-k2.6", "moonshot");
 
@@ -364,7 +358,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("forces Moonshot Kimi :thinking variants to keep reasoning on and temperature at 1.0", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     const cfg = helper.getModelConfig("moonshotai/kimi-k2.6:thinking", "moonshot");
 
@@ -373,7 +367,7 @@ describe("Provider DB strict matching + user overrides", () => {
   });
 
   it("recomputes reasoning-related fields for provider cached configs", () => {
-    const helper = new ModelConfigHelper("1.0.0");
+    const helper = new ModelConfigHelper("1.0.0", createStoreFactory());
 
     helper.setModelConfig(
       "claude-portrait",
