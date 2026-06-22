@@ -56,6 +56,7 @@ const api = Object.freeze({
     }
     return shell.openExternal(externalUrl);
   },
+  getArch: () => process.arch,
   toRelativePath: (filePath: string, baseDir?: string) => {
     if (!baseDir) return filePath;
 

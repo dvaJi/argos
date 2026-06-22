@@ -82,6 +82,18 @@ interface RequestHandlerContext {
   [key: string]: unknown;
 }
 
+// Optional capability probes (listTools/listPrompts/listResources) are best
+// effort: a server that does not implement one should be treated as "no items"
+// rather than a hard failure. Detect both structured MCP method-not-found
+// errors and message-based variants so optional probes stay quiet.
+function isUnsupportedCapabilityError(error: unknown): boolean {
+  if (error instanceof McpError && error.code === ErrorCode.MethodNotFound) {
+    return true;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /method not found|unknown method|not supported|unsupported|mcp error -32601/i.test(message);
+}
+
 // Helper function to check if error is session-related
 function isSessionError(error: unknown): error is SessionError {
   if (error instanceof Error) {
@@ -1022,11 +1034,9 @@ export class McpClient {
       // Check and handle session errors
       await this.checkAndHandleSessionError(error);
 
-      // Try to extract more information from the error object
-      const errorMessage = error instanceof Error ? error.message : String(error);
       // If the error indicates unsupported, cache an empty array
-      if (errorMessage.includes("Method not found") || errorMessage.includes("not supported")) {
-        console.warn(`Server ${this.serverName} does not support listTools`);
+      if (isUnsupportedCapabilityError(error)) {
+        console.info(`Server ${this.serverName} does not support listTools`);
         this.cachedTools = [];
         return this.cachedTools;
       } else {
@@ -1081,11 +1091,9 @@ export class McpClient {
       // Check and handle session errors
       await this.checkAndHandleSessionError(error);
 
-      // Try to extract more information from the error object
-      const errorMessage = error instanceof Error ? error.message : String(error);
       // If the error indicates unsupported, cache an empty array
-      if (errorMessage.includes("Method not found") || errorMessage.includes("not supported")) {
-        console.warn(`Server ${this.serverName} does not support listPrompts`);
+      if (isUnsupportedCapabilityError(error)) {
+        console.info(`Server ${this.serverName} does not support listPrompts`);
         this.cachedPrompts = [];
         return this.cachedPrompts;
       } else {
@@ -1177,11 +1185,9 @@ export class McpClient {
       // Check and handle session errors
       await this.checkAndHandleSessionError(error);
 
-      // Try to extract more information from the error object
-      const errorMessage = error instanceof Error ? error.message : String(error);
       // If the error indicates unsupported, cache an empty array
-      if (errorMessage.includes("Method not found") || errorMessage.includes("not supported")) {
-        console.warn(`Server ${this.serverName} does not support listResources`);
+      if (isUnsupportedCapabilityError(error)) {
+        console.info(`Server ${this.serverName} does not support listResources`);
         this.cachedResources = [];
         return this.cachedResources;
       } else {

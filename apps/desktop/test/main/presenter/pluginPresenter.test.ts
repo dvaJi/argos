@@ -41,6 +41,7 @@ type CreatePluginPresenterOptions = {
   isPackaged?: boolean;
   resourcesPath?: string;
   mcpEnabled?: boolean;
+  arch?: NodeJS.Architecture;
 };
 
 const createPluginPresenter = async (
@@ -76,6 +77,7 @@ const createPluginPresenter = async (
   };
   const presenter = new PluginPresenter({
     platform,
+    arch: options.arch,
     appPath: options.appPath ?? process.cwd(),
     isPackaged: options.isPackaged,
     resourcesPath: options.resourcesPath,
@@ -308,14 +310,19 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     await Promise.all(tempRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   });
 
-  it("hides the CUA official plugin on unsupported platforms", async () => {
-    const winPresenter = await createPluginPresenter("win32");
-    const linuxPresenter = await createPluginPresenter("linux");
+  it("targets the CUA official plugin by platform and arch", async () => {
+    const darwinPresenter = await createPluginPresenter("darwin", { arch: "arm64" });
+    const winX64Presenter = await createPluginPresenter("win32", { arch: "x64" });
+    const linuxX64Presenter = await createPluginPresenter("linux", { arch: "x64" });
+    const winIa32Presenter = await createPluginPresenter("win32", { arch: "ia32" });
     const manifest = JSON.parse(await readFile("plugins/cua/plugin.json", "utf8"));
 
-    expect(manifest.engines.platforms).toEqual(["darwin"]);
-    expect((await winPresenter.listPlugins()).map((plugin) => plugin.id)).not.toContain("com.argos.plugins.cua");
-    expect((await linuxPresenter.listPlugins()).map((plugin) => plugin.id)).not.toContain("com.argos.plugins.cua");
+    expect(manifest.engines.platforms).toEqual(["darwin", "win32", "linux"]);
+    expect(manifest.engines.targets).toEqual(["darwin/arm64", "darwin/x64", "win32/x64", "win32/arm64", "linux/x64"]);
+    expect((await darwinPresenter.listPlugins()).map((plugin) => plugin.id)).toContain("com.argos.plugins.cua");
+    expect((await winX64Presenter.listPlugins()).map((plugin) => plugin.id)).toContain("com.argos.plugins.cua");
+    expect((await linuxX64Presenter.listPlugins()).map((plugin) => plugin.id)).toContain("com.argos.plugins.cua");
+    expect((await winIa32Presenter.listPlugins()).map((plugin) => plugin.id)).not.toContain("com.argos.plugins.cua");
   });
 
   it("lists bundled official plugins as installed and enables them by materializing the package", async () => {
@@ -717,6 +724,8 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     );
     expect(manifest.runtime.detect).toEqual([
       "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/cua-driver",
+      "plugin:runtime/win32/${arch}/cua-driver.exe",
+      "plugin:runtime/linux/${arch}/cua-driver",
       "/Applications/CuaDriver.app/Contents/MacOS/cua-driver",
     ]);
     expect(server.env).toEqual({

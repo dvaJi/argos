@@ -40,6 +40,7 @@ type PluginPresenterDeps = {
   mcpPresenter: IMCPPresenter;
   skillPresenter: ISkillPresenter;
   platform?: NodeJS.Platform;
+  arch?: NodeJS.Architecture;
   appPath?: string;
   isPackaged?: boolean;
   resourcesPath?: string;
@@ -78,6 +79,7 @@ export class PluginPresenter {
   private readonly mcpPresenter: IMCPPresenter;
   private readonly skillPresenter: SkillContributionPort;
   private readonly platform: NodeJS.Platform;
+  private readonly arch: NodeJS.Architecture;
   private readonly appPath: string;
   private readonly isPackaged: boolean;
   private readonly resourcesPath: string;
@@ -97,6 +99,7 @@ export class PluginPresenter {
     this.mcpPresenter = deps.mcpPresenter;
     this.skillPresenter = deps.skillPresenter as SkillContributionPort;
     this.platform = deps.platform ?? process.platform;
+    this.arch = deps.arch ?? process.arch;
     this.appPath = deps.appPath ?? app.getAppPath();
     this.isPackaged = deps.isPackaged ?? app.isPackaged;
     this.resourcesPath = deps.resourcesPath ?? process.resourcesPath ?? "";
@@ -785,21 +788,43 @@ export class PluginPresenter {
 
   private async loadOfficialPlugins(): Promise<void> {
     this.officialPlugins.clear();
+    const plugins = [...this.resolveOfficialPluginPackages(), ...this.resolveOfficialPluginDirectories()];
+    const usablePluginIds = new Set<string>();
 
-    for (const plugin of [...this.resolveOfficialPluginPackages(), ...this.resolveOfficialPluginDirectories()]) {
+    // First pass: identify plugins that are usable on this target so a filtered
+    // duplicate discovery entry (e.g. an unsupported platform copy of the same
+    // plugin id) does not tear down the persisted installation of a plugin that
+    // is actually supported via another entry.
+    for (const plugin of plugins) {
+      if (!this.isPluginPlatformSupported(plugin.manifest)) {
+        continue;
+      }
+      try {
+        this.assertTrustedOfficialPlugin(plugin.manifest);
+        usablePluginIds.add(plugin.manifest.id);
+      } catch {
+        // The main discovery pass logs untrusted plugin details and performs cleanup.
+      }
+    }
+
+    for (const plugin of plugins) {
       if (this.officialPlugins.has(plugin.manifest.id)) {
         continue;
       }
       if (!this.isPluginPlatformSupported(plugin.manifest)) {
         console.info(`[PluginHost] Skipping plugin ${plugin.manifest.id}: platform not supported`);
-        await this.removePersistedInstallation(plugin.manifest.id);
+        if (!usablePluginIds.has(plugin.manifest.id)) {
+          await this.removePersistedInstallation(plugin.manifest.id);
+        }
         continue;
       }
       try {
         this.assertTrustedOfficialPlugin(plugin.manifest);
       } catch (error) {
         console.warn(`[PluginHost] Skipping untrusted plugin ${plugin.manifest.id}:`, error);
-        await this.removePersistedInstallation(plugin.manifest.id);
+        if (!usablePluginIds.has(plugin.manifest.id)) {
+          await this.removePersistedInstallation(plugin.manifest.id);
+        }
         continue;
       }
       console.info(`[PluginHost] Discovered plugin: ${plugin.manifest.id} at ${plugin.root}`);
@@ -1004,13 +1029,17 @@ export class PluginPresenter {
 
   private assertPlatformSupported(manifest: ArgosPluginManifest): void {
     if (!this.isPluginPlatformSupported(manifest)) {
-      throw new Error(`Plugin ${manifest.id} does not support ${this.platform}`);
+      throw new Error(`Plugin ${manifest.id} does not support ${this.platform}/${this.arch}`);
     }
   }
 
   private isPluginPlatformSupported(manifest: ArgosPluginManifest): boolean {
-    const platforms = new Set(manifest.engines.platforms.map((platform) => platform.toLowerCase()));
     const aliases = this.platform === "darwin" ? ["darwin", "macos", "mac"] : [this.platform];
+    const targets = manifest.engines.targets?.map((target) => target.toLowerCase()) ?? [];
+    if (targets.length > 0) {
+      return aliases.some((platform) => targets.includes(`${platform}/${this.arch}`));
+    }
+    const platforms = new Set(manifest.engines.platforms.map((platform) => platform.toLowerCase()));
     return aliases.some((alias) => platforms.has(alias));
   }
 
@@ -1354,7 +1383,7 @@ export class PluginPresenter {
   }
 
   private resolveRuntimeCandidate(candidate: string, pluginRoot: string): string | null {
-    candidate = candidate.replaceAll("${arch}", process.arch);
+    candidate = candidate.replaceAll("${arch}", this.arch);
     if (candidate.startsWith("plugin:")) {
       return this.resolvePluginRelativePath(pluginRoot, candidate.slice("plugin:".length));
     }
@@ -1433,7 +1462,7 @@ export class PluginPresenter {
     return JSON.parse(
       JSON.stringify(manifest)
         .replaceAll("${app.version}", app.getVersion())
-        .replaceAll("${arch}", process.arch)
+        .replaceAll("${arch}", this.arch)
         .replaceAll("${target.platform}", this.platform)
         .replaceAll("${github.release.download}", `${GITHUB_RELEASE_DOWNLOAD_PREFIX}${this.getReleaseTag()}`),
     ) as ArgosPluginManifest;
