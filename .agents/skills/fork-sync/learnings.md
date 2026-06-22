@@ -46,3 +46,18 @@ mistakes.
 - **Import-time side effects** throw outside Electron: `new ElectronStore(...)` at
   module top level, top-level `new Anything()` that needs the Electron app, etc.
   Make them lazy (first-use).
+
+## 2026-06 — providers (API-key providers port)
+
+- **Check for existing equivalents before adding.** The fork already had
+  `nvidia`, `fireworks`, `stepfun`, `minimax` (China), `moonshot` (China), `dashscope`
+  under those ids; the source added `*-global`/`*-ai`/`*-token-plan` variants plus a few
+  genuinely-new ones. Blindly adding all source providers duplicates. Diff by `baseUrl`:
+  same endpoint ⇒ skip; new endpoint (e.g. global vs China, token-plan vs dashscope) ⇒ add.
+- **Convention drift in labels:** the source used `providerDbGroup: "Token Plan"`; the fork
+  uses lowercase-kebab (`"token-plan"`, matching existing `xiaomi-token-plan*` entries).
+  Match the fork's casing convention, not the source's.
+- **`apiType: "anthropic"` is supported** by the fork's `PROVIDER_API_TYPE_REGISTRY`
+  (`minimax-global` uses it). Don't assume a provider-db source implies openai-completions.
+- **`credentialStrategy` can legitimately differ** between sibling providers: the fork's
+  `minimax` uses `"anthropic"`; `minimax-global` uses `"api-key"`. Don't "normalize" them.

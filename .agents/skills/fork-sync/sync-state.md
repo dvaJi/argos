@@ -14,7 +14,7 @@ Status: `pending` · `in-progress` · `PR #N` · `done` · `blocked` · `skip`
 | `3ea97717` | #1786 | Harden chat steer-abort queue | pending — **large**: route-API refactor (`sessions.steerPendingInput` replaces `resumePendingQueue`) + ~450-line `agentRuntimePresenter` rework; coordinate with React renderer. Defer. |
 | `f171c4ff` | #1792 | Remove device-code login | **skip** — `openaiCodexAuth/` and all codex device-login refs are absent in the fork; nothing to remove. |
 | `351af841` | #1788 | OpenAI Codex runtime provider | pending — **large** (1628 ins) and adds `openaiCodexAuth/` that #1792 later removes. Defer until the fork's OpenAI-Codex stance is decided. |
-| `9cb9b581` | #1789 | API-key providers | in-progress |
+| `9cb9b581` | #1789 | API-key providers | done (PR #3) — added huggingface/upstage/minimax-global/moonshot-ai/alibaba-token-plan(±cn); skipped nvidia/fireworks/stepfun (already present) |
 | `ce6796e8` | #1776 | CUA cross-platform runtimes | pending |
 | `7154ad25` `06a32615` `c7d7e072` `ceefc95e` | — | Tape subsystem (manifest integrity, lineage, facts, view hash) | pending (batch) |
 | `72fe36bc` `ce4488aa` `71767ce1` `58978b00` `7082f339` `4344cedf` `bc3b4b08` `4099fdb0` `48b6b035` `7f6f2d92` `c9b205af` `b46c1911` `454417e2` `6e8301b8` | — | Memory subsystem (retrieval, extraction, injection, vector store, persona, lifecycle, settings) | blocked (large — needs an SDD spec; split into core/retrieval/lifecycle + React UI) |
