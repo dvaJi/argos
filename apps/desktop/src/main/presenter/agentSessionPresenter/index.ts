@@ -2363,7 +2363,7 @@ export class AgentSessionPresenter {
       const agent = await this.resolveAgentImplementation(session.agentId);
       const state = await agent.getSessionState(sessionId);
       if (!state) return false;
-      if (state.status === "idle") return true;
+      if (state.status === "idle" || state.status === "done" || state.status === "blocked") return true;
       if (state.status === "error") return false;
 
       await sleep(POLL_MS);

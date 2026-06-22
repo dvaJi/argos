@@ -2022,8 +2022,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (this.shouldBypassArgosContextBudget(state.providerId, modelConfig, state.modelId)) {
       throw new Error("Manual compaction is only available for Argos agent sessions.");
     }
-    if (state.status !== "idle") {
-      throw new Error("Manual compaction is only available when the session is idle.");
+    if (state.status !== "idle" && state.status !== "done" && state.status !== "blocked") {
+      throw new Error("Manual compaction is only available when the session is idle, done, or blocked.");
     }
     if (this.hasPendingInteractions(sessionId)) {
       throw new Error("Pending tool interactions must be resolved before compacting.");
@@ -2683,9 +2683,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       .finally(async () => {
         this.drainingPendingQueues.delete(sessionId);
         try {
+          const currentStatus = (await this.getSessionState(sessionId))?.status;
           if (
             this.pendingInputCoordinator.hasPendingTurnInput(sessionId) &&
-            (await this.getSessionState(sessionId))?.status === "idle" &&
+            (currentStatus === "idle" || currentStatus === "done" || currentStatus === "blocked") &&
             !this.hasPendingInteractions(sessionId)
           ) {
             void this.drainPendingQueueIfPossible(sessionId, "completed");
@@ -2729,7 +2730,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     status: ArgosSessionState["status"],
     reason: "enqueue" | "completed",
   ): boolean {
-    if (status === "idle") {
+    if (status === "idle" || status === "done" || status === "blocked") {
       return true;
     }
 
