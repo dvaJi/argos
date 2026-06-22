@@ -31,6 +31,30 @@ export type ContextBuildOptions = {
   supportsAudioInput?: boolean;
 };
 
+export type ContextIncludedReason = "selected_history" | "resume_target";
+export type ContextExcludedReason = "before_summary_cursor" | "empty_after_formatting" | "out_of_budget";
+
+export type ContextIncludedRecord = {
+  record: ChatMessageRecord;
+  reason: ContextIncludedReason;
+};
+
+export type ContextExcludedRecord = {
+  record: ChatMessageRecord;
+  reason: ContextExcludedReason;
+};
+
+export type ContextBuildMetadata = {
+  includedRecords: ContextIncludedRecord[];
+  excludedRecords: ContextExcludedRecord[];
+  includesSystemPrompt: boolean;
+};
+
+export type ContextBuildResult = {
+  messages: ChatMessage[];
+  metadata: ContextBuildMetadata;
+};
+
 type TokenizedTurn = {
   messages: ChatMessage[];
   tokens: number;
@@ -815,6 +839,24 @@ function filterRecordsFromCursor(records: ChatMessageRecord[], summaryCursorOrde
   return records.filter((record) => record.orderSeq >= cursor);
 }
 
+function selectTurnHistoryTurns(
+  turns: HistoryTurn[],
+  availableTokens: number,
+  fallbackProtectedTurnCount: number,
+): HistoryTurn[] {
+  if (availableTokens <= 0 || turns.length === 0) return [];
+  const total = turns.reduce((sum, turn) => sum + turn.tokens, 0);
+  if (total <= availableTokens) return turns;
+
+  const remainingTurns = [...turns];
+  const protectedCount = Math.max(0, Math.min(fallbackProtectedTurnCount, remainingTurns.length));
+  let remaining = total;
+  while (remainingTurns.length > protectedCount && remaining > availableTokens) {
+    remaining -= remainingTurns.shift()!.tokens;
+  }
+  return remainingTurns;
+}
+
 export function buildContext(
   sessionId: string,
   newUserContent: string | SendMessageInput,
@@ -825,12 +867,36 @@ export function buildContext(
   supportsVision: boolean = false,
   options: ContextBuildOptions = {},
 ): ChatMessage[] {
+  return buildContextWithMetadata(
+    sessionId,
+    newUserContent,
+    systemPrompt,
+    contextLength,
+    reserveTokens,
+    messageStore,
+    supportsVision,
+    options,
+  ).messages;
+}
+
+export function buildContextWithMetadata(
+  sessionId: string,
+  newUserContent: string | SendMessageInput,
+  systemPrompt: string,
+  contextLength: number,
+  reserveTokens: number,
+  messageStore: ArgosMessageStore,
+  supportsVision: boolean = false,
+  options: ContextBuildOptions = {},
+): ContextBuildResult {
   const supportsAudioInput = options.supportsAudioInput === true;
   const candidateRecords = options.historyRecords ?? messageStore.getMessages(sessionId);
-  const historyRecords = filterRecordsFromCursor(
-    candidateRecords.filter(isContextHistoryRecord),
-    options.summaryCursorOrderSeq ?? 1,
-  );
+  const contextCandidateRecords = candidateRecords.filter(isContextHistoryRecord);
+  const cursor = Math.max(1, options.summaryCursorOrderSeq ?? 1);
+  const historyRecords = filterRecordsFromCursor(contextCandidateRecords, cursor);
+
+  const preCursorRecords = contextCandidateRecords.filter((record) => record.orderSeq < cursor);
+
   const historyTurns = buildHistoryTurns(
     historyRecords,
     supportsVision,
@@ -844,7 +910,35 @@ export function buildContext(
   const newUserTokens = estimateMessageTokens(newUserMessage);
   const available =
     contextLength - systemPromptTokens - newUserTokens - reserveTokens - (options.extraReserveTokens ?? 0);
-  const selectedHistory = selectTurnHistory(historyTurns, available, options.fallbackProtectedTurnCount ?? 0);
+
+  // Select turns within budget, then flatten and apply emergency truncation if needed.
+  const selectedTurns = selectTurnHistoryTurns(historyTurns, available, options.fallbackProtectedTurnCount ?? 0);
+  const flattenedHistory = flattenTurns(selectedTurns);
+  const selectedHistory =
+    estimateMessagesTokens(flattenedHistory) <= available
+      ? flattenedHistory
+      : truncateContext(flattenedHistory, available);
+
+  // Track which records were included vs excluded by the budget selection.
+  // Note: truncateContext may drop individual messages within a selected turn's
+  // first records in extreme budget-pressure edge cases; this is documented as a
+  // known approximation in the manifest metadata.
+  const selectedRecordIds = new Set(selectedTurns.flatMap((turn) => turn.records.map((r) => r.id)));
+
+  const includedRecords: ContextIncludedRecord[] = [];
+  const excludedRecords: ContextExcludedRecord[] = [];
+
+  for (const record of historyRecords) {
+    if (selectedRecordIds.has(record.id)) {
+      includedRecords.push({ record, reason: "selected_history" });
+    } else {
+      excludedRecords.push({ record, reason: "out_of_budget" });
+    }
+  }
+
+  for (const record of preCursorRecords) {
+    excludedRecords.push({ record, reason: "before_summary_cursor" });
+  }
 
   const messages: ChatMessage[] = [];
   if (systemPrompt) {
@@ -852,7 +946,15 @@ export function buildContext(
   }
   messages.push(...selectedHistory);
   messages.push(newUserMessage);
-  return messages;
+
+  return {
+    messages,
+    metadata: {
+      includedRecords,
+      excludedRecords,
+      includesSystemPrompt: Boolean(systemPrompt),
+    },
+  };
 }
 
 export function fitMessagesToContextWindow(
