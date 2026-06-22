@@ -33,7 +33,7 @@ import {
   updateQueueInput,
   moveQueueInput,
   deleteInput as deleteQueueInput,
-  resumeQueue,
+  steerPendingInput,
   loadPendingInputs,
   steerItems as getSteerItems,
   clear as clearPendingInputStore,
@@ -364,7 +364,6 @@ export function ChatPage({ sessionId }: ChatPageProps) {
     isHandlingInteraction ||
     (isGenerating && isAtCapacity()) ||
     !hasDraftInput;
-  const showResumePendingQueue = !isGenerating && !activePendingInteraction && getQueueItems().length > 0;
 
   const getActiveModelSelection = useCallback((): {
     providerId: string;
@@ -688,10 +687,17 @@ export function ChatPage({ sessionId }: ChatPageProps) {
     [isReadOnlySession, sessionId],
   );
 
-  const onResumePendingQueue = useCallback(async () => {
-    if (isReadOnlySession) return;
-    await resumeQueue(sessionId);
-  }, [isReadOnlySession, sessionId]);
+  const onSteerPendingInput = useCallback(
+    async (itemId: string) => {
+      if (isReadOnlySession || !sessionId) return;
+      try {
+        await steerPendingInput(sessionId, itemId);
+      } catch {
+        // Error is already surfaced in the store state
+      }
+    },
+    [isReadOnlySession, sessionId],
+  );
 
   const onDismissPlanFloat = useCallback(() => {
     setCollapsed(sessionId, true);
@@ -1076,9 +1082,9 @@ export function ChatPage({ sessionId }: ChatPageProps) {
                   steerItems={getSteerItems()}
                   queueItems={getQueueItems()}
                   disableSteerAction={isAtCapacity()}
-                  showResumeQueue={showResumePendingQueue}
+                  isGenerating={isGenerating}
                   onDeleteQueue={onPendingInputDelete}
-                  onResumeQueue={onResumePendingQueue}
+                  onSteerQueueItem={onSteerPendingInput}
                 />
                 <div>
                   {(latestPlanSnapshot || activePendingInteraction) && (

@@ -83,8 +83,15 @@ export class PendingInputCoordinator {
     return record;
   }
 
+  restoreSteerInputToQueue(sessionId: string, itemId: string): PendingSessionInputRecord {
+    this.assertSteerInput(sessionId, itemId);
+    const record = this.store.convertSteerInputToQueue(itemId);
+    this.emitUpdated(sessionId);
+    return record;
+  }
+
   deletePendingInput(sessionId: string, itemId: string): void {
-    this.assertQueueInput(sessionId, itemId);
+    this.assertDeletablePendingInput(sessionId, itemId);
     this.store.deleteInput(itemId);
     this.emitUpdated(sessionId);
   }
@@ -175,6 +182,13 @@ export class PendingInputCoordinator {
     }
     if (record.mode !== "queue") {
       throw new Error("Steer inputs are locked and cannot be modified.");
+    }
+  }
+
+  private assertDeletablePendingInput(sessionId: string, itemId: string): void {
+    const record = this.store.listPendingInputs(sessionId).find((item) => item.id === itemId);
+    if (!record) {
+      throw new Error(`Pending input not found: ${itemId}`);
     }
   }
 

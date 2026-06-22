@@ -9,10 +9,10 @@ interface PendingInputLaneProps {
   queueItems: PendingSessionInputRecord[];
   activeLimit?: number;
   disableSteerAction?: boolean;
-  showResumeQueue?: boolean;
+  isGenerating?: boolean;
 
   onDeleteQueue: (itemId: string) => void;
-  onResumeQueue: () => void;
+  onSteerQueueItem: (itemId: string) => void;
 }
 
 const formatPayloadText = (item: PendingSessionInputRecord): string => {
@@ -28,10 +28,10 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
   queueItems,
   activeLimit = 5,
   disableSteerAction = false,
-  showResumeQueue = false,
+  isGenerating = false,
 
   onDeleteQueue,
-  onResumeQueue,
+  onSteerQueueItem,
 }) => {
   const showLane = useMemo(() => steerItems.length > 0 || queueItems.length > 0, [steerItems, queueItems]);
 
@@ -53,16 +53,6 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
               </span>
             )}
           </div>
-          {showResumeQueue && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 shrink-0 rounded-full px-2.5 text-[11px] text-muted-foreground"
-              onClick={onResumeQueue}
-            >
-              Resume queue
-            </Button>
-          )}
         </div>
 
         <div className="space-y-1 overflow-visible" data-testid="pending-rail-list" data-scrollable="false">
@@ -133,6 +123,22 @@ const PendingInputLane: FC<PendingInputLaneProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 rounded-full text-muted-foreground"
+                    disabled={!isGenerating}
+                    title={isGenerating ? "Interrupt & send" : "Start a turn to steer"}
+                    aria-label={isGenerating ? "Interrupt & send" : "Start a turn to steer"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSteerQueueItem(element.id);
+                    }}
+                  >
+                    <Icon icon="lucide:zap" className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 rounded-full text-muted-foreground"
+                    title="Remove"
+                    aria-label="Remove"
                     onClick={(e) => {
                       e.stopPropagation();
                       onDeleteQueue(element.id);

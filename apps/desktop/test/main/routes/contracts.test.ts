@@ -84,7 +84,7 @@ describe("main kernel contracts", () => {
         "sessions.moveQueuedInput",
         "sessions.queuePendingInput",
         "sessions.rename",
-        "sessions.resumePendingQueue",
+        "sessions.steerPendingInput",
         "sessions.retryMessage",
         "sessions.searchHistory",
         "sessions.setAcpSessionConfigOption",

@@ -144,16 +144,17 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
             <TooltipTrigger asChild>
               <Button
                 data-testid="chat-steer-button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                variant="outline"
+                size="sm"
+                className="h-7 shrink-0 gap-1 rounded-lg border-border/60 px-2.5 text-[13px] text-foreground"
                 onClick={onSteer}
               >
-                <Icon icon="lucide:compass" className="w-4 h-4" />
+                <Icon icon="lucide:compass" className="w-3.5 h-3.5" />
+                <span>Steer</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Steer</p>
+              <p>Interrupt & send as next turn</p>
             </TooltipContent>
           </Tooltip>
         )}

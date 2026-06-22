@@ -157,7 +157,6 @@ declare module "vue-i18n" {
     pendingInput: {
       steer: string;
       queueCount: string;
-      resumeQueue: string;
       toSteer: string;
       locked: string;
       reorder: string;
@@ -165,6 +164,9 @@ declare module "vue-i18n" {
       attachmentsOnly: string;
       empty: string;
       limitReached: string;
+      remove: string;
+      steerUnavailable: string;
+      steerFailed: string;
     };
     features: {
       webSearch: string;

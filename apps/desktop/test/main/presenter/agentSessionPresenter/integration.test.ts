@@ -1184,11 +1184,6 @@ describe("Integration: multi-turn context", () => {
     expect(providerInstance.coreStream).not.toHaveBeenCalled();
     await expect(argosAgent.listPendingInputs("s-follow-up")).resolves.toHaveLength(1);
 
-    await argosAgent.resumePendingQueue("s-follow-up");
-    await new Promise((r) => setTimeout(r, 20));
-    expect(providerInstance.coreStream).not.toHaveBeenCalled();
-    await expect(argosAgent.listPendingInputs("s-follow-up")).resolves.toHaveLength(1);
-
     await argosAgent.queuePendingInput("s-follow-up", "Actual follow-up answer");
     await new Promise((r) => setTimeout(r, 80));
 
@@ -1250,7 +1245,7 @@ describe("Integration: multi-turn context", () => {
     await expect(agentPresenter.listPendingInputs(session.id)).resolves.toEqual([]);
   });
 
-  it("resumePendingQueue drains queued turns after a session error", async () => {
+  it("steerPendingInput drains queued turns after a session error", async () => {
     let releaseFirstTurn: (() => void) | null = null;
     const providerInstance = {
       coreStream: vi
@@ -1286,7 +1281,7 @@ describe("Integration: multi-turn context", () => {
     expect(pendingAfterError).toHaveLength(1);
     expect(pendingAfterError[0].mode).toBe("queue");
 
-    await agentPresenter.resumePendingQueue(session.id);
+    await agentPresenter.steerPendingInput(session.id, pendingAfterError[0].id);
     await new Promise((r) => setTimeout(r, 80));
 
     const recoveredSession = await agentPresenter.getSession(session.id);

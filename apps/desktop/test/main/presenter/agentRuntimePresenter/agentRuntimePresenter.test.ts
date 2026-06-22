@@ -901,21 +901,22 @@ describe("AgentRuntimePresenter", () => {
       expect((await agent.getSessionState("s1"))?.status).toBe("idle");
     });
 
-    it("queues active stream steer without aborting the current stream", async () => {
+    it("aborts the active stream and runs steer as the next turn", async () => {
       let releaseFirstStream: (() => void) | null = null;
       let firstAbortSignal: AbortSignal | null = null;
       (processStream as ReturnType<typeof vi.fn>)
-        .mockImplementationOnce(
-          async (params: { io: { abortSignal: AbortSignal } }) =>
-            await new Promise((resolve) => {
-              firstAbortSignal = params.io.abortSignal;
-              releaseFirstStream = () =>
-                resolve({
-                  status: "completed",
-                  stopReason: "complete",
-                });
-            }),
-        )
+        .mockImplementationOnce(async (params: { io: { abortSignal: AbortSignal } }) => {
+          firstAbortSignal = params.io.abortSignal;
+          await new Promise<void>((resolve) => {
+            releaseFirstStream = resolve;
+            params.io.abortSignal.addEventListener("abort", () => resolve(), { once: true });
+          });
+          return {
+            status: "aborted",
+            stopReason: "user_stop",
+            errorMessage: "common.error.userCanceledGeneration",
+          };
+        })
         .mockResolvedValueOnce({
           status: "completed",
           stopReason: "complete",
@@ -933,16 +934,8 @@ describe("AgentRuntimePresenter", () => {
 
       await agent.steerActiveTurn("s1", "Refine active stream");
       await agent.steerActiveTurn("s1", "Add second steer note");
-      expect(firstAbortSignal?.aborted).toBe(false);
-      expect(processStream).toHaveBeenCalledTimes(1);
-      expect((processStream as ReturnType<typeof vi.fn>).mock.calls[0][0]).toEqual(
-        expect.objectContaining({
-          shouldYieldForPendingInput: expect.any(Function),
-        }),
-      );
-      expect((processStream as ReturnType<typeof vi.fn>).mock.calls[0][0].shouldYieldForPendingInput()).toBe(true);
+      expect(firstAbortSignal?.aborted).toBe(true);
 
-      releaseFirstStream?.();
       await firstProcess;
 
       for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -952,11 +945,6 @@ describe("AgentRuntimePresenter", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
 
-      expect(sqlitePresenter.argosMessagesTable.updateContentAndStatus).not.toHaveBeenCalledWith(
-        "mock-msg-id",
-        expect.any(String),
-        "error",
-      );
       const userInserts = sqlitePresenter.argosMessagesTable.insert.mock.calls
         .map(([row]) => row)
         .filter((row) => row.role === "user");
@@ -3230,16 +3218,20 @@ describe("AgentRuntimePresenter", () => {
 
       const stopCalls = hookDispatcher.dispatchEvent.mock.calls.filter((call: any[]) => call[0] === "Stop");
       expect(stopCalls).toHaveLength(2);
+      // The newer (second) run resolves first — its Stop hook fires with "complete".
       expect(stopCalls[0][1]).toEqual(
-        expect.objectContaining({
-          stop: expect.objectContaining({ reason: "user_stop", userStop: true }),
-        }),
-      );
-      expect(stopCalls[1][1]).toEqual(
         expect.objectContaining({
           stop: expect.objectContaining({ reason: "complete", userStop: false }),
         }),
       );
+      // The stale (first) run aborts later — its Stop hook fires with "user_stop" ...
+      expect(stopCalls[1][1]).toEqual(
+        expect.objectContaining({
+          stop: expect.objectContaining({ reason: "user_stop", userStop: true }),
+        }),
+      );
+      // ... but the stale run must NOT clobber the session status set by the newer run.
+      expect((await agent.getSessionState("s1"))?.status).toBe("idle");
     });
 
     it("cancels generation only when the event id matches the active assistant message", async () => {
@@ -3325,9 +3317,9 @@ describe("AgentRuntimePresenter", () => {
       expect(result).toBe(pendingRecord);
     });
 
-    it("pauses automatic queue draining when a queued turn is stopped", async () => {
+    it("consumes the claimed queue item and auto-drains after an abort", async () => {
       await agent.initSession("s1", { providerId: "openai", modelId: "gpt-4" });
-      (agent as any).pendingInputCoordinator.queuePendingInput("s1", "Queued retry");
+      (agent as any).pendingInputCoordinator.queuePendingInput("s1", "Queued turn");
 
       let resolveStreamStarted: () => void = () => {};
       const streamStarted = new Promise<void>((resolve) => {
@@ -3347,33 +3339,17 @@ describe("AgentRuntimePresenter", () => {
         };
       });
 
-      const drainSpy = vi.spyOn<(...args: any[]) => any>(agent as any, "drainPendingQueueIfPossible");
-      const drainPromise = (agent as any).drainPendingQueueIfPossible("s1", "resume");
+      const drainPromise = (agent as any).drainPendingQueueIfPossible("s1", "enqueue");
       await streamStarted;
 
       await agent.cancelGeneration("s1");
       resolveStream();
       await drainPromise;
+      await new Promise((r) => setTimeout(r, 30));
 
-      expect(drainSpy).toHaveBeenCalledTimes(1);
       expect(processStream).toHaveBeenCalledTimes(1);
-      expect(await agent.listPendingInputs("s1")).toEqual([
-        expect.objectContaining({
-          mode: "queue",
-          state: "pending",
-          payload: { text: "Queued retry", files: [] },
-        }),
-      ]);
-
-      (processStream as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        status: "completed",
-        stopReason: "complete",
-      });
-      await agent.resumePendingQueue("s1");
-      await vi.waitFor(async () => {
-        expect(processStream).toHaveBeenCalledTimes(2);
-        expect(await agent.listPendingInputs("s1")).toEqual([]);
-      });
+      // Abort consumes the claimed item — it is NOT rolled back to the queue.
+      await expect(agent.listPendingInputs("s1")).resolves.toEqual([]);
     });
   });
 

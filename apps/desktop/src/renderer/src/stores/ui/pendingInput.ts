@@ -141,17 +141,17 @@ export async function deleteInput(sessionId: string, itemId: string): Promise<vo
   }
 }
 
-export async function resumeQueue(sessionId: string): Promise<void> {
+export async function steerPendingInput(sessionId: string, itemId: string): Promise<void> {
   pendingInputStore.setState((prev) => ({ ...prev, error: null }));
   try {
-    await sessionClient.resumePendingQueue(sessionId);
+    await sessionClient.steerPendingInput(sessionId, itemId);
     if (pendingInputStore.state.currentSessionId === sessionId) {
       await loadPendingInputs(sessionId);
     }
   } catch (e) {
     pendingInputStore.setState((prev) => ({
       ...prev,
-      error: `Failed to resume queue: ${e}`,
+      error: `Failed to steer pending input: ${e}`,
     }));
     throw e;
   }
