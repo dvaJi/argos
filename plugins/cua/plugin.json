@@ -5,7 +5,8 @@
   "publisher": "Argos",
   "engines": {
     "argos": ">=${app.version}",
-    "platforms": ["darwin"]
+    "platforms": ["darwin", "win32", "linux"],
+    "targets": ["darwin/arm64", "darwin/x64", "win32/x64", "win32/arm64", "linux/x64"]
   },
   "activationEvents": ["onEnable"],
   "capabilities": [
@@ -18,7 +19,7 @@
   ],
   "source": {
     "type": "argos-official",
-    "url": "${github.release.download}/argos-plugin-cua-${app.version}-darwin-${arch}.dcplugin",
+    "url": "${github.release.download}/argos-plugin-cua-${app.version}-${target.platform}-${arch}.dcplugin",
     "publisher": "Argos"
   },
   "runtime": {
@@ -27,6 +28,8 @@
     "displayName": "Cua Driver",
     "detect": [
       "plugin:runtime/darwin/${arch}/Argos Computer Use.app/Contents/MacOS/cua-driver",
+      "plugin:runtime/win32/${arch}/cua-driver.exe",
+      "plugin:runtime/linux/${arch}/cua-driver",
       "/Applications/CuaDriver.app/Contents/MacOS/cua-driver"
     ],
     "install": {

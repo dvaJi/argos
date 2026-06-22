@@ -27,6 +27,7 @@ export interface SettingsNavigationItem {
   groupKey: SettingsNavigationGroupKey;
   keywords: string[];
   supportedPlatforms?: string[];
+  supportedTargets?: string[];
   hiddenInSidebar?: boolean;
 }
 
@@ -205,7 +206,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     position: 5.75,
     groupKey: "tools",
     keywords: ["plugin", "plugins", "extension", "runtime", "插件", "扩展", "运行时"],
-    supportedPlatforms: ["darwin"],
+    supportedTargets: ["darwin/arm64", "darwin/x64", "win32/x64", "win32/arm64", "linux/x64"],
   },
   {
     routeName: "settings-skills",
@@ -269,17 +270,31 @@ const getPlatformAliases = (platform?: string): Set<string> => {
     return new Set();
   }
 
-  if (normalized === "darwin") {
+  if (["darwin", "macos", "mac"].includes(normalized)) {
     return new Set(["darwin", "macos", "mac"]);
   }
-  if (normalized === "win32") {
+  if (["win32", "windows", "win"].includes(normalized)) {
     return new Set(["win32", "windows", "win"]);
   }
 
   return new Set([normalized]);
 };
 
-export const isSettingsNavigationItemSupported = (item: SettingsNavigationItem, platform?: string): boolean => {
+export const isSettingsNavigationItemSupported = (
+  item: SettingsNavigationItem,
+  platform?: string,
+  arch?: string,
+): boolean => {
+  if (item.supportedTargets?.length) {
+    if (!platform || !arch) {
+      return true;
+    }
+    const normalizedArch = arch.trim().toLowerCase();
+    const aliases = getPlatformAliases(platform);
+    const targets = item.supportedTargets.map((target) => target.trim().toLowerCase());
+    return [...aliases].some((platformAlias) => targets.includes(`${platformAlias}/${normalizedArch}`));
+  }
+
   if (!item.supportedPlatforms?.length) {
     return true;
   }
@@ -291,14 +306,14 @@ export const isSettingsNavigationItemSupported = (item: SettingsNavigationItem, 
   return item.supportedPlatforms.some((supportedPlatform) => aliases.has(supportedPlatform.trim().toLowerCase()));
 };
 
-export const getSettingsNavigationItems = (platform?: string): SettingsNavigationItem[] =>
-  getSettingsRouteItems(platform).filter((item) => !item.hiddenInSidebar);
+export const getSettingsRouteItems = (platform?: string, arch?: string): SettingsNavigationItem[] =>
+  SETTINGS_NAVIGATION_ITEMS.filter((item) => isSettingsNavigationItemSupported(item, platform, arch));
 
-export const getSettingsRouteItems = (platform?: string): SettingsNavigationItem[] =>
-  SETTINGS_NAVIGATION_ITEMS.filter((item) => isSettingsNavigationItemSupported(item, platform));
+export const getSettingsNavigationItems = (platform?: string, arch?: string): SettingsNavigationItem[] =>
+  getSettingsRouteItems(platform, arch).filter((item) => !item.hiddenInSidebar);
 
-export const getSettingsNavigationGroups = (platform?: string): SettingsNavigationGroup[] => {
-  const items = getSettingsNavigationItems(platform);
+export const getSettingsNavigationGroups = (platform?: string, arch?: string): SettingsNavigationGroup[] => {
+  const items = getSettingsNavigationItems(platform, arch);
 
   return SETTINGS_NAVIGATION_GROUPS.map((group) => ({
     ...group,
@@ -376,8 +391,9 @@ export const resolveSettingsNavigationPath = (
   routeName: SettingsNavigationItem["routeName"],
   params?: Record<string, string>,
   platform?: string,
+  arch?: string,
 ): string => {
-  const item = getSettingsRouteItems(platform).find((navigationItem) => navigationItem.routeName === routeName);
+  const item = getSettingsRouteItems(platform, arch).find((navigationItem) => navigationItem.routeName === routeName);
   if (!item) {
     return "/overview";
   }
