@@ -9,6 +9,7 @@ const PROVIDER_ID_ALIASES: Record<string, string> = {
   "aws-bedrock": "amazon-bedrock",
   ppio: "ppinfra",
   fireworks: "fireworks-ai",
+  "minimax-global": "minimax",
 };
 
 export const resolveProviderId = (providerId: string | undefined): string | undefined => {
