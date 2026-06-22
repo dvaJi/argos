@@ -31,6 +31,7 @@ export const sessionsStatusChangedEvent = defineEventContract({
   payload: z.object({
     sessionId: EntityIdSchema,
     status: SessionStatusSchema,
+    reason: z.string().optional(),
     version: z.number().int(),
   }),
 });
