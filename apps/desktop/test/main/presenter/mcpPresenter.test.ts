@@ -282,3 +282,49 @@ describe("McpPresenter#setMcpServerEnabled", () => {
     expect(serverManagerMocks.refreshNpmRegistry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("McpPresenter#shutdown", () => {
+  const createConfigPresenter = () =>
+    ({
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
+      getMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+      setMcpServerEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+      getLanguage: vi.fn<(...args: any[]) => any>().mockReturnValue("en-US"),
+    }) as any;
+
+  beforeEach(() => {
+    serverManagerMocks.stopServer.mockResolvedValue(undefined);
+    serverManagerMocks.isServerRunning.mockResolvedValue(false);
+    serverManagerMocks.getRunningClients.mockResolvedValue([]);
+  });
+
+  it("stops all running clients during shutdown and continues after a stop failure", async () => {
+    const presenter = new McpPresenter(createConfigPresenter());
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    serverManagerMocks.getRunningClients.mockResolvedValue([{ serverName: "first" }, { serverName: "second" }]);
+    // Order-independent (shutdown stops in parallel): reject only for "first".
+    serverManagerMocks.stopServer.mockImplementation(async (serverName: string) => {
+      if (serverName === "first") {
+        throw new Error("first failed");
+      }
+    });
+
+    await presenter.shutdown();
+
+    expect(serverManagerMocks.stopServer).toHaveBeenCalledWith("first");
+    expect(serverManagerMocks.stopServer).toHaveBeenCalledWith("second");
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[MCP] Failed to stop server first during shutdown:",
+      expect.any(Error),
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("does not reject when there are no running clients", async () => {
+    const presenter = new McpPresenter(createConfigPresenter());
+    serverManagerMocks.getRunningClients.mockResolvedValue([]);
+
+    await expect(presenter.shutdown()).resolves.toBeUndefined();
+    expect(serverManagerMocks.stopServer).not.toHaveBeenCalled();
+  });
+});

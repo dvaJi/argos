@@ -23,6 +23,8 @@ import { app } from "electron";
 import { getInMemoryServer } from "./inMemoryServers/builder";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { RuntimeHelper } from "@/lib/runtimeHelper";
+import { terminateProcessTree } from "@/lib/agentRuntime/processTree";
+import type { ChildProcess } from "node:child_process";
 import {
   PromptListEntry,
   ToolCallResult,
@@ -36,6 +38,13 @@ import {
 } from "@shared/presenter";
 
 const ALLOWED_SAMPLING_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+
+// StdioClientTransport keeps the spawned agent child process on a private
+// `_process` field. We access it to terminate the whole process tree on
+// shutdown so stdio MCP servers do not outlive the app.
+type StdioClientTransportProcessAccess = {
+  _process?: ChildProcess;
+};
 
 // TODO: types for resources and prompts, types for Notifications https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/examples/client/simpleStreamableHttp.ts
 // Simple OAuth provider for handling Bearer Token
@@ -458,7 +467,7 @@ export class McpClient {
       }
 
       // Clean up resources
-      this.cleanupResources();
+      await this.cleanupResources();
 
       console.error(`Failed to connect to MCP server ${this.serverName}:`, error);
 
@@ -488,17 +497,20 @@ export class McpClient {
   }
 
   // Clean up resources
-  private cleanupResources(): void {
+  private async cleanupResources(): Promise<void> {
     // Clear timeout timer
     if (this.connectionTimeout) {
       clearTimeout(this.connectionTimeout);
       this.connectionTimeout = null;
     }
 
-    // Close transport
-    if (this.transport) {
+    // Close transport. Null the reference first so concurrent callers don't
+    // double-close; terminate the stdio child process tree before closing.
+    const transport = this.transport;
+    this.transport = null;
+    if (transport) {
       try {
-        this.transport.close();
+        await this.closeTransport(transport);
       } catch (error) {
         console.error(`Failed to close MCP transport:`, error);
       }
@@ -506,13 +518,29 @@ export class McpClient {
 
     // Reset state
     this.client = null;
-    this.transport = null;
     this.isConnected = false;
 
     // Clear cache
     this.cachedTools = null;
     this.cachedPrompts = null;
     this.cachedResources = null;
+  }
+
+  // Terminate the stdio child process tree (if any) before closing the
+  // transport, so quitting the app does not orphan stdio MCP servers.
+  private async closeTransport(transport: Transport): Promise<void> {
+    try {
+      if (transport instanceof StdioClientTransport) {
+        const child = (transport as unknown as StdioClientTransportProcessAccess)._process;
+        if (child) {
+          await terminateProcessTree(child, { graceMs: 2000 });
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to terminate MCP stdio process tree for ${this.serverName}:`, error);
+    }
+
+    await transport.close();
   }
 
   // Register notification handlers
@@ -871,7 +899,7 @@ export class McpClient {
 
       try {
         // Clean up current connection
-        this.cleanupResources();
+        await this.cleanupResources();
 
         // Clear all caches to ensure fresh data after reconnection
         this.cachedTools = null;
@@ -903,7 +931,7 @@ export class McpClient {
   // Internal disconnect with custom reason
   private async internalDisconnect(reason?: string): Promise<void> {
     // Clean up all resources
-    this.cleanupResources();
+    await this.cleanupResources();
 
     const logMessage = reason
       ? `MCP service ${this.serverName} has been stopped due to ${reason}`
