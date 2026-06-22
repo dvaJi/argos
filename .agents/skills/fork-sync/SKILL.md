@@ -67,7 +67,11 @@ self-evolution: the skill gets smarter each run.
 8. **Commit + PR, native style:**
    - Commit: `feat(<scope>): <what>` or `fix(<scope>): <what>` — **no origin ref**.
      Body explains the *what* and *why* in plain Argos terms.
-   - Push: `git push -u origin feature/<slug>`
+   - **Rebase onto current master** (`git fetch origin master && git rebase origin/master`)
+     so skill-bookkeeping commits on master don't surface as spurious diffs in the PR.
+     After rebase, confirm `git diff --name-only origin/master..HEAD` shows only the port
+     files (no `.agents/skills/**`).
+   - Push: `git push -u origin feature/<slug>` (use `--force-with-lease` if you rebased).
    - PR: `gh pr create --repo dvaJi/argos --base master --head feature/<slug>`
      (`--repo` is required: two remotes confuse gh's default). PR body describes the
      change and gate results — no origin mention.

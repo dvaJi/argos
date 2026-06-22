@@ -79,3 +79,14 @@ mistakes.
   PR. Defer with a clear reason rather than force a half-built feature through the gate.
 - **The fork's `mcpClient.cleanupResources`/`closeTransport` are async** (from the shutdown
   port) — don't regress them when touching `mcpClient`.
+
+## 2026-06 — PR hygiene
+
+- **Rebase the port branch onto current master before pushing the PR.** Skill
+  files (`sync-state.md`/`learnings.md`/`ported-files.md`) get updated on master
+  while a port branch is open; if the branch is based on older master, the PR
+  shows a spurious `.agents/skills/fork-sync/*` diff. Always `git rebase origin/master`
+  and verify `git diff --name-only origin/master..HEAD` lists ONLY the port files.
+- **CRLF/LF noise:** prior branches can leave line-ending-only "modifications" in the
+  working tree. `git checkout -- .` before staging, and stage port files explicitly
+  (don't `git add -A`).
