@@ -36,6 +36,7 @@ import {
   sessionsListMessagesPageRoute,
   sessionsListRoute,
   sessionsListMessageTracesRoute,
+  sessionsGetViewManifestsRoute,
   sessionsListPendingInputsRoute,
   sessionsMoveAgentSessionsRoute,
   sessionsMoveQueuedInputRoute,
@@ -60,6 +61,7 @@ import {
   sessionsUpdateQueuedInputRoute,
 } from "@shared/contracts/routes";
 import type { CreateSessionInput, PendingSessionInputRecord, SendMessageInput } from "@shared/types/agent-interface";
+import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
 import { getArgosBridge } from "./core";
 
 export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
@@ -226,6 +228,11 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
   async function listMessageTraces(messageId: string) {
     const result = await bridge.invoke(sessionsListMessageTracesRoute.name, { messageId });
     return result.traces;
+  }
+
+  async function getViewManifests(sessionId: string) {
+    const result = await bridge.invoke(sessionsGetViewManifestsRoute.name, { sessionId });
+    return result.manifests as ArgosTapeViewManifestRecord[];
   }
 
   async function translateText(text: string, locale?: string, agentId?: string) {
@@ -468,6 +475,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     searchHistory,
     getSearchResults,
     listMessageTraces,
+    getViewManifests,
     translateText,
     getAgents,
     renameSession,

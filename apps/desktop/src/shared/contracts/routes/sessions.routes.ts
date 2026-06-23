@@ -8,6 +8,7 @@ import type {
   SendMessageInput,
 } from "@shared/types/agent-interface";
 import type { HistorySearchHit } from "@shared/types/presenters/agent-session.presenter";
+import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
 import {
   SessionListItemSchema,
   SessionPageCursorSchema,
@@ -27,6 +28,7 @@ import { AcpConfigStateSchema } from "../domainSchemas";
 
 const PendingSessionInputRecordSchema = z.custom<PendingSessionInputRecord>();
 const MessageTraceRecordSchema = z.custom<MessageTraceRecord>();
+const TapeViewManifestRecordSchema = z.custom<ArgosTapeViewManifestRecord>();
 const HistorySearchHitSchema = z.custom<HistorySearchHit>();
 const SearchResultSchema = z.custom<SearchResult>();
 const AgentSchema = z.custom<Agent>();
@@ -331,6 +333,16 @@ export const sessionsListMessageTracesRoute = defineRouteContract({
   }),
   output: z.object({
     traces: z.array(MessageTraceRecordSchema),
+  }),
+});
+
+export const sessionsGetViewManifestsRoute = defineRouteContract({
+  name: "sessions.getViewManifests",
+  input: z.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: z.object({
+    manifests: z.array(TapeViewManifestRecordSchema),
   }),
 });
 

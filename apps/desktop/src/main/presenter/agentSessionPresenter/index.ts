@@ -37,6 +37,8 @@ import type {
   UsageStatsBackfillStatus,
   PendingSessionInputRecord,
 } from "@shared/types/agent-interface";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "../agentRuntimePresenter/tapeViewManifest";
 import type { Message } from "@shared/chat";
 import type { SearchResult } from "@shared/types/core/search";
 import type {
@@ -1592,6 +1594,36 @@ export class AgentSessionPresenter {
       truncated: row.truncated === 1,
       createdAt: row.created_at,
     }));
+  }
+
+  async getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
+    const table = this.sqlitePresenter.argosTapeEntriesTable;
+    if (!table) return [];
+    const rows = table.getBySession(sessionId);
+    const records: ArgosTapeViewManifestRecord[] = [];
+    for (const row of rows) {
+      if (row.kind !== "event" || row.name !== TAPE_VIEW_MANIFEST_EVENT_NAME) continue;
+      try {
+        const payload = JSON.parse(row.payload_json) as { data?: { manifest?: unknown } };
+        const manifest = payload.data?.manifest;
+        if (!manifest || typeof manifest !== "object") continue;
+        const meta = JSON.parse(row.meta_json) as Record<string, unknown>;
+        const m = manifest as ArgosTapeViewManifest;
+        records.push({
+          sessionId: row.session_id,
+          messageId: m.messageId,
+          requestSeq: m.requestSeq,
+          entryId: row.entry_id,
+          createdAt: row.created_at,
+          manifest: m,
+          integrity:
+            typeof meta.integrity === "string" ? (meta.integrity as "valid" | "invalid" | "unverified") : "unverified",
+        });
+      } catch {
+        continue;
+      }
+    }
+    return records;
   }
 
   async getMessageTraceCount(messageId: string): Promise<number> {

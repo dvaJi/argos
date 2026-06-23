@@ -1072,7 +1072,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
           />
           <div ref={bottomScrollAnchorRef} className="h-px w-full" aria-hidden="true" />
         </div>
-        <TraceDialog messageId={traceMessageId} onClose={() => setTraceMessageId(null)} />
+        <TraceDialog messageId={traceMessageId} sessionId={sessionId} onClose={() => setTraceMessageId(null)} />
 
         {!isReadOnlySession && (
           <div className="chat-capture-hide sticky bottom-0 z-10 w-full px-6 pb-3 pt-3">

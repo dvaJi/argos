@@ -11,7 +11,7 @@ import type { ArgosTapeEntryRow, ArgosTapeSearchInput } from "../sqlitePresenter
 import { appendMessageRecordToTape } from "./tapeFacts";
 import { buildEffectiveTapeView, getLastEffectiveTokenUsage, searchEffectiveTapeRows } from "./tapeEffectiveView";
 import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "./tapeViewManifest";
-import type { ArgosTapeViewManifest } from "@shared/types/tape-view-manifest";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
 
 export type TapeMigrationState = "none" | "ready";
 
@@ -351,6 +351,39 @@ export class ArgosTapeService {
       }
     }
     return null;
+  }
+
+  getViewManifestsBySession(sessionId: string): ArgosTapeViewManifestRecord[] {
+    const table = this.table;
+    if (!table) {
+      return [];
+    }
+
+    const rows = table.getBySession(sessionId);
+    const records: ArgosTapeViewManifestRecord[] = [];
+    for (const row of rows) {
+      if (row.kind !== "event" || row.name !== TAPE_VIEW_MANIFEST_EVENT_NAME) {
+        continue;
+      }
+      const payload = parseJsonObject(row.payload_json);
+      const data = payload.data as Record<string, unknown> | undefined;
+      const manifest = data?.manifest as ArgosTapeViewManifest | undefined;
+      if (!manifest || typeof manifest !== "object") {
+        continue;
+      }
+      const meta = parseJsonObject(row.meta_json);
+      records.push({
+        sessionId: row.session_id,
+        messageId: manifest.messageId,
+        requestSeq: manifest.requestSeq,
+        entryId: row.entry_id,
+        createdAt: row.created_at,
+        manifest: manifest as ArgosTapeViewManifest,
+        integrity:
+          typeof meta.integrity === "string" ? (meta.integrity as "valid" | "invalid" | "unverified") : "unverified",
+      });
+    }
+    return records;
   }
 
   getMessageRecords(sessionId: string): ChatMessageRecord[] {
