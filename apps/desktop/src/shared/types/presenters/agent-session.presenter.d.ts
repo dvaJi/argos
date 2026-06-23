@@ -27,6 +27,7 @@ import type {
   AgentTapeAnchorResult,
   AgentTransferImpact,
 } from "../agent-interface";
+import type { ArgosTapeViewManifestRecord } from "../tape-view-manifest";
 import type { AcpConfigState } from "./llmprovider.presenter";
 import type { SearchResult } from "./thread.presenter";
 
@@ -107,6 +108,7 @@ export interface IAgentSessionPresenter {
   getLegacyImportStatus(): Promise<LegacyImportStatus>;
   retryLegacyImport(): Promise<LegacyImportStatus>;
   listMessageTraces(messageId: string): Promise<MessageTraceRecord[]>;
+  getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
   getMessageTraceCount(messageId: string): Promise<number>;
   getMessageIds(sessionId: string): Promise<string[]>;
   getMessage(messageId: string): Promise<ChatMessageRecord | null>;

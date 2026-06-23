@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useReducer, useMemo, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@shadcn/components/ui/dialog";
 import { Button } from "@shadcn/components/ui/button";
 import { Spinner } from "@shadcn/components/ui/spinner";
@@ -8,27 +8,71 @@ import { createSessionClient } from "@api/SessionClient";
 import { useMonaco } from "stream-monaco";
 import { useUiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
 import type { MessageTraceRecord } from "@shared/types/agent-interface";
+import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+import ManifestPanel from "./ManifestPanel";
 
 const deviceClient = createDeviceClient();
 const sessionClient = createSessionClient();
 
+type LoadState = {
+  loading: boolean;
+  error: boolean;
+  traces: MessageTraceRecord[];
+  selectedTraceId: string | null;
+  manifests: ArgosTapeViewManifestRecord[];
+};
+
+type LoadAction =
+  | { type: "reset" }
+  | { type: "loaded"; traces: MessageTraceRecord[]; manifests: ArgosTapeViewManifestRecord[] }
+  | { type: "error" }
+  | { type: "selectTrace"; traceId: string };
+
+const initialLoadState: LoadState = {
+  loading: false,
+  error: false,
+  traces: [],
+  selectedTraceId: null,
+  manifests: [],
+};
+
+function loadReducer(state: LoadState, action: LoadAction): LoadState {
+  switch (action.type) {
+    case "reset":
+      return { ...initialLoadState, loading: true };
+    case "loaded":
+      return {
+        loading: false,
+        error: false,
+        traces: action.traces,
+        selectedTraceId: action.traces[0]?.id ?? null,
+        manifests: action.manifests,
+      };
+    case "error":
+      return { ...state, loading: false, error: true };
+    case "selectTrace":
+      return { ...state, selectedTraceId: action.traceId };
+    default:
+      return state;
+  }
+}
+
 interface TraceDialogProps {
   messageId: string | null;
+  sessionId?: string | null;
   agentId?: string | null;
   onClose: () => void;
 }
 
-export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
+export default function TraceDialog({ messageId, sessionId, onClose }: TraceDialogProps) {
   const uiSettingsStore = useUiSettingsStore();
   const jsonEditorRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const requestIdRef = useRef(0);
-  const [traceList, setTraceList] = useState<MessageTraceRecord[]>([]);
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [editorInitialized, setEditorInitialized] = useState(false);
+  const [loadState, dispatch] = useReducer(loadReducer, initialLoadState);
+  const { loading, error, traces: traceList, selectedTraceId, manifests } = loadState;
 
   const { cleanupEditor, getEditorView } = useMonaco({
     readOnly: true,
@@ -57,6 +101,11 @@ export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
     }
     return traceList[0] ?? null;
   }, [traceList, selectedTraceId]);
+
+  const selectedManifest = useMemo(() => {
+    if (!selectedTrace || !manifests.length) return null;
+    return manifests.find((m) => m.messageId === selectedTrace.messageId) ?? null;
+  }, [selectedTrace, manifests]);
 
   const parsedHeaders = useMemo(() => {
     if (!selectedTrace) return {};
@@ -124,27 +173,27 @@ export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
     requestIdRef.current += 1;
     const currentRequestId = requestIdRef.current;
 
-    setLoading(true);
-    setError(false);
-    setTraceList([]);
-    setSelectedTraceId(null);
+    dispatch({ type: "reset" });
 
     try {
-      const result = await sessionClient.listMessageTraces(msgId);
+      const tracePromise = sessionClient.listMessageTraces(msgId);
+      const manifestPromise = sessionId
+        ? sessionClient.getViewManifests(sessionId).catch(() => [])
+        : Promise.resolve([]);
+
+      if (currentRequestId !== requestIdRef.current) return;
+
+      const [result, manifestResult] = await Promise.all([tracePromise, manifestPromise]);
+
       if (currentRequestId !== requestIdRef.current) return;
       if (!Array.isArray(result) || result.length === 0) {
-        setError(true);
+        dispatch({ type: "error" });
         return;
       }
-      setTraceList(result);
-      setSelectedTraceId(result[0].id);
+      dispatch({ type: "loaded", traces: result, manifests: manifestResult });
     } catch {
       if (currentRequestId === requestIdRef.current) {
-        setError(true);
-      }
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
-        setLoading(false);
+        dispatch({ type: "error" });
       }
     }
   };
@@ -161,11 +210,8 @@ export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
   }, [formattedJson]);
 
   const resetState = useCallback(() => {
-    setLoading(false);
-    setError(false);
+    dispatch({ type: "reset" });
     setCopySuccess(false);
-    setTraceList([]);
-    setSelectedTraceId(null);
     cleanupEditor();
     setEditorInitialized(false);
   }, []);
@@ -207,7 +253,7 @@ export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
                     key={trace.id}
                     size="sm"
                     variant={trace.id === selectedTrace.id ? "default" : "outline"}
-                    onClick={() => setSelectedTraceId(trace.id)}
+                    onClick={() => dispatch({ type: "selectTrace", traceId: trace.id })}
                   >
                     #{trace.requestSeq}
                   </Button>
@@ -233,6 +279,8 @@ export default function TraceDialog({ messageId, onClose }: TraceDialogProps) {
                 </div>
               </div>
             </div>
+
+            {selectedManifest && <ManifestPanel record={selectedManifest} />}
 
             <div className="flex-1 min-h-0 flex flex-col border rounded-lg overflow-hidden min-h-[300px]">
               <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-muted border-b">

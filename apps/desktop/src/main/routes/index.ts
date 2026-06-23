@@ -155,6 +155,7 @@ import {
   sessionsListMessagesPageRoute,
   sessionsListRoute,
   sessionsListMessageTracesRoute,
+  sessionsGetViewManifestsRoute,
   sessionsListPendingInputsRoute,
   sessionsMoveAgentSessionsRoute,
   sessionsMoveQueuedInputRoute,
@@ -1864,6 +1865,12 @@ export async function dispatchArgosRoute(
       const input = sessionsListMessageTracesRoute.input.parse(rawInput);
       const traces = await runtime.agentSessionPresenter.listMessageTraces(input.messageId);
       return sessionsListMessageTracesRoute.output.parse({ traces });
+    }
+
+    case sessionsGetViewManifestsRoute.name: {
+      const input = sessionsGetViewManifestsRoute.input.parse(rawInput);
+      const manifests = await runtime.agentSessionPresenter.getViewManifests(input.sessionId);
+      return sessionsGetViewManifestsRoute.output.parse({ manifests });
     }
 
     case sessionsTranslateTextRoute.name: {
