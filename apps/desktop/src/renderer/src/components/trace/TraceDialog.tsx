@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@shadcn/components/ui/dialog";
 import { Button } from "@shadcn/components/ui/button";
-import { Badge } from "@shadcn/components/ui/badge";
 import { Spinner } from "@shadcn/components/ui/spinner";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "@api/DeviceClient";
@@ -10,6 +9,7 @@ import { useMonaco } from "stream-monaco";
 import { useUiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
 import type { MessageTraceRecord } from "@shared/types/agent-interface";
 import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+import ManifestPanel from "./ManifestPanel";
 
 const deviceClient = createDeviceClient();
 const sessionClient = createSessionClient();
@@ -33,7 +33,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [editorInitialized, setEditorInitialized] = useState(false);
   const [manifests, setManifests] = useState<ArgosTapeViewManifestRecord[]>([]);
-  const [showRefs, setShowRefs] = useState(false);
 
   const { cleanupEditor, getEditorView } = useMonaco({
     readOnly: true,
@@ -182,7 +181,6 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     setTraceList([]);
     setSelectedTraceId(null);
     setManifests([]);
-    setShowRefs(false);
     cleanupEditor();
     setEditorInitialized(false);
   }, []);
@@ -251,110 +249,7 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
               </div>
             </div>
 
-            {selectedManifest && (
-              <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2 text-sm">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge
-                    variant={
-                      selectedManifest.integrity === "valid"
-                        ? "default"
-                        : selectedManifest.integrity === "invalid"
-                          ? "destructive"
-                          : "secondary"
-                    }
-                  >
-                    {selectedManifest.integrity === "valid"
-                      ? "Intact"
-                      : selectedManifest.integrity === "invalid"
-                        ? "Tampered"
-                        : "Unverified"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground font-mono">{selectedManifest.manifest.viewId}</span>
-                  {selectedManifest.manifest.parentViewId && (
-                    <span className="text-xs text-muted-foreground">
-                      <Icon icon="lucide:arrow-left" className="inline w-3 h-3" />{" "}
-                      {selectedManifest.manifest.parentViewId}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>
-                    Task: <span className="text-foreground">{selectedManifest.manifest.taskType}</span>
-                  </span>
-                  <span>
-                    Policy: <span className="text-foreground">{selectedManifest.manifest.policy}</span>
-                  </span>
-                  <span>
-                    Budget:{" "}
-                    <span className="text-foreground">
-                      {selectedManifest.manifest.tokenBudget.estimatedPromptTokens}
-                    </span>{" "}
-                    / {selectedManifest.manifest.tokenBudget.contextLength} tokens
-                  </span>
-                  <span>
-                    Hash:{" "}
-                    <span className="text-foreground font-mono">
-                      {selectedManifest.manifest.hashes.manifestHash.slice(0, 12)}
-                    </span>
-                  </span>
-                </div>
-
-                <div className="text-xs">
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-foreground transition"
-                    onClick={() => setShowRefs(!showRefs)}
-                  >
-                    {selectedManifest.manifest.included.length} included, {selectedManifest.manifest.excluded.length}{" "}
-                    excluded{" "}
-                    <Icon icon={showRefs ? "lucide:chevron-up" : "lucide:chevron-down"} className="inline w-3 h-3" />
-                  </button>
-                  {showRefs && (
-                    <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                      {selectedManifest.manifest.included.length > 0 && (
-                        <div>
-                          <div className="font-semibold text-foreground mb-1">Included</div>
-                          {selectedManifest.manifest.included.map((ref, i) => (
-                            <div
-                              key={`${ref.entryId ?? "n"}-${ref.orderSeq ?? i}`}
-                              className="flex items-center gap-2 pl-2 text-muted-foreground"
-                            >
-                              <Badge variant="outline" className="text-[10px] px-1.5">
-                                {ref.role ?? "—"}
-                              </Badge>
-                              <span>{ref.reason}</span>
-                              <span className="text-[10px]">({ref.source})</span>
-                              {ref.messageId && (
-                                <span className="font-mono text-[10px]">{ref.messageId.slice(0, 12)}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {selectedManifest.manifest.excluded.length > 0 && (
-                        <div>
-                          <div className="font-semibold text-foreground mb-1">Excluded</div>
-                          {selectedManifest.manifest.excluded.map((ref, i) => (
-                            <div
-                              key={`${ref.entryId ?? "n"}-${ref.orderSeq ?? i}`}
-                              className="flex items-center gap-2 pl-2 text-muted-foreground"
-                            >
-                              <Badge variant="outline" className="text-[10px] px-1.5">
-                                {ref.reason}
-                              </Badge>
-                              {ref.messageId && (
-                                <span className="font-mono text-[10px]">{ref.messageId.slice(0, 12)}</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {selectedManifest && <ManifestPanel record={selectedManifest} />}
 
             <div className="flex-1 min-h-0 flex flex-col border rounded-lg overflow-hidden min-h-[300px]">
               <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-muted border-b">
