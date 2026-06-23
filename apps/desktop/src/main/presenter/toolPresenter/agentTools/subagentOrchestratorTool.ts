@@ -91,7 +91,7 @@ type MutableTaskState = {
     toolCallId: string;
   } | null;
   resultSummary?: string;
-  runtimeStatus?: "idle" | "generating" | "error";
+  runtimeStatus?: "idle" | "generating" | "blocked" | "done" | "error";
   started: boolean;
   cancelRequested: boolean;
   tapeFinalized: boolean;
@@ -838,7 +838,7 @@ export class SubagentOrchestratorTool {
         return;
       }
 
-      if (task.runtimeStatus === "idle" && task.started) {
+      if ((task.runtimeStatus === "idle" || task.runtimeStatus === "done") && task.started) {
         task.status = "completed";
         task.resultSummary = summarizeResult(task.responseMarkdown) || task.resultSummary || "Completed.";
         maybeResolveTask(task);

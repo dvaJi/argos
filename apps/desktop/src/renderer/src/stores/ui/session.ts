@@ -22,7 +22,7 @@ import { pageRouterStore, goToChat, goToNewThread } from "./pageRouter";
 import { messageStore, setCurrentSessionId, clearStreamingState, loadMessages } from "./message";
 import { bindSessionStoreIpc } from "./sessionIpc";
 
-export type UISessionStatus = "completed" | "working" | "error" | "none";
+export type UISessionStatus = "completed" | "working" | "error" | "none" | "new_results" | "blocked";
 
 export interface UISession {
   id: string;
@@ -73,6 +73,10 @@ function mapSessionStatus(status: string): UISessionStatus {
   switch (status) {
     case "generating":
       return "working";
+    case "blocked":
+      return "blocked";
+    case "done":
+      return "new_results";
     case "error":
       return "error";
     case "idle":

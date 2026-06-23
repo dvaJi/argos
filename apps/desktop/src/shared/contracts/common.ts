@@ -105,7 +105,7 @@ export const AppErrorSchema = z.object({
 });
 
 export const PermissionModeSchema = z.enum(["default", "full_access"]);
-export const SessionStatusSchema = z.enum(["idle", "generating", "error"]);
+export const SessionStatusSchema = z.enum(["idle", "generating", "blocked", "done", "error"]);
 export const SessionKindSchema = z.enum(["regular", "subagent"]);
 export const AgentTypeSchema = z.enum(["argos", "acp"]);
 export const AgentSourceSchema = z.enum(["builtin", "manual", "registry"]);

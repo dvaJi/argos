@@ -385,6 +385,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     eventBus.on(MCP_EVENTS.SERVER_STOPPED, this.handleToolRegistryChanged);
     eventBus.on(MCP_EVENTS.SERVER_STATUS_CHANGED, this.handleToolRegistryChanged);
     eventBus.on(MCP_EVENTS.INITIALIZED, this.handleToolRegistryChanged);
+    eventBus.on(SESSION_EVENTS.ACTIVATED, this.handleSessionActivated);
   }
 
   private requireSessionPermissionPort(): SessionPermissionPort {
@@ -1404,14 +1405,16 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       if (remainingPending.length > 0) {
         emitResolvedToolHook?.();
         this.messageStore.updateMessageStatus(messageId, "pending");
-        this.setSessionStatus(sessionId, "generating");
+        const firstPendingType = remainingPending[0].interaction.type;
+        const reason = firstPendingType === "question" ? "user_input" : "tool_permission";
+        this.setSessionStatus(sessionId, "blocked", reason);
         return { resumed: false };
       }
 
       if (waitingForUserMessage) {
         emitResolvedToolHook?.();
         this.messageStore.updateMessageStatus(messageId, "sent");
-        this.setSessionStatus(sessionId, "idle");
+        this.setSessionStatus(sessionId, "done");
         return { resumed: false, waitingForUserMessage: true };
       }
 
@@ -2058,8 +2061,11 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (this.shouldBypassArgosContextBudget(state.providerId, modelConfig, state.modelId)) {
       throw new Error("Manual compaction is only available for Argos agent sessions.");
     }
-    if (state.status !== "idle") {
-      throw new Error("Manual compaction is only available when the session is idle.");
+    if (state.status !== "idle" && state.status !== "done" && state.status !== "blocked") {
+      throw new Error("Manual compaction is only available when the session is idle, done, or blocked.");
+    }
+    if (this.activeGenerations.has(sessionId)) {
+      throw new Error("Cannot compact session while a generation is in progress.");
     }
     if (this.hasPendingInteractions(sessionId)) {
       throw new Error("Pending tool interactions must be resolved before compacting.");
@@ -2369,6 +2375,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         projectDir,
       });
 
+      // oxlint-disable-next-line typescript/no-this-alias
+      const self = this;
       const result = await processStream({
         messages,
         tools,
@@ -2438,10 +2446,15 @@ export class AgentRuntimePresenter implements IAgentImplementation {
               onQueued: (snapshot) => {
                 queuedForRateLimit = true;
                 emitRateLimitWaitingMessage(sessionId, rateLimitMessageId, activeGeneration.runId, snapshot);
+                const current = self.runtimeState.get(sessionId);
+                if (current?.status === "generating") {
+                  self.setSessionStatus(sessionId, "blocked", "rate_limit");
+                }
               },
             });
             if (queuedForRateLimit) {
               clearRateLimitWaitingMessage(sessionId, rateLimitMessageId, activeGeneration.runId);
+              self.setSessionStatus(sessionId, "generating");
               queuedForRateLimit = false;
             }
             if (abortController.signal.aborted) {
@@ -2516,6 +2529,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
               permission,
               tool,
             });
+            const current = this.runtimeState.get(sessionId);
+            if (current?.status === "generating") {
+              this.setSessionStatus(sessionId, "blocked", "tool_permission");
+            }
           },
           onStreamingProviderPermission: (permission, tool, commitDecision) => {
             this.registerActiveProviderPermission(sessionId, messageId, permission, tool, commitDecision);
@@ -2709,9 +2726,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       .finally(async () => {
         this.drainingPendingQueues.delete(sessionId);
         try {
+          const currentStatus = (await this.getSessionState(sessionId))?.status;
           if (
             this.pendingInputCoordinator.hasPendingTurnInput(sessionId) &&
-            (await this.getSessionState(sessionId))?.status === "idle" &&
+            (currentStatus === "idle" || currentStatus === "done" || (currentStatus === "blocked" && !this.activeGenerations.has(sessionId))) &&
             !this.hasPendingInteractions(sessionId)
           ) {
             void this.drainPendingQueueIfPossible(sessionId, "completed");
@@ -2748,6 +2766,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (this.drainingPendingQueues.has(sessionId)) {
       return false;
     }
+    if (status === "blocked" && this.activeGenerations.has(sessionId)) {
+      return false;
+    }
     return true;
   }
 
@@ -2755,7 +2776,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     status: ArgosSessionState["status"],
     reason: "enqueue" | "completed",
   ): boolean {
-    if (status === "idle") {
+    if (status === "idle" || status === "done" || status === "blocked") {
       return true;
     }
 
@@ -2919,7 +2940,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (result.status === "completed") {
       this.dispatchTerminalHooks(sessionId, state, result);
       if (isActive) {
-        this.setSessionStatus(sessionId, "idle");
+        this.setSessionStatus(sessionId, "done");
       }
       return;
     }
@@ -5446,7 +5467,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
   }
 
-  private setSessionStatus(sessionId: string, status: ArgosSessionState["status"]): void {
+  private setSessionStatus(sessionId: string, status: ArgosSessionState["status"], reason?: string): void {
     const current = this.runtimeState.get(sessionId);
     if (!current) {
       return;
@@ -5455,14 +5476,14 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       return;
     }
     current.status = status;
-    eventBus.sendToRenderer(SESSION_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
-      sessionId,
-      status,
-    });
+    const statusPayload: { sessionId: string; status: string; reason?: string } = { sessionId, status };
+    if (reason) statusPayload.reason = reason;
+    eventBus.sendToRenderer(SESSION_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, statusPayload);
     publishArgosEvent("sessions.status.changed", {
       sessionId,
       status,
       version: Date.now(),
+      ...(reason ? { reason } : {}),
     });
     publishArgosEvent("sessions.updated", {
       sessionIds: [sessionId],
@@ -5543,4 +5564,17 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     this.sessionProjectDirs.set(sessionId, persisted);
     return persisted;
   }
+
+  markSessionViewed(sessionId: string): void {
+    const state = this.runtimeState.get(sessionId);
+    if (state && state.status === "done") {
+      this.setSessionStatus(sessionId, "idle");
+    }
+  }
+
+  private handleSessionActivated = (payload: { sessionId?: string; webContentsId?: number }): void => {
+    if (payload?.sessionId) {
+      this.markSessionViewed(payload.sessionId);
+    }
+  };
 }
