@@ -187,6 +187,7 @@ function SettingsLayout() {
 
   const navigateToProviderSettings = useCallback(
     async (providerId?: string) => {
+      console.log("Navigating to provider settings:", providerId ? `providerId=${providerId}` : "no providerId");
       await routerInstance.navigate({
         to: (providerId ? `/settings/provider/${providerId}` : "/settings/provider") as any,
       });

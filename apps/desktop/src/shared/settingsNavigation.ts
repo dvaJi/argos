@@ -420,6 +420,5 @@ export const resolveSettingsNavigationPath = (
 
       return segment.endsWith("?") ? [] : [key];
     });
-
   return `/${resolvedSegments.join("/")}`;
 };

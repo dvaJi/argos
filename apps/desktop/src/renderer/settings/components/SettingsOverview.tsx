@@ -121,6 +121,7 @@ export default function SettingsOverview() {
 
   const openRoute = useCallback(
     (routeName: SettingsRouteName) => {
+      console.log("Navigating to route:", routeName);
       void router.navigate({ to: resolveSettingsNavigationPath(routeName) });
     },
     [router],

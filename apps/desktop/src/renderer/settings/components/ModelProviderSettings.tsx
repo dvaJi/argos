@@ -198,7 +198,10 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   }, [providerStore.providers, routeProviderId]);
 
   const navigateToProvider = (id: string) => {
-    void router.navigate({ to: `/provider/${id}` as any });
+    
+    const prefix = router.state.location.pathname.startsWith("/settings/") ? "/settings/provider" : "/provider";
+    console.log("Navigating to provider:", `${prefix}/${id}`);
+    void router.navigate({ to: `${prefix}/${id}` as any });
   };
 
   const setActiveProvider = (id: string) => {

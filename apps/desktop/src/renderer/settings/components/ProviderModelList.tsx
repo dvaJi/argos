@@ -88,10 +88,9 @@ export default function ProviderModelList({
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
-  const [filterSort, setFilterSort] = useState<ModelSortKey>("status");
+  const [filterSort, setFilterSort] = useState<ModelSortKey>("name");
   const [selectedCapabilities, setSelectedCapabilities] = useState<ModelCapabilityKey[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<ModelType[]>([]);
-  const [statusSortOrder, setStatusSortOrder] = useState<Record<string, number>>({});
   const [providerBatchPending, setProviderBatchPending] = useState<Record<string, BatchAction | undefined>>({});
 
   const isLoading = isLoadingProp ?? false;
@@ -243,7 +242,7 @@ export default function ProviderModelList({
 
   const statusSortWeight = (model: RENDERER_MODEL_META) => (model.enabled ? 0 : 1);
 
-  useEffect(() => {
+  const statusSortOrder = useMemo(() => {
     const orderedModels = [...allModels].sort((left, right) => {
       const statusDifference = statusSortWeight(left) - statusSortWeight(right);
       if (statusDifference !== 0) return statusDifference;
@@ -253,7 +252,7 @@ export default function ProviderModelList({
     orderedModels.forEach((model, index) => {
       nextOrder[getModelKey(model)] = index;
     });
-    setStatusSortOrder(nextOrder);
+    return nextOrder;
   }, [allModels]);
 
   const sortModels = (models: RENDERER_MODEL_META[]) =>

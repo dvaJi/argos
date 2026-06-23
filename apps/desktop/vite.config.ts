@@ -159,6 +159,8 @@ export default defineConfig(({ mode }) => {
       tanstackRouter({
         target: 'react',
         autoCodeSplitting: true,
+        routesDirectory: resolve('src/renderer/src/routes'),
+        generatedRouteTree: resolve('src/renderer/src/routeTree.gen.ts'),
       }),
       tailwindcss(),
       monacoEditorPlugin({
