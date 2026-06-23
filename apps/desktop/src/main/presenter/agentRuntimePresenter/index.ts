@@ -4226,7 +4226,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     traceDebugEnabled: boolean;
   }): void {
     try {
-      const sourceMaps = this.tapeService.getViewManifestSourceMaps(params.sessionId, params.messageId);
+      const sourceMaps = this.tapeService.getViewManifestSourceMaps(params.sessionId);
       const parentViewId =
         this.lastManifestViewIds.get(params.sessionId) ?? this.tapeService.getLastViewManifestId(params.sessionId);
       const manifest = createTapeViewManifest({
