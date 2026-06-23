@@ -290,8 +290,9 @@ export class ArgosTapeService {
       const row = rows[i];
       if (row.kind === "event" && row.name === TAPE_VIEW_MANIFEST_EVENT_NAME) {
         const meta = parseJsonObject(row.meta_json);
-        const viewId = meta.viewId;
-        return typeof viewId === "string" ? viewId : null;
+        if (typeof meta.viewId === "string") {
+          return meta.viewId;
+        }
       }
     }
     return null;

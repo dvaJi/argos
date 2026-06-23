@@ -452,6 +452,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     this.toolProfileCache.delete(sessionId);
     this.sessionCompactionStates.delete(sessionId);
     this.drainingPendingQueues.delete(sessionId);
+    this.lastManifestViewIds.delete(sessionId);
     this.toolPresenter?.clearConversationToolMapping?.(sessionId);
   }
 
@@ -837,7 +838,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
           contextLength: contextBudgetLength,
           requestedMaxTokens: maxTokens,
           effectiveMaxTokens: maxTokens,
-          reserveTokens: toolReserveTokens,
+          reserveTokens: maxTokens,
           toolReserveTokens,
         },
         providerId: state.providerId,
@@ -4225,7 +4226,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   }): void {
     try {
       const sourceMaps = this.tapeService.getViewManifestSourceMaps(params.sessionId);
-      const parentViewId = this.lastManifestViewIds.get(params.sessionId) ?? null;
+      const parentViewId =
+        this.lastManifestViewIds.get(params.sessionId) ?? this.tapeService.getLastViewManifestId(params.sessionId);
       const manifest = createTapeViewManifest({
         sessionId: params.sessionId,
         messageId: params.messageId,
@@ -4247,8 +4249,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         supportsAudioInput: params.supportsAudioInput,
         traceDebugEnabled: params.traceDebugEnabled,
       });
-      this.tapeService.appendViewManifest(manifest);
-      this.lastManifestViewIds.set(params.sessionId, manifest.viewId);
+      const persisted = this.tapeService.appendViewManifest(manifest);
+      if (persisted) {
+        this.lastManifestViewIds.set(params.sessionId, manifest.viewId);
+      }
     } catch (error) {
       console.warn(
         `[ArgosAgent] Failed to persist tape view manifest: ${error instanceof Error ? error.message : String(error)}`,
