@@ -498,7 +498,8 @@ describe("ArgosTapeService", () => {
     const effectiveRecord = service.getMessageRecords("s1")[0]!;
     expect(JSON.parse(effectiveRecord.content)[0].tool_call.response).toBe("final result");
     expect(entries.filter((entry) => entry.kind === "message" && entry.name === "message/assistant")).toHaveLength(2);
-    expect(entries.filter((entry) => entry.kind === "tool_result")).toHaveLength(2);
+    // Pending tool calls are not recorded as tape facts — only success/error blocks are.
+    expect(entries.filter((entry) => entry.kind === "tool_result")).toHaveLength(1);
     const finalToolResult = entries.filter((entry) => entry.kind === "tool_result").at(-1)!;
     expect(JSON.parse(finalToolResult.payload_json).response).toBe("final result");
     expect(service.info("s1").lastTokenUsage).toBe(7);
