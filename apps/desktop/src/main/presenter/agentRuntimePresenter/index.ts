@@ -77,6 +77,7 @@ import {
   createTapeViewManifest,
   buildIncludedRefs,
   buildExcludedRefs,
+  buildRequestRefs,
   type TapeViewContextSelection,
 } from "./tapeViewManifest";
 import {
@@ -4239,7 +4240,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         tools: params.tools,
         latestEntryId: sourceMaps.latestEntryId,
         anchorEntryIds: sourceMaps.anchorEntryIds,
-        included: params.selection ? buildIncludedRefs(params.selection, sourceMaps) : [],
+        included: params.selection
+          ? buildIncludedRefs(params.selection, sourceMaps)
+          : buildRequestRefs(params.messages, sourceMaps),
         excluded: params.selection ? buildExcludedRefs(params.selection, sourceMaps) : [],
         tokenBudget: params.tokenBudget,
         providerId: params.providerId,
