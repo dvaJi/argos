@@ -1605,10 +1605,11 @@ export class AgentSessionPresenter {
       if (row.kind !== "event" || row.name !== TAPE_VIEW_MANIFEST_EVENT_NAME) continue;
       try {
         const payload = JSON.parse(row.payload_json) as { data?: { manifest?: unknown } };
-        const manifest = payload.data?.manifest;
-        if (!manifest || typeof manifest !== "object") continue;
+        const manifest = payload.data?.manifest as Record<string, unknown> | undefined;
+        if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) continue;
+        if (typeof manifest.messageId !== "string" || typeof manifest.requestSeq !== "number") continue;
         const meta = JSON.parse(row.meta_json) as Record<string, unknown>;
-        const m = manifest as ArgosTapeViewManifest;
+        const m = manifest as unknown as ArgosTapeViewManifest;
         records.push({
           sessionId: row.session_id,
           messageId: m.messageId,

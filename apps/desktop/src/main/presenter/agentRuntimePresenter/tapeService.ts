@@ -367,18 +367,22 @@ export class ArgosTapeService {
       }
       const payload = parseJsonObject(row.payload_json);
       const data = payload.data as Record<string, unknown> | undefined;
-      const manifest = data?.manifest as ArgosTapeViewManifest | undefined;
-      if (!manifest || typeof manifest !== "object") {
+      const manifest = data?.manifest as Record<string, unknown> | undefined;
+      if (!manifest || typeof manifest !== "object" || Array.isArray(manifest)) {
         continue;
       }
+      if (typeof manifest.messageId !== "string" || typeof manifest.requestSeq !== "number") {
+        continue;
+      }
+      const m = manifest as unknown as ArgosTapeViewManifest;
       const meta = parseJsonObject(row.meta_json);
       records.push({
         sessionId: row.session_id,
-        messageId: manifest.messageId,
-        requestSeq: manifest.requestSeq,
+        messageId: m.messageId,
+        requestSeq: m.requestSeq,
         entryId: row.entry_id,
         createdAt: row.created_at,
-        manifest: manifest as ArgosTapeViewManifest,
+        manifest: m,
         integrity:
           typeof meta.integrity === "string" ? (meta.integrity as "valid" | "invalid" | "unverified") : "unverified",
       });

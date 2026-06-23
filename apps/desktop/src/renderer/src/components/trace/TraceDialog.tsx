@@ -316,7 +316,10 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
                         <div>
                           <div className="font-semibold text-foreground mb-1">Included</div>
                           {selectedManifest.manifest.included.map((ref, i) => (
-                            <div key={i} className="flex items-center gap-2 pl-2 text-muted-foreground">
+                            <div
+                              key={`${ref.entryId ?? "n"}-${ref.orderSeq ?? i}`}
+                              className="flex items-center gap-2 pl-2 text-muted-foreground"
+                            >
                               <Badge variant="outline" className="text-[10px] px-1.5">
                                 {ref.role ?? "—"}
                               </Badge>
@@ -333,7 +336,10 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
                         <div>
                           <div className="font-semibold text-foreground mb-1">Excluded</div>
                           {selectedManifest.manifest.excluded.map((ref, i) => (
-                            <div key={i} className="flex items-center gap-2 pl-2 text-muted-foreground">
+                            <div
+                              key={`${ref.entryId ?? "n"}-${ref.orderSeq ?? i}`}
+                              className="flex items-center gap-2 pl-2 text-muted-foreground"
+                            >
                               <Badge variant="outline" className="text-[10px] px-1.5">
                                 {ref.reason}
                               </Badge>
