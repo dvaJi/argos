@@ -1368,7 +1368,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       if (remainingPending.length > 0) {
         emitResolvedToolHook?.();
         this.messageStore.updateMessageStatus(messageId, "pending");
-        this.setSessionStatus(sessionId, "blocked", "tool_permission");
+        const firstPendingType = remainingPending[0].interaction.type;
+        const reason = firstPendingType === "question" ? "user_input" : "tool_permission";
+        this.setSessionStatus(sessionId, "blocked", reason);
         return { resumed: false };
       }
 
@@ -2025,6 +2027,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     if (state.status !== "idle" && state.status !== "done" && state.status !== "blocked") {
       throw new Error("Manual compaction is only available when the session is idle, done, or blocked.");
     }
+    if (this.activeGenerations.has(sessionId)) {
+      throw new Error("Cannot compact session while a generation is in progress.");
+    }
     if (this.hasPendingInteractions(sessionId)) {
       throw new Error("Pending tool interactions must be resolved before compacting.");
     }
@@ -2333,6 +2338,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         projectDir,
       });
 
+      // oxlint-disable-next-line typescript/no-this-alias
       const self = this;
       const result = await processStream({
         messages,
@@ -2686,7 +2692,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
           const currentStatus = (await this.getSessionState(sessionId))?.status;
           if (
             this.pendingInputCoordinator.hasPendingTurnInput(sessionId) &&
-            (currentStatus === "idle" || currentStatus === "done" || currentStatus === "blocked") &&
+            (currentStatus === "idle" || currentStatus === "done" || (currentStatus === "blocked" && !this.activeGenerations.has(sessionId))) &&
             !this.hasPendingInteractions(sessionId)
           ) {
             void this.drainPendingQueueIfPossible(sessionId, "completed");
@@ -2721,6 +2727,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       return false;
     }
     if (this.drainingPendingQueues.has(sessionId)) {
+      return false;
+    }
+    if (status === "blocked" && this.activeGenerations.has(sessionId)) {
       return false;
     }
     return true;
@@ -5361,11 +5370,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
   }
 
-  private setSessionStatus(
-    sessionId: string,
-    status: ArgosSessionState["status"],
-    reason?: string,
-  ): void {
+  private setSessionStatus(sessionId: string, status: ArgosSessionState["status"], reason?: string): void {
     const current = this.runtimeState.get(sessionId);
     if (!current) {
       return;
@@ -5374,16 +5379,14 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       return;
     }
     current.status = status;
-    eventBus.sendToRenderer(SESSION_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
-      sessionId,
-      status,
-      reason,
-    });
+    const statusPayload: { sessionId: string; status: string; reason?: string } = { sessionId, status };
+    if (reason) statusPayload.reason = reason;
+    eventBus.sendToRenderer(SESSION_EVENTS.STATUS_CHANGED, SendTarget.ALL_WINDOWS, statusPayload);
     publishArgosEvent("sessions.status.changed", {
       sessionId,
       status,
       version: Date.now(),
-      reason,
+      ...(reason ? { reason } : {}),
     });
     publishArgosEvent("sessions.updated", {
       sessionIds: [sessionId],

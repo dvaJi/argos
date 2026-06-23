@@ -53,7 +53,7 @@ export default function WindowSideBarSessionItem({
   const statusIcon: SessionStatusIcon = useMemo(() => {
     if (session.status === "completed") return { icon: "lucide:check", className: "text-green-500" };
     if (session.status === "error") return { icon: "lucide:alert-circle", className: "text-destructive" };
-    if (session.status === "blocked") return { icon: "lucide:clock", className: "text-yellow-500 animate-pulse" };
+    if (session.status === "blocked") return { icon: "lucide:clock", className: "text-yellow-500 motion-safe:animate-pulse" };
     if (session.status === "new_results") return { icon: "lucide:circle-dot", className: "text-blue-500" };
     return null;
   }, [session.status]);
