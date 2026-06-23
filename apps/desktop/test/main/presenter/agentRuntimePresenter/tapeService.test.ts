@@ -5,6 +5,10 @@ import {
   appendMessageReplacementToTape,
   appendMessageRetractionToTape,
 } from "@/presenter/agentRuntimePresenter/tapeFacts";
+import {
+  createTapeViewManifest,
+  TAPE_VIEW_MANIFEST_EVENT_NAME,
+} from "@/presenter/agentRuntimePresenter/tapeViewManifest";
 import type { ChatMessageRecord } from "@shared/types/agent-interface";
 
 function createTapeTableMock() {
@@ -604,5 +608,102 @@ describe("ArgosTapeService", () => {
     const retractions = entries.filter((entry) => entry.name === "message/retracted");
     expect(retractions).toHaveLength(2);
     expect(retractions.map((entry) => entry.provenance_key)).toEqual([null, null]);
+  });
+});
+
+describe("ArgosTapeService — view manifest", () => {
+  function makeManifest(overrides: Record<string, unknown> = {}) {
+    return createTapeViewManifest({
+      sessionId: "s1",
+      messageId: "msg-1",
+      requestSeq: 1,
+      taskType: "chat",
+      policy: "legacy_context_v1",
+      messages: [{ role: "system", content: "prompt" }],
+      tools: [],
+      latestEntryId: 0,
+      anchorEntryIds: [],
+      included: [],
+      excluded: [],
+      tokenBudget: {
+        contextLength: 8000,
+        requestedMaxTokens: 4000,
+        effectiveMaxTokens: 4000,
+        reserveTokens: 500,
+        toolReserveTokens: 0,
+      },
+      providerId: "openai",
+      modelId: "gpt-4",
+      summaryCursorOrderSeq: 1,
+      supportsVision: false,
+      supportsAudioInput: false,
+      traceDebugEnabled: false,
+      assembledAt: 1000,
+      ...overrides,
+    });
+  }
+
+  it("appendViewManifest persists as an event entry with the manifest data", () => {
+    const { table, entries } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+    table.ensureBootstrapAnchor("s1");
+    const manifest = makeManifest();
+
+    service.appendViewManifest(manifest);
+
+    const eventEntry = entries.find((e) => e.kind === "event");
+    expect(eventEntry).toBeDefined();
+    expect(eventEntry.name).toBe(TAPE_VIEW_MANIFEST_EVENT_NAME);
+    expect(JSON.parse(eventEntry.payload_json).data.manifest.viewId).toBe(manifest.viewId);
+    expect(JSON.parse(eventEntry.meta_json).viewId).toBe(manifest.viewId);
+  });
+
+  it("getLastViewManifestId returns the most recent manifest viewId", () => {
+    const { table, entries } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+
+    table.ensureBootstrapAnchor("s1");
+    const manifest1 = makeManifest({ messageId: "msg-1", assembledAt: 1000 });
+    service.appendViewManifest(manifest1);
+    const manifest2 = makeManifest({ messageId: "msg-2", requestSeq: 2, assembledAt: 2000 });
+    service.appendViewManifest(manifest2);
+
+    expect(service.getLastViewManifestId("s1")).toBe(manifest2.viewId);
+  });
+
+  it("getLastViewManifestId returns null when no manifests exist", () => {
+    const { table } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+    table.ensureBootstrapAnchor("s1");
+
+    expect(service.getLastViewManifestId("s1")).toBeNull();
+  });
+
+  it("getViewManifestSourceMaps maps message entry IDs and anchors", () => {
+    const { table } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+
+    table.ensureBootstrapAnchor("s1");
+    // Simulate a message tape entry
+    table.append({
+      sessionId: "s1",
+      kind: "message",
+      name: "message/user",
+      source: { type: "message", id: "msg-1", seq: 1 },
+      payload: { text: "hello" },
+    });
+
+    const maps = service.getViewManifestSourceMaps("s1");
+    expect(maps.entryIdByMessageId.get("msg-1")).toBeDefined();
+    expect(maps.anchorEntryIds.length).toBeGreaterThanOrEqual(1);
+    expect(maps.latestEntryId).toBeGreaterThanOrEqual(2);
+  });
+
+  it("getViewManifestSourceMaps returns empty maps when table is unavailable", () => {
+    const service = new ArgosTapeService({ argosTapeEntriesTable: undefined } as any);
+    const maps = service.getViewManifestSourceMaps("s1");
+    expect(maps.latestEntryId).toBe(0);
+    expect(maps.anchorEntryIds).toEqual([]);
+    expect(maps.entryIdByMessageId.size).toBe(0);
   });
 });

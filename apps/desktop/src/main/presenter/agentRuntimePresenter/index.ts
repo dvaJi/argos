@@ -72,7 +72,13 @@ import type { ArgosTapeEntryRow } from "../sqlitePresenter/tables/argosTapeEntri
 import { eventBus, SendTarget } from "@/eventbus";
 import { MCP_EVENTS, SESSION_EVENTS, STREAM_EVENTS } from "@/events";
 import { buildRuntimeCapabilitiesPrompt, buildSystemEnvPrompt } from "@/lib/agentRuntime/systemEnvPromptBuilder";
-import { buildContext, buildResumeContext, isContextHistoryRecord } from "./contextBuilder";
+import { buildContextWithMetadata, buildResumeContext, isContextHistoryRecord } from "./contextBuilder";
+import {
+  createTapeViewManifest,
+  buildIncludedRefs,
+  buildExcludedRefs,
+  type TapeViewContextSelection,
+} from "./tapeViewManifest";
 import {
   capAgentDefaultMaxTokens,
   capAgentRequestMaxTokens,
@@ -286,6 +292,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   private readonly interactionLocks: Set<string> = new Set();
   private readonly resumingMessages: Set<string> = new Set();
   private readonly drainingPendingQueues: Set<string> = new Set();
+  private readonly lastManifestViewIds: Map<string, string> = new Map();
   private readonly activeProviderPermissions: Map<string, ActiveProviderPermission> = new Map();
   private readonly compactionService: CompactionService;
   private readonly toolOutputGuard: ToolOutputGuard;
@@ -445,6 +452,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     this.toolProfileCache.delete(sessionId);
     this.sessionCompactionStates.delete(sessionId);
     this.drainingPendingQueues.delete(sessionId);
+    this.lastManifestViewIds.delete(sessionId);
     this.toolPresenter?.clearConversationToolMapping?.(sessionId);
   }
 
@@ -796,7 +804,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         appendSummarySection(baseSystemPrompt, summaryState.summaryText),
         this.sessionStore.getReconstructionAnchorPromptState(sessionId),
       );
-      const messages = buildContext(
+      const contextResult = buildContextWithMetadata(
         sessionId,
         normalizedInput,
         systemPrompt,
@@ -813,10 +821,38 @@ export class AgentRuntimePresenter implements IAgentImplementation {
           preserveEmptyInterleavedReasoning: interleavedReasoning.preserveEmptyReasoningContent === true,
         },
       );
+      const messages = contextResult.messages;
 
       const assistantOrderSeq = this.messageStore.getNextOrderSeq(sessionId);
       assistantMessageId = this.messageStore.createAssistantMessage(sessionId, assistantOrderSeq);
       this.throwIfAbortRequested(preStreamAbortSignal);
+
+      this.appendTapeViewManifest({
+        sessionId,
+        messageId: assistantMessageId,
+        requestSeq: assistantOrderSeq,
+        taskType: "chat",
+        messages,
+        tools,
+        tokenBudget: {
+          contextLength: contextBudgetLength,
+          requestedMaxTokens: maxTokens,
+          effectiveMaxTokens: maxTokens,
+          reserveTokens: maxTokens,
+          toolReserveTokens,
+        },
+        providerId: state.providerId,
+        modelId: state.modelId,
+        selection: {
+          includedRecords: contextResult.metadata.includedRecords,
+          excludedRecords: contextResult.metadata.excludedRecords,
+          includesSystemPrompt: contextResult.metadata.includesSystemPrompt,
+        },
+        summaryCursorOrderSeq: summaryState.summaryCursorOrderSeq,
+        supportsVision,
+        supportsAudioInput,
+        traceDebugEnabled: this.configPresenter.getSetting<boolean>("traceDebugEnabled") === true,
+      });
 
       if (context?.pendingQueueItemId && pendingInputSource === "send") {
         this.pendingInputCoordinator.consumeQueuedInput(sessionId, context.pendingQueueItemId);
@@ -4163,6 +4199,64 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       return { text, files };
     } catch {
       return { text: content, files: [] };
+    }
+  }
+
+  private appendTapeViewManifest(params: {
+    sessionId: string;
+    messageId: string;
+    requestSeq: number;
+    taskType: "chat" | "resume" | "tool_loop";
+    messages: ChatMessage[];
+    tools: MCPToolDefinition[];
+    tokenBudget: {
+      contextLength: number;
+      requestedMaxTokens: number;
+      effectiveMaxTokens: number;
+      reserveTokens: number;
+      toolReserveTokens: number;
+    };
+    providerId: string;
+    modelId: string;
+    selection?: TapeViewContextSelection;
+    summaryCursorOrderSeq: number;
+    supportsVision: boolean;
+    supportsAudioInput: boolean;
+    traceDebugEnabled: boolean;
+  }): void {
+    try {
+      const sourceMaps = this.tapeService.getViewManifestSourceMaps(params.sessionId);
+      const parentViewId =
+        this.lastManifestViewIds.get(params.sessionId) ?? this.tapeService.getLastViewManifestId(params.sessionId);
+      const manifest = createTapeViewManifest({
+        sessionId: params.sessionId,
+        messageId: params.messageId,
+        requestSeq: params.requestSeq,
+        taskType: params.taskType,
+        policy: "legacy_context_v1",
+        parentViewId,
+        messages: params.messages,
+        tools: params.tools,
+        latestEntryId: sourceMaps.latestEntryId,
+        anchorEntryIds: sourceMaps.anchorEntryIds,
+        included: params.selection ? buildIncludedRefs(params.selection, sourceMaps) : [],
+        excluded: params.selection ? buildExcludedRefs(params.selection, sourceMaps) : [],
+        tokenBudget: params.tokenBudget,
+        providerId: params.providerId,
+        modelId: params.modelId,
+        summaryCursorOrderSeq: params.summaryCursorOrderSeq,
+        supportsVision: params.supportsVision,
+        supportsAudioInput: params.supportsAudioInput,
+        traceDebugEnabled: params.traceDebugEnabled,
+      });
+      const persisted = this.tapeService.appendViewManifest(manifest);
+      if (persisted) {
+        this.lastManifestViewIds.set(params.sessionId, manifest.viewId);
+      }
+    } catch (error) {
+      console.warn(
+        `[ArgosAgent] Failed to persist tape view manifest: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
