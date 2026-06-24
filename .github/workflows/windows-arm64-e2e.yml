@@ -49,7 +49,6 @@ jobs:
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --win --arm64 --publish=never
         env:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
-          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: win32

@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build", "typecheck"],
       "outputs": ["out/**"],
-      "env": ["VITE_GITHUB_CLIENT_ID", "VITE_GITHUB_CLIENT_SECRET", "VITE_GITHUB_REDIRECT_URI", "VITE_PROVIDER_DB_URL"],
+      "env": ["VITE_GITHUB_CLIENT_ID", "VITE_GITHUB_REDIRECT_URI", "VITE_PROVIDER_DB_URL"],
       "passThroughEnv": ["NODE_OPTIONS"]
     },
     "packaging:validate": {

@@ -140,7 +140,6 @@ jobs:
           pnpm run packaging:validate
         env:
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
-          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
 
@@ -197,7 +196,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
-          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: win32
@@ -259,7 +257,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
-          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
@@ -335,7 +332,6 @@ jobs:
           build_for_release: '2'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
-          VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
           NODE_OPTIONS: '--max-old-space-size=4096'
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
