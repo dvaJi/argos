@@ -1,8 +1,8 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, shell } from "electron";
 import { presenter } from ".";
 import * as http from "http";
 import { URL } from "url";
-import { createGitHubCopilotOAuth } from "./githubCopilotOAuth";
+import { createGitHubCopilotOAuth, GitHubCopilotOAuth } from "./githubCopilotOAuth";
 import { getGlobalGitHubCopilotDeviceFlow } from "./githubCopilotDeviceFlow";
 import { eventBus } from "@/eventbus";
 
@@ -15,10 +15,29 @@ export interface OAuthConfig {
   responseType: string;
 }
 
+/** A pending traditional-flow login, resolved when the `argos://auth/callback` deep link arrives. */
+interface PendingGitHubAuth {
+  providerId: string;
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+/** Payload delivered by the `argos://auth/callback` deep link. */
+export interface GitHubAuthCallbackPayload {
+  token?: string;
+  state?: string;
+  error?: string;
+}
+
+const GITHUB_OAUTH_TIMEOUT_MS = 300000; // 5 minutes
+
 export class OAuthPresenter {
   private authWindow: BrowserWindow | null = null;
   private callbackServer: http.Server | null = null;
   private callbackPort = 3000;
+  /** Pending traditional OAuth logins, keyed by the CSRF `state` nonce. */
+  private pendingGitHubAuths = new Map<string, PendingGitHubAuth>();
 
   /**
    * Validate GitHub access token
@@ -85,80 +104,86 @@ export class OAuthPresenter {
   }
 
   /**
-   * Start GitHub Copilot OAuth login process (traditional method)
+   * Start GitHub Copilot OAuth login process (traditional method).
+   *
+   * Opens the system browser to GitHub's authorize page. GitHub redirects to
+   * the landing page relay (`argos.aipurrjects.xyz/auth/github/callback`),
+   * which exchanges the code for a token server-side and redirects back to
+   * `argos://auth/callback`. That deep link resolves the pending promise via
+   * {@link completeGitHubAuthFromDeepLink}. The client secret never lives in
+   * the desktop binary.
    */
   async startGitHubCopilotLogin(providerId: string): Promise<boolean> {
     try {
-      console.log("[GitHub Copilot][OAuth] Starting traditional OAuth login for provider:", providerId);
+      console.log("[GitHub Copilot][OAuth] Starting OAuth login for provider:", providerId);
 
-      // Use the dedicated GitHub Copilot OAuth implementation
-      console.log("[GitHub Copilot][OAuth] Creating GitHub OAuth instance...");
       const provider = presenter.configPresenter.getProviderById(providerId);
       const githubOAuth = createGitHubCopilotOAuth(provider?.copilotClientId);
+      const state = GitHubCopilotOAuth.generateState();
+      const authUrl = githubOAuth.buildAuthUrl(state);
 
-      // Start the OAuth login
-      console.log("[GitHub Copilot][OAuth] Starting OAuth login flow...");
-      const authCode = await githubOAuth.startLogin();
-      console.log(
-        "[GitHub Copilot][OAuth] OAuth login completed, auth code received:",
-        authCode ? "SUCCESS" : "FAILED",
-      );
+      // Wait for the relay deep link to deliver the token.
+      const accessToken = await new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          this.pendingGitHubAuths.delete(state);
+          reject(new Error("Authorization timeout"));
+        }, GITHUB_OAUTH_TIMEOUT_MS);
+        this.pendingGitHubAuths.set(state, { providerId, resolve, reject, timer });
 
-      if (!authCode) {
-        throw new Error("Failed to obtain authorization code");
-      }
-
-      console.log("[GitHub Copilot][OAuth] Auth code received successfully");
-
-      // Exchange the authorization code for an access token
-      console.log("[GitHub Copilot][OAuth] Exchanging auth code for access token...");
-      const accessToken = await githubOAuth.exchangeCodeForToken(authCode);
-      console.log(
-        "[GitHub Copilot][OAuth] Token exchange completed, access token received:",
-        accessToken ? "SUCCESS" : "FAILED",
-      );
-
-      if (accessToken) {
-        console.log("[GitHub Copilot][OAuth] Access token received successfully");
-      }
+        console.log("[GitHub Copilot][OAuth] Opening system browser for authorization…");
+        void shell.openExternal(authUrl);
+      });
 
       // Validate token
-      console.log("[GitHub Copilot][OAuth] Validating access token...");
       const isValid = await githubOAuth.validateToken(accessToken);
-      console.log("[GitHub Copilot][OAuth] Token validation result:", isValid);
-
       if (!isValid) {
-        console.error("[GitHub Copilot][OAuth] Token validation failed - token is invalid");
         throw new Error("The obtained access token is invalid");
       }
 
       // Save the access token to the provider configuration
-      console.log("[GitHub Copilot][OAuth] Saving access token to provider configuration...");
       if (provider) {
         provider.apiKey = accessToken;
         presenter.configPresenter.setProviderById(providerId, provider);
-        console.log("[GitHub Copilot][OAuth] Access token saved successfully to provider:", providerId);
-        console.log("[GitHub Copilot][OAuth] Traditional OAuth login completed successfully");
-
-        // Emit a provider-updated event so the renderer refreshes the UI
+        console.log("[GitHub Copilot][OAuth] Login completed successfully for provider:", providerId);
         eventBus.emit("providerUpdated", { providerId });
       } else {
-        console.error("[GitHub Copilot][OAuth] Provider not found:", providerId);
         throw new Error(`Provider ${providerId} not found`);
       }
 
       return true;
     } catch (error) {
-      console.error("[GitHub Copilot][OAuth][ERROR] Traditional OAuth login failed:");
-      console.error(
-        "[GitHub Copilot][OAuth][ERROR] Error type:",
-        error instanceof Error ? error.constructor.name : typeof error,
-      );
-      console.error("[GitHub Copilot][OAuth][ERROR] Error message:", error instanceof Error ? error.message : error);
-      if (error instanceof Error && error.stack) {
-        console.error("[GitHub Copilot][OAuth][ERROR] Stack trace:", error.stack);
-      }
+      console.error("[GitHub Copilot][OAuth] Login failed:", error instanceof Error ? error.message : error);
       return false;
+    }
+  }
+
+  /**
+   * Complete a traditional OAuth login from the `argos://auth/callback` deep link.
+   *
+   * Called by the DeeplinkPresenter when the landing page relay redirects back
+   * with the access token (or an error). Matches the pending `state` nonce for
+   * CSRF protection.
+   */
+  completeGitHubAuthFromDeepLink(payload: GitHubAuthCallbackPayload): void {
+    const state = payload.state;
+    if (!state) {
+      console.warn("[GitHub Copilot][OAuth] Deep-link callback missing state");
+      return;
+    }
+    const pending = this.pendingGitHubAuths.get(state);
+    if (!pending) {
+      console.warn("[GitHub Copilot][OAuth] No pending auth for state (expired, already used, or unknown)");
+      return;
+    }
+    this.pendingGitHubAuths.delete(state);
+    clearTimeout(pending.timer);
+
+    if (payload.error) {
+      pending.reject(new Error(`GitHub authorization failed: ${payload.error}`));
+    } else if (payload.token) {
+      pending.resolve(payload.token);
+    } else {
+      pending.reject(new Error("No access token received from callback"));
     }
   }
 

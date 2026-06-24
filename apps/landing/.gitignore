@@ -4,4 +4,5 @@ dist
 node_modules
 *.log*
 .turbo
+worker-configuration.d.ts
 .vite

@@ -442,6 +442,8 @@ export interface IOAuthPresenter {
   startOAuthLogin(providerId: string, config: OAuthConfig): Promise<boolean>;
   startGitHubCopilotLogin(providerId: string): Promise<boolean>;
   startGitHubCopilotDeviceFlowLogin(providerId: string): Promise<boolean>;
+  /** Resolve a pending traditional OAuth login from the `argos://auth/callback` deep link. */
+  completeGitHubAuthFromDeepLink(payload: { token?: string; state?: string; error?: string }): void;
 }
 
 export interface OAuthConfig {

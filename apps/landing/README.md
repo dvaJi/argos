@@ -44,6 +44,27 @@ The Worker serves the custom domain **argos.aipurrjects.xyz** (configured via
 domain DNS record automatically — make sure the `aipurrjects.xyz` zone is active
 in your Cloudflare account.
 
+## GitHub OAuth relay
+
+`GET /auth/github/callback` is a stateless relay that finishes GitHub Copilot's
+traditional OAuth flow for the desktop app: it exchanges GitHub's authorization
+`code` for an `access_token` **server-side**, then redirects to
+`argos://auth/callback?token=...` so the running desktop app receives the token.
+
+The `client_secret` never ships in the desktop binary — it lives only on the
+Worker. Configure it once:
+
+```bash
+pnpm --filter @argos/landing exec wrangler secret put GITHUB_CLIENT_SECRET
+```
+
+`GITHUB_CLIENT_ID` and `OAUTH_DEEPLINK_SCHEME` are public `vars` in
+`wrangler.jsonc`. Regenerate runtime types after changing them:
+
+```bash
+pnpm --filter @argos/landing cf-typegen
+```
+
 ## Project layout
 
 ```

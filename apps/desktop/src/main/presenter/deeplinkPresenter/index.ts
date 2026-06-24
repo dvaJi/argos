@@ -118,6 +118,13 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
         } else {
           console.warn("Unknown provider subcommand:", subCommand);
         }
+      } else if (command === "auth") {
+        // Handle auth/callback command (GitHub OAuth relay hand-off)
+        if (subCommand === "callback") {
+          await this.handleAuthCallback(urlObj.searchParams);
+        } else {
+          console.warn("Unknown auth subcommand:", subCommand);
+        }
       } else {
         console.warn("Unknown DeepLink command:", command);
       }
@@ -185,6 +192,22 @@ export class DeeplinkPresenter implements IDeeplinkPresenter {
       mentions,
       autoSend,
     });
+  }
+
+  /**
+   * Handle `argos://auth/callback` — the hand-off from the landing page OAuth
+   * relay. The token/state/error are forwarded to the OAuthPresenter, which
+   * matches the pending CSRF state and stores the token. The token value is
+   * never logged.
+   */
+  async handleAuthCallback(params: URLSearchParams): Promise<void> {
+    console.log("[DeepLink] Processing auth/callback (params redacted)");
+
+    const token = params.get("token") ?? undefined;
+    const state = params.get("state") ?? undefined;
+    const error = params.get("error") ?? undefined;
+
+    presenter.oauthPresenter.completeGitHubAuthFromDeepLink({ token, state, error });
   }
 
   private async resolveChatWindow(): Promise<BrowserWindow | null> {
