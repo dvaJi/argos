@@ -1,5 +1,5 @@
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
-const WEBSITE_URL = "https://argos.aipurrjects.com/#/download";
+const WEBSITE_URL = "https://argos.aipurrjects.xyz/#/download";
 
 type Platform = {
   name: string;
@@ -94,7 +94,7 @@ export function Download() {
           <p className="text-center text-sm text-slate-400">
             Prefer the official website?{" "}
             <a href={WEBSITE_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-              Download from argos.aipurrjects.com
+              Download from argos.aipurrjects.xyz
             </a>
           </p>
         </div>

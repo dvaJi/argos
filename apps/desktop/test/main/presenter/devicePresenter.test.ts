@@ -32,7 +32,7 @@ describe("DevicePresenter", () => {
     it("should include HTTP-Referer and X-Title headers", () => {
       const headers = DevicePresenter.getDefaultHeaders();
 
-      expect(headers["HTTP-Referer"]).toBe("https://argos.aipurrjects.com");
+      expect(headers["HTTP-Referer"]).toBe("https://argos.aipurrjects.xyz");
       expect(headers["X-Title"]).toBe("Argos");
     });
   });

@@ -93,7 +93,7 @@ For a full list with icons, see the in-app **Settings → Model Providers**.
 
 **Option 1: GitHub Releases** — Grab the latest build for your system from [GitHub Releases](https://github.com/dvaJi/argos/releases): Windows `.exe`, macOS `.dmg`, or Linux `.AppImage` / `.deb`.
 
-**Option 2: Official Website** — Download from [argos.aipurrjects.com](https://argos.aipurrjects.com/#/download).
+**Option 2: Official Website** — Download from [argos.aipurrjects.xyz](https://argos.aipurrjects.xyz/#/download).
 
 **Option 3: Homebrew (macOS)**
 

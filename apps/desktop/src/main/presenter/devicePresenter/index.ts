@@ -53,7 +53,7 @@ export class DevicePresenter implements IDevicePresenter {
   static getDefaultHeaders(): Record<string, string> {
     const version = app.getVersion();
     return {
-      "HTTP-Referer": "https://argos.aipurrjects.com",
+      "HTTP-Referer": "https://argos.aipurrjects.xyz",
       "X-Title": "Argos",
       "User-Agent": `Argos/${version}`,
     };

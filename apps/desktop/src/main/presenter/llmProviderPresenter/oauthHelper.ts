@@ -127,7 +127,7 @@ export class OAuthHelper {
 // GitHub Copilot OAuth configuration
 export const GITHUB_COPILOT_OAUTH_CONFIG: OAuthConfig = {
   authUrl: "https://github.com/login/oauth/authorize",
-  redirectUri: process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.com/auth/github/callback",
+  redirectUri: process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.xyz/auth/github/callback",
   clientId: process.env.VITE_GITHUB_CLIENT_ID || "",
   scope: "read:user read:org",
   responseType: "code",

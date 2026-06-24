@@ -376,7 +376,7 @@ export class OAuthPresenter {
       this.authWindow.webContents.on("did-navigate", (_event, navigationUrl) => {
         console.log("OAuth window navigated to:", navigationUrl);
         // If navigated to our callback page, authorization flow is complete
-        if (navigationUrl.includes("argos.aipurrjects.com/auth/github/callback")) {
+        if (navigationUrl.includes("argos.aipurrjects.xyz/auth/github/callback")) {
           // Close authorization window as callback server handles remaining logic
           setTimeout(() => {
             this.closeAuthWindow();
@@ -450,7 +450,7 @@ export class OAuthPresenter {
 // GitHub Copilot OAuth configuration
 export const GITHUB_COPILOT_OAUTH_CONFIG: OAuthConfig = {
   authUrl: "https://github.com/login/oauth/authorize",
-  redirectUri: process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.com/auth/github/callback",
+  redirectUri: process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.xyz/auth/github/callback",
   clientId: process.env.VITE_GITHUB_CLIENT_ID || "",
   clientSecret: process.env.VITE_GITHUB_CLIENT_SECRET,
   scope: "read:user read:org",

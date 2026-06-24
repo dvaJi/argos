@@ -50,7 +50,7 @@ export abstract class BaseLLMProvider {
   protected readonly mcpRuntime?: ProviderMcpRuntimePort;
 
   protected defaultHeaders: Record<string, string> = {
-    "HTTP-Referer": "https://argos.aipurrjects.com",
+    "HTTP-Referer": "https://argos.aipurrjects.xyz",
     "X-Title": "Argos",
   };
 
