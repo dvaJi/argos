@@ -276,6 +276,7 @@ jobs:
             !dist/linux-unpacked
 
   build-mac:
+    if: false # macOS build temporarily disabled — code signing/notarization not ready
     needs: [resolve-tag, preflight]
     runs-on: macos-15
     strategy:
@@ -365,7 +366,6 @@ jobs:
       - resolve-tag
       - build-windows
       - build-linux
-      - build-mac
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

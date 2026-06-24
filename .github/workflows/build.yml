@@ -176,7 +176,7 @@ jobs:
 
   build-mac:
     needs: preflight
-    if: github.event.inputs.platform == 'all' || contains(github.event.inputs.platform, 'mac')
+    if: false # macOS build temporarily disabled — code signing/notarization not ready
     runs-on: macos-15
     strategy:
       matrix:
