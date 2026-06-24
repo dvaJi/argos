@@ -2729,7 +2729,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
           const currentStatus = (await this.getSessionState(sessionId))?.status;
           if (
             this.pendingInputCoordinator.hasPendingTurnInput(sessionId) &&
-            (currentStatus === "idle" || currentStatus === "done" || (currentStatus === "blocked" && !this.activeGenerations.has(sessionId))) &&
+            (currentStatus === "idle" ||
+              currentStatus === "done" ||
+              (currentStatus === "blocked" && !this.activeGenerations.has(sessionId))) &&
             !this.hasPendingInteractions(sessionId)
           ) {
             void this.drainPendingQueueIfPossible(sessionId, "completed");

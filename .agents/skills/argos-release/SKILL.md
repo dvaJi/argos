@@ -1,6 +1,6 @@
 ---
 name: argos-release
-description: Prepare and publish Argos releases in this repository. Use when Codex needs to bump the app version, update CHANGELOG.md, keep release notes bilingual from v1.0.1 onward with English bullets first and Chinese bullets second, run release checks, create or update versioned release branches such as release/v1.0.1, continue a half-finished release, fast-forward main with the documented release flow, create or push version tags, or clean up release branches after publishing.
+description: Prepare and publish Argos releases in this repository. Use when Codex needs to bump the app version, update CHANGELOG.md, keep release notes in English, run release checks, create or update versioned release branches such as release/v0.1.0, continue a half-finished release, fast-forward main with the documented release flow, create or push version tags, or clean up release branches after publishing.
 ---
 
 # Argos Release
@@ -44,14 +44,12 @@ When preparing a release on `dev`:
 - Prefer deriving the notes from recent commits or the diff since the previous release tag.
 - Do not create SDD folders for pure release metadata, branch, tag, or release PR work.
 
-For `v1.0.1` and later, format changelog entries in this order:
+Format changelog entries like this:
 
 ```md
 ## vX.Y.Z (YYYY-MM-DD)
 - English bullet
 - English bullet
-- Chinese bullet
-- Chinese bullet
 ```
 
 Use the current local date in `YYYY-MM-DD` form. Preserve older changelog sections unless the user explicitly asks to rewrite them.
@@ -91,7 +89,7 @@ When the user says something like "the release branch already exists but the tag
 
 - Act on the repo when the user wants the release advanced; do not stop at generic advice.
 - Tell the user exactly which step of the release flow they are currently in.
-- Use concrete versions and dates such as `v1.0.1` and `2026-04-02`.
+- Use concrete versions and dates such as `v0.1.0` and `2026-06-24`.
 - Keep commands copy-pastable and repo-specific.
 - If checks fail, separate blocking failures from unrelated existing warnings.
 
@@ -99,7 +97,7 @@ When the user says something like "the release branch already exists but the tag
 
 Activate this skill for requests like:
 
-- "Prepare release 1.0.2, update the version number and changelog"
-- "Continue releasing 1.0.1, the release branch already exists but no tag yet"
-- "Publish release/v1.0.3 following the project flow"
-- "Check what's still missing before releasing v1.0.4"
+- "Prepare release 0.1.0, update the version number and changelog"
+- "Continue releasing 0.1.1, the release branch already exists but no tag yet"
+- "Publish release/v0.1.2 following the project flow"
+- "Check what's still missing before releasing v0.1.3"

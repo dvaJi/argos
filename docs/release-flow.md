@@ -29,8 +29,8 @@ This document defines the maintainer release flow for Argos without rewriting ex
    ```bash
    git switch dev
    git pull --ff-only origin dev
-   git switch -c release/v1.0.0-beta.4
-   git push -u origin release/v1.0.0-beta.4
+   git switch -c release/v0.1.0
+   git push -u origin release/v0.1.0
    ```
 
 3. Open a PR from `release/<version>` to `main`.
@@ -45,9 +45,9 @@ This document defines the maintainer release flow for Argos without rewriting ex
    git switch dev
    git pull --ff-only origin dev
    # land the release fix on dev
-   git branch -f release/v1.0.0-beta.4 origin/dev
-   git switch release/v1.0.0-beta.4
-   git push --force-with-lease origin release/v1.0.0-beta.4
+   git branch -f release/v0.1.0 origin/dev
+   git switch release/v0.1.0
+   git push --force-with-lease origin release/v0.1.0
    ```
 
    Use `--force-with-lease` only because the release branch is a disposable review branch that must stay identical to a commit already on `dev`.
@@ -55,7 +55,7 @@ This document defines the maintainer release flow for Argos without rewriting ex
 5. After the PR is approved, fast-forward `main` locally on macOS or Linux.
 
    ```bash
-   pnpm run release:ff -- release/v1.0.0-beta.4 --tag v1.0.0-beta.4
+   pnpm run release:ff -- release/v0.1.0 --tag v0.1.0
    ```
 
    The helper script validates:
@@ -70,15 +70,15 @@ This document defines the maintainer release flow for Argos without rewriting ex
 6. Create and push the release tag on the same commit.
 
    ```bash
-   git tag v1.0.0-beta.4 release/v1.0.0-beta.4
-   git push origin v1.0.0-beta.4
+   git tag v0.1.0 release/v0.1.0
+   git push origin v0.1.0
    ```
 
 7. Delete the temporary release branch after the release is published.
 
    ```bash
-   git push origin --delete release/v1.0.0-beta.4
-   git branch -d release/v1.0.0-beta.4
+   git push origin --delete release/v0.1.0
+   git branch -d release/v0.1.0
    ```
 
 ## Manual Release Sequence
@@ -94,9 +94,9 @@ Use this sequence when the automatic helper is unavailable, especially on Window
 2. Resolve the reviewed release commit and record it as `TARGET_SHA`.
 
    ```bash
-   git rev-parse origin/release/v1.0.0-beta.4^{commit}
+   git rev-parse origin/release/v0.1.0^{commit}
    # or
-   git rev-parse release/v1.0.0-beta.4^{commit}
+   git rev-parse release/v0.1.0^{commit}
    # or
    git rev-parse <target-ref>^{commit}
    ```
@@ -116,8 +116,8 @@ Use this sequence when the automatic helper is unavailable, especially on Window
 5. Confirm the release tag does not already exist locally or on `origin`.
 
    ```bash
-   git rev-parse --verify --quiet refs/tags/v1.0.0-beta.4
-   git ls-remote --exit-code --tags origin refs/tags/v1.0.0-beta.4
+   git rev-parse --verify --quiet refs/tags/v0.1.0
+   git ls-remote --exit-code --tags origin refs/tags/v0.1.0
    ```
 
    Both commands should report that the tag is missing before you continue.
@@ -131,15 +131,15 @@ Use this sequence when the automatic helper is unavailable, especially on Window
 7. Create and push the release tag on the same commit.
 
    ```bash
-   git tag v1.0.0-beta.4 <TARGET_SHA>
-   git push origin refs/tags/v1.0.0-beta.4
+   git tag v0.1.0 <TARGET_SHA>
+   git push origin refs/tags/v0.1.0
    ```
 
 8. Delete the temporary release branch after the release is published.
 
    ```bash
-   git push origin --delete release/v1.0.0-beta.4
-   git branch -d release/v1.0.0-beta.4
+   git push origin --delete release/v0.1.0
+   git branch -d release/v0.1.0
    ```
 
 ## Repository Settings

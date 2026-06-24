@@ -82,14 +82,12 @@ git push origin --delete release/vX.Y.Z
 git branch -d release/vX.Y.Z
 ```
 
-## 7. Changelog format from `v1.0.1` onward
+## 7. Changelog format
 
 ```md
 ## vX.Y.Z (YYYY-MM-DD)
 - English bullet
 - English bullet
-- Chinese bullet
-- Chinese bullet
 ```
 
-Keep English bullets first, Chinese bullets second, and preserve older sections unless the user explicitly asks to rewrite history.
+Preserve older sections unless the user explicitly asks to rewrite history.
