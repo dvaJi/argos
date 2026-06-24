@@ -227,6 +227,7 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.ARGOS_CSC_KEY_PASS }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.ARGOS_CSC_LINK != '' && 'true' || 'false' }}
           ARGOS_APPLE_NOTARY_USERNAME: ${{ secrets.ARGOS_APPLE_NOTARY_USERNAME }}
           ARGOS_APPLE_NOTARY_TEAM_ID: ${{ secrets.ARGOS_APPLE_NOTARY_TEAM_ID }}
           ARGOS_APPLE_NOTARY_PASSWORD: ${{ secrets.ARGOS_APPLE_NOTARY_PASSWORD }}
