@@ -364,7 +364,7 @@ jobs:
 # ---------------------------------------------------------------------------
 
 workflows:
-  # Runs on pushes/PRs to main, dev, and release/* — lint, format, typecheck, build.
+  # Runs on pushes/PRs to master, main, dev, and release/* — lint, format, typecheck, build.
   continuous-integration:
     jobs:
       - lint-and-typecheck:
@@ -372,6 +372,7 @@ workflows:
           filters:
             branches:
               only:
+                - master
                 - main
                 - dev
                 - /^release\/.*/
