@@ -364,18 +364,14 @@ jobs:
 # ---------------------------------------------------------------------------
 
 workflows:
-  # Runs on pushes/PRs to master, main, dev, and release/* — lint, format, typecheck, build.
+  # Runs on every push/PR branch — lint, format, typecheck, build.
   continuous-integration:
     jobs:
       - lint-and-typecheck:
           context: argos
           filters:
-            branches:
-              only:
-                - master
-                - main
-                - dev
-                - /^release\/.*/
+            tags:
+              ignore: /.*/
 
   # Runs only on version tags (v*.*.*) — full release pipeline.
   # win-arm64 is NOT included (no CircleCI win-arm64 runner); it stays on GitHub Actions.
