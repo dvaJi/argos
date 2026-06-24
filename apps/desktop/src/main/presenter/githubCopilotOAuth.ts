@@ -221,7 +221,7 @@ export function createGitHubCopilotOAuth(clientIdOverride?: string): GitHubCopil
   // Read GitHub OAuth configuration from environment variables
   const clientId = clientIdOverride?.trim() || process.env.VITE_GITHUB_CLIENT_ID;
   const clientSecret = process.env.VITE_GITHUB_CLIENT_SECRET;
-  const redirectUri = process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.com/auth/github/callback";
+  const redirectUri = process.env.VITE_GITHUB_REDIRECT_URI || "https://argos.aipurrjects.xyz/auth/github/callback";
 
   console.log("GitHub OAuth Configuration:");
   console.log("- Client ID configured:", clientId ? "✅" : "❌");

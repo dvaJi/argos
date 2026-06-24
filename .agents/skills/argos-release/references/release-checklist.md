@@ -15,11 +15,11 @@ git ls-remote --tags origin "refs/tags/vX.Y.Z"
 
 If a tag already exists locally or remotely, verify it before continuing. Ask before replacing or deleting a tag.
 
-## 2. Prepare metadata on `dev`
+## 2. Prepare metadata on `master`
 
 ```bash
-git switch dev
-git pull --ff-only origin dev
+git switch master
+git pull --ff-only origin master
 ```
 
 Then update:
@@ -41,7 +41,7 @@ Commit and push:
 ```bash
 git add package.json CHANGELOG.md
 git commit -m "chore(release): prepare vX.Y.Z"
-git push origin dev
+git push origin master
 ```
 
 ## 3. Cut a new release branch
@@ -53,19 +53,19 @@ git switch -c release/vX.Y.Z
 git push -u origin release/vX.Y.Z
 ```
 
-Open a PR from `release/vX.Y.Z` to `main`.
+Open a PR from `release/vX.Y.Z` to `master`.
 
 ## 4. Update an existing release branch
 
 Use this when the release branch already exists and metadata changed afterward.
 
 ```bash
-git switch dev
+git switch master
 git branch -f release/vX.Y.Z HEAD
 git push --force-with-lease origin release/vX.Y.Z
 ```
 
-If a PR from `release/vX.Y.Z` to `main` already exists, let it update in place.
+If a PR from `release/vX.Y.Z` to `master` already exists, let it update in place.
 
 ## 5. Publish after PR approval
 

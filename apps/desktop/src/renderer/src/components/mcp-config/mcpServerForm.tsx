@@ -36,7 +36,7 @@ const placeholder = `MCP config example:
 }`;
 
 const customHeadersPlaceholder = `Authorization=Bearer your_token
-HTTP-Referer=argos.aipurrjects.com`;
+HTTP-Referer=argos.aipurrjects.xyz`;
 
 export const McpServerForm: FC<McpServerFormProps> = ({
   serverName: serverNameProp,

@@ -247,7 +247,7 @@ describe("AI SDK provider factory", () => {
       } as any,
       configPresenter: {} as any,
       defaultHeaders: {
-        "HTTP-Referer": "https://argos.aipurrjects.com",
+        "HTTP-Referer": "https://argos.aipurrjects.xyz",
         "X-Title": "Argos",
       },
       modelId: "gemini-3.1-flash-lite-preview",

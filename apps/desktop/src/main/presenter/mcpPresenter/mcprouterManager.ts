@@ -46,7 +46,7 @@ export class McpRouterManager {
   private getCommonHeaders(): Record<string, string> {
     return {
       "Content-Type": "application/json",
-      "HTTP-Referer": "argos.aipurrjects.com",
+      "HTTP-Referer": "argos.aipurrjects.xyz",
       "X-Title": "Argos",
     };
   }
@@ -112,7 +112,7 @@ export class McpRouterManager {
       customHeaders: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "argos.aipurrjects.com",
+        "HTTP-Referer": "argos.aipurrjects.xyz",
         "X-Title": "Argos",
       },
       source: "mcprouter",

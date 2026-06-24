@@ -1,0 +1,7 @@
+{
+  "autoCodeSplitting": true,
+  "srcDirectory": "src",
+  "routeFile": {
+    "routesDir": "src/routes"
+  }
+}

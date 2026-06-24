@@ -1,0 +1,7 @@
+dist
+.cloudflare
+.wrangler
+node_modules
+*.log*
+.turbo
+.vite
