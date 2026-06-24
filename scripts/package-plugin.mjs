@@ -220,7 +220,10 @@ function validateCuaRuntime(pluginDir, manifest, args) {
     `plugin:runtime/darwin/${args.targetArch}/Argos Computer Use.app/Contents/MacOS/cua-driver`,
     '/Applications/CuaDriver.app/Contents/MacOS/cua-driver'
   ]
-  if (JSON.stringify(manifest.runtime?.detect ?? []) !== JSON.stringify(expectedDetect)) {
+  const filteredDetect = (manifest.runtime?.detect ?? []).filter(
+    (entry) => entry.includes(`plugin:runtime/darwin/${args.targetArch}`) || !entry.startsWith('plugin:runtime/')
+  )
+  if (JSON.stringify(filteredDetect) !== JSON.stringify(expectedDetect)) {
     throw new Error('CUA runtime detect paths must point to the bundled helper app first')
   }
 
