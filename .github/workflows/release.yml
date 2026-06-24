@@ -110,13 +110,13 @@ jobs:
           ref: ${{ needs.resolve-tag.outputs.sha }}
           fetch-depth: 0
 
-      - name: Validate tagged commit is mirrored on main
+      - name: Validate tagged commit is reachable from master
         env:
           RELEASE_SHA: ${{ needs.resolve-tag.outputs.sha }}
         run: |
-          git fetch origin main --prune
-          if ! git merge-base --is-ancestor "${RELEASE_SHA}" origin/main; then
-            echo "Release tags must point to commits already reachable from origin/main." >&2
+          git fetch origin master --prune
+          if ! git merge-base --is-ancestor "${RELEASE_SHA}" origin/master; then
+            echo "Release tags must point to commits already reachable from origin/master." >&2
             exit 1
           fi
 
