@@ -6,6 +6,10 @@ inputs:
     description: Install Bun for daemon compilation.
     required: false
     default: "false"
+  include-landing:
+    description: Include the @argos/landing app dependencies (wrangler/workerd) in the install. Defaults to off because desktop builds don't need the landing page, and workerd has no win32-arm64 binary.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -74,4 +78,9 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: |
+        if [ "${{ inputs.include-landing }}" = "true" ]; then
+          pnpm install --frozen-lockfile
+        else
+          pnpm install --frozen-lockfile --filter '!@argos/landing'
+        fi
