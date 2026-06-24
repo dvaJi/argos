@@ -113,7 +113,9 @@ jobs:
       - name: Validate tagged commit is reachable from master
         env:
           RELEASE_SHA: ${{ needs.resolve-tag.outputs.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
           git fetch origin master --prune
           if ! git merge-base --is-ancestor "${RELEASE_SHA}" origin/master; then
             echo "Release tags must point to commits already reachable from origin/master." >&2
