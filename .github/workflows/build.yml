@@ -230,7 +230,7 @@ jobs:
           ARGOS_APPLE_NOTARY_USERNAME: ${{ secrets.ARGOS_APPLE_NOTARY_USERNAME }}
           ARGOS_APPLE_NOTARY_TEAM_ID: ${{ secrets.ARGOS_APPLE_NOTARY_TEAM_ID }}
           ARGOS_APPLE_NOTARY_PASSWORD: ${{ secrets.ARGOS_APPLE_NOTARY_PASSWORD }}
-          build_for_release: '2'
+          # build_for_release: '2'  # Requires Developer ID Application cert for CUA helper signing
           VITE_GITHUB_CLIENT_ID: ${{ secrets.ARGOS_GITHUB_CLIENT_ID }}
           VITE_GITHUB_CLIENT_SECRET: ${{ secrets.ARGOS_GITHUB_CLIENT_SECRET }}
           VITE_GITHUB_REDIRECT_URI: ${{ secrets.ARGOS_GITHUB_REDIRECT_URI }}
