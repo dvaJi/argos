@@ -37,7 +37,6 @@ import {
   resolveModelVision,
 } from "@shared/modelConfigDefaults";
 import ElectronStore from "electron-store";
-import { DEFAULT_PROVIDERS } from "./providers";
 import path from "path";
 import { app, nativeTheme, shell, safeStorage } from "electron";
 import fs from "fs";
@@ -66,7 +65,7 @@ import { AcpConfHelper } from "./acpConfHelper";
 import { AcpRegistryService } from "./acpRegistryService";
 import { AcpLaunchSpecService } from "./acpLaunchSpecService";
 import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
-import { resolveAcpAgentAlias } from "@argos/backend-core";
+import { DEFAULT_PROVIDERS, resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
 import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
 import type { SQLitePresenter } from "../sqlitePresenter";

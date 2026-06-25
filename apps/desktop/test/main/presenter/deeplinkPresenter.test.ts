@@ -107,13 +107,13 @@ describe("DeeplinkPresenter", () => {
     browserWindowFromIdMock.mockReturnValue(chatWindow);
 
     await deeplinkPresenter.handleDeepLink(
-      "argos://start?msg=%E4%BD%A0%E5%A5%BD&model=deepseek-chat&system=Be%20concise&mentions=README.md,docs%2Fspec.md",
+      "argos://start?msg=hello&model=deepseek-chat&system=Be%20concise&mentions=README.md,docs%2Fspec.md",
     );
 
     expect(chatWindow.show).toHaveBeenCalledTimes(1);
     expect(chatWindow.focus).toHaveBeenCalledTimes(1);
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(1, DEEPLINK_EVENTS.START, {
-      msg: "你好",
+      msg: "ä½ å¥½",
       modelId: "deepseek-chat",
       systemPrompt: "Be concise",
       mentions: ["README.md", "docs/spec.md"],
@@ -139,13 +139,13 @@ describe("DeeplinkPresenter", () => {
     presenterMock.windowPresenter.getAllWindows.mockReturnValue([chatWindow as any]);
     browserWindowFromIdMock.mockReturnValue(chatWindow);
 
-    await deeplinkPresenter.handleDeepLink("argos:start?msg=%E4%BD%A0%E5%A5%BD");
+    await deeplinkPresenter.handleDeepLink("argos:start?msg=hello");
 
     expect(presenterMock.windowPresenter.sendToWindow).toHaveBeenCalledWith(
       1,
       DEEPLINK_EVENTS.START,
       expect.objectContaining({
-        msg: "你好",
+        msg: "ä½ å¥½",
         autoSend: false,
       }),
     );
@@ -173,7 +173,7 @@ describe("DeeplinkPresenter", () => {
           demo: {
             env: {},
             descriptions: "demo MCP Service",
-            icons: "🔌",
+            icons: "ðŸ”Œ",
             autoApprove: ["all"],
             enabled: false,
             disable: false,

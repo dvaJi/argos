@@ -87,7 +87,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:gauge",
     position: 0,
     groupKey: "overview",
-    keywords: ["overview", "dashboard", "usage", "settings", "控制台", "设置中心", "用量"],
+    keywords: ["overview", "dashboard", "usage", "settings"],
   },
   {
     routeName: "settings-common",
@@ -96,7 +96,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:bolt",
     position: 1,
     groupKey: "setup",
-    keywords: ["common", "general", "preferences", "通用", "设置"],
+    keywords: ["common", "general", "preferences"],
   },
   {
     routeName: "settings-display",
@@ -105,7 +105,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:monitor",
     position: 2,
     groupKey: "setup",
-    keywords: ["display", "theme", "font", "appearance", "显示", "主题", "字体"],
+    keywords: ["display", "theme", "font", "appearance"],
   },
   {
     routeName: "settings-environments",
@@ -114,7 +114,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:folders",
     position: 3.25,
     groupKey: "models",
-    keywords: ["environment", "workspace", "folder", "project", "环境", "工作区", "目录"],
+    keywords: ["environment", "workspace", "folder", "project"],
   },
   {
     routeName: "settings-provider",
@@ -123,7 +123,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:cloud-cog",
     position: 3,
     groupKey: "models",
-    keywords: ["provider", "model", "llm", "openai", "anthropic", "服务商", "模型"],
+    keywords: ["provider", "model", "llm", "openai", "anthropic"],
   },
   {
     routeName: "settings-argos-agents",
@@ -132,7 +132,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:bot",
     position: 3.5,
     groupKey: "models",
-    keywords: ["agent", "agents", "argos", "智能体", "agent"],
+    keywords: ["agent", "agents", "argos", "agent"],
   },
   {
     routeName: "settings-acp",
@@ -150,7 +150,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:layout-dashboard",
     position: 4.5,
     groupKey: "overview",
-    keywords: ["dashboard", "usage", "stats", "统计", "用量"],
+    keywords: ["dashboard", "usage", "stats"],
     hiddenInSidebar: true,
   },
   {
@@ -160,7 +160,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:server",
     position: 5,
     groupKey: "tools",
-    keywords: ["mcp", "tools", "server", "model context protocol", "工具", "服务"],
+    keywords: ["mcp", "tools", "server", "model context protocol"],
   },
   {
     routeName: "settings-server",
@@ -169,7 +169,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:server",
     position: 5.2,
     groupKey: "system",
-    keywords: ["server", "daemon", "remote", "tailscale", "connect", "服务器", "守护进程"],
+    keywords: ["server", "daemon", "remote", "tailscale", "connect"],
   },
   {
     routeName: "settings-remote",
@@ -178,7 +178,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:smartphone",
     position: 5.25,
     groupKey: "system",
-    keywords: ["remote", "telegram", "feishu", "control", "远程", "控制"],
+    keywords: ["remote", "telegram", "feishu", "control"],
   },
   {
     routeName: "settings-notifications-hooks",
@@ -187,7 +187,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:bell",
     position: 5.5,
     groupKey: "tools",
-    keywords: ["notification", "hook", "webhook", "通知"],
+    keywords: ["notification", "hook", "webhook"],
   },
   {
     routeName: "settings-scheduled-tasks",
@@ -196,7 +196,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:clock-9",
     position: 5.6,
     groupKey: "tools",
-    keywords: ["schedule", "scheduled", "reminder", "timer", "cron", "定时", "提醒", "计划", "定时任务"],
+    keywords: ["schedule", "scheduled", "reminder", "timer", "cron"],
   },
   {
     routeName: "settings-plugins",
@@ -205,7 +205,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:puzzle",
     position: 5.75,
     groupKey: "tools",
-    keywords: ["plugin", "plugins", "extension", "runtime", "插件", "扩展", "运行时"],
+    keywords: ["plugin", "plugins", "extension", "runtime"],
     supportedTargets: ["darwin/arm64", "darwin/x64", "win32/x64", "win32/arm64", "linux/x64"],
   },
   {
@@ -215,7 +215,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:wand-sparkles",
     position: 6,
     groupKey: "knowledge",
-    keywords: ["skill", "skills", "技能"],
+    keywords: ["skill", "skills"],
   },
   {
     routeName: "settings-prompt",
@@ -224,7 +224,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:book-open-text",
     position: 7,
     groupKey: "knowledge",
-    keywords: ["prompt", "system prompt", "提示词"],
+    keywords: ["prompt", "system prompt"],
   },
   {
     routeName: "settings-knowledge-base",
@@ -233,7 +233,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:book-marked",
     position: 8,
     groupKey: "knowledge",
-    keywords: ["knowledge", "rag", "knowledge base", "知识库"],
+    keywords: ["knowledge", "rag", "knowledge base"],
   },
   {
     routeName: "settings-database",
@@ -242,7 +242,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:database",
     position: 9,
     groupKey: "system",
-    keywords: ["database", "data", "backup", "数据", "备份"],
+    keywords: ["database", "data", "backup"],
   },
   {
     routeName: "settings-shortcut",
@@ -251,7 +251,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:keyboard",
     position: 10,
     groupKey: "system",
-    keywords: ["shortcut", "hotkey", "keybinding", "快捷键"],
+    keywords: ["shortcut", "hotkey", "keybinding"],
   },
   {
     routeName: "settings-about",
@@ -260,7 +260,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:info",
     position: 11,
     groupKey: "system",
-    keywords: ["about", "version", "info", "关于", "版本"],
+    keywords: ["about", "version", "info"],
   },
 ];
 

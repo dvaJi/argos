@@ -15,7 +15,6 @@ export const SUPPORTED_PROVIDER_INSTALL_CUSTOM_TYPES = [
   "github-copilot",
   "ollama",
   "anthropic",
-  "doubao",
   "openai",
   "openai-completions",
   "voiceai",
@@ -29,7 +28,6 @@ export const SUPPORTED_PROVIDER_INSTALL_CUSTOM_TYPES = [
   "vercel-ai-gateway",
   "poe",
   "aws-bedrock",
-  "jiekou",
   "zenmux",
   "o3fan",
 ] as const;
@@ -91,3 +89,12 @@ export const maskApiKey = (value: string): string => {
 
 export const isProviderInstallCustomType = (value: string): value is SupportedProviderInstallCustomType =>
   SUPPORTED_PROVIDER_INSTALL_CUSTOM_TYPE_SET.has(value);
+const PROVIDER_DB_BACKED_PROVIDER_IDS = new Set(["huggingface", "mistral", "o3fan", "upstage"]);
+
+export const isProviderDbBackedProvider = (providerId: string | undefined | null): boolean => {
+  if (!providerId) {
+    return false;
+  }
+
+  return PROVIDER_DB_BACKED_PROVIDER_IDS.has(providerId.trim().toLowerCase());
+};

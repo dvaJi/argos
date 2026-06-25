@@ -157,10 +157,10 @@ describe("MessageBlock basics", () => {
       />,
     );
 
-    expect(container.textContent).toContain("已生成 skill draft：draft-skill");
+    expect(container.textContent).toContain("Generated skill draft: draft-skill");
     expect(container.textContent).toContain("Draft content preview");
     expect(container.textContent).toContain("# Draft body");
-    expect(container.textContent).toContain("安装为 Skill");
+    expect(container.textContent).toContain("Install as Skill");
 
     const installButton = screen
       .getAllByRole("button")

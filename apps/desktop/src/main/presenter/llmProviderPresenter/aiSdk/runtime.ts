@@ -88,7 +88,6 @@ const DEFAULT_GEMINI_PCM_SAMPLE_RATE = 24000;
 const DEFAULT_GEMINI_PCM_BITS_PER_SAMPLE = 16;
 const VIDEO_GENERATION_POLL_INTERVAL_MS = 3000;
 const PROMPT_VIDEO_DURATION_EN_PATTERN = /(^|[^0-9a-z])(?<duration>\d{1,2})\s*(?:s|sec|secs|second|seconds)\b/i;
-const PROMPT_VIDEO_DURATION_ZH_PATTERN = /(?<duration>\d{1,2})\s*秒/u;
 
 export interface AiSdkRuntimeContext {
   providerKind: AiSdkProviderKind;
@@ -192,9 +191,7 @@ function resolvePromptVideoDuration(prompt: string, modelId: string): number | u
     return undefined;
   }
 
-  const matchedDuration =
-    normalizedPrompt.match(PROMPT_VIDEO_DURATION_EN_PATTERN)?.groups?.duration ||
-    normalizedPrompt.match(PROMPT_VIDEO_DURATION_ZH_PATTERN)?.groups?.duration;
+  const matchedDuration = normalizedPrompt.match(PROMPT_VIDEO_DURATION_EN_PATTERN)?.groups?.duration;
 
   if (!matchedDuration) {
     return undefined;

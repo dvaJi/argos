@@ -24,7 +24,7 @@ import { ApiEndpointType, ModelType } from "@shared/model";
 import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@shared/imageGenerationSettings";
 import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@shared/videoGenerationSettings";
 import { ProviderChange, ProviderBatchUpdate } from "@shared/provider-operations";
-import { isProviderDbBackedProvider } from "@shared/providerDbCatalog";
+import { isProviderDbBackedProvider } from "@shared/providerDeeplink";
 import { eventBus } from "@/eventbus";
 import { CONFIG_EVENTS, PROVIDER_DB_EVENTS } from "@/events";
 import { BaseLLMProvider, isAudioTranscriptionNotSupportedError } from "./baseProvider";

@@ -9,7 +9,7 @@ import { useLegacyPresenter } from "@api/legacy/presenters";
 import { useToast } from "@/components/use-toast";
 import { useModelCheckStore } from "@/stores/modelCheck";
 import type { LLM_PROVIDER, KeyStatus } from "@shared/presenter";
-import { isProviderDbBackedProvider } from "@shared/providerDbCatalog";
+import { isProviderDbBackedProvider } from "@shared/providerDeeplink";
 
 interface ProviderWebsites {
   official: string;

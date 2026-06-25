@@ -60,7 +60,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       // Copy image option
       menuItems.push({
         id: "copyImage",
-        label: options.labels?.copyImage || "复制图片",
+        label: options.labels?.copyImage || "Copy Image",
         click: () => {
           options.webContents.copyImageAt(params.x, params.y);
           console.log("contextMenu: copying image", params.srcURL);
@@ -70,7 +70,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       // Save image as option
       menuItems.push({
         id: "saveImage",
-        label: options.labels?.saveImage || "图片另存为...",
+        label: options.labels?.saveImage || "Save Image...",
         click: async () => {
           try {
             // Get filename and URL
@@ -205,7 +205,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       if (editFlags.canCut && params.selectionText) {
         menuItems.push({
           id: "cut",
-          label: options.labels?.cut || "剪切",
+          label: options.labels?.cut || "Cut",
           role: "cut",
           enabled: true,
         });
@@ -214,7 +214,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       if (editFlags.canCopy && params.selectionText) {
         menuItems.push({
           id: "copy",
-          label: options.labels?.copy || "复制",
+          label: options.labels?.copy || "Copy",
           role: "copy",
           enabled: true,
         });
@@ -223,7 +223,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       if (editFlags.canPaste) {
         menuItems.push({
           id: "paste",
-          label: options.labels?.paste || "粘贴",
+          label: options.labels?.paste || "Paste",
           role: "paste",
           enabled: true,
         });
@@ -232,7 +232,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       // Text selection outside of an input field
       menuItems.push({
         id: "copy",
-        label: options.labels?.copy || "复制",
+        label: options.labels?.copy || "Copy",
         role: "copy",
         enabled: true,
       });
@@ -243,7 +243,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       // Add the translate option
       menuItems.push({
         id: "translate",
-        label: options.labels?.translate || "翻译",
+        label: options.labels?.translate || "Translate",
         click: () => {
           options.webContents.send("context-menu-translate", params.selectionText, params.x, params.y);
         },
@@ -252,7 +252,7 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
       // Add the Ask AI option
       menuItems.push({
         id: "askAI",
-        label: options.labels?.askAI || "询问AI",
+        label: options.labels?.askAI || "Ask AI",
         click: () => {
           options.webContents.send("context-menu-ask-ai", params.selectionText);
         },

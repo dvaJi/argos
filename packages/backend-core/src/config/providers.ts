@@ -1,5 +1,20 @@
 import { LLM_PROVIDER_BASE } from "@shared/presenter";
 
+const CHINA_SPECIFIC_PROVIDER_IDS = new Set([
+  "302ai",
+  "aihubmix",
+  "alibaba-token-plan-cn",
+  "astraflow",
+  "astraflow-cn",
+  "cherryin",
+  "dashscope",
+  "doubao",
+  "hunyuan",
+  "jiekou",
+  "modelscope",
+  "qiniu",
+  "silicon",
+]);
 export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
   {
     id: "ollama",
@@ -338,6 +353,21 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
     },
   },
   {
+    id: "huggingface",
+    name: "Hugging Face",
+    apiType: "openai-completions",
+    apiKey: "",
+    baseUrl: "https://router.huggingface.co/v1",
+    enable: false,
+    websites: {
+      official: "https://huggingface.co/",
+      apiKey: "https://huggingface.co/settings/tokens",
+      docs: "https://huggingface.co/docs/inference-providers",
+      models: "https://huggingface.co/inference/models",
+      defaultBaseUrl: "https://router.huggingface.co/v1",
+    },
+  },
+  {
     id: "vercel-ai-gateway",
     name: "Vercel AI Gateway",
     apiType: "vercel-ai-gateway",
@@ -458,6 +488,21 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
     },
   },
   {
+    id: "minimax-global",
+    name: "MiniMax Global",
+    apiType: "anthropic",
+    apiKey: "",
+    baseUrl: "https://api.minimax.io/anthropic/v1",
+    enable: false,
+    websites: {
+      official: "https://www.minimax.io/",
+      apiKey: "https://platform.minimax.io/user-center/basic-information/interface-key",
+      docs: "https://platform.minimax.io/docs/api-reference/text-anthropic-api",
+      models: "https://platform.minimax.io/docs/api-reference/models/anthropic/list-models",
+      defaultBaseUrl: "https://api.minimax.io/anthropic/v1",
+    },
+  },
+  {
     id: "fireworks",
     name: "Fireworks",
     apiType: "fireworks",
@@ -502,6 +547,21 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
       defaultBaseUrl: "https://api.moonshot.cn/v1",
     },
   },
+  {
+    id: "moonshot-ai",
+    name: "Moonshot AI",
+    apiType: "openai-completions",
+    apiKey: "",
+    baseUrl: "https://api.moonshot.ai/v1",
+    enable: false,
+    websites: {
+      official: "https://www.moonshot.ai/",
+      apiKey: "https://platform.kimi.ai/console/api-keys",
+      docs: "https://platform.moonshot.ai/docs/api/chat",
+      models: "https://platform.moonshot.ai/docs/models",
+      defaultBaseUrl: "https://api.moonshot.ai/v1",
+    },
+  },
   // {
   //   id: 'baichuan',
   //   name: 'Baichuan',
@@ -530,6 +590,36 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
       docs: "https://help.aliyun.com/zh/model-studio/getting-started/",
       models: "https://bailian.console.aliyun.com/model-market#/model-market",
       defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1/",
+    },
+  },
+  {
+    id: "alibaba-token-plan",
+    name: "Alibaba Token Plan",
+    apiType: "openai-completions",
+    apiKey: "",
+    baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    enable: false,
+    websites: {
+      official: "https://www.alibabacloud.com/product/modelstudio",
+      apiKey: "https://modelstudio.console.alibabacloud.com/",
+      docs: "https://www.alibabacloud.com/help/en/model-studio/token-plan-overview",
+      models: "https://www.alibabacloud.com/help/en/model-studio/token-plan-overview",
+      defaultBaseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    },
+  },
+  {
+    id: "alibaba-token-plan-cn",
+    name: "Alibaba Token Plan (China)",
+    apiType: "openai-completions",
+    apiKey: "",
+    baseUrl: "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    enable: false,
+    websites: {
+      official: "https://www.aliyun.com/product/bailian",
+      apiKey: "https://bailian.console.aliyun.com/?apiKey=1#/api-key",
+      docs: "https://www.alibabacloud.com/help/zh/model-studio/token-plan-overview",
+      models: "https://www.alibabacloud.com/help/zh/model-studio/token-plan-overview",
+      defaultBaseUrl: "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
     },
   },
   {
@@ -608,6 +698,21 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
       docs: "https://docs.x.ai/",
       models: "https://docs.x.ai/docs#getting-started",
       defaultBaseUrl: "https://api.x.ai/v1",
+    },
+  },
+  {
+    id: "upstage",
+    name: "Upstage",
+    apiType: "openai-completions",
+    apiKey: "",
+    baseUrl: "https://api.upstage.ai/v1/solar",
+    enable: false,
+    websites: {
+      official: "https://www.upstage.ai/",
+      apiKey: "https://console.upstage.ai/api-keys?api=chat",
+      docs: "https://developers.upstage.ai/docs/apis/chat",
+      models: "https://developers.upstage.ai/docs/getting-started/models",
+      defaultBaseUrl: "https://api.upstage.ai/v1/solar",
     },
   },
   // {
@@ -880,4 +985,4 @@ export const DEFAULT_PROVIDERS: LLM_PROVIDER_BASE[] = [
       defaultBaseUrl: "https://api.modelverse.cn/v1",
     },
   },
-];
+].filter((provider) => !CHINA_SPECIFIC_PROVIDER_IDS.has(provider.id));
