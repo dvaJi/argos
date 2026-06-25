@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { dispatchProviderRoute } from "../../../../src/main/routes/providers/providerRouteHandler";
-import { providersImportApplyRoute, providersImportScanRoute } from "../../../../src/shared/contracts/routes";
+import { providersImportApplyRoute, providersImportScanRoute } from "@shared/contracts/routes";
 
 describe("dispatchProviderRoute providers.listSummaries", () => {
   it("returns lightweight provider summaries without model arrays", async () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CONFIG_EVENTS } from "../../../../src/main/events";
-import type { LLM_PROVIDER } from "../../../../src/shared/presenter";
+import type { LLM_PROVIDER } from "@shared/presenter";
 
 vi.mock("@/eventbus", () => ({
   eventBus: {

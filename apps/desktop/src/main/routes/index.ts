@@ -254,7 +254,7 @@ import {
   startGuidedOnboarding,
 } from "./onboarding/onboardingRouteSupport";
 import { dispatchProviderRoute } from "./providers/providerRouteHandler";
-import { createNodeScheduler } from "./scheduler";
+import { createNodeScheduler } from "@argos/backend-core";
 import { ProviderImportService } from "./providers/providerImportService";
 import { ProviderService } from "./providers/providerService";
 import { createSettingsRouteAdapter } from "./settings/settingsAdapter";
@@ -1817,6 +1817,9 @@ export async function dispatchArgosRoute(
 
     case sessionsSteerPendingInputRoute.name: {
       const input = sessionsSteerPendingInputRoute.input.parse(rawInput);
+      if (!runtime.agentSessionPresenter.steerPendingInput) {
+        throw new Error("Steer pending input is not available");
+      }
       const item = await runtime.agentSessionPresenter.steerPendingInput(input.sessionId, input.itemId);
       return sessionsSteerPendingInputRoute.output.parse({ item });
     }
@@ -1869,6 +1872,9 @@ export async function dispatchArgosRoute(
 
     case sessionsGetViewManifestsRoute.name: {
       const input = sessionsGetViewManifestsRoute.input.parse(rawInput);
+      if (!runtime.agentSessionPresenter.getViewManifests) {
+        throw new Error("View manifests are not available");
+      }
       const manifests = await runtime.agentSessionPresenter.getViewManifests(input.sessionId);
       return sessionsGetViewManifestsRoute.output.parse({ manifests });
     }

@@ -14,12 +14,7 @@ import {
   KiroAdapter,
   AntigravityAdapter,
 } from "../../../../../src/main/presenter/skillSyncPresenter/adapters";
-import type {
-  IFormatAdapter,
-  FormatCapabilities,
-  CanonicalSkill,
-  ParseContext,
-} from "../../../../../src/shared/types/skillSync";
+import type { IFormatAdapter, FormatCapabilities, CanonicalSkill, ParseContext } from "@shared/types/skillSync";
 
 describe("Adapters Registry", () => {
   describe("getAdapter", () => {

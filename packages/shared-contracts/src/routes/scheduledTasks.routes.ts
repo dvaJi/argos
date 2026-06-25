@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { defineRouteContract } from "../common";
-import { SCHEDULED_TASKS_VERSION, SCHEDULED_TASK_TRIGGER_KINDS, SCHEDULED_TASK_ACTION_KINDS } from "../scheduledTasks";
+import {
+  SCHEDULED_TASKS_VERSION,
+  SCHEDULED_TASK_TRIGGER_KINDS,
+  SCHEDULED_TASK_ACTION_KINDS,
+} from "@shared/scheduledTasks";
 
 export const scheduledTaskTriggerKindSchema = z.enum(SCHEDULED_TASK_TRIGGER_KINDS);
 export const scheduledTaskActionKindSchema = z.enum(SCHEDULED_TASK_ACTION_KINDS);

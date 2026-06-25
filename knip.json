@@ -1,0 +1,44 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": "scripts/{architecture,agent-cleanup,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,rebuild-native,ensure-pnpm-store,commit-check,architecture-paths-guard}.mjs",
+      "project": "scripts/**/*.mjs"
+    },
+    "apps/desktop": {
+      "entry": [
+        "src/main/index.ts",
+        "src/main/backgroundExecUtilityHostEntry.ts",
+        "src/preload/index.ts",
+        "src/preload/splash-preload.ts",
+        "src/preload/floating-preload.ts",
+        "src/preload/browser-overlay-preload.ts",
+        "src/preload/plugin-settings-preload.ts",
+        "src/renderer/src/main.tsx",
+        "src/renderer/browser-overlay/main.tsx",
+        "src/renderer/floating/main.tsx",
+        "src/renderer/splash/main.tsx",
+        "src/renderer/settings/main.tsx"
+      ],
+      "project": "src/**/*.{ts,tsx}",
+      "ignore": ["resources/**", "build/**", "src/renderer/src/routeTree.gen.ts", "src/**/env.d.ts"]
+    },
+    "apps/daemon": {
+      "entry": ["src/index.ts"],
+      "project": "src/**/*.ts"
+    },
+    "packages/shared": { "entry": "src/index.ts", "project": "src/**/*.ts" },
+    "packages/shared-contracts": { "entry": "src/index.ts", "project": "src/**/*.ts" },
+    "packages/backend-core": { "entry": "src/index.ts", "project": "src/**/*.ts" },
+    "packages/client-sdk": { "entry": "src/index.ts", "project": "src/**/*.ts" },
+    "packages/electron-adapter": { "entry": "src/index.ts", "project": "src/**/*.ts" }
+  },
+  "ignoreDependencies": [
+    "typescript",
+    "@electron-toolkit/tsconfig",
+    "@types/node",
+    "@argos/shared-contracts",
+    "ollama"
+  ],
+  "ignoreBinaries": ["bun", "tsgo"]
+}

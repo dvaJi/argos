@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ModelType } from "../../../src/shared/model";
+import { ModelType } from "@shared/model";
 
 describe("ArgosAgentsSettings", () => {
   beforeEach(() => {

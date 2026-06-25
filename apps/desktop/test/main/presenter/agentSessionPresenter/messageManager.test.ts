@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NewMessageManager } from "@/presenter/agentSessionPresenter/messageManager";
-import type { AgentRegistry } from "@/presenter/agentSessionPresenter/agentRegistry";
+import type { AgentRegistry } from "@argos/backend-core";
 import type { NewSessionManager } from "@/presenter/agentSessionPresenter/sessionManager";
 import type { ChatMessageRecord } from "@shared/types/agent-interface";
 

@@ -31,7 +31,7 @@ import {
   type TelegramAgentOption,
   type TelegramModelProviderOption,
 } from "../types";
-import { resolveAcpAgentAlias } from "../../configPresenter/acpRegistryConstants";
+import { resolveAcpAgentAlias } from "@argos/backend-core";
 import { safeParseAssistantBlocks } from "../telegram/telegramOutbound";
 import {
   REMOTE_NO_RESPONSE_TEXT,

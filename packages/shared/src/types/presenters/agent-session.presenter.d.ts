@@ -29,6 +29,7 @@ import type {
 } from "../agent-interface";
 import type { AcpConfigState } from "./llmprovider.presenter";
 import type { SearchResult } from "./thread.presenter";
+import type { ArgosTapeViewManifestRecord } from "../tape-view-manifest";
 
 export interface HistorySearchOptions {
   limit?: number;
@@ -71,8 +72,10 @@ export interface IAgentSessionPresenter {
   ): Promise<PendingSessionInputRecord>;
   moveQueuedInput(sessionId: string, itemId: string, toIndex: number): Promise<PendingSessionInputRecord[]>;
   convertPendingInputToSteer(sessionId: string, itemId: string): Promise<PendingSessionInputRecord>;
+  steerPendingInput?(sessionId: string, itemId: string): Promise<PendingSessionInputRecord>;
   deletePendingInput(sessionId: string, itemId: string): Promise<void>;
-  resumePendingQueue(sessionId: string): Promise<void>;
+  resumePendingQueue?(sessionId: string): Promise<void>;
+  getViewManifests?(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
   sendMessage(sessionId: string, content: string | SendMessageInput): Promise<MessageStartResult>;
   steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void>;
   retryMessage(sessionId: string, messageId: string): Promise<void>;

@@ -11,7 +11,7 @@ import {
   scheduledTaskActionSchema,
   scheduledTaskTriggerSchema,
   type scheduledTasksUpsertInputSchema,
-} from "@shared/contracts/routes/scheduledTasks.routes";
+} from "@argos/shared-contracts/routes/scheduledTasks.routes";
 import { computeNextFireAt, shouldBackfillOneShot } from "./normalize";
 
 const MAX_TIMEOUT_MS = 12 * 60 * 60 * 1000;

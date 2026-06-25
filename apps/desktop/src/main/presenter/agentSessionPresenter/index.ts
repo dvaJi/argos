@@ -54,7 +54,7 @@ import type {
 } from "@shared/presenter";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { ArgosMessageRow } from "../sqlitePresenter/tables/argosMessages";
-import { AgentRegistry } from "./agentRegistry";
+import { AgentRegistry } from "@argos/backend-core";
 import { NewSessionManager } from "./sessionManager";
 import { NewMessageManager } from "./messageManager";
 import { LegacyChatImportService } from "./legacyImportService";
@@ -79,7 +79,7 @@ import {
   resolveUsageProviderId,
 } from "../usageStats";
 import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
-import { resolveAcpAgentAlias } from "../configPresenter/acpRegistryConstants";
+import { resolveAcpAgentAlias } from "@argos/backend-core";
 import type { ProviderSessionPort, SessionPermissionPort, SessionUiPort } from "../runtimePorts";
 import { hasAcpConfigStateData } from "../llmProviderPresenter/acp/acpConfigState";
 

@@ -151,6 +151,7 @@ export interface IAgentImplementation {
   ): Promise<PendingSessionInputRecord>;
   moveQueuedInput?(sessionId: string, itemId: string, toIndex: number): Promise<PendingSessionInputRecord[]>;
   convertPendingInputToSteer?(sessionId: string, itemId: string): Promise<PendingSessionInputRecord>;
+  steerPendingInput?(sessionId: string, itemId: string): Promise<PendingSessionInputRecord>;
   deletePendingInput?(sessionId: string, itemId: string): Promise<void>;
   resumePendingQueue?(sessionId: string): Promise<void>;
 

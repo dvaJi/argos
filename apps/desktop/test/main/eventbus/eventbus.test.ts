@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EventBus, SendTarget } from "../../../src/main/eventbus";
-import type { IWindowPresenter, ITabPresenter } from "../../../src/shared/presenter";
+import type { IWindowPresenter, ITabPresenter } from "@shared/presenter";
 
 describe("EventBus event bus", () => {
   let eventBus: EventBus;

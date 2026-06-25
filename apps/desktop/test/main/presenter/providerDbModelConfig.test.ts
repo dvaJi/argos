@@ -46,7 +46,7 @@ vi.mock("../../../src/main/presenter/configPresenter/providerDbLoader", () => {
 
 import { ModelConfigHelper } from "../../../src/main/presenter/configPresenter/modelConfig";
 import { modelCapabilities } from "../../../src/main/presenter/configPresenter/modelCapabilities";
-import { ModelType } from "../../../src/shared/model";
+import { ModelType } from "@shared/model";
 
 describe("Provider DB strict matching + user overrides", () => {
   beforeEach(() => {

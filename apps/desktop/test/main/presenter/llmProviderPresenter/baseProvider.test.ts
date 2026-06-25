@@ -6,7 +6,7 @@ import type {
   LLMResponse,
   MCPToolDefinition,
   ModelConfig,
-} from "../../../../src/shared/presenter";
+} from "@shared/presenter";
 import { BaseLLMProvider } from "../../../../src/main/presenter/llmProviderPresenter/baseProvider";
 
 vi.mock("@/eventbus", () => ({

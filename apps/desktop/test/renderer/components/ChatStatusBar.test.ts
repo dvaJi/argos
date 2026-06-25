@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { ACP_WORKSPACE_EVENTS } from "@/events";
-import type { ReasoningEffort, ReasoningPortrait } from "../../../src/shared/types/model-db";
-import type { AcpConfigState } from "../../../src/shared/types/presenters";
-import type { ImageGenerationOptions } from "../../../src/shared/imageGenerationSettings";
+import type { ReasoningEffort, ReasoningPortrait } from "@shared/types/model-db";
+import type { AcpConfigState } from "@shared/types/presenters";
+import type { ImageGenerationOptions } from "@shared/imageGenerationSettings";
 
 const TEST_TIMEOUT_MS = 20000;
 

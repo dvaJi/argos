@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { eventBus } from "../../../../src/main/eventbus";
 import { LIFECYCLE_EVENTS } from "../../../../src/main/events";
 import { SplashWindowManager } from "../../../../src/main/presenter/lifecyclePresenter/SplashWindowManager";
-import { LifecyclePhase } from "../../../../src/shared/lifecycle";
+import { LifecyclePhase } from "@shared/lifecycle";
 
 describe("SplashWindowManager", () => {
   let manager: SplashWindowManager | null = null;

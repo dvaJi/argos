@@ -17,8 +17,11 @@
       "@/*": [
         "./src/main/*"
       ],
+      "@shared/contracts/*": [
+        "../../packages/shared-contracts/src/*"
+      ],
       "@shared/*": [
-        "./src/shared/*"
+        "../../packages/shared/src/*"
       ],
       "@argos/electron-adapter": [
         "../../packages/electron-adapter/src"
@@ -31,6 +34,12 @@
       ],
       "@argos/backend-core/*": [
         "../../packages/backend-core/src/*"
+      ],
+      "@argos/shared-contracts": [
+        "../../packages/shared-contracts/src"
+      ],
+      "@argos/shared-contracts/*": [
+        "../../packages/shared-contracts/src/*"
       ],
       "@argos/client-sdk": [
         "../../packages/client-sdk/src"

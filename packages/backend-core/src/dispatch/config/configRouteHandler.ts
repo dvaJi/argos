@@ -48,7 +48,7 @@ import {
   configUpdateSyncSettingsRoute,
   configUpdateSystemPromptRoute,
   configUpdateVoiceAiConfigRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import {
   applyConfigEntryChanges,
   applyVoiceAiConfigUpdates,

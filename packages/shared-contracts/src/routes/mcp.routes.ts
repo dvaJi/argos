@@ -33,7 +33,7 @@ export const mcpGetServersRoute = defineRouteContract({
   name: "mcp.getServers",
   input: z.object({}),
   output: z.object({
-    servers: z.record(MCPServerConfigSchema),
+    servers: z.record(z.string(), MCPServerConfigSchema),
   }),
 });
 
@@ -177,7 +177,7 @@ export const mcpGetPromptRoute = defineRouteContract({
   name: "mcp.getPrompt",
   input: z.object({
     prompt: PromptListEntrySchema,
-    args: z.record(z.unknown()).optional(),
+    args: z.record(z.string(), z.unknown()).optional(),
   }),
   output: z.object({
     result: z.unknown(),

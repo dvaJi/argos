@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { dispatchModelRoute } from "../../../../src/main/routes/models/modelRouteHandler";
-import { modelsGetProviderCatalogRoute } from "../../../../src/shared/contracts/routes";
-import { ModelType } from "../../../../src/shared/model";
+import { modelsGetProviderCatalogRoute } from "@shared/contracts/routes";
+import { ModelType } from "@shared/model";
 
 describe("dispatchModelRoute models.getProviderCatalog", () => {
   it("includes provider DB-only models when resolving persisted model status", async () => {

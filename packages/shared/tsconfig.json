@@ -12,7 +12,10 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
-    "paths": {}
+    "paths": {
+      "@argos/shared-contracts": ["../shared-contracts/src"],
+      "@argos/shared-contracts/*": ["../shared-contracts/src/*"]
+    }
   },
   "include": ["src/**/*"]
 }

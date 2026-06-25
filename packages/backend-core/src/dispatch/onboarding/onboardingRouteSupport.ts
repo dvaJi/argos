@@ -3,12 +3,12 @@ import type {
   GuidedOnboardingState,
   GuidedOnboardingStepId,
   GuidedOnboardingStepState,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import {
   guidedOnboardingStateSchema,
   guidedOnboardingStepIds,
   guidedOnboardingVersion,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import {
   GUIDED_ONBOARDING_STEP_IDS as SHARED_GUIDED_ONBOARDING_STEP_IDS,
   LEGACY_GUIDED_ONBOARDING_STEP_IDS,

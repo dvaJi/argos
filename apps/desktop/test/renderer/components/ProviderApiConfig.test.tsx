@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { LLM_PROVIDER } from "../../../src/shared/presenter";
+import type { LLM_PROVIDER } from "@shared/presenter";
 
 const passthrough = (name: string) => (props: any) => <div>{props.children}</div>;
 

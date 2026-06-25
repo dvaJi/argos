@@ -9,7 +9,8 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     alias: {
       '@/': resolve('src/main/') + '/',
-      '@shared': resolve('src/shared'),
+      '@shared/contracts': resolve('../../packages/shared-contracts/src'),
+      '@shared': resolve('../../packages/shared/src'),
       '@argos/backend-core/': resolve('../../packages/backend-core/src/'),
       '@argos/shared-contracts/': resolve('../../packages/shared-contracts/src/'),
       '@argos/client-sdk/': resolve('../../packages/client-sdk/src/'),
@@ -24,7 +25,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@shared': resolve('src/shared'),
+      '@shared/contracts': resolve('../../packages/shared-contracts/src'),
+      '@shared': resolve('../../packages/shared/src'),
     }
   }
 })

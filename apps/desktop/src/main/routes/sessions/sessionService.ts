@@ -5,7 +5,7 @@ import type {
   SessionWithState,
 } from "@shared/types/agent-interface";
 import type { MessageRepository, SessionListFilters, SessionRepository } from "../hotPathPorts";
-import type { Scheduler } from "../scheduler";
+import type { Scheduler } from "@argos/backend-core";
 
 const SESSION_OPERATION_TIMEOUT_MS = 5_000;
 const DEFAULT_RESTORE_MESSAGE_LIMIT = 100;

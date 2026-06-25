@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { ReasoningEffort, Verbosity } from "../../../src/shared/types/model-db";
+import type { ReasoningEffort, Verbosity } from "@shared/types/model-db";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { ModelConfigHelper } from "../../../src/main/presenter/configPresenter/modelConfig";
-import { ModelType } from "../../../src/shared/model";
-import { DEFAULT_MODEL_TIMEOUT } from "../../../src/shared/modelConfigDefaults";
-import { ModelConfig } from "../../../src/shared/presenter";
+import { ModelType } from "@shared/model";
+import { DEFAULT_MODEL_TIMEOUT } from "@shared/modelConfigDefaults";
+import { ModelConfig } from "@shared/presenter";
 import { providerDbLoader } from "../../../src/main/presenter/configPresenter/providerDbLoader";
 import { modelCapabilities } from "../../../src/main/presenter/configPresenter/modelCapabilities";
 import type { StoreFactory } from "@argos/backend-core";

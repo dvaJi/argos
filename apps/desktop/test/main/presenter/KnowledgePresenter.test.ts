@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, Mock } from "vitest";
 import { KnowledgePresenter } from "../../../src/main/presenter/knowledgePresenter";
-import { IConfigPresenter, IFilePresenter } from "../../../src/shared/presenter";
+import { IConfigPresenter, IFilePresenter } from "@shared/presenter";
 import { FileValidationResult } from "../../../src/main/presenter/filePresenter/FileValidationService";
 import { DuckDBPresenter } from "../../../src/main/presenter/knowledgePresenter/database/duckdbPresenter";
 import { KnowledgeStorePresenter } from "../../../src/main/presenter/knowledgePresenter/knowledgeStorePresenter";

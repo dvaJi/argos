@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { app } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AcpSessionPersistence } from "../../../../src/main/presenter/llmProviderPresenter/acp";
-import type { AcpSessionEntity, ISQLitePresenter } from "../../../../src/shared/types/presenters";
+import type { AcpSessionEntity, ISQLitePresenter } from "@shared/types/presenters";
 
 vi.mock("electron", () => ({
   app: {

@@ -8,589 +8,586 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as MainRouteImport } from './routes/_main'
-import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as MainIndexRouteImport } from './routes/_main/index'
-import { Route as SettingsSkillsRouteImport } from './routes/settings/skills'
-import { Route as SettingsShortcutRouteImport } from './routes/settings/shortcut'
-import { Route as SettingsServerRouteImport } from './routes/settings/server'
-import { Route as SettingsScheduledTasksRouteImport } from './routes/settings/scheduled-tasks'
-import { Route as SettingsRemoteRouteImport } from './routes/settings/remote'
-import { Route as SettingsProviderRouteImport } from './routes/settings/provider'
-import { Route as SettingsPromptRouteImport } from './routes/settings/prompt'
-import { Route as SettingsPluginsRouteImport } from './routes/settings/plugins'
-import { Route as SettingsOverviewRouteImport } from './routes/settings/overview'
-import { Route as SettingsNotificationsHooksRouteImport } from './routes/settings/notifications-hooks'
-import { Route as SettingsMcpRouteImport } from './routes/settings/mcp'
-import { Route as SettingsKnowledgeBaseRouteImport } from './routes/settings/knowledge-base'
-import { Route as SettingsEnvironmentsRouteImport } from './routes/settings/environments'
-import { Route as SettingsDisplayRouteImport } from './routes/settings/display'
-import { Route as SettingsDatabaseRouteImport } from './routes/settings/database'
-import { Route as SettingsCommonRouteImport } from './routes/settings/common'
-import { Route as SettingsArgosAgentsRouteImport } from './routes/settings/argos-agents'
-import { Route as SettingsAcpRouteImport } from './routes/settings/acp'
-import { Route as SettingsAboutRouteImport } from './routes/settings/about'
-import { Route as MainWelcomeRouteImport } from './routes/_main/welcome'
-import { Route as MainChatRouteImport } from './routes/_main/chat'
-import { Route as SettingsProviderIndexRouteImport } from './routes/settings/provider/index'
-import { Route as SettingsProviderProviderIdRouteImport } from './routes/settings/provider/$providerId'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as SettingsRouteImport } from "./routes/settings";
+import { Route as MainRouteImport } from "./routes/_main";
+import { Route as SettingsIndexRouteImport } from "./routes/settings/index";
+import { Route as MainIndexRouteImport } from "./routes/_main/index";
+import { Route as SettingsSkillsRouteImport } from "./routes/settings/skills";
+import { Route as SettingsShortcutRouteImport } from "./routes/settings/shortcut";
+import { Route as SettingsServerRouteImport } from "./routes/settings/server";
+import { Route as SettingsScheduledTasksRouteImport } from "./routes/settings/scheduled-tasks";
+import { Route as SettingsRemoteRouteImport } from "./routes/settings/remote";
+import { Route as SettingsProviderRouteImport } from "./routes/settings/provider";
+import { Route as SettingsPromptRouteImport } from "./routes/settings/prompt";
+import { Route as SettingsPluginsRouteImport } from "./routes/settings/plugins";
+import { Route as SettingsOverviewRouteImport } from "./routes/settings/overview";
+import { Route as SettingsNotificationsHooksRouteImport } from "./routes/settings/notifications-hooks";
+import { Route as SettingsMcpRouteImport } from "./routes/settings/mcp";
+import { Route as SettingsKnowledgeBaseRouteImport } from "./routes/settings/knowledge-base";
+import { Route as SettingsEnvironmentsRouteImport } from "./routes/settings/environments";
+import { Route as SettingsDisplayRouteImport } from "./routes/settings/display";
+import { Route as SettingsDatabaseRouteImport } from "./routes/settings/database";
+import { Route as SettingsCommonRouteImport } from "./routes/settings/common";
+import { Route as SettingsArgosAgentsRouteImport } from "./routes/settings/argos-agents";
+import { Route as SettingsAcpRouteImport } from "./routes/settings/acp";
+import { Route as SettingsAboutRouteImport } from "./routes/settings/about";
+import { Route as MainWelcomeRouteImport } from "./routes/_main/welcome";
+import { Route as MainChatRouteImport } from "./routes/_main/chat";
+import { Route as SettingsProviderIndexRouteImport } from "./routes/settings/provider/index";
+import { Route as SettingsProviderProviderIdRouteImport } from "./routes/settings/provider/$providerId";
 
 const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+  id: "/settings",
+  path: "/settings",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const MainRoute = MainRouteImport.update({
-  id: '/_main',
+  id: "/_main",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const MainIndexRoute = MainIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => MainRoute,
-} as any)
+} as any);
 const SettingsSkillsRoute = SettingsSkillsRouteImport.update({
-  id: '/skills',
-  path: '/skills',
+  id: "/skills",
+  path: "/skills",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsShortcutRoute = SettingsShortcutRouteImport.update({
-  id: '/shortcut',
-  path: '/shortcut',
+  id: "/shortcut",
+  path: "/shortcut",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsServerRoute = SettingsServerRouteImport.update({
-  id: '/server',
-  path: '/server',
+  id: "/server",
+  path: "/server",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsScheduledTasksRoute = SettingsScheduledTasksRouteImport.update({
-  id: '/scheduled-tasks',
-  path: '/scheduled-tasks',
+  id: "/scheduled-tasks",
+  path: "/scheduled-tasks",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsRemoteRoute = SettingsRemoteRouteImport.update({
-  id: '/remote',
-  path: '/remote',
+  id: "/remote",
+  path: "/remote",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsProviderRoute = SettingsProviderRouteImport.update({
-  id: '/provider',
-  path: '/provider',
+  id: "/provider",
+  path: "/provider",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsPromptRoute = SettingsPromptRouteImport.update({
-  id: '/prompt',
-  path: '/prompt',
+  id: "/prompt",
+  path: "/prompt",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
-  id: '/plugins',
-  path: '/plugins',
+  id: "/plugins",
+  path: "/plugins",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsOverviewRoute = SettingsOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
+  id: "/overview",
+  path: "/overview",
   getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsNotificationsHooksRoute =
-  SettingsNotificationsHooksRouteImport.update({
-    id: '/notifications-hooks',
-    path: '/notifications-hooks',
-    getParentRoute: () => SettingsRoute,
-  } as any)
+} as any);
+const SettingsNotificationsHooksRoute = SettingsNotificationsHooksRouteImport.update({
+  id: "/notifications-hooks",
+  path: "/notifications-hooks",
+  getParentRoute: () => SettingsRoute,
+} as any);
 const SettingsMcpRoute = SettingsMcpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
+  id: "/mcp",
+  path: "/mcp",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsKnowledgeBaseRoute = SettingsKnowledgeBaseRouteImport.update({
-  id: '/knowledge-base',
-  path: '/knowledge-base',
+  id: "/knowledge-base",
+  path: "/knowledge-base",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsEnvironmentsRoute = SettingsEnvironmentsRouteImport.update({
-  id: '/environments',
-  path: '/environments',
+  id: "/environments",
+  path: "/environments",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsDisplayRoute = SettingsDisplayRouteImport.update({
-  id: '/display',
-  path: '/display',
+  id: "/display",
+  path: "/display",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsDatabaseRoute = SettingsDatabaseRouteImport.update({
-  id: '/database',
-  path: '/database',
+  id: "/database",
+  path: "/database",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsCommonRoute = SettingsCommonRouteImport.update({
-  id: '/common',
-  path: '/common',
+  id: "/common",
+  path: "/common",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsArgosAgentsRoute = SettingsArgosAgentsRouteImport.update({
-  id: '/argos-agents',
-  path: '/argos-agents',
+  id: "/argos-agents",
+  path: "/argos-agents",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsAcpRoute = SettingsAcpRouteImport.update({
-  id: '/acp',
-  path: '/acp',
+  id: "/acp",
+  path: "/acp",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const SettingsAboutRoute = SettingsAboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+  id: "/about",
+  path: "/about",
   getParentRoute: () => SettingsRoute,
-} as any)
+} as any);
 const MainWelcomeRoute = MainWelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
+  id: "/welcome",
+  path: "/welcome",
   getParentRoute: () => MainRoute,
-} as any)
+} as any);
 const MainChatRoute = MainChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+  id: "/chat",
+  path: "/chat",
   getParentRoute: () => MainRoute,
-} as any)
+} as any);
 const SettingsProviderIndexRoute = SettingsProviderIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => SettingsProviderRoute,
-} as any)
-const SettingsProviderProviderIdRoute =
-  SettingsProviderProviderIdRouteImport.update({
-    id: '/$providerId',
-    path: '/$providerId',
-    getParentRoute: () => SettingsProviderRoute,
-  } as any)
+} as any);
+const SettingsProviderProviderIdRoute = SettingsProviderProviderIdRouteImport.update({
+  id: "/$providerId",
+  path: "/$providerId",
+  getParentRoute: () => SettingsProviderRoute,
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof MainIndexRoute
-  '/settings': typeof SettingsRouteWithChildren
-  '/chat': typeof MainChatRoute
-  '/welcome': typeof MainWelcomeRoute
-  '/settings/about': typeof SettingsAboutRoute
-  '/settings/acp': typeof SettingsAcpRoute
-  '/settings/argos-agents': typeof SettingsArgosAgentsRoute
-  '/settings/common': typeof SettingsCommonRoute
-  '/settings/database': typeof SettingsDatabaseRoute
-  '/settings/display': typeof SettingsDisplayRoute
-  '/settings/environments': typeof SettingsEnvironmentsRoute
-  '/settings/knowledge-base': typeof SettingsKnowledgeBaseRoute
-  '/settings/mcp': typeof SettingsMcpRoute
-  '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
-  '/settings/overview': typeof SettingsOverviewRoute
-  '/settings/plugins': typeof SettingsPluginsRoute
-  '/settings/prompt': typeof SettingsPromptRoute
-  '/settings/provider': typeof SettingsProviderRouteWithChildren
-  '/settings/remote': typeof SettingsRemoteRoute
-  '/settings/scheduled-tasks': typeof SettingsScheduledTasksRoute
-  '/settings/server': typeof SettingsServerRoute
-  '/settings/shortcut': typeof SettingsShortcutRoute
-  '/settings/skills': typeof SettingsSkillsRoute
-  '/settings/': typeof SettingsIndexRoute
-  '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
-  '/settings/provider/': typeof SettingsProviderIndexRoute
+  "/": typeof MainIndexRoute;
+  "/settings": typeof SettingsRouteWithChildren;
+  "/chat": typeof MainChatRoute;
+  "/welcome": typeof MainWelcomeRoute;
+  "/settings/about": typeof SettingsAboutRoute;
+  "/settings/acp": typeof SettingsAcpRoute;
+  "/settings/argos-agents": typeof SettingsArgosAgentsRoute;
+  "/settings/common": typeof SettingsCommonRoute;
+  "/settings/database": typeof SettingsDatabaseRoute;
+  "/settings/display": typeof SettingsDisplayRoute;
+  "/settings/environments": typeof SettingsEnvironmentsRoute;
+  "/settings/knowledge-base": typeof SettingsKnowledgeBaseRoute;
+  "/settings/mcp": typeof SettingsMcpRoute;
+  "/settings/notifications-hooks": typeof SettingsNotificationsHooksRoute;
+  "/settings/overview": typeof SettingsOverviewRoute;
+  "/settings/plugins": typeof SettingsPluginsRoute;
+  "/settings/prompt": typeof SettingsPromptRoute;
+  "/settings/provider": typeof SettingsProviderRouteWithChildren;
+  "/settings/remote": typeof SettingsRemoteRoute;
+  "/settings/scheduled-tasks": typeof SettingsScheduledTasksRoute;
+  "/settings/server": typeof SettingsServerRoute;
+  "/settings/shortcut": typeof SettingsShortcutRoute;
+  "/settings/skills": typeof SettingsSkillsRoute;
+  "/settings/": typeof SettingsIndexRoute;
+  "/settings/provider/$providerId": typeof SettingsProviderProviderIdRoute;
+  "/settings/provider/": typeof SettingsProviderIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/chat': typeof MainChatRoute
-  '/welcome': typeof MainWelcomeRoute
-  '/settings/about': typeof SettingsAboutRoute
-  '/settings/acp': typeof SettingsAcpRoute
-  '/settings/argos-agents': typeof SettingsArgosAgentsRoute
-  '/settings/common': typeof SettingsCommonRoute
-  '/settings/database': typeof SettingsDatabaseRoute
-  '/settings/display': typeof SettingsDisplayRoute
-  '/settings/environments': typeof SettingsEnvironmentsRoute
-  '/settings/knowledge-base': typeof SettingsKnowledgeBaseRoute
-  '/settings/mcp': typeof SettingsMcpRoute
-  '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
-  '/settings/overview': typeof SettingsOverviewRoute
-  '/settings/plugins': typeof SettingsPluginsRoute
-  '/settings/prompt': typeof SettingsPromptRoute
-  '/settings/remote': typeof SettingsRemoteRoute
-  '/settings/scheduled-tasks': typeof SettingsScheduledTasksRoute
-  '/settings/server': typeof SettingsServerRoute
-  '/settings/shortcut': typeof SettingsShortcutRoute
-  '/settings/skills': typeof SettingsSkillsRoute
-  '/': typeof MainIndexRoute
-  '/settings': typeof SettingsIndexRoute
-  '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
-  '/settings/provider': typeof SettingsProviderIndexRoute
+  "/chat": typeof MainChatRoute;
+  "/welcome": typeof MainWelcomeRoute;
+  "/settings/about": typeof SettingsAboutRoute;
+  "/settings/acp": typeof SettingsAcpRoute;
+  "/settings/argos-agents": typeof SettingsArgosAgentsRoute;
+  "/settings/common": typeof SettingsCommonRoute;
+  "/settings/database": typeof SettingsDatabaseRoute;
+  "/settings/display": typeof SettingsDisplayRoute;
+  "/settings/environments": typeof SettingsEnvironmentsRoute;
+  "/settings/knowledge-base": typeof SettingsKnowledgeBaseRoute;
+  "/settings/mcp": typeof SettingsMcpRoute;
+  "/settings/notifications-hooks": typeof SettingsNotificationsHooksRoute;
+  "/settings/overview": typeof SettingsOverviewRoute;
+  "/settings/plugins": typeof SettingsPluginsRoute;
+  "/settings/prompt": typeof SettingsPromptRoute;
+  "/settings/remote": typeof SettingsRemoteRoute;
+  "/settings/scheduled-tasks": typeof SettingsScheduledTasksRoute;
+  "/settings/server": typeof SettingsServerRoute;
+  "/settings/shortcut": typeof SettingsShortcutRoute;
+  "/settings/skills": typeof SettingsSkillsRoute;
+  "/": typeof MainIndexRoute;
+  "/settings": typeof SettingsIndexRoute;
+  "/settings/provider/$providerId": typeof SettingsProviderProviderIdRoute;
+  "/settings/provider": typeof SettingsProviderIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/_main': typeof MainRouteWithChildren
-  '/settings': typeof SettingsRouteWithChildren
-  '/_main/chat': typeof MainChatRoute
-  '/_main/welcome': typeof MainWelcomeRoute
-  '/settings/about': typeof SettingsAboutRoute
-  '/settings/acp': typeof SettingsAcpRoute
-  '/settings/argos-agents': typeof SettingsArgosAgentsRoute
-  '/settings/common': typeof SettingsCommonRoute
-  '/settings/database': typeof SettingsDatabaseRoute
-  '/settings/display': typeof SettingsDisplayRoute
-  '/settings/environments': typeof SettingsEnvironmentsRoute
-  '/settings/knowledge-base': typeof SettingsKnowledgeBaseRoute
-  '/settings/mcp': typeof SettingsMcpRoute
-  '/settings/notifications-hooks': typeof SettingsNotificationsHooksRoute
-  '/settings/overview': typeof SettingsOverviewRoute
-  '/settings/plugins': typeof SettingsPluginsRoute
-  '/settings/prompt': typeof SettingsPromptRoute
-  '/settings/provider': typeof SettingsProviderRouteWithChildren
-  '/settings/remote': typeof SettingsRemoteRoute
-  '/settings/scheduled-tasks': typeof SettingsScheduledTasksRoute
-  '/settings/server': typeof SettingsServerRoute
-  '/settings/shortcut': typeof SettingsShortcutRoute
-  '/settings/skills': typeof SettingsSkillsRoute
-  '/_main/': typeof MainIndexRoute
-  '/settings/': typeof SettingsIndexRoute
-  '/settings/provider/$providerId': typeof SettingsProviderProviderIdRoute
-  '/settings/provider/': typeof SettingsProviderIndexRoute
+  __root__: typeof rootRouteImport;
+  "/_main": typeof MainRouteWithChildren;
+  "/settings": typeof SettingsRouteWithChildren;
+  "/_main/chat": typeof MainChatRoute;
+  "/_main/welcome": typeof MainWelcomeRoute;
+  "/settings/about": typeof SettingsAboutRoute;
+  "/settings/acp": typeof SettingsAcpRoute;
+  "/settings/argos-agents": typeof SettingsArgosAgentsRoute;
+  "/settings/common": typeof SettingsCommonRoute;
+  "/settings/database": typeof SettingsDatabaseRoute;
+  "/settings/display": typeof SettingsDisplayRoute;
+  "/settings/environments": typeof SettingsEnvironmentsRoute;
+  "/settings/knowledge-base": typeof SettingsKnowledgeBaseRoute;
+  "/settings/mcp": typeof SettingsMcpRoute;
+  "/settings/notifications-hooks": typeof SettingsNotificationsHooksRoute;
+  "/settings/overview": typeof SettingsOverviewRoute;
+  "/settings/plugins": typeof SettingsPluginsRoute;
+  "/settings/prompt": typeof SettingsPromptRoute;
+  "/settings/provider": typeof SettingsProviderRouteWithChildren;
+  "/settings/remote": typeof SettingsRemoteRoute;
+  "/settings/scheduled-tasks": typeof SettingsScheduledTasksRoute;
+  "/settings/server": typeof SettingsServerRoute;
+  "/settings/shortcut": typeof SettingsShortcutRoute;
+  "/settings/skills": typeof SettingsSkillsRoute;
+  "/_main/": typeof MainIndexRoute;
+  "/settings/": typeof SettingsIndexRoute;
+  "/settings/provider/$providerId": typeof SettingsProviderProviderIdRoute;
+  "/settings/provider/": typeof SettingsProviderIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/settings'
-    | '/chat'
-    | '/welcome'
-    | '/settings/about'
-    | '/settings/acp'
-    | '/settings/argos-agents'
-    | '/settings/common'
-    | '/settings/database'
-    | '/settings/display'
-    | '/settings/environments'
-    | '/settings/knowledge-base'
-    | '/settings/mcp'
-    | '/settings/notifications-hooks'
-    | '/settings/overview'
-    | '/settings/plugins'
-    | '/settings/prompt'
-    | '/settings/provider'
-    | '/settings/remote'
-    | '/settings/scheduled-tasks'
-    | '/settings/server'
-    | '/settings/shortcut'
-    | '/settings/skills'
-    | '/settings/'
-    | '/settings/provider/$providerId'
-    | '/settings/provider/'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/settings"
+    | "/chat"
+    | "/welcome"
+    | "/settings/about"
+    | "/settings/acp"
+    | "/settings/argos-agents"
+    | "/settings/common"
+    | "/settings/database"
+    | "/settings/display"
+    | "/settings/environments"
+    | "/settings/knowledge-base"
+    | "/settings/mcp"
+    | "/settings/notifications-hooks"
+    | "/settings/overview"
+    | "/settings/plugins"
+    | "/settings/prompt"
+    | "/settings/provider"
+    | "/settings/remote"
+    | "/settings/scheduled-tasks"
+    | "/settings/server"
+    | "/settings/shortcut"
+    | "/settings/skills"
+    | "/settings/"
+    | "/settings/provider/$providerId"
+    | "/settings/provider/";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/chat'
-    | '/welcome'
-    | '/settings/about'
-    | '/settings/acp'
-    | '/settings/argos-agents'
-    | '/settings/common'
-    | '/settings/database'
-    | '/settings/display'
-    | '/settings/environments'
-    | '/settings/knowledge-base'
-    | '/settings/mcp'
-    | '/settings/notifications-hooks'
-    | '/settings/overview'
-    | '/settings/plugins'
-    | '/settings/prompt'
-    | '/settings/remote'
-    | '/settings/scheduled-tasks'
-    | '/settings/server'
-    | '/settings/shortcut'
-    | '/settings/skills'
-    | '/'
-    | '/settings'
-    | '/settings/provider/$providerId'
-    | '/settings/provider'
+    | "/chat"
+    | "/welcome"
+    | "/settings/about"
+    | "/settings/acp"
+    | "/settings/argos-agents"
+    | "/settings/common"
+    | "/settings/database"
+    | "/settings/display"
+    | "/settings/environments"
+    | "/settings/knowledge-base"
+    | "/settings/mcp"
+    | "/settings/notifications-hooks"
+    | "/settings/overview"
+    | "/settings/plugins"
+    | "/settings/prompt"
+    | "/settings/remote"
+    | "/settings/scheduled-tasks"
+    | "/settings/server"
+    | "/settings/shortcut"
+    | "/settings/skills"
+    | "/"
+    | "/settings"
+    | "/settings/provider/$providerId"
+    | "/settings/provider";
   id:
-    | '__root__'
-    | '/_main'
-    | '/settings'
-    | '/_main/chat'
-    | '/_main/welcome'
-    | '/settings/about'
-    | '/settings/acp'
-    | '/settings/argos-agents'
-    | '/settings/common'
-    | '/settings/database'
-    | '/settings/display'
-    | '/settings/environments'
-    | '/settings/knowledge-base'
-    | '/settings/mcp'
-    | '/settings/notifications-hooks'
-    | '/settings/overview'
-    | '/settings/plugins'
-    | '/settings/prompt'
-    | '/settings/provider'
-    | '/settings/remote'
-    | '/settings/scheduled-tasks'
-    | '/settings/server'
-    | '/settings/shortcut'
-    | '/settings/skills'
-    | '/_main/'
-    | '/settings/'
-    | '/settings/provider/$providerId'
-    | '/settings/provider/'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/_main"
+    | "/settings"
+    | "/_main/chat"
+    | "/_main/welcome"
+    | "/settings/about"
+    | "/settings/acp"
+    | "/settings/argos-agents"
+    | "/settings/common"
+    | "/settings/database"
+    | "/settings/display"
+    | "/settings/environments"
+    | "/settings/knowledge-base"
+    | "/settings/mcp"
+    | "/settings/notifications-hooks"
+    | "/settings/overview"
+    | "/settings/plugins"
+    | "/settings/prompt"
+    | "/settings/provider"
+    | "/settings/remote"
+    | "/settings/scheduled-tasks"
+    | "/settings/server"
+    | "/settings/shortcut"
+    | "/settings/skills"
+    | "/_main/"
+    | "/settings/"
+    | "/settings/provider/$providerId"
+    | "/settings/provider/";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  MainRoute: typeof MainRouteWithChildren
-  SettingsRoute: typeof SettingsRouteWithChildren
+  MainRoute: typeof MainRouteWithChildren;
+  SettingsRoute: typeof SettingsRouteWithChildren;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_main': {
-      id: '/_main'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof MainRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/': {
-      id: '/settings/'
-      path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof SettingsIndexRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/_main/': {
-      id: '/_main/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof MainIndexRouteImport
-      parentRoute: typeof MainRoute
-    }
-    '/settings/skills': {
-      id: '/settings/skills'
-      path: '/skills'
-      fullPath: '/settings/skills'
-      preLoaderRoute: typeof SettingsSkillsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/shortcut': {
-      id: '/settings/shortcut'
-      path: '/shortcut'
-      fullPath: '/settings/shortcut'
-      preLoaderRoute: typeof SettingsShortcutRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/server': {
-      id: '/settings/server'
-      path: '/server'
-      fullPath: '/settings/server'
-      preLoaderRoute: typeof SettingsServerRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/scheduled-tasks': {
-      id: '/settings/scheduled-tasks'
-      path: '/scheduled-tasks'
-      fullPath: '/settings/scheduled-tasks'
-      preLoaderRoute: typeof SettingsScheduledTasksRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/remote': {
-      id: '/settings/remote'
-      path: '/remote'
-      fullPath: '/settings/remote'
-      preLoaderRoute: typeof SettingsRemoteRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/provider': {
-      id: '/settings/provider'
-      path: '/provider'
-      fullPath: '/settings/provider'
-      preLoaderRoute: typeof SettingsProviderRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/prompt': {
-      id: '/settings/prompt'
-      path: '/prompt'
-      fullPath: '/settings/prompt'
-      preLoaderRoute: typeof SettingsPromptRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/plugins': {
-      id: '/settings/plugins'
-      path: '/plugins'
-      fullPath: '/settings/plugins'
-      preLoaderRoute: typeof SettingsPluginsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/overview': {
-      id: '/settings/overview'
-      path: '/overview'
-      fullPath: '/settings/overview'
-      preLoaderRoute: typeof SettingsOverviewRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/notifications-hooks': {
-      id: '/settings/notifications-hooks'
-      path: '/notifications-hooks'
-      fullPath: '/settings/notifications-hooks'
-      preLoaderRoute: typeof SettingsNotificationsHooksRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/mcp': {
-      id: '/settings/mcp'
-      path: '/mcp'
-      fullPath: '/settings/mcp'
-      preLoaderRoute: typeof SettingsMcpRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/knowledge-base': {
-      id: '/settings/knowledge-base'
-      path: '/knowledge-base'
-      fullPath: '/settings/knowledge-base'
-      preLoaderRoute: typeof SettingsKnowledgeBaseRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/environments': {
-      id: '/settings/environments'
-      path: '/environments'
-      fullPath: '/settings/environments'
-      preLoaderRoute: typeof SettingsEnvironmentsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/display': {
-      id: '/settings/display'
-      path: '/display'
-      fullPath: '/settings/display'
-      preLoaderRoute: typeof SettingsDisplayRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/database': {
-      id: '/settings/database'
-      path: '/database'
-      fullPath: '/settings/database'
-      preLoaderRoute: typeof SettingsDatabaseRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/common': {
-      id: '/settings/common'
-      path: '/common'
-      fullPath: '/settings/common'
-      preLoaderRoute: typeof SettingsCommonRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/argos-agents': {
-      id: '/settings/argos-agents'
-      path: '/argos-agents'
-      fullPath: '/settings/argos-agents'
-      preLoaderRoute: typeof SettingsArgosAgentsRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/acp': {
-      id: '/settings/acp'
-      path: '/acp'
-      fullPath: '/settings/acp'
-      preLoaderRoute: typeof SettingsAcpRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/about': {
-      id: '/settings/about'
-      path: '/about'
-      fullPath: '/settings/about'
-      preLoaderRoute: typeof SettingsAboutRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/_main/welcome': {
-      id: '/_main/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof MainWelcomeRouteImport
-      parentRoute: typeof MainRoute
-    }
-    '/_main/chat': {
-      id: '/_main/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof MainChatRouteImport
-      parentRoute: typeof MainRoute
-    }
-    '/settings/provider/': {
-      id: '/settings/provider/'
-      path: '/'
-      fullPath: '/settings/provider/'
-      preLoaderRoute: typeof SettingsProviderIndexRouteImport
-      parentRoute: typeof SettingsProviderRoute
-    }
-    '/settings/provider/$providerId': {
-      id: '/settings/provider/$providerId'
-      path: '/$providerId'
-      fullPath: '/settings/provider/$providerId'
-      preLoaderRoute: typeof SettingsProviderProviderIdRouteImport
-      parentRoute: typeof SettingsProviderRoute
-    }
+    "/settings": {
+      id: "/settings";
+      path: "/settings";
+      fullPath: "/settings";
+      preLoaderRoute: typeof SettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_main": {
+      id: "/_main";
+      path: "";
+      fullPath: "/";
+      preLoaderRoute: typeof MainRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/settings/": {
+      id: "/settings/";
+      path: "/";
+      fullPath: "/settings/";
+      preLoaderRoute: typeof SettingsIndexRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/_main/": {
+      id: "/_main/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof MainIndexRouteImport;
+      parentRoute: typeof MainRoute;
+    };
+    "/settings/skills": {
+      id: "/settings/skills";
+      path: "/skills";
+      fullPath: "/settings/skills";
+      preLoaderRoute: typeof SettingsSkillsRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/shortcut": {
+      id: "/settings/shortcut";
+      path: "/shortcut";
+      fullPath: "/settings/shortcut";
+      preLoaderRoute: typeof SettingsShortcutRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/server": {
+      id: "/settings/server";
+      path: "/server";
+      fullPath: "/settings/server";
+      preLoaderRoute: typeof SettingsServerRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/scheduled-tasks": {
+      id: "/settings/scheduled-tasks";
+      path: "/scheduled-tasks";
+      fullPath: "/settings/scheduled-tasks";
+      preLoaderRoute: typeof SettingsScheduledTasksRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/remote": {
+      id: "/settings/remote";
+      path: "/remote";
+      fullPath: "/settings/remote";
+      preLoaderRoute: typeof SettingsRemoteRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/provider": {
+      id: "/settings/provider";
+      path: "/provider";
+      fullPath: "/settings/provider";
+      preLoaderRoute: typeof SettingsProviderRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/prompt": {
+      id: "/settings/prompt";
+      path: "/prompt";
+      fullPath: "/settings/prompt";
+      preLoaderRoute: typeof SettingsPromptRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/plugins": {
+      id: "/settings/plugins";
+      path: "/plugins";
+      fullPath: "/settings/plugins";
+      preLoaderRoute: typeof SettingsPluginsRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/overview": {
+      id: "/settings/overview";
+      path: "/overview";
+      fullPath: "/settings/overview";
+      preLoaderRoute: typeof SettingsOverviewRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/notifications-hooks": {
+      id: "/settings/notifications-hooks";
+      path: "/notifications-hooks";
+      fullPath: "/settings/notifications-hooks";
+      preLoaderRoute: typeof SettingsNotificationsHooksRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/mcp": {
+      id: "/settings/mcp";
+      path: "/mcp";
+      fullPath: "/settings/mcp";
+      preLoaderRoute: typeof SettingsMcpRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/knowledge-base": {
+      id: "/settings/knowledge-base";
+      path: "/knowledge-base";
+      fullPath: "/settings/knowledge-base";
+      preLoaderRoute: typeof SettingsKnowledgeBaseRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/environments": {
+      id: "/settings/environments";
+      path: "/environments";
+      fullPath: "/settings/environments";
+      preLoaderRoute: typeof SettingsEnvironmentsRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/display": {
+      id: "/settings/display";
+      path: "/display";
+      fullPath: "/settings/display";
+      preLoaderRoute: typeof SettingsDisplayRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/database": {
+      id: "/settings/database";
+      path: "/database";
+      fullPath: "/settings/database";
+      preLoaderRoute: typeof SettingsDatabaseRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/common": {
+      id: "/settings/common";
+      path: "/common";
+      fullPath: "/settings/common";
+      preLoaderRoute: typeof SettingsCommonRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/argos-agents": {
+      id: "/settings/argos-agents";
+      path: "/argos-agents";
+      fullPath: "/settings/argos-agents";
+      preLoaderRoute: typeof SettingsArgosAgentsRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/acp": {
+      id: "/settings/acp";
+      path: "/acp";
+      fullPath: "/settings/acp";
+      preLoaderRoute: typeof SettingsAcpRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/settings/about": {
+      id: "/settings/about";
+      path: "/about";
+      fullPath: "/settings/about";
+      preLoaderRoute: typeof SettingsAboutRouteImport;
+      parentRoute: typeof SettingsRoute;
+    };
+    "/_main/welcome": {
+      id: "/_main/welcome";
+      path: "/welcome";
+      fullPath: "/welcome";
+      preLoaderRoute: typeof MainWelcomeRouteImport;
+      parentRoute: typeof MainRoute;
+    };
+    "/_main/chat": {
+      id: "/_main/chat";
+      path: "/chat";
+      fullPath: "/chat";
+      preLoaderRoute: typeof MainChatRouteImport;
+      parentRoute: typeof MainRoute;
+    };
+    "/settings/provider/": {
+      id: "/settings/provider/";
+      path: "/";
+      fullPath: "/settings/provider/";
+      preLoaderRoute: typeof SettingsProviderIndexRouteImport;
+      parentRoute: typeof SettingsProviderRoute;
+    };
+    "/settings/provider/$providerId": {
+      id: "/settings/provider/$providerId";
+      path: "/$providerId";
+      fullPath: "/settings/provider/$providerId";
+      preLoaderRoute: typeof SettingsProviderProviderIdRouteImport;
+      parentRoute: typeof SettingsProviderRoute;
+    };
   }
 }
 
 interface MainRouteChildren {
-  MainChatRoute: typeof MainChatRoute
-  MainWelcomeRoute: typeof MainWelcomeRoute
-  MainIndexRoute: typeof MainIndexRoute
+  MainChatRoute: typeof MainChatRoute;
+  MainWelcomeRoute: typeof MainWelcomeRoute;
+  MainIndexRoute: typeof MainIndexRoute;
 }
 
 const MainRouteChildren: MainRouteChildren = {
   MainChatRoute: MainChatRoute,
   MainWelcomeRoute: MainWelcomeRoute,
   MainIndexRoute: MainIndexRoute,
-}
+};
 
-const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren)
+const MainRouteWithChildren = MainRoute._addFileChildren(MainRouteChildren);
 
 interface SettingsProviderRouteChildren {
-  SettingsProviderProviderIdRoute: typeof SettingsProviderProviderIdRoute
-  SettingsProviderIndexRoute: typeof SettingsProviderIndexRoute
+  SettingsProviderProviderIdRoute: typeof SettingsProviderProviderIdRoute;
+  SettingsProviderIndexRoute: typeof SettingsProviderIndexRoute;
 }
 
 const SettingsProviderRouteChildren: SettingsProviderRouteChildren = {
   SettingsProviderProviderIdRoute: SettingsProviderProviderIdRoute,
   SettingsProviderIndexRoute: SettingsProviderIndexRoute,
-}
+};
 
-const SettingsProviderRouteWithChildren =
-  SettingsProviderRoute._addFileChildren(SettingsProviderRouteChildren)
+const SettingsProviderRouteWithChildren = SettingsProviderRoute._addFileChildren(SettingsProviderRouteChildren);
 
 interface SettingsRouteChildren {
-  SettingsAboutRoute: typeof SettingsAboutRoute
-  SettingsAcpRoute: typeof SettingsAcpRoute
-  SettingsArgosAgentsRoute: typeof SettingsArgosAgentsRoute
-  SettingsCommonRoute: typeof SettingsCommonRoute
-  SettingsDatabaseRoute: typeof SettingsDatabaseRoute
-  SettingsDisplayRoute: typeof SettingsDisplayRoute
-  SettingsEnvironmentsRoute: typeof SettingsEnvironmentsRoute
-  SettingsKnowledgeBaseRoute: typeof SettingsKnowledgeBaseRoute
-  SettingsMcpRoute: typeof SettingsMcpRoute
-  SettingsNotificationsHooksRoute: typeof SettingsNotificationsHooksRoute
-  SettingsOverviewRoute: typeof SettingsOverviewRoute
-  SettingsPluginsRoute: typeof SettingsPluginsRoute
-  SettingsPromptRoute: typeof SettingsPromptRoute
-  SettingsProviderRoute: typeof SettingsProviderRouteWithChildren
-  SettingsRemoteRoute: typeof SettingsRemoteRoute
-  SettingsScheduledTasksRoute: typeof SettingsScheduledTasksRoute
-  SettingsServerRoute: typeof SettingsServerRoute
-  SettingsShortcutRoute: typeof SettingsShortcutRoute
-  SettingsSkillsRoute: typeof SettingsSkillsRoute
-  SettingsIndexRoute: typeof SettingsIndexRoute
+  SettingsAboutRoute: typeof SettingsAboutRoute;
+  SettingsAcpRoute: typeof SettingsAcpRoute;
+  SettingsArgosAgentsRoute: typeof SettingsArgosAgentsRoute;
+  SettingsCommonRoute: typeof SettingsCommonRoute;
+  SettingsDatabaseRoute: typeof SettingsDatabaseRoute;
+  SettingsDisplayRoute: typeof SettingsDisplayRoute;
+  SettingsEnvironmentsRoute: typeof SettingsEnvironmentsRoute;
+  SettingsKnowledgeBaseRoute: typeof SettingsKnowledgeBaseRoute;
+  SettingsMcpRoute: typeof SettingsMcpRoute;
+  SettingsNotificationsHooksRoute: typeof SettingsNotificationsHooksRoute;
+  SettingsOverviewRoute: typeof SettingsOverviewRoute;
+  SettingsPluginsRoute: typeof SettingsPluginsRoute;
+  SettingsPromptRoute: typeof SettingsPromptRoute;
+  SettingsProviderRoute: typeof SettingsProviderRouteWithChildren;
+  SettingsRemoteRoute: typeof SettingsRemoteRoute;
+  SettingsScheduledTasksRoute: typeof SettingsScheduledTasksRoute;
+  SettingsServerRoute: typeof SettingsServerRoute;
+  SettingsShortcutRoute: typeof SettingsShortcutRoute;
+  SettingsSkillsRoute: typeof SettingsSkillsRoute;
+  SettingsIndexRoute: typeof SettingsIndexRoute;
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
@@ -614,16 +611,12 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsShortcutRoute: SettingsShortcutRoute,
   SettingsSkillsRoute: SettingsSkillsRoute,
   SettingsIndexRoute: SettingsIndexRoute,
-}
+};
 
-const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
-  SettingsRouteChildren,
-)
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(SettingsRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   MainRoute: MainRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
-}
-export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+};
+export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>();

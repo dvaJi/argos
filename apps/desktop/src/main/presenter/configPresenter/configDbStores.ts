@@ -2,7 +2,7 @@ import type { LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@shared/presente
 import type { ConfigTables } from "../sqlitePresenter/tables/configTables";
 import { SHARED_AGENT_MCP_SELECTION_ID } from "../sqlitePresenter/tables/configTables";
 import type { IModelStore } from "./providerModelHelper";
-import type { StoreLike } from "./storeLike";
+import type { StoreLike } from "@argos/backend-core";
 
 const MODEL_STATUS_KEY_PREFIX = "model_status_";
 

@@ -5,8 +5,8 @@ import {
   McpDbStore,
 } from "../../../../src/main/presenter/configPresenter/configDbStores";
 import type { ConfigTables } from "../../../../src/main/presenter/sqlitePresenter/tables/configTables";
-import type { StoreLike } from "../../../../src/main/presenter/configPresenter/storeLike";
-import type { LLM_PROVIDER, MCPServerConfig } from "../../../../src/shared/presenter";
+import type { StoreLike } from "@argos/backend-core";
+import type { LLM_PROVIDER, MCPServerConfig } from "@shared/presenter";
 
 describe("config DB-backed stores", () => {
   it("keeps legacy provider settings until sqlite rows exist", () => {

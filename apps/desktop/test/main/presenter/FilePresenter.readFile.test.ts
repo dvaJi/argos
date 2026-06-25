@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "fs/promises";
 import path from "path";
 import { FilePresenter } from "../../../src/main/presenter/filePresenter/FilePresenter";
-import type { IConfigPresenter } from "../../../src/shared/presenter";
+import type { IConfigPresenter } from "@shared/presenter";
 
 vi.mock("electron", () => ({
   app: {

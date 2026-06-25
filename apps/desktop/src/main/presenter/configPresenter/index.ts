@@ -66,7 +66,7 @@ import { AcpConfHelper } from "./acpConfHelper";
 import { AcpRegistryService } from "./acpRegistryService";
 import { AcpLaunchSpecService } from "./acpLaunchSpecService";
 import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
-import { resolveAcpAgentAlias } from "./acpRegistryConstants";
+import { resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
 import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
 import type { SQLitePresenter } from "../sqlitePresenter";
@@ -92,7 +92,7 @@ import {
   ProviderModelDbStore,
   SENSITIVE_APP_SETTING_KEYS,
 } from "./configDbStores";
-import type { StoreLike, StoreFactory } from "./storeLike";
+import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
 function createElectronStoreFactory(): StoreFactory {
   return <T>(options: { name: string; defaults?: T }) => {

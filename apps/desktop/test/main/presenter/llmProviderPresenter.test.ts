@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi, beforeAll, afterEach } from "vitest";
 import { LLMProviderPresenter } from "../../../src/main/presenter/llmProviderPresenter/index";
 import { ConfigPresenter } from "../../../src/main/presenter/configPresenter/index";
-import { LLM_PROVIDER, ChatMessage, ISQLitePresenter } from "../../../src/shared/presenter";
+import { LLM_PROVIDER, ChatMessage, ISQLitePresenter } from "@shared/presenter";
 import { AiSdkProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
-import { ApiEndpointType, ModelType } from "../../../src/shared/model";
+import { ApiEndpointType, ModelType } from "@shared/model";
 
 const { mockRunAiSdkCoreStream, mockRunAiSdkDimensions, mockRunAiSdkEmbeddings, mockRunAiSdkGenerateText } = vi.hoisted(
   () => ({

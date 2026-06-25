@@ -17,7 +17,7 @@ import {
   ACP_REGISTRY_URL,
   getAcpRegistryIconFileName,
   isAcpRegistryIconUrl,
-} from "./acpRegistryConstants";
+} from "@argos/backend-core";
 
 type RegistryCacheMeta = {
   version?: string;

@@ -5,7 +5,7 @@ import Database from "better-sqlite3-multiple-ciphers";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { AssistantMessageBlock, LegacyImportStatus, UserMessageContent } from "@shared/types/agent-interface";
 import type { SearchResult } from "@shared/types/core/search";
-import { resolveAcpAgentAlias } from "@/presenter/configPresenter/acpRegistryConstants";
+import { resolveAcpAgentAlias } from "@argos/backend-core";
 import { ArgosMessageStore } from "../agentRuntimePresenter/messageStore";
 
 type LegacyRow = Record<string, unknown>;

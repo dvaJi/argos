@@ -1,4 +1,4 @@
-import type { JsonValue } from "../contracts/common";
+import type { JsonValue } from "@argos/shared-contracts/common";
 
 export const OFFICIAL_PLUGIN_SOURCE = "argos-official";
 
@@ -20,6 +20,7 @@ export type PluginToolPolicyDecision = "allow" | "ask" | "deny";
 export interface PluginEngineManifest {
   argos: string;
   platforms: string[];
+  targets?: string[];
 }
 
 export interface PluginSourceManifest {
@@ -187,6 +188,8 @@ export interface PluginInvokeActionRequest {
 
 export interface PluginSettingsApiStatus {
   pluginId: string;
+  platform: string;
+  arch: string;
   enabled: boolean;
   runtime?: PluginRuntimeStatus;
   mcpServers?: PluginMcpRuntimeStatus[];

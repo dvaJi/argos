@@ -1,14 +1,14 @@
 import { z } from "zod";
-import { ModelType, NEW_API_ENDPOINT_TYPES } from "../model";
-import type { Agent } from "../types/agent-interface";
-import { ReasoningEffortSchema, ReasoningVisibilitySchema, VerbositySchema } from "../types/model-db";
+import { ModelType, NEW_API_ENDPOINT_TYPES } from "@shared/model";
+import type { Agent } from "@shared/types/agent-interface";
+import { ReasoningEffortSchema, ReasoningVisibilitySchema, VerbositySchema } from "@shared/types/model-db";
 import {
   OPENAI_IMAGE_GENERATION_BACKGROUND_VALUES,
   IMAGE_GENERATION_MODERATION_VALUES,
   IMAGE_GENERATION_OUTPUT_FORMAT_VALUES,
   IMAGE_GENERATION_QUALITY_VALUES,
-} from "../imageGenerationSettings";
-import { TTS_RESPONSE_FORMAT_VALUES } from "../ttsSettings";
+} from "@shared/imageGenerationSettings";
+import { TTS_RESPONSE_FORMAT_VALUES } from "@shared/ttsSettings";
 
 export type JsonValue =
   | string
@@ -31,8 +31,15 @@ export const ToolCallImagePreviewSchema = z.object({
   source: z.enum(["tool_output", "file_read", "screenshot", "mcp_image"]),
 });
 
-export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
-  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(JsonValueSchema), z.record(JsonValueSchema)]),
+export const JsonValueSchema: z.ZodType<JsonValue, unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
 );
 
 export const FileMetadataValueSchema = z.union([JsonValueSchema, z.date()]);
@@ -94,7 +101,7 @@ export const AppErrorSchema = z.object({
   code: z.string(),
   message: z.string(),
   retriable: z.boolean().default(false),
-  details: z.record(JsonValueSchema).optional(),
+  details: z.record(z.string(), JsonValueSchema).optional(),
 });
 
 export const PermissionModeSchema = z.enum(["default", "full_access"]);
@@ -143,7 +150,7 @@ export const MessageFileSchema = z.object({
   mimeType: z.string().optional(),
   token: z.number().optional(),
   thumbnail: z.string().optional(),
-  metadata: z.record(FileMetadataValueSchema).optional(),
+  metadata: z.record(z.string(), FileMetadataValueSchema).optional(),
 });
 
 export const SendMessageInputSchema = z.object({
@@ -339,7 +346,7 @@ export const AssistantMessageBlockSchema = z.object({
       server_description: z.string().optional(),
     })
     .optional(),
-  extra: z.record(JsonValueSchema).optional(),
+  extra: z.record(z.string(), JsonValueSchema).optional(),
   action_type: z.enum(["tool_call_permission", "question_request", "rate_limit"]).optional(),
 });
 

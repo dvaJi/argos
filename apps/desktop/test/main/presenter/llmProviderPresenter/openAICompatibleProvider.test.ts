@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "../../../../src/shared/presenter";
+import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@shared/presenter";
 import {
   AiSdkProvider,
   normalizeExtractedImageText,

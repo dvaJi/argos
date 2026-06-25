@@ -8,5 +8,5 @@ export * from "./acp";
 export * from "./databaseSecurity";
 export * from "./remoteControlErrors";
 export * from "./providerImport";
-export * from "./scheduledTasks";
-export * from "./guidedOnboarding";
+export * from "@shared/scheduledTasks";
+export * from "@shared/guidedOnboarding";

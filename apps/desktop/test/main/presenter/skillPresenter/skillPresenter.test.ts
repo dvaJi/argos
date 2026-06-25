@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, Mock, afterEach } from "vitest";
-import type { IConfigPresenter } from "../../../../src/shared/presenter";
-import type { SkillMetadata } from "../../../../src/shared/types/skill";
+import type { IConfigPresenter } from "@shared/presenter";
+import type { SkillMetadata } from "@shared/types/skill";
 import { app } from "electron";
 
 const DEFAULT_SKILLS_DIR = "/mock/home/.argos/skills";

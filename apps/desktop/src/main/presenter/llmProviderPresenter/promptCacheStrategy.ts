@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import type { MCPToolDefinition } from "@shared/presenter";
-import { resolvePromptCacheMode, type PromptCacheMode } from "./promptCacheCapabilities";
+import { resolvePromptCacheMode, type PromptCacheMode } from "@argos/backend-core";
 
 export type PromptCacheApiType = "openai_chat" | "openai_responses" | "anthropic";
 export type PromptCacheTtl = "5m";

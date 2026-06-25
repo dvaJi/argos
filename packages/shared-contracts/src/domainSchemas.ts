@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { BrowserPageStatus } from "../types/browser";
-import { ApiEndpointType, ModelType, NEW_API_ENDPOINT_TYPES } from "../model";
+import { BrowserPageStatus } from "@shared/types/browser";
+import { ApiEndpointType, ModelType, NEW_API_ENDPOINT_TYPES } from "@shared/model";
 import {
   FileMetadataValueSchema,
   ImageGenerationOptionsSchema,
@@ -14,7 +14,7 @@ import {
   ReasoningModeSchema,
   ReasoningVisibilitySchema,
   VerbositySchema,
-} from "../types/model-db";
+} from "@shared/types/model-db";
 
 export const ThemeModeSchema = z.enum(["dark", "light", "system"]);
 
@@ -368,7 +368,7 @@ export const PreparedMessageFileSchema = z.object({
   mimeType: z.string().optional(),
   token: z.number().optional(),
   thumbnail: z.string().optional(),
-  metadata: z.record(FileMetadataValueSchema).optional(),
+  metadata: z.record(z.string(), FileMetadataValueSchema).optional(),
 });
 
 export const DeviceInfoSchema = z.object({

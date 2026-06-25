@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { LLM_PROVIDER } from "../../../src/shared/presenter";
+import type { LLM_PROVIDER } from "@shared/presenter";
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
   id: "anthropic",

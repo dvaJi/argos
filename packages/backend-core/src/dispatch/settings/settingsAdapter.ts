@@ -4,7 +4,7 @@ import {
   type SettingsChange,
   type SettingsKey,
   type SettingsSnapshotValues,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 
 const ALL_SETTINGS_KEYS: readonly SettingsKey[] = SETTINGS_KEYS;
 

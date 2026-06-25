@@ -269,6 +269,9 @@ export interface IWindowPresenter {
   createSettingsWindow(
     navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
   ): Promise<number | null>;
+  navigateToSettings(
+    navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
+  ): Promise<number | null>;
   closeSettingsWindow(): void;
   getSettingsWindowId(): number | null;
   focusMainWindow(): boolean;
@@ -358,9 +361,9 @@ export interface ISQLitePresenter {
   close(): void;
   reopen(): void;
   recordSettingsActivity(
-    input: import("@shared/contracts/routes").SettingsActivityInput,
-  ): Promise<import("@shared/contracts/routes").SettingsActivityRecord>;
-  listSettingsActivity(limit?: number): Promise<import("@shared/contracts/routes").SettingsActivityRecord[]>;
+    input: import("@argos/shared-contracts/routes").SettingsActivityInput,
+  ): Promise<import("@argos/shared-contracts/routes").SettingsActivityRecord>;
+  listSettingsActivity(limit?: number): Promise<import("@argos/shared-contracts/routes").SettingsActivityRecord[]>;
   diagnoseSchema(): Promise<DatabaseSchemaDiagnosis>;
   repairSchema(): Promise<DatabaseRepairReport>;
   clearNewAgentData(): Promise<void>;
@@ -439,6 +442,8 @@ export interface IOAuthPresenter {
   startOAuthLogin(providerId: string, config: OAuthConfig): Promise<boolean>;
   startGitHubCopilotLogin(providerId: string): Promise<boolean>;
   startGitHubCopilotDeviceFlowLogin(providerId: string): Promise<boolean>;
+  /** Resolve a pending traditional OAuth login from the `argos://auth/callback` deep link. */
+  completeGitHubAuthFromDeepLink(payload: { token?: string; state?: string; error?: string }): void;
 }
 
 export interface OAuthConfig {
@@ -1811,6 +1816,7 @@ export interface IMCPPresenter {
   isServerRunning(serverName: string): Promise<boolean>;
   startServer(serverName: string): Promise<void>;
   stopServer(serverName: string): Promise<void>;
+  shutdown(): Promise<void>;
   getServerLastError?(serverName: string): string | undefined;
   getAllToolDefinitions(enabledMcpTools?: string[]): Promise<MCPToolDefinition[]>;
   getAllPrompts(): Promise<Array<PromptListEntry & { client: { name: string; icon: string } }>>;

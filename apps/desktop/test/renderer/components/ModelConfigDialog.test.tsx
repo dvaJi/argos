@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { ReasoningPortrait } from "../../../src/shared/types/model-db";
-import { ApiEndpointType, ModelType } from "../../../src/shared/model";
+import type { ReasoningPortrait } from "@shared/types/model-db";
+import { ApiEndpointType, ModelType } from "@shared/model";
 
 type SetupOptions = {
   providerId: string;

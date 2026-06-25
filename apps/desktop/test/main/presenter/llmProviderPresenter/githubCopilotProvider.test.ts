@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GithubCopilotProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/githubCopilotProvider";
-import type { IConfigPresenter } from "../../../../src/shared/presenter";
+import type { IConfigPresenter } from "@shared/presenter";
 import { getGlobalGitHubCopilotDeviceFlow } from "../../../../src/main/presenter/githubCopilotDeviceFlow";
 
 vi.mock("../../../../src/main/presenter/proxyConfig", () => ({

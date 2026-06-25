@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ModelType } from "../../../../src/shared/model";
-import type { IConfigPresenter, LLM_PROVIDER, MODEL_META, OllamaModel } from "../../../../src/shared/presenter";
+import { ModelType } from "@shared/model";
+import type { IConfigPresenter, LLM_PROVIDER, MODEL_META, OllamaModel } from "@shared/presenter";
 import { OllamaProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/ollamaProvider";
 
 const { mockExecFile, mockOllamaConstructorOptions } = vi.hoisted(() => ({

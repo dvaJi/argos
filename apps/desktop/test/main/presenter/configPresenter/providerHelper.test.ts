@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderHelper } from "../../../../src/main/presenter/configPresenter/providerHelper";
-import type { LLM_PROVIDER } from "../../../../src/shared/presenter";
+import type { LLM_PROVIDER } from "@shared/presenter";
 
 const { send } = vi.hoisted(() => ({
   send: vi.fn<(...args: any[]) => any>(),

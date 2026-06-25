@@ -6,7 +6,7 @@ import type {
   SessionPermissionPort,
   SessionRepository,
 } from "../hotPathPorts";
-import type { Scheduler } from "../scheduler";
+import type { Scheduler } from "@argos/backend-core";
 
 const CHAT_LOOKUP_TIMEOUT_MS = 5_000;
 const CHAT_SEND_TIMEOUT_MS = 30 * 60 * 1_000;

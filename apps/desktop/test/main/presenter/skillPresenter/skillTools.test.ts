@@ -6,7 +6,7 @@ import type {
   SkillManageRequest,
   SkillMetadata,
   SkillViewResult,
-} from "../../../../src/shared/types/skill";
+} from "@shared/types/skill";
 
 describe("SkillTools", () => {
   let skillTools: SkillTools;

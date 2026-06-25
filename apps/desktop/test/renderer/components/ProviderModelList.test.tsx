@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ModelType } from "../../../src/shared/model";
+import { ModelType } from "@shared/model";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,

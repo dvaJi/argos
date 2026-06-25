@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModelConfig } from "../../../../src/shared/presenter";
-import { ModelType } from "../../../../src/shared/model";
+import type { ModelConfig } from "@shared/presenter";
+import { ModelType } from "@shared/model";
 import type { StoreFactory } from "@argos/backend-core";
 
 const storeStates = vi.hoisted(

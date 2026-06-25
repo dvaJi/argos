@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { CopilotAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/copilotAdapter";
-import type { CanonicalSkill, ParseContext } from "../../../../../src/shared/types/skillSync";
+import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
 
 describe("CopilotAdapter", () => {
   const adapter = new CopilotAdapter();

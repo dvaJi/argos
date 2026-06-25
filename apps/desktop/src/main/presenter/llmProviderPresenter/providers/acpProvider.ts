@@ -47,7 +47,7 @@ import {
 import { AcpClientPresenter, AcpPromptController } from "@/presenter/acpClientPresenter";
 import { nanoid } from "nanoid";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
-import { resolveAcpAgentAlias } from "@/presenter/configPresenter/acpRegistryConstants";
+import { resolveAcpAgentAlias } from "@argos/backend-core";
 
 type EventQueue = {
   push: (event: LLMCoreStreamEvent | null) => void;

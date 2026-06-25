@@ -122,7 +122,7 @@ export default function SettingsOverview() {
   const openRoute = useCallback(
     (routeName: SettingsRouteName) => {
       console.log("Navigating to route:", routeName);
-      void router.navigate({ to: resolveSettingsNavigationPath(routeName) });
+      void router.navigate({ to: `/settings${resolveSettingsNavigationPath(routeName)}` });
     },
     [router],
   );
@@ -131,10 +131,10 @@ export default function SettingsOverview() {
     (activity: SettingsActivityRecord) => {
       if (!activity.routeName) return;
       void router.navigate({
-        to: resolveSettingsNavigationPath(
+        to: `/settings${resolveSettingsNavigationPath(
           activity.routeName as any,
           activity.routeParams as Record<string, string> | undefined,
-        ),
+        )}`,
       });
     },
     [router],

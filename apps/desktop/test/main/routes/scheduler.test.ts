@@ -1,4 +1,4 @@
-import { createNodeScheduler } from "@/routes/scheduler";
+import { createNodeScheduler } from "@argos/backend-core";
 
 describe("createNodeScheduler", () => {
   it("times out long-running tasks", async () => {

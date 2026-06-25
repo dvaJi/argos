@@ -3,7 +3,7 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-import logger from "../../../shared/logger";
+import logger from "@shared/logger";
 import { platform, is } from "@electron-toolkit/utils";
 import icon from "../../../../resources/icon.png?asset";
 import iconWin from "../../../../resources/icon.ico?asset";

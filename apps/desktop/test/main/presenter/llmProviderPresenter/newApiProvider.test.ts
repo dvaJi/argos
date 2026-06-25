@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "../../../../src/shared/presenter";
-import { ApiEndpointType, ModelType } from "../../../../src/shared/model";
+import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@shared/presenter";
+import { ApiEndpointType, ModelType } from "@shared/model";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
 import { modelCapabilities } from "../../../../src/main/presenter/configPresenter/modelCapabilities";

@@ -31,7 +31,9 @@
     "paths": {
       "@/*": ["./src/renderer/src/*"],
       "@api/*": ["./src/renderer/api/*"],
-      "@shared/*": ["./src/shared/*"],
+      "@shared/contracts/*": ["../../packages/shared-contracts/src/*"],
+      "@argos/shared-contracts/*": ["../../packages/shared-contracts/src/*"],
+      "@shared/*": ["../../packages/shared/src/*"],
       "@shadcn/*": ["./src/shadcn/*"],
       "@settings/*": ["./src/renderer/settings/*"]
     }

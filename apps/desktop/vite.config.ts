@@ -19,7 +19,8 @@ import { electronSimple } from 'vite-plugin-electron/multi-env'
 function pathAliasPlugin(projectRoot: string): Plugin {
   const mainDir = path.join(projectRoot, 'src', 'main')
   const rendererSrcDir = path.join(projectRoot, 'src', 'renderer', 'src')
-  const sharedDir = path.join(projectRoot, 'src', 'shared')
+  const sharedPkgDir = path.join(projectRoot, '..', '..', 'packages', 'shared', 'src')
+  const contractsPkgDir = path.join(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src')
   const apiDir = path.join(projectRoot, 'src', 'renderer', 'api')
   const shadcnDir = path.join(projectRoot, 'src', 'shadcn')
   const settingsDir = path.join(projectRoot, 'src', 'renderer', 'settings')
@@ -37,8 +38,14 @@ function pathAliasPlugin(projectRoot: string): Plugin {
         const isMain = importerNorm.startsWith(toFwd(mainDir) + '/')
         const base = isMain ? mainDir : rendererSrcDir
         aliasedPath = path.resolve(base, source.slice(2))
+      } else if (source.startsWith('@shared/contracts/')) {
+        // Single source of truth: @shared/contracts/* resolves to the
+        // @argos/shared-contracts package (see docs/architecture/consolidate-contract-catalogs).
+        aliasedPath = path.resolve(contractsPkgDir, source.slice('@shared/contracts/'.length))
       } else if (source.startsWith('@shared/')) {
-        aliasedPath = path.resolve(sharedDir, source.slice(8))
+        // Single source of truth: @shared/* resolves to @argos/shared
+        // (see docs/architecture/consolidate-shared-trees).
+        aliasedPath = path.resolve(sharedPkgDir, source.slice(8))
       } else if (source.startsWith('@api/')) {
         aliasedPath = path.resolve(apiDir, source.slice(5))
       } else if (source.startsWith('@shadcn/')) {
@@ -125,7 +132,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@api': resolve('src/renderer/api'),
-        '@shared': resolve('src/shared'),
+        '@shared': resolve('../../packages/shared/src'),
         '@shadcn': resolve('src/shadcn'),
         '@settings': resolve('src/renderer/settings'),
       },

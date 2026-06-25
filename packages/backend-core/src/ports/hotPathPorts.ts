@@ -9,7 +9,7 @@ import type {
   ToolInteractionResponse,
   ToolInteractionResult,
 } from "@shared/types/agent-interface";
-import type { ArgosEventName, ArgosEventPayload } from "@shared/contracts/events";
+import type { ArgosEventName, ArgosEventPayload } from "@argos/shared-contracts/events";
 
 export type SessionListFilters = {
   agentId?: string;

@@ -101,10 +101,14 @@ import {
   mcpClearNpmRegistryCacheRoute,
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
+  mcpGetMcpRouterApiKeyRoute,
   mcpGetNpmRegistryStatusRoute,
   mcpGetPromptRoute,
   mcpGetServersRoute,
+  mcpInstallMcpRouterServerRoute,
+  mcpIsServerInstalledRoute,
   mcpIsServerRunningRoute,
+  mcpListMcpRouterServersRoute,
   mcpListPromptsRoute,
   mcpListResourcesRoute,
   mcpListToolDefinitionsRoute,
@@ -114,10 +118,12 @@ import {
   mcpSetAutoDetectNpmRegistryRoute,
   mcpSetCustomNpmRegistryRoute,
   mcpSetEnabledRoute,
+  mcpSetMcpRouterApiKeyRoute,
   mcpSetServerEnabledRoute,
   mcpStartServerRoute,
   mcpStopServerRoute,
   mcpSubmitSamplingDecisionRoute,
+  mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
 } from "./routes/mcp.routes";
 import {
@@ -221,6 +227,7 @@ import {
   sessionsListLightweightRoute,
   sessionsListMessagesPageRoute,
   sessionsListRoute,
+  sessionsGetViewManifestsRoute,
   sessionsListMessageTracesRoute,
   sessionsListPendingInputsRoute,
   sessionsMoveAgentSessionsRoute,
@@ -228,7 +235,6 @@ import {
   sessionsMoveToAgentRoute,
   sessionsQueuePendingInputRoute,
   sessionsRenameRoute,
-  sessionsResumePendingQueueRoute,
   sessionsRetryMessageRoute,
   sessionsRestoreRoute,
 } from "./routes/sessions.routes";
@@ -239,6 +245,8 @@ import {
   sessionsSetPermissionModeRoute,
   sessionsSetProjectDirRoute,
   sessionsSetSubagentEnabledRoute,
+  sessionsSteerPendingInputRoute,
+  sessionsResumePendingQueueRoute,
   sessionsTogglePinnedRoute,
   sessionsTranslateTextRoute,
   sessionsUpdateDisabledAgentToolsRoute,
@@ -274,7 +282,11 @@ import {
   syncUploadToCloudRoute,
   syncPullFromCloudRoute,
 } from "./routes/sync.routes";
-import { systemOpenSettingsRoute } from "./routes/system.routes";
+import {
+  systemOpenSettingsRoute,
+  systemConsumePendingProviderInstallRoute,
+  systemSetPendingProviderInstallRoute,
+} from "./routes/system.routes";
 import { toolsListDefinitionsRoute } from "./routes/tools.routes";
 import {
   tabCaptureCurrentAreaRoute,
@@ -475,14 +487,16 @@ export const ARGOS_ROUTE_CATALOG = {
   [sessionsUpdateQueuedInputRoute.name]: sessionsUpdateQueuedInputRoute,
   [sessionsMoveQueuedInputRoute.name]: sessionsMoveQueuedInputRoute,
   [sessionsConvertPendingInputToSteerRoute.name]: sessionsConvertPendingInputToSteerRoute,
-  [sessionsDeletePendingInputRoute.name]: sessionsDeletePendingInputRoute,
+  [sessionsSteerPendingInputRoute.name]: sessionsSteerPendingInputRoute,
   [sessionsResumePendingQueueRoute.name]: sessionsResumePendingQueueRoute,
+  [sessionsDeletePendingInputRoute.name]: sessionsDeletePendingInputRoute,
   [sessionsRetryMessageRoute.name]: sessionsRetryMessageRoute,
   [sessionsDeleteMessageRoute.name]: sessionsDeleteMessageRoute,
   [sessionsEditUserMessageRoute.name]: sessionsEditUserMessageRoute,
   [sessionsForkRoute.name]: sessionsForkRoute,
   [sessionsSearchHistoryRoute.name]: sessionsSearchHistoryRoute,
   [sessionsGetSearchResultsRoute.name]: sessionsGetSearchResultsRoute,
+  [sessionsGetViewManifestsRoute.name]: sessionsGetViewManifestsRoute,
   [sessionsListMessageTracesRoute.name]: sessionsListMessageTracesRoute,
   [sessionsTranslateTextRoute.name]: sessionsTranslateTextRoute,
   [sessionsGetAgentsRoute.name]: sessionsGetAgentsRoute,
@@ -592,6 +606,12 @@ export const ARGOS_ROUTE_CATALOG = {
   [mcpSetCustomNpmRegistryRoute.name]: mcpSetCustomNpmRegistryRoute,
   [mcpSetAutoDetectNpmRegistryRoute.name]: mcpSetAutoDetectNpmRegistryRoute,
   [mcpClearNpmRegistryCacheRoute.name]: mcpClearNpmRegistryCacheRoute,
+  [mcpListMcpRouterServersRoute.name]: mcpListMcpRouterServersRoute,
+  [mcpInstallMcpRouterServerRoute.name]: mcpInstallMcpRouterServerRoute,
+  [mcpGetMcpRouterApiKeyRoute.name]: mcpGetMcpRouterApiKeyRoute,
+  [mcpSetMcpRouterApiKeyRoute.name]: mcpSetMcpRouterApiKeyRoute,
+  [mcpIsServerInstalledRoute.name]: mcpIsServerInstalledRoute,
+  [mcpUpdateMcpRouterServersAuthRoute.name]: mcpUpdateMcpRouterServersAuthRoute,
   [syncGetBackupStatusRoute.name]: syncGetBackupStatusRoute,
   [syncListBackupsRoute.name]: syncListBackupsRoute,
   [syncStartBackupRoute.name]: syncStartBackupRoute,
@@ -613,6 +633,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [dialogErrorRoute.name]: dialogErrorRoute,
   [toolsListDefinitionsRoute.name]: toolsListDefinitionsRoute,
   [systemOpenSettingsRoute.name]: systemOpenSettingsRoute,
+  [systemConsumePendingProviderInstallRoute.name]: systemConsumePendingProviderInstallRoute,
+  [systemSetPendingProviderInstallRoute.name]: systemSetPendingProviderInstallRoute,
 } satisfies Record<string, RouteContract>;
 
 export type ArgosRouteCatalog = typeof ARGOS_ROUTE_CATALOG;

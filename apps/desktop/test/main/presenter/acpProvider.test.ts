@@ -3,7 +3,7 @@ import { AcpProvider } from "../../../src/main/presenter/llmProviderPresenter/pr
 import { LEGACY_MODE_CONFIG_ID } from "../../../src/main/presenter/llmProviderPresenter/acp";
 import { ACP_WORKSPACE_EVENTS } from "../../../src/main/events";
 import { eventBus, SendTarget } from "@/eventbus";
-import type { AcpConfigState } from "../../../src/shared/types/presenters";
+import type { AcpConfigState } from "@shared/types/presenters";
 
 vi.mock("electron", () => ({
   app: {

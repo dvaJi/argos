@@ -1,6 +1,6 @@
 import type { ProviderCatalogPort } from "@/presenter/runtimePorts";
 import type { ProviderExecutionPort } from "../hotPathPorts";
-import type { Scheduler } from "../scheduler";
+import type { Scheduler } from "@argos/backend-core";
 
 const PROVIDER_QUERY_TIMEOUT_MS = 5_000;
 

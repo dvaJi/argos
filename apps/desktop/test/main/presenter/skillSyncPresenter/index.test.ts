@@ -11,9 +11,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { SkillSyncPresenter } from "../../../../src/main/presenter/skillSyncPresenter";
-import { ConflictStrategy } from "../../../../src/shared/types/skillSync";
-import type { ISkillPresenter } from "../../../../src/shared/presenter";
-import type { ImportPreview, ExportPreview } from "../../../../src/shared/types/skillSync";
+import { ConflictStrategy } from "@shared/types/skillSync";
+import type { ISkillPresenter } from "@shared/presenter";
+import type { ImportPreview, ExportPreview } from "@shared/types/skillSync";
 
 const scanWorkerMock = vi.hoisted(() => ({
   scanExternalToolsInWorker: vi.fn<(...args: any[]) => any>(),

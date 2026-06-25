@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, ISQLitePresenter, LLM_PROVIDER } from "../../../../src/shared/presenter";
+import type { IConfigPresenter, ISQLitePresenter, LLM_PROVIDER } from "@shared/presenter";
 import { LLMProviderPresenter } from "../../../../src/main/presenter/llmProviderPresenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 

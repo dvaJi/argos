@@ -16,7 +16,7 @@ import {
   modelsSetStatusRoute,
   modelsTranscribeAudioRoute,
   modelsUpdateCustomRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import { readModelCapabilities } from "../config/configRouteSupport";
 
 export async function dispatchModelRoute(

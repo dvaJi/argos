@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { is } from "@electron-toolkit/utils";
 import { FloatingButtonConfig, FloatingButtonState } from "./types";
-import logger from "../../../shared/logger";
+import logger from "@shared/logger";
 import { FLOATING_WIDGET_LAYOUT, inferDockSide, type FloatingWidgetDockSide, type WidgetRect } from "./layout";
 import type { FloatingButtonBounds } from "@shared/types/floating-widget";
 

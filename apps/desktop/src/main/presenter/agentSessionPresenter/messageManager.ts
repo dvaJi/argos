@@ -1,5 +1,5 @@
 import type { ChatMessageRecord } from "@shared/types/agent-interface";
-import type { AgentRegistry } from "./agentRegistry";
+import type { AgentRegistry } from "@argos/backend-core";
 import type { NewSessionManager } from "./sessionManager";
 
 export class NewMessageManager {

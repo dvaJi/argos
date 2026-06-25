@@ -10,7 +10,7 @@ import type {
   AcpManualAgent,
 } from "@shared/presenter";
 import { McpConfHelper } from "./mcpConfHelper";
-import { ACP_LEGACY_AGENT_ID_ALIASES, resolveAcpAgentAlias } from "./acpRegistryConstants";
+import { ACP_LEGACY_AGENT_ID_ALIASES, resolveAcpAgentAlias } from "@argos/backend-core";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
 const ACP_STORE_VERSION = "4";

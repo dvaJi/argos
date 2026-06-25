@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ModelType } from "../../../src/shared/model";
+import { ModelType } from "@shared/model";
 
 const setup = async () => {
   vi.resetModules();

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ModelType } from "../../../src/shared/model";
+import { ModelType } from "@shared/model";
 
 const createQueryCache = () => {
   return {

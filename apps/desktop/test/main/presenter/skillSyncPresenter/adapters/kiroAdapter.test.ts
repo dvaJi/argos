@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { KiroAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/kiroAdapter";
-import type { CanonicalSkill, ParseContext, KiroExportOptions } from "../../../../../src/shared/types/skillSync";
+import type { CanonicalSkill, ParseContext, KiroExportOptions } from "@shared/types/skillSync";
 
 describe("KiroAdapter", () => {
   const adapter = new KiroAdapter();

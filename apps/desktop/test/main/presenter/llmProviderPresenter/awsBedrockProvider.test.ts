@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AWS_BEDROCK_PROVIDER, IConfigPresenter } from "../../../../src/shared/presenter";
+import type { AWS_BEDROCK_PROVIDER, IConfigPresenter } from "@shared/presenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 const { mockBedrockSend, mockRunAiSdkCoreStream, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
