@@ -1,56 +1,41 @@
-const PROVIDERS = [
-  "DeepSeek",
-  "OpenAI",
-  "Anthropic",
-  "Gemini",
-  "Grok",
-  "Moonshot / Kimi",
-  "Ollama",
-  "AWS Bedrock",
-  "Azure OpenAI",
-  "Vertex AI",
-  "GitHub Models",
-  "GitHub Copilot",
-  "xAI",
-  "Zhipu",
-  "Doubao",
-  "DashScope",
-  "Groq",
-  "OpenRouter",
-  "Together",
-  "LM Studio",
-  "302.AI",
-  "ModelScope",
-  "SiliconFlow",
-  "PPIO",
-  "Vercel AI Gateway",
+const LOGOS: { slug: string; name: string }[] = [
+  { slug: "deepseek", name: "DeepSeek" },
+  { slug: "google", name: "Google Gemini" },
+  { slug: "anthropic", name: "Anthropic" },
+  { slug: "x", name: "xAI Grok" },
+  { slug: "github", name: "GitHub Models" },
+  { slug: "ollama", name: "Ollama" },
+  { slug: "openrouter", name: "OpenRouter" },
+  { slug: "mistralai", name: "Mistral" },
+  { slug: "huggingface", name: "Hugging Face" },
+  { slug: "googlecloud", name: "Vertex AI" },
+  { slug: "alibabacloud", name: "DashScope" },
+  { slug: "meta", name: "Llama" },
 ];
 
 export function Providers() {
   return (
-    <section id="providers" className="border-b border-white/5 py-24">
+    <section id="providers" className="relative py-20 sm:py-24">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            40+ model providers, one interface
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            From cloud APIs to local models. If it speaks OpenAI, Gemini, or Anthropic, Argos speaks it too.
-          </p>
-        </div>
-        <div className="mt-14 flex flex-wrap justify-center gap-3">
-          {PROVIDERS.map((provider) => (
-            <span
-              key={provider}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-accent/40 hover:text-accent"
-            >
-              {provider}
-            </span>
+        <p className="text-center text-sm text-slate-500">Works with the providers you already use</p>
+
+        <ul className="mt-10 grid grid-cols-3 items-center gap-x-6 gap-y-10 sm:grid-cols-4 md:grid-cols-6">
+          {LOGOS.map((logo) => (
+            <li key={logo.slug} className="flex justify-center">
+              <img
+                src={`https://cdn.simpleicons.org/${logo.slug}/ffffff`}
+                alt={logo.name}
+                loading="lazy"
+                className="h-7 w-auto opacity-50 transition-all duration-300 hover:opacity-100"
+              />
+            </li>
           ))}
-          <span className="rounded-full border border-dashed border-white/15 px-4 py-2 text-sm font-medium text-slate-500">
-            + any compatible endpoint
-          </span>
-        </div>
+        </ul>
+
+        <p className="mx-auto mt-12 max-w-xl text-center text-sm leading-relaxed text-slate-500">
+          Plus OpenAI, AWS Bedrock, Azure, and any OpenAI, Gemini, or Anthropic-compatible endpoint. That is 40+
+          providers in one interface.
+        </p>
       </div>
     </section>
   );

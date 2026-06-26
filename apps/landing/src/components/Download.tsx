@@ -1,142 +1,87 @@
+import { Command, SquaresFour, TerminalWindow } from "@phosphor-icons/react";
+import { Reveal } from "~/components/Reveal";
+
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
-const WEBSITE_URL = "https://argos.aipurrjects.xyz/#/download";
 const GITHUB_URL = "https://github.com/dvaJi/argos";
 const INSTALL_RAW = "https://raw.githubusercontent.com/dvaJi/argos/main/distro/install";
 
+const PLATFORMS = [
+  { name: "Windows", detail: ".exe installer", icon: SquaresFour },
+  { name: "macOS", detail: "Homebrew or .dmg", icon: Command },
+  { name: "Linux", detail: ".AppImage / .deb", icon: TerminalWindow },
+] as const;
+
 const DAEMON_INSTALLS = [
-  {
-    command: "brew install dvaJi/tap/argos-daemon",
-    label: "macOS / Linux (Homebrew)",
-  },
-  {
-    command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`,
-    label: "macOS / Linux (script)",
-  },
-  {
-    command: `irm ${INSTALL_RAW}/install.ps1 | iex`,
-    label: "Windows (PowerShell)",
-  },
-];
-
-type Platform = {
-  name: string;
-  detail: string;
-  href: string;
-  icon: React.ReactNode;
-  primary?: boolean;
-};
-
-const PLATFORMS: Platform[] = [
-  {
-    name: "Windows",
-    detail: ".exe installer",
-    href: RELEASES_URL,
-    primary: true,
-    icon: (
-      <path
-        d="M3 5l8-1v8H3V5zm0 9h8v6l-8-1v-5zm9-10l9-1v10h-9V4zm0 9h9v7l-9-1v-6z"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-  {
-    name: "macOS",
-    detail: ".dmg",
-    href: RELEASES_URL,
-    primary: true,
-    icon: (
-      <path
-        d="M16 3c0 1.5-1.3 2.7-2.8 2.7C13 4.2 14.3 3 16 3zm1.6 16.4c-.6 1.4-1 2-1.8 3.2-.9 1.4-2.2 3.1-3.8 3.1-1 0-1.6-.6-2.7-.6s-1.8.6-2.7.6c-1.6 0-2.8-1.6-3.8-3-2.4-3.4-2.6-7.3-1.1-9.4 1-1.4 2.6-2.2 4.1-2.2 1.4 0 2.3.7 3.4.7 1.1 0 1.7-.7 3.4-.7 1.3 0 2.7.7 3.7 1.9-3.2 1.7-2.6 6.3.3 7.4z"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-  {
-    name: "Linux",
-    detail: ".AppImage · .deb",
-    href: RELEASES_URL,
-    primary: true,
-    icon: (
-      <path
-        d="M9 8h6m-6 4h6m-9 4h12M5 4h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5a1 1 0 011-1z"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-];
+  { command: "brew install dvaJi/tap/argos-daemon", label: "Homebrew" },
+  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "macOS / Linux" },
+  { command: `irm ${INSTALL_RAW}/install.ps1 | iex`, label: "Windows" },
+] as const;
 
 export function Download() {
   return (
-    <section id="download" className="relative overflow-hidden border-b border-white/5 py-24">
-      <div className="absolute inset-x-0 top-1/2 h-64 -translate-y-1/2 bg-accent/5 blur-[100px]" aria-hidden />
-      <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Get Argos — free &amp; open source
-          </h2>
-          <p className="mt-4 text-lg text-slate-400">Pick your platform and start in minutes. No account required.</p>
+    <section id="download" className="relative py-24 sm:py-32">
+      <div
+        className="absolute inset-x-0 top-1/2 h-[460px] -translate-y-1/2 bg-accent/[0.04] blur-[180px]"
+        aria-hidden="true"
+      />
+
+      <div className="relative mx-auto max-w-5xl px-6">
+        <Reveal className="text-center">
+          <h2 className="text-balance text-4xl font-bold tracking-[-0.03em] text-white sm:text-5xl">Get Argos</h2>
+          <p className="mx-auto mt-5 max-w-md text-lg text-slate-400">Free and open source. Pick your platform.</p>
+        </Reveal>
+
+        <div className="mt-14 grid gap-4 sm:grid-cols-3">
+          {PLATFORMS.map((platform, i) => {
+            const Icon = platform.icon;
+            return (
+              <Reveal key={platform.name} delay={i * 60} className="h-full">
+                <a
+                  href={RELEASES_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="surface group flex h-full flex-col items-center p-8 text-center transition-colors duration-300 hover:border-accent/30"
+                >
+                  <span className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] text-slate-300 ring-1 ring-white/[0.06] transition-colors duration-300 group-hover:text-accent group-hover:ring-accent/25">
+                    <Icon size={26} weight="regular" />
+                  </span>
+                  <span className="text-lg font-semibold text-white">{platform.name}</span>
+                  <span className="mt-1 text-sm text-slate-500">{platform.detail}</span>
+                </a>
+              </Reveal>
+            );
+          })}
         </div>
-        <div className="mx-auto mt-14 grid max-w-4xl gap-5 sm:grid-cols-3">
-          {PLATFORMS.map((platform) => (
+
+        <Reveal delay={120} className="surface mt-6 p-7 sm:p-9">
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-white">Run it headless</h3>
+            <p className="mt-2 text-sm text-slate-500">The same backend as a standalone CLI. No GUI required.</p>
+          </div>
+          <div className="mt-7 space-y-2.5">
+            {DAEMON_INSTALLS.map((item) => (
+              <div
+                key={item.command}
+                className="flex flex-col gap-1 rounded-xl bg-white/[0.02] px-4 py-3 ring-1 ring-white/[0.06] sm:flex-row sm:items-center sm:justify-between"
+              >
+                <code className="break-all font-mono text-[13px] text-slate-300">{item.command}</code>
+                <span className="shrink-0 text-xs text-slate-600">{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-center text-xs text-slate-600">
+            Full details in the{" "}
             <a
-              key={platform.name}
-              href={platform.href}
+              href={GITHUB_URL}
               target="_blank"
               rel="noreferrer"
-              className="group flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-ink-soft/60 p-8 text-center transition hover:border-accent/40 hover:bg-ink-soft"
+              className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
-              <span className="grid h-14 w-14 place-items-center rounded-2xl border border-accent/20 bg-accent/10 text-accent transition group-hover:scale-105">
-                <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  {platform.icon}
-                </svg>
-              </span>
-              <span className="text-lg font-semibold text-white">{platform.name}</span>
-              <span className="text-sm text-slate-400">{platform.detail}</span>
+              GitHub repository
             </a>
-          ))}
-        </div>
-        <div className="mx-auto mt-14 max-w-3xl">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-white">Run it headless — argos-daemon</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                The same backend, as a standalone CLI for servers. No GUI required.
-              </p>
-            </div>
-            <div className="mt-5 space-y-2">
-              {DAEMON_INSTALLS.map((item) => (
-                <div
-                  key={item.command}
-                  className="flex flex-col items-start gap-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <code className="break-all font-mono text-sm text-slate-200">{item.command}</code>
-                  <span className="shrink-0 text-xs text-slate-500">{item.label}</span>
-                </div>
-              ))}
-            </div>
-            <p className="mt-4 text-center text-xs text-slate-500">
-              Full details and manual binaries in the{" "}
-              <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-                GitHub repository
-              </a>
-              .
-            </p>
-          </div>
-        </div>
-        <div className="mx-auto mt-10 max-w-2xl">
-          <p className="text-center text-sm text-slate-400">
-            Prefer the official website?{" "}
-            <a href={WEBSITE_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
-              Download from argos.aipurrjects.xyz
-            </a>
+            .
           </p>
-        </div>
+        </Reveal>
       </div>
     </section>
   );

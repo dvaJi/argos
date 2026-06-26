@@ -5,6 +5,7 @@ import { Footer } from "~/components/Footer";
 import { Hero } from "~/components/Hero";
 import { Providers } from "~/components/Providers";
 import { SiteHeader } from "~/components/SiteHeader";
+import { Spotlight } from "~/components/Spotlight";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -16,8 +17,9 @@ function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
-        <Features />
         <Providers />
+        <Features />
+        <Spotlight />
         <Download />
       </main>
       <Footer />

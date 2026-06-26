@@ -1,131 +1,106 @@
+import { Broadcast, ChatCircleDots, Cpu, type Icon, PlugsConnected, Robot, Sparkle } from "@phosphor-icons/react";
+import { Reveal } from "~/components/Reveal";
+
 type Feature = {
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: Icon;
+  span: string;
+  accent?: boolean;
+  tag?: string;
 };
 
 const FEATURES: Feature[] = [
   {
-    title: "Multi-LLM Chat",
+    title: "Multi-LLM chat",
     description:
-      "Chat with DeepSeek, OpenAI, Gemini, Anthropic, Grok, Ollama and 40+ providers — or any OpenAI-, Gemini-, or Anthropic-compatible endpoint.",
-    icon: (
-      <path
-        d="M8 10h8M8 14h5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+      "DeepSeek, Gemini, Anthropic, Grok, Ollama and 40+ providers, or any compatible endpoint. Switch models per conversation.",
+    icon: ChatCircleDots,
+    span: "lg:col-span-2 lg:row-span-2",
+    accent: true,
   },
   {
-    title: "MCP Tool Calling",
-    description:
-      "Full Resources, Prompts, and Tools coverage with StreamableHTTP/SSE/Stdio transports, visual debugging, and bundled Node.js runtime.",
-    icon: (
-      <path
-        d="M14.7 6.3a4 4 0 00-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 005.4-5.4l-2.5 2.5-2-2 2.5-2.5z"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+    title: "MCP tool calling",
+    description: "Full Resources, Prompts, and Tools. StreamableHTTP, SSE, and stdio with visual debugging.",
+    icon: PlugsConnected,
+    span: "lg:col-span-2",
   },
   {
-    title: "Skills System",
-    description:
-      "Install from folders, ZIPs, or URLs. Import & export with Claude Code, Codex, Cursor, Windsurf, Copilot, Kiro, Goose, and more.",
-    icon: (
-      <path
-        d="M12 2l3 6 6 .9-4.5 4.3 1 6.1L12 17l-5.5 3.3 1-6.1L3 8.9 9 8l3-6z"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+    title: "ACP agents",
+    description: "Run ACP-compatible agents as first-class models with a native workspace UI.",
+    icon: Robot,
+    span: "lg:col-span-1",
   },
   {
-    title: "ACP Agent Integration",
-    description:
-      "Run ACP-compatible agents as first-class models with a native workspace UI. Built-in agents or your own custom commands.",
-    icon: (
-      <path
-        d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6-4a3 3 0 10-2-5.24"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+    title: "Skills",
+    description: "Install from folders, ZIPs, or URLs. Swap with Claude Code, Codex, Cursor and more.",
+    icon: Sparkle,
+    span: "lg:col-span-1",
   },
   {
-    title: "Remote Control",
+    title: "Remote control",
     description:
-      "Drive sessions from Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink. Create sessions, switch models, answer prompts remotely.",
-    icon: <path d="M5 12h14M12 5l7 7-7 7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />,
+      "Drive sessions from Telegram, Discord, Feishu, QQ, and WeChat. Switch models and answer prompts away from the desk.",
+    icon: Broadcast,
+    span: "lg:col-span-2",
   },
   {
-    title: "Rich Chat Experience",
-    description:
-      "Markdown + code rendering, multi-window parallelism, Artifacts, message retry & forking, multi-modal images, and Mermaid diagrams.",
-    icon: (
-      <path d="M4 5h16v11H4zM2 20h20M8 9h8M8 12h5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    ),
-  },
-  {
-    title: "Local Models",
-    description:
-      "Integrated Ollama with download, deploy, and run controls — run models fully offline without touching the command line.",
-    icon: (
-      <path
-        d="M3 12a9 9 0 1018 0 9 9 0 00-18 0zm9-9v18M3 12h18"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
-  },
-  {
-    title: "Cross-Platform",
-    description:
-      "Native builds for Windows, macOS, and Linux with a themed light/dark UI, rich DeepLinks, and encryption-ready data layer.",
-    icon: (
-      <path
-        d="M9 4h6m-3 0v3M5 7h14l-1 13H6L5 7zm4 4v5m6-5v5"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    ),
+    title: "Local & offline",
+    description: "Integrated Ollama: download, deploy, and run models fully offline from one UI.",
+    icon: Cpu,
+    span: "lg:col-span-2",
+    tag: "No cloud needed",
   },
 ];
 
 export function Features() {
   return (
-    <section id="features" className="relative border-b border-white/5 py-24">
+    <section id="features" className="relative py-24 sm:py-32">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Everything you need to build with AI agents
+        <Reveal className="max-w-2xl">
+          <h2 className="text-balance text-4xl font-bold tracking-[-0.03em] text-white sm:text-5xl">
+            Everything an agent workflow needs
           </h2>
-          <p className="mt-4 text-lg text-slate-400">
-            Argos brings together models, tools, and agent runtimes in a single, polished desktop app.
+          <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-400">
+            Models, tools, and runtimes in a single native app. No browser tabs, no context switching between five
+            different chat windows.
           </p>
-        </div>
-        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((feature) => (
-            <div
-              key={feature.title}
-              className="group relative rounded-2xl border border-white/5 bg-ink-soft/60 p-6 transition hover:border-accent/30 hover:bg-ink-soft"
-            >
-              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-accent/20 bg-accent/10 text-accent">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  {feature.icon}
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold text-white">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{feature.description}</p>
-            </div>
-          ))}
+        </Reveal>
+
+        <div className="mt-14 grid auto-rows-[minmax(0,1fr)] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.map((feature, i) => {
+            const Icon = feature.icon;
+            return (
+              <Reveal
+                key={feature.title}
+                delay={i * 60}
+                className={`${feature.span} ${feature.accent ? "surface bg-gradient-to-br from-accent/[0.08] to-transparent" : "surface"}`}
+              >
+                <div className="flex h-full flex-col p-6 sm:p-7">
+                  <span
+                    className={`mb-5 inline-flex h-11 w-11 items-center justify-center rounded-xl ${
+                      feature.accent
+                        ? "bg-accent/10 text-accent ring-1 ring-accent/25"
+                        : "bg-white/[0.04] text-slate-300 ring-1 ring-white/[0.06]"
+                    }`}
+                  >
+                    <Icon size={22} weight="regular" />
+                  </span>
+
+                  <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-400">{feature.description}</p>
+
+                  {feature.tag && (
+                    <span className="mt-auto pt-5">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-slate-300">
+                        {feature.tag}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>
