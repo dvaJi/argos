@@ -154,10 +154,12 @@ jobs:
             platform: win-x64
             runner: windows-2025-vs2026
             unpacked: win-unpacked
+            daemon_os: windows
           - arch: arm64
             platform: win-arm64
             runner: windows-11-arm
             unpacked: win-arm64-unpacked
+            daemon_os: windows
     steps:
       - uses: actions/checkout@v6
         with:
@@ -206,6 +208,17 @@ jobs:
         run: |
           pnpm run plugin:verify -- --name feishu --platform win32 --arch ${{ matrix.arch }} --plugin-root dist/${{ matrix.unpacked }}/resources/app.asar.unpacked/plugins
 
+      - name: Stage daemon binary
+        shell: bash
+        env:
+          DAEMON_OS: ${{ matrix.daemon_os }}
+          DAEMON_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist/daemon
+          ext=""
+          [ "$DAEMON_OS" = "windows" ] && ext=".exe"
+          cp "apps/daemon/dist/argos-daemon${ext}" "dist/daemon/argos-daemon-${DAEMON_OS}-${DAEMON_ARCH}${ext}"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -214,6 +227,7 @@ jobs:
             dist/*
             !dist/win-unpacked
             !dist/win-arm64-unpacked
+            dist/daemon/**
 
   build-linux:
     needs: [resolve-tag, preflight]
@@ -224,6 +238,7 @@ jobs:
         include:
           - arch: x64
             platform: linux-x64
+            daemon_os: linux
     steps:
       - uses: actions/checkout@v6
         with:
@@ -267,6 +282,17 @@ jobs:
         run: |
           pnpm run plugin:verify -- --name feishu --platform linux --arch ${{ matrix.arch }} --plugin-root dist/linux-unpacked/resources/app.asar.unpacked/plugins
 
+      - name: Stage daemon binary
+        shell: bash
+        env:
+          DAEMON_OS: ${{ matrix.daemon_os }}
+          DAEMON_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist/daemon
+          ext=""
+          [ "$DAEMON_OS" = "windows" ] && ext=".exe"
+          cp "apps/daemon/dist/argos-daemon${ext}" "dist/daemon/argos-daemon-${DAEMON_OS}-${DAEMON_ARCH}${ext}"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -274,6 +300,7 @@ jobs:
           path: |
             dist/*
             !dist/linux-unpacked
+            dist/daemon/**
 
   build-mac:
     if: false # macOS build temporarily disabled — code signing/notarization not ready
@@ -285,8 +312,10 @@ jobs:
         include:
           - arch: x64
             platform: mac-x64
+            daemon_os: darwin
           - arch: arm64
             platform: mac-arm64
+            daemon_os: darwin
     steps:
       - uses: actions/checkout@v6
         with:
@@ -352,6 +381,17 @@ jobs:
           pnpm run plugin:verify -- --name cua --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
           pnpm run plugin:verify -- --name feishu --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
 
+      - name: Stage daemon binary
+        shell: bash
+        env:
+          DAEMON_OS: ${{ matrix.daemon_os }}
+          DAEMON_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist/daemon
+          ext=""
+          [ "$DAEMON_OS" = "windows" ] && ext=".exe"
+          cp "apps/daemon/dist/argos-daemon${ext}" "dist/daemon/argos-daemon-${DAEMON_OS}-${DAEMON_ARCH}${ext}"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -360,6 +400,7 @@ jobs:
             dist/*
             !dist/mac/*
             !dist/mac-arm64/*
+            dist/daemon/**
 
   release:
     needs:
@@ -531,6 +572,30 @@ jobs:
           fi
 
           ls -la release_assets/
+
+      - name: Collect daemon binaries and checksums
+        run: |
+          # Gather the staged daemon binaries from every platform artifact
+          mkdir -p release_assets
+          cp artifacts/*/daemon/argos-daemon-* release_assets/ 2>/dev/null || true
+
+          daemon_count=$(find release_assets -maxdepth 1 -type f -name 'argos-daemon-*' ! -name '*.sha256' | wc -l)
+          if [ "$daemon_count" -eq 0 ]; then
+            echo "Error: No daemon binaries were staged by the build jobs." >&2
+            exit 1
+          fi
+
+          # Emit a portable <hash>  <basename> checksum next to each binary
+          for f in release_assets/argos-daemon-*; do
+            [ -f "$f" ] || continue
+            case "$f" in *.sha256) continue ;; esac
+            hash=$(sha256sum "$f" | awk '{print $1}')
+            base=$(basename "$f")
+            echo "$hash  $base" > "$f.sha256"
+          done
+
+          echo "Daemon assets:"
+          ls -la release_assets/argos-daemon-*
 
       - name: Create Draft Release
         uses: softprops/action-gh-release@v3

@@ -70,3 +70,6 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
           ARGOS_TARGET_ARCH: x64
+
+      - name: Daemon unit tests
+        run: pnpm turbo run test --filter=@argos/daemon --output-logs=new-only

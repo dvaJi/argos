@@ -13,7 +13,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "postinstall": "node scripts/rebuild-native.mjs",
-    "test": "turbo run test --filter=@argos/desktop",
+    "test": "turbo run test --filter=@argos/desktop --filter=@argos/daemon",
     "test:main": "pnpm --filter @argos/desktop test:main",
     "test:renderer": "pnpm --filter @argos/desktop test:renderer",
     "test:coverage": "vitest --coverage",
@@ -39,6 +39,8 @@
     "dev:linux": "pnpm --filter @argos/desktop dev:linux",
     "build": "turbo run build --filter=@argos/desktop",
     "build:daemon": "node scripts/run-daemon-build.mjs",
+    "distro:bump-tap": "node scripts/bump-tap.mjs",
+    "distro:check": "node scripts/distro-check.mjs",
     "release:ff": "node scripts/release-fast-forward.mjs",
     "build:unpack": "pnpm run build && pnpm exec electron-builder --config apps/desktop/electron-builder.yml --dir",
     "plugin:validate": "node scripts/plugin.mjs validate",

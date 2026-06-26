@@ -9,6 +9,7 @@ export type DaemonOptions = {
   token?: string;
   withToken?: boolean;
   logLevel?: string;
+  noUpdateCheck?: boolean;
 };
 
 export function parseArgs(argv: string[]): DaemonOptions {
@@ -27,6 +28,8 @@ export function parseArgs(argv: string[]): DaemonOptions {
       opts.token = args[++i];
     } else if (arg === "--with-token") {
       opts.withToken = true;
+    } else if (arg === "--no-update-check") {
+      opts.noUpdateCheck = true;
     } else if (arg === "--log-level" && args[i + 1]) {
       opts.logLevel = args[++i];
     }
@@ -43,6 +46,7 @@ export function mergeOptions(parsed: DaemonOptions, env: Record<string, string |
     token: parsed.token || env.ARGOS_TOKEN || undefined,
     withToken: parsed.withToken || false,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",
+    noUpdateCheck: parsed.noUpdateCheck || env.ARGOS_NO_UPDATE_CHECK === "1" || env.ARGOS_NO_UPDATE_CHECK === "true",
   };
 }
 

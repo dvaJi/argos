@@ -1,5 +1,22 @@
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
 const WEBSITE_URL = "https://argos.aipurrjects.xyz/#/download";
+const GITHUB_URL = "https://github.com/dvaJi/argos";
+const INSTALL_RAW = "https://raw.githubusercontent.com/dvaJi/argos/main/distro/install";
+
+const DAEMON_INSTALLS = [
+  {
+    command: "brew install dvaJi/tap/argos-daemon",
+    label: "macOS / Linux (Homebrew)",
+  },
+  {
+    command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`,
+    label: "macOS / Linux (script)",
+  },
+  {
+    command: `irm ${INSTALL_RAW}/install.ps1 | iex`,
+    label: "Windows (PowerShell)",
+  },
+];
 
 type Platform = {
   name: string;
@@ -26,7 +43,7 @@ const PLATFORMS: Platform[] = [
   },
   {
     name: "macOS",
-    detail: ".dmg · Homebrew",
+    detail: ".dmg",
     href: RELEASES_URL,
     primary: true,
     icon: (
@@ -84,13 +101,35 @@ export function Download() {
             </a>
           ))}
         </div>
-        <div className="mx-auto mt-10 max-w-2xl space-y-4">
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-6 py-4 sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-sm text-slate-300">brew install --cask argos</span>
+        <div className="mx-auto mt-14 max-w-3xl">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-white">Run it headless — argos-daemon</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                The same backend, as a standalone CLI for servers. No GUI required.
+              </p>
             </div>
-            <span className="text-xs text-slate-500">macOS via Homebrew</span>
+            <div className="mt-5 space-y-2">
+              {DAEMON_INSTALLS.map((item) => (
+                <div
+                  key={item.command}
+                  className="flex flex-col items-start gap-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <code className="break-all font-mono text-sm text-slate-200">{item.command}</code>
+                  <span className="shrink-0 text-xs text-slate-500">{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-center text-xs text-slate-500">
+              Full details and manual binaries in the{" "}
+              <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                GitHub repository
+              </a>
+              .
+            </p>
           </div>
+        </div>
+        <div className="mx-auto mt-10 max-w-2xl">
           <p className="text-center text-sm text-slate-400">
             Prefer the official website?{" "}
             <a href={WEBSITE_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">

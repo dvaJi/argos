@@ -9,6 +9,8 @@ import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { BunProviderExecutionPort } from "./host/bun-provider-execution";
 import { logger } from "./logging";
+import { checkForUpdate, runSelfUpdate } from "./update";
+import { resolveDaemonVersion } from "./version";
 import {
   parseArgs,
   mergeOptions,
@@ -37,6 +39,7 @@ export async function startDaemon(options?: {
   host?: string;
   port?: number;
   token?: string;
+  noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
@@ -78,7 +81,7 @@ export async function startDaemon(options?: {
       if (url.pathname === "/health") {
         return Response.json({
           status: "ok",
-          version: "0.1.0",
+          version: resolveDaemonVersion(),
           uptime: Date.now() - startTime,
         });
       }
@@ -159,6 +162,19 @@ export async function startDaemon(options?: {
   logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
   logger.info(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
 
+  if (!options?.noUpdateCheck) {
+    void checkForUpdate().then((check) => {
+      if (!check) return; // offline or rate-limited — stay silent
+      if (check.hasUpdate) {
+        logger.info(
+          `[daemon] Update available: v${check.latest} (current v${check.current}). Run \`argos-daemon update\`.`,
+        );
+      } else {
+        logger.info(`[daemon] Up to date (v${check.current}).`);
+      }
+    });
+  }
+
   setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() }, () => {
     try {
       db.close();
@@ -178,27 +194,54 @@ export async function startDaemon(options?: {
 }
 
 if (import.meta.main) {
+  if (process.argv.includes("--version") || process.argv.includes("-V")) {
+    console.log(resolveDaemonVersion());
+    process.exit(0);
+  }
+
+  if (process.argv[2] === "update") {
+    const rest = process.argv.slice(3);
+    const flagValue = (name: string) => {
+      const i = rest.indexOf(name);
+      return i >= 0 ? rest[i + 1] : undefined;
+    };
+    await runSelfUpdate({
+      installDir: flagValue("--install-dir"),
+      token: flagValue("--token") || process.env.ARGOS_TOKEN,
+    });
+    process.exit(0);
+  }
+
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(`
 Argos Daemon - Headless backend server
 
-Usage: argos-daemon [options]
+Usage:
+  argos-daemon [options]          Start the server
+  argos-daemon update [options]   Update to the latest release
 
 Options:
-  --host <host>      Bind address (default: 127.0.0.1)
-  --port <port>      Bind port (default: 9527, 0 for auto)
-  --data-dir <path>  Data directory (default: ~/.argos-daemon)
-  --token <token>    Auth token for remote access
-  --with-token       Auto-generate an auth token and print it
+  --version, -V       Print the daemon version and exit
+  --host <host>       Bind address (default: 127.0.0.1)
+  --port <port>       Bind port (default: 9527, 0 for auto)
+  --data-dir <path>   Data directory (default: ~/.argos-daemon)
+  --token <token>     Auth token for remote access
+  --with-token        Auto-generate an auth token and print it
   --log-level <level> Log level: debug, info, warn, error (default: info)
-  -h, --help         Show this help
+  --no-update-check   Skip the startup update-available check
+  -h, --help          Show this help
+
+Update options:
+  --install-dir <path>  Install directory to update (default: location of this binary)
+  --token <token>       GitHub API token (optional, raises rate limits)
 
 Environment variables:
-  ARGOS_HOST         Same as --host
-  ARGOS_PORT         Same as --port
-  ARGOS_DATA_DIR     Same as --data-dir
-  ARGOS_TOKEN        Same as --token
-  ARGOS_LOG_LEVEL    Same as --log-level
+  ARGOS_HOST           Same as --host
+  ARGOS_PORT           Same as --port
+  ARGOS_DATA_DIR       Same as --data-dir
+  ARGOS_TOKEN          Same as --token
+  ARGOS_LOG_LEVEL      Same as --log-level
+  ARGOS_NO_UPDATE_CHECK  Same as --no-update-check
 `);
     process.exit(0);
   }
@@ -225,6 +268,7 @@ Environment variables:
     host: opts.host,
     port: opts.port,
     token,
+    noUpdateCheck: opts.noUpdateCheck,
   }).catch((error) => {
     logger.error("[daemon] Failed to start:", error);
     process.exit(1);

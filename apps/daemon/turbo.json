@@ -4,6 +4,9 @@
     "build": {
       "outputs": ["dist/**"],
       "env": ["ARGOS_TARGET_OS", "ARGOS_TARGET_ARCH"]
+    },
+    "test": {
+      "outputs": []
     }
   }
 }

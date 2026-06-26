@@ -1,0 +1,50 @@
+# Reference systemd unit for argos-daemon.
+#
+# This is documentation, NOT installed by any script. Copy it to
+# /etc/systemd/system/argos-daemon.service and adjust User / ExecStart /
+# Environment to match your layout. See:
+#   docs/features/daemon-self-update/deployment.md
+#
+# Install:
+#   sudo install -m 0755 argos-daemon /usr/local/bin/argos-daemon
+#   sudo install -m 0644 distro/systemd/argos-daemon.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now argos-daemon
+#
+# Update:
+#   sudo argos-daemon update && sudo systemctl restart argos-daemon
+[Unit]
+Description=Argos headless backend daemon
+Documentation=https://github.com/dvaJi/argos
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Recommended: a dedicated unprivileged user.
+#   sudo useradd --system --no-create-home --shell /usr/sbin/nologin argos
+User=argos
+Group=argos
+
+# Adjust the path if you install the binary elsewhere (e.g. /usr/local/bin/argos-daemon).
+ExecStart=/opt/argos-daemon/argos-daemon --host 127.0.0.1 --port 9527 --data-dir /opt/argos-daemon/data
+
+# To bind remotely, use an override (`systemctl edit argos-daemon`) with:
+#   Environment=ARGOS_HOST=0.0.0.0
+#   Environment=ARGOS_TOKEN=<secret>
+# Environment=ARGOS_NO_UPDATE_CHECK=1
+
+Restart=always
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/opt/argos-daemon/data
+WorkingDirectory=/opt/argos-daemon
+
+[Install]
+WantedBy=multi-user.target

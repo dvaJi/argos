@@ -58,9 +58,9 @@ export function Hero() {
             <a href={RELEASES_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">
               Windows, macOS &amp; Linux
             </a>{" "}
-            — also on{" "}
+            — or run it headless with{" "}
             <code className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-xs text-accent">
-              brew install --cask argos
+              brew install dvaJi/tap/argos-daemon
             </code>
           </p>
         </div>
