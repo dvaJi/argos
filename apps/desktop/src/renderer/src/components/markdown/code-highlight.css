@@ -1,0 +1,126 @@
+/* Syntax-highlight token colors for chat code blocks.
+   rehype-highlight adds .hljs-* classes to the token spans; this file colors
+   them. Scoped under .markdown-renderer so it never leaks to Monaco/other
+   surfaces. Light palette is the default; .dark overrides it.
+   The code surface background is owned by CodeBlock (bg-zinc-900 / bg-zinc-50),
+   so .hljs itself stays transparent and inherits text color. */
+
+.markdown-renderer .hljs {
+  background: transparent;
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+   Light (GitHub-light inspired)
+   ------------------------------------------------------------------------- */
+
+.markdown-renderer .hljs-comment,
+.markdown-renderer .hljs-quote {
+  color: #6e7781;
+  font-style: italic;
+}
+
+.markdown-renderer .hljs-keyword,
+.markdown-renderer .hljs-selector-tag,
+.markdown-renderer .hljs-built_in,
+.markdown-renderer .hljs-name,
+.markdown-renderer .hljs-literal,
+.markdown-renderer .hljs-meta .hljs-keyword {
+  color: #cf222e;
+}
+
+.markdown-renderer .hljs-string,
+.markdown-renderer .hljs-attr,
+.markdown-renderer .hljs-template-string,
+.markdown-renderer .hljs-template-variable,
+.markdown-renderer .hljs-regexp,
+.markdown-renderer .hljs-addition,
+.markdown-renderer .hljs-selector-attr,
+.markdown-renderer .hljs-selector-pseudo {
+  color: #0a3069;
+}
+
+.markdown-renderer .hljs-title,
+.markdown-renderer .hljs-title.function_,
+.markdown-renderer .hljs-section {
+  color: #8250df;
+}
+
+.markdown-renderer .hljs-number,
+.markdown-renderer .hljs-symbol,
+.markdown-renderer .hljs-bullet,
+.markdown-renderer .hljs-variable,
+.markdown-renderer .hljs-meta {
+  color: #0550ae;
+}
+
+.markdown-renderer .hljs-type,
+.markdown-renderer .hljs-class .hljs-title,
+.markdown-renderer .hljs-params {
+  color: #953800;
+}
+
+.markdown-renderer .hljs-deletion {
+  color: #82071e;
+}
+
+.markdown-renderer .hljs-emphasis {
+  font-style: italic;
+}
+
+.markdown-renderer .hljs-strong {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Dark (GitHub-dark inspired)
+   ------------------------------------------------------------------------- */
+
+.dark .markdown-renderer .hljs-comment,
+.dark .markdown-renderer .hljs-quote {
+  color: #8b949e;
+}
+
+.dark .markdown-renderer .hljs-keyword,
+.dark .markdown-renderer .hljs-selector-tag,
+.dark .markdown-renderer .hljs-built_in,
+.dark .markdown-renderer .hljs-name,
+.dark .markdown-renderer .hljs-literal,
+.dark .markdown-renderer .hljs-meta .hljs-keyword {
+  color: #ff7b72;
+}
+
+.dark .markdown-renderer .hljs-string,
+.dark .markdown-renderer .hljs-attr,
+.dark .markdown-renderer .hljs-template-string,
+.dark .markdown-renderer .hljs-template-variable,
+.dark .markdown-renderer .hljs-regexp,
+.dark .markdown-renderer .hljs-addition,
+.dark .markdown-renderer .hljs-selector-attr,
+.dark .markdown-renderer .hljs-selector-pseudo {
+  color: #a5d6ff;
+}
+
+.dark .markdown-renderer .hljs-title,
+.dark .markdown-renderer .hljs-title.function_,
+.dark .markdown-renderer .hljs-section {
+  color: #d2a8ff;
+}
+
+.dark .markdown-renderer .hljs-number,
+.dark .markdown-renderer .hljs-symbol,
+.dark .markdown-renderer .hljs-bullet,
+.dark .markdown-renderer .hljs-variable,
+.dark .markdown-renderer .hljs-meta {
+  color: #79c0ff;
+}
+
+.dark .markdown-renderer .hljs-type,
+.dark .markdown-renderer .hljs-class .hljs-title,
+.dark .markdown-renderer .hljs-params {
+  color: #ffa657;
+}
+
+.dark .markdown-renderer .hljs-deletion {
+  color: #ffa198;
+}

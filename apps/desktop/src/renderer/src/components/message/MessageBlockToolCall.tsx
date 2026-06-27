@@ -1,12 +1,13 @@
-import { type FC, useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { type FC, useState, useMemo, useEffect, useRef, useCallback, memo } from "react";
 import { Icon } from "@iconify/react";
 import { summarizeToolCallPreview } from "@shared/lib/toolCallSummary";
 import { useThemeStore } from "@/stores/theme";
-import { useSessionStore } from "@/stores/ui/session";
+import { selectSession } from "@/stores/ui/session";
 import { getLanguageFromFilename } from "@shared/utils/codeLanguage";
 import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 import { createDeviceClient } from "@api/DeviceClient";
 import { MessageBlockToolCallImagePreview } from "./MessageBlockToolCallImagePreview";
+import "./MessageBlockToolCall.css";
 
 interface MessageBlockToolCallProps {
   block: DisplayAssistantMessageBlock;
@@ -84,9 +85,8 @@ const CodeBlockNode: FC<{
   );
 };
 
-export const MessageBlockToolCall: FC<MessageBlockToolCallProps> = ({ block }) => {
+export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const themeStore = useThemeStore();
-  const sessionStore = useSessionStore();
   const deviceClient = createDeviceClient();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -401,7 +401,7 @@ export const MessageBlockToolCall: FC<MessageBlockToolCallProps> = ({ block }) =
 
   const handleSubagentSessionOpen = (task: SubagentProgressTask) => {
     if (!task.sessionId) return;
-    void sessionStore.selectSession(task.sessionId);
+    void selectSession(task.sessionId);
   };
 
   useEffect(() => {
@@ -595,26 +595,10 @@ export const MessageBlockToolCall: FC<MessageBlockToolCallProps> = ({ block }) =
           )}
         </div>
       )}
-
-      <style>{`
-        .tool-call-pill { max-width: min(48rem, calc(100% - 0.75rem)); }
-        .tool-call-labels { min-width: 0; }
-        .tool-call-summary {
-          flex: 1 1 auto; min-width: 0; display: block; overflow: hidden;
-          text-overflow: ellipsis; white-space: nowrap; line-height: 1.2;
-          padding-block: 1px; color: hsl(var(--muted-foreground) / 0.9); font-weight: 400;
-        }
-        .tool-call-status-ring {
-          position: relative; width: 0.75rem; height: 0.75rem; border-radius: 9999px;
-          box-sizing: border-box; border: 1px solid hsl(var(--muted-foreground) / 0.32);
-        }
-        .tool-call-status-ring::after {
-          content: ''; position: absolute; inset: 1px; border-radius: inherit;
-          border: 1px solid hsl(45 96% 62% / 0.88); opacity: 0.9;
-        }
-      `}</style>
     </div>
   );
 };
+
+export const MessageBlockToolCall = memo(MessageBlockToolCallBase);
 
 export default MessageBlockToolCall;

@@ -402,7 +402,7 @@ export default function McpIndicator({
                               size="sm"
                               className={`h-7 rounded-md px-2.5 text-xs shadow-none transition-colors${
                                 isGroupItemEnabled(item)
-                                  ? " border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                                  ? " border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
                                   : " border-border bg-background text-muted-foreground hover:bg-muted"
                               }`}
                               disabled={isGroupItemPending(item)}

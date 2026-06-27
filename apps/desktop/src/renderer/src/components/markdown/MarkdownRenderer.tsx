@@ -15,7 +15,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import { createSessionClient } from "@api/SessionClient";
 import { useArtifactStore } from "@/stores/artifact";
-import { useReferenceStore } from "@/stores/reference";
+import { showReference, hideReference } from "@/stores/reference";
 import { useThemeStore } from "@/stores/theme";
 import { useUiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
 import { nanoid } from "nanoid";
@@ -26,6 +26,7 @@ import { useMarkdownLinkNavigation } from "./useMarkdownLinkNavigation";
 import type { MarkdownLinkContext } from "./linkTypes";
 
 import "katex/dist/katex.min.css";
+import "./code-highlight.css";
 
 interface MarkdownRendererProps {
   content: string;
@@ -43,6 +44,39 @@ interface ReferenceNodeData {
   text?: string;
 }
 
+/**
+ * Recursively extract plain text from ReactNode children. Guards against
+ * children being an array (which would comma-join via String()) or React
+ * elements (which stringify to "[object Object]").
+ */
+function extractNodeText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractNodeText).join("");
+  if (typeof node === "object" && "props" in node) {
+    return extractNodeText((node as { props?: { children?: ReactNode } }).props?.children);
+  }
+  return "";
+}
+
+/**
+ * Strip a single trailing newline from the last text segment of ReactNode
+ * children so highlighted code blocks don't render an extra blank line.
+ */
+function stripTrailingNewline(node: ReactNode): ReactNode {
+  if (typeof node === "string") return node.replace(/\n$/, "");
+  if (Array.isArray(node) && node.length > 0) {
+    const next = node.slice();
+    next[next.length - 1] = stripTrailingNewline(next[next.length - 1]);
+    return next;
+  }
+  return node;
+}
+
+// Stable plugin arrays so ReactMarkdown doesn't re-render from new references each pass.
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeKatex, rehypeHighlight];
+
 export function MarkdownRenderer({
   content,
   messageId,
@@ -53,7 +87,6 @@ export function MarkdownRenderer({
   const themeStore = useThemeStore();
   const uiSettingsStore = useUiSettingsStore();
   const artifactStore = useArtifactStore();
-  const referenceStore = useReferenceStore();
   const sessionClient = useMemo(() => createSessionClient(), []);
   const referenceNodeRef = useRef<HTMLElement | null>(null);
 
@@ -127,15 +160,15 @@ export function MarkdownRenderer({
 
   const handleReferenceHover = useCallback(
     (nodeId: string, element: HTMLElement | null) => {
-      referenceStore.hideReference();
+      hideReference();
       getSearchResults().then((results) => {
         const index = parseInt(nodeId, 10) - 1;
         if (index >= 0 && index < results.length && element) {
-          referenceStore.showReference(results[index], element.getBoundingClientRect());
+          showReference(results[index], element.getBoundingClientRect());
         }
       });
     },
-    [getSearchResults, referenceStore],
+    [getSearchResults],
   );
 
   const handlePreviewCode = useCallback(
@@ -182,7 +215,7 @@ export function MarkdownRenderer({
       }) => {
         const match = /language-(\w+)/.exec(codeClassName ?? "");
         const language = match?.[1];
-        const codeString = String(children).replace(/\n$/, "");
+        const codeString = extractNodeText(children).replace(/\n$/, "");
 
         if (language === "mermaid") {
           return <MermaidBlock node={{ language: "mermaid", code: codeString }} />;
@@ -210,7 +243,9 @@ export function MarkdownRenderer({
                   node: { code: string };
                 }) => void
               }
-            />
+            >
+              {stripTrailingNewline(children)}
+            </CodeBlock>
           );
         }
 
@@ -233,7 +268,7 @@ export function MarkdownRenderer({
               className="cursor-pointer text-blue-600 dark:text-blue-400 hover:opacity-80"
               onClick={(e) => handleReferenceClick(id, e.nativeEvent)}
               onMouseEnter={() => handleReferenceHover(id, referenceNodeRef.current)}
-              onMouseLeave={() => referenceStore.hideReference()}
+              onMouseLeave={() => hideReference()}
               {...rest}
             >
               {children}
@@ -251,15 +286,14 @@ export function MarkdownRenderer({
       handlePreviewCode,
       handleReferenceClick,
       handleReferenceHover,
-      referenceStore,
     ],
   );
 
   return (
     <div className="prose prose-zinc prose-sm dark:prose-invert w-full max-w-none break-all markdown-renderer">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeKatex, rehypeHighlight]}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={REHYPE_PLUGINS}
         components={components as Record<string, ComponentType<unknown>>}
       >
         {debouncedContent}

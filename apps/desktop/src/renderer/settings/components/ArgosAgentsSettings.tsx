@@ -1191,7 +1191,7 @@ export default function ArgosAgentsSettings() {
                             size="sm"
                             className={`h-10 rounded-xl px-4 text-sm shadow-none transition-colors ${
                               isToolEnabled(tool.function.name)
-                                ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                                ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
                                 : "border-border bg-background text-foreground hover:bg-muted"
                             }`}
                             onClick={() => setToolEnabled(tool.function.name, !isToolEnabled(tool.function.name))}

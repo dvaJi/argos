@@ -2,11 +2,12 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { resolve } from 'path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
+import react, {reactCompilerPreset} from '@vitejs/plugin-react'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import monacoEditorPlugin from '@dvaji/vite-plugin-monaco-editor'
 import tailwindcss from '@tailwindcss/vite'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
+import babel from '@rolldown/plugin-babel';
 
 /**
  * Path-aware alias resolver for multi-environment setups.
@@ -130,12 +131,13 @@ export default defineConfig(({ mode }) => {
   return {
     root: resolve('src/renderer'),
     resolve: {
-      alias: {
-        '@api': resolve('src/renderer/api'),
-        '@shared': resolve('../../packages/shared/src'),
-        '@shadcn': resolve('src/shadcn'),
-        '@settings': resolve('src/renderer/settings'),
-      },
+      alias: [
+        { find: '@shared/contracts', replacement: path.resolve(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src') },
+        { find: '@shared', replacement: path.resolve(projectRoot, '..', '..', 'packages', 'shared', 'src') },
+        { find: '@api', replacement: resolve('src/renderer/api') },
+        { find: '@shadcn', replacement: resolve('src/shadcn') },
+        { find: '@settings', replacement: resolve('src/renderer/settings') },
+      ],
     },
     optimizeDeps: {
       exclude: ['stream-monaco'],
@@ -184,18 +186,21 @@ export default defineConfig(({ mode }) => {
         },
       }),
       react(),
+      babel({
+        presets: [reactCompilerPreset()]
+      }),
       electronSimple({
         main: {
           input: {
             index: resolve('src/main/index.ts'),
             backgroundExecUtilityHost: resolve('src/main/backgroundExecUtilityHostEntry.ts'),
           },
+          plugins: [pathAliasPlugin(projectRoot), electronAssetPlugin(projectRoot)] as any,
           notBundle: externalDeps,
           onstart({ startup }) {
             void startup(['.'], { cwd: projectRoot })
           },
           options: {
-            plugins: [pathAliasPlugin(projectRoot), electronAssetPlugin(projectRoot)] as any,
             define: processEnvDefines,
             build: {
               outDir: resolve('out/main'),
@@ -218,9 +223,9 @@ export default defineConfig(({ mode }) => {
             browserOverlay: resolve('src/preload/browser-overlay-preload.ts'),
             pluginSettings: resolve('src/preload/plugin-settings-preload.ts'),
           },
+          plugins: [pathAliasPlugin(projectRoot)] as any,
           notBundle: externalDeps.filter((d) => d !== '@electron-toolkit/preload'),
           options: {
-            plugins: [pathAliasPlugin(projectRoot)],
             build: {
               outDir: resolve('out/preload'),
               rolldownOptions: {

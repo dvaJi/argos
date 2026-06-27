@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useThemeStore } from "@/stores/theme";
 
 export interface CodeBlockNodeData {
@@ -25,6 +25,8 @@ interface CodeBlockProps {
   showFontSizeButtons?: boolean;
   monacoOptions?: Record<string, unknown>;
   className?: string;
+  /** Highlighted React nodes (from rehype-highlight). Falls back to node.code. */
+  children?: ReactNode;
   onPreviewCode?: (payload: {
     id: string;
     artifactType: string;
@@ -40,6 +42,7 @@ export function CodeBlock({
   showHeader = true,
   showCopyButton = true,
   className,
+  children,
 }: CodeBlockProps) {
   const themeStore = useThemeStore();
   const isDark = isDarkProp ?? themeStore.isDark;
@@ -67,7 +70,7 @@ export function CodeBlock({
         </div>
       )}
       <pre className={`text-xs overflow-auto p-3 ${isDark ? "bg-zinc-900 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
-        <code className={lang ? `language-${lang}` : ""}>{node.code}</code>
+        <code className={`hljs ${lang ? `language-${lang}` : ""}`}>{children ?? node.code}</code>
       </pre>
     </div>
   );

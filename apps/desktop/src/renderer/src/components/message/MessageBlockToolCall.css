@@ -1,0 +1,43 @@
+/* Static styles for tool-call blocks. Previously injected as a per-instance
+   inline <style> on every render (282 renders/frame in profiling), and each
+   insertion forced a full-document style recalculation. Hoisted to a static
+   stylesheet so it is parsed once. */
+
+.tool-call-pill {
+  max-width: min(48rem, calc(100% - 0.75rem));
+}
+
+.tool-call-labels {
+  min-width: 0;
+}
+
+.tool-call-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  padding-block: 1px;
+  color: color-mix(in oklch, var(--muted-foreground) 90%, transparent);
+  font-weight: 400;
+}
+
+.tool-call-status-ring {
+  position: relative;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in oklch, var(--muted-foreground) 32%, transparent);
+}
+
+.tool-call-status-ring::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid hsl(45 96% 62% / 0.88);
+  opacity: 0.9;
+}

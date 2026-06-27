@@ -1,10 +1,19 @@
-/* Splash — calm, logo-led ("Logo Fold-In" + "Memory Pulse" + real status).
-   Isolated from the main app theme. Probes prefers-color-scheme at first
-   paint and switches --splash-* tokens. Plain CSS only (no animation
-   library) so the splash paints instantly and cannot fail. Motion is brief
-   and calm: the logo materializes, one cyan pulse travels around it, a
-   center glow breathes, real status rows stream in. Everything collapses to
-   a static state under prefers-reduced-motion. */
+/* Splash — calm, logo-led boot surface.
+   "Logo fold-in" + one-shot "memory pulse" comet + breathing halo + real status.
+   Isolated from the main app theme. Probes prefers-color-scheme at first paint
+   and swaps --splash-* tokens. Plain CSS only (no animation library) so the
+   splash paints instantly and cannot fail.
+
+   Motion discipline (motivated, brief, settles):
+   - Aura + glow fade in once (depth + arrival).
+   - A single cyan comet travels once around the mark (the "context being
+     loaded" gesture), then dissolves. It does NOT loop — a looping arc reads
+     as a spinner.
+   - One subtle perpetual breathe on the glow + ring track carries the "alive"
+     signal while real status rows stream in.
+   - Completed steps resolve to a checkmark; the active step's dot pulses and
+     its label shimmers.
+   Everything collapses to a static state under prefers-reduced-motion. */
 
 /* ==========================================================================
    Keyframes
@@ -21,6 +30,15 @@
   }
 }
 
+@keyframes splash-aura-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes splash-logo-in {
   from {
     opacity: 0;
@@ -34,18 +52,36 @@
   }
 }
 
-/* Gentle perpetual breathe so the mark keeps "pulsing" after the reveal. */
-@keyframes splash-logo-breathe {
-  0%,
-  100% {
-    transform: scale(1);
+/* Glow arrival (one-shot). */
+@keyframes splash-glow-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
   }
-  50% {
-    transform: scale(1.035);
+  60% {
+    opacity: 0.5;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 0.42;
+    transform: scale(1);
   }
 }
 
-/* A thin cyan arc travels once around the mark, then fades. */
+/* Single perpetual breathe behind the mark — the only "alive" loop. */
+@keyframes splash-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.56;
+    transform: scale(1.05);
+  }
+}
+
+/* A thin cyan comet travels once around the mark, then dissolves (one-shot). */
 @keyframes splash-pulse-travel {
   0% {
     stroke-dashoffset: 100;
@@ -63,19 +99,14 @@
   }
 }
 
-/* Center glow breathes gently behind the logo. */
-@keyframes splash-glow {
-  0% {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  45% {
-    opacity: 0.6;
-    transform: scale(1.08);
-  }
+/* Faint ring track breathes gently (alive signal), never spins. */
+@keyframes splash-track-breathe {
+  0%,
   100% {
-    opacity: 0.32;
-    transform: scale(1);
+    stroke-opacity: 0.22;
+  }
+  50% {
+    stroke-opacity: 0.38;
   }
 }
 
@@ -88,7 +119,7 @@
   to {
     opacity: 1;
     transform: none;
-    letter-spacing: var(--tracking-mono);
+    letter-spacing: var(--tracking-tight);
   }
 }
 
@@ -99,7 +130,7 @@
   }
 }
 
-/* Calm dot pulse for the active (in-flight) status row — not a spinner. */
+/* Calm pulse for the active (in-flight) status dot — not a spinner. */
 @keyframes splash-dot {
   0%,
   100% {
@@ -128,17 +159,19 @@
    ========================================================================== */
 
 .splash-shell {
-  --splash-bg: hsl(225 34% 7%);
-  --splash-bg-elevated: hsl(225 28% 10%);
+  --splash-bg: hsl(225 40% 5.5%);
+  --splash-bg-elevated: hsl(225 30% 10%);
   --splash-ink: hsl(220 30% 100%);
-  --splash-ink-dim: hsl(220 20% 100% / 0.64);
+  --splash-ink-dim: hsl(220 20% 100% / 0.66);
   --splash-ink-faint: hsl(220 20% 100% / 0.34);
   --splash-accent: var(--accent-400);
+  --splash-accent-press: hsl(225 40% 6%);
   --splash-border: hsl(220 30% 100% / 0.1);
   --splash-border-strong: hsl(220 30% 100% / 0.16);
+  --splash-shadow: hsl(225 70% 2% / 0.7);
 
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   user-select: none;
   color: var(--splash-ink);
@@ -158,6 +191,23 @@
   padding: 28px 24px;
 }
 
+/* Soft cyan aura centered behind the emblem — depth, not decoration. */
+.splash-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    58% 48% at 50% 46%,
+    hsl(199 89% 56% / 0.1) 0%,
+    hsl(199 89% 56% / 0.04) 40%,
+    transparent 72%
+  );
+  opacity: 0;
+  animation: splash-aura-in 900ms var(--dc-ease-soft) 100ms forwards;
+}
+
 @media (prefers-color-scheme: light) {
   .splash-shell {
     --splash-bg: hsl(220 16% 97%);
@@ -166,8 +216,19 @@
     --splash-ink-dim: hsl(220 24% 30%);
     --splash-ink-faint: hsl(220 14% 52%);
     --splash-accent: var(--accent-500);
+    --splash-accent-press: hsl(225 40% 6%);
     --splash-border: hsl(220 30% 0% / 0.08);
     --splash-border-strong: hsl(220 30% 0% / 0.14);
+    --splash-shadow: hsl(220 40% 30% / 0.16);
+  }
+
+  .splash-shell::before {
+    background: radial-gradient(
+      58% 48% at 50% 46%,
+      hsl(199 89% 48% / 0.08) 0%,
+      hsl(199 89% 48% / 0.03) 40%,
+      transparent 72%
+    );
   }
 }
 
@@ -181,14 +242,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   width: 100%;
-  max-width: 300px;
+  max-width: 340px;
   animation: splash-stage-in 320ms var(--dc-ease-glide) both;
 }
 
 /* ==========================================================================
-   Emblem — logo + memory pulse + center glow
+   Emblem — logo + memory pulse + breathing glow
    ========================================================================== */
 
 .splash-emblem {
@@ -203,13 +264,14 @@
 .splash-glow {
   position: absolute;
   z-index: 0;
-  width: 96px;
-  height: 96px;
+  width: 104px;
+  height: 104px;
   border-radius: 50%;
   background: radial-gradient(circle, var(--splash-accent) 0%, transparent 64%);
-  opacity: 0;
   pointer-events: none;
-  animation: splash-glow 1300ms var(--dc-ease-soft) 180ms forwards;
+  animation:
+    splash-glow-in 1200ms var(--dc-ease-soft) 200ms both,
+    splash-glow-breathe 3200ms var(--dc-ease-soft) 1400ms infinite;
 }
 
 .splash-pulse-ring {
@@ -225,7 +287,8 @@
   fill: none;
   stroke: var(--splash-ink-faint);
   stroke-width: 1;
-  stroke-opacity: 0.28;
+  stroke-opacity: 0.22;
+  animation: splash-track-breathe 2800ms var(--dc-ease-soft) 600ms infinite;
 }
 
 .splash-pulse-ring__arc {
@@ -233,15 +296,16 @@
   stroke: var(--splash-accent);
   stroke-width: 1.75;
   stroke-linecap: round;
-  stroke-dasharray: 24 76;
+  stroke-dasharray: 26 74;
   stroke-dashoffset: 100;
-  /* start at 12 o'clock and travel clockwise */
+  /* start at 12 o'clock */
   transform: rotate(-90deg);
   transform-box: view-box;
   transform-origin: 80px 80px;
   filter: drop-shadow(0 0 3px var(--splash-accent));
   opacity: 0;
-  animation: splash-pulse-travel 2600ms linear 300ms infinite;
+  /* One deliberate sweep, then dissolve. Never loops (a loop reads as a spinner). */
+  animation: splash-pulse-travel 1500ms var(--dc-ease-glide) 350ms 1 both;
 }
 
 .splash-logo {
@@ -262,7 +326,6 @@
   object-fit: contain;
   -webkit-user-drag: none;
   user-select: none;
-  animation: splash-logo-breathe 2600ms var(--dc-ease-soft) 800ms infinite;
 }
 
 .splash-logo__img--dark {
@@ -284,22 +347,22 @@
 }
 
 /* ==========================================================================
-   Wordmark
+   Wordmark — Geist display, tight, present
    ========================================================================== */
 
 .splash-wordmark {
   margin: 0;
-  font-family: var(--font-mono-display);
-  font-size: 12px;
-  font-weight: var(--weight-mono);
-  text-transform: uppercase;
-  color: var(--splash-ink-dim);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-tight);
+  color: var(--splash-ink);
   opacity: 0;
   animation: splash-wordmark 560ms var(--dc-ease-glide) 420ms forwards;
 }
 
 /* ==========================================================================
-   Status list — real startup steps, calm dots (no spinner)
+   Status list — real startup steps; checkmark for done, pulse for active
    ========================================================================== */
 
 .splash-status {
@@ -379,29 +442,51 @@
   }
 }
 
+/* Glyphs rendered via ::before so the row DOM (and test text counts) is
+   unchanged. Container is larger than the mark for crisp centering. */
 .splash-status__glyph {
-  flex: 0 0 8px;
-  width: 8px;
-  height: 8px;
+  position: relative;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-status__glyph::before {
+  content: "";
+}
+
+.splash-status__row--pending .splash-status__glyph::before {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--splash-ink-faint);
+  animation: splash-dot 1.5s var(--dc-ease-soft) infinite;
 }
 
-.splash-status__row--pending .splash-status__glyph {
-  background: var(--splash-ink-faint);
-  animation: splash-dot 1.4s var(--dc-ease-soft) infinite;
-}
-
-.splash-status__row--active .splash-status__glyph {
+.splash-status__row--active .splash-status__glyph::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--splash-accent);
   animation: splash-dot 1.1s var(--dc-ease-soft) infinite;
 }
 
-.splash-status__row--done .splash-status__glyph {
-  background: var(--splash-accent);
+/* Completed step resolves to a checkmark. */
+.splash-status__row--done .splash-status__glyph::before {
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--splash-accent);
+  border-bottom: 1.5px solid var(--splash-accent);
+  transform: rotate(-45deg) translate(0, -1px);
 }
 
-.splash-status__row--failed .splash-status__glyph {
+.splash-status__row--failed .splash-status__glyph::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: var(--status-failed-ink);
 }
 
@@ -434,17 +519,17 @@
   gap: 11px;
   padding: var(--grid-6);
   border: 1px solid var(--splash-border-strong);
-  border-radius: var(--radius-md);
-  background: transparent;
+  border-radius: var(--radius-lg);
+  background: var(--splash-bg-elevated);
+  box-shadow: 0 24px 60px -28px var(--splash-shadow);
   animation: splash-panel-in 320ms var(--dc-ease-glide) both;
 }
 
 .splash-unlock__title {
-  font-family: var(--font-mono-display);
-  font-size: 11px;
-  font-weight: var(--weight-mono);
-  letter-spacing: var(--tracking-mono);
-  text-transform: uppercase;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-tight);
   color: var(--splash-ink);
   margin: 0;
 }
@@ -475,11 +560,14 @@
   font-family: var(--font-mono-display);
   font-size: 13px;
   caret-color: var(--splash-accent);
-  transition: border-color var(--dc-motion-snap) var(--dc-ease-snap);
+  transition:
+    border-color var(--dc-motion-snap) var(--dc-ease-snap),
+    box-shadow var(--dc-motion-snap) var(--dc-ease-snap);
 }
 
 .splash-unlock__input:focus {
   border-color: var(--splash-accent);
+  box-shadow: 0 0 0 3px hsl(199 89% 56% / 0.18);
 }
 
 .splash-unlock__message {
@@ -506,11 +594,16 @@
   cursor: pointer;
   transition:
     background-color var(--dc-motion-snap) var(--dc-ease-snap),
-    border-color var(--dc-motion-snap) var(--dc-ease-snap);
+    border-color var(--dc-motion-snap) var(--dc-ease-snap),
+    transform var(--dc-motion-snap) var(--dc-ease-snap);
 }
 
 .splash-unlock__button:hover:not(:disabled) {
   background: var(--status-running-bg);
+}
+
+.splash-unlock__button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .splash-unlock__button:disabled {
@@ -520,7 +613,13 @@
 
 .splash-unlock__button--primary {
   border-color: var(--splash-accent);
-  color: var(--splash-accent);
+  background: var(--splash-accent);
+  color: var(--splash-accent-press);
+}
+
+.splash-unlock__button--primary:hover:not(:disabled) {
+  background: hsl(199 89% 62%);
+  border-color: hsl(199 89% 62%);
 }
 
 .splash-unlock__hint {
@@ -540,17 +639,27 @@
   .splash-stage,
   .splash-unlock__panel,
   .splash-wordmark,
-  .splash-logo,
-  .splash-logo__img {
+  .splash-logo {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
   }
 
+  .splash-shell::before {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
   .splash-glow {
     animation: none !important;
-    opacity: 0.32 !important;
+    opacity: 0.42 !important;
+    transform: none !important;
+  }
+
+  .splash-pulse-ring__track {
+    animation: none !important;
+    stroke-opacity: 0.3 !important;
   }
 
   .splash-pulse-ring__arc {
@@ -564,9 +673,11 @@
     transform: none !important;
   }
 
-  .splash-status__row--pending .splash-status__glyph,
-  .splash-status__row--active .splash-status__glyph {
+  .splash-status__row--pending .splash-status__glyph::before,
+  .splash-status__row--active .splash-status__glyph::before {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   /* Static gradient text instead of the traveling shimmer. */
@@ -575,6 +686,6 @@
   }
 
   .splash-wordmark {
-    letter-spacing: var(--tracking-mono) !important;
+    letter-spacing: var(--tracking-tight) !important;
   }
 }

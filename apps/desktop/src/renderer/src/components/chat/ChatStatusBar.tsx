@@ -72,6 +72,7 @@ import { useProjectStore, selectedProject as getSelectedProject } from "@/stores
 import { useSessionStore, getActiveSession, getHasActiveSession } from "@/stores/ui/session";
 import { scheduleStartupDeferredTask } from "@/lib/startupDeferred";
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
+import AcpAdvancedSettings from "./AcpAdvancedSettings";
 
 type ModelSelection = {
   providerId: string;
@@ -1859,66 +1860,14 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
           <div className="flex items-center gap-1">
             {isAcpAgent && acpOverflowOptions.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="acp-overflow-button h-6 w-6 px-0 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-                    title="Advanced settings"
-                    aria-label="Advanced settings"
-                  >
-                    <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-[18rem] p-0">
-                  <div className="border-b px-3 py-3">
-                    <div className="text-sm font-medium">Advanced Settings</div>
-                  </div>
-                  <div className="max-h-[24rem] space-y-3 overflow-y-auto px-3 py-3">
-                    {acpOverflowOptions.map((option) => (
-                      <div
-                        key={option.id}
-                        data-option-id={option.id}
-                        className="acp-overflow-option flex items-center justify-between gap-3"
-                      >
-                        <label className="min-w-0 flex-1 truncate text-xs font-medium">{option.label}</label>
-                        {option.type === "select" ? (
-                          <Select
-                            value={String(option.currentValue)}
-                            onValueChange={(v) => onAcpSelectOption(option.id, v)}
-                          >
-                            <SelectTrigger
-                              disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
-                              className="h-8 w-[9rem] text-xs"
-                            >
-                              <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(option.options ?? []).map((entry) => (
-                                <SelectItem key={`${option.id}-${entry.value}`} value={entry.value}>
-                                  {entry.value}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-8 min-w-[6rem] text-xs"
-                            disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
-                            onClick={() => onAcpBooleanOption(option.id, !option.currentValue)}
-                          >
-                            <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <AcpAdvancedSettings
+                options={acpOverflowOptions}
+                readOnly={acpConfigReadOnly}
+                isOptionSaving={isAcpOptionSaving}
+                getOptionDisplayValue={getAcpOptionDisplayValue}
+                onSelectOption={onAcpSelectOption}
+                onBooleanOption={onAcpBooleanOption}
+              />
             )}
 
             <McpIndicator

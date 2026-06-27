@@ -3,7 +3,7 @@
  *
  * Previously managed KaTeX and Mermaid web workers for markstream-vue.
  * Now a no-op stub — KaTeX is handled by rehype-katex, Mermaid by the
- * mermaid library directly, and code highlighting by rehype-highlight.
+ * mermaid library directly, and code blocks are rendered as plain text.
  * Kept as a module to preserve the import path for callers that haven't
  * been updated yet.
  */

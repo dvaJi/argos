@@ -52,9 +52,7 @@ vi.mock("@/stores/theme", () => ({
 }));
 
 vi.mock("@/stores/ui/session", () => ({
-  useSessionStore: () => ({
-    selectSession: selectSessionMock,
-  }),
+  selectSession: selectSessionMock,
 }));
 
 const createBlock = (overrides: Partial<DisplayAssistantMessageBlock> = {}): DisplayAssistantMessageBlock => ({

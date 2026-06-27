@@ -298,7 +298,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
         .getMessages()
         .filter((msg) => msg.role === "assistant" && (msg.traceCount ?? 0) > 0)
         .map((msg) => msg.id),
-    [messageStore.getMessages()],
+    [messageStore.messageIds],
   );
 
   const pendingInteractions = useMemo(() => {
@@ -346,7 +346,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
       }
     }
     return list;
-  }, [messageStore.getMessages(), sessionId]);
+  }, [messageStore.messageIds, sessionId]);
 
   const activePendingInteraction = pendingInteractions[0] ?? null;
   const hasInputText = Boolean(message.trim());
@@ -869,7 +869,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
     }
     return msgs;
   }, [
-    messageStore.getMessages(),
+    messageStore.messageIds,
     streamState.isStreaming,
     streamState.streamingBlocks,
     hasInlineStreamingTarget,

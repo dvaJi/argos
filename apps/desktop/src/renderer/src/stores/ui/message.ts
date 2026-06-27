@@ -42,7 +42,9 @@ let latestLoadRequestId = 0;
 let latestHistoryRequestId = 0;
 
 export const getMessages = () =>
-  messageStore.state.messageIds.map(messageCache.get).filter((m): m is ChatMessageRecord => m !== undefined);
+  messageStore.state.messageIds
+    .map((id) => messageCache?.get(id))
+    .filter((m): m is ChatMessageRecord => m !== undefined);
 
 function upsertMessageRecord(record: ChatMessageRecord): void {
   messageCache.set(record.id, record);
