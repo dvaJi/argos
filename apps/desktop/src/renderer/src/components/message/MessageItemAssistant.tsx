@@ -1,4 +1,13 @@
-import { type MouseEvent, useState, useMemo, useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import {
+  type MouseEvent,
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  useCallback,
+} from "react";
 import type { DisplayAssistantMessage, DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 import { MessageBlockContent } from "./MessageBlockContent";
 import { MessageBlockThink } from "./MessageBlockThink";
@@ -267,9 +276,9 @@ export const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageI
     props.onSwitchProvider?.();
   };
 
-  const handleCollapseToggle = () => {
+  const handleCollapseToggle = useCallback(() => {
     props.onVariantChanged?.(message.id);
-  };
+  }, [props.onVariantChanged, message.id]);
 
   const handleAction = (action: HandleActionType) => {
     if (isReadOnly && (action === "retry" || action === "delete" || action === "fork")) return;

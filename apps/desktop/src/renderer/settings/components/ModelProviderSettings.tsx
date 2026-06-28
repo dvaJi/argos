@@ -22,6 +22,7 @@ import GuidedOnboardingOverlay from "@/components/onboarding/GuidedOnboardingOve
 import { useGuidedOnboardingStep } from "@/composables/useGuidedOnboardingStep";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
+import { useStartupWorkloadStore } from "@/stores/startupWorkloadStore";
 
 interface ModelProviderSettingsProps {
   providerId?: string;
@@ -132,13 +133,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     return null;
   }, [providerModelGuide.currentStepId, providerApiKeyGuide.currentStepId]);
 
-  let startupWorkloadStore: any = null;
-  try {
-    const { useStartupWorkloadStore } = require("@/stores/startupWorkloadStore");
-    startupWorkloadStore = useStartupWorkloadStore();
-  } catch {
-    // ignore
-  }
+  const startupWorkloadStore = useStartupWorkloadStore();
 
   const continueProviderGuide = useCallback(
     async (state: any) => {

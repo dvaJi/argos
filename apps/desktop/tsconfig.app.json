@@ -33,8 +33,11 @@
       "@api/*": [
         "./src/renderer/api/*"
       ],
+      "@shared/contracts/*": [
+        "../../packages/shared-contracts/src/*"
+      ],
       "@shared/*": [
-        "./src/shared/*"
+        "../../packages/shared/src/*"
       ],
       "@shadcn/*": [
         "./src/shadcn/*"

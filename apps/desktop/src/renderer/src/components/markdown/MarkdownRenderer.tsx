@@ -14,7 +14,7 @@ import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import { createSessionClient } from "@api/SessionClient";
-import { useArtifactStore } from "@/stores/artifact";
+import { showArtifact } from "@/stores/artifact";
 import { showReference, hideReference } from "@/stores/reference";
 import { useThemeStore } from "@/stores/theme";
 import { useUiSettingsStore, getFormattedCodeFontFamily } from "@/stores/uiSettingsStore";
@@ -86,7 +86,6 @@ export function MarkdownRenderer({
 }: MarkdownRendererProps) {
   const themeStore = useThemeStore();
   const uiSettingsStore = useUiSettingsStore();
-  const artifactStore = useArtifactStore();
   const sessionClient = useMemo(() => createSessionClient(), []);
   const referenceNodeRef = useRef<HTMLElement | null>(null);
 
@@ -173,7 +172,7 @@ export function MarkdownRenderer({
 
   const handlePreviewCode = useCallback(
     (nodeData: CodeBlockNodeData) => {
-      artifactStore.showArtifact(
+      showArtifact(
         {
           id: `code-${effectiveMessageId}-${nanoid()}`,
           type: "text/plain",
@@ -187,7 +186,7 @@ export function MarkdownRenderer({
         { force: true },
       );
     },
-    [artifactStore, effectiveMessageId, effectiveThreadId],
+    [effectiveMessageId, effectiveThreadId],
   );
 
   const components = useMemo(

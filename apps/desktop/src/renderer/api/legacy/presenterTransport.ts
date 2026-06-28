@@ -1,3 +1,4 @@
+"use no memo";
 import { type IPresenter, type IRemoteControlPresenter } from "@shared/presenter";
 import { getLegacyIpcRenderer, getLegacyWebContentsId } from "./runtime";
 

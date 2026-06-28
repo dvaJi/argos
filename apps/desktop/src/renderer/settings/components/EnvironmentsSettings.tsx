@@ -95,7 +95,7 @@ export default function EnvironmentsSettings() {
     } finally {
       setIsLoading(false);
     }
-  }, [projectStore]);
+  }, []);
 
   const handleOpen = useCallback(
     async (path: string) => {
@@ -109,20 +109,17 @@ export default function EnvironmentsSettings() {
         });
       }
     },
-    [projectStore, toast],
+    [toast],
   );
 
-  const handleSetDefault = useCallback(
-    async (environment: EnvironmentListItem) => {
-      if (!environment.exists) return;
-      await setDefaultProject(environment.path);
-    },
-    [projectStore],
-  );
+  const handleSetDefault = useCallback(async (environment: EnvironmentListItem) => {
+    if (!environment.exists) return;
+    await setDefaultProject(environment.path);
+  }, []);
 
   const handleClearDefault = useCallback(async () => {
     await clearDefaultProject();
-  }, [projectStore]);
+  }, []);
 
   useEffect(() => {
     void refreshData();

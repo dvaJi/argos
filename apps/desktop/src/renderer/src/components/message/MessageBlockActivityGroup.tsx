@@ -1,4 +1,4 @@
-import { type FC, useState, useMemo } from "react";
+import { type FC, useState, useMemo, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import type { DisplayAssistantMessageBlock, DisplayMessageUsage } from "@/components/chat/messageListItems";
 import { formatActivityDuration } from "./messageActivityGroups";
@@ -66,9 +66,12 @@ export const MessageBlockActivityGroup: FC<MessageBlockActivityGroupProps> = ({
     onToggleCollapse?.(!next);
   };
 
-  const handleChildCollapseToggle = (isCollapsed: boolean) => {
-    onToggleCollapse?.(isCollapsed);
-  };
+  const handleChildCollapseToggle = useCallback(
+    (isCollapsed: boolean) => {
+      onToggleCollapse?.(isCollapsed);
+    },
+    [onToggleCollapse],
+  );
 
   return (
     <div className="flex flex-col w-full" data-testid="activity-group">

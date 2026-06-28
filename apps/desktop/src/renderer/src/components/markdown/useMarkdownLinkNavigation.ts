@@ -1,7 +1,7 @@
 import { createBrowserClient } from "@api/BrowserClient";
 import { createWorkspaceClient } from "@api/WorkspaceClient";
-import { useSessionStore, getActiveSession } from "@/stores/ui/session";
-import { useSidepanelStore } from "@/stores/ui/sidepanel";
+import { sessionStore, getActiveSession } from "@/stores/ui/session";
+import { openBrowser, selectFile } from "@/stores/ui/sidepanel";
 import { classifyMarkdownLink, type MarkdownLinkContext } from "./linkTypes";
 
 interface UseMarkdownLinkNavigationOptions {
@@ -19,17 +19,15 @@ function buildSafeAttributeSelector(value: string): string {
 }
 
 export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOptions = {}) {
-  const sessionStore = useSessionStore();
-  const sidepanelStore = useSidepanelStore();
   const browserClient = createBrowserClient();
   const workspaceClient = createWorkspaceClient();
 
   const getSessionContext = (): SessionContext => {
     const linkContext = options.linkContext;
-    const sessionId = linkContext?.sessionId ?? sessionStore.activeSessionId;
+    const sessionId = linkContext?.sessionId ?? sessionStore.state.activeSessionId;
     const session =
-      sessionStore.sessions.find((item) => item.id === sessionId) ??
-      (sessionId === sessionStore.activeSessionId ? getActiveSession() : undefined);
+      sessionStore.state.sessions.find((item) => item.id === sessionId) ??
+      (sessionId === sessionStore.state.activeSessionId ? getActiveSession() : undefined);
     const workspacePath = session?.projectDir?.trim() || null;
 
     return {
@@ -79,7 +77,7 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
     }
 
     try {
-      sidepanelStore.openBrowser();
+      openBrowser();
       await browserClient.loadUrl(sessionId, url);
       return true;
     } catch (error) {
@@ -102,7 +100,7 @@ export function useMarkdownLinkNavigation(options: UseMarkdownLinkNavigationOpti
     }
 
     if (sessionId) {
-      sidepanelStore.selectFile(sessionId, resolution.path, {
+      selectFile(sessionId, resolution.path, {
         open: true,
         viewMode: "preview",
       });

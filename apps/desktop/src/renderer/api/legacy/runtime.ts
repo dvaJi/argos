@@ -1,3 +1,4 @@
+"use no memo";
 import type { ElectronAPI } from "@electron-toolkit/preload";
 
 type LegacyIpcRenderer = ElectronAPI["ipcRenderer"];

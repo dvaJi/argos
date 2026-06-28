@@ -319,19 +319,19 @@ export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block 
     [autoExpandDismissed, isExpanded, expansionSource],
   );
 
-  const [prevIdentity, setPrevIdentity] = useState<string | undefined>(undefined);
+  const prevIdentityRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (prevIdentity !== undefined && toolCallIdentity !== prevIdentity) {
+    if (prevIdentityRef.current !== undefined && toolCallIdentity !== prevIdentityRef.current) {
       resetExpansionState();
       syncAutoExpansionState(block.status, shouldAutoExpand);
     }
-    setPrevIdentity(toolCallIdentity);
+    prevIdentityRef.current = toolCallIdentity;
   }, [toolCallIdentity]);
 
-  const [prevStatus, setPrevStatus] = useState<DisplayAssistantMessageBlock["status"] | undefined>(undefined);
+  const prevStatusRef = useRef<DisplayAssistantMessageBlock["status"] | undefined>(undefined);
   useEffect(() => {
-    syncAutoExpansionState(block.status, shouldAutoExpand, prevStatus);
-    setPrevStatus(block.status);
+    syncAutoExpansionState(block.status, shouldAutoExpand, prevStatusRef.current);
+    prevStatusRef.current = block.status;
   }, [block.status, shouldAutoExpand]);
 
   const toggleExpanded = () => {

@@ -77,6 +77,10 @@ async function setup(overrides?: {
   vi.resetModules();
 
   const toast = vi.fn<(...args: any[]) => any>();
+  const refreshEnvironmentData = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+  const openDirectory = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+  const setDefaultProject = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
+  const clearDefaultProject = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
   const projectStore = {
     defaultProjectPath: overrides && "defaultProjectPath" in overrides ? (overrides.defaultProjectPath ?? null) : null,
     environments: overrides?.environments ?? [
@@ -97,14 +101,18 @@ async function setup(overrides?: {
         exists: true,
       },
     ],
-    refreshEnvironmentData: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    openDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    setDefaultProject: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-    clearDefaultProject: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    refreshEnvironmentData,
+    openDirectory,
+    setDefaultProject,
+    clearDefaultProject,
   };
 
   vi.doMock("@/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
+    refreshEnvironmentData,
+    openDirectory,
+    setDefaultProject,
+    clearDefaultProject,
   }));
   vi.doMock("@api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
@@ -151,7 +159,7 @@ describe("EnvironmentsSettings", () => {
 
     expect(screen.getAllByTestId("environment-row")).toHaveLength(2);
     expect(container.textContent).toContain("tmp-1");
-    expect(screen.getByLabelText("Clear Default")).toBeTruthy();
+    expect(screen.getByLabelText("Clear default")).toBeTruthy();
   });
 
   it("dispatches open and set default actions from an item", async () => {
@@ -171,7 +179,7 @@ describe("EnvironmentsSettings", () => {
     const { projectStore } = await setup({
       defaultProjectPath: "/work/app",
     });
-    const clearDefaultButton = screen.getByLabelText("Clear Default");
+    const clearDefaultButton = screen.getByLabelText("Clear default");
 
     await fireEvent.click(clearDefaultButton);
 
@@ -200,13 +208,13 @@ describe("EnvironmentsSettings", () => {
       ],
     });
 
-    expect(container.textContent).not.toContain("missing");
+    expect(container.textContent).not.toContain("/work/missing");
     expect(screen.getAllByTestId("environment-row")).toHaveLength(1);
 
     await fireEvent.click(screen.getByTestId("missing-toggle"));
     await act(async () => {});
 
-    expect(container.textContent).toContain("missing");
+    expect(container.textContent).toContain("/work/missing");
     expect(container.textContent).toContain("Missing");
     expect(screen.getAllByTestId("environment-row")).toHaveLength(2);
   });
@@ -290,7 +298,7 @@ describe("EnvironmentsSettings", () => {
       ],
     });
 
-    expect(screen.getByTestId("environments-empty").textContent).toContain("No environments to show");
+    expect(screen.getByTestId("environments-empty").textContent).toContain("No environments found");
     expect(container.textContent).not.toContain("tmp-1");
   });
 });

@@ -1,3 +1,4 @@
+"use no memo";
 import type { IPresenter } from "@shared/presenter";
 import { type IRemoteControlPresenter } from "@shared/presenter";
 import { useLegacyPresenterTransport, useLegacyRemoteControlPresenterTransport } from "./presenterTransport";
