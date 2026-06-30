@@ -6,6 +6,7 @@ export * from "./DeviceClient";
 export * from "./DialogClient";
 export * from "./FileClient";
 export * from "./McpClient";
+export * from "./MemoryClient";
 export * from "./ModelClient";
 export * from "./PluginClient";
 export * from "./ProviderClient";
