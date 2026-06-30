@@ -119,3 +119,26 @@ Legend: `fork file` ← `source file` · role
   `memoryPort` dependency, `buildMemoryInjection()`, `triggerMemoryExtraction()` helpers.
 - `apps/desktop/src/main/presenter/sqlitePresenter/schemaCatalog.ts` (modified)
   · `AgentMemoryTable` registered in catalog.
+
+## Memory subsystem — integration (PR #13)
+
+- `apps/desktop/src/main/presenter/index.ts` (modified) ← `src/main/presenter/index.ts`
+  · `MemoryPresenter` instantiated with deps (repository=`agentMemoryTable`,
+  `resolveAgentConfig`=`AgentRepository.resolveArgosAgentConfig` (sync),
+  `getEmbeddings`/`generateText`=`llmproviderPresenter`, DuckDB vector store under
+  `userData/memory_vectors/`). `memoryPort` passed to `AgentRuntimePresenter`;
+  `isMemoryEnabled`/`rememberMemory`/`recallMemory`/`forgetMemory` wired into
+  `agentToolRuntime`. `startBackgroundMaintenance()` in `init()`; `dispose()` in `destroy()`.
+- `apps/desktop/src/main/presenter/agentRepository/index.ts` (modified)
+  · `mergeArgosConfig` must list memory fields explicitly (it builds a new object, so
+  omitted fields are dropped): `memoryEnabled`, `memoryEmbedding`, `memoryExtractionModel`,
+  `memoryRetrieval`, `personaEvolutionEnabled`. Without this the config never reaches the presenter.
+- `packages/shared/src/types/agent-interface.d.ts` (modified)
+  · `ArgosAgentConfig.personaEvolutionEnabled` — persona evolution is opt-in.
+- `apps/desktop/src/renderer/api/MemoryClient.ts` ← `src/renderer/api/MemoryClient.ts`
+  · `createMemoryClient()` factory; scoped to the 6 routes argos has (list/getStatus/search/
+  add/delete/clear). `add()` takes a discriminated union (`MemoryAddByKindInput |
+  MemoryAddByCategoryInput`) — `kind` and `category` are mutually exclusive and only one is
+  forwarded in the payload. No `onUpdated` (argos has no `memoryUpdatedEvent` yet).
+  · Note: the 6 route **handlers** are NOT wired in `dispatchArgosRoute` — routes are inert
+  from the renderer until T3.2 lands. The client is ready and bridge-mocked-tested.
