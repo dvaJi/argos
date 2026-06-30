@@ -62,7 +62,7 @@ export class MemoryVectorStore implements IMemoryVectorStore {
   private async loadVss(): Promise<void> {
     const extensionPath = path.join(resolveExtensionDir(), "vss.duckdb_extension");
     if (fs.existsSync(extensionPath)) {
-      const escapedPath = extensionPath.replace(/\\/g, "\\\\");
+      const escapedPath = extensionPath.replace(/\\/g, "\\\\").replace(/'/g, "''");
       await this.connection.run(`LOAD '${escapedPath}';`);
     } else {
       await this.connection.run("INSTALL vss;");

@@ -847,48 +847,57 @@ export class MemoryPresenter {
       return;
     }
 
-    const model = extractionModel;
-    let llmCalls = 0;
-    let inputTokens = 0;
+    const run = (async () => {
+      const model = extractionModel;
+      let llmCalls = 0;
+      let inputTokens = 0;
 
-    const pairs: MemoryConflictPair[] = [];
-    for (let i = 0; i < memories.length && pairs.length < CONSOLIDATION_MAX_LLM_CALLS; i++) {
-      for (let j = i + 1; j < memories.length && pairs.length < CONSOLIDATION_MAX_LLM_CALLS; j++) {
-        const a = memories[i];
-        const b = memories[j];
-        if (a.kind === "persona" || b.kind === "persona") continue;
-        if (a.superseded_by || b.superseded_by) continue;
-        pairs.push({ a, b });
-      }
-    }
-
-    for (const pair of pairs) {
-      if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
-      if (inputTokens >= CONSOLIDATION_MAX_INPUT_TOKENS) break;
-
-      const prompt = buildDecisionPrompt(
-        {
-          kind: pair.a.kind,
-          category: pair.a.category,
-          content: pair.a.content,
-          importance: pair.a.importance,
-        },
-        [{ content: pair.b.content }],
-      );
-      inputTokens += estimateTokens(prompt);
-
-      try {
-        llmCalls++;
-        const raw = await this.deps.generateText(model.providerId, model.modelId, prompt);
-        const decision = parseDecision(raw, 1);
-
-        if (decision.decision === "SUPERSEDE" && decision.mergedContent) {
-          this.deps.repository.markSuperseded(pair.b.id, pair.a.id);
-          this.applyContentUpdate(agentId, pair.a, decision.mergedContent, now, pair.a.category);
+      const pairs: MemoryConflictPair[] = [];
+      for (let i = 0; i < memories.length && pairs.length < CONSOLIDATION_MAX_LLM_CALLS; i++) {
+        for (let j = i + 1; j < memories.length && pairs.length < CONSOLIDATION_MAX_LLM_CALLS; j++) {
+          const a = memories[i];
+          const b = memories[j];
+          if (a.kind === "persona" || b.kind === "persona") continue;
+          if (a.superseded_by || b.superseded_by) continue;
+          pairs.push({ a, b });
         }
-      } catch {
-        // continue to next pair
       }
+
+      for (const pair of pairs) {
+        if (llmCalls >= CONSOLIDATION_MAX_LLM_CALLS) break;
+        if (inputTokens >= CONSOLIDATION_MAX_INPUT_TOKENS) break;
+
+        const prompt = buildDecisionPrompt(
+          {
+            kind: pair.a.kind,
+            category: pair.a.category,
+            content: pair.a.content,
+            importance: pair.a.importance,
+          },
+          [{ content: pair.b.content }],
+        );
+        inputTokens += estimateTokens(prompt);
+
+        try {
+          llmCalls++;
+          const raw = await this.deps.generateText(model.providerId, model.modelId, prompt);
+          const decision = parseDecision(raw, 1);
+
+          if (decision.decision === "SUPERSEDE" && decision.mergedContent) {
+            this.deps.repository.markSuperseded(pair.b.id, pair.a.id);
+            this.applyContentUpdate(agentId, pair.a, decision.mergedContent, now, pair.a.category);
+          }
+        } catch {
+          // continue to next pair
+        }
+      }
+    })();
+
+    this.consolidationRuns.add(run);
+    try {
+      await run;
+    } finally {
+      this.consolidationRuns.delete(run);
     }
   }
 
@@ -914,13 +923,14 @@ export class MemoryPresenter {
       return null;
     }
 
+    const maxCreatedAt = highImportance.reduce((max, m) => Math.max(max, m.created_at), 0);
     const watermark = this.reflectionAttemptWatermark.get(agentId) ?? 0;
-    if (highImportance.length <= watermark) {
+    if (maxCreatedAt <= watermark) {
       return null;
     }
 
     const selected = highImportance.slice(0, REFLECTION_MEMORY_LIMIT);
-    this.reflectionAttemptWatermark.set(agentId, highImportance.length);
+    this.reflectionAttemptWatermark.set(agentId, maxCreatedAt);
 
     const memoriesText = selected.map((m) => m.content);
 
@@ -1001,13 +1011,14 @@ export class MemoryPresenter {
         return null;
       }
 
+      const maxCreatedAt = highImportance.reduce((max, m) => Math.max(max, m.created_at), 0);
       const watermark = this.personaAttemptWatermark.get(agentId) ?? 0;
-      if (highImportance.length <= watermark) {
+      if (maxCreatedAt <= watermark) {
         return null;
       }
 
       const selected = highImportance.slice(0, PERSONA_MEMORY_LIMIT);
-      this.personaAttemptWatermark.set(agentId, highImportance.length);
+      this.personaAttemptWatermark.set(agentId, maxCreatedAt);
 
       const previousPersona = this.deps.repository.getActivePersona(agentId);
       const memoriesText = selected.map((m) => m.content);

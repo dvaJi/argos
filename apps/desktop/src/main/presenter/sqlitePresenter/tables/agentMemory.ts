@@ -141,22 +141,7 @@ export class AgentMemoryTable extends BaseTable {
     this.ensureFtsIndex();
   }
 
-  getMigrationSQL(version: number): string | null {
-    if (version === AGENT_MEMORY_SCHEMA_VERSION) {
-      return [
-        "ALTER TABLE agent_memory ADD COLUMN category TEXT;",
-        "ALTER TABLE agent_memory ADD COLUMN confidence REAL;",
-        "ALTER TABLE agent_memory ADD COLUMN source_entry_ids TEXT;",
-        "ALTER TABLE agent_memory ADD COLUMN last_consolidated_at INTEGER;",
-        "ALTER TABLE agent_memory ADD COLUMN conflict_state TEXT;",
-        "ALTER TABLE agent_memory ADD COLUMN conflict_with TEXT;",
-        "ALTER TABLE agent_memory ADD COLUMN persona_state TEXT;",
-        "ALTER TABLE agent_memory ADD COLUMN accessed_at INTEGER;",
-        "ALTER TABLE agent_memory ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0;",
-        "ALTER TABLE agent_memory ADD COLUMN decay_score REAL;",
-        "ALTER TABLE agent_memory ADD COLUMN consolidated_at INTEGER;",
-      ].join("\n");
-    }
+  getMigrationSQL(_version: number): string | null {
     return null;
   }
 
