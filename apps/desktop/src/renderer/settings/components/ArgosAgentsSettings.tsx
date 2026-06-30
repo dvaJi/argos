@@ -19,6 +19,7 @@ import ModelSelect from "@/components/ModelSelect";
 import ModelIcon from "@/components/icons/ModelIcon";
 import AgentAvatar from "@/components/icons/AgentAvatar";
 import AgentTransferDialog, { type TransferDialogAgent } from "@/components/agent/AgentTransferDialog";
+import { MemoryManagerDialog } from "./MemoryManagerDialog";
 import { useModelStore } from "@/stores/modelStore";
 import type {
   Agent,
@@ -205,6 +206,7 @@ export default function ArgosAgentsSettings() {
   const [openModelPicker, setOpenModelPicker] = useState<Record<string, boolean>>({});
   const [tools, setTools] = useState<MCPToolDefinition[]>([]);
   const [systemPromptDialogOpen, setSystemPromptDialogOpen] = useState(false);
+  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [loadingSystemPrompts, setLoadingSystemPrompts] = useState(false);
   const [systemPromptTemplates, setSystemPromptTemplates] = useState<SystemPrompt[]>([]);
 
@@ -1207,6 +1209,27 @@ export default function ArgosAgentsSettings() {
             <section className="space-y-4 rounded-2xl border border-border p-5">
               <div className="flex items-center justify-between gap-3">
                 <div>
+                  <div className="text-sm font-semibold">Long-term memory</div>
+                  <div className="text-xs text-muted-foreground">
+                    Review, add, search, and remove the memories this agent recalls across sessions.
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!selectedAgentId}
+                  onClick={() => setMemoryDialogOpen(true)}
+                >
+                  <Icon icon="lucide:brain-circuit" className="h-4 w-4" />
+                  <span>Manage memory</span>
+                </Button>
+              </div>
+            </section>
+
+            <section className="space-y-4 rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
                   <div className="text-sm font-semibold">Subagents</div>
                   <div className="text-xs text-muted-foreground">Configure reusable subagent slots for this agent.</div>
                 </div>
@@ -1433,6 +1456,15 @@ export default function ArgosAgentsSettings() {
         onConfirmMove={handleDeleteAgentWithMove}
         onConfirmDelete={handleDeleteAgentWithSessions}
       />
+
+      {selectedAgentId && (
+        <MemoryManagerDialog
+          open={memoryDialogOpen}
+          onOpenChange={setMemoryDialogOpen}
+          agentId={selectedAgentId}
+          agentName={selectedAgent?.name}
+        />
+      )}
     </div>
   );
 }
