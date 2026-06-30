@@ -1,4 +1,4 @@
-import type { ReasoningEffort, ReasoningVisibility, Verbosity } from "./model-db";
+﻿import type { ReasoningEffort, ReasoningVisibility, Verbosity } from "./model-db";
 import type { ImageGenerationOptions } from "../imageGenerationSettings";
 import type { VideoGenerationOptions } from "../videoGenerationSettings";
 import type { ToolCallImagePreview } from "./core/mcp";
@@ -599,6 +599,22 @@ export interface ArgosSubagentMeta {
   targetAgentId?: string | null;
 }
 
+export interface ArgosAgentMemoryEmbedding {
+  providerId: string;
+  modelId: string;
+}
+
+export interface ArgosAgentMemoryRetrieval {
+  topK?: number;
+  rrfK?: number;
+  similarityThreshold?: number;
+  weights?: {
+    similarity: number;
+    recency: number;
+    importance: number;
+  };
+}
+
 export interface ArgosAgentConfig {
   defaultModelPreset?: ArgosAgentModelPreset | null;
   assistantModel?: ArgosAgentModelSelection | null;
@@ -613,6 +629,11 @@ export interface ArgosAgentConfig {
   autoCompactionEnabled?: boolean;
   autoCompactionTriggerThreshold?: number;
   autoCompactionRetainRecentPairs?: number;
+  memoryEnabled?: boolean;
+  memoryEmbedding?: ArgosAgentMemoryEmbedding | null;
+  memoryExtractionModel?: ArgosAgentModelSelection | null;
+  memoryRetrieval?: ArgosAgentMemoryRetrieval | null;
+  personaEvolutionEnabled?: boolean;
 }
 
 export interface CreateArgosAgentInput {

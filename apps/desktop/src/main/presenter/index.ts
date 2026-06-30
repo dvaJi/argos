@@ -63,6 +63,8 @@ import { NewSessionHooksBridge } from "./hooksNotifications/newSessionBridge";
 import { ScheduledTasksService } from "./scheduledTasks";
 import { AgentSessionPresenter } from "./agentSessionPresenter";
 import { AgentRuntimePresenter } from "./agentRuntimePresenter";
+import { MemoryPresenter } from "./memoryPresenter";
+import { MemoryVectorStore } from "./memoryPresenter/memoryVectorStore";
 import { ProjectPresenter } from "./projectPresenter";
 import { RemoteControlPresenter } from "./remoteControlPresenter";
 import type { RemoteControlPresenterLike } from "./remoteControlPresenter/interface";
@@ -181,6 +183,7 @@ export class Presenter implements IPresenter {
   agentSessionPresenter: IAgentSessionPresenter;
   projectPresenter: IProjectPresenter;
   pluginPresenter: PluginPresenter;
+  memoryPresenter: MemoryPresenter;
   databaseSecurityPresenter: DatabaseSecurityPresenter;
   hooksNotifications: HooksNotificationsService;
   scheduledTasks: ScheduledTasksService;
@@ -259,6 +262,30 @@ export class Presenter implements IPresenter {
     // Initialize generic Workspace presenter (for all Agent modes)
     this.workspacePresenter = new WorkspacePresenter(this.filePresenter);
 
+    // Initialize Memory presenter (long-term agent memory: extraction, recall, persona evolution)
+    const memoryVectorDir = path.join(app.getPath("userData"), "memory_vectors");
+    const memoryPresenter = new MemoryPresenter({
+      repository: (this.sqlitePresenter as unknown as SQLitePresenter).agentMemoryTable,
+      resolveAgentConfig: (agentId) => agentRepository.resolveArgosAgentConfig(agentId),
+      getEmbeddings: (providerId, modelId, texts) =>
+        this.llmproviderPresenter.getEmbeddings(providerId, modelId, texts),
+      generateText: (providerId, modelId, prompt) =>
+        this.llmproviderPresenter.generateText(providerId, prompt, modelId).then((response) => response.content),
+      createVectorStore: async (agentId, embedding, dimensions) => {
+        const dbPath = path.join(memoryVectorDir, `${agentId}.duckdb`);
+        return MemoryVectorStore.create(dbPath, dimensions, embedding);
+      },
+      resetVectorStore: async (agentId) => {
+        const dbPath = path.join(memoryVectorDir, `${agentId}.duckdb`);
+        try {
+          MemoryVectorStore.destroyFile(dbPath);
+        } catch {
+          // ignore missing vector store file
+        }
+      },
+    });
+    this.memoryPresenter = memoryPresenter;
+
     const agentToolRuntime: AgentToolRuntimePort = {
       resolveConversationWorkdir: async (conversationId) => {
         try {
@@ -335,6 +362,30 @@ export class Presenter implements IPresenter {
       handoffTape: async (conversationId, name, state) => {
         return await this.agentSessionPresenter.handoffTape(conversationId, name, state);
       },
+      isMemoryEnabled: (agentId) => memoryPresenter.isEnabled(agentId),
+      rememberMemory: async (agentId, input, sourceSession, _model) => {
+        const ids = memoryPresenter.writeMemoriesSync(
+          [
+            {
+              kind: input.kind,
+              content: input.content,
+              category: input.category ?? null,
+              importance: input.importance ?? 0.7,
+            },
+          ],
+          { agentId, sourceSession: sourceSession ?? null },
+        );
+        if (ids.length > 0) {
+          void memoryPresenter.processPendingEmbeddings(agentId).catch(() => undefined);
+          return { action: "created" as const, id: ids[0] };
+        }
+        return { action: "noop" as const, reason: "duplicate" };
+      },
+      recallMemory: async (agentId, query) => {
+        const items = await memoryPresenter.recall(agentId, query);
+        return items.map((item) => ({ id: item.id, kind: item.kind, content: item.content }));
+      },
+      forgetMemory: async (agentId, memoryId) => memoryPresenter.deleteMemory(agentId, memoryId),
       createSubagentSession: async (input) => {
         const agentSessionPresenter = this.agentSessionPresenter as IAgentSessionPresenter & {
           createSubagentSession?: (createInput: typeof input) => Promise<{
@@ -531,6 +582,7 @@ export class Presenter implements IPresenter {
         sessionUiPort,
         cacheImage: (data) => this.devicePresenter.cacheImage(data),
         skillPresenter: this.skillPresenter,
+        memoryPort: memoryPresenter,
       },
     );
     this.agentSessionPresenter = new AgentSessionPresenter(
@@ -648,6 +700,9 @@ export class Presenter implements IPresenter {
     const providers = this.configPresenter.getProviders();
     console.info(`[Startup][Main] Presenter.init begin providers=${providers.length}`);
     this.llmproviderPresenter.setProviders(providers);
+
+    // Start background memory maintenance (consolidation, reflection sweeps)
+    this.memoryPresenter.startBackgroundMaintenance();
     const mainRunId = this.startupWorkloadCoordinator.createRun("main");
 
     void this.startupWorkloadCoordinator.scheduleTask({
@@ -889,6 +944,11 @@ export class Presenter implements IPresenter {
     (this.workspacePresenter as WorkspacePresenter).destroy(); // Destroy Workspace watchers
     (this.skillPresenter as SkillPresenter).destroy(); // Release Skills-related resources
     (this.skillSyncPresenter as SkillSyncPresenter).destroy(); // Release Skill Sync resources
+    try {
+      await this.memoryPresenter.dispose(); // Stop memory maintenance and close vector stores
+    } catch (error) {
+      console.error("MemoryPresenter.dispose failed during presenter destroy:", error);
+    }
     // Note: trayPresenter.destroy() is handled in the will-quit event in main/index.ts
     // trayPresenter is not destroyed here; its lifecycle is managed by main/index.ts
   }

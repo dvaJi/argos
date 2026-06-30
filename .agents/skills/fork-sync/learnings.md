@@ -90,3 +90,47 @@ mistakes.
 - **CRLF/LF noise:** prior branches can leave line-ending-only "modifications" in the
   working tree. `git checkout -- .` before staging, and stage port files explicitly
   (don't `git add -A`).
+
+## 2026-06 — memory subsystem (port exploration)
+
+- **Fork has zero memory infrastructure.** No `agentMemory` table, no memoryPresenter,
+  no memory types, no memory routes, no memory tools. The entire subsystem must be
+  ported from scratch — the task-aware categories commit (#1802) is an enhancement to
+  an existing system that doesn't exist in the fork yet.
+- **Table naming**: fork uses `argos_*` (not `deepchat_*`). The tape table is
+  `argos_tape_entries`, so the memory table should be `argos_agent_memory`.
+- **LLM access pattern**: `LLMProviderPresenter.generateText(providerId, prompt, modelId)`
+  returns `LLMResponse`. `getEmbeddings(providerId, modelId, texts)` returns `number[][]`.
+  Embedding support is provider-dependent (OpenAI/Google have strategies; others throw).
+- **Tool pattern**: `AgentToolRuntimePort` interface in `toolPresenter/runtimePorts.ts`
+  provides the bridge. New tool handlers follow `agentTapeTools.ts` pattern.
+- **Route pattern**: `defineRouteContract()` in `packages/shared-contracts/src/routes/`,
+  registered in `ARGOS_ROUTE_CATALOG`. Handlers live in `apps/desktop/src/main/routes/`.
+- **System prompt injection**: `compactionService.ts` has `appendSummarySection()` and
+  `appendReconstructionAnchorStateSection()`. Memory section follows same pattern.
+- **Circular import guard**: memoryPresenter must NOT import `@/presenter` barrel at
+  top level (same pattern as baseProvider/devicePresenter). Use lazy imports.
+- **DuckDB sidecar**: vector store is per-agent, lazy-initialized. Identity fingerprint
+  is `providerId:modelId:dimensions`. Must handle model/dimension changes with reindex.
+
+## 2026-06 — memory subsystem (Phase 4 implementation)
+
+- **Upstream memoryPresenter is ~1700 lines** vs fork's 483-line base. The bulk is
+  extraction pipeline, coordinate write (Mem0-style dedup/update/supersede/challenge),
+  consolidation (offline dedup with LLM budget), reflection (synthesize insights), and
+  persona evolution (draft/approve/reject/rollback). All ported in one pass.
+- **`MemoryPresenterDeps.generateText`** is essential for extraction/decision/consolidation.
+  Must be in the deps interface (added in Phase 2). The fork's `LLMProviderPresenter`
+  returns `LLMResponse` but the upstream expects `string` — the presenter's `generateText`
+  wrapper handles the conversion.
+- **`agent-interface.d.ts` additions**: `memoryEnabled`, `memoryEmbedding`, `memoryExtractionModel`,
+  `memoryRetrieval` added to `ArgosAgentConfig`. `personaEvolutionEnabled` is referenced by
+  upstream but not yet in the fork's config type — deferred.
+- **System prompt injection**: 3 assembly points in `agentRuntimePresenter/index.ts` all
+  need memory injection. The steer path uses `params.requestMessages` (not `params.messages`).
+  The resume path uses empty query for memory injection.
+- **Post-turn extraction**: fires after `applyProcessResultStatus` on completed turns.
+  Uses `buildEffectiveTapeView` (property is `messageRecords`, not `messageEntries`).
+  Must not block the chat — all extraction is fire-and-forget with `.catch(() => undefined)`.
+- **`agent_memory` table is named `agent_memory`** (not `argos_agent_memory`) — the table
+  name in `schemaCatalog.ts` matches the source exactly since it's not prefixed with argos.

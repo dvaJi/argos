@@ -78,6 +78,11 @@ const mergeArgosConfig = (baseConfig: ArgosAgentConfig, overrideConfig: ArgosAge
       overrideConfig.autoCompactionTriggerThreshold ?? baseConfig.autoCompactionTriggerThreshold ?? 80,
     autoCompactionRetainRecentPairs:
       overrideConfig.autoCompactionRetainRecentPairs ?? baseConfig.autoCompactionRetainRecentPairs ?? 2,
+    memoryEnabled: overrideConfig.memoryEnabled ?? baseConfig.memoryEnabled ?? false,
+    memoryEmbedding: overrideConfig.memoryEmbedding ?? baseConfig.memoryEmbedding ?? null,
+    memoryExtractionModel: overrideConfig.memoryExtractionModel ?? baseConfig.memoryExtractionModel ?? null,
+    memoryRetrieval: overrideConfig.memoryRetrieval ?? baseConfig.memoryRetrieval ?? null,
+    personaEvolutionEnabled: overrideConfig.personaEvolutionEnabled ?? baseConfig.personaEvolutionEnabled ?? false,
   });
 
 export class AgentRepository {

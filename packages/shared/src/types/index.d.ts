@@ -1,4 +1,4 @@
-// Temporary barrel: keep legacy presenters to avoid breaking changes during migration
+﻿// Temporary barrel: keep legacy presenters to avoid breaking changes during migration
 export type * from "./presenters/index";
 export type * from "./presenters/legacy.presenters";
 export type * from "./presenters/agent-provider";
@@ -15,6 +15,7 @@ export type {
 } from "../providerDeeplink";
 export * from "./browser";
 export * from "./chatSettings";
+export * from "./agent-memory";
 export * from "./plugin";
 export * from "./skill";
 export * from "./skillSync";

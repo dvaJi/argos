@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+﻿import Database from "better-sqlite3-multiple-ciphers";
 import path from "path";
 import fs from "fs";
 import { ConversationsTable } from "./tables/conversations";
@@ -31,6 +31,7 @@ import { ArgosSearchDocumentsTable } from "./tables/argosSearchDocuments";
 import { ArgosPendingInputsTable } from "./tables/argosPendingInputs";
 import { ArgosUsageStatsTable } from "./tables/argosUsageStats";
 import { ArgosTapeEntriesTable } from "./tables/argosTapeEntries";
+import { AgentMemoryTable } from "./tables/agentMemory";
 import { LegacyImportStatusTable } from "./tables/legacyImportStatus";
 import { AgentsTable } from "./tables/agents";
 import { ConfigTables } from "./tables/configTables";
@@ -217,6 +218,7 @@ export class SQLitePresenter implements ISQLitePresenter {
   public argosPendingInputsTable!: ArgosPendingInputsTable;
   public argosUsageStatsTable!: ArgosUsageStatsTable;
   public argosTapeEntriesTable!: ArgosTapeEntriesTable;
+  public agentMemoryTable!: AgentMemoryTable;
   public legacyImportStatusTable!: LegacyImportStatusTable;
   public agentsTable!: AgentsTable;
   public configTables!: ConfigTables;
@@ -392,6 +394,7 @@ export class SQLitePresenter implements ISQLitePresenter {
     this.argosPendingInputsTable = new ArgosPendingInputsTable(this.db);
     this.argosUsageStatsTable = new ArgosUsageStatsTable(this.db);
     this.argosTapeEntriesTable = new ArgosTapeEntriesTable(this.db);
+    this.agentMemoryTable = new AgentMemoryTable(this.db);
     this.legacyImportStatusTable = new LegacyImportStatusTable(this.db);
     this.agentsTable = new AgentsTable(this.db);
     this.configTables = new ConfigTables(this.db);
@@ -417,6 +420,7 @@ export class SQLitePresenter implements ISQLitePresenter {
     this.argosPendingInputsTable.createTable();
     this.argosUsageStatsTable.createTable();
     this.argosTapeEntriesTable.createTable();
+    this.agentMemoryTable.createTable();
     this.legacyImportStatusTable.createTable();
     this.agentsTable.createTable();
     this.configTables.createTable();
@@ -460,6 +464,7 @@ export class SQLitePresenter implements ISQLitePresenter {
       this.argosPendingInputsTable,
       this.argosUsageStatsTable,
       this.argosTapeEntriesTable,
+      this.agentMemoryTable,
       this.legacyImportStatusTable,
       this.agentsTable,
       this.configTables,
@@ -549,6 +554,7 @@ export class SQLitePresenter implements ISQLitePresenter {
         DELETE FROM argos_messages;
         DELETE FROM argos_usage_stats;
         DELETE FROM argos_tape_entries;
+        DELETE FROM agent_memory;
         DELETE FROM argos_sessions;
         DELETE FROM new_session_active_skills;
         DELETE FROM new_session_disabled_agent_tools;

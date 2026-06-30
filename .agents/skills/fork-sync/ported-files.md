@@ -78,3 +78,44 @@ Legend: `fork file` ← `source file` · role
 - `apps/desktop/src/main/presenter/windowPresenter/index.ts` · passes `process.arch` to
   `resolveSettingsNavigationPath` (the only src/main caller of the nav helpers).
 - `plugins/cua/plugin.json` · `engines.targets` + per-arch runtime detect entries.
+
+## Memory subsystem
+
+- `packages/shared/src/types/agent-memory.ts` ← `src/shared/types/agent-memory.ts`
+  · `AGENT_MEMORY_CATEGORIES`, `AgentMemoryCategory`, `CATEGORY_IMPORTANCE_FLOOR`, `isAgentMemoryCategory()`.
+- `packages/shared-contracts/src/routes/memory.routes.ts` ← `src/shared/contracts/routes/memory.routes.ts`
+  · Route contracts: `memory.list`, `memory.getStatus`, `memory.search`, `memory.add`, `memory.delete`, `memory.clear`.
+  · Registered in `ARGOS_ROUTE_CATALOG` (287 routes).
+- `apps/desktop/src/main/presenter/memoryPresenter/types.ts` ← `src/main/presenter/memoryPresenter/types.ts`
+  · `MemoryRepositoryPort`, `MemoryCandidate`, `NormalizedMemoryCandidate`, `MemoryWriteOutcome`,
+  `MemoryPresenterDeps`, `MemoryExtractionInput`, `MemoryExtractionResult`, `MemoryReflectionResult`,
+  `MemoryPersonaDraftResult`, constants (`DEFAULT_RETRIEVAL`, `DEFAULT_SIMILARITY_THRESHOLD`, etc.).
+- `apps/desktop/src/main/presenter/memoryPresenter/scoring.ts` ← `src/main/presenter/memoryPresenter/scoring.ts`
+  · `buildMemoryProvenanceKey()`, `distanceToSimilarity()`, `recencyScore()`, `resolveRetrieval()`,
+  `retrievalScore()`, `decayScore()`, `fuse()` (RRF), `parseSourceEntryIds()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/extraction.ts` ← `src/main/presenter/memoryPresenter/extraction.ts`
+  · `buildTriagePrompt()`, `buildExtractionPrompt()`, `parseTriageDecision()`, `parseMemoryCandidates()`,
+  `buildReflectionPrompt()`, `buildReflectionInsightsPrompt()`, `parseReflectionInsights()`,
+  `personaChangeRatio()`, `sanitizeSelfModel()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/decision.ts` ← `src/main/presenter/memoryPresenter/decision.ts`
+  · `buildDecisionPrompt()`, `parseDecision()`, `ADD_DECISION`, `MemoryDecision` type.
+- `apps/desktop/src/main/presenter/memoryPresenter/injectionPort.ts` ← `src/main/presenter/memoryPresenter/injectionPort.ts`
+  · `MemoryInjectionPort`, `MemoryRuntimePort`, `MemoryInjectionPayload`, `MemoryInjectionResult`,
+  `buildMemorySection()`, `appendMemorySection()`, `appendMemorySectionWithManifest()`,
+  `estimateTokens()`, `resolveInjectionTokenBudget()`, `sanitizeForInjection()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/index.ts` ← `src/main/presenter/memoryPresenter/index.ts`
+  · `MemoryPresenter` class: extraction pipeline, coordinate write, injection, consolidation,
+  reflection, persona lifecycle, background maintenance, vector store management.
+- `apps/desktop/src/main/presenter/memoryPresenter/memoryVectorStore.ts` (new, no upstream equivalent)
+  · `MemoryVectorStore` class: DuckDB sidecar with HNSW index for vector similarity search.
+- `apps/desktop/src/main/presenter/sqlitePresenter/tables/agentMemory.ts` ← `src/main/presenter/sqlitePresenter/tables/agentMemory.ts`
+  · `AgentMemoryTable` with full schema, FTS support, CRUD operations.
+- `apps/desktop/src/main/presenter/toolPresenter/agentTools/agentMemoryTools.ts` ← `src/main/presenter/toolPresenter/agentTools/agentMemoryTools.ts`
+  · `AgentMemoryToolHandler` with `memory_remember`, `memory_recall`, `memory_forget` tools.
+- `apps/desktop/src/main/presenter/toolPresenter/runtimePorts.ts` (modified)
+  · Added `isMemoryEnabled`, `rememberMemory`, `recallMemory`, `forgetMemory` to `AgentToolRuntimePort`.
+- `apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts` (modified)
+  · Memory injection at 3 system prompt assembly points, post-turn extraction hook,
+  `memoryPort` dependency, `buildMemoryInjection()`, `triggerMemoryExtraction()` helpers.
+- `apps/desktop/src/main/presenter/sqlitePresenter/schemaCatalog.ts` (modified)
+  · `AgentMemoryTable` registered in catalog.
