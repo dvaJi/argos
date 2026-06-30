@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-store";
+import { Icon } from "@iconify/react";
 import { TooltipProvider } from "@shadcn/components/ui/tooltip";
 import { Button } from "@shadcn/components/ui/button";
 import {
@@ -774,6 +775,13 @@ export function NewThreadPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {isAcpWorkdirMissing && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
+              <span>This agent needs a project. Pick one above to start chatting.</span>
+            </div>
+          )}
 
           <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
             {/* @ts-expect-error - Complex type intersection issue */}

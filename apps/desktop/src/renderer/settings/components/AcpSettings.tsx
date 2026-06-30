@@ -182,6 +182,12 @@ export default function AcpSettings() {
     return "lucide:download";
   };
 
+  const isUpdateAvailable = (agent: AcpRegistryAgent): boolean => {
+    if (agent.installState?.status !== "installed") return false;
+    const installedVersion = agent.installState?.version;
+    return Boolean(installedVersion) && installedVersion !== agent.version;
+  };
+
   const syncEnvDrafts = (agents: AcpRegistryAgent[]) => {
     const drafts: Record<string, string> = {};
     agents.forEach((agent) => {
@@ -848,27 +854,55 @@ export default function AcpSettings() {
                             </p>
                           </div>
 
-                          <Button
-                            size="sm"
-                            variant={registryActionVariant(agent)}
-                            disabled={
-                              Boolean(agentPending[agent.id]) ||
-                              (agent.installState?.status ?? "not_installed") === "installing"
-                            }
-                            onClick={() => void handleRegistryCatalogAction(agent)}
-                          >
-                            <Icon
-                              icon={registryActionIcon(agent)}
-                              className={`h-4 w-4 ${agent.installState?.status === "installing" ? "animate-spin" : ""}`}
-                            />
-                            {registryActionLabel(agent)}
-                          </Button>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {isUpdateAvailable(agent) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-accent-400 text-accent-500 hover:bg-accent-400/10"
+                                disabled={
+                                  Boolean(agentPending[agent.id]) ||
+                                  (agent.installState?.status ?? "not_installed") === "installing"
+                                }
+                                onClick={() => void installRegistryAgent(agent)}
+                              >
+                                <Icon icon="lucide:arrow-up-circle" className="h-4 w-4" />
+                                Update
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant={registryActionVariant(agent)}
+                              disabled={
+                                Boolean(agentPending[agent.id]) ||
+                                (agent.installState?.status ?? "not_installed") === "installing"
+                              }
+                              onClick={() => void handleRegistryCatalogAction(agent)}
+                            >
+                              <Icon
+                                icon={registryActionIcon(agent)}
+                                className={`h-4 w-4 ${agent.installState?.status === "installing" ? "animate-spin" : ""}`}
+                              />
+                              {registryActionLabel(agent)}
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
                           <span className="font-mono">{agent.id}</span>
                           <span aria-hidden="true">·</span>
                           <span>v{agent.version}</span>
+                          {isUpdateAvailable(agent) && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <Badge
+                                className="border-amber-500/40 text-amber-600 dark:text-amber-400"
+                                variant="outline"
+                              >
+                                Update available
+                              </Badge>
+                            </>
+                          )}
                           {agent.repository && (
                             <>
                               <span aria-hidden="true">·</span>

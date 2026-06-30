@@ -142,13 +142,19 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
 
   const acpConfigOptions = useMemo(() => acpConfigState?.options ?? [], [acpConfigState]);
   const isAcpConfigLoading = useMemo(() => {
-    if (!options.isAcpAgent || options.activeAcpSessionId) {
+    if (!options.isAcpAgent || options.activeAcpSessionId || !options.acpWorkspacePath) {
       return false;
     }
 
     const requestKey = acpConfigRequestKey;
     return Boolean(requestKey && acpConfigLoadingRequestKey === requestKey);
-  }, [options.isAcpAgent, options.activeAcpSessionId, acpConfigRequestKey, acpConfigLoadingRequestKey]);
+  }, [
+    options.isAcpAgent,
+    options.activeAcpSessionId,
+    options.acpWorkspacePath,
+    acpConfigRequestKey,
+    acpConfigLoadingRequestKey,
+  ]);
 
   const isAcpSessionConfigLoaded = useMemo(() => {
     if (!options.activeAcpSessionId) {
