@@ -142,3 +142,11 @@ Legend: `fork file` ← `source file` · role
   forwarded in the payload. No `onUpdated` (argos has no `memoryUpdatedEvent` yet).
   · Note: the 6 route **handlers** are NOT wired in `dispatchArgosRoute` — routes are inert
   from the renderer until T3.2 lands. The client is ready and bridge-mocked-tested.
+- `apps/desktop/src/renderer/settings/components/MemoryManagerPanel.tsx` ← `src/renderer/settings/components/MemoryManagerPanel.vue`
+  · React rebuild of the memories management surface (list/add/search/filter/delete/clear).
+  Persona + activity tabs omitted (argos has no persona/audit/manifest route contracts yet).
+  Category/kind mutual-exclusivity in the add form matches the client union. Strings are
+  hardcoded English (matches the surrounding `ArgosAgentsSettings.tsx` convention; i18n deferred).
+- `apps/desktop/src/renderer/settings/components/MemoryManagerDialog.tsx` ← `src/renderer/settings/components/MemoryManagerDialog.vue`
+  · Thin `Dialog` wrapper mounting the panel; opened from a "Manage memory" button in
+  `ArgosAgentsSettings.tsx`.
