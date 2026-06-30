@@ -1295,3 +1295,11 @@
   --color-status-failed-ink: var(--status-failed-ink);
   --color-status-failed-bg: var(--status-failed-bg);
 }
+
+/* ACP registry icons: force the inlined SVG to fill its container so it scales
+   to the rendered size instead of its intrinsic width/height attributes. */
+.acp-registry-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

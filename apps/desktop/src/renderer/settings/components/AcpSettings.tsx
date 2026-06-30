@@ -818,25 +818,32 @@ export default function AcpSettings() {
               ) : !filteredRegistryCatalogAgents.length ? (
                 <div className="text-sm text-muted-foreground text-center py-12">No agents found</div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {filteredRegistryCatalogAgents.map((agent) => (
-                    <div key={agent.id} className="rounded-xl border px-4 py-4 bg-card flex items-start gap-4">
-                      <AcpAgentIcon
-                        agentId={agent.id}
-                        icon={agent.icon}
-                        alt={agent.name}
-                        fallbackText={agent.name}
-                        customClass="h-12 w-12 rounded-xl"
-                      />
+                    <div
+                      key={agent.id}
+                      className="flex items-start gap-3 rounded-xl border bg-card px-3 py-3 transition-colors hover:bg-accent/30"
+                    >
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-muted/40">
+                        <AcpAgentIcon
+                          agentId={agent.id}
+                          icon={agent.icon}
+                          alt={agent.name}
+                          fallbackText={agent.name}
+                          customClass="h-6 w-6"
+                        />
+                      </div>
 
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="text-lg font-semibold truncate">{agent.name}</div>
-                              <span className="text-sm text-muted-foreground shrink-0">v{agent.version}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold">{agent.name}</span>
+                              <Badge className={installBadgeClass(agent)} variant="outline">
+                                {installBadgeLabel(agent)}
+                              </Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                               {agent.description || `Built-in ${agent.name} agent`}
                             </p>
                           </div>
@@ -852,27 +859,30 @@ export default function AcpSettings() {
                           >
                             <Icon
                               icon={registryActionIcon(agent)}
-                              className={`h-4 w-4 mr-2 ${agent.installState?.status === "installing" ? "animate-spin" : ""}`}
+                              className={`h-4 w-4 ${agent.installState?.status === "installing" ? "animate-spin" : ""}`}
                             />
                             {registryActionLabel(agent)}
                           </Button>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span>ID: {agent.id}</span>
-                          <Badge className={installBadgeClass(agent)} variant="outline">
-                            {installBadgeLabel(agent)}
-                          </Badge>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                          <span className="font-mono">{agent.id}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>v{agent.version}</span>
                           {agent.repository && (
-                            <a
-                              href={agent.repository}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
-                            >
-                              Repository
-                              <Icon icon="lucide:external-link" className="h-3.5 w-3.5" />
-                            </a>
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <a
+                                href={agent.repository}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                title={agent.repository}
+                                className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                              >
+                                Repository
+                                <Icon icon="lucide:external-link" className="h-3 w-3" />
+                              </a>
+                            </>
                           )}
                         </div>
                       </div>

@@ -230,8 +230,9 @@ export default function ArgosAgentsSettings() {
 
   const loadAgents = useCallback(async () => {
     try {
-      const list = await configPresenter.listAgents();
-      setAgents(list || []);
+      const allAgents = await configPresenter.listAgents();
+      const list = allAgents.filter((agent) => agent.type === "argos");
+      setAgents(list);
       if (list?.length) {
         setSelectedAgentId((prev) => (prev && list.some((agent) => agent.id === prev) ? prev : list[0].id));
       } else {
@@ -274,6 +275,14 @@ export default function ArgosAgentsSettings() {
     // unchanged icon (the form defaults to a lucide "bot" for agents without an
     // avatar object, which would otherwise overwrite legacy/built-in icons).
     const nextForm = buildFormFromAgent(selectedAgent);
+    console.log("[AgentsSettings] form-sync rebuild", {
+      id: selectedAgent?.id,
+      sourceAvatar: selectedAgent?.avatar,
+      sourceIcon: selectedAgent?.icon,
+      formAvatarKind: nextForm.avatarKind,
+      formLucideIcon: nextForm.lucideIcon,
+      formEnabled: nextForm.enabled,
+    });
     setForm(nextForm);
     initialAvatarRef.current = buildAvatarFromForm(nextForm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -434,13 +443,28 @@ export default function ArgosAgentsSettings() {
   }, [pendingDeleteAgent, agentSessionPresenter, finishDeleteAgent]);
 
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
+    console.log("[AgentsSettings] toggleEnabled start", { agentId, enabled });
     try {
-      await configPresenter.updateArgosAgent(agentId, { enabled });
+      const updated = await configPresenter.updateArgosAgent(agentId, { enabled });
+      console.log("[AgentsSettings] toggleEnabled response", {
+        agentId,
+        updated: updated ? { id: updated.id, enabled: updated.enabled } : null,
+      });
+      if (!updated) {
+        toast({
+          title: "Couldn't toggle this agent",
+          description: "Only custom Argos agents can be edited here.",
+          variant: "destructive",
+        });
+        return;
+      }
       setAgents((prev) => prev.map((agent) => (agent.id === agentId ? { ...agent, enabled } : agent)));
       if (selectedAgentId === agentId) {
         updateForm("enabled", enabled);
       }
-    } catch {}
+    } catch (error) {
+      console.error("[AgentsSettings] toggleEnabled FAILED", error);
+    }
   };
 
   const getModelLabel = useCallback(
@@ -659,7 +683,17 @@ export default function ArgosAgentsSettings() {
   }, [selectedAgent]);
 
   const saveAgent = useCallback(async () => {
-    if (!selectedAgent) return;
+    if (!selectedAgent) {
+      console.warn("[AgentsSettings] saveAgent: no selectedAgent — aborting");
+      return;
+    }
+    console.log("[AgentsSettings] saveAgent start", {
+      id: selectedAgent.id,
+      name: form.name,
+      enabled: form.enabled,
+      avatarKind: form.avatarKind,
+      lucideIcon: form.lucideIcon,
+    });
     setSaving(true);
     try {
       const nextConfig: ArgosAgentConfig = {
@@ -705,6 +739,12 @@ export default function ArgosAgentsSettings() {
       const nextAvatar = buildAvatarFromForm(form);
       const avatarUnchanged =
         initialAvatarRef.current != null && JSON.stringify(nextAvatar) === JSON.stringify(initialAvatarRef.current);
+      console.log("[AgentsSettings] saveAgent avatar check", {
+        nextAvatar,
+        baseline: initialAvatarRef.current,
+        avatarUnchanged,
+        sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
+      });
 
       const updated = await configPresenter.updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
@@ -713,13 +753,26 @@ export default function ArgosAgentsSettings() {
         avatar: avatarUnchanged ? undefined : nextAvatar,
         config: nextConfig,
       });
+      console.log("[AgentsSettings] saveAgent response", {
+        id: selectedAgent.id,
+        updated: updated
+          ? { id: updated.id, name: updated.name, enabled: updated.enabled, avatar: updated.avatar }
+          : null,
+      });
+      if (!updated) {
+        toast({
+          title: "Couldn't save this agent",
+          description: "Only custom Argos agents can be edited here.",
+          variant: "destructive",
+        });
+        return;
+      }
       initialAvatarRef.current = nextAvatar;
       toast({ title: "Saved" });
-      if (updated) {
-        setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
-      }
+      setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
       await loadAgents();
     } catch (error) {
+      console.error("[AgentsSettings] saveAgent FAILED", error);
       toast({ title: "Save failed", description: String(error), variant: "destructive" });
     } finally {
       setSaving(false);
@@ -876,7 +929,18 @@ export default function ArgosAgentsSettings() {
                 <Button variant="outline" disabled={saving} onClick={resetEditor}>
                   Reset
                 </Button>
-                <Button disabled={saving || !form.name.trim()} onClick={() => void saveAgent()}>
+                <Button
+                  disabled={saving || !form.name.trim()}
+                  onClick={() => {
+                    console.log("[AgentsSettings] Save clicked", {
+                      saving,
+                      nameEmpty: !form.name.trim(),
+                      selectedAgentId: selectedAgent?.id,
+                      formEnabled: form.enabled,
+                    });
+                    void saveAgent();
+                  }}
+                >
                   {saving ? "Saving" : "Save"}
                 </Button>
                 {!selectedAgent.protected && (
