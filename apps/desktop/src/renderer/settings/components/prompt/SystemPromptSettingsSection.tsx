@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/components/use-toast";
 import {
   useSystemPromptStore,
+  systemPromptStore as systemPromptStoreInstance,
   loadSystemPrompts,
   addSystemPrompt,
   updateSystemPrompt,
@@ -69,12 +70,13 @@ export default function SystemPromptSettingsSection() {
   const fetchSystemPrompts = useCallback(async () => {
     try {
       await loadSystemPrompts();
-      setSystemPrompts([...systemPromptStore.prompts]);
-      setSelectedSystemPromptId(systemPromptStore.defaultPromptId);
+      const latest = systemPromptStoreInstance.state;
+      setSystemPrompts([...latest.prompts]);
+      setSelectedSystemPromptId(latest.defaultPromptId);
     } catch (error) {
       console.error("Failed to load system prompts:", error);
     }
-  }, [systemPromptStore]);
+  }, []);
 
   const handleSystemPromptChange = useCallback(
     async (promptId: string) => {

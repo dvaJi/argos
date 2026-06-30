@@ -136,7 +136,7 @@ export default function FontSettingsSection() {
             <div className="flex flex-col">
               <button
                 type="button"
-                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === "" ? " border border-primary/60 bg-primary/5" : ""}`}
+                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === "" ? " border border-accent-400 bg-accent-400/10" : ""}`}
                 style={{ fontFamily: PREVIEW_FALLBACK }}
                 onClick={() => onSelect("")}
               >
@@ -147,7 +147,7 @@ export default function FontSettingsSection() {
                 <button
                   key={font}
                   type="button"
-                  className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === font ? " border border-primary/60 bg-primary/5" : ""}`}
+                  className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-muted text-left transition${currentFont === font ? " border border-accent-400 bg-accent-400/10" : ""}`}
                   style={{ fontFamily: buildFontPreview(font) }}
                   onClick={() => onSelect(font)}
                 >

@@ -5,6 +5,7 @@ import { Button } from "@shadcn/components/ui/button";
 import { Kbd, KbdGroup } from "@shadcn/components/ui/kbd";
 import {
   useShortcutKeyStore,
+  loadShortcutKeys,
   enableShortcutKey,
   disableShortcutKey,
   saveShortcutKeys,
@@ -198,6 +199,10 @@ export default function ShortcutSettings() {
   );
 
   useEffect(() => {
+    void loadShortcutKeys();
+  }, []);
+
+  useEffect(() => {
     if (recordingShortcutId) {
       window.addEventListener("keydown", handleKeyDown, true);
       return () => window.removeEventListener("keydown", handleKeyDown, true);
@@ -205,7 +210,7 @@ export default function ShortcutSettings() {
     return;
   }, [recordingShortcutId, handleKeyDown]);
 
-  const resetShortcutKeys = useCallback(async () => {
+  const handleResetShortcutKeys = useCallback(async () => {
     setResetLoading(true);
     if (recordingShortcutId) cancelRecording();
     setShortcutError("");
@@ -243,7 +248,7 @@ export default function ShortcutSettings() {
       eyebrow="System"
       data-testid="settings-shortcut-page"
       actions={
-        <Button variant="outline" size="sm" onClick={() => void resetShortcutKeys()}>
+        <Button variant="outline" size="sm" onClick={() => void handleResetShortcutKeys()}>
           {resetLoading ? (
             <Loader2 className="mr-1 h-4 w-4 animate-spin" />
           ) : (
@@ -264,7 +269,7 @@ export default function ShortcutSettings() {
               <div
                 className={`group flex items-center gap-3 rounded-md border bg-background/60 px-3 transition ${
                   recordingShortcutId === shortcut.id && !shortcutError
-                    ? "border-primary ring-2 ring-primary/50"
+                    ? "border-accent-400 ring-2 ring-accent-400/50"
                     : recordingShortcutId === shortcut.id && shortcutError
                       ? "border-destructive ring-2 ring-destructive/50"
                       : ""

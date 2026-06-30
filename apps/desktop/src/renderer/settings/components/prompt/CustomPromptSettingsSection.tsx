@@ -5,6 +5,7 @@ import { Label } from "@shadcn/components/ui/label";
 import { useToast } from "@/components/use-toast";
 import {
   usePromptsStore,
+  promptsStore as promptsStoreInstance,
   loadCustomPrompts,
   addPrompt,
   updatePrompt,
@@ -82,8 +83,8 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
 
     const loadPrompts = useCallback(async () => {
       await loadCustomPrompts();
-      setPrompts(promptsStore.prompts.map((p) => ({ ...p })));
-    }, [promptsStore]);
+      setPrompts(promptsStoreInstance.state.prompts.map((p) => ({ ...p })));
+    }, []);
 
     const isExpanded = (id: string) => expandedPrompts.has(id);
 

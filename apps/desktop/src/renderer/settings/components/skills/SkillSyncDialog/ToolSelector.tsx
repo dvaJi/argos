@@ -64,7 +64,7 @@ export const ToolSelector: FC<ToolSelectorProps> = ({ tools, selectedToolId, loa
               key={tool.toolId}
               className={[
                 "flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer",
-                selectedToolId === tool.toolId ? "border-primary bg-accent" : "",
+                selectedToolId === tool.toolId ? "border-accent-400 bg-accent-400/10" : "",
               ].join(" ")}
               onClick={() => handleSelect(tool)}
             >

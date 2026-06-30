@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
 import { Input } from "@shadcn/components/ui/input";
@@ -196,6 +196,7 @@ export default function ArgosAgentsSettings() {
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agentSearchQuery, setAgentSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
@@ -216,6 +217,16 @@ export default function ArgosAgentsSettings() {
   const [pendingDeleteAgent, setPendingDeleteAgent] = useState<{ id: string; name: string } | null>(null);
 
   const selectedAgent = useMemo(() => agents.find((a) => a.id === selectedAgentId) || null, [agents, selectedAgentId]);
+
+  const filteredAgents = useMemo(() => {
+    const query = agentSearchQuery.trim().toLowerCase();
+    if (!query) return agents;
+    return agents.filter((agent) => {
+      const name = (agent.name ?? "").toLowerCase();
+      const description = (agent.description ?? "").toLowerCase();
+      return name.includes(query) || description.includes(query);
+    });
+  }, [agents, agentSearchQuery]);
 
   const loadAgents = useCallback(async () => {
     try {
@@ -255,9 +266,18 @@ export default function ArgosAgentsSettings() {
     void loadTools();
   }, [toolClient]);
 
+  const initialAvatarRef = useRef<AgentAvatarValue | null>(null);
   useEffect(() => {
-    setForm(buildFormFromAgent(selectedAgent));
-  }, [selectedAgent]);
+    // Only rebuild the form when the selected agent *identity* changes, so
+    // toggling Enabled (or the optimistic update after Save) doesn't wipe
+    // unsaved edits. Track the avatar baseline so Save can avoid clobbering an
+    // unchanged icon (the form defaults to a lucide "bot" for agents without an
+    // avatar object, which would otherwise overwrite legacy/built-in icons).
+    const nextForm = buildFormFromAgent(selectedAgent);
+    setForm(nextForm);
+    initialAvatarRef.current = buildAvatarFromForm(nextForm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent?.id]);
 
   const loadSystemPromptTemplates = useCallback(async () => {
     setLoadingSystemPrompts(true);
@@ -641,51 +661,59 @@ export default function ArgosAgentsSettings() {
   const saveAgent = useCallback(async () => {
     if (!selectedAgent) return;
     setSaving(true);
-    const nextConfig: ArgosAgentConfig = {
-      systemPrompt: form.systemPrompt,
-      defaultProjectPath: form.defaultProjectPath.trim() || null,
-      permissionMode: form.permissionMode,
-      subagentEnabled: form.subagentEnabled,
-      subagents: normalizeArgosSubagentSlots(form.subagents),
-      disabledAgentTools: [...form.disabledAgentTools],
-      autoCompactionEnabled: form.autoCompactionEnabled,
-      autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
-        fallback: 80,
-        min: 5,
-        max: 95,
-      }),
-      autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
-        fallback: 2,
-        min: 1,
-        max: 10,
-        integer: true,
-      }),
-      defaultModelPreset:
-        form.defaultModelProviderId && form.defaultModelId
-          ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
-          : null,
-      assistantModel:
-        form.assistantModelProviderId && form.assistantModelId
-          ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
-          : null,
-      visionModel:
-        form.visionModelProviderId && form.visionModelId
-          ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
-          : null,
-      imageGenerationModel:
-        form.imageGenerationModelProviderId && form.imageGenerationModelId
-          ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
-          : null,
-    };
-
     try {
+      const nextConfig: ArgosAgentConfig = {
+        systemPrompt: form.systemPrompt,
+        defaultProjectPath: form.defaultProjectPath.trim() || null,
+        permissionMode: form.permissionMode,
+        subagentEnabled: form.subagentEnabled,
+        subagents: normalizeArgosSubagentSlots(form.subagents),
+        disabledAgentTools: [...form.disabledAgentTools],
+        autoCompactionEnabled: form.autoCompactionEnabled,
+        autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
+          fallback: 80,
+          min: 5,
+          max: 95,
+        }),
+        autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
+          fallback: 2,
+          min: 1,
+          max: 10,
+          integer: true,
+        }),
+        defaultModelPreset:
+          form.defaultModelProviderId && form.defaultModelId
+            ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
+            : null,
+        assistantModel:
+          form.assistantModelProviderId && form.assistantModelId
+            ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
+            : null,
+        visionModel:
+          form.visionModelProviderId && form.visionModelId
+            ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
+            : null,
+        imageGenerationModel:
+          form.imageGenerationModelProviderId && form.imageGenerationModelId
+            ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
+            : null,
+      };
+
+      // Only persist the avatar if the user actually changed it; otherwise keep
+      // the existing one (which may be a legacy icon or the built-in logo that
+      // the form's default "bot" would otherwise overwrite).
+      const nextAvatar = buildAvatarFromForm(form);
+      const avatarUnchanged =
+        initialAvatarRef.current != null && JSON.stringify(nextAvatar) === JSON.stringify(initialAvatarRef.current);
+
       const updated = await configPresenter.updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
         description: form.description.trim(),
         enabled: form.enabled,
-        avatar: buildAvatarFromForm(form),
+        avatar: avatarUnchanged ? undefined : nextAvatar,
         config: nextConfig,
       });
+      initialAvatarRef.current = nextAvatar;
       toast({ title: "Saved" });
       if (updated) {
         setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
@@ -745,11 +773,37 @@ export default function ArgosAgentsSettings() {
           </Button>
         </div>
 
+        <div className="px-4 pb-2">
+          <div className="relative">
+            <Input
+              value={agentSearchQuery}
+              onChange={(e) => setAgentSearchQuery(e.target.value)}
+              placeholder="Search agents..."
+              className="h-9 pr-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setAgentSearchQuery("");
+              }}
+            />
+            {agentSearchQuery.trim() ? (
+              <Icon
+                icon="lucide:x"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={() => setAgentSearchQuery("")}
+              />
+            ) : (
+              <Icon
+                icon="lucide:search"
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              />
+            )}
+          </div>
+        </div>
+
         <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
-          {agents.map((agent) => (
+          {filteredAgents.map((agent) => (
             <button
               key={agent.id}
-              className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedAgentId === agent.id ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+              className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedAgentId === agent.id ? "border-accent-400 bg-accent-400/10" : "border-border hover:bg-accent/20"}`}
               onClick={() => setSelectedAgentId(agent.id)}
             >
               <div className="flex items-start gap-3">
@@ -764,19 +818,28 @@ export default function ArgosAgentsSettings() {
                   <div className="flex items-center gap-2">
                     <div className="truncate text-sm font-semibold">{agent.name}</div>
                     {agent.protected && <Badge variant="secondary">Built-in</Badge>}
+                    {!agent.enabled && (
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Off
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">{agent.enabled ? "Enabled" : "Disabled"}</div>
+                  <div className="mt-1 truncate text-xs text-muted-foreground">
+                    {agent.description?.trim() || (agent.enabled ? "Enabled" : "Disabled")}
+                  </div>
                 </div>
               </div>
             </button>
           ))}
 
-          {agents.length === 0 && !loading && (
-            <div className="py-8 text-center text-sm text-muted-foreground">No agents yet</div>
+          {filteredAgents.length === 0 && !loading && (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {agents.length === 0 ? "No agents yet" : "No agents match your search"}
+            </div>
           )}
 
           {isCreating && (
-            <div className="space-y-3 rounded-2xl border border-primary p-4">
+            <div className="space-y-3 rounded-2xl border border-accent-400 p-4">
               <Input
                 value={newAgentName}
                 onChange={(e) => setNewAgentName(e.target.value)}
@@ -867,7 +930,7 @@ export default function ArgosAgentsSettings() {
                   <button
                     key={option.value}
                     type="button"
-                    className={`rounded-xl border px-4 py-3 text-left ${form.avatarKind === option.value ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+                    className={`rounded-xl border px-4 py-3 text-left ${form.avatarKind === option.value ? "border-accent-400 bg-accent-400/10" : "border-border hover:bg-accent/20"}`}
                     onClick={() => updateForm("avatarKind", option.value as AgentConfigForm["avatarKind"])}
                   >
                     <div className="text-sm font-medium">{option.label}</div>
@@ -1191,7 +1254,7 @@ export default function ArgosAgentsSettings() {
                             size="sm"
                             className={`h-10 rounded-xl px-4 text-sm shadow-none transition-colors ${
                               isToolEnabled(tool.function.name)
-                                ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                                ? "border-accent-400/40 bg-accent-400/10 text-foreground hover:bg-accent-400/15"
                                 : "border-border bg-background text-foreground hover:bg-muted"
                             }`}
                             onClick={() => setToolEnabled(tool.function.name, !isToolEnabled(tool.function.name))}

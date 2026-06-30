@@ -404,7 +404,7 @@ export default function ProviderModelList({
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
-                className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-primary/40 bg-primary/5" : ""}`}
+                className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-accent-400/40 bg-accent-400/10" : ""}`}
               >
                 <Icon icon="lucide:funnel" className="mr-2 h-4 w-4 text-muted-foreground" />
                 Filter

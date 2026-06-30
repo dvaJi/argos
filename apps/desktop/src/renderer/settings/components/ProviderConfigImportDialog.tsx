@@ -530,7 +530,7 @@ export default function ProviderConfigImportDialog({
                           !isProviderSelectable(provider) && !canEditProviderApiType(provider)
                             ? "bg-muted/20 opacity-75"
                             : "bg-background",
-                          isProviderSelected(provider.id) ? "border-primary/50" : "",
+                          isProviderSelected(provider.id) ? "border-accent-400" : "",
                         )}`}
                       >
                         <div className="flex gap-3">
