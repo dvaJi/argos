@@ -1,4 +1,4 @@
-import { GithubLogo } from "@phosphor-icons/react";
+﻿import { GithubLogo } from "@phosphor-icons/react";
 
 const GITHUB_URL = "https://github.com/dvaJi/argos";
 const ISSUES_URL = "https://github.com/dvaJi/argos/issues";
@@ -17,13 +17,16 @@ export function Footer() {
           </div>
 
           <nav className="flex items-center gap-6 text-sm text-slate-500">
-            <a href="#features" className="transition-colors duration-300 hover:text-white">
+            <a href="/#features" className="transition-colors duration-300 hover:text-white">
               Features
             </a>
-            <a href="#providers" className="transition-colors duration-300 hover:text-white">
+            <a href="/#providers" className="transition-colors duration-300 hover:text-white">
               Providers
             </a>
-            <a href="#download" className="transition-colors duration-300 hover:text-white">
+            <a href="/docs" className="transition-colors duration-300 hover:text-white">
+              Docs
+            </a>
+            <a href="/#download" className="transition-colors duration-300 hover:text-white">
               Download
             </a>
             <a
