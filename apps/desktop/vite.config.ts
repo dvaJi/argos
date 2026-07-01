@@ -196,7 +196,7 @@ export default defineConfig(({ mode }) => {
             backgroundExecUtilityHost: resolve('src/main/backgroundExecUtilityHostEntry.ts'),
           },
           plugins: [pathAliasPlugin(projectRoot), electronAssetPlugin(projectRoot)] as any,
-          notBundle: externalDeps,
+          bundleDeps: { both: { exclude: externalDeps } },
           onstart({ startup }) {
             void startup(['.'], { cwd: projectRoot })
           },
@@ -224,7 +224,7 @@ export default defineConfig(({ mode }) => {
             pluginSettings: resolve('src/preload/plugin-settings-preload.ts'),
           },
           plugins: [pathAliasPlugin(projectRoot)] as any,
-          notBundle: externalDeps.filter((d) => d !== '@electron-toolkit/preload'),
+          bundleDeps: { both: { exclude: externalDeps.filter((d) => d !== '@electron-toolkit/preload') } },
           options: {
             build: {
               outDir: resolve('out/preload'),
