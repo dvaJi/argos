@@ -62,7 +62,7 @@ export interface AcpProcessHandle extends AgentProcessHandle {
   supportsSessionResume?: boolean;
   supportsSessionClose?: boolean;
   supportsSessionFork?: boolean;
-  launchSignature: string;
+  launchFingerprint: string;
 }
 
 interface AcpProcessManagerOptions {
@@ -175,7 +175,7 @@ export const parseLoadSessionCapability = (initializeResult: unknown): boolean |
   return Boolean(loadSession);
 };
 
-const createLaunchSignature = (launchSpec: AcpResolvedLaunchSpec): string =>
+const createLaunchFingerprint = (launchSpec: AcpResolvedLaunchSpec): string =>
   JSON.stringify({
     command: launchSpec.command,
     args: launchSpec.args ?? [],
@@ -382,12 +382,13 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
 
     try {
       const launchSpec = await this.resolveLaunchSpec(agent.id, resolvedWorkdir);
-      const launchSignature = createLaunchSignature(launchSpec);
+      const launchFingerprint = createLaunchFingerprint(launchSpec);
       const warmupCount = this.getHandlesByAgent(agent.id).filter((handle) => this.isHandleAlive(handle)).length;
       console.info(`[ACP] Warmup requested for agent ${agent.id} (workdir=${resolvedWorkdir}, warmups=${warmupCount})`);
       const reusable = this.findReusableHandle(agent.id, resolvedWorkdir);
       if (reusable && this.isHandleAlive(reusable)) {
-        if (reusable.launchSignature !== launchSignature) {
+        const reusableLaunchFingerprint = reusable.launchFingerprint;
+        if (reusableLaunchFingerprint !== launchFingerprint) {
           console.info(
             `[ACP] Discarding warmup process for agent ${agent.id} because launch spec changed (pid=${reusable.pid}, workdir=${resolvedWorkdir})`,
           );
@@ -408,7 +409,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
           this.isHandleAlive(inflightHandle) &&
           inflightHandle.workdir === resolvedWorkdir &&
           inflightHandle.state === "warmup" &&
-          inflightHandle.launchSignature === launchSignature
+          inflightHandle.launchFingerprint === launchFingerprint
         ) {
           console.info(
             `[ACP] Awaiting inflight warmup for agent ${agent.id} (pid=${inflightHandle.pid}, workdir=${resolvedWorkdir})`,
@@ -428,7 +429,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         );
       }
 
-      const handlePromise = this.spawnProcess(agent, resolvedWorkdir, launchSpec, launchSignature);
+      const handlePromise = this.spawnProcess(agent, resolvedWorkdir, launchSpec, launchFingerprint);
       this.pendingHandles.set(warmupKey, handlePromise);
 
       try {
@@ -728,10 +729,10 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     agent: AcpAgentConfig,
     workdir: string,
     launchSpec: AcpResolvedLaunchSpec,
-    launchSignature: string,
+    launchFingerprint: string,
   ): Promise<AcpProcessHandle> {
     try {
-      return await this.spawnProcessOnce(agent, workdir, launchSpec, launchSignature);
+      return await this.spawnProcessOnce(agent, workdir, launchSpec, launchFingerprint);
     } catch (error) {
       const repairResult = this.repairNpxCacheIfNeeded(agent.id, launchSpec, error);
       if (!repairResult.repaired) {
@@ -740,7 +741,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
 
       console.warn(`[ACP] Retrying npx agent ${agent.id} after cache repair: ${repairResult.message}`);
       try {
-        return await this.spawnProcessOnce(agent, workdir, launchSpec, launchSignature);
+        return await this.spawnProcessOnce(agent, workdir, launchSpec, launchFingerprint);
       } catch (retryError) {
         throw this.createNpxRepairRetryError(agent.id, error, retryError, repairResult);
       }
@@ -751,7 +752,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     agent: AcpAgentConfig,
     workdir: string,
     launchSpec: AcpResolvedLaunchSpec,
-    launchSignature: string,
+    launchFingerprint: string,
   ): Promise<AcpProcessHandle> {
     const child = await this.spawnAgentProcess(agent, workdir, launchSpec);
     const stderrChunks: string[] = [];
@@ -986,7 +987,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       supportsSessionResume: handleSeed.supportsSessionResume,
       supportsSessionClose: handleSeed.supportsSessionClose,
       supportsSessionFork: handleSeed.supportsSessionFork,
-      launchSignature,
+      launchFingerprint,
     };
     readyHandle = handle;
     if (!this.isHandleAlive(handle)) {

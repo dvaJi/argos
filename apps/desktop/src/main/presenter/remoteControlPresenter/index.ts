@@ -939,9 +939,10 @@ export class RemoteControlPresenter {
       return;
     }
 
-    const configSignature = this.buildTelegramAdapterSignature(settings);
+    const configFingerprint = this.buildTelegramAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("telegram", DEFAULT_CHANNEL_ID);
-    if (existing?.configSignature === configSignature && existing.connected) {
+    const existingConfigFingerprint = existing?.configSignature;
+    if (existingConfigFingerprint === configFingerprint && existing.connected) {
       return;
     }
 
@@ -953,7 +954,7 @@ export class RemoteControlPresenter {
         {
           botToken,
         },
-        configSignature,
+        configFingerprint,
       ),
     );
     this.channelManager.registerAdapter(adapter);
@@ -973,9 +974,10 @@ export class RemoteControlPresenter {
       return;
     }
 
-    const configSignature = this.buildFeishuAdapterSignature(settings);
+    const configFingerprint = this.buildFeishuAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("feishu", DEFAULT_CHANNEL_ID);
-    if (existing?.configSignature === configSignature && existing.connected) {
+    const existingConfigFingerprint = existing?.configSignature;
+    if (existingConfigFingerprint === configFingerprint && existing.connected) {
       return;
     }
 
@@ -991,7 +993,7 @@ export class RemoteControlPresenter {
           verificationToken: settings.verificationToken.trim(),
           encryptKey: settings.encryptKey.trim(),
         },
-        configSignature,
+        configFingerprint,
       ),
     );
     this.channelManager.registerAdapter(adapter);
@@ -1011,9 +1013,10 @@ export class RemoteControlPresenter {
       return;
     }
 
-    const configSignature = this.buildQQBotAdapterSignature(settings);
+    const configFingerprint = this.buildQQBotAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("qqbot", DEFAULT_CHANNEL_ID);
-    if (existing?.configSignature === configSignature && existing.connected) {
+    const existingConfigFingerprint = existing?.configSignature;
+    if (existingConfigFingerprint === configFingerprint && existing.connected) {
       return;
     }
 
@@ -1026,7 +1029,7 @@ export class RemoteControlPresenter {
           appId: settings.appId.trim(),
           clientSecret: settings.clientSecret.trim(),
         },
-        configSignature,
+        configFingerprint,
       ),
     );
     this.channelManager.registerAdapter(adapter);
@@ -1046,9 +1049,10 @@ export class RemoteControlPresenter {
       return;
     }
 
-    const configSignature = this.buildDiscordAdapterSignature(settings);
+    const configFingerprint = this.buildDiscordAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("discord", DEFAULT_CHANNEL_ID);
-    if (existing?.configSignature === configSignature && existing.connected) {
+    const existingConfigFingerprint = existing?.configSignature;
+    if (existingConfigFingerprint === configFingerprint && existing.connected) {
       return;
     }
 
@@ -1060,7 +1064,7 @@ export class RemoteControlPresenter {
         {
           botToken: settings.botToken.trim(),
         },
-        configSignature,
+        configFingerprint,
       ),
     );
     this.channelManager.registerAdapter(adapter);
@@ -1120,9 +1124,10 @@ export class RemoteControlPresenter {
       return;
     }
 
-    const configSignature = this.buildWeixinIlinkAdapterSignature(remoteConfig.defaultAgentId, account);
+    const configFingerprint = this.buildWeixinIlinkAdapterFingerprint(remoteConfig.defaultAgentId, account);
     const existing = this.channelManager.getAdapter("weixin-ilink", account.accountId);
-    if (existing?.configSignature === configSignature && existing.connected) {
+    const existingConfigFingerprint = existing?.configSignature;
+    if (existingConfigFingerprint === configFingerprint && existing.connected) {
       this.logWeixinTrace("Reusing existing Weixin iLink adapter.", {
         accountId: account.accountId,
       });
@@ -1136,7 +1141,7 @@ export class RemoteControlPresenter {
     await this.channelManager.unregisterAdapter("weixin-ilink", account.accountId);
 
     const adapter = await this.channelManager.createAdapter(
-      await this.buildWeixinIlinkChannelAdapterConfig(account, configSignature),
+      await this.buildWeixinIlinkChannelAdapterConfig(account, configFingerprint),
     );
     this.channelManager.registerAdapter(adapter);
 
@@ -1421,9 +1426,9 @@ export class RemoteControlPresenter {
     return "stopped";
   }
 
-  private async disableTelegramRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+  private async disableTelegramRuntimeForFatalError(configFingerprint: string, errorMessage: string): Promise<void> {
     const currentSettings = this.buildTelegramSettingsSnapshot();
-    if (!currentSettings.remoteEnabled || this.buildTelegramAdapterSignature(currentSettings) !== configSignature) {
+    if (!currentSettings.remoteEnabled || this.buildTelegramAdapterFingerprint(currentSettings) !== configFingerprint) {
       return;
     }
 
@@ -1436,9 +1441,9 @@ export class RemoteControlPresenter {
     await this.channelManager.unregisterAdapter("telegram", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableFeishuRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+  private async disableFeishuRuntimeForFatalError(configFingerprint: string, errorMessage: string): Promise<void> {
     const currentSettings = this.buildFeishuSettingsSnapshot();
-    if (!currentSettings.remoteEnabled || this.buildFeishuAdapterSignature(currentSettings) !== configSignature) {
+    if (!currentSettings.remoteEnabled || this.buildFeishuAdapterFingerprint(currentSettings) !== configFingerprint) {
       return;
     }
 
@@ -1451,9 +1456,9 @@ export class RemoteControlPresenter {
     await this.channelManager.unregisterAdapter("feishu", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableQQBotRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+  private async disableQQBotRuntimeForFatalError(configFingerprint: string, errorMessage: string): Promise<void> {
     const currentSettings = this.buildQQBotSettingsSnapshot();
-    if (!currentSettings.remoteEnabled || this.buildQQBotAdapterSignature(currentSettings) !== configSignature) {
+    if (!currentSettings.remoteEnabled || this.buildQQBotAdapterFingerprint(currentSettings) !== configFingerprint) {
       return;
     }
 
@@ -1466,9 +1471,9 @@ export class RemoteControlPresenter {
     await this.channelManager.unregisterAdapter("qqbot", DEFAULT_CHANNEL_ID);
   }
 
-  private async disableDiscordRuntimeForFatalError(configSignature: string, errorMessage: string): Promise<void> {
+  private async disableDiscordRuntimeForFatalError(configFingerprint: string, errorMessage: string): Promise<void> {
     const currentSettings = this.buildDiscordSettingsSnapshot();
-    if (!currentSettings.remoteEnabled || this.buildDiscordAdapterSignature(currentSettings) !== configSignature) {
+    if (!currentSettings.remoteEnabled || this.buildDiscordAdapterFingerprint(currentSettings) !== configFingerprint) {
       return;
     }
 
@@ -1483,7 +1488,7 @@ export class RemoteControlPresenter {
 
   private async disableWeixinIlinkRuntimeForFatalError(
     accountId: string,
-    configSignature: string,
+    configFingerprint: string,
     errorMessage: string,
   ): Promise<void> {
     const remoteConfig = this.bindingStore.getWeixinIlinkConfig();
@@ -1492,7 +1497,7 @@ export class RemoteControlPresenter {
       return;
     }
 
-    if (this.buildWeixinIlinkAdapterSignature(remoteConfig.defaultAgentId, account) !== configSignature) {
+    if (this.buildWeixinIlinkAdapterFingerprint(remoteConfig.defaultAgentId, account) !== configFingerprint) {
       return;
     }
 
@@ -1508,7 +1513,7 @@ export class RemoteControlPresenter {
   private async buildChannelAdapterConfig(
     channel: "telegram" | "feishu" | "qqbot" | "discord",
     channelConfig: Record<string, unknown>,
-    configSignature: string,
+    configFingerprint: string,
   ): Promise<ChannelAdapterConfig> {
     return {
       channelId: DEFAULT_CHANNEL_ID,
@@ -1516,7 +1521,7 @@ export class RemoteControlPresenter {
       agentId: await this.sanitizeDefaultAgentId(channel, this.getDefaultAgentId(channel)),
       channelConfig,
       source: "builtin",
-      configSignature,
+      configSignature: configFingerprint,
     };
   }
 
@@ -1527,7 +1532,7 @@ export class RemoteControlPresenter {
       baseUrl: string;
       botToken: string;
     },
-    configSignature: string,
+    configFingerprint: string,
   ): Promise<ChannelAdapterConfig> {
     return {
       channelId: account.accountId,
@@ -1539,11 +1544,11 @@ export class RemoteControlPresenter {
         botToken: account.botToken,
       },
       source: "builtin",
-      configSignature,
+      configSignature: configFingerprint,
     };
   }
 
-  private buildTelegramAdapterSignature(settings: TelegramRemoteSettings): string {
+  private buildTelegramAdapterFingerprint(settings: TelegramRemoteSettings): string {
     return JSON.stringify({
       botToken: settings.botToken.trim(),
       remoteEnabled: settings.remoteEnabled,
@@ -1552,7 +1557,7 @@ export class RemoteControlPresenter {
     });
   }
 
-  private buildFeishuAdapterSignature(settings: FeishuRemoteSettings): string {
+  private buildFeishuAdapterFingerprint(settings: FeishuRemoteSettings): string {
     return JSON.stringify({
       brand: settings.brand,
       appId: settings.appId.trim(),
@@ -1565,7 +1570,7 @@ export class RemoteControlPresenter {
     });
   }
 
-  private buildQQBotAdapterSignature(settings: QQBotRemoteSettings): string {
+  private buildQQBotAdapterFingerprint(settings: QQBotRemoteSettings): string {
     return JSON.stringify({
       appId: settings.appId.trim(),
       clientSecret: settings.clientSecret.trim(),
@@ -1575,7 +1580,7 @@ export class RemoteControlPresenter {
     });
   }
 
-  private buildDiscordAdapterSignature(settings: DiscordRemoteSettings): string {
+  private buildDiscordAdapterFingerprint(settings: DiscordRemoteSettings): string {
     return JSON.stringify({
       botToken: settings.botToken.trim(),
       remoteEnabled: settings.remoteEnabled,
@@ -1584,7 +1589,7 @@ export class RemoteControlPresenter {
     });
   }
 
-  private buildWeixinIlinkAdapterSignature(
+  private buildWeixinIlinkAdapterFingerprint(
     defaultAgentId: string,
     account: {
       accountId: string;
