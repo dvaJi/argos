@@ -5,7 +5,7 @@ import type {
   MCPToolCall,
   MCPToolResponse,
 } from "@shared/presenter";
-import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
+import type { AgentToolAccessContext, AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
 import type { PermissionMode } from "@shared/types/agent-interface";
 import { resolveToolOffloadTemplatePath } from "@/lib/agentRuntime/sessionPaths";
 import { QUESTION_TOOL_NAME } from "@/lib/agentRuntime/questionTool";
@@ -58,6 +58,11 @@ export interface IToolPresenter {
     supportsVision?: boolean;
     agentWorkspacePath?: string | null;
     conversationId?: string;
+    enabledMcpServerIds?: string[];
+    enabledPluginIds?: string[];
+    enabledSkillNames?: string[];
+    activeSkillNames?: string[];
+    agentId?: string;
   }): Promise<MCPToolDefinition[]>;
   syncAgentToolContext?(context: { chatMode?: "agent" | "acp agent"; agentWorkspacePath?: string | null }): void;
   callTool(
@@ -66,11 +71,12 @@ export interface IToolPresenter {
       onProgress?: (update: AgentToolProgressUpdate) => void;
       signal?: AbortSignal;
       permissionMode?: PermissionMode;
+      activeSkillNames?: string[];
     },
   ): Promise<{ content: unknown; rawData: MCPToolResponse }>;
   preCheckToolPermission?(
     request: MCPToolCall,
-    options?: { permissionMode?: PermissionMode },
+    options?: { permissionMode?: PermissionMode; activeSkillNames?: string[] },
   ): Promise<PreCheckedPermissionResult | null>;
   clearConversationToolMapping?(conversationId: string): void;
   buildToolSystemPrompt(context: { conversationId?: string; toolDefinitions?: MCPToolDefinition[] }): string;
@@ -113,6 +119,13 @@ const normalizeToolNames = (toolNames?: string[]): string[] => {
   );
 };
 
+const normalizeAccessList = (values?: string[]): string[] | undefined => {
+  if (values === undefined) {
+    return undefined;
+  }
+  return normalizeToolNames(values);
+};
+
 /**
  * ToolPresenter - Unified tool routing presenter
  * Manages all tool sources (MCP, Agent) and provides unified interface
@@ -122,6 +135,7 @@ export class ToolPresenter implements IToolPresenter {
   private readonly conversationMappers: Map<string, ToolMapper>;
   private readonly options: ToolPresenterOptions;
   private agentToolManager: AgentToolManager | null = null;
+  private readonly conversationAccessContexts = new Map<string, AgentToolAccessContext>();
 
   constructor(options: ToolPresenterOptions) {
     this.options = options;
@@ -153,6 +167,11 @@ export class ToolPresenter implements IToolPresenter {
     supportsVision?: boolean;
     agentWorkspacePath?: string | null;
     conversationId?: string;
+    enabledMcpServerIds?: string[];
+    enabledPluginIds?: string[];
+    enabledSkillNames?: string[];
+    activeSkillNames?: string[];
+    agentId?: string;
   }): Promise<MCPToolDefinition[]> {
     const defs: MCPToolDefinition[] = [];
     const mapper = this.resolveMapper(context.conversationId);
@@ -164,10 +183,14 @@ export class ToolPresenter implements IToolPresenter {
     const chatMode = context.chatMode || "agent";
     const supportsVision = context.supportsVision || false;
     const agentWorkspacePath = context.agentWorkspacePath || null;
+    const accessContext = this.normalizeAccessContext(context);
+    if (context.conversationId?.trim()) {
+      this.conversationAccessContexts.set(context.conversationId.trim(), accessContext);
+    }
 
     // 1. Get MCP tools
     const mcpDefs = withToolSource(
-      (await this.options.mcpPresenter.getAllToolDefinitions(context.enabledMcpTools)).filter(
+      (await this.options.mcpPresenter.getAllToolDefinitions(context.enabledMcpTools, accessContext)).filter(
         (tool) => !RESERVED_AGENT_TOOL_NAMES.has(tool.function.name),
       ),
       "mcp",
@@ -185,6 +208,7 @@ export class ToolPresenter implements IToolPresenter {
           supportsVision,
           agentWorkspacePath,
           conversationId: context.conversationId,
+          activeSkillNames: accessContext.activeSkillNames,
         }),
         "agent",
       );
@@ -222,6 +246,7 @@ export class ToolPresenter implements IToolPresenter {
     }
 
     this.conversationMappers.delete(normalizedConversationId);
+    this.conversationAccessContexts.delete(normalizedConversationId);
   }
 
   /**
@@ -233,10 +258,12 @@ export class ToolPresenter implements IToolPresenter {
       onProgress?: (update: AgentToolProgressUpdate) => void;
       signal?: AbortSignal;
       permissionMode?: PermissionMode;
+      activeSkillNames?: string[];
     },
   ): Promise<{ content: unknown; rawData: MCPToolResponse }> {
     const toolName = request.function.name;
     const source = this.getToolSource(toolName, request.conversationId);
+    const accessContext = this.resolveAccessContext(request.conversationId, options?.activeSkillNames);
 
     if (!source) {
       throw new Error(`Tool ${toolName} not found in any source`);
@@ -267,6 +294,7 @@ export class ToolPresenter implements IToolPresenter {
         onProgress: options?.onProgress,
         signal: options?.signal,
         allowExternalFileAccess: options?.permissionMode === "full_access",
+        activeSkillNames: accessContext.activeSkillNames,
       });
       const resolvedResponse = this.resolveAgentToolResponse(response);
       const rawData = resolvedResponse.rawData ?? {};
@@ -298,7 +326,7 @@ export class ToolPresenter implements IToolPresenter {
     }
 
     // Route to MCP (default)
-    return await this.options.mcpPresenter.callTool(request);
+    return await this.options.mcpPresenter.callTool(request, { accessContext });
   }
 
   /**
@@ -307,10 +335,11 @@ export class ToolPresenter implements IToolPresenter {
    */
   async preCheckToolPermission(
     request: MCPToolCall,
-    options?: { permissionMode?: PermissionMode },
+    options?: { permissionMode?: PermissionMode; activeSkillNames?: string[] },
   ): Promise<PreCheckedPermissionResult | null> {
     const toolName = request.function.name;
     const source = this.getToolSource(toolName, request.conversationId);
+    const accessContext = this.resolveAccessContext(request.conversationId, options?.activeSkillNames);
 
     if (!source) {
       console.warn(`[ToolPresenter] Tool ${toolName} not found for permission check`);
@@ -341,6 +370,7 @@ export class ToolPresenter implements IToolPresenter {
 
       const result = await this.agentToolManager.preCheckToolPermission(toolName, args, request.conversationId, {
         allowExternalFileAccess: options?.permissionMode === "full_access",
+        activeSkillNames: accessContext.activeSkillNames,
       });
       if (!result) {
         return null;
@@ -350,7 +380,7 @@ export class ToolPresenter implements IToolPresenter {
 
     // Route to MCP for permission pre-check
     if (this.options.mcpPresenter.preCheckToolPermission) {
-      return await this.options.mcpPresenter.preCheckToolPermission(request);
+      return await this.options.mcpPresenter.preCheckToolPermission(request, { accessContext });
     }
 
     // If MCP presenter doesn't support preCheckToolPermission, skip it
@@ -378,6 +408,29 @@ export class ToolPresenter implements IToolPresenter {
     const mapper = new ToolMapper();
     this.conversationMappers.set(normalizedConversationId, mapper);
     return mapper;
+  }
+
+  private normalizeAccessContext(context: Partial<AgentToolAccessContext>): AgentToolAccessContext {
+    return {
+      agentId: context.agentId?.trim() || undefined,
+      enabledMcpServerIds: normalizeAccessList(context.enabledMcpServerIds),
+      enabledPluginIds: normalizeAccessList(context.enabledPluginIds),
+      enabledSkillNames: normalizeAccessList(context.enabledSkillNames),
+      activeSkillNames: normalizeAccessList(context.activeSkillNames),
+    };
+  }
+
+  private resolveAccessContext(conversationId?: string, activeSkillNamesOverride?: string[]): AgentToolAccessContext {
+    const normalizedConversationId = conversationId?.trim();
+    const stored = normalizedConversationId ? this.conversationAccessContexts.get(normalizedConversationId) : undefined;
+    const merged: AgentToolAccessContext = {
+      agentId: stored?.agentId,
+      enabledMcpServerIds: stored?.enabledMcpServerIds,
+      enabledPluginIds: stored?.enabledPluginIds,
+      enabledSkillNames: stored?.enabledSkillNames,
+      activeSkillNames: activeSkillNamesOverride ?? stored?.activeSkillNames,
+    };
+    return this.normalizeAccessContext(merged);
   }
 
   private registerToolsForMapper(mapper: ToolMapper, tools: MCPToolDefinition[], source: ToolSource): void {

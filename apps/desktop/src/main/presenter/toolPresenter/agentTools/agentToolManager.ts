@@ -79,10 +79,12 @@ interface AgentToolExecutionOptions {
   onProgress?: (update: AgentToolProgressUpdate) => void;
   signal?: AbortSignal;
   allowExternalFileAccess?: boolean;
+  activeSkillNames?: string[];
 }
 
 interface AgentToolPermissionCheckOptions {
   allowExternalFileAccess?: boolean;
+  activeSkillNames?: string[];
 }
 
 const createAbortError = (): Error => {
@@ -299,6 +301,7 @@ export class AgentToolManager {
     supportsVision: boolean;
     agentWorkspacePath: string | null;
     conversationId?: string;
+    activeSkillNames?: string[];
   }): Promise<MCPToolDefinition[]> {
     const defs: MCPToolDefinition[] = [];
     const isAgentMode = context.chatMode === "agent";
@@ -370,7 +373,10 @@ export class AgentToolManager {
       const skillDefs = this.getSkillToolDefinitions();
       defs.push(...skillDefs);
 
-      if (context.conversationId && (await this.hasRunnableSkillScripts(context.conversationId))) {
+      if (
+        context.conversationId &&
+        (await this.hasRunnableSkillScripts(context.conversationId, context.activeSkillNames))
+      ) {
         defs.push(this.getSkillRunToolDefinition());
       }
     }
@@ -378,7 +384,7 @@ export class AgentToolManager {
     // 4. Argos settings tools (agent mode only, skill gated)
     if (isAgentMode && this.isSkillsEnabled() && context.conversationId) {
       try {
-        const activeSkills = await this.getSkillPresenter().getActiveSkills(context.conversationId);
+        const activeSkills = await this.resolveActiveSkillNames(context.conversationId, context.activeSkillNames);
         if (activeSkills.includes(CHAT_SETTINGS_SKILL_NAME)) {
           const allowedTools = await this.getSkillPresenter().getActiveSkillsAllowedTools(context.conversationId);
           const requiredSettingsTools = Object.values(CHAT_SETTINGS_TOOL_NAMES);
@@ -484,16 +490,16 @@ export class AgentToolManager {
 
     // Route to Skill tools
     if (this.isSkillTool(toolName)) {
-      return await this.callSkillTool(toolName, args, conversationId);
+      return await this.callSkillTool(toolName, args, conversationId, options);
     }
 
     if (this.isSkillExecutionTool(toolName)) {
-      return await this.callSkillExecutionTool(toolName, args, conversationId);
+      return await this.callSkillExecutionTool(toolName, args, conversationId, options);
     }
 
     // Route to Argos settings tools
     if (this.isChatSettingsTool(toolName)) {
-      return await this.callChatSettingsTool(toolName, args, conversationId);
+      return await this.callChatSettingsTool(toolName, args, conversationId, options);
     }
 
     // Route to YoBrowser CDP tools
@@ -816,6 +822,7 @@ export class AgentToolManager {
       includeSkillRoots: toolName !== "exec",
       includeRuntimeRoots: toolName !== "exec",
       requiredPermission: this.getRequiredFilePermission(toolName),
+      activeSkillNames: options?.activeSkillNames,
     });
 
     if (toolName === "exec") {
@@ -1023,6 +1030,7 @@ export class AgentToolManager {
       includeSkillRoots?: boolean;
       includeRuntimeRoots?: boolean;
       requiredPermission?: FilePermissionLevel;
+      activeSkillNames?: string[];
     } = {},
   ): Promise<string[]> {
     const includeSkillRoots = options.includeSkillRoots !== false;
@@ -1042,7 +1050,7 @@ export class AgentToolManager {
     addPath(this.agentWorkspacePath);
 
     if (conversationId && includeSkillRoots) {
-      const activeSkillRoots = await this.resolveActiveSkillRoots(conversationId);
+      const activeSkillRoots = await this.resolveActiveSkillRoots(conversationId, options.activeSkillNames);
       for (const skillRoot of activeSkillRoots) {
         addPath(skillRoot);
       }
@@ -1064,9 +1072,42 @@ export class AgentToolManager {
     return ordered;
   }
 
-  private async resolveActiveSkillRoots(conversationId: string): Promise<string[]> {
+  private async resolveActiveSkillNames(
+    conversationId: string,
+    activeSkillNamesOverride?: string[],
+  ): Promise<string[]> {
     const skillPresenter = this.getSkillPresenter();
-    if (!skillPresenter?.getActiveSkills || !skillPresenter?.getMetadataList) {
+    if (Array.isArray(activeSkillNamesOverride)) {
+      return Array.from(
+        new Set(
+          activeSkillNamesOverride
+            .filter((name): name is string => typeof name === "string")
+            .map((name) => name.trim())
+            .filter((name) => name.length > 0),
+        ),
+      );
+    }
+    if (!skillPresenter?.getActiveSkills) {
+      return [];
+    }
+
+    try {
+      return await skillPresenter.getActiveSkills(conversationId);
+    } catch (error) {
+      logger.warn("[AgentToolManager] Failed to resolve active skills", {
+        conversationId,
+        error,
+      });
+      return [];
+    }
+  }
+
+  private async resolveActiveSkillRoots(
+    conversationId: string,
+    activeSkillNamesOverride?: string[],
+  ): Promise<string[]> {
+    const skillPresenter = this.getSkillPresenter();
+    if (!skillPresenter?.getMetadataList) {
       return [];
     }
 
@@ -1075,7 +1116,7 @@ export class AgentToolManager {
 
     try {
       [activeSkillNames, metadataList] = await Promise.all([
-        skillPresenter.getActiveSkills(conversationId),
+        this.resolveActiveSkillNames(conversationId, activeSkillNamesOverride),
         skillPresenter.getMetadataList(),
       ]);
     } catch (error) {
@@ -1524,11 +1565,14 @@ export class AgentToolManager {
     return this.runtimePort.getLlmProviderPresenter();
   }
 
-  private async isChatSettingsSkillActive(conversationId?: string): Promise<boolean> {
+  private async isChatSettingsSkillActive(
+    conversationId?: string,
+    activeSkillNamesOverride?: string[],
+  ): Promise<boolean> {
     if (!conversationId || !this.isSkillsEnabled()) {
       return false;
     }
-    const activeSkills = await this.getSkillPresenter().getActiveSkills(conversationId);
+    const activeSkills = await this.resolveActiveSkillNames(conversationId, activeSkillNamesOverride);
     return activeSkills.includes(CHAT_SETTINGS_SKILL_NAME);
   }
 
@@ -1651,9 +1695,9 @@ export class AgentToolManager {
     return toolName === "skill_run";
   }
 
-  private async hasRunnableSkillScripts(conversationId: string): Promise<boolean> {
+  private async hasRunnableSkillScripts(conversationId: string, activeSkillNamesOverride?: string[]): Promise<boolean> {
     try {
-      const activeSkills = await this.getSkillPresenter().getActiveSkills(conversationId);
+      const activeSkills = await this.resolveActiveSkillNames(conversationId, activeSkillNamesOverride);
       for (const skillName of activeSkills) {
         const scripts = await this.getSkillPresenter().listSkillScripts(skillName);
         if (scripts.some((script) => script.enabled)) {
@@ -1723,6 +1767,7 @@ export class AgentToolManager {
         includeSkillRoots: toolName !== "exec",
         includeRuntimeRoots: toolName !== "exec",
         requiredPermission: this.getRequiredFilePermission(toolName),
+        activeSkillNames: options.activeSkillNames,
       });
       const fileSystemHandler = new AgentFileSystemHandler(allowedDirectories, {
         conversationId,
@@ -1833,6 +1878,7 @@ export class AgentToolManager {
     toolName: string,
     args: Record<string, unknown>,
     conversationId?: string,
+    options?: AgentToolExecutionOptions,
   ): Promise<AgentToolCallResult> {
     if (!this.isSkillsEnabled()) {
       return {
@@ -1846,7 +1892,7 @@ export class AgentToolManager {
     const skillTools = this.getSkillTools();
 
     if (toolName === "skill_list") {
-      const result = await skillTools.handleSkillList(conversationId);
+      const result = await skillTools.handleSkillList(conversationId, options?.activeSkillNames);
       return { content: JSON.stringify(result) };
     }
 
@@ -1860,11 +1906,13 @@ export class AgentToolManager {
         typeof validationResult.data.file_path === "string" ? validationResult.data.file_path.trim() : "";
       const isLinkedFileView = normalizedFilePath.length > 0;
       const previousActiveSkills =
-        conversationId && !isLinkedFileView ? await this.getSkillPresenter().getActiveSkills(conversationId) : [];
+        conversationId && !isLinkedFileView
+          ? await this.resolveActiveSkillNames(conversationId, options?.activeSkillNames)
+          : [];
       const result = await skillTools.handleSkillView(conversationId, validationResult.data);
       const nextActiveSkills =
         conversationId && !isLinkedFileView
-          ? await this.getSkillPresenter().getActiveSkills(conversationId)
+          ? await this.resolveActiveSkillNames(conversationId, options?.activeSkillNames)
           : previousActiveSkills;
       const activationApplied =
         Boolean(conversationId) &&
@@ -1934,6 +1982,7 @@ export class AgentToolManager {
     toolName: string,
     args: Record<string, unknown>,
     conversationId?: string,
+    options?: AgentToolExecutionOptions,
   ): Promise<AgentToolCallResult> {
     if (toolName !== "skill_run") {
       throw new Error(`Unknown skill execution tool: ${toolName}`);
@@ -1950,6 +1999,7 @@ export class AgentToolManager {
 
     const result = await this.getSkillExecutionService().execute(validationResult.data, {
       conversationId,
+      activeSkillNames: options?.activeSkillNames,
     });
     const content = typeof result.output === "string" ? result.output : JSON.stringify(result.output, null, 2);
 
@@ -1968,6 +2018,7 @@ export class AgentToolManager {
     toolName: string,
     args: Record<string, unknown>,
     conversationId?: string,
+    options?: AgentToolExecutionOptions,
   ): Promise<AgentToolCallResult> {
     const handler = this.getChatSettingsHandler();
     if (toolName === CHAT_SETTINGS_TOOL_NAMES.toggle) {
@@ -1987,7 +2038,7 @@ export class AgentToolManager {
       return { content: JSON.stringify(result) };
     }
     if (toolName === CHAT_SETTINGS_TOOL_NAMES.open) {
-      const shouldCheckPermission = await this.isChatSettingsSkillActive(conversationId);
+      const shouldCheckPermission = await this.isChatSettingsSkillActive(conversationId, options?.activeSkillNames);
       if (shouldCheckPermission && conversationId) {
         const approved = this.runtimePort.consumeSettingsApproval(conversationId, toolName);
         if (!approved) {

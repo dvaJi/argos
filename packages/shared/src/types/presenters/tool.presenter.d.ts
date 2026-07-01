@@ -7,6 +7,14 @@ import type { MCPToolDefinition, MCPToolCall, MCPToolResponse } from "../core/mc
 import type { PermissionMode } from "../agent-interface";
 import type { AgentPlanSnapshot } from "../agent-plan";
 
+export interface AgentToolAccessContext {
+  enabledMcpServerIds?: string[];
+  enabledPluginIds?: string[];
+  enabledSkillNames?: string[];
+  activeSkillNames?: string[];
+  agentId?: string;
+}
+
 export type AgentToolProgressUpdate =
   | {
       kind: "subagent_orchestrator";
@@ -36,6 +44,11 @@ export interface IToolPresenter {
     supportsVision?: boolean;
     agentWorkspacePath?: string | null;
     conversationId?: string;
+    enabledMcpServerIds?: string[];
+    enabledPluginIds?: string[];
+    enabledSkillNames?: string[];
+    activeSkillNames?: string[];
+    agentId?: string;
   }): Promise<MCPToolDefinition[]>;
 
   /**
@@ -53,6 +66,7 @@ export interface IToolPresenter {
       onProgress?: (update: AgentToolProgressUpdate) => void;
       signal?: AbortSignal;
       permissionMode?: PermissionMode;
+      activeSkillNames?: string[];
     },
   ): Promise<{ content: unknown; rawData: MCPToolResponse }>;
 
@@ -63,6 +77,7 @@ export interface IToolPresenter {
     request: MCPToolCall,
     options?: {
       permissionMode?: PermissionMode;
+      activeSkillNames?: string[];
     },
   ): Promise<{
     needsPermission: true;

@@ -25,6 +25,7 @@ import type {
   ToolInteractionResponse,
   ToolInteractionResult,
   UserMessageContent,
+  ArgosAgentConfig,
 } from "@shared/types/agent-interface";
 import type { MCPToolCall, MCPToolResponse, ToolCallImagePreview } from "@shared/types/core/mcp";
 import type { ChatMessage } from "@shared/types/core/chat-message";
@@ -232,6 +233,12 @@ type SystemPromptCacheEntry = {
 };
 
 type ToolProfileKind = "code" | "research" | "analysis" | "general";
+
+type AgentExtensionPolicy = {
+  enabledPluginIds?: string[];
+  enabledSkillNames?: string[];
+  enabledMcpServerIds?: string[];
+};
 
 type ToolProfileCacheEntry = {
   profile: ToolProfileKind;
@@ -3252,6 +3259,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     const workdir = this.resolveProjectDir(sessionId);
     const now = new Date();
     const dayKey = this.buildLocalDayKey(now);
+    const policy = await this.resolveAgentExtensionPolicy(sessionId);
 
     const skillsEnabled = this.configPresenter.getSkillsEnabled();
     const skillPresenter = this.skillPresenter;
@@ -3301,8 +3309,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
 
     const normalizedAvailableSkills = this.normalizeSkillMetadata(availableSkills);
     const availableSkillNames = new Set(normalizedAvailableSkills.map((skill) => skill.name));
-    const normalizedActiveSkills = this.normalizeSkillNames(
+    const normalizedActiveSkills = this.filterSkillNamesByPolicy(
       activeSkillNames.filter((name) => availableSkillNames.has(name)),
+      policy,
     );
     const agentToolNames = this.getAgentToolNames(toolDefinitions);
     const fingerprint = this.buildSystemPromptFingerprint({
@@ -3313,6 +3322,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       skillsEnabled,
       availableSkillNames: normalizedAvailableSkills.map((skill) => skill.name),
       activeSkillNames: normalizedActiveSkills,
+      enabledPluginIds: this.normalizeNullablePolicyList(policy.enabledPluginIds),
+      enabledSkillNames: this.normalizeNullablePolicyList(policy.enabledSkillNames),
+      enabledMcpServerIds: this.normalizeNullablePolicyList(policy.enabledMcpServerIds),
       toolSignature: this.buildToolSignature(toolDefinitions),
       skillDraftSuggestionsEnabled,
     });
@@ -3560,6 +3572,42 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     );
   }
 
+  private normalizeNullablePolicyList(values?: string[] | null): string[] | undefined {
+    if (values === undefined || values === null) {
+      return undefined;
+    }
+    return this.normalizeSkillNames(values);
+  }
+
+  private filterSkillNamesByPolicy(skillNames: string[], policy?: AgentExtensionPolicy): string[] {
+    const normalizedSkillNames = this.normalizeSkillNames(skillNames);
+    const allowlist = this.normalizeNullablePolicyList(policy?.enabledSkillNames);
+    if (allowlist === undefined) {
+      return normalizedSkillNames;
+    }
+    const allowSet = new Set(allowlist);
+    return normalizedSkillNames.filter((skillName) => allowSet.has(skillName));
+  }
+
+  private async resolveAgentExtensionPolicy(sessionId: string): Promise<AgentExtensionPolicy> {
+    const agentId = this.getSessionAgentId(sessionId) ?? "argos";
+    if (typeof this.configPresenter.resolveArgosAgentConfig !== "function") {
+      return {};
+    }
+
+    try {
+      const config = (await this.configPresenter.resolveArgosAgentConfig(agentId)) as ArgosAgentConfig;
+      return {
+        enabledPluginIds: this.normalizeNullablePolicyList(config.enabledPluginIds),
+        enabledSkillNames: this.normalizeNullablePolicyList(config.enabledSkillNames),
+        enabledMcpServerIds: this.normalizeNullablePolicyList(config.enabledMcpServerIds),
+      };
+    } catch (error) {
+      console.warn(`[ArgosAgent] Failed to resolve agent extension policy for session ${sessionId}:`, error);
+      return {};
+    }
+  }
+
   private normalizeSkillMetadata(
     skills: Array<{
       name: string;
@@ -3600,6 +3648,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     skillsEnabled: boolean;
     availableSkillNames: string[];
     activeSkillNames: string[];
+    enabledPluginIds?: string[];
+    enabledSkillNames?: string[];
+    enabledMcpServerIds?: string[];
     toolSignature: string[];
     skillDraftSuggestionsEnabled: boolean;
   }): string {
@@ -3611,6 +3662,9 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       skillsEnabled: params.skillsEnabled,
       availableSkillNames: params.availableSkillNames,
       activeSkillNames: params.activeSkillNames,
+      enabledPluginIds: params.enabledPluginIds,
+      enabledSkillNames: params.enabledSkillNames,
+      enabledMcpServerIds: params.enabledMcpServerIds,
       toolSignature: params.toolSignature,
       skillDraftSuggestionsEnabled: params.skillDraftSuggestionsEnabled,
     });
@@ -5072,7 +5126,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
 
     try {
-      const profile = await this.resolveToolProfile(sessionId, projectDir, activeSkillNamesOverride);
+      const policy = await this.resolveAgentExtensionPolicy(sessionId);
+      const profile = await this.resolveToolProfile(sessionId, projectDir, activeSkillNamesOverride, policy);
       const cachedProfile = this.toolProfileCache.get(sessionId);
       if (
         cachedProfile &&
@@ -5091,6 +5146,11 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         chatMode: "agent",
         conversationId: sessionId,
         agentWorkspacePath: projectDir,
+        agentId: this.getSessionAgentId(sessionId) ?? "argos",
+        activeSkillNames: profile.activeSkillNames,
+        enabledMcpServerIds: policy.enabledMcpServerIds,
+        enabledPluginIds: policy.enabledPluginIds,
+        enabledSkillNames: policy.enabledSkillNames,
       });
 
       this.toolProfileCache.set(sessionId, {
@@ -5110,10 +5170,13 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     sessionId: string,
     projectDir: string | null,
     activeSkillNamesOverride?: string[],
-  ): Promise<{ kind: ToolProfileKind; fingerprint: string }> {
+    policy?: AgentExtensionPolicy,
+  ): Promise<{ kind: ToolProfileKind; fingerprint: string; activeSkillNames: string[] }> {
     const normalizedProjectDir = projectDir?.trim() || null;
     const skillsEnabled = this.configPresenter.getSkillsEnabled();
-    const activeSkillNames = activeSkillNamesOverride ?? (await this.resolveActiveSkillNamesForToolProfile(sessionId));
+    const resolvedPolicy = policy ?? (await this.resolveAgentExtensionPolicy(sessionId));
+    const activeSkillNames =
+      activeSkillNamesOverride ?? (await this.resolveActiveSkillNamesForToolProfile(sessionId, resolvedPolicy));
     const disabledAgentTools = this.getDisabledAgentTools(sessionId);
     const state = this.runtimeState.get(sessionId);
     const kind: ToolProfileKind = normalizedProjectDir ? "code" : "general";
@@ -5128,18 +5191,26 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         toolRegistryRevision: this.toolRegistryRevision,
         disabledAgentTools: [...disabledAgentTools].sort((left, right) => left.localeCompare(right)),
         skillsEnabled,
-        activeSkillNames,
+        activeSkillNames: this.filterSkillNamesByPolicy(activeSkillNames, resolvedPolicy),
+        enabledPluginIds: this.normalizeNullablePolicyList(resolvedPolicy.enabledPluginIds),
+        enabledSkillNames: this.normalizeNullablePolicyList(resolvedPolicy.enabledSkillNames),
+        enabledMcpServerIds: this.normalizeNullablePolicyList(resolvedPolicy.enabledMcpServerIds),
       }),
+      activeSkillNames: this.filterSkillNamesByPolicy(activeSkillNames, resolvedPolicy),
     };
   }
 
-  private async resolveActiveSkillNamesForToolProfile(sessionId: string): Promise<string[]> {
+  private async resolveActiveSkillNamesForToolProfile(
+    sessionId: string,
+    policy?: AgentExtensionPolicy,
+  ): Promise<string[]> {
     if (!this.configPresenter.getSkillsEnabled() || !this.skillPresenter?.getActiveSkills) {
       return [];
     }
 
     try {
-      return this.normalizeSkillNames(await this.skillPresenter.getActiveSkills(sessionId));
+      const activeSkills = this.normalizeSkillNames(await this.skillPresenter.getActiveSkills(sessionId));
+      return this.filterSkillNamesByPolicy(activeSkills, policy ?? (await this.resolveAgentExtensionPolicy(sessionId)));
     } catch (error) {
       console.warn(`[ArgosAgent] Failed to load active skills for tool profile in session ${sessionId}:`, error);
       return [];

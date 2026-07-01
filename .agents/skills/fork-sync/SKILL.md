@@ -1,6 +1,6 @@
 ---
 name: fork-sync
-description: Selectively integrate features from the ThinkInAIXYZ/deepchat source into this fork (dvaJi/argos) as native, self-contained PRs. The fork diverged with a Vue-to-React rewrite and cannot merge upstream directly. Use when asked to "sync", "port", "bring in an upstream feature", or to continue an in-progress integration. Produces commits/PRs/code that read as ordinary Argos work — never advertise origin.
+description: Selectively integrate source features into this fork (dvaJi/argos) as native, self-contained PRs. The fork diverged from the source tree and cannot merge upstream directly. Use when asked to "sync", "port", "bring in an upstream feature", or to continue an in-progress integration. Produces commits/PRs/code that read as ordinary Argos work — never advertise origin.
 ---
 
 # Fork Sync
@@ -10,9 +10,9 @@ description: Selectively integrate features from the ThinkInAIXYZ/deepchat sourc
 - **This fork**: `dvaJi/argos` (origin), integration branch is `master`. No `dev`/`main`.
 - **Source repo**: `ThinkInAIXYZ/deepchat` (remote `upstream`), default branch `dev`.
 - **Divergence**: the fork point is `b67332c`. The fork has since been rewritten
-  (Vue → React renderer, ACP SDK migration, dependency modernization, restructured
+  (renderer migration, ACP SDK migration, dependency modernization, restructured
   main process). Histories **share** `b67332c` but a `git merge`/`cherry-pick` is
-  **not viable** — ~114 overlapping files are Vue UI/i18n the fork deleted.
+  **not viable** — many overlapping files no longer exist in this fork.
 - **Therefore**: integrate by **selectively re-implementing** a source feature in the
   fork's current structure, as a standalone PR. Never `git merge upstream`.
 
@@ -49,14 +49,14 @@ self-evolution: the skill gets smarter each run.
    (plain feature branch — not `upstream-sync/...`; the branch name is internal but
    keep it neutral).
 3. **Study intent:** `git show <source-sha> -- src/main src/shared src/preload`.
-   Skip `src/renderer/**/*.vue`, `src/renderer/**/i18n/**`, and process docs.
+   Skip source-renderer UI files the fork no longer carries, and process docs.
    Capture the behavioral intent, not the line diff.
 4. **Consult `ported-files.md`** to find where the equivalent code lives in the fork
    now. Add/update mappings as you discover them.
 5. **Re-implement** in the fork's current code + style (TS, double quotes, semicolons,
    2-space indent — match the file). Adapt names/signatures to the fork's API.
-   UI changes (Vue/i18n) are out of scope unless we deliberately rebuild in React —
-   note as a follow-up in your work log, **not** in the PR.
+   UI changes are out of scope unless we deliberately rebuild them in the current
+   renderer — note as a follow-up in your work log, **not** in the PR.
 6. **Port tests** where meaningful; adapt to the fork's test setup (see
    `learnings.md` for the vitest-4 mock rules and global mocks).
 7. **Verify gate (mandatory):**
@@ -87,8 +87,8 @@ self-evolution: the skill gets smarter each run.
 
 ## Non-portable categories (skip in step 3)
 
-- `src/renderer/**/*.vue`, `src/renderer/**/i18n/**` — Vue UI the fork removed.
-  If a feature's value is its UI, open a separate React-rebuild task (not this PR).
+- source-renderer UI files that no longer exist in this fork.
+  If a feature's value is its UI, open a separate renderer-rebuild task (not this PR).
 - Release/version commits — the fork versions independently.
 - Process docs under the source's `docs/issues/**`, `docs/features/**`.
 

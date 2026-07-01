@@ -15,7 +15,6 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import contextMenu from "@/contextMenuHelper";
-import { app } from "electron";
 import { addWatermarkToNativeImage } from "@/lib/watermark";
 import { stitchImagesVertically } from "@/lib/scrollCapture";
 import { openExternalUrl } from "@/lib/externalUrl";

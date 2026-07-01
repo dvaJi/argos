@@ -20,7 +20,7 @@ import type { DatabaseRepairReport, DatabaseSchemaDiagnosis } from "../databaseS
 import type { ISessionPresenter } from "./session.presenter";
 import type { IConversationExporter } from "./exporter.presenter";
 import type { IWorkspacePresenter } from "./workspace";
-import type { IToolPresenter } from "./tool.presenter";
+import type { AgentToolAccessContext, IToolPresenter } from "./tool.presenter";
 import type { ISkillPresenter } from "../skill";
 import type { ISkillSyncPresenter } from "../skillSync";
 import type { IAgentSessionPresenter } from "./agent-session.presenter";
@@ -1818,7 +1818,10 @@ export interface IMCPPresenter {
   stopServer(serverName: string): Promise<void>;
   shutdown(): Promise<void>;
   getServerLastError?(serverName: string): string | undefined;
-  getAllToolDefinitions(enabledMcpTools?: string[]): Promise<MCPToolDefinition[]>;
+  getAllToolDefinitions(
+    enabledMcpTools?: string[],
+    accessContext?: AgentToolAccessContext,
+  ): Promise<MCPToolDefinition[]>;
   getAllPrompts(): Promise<Array<PromptListEntry & { client: { name: string; icon: string } }>>;
   getAllResources(): Promise<Array<ResourceListEntry & { client: { name: string; icon: string } }>>;
   getPrompt(prompt: PromptListEntry, args?: Record<string, unknown>): Promise<unknown>;
@@ -1833,9 +1836,15 @@ export interface IMCPPresenter {
         progressJson: string;
       }) => void;
       signal?: AbortSignal;
+      accessContext?: AgentToolAccessContext;
     },
   ): Promise<{ content: string; rawData: MCPToolResponse }>;
-  preCheckToolPermission?(request: MCPToolCall): Promise<{
+  preCheckToolPermission?(
+    request: MCPToolCall,
+    options?: {
+      accessContext?: AgentToolAccessContext;
+    },
+  ): Promise<{
     needsPermission: true;
     toolName: string;
     serverName: string;

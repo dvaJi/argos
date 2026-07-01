@@ -37,6 +37,7 @@ export interface SkillRunRequest {
 
 export interface SkillRunOptions {
   conversationId: string;
+  activeSkillNames?: string[];
 }
 
 interface SkillExecutionServiceOptions {
@@ -82,7 +83,9 @@ export class SkillExecutionService {
   }
 
   async execute(input: SkillRunRequest, options: SkillRunOptions): Promise<SkillExecutionResult> {
-    const plan = await this.preparePlanForExecution(await this.buildSpawnPlan(input, options.conversationId));
+    const plan = await this.preparePlanForExecution(
+      await this.buildSpawnPlan(input, options.conversationId, options.activeSkillNames),
+    );
     const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
     if (input.background) {
@@ -109,8 +112,12 @@ export class SkillExecutionService {
     };
   }
 
-  private async buildSpawnPlan(input: SkillRunRequest, conversationId: string): Promise<SpawnPlan> {
-    const activeSkills = await this.skillPresenter.getActiveSkills(conversationId);
+  private async buildSpawnPlan(
+    input: SkillRunRequest,
+    conversationId: string,
+    activeSkillNamesOverride?: string[],
+  ): Promise<SpawnPlan> {
+    const activeSkills = await this.resolveActiveSkills(conversationId, activeSkillNamesOverride);
     if (!activeSkills.includes(input.skill)) {
       throw new Error(`Skill "${input.skill}" is not pinned in this conversation`);
     }
@@ -150,6 +157,13 @@ export class SkillExecutionService {
       outputPrefix: `skillrun_${input.skill.replace(/[^a-zA-Z0-9_-]/g, "_")}`,
       spawnMode: "direct",
     };
+  }
+
+  private async resolveActiveSkills(conversationId: string, override?: string[]): Promise<string[]> {
+    if (Array.isArray(override)) {
+      return override;
+    }
+    return await this.skillPresenter.getActiveSkills(conversationId);
   }
 
   private async resolveExecutionCwd(conversationId: string, skillRoot: string): Promise<string> {

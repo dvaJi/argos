@@ -624,6 +624,9 @@ export interface ArgosAgentConfig {
   systemPrompt?: string;
   permissionMode?: PermissionMode;
   disabledAgentTools?: string[];
+  enabledMcpServerIds?: string[];
+  enabledPluginIds?: string[];
+  enabledSkillNames?: string[];
   subagentEnabled?: boolean;
   subagents?: ArgosSubagentSlot[];
   autoCompactionEnabled?: boolean;

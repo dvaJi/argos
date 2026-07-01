@@ -17,6 +17,7 @@ import ModelIcon from "@/components/icons/ModelIcon";
 import AgentAvatar from "@/components/icons/AgentAvatar";
 import AgentTransferDialog, { type TransferDialogAgent } from "@/components/agent/AgentTransferDialog";
 import { MemoryManagerDialog } from "./MemoryManagerDialog";
+import AgentExtensionPolicyPanel from "./AgentExtensionPolicyPanel";
 import { useModelStore } from "@/stores/modelStore";
 import type {
   Agent,
@@ -58,6 +59,9 @@ type AgentConfigForm = {
   subagentEnabled: boolean;
   subagents: ArgosSubagentSlot[];
   disabledAgentTools: string[];
+  enabledMcpServerIds?: string[];
+  enabledPluginIds?: string[];
+  enabledSkillNames?: string[];
   autoCompactionEnabled: boolean;
   autoCompactionTriggerThreshold: number;
   autoCompactionRetainRecentPairs: number;
@@ -100,6 +104,9 @@ const EMPTY_FORM: AgentConfigForm = {
   subagentEnabled: false,
   subagents: normalizeArgosSubagentSlots(createDefaultArgosSubagentSlots()),
   disabledAgentTools: [],
+  enabledMcpServerIds: undefined,
+  enabledPluginIds: undefined,
+  enabledSkillNames: undefined,
   autoCompactionEnabled: false,
   autoCompactionTriggerThreshold: 70,
   autoCompactionRetainRecentPairs: 6,
@@ -160,6 +167,13 @@ const selectionToFormFields = (selection?: { providerId?: string | null; modelId
   modelId: selection?.modelId?.trim() || "",
 });
 
+const normalizeOptionalStringList = (values?: string[] | null): string[] | undefined => {
+  if (values === undefined || values === null) {
+    return undefined;
+  }
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+};
+
 const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
   if (!agent) return { ...EMPTY_FORM };
   const config = agent.config ?? {};
@@ -192,6 +206,9 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     subagentEnabled: config.subagentEnabled !== false,
     subagents: normalizeArgosSubagentSlots(config.subagents ?? createDefaultArgosSubagentSlots()),
     disabledAgentTools: [...(config.disabledAgentTools ?? [])],
+    enabledMcpServerIds: normalizeOptionalStringList(config.enabledMcpServerIds),
+    enabledPluginIds: normalizeOptionalStringList(config.enabledPluginIds),
+    enabledSkillNames: normalizeOptionalStringList(config.enabledSkillNames),
     autoCompactionEnabled: config.autoCompactionEnabled ?? true,
     autoCompactionTriggerThreshold: config.autoCompactionTriggerThreshold ?? 80,
     autoCompactionRetainRecentPairs: config.autoCompactionRetainRecentPairs ?? 2,
@@ -812,6 +829,9 @@ export default function ArgosAgentsSettings() {
           form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
             ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
             : null,
+        ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
+        ...(form.enabledPluginIds === undefined ? {} : { enabledPluginIds: [...form.enabledPluginIds] }),
+        ...(form.enabledSkillNames === undefined ? {} : { enabledSkillNames: [...form.enabledSkillNames] }),
       };
 
       // Only persist the avatar if the user actually changed it; otherwise keep
@@ -1337,6 +1357,20 @@ export default function ArgosAgentsSettings() {
                 </div>
               </div>
             </section>
+
+            <AgentExtensionPolicyPanel
+              value={{
+                enabledMcpServerIds: form.enabledMcpServerIds,
+                enabledPluginIds: form.enabledPluginIds,
+                enabledSkillNames: form.enabledSkillNames,
+              }}
+              onChange={(nextValue) => {
+                updateForm("enabledMcpServerIds", nextValue.enabledMcpServerIds);
+                updateForm("enabledPluginIds", nextValue.enabledPluginIds);
+                updateForm("enabledSkillNames", nextValue.enabledSkillNames);
+              }}
+              disabled={saving}
+            />
 
             <section className="space-y-4 rounded-2xl border border-border p-5">
               <div className="flex items-center justify-between gap-3">

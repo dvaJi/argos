@@ -61,8 +61,7 @@ Close the two gaps with one cohesive change:
   manifest-entry-ID provenance — separate concern.
 - Surfacing tool-loop fact entries in the trace UI.
 - Migrating `tapeEffectiveView.ts`.
-- i18n — `TraceDialog`/`ManifestPanel` already use hardcoded English; this
-  change matches that convention.
+- Keep the trace copy consistent with the existing English-only UI text.
 
 ## Constraints
 

@@ -9,11 +9,18 @@ import {
   IConfigPresenter,
   Resource,
 } from "@shared/presenter";
+import type { AgentToolAccessContext } from "@shared/types/presenters/tool.presenter";
 import { ServerManager } from "./serverManager";
 import { McpClient } from "./mcpClient";
 import { jsonrepair } from "jsonrepair";
 import { presenter } from "@/presenter";
 import { getPluginToolPolicy } from "@/presenter/pluginPresenter/toolPolicyStore";
+
+type PluginOwnedServerConfig = {
+  ownerPluginId?: unknown;
+  source?: unknown;
+  sourceId?: unknown;
+};
 
 export class ToolManager {
   private configPresenter: IConfigPresenter;
@@ -46,25 +53,111 @@ export class ToolManager {
     const serverConfig = client.serverConfig as {
       ownerPluginId?: unknown;
       source?: unknown;
+      sourceId?: unknown;
     };
-    return Boolean(serverConfig.ownerPluginId || serverConfig.source === "plugin");
+    return Boolean(serverConfig.ownerPluginId || (serverConfig.source === "plugin" && serverConfig.sourceId));
+  }
+
+  private isPluginOwnedServerConfig(config?: PluginOwnedServerConfig | null): boolean {
+    return Boolean(config?.ownerPluginId || (config?.source === "plugin" && config?.sourceId));
+  }
+
+  private normalizeAllowlist(values?: string[]): Set<string> | null {
+    if (!Array.isArray(values)) {
+      return null;
+    }
+    return new Set(
+      values
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    );
+  }
+
+  private async isServerAllowedByContext(serverName: string, accessContext?: AgentToolAccessContext): Promise<boolean> {
+    const serverAllowlist = this.normalizeAllowlist(accessContext?.enabledMcpServerIds);
+    const pluginAllowlist = this.normalizeAllowlist(accessContext?.enabledPluginIds);
+
+    if (!serverAllowlist && !pluginAllowlist) {
+      return true;
+    }
+
+    const serverAllowed = serverAllowlist ? serverAllowlist.has(serverName) : false;
+    if (serverAllowed) {
+      return true;
+    }
+
+    if (!pluginAllowlist) {
+      return false;
+    }
+
+    const servers = await this.configPresenter.getMcpServers();
+    const serverConfig = servers[serverName];
+    if (!this.isPluginOwnedServerConfig(serverConfig)) {
+      return false;
+    }
+
+    const ownerPluginId =
+      typeof serverConfig?.ownerPluginId === "string"
+        ? serverConfig.ownerPluginId.trim()
+        : typeof serverConfig?.sourceId === "string" && serverConfig.source === "plugin"
+          ? serverConfig.sourceId.trim()
+          : "";
+    return ownerPluginId.length > 0 && pluginAllowlist.has(ownerPluginId);
+  }
+
+  private async filterToolDefinitionsByContext(
+    toolDefinitions: MCPToolDefinition[],
+    accessContext?: AgentToolAccessContext,
+  ): Promise<MCPToolDefinition[]> {
+    if (!accessContext) {
+      return toolDefinitions;
+    }
+
+    const hasServerAllowlist = Array.isArray(accessContext.enabledMcpServerIds);
+    const hasPluginAllowlist = Array.isArray(accessContext.enabledPluginIds);
+    if (!hasServerAllowlist && !hasPluginAllowlist) {
+      return toolDefinitions;
+    }
+
+    const filtered: MCPToolDefinition[] = [];
+    for (const tool of toolDefinitions) {
+      if (await this.isServerAllowedByContext(tool.server.name, accessContext)) {
+        filtered.push(tool);
+      }
+    }
+    return filtered;
+  }
+
+  private async filterToolDefinitions(
+    toolDefinitions: MCPToolDefinition[],
+    enabledTools?: string[],
+    accessContext?: AgentToolAccessContext,
+  ): Promise<MCPToolDefinition[]> {
+    const enabledSet = enabledTools?.length ? new Set(enabledTools) : null;
+    const byContext = await this.filterToolDefinitionsByContext(toolDefinitions, accessContext);
+
+    if (!enabledSet) {
+      return byContext;
+    }
+
+    return byContext.filter((toolDef) => {
+      const finalName = toolDef.function.name;
+      const originalName = this.toolNameToTargetMap?.get(finalName)?.originalName || finalName;
+      return enabledSet.has(finalName) || enabledSet.has(originalName);
+    });
   }
 
   public async getRunningClients(): Promise<McpClient[]> {
     return this.serverManager.getRunningClients();
   }
   // Get all tool definitions
-  public async getAllToolDefinitions(enabledTools?: string[]): Promise<MCPToolDefinition[]> {
-    if (this.cachedToolDefinitions !== null && this.cachedToolDefinitions.length > 0) {
-      if (enabledTools) {
-        const enabledSet = new Set(enabledTools);
-        return this.cachedToolDefinitions.filter((toolDef) => {
-          const finalName = toolDef.function.name;
-          const originalName = this.toolNameToTargetMap?.get(finalName)?.originalName || finalName;
-          return enabledSet.has(finalName) || enabledSet.has(originalName);
-        });
-      }
-      return this.cachedToolDefinitions;
+  public async getAllToolDefinitions(
+    enabledTools?: string[],
+    accessContext?: AgentToolAccessContext,
+  ): Promise<MCPToolDefinition[]> {
+    if (this.cachedToolDefinitions !== null) {
+      return await this.filterToolDefinitions(this.cachedToolDefinitions, enabledTools, accessContext);
     }
 
     console.info("Fetching/refreshing tool definitions and target map...");
@@ -80,8 +173,7 @@ export class ToolManager {
     if (!clients || clients.length === 0) {
       console.warn("No running MCP clients found.");
       this.cachedToolDefinitions = [];
-      // Map is already cleared or initialized as empty
-      return this.cachedToolDefinitions;
+      return [];
     }
 
     const toolNameToServerMap: Map<string, string> = new Map();
@@ -213,16 +305,7 @@ export class ToolManager {
     this.cachedToolDefinitions = results;
     console.info(`Cached ${results.length} final tool definitions and populated target map.`);
 
-    if (enabledTools && enabledTools.length > 0) {
-      const enabledSet = new Set(enabledTools);
-      return this.cachedToolDefinitions.filter((toolDef) => {
-        const finalName = toolDef.function.name;
-        const originalName = this.toolNameToTargetMap?.get(finalName)?.originalName || finalName;
-        return enabledSet.has(finalName) || enabledSet.has(originalName);
-      });
-    }
-
-    return this.cachedToolDefinitions;
+    return await this.filterToolDefinitions(results, enabledTools, accessContext);
   }
 
   // New method to determine permission type
@@ -358,7 +441,10 @@ export class ToolManager {
    * Pre-check tool permissions without executing the tool
    * Returns permission requirement info if permission is needed, null if already has permission
    */
-  async preCheckToolPermission(toolCall: MCPToolCall): Promise<{
+  async preCheckToolPermission(
+    toolCall: MCPToolCall,
+    options?: { accessContext?: AgentToolAccessContext },
+  ): Promise<{
     needsPermission: true;
     toolName: string;
     serverName: string;
@@ -377,7 +463,7 @@ export class ToolManager {
     const finalName = toolCall.function.name;
 
     // Ensure definitions and map are loaded/cached
-    await this.getAllToolDefinitions();
+    await this.getAllToolDefinitions(undefined, options?.accessContext);
 
     if (!this.toolNameToTargetMap) {
       console.error("[ToolManager] Tool target map is not available for permission check.");
@@ -393,6 +479,10 @@ export class ToolManager {
 
     const { originalName } = targetInfo;
     const toolServerName = targetInfo.client.serverName;
+
+    if (!(await this.isServerAllowedByContext(toolServerName, options?.accessContext))) {
+      return null;
+    }
 
     // Get server config to check auto-approve settings
     const servers = await this.configPresenter.getMcpServers();
@@ -421,7 +511,10 @@ export class ToolManager {
     };
   }
 
-  async callTool(toolCall: MCPToolCall): Promise<MCPToolResponse> {
+  async callTool(
+    toolCall: MCPToolCall,
+    options?: { accessContext?: AgentToolAccessContext },
+  ): Promise<MCPToolResponse> {
     try {
       const finalName = toolCall.function.name;
       const argsString = toolCall.function.arguments;
@@ -434,7 +527,7 @@ export class ToolManager {
       });
 
       // Ensure definitions and map are loaded/cached
-      await this.getAllToolDefinitions();
+      await this.getAllToolDefinitions(undefined, options?.accessContext);
 
       if (!this.toolNameToTargetMap) {
         console.error("Tool target map is not available.");
@@ -458,6 +551,13 @@ export class ToolManager {
 
       const { client: targetClient, originalName } = targetInfo;
       const toolServerName = targetClient.serverName;
+      if (!(await this.isServerAllowedByContext(toolServerName, options?.accessContext))) {
+        return {
+          toolCallId: toolCall.id,
+          content: `Error: MCP server '${toolServerName}' is not allowed for this agent.`,
+          isError: true,
+        };
+      }
       const hintedProviderId = toolCall.providerId?.trim();
       const shouldResolveAcpContext =
         Boolean(toolCall.conversationId) && (!hintedProviderId || hintedProviderId === "acp");

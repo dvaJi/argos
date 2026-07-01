@@ -20,6 +20,8 @@ Status: `pending` · `in-progress` · `PR #N` · `done` · `blocked` · `skip`
 | `72fe36bc` `ce4488aa` `71767ce1` `58978b00` `7082f339` `4344cedf` `bc3b4b08` `4099fdb0` `48b6b035` `7f6f2d92` `c9b205af` `b46c1911` `454417e2` `6e8301b8` `df64127e` | — | Memory subsystem (retrieval, extraction, injection, vector store, persona, lifecycle, settings) + task-aware categories (#1802) | done (PR #13) — SDD at `docs/architecture/memory-subsystem/`. 4 phases + integration: MemoryPresenter wired into Presenter singleton, memoryPort injected into AgentRuntimePresenter, agent tool ports wired, persona evolution opt-in flag, mergeArgosConfig preserves memory fields. |
 | `f5b09419` | #1851 | Honor category on manual memory add | done (PR #13) — ported `MemoryClient` (scoped to the 6 routes argos has: list/getStatus/search/add/delete/clear). `add()` uses the mutually-exclusive `kind`/`category` union and forwards `category` in the payload. Skipped Vue `MemoryManagerPanel` + i18n (React rebuild is a separate task). |
 
+| `b5b480e` `3102e6d` | #1853 | Scope plugins, skills, and MCP by agent | done (local sync) â€” added agent-scoped allowlists for MCP servers, plugin-owned integrations, and skills; runtime tool resolution now filters MCP/tool/skill access by the active agent policy; settings UI persists the per-agent policy. |
+
 ## Backend + UI rebuild (port backend, rebuild UI in React)
 
 | Source SHA | Source PR | Feature | Status |

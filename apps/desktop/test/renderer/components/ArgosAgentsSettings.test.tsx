@@ -2,9 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ModelType } from "@shared/model";
 
+const skillsStoreMocks = vi.hoisted(() => ({
+  state: {
+    skills: [] as Array<{ name: string; description: string; category?: string | null }>,
+  },
+  loadSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/stores/skillsStore", () => ({
+  useSkillsStore: () => skillsStoreMocks.state,
+  loadSkills: skillsStoreMocks.loadSkills,
+  uninstallSkill: vi.fn(),
+}));
+
 describe("ArgosAgentsSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    skillsStoreMocks.state.skills = [];
   });
 
   it("mounts and saves Argos agents without advanced model overrides", async () => {
@@ -45,6 +59,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -164,6 +179,98 @@ describe("ArgosAgentsSettings", () => {
     });
   });
 
+  it("persists agent extension allowlists", async () => {
+    vi.resetModules();
+    skillsStoreMocks.state.skills = [
+      {
+        name: "research",
+        description: "Research helper",
+        category: "analysis",
+      },
+    ];
+
+    const existingAgent = {
+      id: "argos",
+      type: "argos",
+      name: "Argos",
+      enabled: true,
+      protected: true,
+      description: "Writer agent",
+      avatar: null,
+      config: {
+        systemPrompt: "",
+        permissionMode: "default",
+        disabledAgentTools: [],
+      },
+    };
+
+    const configPresenter = {
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+        "server-a": {
+          source: "manual",
+        },
+        "plugin-server": {
+          source: "plugin",
+          sourceId: "plugin-xyz",
+          ownerPluginId: "plugin-xyz",
+        },
+      }),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    };
+    const toolPresenter = {
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    };
+    const projectPresenter = {
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    };
+    const modelStore = {
+      allProviderModels: [],
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
+    };
+
+    vi.doMock("@api/legacy/presenters", () => ({
+      useLegacyPresenter: (name: string) => {
+        if (name === "configPresenter") return configPresenter;
+        if (name === "projectPresenter") return projectPresenter;
+        if (name === "toolPresenter") return toolPresenter;
+        return {};
+      },
+    }));
+    vi.doMock("@/stores/modelStore", () => ({
+      useModelStore: () => modelStore,
+    }));
+    vi.doMock("@iconify/react", () => ({
+      Icon: () => null,
+    }));
+
+    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+
+    render(<ArgosAgentsSettings />);
+
+    await act(async () => {});
+
+    const serverToggle = screen.getByRole("checkbox", { name: "server-a" });
+    const pluginToggle = screen.getByRole("checkbox", { name: /plugin-xyz/i });
+    const skillToggle = screen.getByRole("checkbox", { name: /research/i });
+
+    await fireEvent.click(serverToggle);
+    await fireEvent.click(pluginToggle);
+    await fireEvent.click(skillToggle);
+
+    await fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await act(async () => {});
+
+    const [, payload] = configPresenter.updateArgosAgent.mock.calls[0];
+    expect(payload.config.enabledMcpServerIds).toEqual(["server-a"]);
+    expect(payload.config.enabledPluginIds).toEqual(["plugin-xyz"]);
+    expect(payload.config.enabledSkillNames).toEqual(["research"]);
+  });
+
   it("persists memory settings for long-term memory", async () => {
     vi.resetModules();
 
@@ -185,6 +292,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -263,6 +371,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -320,6 +429,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -392,6 +502,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -480,6 +591,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -557,6 +669,7 @@ describe("ArgosAgentsSettings", () => {
           content: "You write concise code.",
         },
       ]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -654,6 +767,7 @@ describe("ArgosAgentsSettings", () => {
         .mockResolvedValueOnce([existingAgent])
         .mockResolvedValueOnce([existingAgent, createdAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(createdAgent),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -751,6 +865,7 @@ describe("ArgosAgentsSettings", () => {
     const configPresenter = {
       listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
@@ -891,6 +1006,7 @@ describe("ArgosAgentsSettings", () => {
         .fn<(...args: any[]) => any>()
         .mockResolvedValue([existingAgent, acpAgent, uninstalledRegistryAgent]),
       getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
       updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
       createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
       deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),

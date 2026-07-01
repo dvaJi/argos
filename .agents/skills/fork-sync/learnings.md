@@ -157,3 +157,15 @@ mistakes.
 - **`kind`/`category` mutual exclusivity** (source #1851): the manual-add client API makes them
   a discriminated union (`category?: never` on the kind variant and vice-versa) and forwards
   only one in the payload. Port the union, not the pre-fix shape that dropped `category`.
+## 2026-07 â€” agent-scoped extensions
+
+- **Preserve allowlist semantics**: `undefined` means unrestricted access, while `[]`
+  means deny all. Normalize and merge those states carefully in config, presenter,
+  and UI code so a cleared allowlist does not silently become an open one.
+- **Direct toolchain validation bypasses the engine guard**: under the current Node
+  26 setup, `pnpm run typecheck`/`pnpm test` can fail before running project code.
+  Direct `pnpm --dir apps/desktop exec tsgo` and `vitest` runs still validate the
+  changed files cleanly.
+- **Accessibility labels can include extra text**: the settings-panel checkboxes may
+  pick up descriptive text in their accessible name, so tests should use flexible
+  matchers when targeting those rows.

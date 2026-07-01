@@ -150,3 +150,33 @@ Legend: `fork file` ← `source file` · role
 - `apps/desktop/src/renderer/settings/components/MemoryManagerDialog.tsx` ← `src/renderer/settings/components/MemoryManagerDialog.vue`
   · Thin `Dialog` wrapper mounting the panel; opened from a "Manage memory" button in
   `ArgosAgentsSettings.tsx`.
+## Agent-scoped extensions â€” integration (#1853)
+
+- `packages/shared-contracts/src/domainSchemas.ts` (modified)
+  Â· `ArgosAgentConfigSchema` now persists optional allowlists for MCP server IDs, plugin IDs, and skill names.
+- `packages/shared/src/types/agent-interface.d.ts` (modified)
+  Â· `ArgosAgentConfig` carries the same optional allowlists through the shared config type.
+- `packages/shared/src/types/presenters/tool.presenter.d.ts` (modified)
+  Â· `AgentToolAccessContext` plus widened tool-presenter call signatures for agent-scoped MCP/plugin/skill access.
+- `packages/shared/src/types/presenters/legacy.presenters.d.ts` (modified)
+  Â· MCP presenter signatures now accept agent access context for tool loading, execution, and permission checks.
+- `apps/desktop/src/main/presenter/agentRepository/index.ts` (modified)
+  Â· `mergeArgosConfig` preserves the new agent allowlists when configs are merged.
+- `apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts` (modified)
+  Â· Resolves agent extension policy, filters system-prompt skills, and forwards allowlists into tool/profile resolution.
+- `apps/desktop/src/main/presenter/toolPresenter/index.ts` (modified)
+  Â· Stores per-conversation access context and threads active skill names into MCP and agent tool calls.
+- `apps/desktop/src/main/presenter/mcpPresenter/index.ts` (modified)
+  Â· Accepts access context for tool resolution, execution, and permission checks.
+- `apps/desktop/src/main/presenter/mcpPresenter/toolManager.ts` (modified)
+  Â· Filters cached MCP tools by allowed server IDs and plugin-owned server IDs before exposing or calling them.
+- `apps/desktop/src/main/presenter/skillPresenter/skillExecutionService.ts` (modified)
+  Â· Skill-run plan builder now respects the active agent skill allowlist.
+- `apps/desktop/src/main/presenter/skillPresenter/skillTools.ts` (modified)
+  Â· Skill listing respects agent-scoped active skill overrides.
+- `apps/desktop/src/renderer/settings/components/ArgosAgentsSettings.tsx` (modified)
+  Â· Agent form persists the new allowlists and mounts the policy panel.
+- `apps/desktop/src/renderer/settings/components/AgentExtensionPolicyPanel.tsx` (new)
+  Â· UI for per-agent MCP server, plugin, and skill allowlists.
+- `apps/desktop/test/renderer/components/ArgosAgentsSettings.test.tsx` (modified)
+  Â· Covers persistence of the new per-agent allowlists from the settings UI.

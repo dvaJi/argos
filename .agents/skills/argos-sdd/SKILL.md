@@ -38,10 +38,11 @@ Resolve every `[NEEDS CLARIFICATION]` marker before implementation. If a request
    - main process Presenter boundaries
    - typed `shared/contracts/*`
    - renderer `api/*Client`
-   - Vue 3 Composition API and i18n for UI strings
+   - the current renderer's component and state patterns
 5. Implement the change after the SDD artifacts are complete.
 6. Update `tasks.md` as work lands.
-7. Run `pnpm run format`, `pnpm run i18n`, and `pnpm run lint` before handoff.
+7. Run `pnpm run format` and `pnpm run lint` before handoff. Add `pnpm run typecheck`
+   when the change touches TypeScript surfaces.
 
 ## Documentation Hygiene
 

@@ -25,7 +25,7 @@ export class ServerManager {
   }
 
   private isPluginOwnedServerConfig(config?: Partial<MCPServerConfig> | null): boolean {
-    return Boolean(config?.ownerPluginId || config?.source === "plugin");
+    return Boolean(config?.ownerPluginId || (config?.source === "plugin" && config?.sourceId));
   }
 
   getServerLastError(serverName: string): string | undefined {

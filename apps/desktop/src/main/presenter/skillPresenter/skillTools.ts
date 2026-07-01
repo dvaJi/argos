@@ -9,14 +9,21 @@ import type {
 export class SkillTools {
   constructor(private readonly skillPresenter: ISkillPresenter) {}
 
-  async handleSkillList(conversationId?: string): Promise<{
+  async handleSkillList(
+    conversationId?: string,
+    activeSkillNamesOverride?: string[],
+  ): Promise<{
     skills: SkillListItem[];
     pinnedCount: number;
     activeCount: number;
     totalCount: number;
   }> {
     const allSkills = await this.skillPresenter.getMetadataList();
-    const pinnedSkills = conversationId ? await this.skillPresenter.getActiveSkills(conversationId) : [];
+    const pinnedSkills = Array.isArray(activeSkillNamesOverride)
+      ? activeSkillNamesOverride
+      : conversationId
+        ? await this.skillPresenter.getActiveSkills(conversationId)
+        : [];
     const pinnedSet = new Set(pinnedSkills);
 
     const skillList = allSkills.map((skill) => ({

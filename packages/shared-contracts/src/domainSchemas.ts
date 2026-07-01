@@ -353,6 +353,9 @@ export const ArgosAgentConfigSchema = z.looseObject({
   systemPrompt: z.string().optional(),
   permissionMode: z.enum(["default", "full_access"]).optional(),
   disabledAgentTools: z.array(z.string()).optional(),
+  enabledMcpServerIds: z.array(z.string()).optional(),
+  enabledPluginIds: z.array(z.string()).optional(),
+  enabledSkillNames: z.array(z.string()).optional(),
   subagentEnabled: z.boolean().optional(),
   defaultProjectPath: z.string().nullable().optional(),
 });

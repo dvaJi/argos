@@ -21,6 +21,7 @@ import { MCP_EVENTS, NOTIFICATION_EVENTS } from "@/events";
 import { presenter } from "@/presenter";
 import { publishArgosEvent } from "@/routes/publishArgosEvent";
 import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
+import type { AgentToolAccessContext } from "@shared/types/presenters/tool.presenter";
 
 // Complete McpPresenter implementation
 export class McpPresenter implements IMCPPresenter {
@@ -56,7 +57,7 @@ export class McpPresenter implements IMCPPresenter {
   }
 
   private isPluginOwnedServerConfig(config?: Partial<MCPServerConfig> | null): boolean {
-    return Boolean(config?.ownerPluginId || config?.source === "plugin");
+    return Boolean(config?.ownerPluginId || (config?.source === "plugin" && config?.sourceId));
   }
 
   private async isPluginOwnedServerName(serverName: string): Promise<boolean> {
@@ -434,9 +435,12 @@ export class McpPresenter implements IMCPPresenter {
     return this.serverManager.getServerLastError(serverName);
   }
 
-  async getAllToolDefinitions(enabledMcpTools?: string[]): Promise<MCPToolDefinition[]> {
+  async getAllToolDefinitions(
+    enabledMcpTools?: string[],
+    accessContext?: AgentToolAccessContext,
+  ): Promise<MCPToolDefinition[]> {
     const enabled = await this.configPresenter.getMcpEnabled();
-    const tools = await this.toolManager.getAllToolDefinitions(enabledMcpTools);
+    const tools = await this.toolManager.getAllToolDefinitions(enabledMcpTools, accessContext);
     if (enabled) {
       return tools;
     }
@@ -520,8 +524,11 @@ export class McpPresenter implements IMCPPresenter {
     return resourcesList;
   }
 
-  async callTool(request: MCPToolCall): Promise<{ content: string; rawData: MCPToolResponse }> {
-    const toolCallResult = await this.toolManager.callTool(request);
+  async callTool(
+    request: MCPToolCall,
+    options?: { accessContext?: AgentToolAccessContext },
+  ): Promise<{ content: string; rawData: MCPToolResponse }> {
+    const toolCallResult = await this.toolManager.callTool(request, { accessContext: options?.accessContext });
     const imagePreviews = await extractToolCallImagePreviews({
       toolName: request.function.name,
       toolArgs: request.function.arguments,
@@ -582,7 +589,10 @@ export class McpPresenter implements IMCPPresenter {
    * Pre-check tool permissions without executing the tool
    * Delegates to ToolManager for the actual permission check
    */
-  async preCheckToolPermission(request: MCPToolCall): Promise<{
+  async preCheckToolPermission(
+    request: MCPToolCall,
+    options?: { accessContext?: AgentToolAccessContext },
+  ): Promise<{
     needsPermission: true;
     toolName: string;
     serverName: string;
@@ -598,7 +608,7 @@ export class McpPresenter implements IMCPPresenter {
       baseCommand?: string;
     };
   } | null> {
-    return await this.toolManager.preCheckToolPermission(request);
+    return await this.toolManager.preCheckToolPermission(request, { accessContext: options?.accessContext });
   }
 
   async handleSamplingRequest(request: McpSamplingRequestPayload): Promise<McpSamplingDecision> {

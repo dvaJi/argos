@@ -33,7 +33,7 @@ The landing page communicates Argos's value: open-source AI agent platform, mult
 ## Non-goals
 
 - No CMS, analytics, or A/B testing.
-- No i18n in the first increment (static English copy, matching the splash precedent).
+- Static English copy in the first increment, matching the splash precedent.
 - No backend/server functions beyond static SSR — the page is fully static content.
 - No redirect from the desktop app to the landing page in this increment.
 - No custom domain configuration or CI/CD pipeline setup (deployment is a manual `wrangler deploy` step documented in the README).
