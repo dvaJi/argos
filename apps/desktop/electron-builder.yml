@@ -3,6 +3,7 @@ productName: Argos
 directories:
   buildResources: apps/desktop/build
 files:
+  - "apps/desktop/out/**"
   - "!**/.claude/*"
   - "!**/.github/*"
   - "!**/.cursor/*"
