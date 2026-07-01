@@ -346,6 +346,16 @@ export const sessionsGetViewManifestsRoute = defineRouteContract({
   }),
 });
 
+export const sessionsGetViewLineageRoute = defineRouteContract({
+  name: "sessions.getViewLineage",
+  input: z.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: z.object({
+    lineage: z.array(TapeViewManifestRecordSchema),
+  }),
+});
+
 export const sessionsTranslateTextRoute = defineRouteContract({
   name: "sessions.translateText",
   input: z.object({

@@ -37,6 +37,7 @@ import {
   sessionsListRoute,
   sessionsListMessageTracesRoute,
   sessionsGetViewManifestsRoute,
+  sessionsGetViewLineageRoute,
   sessionsListPendingInputsRoute,
   sessionsMoveAgentSessionsRoute,
   sessionsMoveQueuedInputRoute,
@@ -233,6 +234,11 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
   async function getViewManifests(sessionId: string) {
     const result = await bridge.invoke(sessionsGetViewManifestsRoute.name, { sessionId });
     return result.manifests as ArgosTapeViewManifestRecord[];
+  }
+
+  async function getViewLineage(sessionId: string) {
+    const result = await bridge.invoke(sessionsGetViewLineageRoute.name, { sessionId });
+    return result.lineage as ArgosTapeViewManifestRecord[];
   }
 
   async function translateText(text: string, locale?: string, agentId?: string) {
@@ -481,6 +487,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     getSearchResults,
     listMessageTraces,
     getViewManifests,
+    getViewLineage,
     translateText,
     getAgents,
     renameSession,

@@ -1627,6 +1627,13 @@ export class AgentSessionPresenter {
     return records;
   }
 
+  async getViewLineage(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
+    const records = await this.getViewManifests(sessionId);
+    return records
+      .slice()
+      .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt));
+  }
+
   async getMessageTraceCount(messageId: string): Promise<number> {
     const normalizedMessageId = messageId?.trim();
     if (!normalizedMessageId) return 0;

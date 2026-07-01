@@ -79,6 +79,8 @@ describe("main kernel contracts", () => {
         "sessions.getGenerationSettings",
         "sessions.getPermissionMode",
         "sessions.getSearchResults",
+        "sessions.getViewLineage",
+        "sessions.getViewManifests",
         "sessions.listMessageTraces",
         "sessions.listPendingInputs",
         "sessions.moveQueuedInput",

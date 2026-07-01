@@ -10,7 +10,7 @@ import type { ArgosMessageStore } from "./messageStore";
 import type { ArgosTapeEntryRow, ArgosTapeSearchInput } from "../sqlitePresenter/tables/argosTapeEntries";
 import { appendMessageRecordToTape } from "./tapeFacts";
 import { buildEffectiveTapeView, getLastEffectiveTokenUsage, searchEffectiveTapeRows } from "./tapeEffectiveView";
-import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "./tapeViewManifest";
+import { TAPE_VIEW_MANIFEST_EVENT_NAME, verifyTapeViewManifest } from "./tapeViewManifest";
 import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
 
 export type TapeMigrationState = "none" | "ready";
@@ -328,6 +328,7 @@ export class ArgosTapeService {
         viewId: manifest.viewId,
         requestSeq: manifest.requestSeq,
         parentViewId: manifest.parentViewId ?? null,
+        integrity: verifyTapeViewManifest(manifest),
       },
       createdAt: manifest.assembledAt,
       idempotent: true,
@@ -388,6 +389,16 @@ export class ArgosTapeService {
       });
     }
     return records;
+  }
+
+  getViewLineageBySession(sessionId: string): ArgosTapeViewManifestRecord[] {
+    return this.getViewManifestsBySession(sessionId)
+      .slice()
+      .sort((a, b) => {
+        const aSeq = a.manifest.assembledAt ?? a.createdAt;
+        const bSeq = b.manifest.assembledAt ?? b.createdAt;
+        return aSeq - bSeq;
+      });
   }
 
   getMessageRecords(sessionId: string): ChatMessageRecord[] {

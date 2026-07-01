@@ -659,6 +659,47 @@ describe("ArgosTapeService — view manifest", () => {
     expect(JSON.parse(eventEntry.meta_json).viewId).toBe(manifest.viewId);
   });
 
+  it("appendViewManifest writes a computed integrity value into meta", () => {
+    const { table, entries } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+    table.ensureBootstrapAnchor("s1");
+    const manifest = makeManifest();
+
+    service.appendViewManifest(manifest);
+
+    const eventEntry = entries.find((e) => e.kind === "event");
+    expect(JSON.parse(eventEntry.meta_json).integrity).toBe("valid");
+  });
+
+  it("getViewLineageBySession returns manifests in chronological order with integrity", () => {
+    const { table } = createTapeTableMock();
+    const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);
+    table.ensureBootstrapAnchor("s1");
+
+    const first = makeManifest({ messageId: "msg-1", requestSeq: 1, assembledAt: 1000 });
+    service.appendViewManifest(first);
+    const second = makeManifest({
+      messageId: "msg-2",
+      requestSeq: 2,
+      assembledAt: 2000,
+      parentViewId: first.viewId,
+    });
+    service.appendViewManifest(second);
+    const third = makeManifest({
+      messageId: "msg-3",
+      requestSeq: 3,
+      assembledAt: 3000,
+      parentViewId: second.viewId,
+    });
+    service.appendViewManifest(third);
+
+    const lineage = service.getViewLineageBySession("s1");
+    expect(lineage.map((record) => record.messageId)).toEqual(["msg-1", "msg-2", "msg-3"]);
+    expect(lineage.map((record) => record.integrity)).toEqual(["valid", "valid", "valid"]);
+    expect(lineage[1].manifest.parentViewId).toBe(first.viewId);
+    expect(lineage[2].manifest.parentViewId).toBe(second.viewId);
+  });
+
   it("getLastViewManifestId returns the most recent manifest viewId", () => {
     const { table, entries } = createTapeTableMock();
     const service = new ArgosTapeService({ argosTapeEntriesTable: table } as any);

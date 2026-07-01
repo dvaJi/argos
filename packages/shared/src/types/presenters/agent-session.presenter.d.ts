@@ -76,6 +76,7 @@ export interface IAgentSessionPresenter {
   deletePendingInput(sessionId: string, itemId: string): Promise<void>;
   resumePendingQueue?(sessionId: string): Promise<void>;
   getViewManifests?(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
+  getViewLineage?(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
   sendMessage(sessionId: string, content: string | SendMessageInput): Promise<MessageStartResult>;
   steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void>;
   retryMessage(sessionId: string, messageId: string): Promise<void>;

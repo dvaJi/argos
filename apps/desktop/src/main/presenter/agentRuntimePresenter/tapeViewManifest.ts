@@ -153,6 +153,14 @@ function attachManifestHash(
   };
 }
 
+export function verifyTapeViewManifest(manifest: ArgosTapeViewManifest): "valid" | "invalid" {
+  const expected = attachManifestHash({
+    ...manifest,
+    hashes: { ...manifest.hashes, manifestHash: "" },
+  });
+  return expected.hashes.manifestHash === manifest.hashes.manifestHash ? "valid" : "invalid";
+}
+
 export function createTapeViewManifest(input: TapeViewManifestBuildInput): ArgosTapeViewManifest {
   const assembledAt = input.assembledAt ?? Date.now();
   const viewId = input.viewId ?? buildViewId(input, assembledAt);

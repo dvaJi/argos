@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createTapeViewManifest,
+  verifyTapeViewManifest,
   buildIncludedRefs,
   buildExcludedRefs,
   hashJson,
@@ -234,5 +235,55 @@ describe("createTapeViewManifest", () => {
   it("defaults parentViewId to null", () => {
     const manifest = createTapeViewManifest({ ...baseInput, assembledAt: 1000 });
     expect(manifest.parentViewId).toBeNull();
+  });
+});
+
+describe("verifyTapeViewManifest", () => {
+  const baseInput = {
+    sessionId: "s1",
+    messageId: "msg-1",
+    requestSeq: 1,
+    taskType: "chat" as const,
+    policy: "legacy_context_v1" as const,
+    messages: [{ role: "user" as const, content: "hello" }],
+    tools: [],
+    latestEntryId: 0,
+    anchorEntryIds: [],
+    included: [],
+    excluded: [],
+    tokenBudget: {
+      contextLength: 8000,
+      requestedMaxTokens: 4000,
+      effectiveMaxTokens: 4000,
+      reserveTokens: 500,
+      toolReserveTokens: 0,
+    },
+    providerId: "openai",
+    modelId: "gpt-4",
+    summaryCursorOrderSeq: 1,
+    supportsVision: false,
+    supportsAudioInput: false,
+    traceDebugEnabled: false,
+  };
+
+  it("returns valid for a freshly built manifest", () => {
+    const manifest = createTapeViewManifest({ ...baseInput, assembledAt: 1000 });
+    expect(verifyTapeViewManifest(manifest)).toBe("valid");
+  });
+
+  it("returns invalid when included refs are mutated after sealing", () => {
+    const manifest = createTapeViewManifest({ ...baseInput, assembledAt: 1000 });
+    const tampered = {
+      ...manifest,
+      included: [
+        { entryId: 9, messageId: "m9", orderSeq: 9, role: "user", source: "tape", reason: "selected_history" },
+      ],
+    };
+    expect(verifyTapeViewManifest(tampered)).toBe("invalid");
+  });
+
+  it("returns invalid when the stored manifestHash is blanked", () => {
+    const manifest = createTapeViewManifest({ ...baseInput, assembledAt: 1000 });
+    expect(verifyTapeViewManifest({ ...manifest, hashes: { ...manifest.hashes, manifestHash: "" } })).toBe("invalid");
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useReducer, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useReducer, useMemo, useEffect, useRef, useCallback, Fragment } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@shadcn/components/ui/dialog";
 import { Button } from "@shadcn/components/ui/button";
 import { Spinner } from "@shadcn/components/ui/spinner";
@@ -73,6 +73,7 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
   const [editorInitialized, setEditorInitialized] = useState(false);
   const [loadState, dispatch] = useReducer(loadReducer, initialLoadState);
   const { loading, error, traces: traceList, selectedTraceId, manifests } = loadState;
+  const [selectedManifestId, setSelectedManifestId] = useState<string | null>(null);
 
   const { cleanupEditor, getEditorView } = useMonaco({
     readOnly: true,
@@ -102,10 +103,23 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     return traceList[0] ?? null;
   }, [traceList, selectedTraceId]);
 
+  const lineage = useMemo(
+    () =>
+      manifests
+        .slice()
+        .sort((a, b) => (a.manifest.assembledAt ?? a.createdAt) - (b.manifest.assembledAt ?? b.createdAt)),
+    [manifests],
+  );
+
   const selectedManifest = useMemo(() => {
-    if (!selectedTrace || !manifests.length) return null;
+    if (!manifests.length) return null;
+    if (selectedManifestId) {
+      const matched = manifests.find((m) => m.manifest.viewId === selectedManifestId);
+      if (matched) return matched;
+    }
+    if (!selectedTrace) return null;
     return manifests.find((m) => m.messageId === selectedTrace.messageId) ?? null;
-  }, [selectedTrace, manifests]);
+  }, [selectedManifestId, selectedTrace, manifests]);
 
   const parsedHeaders = useMemo(() => {
     if (!selectedTrace) return {};
@@ -174,6 +188,7 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
     const currentRequestId = requestIdRef.current;
 
     dispatch({ type: "reset" });
+    setSelectedManifestId(null);
 
     try {
       const tracePromise = sessionClient.listMessageTraces(msgId);
@@ -246,6 +261,34 @@ export default function TraceDialog({ messageId, sessionId, onClose }: TraceDial
 
         {selectedTrace && !loading && !error && (
           <div className="flex flex-col flex-1 min-h-0 space-y-4">
+            {lineage.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-xs text-muted-foreground mr-1">Lineage:</span>
+                {lineage.map((node, index) => {
+                  const integrity = node.integrity ?? "unverified";
+                  const isActive = !!selectedManifest && node.manifest.viewId === selectedManifest.manifest.viewId;
+                  return (
+                    <Fragment key={node.manifest.viewId}>
+                      {index > 0 && <Icon icon="lucide:chevron-right" className="w-3 h-3 text-muted-foreground" />}
+                      <Button
+                        size="sm"
+                        variant={isActive ? "default" : "outline"}
+                        className={
+                          integrity === "invalid"
+                            ? "border-destructive text-destructive"
+                            : integrity === "unverified"
+                              ? "opacity-70"
+                              : ""
+                        }
+                        onClick={() => setSelectedManifestId(node.manifest.viewId)}
+                      >
+                        #{node.requestSeq}
+                      </Button>
+                    </Fragment>
+                  );
+                })}
+              </div>
+            )}
             {traceList.length > 1 && (
               <div className="flex flex-wrap gap-2">
                 {traceList.map((trace) => (

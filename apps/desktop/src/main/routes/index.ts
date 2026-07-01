@@ -162,6 +162,7 @@ import {
   sessionsListRoute,
   sessionsListMessageTracesRoute,
   sessionsGetViewManifestsRoute,
+  sessionsGetViewLineageRoute,
   sessionsListPendingInputsRoute,
   sessionsMoveAgentSessionsRoute,
   sessionsMoveQueuedInputRoute,
@@ -1960,6 +1961,15 @@ export async function dispatchArgosRoute(
       }
       const manifests = await runtime.agentSessionPresenter.getViewManifests(input.sessionId);
       return sessionsGetViewManifestsRoute.output.parse({ manifests });
+    }
+
+    case sessionsGetViewLineageRoute.name: {
+      const input = sessionsGetViewLineageRoute.input.parse(rawInput);
+      if (!runtime.agentSessionPresenter.getViewLineage) {
+        throw new Error("View lineage is not available");
+      }
+      const lineage = await runtime.agentSessionPresenter.getViewLineage(input.sessionId);
+      return sessionsGetViewLineageRoute.output.parse({ lineage });
     }
 
     case sessionsTranslateTextRoute.name: {
