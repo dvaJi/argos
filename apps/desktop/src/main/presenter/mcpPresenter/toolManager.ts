@@ -12,7 +12,6 @@ import {
 import { ServerManager } from "./serverManager";
 import { McpClient } from "./mcpClient";
 import { jsonrepair } from "jsonrepair";
-import { getErrorMessageLabels } from "@shared/i18n";
 import { presenter } from "@/presenter";
 import { getPluginToolPolicy } from "@/presenter/pluginPresenter/toolPolicyStore";
 
@@ -127,15 +126,9 @@ export class ToolManager {
         if (!this.isPluginOwnedClient(client)) {
           // Send notification for normal MCP servers. Plugin-owned MCP errors are shown in
           // plugin status surfaces instead of global toasts.
-          const locale = this.configPresenter.getLanguage?.() || "zh-CN";
-          const errorMessages = getErrorMessageLabels(locale);
-          const formattedMessage =
-            errorMessages.getMcpToolListErrorMessage
-              ?.replace("{serverName}", serverName)
-              .replace("{errorMessage}", errorMessage) ||
-            `Failed to get tool list from server '${serverName}': ${errorMessage}`;
+          const formattedMessage = `Unable to retrieve tool list from server '${serverName}': ${errorMessage}`;
           eventBus.sendToRenderer(NOTIFICATION_EVENTS.SHOW_ERROR, SendTarget.ALL_WINDOWS, {
-            title: errorMessages.getMcpToolListErrorTitle || "Failed to get tool definitions",
+            title: "Failed to Get Tool Definitions",
             message: formattedMessage,
             id: `mcp-error-pass1-${serverName}-${Date.now()}`,
             type: "error",

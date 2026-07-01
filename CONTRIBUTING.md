@@ -106,7 +106,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 - `src/main/`: Electron main process. Presenters, typed route handlers, runtime orchestration, and storage owners live here (window/tab/thread/config/llmProvider/mcp/knowledge/sync/floating button/deeplink/OAuth, etc.).
 - `src/preload/`: Context-isolated bridge. Exposes typed `window.argos` APIs plus a minimal legacy compatibility surface.
-- `src/renderer/`: React 19 + TanStack Router app. Business/UI code lives under `src/renderer/src` (components, stores, pages, lib, i18n). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
+- `src/renderer/`: React 19 + TanStack Router app. Business/UI code lives under `src/renderer/src` (components, stores, pages, lib). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
 - `src/renderer/api/`: Renderer-main boundary layer. Put typed `*Client` classes, event subscriptions, and named runtime wrappers here. `src/renderer/api/legacy/` is quarantine-only compatibility code.
 - `src/shared/`: Shared route contracts, event contracts, types, and utilities used by both processes. Legacy presenter typings still exist for main internals and quarantine adapters.
 - `runtime/`: Bundled runtimes used by MCP and agent tooling (Node/uv).
@@ -166,11 +166,10 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 - **Use typed clients and runtime wrappers from renderer business code**: In `src/renderer/src/**`, prefer `src/renderer/api/*Client`, typed event helpers, and named runtime wrappers. Do not import `@api/legacy/presenters` or add new presenter-name-based transport there.
 - **Do not use Node APIs in the renderer**: All OS/network/filesystem work should go through `window.argos`, typed clients, or explicitly named wrappers. Keep features multi-window-safe by scoping state to `tabId`/`windowId`.
-- **i18n everywhere**: All user-visible strings belong in `src/renderer/src/i18n`; avoid hardcoded text in components.
 - **State & UI**: Favor TanStack Store and composition utilities; keep components stateless where possible and compatible with detached tabs. Consider artifacts, variants, and streaming states when touching chat flows.
 - **LLM/MCP/ACP changes**: Respect rate limits; clean up active streams before switching providers; prefer typed events on migrated paths instead of adding new raw IPC or presenter reflection. For MCP, persist changes through main-owned config/runtime layers and surface server start/stop events. For ACP, always call `registerWorkdir` before reading the filesystem and clear plan/workspace state when sessions end.
 - **Data & persistence**: Route conversation/settings/provider/backup changes through main-owned clients or compatibility adapters; do not write directly into `appData` or other local stores from the renderer.
-- **Testing & quality gates**: Before sending a PR, run `pnpm run format`, `pnpm run lint`, `pnpm run typecheck`, and relevant `pnpm test*` suites. Use `pnpm run i18n` to validate locale keys when adding strings.
+- **Testing & quality gates**: Before sending a PR, run `pnpm run format`, `pnpm run lint`, `pnpm run typecheck`, and relevant `pnpm test*` suites.
 
 ## Code Style
 

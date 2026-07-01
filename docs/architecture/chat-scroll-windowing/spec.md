@@ -24,13 +24,13 @@ ChatTabView
 
 Relevant current files:
 
-- `src/renderer/src/views/ChatTabView.vue`
-- `src/renderer/src/pages/ChatPage.vue`
-- `src/renderer/src/components/chat/MessageList.vue`
-- `src/renderer/src/components/chat/MessageListRow.vue`
-- `src/renderer/src/components/message/MessageItemAssistant.vue`
-- `src/renderer/src/components/message/MessageBlockContent.vue`
-- `src/renderer/src/components/markdown/MarkdownRenderer.vue`
+- `src/renderer/src/views/ChatTabView.tsx`
+- `src/renderer/src/pages/ChatPage.tsx`
+- `src/renderer/src/components/chat/MessageList.tsx`
+- `src/renderer/src/components/chat/MessageListRow.tsx`
+- `src/renderer/src/components/message/MessageItemAssistant.tsx`
+- `src/renderer/src/components/message/MessageBlockContent.tsx`
+- `src/renderer/src/components/markdown/MarkdownRenderer.tsx`
 - `src/renderer/src/stores/ui/message.ts`
 - `src/renderer/src/stores/ui/stream.ts`
 - `src/renderer/src/stores/uiSettingsStore.ts`
@@ -179,7 +179,7 @@ The scroll/layout system should batch work during streaming:
 
 ## Constraints
 
-- Use Vue 3 Composition API patterns already present in the renderer.
+- Use the existing React 19 hook patterns already present in the renderer.
 - Keep changes localized to chat rendering, message layout, and scroll behavior where possible.
 - Do not weaken existing message actions, trace behavior, search behavior, or read-only session behavior.
 - Do not introduce user-facing strings without i18n keys.
@@ -188,4 +188,4 @@ The scroll/layout system should batch work during streaming:
 
 ## Review Notes
 
-The preferred architecture is a dedicated chat windowing model instead of enabling a fully opaque virtual list. Existing `vue-virtual-scroller` usage may still be referenced or used temporarily if it can satisfy the anchor and line-of-sight requirements, but the layout model should remain owned by Argos so minimap and jump behavior have stable coordinates.
+The preferred architecture is a dedicated chat windowing model instead of enabling a fully opaque virtual list. Existing third-party virtual scroller usage may still be referenced or used temporarily if it can satisfy the anchor and line-of-sight requirements, but the layout model should remain owned by Argos so minimap and jump behavior have stable coordinates.

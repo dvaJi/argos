@@ -1,9 +1,13 @@
 import { Tray, Menu, app, nativeImage, NativeImage } from "electron";
 import * as path from "path";
-import { getContextMenuLabels } from "@shared/i18n";
-import { presenter } from ".";
 import { eventBus } from "@/eventbus";
 import { TRAY_EVENTS } from "@/events";
+
+const trayMenuLabels = {
+  open: "Open/Hide",
+  checkForUpdates: "Check for Updates",
+  quit: "Quit",
+} as const;
 
 export class TrayPresenter {
   private tray: Tray | null = null;
@@ -35,24 +39,22 @@ export class TrayPresenter {
     this.tray = new Tray(image);
     this.tray.setToolTip("Argos");
 
-    // Get the current system language
-    const locale = presenter.configPresenter.getLanguage?.() || "zh-CN";
-    const labels = getContextMenuLabels(locale);
+    const labels = trayMenuLabels;
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: labels.open || "Open/Hide",
+        label: labels.open,
         click: () => {
           eventBus.sendToMain(TRAY_EVENTS.SHOW_HIDDEN_WINDOW);
         },
       },
       {
-        label: labels.checkForUpdates || "Check for updates",
+        label: labels.checkForUpdates,
         click: () => {
           eventBus.sendToMain(TRAY_EVENTS.CHECK_FOR_UPDATES);
         },
       },
       {
-        label: labels.quit || "Quit",
+        label: labels.quit,
         click: async () => {
           app.quit(); // Exit trigger: tray menu
         },

@@ -15,13 +15,25 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import contextMenu from "@/contextMenuHelper";
-import { getContextMenuLabels } from "@shared/i18n";
 import { app } from "electron";
 import { addWatermarkToNativeImage } from "@/lib/watermark";
 import { stitchImagesVertically } from "@/lib/scrollCapture";
 import { openExternalUrl } from "@/lib/externalUrl";
 import { presenter } from "./";
 import { getYoBrowserSession } from "./browser/yoBrowserSession";
+
+const tabContextMenuLabels = {
+  copy: "Copy",
+  paste: "Paste",
+  cut: "Cut",
+  selectAll: "Select All",
+  undo: "Undo",
+  redo: "Redo",
+  saveImage: "Save Image...",
+  copyImage: "Copy Image",
+  translate: "Translate",
+  askAI: "Ask AI",
+} as const;
 
 export class TabPresenter implements ITabPresenter {
   // Global tab instance storage
@@ -785,12 +797,9 @@ export class TabPresenter implements ITabPresenter {
       this.tabContextMenuDisposers.delete(tabId);
     }
 
-    const lang = app.getLocale();
-    const labels = await getContextMenuLabels(lang);
-
     const disposer = contextMenu({
       webContents: view.webContents,
-      labels,
+      labels: tabContextMenuLabels,
       shouldShowMenu() {
         return true;
       },

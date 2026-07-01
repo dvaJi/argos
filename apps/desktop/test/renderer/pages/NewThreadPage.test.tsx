@@ -150,11 +150,6 @@ const setup = async (pendingModelId: string) => {
   vi.doMock("@/components/chat/ChatStatusBar", () => ({
     default: () => <div data-testid="chat-status-bar" />,
   }));
-  vi.doMock("react-i18next", () => ({
-    useTranslation: () => ({
-      t: (key: string) => key,
-    }),
-  }));
   vi.doMock("@iconify/react", () => ({
     Icon: () => <span />,
   }));

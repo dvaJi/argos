@@ -58,12 +58,6 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 import TraceDialog from "@/components/trace/TraceDialog";
 
 const mountDialog = () => render(<TraceDialog messageId={null} agentId={null} />);

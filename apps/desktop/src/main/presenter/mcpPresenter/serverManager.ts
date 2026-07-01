@@ -5,7 +5,6 @@ import { proxyConfig } from "@/presenter/proxyConfig";
 import { eventBus, SendTarget } from "@/eventbus";
 import { NOTIFICATION_EVENTS } from "@/events";
 import { MCP_EVENTS } from "@/events";
-import { getErrorMessageLabels } from "@shared/i18n";
 
 const NPM_REGISTRY_LIST = ["https://registry.npmmirror.com/", "https://registry.npmjs.org/", "https://r.cnpmjs.org/"];
 
@@ -259,24 +258,15 @@ export class ServerManager {
     }
   }
 
-  // Handle and send MCP connection error notification
   private sendMcpConnectionError(serverName: string, error: unknown): void {
-    // Import required modules
-
     try {
-      // Get current language
-      const locale = this.configPresenter.getLanguage?.() || "zh-CN";
-      const errorMessages = getErrorMessageLabels(locale);
-
-      // Format error information
       const errorMsg = error instanceof Error ? error.message : "Unknown error";
       const formattedMessage = `${serverName}: ${errorMsg}`;
 
-      // Send global error notification
       eventBus.sendToRenderer(NOTIFICATION_EVENTS.SHOW_ERROR, SendTarget.ALL_WINDOWS, {
-        title: errorMessages.mcpConnectionErrorTitle,
+        title: "MCP Connection Error",
         message: formattedMessage,
-        id: `mcp-error-${serverName}-${Date.now()}`, // Add timestamp and server name to ensure unique ID for each error
+        id: `mcp-error-${serverName}-${Date.now()}`,
         type: "error",
       });
     } catch (notifyError) {

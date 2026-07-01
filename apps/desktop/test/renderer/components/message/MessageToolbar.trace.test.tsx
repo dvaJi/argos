@@ -15,12 +15,6 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 vi.mock("@shadcn/components/ui/button", () => ({
   Button: ({ children, onClick, ...props }: Record<string, any>) => (
     <button onClick={onClick} {...props}>

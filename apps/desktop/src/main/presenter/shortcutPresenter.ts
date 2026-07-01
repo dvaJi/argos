@@ -5,10 +5,9 @@ import { SHORTCUT_EVENTS, TRAY_EVENTS } from "../events";
 import { eventBus, SendTarget } from "../eventbus";
 import { defaultShortcutKey, ShortcutKeySetting } from "./configPresenter/shortcutKeySettings";
 import { IConfigPresenter, IShortcutPresenter } from "@shared/presenter";
-import { getContextMenuLabels, type TranslationMap } from "@shared/i18n";
 import { is } from "@electron-toolkit/utils";
 
-const defaultMenuLabels: TranslationMap = {
+const defaultMenuLabels = {
   file: "File",
   edit: "Edit",
   view: "View",
@@ -57,16 +56,6 @@ export class ShortcutPresenter implements IShortcutPresenter {
     };
   }
 
-  private getLabels(): TranslationMap {
-    const locale = this.configPresenter.getLanguage?.() || app.getLocale?.() || app.getSystemLocale?.() || "en-US";
-    const localizedLabels = getContextMenuLabels(locale);
-
-    return {
-      ...defaultMenuLabels,
-      ...localizedLabels,
-    };
-  }
-
   private accelerator(shortcut: string | undefined): string | undefined {
     return shortcut && shortcut.trim().length > 0 ? shortcut : undefined;
   }
@@ -84,7 +73,7 @@ export class ShortcutPresenter implements IShortcutPresenter {
   }
 
   private installApplicationMenu(): void {
-    const labels = this.getLabels();
+    const labels = defaultMenuLabels;
     const template: MenuItemConstructorOptions[] = [];
 
     if (process.platform === "darwin") {

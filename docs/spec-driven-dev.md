@@ -83,14 +83,14 @@ Prefer forward-looking designs, but treat stored user data, config, and external
 ### 5. UI Consistency
 
 Maintain consistency across the codebase:
-- **Vue 3 Composition API** for all components
-- **i18n** for all user-facing strings in `src/renderer/src/i18n/`
+- **React 19** with the existing hook and composition patterns
+- **TanStack Router** for route-aware UI flows
 - **Tailwind CSS** following existing utility patterns
-- Follow existing component conventions (props, emits, composition patterns)
+- Follow existing component conventions and co-locate behavior with the relevant feature
 
 ### 6. Test-Driven Approach (Pragmatic)
 
-Use Vitest + Vue Test Utils for testing. Test files mirror source structure under `/test/main/` and `/test/renderer/`. Write tests for critical paths and high-impact code. Not exhaustive: focus on value, not coverage.
+Use Vitest + React Testing Library for testing. Test files mirror source structure under `/test/main/` and `/test/renderer/`. Write tests for critical paths and high-impact code. Not exhaustive: focus on value, not coverage.
 
 ## Development Checklist
 
@@ -114,7 +114,6 @@ Use Vitest + Vue Test Utils for testing. Test files mirror source structure unde
 - [ ] Create/update test file
 - [ ] Implement Presenter method(s)
 - [ ] Implement UI component (if needed)
-- [ ] Add i18n keys (if user-facing)
 - [ ] Run: `pnpm run format && pnpm run lint && pnpm run typecheck`
 
 ## Common Patterns
@@ -130,13 +129,13 @@ eventBus.sendToRenderer(CONFIG_EVENTS.SETTING_CHANGED, SendTarget.ALL_WINDOWS, p
 const settingsClient = new SettingsClient()
 await settingsClient.update([{ key: 'fontSizeLevel', value: 2 }])
 
-// 4. Vue 3 Component Pattern
-<script setup lang="ts">
-import { SettingsClient } from '../../api/SettingsClient'
+// 4. React Component Pattern
+function SettingsPanel() {
+  const settingsClient = new SettingsClient();
 
-const settingsClient = new SettingsClient()
-// Composition API logic
-</script>
+  // Hook logic
+  return null;
+}
 ```
 
 Compatibility note:
@@ -154,7 +153,6 @@ Compatibility note:
 - **EventBus**: `src/main/eventbus.ts`
 - **Events**: `src/main/events.ts` (main) and `src/renderer/src/events.ts` (renderer)
 - **IPC bridge**: `src/preload/`
-- **i18n**: `src/renderer/src/i18n/`
 - **Shared types**: `src/shared/presenter.d.ts`
 
 ## Definition of Done (DoD)
@@ -163,5 +161,4 @@ A feature is “done” when:
 
 - The acceptance criteria are met (and ideally covered by tests)
 - Lint/typecheck/tests pass locally
-- User-facing strings use i18n keys
 - Any migrations or breaking changes are documented

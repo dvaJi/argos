@@ -30,7 +30,6 @@ export const dialogRequestSchema = z.object({
   id: EntityIdSchema,
   title: z.string(),
   description: z.string().optional(),
-  i18n: z.boolean(),
   icon: DialogIconSchema.optional(),
   buttons: z.array(DialogButtonSchema),
   timeout: z.number(),

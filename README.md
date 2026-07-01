@@ -155,7 +155,6 @@ See the [Developer Guide](./docs/developer-guide.md) for project structure and a
 - [Report issues](https://github.com/dvaJi/argos/issues)
 - [Submit feature suggestions](https://github.com/dvaJi/argos/issues)
 - [Submit code improvements](https://github.com/dvaJi/argos/pulls)
-- [Help with translation](https://github.com/dvaJi/argos/tree/main/locales)
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full guide.
 

@@ -60,8 +60,7 @@ refresh the related Electron ecosystem dependencies to their latest compatible v
   runtime helpers and unaffected by the build tool).
 - Migrating to `electron-forge` or any other builder — `electron-builder` stays.
 - Bumping non-Electron deps unrelated to the build tool swap.
-- Updating `AGENTS.md` (it describes a Vue 3 stack that does not match this React app —
-  flagged separately as out of scope).
+- Updating `AGENTS.md` to keep repository guidance aligned with the current React app.
 
 ## Constraints
 
@@ -176,7 +175,7 @@ API.
 - No change to packaging output (`dist/`, AppImage, DMG, NSIS).
 - No change to the `apps/daemon` build.
 - No change to plugin bundling pipeline.
-- No migration of the Vue-vs-React stale AGENTS.md (filed separately).
+- No migration of the stale AGENTS.md (filed separately).
 
 ## Open Questions
 

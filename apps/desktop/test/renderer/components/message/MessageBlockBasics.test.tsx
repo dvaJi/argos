@@ -7,28 +7,6 @@ import MessageBlockQuestionRequest from "@/components/message/MessageBlockQuesti
 import ChatToolInteractionOverlay from "@/components/chat/ChatToolInteractionOverlay";
 import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      const messages: Record<string, string> = {
-        "chat.workspace.plan.section": "Plan",
-        "chat.workspace.plan.empty": "No tasks yet",
-        "chat.workspace.plan.itemAriaLabel": "{status}: {step}",
-        "chat.workspace.plan.status.completed": "Completed",
-        "chat.workspace.plan.status.in_progress": "In Progress",
-        "chat.workspace.plan.status.pending": "Pending",
-        "chat.skillDraft.confirmationTitle": "Skill Draft",
-        "chat.skillDraft.confirmationQuestion": "Generated skill draft: {name}",
-        "chat.skillDraft.actions.view": "View contents",
-        "chat.skillDraft.actions.install": "Install as Skill",
-        "chat.skillDraft.actions.discard": "Discard",
-        "chat.skillDraft.previewTitle": "Draft content preview",
-      };
-      return (messages[key] ?? key).replace(/\{(\w+)\}/g, (_, name) => String(params?.[name] ?? ""));
-    },
-  }),
-}));
-
 vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));

@@ -18,7 +18,6 @@ export function createDialogClient(bridge: ArgosBridge = getArgosBridge()) {
       id: string;
       title: string;
       description?: string;
-      i18n: boolean;
       icon?: { icon: string; class: string };
       buttons: Array<{ key: string; label: string; default?: boolean }>;
       timeout: number;

@@ -3,12 +3,6 @@ import { render, screen } from "@testing-library/react";
 import MessageItemAssistant from "@/components/message/MessageItemAssistant";
 import type { DisplayAssistantMessage, DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 vi.mock("@/stores/uiSettingsStore", () => ({
   useUiSettingsStore: () => ({}),
 }));

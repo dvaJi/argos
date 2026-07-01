@@ -557,7 +557,7 @@ sequenceDiagram
     participant User as User
     participant AgentP as AgentPresenter
     participant EventBus as EventBus
-    participant UI as ChatView.vue
+    participant UI as ChatView
     participant SQLite as SQLite
 
     User->>AgentP: sendMessage()
@@ -681,7 +681,7 @@ The `useLegacyPresenter()` section below mainly explains how the legacy transpor
 
 ```mermaid
 sequenceDiagram
-    participant UI as Vue Component
+    participant UI as Renderer Component
     participant UP as useLegacyPresenter
     participant IPC as electron.ipcRenderer
     participant Router as presenter:call
@@ -738,7 +738,7 @@ Proxy handler:
 ### Usage Example
 
 ```typescript
-// In a Vue component
+// In a renderer component
 import { useLegacyPresenter } from '@api/legacy/presenters'
 
 const agentPresenter = useLegacyPresenter('agentSessionPresenter')
@@ -781,7 +781,7 @@ Console output:
 
 ## 🔍 Listening for Events in the Renderer Process
 
-### Listening for Events in a Vue Component
+### Listening for Events in a Renderer Component
 
 ```typescript
 import { eventBus } from '@preload'

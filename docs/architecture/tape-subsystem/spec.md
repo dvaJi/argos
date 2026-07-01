@@ -52,7 +52,7 @@ Re-introduce the tape view manifest layer in three incremental pieces:
 
 ## Non-goals
 
-- **Trace dialog UI** — The upstream surfaces manifest data in a Vue trace
+- **Trace dialog UI** — The upstream surfaces manifest data in a trace
   dialog. The fork is React and does not yet have a trace dialog. Building one
   is a separate feature; this spec covers only the backend manifest layer.
 - **Changing compaction or context-budget logic** — The manifest records what

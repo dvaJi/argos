@@ -367,7 +367,6 @@ export class KnowledgePresenter implements IKnowledgePresenter {
         { key: "confirm", label: "settings.knowledgeBase.dialog.beforequit.confirm", default: true },
       ],
       timeout: 10000,
-      i18n: true,
     });
     return choice === "confirm";
   }

@@ -26,7 +26,6 @@ pnpm run start
 pnpm run build
 pnpm run typecheck
 pnpm run format
-pnpm run i18n
 pnpm run lint
 pnpm test
 ```
@@ -150,7 +149,6 @@ After making changes, run at minimum:
 
 ```bash
 pnpm run format
-pnpm run i18n
 pnpm run lint
 pnpm run typecheck
 ```

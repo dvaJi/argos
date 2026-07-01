@@ -7,44 +7,6 @@ const { selectSessionMock } = vi.hoisted(() => ({
   selectSessionMock: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: { count?: number; mode?: string }) => {
-      if (key === "toolCall.replacementsCount") {
-        return `${params?.count ?? 0} replacements`;
-      }
-      if (key === "toolCall.badge.rtk") {
-        return "RTK";
-      }
-      if (key === "chat.toolCall.subagents.summary") {
-        return `${params?.mode ?? "mode"} · ${params?.count ?? 0} localized subagents`;
-      }
-      if (key === "chat.toolCall.subagents.mode.parallel") {
-        return "localized parallel";
-      }
-      if (key === "chat.toolCall.subagents.mode.chain") {
-        return "localized chain";
-      }
-      if (key === "chat.toolCall.subagents.status.running") {
-        return "localized running";
-      }
-      if (key === "chat.toolCall.subagents.status.waiting_permission") {
-        return "localized waiting permission";
-      }
-      if (key === "chat.toolCall.subagents.status.completed") {
-        return "localized completed";
-      }
-      if (key === "chat.toolCall.subagents.unnamedTask") {
-        return "Unnamed Task";
-      }
-      if (key === "settings.argosAgents.unnamed") {
-        return "Unnamed Agent";
-      }
-      return key;
-    },
-  }),
-}));
-
 vi.mock("@/stores/theme", () => ({
   useThemeStore: () => ({
     isDark: false,

@@ -18,7 +18,6 @@ import { ToolManager } from "./toolManager";
 import { McpRouterManager } from "./mcprouterManager";
 import { eventBus, SendTarget } from "@/eventbus";
 import { MCP_EVENTS, NOTIFICATION_EVENTS } from "@/events";
-import { getErrorMessageLabels } from "@shared/i18n";
 import { presenter } from "@/presenter";
 import { publishArgosEvent } from "@/routes/publishArgosEvent";
 import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
@@ -358,14 +357,9 @@ export class McpPresenter implements IMCPPresenter {
     const existingServers = await this.getMcpServers();
     if (existingServers[serverName]) {
       console.error(`[MCP] Failed to add server: Server name "${serverName}" already exists.`);
-      // Get current language and send notification
-      const locale = this.configPresenter.getLanguage?.() || "zh-CN";
-      const errorMessages = getErrorMessageLabels(locale);
       eventBus.sendToRenderer(NOTIFICATION_EVENTS.SHOW_ERROR, SendTarget.ALL_WINDOWS, {
-        title: errorMessages.addMcpServerErrorTitle || "Failed to add server",
-        message:
-          errorMessages.addMcpServerDuplicateMessage?.replace("{serverName}", serverName) ||
-          `Server name "${serverName}" already exists. Please choose a different name.`,
+        title: "Failed to Add Server",
+        message: `Server name "${serverName}" already exists. Please choose a different name.`,
         id: `mcp-error-add-server-${serverName}-${Date.now()}`,
         type: "error",
       });

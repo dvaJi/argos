@@ -47,12 +47,6 @@ describe("WorkspaceViewer", () => {
 
     const openFileMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
-    vi.doMock("react-i18next", () => ({
-      useTranslation: () => ({
-        t: (key: string) => key,
-      }),
-    }));
-
     vi.doMock("@/stores/ui/sidepanel", () => ({
       useSidepanelStore: () => sidepanelStore,
     }));

@@ -4,12 +4,6 @@ import MessageBlockAudio from "@/components/message/MessageBlockAudio";
 import MessageBlockImage from "@/components/message/MessageBlockImage";
 import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 const createBlock = (overrides: Partial<DisplayAssistantMessageBlock> = {}): DisplayAssistantMessageBlock => ({
   type: "image",
   status: "success",

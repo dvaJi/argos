@@ -16,16 +16,6 @@ const getVisibleMentionLabel = (block: DisplayUserMessageMentionBlock) => {
   return block.content;
 };
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      if (key === "common.expand") return "Expand";
-      if (key === "common.collapse") return "Collapse";
-      return key;
-    },
-  }),
-}));
-
 vi.mock("@iconify/react", () => ({
   Icon: () => <span className="icon-stub" />,
 }));

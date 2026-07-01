@@ -2063,7 +2063,6 @@ export interface DialogIcon {
 export interface DialogRequestParams {
   title: string;
   description?: string;
-  i18n?: boolean;
   icon?: DialogIcon;
   buttons?: DialogButton[];
   timeout?: number;
@@ -2073,7 +2072,6 @@ export interface DialogRequest {
   id: string;
   title: string;
   description?: string;
-  i18n: boolean;
   icon?: DialogIcon;
   buttons: DialogButton[];
   timeout: number;

@@ -4,12 +4,6 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import WorkspacePreviewPane from "../../../src/renderer/src/components/sidepanel/viewer/WorkspacePreviewPane";
 import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
-
 const createFilePreview = (overrides: Record<string, unknown> = {}) => ({
   path: "C:/repo/docs/index.html",
   relativePath: "docs/index.html",

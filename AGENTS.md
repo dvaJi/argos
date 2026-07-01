@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - `src/main/`: Electron main process; presenters in `presenter/` (Window/Tab/Thread/Mcp/Config/LLMProvider), `eventbus.ts` for app events.
 - `src/preload/`: Secure IPC bridge (contextIsolation on). Typed `window.argos` bridge via `createBridge.ts` → `packages/client-sdk`.
-- `src/renderer/`: React 19 + TanStack Router app. App code in `src/renderer/src` (`components/`, `stores`, `pages`, `i18n`, `lib`). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
+- `src/renderer/`: React 19 + TanStack Router app. App code in `src/renderer/src` (`components/`, `stores`, `pages`, `lib`). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
 - `src/renderer/api/`: Renderer-main boundary layer. Typed `*Client` classes, event subscriptions, named runtime wrappers. `src/renderer/api/legacy/` is quarantine-only compatibility code (max 3 files).
 - `src/shadcn/`: shadcn/ui components shared across renderers.
 - `src/shared/`: Shared route contracts (Zod-validated), event contracts, types, and utilities.
@@ -18,10 +18,9 @@
 - Type check: `pnpm run typecheck` (or `typecheck:node` / `typecheck:web`). Uses `tsgo` (native TS preview).
 - Lint: `pnpm run lint` (runs `agent-cleanup-guard`, `architecture-guard`, then `oxlint`).
 - Format: `pnpm run format` (oxfmt). Check: `pnpm run format:check`.
-- After completing a feature, always run `pnpm run format`, `pnpm run i18n` and `pnpm run lint`.
+- After completing a feature, always run `pnpm run format` and `pnpm run lint`.
 - Test: `pnpm test`, `test:main`, `test:renderer`, `test:coverage`, `test:watch`, `test:ui`.
 - Build: `pnpm run build` then `build:win|mac|linux` (add `:x64|:arm64`).
-- i18n: `pnpm run i18n` validates locale keys.
 
 ## Turborepo + Vite + Electron Development
 
@@ -111,7 +110,6 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 
 ## Coding Style & Naming Conventions
 - TypeScript + React 19 + TanStack Router; TanStack Store for state; Tailwind CSS + shadcn/ui for styles.
-- i18n: all user-facing strings use i18n keys in `src/renderer/src/i18n`.
 - Oxfmt: double quotes, semicolons, width 120, trailing commas. Run `pnpm run format`.
 - OxLint for JS/TS; hooks run `lint-staged` and `typecheck`.
 - Names: React components PascalCase (`ChatInput.tsx`); variables/functions `camelCase`; types/classes `PascalCase`; constants `SCREAMING_SNAKE_CASE`.

@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, act } from "@testing-library/react";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => `${key}:${params?.seconds ?? ""}`,
-  }),
-}));
-
 const configClient = {
   getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
   setSetting: vi.fn<(...args: any[]) => any>(),

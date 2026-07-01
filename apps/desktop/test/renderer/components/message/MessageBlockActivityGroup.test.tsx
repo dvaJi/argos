@@ -3,41 +3,6 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import MessageBlockActivityGroup from "@/components/message/MessageBlockActivityGroup";
 import type { DisplayAssistantMessageBlock, DisplayMessageUsage } from "@/components/chat/messageListItems";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      if (key === "chat.activityCollapse.workedFor") {
-        return `Worked for ${params?.duration}`;
-      }
-      if (key === "chat.activityCollapse.reasoningCount") {
-        return `${params?.count} thought(s)`;
-      }
-      if (key === "chat.activityCollapse.toolCallCount") {
-        return `${params?.count} tool call(s)`;
-      }
-      if (key === "chat.activityCollapse.expandLabel") {
-        return `Expand ${params?.title}`;
-      }
-      if (key === "chat.activityCollapse.collapseLabel") {
-        return `Collapse ${params?.title}`;
-      }
-      if (key === "chat.activityCollapse.duration.day") {
-        return "d ";
-      }
-      if (key === "chat.activityCollapse.duration.hour") {
-        return "h ";
-      }
-      if (key === "chat.activityCollapse.duration.minute") {
-        return "m ";
-      }
-      if (key === "chat.activityCollapse.duration.second") {
-        return "s";
-      }
-      return key;
-    },
-  }),
-}));
-
 const usage: DisplayMessageUsage = {
   context_usage: 0,
   tokens_per_second: 0,

@@ -3453,12 +3453,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     const manifest = readPackageJsonManifest(normalizedWorkdir);
     const isArgosWorkspace =
       String(manifest?.name ?? "").toLowerCase() === "argos" ||
-      ["format", "i18n", "lint"].every((script) => verificationScripts.includes(script));
+      ["format", "lint"].every((script) => verificationScripts.includes(script));
 
     if (isArgosWorkspace) {
-      lines.push(
-        "In the Argos repository, prioritize `pnpm run format`, `pnpm run i18n`, and `pnpm run lint` after feature work.",
-      );
+      lines.push("In the Argos repository, prioritize `pnpm run format` and `pnpm run lint` after feature work.");
     } else if (verificationScripts.length > 0) {
       const suggestedScripts = verificationScripts.slice(0, 4).map((scriptName) => `\`${scriptName}\``);
       lines.push(`When relevant, prefer project-local verification scripts such as ${suggestedScripts.join(", ")}.`);

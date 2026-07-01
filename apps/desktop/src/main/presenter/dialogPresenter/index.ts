@@ -37,7 +37,6 @@ export class DialogPresenter implements IDialogPresenter {
           id: nanoid(8), // Better to use current DEFAULT_TAB id to control max one dialog per window, but currently lacks access method
           title: request.title,
           description: request.description,
-          i18n: !!request.i18n,
           icon: request.icon,
           buttons: request.buttons ?? [{ key: "ok", label: "OK" }],
           timeout: request.timeout ?? 0,
