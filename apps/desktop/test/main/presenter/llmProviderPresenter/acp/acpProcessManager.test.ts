@@ -659,7 +659,7 @@ describe("AcpProcessManager config cache fallback", () => {
       readyAt: Date.now(),
       state: "warmup",
       workdir: "/tmp/workspace",
-      launchSignature: JSON.stringify({
+      launchFingerprint: JSON.stringify({
         command: "agent",
         args: [],
         env: {},

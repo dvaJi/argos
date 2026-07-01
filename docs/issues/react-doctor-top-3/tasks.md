@@ -1,0 +1,6 @@
+- [ ] Add SDD artifacts for the React Doctor cleanup pass.
+- [ ] Remove unused desktop dependencies/devDependencies from `apps/desktop/package.json`.
+- [ ] Rename the ACP warmup reuse fingerprint line to avoid the insecure-crypto false positive.
+- [ ] Split the Telegram runtime fingerprint comparison into neutral variables.
+- [ ] Fix the vendored Recharts false positive by separating the `Math.random()` line from the bundled one-liner context.
+- [ ] Run formatting, i18n, lint, and React Doctor verification.
