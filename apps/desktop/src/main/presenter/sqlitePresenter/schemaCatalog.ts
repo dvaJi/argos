@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+﻿import Database from "better-sqlite3-multiple-ciphers";
 import { ConversationsTable } from "./tables/conversations";
 import { MessagesTable } from "./tables/messages";
 import { MessageAttachmentsTable } from "./tables/messageAttachments";
@@ -19,6 +19,7 @@ import { ArgosSearchDocumentsTable } from "./tables/argosSearchDocuments";
 import { ArgosPendingInputsTable } from "./tables/argosPendingInputs";
 import { ArgosUsageStatsTable } from "./tables/argosUsageStats";
 import { ArgosTapeEntriesTable } from "./tables/argosTapeEntries";
+import { AgentMemoryTable } from "./tables/agentMemory";
 import { LegacyImportStatusTable } from "./tables/legacyImportStatus";
 import { AgentsTable } from "./tables/agents";
 import { NewSessionActiveSkillsTable } from "./tables/newSessionActiveSkills";
@@ -176,6 +177,10 @@ const CATALOG_DEFINITIONS: CatalogDefinition[] = [
   {
     name: "argos_tape_entries",
     createTable: (db) => new ArgosTapeEntriesTable(db),
+  },
+  {
+    name: "agent_memory",
+    createTable: (db) => new AgentMemoryTable(db),
   },
   {
     name: "legacy_import_status",

@@ -13,7 +13,9 @@ import type {
   SessionKind,
 } from "@shared/types/agent-interface";
 import type { ISkillPresenter } from "@shared/types/skill";
+import type { AgentMemoryCategory } from "@shared/types/agent-memory";
 import type { ArgosInternalSessionUpdate } from "../agentRuntimePresenter/internalSessionEvents";
+import type { MemoryWriteOutcome } from "../memoryPresenter/types";
 
 export interface ConversationSessionInfo {
   sessionId: string;
@@ -60,6 +62,20 @@ export interface AgentToolRuntimePort {
   ): Promise<AgentTapeSearchResult[]>;
   listTapeAnchors?(conversationId: string, options?: AgentTapeAnchorsOptions): Promise<AgentTapeAnchorResult[]>;
   handoffTape?(conversationId: string, name: string, state?: Record<string, unknown>): Promise<AgentTapeAnchorResult>;
+  isMemoryEnabled?(agentId: string): boolean;
+  rememberMemory?(
+    agentId: string,
+    input: {
+      content: string;
+      kind: "semantic" | "episodic";
+      category?: AgentMemoryCategory | null;
+      importance?: number;
+    },
+    sourceSession?: string | null,
+    model?: { providerId: string; modelId: string } | null,
+  ): Promise<MemoryWriteOutcome>;
+  recallMemory?(agentId: string, query: string): Promise<Array<{ id: string; kind: string; content: string }>>;
+  forgetMemory?(agentId: string, memoryId: string): Promise<boolean>;
   createSubagentSession(input: CreateSubagentSessionInput): Promise<ConversationSessionInfo | null>;
   mergeSubagentTape?(parentSessionId: string, childSessionId: string, meta?: Record<string, unknown>): Promise<void>;
   discardSubagentTape?(parentSessionId: string, childSessionId: string, meta?: Record<string, unknown>): Promise<void>;

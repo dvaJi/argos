@@ -102,7 +102,6 @@ export default function ScheduledTasksSettings() {
       const [nextSettings, nextAgents] = await Promise.all([client.list(), configClient.listAgents()]);
       setSettings(nextSettings);
       setAgents(nextAgents);
-      refreshFormBuffers();
     } catch (error) {
       toast({
         title: "Operation failed",
@@ -112,7 +111,7 @@ export default function ScheduledTasksSettings() {
     } finally {
       setIsLoading(false);
     }
-  }, [client, configClient, toast, refreshFormBuffers]);
+  }, [client, configClient, toast]);
 
   const persistTask = useCallback(
     async (task: ScheduledTask) => {

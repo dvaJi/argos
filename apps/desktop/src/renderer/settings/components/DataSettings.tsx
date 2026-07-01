@@ -376,10 +376,9 @@ export default function DataSettings() {
       setIsDatabaseSecurityStatusLoaded(true);
     } catch (error) {
       console.error("Failed to load database encryption status:", error);
-      setIsDatabaseSecurityStatusLoaded(Boolean(databaseSecurityStatus));
       setHasDatabaseSecurityStatusError(true);
     }
-  }, [databaseSecurityClient, databaseSecurityStatus]);
+  }, [databaseSecurityClient]);
 
   const openDatabaseEncryptionDialog = useCallback(
     (action: "enable" | "change" | "disable") => {
@@ -529,7 +528,8 @@ export default function DataSettings() {
         setHasDatabaseSecurityStatusError(true);
       }
     })();
-  }, [databaseSecurityClient, refreshDatabaseSecurityStatus, syncStore]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!cloudConfig) return;

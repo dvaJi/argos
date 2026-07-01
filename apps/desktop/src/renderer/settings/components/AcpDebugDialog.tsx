@@ -191,7 +191,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
           {methodOptions.map((method) => (
             <button
               key={method.value}
-              className={`w-full text-left rounded-md border transition flex flex-col gap-1 px-3 py-2 ${selectedMethod === method.value ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"}`}
+              className={`w-full text-left rounded-md border transition flex flex-col gap-1 px-3 py-2 ${selectedMethod === method.value ? "border-accent-400 bg-accent-400/10" : "border-border hover:border-primary/60"}`}
               disabled={!processReady && method.value !== "initialize"}
               onClick={() => {
                 setSelectedMethod(method.value);

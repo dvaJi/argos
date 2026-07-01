@@ -78,3 +78,75 @@ Legend: `fork file` ← `source file` · role
 - `apps/desktop/src/main/presenter/windowPresenter/index.ts` · passes `process.arch` to
   `resolveSettingsNavigationPath` (the only src/main caller of the nav helpers).
 - `plugins/cua/plugin.json` · `engines.targets` + per-arch runtime detect entries.
+
+## Memory subsystem
+
+- `packages/shared/src/types/agent-memory.ts` ← `src/shared/types/agent-memory.ts`
+  · `AGENT_MEMORY_CATEGORIES`, `AgentMemoryCategory`, `CATEGORY_IMPORTANCE_FLOOR`, `isAgentMemoryCategory()`.
+- `packages/shared-contracts/src/routes/memory.routes.ts` ← `src/shared/contracts/routes/memory.routes.ts`
+  · Route contracts: `memory.list`, `memory.getStatus`, `memory.search`, `memory.add`, `memory.delete`, `memory.clear`.
+  · Registered in `ARGOS_ROUTE_CATALOG` (287 routes).
+- `apps/desktop/src/main/presenter/memoryPresenter/types.ts` ← `src/main/presenter/memoryPresenter/types.ts`
+  · `MemoryRepositoryPort`, `MemoryCandidate`, `NormalizedMemoryCandidate`, `MemoryWriteOutcome`,
+  `MemoryPresenterDeps`, `MemoryExtractionInput`, `MemoryExtractionResult`, `MemoryReflectionResult`,
+  `MemoryPersonaDraftResult`, constants (`DEFAULT_RETRIEVAL`, `DEFAULT_SIMILARITY_THRESHOLD`, etc.).
+- `apps/desktop/src/main/presenter/memoryPresenter/scoring.ts` ← `src/main/presenter/memoryPresenter/scoring.ts`
+  · `buildMemoryProvenanceKey()`, `distanceToSimilarity()`, `recencyScore()`, `resolveRetrieval()`,
+  `retrievalScore()`, `decayScore()`, `fuse()` (RRF), `parseSourceEntryIds()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/extraction.ts` ← `src/main/presenter/memoryPresenter/extraction.ts`
+  · `buildTriagePrompt()`, `buildExtractionPrompt()`, `parseTriageDecision()`, `parseMemoryCandidates()`,
+  `buildReflectionPrompt()`, `buildReflectionInsightsPrompt()`, `parseReflectionInsights()`,
+  `personaChangeRatio()`, `sanitizeSelfModel()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/decision.ts` ← `src/main/presenter/memoryPresenter/decision.ts`
+  · `buildDecisionPrompt()`, `parseDecision()`, `ADD_DECISION`, `MemoryDecision` type.
+- `apps/desktop/src/main/presenter/memoryPresenter/injectionPort.ts` ← `src/main/presenter/memoryPresenter/injectionPort.ts`
+  · `MemoryInjectionPort`, `MemoryRuntimePort`, `MemoryInjectionPayload`, `MemoryInjectionResult`,
+  `buildMemorySection()`, `appendMemorySection()`, `appendMemorySectionWithManifest()`,
+  `estimateTokens()`, `resolveInjectionTokenBudget()`, `sanitizeForInjection()`.
+- `apps/desktop/src/main/presenter/memoryPresenter/index.ts` ← `src/main/presenter/memoryPresenter/index.ts`
+  · `MemoryPresenter` class: extraction pipeline, coordinate write, injection, consolidation,
+  reflection, persona lifecycle, background maintenance, vector store management.
+- `apps/desktop/src/main/presenter/memoryPresenter/memoryVectorStore.ts` (new, no upstream equivalent)
+  · `MemoryVectorStore` class: DuckDB sidecar with HNSW index for vector similarity search.
+- `apps/desktop/src/main/presenter/sqlitePresenter/tables/agentMemory.ts` ← `src/main/presenter/sqlitePresenter/tables/agentMemory.ts`
+  · `AgentMemoryTable` with full schema, FTS support, CRUD operations.
+- `apps/desktop/src/main/presenter/toolPresenter/agentTools/agentMemoryTools.ts` ← `src/main/presenter/toolPresenter/agentTools/agentMemoryTools.ts`
+  · `AgentMemoryToolHandler` with `memory_remember`, `memory_recall`, `memory_forget` tools.
+- `apps/desktop/src/main/presenter/toolPresenter/runtimePorts.ts` (modified)
+  · Added `isMemoryEnabled`, `rememberMemory`, `recallMemory`, `forgetMemory` to `AgentToolRuntimePort`.
+- `apps/desktop/src/main/presenter/agentRuntimePresenter/index.ts` (modified)
+  · Memory injection at 3 system prompt assembly points, post-turn extraction hook,
+  `memoryPort` dependency, `buildMemoryInjection()`, `triggerMemoryExtraction()` helpers.
+- `apps/desktop/src/main/presenter/sqlitePresenter/schemaCatalog.ts` (modified)
+  · `AgentMemoryTable` registered in catalog.
+
+## Memory subsystem — integration (PR #13)
+
+- `apps/desktop/src/main/presenter/index.ts` (modified) ← `src/main/presenter/index.ts`
+  · `MemoryPresenter` instantiated with deps (repository=`agentMemoryTable`,
+  `resolveAgentConfig`=`AgentRepository.resolveArgosAgentConfig` (sync),
+  `getEmbeddings`/`generateText`=`llmproviderPresenter`, DuckDB vector store under
+  `userData/memory_vectors/`). `memoryPort` passed to `AgentRuntimePresenter`;
+  `isMemoryEnabled`/`rememberMemory`/`recallMemory`/`forgetMemory` wired into
+  `agentToolRuntime`. `startBackgroundMaintenance()` in `init()`; `dispose()` in `destroy()`.
+- `apps/desktop/src/main/presenter/agentRepository/index.ts` (modified)
+  · `mergeArgosConfig` must list memory fields explicitly (it builds a new object, so
+  omitted fields are dropped): `memoryEnabled`, `memoryEmbedding`, `memoryExtractionModel`,
+  `memoryRetrieval`, `personaEvolutionEnabled`. Without this the config never reaches the presenter.
+- `packages/shared/src/types/agent-interface.d.ts` (modified)
+  · `ArgosAgentConfig.personaEvolutionEnabled` — persona evolution is opt-in.
+- `apps/desktop/src/renderer/api/MemoryClient.ts` ← `src/renderer/api/MemoryClient.ts`
+  · `createMemoryClient()` factory; scoped to the 6 routes argos has (list/getStatus/search/
+  add/delete/clear). `add()` takes a discriminated union (`MemoryAddByKindInput |
+  MemoryAddByCategoryInput`) — `kind` and `category` are mutually exclusive and only one is
+  forwarded in the payload. No `onUpdated` (argos has no `memoryUpdatedEvent` yet).
+  · Note: the 6 route **handlers** are NOT wired in `dispatchArgosRoute` — routes are inert
+  from the renderer until T3.2 lands. The client is ready and bridge-mocked-tested.
+- `apps/desktop/src/renderer/settings/components/MemoryManagerPanel.tsx` ← `src/renderer/settings/components/MemoryManagerPanel.vue`
+  · React rebuild of the memories management surface (list/add/search/filter/delete/clear).
+  Persona + activity tabs omitted (argos has no persona/audit/manifest route contracts yet).
+  Category/kind mutual-exclusivity in the add form matches the client union. Strings are
+  hardcoded English (matches the surrounding `ArgosAgentsSettings.tsx` convention; i18n deferred).
+- `apps/desktop/src/renderer/settings/components/MemoryManagerDialog.tsx` ← `src/renderer/settings/components/MemoryManagerDialog.vue`
+  · Thin `Dialog` wrapper mounting the panel; opened from a "Manage memory" button in
+  `ArgosAgentsSettings.tsx`.

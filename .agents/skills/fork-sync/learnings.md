@@ -90,3 +90,70 @@ mistakes.
 - **CRLF/LF noise:** prior branches can leave line-ending-only "modifications" in the
   working tree. `git checkout -- .` before staging, and stage port files explicitly
   (don't `git add -A`).
+
+## 2026-06 — memory subsystem (port exploration)
+
+- **Fork has zero memory infrastructure.** No `agentMemory` table, no memoryPresenter,
+  no memory types, no memory routes, no memory tools. The entire subsystem must be
+  ported from scratch — the task-aware categories commit (#1802) is an enhancement to
+  an existing system that doesn't exist in the fork yet.
+- **Table naming**: fork uses `argos_*` (not `deepchat_*`). The tape table is
+  `argos_tape_entries`, so the memory table should be `argos_agent_memory`.
+- **LLM access pattern**: `LLMProviderPresenter.generateText(providerId, prompt, modelId)`
+  returns `LLMResponse`. `getEmbeddings(providerId, modelId, texts)` returns `number[][]`.
+  Embedding support is provider-dependent (OpenAI/Google have strategies; others throw).
+- **Tool pattern**: `AgentToolRuntimePort` interface in `toolPresenter/runtimePorts.ts`
+  provides the bridge. New tool handlers follow `agentTapeTools.ts` pattern.
+- **Route pattern**: `defineRouteContract()` in `packages/shared-contracts/src/routes/`,
+  registered in `ARGOS_ROUTE_CATALOG`. Handlers live in `apps/desktop/src/main/routes/`.
+- **System prompt injection**: `compactionService.ts` has `appendSummarySection()` and
+  `appendReconstructionAnchorStateSection()`. Memory section follows same pattern.
+- **Circular import guard**: memoryPresenter must NOT import `@/presenter` barrel at
+  top level (same pattern as baseProvider/devicePresenter). Use lazy imports.
+- **DuckDB sidecar**: vector store is per-agent, lazy-initialized. Identity fingerprint
+  is `providerId:modelId:dimensions`. Must handle model/dimension changes with reindex.
+
+## 2026-06 — memory subsystem (Phase 4 implementation)
+
+- **Upstream memoryPresenter is ~1700 lines** vs fork's 483-line base. The bulk is
+  extraction pipeline, coordinate write (Mem0-style dedup/update/supersede/challenge),
+  consolidation (offline dedup with LLM budget), reflection (synthesize insights), and
+  persona evolution (draft/approve/reject/rollback). All ported in one pass.
+- **`MemoryPresenterDeps.generateText`** is essential for extraction/decision/consolidation.
+  Must be in the deps interface (added in Phase 2). The fork's `LLMProviderPresenter`
+  returns `LLMResponse` but the upstream expects `string` — the presenter's `generateText`
+  wrapper handles the conversion.
+- **`agent-interface.d.ts` additions**: `memoryEnabled`, `memoryEmbedding`, `memoryExtractionModel`,
+  `memoryRetrieval` added to `ArgosAgentConfig`. `personaEvolutionEnabled` is referenced by
+  upstream but not yet in the fork's config type — deferred.
+- **System prompt injection**: 3 assembly points in `agentRuntimePresenter/index.ts` all
+  need memory injection. The steer path uses `params.requestMessages` (not `params.messages`).
+  The resume path uses empty query for memory injection.
+- **Post-turn extraction**: fires after `applyProcessResultStatus` on completed turns.
+  Uses `buildEffectiveTapeView` (property is `messageRecords`, not `messageEntries`).
+  Must not block the chat — all extraction is fire-and-forget with `.catch(() => undefined)`.
+- **`agent_memory` table is named `agent_memory`** (not `argos_agent_memory`) — the table
+  name in `schemaCatalog.ts` matches the source exactly since it's not prefixed with argos.
+
+## 2026-06 — memory subsystem (integration + client port, PR #13)
+
+- **`mergeArgosConfig` drops unlisted fields.** It builds a new object with an explicit
+  field list, so any `ArgosAgentConfig` key NOT in that list is silently lost during
+  `resolveArgosAgentConfig`. The memory fields (`memoryEnabled` etc.) were missing → memory
+  never activated. Always add new config fields to `mergeArgosConfig` in `agentRepository`.
+- **`AgentRepository.resolveArgosAgentConfig` is sync**, but `ConfigPresenter.resolveArgosAgentConfig`
+  is async. `MemoryPresenterDeps.resolveAgentConfig` is sync (called from sync `isEnabled`), so
+  wire it to the repository, not the presenter.
+- **`generateText` arg order differs.** `MemoryPresenterDeps.generateText(providerId, modelId, prompt)`
+  vs `LLMProviderPresenter.generateText(providerId, prompt, modelId)` returning `LLMResponse` —
+  wrap and extract `.content`.
+- **A brand-new table's `getMigrationSQL` should return null.** `createTable()` already creates
+  the full schema; ALTER TABLE ADD COLUMN migrations are redundant (and noisy even though
+  `shouldIgnoreMigrationStatementError` tolerates "duplicate column name").
+- **Renderer client port is scoped by available routes.** Upstream `MemoryClient` has ~18 methods;
+  argos only has 6 memory routes. Port only the methods whose route contracts exist, else imports
+  of non-existent route contracts fail to compile. The route **handlers** (`dispatchArgosRoute`
+  cases) are still pending (T3.2) — the client is ready but inert until those land.
+- **`kind`/`category` mutual exclusivity** (source #1851): the manual-add client API makes them
+  a discriminated union (`category?: never` on the kind variant and vice-versa) and forwards
+  only one in the payload. Port the union, not the pre-fix shape that dropped `category`.

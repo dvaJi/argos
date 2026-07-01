@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root";
+import { Route as DocsRouteImport } from "./routes/docs";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AuthGithubCallbackRouteImport } from "./routes/auth/github/callback";
 
+const DocsRoute = DocsRouteImport.update({
+  id: "/docs",
+  path: "/docs",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
@@ -25,32 +31,43 @@ const AuthGithubCallbackRoute = AuthGithubCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/docs": typeof DocsRoute;
   "/auth/github/callback": typeof AuthGithubCallbackRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/docs": typeof DocsRoute;
   "/auth/github/callback": typeof AuthGithubCallbackRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/docs": typeof DocsRoute;
   "/auth/github/callback": typeof AuthGithubCallbackRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/auth/github/callback";
+  fullPaths: "/" | "/docs" | "/auth/github/callback";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/auth/github/callback";
-  id: "__root__" | "/" | "/auth/github/callback";
+  to: "/" | "/docs" | "/auth/github/callback";
+  id: "__root__" | "/" | "/docs" | "/auth/github/callback";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  DocsRoute: typeof DocsRoute;
   AuthGithubCallbackRoute: typeof AuthGithubCallbackRoute;
 }
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/docs": {
+      id: "/docs";
+      path: "/docs";
+      fullPath: "/docs";
+      preLoaderRoute: typeof DocsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/": {
       id: "/";
       path: "/";
@@ -70,6 +87,7 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocsRoute: DocsRoute,
   AuthGithubCallbackRoute: AuthGithubCallbackRoute,
 };
 export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>();

@@ -666,6 +666,31 @@ export class WindowPresenter implements IWindowPresenter {
     this.windows.set(windowId, appWindow); // Store the window instance in the Map
 
     managedWindowState.manage(appWindow); // Start managing window state
+
+    // electron-window-state only flushes to disk on the window's 'closed'
+    // event. Under hide-to-tray the main window is hidden (not destroyed), so
+    // 'closed' — and therefore the disk write — only fires on a full app quit,
+    // meaning a crash/kill loses the last bounds. Flush explicitly on hide and
+    // (debounced) on resize/move so size/position persist reliably.
+    let boundsFlushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flushWindowState = () => {
+      if (!appWindow.isDestroyed()) {
+        try {
+          managedWindowState.saveState(appWindow);
+        } catch {
+          // ignore write errors
+        }
+      }
+    };
+    appWindow.on("resize", () => {
+      if (boundsFlushTimer) clearTimeout(boundsFlushTimer);
+      boundsFlushTimer = setTimeout(flushWindowState, 500);
+    });
+    appWindow.on("move", () => {
+      if (boundsFlushTimer) clearTimeout(boundsFlushTimer);
+      boundsFlushTimer = setTimeout(flushWindowState, 500);
+    });
+    appWindow.on("hide", flushWindowState);
     this.setupManagedWindowOpenHandler(appWindow);
     appWindow.webContents.on("destroyed", () => {
       releasePresenterCallErrorStateForWebContents(appWebContentsId);

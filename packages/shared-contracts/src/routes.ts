@@ -289,6 +289,14 @@ import {
 } from "./routes/system.routes";
 import { toolsListDefinitionsRoute } from "./routes/tools.routes";
 import {
+  memoryListRoute,
+  memoryGetStatusRoute,
+  memorySearchRoute,
+  memoryAddRoute,
+  memoryDeleteRoute,
+  memoryClearRoute,
+} from "./routes/memory.routes";
+import {
   tabCaptureCurrentAreaRoute,
   tabNotifyRendererActivatedRoute,
   tabNotifyRendererReadyRoute,
@@ -349,6 +357,7 @@ export * from "./routes/sync.routes";
 export * from "./routes/system.routes";
 export * from "./routes/tab.routes";
 export * from "./routes/tools.routes";
+export * from "./routes/memory.routes";
 export * from "./routes/upgrade.routes";
 export * from "./routes/window.routes";
 export * from "./routes/workspace.routes";
@@ -635,6 +644,12 @@ export const ARGOS_ROUTE_CATALOG = {
   [systemOpenSettingsRoute.name]: systemOpenSettingsRoute,
   [systemConsumePendingProviderInstallRoute.name]: systemConsumePendingProviderInstallRoute,
   [systemSetPendingProviderInstallRoute.name]: systemSetPendingProviderInstallRoute,
+  [memoryListRoute.name]: memoryListRoute,
+  [memoryGetStatusRoute.name]: memoryGetStatusRoute,
+  [memorySearchRoute.name]: memorySearchRoute,
+  [memoryAddRoute.name]: memoryAddRoute,
+  [memoryDeleteRoute.name]: memoryDeleteRoute,
+  [memoryClearRoute.name]: memoryClearRoute,
 } satisfies Record<string, RouteContract>;
 
 export type ArgosRouteCatalog = typeof ARGOS_ROUTE_CATALOG;

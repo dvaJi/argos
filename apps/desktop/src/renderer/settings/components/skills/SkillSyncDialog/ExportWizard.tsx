@@ -324,7 +324,7 @@ export const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange,
                       key={tool.id}
                       className={[
                         "flex items-center justify-between p-3 border rounded-lg hover:bg-accent transition-colors cursor-pointer",
-                        selectedToolId === tool.id ? "border-primary bg-accent" : "",
+                        selectedToolId === tool.id ? "border-accent-400 bg-accent-400/10" : "",
                       ].join(" ")}
                       onClick={() => setSelectedToolId(tool.id)}
                     >

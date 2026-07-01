@@ -1,4 +1,4 @@
-import { GithubLogo, List, X } from "@phosphor-icons/react";
+﻿import { GithubLogo, List, X } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -6,9 +6,10 @@ const GITHUB_URL = "https://github.com/dvaJi/argos";
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
 
 const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "Providers", href: "#providers" },
-  { label: "Download", href: "#download" },
+  { label: "Features", href: "/#features" },
+  { label: "Providers", href: "/#providers" },
+  { label: "Docs", href: "/docs" },
+  { label: "Download", href: "/#download" },
 ];
 
 export function SiteHeader() {

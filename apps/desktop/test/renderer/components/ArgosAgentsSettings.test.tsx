@@ -123,13 +123,11 @@ describe("ArgosAgentsSettings", () => {
         (result.container.textContent?.indexOf("settings.argosAgents.imageGenerationModel") ?? -1),
     ).toBe(true);
 
-    const saveButton = Array.from(result.container.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes("common.save"),
-    );
+    const saveButton = screen.getByRole("button", { name: /save/i });
 
     expect(saveButton).toBeDefined();
 
-    await fireEvent.click(saveButton!);
+    await fireEvent.click(saveButton);
     await act(async () => {});
 
     expect(configPresenter.updateArgosAgent).toHaveBeenCalledTimes(1);
@@ -163,6 +161,81 @@ describe("ArgosAgentsSettings", () => {
     expect(payload.config.imageGenerationModel).toEqual({
       providerId: "openai",
       modelId: "gpt-image-1",
+    });
+  });
+
+  it("persists memory settings for long-term memory", async () => {
+    vi.resetModules();
+
+    const existingAgent = {
+      id: "argos",
+      type: "argos",
+      name: "Argos",
+      enabled: true,
+      protected: true,
+      description: "Writer agent",
+      avatar: null,
+      config: {
+        memoryEnabled: true,
+        memoryEmbedding: { providerId: "openai", modelId: "text-embedding-3-large" },
+        memoryExtractionModel: { providerId: "openai", modelId: "gpt-4.1-mini" },
+      },
+    };
+
+    const configPresenter = {
+      listAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([existingAgent]),
+      getSystemPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      updateArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(existingAgent),
+      createArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({ id: "argos-new" }),
+      deleteArgosAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    };
+    const toolPresenter = {
+      getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    };
+    const projectPresenter = {
+      getRecentProjects: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+      selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    };
+    const modelStore = {
+      allProviderModels: [],
+      findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
+    };
+
+    vi.doMock("@api/legacy/presenters", () => ({
+      useLegacyPresenter: (name: string) => {
+        if (name === "configPresenter") return configPresenter;
+        if (name === "projectPresenter") return projectPresenter;
+        if (name === "toolPresenter") return toolPresenter;
+        return {};
+      },
+    }));
+    vi.doMock("@/stores/modelStore", () => ({
+      useModelStore: () => modelStore,
+    }));
+    vi.doMock("@iconify/react", () => ({
+      Icon: () => null,
+    }));
+
+    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+
+    const result = render(<ArgosAgentsSettings />);
+
+    await act(async () => {});
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+
+    expect(saveButton).toBeDefined();
+
+    await fireEvent.click(saveButton);
+    await act(async () => {});
+
+    expect(configPresenter.updateArgosAgent).toHaveBeenCalledTimes(1);
+
+    const [, payload] = configPresenter.updateArgosAgent.mock.calls[0];
+    expect(payload.config).toMatchObject({
+      memoryEnabled: true,
+      memoryEmbedding: { providerId: "openai", modelId: "text-embedding-3-large" },
+      memoryExtractionModel: { providerId: "openai", modelId: "gpt-4.1-mini" },
     });
   });
 

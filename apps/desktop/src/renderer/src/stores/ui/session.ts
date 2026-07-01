@@ -154,9 +154,16 @@ function groupByTime(sessions: UISession[]): SessionGroup[] {
     else groups["common.time.older"].push(session);
   }
 
+  const timeGroupLabels: Record<string, string> = {
+    "common.time.today": "Today",
+    "common.time.yesterday": "Yesterday",
+    "common.time.lastWeek": "Last Week",
+    "common.time.older": "Older",
+  };
+
   return Object.entries(groups)
     .filter(([, items]) => items.length > 0)
-    .map(([labelKey, items]) => ({ id: labelKey, label: labelKey, labelKey, sessions: items }));
+    .map(([id, items]) => ({ id, label: timeGroupLabels[id] ?? id, sessions: items }));
 }
 
 function normalizeProjectGroupId(projectDir: string): string {
@@ -166,10 +173,7 @@ function normalizeProjectGroupId(projectDir: string): string {
 
 function getProjectGroupLabel(projectGroupId: string): { label: string; labelKey?: string } {
   if (projectGroupId === NO_PROJECT_GROUP_ID) {
-    return {
-      label: "common.project.none",
-      labelKey: "common.project.none",
-    };
+    return { label: "No project" };
   }
 
   const label = projectGroupId.split(/[\\/]/).pop() ?? projectGroupId;

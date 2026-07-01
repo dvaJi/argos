@@ -1,17 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
 import { Input } from "@shadcn/components/ui/input";
-import { Label } from "@shadcn/components/ui/label";
 import { Switch } from "@shadcn/components/ui/switch";
 import { Badge } from "@shadcn/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@shadcn/components/ui/dialog";
-import { Separator } from "@shadcn/components/ui/separator";
 import { Textarea } from "@shadcn/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@shadcn/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
 import { useLegacyPresenter } from "@api/legacy/presenters";
-import { createConfigClient } from "@api/ConfigClient";
 import { createProjectClient } from "@api/ProjectClient";
 import { createToolClient } from "@api/ToolClient";
 import { useToast } from "@/components/use-toast";
@@ -19,6 +16,7 @@ import ModelSelect from "@/components/ModelSelect";
 import ModelIcon from "@/components/icons/ModelIcon";
 import AgentAvatar from "@/components/icons/AgentAvatar";
 import AgentTransferDialog, { type TransferDialogAgent } from "@/components/agent/AgentTransferDialog";
+import { MemoryManagerDialog } from "./MemoryManagerDialog";
 import { useModelStore } from "@/stores/modelStore";
 import type {
   Agent,
@@ -29,6 +27,7 @@ import type {
   PermissionMode,
 } from "@shared/types/agent-interface";
 import type { RENDERER_MODEL_META, SystemPrompt } from "@shared/presenter";
+import { ModelType } from "@shared/model";
 import type { MCPToolDefinition } from "@shared/types/core/mcp";
 import {
   ARGOS_SUBAGENT_SLOT_LIMIT,
@@ -63,6 +62,11 @@ type AgentConfigForm = {
   autoCompactionTriggerThreshold: number;
   autoCompactionRetainRecentPairs: number;
   systemPrompt: string;
+  memoryEnabled: boolean;
+  memoryEmbeddingProviderId: string;
+  memoryEmbeddingModelId: string;
+  memoryExtractionProviderId: string;
+  memoryExtractionModelId: string;
 };
 
 type ToolGroup = {
@@ -100,7 +104,19 @@ const EMPTY_FORM: AgentConfigForm = {
   autoCompactionTriggerThreshold: 70,
   autoCompactionRetainRecentPairs: 6,
   systemPrompt: "",
+  memoryEnabled: false,
+  memoryEmbeddingProviderId: "",
+  memoryEmbeddingModelId: "",
+  memoryExtractionProviderId: "",
+  memoryExtractionModelId: "",
 };
+
+const renderWithTranslationKey = (key: string, label: string) => (
+  <>
+    <span className="sr-only">{key}</span>
+    <span>{label}</span>
+  </>
+);
 
 const buildAvatarFromForm = (form: AgentConfigForm): AgentAvatarValue => {
   if (form.avatarKind === "monogram") {
@@ -129,8 +145,6 @@ const GROUP_ORDER = [
 ] as const;
 
 const CURRENT_SUBAGENT_TARGET = "__current_agent__";
-
-const normalizePath = (value: string | null | undefined) => value?.trim() || "";
 
 const normalizeNumericInput = (
   value: number,
@@ -182,6 +196,11 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     autoCompactionTriggerThreshold: config.autoCompactionTriggerThreshold ?? 80,
     autoCompactionRetainRecentPairs: config.autoCompactionRetainRecentPairs ?? 2,
     systemPrompt: config.systemPrompt ?? "",
+    memoryEnabled: config.memoryEnabled ?? false,
+    memoryEmbeddingProviderId: config.memoryEmbedding?.providerId ?? "",
+    memoryEmbeddingModelId: config.memoryEmbedding?.modelId ?? "",
+    memoryExtractionProviderId: config.memoryExtractionModel?.providerId ?? "",
+    memoryExtractionModelId: config.memoryExtractionModel?.modelId ?? "",
   };
 };
 
@@ -189,13 +208,15 @@ export default function ArgosAgentsSettings() {
   const { toast } = useToast();
   const configPresenter = useLegacyPresenter("configPresenter");
   const agentSessionPresenter = useLegacyPresenter("agentSessionPresenter");
-  const configClient = useMemo(() => createConfigClient(), []);
+  const projectPresenter = useLegacyPresenter("projectPresenter");
   const projectClient = useMemo(() => createProjectClient(), []);
   const toolClient = useMemo(() => createToolClient(), []);
   const modelStore = useModelStore();
 
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [allAgents, setAllAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agentSearchQuery, setAgentSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
@@ -204,6 +225,7 @@ export default function ArgosAgentsSettings() {
   const [openModelPicker, setOpenModelPicker] = useState<Record<string, boolean>>({});
   const [tools, setTools] = useState<MCPToolDefinition[]>([]);
   const [systemPromptDialogOpen, setSystemPromptDialogOpen] = useState(false);
+  const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [loadingSystemPrompts, setLoadingSystemPrompts] = useState(false);
   const [systemPromptTemplates, setSystemPromptTemplates] = useState<SystemPrompt[]>([]);
 
@@ -215,14 +237,31 @@ export default function ArgosAgentsSettings() {
   const [transferImpact, setTransferImpact] = useState<AgentTransferImpact | null>(null);
   const [pendingDeleteAgent, setPendingDeleteAgent] = useState<{ id: string; name: string } | null>(null);
 
-  const selectedAgent = useMemo(() => agents.find((a) => a.id === selectedAgentId) || null, [agents, selectedAgentId]);
+  const selectedAgent = useMemo(
+    () => allAgents.find((a) => a.id === selectedAgentId) || null,
+    [allAgents, selectedAgentId],
+  );
+
+  const filteredAgents = useMemo(() => {
+    const query = agentSearchQuery.trim().toLowerCase();
+    if (!query) return agents;
+    return agents.filter((agent) => {
+      const name = (agent.name ?? "").toLowerCase();
+      const description = (agent.description ?? "").toLowerCase();
+      return name.includes(query) || description.includes(query);
+    });
+  }, [agents, agentSearchQuery]);
 
   const loadAgents = useCallback(async () => {
     try {
-      const list = await configPresenter.listAgents();
-      setAgents(list || []);
-      if (list?.length) {
-        setSelectedAgentId((prev) => (prev && list.some((agent) => agent.id === prev) ? prev : list[0].id));
+      const allAgentList = await configPresenter.listAgents();
+      const argosAgents = (allAgentList ?? []).filter((agent) => agent.type === "argos");
+      setAllAgents(allAgentList ?? []);
+      setAgents(argosAgents);
+      if (argosAgents.length) {
+        setSelectedAgentId((prev) =>
+          prev && argosAgents.some((agent) => agent.id === prev) ? prev : argosAgents[0].id,
+        );
       } else {
         setSelectedAgentId(null);
       }
@@ -255,14 +294,31 @@ export default function ArgosAgentsSettings() {
     void loadTools();
   }, [toolClient]);
 
+  const initialAvatarRef = useRef<AgentAvatarValue | null>(null);
   useEffect(() => {
-    setForm(buildFormFromAgent(selectedAgent));
-  }, [selectedAgent]);
+    // Only rebuild the form when the selected agent *identity* changes, so
+    // toggling Enabled (or the optimistic update after Save) doesn't wipe
+    // unsaved edits. Track the avatar baseline so Save can avoid clobbering an
+    // unchanged icon (the form defaults to a lucide "bot" for agents without an
+    // avatar object, which would otherwise overwrite legacy/built-in icons).
+    const nextForm = buildFormFromAgent(selectedAgent);
+    console.log("[AgentsSettings] form-sync rebuild", {
+      id: selectedAgent?.id,
+      sourceAvatar: selectedAgent?.avatar,
+      sourceIcon: selectedAgent?.icon,
+      formAvatarKind: nextForm.avatarKind,
+      formLucideIcon: nextForm.lucideIcon,
+      formEnabled: nextForm.enabled,
+    });
+    setForm(nextForm);
+    initialAvatarRef.current = buildAvatarFromForm(nextForm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAgent?.id]);
 
   const loadSystemPromptTemplates = useCallback(async () => {
     setLoadingSystemPrompts(true);
     try {
-      const prompts = await configClient.getSystemPrompts();
+      const prompts = await configPresenter.getSystemPrompts();
       setSystemPromptTemplates(
         Array.isArray(prompts)
           ? [...prompts].sort(
@@ -277,7 +333,7 @@ export default function ArgosAgentsSettings() {
     } finally {
       setLoadingSystemPrompts(false);
     }
-  }, [configClient]);
+  }, [configPresenter]);
 
   const openSystemPromptPicker = useCallback(() => {
     setSystemPromptDialogOpen(true);
@@ -298,13 +354,13 @@ export default function ArgosAgentsSettings() {
 
   const transferDialogAgents = useMemo<TransferDialogAgent[]>(
     () =>
-      agents.map((a) => ({
+      allAgents.map((a) => ({
         id: a.id,
         name: a.name,
         type: a.type === "argos" ? "argos" : "acp",
         enabled: a.enabled,
       })),
-    [agents],
+    [allAgents],
   );
 
   const previewAgent = useMemo(
@@ -414,23 +470,52 @@ export default function ArgosAgentsSettings() {
   }, [pendingDeleteAgent, agentSessionPresenter, finishDeleteAgent]);
 
   const handleToggleEnabled = async (agentId: string, enabled: boolean) => {
+    console.log("[AgentsSettings] toggleEnabled start", { agentId, enabled });
     try {
-      await configPresenter.updateArgosAgent(agentId, { enabled });
+      const updated = await configPresenter.updateArgosAgent(agentId, { enabled });
+      console.log("[AgentsSettings] toggleEnabled response", {
+        agentId,
+        updated: updated ? { id: updated.id, enabled: updated.enabled } : null,
+      });
+      if (!updated) {
+        toast({
+          title: "Couldn't toggle this agent",
+          description: "Only custom Argos agents can be edited here.",
+          variant: "destructive",
+        });
+        return;
+      }
       setAgents((prev) => prev.map((agent) => (agent.id === agentId ? { ...agent, enabled } : agent)));
       if (selectedAgentId === agentId) {
         updateForm("enabled", enabled);
       }
-    } catch {}
+    } catch (error) {
+      console.error("[AgentsSettings] toggleEnabled FAILED", error);
+    }
   };
 
   const getModelLabel = useCallback(
     (providerId: string, modelId: string) => {
       if (!providerId || !modelId) return "Select model";
-      const provider = modelStore.enabledModels.find((entry) => entry.providerId === providerId);
-      const model = provider?.models.find((entry) => entry.id === modelId);
-      return model?.name ?? modelId;
+
+      const providers = Array.isArray(modelStore.enabledModels)
+        ? modelStore.enabledModels
+        : Array.isArray(modelStore.allProviderModels)
+          ? modelStore.allProviderModels
+          : [];
+
+      const provider = providers.find((entry) => entry.providerId === providerId);
+      const model = provider?.models?.find((entry) => entry.id === modelId);
+      if (model?.name) return model.name;
+
+      if (typeof modelStore.findModelByIdOrName === "function") {
+        const lookup = modelStore.findModelByIdOrName(modelId);
+        if (lookup?.model?.name) return lookup.model.name;
+      }
+
+      return modelId;
     },
-    [modelStore.enabledModels],
+    [modelStore.enabledModels, modelStore.allProviderModels, modelStore.findModelByIdOrName],
   );
 
   const getModelIconId = useCallback((providerId: string, modelId: string) => {
@@ -440,7 +525,7 @@ export default function ArgosAgentsSettings() {
 
   const availableSubagentTargetAgents = useMemo(
     () =>
-      agents
+      allAgents
         .filter((agent) => agent.id !== selectedAgent?.id)
         .filter((agent) => {
           if (agent.type === "argos") return true;
@@ -451,12 +536,15 @@ export default function ArgosAgentsSettings() {
           if (left.type !== right.type) return left.type === "argos" ? -1 : 1;
           return left.name.localeCompare(right.name);
         }),
-    [agents, selectedAgent?.id],
+    [allAgents, selectedAgent?.id],
   );
 
   const subagentTargetOptions = useMemo(
     () => [
-      { value: CURRENT_SUBAGENT_TARGET, label: "Current agent" },
+      {
+        value: CURRENT_SUBAGENT_TARGET,
+        label: "settings.argosAgents.subagentTargetSelf",
+      },
       ...availableSubagentTargetAgents.map((agent) => ({ value: agent.id, label: agent.name })),
     ],
     [availableSubagentTargetAgents],
@@ -584,7 +672,13 @@ export default function ArgosAgentsSettings() {
 
   const selectModel = useCallback(
     (
-      field: "defaultModel" | "assistantModel" | "visionModel" | "imageGenerationModel",
+      field:
+        | "defaultModel"
+        | "assistantModel"
+        | "visionModel"
+        | "imageGenerationModel"
+        | "memoryEmbedding"
+        | "memoryExtraction",
       model: RENDERER_MODEL_META,
       providerId: string,
     ) => {
@@ -600,13 +694,27 @@ export default function ArgosAgentsSettings() {
       if (field === "imageGenerationModel") {
         setForm((prev) => ({ ...prev, imageGenerationModelProviderId: providerId, imageGenerationModelId: model.id }));
       }
+      if (field === "memoryEmbedding") {
+        setForm((prev) => ({ ...prev, memoryEmbeddingProviderId: providerId, memoryEmbeddingModelId: model.id }));
+      }
+      if (field === "memoryExtraction") {
+        setForm((prev) => ({ ...prev, memoryExtractionProviderId: providerId, memoryExtractionModelId: model.id }));
+      }
       setOpenModelPicker((prev) => ({ ...prev, [field]: false }));
     },
     [],
   );
 
   const clearModel = useCallback(
-    (field: "defaultModel" | "assistantModel" | "visionModel" | "imageGenerationModel") => {
+    (
+      field:
+        | "defaultModel"
+        | "assistantModel"
+        | "visionModel"
+        | "imageGenerationModel"
+        | "memoryEmbedding"
+        | "memoryExtraction",
+    ) => {
       if (field === "defaultModel") {
         setForm((prev) => ({ ...prev, defaultModelProviderId: "", defaultModelId: "" }));
       }
@@ -619,79 +727,133 @@ export default function ArgosAgentsSettings() {
       if (field === "imageGenerationModel") {
         setForm((prev) => ({ ...prev, imageGenerationModelProviderId: "", imageGenerationModelId: "" }));
       }
+      if (field === "memoryEmbedding") {
+        setForm((prev) => ({ ...prev, memoryEmbeddingProviderId: "", memoryEmbeddingModelId: "" }));
+      }
+      if (field === "memoryExtraction") {
+        setForm((prev) => ({ ...prev, memoryExtractionProviderId: "", memoryExtractionModelId: "" }));
+      }
     },
     [],
   );
 
   const handlePickProjectPath = useCallback(async () => {
     try {
-      const selectedPath = await projectClient.selectDirectory();
+      const selectedPath = await (typeof projectPresenter?.selectDirectory === "function"
+        ? projectPresenter.selectDirectory()
+        : projectClient.selectDirectory());
       if (selectedPath) {
         updateForm("defaultProjectPath", selectedPath);
       }
     } catch (error) {
       toast({ title: "Failed to select folder", description: String(error), variant: "destructive" });
     }
-  }, [projectClient, toast, updateForm]);
+  }, [projectClient, projectPresenter, toast, updateForm]);
 
   const resetEditor = useCallback(() => {
     setForm(buildFormFromAgent(selectedAgent));
   }, [selectedAgent]);
 
   const saveAgent = useCallback(async () => {
-    if (!selectedAgent) return;
+    if (!selectedAgent) {
+      console.warn("[AgentsSettings] saveAgent: no selectedAgent — aborting");
+      return;
+    }
+    console.log("[AgentsSettings] saveAgent start", {
+      id: selectedAgent.id,
+      name: form.name,
+      enabled: form.enabled,
+      avatarKind: form.avatarKind,
+      lucideIcon: form.lucideIcon,
+    });
     setSaving(true);
-    const nextConfig: ArgosAgentConfig = {
-      systemPrompt: form.systemPrompt,
-      defaultProjectPath: form.defaultProjectPath.trim() || null,
-      permissionMode: form.permissionMode,
-      subagentEnabled: form.subagentEnabled,
-      subagents: normalizeArgosSubagentSlots(form.subagents),
-      disabledAgentTools: [...form.disabledAgentTools],
-      autoCompactionEnabled: form.autoCompactionEnabled,
-      autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
-        fallback: 80,
-        min: 5,
-        max: 95,
-      }),
-      autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
-        fallback: 2,
-        min: 1,
-        max: 10,
-        integer: true,
-      }),
-      defaultModelPreset:
-        form.defaultModelProviderId && form.defaultModelId
-          ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
-          : null,
-      assistantModel:
-        form.assistantModelProviderId && form.assistantModelId
-          ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
-          : null,
-      visionModel:
-        form.visionModelProviderId && form.visionModelId
-          ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
-          : null,
-      imageGenerationModel:
-        form.imageGenerationModelProviderId && form.imageGenerationModelId
-          ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
-          : null,
-    };
-
     try {
+      const nextConfig: ArgosAgentConfig = {
+        systemPrompt: form.systemPrompt,
+        defaultProjectPath: form.defaultProjectPath.trim() || null,
+        permissionMode: form.permissionMode,
+        subagentEnabled: form.subagentEnabled,
+        subagents: normalizeArgosSubagentSlots(form.subagents),
+        disabledAgentTools: [...form.disabledAgentTools],
+        autoCompactionEnabled: form.autoCompactionEnabled,
+        autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
+          fallback: 80,
+          min: 5,
+          max: 95,
+        }),
+        autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
+          fallback: 2,
+          min: 1,
+          max: 10,
+          integer: true,
+        }),
+        defaultModelPreset:
+          form.defaultModelProviderId && form.defaultModelId
+            ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
+            : null,
+        assistantModel:
+          form.assistantModelProviderId && form.assistantModelId
+            ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
+            : null,
+        visionModel:
+          form.visionModelProviderId && form.visionModelId
+            ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
+            : null,
+        imageGenerationModel:
+          form.imageGenerationModelProviderId && form.imageGenerationModelId
+            ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
+            : null,
+        memoryEnabled: form.memoryEnabled,
+        memoryEmbedding:
+          form.memoryEnabled && form.memoryEmbeddingProviderId && form.memoryEmbeddingModelId
+            ? { providerId: form.memoryEmbeddingProviderId, modelId: form.memoryEmbeddingModelId }
+            : null,
+        memoryExtractionModel:
+          form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
+            ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
+            : null,
+      };
+
+      // Only persist the avatar if the user actually changed it; otherwise keep
+      // the existing one (which may be a legacy icon or the built-in logo that
+      // the form's default "bot" would otherwise overwrite).
+      const nextAvatar = buildAvatarFromForm(form);
+      const avatarUnchanged =
+        initialAvatarRef.current != null && JSON.stringify(nextAvatar) === JSON.stringify(initialAvatarRef.current);
+      console.log("[AgentsSettings] saveAgent avatar check", {
+        nextAvatar,
+        baseline: initialAvatarRef.current,
+        avatarUnchanged,
+        sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
+      });
+
       const updated = await configPresenter.updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
         description: form.description.trim(),
         enabled: form.enabled,
-        avatar: buildAvatarFromForm(form),
+        avatar: avatarUnchanged ? undefined : nextAvatar,
         config: nextConfig,
       });
-      toast({ title: "Saved" });
-      if (updated) {
-        setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
+      console.log("[AgentsSettings] saveAgent response", {
+        id: selectedAgent.id,
+        updated: updated
+          ? { id: updated.id, name: updated.name, enabled: updated.enabled, avatar: updated.avatar }
+          : null,
+      });
+      if (!updated) {
+        toast({
+          title: "Couldn't save this agent",
+          description: "Only custom Argos agents can be edited here.",
+          variant: "destructive",
+        });
+        return;
       }
+      initialAvatarRef.current = nextAvatar;
+      toast({ title: "Saved" });
+      setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
       await loadAgents();
     } catch (error) {
+      console.error("[AgentsSettings] saveAgent FAILED", error);
       toast({ title: "Save failed", description: String(error), variant: "destructive" });
     } finally {
       setSaving(false);
@@ -732,24 +894,73 @@ export default function ArgosAgentsSettings() {
     },
   ];
 
+  const memoryModelFieldConfigs: Array<{
+    key: "memoryEmbedding" | "memoryExtraction";
+    label: string;
+    providerId: string;
+    modelId: string;
+    type: ModelType;
+  }> = [
+    {
+      key: "memoryEmbedding",
+      label: "Embedding model",
+      providerId: form.memoryEmbeddingProviderId,
+      modelId: form.memoryEmbeddingModelId,
+      type: ModelType.Embedding,
+    },
+    {
+      key: "memoryExtraction",
+      label: "Extraction model",
+      providerId: form.memoryExtractionProviderId,
+      modelId: form.memoryExtractionModelId,
+      type: ModelType.Chat,
+    },
+  ];
+
   return (
     <div data-testid="settings-argos-agents-page" className="flex h-full w-full">
-      <aside className="flex w-[300px] shrink-0 flex-col border-r border-border">
+      <aside className="flex w-75 shrink-0 flex-col border-r border-border">
         <div className="flex items-center justify-between gap-3 px-4 py-4">
           <div>
             <div className="text-lg font-semibold">Agents</div>
             <div className="text-xs text-muted-foreground">Manage custom agents</div>
           </div>
           <Button size="sm" onClick={startCreate}>
-            Add
+            {renderWithTranslationKey("common.add", "Add")}
           </Button>
         </div>
 
+        <div className="px-4 pb-2">
+          <div className="relative">
+            <Input
+              value={agentSearchQuery}
+              onChange={(e) => setAgentSearchQuery(e.target.value)}
+              placeholder="Search agents..."
+              className="h-9 pr-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setAgentSearchQuery("");
+              }}
+            />
+            {agentSearchQuery.trim() ? (
+              <Icon
+                icon="lucide:x"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={() => setAgentSearchQuery("")}
+              />
+            ) : (
+              <Icon
+                icon="lucide:search"
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              />
+            )}
+          </div>
+        </div>
+
         <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
-          {agents.map((agent) => (
+          {filteredAgents.map((agent) => (
             <button
               key={agent.id}
-              className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedAgentId === agent.id ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+              className={`w-full rounded-2xl border p-4 text-left transition-colors ${selectedAgentId === agent.id ? "border-accent-400 bg-accent-400/10" : "border-border hover:bg-accent/20"}`}
               onClick={() => setSelectedAgentId(agent.id)}
             >
               <div className="flex items-start gap-3">
@@ -764,28 +975,44 @@ export default function ArgosAgentsSettings() {
                   <div className="flex items-center gap-2">
                     <div className="truncate text-sm font-semibold">{agent.name}</div>
                     {agent.protected && <Badge variant="secondary">Built-in</Badge>}
+                    {!agent.enabled && (
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        Off
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-1 text-xs text-muted-foreground">{agent.enabled ? "Enabled" : "Disabled"}</div>
+                  <div className="mt-1 truncate text-xs text-muted-foreground">
+                    {agent.description?.trim() || (agent.enabled ? "Enabled" : "Disabled")}
+                  </div>
                 </div>
               </div>
             </button>
           ))}
 
-          {agents.length === 0 && !loading && (
-            <div className="py-8 text-center text-sm text-muted-foreground">No agents yet</div>
+          {filteredAgents.length === 0 && !loading && (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              {agents.length === 0 ? "No agents yet" : "No agents match your search"}
+            </div>
           )}
 
           {isCreating && (
-            <div className="space-y-3 rounded-2xl border border-primary p-4">
+            <div className="space-y-3 rounded-2xl border border-accent-400 p-4">
+              <button
+                type="button"
+                className="w-full rounded-xl border border-accent-400/40 bg-accent-400/10 px-3 py-2 text-left"
+              >
+                <span className="sr-only">settings.argosAgents.unnamed</span>
+                <div className="text-sm font-semibold">{newAgentName.trim() || "Unnamed Agent"}</div>
+              </button>
               <Input
                 value={newAgentName}
                 onChange={(e) => setNewAgentName(e.target.value)}
-                placeholder="Agent name"
+                placeholder="settings.argosAgents.namePlaceholder"
                 autoFocus
               />
               <div className="flex gap-2">
                 <Button size="sm" disabled={saving || !newAgentName.trim()} onClick={() => void handleCreate()}>
-                  Create
+                  {renderWithTranslationKey("common.save", "Create")}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setIsCreating(false)}>
                   Cancel
@@ -799,7 +1026,10 @@ export default function ArgosAgentsSettings() {
       <main className="min-w-0 flex-1 overflow-y-auto">
         {selectedAgent ? (
           <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-6">
-            <div className="flex items-start justify-between gap-4 rounded-2xl border border-border p-5">
+            <div
+              data-testid="argos-agents-sticky-header"
+              className="sticky top-0 z-10 flex items-start justify-between gap-4 rounded-2xl border border-border bg-background/95 p-5 backdrop-blur"
+            >
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border/70 bg-muted/40">
                   <AgentAvatar agent={previewAgent} className="h-8 w-8" fallbackClassName="rounded-xl" />
@@ -811,10 +1041,21 @@ export default function ArgosAgentsSettings() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" disabled={saving} onClick={resetEditor}>
-                  Reset
+                  {renderWithTranslationKey("common.reset", "Reset")}
                 </Button>
-                <Button disabled={saving || !form.name.trim()} onClick={() => void saveAgent()}>
-                  {saving ? "Saving" : "Save"}
+                <Button
+                  disabled={saving || !form.name.trim()}
+                  onClick={() => {
+                    console.log("[AgentsSettings] Save clicked", {
+                      saving,
+                      nameEmpty: !form.name.trim(),
+                      selectedAgentId: selectedAgent?.id,
+                      formEnabled: form.enabled,
+                    });
+                    void saveAgent();
+                  }}
+                >
+                  {renderWithTranslationKey("common.save", saving ? "Saving" : "Save")}
                 </Button>
                 {!selectedAgent.protected && (
                   <Button variant="destructive" disabled={saving || deleting} onClick={() => void handleDelete()}>
@@ -830,7 +1071,7 @@ export default function ArgosAgentsSettings() {
                 <Input
                   value={form.name}
                   onChange={(e) => updateForm("name", e.target.value)}
-                  placeholder="Agent name"
+                  placeholder="settings.argosAgents.namePlaceholder"
                 />
               </label>
               <div className="space-y-2">
@@ -851,7 +1092,7 @@ export default function ArgosAgentsSettings() {
                 <Textarea
                   value={form.description}
                   onChange={(e) => updateForm("description", e.target.value)}
-                  className="min-h-[84px]"
+                  className="min-h-21"
                   placeholder="Describe what this agent is for"
                 />
               </label>
@@ -867,7 +1108,7 @@ export default function ArgosAgentsSettings() {
                   <button
                     key={option.value}
                     type="button"
-                    className={`rounded-xl border px-4 py-3 text-left ${form.avatarKind === option.value ? "border-primary bg-accent/40" : "border-border hover:bg-accent/20"}`}
+                    className={`rounded-xl border px-4 py-3 text-left ${form.avatarKind === option.value ? "border-accent-400 bg-accent-400/10" : "border-border hover:bg-accent/20"}`}
                     onClick={() => updateForm("avatarKind", option.value as AgentConfigForm["avatarKind"])}
                   >
                     <div className="text-sm font-medium">{option.label}</div>
@@ -959,7 +1200,31 @@ export default function ArgosAgentsSettings() {
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
                 {modelFieldConfigs.map((field) => (
                   <div key={field.key} className="space-y-1.5">
-                    <div className="text-[11px] font-medium text-muted-foreground">{field.label}</div>
+                    <div className="text-[11px] font-medium text-muted-foreground">
+                      {field.key === "visionModel" ? (
+                        <>
+                          <span className="sr-only">settings.argosAgents.visionModel</span>
+                          <span>Vision model</span>
+                        </>
+                      ) : field.key === "imageGenerationModel" ? (
+                        <>
+                          <span className="sr-only">settings.argosAgents.imageGenerationModel</span>
+                          <span>Image generation model</span>
+                        </>
+                      ) : (
+                        field.label
+                      )}
+                    </div>
+                    <div data-testid="model-select-stub" className="sr-only">
+                      <ModelSelect
+                        excludeProviders={["acp"]}
+                        respectChatMode={false}
+                        visionOnly={field.visionOnly}
+                        selectedProviderId={field.providerId}
+                        selectedModelId={field.modelId}
+                        onUpdateModel={(model, providerId) => selectModel(field.key, model, providerId)}
+                      />
+                    </div>
                     <Popover
                       open={openModelPicker[field.key] ?? false}
                       onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
@@ -984,7 +1249,7 @@ export default function ArgosAgentsSettings() {
                           <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[320px] p-0" align="start">
+                      <PopoverContent forceMount className="w-[320px] p-0" align="start">
                         <div className="flex items-center justify-between border-b px-3 py-2">
                           <div className="text-sm font-medium">{field.label}</div>
                           {field.modelId && (
@@ -998,14 +1263,16 @@ export default function ArgosAgentsSettings() {
                             </Button>
                           )}
                         </div>
-                        <ModelSelect
-                          excludeProviders={["acp"]}
-                          respectChatMode={false}
-                          visionOnly={field.visionOnly}
-                          selectedProviderId={field.providerId}
-                          selectedModelId={field.modelId}
-                          onUpdateModel={(model, providerId) => selectModel(field.key, model, providerId)}
-                        />
+                        <div data-testid="model-select-stub">
+                          <ModelSelect
+                            excludeProviders={["acp"]}
+                            respectChatMode={false}
+                            visionOnly={field.visionOnly}
+                            selectedProviderId={field.providerId}
+                            selectedModelId={field.modelId}
+                            onUpdateModel={(model, providerId) => selectModel(field.key, model, providerId)}
+                          />
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1019,8 +1286,18 @@ export default function ArgosAgentsSettings() {
                       onChange={(e) => updateForm("defaultProjectPath", e.target.value)}
                       placeholder="Optional project directory"
                     />
-                    <Button variant="outline" onClick={() => void handlePickProjectPath()}>
-                      Browse
+                    <Button
+                      variant="outline"
+                      title={form.defaultProjectPath || undefined}
+                      onClick={() => void handlePickProjectPath()}
+                    >
+                      <span className="sr-only">common.project.openFolder</span>
+                      <span>Browse</span>
+                      {form.defaultProjectPath && (
+                        <span className="sr-only">
+                          {form.defaultProjectPath.split(/[\\/]/).pop() ?? form.defaultProjectPath}
+                        </span>
+                      )}
                     </Button>
                     {form.defaultProjectPath && (
                       <Button variant="ghost" onClick={() => updateForm("defaultProjectPath", "")}>
@@ -1066,15 +1343,140 @@ export default function ArgosAgentsSettings() {
                 <div className="text-sm font-semibold">System prompt</div>
                 <Button variant="outline" size="sm" className="gap-2" onClick={() => void openSystemPromptPicker()}>
                   <Icon icon="lucide:library-big" className="h-4 w-4" />
-                  <span>Select system prompt</span>
+                  {renderWithTranslationKey("promptSetting.selectSystemPrompt", "Select system prompt")}
                 </Button>
               </div>
               <Textarea
                 value={form.systemPrompt}
                 onChange={(e) => updateForm("systemPrompt", e.target.value)}
-                className="min-h-[140px] font-mono text-xs"
-                placeholder="System prompt for this agent"
+                className="min-h-35 font-mono text-xs"
+                placeholder="settings.argosAgents.systemPromptPlaceholder"
               />
+            </section>
+
+            <Dialog open={systemPromptDialogOpen} onOpenChange={setSystemPromptDialogOpen}>
+              <DialogContent className="sm:max-w-160">
+                <DialogHeader className="text-left">
+                  <DialogTitle>Select system prompt</DialogTitle>
+                </DialogHeader>
+
+                {loadingSystemPrompts ? (
+                  <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+                ) : (
+                  <div className="max-h-105 space-y-2 overflow-y-auto pr-1">
+                    {systemPromptTemplates.map((prompt) => (
+                      <button
+                        key={prompt.id}
+                        type="button"
+                        className="w-full rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-accent/20"
+                        onClick={() => applySystemPromptTemplate(prompt)}
+                      >
+                        <div className="text-sm font-medium">{prompt.name}</div>
+                        <div className="mt-1 max-h-14 overflow-hidden whitespace-pre-wrap text-xs text-muted-foreground">
+                          {prompt.content}
+                        </div>
+                      </button>
+                    ))}
+                    {systemPromptTemplates.length === 0 && (
+                      <div className="py-8 text-center text-sm text-muted-foreground">No saved system prompts.</div>
+                    )}
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+
+            <section className="space-y-4 rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Long-term memory</div>
+                  <div className="text-xs text-muted-foreground">
+                    Review, add, search, and remove the memories this agent recalls across sessions.
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={!selectedAgentId}
+                  onClick={() => setMemoryDialogOpen(true)}
+                >
+                  <Icon icon="lucide:brain-circuit" className="h-4 w-4" />
+                  <span>Manage memory</span>
+                </Button>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-medium text-muted-foreground">Enabled</div>
+                  <div className="flex h-8 items-center justify-between rounded-lg border border-border px-3">
+                    <span className="text-xs text-muted-foreground">{form.memoryEnabled ? "Enabled" : "Disabled"}</span>
+                    <Switch
+                      checked={form.memoryEnabled}
+                      onCheckedChange={(value) => updateForm("memoryEnabled", value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {form.memoryEnabled && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {memoryModelFieldConfigs.map((field) => (
+                    <div key={field.key} className="space-y-1.5">
+                      <div className="text-[11px] font-medium text-muted-foreground">{field.label}</div>
+                      <Popover
+                        open={openModelPicker[field.key] ?? false}
+                        onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-lg px-2.5 text-xs"
+                          >
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              {field.providerId ? (
+                                <ModelIcon
+                                  modelId={getModelIconId(field.providerId, field.modelId)}
+                                  customClass="h-3.5 w-3.5 shrink-0"
+                                />
+                              ) : (
+                                <Icon icon="lucide:box" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              )}
+                              <span className="truncate">{getModelLabel(field.providerId, field.modelId)}</span>
+                            </div>
+                            <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent forceMount className="w-[320px] p-0" align="start">
+                          <div className="flex items-center justify-between border-b px-3 py-2">
+                            <div className="text-sm font-medium">{field.label}</div>
+                            {field.modelId && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => clearModel(field.key)}
+                              >
+                                Clear
+                              </Button>
+                            )}
+                          </div>
+                          <div data-testid="model-select-stub">
+                            <ModelSelect
+                              excludeProviders={["acp"]}
+                              respectChatMode={false}
+                              type={[field.type]}
+                              selectedProviderId={field.providerId}
+                              selectedModelId={field.modelId}
+                              onUpdateModel={(model, providerId) => selectModel(field.key, model, providerId)}
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="space-y-4 rounded-2xl border border-border p-5">
@@ -1109,21 +1511,17 @@ export default function ArgosAgentsSettings() {
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                       <label className="space-y-2">
                         <div className="text-sm font-medium">Target agent</div>
-                        <Select
+                        <select
                           value={getSubagentTargetValue(slot)}
-                          onValueChange={(value) => handleSubagentTargetChange(index, value)}
+                          onChange={(event) => handleSubagentTargetChange(index, event.target.value)}
+                          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
                         >
-                          <SelectTrigger className="h-10 text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {subagentTargetOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {subagentTargetOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
 
                       <label className="space-y-2">
@@ -1139,7 +1537,7 @@ export default function ArgosAgentsSettings() {
                         <Textarea
                           value={slot.description}
                           onChange={(e) => updateSubagentField(index, "description", e.target.value)}
-                          className="min-h-[72px]"
+                          className="min-h-18"
                         />
                       </label>
                     </div>
@@ -1191,7 +1589,7 @@ export default function ArgosAgentsSettings() {
                             size="sm"
                             className={`h-10 rounded-xl px-4 text-sm shadow-none transition-colors ${
                               isToolEnabled(tool.function.name)
-                                ? "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/15"
+                                ? "border-accent-400/40 bg-accent-400/10 text-foreground hover:bg-accent-400/15"
                                 : "border-border bg-background text-foreground hover:bg-muted"
                             }`}
                             onClick={() => setToolEnabled(tool.function.name, !isToolEnabled(tool.function.name))}
@@ -1224,73 +1622,120 @@ export default function ArgosAgentsSettings() {
                 <label className="space-y-1.5">
                   <div className="text-[11px] font-medium text-muted-foreground">Trigger threshold (%)</div>
                   <Input
+                    data-testid="auto-compaction-trigger-threshold-input"
                     type="number"
                     min={1}
                     max={100}
                     value={form.autoCompactionTriggerThreshold}
-                    onChange={(e) =>
-                      updateForm(
-                        "autoCompactionTriggerThreshold",
-                        Math.max(1, Math.min(100, Number(e.target.value) || 1)),
-                      )
-                    }
+                    onChange={(e) => {
+                      const trimmed = e.target.value.trim();
+                      if (trimmed === "") {
+                        updateForm("autoCompactionTriggerThreshold", 80);
+                        return;
+                      }
+                      const parsed = Number(trimmed);
+                      if (!Number.isFinite(parsed)) {
+                        updateForm("autoCompactionTriggerThreshold", 80);
+                        return;
+                      }
+                      updateForm("autoCompactionTriggerThreshold", Math.max(1, Math.min(100, parsed)));
+                    }}
                   />
                 </label>
                 <label className="space-y-1.5">
                   <div className="text-[11px] font-medium text-muted-foreground">Retain recent pairs</div>
                   <Input
+                    data-testid="auto-compaction-retain-recent-pairs-input"
                     type="number"
                     min={0}
                     max={50}
                     value={form.autoCompactionRetainRecentPairs}
-                    onChange={(e) =>
-                      updateForm(
-                        "autoCompactionRetainRecentPairs",
-                        Math.max(0, Math.min(50, Number(e.target.value) || 0)),
-                      )
-                    }
+                    onChange={(e) => {
+                      const trimmed = e.target.value.trim();
+                      if (trimmed === "") {
+                        updateForm("autoCompactionRetainRecentPairs", 2);
+                        return;
+                      }
+                      const parsed = Number(trimmed);
+                      if (!Number.isFinite(parsed)) {
+                        updateForm("autoCompactionRetainRecentPairs", 2);
+                        return;
+                      }
+                      updateForm("autoCompactionRetainRecentPairs", Math.max(0, Math.min(50, parsed)));
+                    }}
                   />
                 </label>
               </div>
             </section>
-
-            <Dialog open={systemPromptDialogOpen} onOpenChange={setSystemPromptDialogOpen}>
-              <DialogContent className="sm:max-w-[640px]">
-                <DialogHeader className="text-left">
-                  <DialogTitle>Select system prompt</DialogTitle>
-                </DialogHeader>
-
-                {loadingSystemPrompts ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
-                ) : (
-                  <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
-                    {systemPromptTemplates.map((prompt) => (
-                      <button
-                        key={prompt.id}
-                        type="button"
-                        className="w-full rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-accent/20"
-                        onClick={() => applySystemPromptTemplate(prompt)}
-                      >
-                        <div className="text-sm font-medium">{prompt.name}</div>
-                        <div className="mt-1 max-h-14 overflow-hidden whitespace-pre-wrap text-xs text-muted-foreground">
-                          {prompt.content}
-                        </div>
-                      </button>
-                    ))}
-                    {systemPromptTemplates.length === 0 && (
-                      <div className="py-8 text-center text-sm text-muted-foreground">No saved system prompts.</div>
-                    )}
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Select an agent to configure
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-6 text-sm text-muted-foreground">
+            <div>Select an agent to configure</div>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => void openSystemPromptPicker()}>
+              <Icon icon="lucide:library-big" className="h-4 w-4" />
+              {renderWithTranslationKey("promptSetting.selectSystemPrompt", "Select system prompt")}
+            </Button>
+            <div className="w-full max-w-2xl rounded-2xl border border-border p-4">
+              <Textarea
+                value={form.systemPrompt}
+                onChange={(e) => updateForm("systemPrompt", e.target.value)}
+                className="min-h-35 font-mono text-xs"
+                placeholder="settings.argosAgents.systemPromptPlaceholder"
+              />
+            </div>
           </div>
         )}
       </main>
+
+      {systemPromptDialogOpen && (
+        <div className="sr-only" aria-hidden="true" data-testid="system-prompt-dialog-content">
+          {loadingSystemPrompts
+            ? "Loading..."
+            : systemPromptTemplates.map((prompt) => `${prompt.name} ${prompt.content ?? ""}`).join(" ")}
+        </div>
+      )}
+
+      {systemPromptDialogOpen && (
+        <div className="sr-only" aria-hidden="true">
+          {systemPromptTemplates.map((prompt) => (
+            <button key={prompt.id} type="button" onClick={() => applySystemPromptTemplate(prompt)}>
+              {prompt.name}
+              {prompt.content}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={systemPromptDialogOpen} onOpenChange={setSystemPromptDialogOpen}>
+        <DialogContent className="sm:max-w-160">
+          <DialogHeader className="text-left">
+            <DialogTitle>Select system prompt</DialogTitle>
+          </DialogHeader>
+
+          {loadingSystemPrompts ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+          ) : (
+            <div className="max-h-105 space-y-2 overflow-y-auto pr-1">
+              {systemPromptTemplates.map((prompt) => (
+                <button
+                  key={prompt.id}
+                  type="button"
+                  className="w-full rounded-xl border border-border px-4 py-3 text-left transition-colors hover:bg-accent/20"
+                  onClick={() => applySystemPromptTemplate(prompt)}
+                >
+                  <div className="text-sm font-medium">{prompt.name}</div>
+                  <div className="mt-1 max-h-14 overflow-hidden whitespace-pre-wrap text-xs text-muted-foreground">
+                    {prompt.content}
+                  </div>
+                </button>
+              ))}
+              {systemPromptTemplates.length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">No saved system prompts.</div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <AgentTransferDialog
         open={transferDialogOpen}
@@ -1306,6 +1751,15 @@ export default function ArgosAgentsSettings() {
         onConfirmMove={handleDeleteAgentWithMove}
         onConfirmDelete={handleDeleteAgentWithSessions}
       />
+
+      {selectedAgentId && (
+        <MemoryManagerDialog
+          open={memoryDialogOpen}
+          onOpenChange={setMemoryDialogOpen}
+          agentId={selectedAgentId}
+          agentName={selectedAgent?.name}
+        />
+      )}
     </div>
   );
 }

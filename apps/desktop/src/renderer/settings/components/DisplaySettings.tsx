@@ -158,7 +158,7 @@ export default function DisplaySettings() {
                   <div
                     className={`relative h-28 w-full rounded-xl border transition-all duration-200 ${
                       themeMode === option.value
-                        ? "border-primary shadow-[0_18px_36px_-20px_rgba(59,130,246,0.7)] ring-2 ring-primary/30"
+                        ? "border-accent-400 shadow-[0_18px_36px_-20px_rgba(34,211,238,0.5)] ring-2 ring-accent-400/30"
                         : "border-border/70 bg-background/30 group-hover:border-muted-foreground/60 group-hover:bg-background/50"
                     }`}
                   >

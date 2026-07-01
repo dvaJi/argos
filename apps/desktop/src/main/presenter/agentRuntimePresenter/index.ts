@@ -94,6 +94,7 @@ import {
   CompactionService,
   type CompactionIntent,
 } from "./compactionService";
+import { appendMemorySection, type MemoryInjectionPort } from "../memoryPresenter/injectionPort";
 import { buildPersistableMessageTracePayload } from "./messageTracePayload";
 import { buildTerminalErrorBlocks, ArgosMessageStore } from "./messageStore";
 import { ArgosTapeService } from "./tapeService";
@@ -118,6 +119,7 @@ import {
   extractWaitingInteraction,
 } from "./internalSessionEvents";
 import { insertBlocksAfterToolCall, prepareToolImagePreviewPresentation } from "./imageGenerationBlocks";
+import { buildEffectiveTapeView } from "./tapeEffectiveView";
 
 type PendingInteractionEntry = {
   interaction: PendingToolInteraction;
@@ -311,6 +313,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     | "installDraftSkill"
     | "discardDraftSkill"
   >;
+  private readonly memoryPort?: MemoryInjectionPort;
   private toolRegistryRevision = 0;
   private nextRunSequence = 0;
 
@@ -334,6 +337,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         | "installDraftSkill"
         | "discardDraftSkill"
       >;
+      memoryPort?: MemoryInjectionPort;
     },
   ) {
     this.llmProviderPresenter = llmProviderPresenter;
@@ -369,6 +373,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     this.sessionUiPort = runtimePorts?.sessionUiPort;
     this.cacheImage = runtimePorts?.cacheImage;
     this.skillPresenter = runtimePorts?.skillPresenter;
+    this.memoryPort = runtimePorts?.memoryPort;
 
     const recovered = this.messageStore.recoverPendingMessages();
     if (recovered > 0) {
@@ -394,6 +399,73 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
 
     throw new Error("Session permission port is not available.");
+  }
+
+  private async buildMemoryInjection(sessionId: string, query: string): Promise<string> {
+    if (!this.memoryPort) return "";
+    const agentId = this.getSessionAgentId(sessionId);
+    if (!agentId || !this.memoryPort.isEnabled(agentId)) return "";
+    try {
+      const result = await this.memoryPort.buildInjection(agentId, query);
+      if (!result) return "";
+      const payload = "payload" in result ? result.payload : result;
+      const section = appendMemorySection("", payload);
+      return section;
+    } catch {
+      return "";
+    }
+  }
+
+  private triggerMemoryExtraction(sessionId: string, _assistantMessageId: string): void {
+    if (!this.memoryPort) return;
+    const agentId = this.getSessionAgentId(sessionId);
+    if (!agentId || !this.memoryPort.isEnabled(agentId)) return;
+    const runtimePort = this.memoryPort as unknown as {
+      extractAndStore?: (input: {
+        agentId: string;
+        spanText: string;
+        model: { providerId: string; modelId: string };
+        sourceSession?: string | null;
+        sourceEntryIds?: number[] | null;
+      }) => Promise<unknown>;
+    };
+    if (!runtimePort.extractAndStore) return;
+    const state = this.runtimeState.get(sessionId);
+    if (!state) return;
+    try {
+      const table = this.sqlitePresenter.argosTapeEntriesTable;
+      if (!table) return;
+      const rows = table.getBySession(sessionId);
+      if (!rows.length) return;
+      const view = buildEffectiveTapeView(rows);
+      const tailOrderSeq = this.messageStore.getNextOrderSeq(sessionId) - 1;
+      const selected = view.messageRecords.filter((record) => record.orderSeq > 0 && record.orderSeq <= tailOrderSeq);
+      if (!selected.length) return;
+      const lines: string[] = [];
+      for (const record of selected) {
+        let text = "";
+        if ("content" in record && typeof record.content === "string") {
+          text = record.content;
+        } else if ("text" in record && typeof record.text === "string") {
+          text = record.text;
+        }
+        if (text) {
+          lines.push(text);
+        }
+      }
+      const spanText = lines.join("\n").trim();
+      if (!spanText || spanText.length < 20) return;
+      void runtimePort
+        .extractAndStore({
+          agentId,
+          spanText,
+          model: { providerId: state.providerId, modelId: state.modelId },
+          sourceSession: sessionId,
+        })
+        .catch(() => undefined);
+    } catch {
+      // extraction failure must not block the chat
+    }
   }
 
   async initSession(
@@ -802,10 +874,12 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         projectDir,
       });
 
-      const systemPrompt = appendReconstructionAnchorStateSection(
+      const systemPromptWithMemory = appendReconstructionAnchorStateSection(
         appendSummarySection(baseSystemPrompt, summaryState.summaryText),
         this.sessionStore.getReconstructionAnchorPromptState(sessionId),
       );
+      const memorySection = await this.buildMemoryInjection(sessionId, normalizedInput.text);
+      const systemPrompt = memorySection ? `${systemPromptWithMemory}\n\n${memorySection}` : systemPromptWithMemory;
       const contextResult = buildContextWithMetadata(
         sessionId,
         normalizedInput,
@@ -908,6 +982,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         this.clearActiveGeneration(sessionId, runId);
       }
       if (result?.status === "completed") {
+        this.triggerMemoryExtraction(sessionId, assistantMessageId);
         void this.drainPendingQueueIfPossible(sessionId, "completed");
       } else if (result?.status === "aborted") {
         // Return-path abort: applyProcessResultStatus already dispatched terminal hooks + idle (guarded
@@ -2631,10 +2706,19 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     const summaryState = await this.applyCompactionIntent(params.sessionId, intent, {
       signal: params.signal,
     });
-    const systemPrompt = appendReconstructionAnchorStateSection(
+    const systemPromptBase2 = appendReconstructionAnchorStateSection(
       appendSummarySection(systemPromptBase, summaryState.summaryText),
       this.sessionStore.getReconstructionAnchorPromptState(params.sessionId),
     );
+    const firstContent = params.requestMessages?.[0]?.content;
+    const queryText =
+      typeof firstContent === "string"
+        ? firstContent
+        : Array.isArray(firstContent)
+          ? firstContent.map((c) => ("text" in c ? c.text : "")).join("")
+          : "";
+    const memorySection = await this.buildMemoryInjection(params.sessionId, queryText);
+    const systemPrompt = memorySection ? `${systemPromptBase2}\n\n${memorySection}` : systemPromptBase2;
     messages = this.replaceLeadingSystemPrompt(messages, systemPrompt);
 
     return {
@@ -3031,10 +3115,12 @@ export class AgentRuntimePresenter implements IAgentImplementation {
           })
         : this.sessionStore.getSummaryState(sessionId);
       this.throwIfAbortRequested(preStreamAbortSignal);
-      const systemPrompt = appendReconstructionAnchorStateSection(
+      const systemPromptBase3 = appendReconstructionAnchorStateSection(
         appendSummarySection(baseSystemPrompt, summaryState.summaryText),
         this.sessionStore.getReconstructionAnchorPromptState(sessionId),
       );
+      const memorySectionResume = await this.buildMemoryInjection(sessionId, "");
+      const systemPrompt = memorySectionResume ? `${systemPromptBase3}\n\n${memorySectionResume}` : systemPromptBase3;
       let resumeContext = buildResumeContext(
         sessionId,
         messageId,
