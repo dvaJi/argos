@@ -989,6 +989,7 @@ const buildMainKernelRouteRuntime = () =>
     pluginPresenter: presenter.pluginPresenter,
     databaseSecurityPresenter: presenter.databaseSecurityPresenter,
     scheduledTasks: presenter.scheduledTasks,
+    memoryPresenter: presenter.memoryPresenter,
   });
 
 export function getMainKernelRouteRuntime(): ReturnType<typeof createMainKernelRouteRuntime> {

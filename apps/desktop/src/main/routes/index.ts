@@ -101,6 +101,12 @@ import {
   mcpSubmitSamplingDecisionRoute,
   mcpUpdateMcpRouterServersAuthRoute,
   mcpUpdateServerRoute,
+  memoryAddRoute,
+  memoryClearRoute,
+  memoryDeleteRoute,
+  memoryGetStatusRoute,
+  memoryListRoute,
+  memorySearchRoute,
   modelsGetProviderCatalogRoute,
   onboardingCompleteRoute,
   onboardingGetStateRoute,
@@ -265,6 +271,7 @@ import type { PluginPresenter } from "@/presenter/pluginPresenter";
 import type { DatabaseSecurityPresenter } from "@/presenter/databaseSecurityPresenter";
 import type { SQLitePresenter } from "@/presenter/sqlitePresenter";
 import type { ScheduledTasksService } from "@/presenter/scheduledTasks";
+import type { MemoryPresenter } from "@/presenter/memoryPresenter";
 import {
   scheduledTasksDeleteRoute,
   scheduledTasksFireNowRoute,
@@ -300,6 +307,7 @@ export type MainKernelRouteRuntime = {
   pluginPresenter: PluginPresenter;
   databaseSecurityPresenter: DatabaseSecurityPresenter;
   scheduledTasks: ScheduledTasksService;
+  memoryPresenter: MemoryPresenter;
 };
 
 export function createMainKernelRouteRuntime(deps: {
@@ -324,6 +332,7 @@ export function createMainKernelRouteRuntime(deps: {
   pluginPresenter: PluginPresenter;
   databaseSecurityPresenter: DatabaseSecurityPresenter;
   scheduledTasks: ScheduledTasksService;
+  memoryPresenter: MemoryPresenter;
 }): MainKernelRouteRuntime {
   const scheduler = createNodeScheduler();
   const hotPathPorts = createPresenterHotPathPorts({
@@ -421,6 +430,7 @@ export function createMainKernelRouteRuntime(deps: {
     pluginPresenter: deps.pluginPresenter,
     databaseSecurityPresenter: deps.databaseSecurityPresenter,
     scheduledTasks: deps.scheduledTasks,
+    memoryPresenter: deps.memoryPresenter,
   };
 }
 
@@ -436,6 +446,79 @@ type WindowState = {
   isFullScreen: boolean;
   isFocused: boolean;
 };
+
+type MemoryListRow = ReturnType<MemoryPresenter["listMemories"]>[number];
+type MemorySearchRow = Awaited<ReturnType<MemoryPresenter["recall"]>>[number];
+
+function parseSourceEntryIds(raw: string | null): number[] | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+    const ids = parsed.filter((id): id is number => Number.isInteger(id) && id >= 0);
+    return ids.length > 0 ? ids : null;
+  } catch {
+    return null;
+  }
+}
+
+function parsePersonaState(raw: string | null): "draft" | "active" | "superseded" | "rejected" | null {
+  if (raw === "draft" || raw === "active" || raw === "superseded" || raw === "rejected") {
+    return raw;
+  }
+  return null;
+}
+
+function toMemoryItem(row: MemoryListRow) {
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    kind: row.kind,
+    category: row.category,
+    content: row.content,
+    importance: row.importance,
+    status: row.status,
+    sourceSession: row.source_session,
+    sourceEntryIds: parseSourceEntryIds(row.source_entry_ids),
+    supersededBy: row.superseded_by,
+    createdAt: row.created_at,
+    confidence: row.confidence,
+    personaState: parsePersonaState(row.persona_state),
+    isAnchor: row.is_anchor === 1,
+  };
+}
+
+function toMemorySearchResult(row: MemorySearchRow, listRowById: ReadonlyMap<string, MemoryListRow>) {
+  const source = listRowById.get(row.id);
+  return {
+    id: row.id,
+    agentId: source?.agent_id ?? "",
+    kind: row.kind,
+    category: source?.category ?? null,
+    content: row.content,
+    importance: row.importance,
+    status: source?.status ?? "fts_only",
+    sourceSession: row.sourceSession ?? source?.source_session ?? null,
+    sourceEntryIds: row.sourceEntryIds ?? parseSourceEntryIds(source?.source_entry_ids ?? null),
+    supersededBy: source?.superseded_by ?? null,
+    createdAt: source?.created_at ?? Date.now(),
+    confidence: source?.confidence ?? null,
+    personaState: parsePersonaState(source?.persona_state ?? null),
+    isAnchor: source?.is_anchor === 1,
+    score: row.score,
+    sources: row.sources,
+    similarity: row.similarity,
+  };
+}
+
+function resolveMemoryKindFromInput(input: { kind?: "episodic" | "semantic" }): "episodic" | "semantic" {
+  return input.kind ?? "semantic";
+}
 
 function readCurrentWindowState(runtime: MainKernelRouteRuntime, context: RouteContext): WindowState {
   const window = context.windowId != null ? BrowserWindow.fromId(context.windowId) : null;
@@ -2650,6 +2733,64 @@ export async function dispatchArgosRoute(
       const input = toolsListDefinitionsRoute.input.parse(rawInput);
       const tools = await runtime.toolPresenter.getAllToolDefinitions(input);
       return toolsListDefinitionsRoute.output.parse({ tools });
+    }
+
+    case memoryListRoute.name: {
+      const input = memoryListRoute.input.parse(rawInput);
+      const rows = runtime.memoryPresenter.listMemories(input.agentId);
+      return memoryListRoute.output.parse({ memories: rows.map((row) => toMemoryItem(row)) });
+    }
+
+    case memoryGetStatusRoute.name: {
+      const input = memoryGetStatusRoute.input.parse(rawInput);
+      return memoryGetStatusRoute.output.parse({
+        status: runtime.memoryPresenter.getStatus(input.agentId),
+      });
+    }
+
+    case memorySearchRoute.name: {
+      const input = memorySearchRoute.input.parse(rawInput);
+      const recalls = await runtime.memoryPresenter.recall(input.agentId, input.query);
+      const allRows = runtime.memoryPresenter.listMemories(input.agentId);
+      const byId = new Map(allRows.map((row) => [row.id, row] as const));
+      const results = recalls.map((row) => toMemorySearchResult(row, byId));
+      const limited = input.limit ? results.slice(0, input.limit) : results;
+      return memorySearchRoute.output.parse({ results: limited });
+    }
+
+    case memoryAddRoute.name: {
+      const input = memoryAddRoute.input.parse(rawInput);
+      const ids = runtime.memoryPresenter.writeMemoriesSync(
+        [
+          {
+            kind: resolveMemoryKindFromInput(input),
+            category: input.category ?? null,
+            content: input.content,
+            importance: input.importance ?? 0.7,
+          },
+        ],
+        { agentId: input.agentId },
+      );
+      if (ids.length > 0) {
+        void runtime.memoryPresenter.processPendingEmbeddings(input.agentId).catch(() => undefined);
+      }
+      return memoryAddRoute.output.parse({
+        result: ids.length > 0 ? { action: "created", memoryId: ids[0] } : { action: "noop", reason: "duplicate" },
+      });
+    }
+
+    case memoryDeleteRoute.name: {
+      const input = memoryDeleteRoute.input.parse(rawInput);
+      return memoryDeleteRoute.output.parse({
+        ok: await runtime.memoryPresenter.deleteMemory(input.agentId, input.memoryId),
+      });
+    }
+
+    case memoryClearRoute.name: {
+      const input = memoryClearRoute.input.parse(rawInput);
+      return memoryClearRoute.output.parse({
+        removed: await runtime.memoryPresenter.clearMemories(input.agentId),
+      });
     }
 
     case providersListModelsRoute.name: {

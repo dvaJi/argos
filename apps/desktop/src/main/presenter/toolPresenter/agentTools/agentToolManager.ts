@@ -27,6 +27,7 @@ import { SUBAGENT_ORCHESTRATOR_TOOL_NAME, SubagentOrchestratorTool } from "./sub
 import { AgentImageGenerationTool, IMAGE_GENERATE_TOOL_NAME } from "./agentImageGenerationTool";
 import { AgentPlanTool, UPDATE_PLAN_TOOL_NAME } from "./agentPlanTool";
 import { AgentTapeToolHandler } from "./agentTapeTools";
+import { AgentMemoryToolHandler } from "./agentMemoryTools";
 import { createAgentToolErrorResult } from "@shared/lib/agentToolResultEnvelope";
 import { isYoBrowserUnavailableError } from "../../browser/YoBrowserErrors";
 
@@ -118,6 +119,7 @@ export class AgentToolManager {
   private imageGenerationTool: AgentImageGenerationTool | null = null;
   private planTool: AgentPlanTool | null = null;
   private tapeToolHandler: AgentTapeToolHandler | null = null;
+  private memoryToolHandler: AgentMemoryToolHandler | null = null;
   private static readonly READ_FILE_AUTO_TRUNCATE_THRESHOLD = 4500;
 
   private readonly fileSystemSchemas = {
@@ -253,6 +255,7 @@ export class AgentToolManager {
     });
     this.planTool = new AgentPlanTool();
     this.tapeToolHandler = new AgentTapeToolHandler(this.runtimePort);
+    this.memoryToolHandler = new AgentMemoryToolHandler(this.runtimePort);
     if (this.agentWorkspacePath) {
       this.fileSystemHandler = new AgentFileSystemHandler([this.agentWorkspacePath]);
       this.bashHandler = new AgentBashHandler(
@@ -336,6 +339,17 @@ export class AgentToolManager {
         logger.warn("[AgentToolManager] Failed to resolve image generation tool availability", {
           error,
         });
+      }
+    }
+
+    // 2.4. Memory tools (argos agent sessions with memory enabled)
+    if (isAgentMode && this.memoryToolHandler) {
+      try {
+        if (await this.memoryToolHandler.canUse(context.conversationId)) {
+          defs.push(...this.memoryToolHandler.getToolDefinitions());
+        }
+      } catch (error) {
+        logger.warn("[AgentToolManager] Failed to resolve memory tool availability", { error });
       }
     }
 
@@ -449,6 +463,10 @@ export class AgentToolManager {
 
     if (this.tapeToolHandler?.isTapeTool(toolName)) {
       return await this.tapeToolHandler.call(toolName, args, conversationId);
+    }
+
+    if (this.memoryToolHandler?.isMemoryTool(toolName)) {
+      return await this.memoryToolHandler.call(toolName, args, conversationId);
     }
 
     // Route to process tool
