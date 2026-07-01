@@ -942,7 +942,7 @@ export class RemoteControlPresenter {
     const configFingerprint = this.buildTelegramAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("telegram", DEFAULT_CHANNEL_ID);
     const existingConfigFingerprint = existing?.configSignature;
-    if (existingConfigFingerprint === configFingerprint && existing.connected) {
+    if (existingConfigFingerprint === configFingerprint && existing?.connected) {
       return;
     }
 
@@ -977,7 +977,7 @@ export class RemoteControlPresenter {
     const configFingerprint = this.buildFeishuAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("feishu", DEFAULT_CHANNEL_ID);
     const existingConfigFingerprint = existing?.configSignature;
-    if (existingConfigFingerprint === configFingerprint && existing.connected) {
+    if (existingConfigFingerprint === configFingerprint && existing?.connected) {
       return;
     }
 
@@ -1016,7 +1016,7 @@ export class RemoteControlPresenter {
     const configFingerprint = this.buildQQBotAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("qqbot", DEFAULT_CHANNEL_ID);
     const existingConfigFingerprint = existing?.configSignature;
-    if (existingConfigFingerprint === configFingerprint && existing.connected) {
+    if (existingConfigFingerprint === configFingerprint && existing?.connected) {
       return;
     }
 
@@ -1052,7 +1052,7 @@ export class RemoteControlPresenter {
     const configFingerprint = this.buildDiscordAdapterFingerprint(settings);
     const existing = this.channelManager.getAdapter("discord", DEFAULT_CHANNEL_ID);
     const existingConfigFingerprint = existing?.configSignature;
-    if (existingConfigFingerprint === configFingerprint && existing.connected) {
+    if (existingConfigFingerprint === configFingerprint && existing?.connected) {
       return;
     }
 
@@ -1127,7 +1127,7 @@ export class RemoteControlPresenter {
     const configFingerprint = this.buildWeixinIlinkAdapterFingerprint(remoteConfig.defaultAgentId, account);
     const existing = this.channelManager.getAdapter("weixin-ilink", account.accountId);
     const existingConfigFingerprint = existing?.configSignature;
-    if (existingConfigFingerprint === configFingerprint && existing.connected) {
+    if (existingConfigFingerprint === configFingerprint && existing?.connected) {
       this.logWeixinTrace("Reusing existing Weixin iLink adapter.", {
         accountId: account.accountId,
       });
