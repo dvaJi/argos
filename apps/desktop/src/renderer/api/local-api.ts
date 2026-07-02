@@ -28,15 +28,16 @@ export const browserLocalApi: LocalApi = {
     navigator.clipboard?.writeText(text).catch(() => {});
   },
   copyImage: () => {},
-  readClipboardText: () => {
-    const text = navigator.clipboard?.readText?.();
-    return typeof text === "string" ? text : "";
-  },
+  readClipboardText: () => "",
   getPathForFile: () => "",
   getWindowId: () => null,
   getWebContentsId: () => 0,
   getArch: () => "browser",
   openExternal: (url: string) => {
+    const allowed = /^https?:|^mailto:/i;
+    if (!allowed.test(url)) {
+      return Promise.reject(new Error(`Blocked disallowed URL scheme: ${url}`));
+    }
     window.open(url, "_blank", "noopener");
     return Promise.resolve();
   },

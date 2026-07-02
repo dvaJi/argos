@@ -44,7 +44,7 @@ export function getRuntimeWebContentsId(): number | null {
 export async function openRuntimeExternal(url: string): Promise<void> {
   const api = getLocalApi();
   if (!api.openExternal) {
-    throw new Error("openExternal is not available");
+    throw new Error("window.api.openExternal is not available");
   }
 
   await api.openExternal(url);
