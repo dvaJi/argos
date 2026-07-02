@@ -1,15 +1,6 @@
 import type { ConnectionState } from "@shared/contracts/connection";
 import { CONNECTION_STATE_DEFAULT, ConnectionStateSchema } from "@shared/contracts/connection";
-
-type RendererRuntimeApi = Window["api"];
-
-function getRendererRuntimeApi(): RendererRuntimeApi {
-  if (!window.api) {
-    throw new Error("window.api is not available");
-  }
-
-  return window.api;
-}
+import { getLocalApi } from "./local-api";
 
 function getArgosConnection(): {
   getState: () => unknown;
@@ -27,44 +18,44 @@ function getArgosConnection(): {
 }
 
 export function copyRuntimeText(text: string): void {
-  getRendererRuntimeApi().copyText(text);
+  getLocalApi().copyText(text);
 }
 
 export function copyRuntimeImage(image: string): void {
-  getRendererRuntimeApi().copyImage(image);
+  getLocalApi().copyImage(image);
 }
 
 export function readRuntimeClipboardText(): string {
-  return getRendererRuntimeApi().readClipboardText();
+  return getLocalApi().readClipboardText();
 }
 
 export function getRuntimePathForFile(file: File): string {
-  return getRendererRuntimeApi().getPathForFile(file) ?? "";
+  return getLocalApi().getPathForFile(file) ?? "";
 }
 
 export function getRuntimeWindowId(): number | null {
-  return getRendererRuntimeApi().getWindowId() ?? null;
+  return getLocalApi().getWindowId() ?? null;
 }
 
 export function getRuntimeWebContentsId(): number | null {
-  return getRendererRuntimeApi().getWebContentsId?.() ?? null;
+  return getLocalApi().getWebContentsId?.() ?? null;
 }
 
 export async function openRuntimeExternal(url: string): Promise<void> {
-  const runtimeApi = getRendererRuntimeApi();
-  if (!runtimeApi.openExternal) {
+  const api = getLocalApi();
+  if (!api.openExternal) {
     throw new Error("window.api.openExternal is not available");
   }
 
-  await runtimeApi.openExternal(url);
+  await api.openExternal(url);
 }
 
 export function toRuntimeRelativePath(filePath: string, baseDir?: string): string {
-  return getRendererRuntimeApi().toRelativePath?.(filePath, baseDir) ?? filePath;
+  return getLocalApi().toRelativePath?.(filePath, baseDir) ?? filePath;
 }
 
 export function formatRuntimePathForInput(filePath: string): string {
-  return getRendererRuntimeApi().formatPathForInput?.(filePath) ?? filePath;
+  return getLocalApi().formatPathForInput?.(filePath) ?? filePath;
 }
 
 export function getRuntimeConnectionState(): ConnectionState {

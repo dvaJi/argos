@@ -30,7 +30,8 @@ const RETIRED_RENDERER_LEGACY_ENTRY_PATHS = [
 ]
 const RENDERER_QUARANTINE_MAX_SOURCE_FILES = 3
 const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
-  path.join(ROOT, 'apps/desktop/src/renderer/api/runtime.ts')
+  path.join(ROOT, 'apps/desktop/src/renderer/api/runtime.ts'),
+  path.join(ROOT, 'apps/desktop/src/renderer/api/local-api.ts')
 ]
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
 const PHASE_ORDER = new Map([
