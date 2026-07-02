@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { serve } from "bun";
 import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
@@ -20,6 +21,54 @@ function isNonLoopbackHost(host: string): boolean {
   return host !== "127.0.0.1" && host !== "localhost" && host !== "::1";
 }
 
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".map": "application/json; charset=utf-8",
+};
+
+function serveStaticWeb(webRoot: string, pathname: string): Response {
+  const safePath = pathname
+    .split("/")
+    .filter((s) => s !== ".." && s !== ".")
+    .join("/");
+  const resolvedRoot = resolve(webRoot);
+
+  const tryFile = (relativePath: string): Bun.BunFile | null => {
+    const file = Bun.file(`${resolvedRoot}/${relativePath}`);
+    return file.size > 0 ? file : null;
+  };
+
+  const file = tryFile(safePath || "index.html");
+  if (file) {
+    const ext = safePath.match(/\.[^.]+$/)?.[0] ?? "";
+    const isHashedAsset = safePath.startsWith("assets/");
+    return new Response(file, {
+      headers: {
+        "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
+        "Cache-Control": isHashedAsset ? "public, max-age=31536000, immutable" : "no-cache",
+      },
+    });
+  }
+
+  const indexFile = tryFile("index.html");
+  if (indexFile) {
+    return new Response(indexFile, {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
+    });
+  }
+
+  return Response.json({ ok: false, error: { code: "not_found", message: "Web assets not found" } }, { status: 404 });
+}
+
 export type DaemonHandle = {
   port: number;
   close: () => Promise<void>;
@@ -32,6 +81,8 @@ export async function startDaemon(options?: {
   host?: string;
   port?: number;
   desktopBootstrapSecret?: string;
+  web?: boolean;
+  webRoot?: string;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
@@ -70,6 +121,8 @@ export async function startDaemon(options?: {
     desktopBootstrapSecret: options?.desktopBootstrapSecret,
   };
 
+  const webRoot = options?.web ? resolve(options?.webRoot || "./web") : null;
+
   const server = serve({
     hostname: host,
     port,
@@ -82,6 +135,10 @@ export async function startDaemon(options?: {
           version: resolveDaemonVersion(),
           uptime: Date.now() - startTime,
         });
+      }
+
+      if (webRoot && !url.pathname.startsWith("/api/")) {
+        return serveStaticWeb(webRoot, url.pathname);
       }
 
       const authResult = authorize(request, authConfig);
@@ -162,6 +219,9 @@ export async function startDaemon(options?: {
   logger.info(`[daemon] Health: http://${host}:${serverPort}/health`);
   logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
   logger.info(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
+  if (webRoot) {
+    logger.info(`[daemon] Web UI: http://${host}:${serverPort}`);
+  }
 
   if (!options?.noUpdateCheck) {
     void checkForUpdate().then((check) => {
@@ -226,6 +286,8 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
+  --web               Serve the web UI (requires --web-root or ARGOS_WEB_ROOT)
+  --web-root <path>   Web asset directory (default: ./web)
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check
   -h, --help          Show this help
@@ -239,6 +301,8 @@ Environment variables:
   ARGOS_PORT           Same as --port
   ARGOS_DATA_DIR       Same as --data-dir
   ARGOS_DESKTOP_BOOTSTRAP  Desktop bootstrap secret (set by Electron main)
+  ARGOS_WEB            Same as --web (1/true)
+  ARGOS_WEB_ROOT       Same as --web-root
   ARGOS_LOG_LEVEL      Same as --log-level
   ARGOS_NO_UPDATE_CHECK  Same as --no-update-check
 `);
@@ -262,6 +326,8 @@ Environment variables:
     host: opts.host,
     port: opts.port,
     desktopBootstrapSecret: opts.desktopBootstrap,
+    web: opts.web,
+    webRoot: opts.webRoot,
     noUpdateCheck: opts.noUpdateCheck,
   }).catch((error) => {
     logger.error("[daemon] Failed to start:", error);

@@ -7,6 +7,8 @@ export type DaemonOptions = {
   port?: number;
   dataDir?: string;
   desktopBootstrap?: string;
+  web?: boolean;
+  webRoot?: string;
   logLevel?: string;
   noUpdateCheck?: boolean;
 };
@@ -25,6 +27,10 @@ export function parseArgs(argv: string[]): DaemonOptions {
       opts.dataDir = args[++i];
     } else if (arg === "--no-update-check") {
       opts.noUpdateCheck = true;
+    } else if (arg === "--web") {
+      opts.web = true;
+    } else if (arg === "--web-root" && args[i + 1]) {
+      opts.webRoot = args[++i];
     } else if (arg === "--log-level" && args[i + 1]) {
       opts.logLevel = args[++i];
     }
@@ -39,6 +45,8 @@ export function mergeOptions(parsed: DaemonOptions, env: Record<string, string |
     port: parsed.port ?? (parseInt(env.ARGOS_PORT || "0", 10) || 9527),
     dataDir: parsed.dataDir || env.ARGOS_DATA_DIR || undefined,
     desktopBootstrap: parsed.desktopBootstrap || env.ARGOS_DESKTOP_BOOTSTRAP || undefined,
+    web: parsed.web || env.ARGOS_WEB === "1" || env.ARGOS_WEB === "true",
+    webRoot: parsed.webRoot || env.ARGOS_WEB_ROOT || undefined,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",
     noUpdateCheck: parsed.noUpdateCheck || env.ARGOS_NO_UPDATE_CHECK === "1" || env.ARGOS_NO_UPDATE_CHECK === "true",
   };
