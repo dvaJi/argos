@@ -4,7 +4,7 @@ import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transp
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
-import { handlePair, handleListSessions, handleRevokeSession } from "./transport/auth-routes";
+import { handlePair, handleListSessions, handleRevokeSession, handleIssuePairingToken } from "./transport/auth-routes";
 import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
@@ -165,6 +165,10 @@ export async function startDaemon(options?: {
 
       if (url.pathname === "/api/v1/sessions" && request.method === "GET") {
         return handleListSessions(sessionAuthRepo);
+      }
+
+      if (url.pathname === "/api/v1/pair/token" && request.method === "POST") {
+        return handleIssuePairingToken(sessionAuthRepo, url.origin);
       }
 
       if (url.pathname.startsWith("/api/v1/sessions/") && request.method === "DELETE") {

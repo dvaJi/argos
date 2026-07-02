@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
 import { Label } from "@shadcn/components/ui/label";
 import { RemoteWorkspaceSetup } from "@/components/workspace/RemoteWorkspaceSetup";
 import { useToast } from "@/components/use-toast";
@@ -13,9 +14,13 @@ import {
   type WorkspaceEntry,
 } from "@shared/workspaceConfig";
 
+type PairingResult = { pairingUrl: string; expiresAt: number } | null;
+
 export default function ServerSettings() {
   const { toast } = useToast();
   const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>(() => readWorkspaceConfig().workspaces);
+  const [pairing, setPairing] = useState<PairingResult>(null);
+  const [generating, setGenerating] = useState(false);
 
   const remoteWorkspaces = workspaces.filter((workspace) => workspace.mode === "remote");
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
@@ -51,6 +56,31 @@ export default function ServerSettings() {
     [toast],
   );
 
+  const handleGeneratePairingUrl = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const daemonInfo = await (window as any).electron?.ipcRenderer?.invoke("get-daemon-port");
+      if (!daemonInfo || !daemonInfo.port) {
+        toast({ title: "Daemon not running", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`http://127.0.0.1:${daemonInfo.port}/api/v1/pair/token`, { method: "POST" });
+      if (!res.ok) {
+        toast({ title: "Failed to generate pairing URL", variant: "destructive" });
+        return;
+      }
+      const body = await res.json();
+      if (body.ok) {
+        setPairing({ pairingUrl: body.pairingUrl, expiresAt: body.expiresAt });
+        toast({ title: "Pairing URL generated" });
+      }
+    } catch {
+      toast({ title: "Failed to reach daemon", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  }, [toast]);
+
   return (
     <div data-testid="settings-server-page" className="h-full w-full">
       <ScrollArea className="h-full w-full">
@@ -81,11 +111,35 @@ export default function ServerSettings() {
                 <div className="min-w-0 space-y-1">
                   <div className="text-sm font-medium">Remote</div>
                   <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    Remote workspaces connect this app to an `argos-daemon` running on another machine.
+                    Remote workspaces connect this app to an <code>argos-daemon</code> running on another machine.
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Icon icon="lucide:smartphone" className="size-4 text-muted-foreground" />
+              <div className="text-sm font-medium">Browser &amp; Mobile Access</div>
+            </div>
+            <p className="text-pretty text-xs leading-5 text-muted-foreground">
+              Generate a one-time pairing URL to access this Argos instance from a browser on the same network. The URL
+              expires after 5 minutes and can only be used once.
+            </p>
+            {pairing ? (
+              <div className="space-y-2">
+                <Input readOnly value={pairing.pairingUrl} className="font-mono text-xs" />
+                <p className="text-xs text-muted-foreground">
+                  Expires: {new Date(pairing.expiresAt).toLocaleTimeString()}
+                </p>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleGeneratePairingUrl} disabled={generating}>
+                <Icon icon="lucide:link" className="mr-1.5 size-3.5" />
+                {generating ? "Generating..." : "Generate pairing URL"}
+              </Button>
+            )}
           </div>
 
           {remoteWorkspaces.length > 0 && (

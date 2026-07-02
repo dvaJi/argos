@@ -72,3 +72,14 @@ export function handleRevokeSession(repo: SessionAuthRepository, sessionId: stri
   }
   return Response.json({ ok: true });
 }
+
+/**
+ * POST /api/v1/pair/token — authenticated class endpoint.
+ * Issues a one-time pairing token and returns a pairing URL.
+ * Used by the desktop settings UI to generate browser access links.
+ */
+export function handleIssuePairingToken(repo: SessionAuthRepository, origin: string): Response {
+  const pairing = repo.issuePairingToken("desktop");
+  const pairingUrl = `${origin}/?token=${pairing.token}`;
+  return Response.json({ ok: true, pairingUrl, expiresAt: pairing.expiresAt });
+}
