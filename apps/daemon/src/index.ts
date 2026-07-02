@@ -4,6 +4,8 @@ import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transp
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
+import { handlePair, handleListSessions, handleRevokeSession } from "./transport/auth-routes";
+import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
 import { BunEventPublisher } from "./host/bun-event-publisher";
@@ -83,6 +85,7 @@ export async function startDaemon(options?: {
   desktopBootstrapSecret?: string;
   web?: boolean;
   webRoot?: string;
+  pair?: boolean;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
@@ -107,6 +110,8 @@ export async function startDaemon(options?: {
 
   const providerExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
 
+  const sessionAuthRepo = new SessionAuthRepository(db);
+
   const dispatcher =
     options?.dispatcher ??
     createDaemonDispatcher(configPresenter as any, eventPublisher, sessionRepository, providerExecutionPort);
@@ -119,6 +124,7 @@ export async function startDaemon(options?: {
   const authConfig: AuthGateConfig = {
     exposureMode,
     desktopBootstrapSecret: options?.desktopBootstrapSecret,
+    verifySession: (secret) => Promise.resolve(sessionAuthRepo.verifySession(secret)),
   };
 
   const webRoot = options?.web ? resolve(options?.webRoot || "./web") : null;
@@ -141,7 +147,11 @@ export async function startDaemon(options?: {
         return serveStaticWeb(webRoot, url.pathname);
       }
 
-      const authResult = authorize(request, authConfig);
+      if (url.pathname === "/api/v1/pair" && request.method === "POST") {
+        return handlePair(request, sessionAuthRepo);
+      }
+
+      const authResult = await authorize(request, authConfig);
       if (!authResult.ok) {
         return Response.json(
           { ok: false, error: { code: authResult.code, message: authResult.message } },
@@ -151,6 +161,15 @@ export async function startDaemon(options?: {
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
         return handleRouteDispatch(request);
+      }
+
+      if (url.pathname === "/api/v1/sessions" && request.method === "GET") {
+        return handleListSessions(sessionAuthRepo);
+      }
+
+      if (url.pathname.startsWith("/api/v1/sessions/") && request.method === "DELETE") {
+        const sessionId = url.pathname.slice("/api/v1/sessions/".length);
+        return handleRevokeSession(sessionAuthRepo, sessionId);
       }
 
       if (url.pathname === "/api/v1/events") {
@@ -223,6 +242,13 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Web UI: http://${host}:${serverPort}`);
   }
 
+  if (options?.pair) {
+    const pairing = sessionAuthRepo.issuePairingToken("cli");
+    const scheme = webRoot ? "http" : "http";
+    console.log(`\n  Pairing URL: ${scheme}://${host}:${serverPort}/pair?token=${pairing.token}\n`);
+    logger.info(`[daemon] Pairing token expires at ${new Date(pairing.expiresAt).toISOString()}`);
+  }
+
   if (!options?.noUpdateCheck) {
     void checkForUpdate().then((check) => {
       if (!check) return; // offline or rate-limited — stay silent
@@ -288,6 +314,7 @@ Options:
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
   --web               Serve the web UI (requires --web-root or ARGOS_WEB_ROOT)
   --web-root <path>   Web asset directory (default: ./web)
+  --pair              Generate a one-time pairing token and print the URL
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check
   -h, --help          Show this help
@@ -328,6 +355,7 @@ Environment variables:
     desktopBootstrapSecret: opts.desktopBootstrap,
     web: opts.web,
     webRoot: opts.webRoot,
+    pair: opts.pair,
     noUpdateCheck: opts.noUpdateCheck,
   }).catch((error) => {
     logger.error("[daemon] Failed to start:", error);

@@ -9,6 +9,7 @@ export type DaemonOptions = {
   desktopBootstrap?: string;
   web?: boolean;
   webRoot?: string;
+  pair?: boolean;
   logLevel?: string;
   noUpdateCheck?: boolean;
 };
@@ -31,6 +32,8 @@ export function parseArgs(argv: string[]): DaemonOptions {
       opts.web = true;
     } else if (arg === "--web-root" && args[i + 1]) {
       opts.webRoot = args[++i];
+    } else if (arg === "--pair") {
+      opts.pair = true;
     } else if (arg === "--log-level" && args[i + 1]) {
       opts.logLevel = args[++i];
     }
@@ -47,6 +50,7 @@ export function mergeOptions(parsed: DaemonOptions, env: Record<string, string |
     desktopBootstrap: parsed.desktopBootstrap || env.ARGOS_DESKTOP_BOOTSTRAP || undefined,
     web: parsed.web || env.ARGOS_WEB === "1" || env.ARGOS_WEB === "true",
     webRoot: parsed.webRoot || env.ARGOS_WEB_ROOT || undefined,
+    pair: parsed.pair || false,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",
     noUpdateCheck: parsed.noUpdateCheck || env.ARGOS_NO_UPDATE_CHECK === "1" || env.ARGOS_NO_UPDATE_CHECK === "true",
   };

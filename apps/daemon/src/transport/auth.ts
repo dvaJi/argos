@@ -5,6 +5,8 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_FAILED_ATTEMPTS = 10;
 const LOCKOUT_MS = 300_000;
 
+const SESSION_COOKIE_NAME = "argos_session";
+
 function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
@@ -51,18 +53,31 @@ function unauthorized(ip: string, message: string): AuthResult {
   return { ok: false, status: 401, code: "unauthorized", message };
 }
 
+function getCookie(request: Request, name: string): string | null {
+  const cookieHeader = request.headers.get("cookie");
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
+function getBearerToken(request: Request): string | null {
+  const authHeader = request.headers.get("authorization");
+  const match = authHeader?.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1] : null;
+}
+
 /**
  * Resolve an AuthContext from an incoming request.
  *
- * Phase 1 (this implementation) accepts:
+ * Accepts:
  * - Loopback requests: implicit desktop-bootstrap trust (desktop-managed sidecar).
  * - Non-loopback with a matching desktop-bootstrap bearer header.
+ * - Session credentials: browser-session (cookie) or bearer-session (header),
+ *   verified via config.verifySession when available.
  *
- * Phase 2 (pairing-and-session-auth) will add browser-session / bearer-session
- * verification here. Until then, non-loopback requests without a desktop-bootstrap
- * secret are rejected — remote/mobile access is intentionally unavailable.
+ * Everything else is rejected on non-loopback.
  */
-export function authorize(request: Request, config: AuthGateConfig): AuthResult {
+export async function authorize(request: Request, config: AuthGateConfig): Promise<AuthResult> {
   const ip = getClientIp(request);
 
   if (isRateLimited(ip)) {
@@ -84,19 +99,52 @@ export function authorize(request: Request, config: AuthGateConfig): AuthResult 
   }
 
   const bootstrapSecret = config.desktopBootstrapSecret;
-  if (bootstrapSecret) {
-    const authHeader = request.headers.get("authorization");
-    const match = authHeader?.match(/^Bearer\s+(.+)$/i);
-    if (match && match[1] === bootstrapSecret) {
-      clearFailures(ip);
-      return {
-        ok: true,
-        context: {
-          credentialKind: "desktop-bootstrap",
-          exposureMode: config.exposureMode,
-          isLoopback: false,
-        },
-      };
+  const bearerToken = getBearerToken(request);
+
+  if (bootstrapSecret && bearerToken === bootstrapSecret) {
+    clearFailures(ip);
+    return {
+      ok: true,
+      context: {
+        credentialKind: "desktop-bootstrap",
+        exposureMode: config.exposureMode,
+        isLoopback: false,
+      },
+    };
+  }
+
+  if (config.verifySession) {
+    const cookieSecret = getCookie(request, SESSION_COOKIE_NAME);
+    if (cookieSecret) {
+      const session = await config.verifySession(cookieSecret);
+      if (session) {
+        clearFailures(ip);
+        return {
+          ok: true,
+          context: {
+            credentialKind: "browser-session",
+            sessionId: session.sessionId,
+            exposureMode: config.exposureMode,
+            isLoopback: false,
+          },
+        };
+      }
+    }
+
+    if (bearerToken) {
+      const session = await config.verifySession(bearerToken);
+      if (session) {
+        clearFailures(ip);
+        return {
+          ok: true,
+          context: {
+            credentialKind: "bearer-session",
+            sessionId: session.sessionId,
+            exposureMode: config.exposureMode,
+            isLoopback: false,
+          },
+        };
+      }
     }
   }
 
