@@ -1,7 +1,9 @@
+import { resolve } from "node:path";
 import { serve } from "bun";
-import { handleRouteDispatch, setRouteDispatcher } from "./transport/http";
+import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
-import { authenticate } from "./transport/auth";
+import { authorize } from "./transport/auth";
+import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
 import { BunEventPublisher } from "./host/bun-event-publisher";
@@ -11,20 +13,60 @@ import { BunProviderExecutionPort } from "./host/bun-provider-execution";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
-import {
-  parseArgs,
-  mergeOptions,
-  ensureDirectories,
-  setupGracefulShutdown,
-  generateToken,
-  type DaemonOptions,
-} from "./lifecycle";
+import { parseArgs, mergeOptions, ensureDirectories, setupGracefulShutdown, type DaemonOptions } from "./lifecycle";
 
 const startTime = Date.now();
 
-function isLocalRequest(request: Request): boolean {
-  const url = new URL(request.url);
-  return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
+function isNonLoopbackHost(host: string): boolean {
+  return host !== "127.0.0.1" && host !== "localhost" && host !== "::1";
+}
+
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
+  ".map": "application/json; charset=utf-8",
+};
+
+function serveStaticWeb(webRoot: string, pathname: string): Response {
+  const safePath = pathname
+    .split("/")
+    .filter((s) => s !== ".." && s !== ".")
+    .join("/");
+  const resolvedRoot = resolve(webRoot);
+
+  const tryFile = (relativePath: string): Bun.BunFile | null => {
+    const file = Bun.file(`${resolvedRoot}/${relativePath}`);
+    return file.size > 0 ? file : null;
+  };
+
+  const file = tryFile(safePath || "index.html");
+  if (file) {
+    const ext = safePath.match(/\.[^.]+$/)?.[0] ?? "";
+    const isHashedAsset = safePath.startsWith("assets/");
+    return new Response(file, {
+      headers: {
+        "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
+        "Cache-Control": isHashedAsset ? "public, max-age=31536000, immutable" : "no-cache",
+      },
+    });
+  }
+
+  const indexFile = tryFile("index.html");
+  if (indexFile) {
+    return new Response(indexFile, {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
+    });
+  }
+
+  return Response.json({ ok: false, error: { code: "not_found", message: "Web assets not found" } }, { status: 404 });
 }
 
 export type DaemonHandle = {
@@ -38,7 +80,9 @@ export async function startDaemon(options?: {
   dataDir?: string;
   host?: string;
   port?: number;
-  token?: string;
+  desktopBootstrapSecret?: string;
+  web?: boolean;
+  webRoot?: string;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
@@ -70,7 +114,14 @@ export async function startDaemon(options?: {
 
   const host = options?.host || "127.0.0.1";
   const port = options?.port ?? 9527;
-  const token = options?.token || "";
+
+  const exposureMode: ExposureMode = isNonLoopbackHost(host) ? "network-accessible" : "local-only";
+  const authConfig: AuthGateConfig = {
+    exposureMode,
+    desktopBootstrapSecret: options?.desktopBootstrapSecret,
+  };
+
+  const webRoot = options?.web ? resolve(options?.webRoot || "./web") : null;
 
   const server = serve({
     hostname: host,
@@ -86,14 +137,16 @@ export async function startDaemon(options?: {
         });
       }
 
-      if (!isLocalRequest(request) && token) {
-        const authResult = authenticate(request, token);
-        if (!authResult.ok) {
-          return Response.json(
-            { ok: false, error: { code: "unauthorized", message: authResult.error } },
-            { status: 401 },
-          );
-        }
+      if (webRoot && !url.pathname.startsWith("/api/")) {
+        return serveStaticWeb(webRoot, url.pathname);
+      }
+
+      const authResult = authorize(request, authConfig);
+      if (!authResult.ok) {
+        return Response.json(
+          { ok: false, error: { code: authResult.code, message: authResult.message } },
+          { status: authResult.status },
+        );
       }
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
@@ -101,17 +154,10 @@ export async function startDaemon(options?: {
       }
 
       if (url.pathname === "/api/v1/events") {
-        const wsToken = url.searchParams.get("token");
-        if (token && wsToken !== token) {
-          return Response.json(
-            { ok: false, error: { code: "unauthorized", message: "Invalid WebSocket token" } },
-            { status: 401 },
-          );
-        }
-
         const success = (server as any).upgrade(request, {
           data: {
             subscriptions: new Set<string>(),
+            authContext: authResult.context,
           },
         });
         if (!success) {
@@ -134,23 +180,35 @@ export async function startDaemon(options?: {
         eventPublisher.removeClient(ws);
         ws.unsubscribe("events");
       },
-      message(ws: any, message: string | Buffer) {
+      async message(ws: any, message: string | Buffer) {
         if (typeof message !== "string") return;
+        let parsed: any;
         try {
-          const parsed = JSON.parse(message);
-          if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
-            for (const eventName of parsed.events) {
-              ws.subscribe(`event:${eventName}`);
-              ws.data.subscriptions.add(eventName);
-            }
-          } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
-            for (const eventName of parsed.events) {
-              ws.unsubscribe(`event:${eventName}`);
-              ws.data.subscriptions.delete(eventName);
-            }
-          }
+          parsed = JSON.parse(message);
         } catch {
-          // ignore malformed messages
+          return;
+        }
+
+        if (parsed.type === "route" && parsed.requestId) {
+          const result = await dispatchRoute(parsed.route, parsed.input);
+          ws.send(
+            JSON.stringify({
+              type: "route:response",
+              requestId: parsed.requestId,
+              ok: result.ok,
+              ...(result.ok ? { output: result.output } : { error: result.error }),
+            }),
+          );
+        } else if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
+          for (const eventName of parsed.events) {
+            ws.subscribe(`event:${eventName}`);
+            ws.data.subscriptions.add(eventName);
+          }
+        } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
+          for (const eventName of parsed.events) {
+            ws.unsubscribe(`event:${eventName}`);
+            ws.data.subscriptions.delete(eventName);
+          }
         }
       },
     } as any,
@@ -161,6 +219,9 @@ export async function startDaemon(options?: {
   logger.info(`[daemon] Health: http://${host}:${serverPort}/health`);
   logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
   logger.info(`[daemon] Events: ws://${host}:${serverPort}/api/v1/events`);
+  if (webRoot) {
+    logger.info(`[daemon] Web UI: http://${host}:${serverPort}`);
+  }
 
   if (!options?.noUpdateCheck) {
     void checkForUpdate().then((check) => {
@@ -207,7 +268,7 @@ if (import.meta.main) {
     };
     await runSelfUpdate({
       installDir: flagValue("--install-dir"),
-      token: flagValue("--token") || process.env.ARGOS_TOKEN,
+      token: flagValue("--token") || process.env.GITHUB_TOKEN,
     });
     process.exit(0);
   }
@@ -225,8 +286,8 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
-  --token <token>     Auth token for remote access
-  --with-token        Auto-generate an auth token and print it
+  --web               Serve the web UI (requires --web-root or ARGOS_WEB_ROOT)
+  --web-root <path>   Web asset directory (default: ./web)
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check
   -h, --help          Show this help
@@ -239,7 +300,9 @@ Environment variables:
   ARGOS_HOST           Same as --host
   ARGOS_PORT           Same as --port
   ARGOS_DATA_DIR       Same as --data-dir
-  ARGOS_TOKEN          Same as --token
+  ARGOS_DESKTOP_BOOTSTRAP  Desktop bootstrap secret (set by Electron main)
+  ARGOS_WEB            Same as --web (1/true)
+  ARGOS_WEB_ROOT       Same as --web-root
   ARGOS_LOG_LEVEL      Same as --log-level
   ARGOS_NO_UPDATE_CHECK  Same as --no-update-check
 `);
@@ -253,21 +316,18 @@ Environment variables:
     logger.setLevel(opts.logLevel as any);
   }
 
-  let token = opts.token;
-  if (opts.withToken) {
-    token = generateToken();
-    console.log(`\n  Token: ${token}\n`);
-  } else if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
-    token = generateToken();
-    logger.info(`[daemon] No token provided, generated: ${token}`);
-    logger.info(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);
+  if (isNonLoopbackHost(opts.host || "127.0.0.1") && !opts.desktopBootstrap) {
+    logger.warn(`[daemon] Non-loopback host "${opts.host}" without ARGOS_DESKTOP_BOOTSTRAP.`);
+    logger.warn(`[daemon] Non-loopback requests will be rejected until pairing/session auth is available.`);
   }
 
   startDaemon({
     dataDir: opts.dataDir,
     host: opts.host,
     port: opts.port,
-    token,
+    desktopBootstrapSecret: opts.desktopBootstrap,
+    web: opts.web,
+    webRoot: opts.webRoot,
     noUpdateCheck: opts.noUpdateCheck,
   }).catch((error) => {
     logger.error("[daemon] Failed to start:", error);

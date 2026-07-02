@@ -31,12 +31,8 @@ const INSTALL_OPTIONS = [
 
 const RUN_COMMANDS = [
   {
-    label: "Start with a token",
-    command: "argos-daemon --with-token",
-  },
-  {
-    label: "Remote host",
-    command: "ARGOS_HOST=0.0.0.0 ARGOS_TOKEN=<secret> argos-daemon",
+    label: "Start daemon",
+    command: "argos-daemon",
   },
   {
     label: "Health check",
@@ -47,7 +43,6 @@ const RUN_COMMANDS = [
 type WorkspaceDraft = {
   name: string;
   remoteUrl: string;
-  authToken: string;
   daemonVersion?: string;
 };
 
@@ -109,7 +104,6 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
   const [view, setView] = useState<SetupView>("form");
   const [name, setName] = useState("");
   const [remoteUrl, setRemoteUrl] = useState("");
-  const [authToken, setAuthToken] = useState("");
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
 
   const validationError = useMemo(
@@ -130,7 +124,6 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
   const resetFields = useCallback(() => {
     setName("");
     setRemoteUrl("");
-    setAuthToken("");
   }, []);
 
   const handleConnect = useCallback(async () => {
@@ -143,12 +136,9 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
     setConnection({ kind: "checking" });
 
     try {
-      const headers: Record<string, string> = {};
-      if (authToken.trim()) headers.Authorization = `Bearer ${authToken.trim()}`;
-
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${normalizedUrl}/health`, { headers, signal: controller.signal });
+      const response = await fetch(`${normalizedUrl}/health`, { signal: controller.signal });
       window.clearTimeout(timeout);
 
       if (!response.ok) {
@@ -165,7 +155,6 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
       await onAddWorkspace({
         name: deriveName(name, normalizedUrl),
         remoteUrl: normalizedUrl,
-        authToken: authToken.trim(),
         daemonVersion: body.version,
       });
 
@@ -176,7 +165,7 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
       const message = error instanceof Error ? error.message : String(error);
       setConnection({ kind: "error", message });
     }
-  }, [authToken, existingRemoteUrls, name, normalizedUrl, onAddWorkspace, remoteUrl, resetFields, toast]);
+  }, [existingRemoteUrls, name, normalizedUrl, onAddWorkspace, remoteUrl, resetFields, toast]);
 
   return (
     <div className="min-w-0 space-y-4">
@@ -203,7 +192,6 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
           <ConnectionForm
             name={name}
             remoteUrl={remoteUrl}
-            authToken={authToken}
             validationError={validationError}
             connection={connection}
             canConnect={canConnect}
@@ -212,7 +200,6 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
               setRemoteUrl(value);
               setConnection({ kind: "idle" });
             }}
-            onTokenChange={setAuthToken}
             onCancel={onCancel}
             onConnect={handleConnect}
             onShowInstructions={() => setView("instructions")}
@@ -230,26 +217,22 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
 function ConnectionForm({
   name,
   remoteUrl,
-  authToken,
   validationError,
   connection,
   canConnect,
   onNameChange,
   onUrlChange,
-  onTokenChange,
   onCancel,
   onConnect,
   onShowInstructions,
 }: {
   name: string;
   remoteUrl: string;
-  authToken: string;
   validationError: string | null;
   connection: ConnectionState;
   canConnect: boolean;
   onNameChange: (value: string) => void;
   onUrlChange: (value: string) => void;
-  onTokenChange: (value: string) => void;
   onCancel?: () => void;
   onConnect: () => void;
   onShowInstructions: () => void;
@@ -282,17 +265,6 @@ function ConnectionForm({
           ) : (
             <p className="text-xs text-muted-foreground">Use the daemon HTTP address, not the WebSocket URL.</p>
           )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="remote-workspace-token">Auth token</Label>
-          <Input
-            id="remote-workspace-token"
-            type="password"
-            placeholder="Required for remote binds"
-            value={authToken}
-            onChange={(event) => onTokenChange(event.target.value)}
-          />
         </div>
 
         {connection.kind === "error" && (
@@ -364,7 +336,7 @@ function InstructionsPanel({
           ))}
         </InstructionGroup>
 
-        <InstructionGroup title="Run and verify" description="Use a token before exposing the daemon remotely.">
+        <InstructionGroup title="Run and verify" description="Start the daemon and check that it is healthy.">
           {RUN_COMMANDS.map((option) => (
             <CommandRow key={option.label} label={option.label} command={option.command} onCopy={onCopyCommand} />
           ))}
@@ -372,10 +344,10 @@ function InstructionsPanel({
 
         <Alert>
           <Icon icon="lucide:shield-check" className="size-4" />
-          <AlertTitle>Remote hosts need a token</AlertTitle>
+          <AlertTitle>Remote pairing coming soon</AlertTitle>
           <AlertDescription>
-            If the daemon binds to anything other than localhost, start it with <code>ARGOS_TOKEN</code> or
-            <code>--token</code>, then paste that value in the form.
+            Browser and remote access will use secure pairing to create revocable sessions. For now, the daemon binds to
+            localhost by default.
           </AlertDescription>
         </Alert>
 

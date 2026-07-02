@@ -4,7 +4,6 @@ import {
   type ArgosRouteInput,
   type ArgosRouteOutput,
   hasArgosRouteContract,
-  ARGOS_ROUTE_CATALOG,
 } from "@argos/shared-contracts/routes";
 import {
   getArgosEventContract,
@@ -16,11 +15,20 @@ import type { ArgosBridge } from "@argos/shared-contracts/bridge";
 
 type EventListener<T = unknown> = (payload: T) => void;
 
+type PendingRequest = {
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export class WebSocketBridge implements ArgosBridge {
   private ws: WebSocket | null = null;
   private url: string;
   private token: string;
   private eventListeners = new Map<string, Set<EventListener>>();
+  private requestCallbacks = new Map<string, PendingRequest>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -73,6 +81,11 @@ export class WebSocketBridge implements ArgosBridge {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    for (const pending of this.requestCallbacks.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error("WebSocket closed"));
+    }
+    this.requestCallbacks.clear();
     this.ws?.close();
     this.ws = null;
   }
@@ -87,25 +100,32 @@ export class WebSocketBridge implements ArgosBridge {
 
     const requestId = crypto.randomUUID();
     const message = JSON.stringify({
+      v: 1,
       type: "route",
       route: routeName,
       input: normalizedInput,
       requestId,
     });
 
-    const response = await this.sendRequest<{
-      ok: boolean;
-      output?: ArgosRouteOutput<T>;
-      error?: { code: string; message: string };
-    }>(message);
+    return new Promise<ArgosRouteOutput<T>>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.requestCallbacks.delete(requestId);
+        reject(new Error("Request timeout"));
+      }, REQUEST_TIMEOUT_MS);
 
-    if (!response.ok) {
-      const error = new Error(response.error?.message ?? "Route invocation failed");
-      (error as any).code = response.error?.code;
-      throw error;
-    }
-
-    return contract.output.parse(response.output) as ArgosRouteOutput<T>;
+      this.requestCallbacks.set(requestId, {
+        resolve: (output: unknown) => {
+          try {
+            resolve(contract.output.parse(output) as ArgosRouteOutput<T>);
+          } catch (error) {
+            reject(error);
+          }
+        },
+        reject,
+        timeout,
+      });
+      this.sendRaw(message);
+    });
   }
 
   on<T extends ArgosEventName>(eventName: T, listener: EventListener<ArgosEventPayload<T>>): () => void {
@@ -130,13 +150,32 @@ export class WebSocketBridge implements ArgosBridge {
   }
 
   private handleMessage(data: string | ArrayBuffer): void {
+    let parsed: any;
     try {
-      const parsed = JSON.parse(typeof data === "string" ? data : new TextDecoder().decode(data));
-      if (parsed.type === "event" && parsed.name) {
-        this.dispatchEvent(parsed.name, parsed.payload);
-      }
+      parsed = JSON.parse(typeof data === "string" ? data : new TextDecoder().decode(data));
     } catch {
-      // ignore malformed messages
+      return;
+    }
+
+    if (parsed.type === "route:response" && parsed.requestId) {
+      const pending = this.requestCallbacks.get(parsed.requestId);
+      if (!pending) return;
+
+      clearTimeout(pending.timeout);
+      this.requestCallbacks.delete(parsed.requestId);
+
+      if (parsed.ok) {
+        pending.resolve(parsed.output);
+      } else {
+        const error = new Error(parsed.error?.message ?? "Route invocation failed");
+        (error as any).code = parsed.error?.code;
+        pending.reject(error);
+      }
+      return;
+    }
+
+    if (parsed.type === "event" && parsed.name) {
+      this.dispatchEvent(parsed.name, parsed.payload);
     }
   }
 
@@ -171,47 +210,11 @@ export class WebSocketBridge implements ArgosBridge {
 
   private sendSubscribe(events: string[]): void {
     const message = JSON.stringify({
+      v: 1,
       type: "subscribe",
       events,
     });
     this.sendRaw(message);
-  }
-
-  private sendRequest<T>(message: string): Promise<T> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        this.pendingMessages.push(message);
-        reject(new Error("WebSocket not connected"));
-        return;
-      }
-
-      const timeout = setTimeout(() => {
-        reject(new Error("Request timeout"));
-      }, 30000);
-
-      const originalOnMessage = this.ws.onmessage;
-      this.ws.onmessage = (event) => {
-        clearTimeout(timeout);
-        this.ws!.onmessage = originalOnMessage;
-        this.handleMessage(event.data);
-
-        try {
-          const parsed = JSON.parse(event.data);
-          if (parsed.requestId) {
-            resolve(parsed as T);
-            return;
-          }
-        } catch {
-          // not our response
-        }
-
-        if (originalOnMessage) {
-          (originalOnMessage as any)(event);
-        }
-      };
-
-      this.ws.send(message);
-    });
   }
 
   private sendRaw(message: string): void {

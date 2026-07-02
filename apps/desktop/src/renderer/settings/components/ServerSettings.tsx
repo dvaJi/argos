@@ -21,14 +21,13 @@ export default function ServerSettings() {
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
 
   const handleAdd = useCallback(
-    (workspace: { name: string; remoteUrl: string; authToken: string; daemonVersion?: string }) => {
+    (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
       const config = readWorkspaceConfig();
       const entry: WorkspaceEntry = {
         id: generateWorkspaceId(),
         name: workspace.name,
         mode: "remote",
         remoteUrl: workspace.remoteUrl,
-        authToken: workspace.authToken,
         createdAt: Date.now(),
       };
       config.workspaces.push(entry);

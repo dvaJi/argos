@@ -7,6 +7,14 @@ import "katex/dist/katex.min.css";
 import { ensureMarkdownWorkers } from "./lib/markdownWorkerLifecycle";
 import { preloadIcons } from "./lib/iconLoader";
 
+declare global {
+  interface Window {
+    __argosRuntimeKind?: string;
+  }
+}
+
+window.__argosRuntimeKind = "electron";
+
 ensureMarkdownWorkers().catch((error) => {
   console.error("Failed to initialize markdown workers:", error);
 });

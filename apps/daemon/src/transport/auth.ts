@@ -1,3 +1,5 @@
+import type { AuthContext, AuthGateConfig } from "@argos/shared-contracts/auth";
+
 const failedAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const MAX_FAILED_ATTEMPTS = 10;
@@ -35,30 +37,68 @@ function clearFailures(ip: string): void {
   failedAttempts.delete(ip);
 }
 
-export function authenticate(request: Request, expectedToken: string): { ok: true } | { ok: false; error: string } {
+export function isLocalRequest(request: Request): boolean {
+  const url = new URL(request.url);
+  return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
+}
+
+export type AuthResult =
+  | { ok: true; context: AuthContext }
+  | { ok: false; status: number; code: string; message: string };
+
+function unauthorized(ip: string, message: string): AuthResult {
+  recordFailure(ip);
+  return { ok: false, status: 401, code: "unauthorized", message };
+}
+
+/**
+ * Resolve an AuthContext from an incoming request.
+ *
+ * Phase 1 (this implementation) accepts:
+ * - Loopback requests: implicit desktop-bootstrap trust (desktop-managed sidecar).
+ * - Non-loopback with a matching desktop-bootstrap bearer header.
+ *
+ * Phase 2 (pairing-and-session-auth) will add browser-session / bearer-session
+ * verification here. Until then, non-loopback requests without a desktop-bootstrap
+ * secret are rejected — remote/mobile access is intentionally unavailable.
+ */
+export function authorize(request: Request, config: AuthGateConfig): AuthResult {
   const ip = getClientIp(request);
 
   if (isRateLimited(ip)) {
-    return { ok: false, error: "Too many failed attempts. Try again later." };
+    return { ok: false, status: 429, code: "rate_limited", message: "Too many failed attempts. Try again later." };
   }
 
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader) {
-    return { ok: false, error: "Missing Authorization header" };
+  const loopback = isLocalRequest(request);
+
+  if (loopback) {
+    clearFailures(ip);
+    return {
+      ok: true,
+      context: {
+        credentialKind: "desktop-bootstrap",
+        exposureMode: config.exposureMode,
+        isLoopback: true,
+      },
+    };
   }
 
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) {
-    recordFailure(ip);
-    return { ok: false, error: "Invalid Authorization format. Use: Bearer <token>" };
+  const bootstrapSecret = config.desktopBootstrapSecret;
+  if (bootstrapSecret) {
+    const authHeader = request.headers.get("authorization");
+    const match = authHeader?.match(/^Bearer\s+(.+)$/i);
+    if (match && match[1] === bootstrapSecret) {
+      clearFailures(ip);
+      return {
+        ok: true,
+        context: {
+          credentialKind: "desktop-bootstrap",
+          exposureMode: config.exposureMode,
+          isLoopback: false,
+        },
+      };
+    }
   }
 
-  const token = match[1];
-  if (token !== expectedToken) {
-    recordFailure(ip);
-    return { ok: false, error: "Invalid token" };
-  }
-
-  clearFailures(ip);
-  return { ok: true };
+  return unauthorized(ip, "Authentication required. No valid credential provided.");
 }

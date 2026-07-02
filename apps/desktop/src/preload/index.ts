@@ -144,7 +144,7 @@ async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocke
   if (existing) existing.disconnect();
 
   const wsUrl = buildWsUrl(entry.remoteUrl);
-  const adapter = new WebSocketBridgeAdapter(wsUrl, entry.authToken || undefined);
+  const adapter = new WebSocketBridgeAdapter(wsUrl);
   workspaceConnections.set(entry.id, adapter);
 
   try {

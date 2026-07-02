@@ -138,7 +138,7 @@ describe("serverConfig", () => {
 
   it("persists and reads a valid config", () => {
     withLocalStorage(null, () => {
-      const cfg: ServerConfig = { mode: "remote", remoteUrl: "http://10.0.0.1:9527", authToken: "abc" };
+      const cfg: ServerConfig = { mode: "remote", remoteUrl: "http://10.0.0.1:9527" };
       writeConfig(cfg);
       expect(readConfig()).toEqual(cfg);
     });

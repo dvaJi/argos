@@ -10,7 +10,6 @@ export type WorkspaceEntry = {
   name: string;
   mode: WorkspaceMode;
   remoteUrl: string;
-  authToken: string;
   createdAt: number;
 };
 
@@ -26,7 +25,6 @@ const LOCAL_WORKSPACE_ENTRY: WorkspaceEntry = {
   name: "Local",
   mode: "local",
   remoteUrl: "",
-  authToken: "",
   createdAt: 0,
 };
 
@@ -43,7 +41,6 @@ function isWorkspaceEntry(value: unknown): value is WorkspaceEntry {
     typeof c.name === "string" &&
     (c.mode === "local" || c.mode === "remote") &&
     typeof c.remoteUrl === "string" &&
-    typeof c.authToken === "string" &&
     typeof c.createdAt === "number"
   );
 }
@@ -66,7 +63,6 @@ function migrateFromServerConfig(config: WorkspaceConfig): WorkspaceConfig {
         name: new URL(legacy.remoteUrl.replace(/\/$/, "")).hostname || "Remote",
         mode: "remote",
         remoteUrl: legacy.remoteUrl,
-        authToken: legacy.authToken,
         createdAt: Date.now(),
       };
       return {

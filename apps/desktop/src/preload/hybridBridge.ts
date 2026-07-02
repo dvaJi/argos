@@ -4,35 +4,17 @@ import type { ArgosRouteInput, ArgosRouteName, ArgosRouteOutput } from "@shared/
 import { hasArgosRouteContract, getArgosRouteContract } from "@shared/contracts/routes";
 import { hasArgosEventContract, getArgosEventContract } from "@shared/contracts/events";
 import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@shared/contracts/connection";
-
-const TIER3_PREFIXES = [
-  "window.",
-  "browser.",
-  "tab.",
-  "dialog.",
-  "upgrade.",
-  "system.openSettings",
-  "settings.listSystemFonts",
-  "device.selectDirectory",
-  "device.restartApp",
-  "project.openDirectory",
-  "project.selectDirectory",
-  "file.saveImage",
-  "file.copyImage",
-  "workspace.revealFileInFolder",
-  "workspace.openFile",
-  "skills.openFolder",
-  "sync.openFolder",
-];
-
-const TIER3_EVENT_PREFIXES = ["window.", "browser.", "dialog.", "upgrade."];
+import {
+  isDesktopOnlyRoute as isDesktopOnlyRouteShared,
+  isDesktopOnlyEvent as isDesktopOnlyEventShared,
+} from "@shared/contracts/desktop-only";
 
 function isDesktopOnlyRoute(route: string): boolean {
-  return TIER3_PREFIXES.some((prefix) => route === prefix || route.startsWith(prefix));
+  return isDesktopOnlyRouteShared(route);
 }
 
 function isDesktopOnlyEvent(eventName: string): boolean {
-  return TIER3_EVENT_PREFIXES.some((prefix) => eventName.startsWith(prefix));
+  return isDesktopOnlyEventShared(eventName);
 }
 
 type EventListener<T = unknown> = (payload: T) => void;
@@ -170,7 +152,6 @@ export class HybridBridge implements ArgosBridge {
 export class WebSocketBridgeAdapter {
   private ws: WebSocket | null = null;
   private url: string;
-  private token: string;
   private pendingMessages: string[] = [];
   private requestCallbacks = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
   private eventListeners = new Map<string, Set<EventListener>>();
@@ -180,9 +161,8 @@ export class WebSocketBridgeAdapter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
 
-  constructor(url: string, token?: string) {
+  constructor(url: string) {
     this.url = url;
-    this.token = token ?? "";
   }
 
   getUrl(): string {
@@ -203,7 +183,7 @@ export class WebSocketBridgeAdapter {
     }
     if (this.isConnected()) return;
 
-    const wsUrl = this.token ? `${this.url}?token=${encodeURIComponent(this.token)}` : this.url;
+    const wsUrl = this.url;
 
     return new Promise((resolve, reject) => {
       this.intentionalClose = false;
