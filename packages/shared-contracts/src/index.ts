@@ -9,5 +9,6 @@ export * from "./databaseSecurity";
 export * from "./remoteControlErrors";
 export * from "./providerImport";
 export * from "./auth";
+export * from "./desktop-only";
 export * from "@shared/scheduledTasks";
 export * from "@shared/guidedOnboarding";
