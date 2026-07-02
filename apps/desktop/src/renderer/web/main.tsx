@@ -12,6 +12,7 @@
  */
 
 import { WebSocketBridge } from "@argos/client-sdk";
+import { browserLocalApi } from "@api/local-api";
 
 declare global {
   interface Window {
@@ -24,22 +25,7 @@ declare global {
 
 window.__argosRuntimeKind = "browser";
 
-window.api = {
-  copyText: (text: string) => navigator.clipboard?.writeText(text).catch(() => {}),
-  copyImage: () => {},
-  readClipboardText: () => navigator.clipboard?.readText() ?? Promise.resolve(""),
-  getPathForFile: () => "",
-  getWindowId: () => null,
-  getWebContentsId: () => 0,
-  getArch: () => "browser",
-  openExternal: (url: string) => {
-    window.open(url, "_blank", "noopener");
-    return Promise.resolve();
-  },
-  toRelativePath: (filePath: string) => filePath,
-  formatPathForInput: (filePath: string) => filePath,
-};
-
+window.api = browserLocalApi;
 window.electron = undefined;
 
 const root = document.getElementById("root");
