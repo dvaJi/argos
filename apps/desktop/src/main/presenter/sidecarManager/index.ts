@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
@@ -6,7 +7,6 @@ export type SidecarOptions = {
   dataDir: string;
   host?: string;
   port?: number;
-  token?: string;
   maxRetries?: number;
   healthCheckIntervalMs?: number;
   healthCheckTimeoutMs?: number;
@@ -15,6 +15,10 @@ export type SidecarOptions = {
 };
 
 export type SidecarStatus = "starting" | "healthy" | "unhealthy" | "stopped" | "error";
+
+function generateDesktopBootstrapSecret(): string {
+  return randomBytes(32).toString("hex");
+}
 
 export type SidecarHandle = {
   port: number;
@@ -61,18 +65,7 @@ function getExecutableArgs(executable: string, options: SidecarOptions): string[
     ];
   }
 
-  const args = [
-    "--host",
-    options.host || "127.0.0.1",
-    "--port",
-    String(options.port || 0),
-    "--data-dir",
-    options.dataDir,
-  ];
-  if (options.token) {
-    args.push("--token", options.token);
-  }
-  return args;
+  return ["--host", options.host || "127.0.0.1", "--port", String(options.port || 0), "--data-dir", options.dataDir];
 }
 
 async function checkHealth(host: string, port: number, timeoutMs: number): Promise<boolean> {
@@ -121,11 +114,17 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
     const cmd = isDev ? "bun" : executable;
     const args = isDev ? ["run", ...getExecutableArgs(executable, options)] : getExecutableArgs(executable, options);
 
+    const desktopBootstrapSecret = generateDesktopBootstrapSecret();
+
     child = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
       shell: false,
       windowsHide: true,
+      env: {
+        ...process.env,
+        ARGOS_DESKTOP_BOOTSTRAP: desktopBootstrapSecret,
+      },
     });
 
     child.stdout?.on("data", (data: Buffer) => {

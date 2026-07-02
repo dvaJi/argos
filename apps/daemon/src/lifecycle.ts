@@ -6,8 +6,7 @@ export type DaemonOptions = {
   host?: string;
   port?: number;
   dataDir?: string;
-  token?: string;
-  withToken?: boolean;
+  desktopBootstrap?: string;
   logLevel?: string;
   noUpdateCheck?: boolean;
 };
@@ -24,10 +23,6 @@ export function parseArgs(argv: string[]): DaemonOptions {
       opts.port = parseInt(args[++i], 10);
     } else if (arg === "--data-dir" && args[i + 1]) {
       opts.dataDir = args[++i];
-    } else if (arg === "--token" && args[i + 1]) {
-      opts.token = args[++i];
-    } else if (arg === "--with-token") {
-      opts.withToken = true;
     } else if (arg === "--no-update-check") {
       opts.noUpdateCheck = true;
     } else if (arg === "--log-level" && args[i + 1]) {
@@ -43,8 +38,7 @@ export function mergeOptions(parsed: DaemonOptions, env: Record<string, string |
     host: parsed.host || env.ARGOS_HOST || "127.0.0.1",
     port: parsed.port ?? (parseInt(env.ARGOS_PORT || "0", 10) || 9527),
     dataDir: parsed.dataDir || env.ARGOS_DATA_DIR || undefined,
-    token: parsed.token || env.ARGOS_TOKEN || undefined,
-    withToken: parsed.withToken || false,
+    desktopBootstrap: parsed.desktopBootstrap || env.ARGOS_DESKTOP_BOOTSTRAP || undefined,
     logLevel: parsed.logLevel || env.ARGOS_LOG_LEVEL || "info",
     noUpdateCheck: parsed.noUpdateCheck || env.ARGOS_NO_UPDATE_CHECK === "1" || env.ARGOS_NO_UPDATE_CHECK === "true",
   };
@@ -90,13 +84,4 @@ export function setupGracefulShutdown(
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
-}
-
-export function generateToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 32; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
 }

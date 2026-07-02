@@ -1,7 +1,8 @@
 import { serve } from "bun";
 import { handleRouteDispatch, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
-import { authenticate } from "./transport/auth";
+import { authorize } from "./transport/auth";
+import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
 import { BunEventPublisher } from "./host/bun-event-publisher";
@@ -11,20 +12,12 @@ import { BunProviderExecutionPort } from "./host/bun-provider-execution";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
-import {
-  parseArgs,
-  mergeOptions,
-  ensureDirectories,
-  setupGracefulShutdown,
-  generateToken,
-  type DaemonOptions,
-} from "./lifecycle";
+import { parseArgs, mergeOptions, ensureDirectories, setupGracefulShutdown, type DaemonOptions } from "./lifecycle";
 
 const startTime = Date.now();
 
-function isLocalRequest(request: Request): boolean {
-  const url = new URL(request.url);
-  return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
+function isNonLoopbackHost(host: string): boolean {
+  return host !== "127.0.0.1" && host !== "localhost" && host !== "::1";
 }
 
 export type DaemonHandle = {
@@ -38,7 +31,7 @@ export async function startDaemon(options?: {
   dataDir?: string;
   host?: string;
   port?: number;
-  token?: string;
+  desktopBootstrapSecret?: string;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
   const paths = new BunPathResolver(options?.dataDir);
@@ -70,7 +63,12 @@ export async function startDaemon(options?: {
 
   const host = options?.host || "127.0.0.1";
   const port = options?.port ?? 9527;
-  const token = options?.token || "";
+
+  const exposureMode: ExposureMode = isNonLoopbackHost(host) ? "network-accessible" : "local-only";
+  const authConfig: AuthGateConfig = {
+    exposureMode,
+    desktopBootstrapSecret: options?.desktopBootstrapSecret,
+  };
 
   const server = serve({
     hostname: host,
@@ -86,14 +84,12 @@ export async function startDaemon(options?: {
         });
       }
 
-      if (!isLocalRequest(request) && token) {
-        const authResult = authenticate(request, token);
-        if (!authResult.ok) {
-          return Response.json(
-            { ok: false, error: { code: "unauthorized", message: authResult.error } },
-            { status: 401 },
-          );
-        }
+      const authResult = authorize(request, authConfig);
+      if (!authResult.ok) {
+        return Response.json(
+          { ok: false, error: { code: authResult.code, message: authResult.message } },
+          { status: authResult.status },
+        );
       }
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
@@ -101,17 +97,10 @@ export async function startDaemon(options?: {
       }
 
       if (url.pathname === "/api/v1/events") {
-        const wsToken = url.searchParams.get("token");
-        if (token && wsToken !== token) {
-          return Response.json(
-            { ok: false, error: { code: "unauthorized", message: "Invalid WebSocket token" } },
-            { status: 401 },
-          );
-        }
-
         const success = (server as any).upgrade(request, {
           data: {
             subscriptions: new Set<string>(),
+            authContext: authResult.context,
           },
         });
         if (!success) {
@@ -207,7 +196,7 @@ if (import.meta.main) {
     };
     await runSelfUpdate({
       installDir: flagValue("--install-dir"),
-      token: flagValue("--token") || process.env.ARGOS_TOKEN,
+      token: flagValue("--token") || process.env.GITHUB_TOKEN,
     });
     process.exit(0);
   }
@@ -225,8 +214,6 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
-  --token <token>     Auth token for remote access
-  --with-token        Auto-generate an auth token and print it
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check
   -h, --help          Show this help
@@ -239,7 +226,7 @@ Environment variables:
   ARGOS_HOST           Same as --host
   ARGOS_PORT           Same as --port
   ARGOS_DATA_DIR       Same as --data-dir
-  ARGOS_TOKEN          Same as --token
+  ARGOS_DESKTOP_BOOTSTRAP  Desktop bootstrap secret (set by Electron main)
   ARGOS_LOG_LEVEL      Same as --log-level
   ARGOS_NO_UPDATE_CHECK  Same as --no-update-check
 `);
@@ -253,21 +240,16 @@ Environment variables:
     logger.setLevel(opts.logLevel as any);
   }
 
-  let token = opts.token;
-  if (opts.withToken) {
-    token = generateToken();
-    console.log(`\n  Token: ${token}\n`);
-  } else if (!token && opts.host !== "127.0.0.1" && opts.host !== "localhost") {
-    token = generateToken();
-    logger.info(`[daemon] No token provided, generated: ${token}`);
-    logger.info(`[daemon] Set ARGOS_TOKEN or pass --token for remote access.`);
+  if (isNonLoopbackHost(opts.host || "127.0.0.1") && !opts.desktopBootstrap) {
+    logger.warn(`[daemon] Non-loopback host "${opts.host}" without ARGOS_DESKTOP_BOOTSTRAP.`);
+    logger.warn(`[daemon] Non-loopback requests will be rejected until pairing/session auth is available.`);
   }
 
   startDaemon({
     dataDir: opts.dataDir,
     host: opts.host,
     port: opts.port,
-    token,
+    desktopBootstrapSecret: opts.desktopBootstrap,
     noUpdateCheck: opts.noUpdateCheck,
   }).catch((error) => {
     logger.error("[daemon] Failed to start:", error);

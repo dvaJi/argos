@@ -170,7 +170,6 @@ export class HybridBridge implements ArgosBridge {
 export class WebSocketBridgeAdapter {
   private ws: WebSocket | null = null;
   private url: string;
-  private token: string;
   private pendingMessages: string[] = [];
   private requestCallbacks = new Map<string, { resolve: (v: any) => void; reject: (e: any) => void }>();
   private eventListeners = new Map<string, Set<EventListener>>();
@@ -180,9 +179,8 @@ export class WebSocketBridgeAdapter {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalClose = false;
 
-  constructor(url: string, token?: string) {
+  constructor(url: string) {
     this.url = url;
-    this.token = token ?? "";
   }
 
   getUrl(): string {
@@ -203,7 +201,7 @@ export class WebSocketBridgeAdapter {
     }
     if (this.isConnected()) return;
 
-    const wsUrl = this.token ? `${this.url}?token=${encodeURIComponent(this.token)}` : this.url;
+    const wsUrl = this.url;
 
     return new Promise((resolve, reject) => {
       this.intentionalClose = false;

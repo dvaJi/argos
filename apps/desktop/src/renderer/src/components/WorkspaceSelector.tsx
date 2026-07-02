@@ -49,12 +49,11 @@ export default function WorkspaceSelector() {
   );
 
   const handleAdd = useCallback(
-    async (workspace: { name: string; remoteUrl: string; authToken: string }) => {
+    async (workspace: { name: string; remoteUrl: string }) => {
       const entry = store.addWorkspace({
         name: workspace.name,
         mode: "remote",
         remoteUrl: workspace.remoteUrl,
-        authToken: workspace.authToken,
       });
       await store.switchWorkspace(entry.id);
       setAddDialogOpen(false);

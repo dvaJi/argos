@@ -6,23 +6,17 @@ export type ServerMode = "local" | "remote";
 export type ServerConfig = {
   mode: ServerMode;
   remoteUrl: string;
-  authToken: string;
 };
 
 export const DEFAULT_SERVER_CONFIG: ServerConfig = {
   mode: "local",
   remoteUrl: "",
-  authToken: "",
 };
 
 function isServerConfig(value: unknown): value is ServerConfig {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
-  return (
-    (candidate.mode === "local" || candidate.mode === "remote") &&
-    typeof candidate.remoteUrl === "string" &&
-    typeof candidate.authToken === "string"
-  );
+  return (candidate.mode === "local" || candidate.mode === "remote") && typeof candidate.remoteUrl === "string";
 }
 
 export function readConfig(): ServerConfig {

@@ -32,14 +32,8 @@ function assertEq<T>(actual: T, expected: T, message: string): void {
   }
 }
 
-async function postRoute(
-  port: number,
-  route: string,
-  input: Record<string, unknown> = {},
-  token?: string,
-): Promise<any> {
+async function postRoute(port: number, route: string, input: Record<string, unknown> = {}): Promise<any> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`http://127.0.0.1:${port}/api/v1/route`, {
     method: "POST",
@@ -49,11 +43,8 @@ async function postRoute(
   return res.json();
 }
 
-async function getHealth(port: number, token?: string): Promise<any> {
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(`http://127.0.0.1:${port}/health`, { headers });
+async function getHealth(port: number): Promise<any> {
+  const res = await fetch(`http://127.0.0.1:${port}/health`);
   return res.json();
 }
 
@@ -88,38 +79,6 @@ async function run(): Promise<void> {
       assertEq(health.version, "0.1.0", "version");
       assert(typeof health.uptime === "number", "uptime is number");
     });
-
-    // === Auth ===
-    console.log("\n--- Auth ---");
-    const authDaemon = await startDaemon({
-      dataDir: DATA_DIR + "-auth",
-      host: "127.0.0.1",
-      port: 0,
-      token: "test-secret-token",
-    });
-    const authPort = authDaemon.port;
-
-    await test("Request without auth token returns 401 on remote", async () => {
-      const res = await fetch(`http://127.0.0.1:${authPort}/api/v1/route`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ route: "config.getLanguage", input: {} }),
-      });
-      // Note: localhost requests bypass auth by design
-      assert(res.status === 200 || res.status === 401, "status is 200 (localhost bypass) or 401");
-    });
-
-    await test("Request with correct auth token succeeds", async () => {
-      const result = await postRoute(authPort, "config.getLanguage", {}, "test-secret-token");
-      assert(result.ok, "should be ok");
-    });
-
-    await test("Health endpoint bypasses auth", async () => {
-      const health = await getHealth(authPort);
-      assertEq(health.status, "ok", "status");
-    });
-
-    await authDaemon.close();
 
     // === Config routes ===
     console.log("\n--- Config routes ---");
