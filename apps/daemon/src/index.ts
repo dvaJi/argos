@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { handleRouteDispatch, setRouteDispatcher } from "./transport/http";
+import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
 import type { AuthGateConfig, ExposureMode } from "@argos/shared-contracts/auth";
@@ -123,23 +123,35 @@ export async function startDaemon(options?: {
         eventPublisher.removeClient(ws);
         ws.unsubscribe("events");
       },
-      message(ws: any, message: string | Buffer) {
+      async message(ws: any, message: string | Buffer) {
         if (typeof message !== "string") return;
+        let parsed: any;
         try {
-          const parsed = JSON.parse(message);
-          if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
-            for (const eventName of parsed.events) {
-              ws.subscribe(`event:${eventName}`);
-              ws.data.subscriptions.add(eventName);
-            }
-          } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
-            for (const eventName of parsed.events) {
-              ws.unsubscribe(`event:${eventName}`);
-              ws.data.subscriptions.delete(eventName);
-            }
-          }
+          parsed = JSON.parse(message);
         } catch {
-          // ignore malformed messages
+          return;
+        }
+
+        if (parsed.type === "route" && parsed.requestId) {
+          const result = await dispatchRoute(parsed.route, parsed.input);
+          ws.send(
+            JSON.stringify({
+              type: "route:response",
+              requestId: parsed.requestId,
+              ok: result.ok,
+              ...(result.ok ? { output: result.output } : { error: result.error }),
+            }),
+          );
+        } else if (parsed.type === "subscribe" && Array.isArray(parsed.events)) {
+          for (const eventName of parsed.events) {
+            ws.subscribe(`event:${eventName}`);
+            ws.data.subscriptions.add(eventName);
+          }
+        } else if (parsed.type === "unsubscribe" && Array.isArray(parsed.events)) {
+          for (const eventName of parsed.events) {
+            ws.unsubscribe(`event:${eventName}`);
+            ws.data.subscriptions.delete(eventName);
+          }
         }
       },
     } as any,

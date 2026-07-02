@@ -18,6 +18,36 @@ export function setRouteDispatcher(dispatcher: RouteDispatcher): void {
   routeDispatcher = dispatcher;
 }
 
+/**
+ * Core route dispatch logic shared by HTTP and WebSocket transports.
+ * Validates input/output against the route catalog contract.
+ */
+export async function dispatchRoute(route: string, input: unknown): Promise<RouteDispatchResponse> {
+  if (!hasArgosRouteContract(route)) {
+    return { ok: false, error: { code: "unknown_route", message: `Unknown route: ${String(route)}` } };
+  }
+
+  const contract = ARGOS_ROUTE_CATALOG[route as ArgosRouteName];
+  if (!contract) {
+    return { ok: false, error: { code: "no_contract", message: `No contract for route: ${String(route)}` } };
+  }
+
+  if (!routeDispatcher) {
+    return { ok: false, error: { code: "not_initialized", message: "Route dispatcher not initialized" } };
+  }
+
+  try {
+    const parsedInput = contract.input.parse(input);
+    const output = await routeDispatcher(route as ArgosRouteName, parsedInput);
+    const parsedOutput = contract.output.parse(output);
+    return { ok: true, output: parsedOutput };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const code = message.includes("validation") ? "validation_error" : "dispatch_error";
+    return { ok: false, error: { code, message } };
+  }
+}
+
 export async function handleRouteDispatch(request: Request): Promise<Response> {
   let body: RouteDispatchRequest;
   try {
@@ -29,38 +59,11 @@ export async function handleRouteDispatch(request: Request): Promise<Response> {
     );
   }
 
-  const { route, input } = body;
-
-  if (!hasArgosRouteContract(route)) {
-    return Response.json(
-      { ok: false, error: { code: "unknown_route", message: `Unknown route: ${String(route)}` } },
-      { status: 400 },
-    );
-  }
-
-  const contract = ARGOS_ROUTE_CATALOG[route];
-  if (!contract) {
-    return Response.json(
-      { ok: false, error: { code: "no_contract", message: `No contract for route: ${String(route)}` } },
-      { status: 500 },
-    );
-  }
-
-  if (!routeDispatcher) {
-    return Response.json(
-      { ok: false, error: { code: "not_initialized", message: "Route dispatcher not initialized" } },
-      { status: 503 },
-    );
-  }
-
-  try {
-    const parsedInput = contract.input.parse(input);
-    const output = await routeDispatcher(route, parsedInput);
-    const parsedOutput = contract.output.parse(output);
-    return Response.json({ ok: true, output: parsedOutput });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const code = message.includes("validation") ? "validation_error" : "dispatch_error";
-    return Response.json({ ok: false, error: { code, message } }, { status: 500 });
-  }
+  const result = await dispatchRoute(body.route, body.input);
+  const status = result.ok
+    ? 200
+    : result.error.code === "unknown_route" || result.error.code === "validation_error"
+      ? 400
+      : 500;
+  return Response.json(result, { status });
 }
