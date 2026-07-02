@@ -8,69 +8,7 @@ import monacoEditorPlugin from '@dvaji/vite-plugin-monaco-editor'
 import tailwindcss from '@tailwindcss/vite'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
 import babel from '@rolldown/plugin-babel';
-
-/**
- * Path-aware alias resolver for multi-environment setups.
- *
- * Root resolve.alias maps `@` to src/renderer/src, but main-process files use
- * `@/` to reference src/main. This plugin rewrites alias imports based on the
- * importer location and returns the forward-slash normalized absolute path so
- * that Rolldown deduplicates it with relative imports of the same file.
- */
-function pathAliasPlugin(projectRoot: string): Plugin {
-  const mainDir = path.join(projectRoot, 'src', 'main')
-  const rendererSrcDir = path.join(projectRoot, 'src', 'renderer', 'src')
-  const sharedPkgDir = path.join(projectRoot, '..', '..', 'packages', 'shared', 'src')
-  const contractsPkgDir = path.join(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src')
-  const apiDir = path.join(projectRoot, 'src', 'renderer', 'api')
-  const shadcnDir = path.join(projectRoot, 'src', 'shadcn')
-  const settingsDir = path.join(projectRoot, 'src', 'renderer', 'settings')
-
-  const toFwd = (p: string) => p.split(path.sep).join('/')
-
-  return {
-    name: 'argos:path-alias',
-    enforce: 'pre',
-    async resolveId(source, importer, resolveOpts) {
-      let aliasedPath: string | null = null
-
-      if (source.startsWith('@/')) {
-        const importerNorm = importer ? toFwd(importer) : ''
-        const isMain = importerNorm.startsWith(toFwd(mainDir) + '/')
-        const base = isMain ? mainDir : rendererSrcDir
-        aliasedPath = path.resolve(base, source.slice(2))
-      } else if (source.startsWith('@shared/contracts/')) {
-        // Single source of truth: @shared/contracts/* resolves to the
-        // @argos/shared-contracts package (see docs/architecture/consolidate-contract-catalogs).
-        aliasedPath = path.resolve(contractsPkgDir, source.slice('@shared/contracts/'.length))
-      } else if (source.startsWith('@shared/')) {
-        // Single source of truth: @shared/* resolves to @argos/shared
-        // (see docs/architecture/consolidate-shared-trees).
-        aliasedPath = path.resolve(sharedPkgDir, source.slice(8))
-      } else if (source.startsWith('@api/')) {
-        aliasedPath = path.resolve(apiDir, source.slice(5))
-      } else if (source.startsWith('@shadcn/')) {
-        aliasedPath = path.resolve(shadcnDir, source.slice(8))
-      } else if (source.startsWith('@settings/')) {
-        aliasedPath = path.resolve(settingsDir, source.slice(10))
-      }
-
-      if (!aliasedPath) return null
-
-      // Delegate to Vite's built-in resolver for extension/dir resolution,
-      // then normalize to forward slashes so the module ID matches what
-      // relative imports produce (preventing Rolldown duplication on Windows).
-      const resolved = await this.resolve(toFwd(aliasedPath), importer, {
-        ...resolveOpts,
-        skipSelf: true,
-      })
-      if (resolved && typeof resolved.id === 'string') {
-        return { ...resolved, id: toFwd(resolved.id) }
-      }
-      return resolved
-    },
-  }
-}
+import { createPathAliasPlugin } from './vite-plugins/path-alias'
 
 /**
  * Minimal `?asset` import handler — replaces electron-vite built-in.
@@ -121,6 +59,18 @@ export default defineConfig(({ mode }) => {
 
   const externalDeps = computeExternalDeps()
 
+  const pathAliasOpts = {
+    projectRoot,
+    rendererSrcDir: path.join(projectRoot, 'src', 'renderer', 'src'),
+    mainDir: path.join(projectRoot, 'src', 'main'),
+    sharedPkgDir: path.join(projectRoot, '..', '..', 'packages', 'shared', 'src'),
+    contractsPkgDir: path.join(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src'),
+    apiDir: path.join(projectRoot, 'src', 'renderer', 'api'),
+    shadcnDir: path.join(projectRoot, 'src', 'shadcn'),
+    settingsDir: path.join(projectRoot, 'src', 'renderer', 'settings'),
+  }
+  const pathAlias = () => createPathAliasPlugin(pathAliasOpts)
+
   const env = loadEnv(mode, process.cwd(), '')
   const processEnvDefines = Object.fromEntries(
     Object.entries(env)
@@ -163,7 +113,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
-      pathAliasPlugin(projectRoot),
+      pathAlias(),
       electronAssetPlugin(projectRoot),
       tanstackRouter({
         target: 'react',
@@ -195,7 +145,7 @@ export default defineConfig(({ mode }) => {
             index: resolve('src/main/index.ts'),
             backgroundExecUtilityHost: resolve('src/main/backgroundExecUtilityHostEntry.ts'),
           },
-          plugins: [pathAliasPlugin(projectRoot), electronAssetPlugin(projectRoot)] as any,
+          plugins: [pathAlias(), electronAssetPlugin(projectRoot)] as any,
           bundleDeps: { both: { exclude: externalDeps } },
           onstart({ startup }) {
             void startup(['.'], { cwd: projectRoot })
@@ -223,7 +173,7 @@ export default defineConfig(({ mode }) => {
             browserOverlay: resolve('src/preload/browser-overlay-preload.ts'),
             pluginSettings: resolve('src/preload/plugin-settings-preload.ts'),
           },
-          plugins: [pathAliasPlugin(projectRoot)] as any,
+          plugins: [pathAlias()] as any,
           bundleDeps: { both: { exclude: externalDeps.filter((d) => d !== '@electron-toolkit/preload') } },
           options: {
             build: {
