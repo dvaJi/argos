@@ -13,7 +13,7 @@ declare global {
   }
 }
 
-window.__argosRuntimeKind = "electron";
+window.__argosRuntimeKind ??= "electron";
 
 ensureMarkdownWorkers().catch((error) => {
   console.error("Failed to initialize markdown workers:", error);

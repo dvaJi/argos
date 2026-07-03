@@ -2,6 +2,7 @@ import path from "node:path";
 import { resolve } from "path";
 import { defineConfig } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import babel from "@rolldown/plugin-babel";
 import { createPathAliasPlugin } from "./vite-plugins/path-alias";
 
@@ -10,7 +11,7 @@ import { createPathAliasPlugin } from "./vite-plugins/path-alias";
  *
  * Produces browser-ready assets in out/web/ from src/renderer/web/.
  * Excludes Electron-specific plugins (electronSimple, electronAssetPlugin,
- * monacoEditorPlugin) — the web entry uses WebSocketBridge, not IPC.
+ * monacoEditorPlugin) â€” the web entry uses WebSocketBridge, not IPC.
  */
 
 export default defineConfig(() => {
@@ -47,6 +48,7 @@ export default defineConfig(() => {
         apiDir: path.join(projectRoot, "src", "renderer", "api"),
         shadcnDir: path.join(projectRoot, "src", "shadcn"),
       }),
+      tailwindcss(),
       react(),
       babel({
         presets: [reactCompilerPreset()],

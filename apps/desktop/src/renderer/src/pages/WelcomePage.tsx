@@ -5,6 +5,7 @@ import { themeStore } from "@/stores/theme";
 import { goToNewThread as goToNewThreadAction } from "@/stores/ui/pageRouter";
 import { createConfigClient } from "@api/ConfigClient";
 import { createOnboardingClient } from "@api/OnboardingClient";
+import { isBrowserMode } from "@api/runtimeKind";
 import { persistGuidedOnboardingResumeIntent, type GuidedOnboardingResumeTrigger } from "@/lib/onboardingResume";
 import logoDark from "@/assets/logo-dark.png";
 import {
@@ -14,6 +15,7 @@ import {
   resolveGuidedOnboardingStepTarget,
   type GuidedOnboardingSettingsRouteName,
 } from "@shared/guidedOnboarding";
+import { resolveSettingsNavigationPath } from "@shared/settingsNavigation";
 import ModelIcon from "@/components/icons/ModelIcon";
 import OnBoardingSpotlight from "@/components/onboarding/OnBoardingSpotlight";
 import { useOnBoarding } from "@/composables/useOnBoarding";
@@ -36,6 +38,11 @@ const providers = [
 ];
 
 type SettingsRouteName = GuidedOnboardingSettingsRouteName | "settings-acp" | "settings-database";
+type SettingsWindowState = Window & {
+  __argosSettingsPendingSection?: string | null;
+};
+
+const SETTINGS_SECTION_EVENT = "argos:settings-section";
 
 export function WelcomePage() {
   const navigate = useNavigate();
@@ -163,6 +170,23 @@ export function WelcomePage() {
 
   const openSettings = async (routeName: SettingsRouteName, stepId?: GuidedOnboardingStepId, section?: string) => {
     await syncOnboardingStep(stepId);
+
+    if (isBrowserMode()) {
+      const path = resolveSettingsNavigationPath(routeName);
+      await navigate({ to: `/settings${path}` as any, replace: false });
+
+      if (section) {
+        (window as SettingsWindowState).__argosSettingsPendingSection = section;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        window.dispatchEvent(
+          new CustomEvent(SETTINGS_SECTION_EVENT, {
+            detail: { section },
+          }),
+        );
+      }
+      return;
+    }
+
     await configClient.openSettings({ routeName, section });
   };
 
@@ -418,7 +442,11 @@ export function WelcomePage() {
                 <div key={step.id} className={`rounded-xl border px-3 py-2 ${guideStepClass(step.id, step.status)}`}>
                   <div className="flex items-center gap-2">
                     <span className={`h-3.5 w-3.5 shrink-0 ${guideStepIconClass(step.id, step.status)}`}>
-                      {step.status === "completed" ? "✓" : step.status === "in_progress" ? "●" : "○"}
+                      {step.status === "completed"
+                        ? "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“"
+                        : step.status === "in_progress"
+                          ? "ÃƒÂ¢Ã¢â‚¬â€Ã‚Â"
+                          : "ÃƒÂ¢Ã¢â‚¬â€Ã¢â‚¬Â¹"}
                     </span>
                     <span className="truncate text-[11px] font-medium">{guideStepTitle(step.id)}</span>
                   </div>
@@ -485,7 +513,7 @@ export function WelcomePage() {
             onClick={() => void onSetupAcp()}
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/60 shrink-0">
-              <span className="w-4 h-4 text-muted-foreground">⌘</span>
+              <span className="w-4 h-4 text-muted-foreground">ÃƒÂ¢Ã…â€™Ã‹Å“</span>
             </div>
             <div className="text-left">
               <p className="text-sm text-foreground/80">Connect ACP Agent</p>

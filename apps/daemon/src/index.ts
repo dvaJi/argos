@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import { serve } from "bun";
+import { resolve } from "node:path";
 import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
@@ -15,7 +15,14 @@ import { BunProviderExecutionPort } from "./host/bun-provider-execution";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
-import { parseArgs, mergeOptions, ensureDirectories, setupGracefulShutdown, type DaemonOptions } from "./lifecycle";
+import {
+  parseArgs,
+  mergeOptions,
+  ensureDirectories,
+  setupGracefulShutdown,
+  resolveWebRoot,
+  type DaemonOptions,
+} from "./lifecycle";
 
 const startTime = Date.now();
 
@@ -40,7 +47,7 @@ const MIME_TYPES: Record<string, string> = {
 function serveStaticWeb(webRoot: string, pathname: string): Response {
   const safePath = pathname
     .split("/")
-    .filter((s) => s !== ".." && s !== ".")
+    .filter((s) => s.length > 0 && s !== ".." && s !== ".")
     .join("/");
   const resolvedRoot = resolve(webRoot);
 
@@ -49,10 +56,11 @@ function serveStaticWeb(webRoot: string, pathname: string): Response {
     return file.size > 0 ? file : null;
   };
 
-  const file = tryFile(safePath || "index.html");
+  const relativeFilePath = safePath || "index.html";
+  const file = tryFile(relativeFilePath);
   if (file) {
-    const ext = safePath.match(/\.[^.]+$/)?.[0] ?? "";
-    const isHashedAsset = safePath.startsWith("assets/");
+    const ext = relativeFilePath.match(/\.[^.]+$/)?.[0] ?? "";
+    const isHashedAsset = relativeFilePath.startsWith("assets/");
     return new Response(file, {
       headers: {
         "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
@@ -88,6 +96,12 @@ export async function startDaemon(options?: {
   pair?: boolean;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
+  const webRootResolution = options?.web ? resolveWebRoot({ explicitWebRoot: options.webRoot }) : null;
+  if (webRootResolution && !webRootResolution.ok) {
+    throw new Error(webRootResolution.message);
+  }
+  const webRoot = webRootResolution?.ok ? webRootResolution.root : null;
+
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
 
@@ -126,8 +140,6 @@ export async function startDaemon(options?: {
     desktopBootstrapSecret: options?.desktopBootstrapSecret,
     verifySession: (secret) => Promise.resolve(sessionAuthRepo.verifySession(secret)),
   };
-
-  const webRoot = options?.web ? resolve(options?.webRoot || "./web") : null;
 
   const server = serve({
     hostname: host,
@@ -316,8 +328,8 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
-  --web               Serve the web UI (requires --web-root or ARGOS_WEB_ROOT)
-  --web-root <path>   Web asset directory (default: ./web)
+  --web               Serve the web UI (uses --web-root, ./web, apps/desktop/out/web, or exe-dir/web)
+  --web-root <path>   Web asset directory containing index.html
   --pair              Generate a one-time pairing token and print the URL
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check

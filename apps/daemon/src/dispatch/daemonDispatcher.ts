@@ -1,3 +1,4 @@
+import { arch, cpus, platform, release, totalmem } from "node:os";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
 import { SettingsRouteHandler } from "@argos/backend-core/dispatch/settings/settingsHandler";
@@ -14,6 +15,7 @@ import {
   resetGuidedOnboarding,
 } from "@argos/backend-core/dispatch/onboarding/onboardingRouteSupport";
 import type { IConfigPresenter } from "@shared/presenter";
+import { resolveDaemonVersion } from "../version";
 import type { IEventPublisher, ProviderExecutionPort } from "@argos/backend-core";
 import {
   onboardingGetStateRoute,
@@ -59,9 +61,48 @@ import {
   sessionsDeactivateRoute,
   chatSendMessageRoute,
   chatStopStreamRoute,
+  deviceGetAppVersionRoute,
+  deviceGetInfoRoute,
+  mcpGetClientsRoute,
+  mcpGetEnabledRoute,
+  mcpGetServersRoute,
+  startupGetBootstrapRoute,
+  tabNotifyRendererReadyRoute,
+  systemConsumePendingProviderInstallRoute,
+  upgradeGetStatusRoute,
+  windowGetCurrentStateRoute,
 } from "@argos/shared-contracts/routes";
 
 type RouteDispatcher = (route: ArgosRouteName, input: unknown) => Promise<unknown>;
+function readHeadlessWindowState() {
+  return {
+    windowId: null,
+    exists: false,
+    isMaximized: false,
+    isFullScreen: false,
+    isFocused: true,
+  };
+}
+
+function readHeadlessUpgradeSnapshot() {
+  return {
+    status: null,
+    progress: null,
+    error: null,
+    updateInfo: null,
+  };
+}
+
+function readHeadlessDeviceInfo() {
+  return {
+    platform: platform(),
+    arch: arch(),
+    cpuModel: cpus()[0]?.model ?? "",
+    totalMemory: totalmem(),
+    osVersion: release(),
+    osVersionMetadata: [],
+  };
+}
 
 const TIER1_PREFIXES = ["config.", "onboarding.", "settings.", "tools.", "databaseSecurity."];
 const TIER2_PREFIXES = [
@@ -115,6 +156,88 @@ export function createDaemonDispatcher(
   const runtime = { sessionRepository, providerExecutionPort };
 
   return async function dispatchDaemonRoute(route: ArgosRouteName, rawInput: unknown): Promise<unknown> {
+    if (route === tabNotifyRendererReadyRoute.name) {
+      tabNotifyRendererReadyRoute.input.parse(rawInput);
+      return tabNotifyRendererReadyRoute.output.parse({ notified: true });
+    }
+
+    if (route === windowGetCurrentStateRoute.name) {
+      windowGetCurrentStateRoute.input.parse(rawInput);
+      return windowGetCurrentStateRoute.output.parse({ state: readHeadlessWindowState() });
+    }
+
+    if (route === deviceGetAppVersionRoute.name) {
+      deviceGetAppVersionRoute.input.parse(rawInput);
+      return deviceGetAppVersionRoute.output.parse({ version: resolveDaemonVersion() });
+    }
+
+    if (route === deviceGetInfoRoute.name) {
+      deviceGetInfoRoute.input.parse(rawInput);
+      return deviceGetInfoRoute.output.parse({ info: readHeadlessDeviceInfo() });
+    }
+
+    if (route === upgradeGetStatusRoute.name) {
+      upgradeGetStatusRoute.input.parse(rawInput);
+      return upgradeGetStatusRoute.output.parse({ snapshot: readHeadlessUpgradeSnapshot() });
+    }
+
+    if (route === startupGetBootstrapRoute.name) {
+      startupGetBootstrapRoute.input.parse(rawInput);
+      const activeSession = runtime.sessionRepository ? await runtime.sessionRepository.getActive(0) : null;
+      const agents =
+        typeof (configPresenter as any).listAgents === "function" ? await (configPresenter as any).listAgents() : [];
+      const acpEnabled =
+        typeof (configPresenter as any).getAcpEnabled === "function"
+          ? await (configPresenter as any).getAcpEnabled()
+          : false;
+
+      return startupGetBootstrapRoute.output.parse({
+        bootstrap: {
+          startupRunId: `daemon:${Date.now()}`,
+          activeSessionId: activeSession?.id ?? null,
+          activeSession,
+          agents: agents
+            .filter((agent: any) => agent.type === "argos" || acpEnabled)
+            .map((agent: any) => ({
+              id: agent.id,
+              name: agent.name,
+              type: agent.type,
+              agentType: agent.agentType,
+              enabled: agent.enabled,
+              protected: agent.protected,
+              icon: agent.icon,
+              description: agent.description,
+              source: agent.source,
+              avatar: agent.avatar,
+            })),
+          defaultProjectPath:
+            typeof (configPresenter as any).getDefaultProjectPath === "function"
+              ? (configPresenter as any).getDefaultProjectPath()
+              : null,
+        },
+      });
+    }
+
+    if (route === systemConsumePendingProviderInstallRoute.name) {
+      systemConsumePendingProviderInstallRoute.input.parse(rawInput);
+      return systemConsumePendingProviderInstallRoute.output.parse({ preview: null });
+    }
+
+    if (route === mcpGetServersRoute.name) {
+      mcpGetServersRoute.input.parse(rawInput);
+      return mcpGetServersRoute.output.parse({ servers: {} });
+    }
+
+    if (route === mcpGetEnabledRoute.name) {
+      mcpGetEnabledRoute.input.parse(rawInput);
+      return mcpGetEnabledRoute.output.parse({ enabled: false });
+    }
+
+    if (route === mcpGetClientsRoute.name) {
+      mcpGetClientsRoute.input.parse(rawInput);
+      return mcpGetClientsRoute.output.parse({ clients: [] });
+    }
+
     if (isDesktopOnlyRoute(route)) {
       throw new Error(`Route not available in headless mode: ${route}`);
     }
@@ -145,9 +268,9 @@ export function createDaemonDispatcher(
     }
 
     if (route === onboardingCompleteRoute.name) {
-      onboardingCompleteRoute.input.parse(rawInput);
+      const input = onboardingCompleteRoute.input.parse(rawInput);
       return onboardingCompleteRoute.output.parse({
-        state: completeGuidedOnboarding(configPresenter),
+        state: completeGuidedOnboarding(configPresenter, Date.now(), { force: input.force }),
       });
     }
 

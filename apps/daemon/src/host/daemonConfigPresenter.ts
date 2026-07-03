@@ -396,11 +396,15 @@ export class DaemonConfigPresenter {
   }
 
   getAutoCompactionTriggerThreshold(): number {
-    return (this.store.autoCompactionTriggerThreshold as number) ?? 0.8;
+    const stored = this.store.autoCompactionTriggerThreshold as number | undefined;
+    if (typeof stored !== "number" || !Number.isFinite(stored)) {
+      return 80;
+    }
+    return Math.round(stored <= 1 ? stored * 100 : stored);
   }
 
   setAutoCompactionTriggerThreshold(threshold: number): void {
-    this.store.autoCompactionTriggerThreshold = threshold;
+    this.store.autoCompactionTriggerThreshold = Math.round(threshold);
     this.save();
   }
 

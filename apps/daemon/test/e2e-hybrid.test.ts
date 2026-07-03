@@ -14,11 +14,11 @@ async function test(name: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn();
     results.push({ name, passed: true, durationMs: Date.now() - start });
-    console.log(`  ✓ ${name}`);
+    console.log(`  PASS ${name}`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     results.push({ name, passed: false, error: msg, durationMs: Date.now() - start });
-    console.error(`  ✗ ${name}: ${msg}`);
+    console.error(`  FAIL ${name}: ${msg}`);
   }
 }
 
@@ -160,10 +160,10 @@ async function run(): Promise<void> {
       assert(result.ok, "should be ok");
     });
 
-    await test("onboarding.complete fails without required steps", async () => {
+    await test("onboarding.complete respects force flag", async () => {
       const result = await postRoute(port, "onboarding.complete", { force: true });
-      assert(!result.ok, "should fail because required steps not completed");
-      assert(result.error.message.includes("required step"), "mentions required step");
+      assert(result.ok, "should be ok");
+      assertEq(result.output.state.status, "completed", "status");
     });
 
     await test("onboarding.reset", async () => {
@@ -246,12 +246,51 @@ async function run(): Promise<void> {
       assert(typeof result.output.capabilities === "object", "capabilities is object");
     });
 
-    // === Desktop-only routes ===
-    console.log("\n--- Desktop-only routes ---");
-    await test("window.getCurrentState returns error", async () => {
+    // === Browser-safe startup routes ===
+    console.log("\n--- Browser-safe startup routes ---");
+    await test("window.getCurrentState returns shell state", async () => {
       const result = await postRoute(port, "window.getCurrentState");
-      assert(!result.ok, "should not be ok");
-      assert(result.error.message.includes("not available"), "error message");
+      assert(result.ok, "should be ok");
+      assert(result.output.state, "state exists");
+      assertEq(result.output.state.exists, false, "exists");
+    });
+
+    await test("tab.notifyRendererReady returns ok", async () => {
+      const result = await postRoute(port, "tab.notifyRendererReady");
+      assert(result.ok, "should be ok");
+      assertEq(result.output.notified, true, "notified");
+    });
+
+    await test("device.getInfo returns info", async () => {
+      const result = await postRoute(port, "device.getInfo");
+      assert(result.ok, "should be ok");
+      assert(result.output.info, "info exists");
+    });
+
+    await test("upgrade.getStatus returns snapshot", async () => {
+      const result = await postRoute(port, "upgrade.getStatus");
+      assert(result.ok, "should be ok");
+      assert(result.output.snapshot, "snapshot exists");
+      assertEq(result.output.snapshot.status, null, "status");
+    });
+
+    await test("startup.getBootstrap returns bootstrap", async () => {
+      const result = await postRoute(port, "startup.getBootstrap");
+      assert(result.ok, "should be ok");
+      assert(result.output.bootstrap, "bootstrap exists");
+      assert(typeof result.output.bootstrap.startupRunId === "string", "startupRunId is string");
+    });
+
+    await test("mcp.getServers returns empty map", async () => {
+      const result = await postRoute(port, "mcp.getServers");
+      assert(result.ok, "should be ok");
+      assertEq(Object.keys(result.output.servers).length, 0, "servers length");
+    });
+
+    await test("system.consumePendingProviderInstall returns null", async () => {
+      const result = await postRoute(port, "system.consumePendingProviderInstall");
+      assert(result.ok, "should be ok");
+      assertEq(result.output.preview, null, "preview");
     });
 
     await test("browser.getStatus returns error", async () => {
