@@ -54,20 +54,13 @@ export default function ServerSettings() {
     setGenerating(true);
     let ok = false;
     try {
-      const daemonInfo = await (window as any).electron?.ipcRenderer?.invoke("get-daemon-port");
-      if (daemonInfo?.port) {
-        const res = await fetch(`http://127.0.0.1:${daemonInfo.port}/api/v1/pair/token`, { method: "POST" });
-        if (res.ok) {
-          const body = await res.json();
-          if (body.ok) {
-            setPairing({ pairingUrl: body.pairingUrl, expiresAt: body.expiresAt });
-            toast({ title: "Pairing URL generated" });
-            ok = true;
-          }
-        }
-      }
-      if (!ok) {
-        toast({ title: "Failed to generate pairing URL", variant: "destructive" });
+      const result = await window.electron.ipcRenderer.invoke("generate-pairing-url");
+      if (result?.ok) {
+        setPairing({ pairingUrl: result.pairingUrl, expiresAt: result.expiresAt });
+        toast({ title: "Pairing URL generated" });
+        ok = true;
+      } else {
+        toast({ title: result?.error?.message ?? "Failed to generate pairing URL", variant: "destructive" });
       }
     } catch {
       toast({ title: "Failed to reach daemon", variant: "destructive" });
@@ -115,16 +108,16 @@ export default function ServerSettings() {
           <div className="rounded-2xl border p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Icon icon="lucide:smartphone" className="size-4 text-muted-foreground" />
-              <div className="text-sm font-medium">Browser &amp; Mobile Access</div>
+              <div className="text-sm font-medium">Browser Access</div>
             </div>
             <p className="text-pretty text-xs leading-5 text-muted-foreground">
-              Generate a one-time pairing URL to access this Argos instance from a browser on the same network. The URL
-              expires after 5 minutes and can only be used once.
+              Generate a one-time pairing URL to open Argos in a browser on this machine. The URL expires after 5
+              minutes and can only be used once.
             </p>
             {pairing ? (
               <div className="space-y-2">
                 <Input readOnly value={pairing.pairingUrl} className="font-mono text-xs" />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs tabular-nums text-muted-foreground">
                   Expires: {new Date(pairing.expiresAt).toLocaleTimeString()}
                 </p>
               </div>
