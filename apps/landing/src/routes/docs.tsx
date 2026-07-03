@@ -59,7 +59,7 @@ const runSteps = [
   },
   {
     title: "Pair for remote access",
-    text: "Use --pair to generate a one-time pairing URL for browser or mobile clients.",
+    text: "Run argos-daemon --web --pair to print a one-time pairing URL for browser clients.",
   },
   {
     title: "Promote to a service",
@@ -71,7 +71,7 @@ const options = [
   ["--host <host>", "Bind address. Defaults to 127.0.0.1."],
   ["--port <port>", "Bind port. Defaults to 9527. Use 0 for an automatic port."],
   ["--data-dir <path>", "Store daemon data in a custom directory. Defaults to ~/.argos-daemon."],
-  ["--web", "Serve the web UI. Requires --web-root or ARGOS_WEB_ROOT."],
+  ["--web", "Serve the web UI. Defaults to ./web; override with --web-root or ARGOS_WEB_ROOT."],
   ["--web-root <path>", "Directory containing built web assets. Defaults to ./web."],
   ["--pair", "Generate a one-time pairing token and print the URL at startup."],
   ["--log-level <level>", "Use debug, info, warn, or error. Defaults to info."],
@@ -226,8 +226,8 @@ function DocsPage() {
                   <CommandBlock command="curl http://127.0.0.1:9527/health" language="bash" />
                   <p>
                     The health endpoint returns <code>status</code>, <code>version</code>, and <code>uptime</code>. Keep
-                    the default localhost bind while testing clients. Use <code>--pair</code> to generate a one-time URL
-                    for browser access.
+                    the default localhost bind while testing clients. Use <code>--web --pair</code> to generate a
+                    one-time URL for browser access.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -248,8 +248,9 @@ function DocsPage() {
                 <ReferencePanel title="Environment" rows={envVars} />
               </div>
               <Callout icon={LockKey} title="Remote access">
-                Non-loopback requests require an authenticated session. Use <code>--pair</code> to generate a one-time
-                pairing URL, or set <code>ARGOS_DESKTOP_BOOTSTRAP</code> for desktop-managed access.
+                Non-loopback requests require an authenticated session. For browser access, restart with{" "}
+                <code>--web --pair</code> and open the printed one-time URL. Desktop-launched daemons receive{" "}
+                <code>ARGOS_DESKTOP_BOOTSTRAP</code> automatically.
               </Callout>
             </DocsSection>
 
