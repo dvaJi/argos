@@ -58,8 +58,8 @@ const runSteps = [
     text: "The default bind address is 127.0.0.1 on port 9527. Confirm health before wiring clients.",
   },
   {
-    title: "Add a token before remote access",
-    text: "Set ARGOS_TOKEN or pass --token whenever the daemon is reachable beyond localhost.",
+    title: "Pair for remote access",
+    text: "Run argos-daemon --web --pair to print a one-time pairing URL for browser clients.",
   },
   {
     title: "Promote to a service",
@@ -71,8 +71,9 @@ const options = [
   ["--host <host>", "Bind address. Defaults to 127.0.0.1."],
   ["--port <port>", "Bind port. Defaults to 9527. Use 0 for an automatic port."],
   ["--data-dir <path>", "Store daemon data in a custom directory. Defaults to ~/.argos-daemon."],
-  ["--token <token>", "Require an auth token for remote access."],
-  ["--with-token", "Generate a token at startup and print it."],
+  ["--web", "Serve the web UI. Defaults to ./web; override with --web-root or ARGOS_WEB_ROOT."],
+  ["--web-root <path>", "Directory containing built web assets. Defaults to ./web."],
+  ["--pair", "Generate a one-time pairing token and print the URL at startup."],
   ["--log-level <level>", "Use debug, info, warn, or error. Defaults to info."],
   ["--no-update-check", "Skip the startup update availability check."],
 ] as const;
@@ -81,7 +82,9 @@ const envVars = [
   ["ARGOS_HOST", "Same as --host."],
   ["ARGOS_PORT", "Same as --port."],
   ["ARGOS_DATA_DIR", "Same as --data-dir."],
-  ["ARGOS_TOKEN", "Same as --token."],
+  ["ARGOS_DESKTOP_BOOTSTRAP", "Desktop bootstrap secret (set by Electron main)."],
+  ["ARGOS_WEB", "Same as --web (1/true)."],
+  ["ARGOS_WEB_ROOT", "Same as --web-root."],
   ["ARGOS_LOG_LEVEL", "Same as --log-level."],
   ["ARGOS_NO_UPDATE_CHECK", "Same as --no-update-check."],
 ] as const;
@@ -161,7 +164,7 @@ function DocsPage() {
                   <span className="ml-2 font-mono text-xs text-slate-500">argos-daemon</span>
                 </div>
                 <div className="mt-4 space-y-3 font-mono text-sm leading-6">
-                  <p className="text-slate-500">$ argos-daemon --with-token</p>
+                  <p className="text-slate-500">$ argos-daemon</p>
                   <p className="text-slate-300">[daemon] Listening on http://127.0.0.1:9527</p>
                   <p className="text-slate-300">[daemon] Health: http://127.0.0.1:9527/health</p>
                   <p className="text-slate-300">[daemon] Routes: POST /api/v1/route</p>
@@ -219,11 +222,12 @@ function DocsPage() {
             <DocsSection eyebrow="02" id="run" title="Start local, then open access deliberately">
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="space-y-4">
-                  <CommandBlock command="argos-daemon --with-token" language="bash" />
+                  <CommandBlock command="argos-daemon" language="bash" />
                   <CommandBlock command="curl http://127.0.0.1:9527/health" language="bash" />
                   <p>
                     The health endpoint returns <code>status</code>, <code>version</code>, and <code>uptime</code>. Keep
-                    the default localhost bind while testing clients, then add a token before binding remotely.
+                    the default localhost bind while testing clients. Use <code>--web --pair</code> to generate a
+                    one-time URL for browser access.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -243,9 +247,10 @@ function DocsPage() {
                 <ReferencePanel title="CLI flags" rows={options} />
                 <ReferencePanel title="Environment" rows={envVars} />
               </div>
-              <Callout icon={LockKey} title="Remote bind rule">
-                If <code>--host</code> is anything other than localhost, set <code>ARGOS_TOKEN</code> or pass
-                <code>--token</code>. Without one, the daemon generates a token and logs it at startup.
+              <Callout icon={LockKey} title="Remote access">
+                Non-loopback requests require an authenticated session. For browser access, restart with{" "}
+                <code>--web --pair</code> and open the printed one-time URL. Desktop-launched daemons receive{" "}
+                <code>ARGOS_DESKTOP_BOOTSTRAP</code> automatically.
               </Callout>
             </DocsSection>
 
