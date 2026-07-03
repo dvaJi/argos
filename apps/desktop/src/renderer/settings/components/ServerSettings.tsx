@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
+import { Input } from "@shadcn/components/ui/input";
 import { Label } from "@shadcn/components/ui/label";
 import { RemoteWorkspaceSetup } from "@/components/workspace/RemoteWorkspaceSetup";
 import { useToast } from "@/components/use-toast";
@@ -13,43 +14,59 @@ import {
   type WorkspaceEntry,
 } from "@shared/workspaceConfig";
 
+type PairingResult = { pairingUrl: string; expiresAt: number } | null;
+
 export default function ServerSettings() {
   const { toast } = useToast();
   const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>(() => readWorkspaceConfig().workspaces);
+  const [pairing, setPairing] = useState<PairingResult>(null);
+  const [generating, setGenerating] = useState(false);
 
   const remoteWorkspaces = workspaces.filter((workspace) => workspace.mode === "remote");
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
 
-  const handleAdd = useCallback(
-    (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
-      const config = readWorkspaceConfig();
-      const entry: WorkspaceEntry = {
-        id: generateWorkspaceId(),
-        name: workspace.name,
-        mode: "remote",
-        remoteUrl: workspace.remoteUrl,
-        createdAt: Date.now(),
-      };
-      config.workspaces.push(entry);
-      writeWorkspaceConfig(config);
-      notifyWorkspaceConfigChanged();
-      setWorkspaces(config.workspaces);
-    },
-    [toast],
-  );
+  const handleAdd = (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
+    const config = readWorkspaceConfig();
+    const entry: WorkspaceEntry = {
+      id: generateWorkspaceId(),
+      name: workspace.name,
+      mode: "remote",
+      remoteUrl: workspace.remoteUrl,
+      createdAt: Date.now(),
+    };
+    config.workspaces.push(entry);
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
+    setWorkspaces(config.workspaces);
+  };
 
-  const handleRemove = useCallback(
-    (id: string) => {
-      if (id === LOCAL_WORKSPACE_ID) return;
-      const config = readWorkspaceConfig();
-      config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
-      writeWorkspaceConfig(config);
-      notifyWorkspaceConfigChanged();
-      setWorkspaces(config.workspaces);
-      toast({ title: "Workspace removed" });
-    },
-    [toast],
-  );
+  const handleRemove = (id: string) => {
+    if (id === LOCAL_WORKSPACE_ID) return;
+    const config = readWorkspaceConfig();
+    config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
+    setWorkspaces(config.workspaces);
+    toast({ title: "Workspace removed" });
+  };
+
+  const handleGeneratePairingUrl = async () => {
+    setGenerating(true);
+    let ok = false;
+    try {
+      const result = await window.electron.ipcRenderer.invoke("generate-pairing-url");
+      if (result?.ok) {
+        setPairing({ pairingUrl: result.pairingUrl, expiresAt: result.expiresAt });
+        toast({ title: "Pairing URL generated" });
+        ok = true;
+      } else {
+        toast({ title: result?.error?.message ?? "Failed to generate pairing URL", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to reach daemon", variant: "destructive" });
+    }
+    setGenerating(false);
+  };
 
   return (
     <div data-testid="settings-server-page" className="h-full w-full">
@@ -81,11 +98,35 @@ export default function ServerSettings() {
                 <div className="min-w-0 space-y-1">
                   <div className="text-sm font-medium">Remote</div>
                   <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    Remote workspaces connect this app to an `argos-daemon` running on another machine.
+                    Remote workspaces connect this app to an <code>argos-daemon</code> running on another machine.
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-2xl border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Icon icon="lucide:smartphone" className="size-4 text-muted-foreground" />
+              <div className="text-sm font-medium">Browser Access</div>
+            </div>
+            <p className="text-pretty text-xs leading-5 text-muted-foreground">
+              Generate a one-time pairing URL to open Argos in a browser on this machine. The URL expires after 5
+              minutes and can only be used once.
+            </p>
+            {pairing ? (
+              <div className="space-y-2">
+                <Input readOnly value={pairing.pairingUrl} className="font-mono text-xs" />
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  Expires: {new Date(pairing.expiresAt).toLocaleTimeString()}
+                </p>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={handleGeneratePairingUrl} disabled={generating}>
+                <Icon icon="lucide:link" className="mr-1.5 size-3.5" />
+                {generating ? "Generating..." : "Generate pairing URL"}
+              </Button>
+            )}
           </div>
 
           {remoteWorkspaces.length > 0 && (
