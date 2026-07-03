@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "@shadcn/components/ui/button";
 import { Input } from "@shadcn/components/ui/input";
@@ -25,61 +25,55 @@ export default function ServerSettings() {
   const remoteWorkspaces = workspaces.filter((workspace) => workspace.mode === "remote");
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
 
-  const handleAdd = useCallback(
-    (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
-      const config = readWorkspaceConfig();
-      const entry: WorkspaceEntry = {
-        id: generateWorkspaceId(),
-        name: workspace.name,
-        mode: "remote",
-        remoteUrl: workspace.remoteUrl,
-        createdAt: Date.now(),
-      };
-      config.workspaces.push(entry);
-      writeWorkspaceConfig(config);
-      notifyWorkspaceConfigChanged();
-      setWorkspaces(config.workspaces);
-    },
-    [toast],
-  );
+  const handleAdd = (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
+    const config = readWorkspaceConfig();
+    const entry: WorkspaceEntry = {
+      id: generateWorkspaceId(),
+      name: workspace.name,
+      mode: "remote",
+      remoteUrl: workspace.remoteUrl,
+      createdAt: Date.now(),
+    };
+    config.workspaces.push(entry);
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
+    setWorkspaces(config.workspaces);
+  };
 
-  const handleRemove = useCallback(
-    (id: string) => {
-      if (id === LOCAL_WORKSPACE_ID) return;
-      const config = readWorkspaceConfig();
-      config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
-      writeWorkspaceConfig(config);
-      notifyWorkspaceConfigChanged();
-      setWorkspaces(config.workspaces);
-      toast({ title: "Workspace removed" });
-    },
-    [toast],
-  );
+  const handleRemove = (id: string) => {
+    if (id === LOCAL_WORKSPACE_ID) return;
+    const config = readWorkspaceConfig();
+    config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
+    setWorkspaces(config.workspaces);
+    toast({ title: "Workspace removed" });
+  };
 
-  const handleGeneratePairingUrl = useCallback(async () => {
+  const handleGeneratePairingUrl = async () => {
     setGenerating(true);
+    let ok = false;
     try {
       const daemonInfo = await (window as any).electron?.ipcRenderer?.invoke("get-daemon-port");
-      if (!daemonInfo || !daemonInfo.port) {
-        toast({ title: "Daemon not running", variant: "destructive" });
-        return;
+      if (daemonInfo?.port) {
+        const res = await fetch(`http://127.0.0.1:${daemonInfo.port}/api/v1/pair/token`, { method: "POST" });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.ok) {
+            setPairing({ pairingUrl: body.pairingUrl, expiresAt: body.expiresAt });
+            toast({ title: "Pairing URL generated" });
+            ok = true;
+          }
+        }
       }
-      const res = await fetch(`http://127.0.0.1:${daemonInfo.port}/api/v1/pair/token`, { method: "POST" });
-      if (!res.ok) {
+      if (!ok) {
         toast({ title: "Failed to generate pairing URL", variant: "destructive" });
-        return;
-      }
-      const body = await res.json();
-      if (body.ok) {
-        setPairing({ pairingUrl: body.pairingUrl, expiresAt: body.expiresAt });
-        toast({ title: "Pairing URL generated" });
       }
     } catch {
       toast({ title: "Failed to reach daemon", variant: "destructive" });
-    } finally {
-      setGenerating(false);
     }
-  }, [toast]);
+    setGenerating(false);
+  };
 
   return (
     <div data-testid="settings-server-page" className="h-full w-full">
