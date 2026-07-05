@@ -3,6 +3,14 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { AcpFsHandler } from "@/presenter/llmProviderPresenter/acp/acpFsHandler";
+import { buildBinaryReadGuidance, shouldRejectAcpTextRead } from "@/lib/binaryReadGuard";
+import type { AcpFsHelpers } from "@argos/acp-runtime";
+
+const fsHelpers: AcpFsHelpers = {
+  shouldRejectAcpTextRead,
+  buildBinaryReadGuidance: (filePath, mimeType, source) =>
+    buildBinaryReadGuidance(filePath, mimeType ?? "", source as "acp" | "agent"),
+};
 
 describe("AcpFsHandler", () => {
   let testDir: string;
@@ -11,7 +19,7 @@ describe("AcpFsHandler", () => {
   beforeEach(async () => {
     // Create a temporary test directory
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), "acp-fs-test-"));
-    handler = new AcpFsHandler({ workspaceRoot: testDir });
+    handler = new AcpFsHandler({ workspaceRoot: testDir, fsHelpers });
   });
 
   afterEach(async () => {
@@ -67,7 +75,7 @@ describe("AcpFsHandler", () => {
     });
 
     it("allows any path when workspaceRoot is null", async () => {
-      const unrestrictedHandler = new AcpFsHandler({ workspaceRoot: null });
+      const unrestrictedHandler = new AcpFsHandler({ workspaceRoot: null, fsHelpers });
 
       // Create a file outside the typical workspace
       const outsideFile = path.join(os.tmpdir(), `acp-test-unrestricted-${Date.now()}.txt`);
@@ -151,6 +159,7 @@ describe("AcpFsHandler", () => {
       const smallHandler = new AcpFsHandler({
         workspaceRoot: testDir,
         maxReadSize: 10,
+        fsHelpers,
       });
 
       const testFile = path.join(testDir, "large.txt");

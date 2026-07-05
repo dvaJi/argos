@@ -57,6 +57,7 @@ import type { AgentToolRuntimePort } from "./toolPresenter/runtimePorts";
 import { ConversationExporterService } from "./exporter";
 import { SkillPresenter } from "./skillPresenter";
 import type { SkillSessionStatePort } from "./skillPresenter";
+import { createDesktopSkillPorts } from "./skillPresenter/desktopSkillPorts";
 import { SkillSyncPresenter } from "./skillSyncPresenter";
 import { HooksNotificationsService } from "./hooksNotifications";
 import { NewSessionHooksBridge } from "./hooksNotifications/newSessionBridge";
@@ -479,7 +480,7 @@ export class Presenter implements IPresenter {
     };
 
     // Initialize Skill presenter
-    this.skillPresenter = new SkillPresenter(this.configPresenter, skillSessionStatePort);
+    this.skillPresenter = new SkillPresenter(this.configPresenter, skillSessionStatePort, createDesktopSkillPorts());
 
     // Initialize official plugin host. Plugins are activated before MCP startup so managed
     // MCP servers are present when the regular MCP presenter starts enabled servers.

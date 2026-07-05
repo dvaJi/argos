@@ -35,11 +35,43 @@ import {
   resolveSettingsNavigationPath,
   resolveTitle,
 } from "@shared/settingsNavigation";
-import type { SettingsNavigationPayload } from "@shared/settingsNavigation";
+import type { SettingsNavigationItem, SettingsNavigationPayload } from "@shared/settingsNavigation";
 import { useStartupWorkloadStore } from "../stores/startupWorkloadStore";
 import { ArrowLeft } from "lucide-react";
+import { isBrowserMode } from "@api/runtimeKind";
 
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
+
+const browserMode = isBrowserMode();
+const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>([
+  "settings-overview",
+  "settings-provider",
+]);
+
+function isSettingAvailableInCurrentRuntime(routeName: SettingsNavigationItem["routeName"]): boolean {
+  if (!browserMode) {
+    return true;
+  }
+
+  return BROWSER_SUPPORTED_SETTINGS.has(routeName);
+}
+
+function BrowserUnsupportedSettingsPage({ routeName }: { routeName: SettingsNavigationItem["routeName"] }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center p-6">
+      <div className="w-full max-w-xl rounded-2xl border border-border bg-card/60 p-6">
+        <div className="text-sm font-semibold text-foreground">{resolveTitle(`routes.${routeName}`)}</div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This settings pane still depends on the desktop runtime and is not available in daemon web mode yet.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Use the desktop app for this page, or stay in the browser-safe settings surfaces such as Overview and
+          Providers.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 type SettingsWindowState = Window & {
   __argosSettingsPendingSection?: string | null;
@@ -104,27 +136,33 @@ function SettingsLayout() {
 
   const settings = useMemo(
     () =>
-      getSettingsRouteItems().map((item) => ({
-        title: item.titleKey,
-        name: item.routeName,
-        icon: item.icon,
-        path: resolveSettingsNavigationPath(item.routeName),
-      })),
+      getSettingsRouteItems()
+        .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
+        .map((item) => ({
+          title: item.titleKey,
+          name: item.routeName,
+          icon: item.icon,
+          path: resolveSettingsNavigationPath(item.routeName),
+        })),
     [],
   );
 
   const settingGroups = useMemo(
     () =>
-      getSettingsNavigationGroups().map((group) => ({
-        key: group.key,
-        titleKey: resolveTitle(group.titleKey),
-        items: group.items.map((item) => ({
-          title: resolveTitle(item.titleKey),
-          name: item.routeName,
-          icon: item.icon,
-          path: resolveSettingsNavigationPath(item.routeName),
-        })),
-      })),
+      getSettingsNavigationGroups()
+        .map((group) => ({
+          key: group.key,
+          titleKey: resolveTitle(group.titleKey),
+          items: group.items
+            .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
+            .map((item) => ({
+              title: resolveTitle(item.titleKey),
+              name: item.routeName,
+              icon: item.icon,
+              path: resolveSettingsNavigationPath(item.routeName),
+            })),
+        }))
+        .filter((group) => group.items.length > 0),
     [],
   );
 
@@ -434,6 +472,8 @@ function SettingsLayout() {
 
   const currentPath = routerState.location.pathname;
   const currentRouteSegment = currentPath.split("/").filter(Boolean)[1] || "";
+  const currentRouteName = `settings-${currentRouteSegment || "overview"}` as SettingsNavigationItem["routeName"];
+  const isCurrentRouteAvailable = isSettingAvailableInCurrentRuntime(currentRouteName);
 
   return (
     <div data-testid="settings-page" className={`w-full h-full flex flex-col ${isWinMacOS ? "" : "bg-background"}`}>
@@ -487,7 +527,7 @@ function SettingsLayout() {
           </div>
         </div>
         <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          <Outlet />
+          {isCurrentRouteAvailable ? <Outlet /> : <BrowserUnsupportedSettingsPage routeName={currentRouteName} />}
         </div>
       </div>
       <ProviderDeeplinkImportDialog

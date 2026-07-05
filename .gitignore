@@ -23,4 +23,5 @@ plugins/*/runtime/**/*
 .claude/settings.local.json
 playwright-report/
 test-results/
-.turbo/
+.turbo/*.bun-build
+*.bun-build

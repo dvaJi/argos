@@ -22,6 +22,9 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.28.1",
+    "@argos/acp-runtime": "workspace:*",
+    "@argos/mcp-runtime": "workspace:*",
+    "@argos/skills-runtime": "workspace:*",
     "@ai-sdk/amazon-bedrock": "catalog:",
     "@ai-sdk/anthropic": "catalog:",
     "@ai-sdk/azure": "catalog:",

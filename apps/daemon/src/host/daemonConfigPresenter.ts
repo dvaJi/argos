@@ -1,5 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { DEFAULT_PROVIDERS } from "@argos/backend-core";
+import type { LLM_PROVIDER } from "@shared/presenter";
+import { DaemonAcpConfig } from "./daemonAcpConfig";
+import { DaemonMcpConfig } from "./daemonMcpConfig";
 
 type Store = Record<string, unknown>;
 
@@ -12,13 +16,35 @@ const DEFAULTS: Store = {
   init_complete: false,
 };
 
+const defaultProviders: LLM_PROVIDER[] = DEFAULT_PROVIDERS.map((provider) => ({
+  id: provider.id,
+  name: provider.name,
+  apiType: provider.apiType,
+  apiKey: provider.apiKey,
+  baseUrl: provider.baseUrl,
+  enable: provider.enable,
+  websites: provider.websites,
+  models: provider.models ?? [],
+  customModels: provider.customModels ?? [],
+  enabledModels: provider.enabledModels ?? [],
+  disabledModels: provider.disabledModels ?? [],
+}));
+
 export class DaemonConfigPresenter {
   private store: Store;
   private filePath: string;
+  private readonly acpConfig: DaemonAcpConfig;
+  private readonly mcpConfig: DaemonMcpConfig;
 
-  constructor(configDir: string) {
+  constructor(configDir: string, dataDir: string = configDir) {
     this.filePath = join(configDir, "config.json");
     this.store = this.load();
+    this.acpConfig = new DaemonAcpConfig({
+      configDir,
+      dataDir,
+      isPrivacyModeEnabled: () => this.getPrivacyModeEnabled(),
+    });
+    this.mcpConfig = new DaemonMcpConfig(configDir, this);
   }
 
   private load(): Store {
@@ -121,11 +147,41 @@ export class DaemonConfigPresenter {
     this.save();
   }
 
-  getProviders(): any[] {
-    return (this.store.providers as any[]) ?? [];
+  private getPersistedProviders(): LLM_PROVIDER[] {
+    return Array.isArray(this.store.providers) ? (this.store.providers as LLM_PROVIDER[]) : [];
   }
 
-  setProviders(providers: any[]): void {
+  getDefaultProviders(): LLM_PROVIDER[] {
+    return defaultProviders.map((provider) => ({ ...provider }));
+  }
+
+  getProviders(): LLM_PROVIDER[] {
+    const persisted = this.getPersistedProviders();
+    if (persisted.length === 0) {
+      return this.getDefaultProviders();
+    }
+
+    const defaultsById = new Map(defaultProviders.map((provider) => [provider.id, provider]));
+    const mergedProviders: LLM_PROVIDER[] = [];
+    const seen = new Set<string>();
+
+    for (const provider of persisted) {
+      if (!provider || typeof provider.id !== "string") continue;
+      const template = defaultsById.get(provider.id);
+      mergedProviders.push(template ? { ...template, ...provider } : { ...provider });
+      seen.add(provider.id);
+    }
+
+    for (const provider of defaultProviders) {
+      if (!seen.has(provider.id)) {
+        mergedProviders.push({ ...provider });
+      }
+    }
+
+    return mergedProviders;
+  }
+
+  setProviders(providers: LLM_PROVIDER[]): void {
     this.store.providers = providers;
     this.save();
   }
@@ -188,7 +244,75 @@ export class DaemonConfigPresenter {
   }
 
   async getMcpServers(): Promise<any> {
-    return this.store.mcpServers ?? {};
+    return this.mcpConfig.getMcpServers();
+  }
+
+  async getEnabledMcpServers(): Promise<any> {
+    return this.mcpConfig.getEnabledMcpServers();
+  }
+
+  async addMcpServer(name: string, config: any): Promise<any> {
+    return this.mcpConfig.addMcpServer(name, config);
+  }
+
+  async updateMcpServer(name: string, config: any): Promise<any> {
+    return this.mcpConfig.updateMcpServer(name, config);
+  }
+
+  async removeMcpServer(name: string): Promise<any> {
+    return this.mcpConfig.removeMcpServer(name);
+  }
+
+  async setMcpServerEnabled(name: string, enabled: boolean): Promise<any> {
+    return this.mcpConfig.setMcpServerEnabled(name, enabled);
+  }
+
+  getMcpEnabled(): boolean {
+    return this.mcpConfig.getMcpEnabled();
+  }
+
+  async setMcpEnabled(enabled: boolean): Promise<any> {
+    return this.mcpConfig.setMcpEnabled(enabled);
+  }
+
+  getNpmRegistryCache(): any {
+    return this.mcpConfig.getNpmRegistryCache();
+  }
+
+  setNpmRegistryCache(cache: any): void {
+    return this.mcpConfig.setNpmRegistryCache(cache);
+  }
+
+  getCustomNpmRegistry(): string | null {
+    return this.mcpConfig.getCustomNpmRegistry();
+  }
+
+  setCustomNpmRegistry(registry: string): void {
+    return this.mcpConfig.setCustomNpmRegistry(registry);
+  }
+
+  getAutoDetectNpmRegistry(): boolean {
+    return this.mcpConfig.getAutoDetectNpmRegistry();
+  }
+
+  setAutoDetectNpmRegistry(enabled: boolean): void {
+    return this.mcpConfig.setAutoDetectNpmRegistry(enabled);
+  }
+
+  clearNpmRegistryCache(): void {
+    return this.mcpConfig.clearNpmRegistryCache();
+  }
+
+  getEffectiveNpmRegistry(): string | null {
+    return this.mcpConfig.getEffectiveNpmRegistry();
+  }
+
+  async listMcpRouterServers(page: number, limit: number): Promise<any> {
+    return this.mcpConfig.listMcpRouterServers(page, limit);
+  }
+
+  async installMcpRouterServer(serverKey: string): Promise<any> {
+    return this.mcpConfig.installMcpRouterServer(serverKey);
   }
 
   async getSystemPrompts(): Promise<any[]> {
@@ -294,37 +418,95 @@ export class DaemonConfigPresenter {
   }
 
   async getAcpEnabled(): Promise<boolean> {
-    return (this.store.acpEnabled as boolean) ?? false;
+    return this.acpConfig.getAcpEnabled();
+  }
+
+  async setAcpEnabled(enabled: boolean): Promise<void> {
+    return this.acpConfig.setAcpEnabled(enabled);
   }
 
   async getAcpAgents(): Promise<any[]> {
-    return (this.store.acpAgents as any[]) ?? [];
+    return this.acpConfig.getAcpAgents();
+  }
+
+  async listAcpRegistryAgents(): Promise<any[]> {
+    return this.acpConfig.listAcpRegistryAgents();
+  }
+
+  async refreshAcpRegistry(force = true): Promise<any[]> {
+    return this.acpConfig.refreshAcpRegistry(force);
+  }
+
+  async getAcpAgentState(agentId: string): Promise<any> {
+    return this.acpConfig.getAcpAgentState(agentId);
+  }
+
+  async setAcpAgentEnabled(agentId: string, enabled: boolean): Promise<void> {
+    return this.acpConfig.setAcpAgentEnabled(agentId, enabled);
+  }
+
+  async setAcpAgentEnvOverride(agentId: string, env: Record<string, string>): Promise<void> {
+    return this.acpConfig.setAcpAgentEnvOverride(agentId, env);
+  }
+
+  async getAcpAgentInstallStatus(agentId: string): Promise<any> {
+    return this.acpConfig.getAcpAgentInstallStatus(agentId);
+  }
+
+  async ensureAcpAgentInstalled(agentId: string): Promise<any> {
+    return this.acpConfig.ensureAcpAgentInstalled(agentId);
+  }
+
+  async repairAcpAgent(agentId: string): Promise<any> {
+    return this.acpConfig.repairAcpAgent(agentId);
+  }
+
+  async uninstallAcpRegistryAgent(agentId: string): Promise<void> {
+    return this.acpConfig.uninstallAcpRegistryAgent(agentId);
+  }
+
+  async listManualAcpAgents(): Promise<any[]> {
+    return this.acpConfig.listManualAcpAgents();
+  }
+
+  async addManualAcpAgent(agent: any): Promise<any> {
+    return this.acpConfig.addManualAcpAgent(agent);
+  }
+
+  async updateManualAcpAgent(agentId: string, updates: any): Promise<any> {
+    return this.acpConfig.updateManualAcpAgent(agentId, updates);
+  }
+
+  async removeManualAcpAgent(agentId: string): Promise<boolean> {
+    return this.acpConfig.removeManualAcpAgent(agentId);
+  }
+
+  async resolveAcpLaunchSpec(agentId: string, workdir?: string): Promise<any> {
+    return this.acpConfig.resolveAcpLaunchSpec(agentId, workdir);
   }
 
   async getAcpSharedMcpSelections(): Promise<string[]> {
-    return (this.store.acpSharedMcpSelections as string[]) ?? [];
+    return this.acpConfig.getAcpSharedMcpSelections();
   }
 
   async setAcpSharedMcpSelections(mcpIds: string[]): Promise<void> {
-    this.store.acpSharedMcpSelections = mcpIds;
-    this.save();
+    return this.acpConfig.setAcpSharedMcpSelections(mcpIds);
   }
 
-  async getAgentMcpSelections(agentId: string, isBuiltin?: boolean): Promise<string[]> {
-    const map = (this.store.agentMcpSelections as Record<string, string[]>) ?? {};
-    return map[agentId] ?? [];
+  async getAgentMcpSelections(agentId: string, _isBuiltin?: boolean): Promise<string[]> {
+    return this.acpConfig.getAgentMcpSelections(agentId);
   }
 
   async listAgents(): Promise<any[]> {
-    return (this.store.agents as any[]) ?? [];
+    return this.acpConfig.getAcpAgents();
   }
 
-  async resolveArgosAgentConfig(agentId: string): Promise<any> {
+  async resolveArgosAgentConfig(_agentId: string): Promise<any> {
     return null;
   }
 
   async getAcpRegistryIconMarkup(agentId: string, iconUrl?: string): Promise<string | null> {
-    return null;
+    return this.acpConfig.getAcpRegistryIconMarkup(agentId, iconUrl);
   }
 
   supportsReasoningCapability(providerId: string, modelId: string): boolean {

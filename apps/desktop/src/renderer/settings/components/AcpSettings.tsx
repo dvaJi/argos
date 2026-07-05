@@ -28,8 +28,7 @@ import {
 } from "@shadcn/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@shadcn/components/ui/card";
 import type { AcpManualAgent, AcpRegistryAgent } from "@shared/presenter";
-import { useLegacyPresenter } from "@api/legacy/presenters";
-import { CONFIG_EVENTS } from "@/events";
+import { createConfigClient } from "@api/ConfigClient";
 import { toast } from "@/components/use-toast";
 import AcpDebugDialog from "./AcpDebugDialog";
 import AcpAgentIcon from "@/components/icons/AcpAgentIcon";
@@ -58,7 +57,7 @@ const stringifyEnvBlock = (env?: Record<string, string>) =>
     .join("\n");
 
 export default function AcpSettings() {
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configClient = createConfigClient();
   const [acpEnabled, setAcpEnabled] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -199,7 +198,7 @@ export default function AcpSettings() {
   const loadAcpData = useCallback(async () => {
     setLoading(true);
     try {
-      const enabled = await configPresenter.getAcpEnabled();
+      const enabled = await configClient.getAcpEnabled();
       setAcpEnabled(enabled);
       if (!enabled) {
         setRegistryAgents([]);
@@ -208,29 +207,30 @@ export default function AcpSettings() {
         return;
       }
       const [registryList, manualList] = await Promise.all([
-        configPresenter.listAcpRegistryAgents(),
-        configPresenter.listManualAcpAgents(),
+        configClient.listAcpRegistryAgents(),
+        configClient.listManualAcpAgents(),
       ]);
       setRegistryAgents(registryList);
       setManualAgents(manualList);
       syncEnvDrafts(registryList);
-      const sharedMcp = await configPresenter.getAcpSharedMcpSelections();
+      const sharedMcp = await configClient.getAcpSharedMcpSelections();
       setSharedMcpCount(sharedMcp.length);
     } catch (error) {
       console.error("[ACP] settings error:", error);
     } finally {
       setLoading(false);
     }
-  }, [configPresenter]);
+  }, [configClient]);
 
   useEffect(() => {
     void loadAcpData();
-    const handler = () => {
-      const timer = setTimeout(() => void loadAcpData(), 80);
-      return () => clearTimeout(timer);
-    };
-    const off = window.electron?.ipcRenderer?.on(CONFIG_EVENTS.AGENTS_CHANGED, handler);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = window.argos?.on?.("config.agents.changed" as never, () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void loadAcpData(), 80);
+    });
     return () => {
+      clearTimeout(timer);
       off?.();
     };
   }, []);
@@ -239,7 +239,7 @@ export default function AcpSettings() {
     if (toggling) return;
     setToggling(true);
     try {
-      await configPresenter.setAcpEnabled(enabled);
+      await configClient.setAcpEnabled(enabled);
       setAcpEnabled(enabled);
       if (enabled) await loadAcpData();
     } catch (error) {
@@ -252,7 +252,7 @@ export default function AcpSettings() {
   const refreshRegistry = async () => {
     setRefreshing(true);
     try {
-      const list = await configPresenter.refreshAcpRegistry(true);
+      const list = await configClient.refreshAcpRegistry(true);
       setRegistryAgents(list);
       syncEnvDrafts(list);
     } catch (error) {
@@ -265,7 +265,7 @@ export default function AcpSettings() {
   const toggleRegistryAgent = async (agent: AcpRegistryAgent, enabled: boolean) => {
     setPending(agent.id, true);
     try {
-      await configPresenter.setAcpAgentEnabled(agent.id, enabled);
+      await configClient.setAcpAgentEnabled(agent.id, enabled);
       await loadAcpData();
     } catch (error) {
       console.error(error);
@@ -277,7 +277,7 @@ export default function AcpSettings() {
   const saveEnvOverride = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
-      await configPresenter.setAcpAgentEnvOverride(agent.id, parseEnvBlock(envDrafts[agent.id] ?? ""));
+      await configClient.setAcpAgentEnvOverride(agent.id, parseEnvBlock(envDrafts[agent.id] ?? ""));
       await loadAcpData();
       toast({ title: "Saved" });
     } catch (error) {
@@ -296,9 +296,9 @@ export default function AcpSettings() {
     setPending(agent.id, true);
     try {
       if (agent.installState?.status === "error") {
-        await configPresenter.repairAcpAgent(agent.id);
+        await configClient.repairAcpAgent(agent.id);
       } else {
-        await configPresenter.ensureAcpAgentInstalled(agent.id);
+        await configClient.ensureAcpAgentInstalled(agent.id);
       }
       await loadAcpData();
     } catch (error) {
@@ -311,7 +311,7 @@ export default function AcpSettings() {
   const repairRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
-      await configPresenter.repairAcpAgent(agent.id);
+      await configClient.repairAcpAgent(agent.id);
       await loadAcpData();
     } catch (error) {
       console.error(error);
@@ -323,7 +323,7 @@ export default function AcpSettings() {
   const uninstallRegistryAgent = async (agent: AcpRegistryAgent) => {
     setPending(agent.id, true);
     try {
-      await configPresenter.uninstallAcpRegistryAgent(agent.id);
+      await configClient.uninstallAcpRegistryAgent(agent.id);
       await loadAcpData();
       toast({ title: "Agent removed" });
     } catch (error) {
@@ -385,9 +385,9 @@ export default function AcpSettings() {
         enabled: manualEnabled,
       };
       if (manualEditId) {
-        await configPresenter.updateManualAcpAgent(manualEditId, payload);
+        await configClient.updateManualAcpAgent(manualEditId, payload);
       } else {
-        await configPresenter.addManualAcpAgent(payload);
+        await configClient.addManualAcpAgent(payload);
       }
       setManualDialogOpen(false);
       await loadAcpData();
@@ -401,7 +401,7 @@ export default function AcpSettings() {
 
   const deleteManualAgent = async (agent: AcpManualAgent) => {
     try {
-      await configPresenter.removeManualAcpAgent(agent.id);
+      await configClient.removeManualAcpAgent(agent.id);
       await loadAcpData();
     } catch (error) {
       console.error(error);
@@ -640,7 +640,7 @@ export default function AcpSettings() {
                               onCheckedChange={async (value) => {
                                 setPending(agent.id, true);
                                 try {
-                                  await configPresenter.updateManualAcpAgent(agent.id, { enabled: value });
+                                  await configClient.updateManualAcpAgent(agent.id, { enabled: value });
                                   await loadAcpData();
                                 } finally {
                                   setPending(agent.id, false);

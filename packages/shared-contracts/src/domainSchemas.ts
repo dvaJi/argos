@@ -345,6 +345,37 @@ export const AcpAgentConfigSchema = z.looseObject({
   args: z.array(z.string()).optional(),
 });
 
+export const AcpAgentInstallStateSchema = z.looseObject({
+  status: z.enum(["not_installed", "installing", "installed", "error"]),
+  version: z.string().optional(),
+  distributionType: z.string().optional(),
+  lastCheckedAt: z.number().optional(),
+  installedAt: z.number().nullable().optional(),
+  installDir: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
+});
+
+export const AcpRegistryAgentSchema = z.looseObject({
+  id: z.string().min(1),
+  name: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+  icon: z.string().optional(),
+  repository: z.string().optional(),
+  enabled: z.boolean().optional(),
+  envOverride: z.record(z.string(), z.string()).optional(),
+  installState: AcpAgentInstallStateSchema.nullable().optional(),
+});
+
+export const AcpManualAgentSchema = z.looseObject({
+  id: z.string().min(1),
+  name: z.string(),
+  command: z.string(),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+  enabled: z.boolean().optional(),
+});
+
 export const ArgosAgentConfigSchema = z.looseObject({
   defaultModelPreset: ArgosAgentModelPresetSchema.nullable().optional(),
   assistantModel: ModelSelectionSchema.nullable().optional(),

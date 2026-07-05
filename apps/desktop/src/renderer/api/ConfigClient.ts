@@ -20,6 +20,18 @@ import {
   configGetAcpRegistryIconMarkupRoute,
   configGetAcpSharedMcpSelectionsRoute,
   configGetAcpStateRoute,
+  configSetAcpEnabledRoute,
+  configListAcpRegistryAgentsRoute,
+  configRefreshAcpRegistryRoute,
+  configSetAcpAgentEnabledRoute,
+  configSetAcpAgentEnvOverrideRoute,
+  configEnsureAcpAgentInstalledRoute,
+  configRepairAcpAgentRoute,
+  configUninstallAcpRegistryAgentRoute,
+  configListManualAcpAgentsRoute,
+  configAddManualAcpAgentRoute,
+  configUpdateManualAcpAgentRoute,
+  configRemoveManualAcpAgentRoute,
   configGetAgentMcpSelectionsRoute,
   configGetAwsBedrockCredentialRoute,
   configGetAzureApiVersionRoute,
@@ -61,7 +73,15 @@ import {
   type ConfigEntryKey,
   type ConfigEntryValues,
 } from "@shared/contracts/routes";
-import type { BuiltinKnowledgeConfig, Prompt, ShortcutKeySetting, SystemPrompt } from "@shared/presenter";
+import type {
+  AcpAgentInstallState,
+  AcpManualAgent,
+  AcpRegistryAgent,
+  BuiltinKnowledgeConfig,
+  Prompt,
+  ShortcutKeySetting,
+  SystemPrompt,
+} from "@shared/presenter";
 import type { Agent } from "@shared/types/agent-interface";
 import { getArgosBridge } from "./core";
 import { createSettingsClient } from "./SettingsClient";
@@ -308,6 +328,77 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
 
   type AcpAgents = Awaited<ReturnType<typeof getAcpAgents>>;
 
+  async function setAcpEnabled(enabled: boolean) {
+    await bridge.invoke(configSetAcpEnabledRoute.name, { enabled });
+  }
+
+  async function listAcpRegistryAgents(): Promise<AcpRegistryAgent[]> {
+    const result = await bridge.invoke(configListAcpRegistryAgentsRoute.name, {});
+    return result.agents as unknown as AcpRegistryAgent[];
+  }
+
+  async function refreshAcpRegistry(force?: boolean): Promise<AcpRegistryAgent[]> {
+    const result = await bridge.invoke(configRefreshAcpRegistryRoute.name, { force });
+    return result.agents as unknown as AcpRegistryAgent[];
+  }
+
+  async function setAcpAgentEnabled(agentId: string, enabled: boolean) {
+    await bridge.invoke(configSetAcpAgentEnabledRoute.name, { agentId, enabled });
+  }
+
+  async function setAcpAgentEnvOverride(agentId: string, env: Record<string, string>) {
+    await bridge.invoke(configSetAcpAgentEnvOverrideRoute.name, { agentId, env });
+  }
+
+  async function ensureAcpAgentInstalled(agentId: string): Promise<AcpAgentInstallState> {
+    const result = await bridge.invoke(configEnsureAcpAgentInstalledRoute.name, { agentId });
+    return result.installState as unknown as AcpAgentInstallState;
+  }
+
+  async function repairAcpAgent(agentId: string): Promise<AcpAgentInstallState> {
+    const result = await bridge.invoke(configRepairAcpAgentRoute.name, { agentId });
+    return result.installState as unknown as AcpAgentInstallState;
+  }
+
+  async function uninstallAcpRegistryAgent(agentId: string) {
+    await bridge.invoke(configUninstallAcpRegistryAgentRoute.name, { agentId });
+  }
+
+  async function listManualAcpAgents(): Promise<AcpManualAgent[]> {
+    const result = await bridge.invoke(configListManualAcpAgentsRoute.name, {});
+    return result.agents as unknown as AcpManualAgent[];
+  }
+
+  async function addManualAcpAgent(agent: {
+    name: string;
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    const result = await bridge.invoke(configAddManualAcpAgentRoute.name, agent);
+    return result.agent;
+  }
+
+  async function updateManualAcpAgent(
+    agentId: string,
+    updates: {
+      name?: string;
+      command?: string;
+      args?: string[];
+      env?: Record<string, string>;
+      enabled?: boolean;
+    },
+  ) {
+    const result = await bridge.invoke(configUpdateManualAcpAgentRoute.name, { agentId, updates });
+    return result.agent;
+  }
+
+  async function removeManualAcpAgent(agentId: string) {
+    const result = await bridge.invoke(configRemoveManualAcpAgentRoute.name, { agentId });
+    return result.removed;
+  }
+
   async function listAgents(input?: { agentType?: "argos" | "acp"; ids?: string[] }): Promise<Agent[]> {
     const result = await bridge.invoke(configListAgentsRoute.name, input ?? {});
     return result.agents;
@@ -507,6 +598,18 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
     setDefaultSystemPromptId,
     getAcpEnabled,
     getAcpAgents,
+    setAcpEnabled,
+    listAcpRegistryAgents,
+    refreshAcpRegistry,
+    setAcpAgentEnabled,
+    setAcpAgentEnvOverride,
+    ensureAcpAgentInstalled,
+    repairAcpAgent,
+    uninstallAcpRegistryAgent,
+    listManualAcpAgents,
+    addManualAcpAgent,
+    updateManualAcpAgent,
+    removeManualAcpAgent,
     listAgents,
     resolveArgosAgentConfig,
     getAgentMcpSelections,

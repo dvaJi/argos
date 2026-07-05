@@ -14,3 +14,5 @@ export { estimateMessagesTokens, estimateToolDefinitionTokens, fitMessagesToCont
 export { buildEffectiveTapeView, type TapeEffectiveViewEntry } from "./tapeEffectiveView";
 export { extractImageGenerationBlocks, hasImageGenerationBlocks } from "./imageGenerationBlocks";
 export { compactMessages, type CompactionResult } from "./compactionService";
+export * from "./shellEnv";
+export { terminateProcessTree } from "./processTree";

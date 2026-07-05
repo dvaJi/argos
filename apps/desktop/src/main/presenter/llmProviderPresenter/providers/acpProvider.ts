@@ -44,6 +44,7 @@ import {
   type AcpProcessHandle,
   type AcpSessionRecord,
 } from "../acp";
+import { createDesktopAcpPorts } from "../acp/desktopPorts";
 import { AcpClientPresenter, AcpPromptController } from "@/presenter/acpClientPresenter";
 import { nanoid } from "nanoid";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
@@ -140,6 +141,7 @@ export class AcpProvider extends BaseLLMProvider {
       provider,
       configPresenter,
       sessionPersistence,
+      ports: createDesktopAcpPorts(),
       mcpRuntime,
     });
     this.processManager = this.acpRuntime.processManager;

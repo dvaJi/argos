@@ -14,6 +14,12 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
+      "@argos/acp-runtime": ["../../packages/acp-runtime/src"],
+      "@argos/acp-runtime/*": ["../../packages/acp-runtime/src/*"],
+      "@argos/mcp-runtime": ["../../packages/mcp-runtime/src"],
+      "@argos/mcp-runtime/*": ["../../packages/mcp-runtime/src/*"],
+      "@argos/skills-runtime": ["../../packages/skills-runtime/src"],
+      "@argos/skills-runtime/*": ["../../packages/skills-runtime/src/*"],
       "@argos/backend-core": ["../../packages/backend-core/src"],
       "@argos/backend-core/*": ["../../packages/backend-core/src/*"],
       "@argos/shared-contracts": ["../../packages/shared-contracts/src"],

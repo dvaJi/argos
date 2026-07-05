@@ -28,7 +28,7 @@ describe("AcpTerminalManager", () => {
   });
 
   it("uses the provided cwd when one is supplied", async () => {
-    const manager = new AcpTerminalManager();
+    const manager = new AcpTerminalManager(() => "/tmp");
 
     await manager.createTerminal({
       sessionId: "session-1",
@@ -46,7 +46,7 @@ describe("AcpTerminalManager", () => {
   });
 
   it("falls back to a controlled temp directory when cwd is missing", async () => {
-    const manager = new AcpTerminalManager();
+    const manager = new AcpTerminalManager(() => "/tmp");
 
     await manager.createTerminal({
       sessionId: "session-1",
@@ -66,7 +66,7 @@ describe("AcpTerminalManager", () => {
   });
 
   it("passes command arguments directly without shell concatenation", async () => {
-    const manager = new AcpTerminalManager();
+    const manager = new AcpTerminalManager(() => "/tmp");
 
     await manager.createTerminal({
       sessionId: "session-1",
@@ -87,7 +87,7 @@ describe("AcpTerminalManager", () => {
   it("retains the latest terminal output when outputByteLimit is exceeded", async () => {
     const pty = createPty();
     vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(pty as never);
-    const manager = new AcpTerminalManager();
+    const manager = new AcpTerminalManager(() => "/tmp");
 
     const response = await manager.createTerminal({
       sessionId: "session-1",

@@ -246,15 +246,27 @@ importers:
 
   apps/daemon:
     dependencies:
+      '@argos/acp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/acp-runtime
       '@argos/backend-core':
         specifier: workspace:*
         version: link:../../packages/backend-core
+      '@argos/mcp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/mcp-runtime
       '@argos/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@argos/shared-contracts':
         specifier: workspace:*
         version: link:../../packages/shared-contracts
+      '@argos/skills-runtime':
+        specifier: workspace:*
+        version: link:../../packages/skills-runtime
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -295,6 +307,9 @@ importers:
       '@ai-sdk/openai-compatible':
         specifier: 'catalog:'
         version: 2.0.51(zod@4.4.3)
+      '@argos/acp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/acp-runtime
       '@argos/backend-core':
         specifier: workspace:*
         version: link:../../packages/backend-core
@@ -304,9 +319,15 @@ importers:
       '@argos/electron-adapter':
         specifier: workspace:*
         version: link:../../packages/electron-adapter
+      '@argos/mcp-runtime':
+        specifier: workspace:*
+        version: link:../../packages/mcp-runtime
       '@argos/shared-contracts':
         specifier: workspace:*
         version: link:../../packages/shared-contracts
+      '@argos/skills-runtime':
+        specifier: workspace:*
+        version: link:../../packages/skills-runtime
       '@aws-sdk/client-bedrock':
         specifier: 'catalog:'
         version: 3.1072.0
@@ -718,6 +739,31 @@ importers:
         specifier: ^4.40.3
         version: 4.103.0
 
+  packages/acp-runtime:
+    dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: ^0.28.1
+        version: 0.28.1(zod@4.4.3)
+      '@argos/backend-core':
+        specifier: workspace:*
+        version: link:../backend-core
+      '@argos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@argos/shared-contracts':
+        specifier: workspace:*
+        version: link:../shared-contracts
+      cross-spawn:
+        specifier: ^7.0.6
+        version: 7.0.6
+      nanoid:
+        specifier: 'catalog:'
+        version: 5.1.16
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/backend-core:
     dependencies:
       '@argos/shared':
@@ -778,6 +824,34 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  packages/mcp-runtime:
+    dependencies:
+      '@argos/backend-core':
+        specifier: workspace:*
+        version: link:../backend-core
+      '@argos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@argos/shared-contracts':
+        specifier: workspace:*
+        version: link:../shared-contracts
+      '@modelcontextprotocol/sdk':
+        specifier: 'catalog:'
+        version: 1.29.0(zod@4.4.3)
+      axios:
+        specifier: ^1.16.1
+        version: 1.18.0
+      compare-versions:
+        specifier: ^6.1.1
+        version: 6.1.1
+      jsonrepair:
+        specifier: ^3.14.0
+        version: 3.14.0
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/shared:
     dependencies:
       '@electron-toolkit/utils':
@@ -808,6 +882,31 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+
+  packages/skills-runtime:
+    dependencies:
+      '@argos/backend-core':
+        specifier: workspace:*
+        version: link:../backend-core
+      '@argos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@argos/shared-contracts':
+        specifier: workspace:*
+        version: link:../shared-contracts
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
+      fflate:
+        specifier: 'catalog:'
+        version: 0.8.3
+      gray-matter:
+        specifier: ^4.0.3
+        version: 4.0.3
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
 packages:
 

@@ -193,12 +193,33 @@ async function run(): Promise<void> {
       const result = await postRoute(port, "providers.list");
       assert(result.ok, "should be ok");
       assert(Array.isArray(result.output.providers), "providers is array");
+      assert(result.output.providers.length > 0, "providers are available by default");
+      assert(
+        result.output.providers.some((provider: any) => provider.id === "openai"),
+        "openai provider exists",
+      );
     });
 
     await test("providers.listSummaries", async () => {
       const result = await postRoute(port, "providers.listSummaries");
       assert(result.ok, "should be ok");
       assert(Array.isArray(result.output.providers), "providers is array");
+      assert(result.output.providers.length > 0, "provider summaries are available by default");
+      assert(
+        result.output.providers.every((provider: any) => !("models" in provider)),
+        "summaries omit model arrays",
+      );
+    });
+
+    await test("providers.listDefaults", async () => {
+      const result = await postRoute(port, "providers.listDefaults");
+      assert(result.ok, "should be ok");
+      assert(Array.isArray(result.output.providers), "providers is array");
+      assert(result.output.providers.length > 0, "default providers are available");
+      assert(
+        result.output.providers.some((provider: any) => provider.id === "openai"),
+        "openai default exists",
+      );
     });
 
     await test("providers.add", async () => {

@@ -1,15 +1,22 @@
 import type { LLM_PROVIDER, IConfigPresenter, AcpAgentConfig } from "@shared/presenter";
 import type { ProviderMcpRuntimePort } from "@/presenter/llmProviderPresenter/runtimePorts";
 import { AcpProcessManager, type AcpProcessHandle } from "@/presenter/llmProviderPresenter/acp";
+import type { AcpHostPorts } from "@argos/acp-runtime";
 import type { AcpConnectionRef, StartAcpConnectionInput } from "../types";
 import { PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 
 export class AcpConnectionManager {
   readonly processManager: AcpProcessManager;
 
-  constructor(provider: LLM_PROVIDER, configPresenter: IConfigPresenter, mcpRuntime?: ProviderMcpRuntimePort) {
+  constructor(
+    provider: LLM_PROVIDER,
+    configPresenter: IConfigPresenter,
+    ports: AcpHostPorts,
+    mcpRuntime?: ProviderMcpRuntimePort,
+  ) {
     this.processManager = new AcpProcessManager({
       providerId: provider.id,
+      ports,
       resolveLaunchSpec: (agentId, workdir) => configPresenter.resolveAcpLaunchSpec(agentId, workdir),
       getAgentState: (agentId) => configPresenter.getAcpAgentState(agentId),
       getNpmRegistry: async () => mcpRuntime?.getNpmRegistry?.() ?? null,

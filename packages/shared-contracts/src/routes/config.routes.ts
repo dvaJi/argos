@@ -2,6 +2,9 @@ import { z } from "zod";
 import { AgentBootstrapItemSchema, TimestampMsSchema, defineRouteContract } from "../common";
 import {
   AcpAgentConfigSchema,
+  AcpAgentInstallStateSchema,
+  AcpManualAgentSchema,
+  AcpRegistryAgentSchema,
   BuiltinKnowledgeConfigSchema,
   ConfigValueSchema,
   ArgosAgentConfigSchema,
@@ -514,6 +517,84 @@ export const configGetAcpRegistryIconMarkupRoute = defineRouteContract({
   output: z.object({
     markup: z.string(),
   }),
+});
+
+export const configSetAcpEnabledRoute = defineRouteContract({
+  name: "config.setAcpEnabled",
+  input: z.object({ enabled: z.boolean() }),
+  output: z.object({}).default({}),
+});
+
+export const configListAcpRegistryAgentsRoute = defineRouteContract({
+  name: "config.listAcpRegistryAgents",
+  input: z.object({}).default({}),
+  output: z.object({ agents: z.array(AcpRegistryAgentSchema) }),
+});
+
+export const configRefreshAcpRegistryRoute = defineRouteContract({
+  name: "config.refreshAcpRegistry",
+  input: z.object({ force: z.boolean().optional() }).default({}),
+  output: z.object({ agents: z.array(AcpRegistryAgentSchema) }),
+});
+
+export const configSetAcpAgentEnabledRoute = defineRouteContract({
+  name: "config.setAcpAgentEnabled",
+  input: z.object({ agentId: z.string().min(1), enabled: z.boolean() }),
+  output: z.object({}).default({}),
+});
+
+export const configSetAcpAgentEnvOverrideRoute = defineRouteContract({
+  name: "config.setAcpAgentEnvOverride",
+  input: z.object({
+    agentId: z.string().min(1),
+    env: z.record(z.string(), z.string()),
+  }),
+  output: z.object({}).default({}),
+});
+
+export const configEnsureAcpAgentInstalledRoute = defineRouteContract({
+  name: "config.ensureAcpAgentInstalled",
+  input: z.object({ agentId: z.string().min(1) }),
+  output: z.object({ installState: AcpAgentInstallStateSchema }),
+});
+
+export const configRepairAcpAgentRoute = defineRouteContract({
+  name: "config.repairAcpAgent",
+  input: z.object({ agentId: z.string().min(1) }),
+  output: z.object({ installState: AcpAgentInstallStateSchema }),
+});
+
+export const configUninstallAcpRegistryAgentRoute = defineRouteContract({
+  name: "config.uninstallAcpRegistryAgent",
+  input: z.object({ agentId: z.string().min(1) }),
+  output: z.object({}).default({}),
+});
+
+export const configListManualAcpAgentsRoute = defineRouteContract({
+  name: "config.listManualAcpAgents",
+  input: z.object({}).default({}),
+  output: z.object({ agents: z.array(AcpManualAgentSchema) }),
+});
+
+export const configAddManualAcpAgentRoute = defineRouteContract({
+  name: "config.addManualAcpAgent",
+  input: AcpManualAgentSchema.omit({ id: true }),
+  output: z.object({ agent: AcpManualAgentSchema }),
+});
+
+export const configUpdateManualAcpAgentRoute = defineRouteContract({
+  name: "config.updateManualAcpAgent",
+  input: z.object({
+    agentId: z.string().min(1),
+    updates: AcpManualAgentSchema.partial(),
+  }),
+  output: z.object({ agent: AcpManualAgentSchema.nullable() }),
+});
+
+export const configRemoveManualAcpAgentRoute = defineRouteContract({
+  name: "config.removeManualAcpAgent",
+  input: z.object({ agentId: z.string().min(1) }),
+  output: z.object({ removed: z.boolean() }),
 });
 
 const VoiceAiConfigSchema = z.object({

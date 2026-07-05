@@ -1,4 +1,6 @@
 export type { StoreLike, StoreFactory, StoreCreationOptions } from "./storeLike";
+export { SVGSanitizer, svgSanitizer, createSVGSanitizer } from "./svgSanitizer";
+export type { SanitizeOptions } from "./svgSanitizer";
 export { resolveProviderId } from "./providerId";
 export { CommandKey, rendererShortcutKey, systemShortcutKey, defaultShortcutKey } from "./shortcutKeySettings";
 export type { ShortcutKey, ShortcutKeySetting } from "./shortcutKeySettings";

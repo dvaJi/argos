@@ -33,7 +33,7 @@ vi.mock("@/presenter/proxyConfig", () => ({
   },
 }));
 
-vi.mock("../../../../src/main/presenter/mcpPresenter/mcpClient", () => ({
+vi.mock("@argos/mcp-runtime/runtime/mcpClient", () => ({
   McpClient: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
       connect: clientMocks.connect,
@@ -43,8 +43,12 @@ vi.mock("../../../../src/main/presenter/mcpPresenter/mcpClient", () => ({
   }),
 }));
 
-import { ServerManager } from "../../../../src/main/presenter/mcpPresenter/serverManager";
-import { McpClient } from "../../../../src/main/presenter/mcpPresenter/mcpClient";
+import { ServerManager } from "@argos/mcp-runtime/runtime/serverManager";
+import { McpClient } from "@argos/mcp-runtime/runtime/mcpClient";
+import { createMcpTestPorts } from "./mcpTestPorts";
+
+const testPorts = createMcpTestPorts();
+testPorts.events.broadcastError = () => eventBusMocks.sendToRenderer("show-error", {});
 
 describe("ServerManager plugin MCP errors", () => {
   beforeEach(() => {
@@ -82,6 +86,7 @@ describe("ServerManager plugin MCP errors", () => {
           ownerPluginId: "com.argos.fixture",
         },
       }) as never,
+      testPorts,
     );
     clientMocks.connect.mockRejectedValueOnce(new Error("connect failed"));
 
@@ -101,6 +106,7 @@ describe("ServerManager plugin MCP errors", () => {
           type: "stdio",
         },
       }) as never,
+      testPorts,
     );
     clientMocks.connect.mockRejectedValueOnce(new Error("connect failed"));
 

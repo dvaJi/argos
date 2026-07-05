@@ -12,6 +12,11 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { BunProviderExecutionPort } from "./host/bun-provider-execution";
+import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
+import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
+import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
+import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
+import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
@@ -109,7 +114,7 @@ export async function startDaemon(options?: {
   const db = await initializeDatabase(paths.getDatabasePath());
 
   const eventPublisher = new BunEventPublisher();
-  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
+  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir(), paths.getDataDir());
 
   const { BunSessionRepository } = await import("./host/bun-session-repository");
   const sessionRepository = new BunSessionRepository(db);
@@ -122,13 +127,61 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const providerExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
+  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
+  const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
+    dataDir: paths.getDataDir(),
+    appVersion: resolveDaemonVersion(),
+  });
+
+  // Route execution by session provider: ACP-backed sessions go to the ACP port,
+  // everything else to the HTTP/LLM port.
+  const providerExecutionPort: typeof httpProviderExecutionPort = {
+    ...httpProviderExecutionPort,
+    async sendMessage(sessionId, content) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.sendMessage(sessionId, content)
+        : httpProviderExecutionPort.sendMessage(sessionId, content);
+    },
+    async cancelGeneration(sessionId) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.cancelGeneration(sessionId)
+        : httpProviderExecutionPort.cancelGeneration(sessionId);
+    },
+  };
 
   const sessionAuthRepo = new SessionAuthRepository(db);
 
+  const mcpPorts = createDaemonMcpPorts({
+    appVersion: resolveDaemonVersion(),
+    eventPublisher,
+    configPresenter,
+  });
+  const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  const skillRuntime = new DaemonSkillRuntime({
+    dataDir: paths.getDataDir(),
+    appVersion: resolveDaemonVersion(),
+    eventPublisher,
+    configPresenter,
+  });
+  const syncRuntime = new DaemonSyncRuntime({
+    dataDir: paths.getDataDir(),
+    configDir: paths.getConfigDir(),
+    eventPublisher,
+  });
+
   const dispatcher =
     options?.dispatcher ??
-    createDaemonDispatcher(configPresenter as any, eventPublisher, sessionRepository, providerExecutionPort);
+    createDaemonDispatcher(
+      configPresenter as any,
+      eventPublisher,
+      sessionRepository,
+      providerExecutionPort,
+      mcpRuntime,
+      skillRuntime,
+      syncRuntime,
+    );
   setRouteDispatcher(dispatcher);
 
   const host = options?.host || "127.0.0.1";

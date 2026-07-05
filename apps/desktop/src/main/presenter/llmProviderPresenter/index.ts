@@ -1,3 +1,4 @@
+import { app } from "electron";
 import {
   ILlmProviderPresenter,
   LLM_PROVIDER,
@@ -110,7 +111,7 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
   ) {
     this.configPresenter = configPresenter;
     this.rateLimitManager = new RateLimitManager(configPresenter);
-    this.acpSessionPersistence = new AcpSessionPersistence(sqlitePresenter);
+    this.acpSessionPersistence = new AcpSessionPersistence(sqlitePresenter, () => app.getPath("home"));
     this.providerInstanceManager = new ProviderInstanceManager({
       configPresenter,
       activeStreams: this.activeStreams,

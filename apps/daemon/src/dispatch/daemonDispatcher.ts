@@ -28,6 +28,7 @@ import {
   settingsActivityListRoute,
   providersListRoute,
   providersListSummariesRoute,
+  providersListDefaultsRoute,
   providersSetByIdRoute,
   providersUpdateRoute,
   providersAddRoute,
@@ -66,6 +67,67 @@ import {
   mcpGetClientsRoute,
   mcpGetEnabledRoute,
   mcpGetServersRoute,
+  mcpAddServerRoute,
+  mcpUpdateServerRoute,
+  mcpRemoveServerRoute,
+  mcpSetServerEnabledRoute,
+  mcpSetEnabledRoute,
+  mcpIsServerInstalledRoute,
+  mcpGetMcpRouterApiKeyRoute,
+  mcpSetMcpRouterApiKeyRoute,
+  mcpListMcpRouterServersRoute,
+  mcpInstallMcpRouterServerRoute,
+  mcpUpdateMcpRouterServersAuthRoute,
+  mcpGetNpmRegistryStatusRoute,
+  mcpRefreshNpmRegistryRoute,
+  mcpSetCustomNpmRegistryRoute,
+  mcpSetAutoDetectNpmRegistryRoute,
+  mcpClearNpmRegistryCacheRoute,
+  mcpStartServerRoute,
+  mcpStopServerRoute,
+  mcpIsServerRunningRoute,
+  mcpListToolDefinitionsRoute,
+  mcpCallToolRoute,
+  mcpListPromptsRoute,
+  mcpGetPromptRoute,
+  mcpListResourcesRoute,
+  mcpReadResourceRoute,
+  mcpSubmitSamplingDecisionRoute,
+  mcpCancelSamplingRequestRoute,
+  skillsListMetadataRoute,
+  skillsGetDirectoryRoute,
+  skillsInstallFromFolderRoute,
+  skillsInstallFromZipRoute,
+  skillsInstallFromUrlRoute,
+  skillsUninstallRoute,
+  skillsUpdateFileRoute,
+  skillsSaveWithExtensionRoute,
+  skillsGetFolderTreeRoute,
+  skillsGetExtensionRoute,
+  skillsSaveExtensionRoute,
+  skillsListScriptsRoute,
+  skillsGetActiveRoute,
+  skillsSetActiveRoute,
+  syncGetBackupStatusRoute,
+  syncListBackupsRoute,
+  syncStartBackupRoute,
+  syncImportRoute,
+  syncGetCloudConfigRoute,
+  syncSetCloudConfigRoute,
+  syncTestCloudRoute,
+  syncUploadToCloudRoute,
+  syncPullFromCloudRoute,
+  scheduledTasksListRoute,
+  scheduledTasksUpsertRoute,
+  scheduledTasksDeleteRoute,
+  scheduledTasksToggleRoute,
+  scheduledTasksFireNowRoute,
+  memoryListRoute,
+  memoryGetStatusRoute,
+  memorySearchRoute,
+  memoryAddRoute,
+  memoryDeleteRoute,
+  memoryClearRoute,
   startupGetBootstrapRoute,
   tabNotifyRendererReadyRoute,
   systemConsumePendingProviderInstallRoute,
@@ -105,18 +167,7 @@ function readHeadlessDeviceInfo() {
 }
 
 const TIER1_PREFIXES = ["config.", "onboarding.", "settings.", "tools.", "databaseSecurity."];
-const TIER2_PREFIXES = [
-  "providers.",
-  "models.",
-  "sessions.",
-  "chat.",
-  "mcp.",
-  "skills.",
-  "sync.",
-  "scheduledTasks.",
-  "plugins.",
-  "startup.",
-];
+const TIER2_PREFIXES = ["providers.", "models.", "sessions.", "chat.", "plugins."];
 
 function getRoutePrefix(route: string): string {
   const dotIdx = route.indexOf(".");
@@ -151,6 +202,46 @@ export function createDaemonDispatcher(
   eventPublisher?: IEventPublisher,
   sessionRepository?: any,
   providerExecutionPort?: ProviderExecutionPort,
+  mcpRuntime?: {
+    startServer(n: string): Promise<void>;
+    stopServer(n: string): Promise<void>;
+    isServerRunning(n: string): boolean;
+    listToolDefinitions(e?: string[]): Promise<unknown[]>;
+    getClients(): Promise<unknown[]>;
+    callTool(r: unknown): Promise<unknown>;
+    listPrompts(): Promise<unknown[]>;
+    getPrompt(p: unknown, a?: Record<string, unknown>): Promise<unknown>;
+    listResources(): Promise<unknown[]>;
+    readResource(r: unknown): Promise<unknown>;
+  },
+  skillRuntime?: {
+    presenter: {
+      getMetadataList(): Promise<unknown[]>;
+      getSkillsDir(): Promise<string>;
+      installFromFolder(folderPath: string, options?: unknown): Promise<unknown>;
+      installFromZip(zipPath: string, options?: unknown): Promise<unknown>;
+      installFromUrl(url: string, options?: unknown): Promise<unknown>;
+      uninstallSkill(name: string): Promise<unknown>;
+      updateSkillFile(name: string, content: string): Promise<unknown>;
+      saveSkillWithExtension(name: string, content: string, config: unknown): Promise<unknown>;
+      getSkillFolderTree(name: string): Promise<unknown[]>;
+      getSkillExtension(name: string): Promise<unknown>;
+      saveSkillExtension(name: string, config: unknown): Promise<void>;
+      listSkillScripts(name: string): Promise<unknown[]>;
+      getActiveSkills(conversationId: string): Promise<string[]>;
+      setActiveSkills(conversationId: string, skills: string[]): Promise<string[]>;
+    };
+  },
+  syncRuntime?: {
+    getBackupStatus(): Promise<{ autoSyncEnabled: boolean; lastBackupTimestamp: number | null }>;
+    listBackups(): Promise<{ backups: Array<{ name: string; timestamp: number; size: number }> }>;
+    startBackup(): Promise<{ timestamp: number }>;
+    restoreBackup(name: string): Promise<void>;
+    getCloudConfig(): Promise<{ configured: boolean }>;
+    testCloud(): Promise<{ ok: boolean; error: string | null }>;
+    uploadToCloud(): Promise<{ ok: boolean; error: string | null }>;
+    pullFromCloud(): Promise<{ ok: boolean; error: string | null }>;
+  },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime = { sessionRepository, providerExecutionPort };
@@ -223,19 +314,460 @@ export function createDaemonDispatcher(
       return systemConsumePendingProviderInstallRoute.output.parse({ preview: null });
     }
 
+    // === MCP config/CRUD routes (runtime routes stay TIER2-rejected) ===
     if (route === mcpGetServersRoute.name) {
       mcpGetServersRoute.input.parse(rawInput);
-      return mcpGetServersRoute.output.parse({ servers: {} });
+      return mcpGetServersRoute.output.parse({ servers: await configPresenter.getMcpServers() });
     }
 
     if (route === mcpGetEnabledRoute.name) {
       mcpGetEnabledRoute.input.parse(rawInput);
-      return mcpGetEnabledRoute.output.parse({ enabled: false });
+      return mcpGetEnabledRoute.output.parse({ enabled: configPresenter.getMcpEnabled() });
     }
 
     if (route === mcpGetClientsRoute.name) {
       mcpGetClientsRoute.input.parse(rawInput);
-      return mcpGetClientsRoute.output.parse({ clients: [] });
+      return mcpGetClientsRoute.output.parse({ clients: mcpRuntime ? await mcpRuntime.getClients() : [] });
+    }
+
+    if (route === mcpAddServerRoute.name) {
+      const input = mcpAddServerRoute.input.parse(rawInput);
+      await configPresenter.addMcpServer(input.serverName, input.config);
+      return mcpAddServerRoute.output.parse({ success: true });
+    }
+
+    if (route === mcpUpdateServerRoute.name) {
+      const input = mcpUpdateServerRoute.input.parse(rawInput);
+      await configPresenter.updateMcpServer(input.serverName, input.config);
+      return mcpUpdateServerRoute.output.parse({ updated: true });
+    }
+
+    if (route === mcpRemoveServerRoute.name) {
+      const input = mcpRemoveServerRoute.input.parse(rawInput);
+      await configPresenter.removeMcpServer(input.serverName);
+      return mcpRemoveServerRoute.output.parse({ removed: true });
+    }
+
+    if (route === mcpSetServerEnabledRoute.name) {
+      const input = mcpSetServerEnabledRoute.input.parse(rawInput);
+      await configPresenter.setMcpServerEnabled(input.serverName, input.enabled);
+      return mcpSetServerEnabledRoute.output.parse({ enabled: input.enabled });
+    }
+
+    if (route === mcpSetEnabledRoute.name) {
+      const input = mcpSetEnabledRoute.input.parse(rawInput);
+      await configPresenter.setMcpEnabled(input.enabled);
+      return mcpSetEnabledRoute.output.parse({ enabled: input.enabled });
+    }
+
+    if (route === mcpIsServerInstalledRoute.name) {
+      const input = mcpIsServerInstalledRoute.input.parse(rawInput);
+      const servers = (await configPresenter.getMcpServers()) as Record<string, any>;
+      const installed = Object.values(servers).some(
+        (s) => s?.source === input.source && s?.sourceId === input.sourceId,
+      );
+      return mcpIsServerInstalledRoute.output.parse({ installed });
+    }
+
+    if (route === mcpGetMcpRouterApiKeyRoute.name) {
+      mcpGetMcpRouterApiKeyRoute.input.parse(rawInput);
+      return mcpGetMcpRouterApiKeyRoute.output.parse({
+        apiKey: ((configPresenter as any).getSetting("mcprouterApiKey") as string) ?? "",
+      });
+    }
+
+    if (route === mcpSetMcpRouterApiKeyRoute.name) {
+      const input = mcpSetMcpRouterApiKeyRoute.input.parse(rawInput);
+      (configPresenter as any).setSetting("mcprouterApiKey", input.key);
+      return mcpSetMcpRouterApiKeyRoute.output.parse({ set: true });
+    }
+
+    if (route === mcpListMcpRouterServersRoute.name) {
+      const input = mcpListMcpRouterServersRoute.input.parse(rawInput);
+      const servers = await (configPresenter as any).listMcpRouterServers(input.page, input.limit);
+      return mcpListMcpRouterServersRoute.output.parse({ servers });
+    }
+
+    if (route === mcpInstallMcpRouterServerRoute.name) {
+      const input = mcpInstallMcpRouterServerRoute.input.parse(rawInput);
+      const installed = await (configPresenter as any).installMcpRouterServer(input.serverKey);
+      return mcpInstallMcpRouterServerRoute.output.parse({ installed: Boolean(installed) });
+    }
+
+    if (route === mcpUpdateMcpRouterServersAuthRoute.name) {
+      const input = mcpUpdateMcpRouterServersAuthRoute.input.parse(rawInput);
+      // Rewrite Authorization header on every mcprouter-sourced server.
+      const servers = (await configPresenter.getMcpServers()) as Record<string, any>;
+      for (const [name, server] of Object.entries(servers)) {
+        if (server?.source === "mcprouter") {
+          await configPresenter.updateMcpServer(name, {
+            ...server,
+            customHeaders: { ...server.customHeaders, Authorization: `Bearer ${input.apiKey}` },
+          });
+        }
+      }
+      return mcpUpdateMcpRouterServersAuthRoute.output.parse({ updated: true });
+    }
+
+    if (route === mcpGetNpmRegistryStatusRoute.name) {
+      mcpGetNpmRegistryStatusRoute.input.parse(rawInput);
+      const cache = (configPresenter as any).getNpmRegistryCache();
+      return mcpGetNpmRegistryStatusRoute.output.parse({
+        status: {
+          currentRegistry: (configPresenter as any).getEffectiveNpmRegistry(),
+          isFromCache: Boolean(cache),
+          lastChecked: cache?.lastChecked,
+          autoDetectEnabled: (configPresenter as any).getAutoDetectNpmRegistry(),
+          customRegistry: (configPresenter as any).getCustomNpmRegistry() ?? undefined,
+        },
+      });
+    }
+
+    if (route === mcpRefreshNpmRegistryRoute.name) {
+      // v1: no background speed test; return the effective registry.
+      mcpRefreshNpmRegistryRoute.input.parse(rawInput);
+      return mcpRefreshNpmRegistryRoute.output.parse({
+        registry: ((configPresenter as any).getEffectiveNpmRegistry() as string) ?? "",
+      });
+    }
+
+    if (route === mcpSetCustomNpmRegistryRoute.name) {
+      const input = mcpSetCustomNpmRegistryRoute.input.parse(rawInput);
+      (configPresenter as any).setCustomNpmRegistry(input.registry ?? "");
+      return mcpSetCustomNpmRegistryRoute.output.parse({ updated: true });
+    }
+
+    if (route === mcpSetAutoDetectNpmRegistryRoute.name) {
+      const input = mcpSetAutoDetectNpmRegistryRoute.input.parse(rawInput);
+      (configPresenter as any).setAutoDetectNpmRegistry(input.enabled);
+      return mcpSetAutoDetectNpmRegistryRoute.output.parse({ enabled: input.enabled });
+    }
+
+    if (route === mcpClearNpmRegistryCacheRoute.name) {
+      mcpClearNpmRegistryCacheRoute.input.parse(rawInput);
+      (configPresenter as any).clearNpmRegistryCache();
+      return mcpClearNpmRegistryCacheRoute.output.parse({ cleared: true });
+    }
+
+    // === MCP runtime routes (require a running MCP server) ===
+    if (route === mcpStartServerRoute.name) {
+      const input = mcpStartServerRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      await mcpRuntime.startServer(input.serverName);
+      return mcpStartServerRoute.output.parse({ started: true });
+    }
+
+    if (route === mcpStopServerRoute.name) {
+      const input = mcpStopServerRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      await mcpRuntime.stopServer(input.serverName);
+      return mcpStopServerRoute.output.parse({ stopped: true });
+    }
+
+    if (route === mcpIsServerRunningRoute.name) {
+      const input = mcpIsServerRunningRoute.input.parse(rawInput);
+      return mcpIsServerRunningRoute.output.parse({ running: mcpRuntime?.isServerRunning(input.serverName) ?? false });
+    }
+
+    if (route === mcpListToolDefinitionsRoute.name) {
+      const input = mcpListToolDefinitionsRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpListToolDefinitionsRoute.output.parse({
+        tools: await mcpRuntime.listToolDefinitions(input.enabledMcpTools),
+      });
+    }
+
+    if (route === mcpCallToolRoute.name) {
+      const input = mcpCallToolRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpCallToolRoute.output.parse((await mcpRuntime.callTool(input.request)) as never);
+    }
+
+    if (route === mcpListPromptsRoute.name) {
+      mcpListPromptsRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpListPromptsRoute.output.parse({ prompts: await mcpRuntime.listPrompts() });
+    }
+
+    if (route === mcpGetPromptRoute.name) {
+      const input = mcpGetPromptRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpGetPromptRoute.output.parse({ result: await mcpRuntime.getPrompt(input.prompt, input.args) });
+    }
+
+    if (route === mcpListResourcesRoute.name) {
+      mcpListResourcesRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpListResourcesRoute.output.parse({ resources: await mcpRuntime.listResources() });
+    }
+
+    if (route === mcpReadResourceRoute.name) {
+      const input = mcpReadResourceRoute.input.parse(rawInput);
+      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
+      return mcpReadResourceRoute.output.parse({ resource: await mcpRuntime.readResource(input.resource) });
+    }
+
+    if (route === mcpSubmitSamplingDecisionRoute.name) {
+      // v1 daemon: sampling (server-initiated LLM requests) is not supported.
+      throw new Error("MCP sampling decisions are not supported in daemon mode");
+    }
+
+    if (route === mcpCancelSamplingRequestRoute.name) {
+      mcpCancelSamplingRequestRoute.input.parse(rawInput);
+      return mcpCancelSamplingRequestRoute.output.parse({ cancelled: true });
+    }
+
+    // === Skills routes ===
+    if (route === skillsListMetadataRoute.name) {
+      skillsListMetadataRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsListMetadataRoute.output.parse({ skills: await skillRuntime.presenter.getMetadataList() });
+    }
+    if (route === skillsGetDirectoryRoute.name) {
+      skillsGetDirectoryRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsGetDirectoryRoute.output.parse({ path: await skillRuntime.presenter.getSkillsDir() });
+    }
+    if (route === skillsInstallFromFolderRoute.name) {
+      const input = skillsInstallFromFolderRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsInstallFromFolderRoute.output.parse({
+        result: await skillRuntime.presenter.installFromFolder(input.folderPath, input.options),
+      });
+    }
+    if (route === skillsInstallFromZipRoute.name) {
+      const input = skillsInstallFromZipRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsInstallFromZipRoute.output.parse({
+        result: await skillRuntime.presenter.installFromZip(input.zipPath, input.options),
+      });
+    }
+    if (route === skillsInstallFromUrlRoute.name) {
+      const input = skillsInstallFromUrlRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsInstallFromUrlRoute.output.parse({
+        result: await skillRuntime.presenter.installFromUrl(input.url, input.options),
+      });
+    }
+    if (route === skillsUninstallRoute.name) {
+      const input = skillsUninstallRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsUninstallRoute.output.parse({ result: await skillRuntime.presenter.uninstallSkill(input.name) });
+    }
+    if (route === skillsUpdateFileRoute.name) {
+      const input = skillsUpdateFileRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsUpdateFileRoute.output.parse({
+        result: await skillRuntime.presenter.updateSkillFile(input.name, input.content),
+      });
+    }
+    if (route === skillsSaveWithExtensionRoute.name) {
+      const input = skillsSaveWithExtensionRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsSaveWithExtensionRoute.output.parse({
+        result: await skillRuntime.presenter.saveSkillWithExtension(input.name, input.content, input.config),
+      });
+    }
+    if (route === skillsGetFolderTreeRoute.name) {
+      const input = skillsGetFolderTreeRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsGetFolderTreeRoute.output.parse({
+        nodes: await skillRuntime.presenter.getSkillFolderTree(input.name),
+      });
+    }
+    if (route === skillsGetExtensionRoute.name) {
+      const input = skillsGetExtensionRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsGetExtensionRoute.output.parse({
+        config: await skillRuntime.presenter.getSkillExtension(input.name),
+      });
+    }
+    if (route === skillsSaveExtensionRoute.name) {
+      const input = skillsSaveExtensionRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      await skillRuntime.presenter.saveSkillExtension(input.name, input.config);
+      return skillsSaveExtensionRoute.output.parse({ saved: true });
+    }
+    if (route === skillsListScriptsRoute.name) {
+      const input = skillsListScriptsRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsListScriptsRoute.output.parse({
+        scripts: await skillRuntime.presenter.listSkillScripts(input.name),
+      });
+    }
+    if (route === skillsGetActiveRoute.name) {
+      const input = skillsGetActiveRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsGetActiveRoute.output.parse({
+        skills: await skillRuntime.presenter.getActiveSkills(String(input.conversationId)),
+      });
+    }
+    if (route === skillsSetActiveRoute.name) {
+      const input = skillsSetActiveRoute.input.parse(rawInput);
+      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
+      return skillsSetActiveRoute.output.parse({
+        skills: await skillRuntime.presenter.setActiveSkills(String(input.conversationId), input.skills),
+      });
+    }
+
+    // === Sync routes (daemon: local backup of JSON data dir; cloud stubbed) ===
+    if (route === syncGetBackupStatusRoute.name) {
+      syncGetBackupStatusRoute.input.parse(rawInput);
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      const status = await syncRuntime.getBackupStatus();
+      return syncGetBackupStatusRoute.output.parse({
+        status: { isBackingUp: false, lastBackupTime: status.lastBackupTimestamp ?? 0 },
+      });
+    }
+    if (route === syncListBackupsRoute.name) {
+      syncListBackupsRoute.input.parse(rawInput);
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncListBackupsRoute.output.parse(await syncRuntime.listBackups());
+    }
+    if (route === syncStartBackupRoute.name) {
+      syncStartBackupRoute.input.parse(rawInput);
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      const result = await syncRuntime.startBackup();
+      const backups = (await syncRuntime.listBackups()).backups;
+      return syncStartBackupRoute.output.parse({
+        backup: backups.find((b) => b.timestamp === result.timestamp) ?? null,
+      });
+    }
+    if (route === syncImportRoute.name) {
+      const input = syncImportRoute.input.parse(rawInput);
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      await syncRuntime.restoreBackup(input.backupFile);
+      return syncImportRoute.output.parse({ result: { success: true, message: "restored" } });
+    }
+    if (route === syncGetCloudConfigRoute.name) {
+      syncGetCloudConfigRoute.input.parse(rawInput);
+      return syncGetCloudConfigRoute.output.parse({
+        config: {
+          enabled: false,
+          endpoint: "",
+          bucket: "",
+          region: "",
+          prefix: "",
+          accessKeyId: "",
+          hasSecret: false,
+        },
+      });
+    }
+    if (route === syncSetCloudConfigRoute.name) {
+      syncSetCloudConfigRoute.input.parse(rawInput);
+      return syncSetCloudConfigRoute.output.parse({
+        config: {
+          enabled: false,
+          endpoint: "",
+          bucket: "",
+          region: "",
+          prefix: "",
+          accessKeyId: "",
+          hasSecret: false,
+        },
+      });
+    }
+    if (route === syncTestCloudRoute.name) {
+      syncTestCloudRoute.input.parse(rawInput);
+      return syncTestCloudRoute.output.parse({
+        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
+      });
+    }
+    if (route === syncUploadToCloudRoute.name) {
+      syncUploadToCloudRoute.input.parse(rawInput);
+      return syncUploadToCloudRoute.output.parse({
+        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
+      });
+    }
+    if (route === syncPullFromCloudRoute.name) {
+      syncPullFromCloudRoute.input.parse(rawInput);
+      return syncPullFromCloudRoute.output.parse({
+        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
+      });
+    }
+
+    // === Scheduled tasks (CRUD via JSON config; firing is desktop-only) ===
+    const readScheduledTasks = () => {
+      const stored = (configPresenter as any).getSetting("scheduledTasks") as
+        | { version?: number; tasks?: any[] }
+        | undefined;
+      return { version: 1 as const, tasks: Array.isArray(stored?.tasks) ? stored!.tasks : [] };
+    };
+    const writeScheduledTasks = (settings: { version: 1; tasks: any[] }) => {
+      (configPresenter as any).setSetting("scheduledTasks", settings);
+    };
+
+    if (route === scheduledTasksListRoute.name) {
+      scheduledTasksListRoute.input.parse(rawInput);
+      return scheduledTasksListRoute.output.parse({ settings: readScheduledTasks() });
+    }
+    if (route === scheduledTasksUpsertRoute.name) {
+      const input = scheduledTasksUpsertRoute.input.parse(rawInput);
+      const settings = readScheduledTasks();
+      const id = input.id || `task-${Date.now()}`;
+      const task = { ...input, id, createdAt: Date.now(), lastFiredAt: null } as never;
+      const idx = settings.tasks.findIndex((t) => t.id === id);
+      if (idx >= 0) {
+        settings.tasks[idx] = { ...settings.tasks[idx], ...task };
+      } else {
+        settings.tasks.push(task);
+      }
+      writeScheduledTasks(settings);
+      return scheduledTasksUpsertRoute.output.parse({
+        task: settings.tasks.find((t) => t.id === id) as never,
+        settings,
+      });
+    }
+    if (route === scheduledTasksDeleteRoute.name) {
+      const input = scheduledTasksDeleteRoute.input.parse(rawInput);
+      const settings = readScheduledTasks();
+      settings.tasks = settings.tasks.filter((t) => t.id !== input.id);
+      writeScheduledTasks(settings);
+      return scheduledTasksDeleteRoute.output.parse({ settings });
+    }
+    if (route === scheduledTasksToggleRoute.name) {
+      const input = scheduledTasksToggleRoute.input.parse(rawInput);
+      const settings = readScheduledTasks();
+      const task = settings.tasks.find((t) => t.id === input.id);
+      if (task) task.enabled = input.enabled;
+      writeScheduledTasks(settings);
+      return scheduledTasksToggleRoute.output.parse({ task: task as never, settings });
+    }
+    if (route === scheduledTasksFireNowRoute.name) {
+      const input = scheduledTasksFireNowRoute.input.parse(rawInput);
+      const settings = readScheduledTasks();
+      const task = settings.tasks.find((t) => t.id === input.id);
+      if (task) task.lastFiredAt = Date.now();
+      writeScheduledTasks(settings);
+      return scheduledTasksFireNowRoute.output.parse({ task: task as never, settings });
+    }
+
+    // === Memory (v1 daemon stub: requires a bundled embeddings model) ===
+    if (route === memoryListRoute.name) {
+      memoryListRoute.input.parse(rawInput);
+      return memoryListRoute.output.parse({ memories: [] });
+    }
+    if (route === memoryGetStatusRoute.name) {
+      memoryGetStatusRoute.input.parse(rawInput);
+      return memoryGetStatusRoute.output.parse({ status: { total: 0, pendingEmbedding: 0, hasPersona: false } });
+    }
+    if (route === memorySearchRoute.name) {
+      memorySearchRoute.input.parse(rawInput);
+      return memorySearchRoute.output.parse({ results: [] });
+    }
+    if (route === memoryAddRoute.name) {
+      memoryAddRoute.input.parse(rawInput);
+      return memoryAddRoute.output.parse({
+        result: { action: "noop" as const, reason: "Memory not available in daemon mode" },
+      });
+    }
+    if (route === memoryDeleteRoute.name) {
+      memoryDeleteRoute.input.parse(rawInput);
+      return memoryDeleteRoute.output.parse({ ok: false });
+    }
+    if (route === memoryClearRoute.name) {
+      memoryClearRoute.input.parse(rawInput);
+      return memoryClearRoute.output.parse({ removed: 0 });
     }
 
     if (isDesktopOnlyRoute(route)) {
@@ -313,6 +845,13 @@ export function createDaemonDispatcher(
           const { models: _m, customModels: _c, enabledModels: _e, disabledModels: _d, ...rest } = p;
           return rest;
         }),
+      });
+    }
+
+    if (route === providersListDefaultsRoute.name) {
+      providersListDefaultsRoute.input.parse(rawInput);
+      return providersListDefaultsRoute.output.parse({
+        providers: (configPresenter as any).getDefaultProviders(),
       });
     }
 

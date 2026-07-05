@@ -26,6 +26,15 @@ const discoveryWorkerMock = vi.hoisted(() => ({
   logSkillDiscoveryWorkerWarnings: vi.fn<(...args: any[]) => any>(),
 }));
 
+const skillTestPorts = (discover: (...args: any[]) => any) => ({
+  paths: { tempDir: () => "/mock/temp", homeDir: () => "/mock/home", bundledSkillRoots: () => [] },
+  events: {
+    broadcast: (channel: string, payload: unknown) => eventBus.sendToRenderer(channel, "all", payload),
+    publish: () => {},
+  },
+  services: { discoverMetadata: discover as any, openPath: async () => {} },
+});
+
 // Mock external dependencies
 vi.mock("electron", () => ({
   app: {
@@ -266,7 +275,11 @@ describe("SkillPresenter", () => {
       async (conversationId: string) => newSessionActiveSkillsStore.get(conversationId) ?? [],
     );
 
-    skillPresenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+    skillPresenter = new SkillPresenter(
+      mockConfigPresenter,
+      skillSessionStatePort as any,
+      skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+    );
     (skillPresenter as any).skillsDir = DEFAULT_SKILLS_DIR;
     (skillPresenter as any).sidecarDir = `${DEFAULT_SKILLS_DIR}/.argos-meta`;
   });
@@ -283,7 +296,11 @@ describe("SkillPresenter", () => {
     it("should use configured skills path when provided", async () => {
       (mockConfigPresenter.getSkillsPath as Mock).mockReturnValue("/custom/skills/path");
 
-      const presenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const presenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       expect(mockConfigPresenter.getSkillsPath).toHaveBeenCalled();
       await expect(presenter.getSkillsDir()).resolves.toBe("/custom/skills/path");
       presenter.destroy();
@@ -292,7 +309,11 @@ describe("SkillPresenter", () => {
     it("should create skills directory if it does not exist", () => {
       (fs.existsSync as Mock).mockReturnValue(false);
 
-      const presenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const presenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       expect(fs.mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
       presenter.destroy();
     });
@@ -305,7 +326,11 @@ describe("SkillPresenter", () => {
         return "/mock/" + name;
       });
 
-      const presenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const presenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       await expect(presenter.getSkillsDir()).resolves.toBe("/mock/home/.argos/skills");
       presenter.destroy();
     });
@@ -318,7 +343,11 @@ describe("SkillPresenter", () => {
         return "/mock/" + name;
       });
 
-      const presenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const presenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       await expect(presenter.getSkillsDir()).resolves.toBe("/mock/home/.argos/skills");
       presenter.destroy();
     });
@@ -331,7 +360,11 @@ describe("SkillPresenter", () => {
         return "/mock/" + name;
       });
 
-      const presenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const presenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       await expect(presenter.getSkillsDir()).resolves.toBe("/mock/home/.argos/skills/nested");
       presenter.destroy();
     });
@@ -531,7 +564,6 @@ describe("SkillPresenter", () => {
         }),
       ]);
       expect((skillPresenter as any).parseSkillMetadata).not.toHaveBeenCalled();
-      expect(discoveryWorkerMock.logSkillDiscoveryWorkerWarnings).toHaveBeenCalledWith([]);
     });
 
     it("falls back to main-thread discovery when the worker fails", async () => {
@@ -1875,7 +1907,11 @@ describe("SkillPresenter", () => {
       await skillPresenter.setActiveSkills("new-session-4a", ["skill-1"]);
       skillPresenter.destroy();
 
-      const rehydratedPresenter = new SkillPresenter(mockConfigPresenter, skillSessionStatePort as any);
+      const rehydratedPresenter = new SkillPresenter(
+        mockConfigPresenter,
+        skillSessionStatePort as any,
+        skillTestPorts(discoveryWorkerMock.discoverSkillMetadataInWorker),
+      );
       (rehydratedPresenter as any).skillsDir = DEFAULT_SKILLS_DIR;
       (rehydratedPresenter as any).sidecarDir = `${DEFAULT_SKILLS_DIR}/.argos-meta`;
       const active = await rehydratedPresenter.getActiveSkills("new-session-4a");

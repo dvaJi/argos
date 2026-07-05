@@ -6,6 +6,18 @@ import {
   configDeleteCustomPromptRoute,
   configDeleteSystemPromptRoute,
   configGetAcpRegistryIconMarkupRoute,
+  configSetAcpEnabledRoute,
+  configListAcpRegistryAgentsRoute,
+  configRefreshAcpRegistryRoute,
+  configSetAcpAgentEnabledRoute,
+  configSetAcpAgentEnvOverrideRoute,
+  configEnsureAcpAgentInstalledRoute,
+  configRepairAcpAgentRoute,
+  configUninstallAcpRegistryAgentRoute,
+  configListManualAcpAgentsRoute,
+  configAddManualAcpAgentRoute,
+  configUpdateManualAcpAgentRoute,
+  configRemoveManualAcpAgentRoute,
   configGetAcpSharedMcpSelectionsRoute,
   configGetAcpStateRoute,
   configGetAgentMcpSelectionsRoute,
@@ -395,6 +407,86 @@ export async function dispatchConfigRoute(
       const input = configGetAcpRegistryIconMarkupRoute.input.parse(rawInput);
       return configGetAcpRegistryIconMarkupRoute.output.parse({
         markup: (await configPresenter.getAcpRegistryIconMarkup(input.agentId, input.iconUrl)) ?? "",
+      });
+    }
+
+    case configSetAcpEnabledRoute.name: {
+      const input = configSetAcpEnabledRoute.input.parse(rawInput);
+      await configPresenter.setAcpEnabled(input.enabled);
+      return configSetAcpEnabledRoute.output.parse({});
+    }
+
+    case configListAcpRegistryAgentsRoute.name: {
+      configListAcpRegistryAgentsRoute.input.parse(rawInput);
+      return configListAcpRegistryAgentsRoute.output.parse({
+        agents: await configPresenter.listAcpRegistryAgents(),
+      });
+    }
+
+    case configRefreshAcpRegistryRoute.name: {
+      const input = configRefreshAcpRegistryRoute.input.parse(rawInput);
+      return configRefreshAcpRegistryRoute.output.parse({
+        agents: await configPresenter.refreshAcpRegistry(input.force ?? true),
+      });
+    }
+
+    case configSetAcpAgentEnabledRoute.name: {
+      const input = configSetAcpAgentEnabledRoute.input.parse(rawInput);
+      await configPresenter.setAcpAgentEnabled(input.agentId, input.enabled);
+      return configSetAcpAgentEnabledRoute.output.parse({});
+    }
+
+    case configSetAcpAgentEnvOverrideRoute.name: {
+      const input = configSetAcpAgentEnvOverrideRoute.input.parse(rawInput);
+      await configPresenter.setAcpAgentEnvOverride(input.agentId, input.env);
+      return configSetAcpAgentEnvOverrideRoute.output.parse({});
+    }
+
+    case configEnsureAcpAgentInstalledRoute.name: {
+      const input = configEnsureAcpAgentInstalledRoute.input.parse(rawInput);
+      return configEnsureAcpAgentInstalledRoute.output.parse({
+        installState: await configPresenter.ensureAcpAgentInstalled(input.agentId),
+      });
+    }
+
+    case configRepairAcpAgentRoute.name: {
+      const input = configRepairAcpAgentRoute.input.parse(rawInput);
+      return configRepairAcpAgentRoute.output.parse({
+        installState: await configPresenter.repairAcpAgent(input.agentId),
+      });
+    }
+
+    case configUninstallAcpRegistryAgentRoute.name: {
+      const input = configUninstallAcpRegistryAgentRoute.input.parse(rawInput);
+      await configPresenter.uninstallAcpRegistryAgent(input.agentId);
+      return configUninstallAcpRegistryAgentRoute.output.parse({});
+    }
+
+    case configListManualAcpAgentsRoute.name: {
+      configListManualAcpAgentsRoute.input.parse(rawInput);
+      return configListManualAcpAgentsRoute.output.parse({
+        agents: await configPresenter.listManualAcpAgents(),
+      });
+    }
+
+    case configAddManualAcpAgentRoute.name: {
+      const input = configAddManualAcpAgentRoute.input.parse(rawInput);
+      return configAddManualAcpAgentRoute.output.parse({
+        agent: await configPresenter.addManualAcpAgent(input as never),
+      });
+    }
+
+    case configUpdateManualAcpAgentRoute.name: {
+      const input = configUpdateManualAcpAgentRoute.input.parse(rawInput);
+      return configUpdateManualAcpAgentRoute.output.parse({
+        agent: await configPresenter.updateManualAcpAgent(input.agentId, input.updates),
+      });
+    }
+
+    case configRemoveManualAcpAgentRoute.name: {
+      const input = configRemoveManualAcpAgentRoute.input.parse(rawInput);
+      return configRemoveManualAcpAgentRoute.output.parse({
+        removed: await configPresenter.removeManualAcpAgent(input.agentId),
       });
     }
 

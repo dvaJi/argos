@@ -1,5 +1,6 @@
 import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
 import { methods as acpMethods } from "@agentclientprotocol/sdk";
+import type { AcpHostPorts } from "@argos/acp-runtime";
 import {
   AcpSessionPersistence,
   type AcpProcessHandle,
@@ -23,15 +24,22 @@ export class AcpClientPresenter {
     provider: LLM_PROVIDER;
     configPresenter: IConfigPresenter;
     sessionPersistence: AcpSessionPersistence;
+    ports: AcpHostPorts;
     mcpRuntime?: ProviderMcpRuntimePort;
   }) {
     this.sessionPersistence = input.sessionPersistence;
-    this.connectionManager = new AcpConnectionManager(input.provider, input.configPresenter, input.mcpRuntime);
+    this.connectionManager = new AcpConnectionManager(
+      input.provider,
+      input.configPresenter,
+      input.ports,
+      input.mcpRuntime,
+    );
     this.sessionRuntime = new AcpSessionRuntime({
       providerId: input.provider.id,
       processManager: this.connectionManager.processManager,
       sessionPersistence: input.sessionPersistence,
       configPresenter: input.configPresenter,
+      lifecycle: input.ports.lifecycle,
     });
   }
 

@@ -92,6 +92,7 @@ describe("AcpSessionManager MCP server injection", () => {
 
     const manager = new AcpSessionManager({
       providerId: "acp",
+      lifecycle: { onBeforeQuit: () => {} },
       processManager: {} as any,
       sessionPersistence: {
         getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
@@ -153,6 +154,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
   it("prefers loadSession when agent supports it and persisted session exists", async () => {
     const manager = new AcpSessionManager({
       providerId: "acp",
+      lifecycle: { onBeforeQuit: () => {} },
       processManager: createProcessManager(),
       sessionPersistence: {
         getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-1" }),
@@ -195,6 +197,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
   it("falls back to newSession when loadSession fails", async () => {
     const manager = new AcpSessionManager({
       providerId: "acp",
+      lifecycle: { onBeforeQuit: () => {} },
       processManager: createProcessManager(),
       sessionPersistence: {
         getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-2" }),
@@ -232,6 +235,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
   it("uses newSession when loadSession is not supported", async () => {
     const manager = new AcpSessionManager({
       providerId: "acp",
+      lifecycle: { onBeforeQuit: () => {} },
       processManager: {} as any,
       sessionPersistence: {
         getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue({ sessionId: "persisted-3" }),
@@ -266,6 +270,7 @@ describe("AcpSessionManager loadSession fallback behavior", () => {
   it("keeps warmup config when newSession returns no config payload", async () => {
     const manager = new AcpSessionManager({
       providerId: "acp",
+      lifecycle: { onBeforeQuit: () => {} },
       processManager: {} as any,
       sessionPersistence: {
         getSessionData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
