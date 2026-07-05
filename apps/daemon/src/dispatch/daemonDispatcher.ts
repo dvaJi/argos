@@ -507,9 +507,11 @@ export function createDaemonDispatcher(
       return mcpReadResourceRoute.output.parse({ resource: await mcpRuntime.readResource(input.resource) });
     }
 
+    // Sampling is auto-approved internally by the daemon MCP runtime; these
+    // client-facing routes are acknowledged (the decision is already applied).
     if (route === mcpSubmitSamplingDecisionRoute.name) {
-      // v1 daemon: sampling (server-initiated LLM requests) is not supported.
-      throw new Error("MCP sampling decisions are not supported in daemon mode");
+      mcpSubmitSamplingDecisionRoute.input.parse(rawInput);
+      return mcpSubmitSamplingDecisionRoute.output.parse({ submitted: true });
     }
 
     if (route === mcpCancelSamplingRequestRoute.name) {
