@@ -5,7 +5,8 @@ import type * as schema from "@agentclientprotocol/sdk";
 import { AcpSessionPersistence, createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
-import { createDaemonAcpPorts, createDaemonAcpSqliteStub } from "./acpPorts";
+import { createDaemonAcpPorts } from "./acpPorts";
+import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 
 const ACP_PROVIDER_ID = "acp";
 
@@ -14,8 +15,9 @@ const ACP_PROVIDER_ID = "acp";
  * `createAcpRuntime`, streaming `session/update` notifications to attached
  * clients through the daemon `BunEventPublisher`.
  *
- * v1: sessions are ephemeral (no SQLite-backed ACP session persistence) and the
- * daemon resolves agent runtimes from `$PATH` (no bundled runtime).
+ * Sessions persist to the daemon's SQLite `acp_sessions` table (resume across
+ * daemon restarts). The daemon resolves agent runtimes from `$PATH` (no bundled
+ * runtime).
  */
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
@@ -25,7 +27,17 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     private readonly configPresenter: DaemonConfigPresenter,
     private readonly sessionRepository: BunSessionRepository,
     private readonly eventPublisher: IEventPublisher,
-    private readonly deps: { dataDir: string; appVersion: string },
+    private readonly deps: {
+      dataDir: string;
+      appVersion: string;
+      db: {
+        prepare(sql: string): {
+          get(...p: unknown[]): unknown;
+          all(...p: unknown[]): unknown[];
+          run(...p: unknown[]): { changes: number };
+        };
+      };
+    },
   ) {}
 
   private async getRuntime(): Promise<AcpRuntime> {
@@ -36,8 +48,10 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           appVersion: this.deps.appVersion,
           eventPublisher: this.eventPublisher,
         });
-        const sessionPersistence = new AcpSessionPersistence(createDaemonAcpSqliteStub() as never, () =>
-          ports.paths.homeDir(),
+        const sessionPersistence = new AcpSessionPersistence(
+          createDaemonAcpSqlitePresenter(this.deps.db),
+          () => ports.paths.homeDir(),
+          () => ports.paths.homeDir(),
         );
         const acpProvider = (
           this.configPresenter as unknown as { getProviderById(id: string): unknown }
