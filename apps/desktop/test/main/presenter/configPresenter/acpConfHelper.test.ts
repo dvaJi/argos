@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StoreFactory } from "@argos/backend-core";
+import { McpConfHelper } from "../../../../src/main/presenter/configPresenter/mcpConfHelper";
 
 const mockStores = vi.hoisted(() => new Map<string, Record<string, any>>());
 
@@ -88,7 +89,7 @@ describe("AcpConfHelper registry-first migration", () => {
     });
 
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory(), mcpConfHelper: new McpConfHelper() });
 
     expect(helper.getAgentState("kimi")).toEqual(
       expect.objectContaining({
@@ -113,7 +114,7 @@ describe("AcpConfHelper registry-first migration", () => {
 
   it("persists registry env overrides and validates shared MCP selections", async () => {
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory(), mcpConfHelper: new McpConfHelper() });
 
     helper.setAgentEnvOverride("claude-code-acp", {
       ANTHROPIC_AUTH_TOKEN: "token",
@@ -165,7 +166,7 @@ describe("AcpConfHelper registry-first migration", () => {
     });
 
     const { AcpConfHelper } = await import("../../../../src/main/presenter/configPresenter/acpConfHelper");
-    const helper = new AcpConfHelper({ storeFactory: createStoreFactory() });
+    const helper = new AcpConfHelper({ storeFactory: createStoreFactory(), mcpConfHelper: new McpConfHelper() });
 
     expect(helper.getSharedMcpSelections()).toEqual(["github", "legacy-extra"]);
     expect(helper.getAgentState("claude-acp")).toEqual(

@@ -1,6 +1,55 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import type { BunEventPublisher } from "./host/bun-event-publisher";
 import type { BunPathResolver } from "./host/bun-paths";
+
+export type WebRootResolution =
+  | {
+      ok: true;
+      root: string;
+      searched: string[];
+    }
+  | {
+      ok: false;
+      searched: string[];
+      message: string;
+    };
+
+function hasWebIndex(root: string): boolean {
+  return existsSync(join(root, "index.html"));
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths)];
+}
+
+export function resolveWebRoot(options?: {
+  explicitWebRoot?: string;
+  cwd?: string;
+  executablePath?: string;
+}): WebRootResolution {
+  const cwd = options?.cwd ?? process.cwd();
+  const executableDir = dirname(options?.executablePath ?? process.execPath);
+
+  const searched = options?.explicitWebRoot
+    ? [resolve(options.explicitWebRoot)]
+    : uniquePaths([resolve(cwd, "web"), resolve(cwd, "apps/desktop/out/web"), resolve(executableDir, "web")]);
+
+  const root = searched.find(hasWebIndex);
+  if (root) {
+    return { ok: true, root, searched };
+  }
+
+  return {
+    ok: false,
+    searched,
+    message: [
+      "Web assets not found.",
+      "Run `pnpm --filter @argos/desktop build:web` or pass `--web-root <path>`.",
+      `Searched: ${searched.join(", ")}`,
+    ].join(" "),
+  };
+}
 
 export type DaemonOptions = {
   host?: string;

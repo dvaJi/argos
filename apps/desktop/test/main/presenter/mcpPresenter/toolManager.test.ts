@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMcpTestPorts } from "./mcpTestPorts";
 
 const eventBusMocks = vi.hoisted(() => ({
   on: vi.fn<(...args: any[]) => any>(),
@@ -131,7 +132,11 @@ describe("ToolManager", () => {
       },
     ]);
     const configPresenter = createConfigPresenter(serverName);
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const definitions = await manager.getAllToolDefinitions();
     const listApps = definitions.find((tool) => tool.function.name === "list_apps");
@@ -163,7 +168,11 @@ describe("ToolManager", () => {
       },
     ]);
     const configPresenter = createConfigPresenter("regular-server");
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const definitions = await manager.getAllToolDefinitions();
 
@@ -195,7 +204,11 @@ describe("ToolManager", () => {
       modelId: "agent-1",
     });
 
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const result = await manager.callTool({
       id: "tool-1",
@@ -223,7 +236,11 @@ describe("ToolManager", () => {
     client.listTools.mockRejectedValue(new Error("tool list failed"));
     const configPresenter = createConfigPresenter("plugin-server");
     const serverManager = createServerManager([client]);
-    const manager = new ToolManager(configPresenter as never, serverManager as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      serverManager as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const definitions = await manager.getAllToolDefinitions();
 
@@ -237,7 +254,11 @@ describe("ToolManager", () => {
     const configPresenter = createConfigPresenter("open-server");
     presenterMocks.agentSessionPresenter.getSession.mockResolvedValue(null);
 
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const result = await manager.callTool({
       id: "tool-2",
@@ -278,7 +299,11 @@ describe("ToolManager", () => {
       modelId: "gpt-4",
     });
 
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const result = await manager.callTool({
       id: "tool-3",
@@ -301,7 +326,11 @@ describe("ToolManager", () => {
     const configPresenter = createConfigPresenter("open-server");
     presenterMocks.agentSessionPresenter.getSession.mockResolvedValue(null);
 
-    const manager = new ToolManager(configPresenter as never, createServerManager([client]) as never);
+    const manager = new ToolManager(
+      configPresenter as never,
+      createServerManager([client]) as never,
+      createMcpTestPorts({ getSession: presenterMocks.agentSessionPresenter.getSession as never }),
+    );
 
     const result = await manager.callTool({
       id: "tool-4",

@@ -11,6 +11,8 @@
  * 3. If neither, show pairing instructions.
  */
 
+import "../src/assets/main.css";
+import "katex/dist/katex.min.css";
 import { WebSocketBridge } from "@argos/client-sdk";
 import { browserLocalApi } from "@api/local-api";
 
@@ -111,6 +113,10 @@ async function bootstrap(): Promise<void> {
     connected = true;
     renderPage("Argos", "Connected. Full UI loading...");
     stateListeners.forEach((fn) => fn({ connected, url: window.location.origin, lastError: null }));
+    if (root) {
+      root.innerHTML = '<div id="app"></div>';
+    }
+    await import("../src/main");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     renderPage("Argos", `Connection failed: ${msg}`, "#e00");

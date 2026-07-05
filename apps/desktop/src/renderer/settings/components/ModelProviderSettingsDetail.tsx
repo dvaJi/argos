@@ -18,6 +18,7 @@ import type { SafetyCategoryKey, SafetySettingValue } from "@/lib/gemini";
 import VoiceAIProviderConfig from "./VoiceAIProviderConfig";
 import { Badge } from "@shadcn/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@shadcn/components/ui/tabs";
+import { isBrowserMode } from "@api/runtimeKind";
 
 interface ProviderWebsites {
   official: string;
@@ -65,6 +66,7 @@ export default function ModelProviderSettingsDetail({
   const [checkResult, setCheckResult] = useState(false);
   const [showCheckModelDialog, setShowCheckModelDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"connection" | "models" | "advanced">("connection");
+  const browserMode = isBrowserMode();
 
   const emptyModels: RENDERER_MODEL_META[] = [];
 
@@ -158,11 +160,11 @@ export default function ModelProviderSettingsDetail({
     const stepId = activeOnboardingStepId;
     setActiveTab(stepId === "provider-model" ? "models" : "connection");
     void initProviderSettings();
-  }, [provider.id]);
+  }, [browserMode, provider.id]);
 
   useEffect(() => {
-    setActiveTab(activeOnboardingStepId === "provider-model" ? "models" : "connection");
-  }, [activeOnboardingStepId]);
+    setActiveTab(browserMode ? "connection" : activeOnboardingStepId === "provider-model" ? "models" : "connection");
+  }, [activeOnboardingStepId, browserMode]);
 
   const handleApiKeyChange = async (value: string) => {
     const result = await providerStore.updateProviderApi(provider.id, value, undefined);
@@ -272,7 +274,7 @@ export default function ModelProviderSettingsDetail({
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <Badge variant="outline">{enabledModels.length} models enabled</Badge>
+                {!browserMode && <Badge variant="outline">{enabledModels.length} models enabled</Badge>}
               </div>
             </div>
           </div>
@@ -282,17 +284,25 @@ export default function ModelProviderSettingsDetail({
             onValueChange={(v) => setActiveTab(v as typeof activeTab)}
             className="flex min-h-0 flex-1 flex-col gap-4"
           >
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className={`grid w-full ${browserMode ? "grid-cols-1" : "grid-cols-3"}`}>
               <TabsTrigger data-testid="provider-connection-tab-trigger" value="connection">
                 Connection
               </TabsTrigger>
-              <TabsTrigger data-testid="provider-models-tab-trigger" value="models">
-                Models
-              </TabsTrigger>
-              <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              {!browserMode && (
+                <TabsTrigger data-testid="provider-models-tab-trigger" value="models">
+                  Models
+                </TabsTrigger>
+              )}
+              {!browserMode && <TabsTrigger value="advanced">Advanced</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="connection" className="mt-0">
+              {browserMode && (
+                <div className="mb-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  Browser mode currently supports provider connection settings only. Model management and advanced
+                  runtime controls stay in the desktop app.
+                </div>
+              )}
               <ProviderApiConfig
                 provider={provider}
                 providerWebsites={providerWebsites}
@@ -305,20 +315,22 @@ export default function ModelProviderSettingsDetail({
               />
             </TabsContent>
 
-            <TabsContent value="models" className="mt-0">
-              <ProviderModelManager
-                data-testid="provider-model-manager"
-                provider={provider}
-                enabledModels={enabledModels}
-                totalModelsCount={providerModels.length + customModels.length}
-                providerModels={providerModels}
-                customModels={customModels}
-                isModelListLoading={isModelListLoading}
-                onCustomModelAdded={handleAddModelSaved}
-                onModelEnabledChange={handleModelEnabledChange}
-                onConfigChanged={handleConfigChanged}
-              />
-            </TabsContent>
+            {!browserMode && (
+              <TabsContent value="models" className="mt-0">
+                <ProviderModelManager
+                  data-testid="provider-model-manager"
+                  provider={provider}
+                  enabledModels={enabledModels}
+                  totalModelsCount={providerModels.length + customModels.length}
+                  providerModels={providerModels}
+                  customModels={customModels}
+                  isModelListLoading={isModelListLoading}
+                  onCustomModelAdded={handleAddModelSaved}
+                  onModelEnabledChange={handleModelEnabledChange}
+                  onConfigChanged={handleConfigChanged}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent value="advanced" className="mt-0">
               <div className="flex flex-col gap-4">

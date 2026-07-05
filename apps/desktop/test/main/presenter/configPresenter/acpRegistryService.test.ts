@@ -2,10 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const mockGetPath = vi.fn<(...args: any[]) => any>();
-const mockGetAppPath = vi.fn<(...args: any[]) => any>();
-const mockNetFetch = vi.fn<(...args: any[]) => any>();
+import { SVGSanitizer } from "@/lib/svgSanitizer";
 
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
@@ -15,16 +12,6 @@ vi.mock("fs", async () => {
     default: actual,
   };
 });
-
-vi.mock("electron", () => ({
-  app: {
-    getPath: mockGetPath,
-    getAppPath: mockGetAppPath,
-  },
-  net: {
-    fetch: mockNetFetch,
-  },
-}));
 
 type RegistryManifestFixture = {
   version: string;
@@ -41,13 +28,16 @@ type RegistryManifestFixture = {
   }>;
 };
 
+const SVG_ICON = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>';
+
 describe("AcpRegistryService", () => {
   let tempRoot: string;
   let appRoot: string;
   let userDataRoot: string;
+  let sanitizer: SVGSanitizer;
 
   const importService = async () => {
-    const mod = await import("../../../../src/main/presenter/configPresenter/acpRegistryService");
+    const mod = await import("@argos/acp-runtime/config/acpRegistryService");
     return mod.AcpRegistryService;
   };
 
@@ -80,21 +70,37 @@ describe("AcpRegistryService", () => {
     ],
   });
 
+  const createService = async (options?: Record<string, unknown>) => {
+    const AcpRegistryService = await importService();
+    return new AcpRegistryService({
+      userDataDir: () => userDataRoot,
+      appPath: () => appRoot,
+      sanitizeSvg: (svg: string) => sanitizer.sanitize(svg),
+      ...(options as object),
+    });
+  };
+
+  /** Stub global fetch routing manifest (.json) vs icon (.svg) requests. */
+  const stubFetch = (manifestJson: string, icon: { ok: boolean; status?: number; text?: string }) => {
+    const fn = vi.fn<(...args: any[]) => any>(async (url: string) => {
+      if (String(url).endsWith(".svg")) {
+        return icon.ok
+          ? { ok: true, text: vi.fn<(...args: any[]) => any>().mockResolvedValue(icon.text ?? "") }
+          : { ok: false, status: icon.status ?? 500, statusText: "Unavailable" };
+      }
+      return { ok: true, text: vi.fn<(...args: any[]) => any>().mockResolvedValue(manifestJson) };
+    });
+    vi.stubGlobal("fetch", fn);
+    return fn;
+  };
+
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "argos-acp-registry-"));
     appRoot = path.join(tempRoot, "app-root");
     userDataRoot = path.join(tempRoot, "user-data");
     fs.mkdirSync(appRoot, { recursive: true });
     fs.mkdirSync(userDataRoot, { recursive: true });
-
-    mockGetPath.mockImplementation((name: string) => {
-      if (name === "userData") {
-        return userDataRoot;
-      }
-      return userDataRoot;
-    });
-    mockGetAppPath.mockReturnValue(appRoot);
-    mockNetFetch.mockReset();
+    sanitizer = new SVGSanitizer();
     vi.unstubAllGlobals();
   });
 
@@ -105,10 +111,11 @@ describe("AcpRegistryService", () => {
   });
 
   it("falls back to bundled icon markup without network fetch in render path", async () => {
-    writeBuiltInIcon("claude-acp", '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>');
+    writeBuiltInIcon("claude-acp", SVG_ICON);
+    const globalFetch = vi.fn<(...args: any[]) => any>();
+    vi.stubGlobal("fetch", globalFetch);
 
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService();
+    const service = await createService();
 
     const markup = await service.getIconMarkup(
       "claude-acp",
@@ -117,20 +124,16 @@ describe("AcpRegistryService", () => {
 
     expect(markup).toContain('focusable="false"');
     expect(markup).toContain('color="currentColor"');
-    expect(mockNetFetch).not.toHaveBeenCalled();
+    expect(globalFetch).not.toHaveBeenCalled();
   });
 
   it("skips the automatic registry refresh when privacy mode is enabled", async () => {
     const manifest = createManifest();
     writeBuiltInManifest(manifest);
-
     const globalFetch = vi.fn<(...args: any[]) => any>();
     vi.stubGlobal("fetch", globalFetch);
 
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService({
-      isPrivacyModeEnabled: () => true,
-    });
+    const service = await createService({ isPrivacyModeEnabled: () => true });
 
     await service.initialize();
 
@@ -140,25 +143,13 @@ describe("AcpRegistryService", () => {
 
   it("writes refreshed icon cache and prunes stale cached icons", async () => {
     const manifest = createManifest();
-    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
-      ok: true,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
-    });
-    vi.stubGlobal("fetch", globalFetch);
-
-    mockNetFetch.mockResolvedValue({
-      ok: true,
-      text: vi
-        .fn<(...args: any[]) => any>()
-        .mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
-    });
+    const fetchFn = stubFetch(JSON.stringify(manifest), { ok: true, text: SVG_ICON });
 
     const staleIconDir = path.join(userDataRoot, "acp-registry", "icons");
     fs.mkdirSync(staleIconDir, { recursive: true });
     fs.writeFileSync(path.join(staleIconDir, "obsolete.svg"), "<svg></svg>", "utf-8");
 
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService();
+    const service = await createService();
 
     await service.refresh(true);
 
@@ -167,58 +158,36 @@ describe("AcpRegistryService", () => {
 
     const markup = await service.getIconMarkup("claude-acp", manifest.agents[0].icon);
     expect(markup).toContain("currentColor");
-    expect(mockNetFetch).toHaveBeenCalledTimes(1);
+    expect(fetchFn).toHaveBeenCalledWith(
+      "https://cdn.agentclientprotocol.com/registry/v1/latest/claude-acp.svg",
+      expect.anything(),
+    );
   });
 
   it("keeps manual refresh available while privacy mode is enabled", async () => {
     const manifest = createManifest();
     writeBuiltInManifest(manifest);
+    const fetchFn = stubFetch(JSON.stringify(manifest), { ok: true, text: SVG_ICON });
 
-    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
-      ok: true,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
-    });
-    vi.stubGlobal("fetch", globalFetch);
-
-    mockNetFetch.mockResolvedValue({
-      ok: true,
-      text: vi
-        .fn<(...args: any[]) => any>()
-        .mockResolvedValue('<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h16v16H0z" /></svg>'),
-    });
-
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService({
-      isPrivacyModeEnabled: () => true,
-    });
+    const service = await createService({ isPrivacyModeEnabled: () => true });
 
     await service.refresh(true);
 
-    expect(globalFetch).toHaveBeenCalledTimes(1);
-    expect(mockNetFetch).toHaveBeenCalledTimes(1);
+    // manifest + icon both routed through the single global fetch stub
+    expect(fetchFn).toHaveBeenCalled();
+    expect(service.listAgents()).toHaveLength(1);
   });
 
   it("preserves existing cached icon when refreshing a new icon fails", async () => {
     const manifest = createManifest();
-    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
-      ok: true,
-      text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(manifest)),
-    });
-    vi.stubGlobal("fetch", globalFetch);
+    stubFetch(JSON.stringify(manifest), { ok: false, status: 503 });
 
     const iconDir = path.join(userDataRoot, "acp-registry", "icons");
     fs.mkdirSync(iconDir, { recursive: true });
     const oldMarkup = '<svg viewBox="0 0 16 16"><path fill="currentColor" d="M0 0h8v16H0z" /></svg>';
     fs.writeFileSync(path.join(iconDir, "claude-acp.svg"), oldMarkup, "utf-8");
 
-    mockNetFetch.mockResolvedValue({
-      ok: false,
-      status: 503,
-      statusText: "Service Unavailable",
-    });
-
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService();
+    const service = await createService();
 
     await service.refresh(true);
 
@@ -237,16 +206,20 @@ describe("AcpRegistryService", () => {
     const emptyCwd = path.join(tempRoot, "empty-cwd");
     fs.mkdirSync(emptyAppRoot, { recursive: true });
     fs.mkdirSync(emptyCwd, { recursive: true });
-    mockGetAppPath.mockReturnValue(emptyAppRoot);
     vi.spyOn<(...args: any[]) => any>(process, "cwd").mockReturnValue(emptyCwd);
-    const globalFetch = vi.fn<(...args: any[]) => any>().mockResolvedValue({
+
+    const AcpRegistryService = await importService();
+    const fetchFn = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       ok: true,
       text: vi.fn<(...args: any[]) => any>().mockResolvedValue(JSON.stringify(duplicateManifest)),
     });
-    vi.stubGlobal("fetch", globalFetch);
+    vi.stubGlobal("fetch", fetchFn);
 
-    const AcpRegistryService = await importService();
-    const service = new AcpRegistryService();
+    const service = new AcpRegistryService({
+      userDataDir: () => userDataRoot,
+      appPath: () => emptyAppRoot,
+      sanitizeSvg: (svg: string) => sanitizer.sanitize(svg),
+    });
 
     await expect(service.refresh(true)).rejects.toThrow("[ACP Registry] No registry snapshot is available.");
   });

@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import { serve } from "bun";
+import { resolve } from "node:path";
 import { handleRouteDispatch, dispatchRoute, setRouteDispatcher } from "./transport/http";
 import type { RouteDispatcher } from "./transport/http";
 import { authorize } from "./transport/auth";
@@ -12,10 +12,22 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { BunProviderExecutionPort } from "./host/bun-provider-execution";
+import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
+import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
+import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
+import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
+import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
-import { parseArgs, mergeOptions, ensureDirectories, setupGracefulShutdown, type DaemonOptions } from "./lifecycle";
+import {
+  parseArgs,
+  mergeOptions,
+  ensureDirectories,
+  setupGracefulShutdown,
+  resolveWebRoot,
+  type DaemonOptions,
+} from "./lifecycle";
 
 const startTime = Date.now();
 
@@ -40,7 +52,7 @@ const MIME_TYPES: Record<string, string> = {
 function serveStaticWeb(webRoot: string, pathname: string): Response {
   const safePath = pathname
     .split("/")
-    .filter((s) => s !== ".." && s !== ".")
+    .filter((s) => s.length > 0 && s !== ".." && s !== ".")
     .join("/");
   const resolvedRoot = resolve(webRoot);
 
@@ -49,10 +61,11 @@ function serveStaticWeb(webRoot: string, pathname: string): Response {
     return file.size > 0 ? file : null;
   };
 
-  const file = tryFile(safePath || "index.html");
+  const relativeFilePath = safePath || "index.html";
+  const file = tryFile(relativeFilePath);
   if (file) {
-    const ext = safePath.match(/\.[^.]+$/)?.[0] ?? "";
-    const isHashedAsset = safePath.startsWith("assets/");
+    const ext = relativeFilePath.match(/\.[^.]+$/)?.[0] ?? "";
+    const isHashedAsset = relativeFilePath.startsWith("assets/");
     return new Response(file, {
       headers: {
         "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
@@ -88,6 +101,12 @@ export async function startDaemon(options?: {
   pair?: boolean;
   noUpdateCheck?: boolean;
 }): Promise<DaemonHandle> {
+  const webRootResolution = options?.web ? resolveWebRoot({ explicitWebRoot: options.webRoot }) : null;
+  if (webRootResolution && !webRootResolution.ok) {
+    throw new Error(webRootResolution.message);
+  }
+  const webRoot = webRootResolution?.ok ? webRootResolution.root : null;
+
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
 
@@ -95,7 +114,7 @@ export async function startDaemon(options?: {
   const db = await initializeDatabase(paths.getDatabasePath());
 
   const eventPublisher = new BunEventPublisher();
-  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir());
+  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir(), paths.getDataDir());
 
   const { BunSessionRepository } = await import("./host/bun-session-repository");
   const sessionRepository = new BunSessionRepository(db);
@@ -108,13 +127,61 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const providerExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
+  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
+  const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
+    dataDir: paths.getDataDir(),
+    appVersion: resolveDaemonVersion(),
+  });
+
+  // Route execution by session provider: ACP-backed sessions go to the ACP port,
+  // everything else to the HTTP/LLM port.
+  const providerExecutionPort: typeof httpProviderExecutionPort = {
+    ...httpProviderExecutionPort,
+    async sendMessage(sessionId, content) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.sendMessage(sessionId, content)
+        : httpProviderExecutionPort.sendMessage(sessionId, content);
+    },
+    async cancelGeneration(sessionId) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.cancelGeneration(sessionId)
+        : httpProviderExecutionPort.cancelGeneration(sessionId);
+    },
+  };
 
   const sessionAuthRepo = new SessionAuthRepository(db);
 
+  const mcpPorts = createDaemonMcpPorts({
+    appVersion: resolveDaemonVersion(),
+    eventPublisher,
+    configPresenter,
+  });
+  const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  const skillRuntime = new DaemonSkillRuntime({
+    dataDir: paths.getDataDir(),
+    appVersion: resolveDaemonVersion(),
+    eventPublisher,
+    configPresenter,
+  });
+  const syncRuntime = new DaemonSyncRuntime({
+    dataDir: paths.getDataDir(),
+    configDir: paths.getConfigDir(),
+    eventPublisher,
+  });
+
   const dispatcher =
     options?.dispatcher ??
-    createDaemonDispatcher(configPresenter as any, eventPublisher, sessionRepository, providerExecutionPort);
+    createDaemonDispatcher(
+      configPresenter as any,
+      eventPublisher,
+      sessionRepository,
+      providerExecutionPort,
+      mcpRuntime,
+      skillRuntime,
+      syncRuntime,
+    );
   setRouteDispatcher(dispatcher);
 
   const host = options?.host || "127.0.0.1";
@@ -126,8 +193,6 @@ export async function startDaemon(options?: {
     desktopBootstrapSecret: options?.desktopBootstrapSecret,
     verifySession: (secret) => Promise.resolve(sessionAuthRepo.verifySession(secret)),
   };
-
-  const webRoot = options?.web ? resolve(options?.webRoot || "./web") : null;
 
   const server = serve({
     hostname: host,
@@ -316,8 +381,8 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
-  --web               Serve the web UI (requires --web-root or ARGOS_WEB_ROOT)
-  --web-root <path>   Web asset directory (default: ./web)
+  --web               Serve the web UI (uses --web-root, ./web, apps/desktop/out/web, or exe-dir/web)
+  --web-root <path>   Web asset directory containing index.html
   --pair              Generate a one-time pairing token and print the URL
   --log-level <level> Log level: debug, info, warn, error (default: info)
   --no-update-check   Skip the startup update-available check

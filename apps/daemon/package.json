@@ -13,9 +13,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@argos/acp-runtime": "workspace:*",
+    "@argos/mcp-runtime": "workspace:*",
+    "@argos/skills-runtime": "workspace:*",
     "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
+    "fflate": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

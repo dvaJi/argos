@@ -16,6 +16,7 @@ import {
 import { ServerManager } from "./serverManager";
 import { ToolManager } from "./toolManager";
 import { McpRouterManager } from "./mcprouterManager";
+import { createDesktopMcpPorts } from "./desktopMcpPorts";
 import { eventBus, SendTarget } from "@/eventbus";
 import { MCP_EVENTS, NOTIFICATION_EVENTS } from "@/events";
 import { presenter } from "@/presenter";
@@ -42,8 +43,9 @@ export class McpPresenter implements IMCPPresenter {
 
     this.configPresenter = configPresenter || presenter.configPresenter;
     this.cacheImage = cacheImage;
-    this.serverManager = new ServerManager(this.configPresenter);
-    this.toolManager = new ToolManager(this.configPresenter, this.serverManager);
+    const mcpPorts = createDesktopMcpPorts(this.configPresenter);
+    this.serverManager = new ServerManager(this.configPresenter, mcpPorts);
+    this.toolManager = new ToolManager(this.configPresenter, this.serverManager, mcpPorts);
     // init mcprouter manager
     try {
       this.mcprouter = new McpRouterManager(this.configPresenter);
@@ -74,8 +76,12 @@ export class McpPresenter implements IMCPPresenter {
       // If no configPresenter is provided, get it from presenter
       if (!this.configPresenter.getLanguage) {
         // Recreate managers
-        this.serverManager = new ServerManager(this.configPresenter);
-        this.toolManager = new ToolManager(this.configPresenter, this.serverManager);
+        this.serverManager = new ServerManager(this.configPresenter, createDesktopMcpPorts(this.configPresenter));
+        this.toolManager = new ToolManager(
+          this.configPresenter,
+          this.serverManager,
+          createDesktopMcpPorts(this.configPresenter),
+        );
       }
 
       // Load configuration

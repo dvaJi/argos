@@ -20,6 +20,7 @@
     "**/docs/**",
     "**/test/**",
     "**/src/shared/**",
-    "**/src/shadcn/**"
+    "**/src/shadcn/**",
+    "**/routeTree.gen.ts"
   ]
 }

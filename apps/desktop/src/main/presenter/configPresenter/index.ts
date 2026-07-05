@@ -64,6 +64,7 @@ import { UiSettingsHelper } from "./uiSettingsHelper";
 import { AcpConfHelper } from "./acpConfHelper";
 import { AcpRegistryService } from "./acpRegistryService";
 import { AcpLaunchSpecService } from "./acpLaunchSpecService";
+import { SVGSanitizer } from "@argos/backend-core";
 import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
 import { DEFAULT_PROVIDERS, resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
@@ -480,7 +481,9 @@ export class ConfigPresenter implements IConfigPresenter {
     });
 
     // Initialize MCP configuration helper
-    this.mcpConfHelper = new McpConfHelper(createElectronStoreFactory());
+    this.mcpConfHelper = new McpConfHelper(createElectronStoreFactory(), {
+      onChange: () => eventBus.send(MCP_EVENTS.CONFIG_CHANGED, SendTarget.ALL_WINDOWS, {}),
+    });
 
     this.acpConfHelper = new AcpConfHelper({
       mcpConfHelper: this.mcpConfHelper,
@@ -488,6 +491,9 @@ export class ConfigPresenter implements IConfigPresenter {
     });
     this.acpRegistryService = new AcpRegistryService({
       isPrivacyModeEnabled: () => this.getPrivacyModeEnabled(),
+      userDataDir: () => app.getPath("userData"),
+      appPath: () => app.getAppPath(),
+      sanitizeSvg: (svg) => new SVGSanitizer().sanitize(svg),
     });
     this.acpLaunchSpecService = new AcpLaunchSpecService(path.join(this.userDataPath, "acp-registry"));
     this.syncAcpProviderEnabled(this.acpConfHelper.getGlobalEnabled());

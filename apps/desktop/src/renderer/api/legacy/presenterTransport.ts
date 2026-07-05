@@ -50,16 +50,21 @@ function createLegacyProxy(channel: string, safeCall: boolean, presenterName?: s
     {
       get(_, functionName) {
         return async (...payloads: unknown[]) => {
+          const callTarget = presenterName
+            ? `${presenterName}.${String(functionName)}`
+            : `remoteControlPresenter.${String(functionName)}`;
+
           const ipcRenderer = getLegacyIpcRenderer();
           if (!ipcRenderer) {
+            if (safeCall) {
+              console.warn(`[Renderer IPC] ipcRenderer not available for ${callTarget}`);
+              return null;
+            }
             throw new Error("window.electron.ipcRenderer is not available");
           }
 
           const webContentsId = getLegacyWebContentsId();
           const rawPayloads = toSerializablePayloads(payloads);
-          const callTarget = presenterName
-            ? `${presenterName}.${String(functionName)}`
-            : `remoteControlPresenter.${String(functionName)}`;
 
           if (import.meta.env.VITE_LOG_IPC_CALL === "1") {
             console.log(`[Renderer IPC] WebContents:${webContentsId || "unknown"} -> ${callTarget}`);

@@ -28,6 +28,7 @@ export {
   hasImageGenerationBlocks,
   compactMessages,
   type CompactionResult,
+  terminateProcessTree,
 } from "./runtime";
 export { type RuntimeStreamState } from "./runtime/types";
 export * from "./scheduled";

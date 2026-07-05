@@ -1,0 +1,22 @@
+{
+  "name": "@argos/skills-runtime",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@argos/backend-core": "workspace:*",
+    "@argos/shared": "workspace:*",
+    "@argos/shared-contracts": "workspace:*",
+    "chokidar": "^5.0.0",
+    "fflate": "catalog:",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

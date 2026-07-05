@@ -23,6 +23,7 @@ import { useGuidedOnboardingStep } from "@/composables/useGuidedOnboardingStep";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "@/stores/startupWorkloadStore";
+import { isBrowserMode } from "@api/runtimeKind";
 
 interface ModelProviderSettingsProps {
   providerId?: string;
@@ -134,6 +135,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   }, [providerModelGuide.currentStepId, providerApiKeyGuide.currentStepId]);
 
   const startupWorkloadStore = useStartupWorkloadStore();
+  const browserMode = isBrowserMode();
 
   const continueProviderGuide = useCallback(
     async (state: any) => {
@@ -386,10 +388,12 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   }, []);
 
   useEffect(() => {
-    if (routeProviderId) {
-      void refreshProviderModels(routeProviderId);
+    if (browserMode || !routeProviderId) {
+      return;
     }
-  }, [routeProviderId]);
+
+    void refreshProviderModels(routeProviderId);
+  }, [browserMode, routeProviderId]);
 
   if (showProviderSkeleton) {
     return (

@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 import { PassThrough } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
+import { createAcpTestPorts } from "./acpTestPorts";
 
 const sdkMock = vi.hoisted(() => ({
   initializeResponse: {
@@ -109,6 +110,7 @@ describe("AcpProcessManager initialized capabilities", () => {
     const { AcpProcessManager } = await import("@/presenter/llmProviderPresenter/acp/acpProcessManager");
     const manager = new AcpProcessManager({
       providerId: "acp",
+      ports: createAcpTestPorts(),
       resolveLaunchSpec: vi.fn<(...args: any[]) => any>(),
     });
     const child = new MockChild();

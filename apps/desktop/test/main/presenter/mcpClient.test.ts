@@ -6,6 +6,8 @@ import fs from "fs";
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { McpHostPorts } from "@argos/mcp-runtime";
+import { getInMemoryServer } from "../../../src/main/presenter/mcpPresenter/inMemoryServers/builder";
 
 const fsExistsSyncMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
@@ -133,6 +135,35 @@ vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
   StreamableHTTPClientTransport: vi.fn<(...args: any[]) => any>(),
 }));
 
+const testPorts: McpHostPorts = {
+  paths: { homeDir: () => "/tmp", appVersion: () => "0.0.0-test" },
+  runtime: (() => {
+    const rh = RuntimeHelper.getInstance();
+    return {
+      initializeRuntimes: () => rh.initializeRuntimes(),
+      expandPath: (t: string) => rh.expandPath(t),
+      processCommandWithArgs: (c: string, a: string[]) => rh.processCommandWithArgs(c, a),
+      normalizePathEnv: (p: string[]) => rh.normalizePathEnv(p),
+      getDefaultPaths: (h?: string) => rh.getDefaultPaths(h ?? ""),
+      getNodeRuntimePath: () => rh.getNodeRuntimePath(),
+      getUvRuntimePath: () => rh.getUvRuntimePath(),
+      setNodeRuntimePath: (p: string | null) => rh.setNodeRuntimePath(p),
+      setUvRuntimePath: (p: string | null) => rh.setUvRuntimePath(p),
+    };
+  })(),
+  events: { broadcast: () => {}, broadcastError: () => {}, subscribe: () => () => {} },
+  proxy: { getProxyUrl: () => null },
+  services: {
+    getMcpServers: async () => ({}),
+    getInMemoryServer: (name, args, env) => getInMemoryServer(name, args, env) as never,
+    handleSamplingRequest: (payload) => presenterMocks.handleSamplingRequest(payload) as Promise<unknown>,
+    cancelSamplingRequest: (id, reason) => presenterMocks.cancelSamplingRequest(id, reason),
+    generateCompletionStandalone: (...args) => presenterMocks.generateCompletionStandalone(...args) as Promise<string>,
+    getProviderModels: (id) => presenterMocks.getProviderModels(id),
+    getCustomModels: (id) => presenterMocks.getCustomModels(id),
+  },
+};
+
 describe("McpClient Runtime Command Processing Tests", () => {
   let mockFsExistsSync: any;
   const runtimeHelper = RuntimeHelper.getInstance() as RuntimeHelper & {
@@ -188,7 +219,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["-y", "@modelcontextprotocol/server-everything"],
       };
 
-      const client = new McpClient("everything", serverConfig);
+      const client = new McpClient("everything", serverConfig, testPorts);
 
       // Access private method for testing
       const processedCommand = (client as any).processCommandWithArgs("npx", [
@@ -207,7 +238,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["-y", "@modelcontextprotocol/server-everything"],
       };
 
-      const client = new McpClient("everything", serverConfig);
+      const client = new McpClient("everything", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("/usr/local/bin/npx", [
         "-y",
@@ -227,7 +258,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["osm-mcp-server"],
       };
 
-      const client = new McpClient("osm-mcp-server", serverConfig);
+      const client = new McpClient("osm-mcp-server", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("uvx", ["osm-mcp-server"]);
 
@@ -243,7 +274,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["osm-mcp-server"],
       };
 
-      const client = new McpClient("osm-mcp-server", serverConfig);
+      const client = new McpClient("osm-mcp-server", serverConfig, testPorts);
 
       // Mock the runtime path for testing
       const uvRuntimePath = path.join("/mock/app/runtime/uv").replace("app.asar", "app.asar.unpacked");
@@ -266,7 +297,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["osm-mcp-server"],
       };
 
-      const client = new McpClient("osm-mcp-server", serverConfig);
+      const client = new McpClient("osm-mcp-server", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("/usr/local/bin/uvx", ["osm-mcp-server"]);
 
@@ -284,7 +315,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["server.js"],
       };
 
-      const client = new McpClient("test", serverConfig);
+      const client = new McpClient("test", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("node", ["server.js"]);
 
@@ -299,7 +330,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["start"],
       };
 
-      const client = new McpClient("test", serverConfig);
+      const client = new McpClient("test", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("npm", ["start"]);
 
@@ -314,7 +345,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["run", "server.py"],
       };
 
-      const client = new McpClient("test", serverConfig);
+      const client = new McpClient("test", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("uv", ["run", "server.py"]);
 
@@ -329,7 +360,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         args: ["server.py"],
       };
 
-      const client = new McpClient("test", serverConfig);
+      const client = new McpClient("test", serverConfig, testPorts);
 
       const processedCommand = (client as any).processCommandWithArgs("python", ["server.py"]);
 
@@ -346,7 +377,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
         return pathStr.includes("runtime/uv/uv");
       });
 
-      const client = new McpClient("test", { type: "stdio" });
+      const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       expect((client as any).uvRuntimePath).toBeTruthy();
       expect((client as any).nodeRuntimePath).toBeNull();
@@ -355,7 +386,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
     it("should handle missing runtime files gracefully", () => {
       mockFsExistsSync.mockReturnValue(false);
 
-      const client = new McpClient("test", { type: "stdio" });
+      const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       expect((client as any).bunRuntimePath).toBeNull();
       expect((client as any).uvRuntimePath).toBeNull();
@@ -364,31 +395,35 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
   describe("Environment Variable Processing", () => {
     it("should set npm registry environment variables", () => {
-      const client = new McpClient("test", { type: "stdio" }, "https://registry.npmmirror.com");
+      const client = new McpClient("test", { type: "stdio" }, testPorts, "https://registry.npmmirror.com");
 
       // Check if npm registry is stored
       expect((client as any).npmRegistry).toBe("https://registry.npmmirror.com");
     });
 
     it("should handle null npm registry", () => {
-      const client = new McpClient("test", { type: "stdio" }, null);
+      const client = new McpClient("test", { type: "stdio" }, testPorts, null);
 
       // Should handle null registry gracefully
       expect((client as any).npmRegistry).toBeNull();
     });
 
     it("should coerce stdio server env values to strings before spawning", async () => {
-      const client = new McpClient("test", {
-        type: "stdio",
-        command: "node",
-        args: ["server.js"],
-        env: {
-          TOKEN: 123,
-          EMPTY: null,
-          SKIP: undefined,
-          PATH: "/custom/bin",
+      const client = new McpClient(
+        "test",
+        {
+          type: "stdio",
+          command: "node",
+          args: ["server.js"],
+          env: {
+            TOKEN: 123,
+            EMPTY: null,
+            SKIP: undefined,
+            PATH: "/custom/bin",
+          },
         },
-      });
+        testPorts,
+      );
 
       await client.connect();
 
@@ -407,7 +442,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
   describe("Path Expansion", () => {
     it("should expand tilde (~) in paths", () => {
-      const client = new McpClient("test", { type: "stdio" });
+      const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       const expandedPath = (client as any).expandPath("~/test/path");
 
@@ -418,7 +453,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
       // Set mock environment variable
       process.env.TEST_VAR = "/test/value";
 
-      const client = new McpClient("test", { type: "stdio" });
+      const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       const expandedPath = (client as any).expandPath("/path/${TEST_VAR}/file");
 
@@ -432,7 +467,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
       // Set mock environment variable
       process.env.TEST_PATH = "/simple/test";
 
-      const client = new McpClient("test", { type: "stdio" });
+      const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       const expandedPath = (client as any).expandPath("/path/$TEST_PATH/file");
 
@@ -445,10 +480,14 @@ describe("McpClient Runtime Command Processing Tests", () => {
 
   describe("Sampling support", () => {
     it("should prepare sampling payload and chat messages from request params", () => {
-      const client = new McpClient("server-one", {
-        type: "stdio",
-        description: "Sample server",
-      });
+      const client = new McpClient(
+        "server-one",
+        {
+          type: "stdio",
+          description: "Sample server",
+        },
+        testPorts,
+      );
 
       const params = {
         systemPrompt: "You are a helpful assistant.",
@@ -506,9 +545,13 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
 
     it("should default sampling image mime type to png when not provided", () => {
-      const client = new McpClient("server-two", {
-        type: "stdio",
-      });
+      const client = new McpClient(
+        "server-two",
+        {
+          type: "stdio",
+        },
+        testPorts,
+      );
 
       const { payload } = (client as any).prepareSamplingContext("req-vision", {
         messages: [
@@ -531,9 +574,13 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
 
     it("should throw when sampling image mime type is not allowed", () => {
-      const client = new McpClient("server-three", {
-        type: "stdio",
-      });
+      const client = new McpClient(
+        "server-three",
+        {
+          type: "stdio",
+        },
+        testPorts,
+      );
 
       try {
         (client as any).prepareSamplingContext("req-bad-mime", {
@@ -553,9 +600,13 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
 
     it("should throw when sampling image data is not valid base64", () => {
-      const client = new McpClient("server-four", {
-        type: "stdio",
-      });
+      const client = new McpClient(
+        "server-four",
+        {
+          type: "stdio",
+        },
+        testPorts,
+      );
 
       try {
         (client as any).prepareSamplingContext("req-bad-data", {
@@ -575,10 +626,14 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
 
     it("should return assistant response when sampling decision is approved", async () => {
-      const client = new McpClient("code-reviewer", {
-        type: "stdio",
-        description: "Code Reviewer Server",
-      });
+      const client = new McpClient(
+        "code-reviewer",
+        {
+          type: "stdio",
+          description: "Code Reviewer Server",
+        },
+        testPorts,
+      );
 
       mockHandleSamplingRequest.mockResolvedValue({
         requestId: "rpc-001",
@@ -628,12 +683,15 @@ describe("McpClient Runtime Command Processing Tests", () => {
     });
 
     it("should throw when sampling decision is rejected by the user", async () => {
-      const client = new McpClient("code-reviewer", { type: "stdio" });
+      const client = new McpClient("code-reviewer", { type: "stdio" }, testPorts);
 
-      mockHandleSamplingRequest.mockResolvedValue({
-        requestId: "rpc-002",
-        approved: false,
-      });
+      mockHandleSamplingRequest.mockResolvedValue(
+        {
+          requestId: "rpc-002",
+          approved: false,
+        },
+        testPorts,
+      );
 
       const request = {
         params: {

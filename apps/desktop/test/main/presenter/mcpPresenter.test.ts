@@ -54,6 +54,8 @@ vi.mock("@/eventbus", () => ({
   eventBus: {
     send: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
+    on: vi.fn<(...args: any[]) => any>(),
+    off: vi.fn<(...args: any[]) => any>(),
   },
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -61,6 +63,7 @@ vi.mock("@/eventbus", () => ({
 }));
 
 vi.mock("@/events", () => ({
+  CONFIG_EVENTS: { CONFIG_CHANGED: "config-changed", AGENTS_CHANGED: "agents-changed" },
   MCP_EVENTS: {
     SERVER_STARTED: "server-started",
     SERVER_STOPPED: "server-stopped",
