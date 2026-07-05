@@ -488,6 +488,38 @@ async function main() {
     )
   }
 
+  // === Shared runtime packages must be Electron-free ===
+  const SHARED_PACKAGE_ROOTS = [
+    { root: path.join(ROOT, 'packages/acp-runtime/src'), label: '@argos/acp-runtime' },
+    { root: path.join(ROOT, 'packages/mcp-runtime/src'), label: '@argos/mcp-runtime' },
+    { root: path.join(ROOT, 'packages/skills-runtime/src'), label: '@argos/skills-runtime' },
+  ]
+  const FORBIDDEN_PACKAGE_IMPORTS = [
+    /from\s+['"]electron['"]/,
+    /from\s+['"]@\/eventbus['"]/,
+    /from\s+['"]@\/routes['"]/,
+    /from\s+['"]@\/routes\//,
+    /from\s+['"]@\/lib\/runtimeHelper['"]/,
+    /from\s+['"]@\/presenter['"]/,
+    /from\s+['"]@\/presenter\//,
+    /from\s+['"]@\/events['"]/,
+  ]
+
+  for (const { root, label } of SHARED_PACKAGE_ROOTS) {
+    if (!await pathExists(root)) continue
+    const pkgFiles = await collectFiles(root)
+    for (const file of pkgFiles) {
+      const source = await fs.readFile(file, 'utf8')
+      for (const pattern of FORBIDDEN_PACKAGE_IMPORTS) {
+        if (pattern.test(source)) {
+          violations.push(
+            `[shared-package-forbidden-import] ${label}: ${relativePath(file)} matches ${pattern}`,
+          )
+        }
+      }
+    }
+  }
+
   if (violations.length > 0) {
     console.error('Architecture guard failed.')
     for (const violation of violations) {

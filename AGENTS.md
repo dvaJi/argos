@@ -70,6 +70,9 @@ kill $(cat /tmp/desktop-dev.pid)
 | `@argos/desktop` | `apps/desktop/` | `pnpm run dev` | Main Electron app (Vite 8 + vite-plugin-electron + Rolldown) |
 | `@argos/daemon` | `apps/daemon/` | `cd apps/daemon && bun run dev` | Background daemon (Bun) |
 | `@argos/backend-core` | `packages/backend-core/` | — | Shared backend logic |
+| `@argos/acp-runtime` | `packages/acp-runtime/` | — | ACP runtime (process/session/registry, host-port injected) |
+| `@argos/mcp-runtime` | `packages/mcp-runtime/` | — | MCP runtime (client/server/tools, host-port injected) |
+| `@argos/skills-runtime` | `packages/skills-runtime/` | — | Skills runtime (discovery/install/metadata, host-port injected) |
 | `@argos/client-sdk` | `packages/client-sdk/` | — | Client SDK (IPC bridge implementation) |
 | `@argos/electron-adapter` | `packages/electron-adapter/` | — | Electron utilities |
 | `@argos/shared-contracts` | `packages/shared-contracts/` | — | Shared types/contracts |
