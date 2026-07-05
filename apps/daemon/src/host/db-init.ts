@@ -170,7 +170,7 @@ const CORE_TABLES = [
     agent_id TEXT NOT NULL,
     session_id TEXT,
     workdir TEXT,
-    status TEXT NOT NULL DEFAULT 'idle',
+    status TEXT NOT NULL DEFAULT 'idle' CHECK(status IN ('idle', 'active', 'error')),
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     metadata TEXT,

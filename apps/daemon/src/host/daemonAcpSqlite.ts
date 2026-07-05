@@ -1,4 +1,4 @@
-import type { ISQLitePresenter } from "@shared/presenter";
+import type { ISQLitePresenter, AcpSessionEntity } from "@shared/presenter";
 
 type BunDatabase = {
   prepare(sql: string): {
@@ -8,28 +8,37 @@ type BunDatabase = {
   };
 };
 
+type AgentSessionLifecycleStatus = "idle" | "active" | "error";
+
+interface AcpSessionUpsertData {
+  sessionId?: string | null;
+  workdir?: string | null;
+  status?: AgentSessionLifecycleStatus;
+  metadata?: Record<string, unknown> | null;
+}
+
 /**
  * Minimal ISQLitePresenter for ACP session persistence on the daemon.
  * Implements only the methods `AcpSessionPersistence` calls — all routed to the
  * `acp_sessions` table created in db-init.
  */
 export function createDaemonAcpSqlitePresenter(db: BunDatabase): ISQLitePresenter {
-  const presenter: ISQLitePresenter = {
-    async getAcpSession(conversationId: string, agentId: string) {
+  const presenter: Record<string, unknown> = {
+    async getAcpSession(conversationId: string, agentId: string): Promise<AcpSessionEntity | null> {
       const row = db
         .prepare(`SELECT * FROM acp_sessions WHERE conversation_id = ? AND agent_id = ? LIMIT 1`)
         .get(conversationId, agentId);
       return row ? mapRow(row) : null;
     },
 
-    async getAcpSessionByAgentAndSessionId(agentId: string, sessionId: string) {
+    async getAcpSessionByAgentAndSessionId(agentId: string, sessionId: string): Promise<AcpSessionEntity | null> {
       const row = db
         .prepare(`SELECT * FROM acp_sessions WHERE agent_id = ? AND session_id = ? LIMIT 1`)
         .get(agentId, sessionId);
       return row ? mapRow(row) : null;
     },
 
-    async upsertAcpSession(conversationId: string, agentId: string, data: any) {
+    async upsertAcpSession(conversationId: string, agentId: string, data: AcpSessionUpsertData): Promise<void> {
       const now = Date.now();
       db.prepare(
         `INSERT INTO acp_sessions (conversation_id, agent_id, session_id, workdir, status, metadata, created_at, updated_at)
@@ -52,13 +61,17 @@ export function createDaemonAcpSqlitePresenter(db: BunDatabase): ISQLitePresente
       );
     },
 
-    async updateAcpSessionId(conversationId: string, agentId: string, sessionId: string | null) {
+    async updateAcpSessionId(conversationId: string, agentId: string, sessionId: string | null): Promise<void> {
       db.prepare(
         `UPDATE acp_sessions SET session_id = ?, updated_at = ? WHERE conversation_id = ? AND agent_id = ?`,
       ).run(sessionId, Date.now(), conversationId, agentId);
     },
 
-    async updateAcpSessionStatus(conversationId: string, agentId: string, status: string) {
+    async updateAcpSessionStatus(
+      conversationId: string,
+      agentId: string,
+      status: AgentSessionLifecycleStatus,
+    ): Promise<void> {
       db.prepare(`UPDATE acp_sessions SET status = ?, updated_at = ? WHERE conversation_id = ? AND agent_id = ?`).run(
         status,
         Date.now(),
@@ -67,7 +80,7 @@ export function createDaemonAcpSqlitePresenter(db: BunDatabase): ISQLitePresente
       );
     },
 
-    async updateAcpWorkdir(conversationId: string, agentId: string, workdir: string | null) {
+    async updateAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
       db.prepare(`UPDATE acp_sessions SET workdir = ?, updated_at = ? WHERE conversation_id = ? AND agent_id = ?`).run(
         workdir,
         Date.now(),
@@ -76,28 +89,27 @@ export function createDaemonAcpSqlitePresenter(db: BunDatabase): ISQLitePresente
       );
     },
 
-    async startAcpTurn() {},
-    async finishAcpTurn() {},
-    async deleteAcpSession(conversationId: string, agentId?: string) {
-      if (agentId) {
-        db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ? AND agent_id = ?`).run(conversationId, agentId);
-      } else {
-        db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ?`).run(conversationId);
-      }
+    async startAcpTurn(): Promise<void> {},
+    async finishAcpTurn(): Promise<void> {},
+
+    async deleteAcpSession(conversationId: string, agentId: string): Promise<void> {
+      db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ? AND agent_id = ?`).run(conversationId, agentId);
     },
 
-    async createConversation() {
-      return null;
+    async deleteAcpSessions(conversationId: string): Promise<void> {
+      db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ?`).run(conversationId);
     },
-    async deleteConversation() {},
 
-    // --- stubs for ISQLitePresenter methods not needed by AcpSessionPersistence ---
-  } as unknown as ISQLitePresenter;
+    async createConversation(): Promise<string> {
+      throw new Error("daemon-side conversation creation not implemented");
+    },
+    async deleteConversation(): Promise<void> {},
+  };
 
-  return presenter;
+  return presenter as unknown as ISQLitePresenter;
 }
 
-function mapRow(row: any) {
+function mapRow(row: any): AcpSessionEntity {
   let metadata: Record<string, unknown> | null = null;
   if (row.metadata) {
     try {
