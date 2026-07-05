@@ -131,6 +131,7 @@ export async function startDaemon(options?: {
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
+    db,
   });
 
   // Route execution by session provider: ACP-backed sessions go to the ACP port,

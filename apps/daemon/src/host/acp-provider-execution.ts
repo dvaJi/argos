@@ -5,7 +5,8 @@ import type * as schema from "@agentclientprotocol/sdk";
 import { AcpSessionPersistence, createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
-import { createDaemonAcpPorts, createDaemonAcpSqliteStub } from "./acpPorts";
+import { createDaemonAcpPorts } from "./acpPorts";
+import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 
 const ACP_PROVIDER_ID = "acp";
 
@@ -25,7 +26,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     private readonly configPresenter: DaemonConfigPresenter,
     private readonly sessionRepository: BunSessionRepository,
     private readonly eventPublisher: IEventPublisher,
-    private readonly deps: { dataDir: string; appVersion: string },
+    private readonly deps: { dataDir: string; appVersion: string; db: unknown },
   ) {}
 
   private async getRuntime(): Promise<AcpRuntime> {
@@ -36,8 +37,9 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           appVersion: this.deps.appVersion,
           eventPublisher: this.eventPublisher,
         });
-        const sessionPersistence = new AcpSessionPersistence(createDaemonAcpSqliteStub() as never, () =>
-          ports.paths.homeDir(),
+        const sessionPersistence = new AcpSessionPersistence(
+          createDaemonAcpSqlitePresenter(this.deps.db as never) as never,
+          () => ports.paths.homeDir(),
         );
         const acpProvider = (
           this.configPresenter as unknown as { getProviderById(id: string): unknown }

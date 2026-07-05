@@ -163,6 +163,22 @@ const CORE_TABLES = [
     consumed_at INTEGER,
     issued_by TEXT NOT NULL DEFAULT 'cli'
   )`,
+
+  `CREATE TABLE IF NOT EXISTS acp_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL,
+    agent_id TEXT NOT NULL,
+    session_id TEXT,
+    workdir TEXT,
+    status TEXT NOT NULL DEFAULT 'idle',
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    metadata TEXT,
+    UNIQUE(conversation_id, agent_id),
+    UNIQUE(agent_id, session_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_acp_sessions_session_id ON acp_sessions(session_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_acp_sessions_agent ON acp_sessions(agent_id)`,
 ];
 
 const INDEXES = [
