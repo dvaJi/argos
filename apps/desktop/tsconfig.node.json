@@ -47,6 +47,12 @@
       "@argos/skills-runtime/*": [
         "../../packages/skills-runtime/src/*"
       ],
+      "@argos/memory-runtime": [
+        "../../packages/memory-runtime/src"
+      ],
+      "@argos/memory-runtime/*": [
+        "../../packages/memory-runtime/src/*"
+      ],
       "@argos/backend-core": [
         "../../packages/backend-core/src"
       ],

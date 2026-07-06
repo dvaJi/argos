@@ -255,6 +255,9 @@ importers:
       '@argos/mcp-runtime':
         specifier: workspace:*
         version: link:../../packages/mcp-runtime
+      '@argos/memory-runtime':
+        specifier: workspace:*
+        version: link:../../packages/memory-runtime
       '@argos/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -267,6 +270,9 @@ importers:
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
+      nanoid:
+        specifier: 'catalog:'
+        version: 5.1.16
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -322,6 +328,9 @@ importers:
       '@argos/mcp-runtime':
         specifier: workspace:*
         version: link:../../packages/mcp-runtime
+      '@argos/memory-runtime':
+        specifier: workspace:*
+        version: link:../../packages/memory-runtime
       '@argos/shared-contracts':
         specifier: workspace:*
         version: link:../../packages/shared-contracts
@@ -847,6 +856,28 @@ importers:
       jsonrepair:
         specifier: ^3.14.0
         version: 3.14.0
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/memory-runtime:
+    dependencies:
+      '@argos/backend-core':
+        specifier: workspace:*
+        version: link:../backend-core
+      '@argos/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@argos/shared-contracts':
+        specifier: workspace:*
+        version: link:../shared-contracts
+      '@duckdb/node-api':
+        specifier: 1.5.3-r.1
+        version: 1.5.3-r.1
+      nanoid:
+        specifier: 'catalog:'
+        version: 5.1.16
     devDependencies:
       typescript:
         specifier: 'catalog:'

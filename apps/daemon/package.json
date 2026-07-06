@@ -16,10 +16,12 @@
     "@argos/acp-runtime": "workspace:*",
     "@argos/mcp-runtime": "workspace:*",
     "@argos/skills-runtime": "workspace:*",
+    "@argos/memory-runtime": "workspace:*",
     "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
     "fflate": "catalog:",
+    "nanoid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

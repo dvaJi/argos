@@ -179,6 +179,43 @@ const CORE_TABLES = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_acp_sessions_session_id ON acp_sessions(session_id)`,
   `CREATE INDEX IF NOT EXISTS idx_acp_sessions_agent ON acp_sessions(agent_id)`,
+
+  `CREATE TABLE IF NOT EXISTS agent_memory (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    category TEXT,
+    content TEXT NOT NULL,
+    importance REAL NOT NULL DEFAULT 0.5,
+    confidence REAL,
+    status TEXT NOT NULL DEFAULT 'pending_embedding',
+    source_session TEXT,
+    source_entry_ids TEXT,
+    user_scope TEXT,
+    provenance_key TEXT,
+    embedding_id TEXT,
+    embedding_dim INTEGER,
+    embedding_model TEXT,
+    last_consolidated_at INTEGER,
+    conflict_state TEXT,
+    conflict_with TEXT,
+    persona_state TEXT,
+    is_anchor INTEGER NOT NULL DEFAULT 0,
+    superseded_by TEXT,
+    created_at INTEGER NOT NULL,
+    accessed_at INTEGER,
+    access_count INTEGER NOT NULL DEFAULT 0,
+    decay_score REAL,
+    consolidated_at INTEGER
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_agent_memory_agent_kind ON agent_memory(agent_id, kind, status)`,
+  `CREATE INDEX IF NOT EXISTS idx_agent_memory_agent_active ON agent_memory(agent_id, superseded_by)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_memory_provenance ON agent_memory(agent_id, provenance_key) WHERE provenance_key IS NOT NULL`,
+
+  `CREATE VIRTUAL TABLE IF NOT EXISTS agent_memory_fts USING fts5(content, agent_id UNINDEXED, content='agent_memory', content_rowid='rowid', tokenize='unicode61')`,
+  `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_ai AFTER INSERT ON agent_memory BEGIN INSERT INTO agent_memory_fts(rowid, content, agent_id) VALUES (new.rowid, new.content, new.agent_id); END`,
+  `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_ad AFTER DELETE ON agent_memory BEGIN INSERT INTO agent_memory_fts(agent_memory_fts, rowid, content, agent_id) VALUES ('delete', old.rowid, old.content, old.agent_id); END`,
+  `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_au AFTER UPDATE OF content ON agent_memory BEGIN INSERT INTO agent_memory_fts(agent_memory_fts, rowid, content, agent_id) VALUES ('delete', old.rowid, old.content, old.agent_id); INSERT INTO agent_memory_fts(rowid, content, agent_id) VALUES (new.rowid, new.content, new.agent_id); END`,
 ];
 
 const INDEXES = [
