@@ -1,5 +1,7 @@
+import path from "node:path";
+import fs from "node:fs";
 import { nanoid } from "nanoid";
-import { MemoryPresenter } from "@argos/memory-runtime";
+import { MemoryPresenter, MemoryVectorStore } from "@argos/memory-runtime";
 import type {
   MemoryRepositoryPort,
   AgentMemoryRow,
@@ -22,8 +24,8 @@ type BunDB = {
  * (agent_memory table + FTS5), wires HTTP-based embeddings + generateText, and
  * constructs the shared MemoryPresenter.
  *
- * v1: vector similarity (DuckDB) is optional — if createVectorStore throws,
- * the presenter falls back to FTS-only lexical search.
+ * v1: vector similarity uses DuckDB with the \`vss\` extension (HNSW index).
+ * If the extension isn't available, the presenter falls back to FTS-only search.
  */
 export class DaemonMemoryRuntime {
   readonly presenter: MemoryPresenter;
@@ -35,6 +37,9 @@ export class DaemonMemoryRuntime {
     this.db = deps.db;
     this.configPresenter = deps.configPresenter;
 
+    const vectorsDir = path.join(deps.dataDir, "memory_vectors");
+    if (!fs.existsSync(vectorsDir)) fs.mkdirSync(vectorsDir, { recursive: true });
+
     this.repository = this.createRepository();
     this.presenter = new MemoryPresenter({
       repository: this.repository,
@@ -45,10 +50,14 @@ export class DaemonMemoryRuntime {
       getEmbeddings: (providerId: string, _modelId: string, texts: string[]) => this.getEmbeddings(providerId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>
         this.generateText(providerId, modelId, prompt),
-      createVectorStore: async () => {
-        throw new Error("DuckDB vector store not available in daemon v1 — using FTS fallback");
+      createVectorStore: async (agentId: string, embedding: unknown, dimensions: number) => {
+        const dbPath = path.join(vectorsDir, `${agentId}.duckdb`);
+        return MemoryVectorStore.create(dbPath, dimensions, embedding as { providerId: string; modelId: string });
       },
-      resetVectorStore: async () => {},
+      resetVectorStore: async (agentId: string) => {
+        const dbPath = path.join(vectorsDir, `${agentId}.duckdb`);
+        MemoryVectorStore.destroyFile(dbPath);
+      },
     });
   }
 
