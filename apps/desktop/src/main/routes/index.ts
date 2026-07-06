@@ -2880,4 +2880,7 @@ export function registerMainKernelRoutes(ipcMain: IpcMain, getRuntime: () => Mai
       return await dispatchArgosRoute(runtime, routeName, rawInput, {
         webContentsId: event.sender.id,
         windowId: BrowserWindow.fromWebContents(event.sender)?.id ?? null,
-      }                 
+      });
+    },
+  );
+}
