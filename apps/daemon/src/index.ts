@@ -17,6 +17,7 @@ import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
+import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
@@ -171,6 +172,11 @@ export async function startDaemon(options?: {
     configDir: paths.getConfigDir(),
     eventPublisher,
   });
+  const memoryRuntime = new DaemonMemoryRuntime({
+    db,
+    configPresenter,
+    dataDir: paths.getDataDir(),
+  });
 
   const dispatcher =
     options?.dispatcher ??
@@ -182,6 +188,7 @@ export async function startDaemon(options?: {
       mcpRuntime,
       skillRuntime,
       syncRuntime,
+      memoryRuntime,
     );
   setRouteDispatcher(dispatcher);
 

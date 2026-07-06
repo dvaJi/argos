@@ -242,6 +242,16 @@ export function createDaemonDispatcher(
     uploadToCloud(): Promise<{ ok: boolean; error: string | null }>;
     pullFromCloud(): Promise<{ ok: boolean; error: string | null }>;
   },
+  memoryRuntime?: {
+    presenter: {
+      listMemories(agentId: string): unknown[];
+      getStatus(agentId: string): { total: number; pendingEmbedding: number; hasPersona: boolean };
+      recall(agentId: string, query: string): Promise<unknown[]>;
+      deleteMemory(agentId: string, memoryId: string): Promise<boolean>;
+      clearMemories(agentId: string): Promise<number>;
+    };
+    addMemory(agentId: string, content: string, kind?: string, importance?: number): Promise<{ id: string }>;
+  },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime = { sessionRepository, providerExecutionPort };
@@ -744,32 +754,40 @@ export function createDaemonDispatcher(
       return scheduledTasksFireNowRoute.output.parse({ task: task as never, settings });
     }
 
-    // === Memory (v1 daemon stub: requires a bundled embeddings model) ===
+    // === Memory (SQLite-backed, FTS search + HTTP embeddings) ===
     if (route === memoryListRoute.name) {
-      memoryListRoute.input.parse(rawInput);
-      return memoryListRoute.output.parse({ memories: [] });
+      const input = memoryListRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      return memoryListRoute.output.parse({ memories: memoryRuntime.presenter.listMemories(input.agentId) });
     }
     if (route === memoryGetStatusRoute.name) {
-      memoryGetStatusRoute.input.parse(rawInput);
-      return memoryGetStatusRoute.output.parse({ status: { total: 0, pendingEmbedding: 0, hasPersona: false } });
+      const input = memoryGetStatusRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      return memoryGetStatusRoute.output.parse({ status: memoryRuntime.presenter.getStatus(input.agentId) });
     }
     if (route === memorySearchRoute.name) {
-      memorySearchRoute.input.parse(rawInput);
-      return memorySearchRoute.output.parse({ results: [] });
+      const input = memorySearchRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      const results = await memoryRuntime.presenter.recall(input.agentId, input.query);
+      return memorySearchRoute.output.parse({ results });
     }
     if (route === memoryAddRoute.name) {
-      memoryAddRoute.input.parse(rawInput);
-      return memoryAddRoute.output.parse({
-        result: { action: "noop" as const, reason: "Memory not available in daemon mode" },
-      });
+      const input = memoryAddRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      const result = await memoryRuntime.addMemory(input.agentId, input.content, input.kind, input.importance);
+      return memoryAddRoute.output.parse({ result: { action: "created" as const, memoryId: result.id } });
     }
     if (route === memoryDeleteRoute.name) {
-      memoryDeleteRoute.input.parse(rawInput);
-      return memoryDeleteRoute.output.parse({ ok: false });
+      const input = memoryDeleteRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      const ok = await memoryRuntime.presenter.deleteMemory(input.agentId, input.memoryId);
+      return memoryDeleteRoute.output.parse({ ok });
     }
     if (route === memoryClearRoute.name) {
-      memoryClearRoute.input.parse(rawInput);
-      return memoryClearRoute.output.parse({ removed: 0 });
+      const input = memoryClearRoute.input.parse(rawInput);
+      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
+      const removed = await memoryRuntime.presenter.clearMemories(input.agentId);
+      return memoryClearRoute.output.parse({ removed });
     }
 
     if (isDesktopOnlyRoute(route)) {
