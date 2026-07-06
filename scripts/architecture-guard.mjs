@@ -34,6 +34,8 @@ const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
   path.join(ROOT, 'apps/desktop/src/renderer/api/local-api.ts')
 ]
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
+const DESKTOP_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src')
+const DAEMON_SOURCE_ROOT = path.join(ROOT, 'apps/daemon/src')
 const PHASE_ORDER = new Map([
   ['P0', 0],
   ['P1', 1],
@@ -108,6 +110,11 @@ const INLINE_IPC_CHANNEL_PATTERN =
   /(?:window\.electron(?:\?\.|\.)ipcRenderer|ipcRenderer|ipcMain)(?:\?\.|\.)(?:invoke|send|on|once|handle|handleOnce|removeListener|removeAllListeners|addListener)\s*\(\s*['"`][^'"`]+['"`]/g
 const INLINE_EVENTBUS_CHANNEL_PATTERN =
   /(?:sendToRenderer|publish|publishToWindow|publishToWebContents)\s*\(\s*['"`][^'"`]+['"`]/g
+const BUN_GLOBAL_PATTERN = /\bBun\./g
+const BUN_IMPORT_PATTERN =
+  /\b(?:import|export)\b[\s\S]*?from\s*['"]bun:[^'"]+['"]|\bimport\s*['"]bun:[^'"]+['"]/g
+const ELECTRON_IMPORT_PATTERN =
+  /\b(?:import|export)\b[\s\S]*?from\s*['"]electron(?:\/[^'"]+)?['"]|\bimport\s*['"]electron(?:\/[^'"]+)?['"]/g
 
 function toPosix(value) {
   return value.split(path.sep).join('/')
@@ -450,11 +457,20 @@ async function main() {
       }
     }
 
-    if (isUnder(filePath, path.join(ROOT, 'apps/desktop/src'))) {
+    if (isUnder(filePath, DESKTOP_SOURCE_ROOT)) {
       for (const specifier of specifiers) {
         if (specifier.includes('archives/code/')) {
           violations.push(`[archive-import] ${relativePath(filePath)} -> ${specifier}`)
         }
+      }
+
+      const bunGlobalCount = countMatches(source, BUN_GLOBAL_PATTERN)
+      const bunImportCount = countMatches(source, BUN_IMPORT_PATTERN)
+      if (bunGlobalCount > 0) {
+        violations.push(`[desktop-bun-global] ${relativePath(filePath)} expected 0, found ${bunGlobalCount}`)
+      }
+      if (bunImportCount > 0) {
+        violations.push(`[desktop-bun-import] ${relativePath(filePath)} expected 0, found ${bunImportCount}`)
       }
     }
 
@@ -481,6 +497,24 @@ async function main() {
     }
   }
 
+  for (const filePath of await collectFiles(DAEMON_SOURCE_ROOT)) {
+    const source = await fs.readFile(filePath, 'utf8')
+    const specifiers = extractModuleSpecifiers(source)
+    const electronImportCount = countMatches(source, ELECTRON_IMPORT_PATTERN)
+
+    if (electronImportCount > 0) {
+      violations.push(
+        `[daemon-electron-import] ${relativePath(filePath)} expected 0, found ${electronImportCount}`
+      )
+    }
+
+    for (const specifier of specifiers) {
+      if (specifier.includes('archives/code/')) {
+        violations.push(`[archive-import] ${relativePath(filePath)} -> ${specifier}`)
+      }
+    }
+  }
+
   const hotPathEdges = await collectHotPathDirectEdges()
   if (hotPathEdges.length > HOT_PATH_EDGE_BASELINE) {
     violations.push(
@@ -496,6 +530,7 @@ async function main() {
   ]
   const FORBIDDEN_PACKAGE_IMPORTS = [
     /from\s+['"]electron['"]/,
+    /from\s+['"]electron\/[^'"]+['"]/,
     /from\s+['"]@\/eventbus['"]/,
     /from\s+['"]@\/routes['"]/,
     /from\s+['"]@\/routes\//,
@@ -503,6 +538,8 @@ async function main() {
     /from\s+['"]@\/presenter['"]/,
     /from\s+['"]@\/presenter\//,
     /from\s+['"]@\/events['"]/,
+    /from\s+['"]bun:[^'"]+['"]/,
+    /\bBun\./,
   ]
 
   for (const { root, label } of SHARED_PACKAGE_ROOTS) {

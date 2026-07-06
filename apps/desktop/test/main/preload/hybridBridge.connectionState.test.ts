@@ -71,7 +71,7 @@ async function openRemoteSession(): Promise<{
   const bridge = new HybridBridge(noopBridge);
   const adapter = new WebSocketBridgeAdapter("ws://test:1/api/v1/events");
   const connectPromise = (async () => {
-    bridge.setWsBridge(adapter);
+    bridge.setWsBridge(adapter, "remote");
     await adapter.connect();
   })();
   if (!currentMockWs) throw new Error("Mock socket not created");
@@ -137,5 +137,37 @@ describe("HybridBridge connection state", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("routes daemon-owned invokes through the WebSocket bridge once attached", async () => {
+    const ipcInvoke = vi.fn(() => Promise.resolve({ from: "ipc" }));
+    const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
+    const bridge = new HybridBridge({
+      invoke: ipcInvoke,
+      on: vi.fn(() => () => {}),
+    } as any);
+
+    bridge.setWsBridge(
+      {
+        connect: vi.fn(() => Promise.resolve()),
+        disconnect: vi.fn(),
+        getUrl: () => "ws://test:1/api/v1/events",
+        isConnected: () => false,
+        setConnectionStateSink: vi.fn(),
+        invoke: wsInvoke,
+        on: vi.fn(() => () => {}),
+      } as any,
+      "local",
+    );
+
+    await bridge.invoke("chat.sendMessage" as any, {} as any);
+
+    expect(wsInvoke).toHaveBeenCalledTimes(1);
+    expect(ipcInvoke).not.toHaveBeenCalled();
+  });
+
+  it("rejects daemon-owned invokes when no daemon bridge is available", async () => {
+    const bridge = new HybridBridge(noopBridge);
+    await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("Daemon bridge is not available");
   });
 });

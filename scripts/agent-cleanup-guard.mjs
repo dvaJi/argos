@@ -25,7 +25,6 @@ const PRIMARY_MAIN_GUARD_PATHS = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter'),
-  path.join(ROOT, 'apps/desktop/src/main/presenter/mcpPresenter/toolManager.ts'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/syncPresenter/index.ts')
 ]
 
@@ -42,8 +41,6 @@ const RENDERER_CHAT_GUARD_PATHS = [
 const LEGACY_AGENT_RUNTIME_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/agentPresenter')
 const PROVIDER_LAYER_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/providers')
 const SKILL_PRESENTER_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter')
-const MCP_TOOL_MANAGER_FILE = path.join(ROOT, 'apps/desktop/src/main/presenter/mcpPresenter/toolManager.ts')
-
 const LEGACY_AGENT_RUNTIME_GLOBALS = [
   'sessionManager',
   'toolPresenter',
@@ -155,7 +152,6 @@ async function findViolations() {
     path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/agentRuntimePresenter'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter'),
-    path.join(ROOT, 'apps/desktop/src/main/presenter/mcpPresenter/toolManager.ts'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/syncPresenter/index.ts'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/providers'),
     path.join(ROOT, 'apps/desktop/src/renderer/src/pages/ChatPage.tsx'),
@@ -197,11 +193,6 @@ async function findViolations() {
         violations.push(buildViolation('legacy-chat-import', filePath, specifier))
       }
     }
-
-    if (filePath === MCP_TOOL_MANAGER_FILE && source.includes('input_chatMode')) {
-      violations.push(buildViolation('global-chat-mode', filePath, 'input_chatMode'))
-    }
-
     if (
       isProtectedPath(filePath, PRIMARY_MAIN_GUARD_PATHS) &&
       source.includes('presenter.sessionPresenter.')

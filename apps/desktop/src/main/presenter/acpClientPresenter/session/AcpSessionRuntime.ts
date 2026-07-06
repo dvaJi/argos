@@ -1,7 +1,10 @@
 import type { IConfigPresenter } from "@shared/presenter";
-import type { LifecyclePort } from "@argos/acp-runtime";
-import { AcpSessionManager, AcpSessionPersistence } from "@/presenter/llmProviderPresenter/acp";
-import type { AcpProcessManager } from "@/presenter/llmProviderPresenter/acp";
+import {
+  AcpSessionManager,
+  AcpSessionPersistence,
+  type LifecyclePort,
+  type AcpProcessManager,
+} from "@argos/acp-runtime";
 
 export class AcpSessionRuntime {
   readonly sessionManager: AcpSessionManager;

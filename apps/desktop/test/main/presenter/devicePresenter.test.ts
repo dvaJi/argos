@@ -14,7 +14,7 @@ vi.mock("@/eventbus", () => ({
 }));
 
 // Mock svgSanitizer (imported by DevicePresenter via @/lib/svgSanitizer)
-vi.mock("@/lib/svgSanitizer", () => ({
+vi.mock("@argos/backend-core", () => ({
   svgSanitizer: {
     sanitize: vi.fn<(...args: any[]) => any>(),
   },

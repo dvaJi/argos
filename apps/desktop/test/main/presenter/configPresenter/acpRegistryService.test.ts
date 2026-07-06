@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SVGSanitizer } from "@/lib/svgSanitizer";
+import { SVGSanitizer } from "@argos/backend-core";
 
 vi.mock("fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");

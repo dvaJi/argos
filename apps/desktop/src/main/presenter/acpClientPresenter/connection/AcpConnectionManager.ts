@@ -1,7 +1,6 @@
 import type { LLM_PROVIDER, IConfigPresenter, AcpAgentConfig } from "@shared/presenter";
 import type { ProviderMcpRuntimePort } from "@/presenter/llmProviderPresenter/runtimePorts";
-import { AcpProcessManager, type AcpProcessHandle } from "@/presenter/llmProviderPresenter/acp";
-import type { AcpHostPorts } from "@argos/acp-runtime";
+import { AcpProcessManager, type AcpHostPorts, type AcpProcessHandle } from "@argos/acp-runtime";
 import type { AcpConnectionRef, StartAcpConnectionInput } from "../types";
 import { PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 

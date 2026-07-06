@@ -1,5 +1,5 @@
 import type * as schema from "@agentclientprotocol/sdk";
-import { AcpContentMapper } from "@/presenter/llmProviderPresenter/acp";
+import { AcpContentMapper } from "@argos/acp-runtime";
 import type { ArgosAgentEvent } from "../types";
 
 export class AcpEventMapper {

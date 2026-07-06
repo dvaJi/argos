@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AcpLaunchSpecService } from "../../../../src/main/presenter/configPresenter/acpLaunchSpecService";
+import { AcpLaunchSpecService } from "@argos/acp-runtime";
 
 describe("AcpLaunchSpecService", () => {
   const tempDirs: string[] = [];

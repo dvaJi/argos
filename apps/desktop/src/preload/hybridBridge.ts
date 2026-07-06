@@ -32,7 +32,7 @@ export class HybridBridge implements ArgosBridge {
     this.ipcBridge = ipcBridge;
   }
 
-  setWsBridge(wsBridge: WebSocketBridgeAdapter | null): void {
+  setWsBridge(wsBridge: WebSocketBridgeAdapter | null, mode: ConnectionState["mode"] = "local"): void {
     if (this.wsBridge) {
       this.wsBridge.disconnect();
     }
@@ -41,7 +41,7 @@ export class HybridBridge implements ArgosBridge {
     if (wsBridge) {
       wsBridge.setConnectionStateSink((partial) => this.setConnectionState(partial));
       this.setConnectionState({
-        mode: "remote",
+        mode,
         url: wsBridge.getUrl(),
         connected: wsBridge.isConnected(),
         lastError: null,
@@ -87,16 +87,11 @@ export class HybridBridge implements ArgosBridge {
       return this.ipcBridge.invoke(routeName, input);
     }
 
-    if (this.wsBridge?.isConnected()) {
-      try {
-        return await this.wsBridge.invoke(routeName, input);
-      } catch (error) {
-        console.warn(`[HybridBridge] WS invoke failed for ${routeName}, falling back to IPC:`, error);
-        return this.ipcBridge.invoke(routeName, input);
-      }
+    if (!this.wsBridge) {
+      throw new Error(`Daemon bridge is not available for route ${routeName}`);
     }
 
-    return this.ipcBridge.invoke(routeName, input);
+    return this.wsBridge.invoke(routeName, input);
   }
 
   on<T extends ArgosEventName>(eventName: T, listener: EventListener<ArgosEventPayload<T>>): () => void {
@@ -109,10 +104,8 @@ export class HybridBridge implements ArgosBridge {
       return this.ipcBridge.on(eventName, listener);
     }
 
-    if (this.wsBridge?.isConnected()) {
+    if (this.wsBridge) {
       this.resubscribeEvent(eventName, this.eventListeners.get(eventName)!);
-    } else {
-      return this.ipcBridge.on(eventName, listener);
     }
 
     return () => {
@@ -134,7 +127,7 @@ export class HybridBridge implements ArgosBridge {
       existingUnsub();
     }
 
-    if (this.wsBridge?.isConnected()) {
+    if (this.wsBridge) {
       const unsub = this.wsBridge.on(eventName as any, (payload: any) => {
         for (const listener of listeners) {
           try {
