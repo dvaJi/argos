@@ -50,13 +50,21 @@ export class DaemonMemoryRuntime {
       getEmbeddings: (providerId: string, _modelId: string, texts: string[]) => this.getEmbeddings(providerId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>
         this.generateText(providerId, modelId, prompt),
-      createVectorStore: async (agentId: string, embedding: unknown, dimensions: number) => {
+      createVectorStore: async (
+        agentId: string,
+        embedding: { providerId: string; modelId: string },
+        dimensions: number,
+      ) => {
         const dbPath = path.join(vectorsDir, `${agentId}.duckdb`);
-        return MemoryVectorStore.create(dbPath, dimensions, embedding as { providerId: string; modelId: string });
+        return MemoryVectorStore.create(dbPath, dimensions, embedding);
       },
       resetVectorStore: async (agentId: string) => {
-        const dbPath = path.join(vectorsDir, `${agentId}.duckdb`);
-        MemoryVectorStore.destroyFile(dbPath);
+        try {
+          const dbPath = path.join(vectorsDir, `${agentId}.duckdb`);
+          MemoryVectorStore.destroyFile(dbPath);
+        } catch (error) {
+          console.warn(`[Memory] Failed to reset vector store for ${agentId}:`, error);
+        }
       },
     });
   }
