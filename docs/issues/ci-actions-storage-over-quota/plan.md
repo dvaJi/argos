@@ -2,8 +2,8 @@
 
 ## Approach
 
-Three independent remediations — two are one-time cleanups (API operations),
-one is a workflow change to prevent recurrence.
+Four independent remediations — two are one-time cleanups (API operations),
+two are workflow changes to prevent recurrence.
 
 ### Remediation A — Delete stale build artifacts (one-time)
 
@@ -59,8 +59,11 @@ Actions artifacts), so the Actions copies are ephemeral build evidence only.
 
 ## Verification
 
-- `gh api repos/dvaJi/argos/actions/cache/usage` shows
-  `active_caches_size_in_bytes` well under 0.5 GB after cleanup.
+- `gh api repos/dvaJi/argos/actions/caches` shows no caches scoped to
+  `refs/heads/refs/tags/*` or `refs/pull/*` (orphans removed).
+- `active_caches_size_in_bytes` reduced from ~10 GB to the irreducible
+  master-only footprint (~1.6 GB). Going below the 0.5 GB free tier is not
+  achievable on a private repo without dropping high-value caches.
 - Next CI run observes a cache hit on the Turbo fallback (lockfile-keyed).
 - `actions: write` permission available for cache deletion (repo owner token).
 

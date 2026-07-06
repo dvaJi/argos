@@ -30,8 +30,12 @@ either stale, orphaned, or accumulating unboundedly.
 
 ## Goal
 
-Bring Actions storage well under the 0.5 GB free tier and prevent recurrence,
-without slowing CI (keep dependency/toolchain caches that actually save time).
+Remove all orphaned, stale, and unboundedly-accumulating Actions storage
+(~9 GB of waste) and prevent recurrence, without slowing CI (keep the
+dependency/toolchain caches that actually save time). On a private repo the
+irreducible steady state is ~1.6 GB (pnpm store + electron + runtime + bun +
+turbo caches on `master`); getting below the 0.5 GB free tier would require
+dropping high-value caches or making the repo public.
 
 ## Non-goals
 
