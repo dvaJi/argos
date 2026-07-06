@@ -10,6 +10,7 @@
     "build": "node build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "bun run test/e2e-config-roundtrip.test.ts && bun run test/e2e-memory-roundtrip.test.ts && bun run test/e2e-skills-roundtrip.test.ts && bun run test/e2e-acp-smoke.test.ts && bun run test/e2e-mcp-lifecycle.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
