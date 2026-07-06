@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+Use the fff MCP tools for all file search operations instead of default tools.
+
 ## Project Structure & Module Organization
 - `src/main/`: Electron main process; presenters in `presenter/` (Window/Tab/Thread/Mcp/Config/LLMProvider), `eventbus.ts` for app events.
 - `src/preload/`: Secure IPC bridge (contextIsolation on). Typed `window.argos` bridge via `createBridge.ts` → `packages/client-sdk`.

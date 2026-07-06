@@ -234,13 +234,34 @@ export function createDaemonDispatcher(
   },
   syncRuntime?: {
     getBackupStatus(): Promise<{ autoSyncEnabled: boolean; lastBackupTimestamp: number | null }>;
-    listBackups(): Promise<{ backups: Array<{ name: string; timestamp: number; size: number }> }>;
+    listBackups(): Promise<{
+      backups: Array<{ name?: string; fileName: string; timestamp?: number; createdAt: number; size: number }>;
+    }>;
     startBackup(): Promise<{ timestamp: number }>;
     restoreBackup(name: string): Promise<void>;
-    getCloudConfig(): Promise<{ configured: boolean }>;
-    testCloud(): Promise<{ ok: boolean; error: string | null }>;
-    uploadToCloud(): Promise<{ ok: boolean; error: string | null }>;
-    pullFromCloud(): Promise<{ ok: boolean; error: string | null }>;
+    getCloudConfig(): Promise<{
+      enabled: boolean;
+      endpoint: string;
+      bucket: string;
+      region: string;
+      prefix: string;
+      accessKeyId: string;
+      hasSecret: boolean;
+      safeStorageAvailable: boolean;
+    }>;
+    setCloudConfig(config: unknown): Promise<{
+      enabled: boolean;
+      endpoint: string;
+      bucket: string;
+      region: string;
+      prefix: string;
+      accessKeyId: string;
+      hasSecret: boolean;
+      safeStorageAvailable: boolean;
+    }>;
+    testCloud(): Promise<{ success: boolean; message: string; fileName?: string }>;
+    uploadToCloud(): Promise<{ success: boolean; message: string; fileName?: string }>;
+    pullFromCloud(): Promise<{ success: boolean; message: string; fileName?: string }>;
   },
   memoryRuntime?: {
     presenter: {
@@ -622,7 +643,7 @@ export function createDaemonDispatcher(
       });
     }
 
-    // === Sync routes (daemon: local backup of JSON data dir; cloud stubbed) ===
+    // === Sync routes (daemon: local/cloud backup of JSON data dir) ===
     if (route === syncGetBackupStatusRoute.name) {
       syncGetBackupStatusRoute.input.parse(rawInput);
       if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
@@ -642,7 +663,7 @@ export function createDaemonDispatcher(
       const result = await syncRuntime.startBackup();
       const backups = (await syncRuntime.listBackups()).backups;
       return syncStartBackupRoute.output.parse({
-        backup: backups.find((b) => b.timestamp === result.timestamp) ?? null,
+        backup: backups.find((b) => b.createdAt === result.timestamp || b.timestamp === result.timestamp) ?? null,
       });
     }
     if (route === syncImportRoute.name) {
@@ -653,49 +674,28 @@ export function createDaemonDispatcher(
     }
     if (route === syncGetCloudConfigRoute.name) {
       syncGetCloudConfigRoute.input.parse(rawInput);
-      return syncGetCloudConfigRoute.output.parse({
-        config: {
-          enabled: false,
-          endpoint: "",
-          bucket: "",
-          region: "",
-          prefix: "",
-          accessKeyId: "",
-          hasSecret: false,
-        },
-      });
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncGetCloudConfigRoute.output.parse({ config: await syncRuntime.getCloudConfig() });
     }
     if (route === syncSetCloudConfigRoute.name) {
-      syncSetCloudConfigRoute.input.parse(rawInput);
-      return syncSetCloudConfigRoute.output.parse({
-        config: {
-          enabled: false,
-          endpoint: "",
-          bucket: "",
-          region: "",
-          prefix: "",
-          accessKeyId: "",
-          hasSecret: false,
-        },
-      });
+      const input = syncSetCloudConfigRoute.input.parse(rawInput);
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncSetCloudConfigRoute.output.parse({ config: await syncRuntime.setCloudConfig(input.config) });
     }
     if (route === syncTestCloudRoute.name) {
       syncTestCloudRoute.input.parse(rawInput);
-      return syncTestCloudRoute.output.parse({
-        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
-      });
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncTestCloudRoute.output.parse({ result: await syncRuntime.testCloud() });
     }
     if (route === syncUploadToCloudRoute.name) {
       syncUploadToCloudRoute.input.parse(rawInput);
-      return syncUploadToCloudRoute.output.parse({
-        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
-      });
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncUploadToCloudRoute.output.parse({ result: await syncRuntime.uploadToCloud() });
     }
     if (route === syncPullFromCloudRoute.name) {
       syncPullFromCloudRoute.input.parse(rawInput);
-      return syncPullFromCloudRoute.output.parse({
-        result: { ok: false, error: "Cloud sync not configured in daemon mode" },
-      });
+      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
+      return syncPullFromCloudRoute.output.parse({ result: await syncRuntime.pullFromCloud() });
     }
 
     // === Scheduled tasks (CRUD via JSON config; firing is desktop-only) ===

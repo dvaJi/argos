@@ -25,3 +25,5 @@ playwright-report/
 test-results/
 .turbo/*.bun-build
 *.bun-build
+.turbo/cache/*
+.turbo\cache

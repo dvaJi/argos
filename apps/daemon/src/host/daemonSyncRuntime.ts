@@ -2,26 +2,69 @@ import fs from "node:fs";
 import path from "node:path";
 import { zipSync, unzipSync } from "fflate";
 import type { IEventPublisher } from "@argos/backend-core";
+import { BunS3CloudStorageService, type DaemonResolvedCloudSyncConfig } from "./bunS3CloudStorageService";
 
 export interface BackupInfo {
   name: string;
+  fileName: string;
   timestamp: number;
+  createdAt: number;
   size: number;
 }
+
+interface CloudSyncConfigBase {
+  enabled: boolean;
+  endpoint: string;
+  bucket: string;
+  region: string;
+  prefix: string;
+  accessKeyId: string;
+}
+
+export interface CloudSyncConfigView extends CloudSyncConfigBase {
+  hasSecret: boolean;
+  safeStorageAvailable: boolean;
+}
+
+export interface CloudSyncConfigInput extends Partial<CloudSyncConfigBase> {
+  secretAccessKey?: string;
+}
+
+export interface CloudSyncResult {
+  success: boolean;
+  message: string;
+  fileName?: string;
+}
+
+interface StoredCloudSyncConfig extends CloudSyncConfigBase {
+  secretAccessKey: string;
+}
+
+const DEFAULT_CLOUD_CONFIG: StoredCloudSyncConfig = {
+  enabled: false,
+  endpoint: "",
+  bucket: "",
+  region: "auto",
+  prefix: "argos-backups",
+  accessKeyId: "",
+  secretAccessKey: "",
+};
+
+const DAEMON_BACKUP_FILE_NAME_REGEX = /^(?:daemon-)?backup-\d+\.zip$/;
 
 /**
  * Daemon sync runtime. Backs up / restores the daemon's JSON-backed data dir
  * (config + MCP/ACP stores). The desktop's sync is coupled to its SQLite agent
  * DB; the daemon's data model is simpler JSON files, so this is a purpose-built
  * implementation rather than a shared port.
- *
- * v1: local backup/restore only. Cloud upload/download/test are stubbed.
  */
 export class DaemonSyncRuntime {
   private readonly backupDir: string;
+  private readonly cloudConfigPath: string;
 
   constructor(deps: { dataDir: string; configDir: string; eventPublisher: IEventPublisher }) {
     this.backupDir = path.join(deps.configDir, "backups");
+    this.cloudConfigPath = path.join(deps.configDir, "cloud-sync.json");
     if (!fs.existsSync(this.backupDir)) fs.mkdirSync(this.backupDir, { recursive: true });
   }
 
@@ -39,7 +82,7 @@ export class DaemonSyncRuntime {
 
   async startBackup(): Promise<{ timestamp: number }> {
     const timestamp = Date.now();
-    const name = `daemon-backup-${timestamp}.zip`;
+    const name = `backup-${timestamp}.zip`;
     const target = path.join(this.backupDir, name);
     // Collect JSON config files from the config dir.
     const entries: Record<string, Uint8Array> = {};
@@ -66,31 +109,85 @@ export class DaemonSyncRuntime {
     }
   }
 
-  // ---- cloud (v1 stubs) ----
-  async getCloudConfig(): Promise<{ configured: boolean }> {
-    return { configured: false };
+  // ---- cloud ----
+  async getCloudConfig(): Promise<CloudSyncConfigView> {
+    return this.toCloudConfigView(this.readCloudConfigWithEnv());
   }
-  async setCloudConfig(): Promise<{ saved: boolean }> {
-    return { saved: false };
+
+  async setCloudConfig(config: CloudSyncConfigInput): Promise<CloudSyncConfigView> {
+    const current = this.readStoredCloudConfig();
+    const next: StoredCloudSyncConfig = {
+      enabled: config.enabled ?? current.enabled,
+      endpoint: config.endpoint ?? current.endpoint,
+      bucket: config.bucket ?? current.bucket,
+      region: config.region ?? current.region,
+      prefix: config.prefix ?? current.prefix,
+      accessKeyId: config.accessKeyId ?? current.accessKeyId,
+      secretAccessKey:
+        typeof config.secretAccessKey === "string" && config.secretAccessKey.length > 0
+          ? config.secretAccessKey
+          : current.secretAccessKey,
+    };
+
+    fs.mkdirSync(path.dirname(this.cloudConfigPath), { recursive: true });
+    fs.writeFileSync(this.cloudConfigPath, JSON.stringify(next, null, 2));
+
+    return this.toCloudConfigView(this.readCloudConfigWithEnv());
   }
-  async uploadToCloud(): Promise<{ ok: boolean; error: string | null }> {
-    return { ok: false, error: "Cloud sync not configured in daemon mode" };
+
+  async uploadToCloud(): Promise<CloudSyncResult> {
+    try {
+      const service = this.buildCloudService();
+      const { timestamp } = await this.startBackup();
+      const backup = this.listBackupsSync().find((entry) => entry.timestamp === timestamp);
+      if (!backup) {
+        return { success: false, message: "sync.error.noLocalBackup" };
+      }
+
+      await service.uploadBackup(path.join(this.backupDir, backup.fileName), backup.fileName);
+      return { success: true, message: "sync.success.cloudUploaded", fileName: backup.fileName };
+    } catch (error) {
+      console.error("Daemon cloud upload failed:", error);
+      return { success: false, message: this.normalizeCloudError(error) };
+    }
   }
-  async pullFromCloud(): Promise<{ ok: boolean; error: string | null }> {
-    return { ok: false, error: "Cloud sync not configured in daemon mode" };
+
+  async pullFromCloud(): Promise<CloudSyncResult> {
+    try {
+      const service = this.buildCloudService();
+      const fileName = await service.downloadLatest(this.backupDir);
+      if (!fileName) {
+        return { success: false, message: "sync.error.cloudNoBackup" };
+      }
+      await this.restoreBackup(fileName);
+      return { success: true, message: "sync.success.cloudDownloaded", fileName };
+    } catch (error) {
+      console.error("Daemon cloud pull failed:", error);
+      return { success: false, message: this.normalizeCloudError(error) };
+    }
   }
-  async testCloud(): Promise<{ ok: boolean; error: string | null }> {
-    return { ok: false, error: "Cloud sync not configured in daemon mode" };
+
+  async testCloud(): Promise<CloudSyncResult> {
+    try {
+      const service = this.buildCloudService();
+      await service.testConnection();
+      return { success: true, message: "sync.success.cloudConnected" };
+    } catch (error) {
+      console.error("Daemon cloud connection test failed:", error);
+      return { success: false, message: this.normalizeCloudError(error) };
+    }
   }
 
   private listBackupsSync(): BackupInfo[] {
     try {
       return fs
         .readdirSync(this.backupDir)
-        .filter((f) => f.endsWith(".zip"))
+        .filter((f) => DAEMON_BACKUP_FILE_NAME_REGEX.test(f))
         .map((f) => {
           const stat = fs.statSync(path.join(this.backupDir, f));
-          return { name: f, timestamp: stat.mtimeMs, size: stat.size };
+          const match = f.match(/backup-(\d+)\.zip$/);
+          const timestamp = match ? Number(match[1]) : stat.mtimeMs;
+          return { name: f, fileName: f, timestamp, createdAt: timestamp, size: stat.size };
         })
         .sort((a, b) => b.timestamp - a.timestamp);
     } catch {
@@ -104,5 +201,83 @@ export class DaemonSyncRuntime {
 
   private configFiles(): string[] {
     return ["config.json", "mcp-settings.json", "acp_agents.json"];
+  }
+
+  private readStoredCloudConfig(): StoredCloudSyncConfig {
+    try {
+      if (!fs.existsSync(this.cloudConfigPath)) {
+        return { ...DEFAULT_CLOUD_CONFIG };
+      }
+      const parsed = JSON.parse(fs.readFileSync(this.cloudConfigPath, "utf-8")) as Partial<StoredCloudSyncConfig>;
+      return {
+        enabled: parsed.enabled ?? DEFAULT_CLOUD_CONFIG.enabled,
+        endpoint: parsed.endpoint ?? DEFAULT_CLOUD_CONFIG.endpoint,
+        bucket: parsed.bucket ?? DEFAULT_CLOUD_CONFIG.bucket,
+        region: parsed.region ?? DEFAULT_CLOUD_CONFIG.region,
+        prefix: parsed.prefix ?? DEFAULT_CLOUD_CONFIG.prefix,
+        accessKeyId: parsed.accessKeyId ?? DEFAULT_CLOUD_CONFIG.accessKeyId,
+        secretAccessKey: parsed.secretAccessKey ?? DEFAULT_CLOUD_CONFIG.secretAccessKey,
+      };
+    } catch (error) {
+      console.error("Failed to read daemon cloud sync config:", error);
+      return { ...DEFAULT_CLOUD_CONFIG };
+    }
+  }
+
+  private readCloudConfigWithEnv(): StoredCloudSyncConfig {
+    const stored = this.readStoredCloudConfig();
+    return {
+      enabled: stored.enabled,
+      endpoint: process.env.ARGOS_SYNC_S3_ENDPOINT || stored.endpoint,
+      bucket: process.env.ARGOS_SYNC_S3_BUCKET || stored.bucket,
+      region: process.env.ARGOS_SYNC_S3_REGION || stored.region,
+      prefix: process.env.ARGOS_SYNC_S3_PREFIX || stored.prefix,
+      accessKeyId: process.env.ARGOS_SYNC_S3_ACCESS_KEY_ID || stored.accessKeyId,
+      secretAccessKey: process.env.ARGOS_SYNC_S3_SECRET_ACCESS_KEY || stored.secretAccessKey,
+    };
+  }
+
+  private toCloudConfigView(config: StoredCloudSyncConfig): CloudSyncConfigView {
+    return {
+      enabled: config.enabled,
+      endpoint: config.endpoint,
+      bucket: config.bucket,
+      region: config.region,
+      prefix: config.prefix,
+      accessKeyId: config.accessKeyId,
+      hasSecret: Boolean(config.secretAccessKey),
+      safeStorageAvailable: false,
+    };
+  }
+
+  private getResolvedCloudSyncConfig(): DaemonResolvedCloudSyncConfig | null {
+    const config = this.readCloudConfigWithEnv();
+    if (!config.endpoint || !config.bucket || !config.accessKeyId || !config.secretAccessKey) {
+      return null;
+    }
+    return {
+      endpoint: config.endpoint,
+      bucket: config.bucket,
+      region: config.region,
+      prefix: config.prefix,
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    };
+  }
+
+  private buildCloudService(): BunS3CloudStorageService {
+    const resolved = this.getResolvedCloudSyncConfig();
+    if (!resolved) {
+      throw new Error("sync.error.cloudNotConfigured");
+    }
+    return new BunS3CloudStorageService(resolved);
+  }
+
+  private normalizeCloudError(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.startsWith("sync.error.")) {
+      return message;
+    }
+    return message || "sync.error.cloudOperationFailed";
   }
 }
