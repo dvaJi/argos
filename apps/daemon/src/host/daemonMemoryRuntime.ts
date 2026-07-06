@@ -29,14 +29,15 @@ export class DaemonMemoryRuntime {
   readonly presenter: MemoryPresenter;
   private readonly db: BunDB;
   private readonly configPresenter: any;
+  private readonly repository: MemoryRepositoryPort;
 
   constructor(deps: { db: BunDB; configPresenter: any; dataDir: string }) {
     this.db = deps.db;
     this.configPresenter = deps.configPresenter;
 
-    const repository = this.createRepository();
+    this.repository = this.createRepository();
     this.presenter = new MemoryPresenter({
-      repository,
+      repository: this.repository,
       resolveAgentConfig: (agentId: string) => {
         const agents = this.configPresenter.listAgents?.() ?? [];
         return agents.find((a: any) => a.id === agentId) ?? null;
@@ -58,7 +59,7 @@ export class DaemonMemoryRuntime {
       insert(input: AgentMemoryInsertInput): AgentMemoryRow {
         const now = input.createdAt ?? Date.now();
         db.prepare(
-          `INSERT INTO agent_memory (id, agent_id, kind, category, content, importance, confidence, status, source_session, source_entry_ids, user_scope, provenance_key, is_anchor, created_at, access_count, conflict_state, conflict_with, persona_state)
+          `INSERT OR REPLACE INTO agent_memory (id, agent_id, kind, category, content, importance, confidence, status, source_session, source_entry_ids, user_scope, provenance_key, is_anchor, created_at, access_count, conflict_state, conflict_with, persona_state)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
         ).run(
           input.id,
@@ -136,7 +137,7 @@ export class DaemonMemoryRuntime {
               `SELECT m.* FROM agent_memory m
                JOIN agent_memory_fts f ON f.rowid = m.rowid
                WHERE m.agent_id = ? AND agent_memory_fts MATCH ?
-               ORDER BY rank LIMIT ?`,
+               ORDER BY bm25(agent_memory_fts) LIMIT ?`,
             )
             .all(agentId, query, lim) as AgentMemoryRow[];
         } catch {
@@ -221,19 +222,15 @@ export class DaemonMemoryRuntime {
     content: string,
     kind: string = "semantic",
     importance: number = 0.5,
+    category?: string | null,
   ): Promise<{ id: string }> {
-    // Insert directly via the presenter's repository (bypasses LLM extraction —
-    // the route content is already a memory). Extraction/consolidation runs
-    // asynchronously when the presenter processes pending embeddings.
-    const presenter = this.presenter as unknown as {
-      deps: { repository: MemoryRepositoryPort };
-    };
-    const row = presenter.deps.repository.insert({
+    const row = this.repository.insert({
       id: nanoid(),
       agentId,
       kind: kind as AgentMemoryKind,
       content,
       importance,
+      category: (category as never) ?? null,
       status: "pending_embedding" as AgentMemoryStatus,
     });
     return { id: row.id };

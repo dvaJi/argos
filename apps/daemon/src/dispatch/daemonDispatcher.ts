@@ -755,10 +755,28 @@ export function createDaemonDispatcher(
     }
 
     // === Memory (SQLite-backed, FTS search + HTTP embeddings) ===
+    const mapMemoryRow = (row: any) => ({
+      id: row.id,
+      agentId: row.agent_id,
+      kind: row.kind,
+      category: row.category,
+      content: row.content,
+      importance: row.importance,
+      status: row.status,
+      sourceSession: row.source_session,
+      sourceEntryIds: row.source_entry_ids ? JSON.parse(row.source_entry_ids) : null,
+      supersededBy: row.superseded_by,
+      createdAt: row.created_at,
+      confidence: row.confidence,
+      personaState: row.persona_state,
+      isAnchor: Boolean(row.is_anchor),
+    });
+
     if (route === memoryListRoute.name) {
       const input = memoryListRoute.input.parse(rawInput);
       if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
-      return memoryListRoute.output.parse({ memories: memoryRuntime.presenter.listMemories(input.agentId) });
+      const rows = memoryRuntime.presenter.listMemories(input.agentId) as any[];
+      return memoryListRoute.output.parse({ memories: rows.map(mapMemoryRow) });
     }
     if (route === memoryGetStatusRoute.name) {
       const input = memoryGetStatusRoute.input.parse(rawInput);
@@ -768,13 +786,25 @@ export function createDaemonDispatcher(
     if (route === memorySearchRoute.name) {
       const input = memorySearchRoute.input.parse(rawInput);
       if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
-      const results = await memoryRuntime.presenter.recall(input.agentId, input.query);
+      const recallItems = (await memoryRuntime.presenter.recall(input.agentId, input.query)) as any[];
+      const rows = memoryRuntime.presenter.listMemories(input.agentId) as any[];
+      const rowMap = new Map(rows.map((r) => [r.id, r]));
+      const results = recallItems.map((item) => {
+        const row = rowMap.get(item.memoryId ?? item.id) ?? {};
+        return { ...mapMemoryRow(row), score: item.score ?? 0 };
+      });
       return memorySearchRoute.output.parse({ results });
     }
     if (route === memoryAddRoute.name) {
       const input = memoryAddRoute.input.parse(rawInput);
       if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
-      const result = await memoryRuntime.addMemory(input.agentId, input.content, input.kind, input.importance);
+      const result = await memoryRuntime.addMemory(
+        input.agentId,
+        input.content,
+        input.kind,
+        input.importance,
+        input.category,
+      );
       return memoryAddRoute.output.parse({ result: { action: "created" as const, memoryId: result.id } });
     }
     if (route === memoryDeleteRoute.name) {

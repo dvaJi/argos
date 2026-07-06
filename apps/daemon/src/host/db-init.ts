@@ -215,6 +215,7 @@ const CORE_TABLES = [
   `CREATE VIRTUAL TABLE IF NOT EXISTS agent_memory_fts USING fts5(content, agent_id UNINDEXED, content='agent_memory', content_rowid='rowid', tokenize='unicode61')`,
   `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_ai AFTER INSERT ON agent_memory BEGIN INSERT INTO agent_memory_fts(rowid, content, agent_id) VALUES (new.rowid, new.content, new.agent_id); END`,
   `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_ad AFTER DELETE ON agent_memory BEGIN INSERT INTO agent_memory_fts(agent_memory_fts, rowid, content, agent_id) VALUES ('delete', old.rowid, old.content, old.agent_id); END`,
+  `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_au AFTER UPDATE OF content ON agent_memory BEGIN INSERT INTO agent_memory_fts(agent_memory_fts, rowid, content, agent_id) VALUES ('delete', old.rowid, old.content, old.agent_id); INSERT INTO agent_memory_fts(rowid, content, agent_id) VALUES (new.rowid, new.content, new.agent_id); END`,
 ];
 
 const INDEXES = [
