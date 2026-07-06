@@ -661,6 +661,15 @@ export class DaemonConfigPresenter {
     this.store.traceDebugEnabled = enabled;
     this.save();
   }
+
+  getSkillsPath(): string {
+    return (this.store.skillsPath as string) || "";
+  }
+
+  setSkillsPath(skillsPath: string): void {
+    this.store.skillsPath = skillsPath;
+    this.save();
+  }
 }
 
 export function notImplemented(method: string): never {

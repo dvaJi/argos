@@ -109,7 +109,10 @@ async function run(): Promise<void> {
       const res = await postRoute(port, "mcp.listToolDefinitions", {});
       assert(res.ok === true, `expected ok=true, got: ${JSON.stringify(res)}`);
       assert(Array.isArray(res.output.tools), "output.tools should be array");
-      const echoTool = res.output.tools.find((t: any) => t.name === "echo" || t.name.endsWith("__echo"));
+      // Tools are returned as { type: "function", function: { name, ... }, server }
+      const echoTool = res.output.tools.find(
+        (t: any) => t.function?.name === "echo" || t.function?.name?.endsWith("__echo"),
+      );
       assert(echoTool !== undefined, `"echo" tool not found in tool list: ${JSON.stringify(res.output.tools)}`);
     });
 

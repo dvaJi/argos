@@ -53,15 +53,20 @@ export class DaemonAcpConfig {
   }
 
   async listAcpRegistryAgents(): Promise<AcpRegistryAgent[]> {
-    return this.acpRegistryService.listAgents().map((agent) => {
-      const state = this.acpConfHelper.getRegistryStates()[agent.id];
-      return {
-        ...agent,
-        enabled: state?.enabled ?? false,
-        envOverride: state?.envOverride,
-        installState: this.acpConfHelper.getInstallState(agent.id),
-      };
-    });
+    try {
+      return this.acpRegistryService.listAgents().map((agent) => {
+        const state = this.acpConfHelper.getRegistryStates()[agent.id];
+        return {
+          ...agent,
+          enabled: state?.enabled ?? false,
+          envOverride: state?.envOverride,
+          installState: this.acpConfHelper.getInstallState(agent.id),
+        };
+      });
+    } catch {
+      // Registry snapshot not yet available (e.g. no network or first startup)
+      return [];
+    }
   }
 
   async refreshAcpRegistry(force = true): Promise<AcpRegistryAgent[]> {

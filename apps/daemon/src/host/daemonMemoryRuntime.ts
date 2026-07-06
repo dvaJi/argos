@@ -43,9 +43,10 @@ export class DaemonMemoryRuntime {
     this.repository = this.createRepository();
     this.presenter = new MemoryPresenter({
       repository: this.repository,
-      resolveAgentConfig: (agentId: string) => {
-        const agents = this.configPresenter.listAgents?.() ?? [];
-        return agents.find((a: any) => a.id === agentId) ?? null;
+      resolveAgentConfig: (_agentId: string) => {
+        // The daemon does not maintain per-agent ArgosAgentConfig objects.
+        // Returning null lets the presenter fall back to FTS-only search with default settings.
+        return null;
       },
       getEmbeddings: (providerId: string, _modelId: string, texts: string[]) => this.getEmbeddings(providerId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>

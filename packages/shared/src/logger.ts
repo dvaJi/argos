@@ -1,14 +1,7 @@
-import log from "electron-log";
-import { app } from "electron";
 import path from "path";
-import { is } from "@electron-toolkit/utils";
 
-// Configure log file path
-// Use logger for recording instead of console
-const userData = app?.getPath("userData") || "";
-if (userData) {
-  log.transports.file.resolvePathFn = () => path.join(userData, "logs/main.log");
-}
+// Detect if running inside an Electron process (main or renderer)
+const isElectron = typeof process !== "undefined" && process.versions?.electron !== undefined;
 
 // Get logging switch status
 let loggingEnabled = false;
@@ -16,30 +9,51 @@ let loggingEnabled = false;
 // Export method to set logging switch
 export function setLoggingEnabled(enabled: boolean): void {
   loggingEnabled = enabled;
-  // If logging is disabled, set file log level to false
-  log.transports.file.level = enabled ? "info" : false;
+  if (isElectron) {
+    // Lazily updated — the electron-log transport is configured below
+    _electronLog?.transports.file.level != null &&
+      (_electronLog.transports.file.level = enabled ? "info" : false);
+  }
 }
 
-// Configure console logging
-log.transports.console.level = is.dev ? "debug" : "info";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _electronLog: any = null;
 
-// Configure file logging
-log.transports.file.level = "info";
-log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
-log.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
+if (isElectron) {
+  // Dynamic require keeps these Electron-only imports out of non-Electron bundling paths
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const electronLog = require("electron-log");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { app } = require("electron");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { is } = require("@electron-toolkit/utils");
+  _electronLog = electronLog;
 
-// Create different level logging functions
+  const userData = app?.getPath?.("userData") || "";
+  if (userData) {
+    electronLog.transports.file.resolvePathFn = () => path.join(userData, "logs/main.log");
+  }
+
+  electronLog.transports.console.level = is.dev ? "debug" : "info";
+  electronLog.transports.file.level = "info";
+  electronLog.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
+  electronLog.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
+}
+
+// Create logging functions that delegate to electron-log when in Electron, otherwise console
 const logger = {
-  error: (...params: unknown[]) => log.error(...params),
-  warn: (...params: unknown[]) => log.warn(...params),
-  info: (...params: unknown[]) => log.info(...params),
-  verbose: (...params: unknown[]) => log.verbose(...params),
-  debug: (...params: unknown[]) => log.debug(...params),
-  silly: (...params: unknown[]) => log.silly(...params),
-  log: (...params: unknown[]) => log.info(...params),
+  error: (...params: unknown[]) => (isElectron ? _electronLog.error(...params) : console.error(...params)),
+  warn: (...params: unknown[]) => (isElectron ? _electronLog.warn(...params) : console.warn(...params)),
+  info: (...params: unknown[]) => (isElectron ? _electronLog.info(...params) : console.info(...params)),
+  verbose: (...params: unknown[]) => (isElectron ? _electronLog.verbose(...params) : console.debug(...params)),
+  debug: (...params: unknown[]) => (isElectron ? _electronLog.debug(...params) : console.debug(...params)),
+  silly: (...params: unknown[]) => (isElectron ? _electronLog.silly(...params) : console.debug(...params)),
+  log: (...params: unknown[]) => (isElectron ? _electronLog.info(...params) : console.log(...params)),
 };
 
-// Intercept console methods and redirect to logger
+const isDev = isElectron ? (_electronLog ? require("@electron-toolkit/utils").is.dev : false) : process.env.NODE_ENV === "development";
+
+// Intercept console methods and redirect to logger (Electron only)
 function hookConsole() {
   const originalConsole = {
     log: console.log,
@@ -50,45 +64,49 @@ function hookConsole() {
     trace: console.trace,
   };
 
+  if (!isElectron) {
+    return originalConsole;
+  }
+
   // Replace console methods
   console.log = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.info(...args);
     }
   };
 
   console.error = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.error(...args);
     }
   };
 
   console.warn = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.warn(...args);
     }
   };
 
   console.info = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.info(...args);
     }
   };
 
   console.debug = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.debug(...args);
     }
   };
 
   console.trace = (...args: unknown[]) => {
     // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev) {
       logger.debug(...args);
     }
   };
