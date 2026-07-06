@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SVGSanitizer } from "@/lib/svgSanitizer";
+import { SVGSanitizer } from "@argos/backend-core";
 
 describe("SVGSanitizer", () => {
   it.each([

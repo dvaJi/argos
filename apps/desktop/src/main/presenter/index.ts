@@ -55,8 +55,7 @@ import { CommandPermissionService, FilePermissionService, SettingsPermissionServ
 import type { AgentToolRuntimePort } from "./toolPresenter/runtimePorts";
 
 import { ConversationExporterService } from "./exporter";
-import { SkillPresenter } from "./skillPresenter";
-import type { SkillSessionStatePort } from "./skillPresenter";
+import { SkillPresenter, type SkillSessionStatePort } from "@argos/skills-runtime";
 import { createDesktopSkillPorts } from "./skillPresenter/desktopSkillPorts";
 import { SkillSyncPresenter } from "./skillSyncPresenter";
 import { HooksNotificationsService } from "./hooksNotifications";
@@ -64,8 +63,7 @@ import { NewSessionHooksBridge } from "./hooksNotifications/newSessionBridge";
 import { ScheduledTasksService } from "./scheduledTasks";
 import { AgentSessionPresenter } from "./agentSessionPresenter";
 import { AgentRuntimePresenter } from "./agentRuntimePresenter";
-import { MemoryPresenter } from "./memoryPresenter";
-import { MemoryVectorStore } from "./memoryPresenter/memoryVectorStore";
+import { MemoryPresenter, MemoryVectorStore } from "@argos/memory-runtime";
 import { ProjectPresenter } from "./projectPresenter";
 import { RemoteControlPresenter } from "./remoteControlPresenter";
 import type { RemoteControlPresenterLike } from "./remoteControlPresenter/interface";

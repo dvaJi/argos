@@ -18,7 +18,7 @@ vi.mock("electron", () => ({
 }));
 
 import { spawn } from "child_process";
-import { clearShellEnvironmentCache, getShellEnvironment, getUserShell } from "@/lib/agentRuntime/shellEnvHelper";
+import { clearShellEnvironmentCache, getShellEnvironment, getUserShell } from "@argos/backend-core/runtime/shellEnv";
 
 class MockStream extends EventEmitter {}
 

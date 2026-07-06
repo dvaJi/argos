@@ -4,7 +4,7 @@ import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import spawn from "cross-spawn";
 import * as shellEnvHelper from "@argos/backend-core/runtime/shellEnv";
-import { AcpProcessManager, parseLoadSessionCapability } from "@/presenter/llmProviderPresenter/acp/acpProcessManager";
+import { AcpProcessManager, parseLoadSessionCapability } from "@argos/acp-runtime";
 import { createAcpTestPorts } from "./acpTestPorts";
 
 vi.mock("@/eventbus", () => ({

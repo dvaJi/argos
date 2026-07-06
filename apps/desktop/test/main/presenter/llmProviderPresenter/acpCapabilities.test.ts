@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCapabilitySnapshot, buildClientCapabilities } from "@/presenter/llmProviderPresenter/acp";
+import { buildCapabilitySnapshot, buildClientCapabilities } from "@argos/acp-runtime";
 
 describe("AcpCapabilities", () => {
   describe("buildClientCapabilities", () => {

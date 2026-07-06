@@ -166,7 +166,7 @@ import { randomUUID } from "node:crypto";
 import logger from "@shared/logger";
 import { eventBus } from "../../../../src/main/eventbus";
 import { SKILL_EVENTS } from "../../../../src/main/events";
-import { SKILL_CONFIG, SkillPresenter } from "../../../../src/main/presenter/skillPresenter/index";
+import { SKILL_CONFIG, SkillPresenter } from "@argos/skills-runtime";
 
 function createDirEntry(name: string) {
   return {

@@ -98,6 +98,12 @@ export const UPDATE_EVENTS = {
   STATE_CHANGED: "update:state-changed", // Update state changed (used for lifecycle management communication)
 };
 
+// Daemon sidecar events
+export const DAEMON_EVENTS = {
+  SIDECAR_STATUS_CHANGED: "daemon:sidecar-status-changed",
+  SIDECAR_PORT_ASSIGNED: "daemon:sidecar-port-assigned",
+};
+
 // Window events
 export const WINDOW_EVENTS = {
   READY_TO_SHOW: "window:ready-to-show", // Replaces main-window-ready-to-show

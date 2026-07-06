@@ -18,7 +18,7 @@ const toolManagerMocks = vi.hoisted(() => ({
   getRunningClients: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
-vi.mock("../../../src/main/presenter/mcpPresenter/serverManager", () => ({
+vi.mock("@argos/mcp-runtime/runtime/serverManager", () => ({
   ServerManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
       startServer: serverManagerMocks.startServer,
@@ -35,7 +35,7 @@ vi.mock("../../../src/main/presenter/mcpPresenter/serverManager", () => ({
   }),
 }));
 
-vi.mock("../../../src/main/presenter/mcpPresenter/toolManager", () => ({
+vi.mock("@argos/mcp-runtime/runtime/toolManager", () => ({
   ToolManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {
       getAllToolDefinitions: toolManagerMocks.getAllToolDefinitions,
@@ -44,7 +44,7 @@ vi.mock("../../../src/main/presenter/mcpPresenter/toolManager", () => ({
   }),
 }));
 
-vi.mock("../../../src/main/presenter/mcpPresenter/mcprouterManager", () => ({
+vi.mock("@argos/mcp-runtime/config/mcprouterManager", () => ({
   McpRouterManager: vi.fn<(...args: any[]) => any>().mockImplementation(function () {
     return {};
   }),

@@ -43,9 +43,10 @@ import {
   updateAcpConfigStateValue,
   type AcpProcessHandle,
   type AcpSessionRecord,
-} from "../acp";
+} from "@argos/acp-runtime";
 import { createDesktopAcpPorts } from "../acp/desktopPorts";
-import { AcpClientPresenter, AcpPromptController } from "@/presenter/acpClientPresenter";
+import { AcpClientPresenter } from "@/presenter/acpClientPresenter";
+import { AcpPromptController } from "@argos/acp-runtime";
 import { nanoid } from "nanoid";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
 import { resolveAcpAgentAlias } from "@argos/backend-core";

@@ -11,7 +11,7 @@ import type {
 } from "@shared/types/skill";
 import { backgroundExecSessionManager } from "@/lib/agentRuntime/backgroundExecSessionManager";
 import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
-import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@/lib/agentRuntime/shellEnvHelper";
+import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import {
   createUtf8OutputDecoderPair,
   prepareProcessEnvForUtf8Output,

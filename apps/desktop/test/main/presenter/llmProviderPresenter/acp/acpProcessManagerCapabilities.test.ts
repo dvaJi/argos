@@ -107,7 +107,7 @@ class MockChild extends EventEmitter {
 
 describe("AcpProcessManager initialized capabilities", () => {
   it("carries initialize capabilities into the ready process handle", async () => {
-    const { AcpProcessManager } = await import("@/presenter/llmProviderPresenter/acp/acpProcessManager");
+    const { AcpProcessManager } = await import("@argos/acp-runtime");
     const manager = new AcpProcessManager({
       providerId: "acp",
       ports: createAcpTestPorts(),

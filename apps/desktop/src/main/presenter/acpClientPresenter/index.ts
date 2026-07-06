@@ -1,15 +1,10 @@
 import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
 import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type { AcpHostPorts } from "@argos/acp-runtime";
-import {
-  AcpSessionPersistence,
-  type AcpProcessHandle,
-  type AcpSessionRecord,
-} from "@/presenter/llmProviderPresenter/acp";
+import type { AcpHostPorts, AcpProcessHandle, AcpSessionRecord } from "@argos/acp-runtime";
+import { AcpPromptController, AcpSessionPersistence } from "@argos/acp-runtime";
 import type { ProviderMcpRuntimePort } from "@/presenter/llmProviderPresenter/runtimePorts";
 import { AcpConnectionManager } from "./connection/AcpConnectionManager";
 import { AcpSessionRuntime } from "./session/AcpSessionRuntime";
-import { AcpPromptController } from "./session/AcpPromptController";
 import { AcpEventMapper } from "./mapper/AcpEventMapper";
 import type { AcpConnectionRef, CancelAcpPromptInput, StartAcpConnectionInput } from "./types";
 
@@ -79,5 +74,5 @@ export class AcpClientPresenter {
 }
 
 export type * from "./types";
-export { AcpPromptController, type AcpPromptTurn } from "./session/AcpPromptController";
-export { AcpDebugLog } from "./connection/AcpDebugLog";
+export { AcpPromptController, type AcpPromptTurn } from "@argos/acp-runtime";
+export { AcpDebugLog } from "@argos/acp-runtime";

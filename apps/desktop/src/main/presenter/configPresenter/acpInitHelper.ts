@@ -12,7 +12,7 @@ import {
   getShellEnvironment,
   mergeCommandEnvironment,
   setPathEntriesOnEnv,
-} from "@/lib/agentRuntime/shellEnvHelper";
+} from "@argos/backend-core/runtime/shellEnv";
 
 const execAsync = promisify(exec);
 

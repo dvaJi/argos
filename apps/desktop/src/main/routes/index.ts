@@ -250,6 +250,7 @@ import {
   type SettingsActivityInput,
 } from "@shared/contracts/routes";
 import { ChatService } from "./chat/chatService";
+import { invokeDaemonRoute } from "./daemonRouteProxy";
 import { dispatchConfigRoute } from "./config/configRouteHandler";
 import { createPresenterHotPathPorts } from "./hotPathPorts";
 import { dispatchModelRoute } from "./models/modelRouteHandler";
@@ -272,7 +273,7 @@ import type { PluginPresenter } from "@/presenter/pluginPresenter";
 import type { DatabaseSecurityPresenter } from "@/presenter/databaseSecurityPresenter";
 import type { SQLitePresenter } from "@/presenter/sqlitePresenter";
 import type { ScheduledTasksService } from "@/presenter/scheduledTasks";
-import type { MemoryPresenter } from "@/presenter/memoryPresenter";
+import type { MemoryPresenter } from "@argos/memory-runtime";
 import {
   scheduledTasksDeleteRoute,
   scheduledTasksFireNowRoute,
@@ -2815,24 +2816,24 @@ export async function dispatchArgosRoute(
 
     case chatSendMessageRoute.name: {
       const input = chatSendMessageRoute.input.parse(rawInput);
-      return chatSendMessageRoute.output.parse(await runtime.chatService.sendMessage(input.sessionId, input.content));
+      return chatSendMessageRoute.output.parse(await invokeDaemonRoute(chatSendMessageRoute.name, input));
     }
 
     case chatSteerActiveTurnRoute.name: {
       const input = chatSteerActiveTurnRoute.input.parse(rawInput);
-      return chatSteerActiveTurnRoute.output.parse(
-        await runtime.chatService.steerActiveTurn(input.sessionId, input.content),
-      );
+      return chatSteerActiveTurnRoute.output.parse(await invokeDaemonRoute(chatSteerActiveTurnRoute.name, input));
     }
 
     case chatStopStreamRoute.name: {
       const input = chatStopStreamRoute.input.parse(rawInput);
-      return chatStopStreamRoute.output.parse(await runtime.chatService.stopStream(input));
+      return chatStopStreamRoute.output.parse(await invokeDaemonRoute(chatStopStreamRoute.name, input));
     }
 
     case chatRespondToolInteractionRoute.name: {
       const input = chatRespondToolInteractionRoute.input.parse(rawInput);
-      return chatRespondToolInteractionRoute.output.parse(await runtime.chatService.respondToolInteraction(input));
+      return chatRespondToolInteractionRoute.output.parse(
+        await invokeDaemonRoute(chatRespondToolInteractionRoute.name, input),
+      );
     }
 
     case systemOpenSettingsRoute.name: {

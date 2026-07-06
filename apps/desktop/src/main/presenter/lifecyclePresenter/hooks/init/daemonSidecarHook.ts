@@ -1,5 +1,7 @@
 import { LifecycleHook, LifecycleContext } from "@shared/presenter";
 import { LifecyclePhase } from "@shared/lifecycle";
+import { eventBus, SendTarget } from "@/eventbus";
+import { DAEMON_EVENTS } from "@/events";
 import { startSidecar, type SidecarHandle } from "@/presenter/sidecarManager";
 
 let sidecarHandle: SidecarHandle | null = null;
@@ -29,9 +31,15 @@ export const daemonSidecarHook: LifecycleHook = {
         healthCheckTimeoutMs: 10000,
         onStatusChange: (status) => {
           console.log(`[sidecar] Status: ${status}`);
+          eventBus.sendToRendererIfAvailable(DAEMON_EVENTS.SIDECAR_STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
+            status,
+          });
         },
         onPortAssigned: (port) => {
           console.log(`[sidecar] Daemon assigned port: ${port}`);
+          eventBus.sendToRendererIfAvailable(DAEMON_EVENTS.SIDECAR_PORT_ASSIGNED, SendTarget.ALL_WINDOWS, {
+            port,
+          });
         },
       });
 
