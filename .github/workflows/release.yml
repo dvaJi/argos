@@ -237,6 +237,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: argos-${{ matrix.platform }}
+          retention-days: 7
           path: |
             dist/*
             !dist/win-unpacked
@@ -311,6 +312,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: argos-${{ matrix.platform }}
+          retention-days: 7
           path: |
             dist/*
             !dist/linux-unpacked
@@ -410,6 +412,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: argos-${{ matrix.platform }}
+          retention-days: 7
           path: |
             dist/*
             !dist/mac/*
