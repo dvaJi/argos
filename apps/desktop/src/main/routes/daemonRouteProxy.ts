@@ -30,8 +30,10 @@ export async function invokeDaemonRoute<TOutput>(route: string, input: unknown):
     | null;
 
   if (!response.ok || !result || !("ok" in result) || !result.ok) {
-    const message = result && !("ok" in result) ? "Daemon route request failed" : result?.error?.message;
-    throw new Error(message ?? `Daemon route ${route} failed`);
+    const message =
+      (result && "error" in result && result.error?.message) ||
+      `Daemon route ${route} failed (HTTP ${response.status})`;
+    throw new Error(message);
   }
 
   return result.output;

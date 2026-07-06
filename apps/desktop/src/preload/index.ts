@@ -124,6 +124,7 @@ const hybridBridge = new HybridBridge(ipcBridge);
 
 let cachedLocalDaemonPort: number | null = null;
 const workspaceConnections = new Map<string, WebSocketBridgeAdapter | null>();
+let localDaemonConnectInFlight: Promise<WebSocketBridgeAdapter | null> | null = null;
 
 async function fetchLocalDaemonPort(): Promise<number | null> {
   if (cachedLocalDaemonPort !== null) return cachedLocalDaemonPort;
@@ -175,29 +176,37 @@ async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocke
 }
 
 async function connectToLocalDaemon(): Promise<WebSocketBridgeAdapter | null> {
-  const existing = workspaceConnections.get(LOCAL_WORKSPACE_ID);
-  if (existing && existing.isConnected()) return existing;
-  if (existing) existing.disconnect();
+  if (localDaemonConnectInFlight) return localDaemonConnectInFlight;
 
-  const port = await waitForLocalDaemonPort();
-  if (!port) {
-    hybridBridge.setWsBridge(null);
-    return null;
-  }
+  localDaemonConnectInFlight = (async () => {
+    const existing = workspaceConnections.get(LOCAL_WORKSPACE_ID);
+    if (existing && existing.isConnected()) return existing;
+    if (existing) existing.disconnect();
 
-  const wsUrl = buildWsUrl(`http://127.0.0.1:${port}`);
-  const adapter = new WebSocketBridgeAdapter(wsUrl);
-  workspaceConnections.set(LOCAL_WORKSPACE_ID, adapter);
-  hybridBridge.setWsBridge(adapter, "local");
+    const port = await waitForLocalDaemonPort();
+    if (!port) {
+      hybridBridge.setWsBridge(null);
+      return null;
+    }
 
-  try {
-    await adapter.connect();
-    console.log(`[preload] Connected to local daemon at ${wsUrl}`);
-  } catch (error) {
-    console.warn("[preload] Failed to connect to local daemon:", error);
-  }
+    const wsUrl = buildWsUrl(`http://127.0.0.1:${port}`);
+    const adapter = new WebSocketBridgeAdapter(wsUrl);
+    workspaceConnections.set(LOCAL_WORKSPACE_ID, adapter);
+    hybridBridge.setWsBridge(adapter, "local");
 
-  return adapter;
+    try {
+      await adapter.connect();
+      console.log(`[preload] Connected to local daemon at ${wsUrl}`);
+    } catch (error) {
+      console.warn("[preload] Failed to connect to local daemon:", error);
+    }
+
+    return adapter;
+  })().finally(() => {
+    localDaemonConnectInFlight = null;
+  });
+
+  return localDaemonConnectInFlight;
 }
 
 function updateLocalDaemonPort(port: number | null): void {
