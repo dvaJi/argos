@@ -267,6 +267,9 @@ importers:
       '@argos/skills-runtime':
         specifier: workspace:*
         version: link:../../packages/skills-runtime
+      '@duckdb/node-api':
+        specifier: 1.5.3-r.1
+        version: 1.5.3-r.1
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
