@@ -50,6 +50,21 @@ describe("resolveWebRoot", () => {
     expect(result.ok && result.root).toBe(resolve(desktopWebRoot));
   });
 
+  it("discovers the web build when cwd is the daemon directory", () => {
+    const tempRoot = makeTempRoot();
+    const daemonDir = join(tempRoot, "apps", "daemon");
+    const desktopWebRoot = join(tempRoot, "apps", "desktop", "out", "web");
+    writeIndex(desktopWebRoot);
+
+    const result = resolveWebRoot({
+      cwd: daemonDir,
+      executablePath: join(daemonDir, "dist", "argos-daemon.exe"),
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.root).toBe(resolve(desktopWebRoot));
+  });
+
   it("discovers a web directory next to the daemon executable", () => {
     const tempRoot = makeTempRoot();
     const executableDir = join(tempRoot, "dist");
@@ -75,6 +90,6 @@ describe("resolveWebRoot", () => {
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.message).toContain("build:web");
-    expect(!result.ok && result.searched.length).toBe(3);
+    expect(!result.ok && result.searched.length).toBe(5);
   });
 });

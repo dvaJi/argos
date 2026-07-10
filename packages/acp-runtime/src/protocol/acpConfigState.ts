@@ -10,24 +10,26 @@ type NormalizableConfigStateInput = {
 };
 
 const normalizeSelectOptions = (options: schema.SessionConfigSelectOptions): AcpConfigOptionValue[] => {
-  return options.flatMap((entry) => {
+  return options.flatMap((entry): AcpConfigOptionValue[] => {
     if ("group" in entry) {
       return entry.options.map((option) => ({
         value: option.value,
         label: option.name,
         description: option.description ?? null,
-        groupId: entry.group,
+        groupId: entry.group ?? null,
         groupLabel: entry.name,
       }));
     }
 
-    return {
-      value: entry.value,
-      label: entry.name,
-      description: entry.description ?? null,
-      groupId: null,
-      groupLabel: null,
-    };
+    return [
+      {
+        value: entry.value,
+        label: entry.name,
+        description: entry.description ?? null,
+        groupId: null,
+        groupLabel: null,
+      },
+    ];
   });
 };
 

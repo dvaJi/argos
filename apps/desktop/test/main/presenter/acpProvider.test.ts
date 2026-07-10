@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { AcpProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/acpProvider";
-import { LEGACY_MODE_CONFIG_ID } from "../../../src/main/presenter/llmProviderPresenter/acp";
+import { LEGACY_MODE_CONFIG_ID } from "@argos/acp-runtime";
 import { ACP_WORKSPACE_EVENTS } from "../../../src/main/events";
 import { eventBus, SendTarget } from "@/eventbus";
 import type { AcpConfigState } from "@shared/types/presenters";

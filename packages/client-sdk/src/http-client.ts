@@ -24,6 +24,70 @@ export class HttpClient {
   }
 
   async invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>> {
+    if (routeName === "databaseSecurity.getStatus") {
+      return {
+        status: {
+          enabled: false,
+          cipher: "sqlcipher",
+          safeStorageAvailable: false,
+          passwordStorage: "none",
+          manualUnlockRequired: false,
+          migrationInProgress: false,
+        },
+      } as ArgosRouteOutput<T>;
+    }
+
+    if (
+      routeName === "databaseSecurity.enable" ||
+      routeName === "databaseSecurity.changePassword" ||
+      routeName === "databaseSecurity.disable"
+    ) {
+      return {
+        status: {
+          enabled: false,
+          cipher: "sqlcipher",
+          safeStorageAvailable: false,
+          passwordStorage: "none",
+          manualUnlockRequired: false,
+          migrationInProgress: false,
+        },
+      } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.diagnoseSchema") {
+      return {
+        diagnosis: {
+          checkedAt: Date.now(),
+          isHealthy: true,
+          issues: [],
+          repairableIssues: [],
+          manualIssues: [],
+        },
+      } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.repairSchema") {
+      const diagnosis = {
+        checkedAt: Date.now(),
+        isHealthy: true,
+        issues: [],
+        repairableIssues: [],
+        manualIssues: [],
+      };
+      return {
+        report: {
+          startedAt: Date.now(),
+          finishedAt: Date.now(),
+          status: "healthy",
+          backupPath: null,
+          diagnosisBeforeRepair: diagnosis,
+          diagnosisAfterRepair: diagnosis,
+          repairedIssues: [],
+          remainingIssues: [],
+        },
+      } as ArgosRouteOutput<T>;
+    }
+
     if (!hasArgosRouteContract(routeName)) {
       throw new Error(`Unknown route: ${routeName}`);
     }

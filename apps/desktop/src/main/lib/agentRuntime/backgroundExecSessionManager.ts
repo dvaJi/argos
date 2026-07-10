@@ -5,11 +5,11 @@ import { fileURLToPath } from "url";
 import type { UtilityProcess } from "electron";
 import { nanoid } from "nanoid";
 import logger from "./backgroundExecLogger";
-import { getUserShell } from "./shellEnvHelper";
 import { createUtf8OutputDecoderPair, prepareShellCommandForUtf8Output } from "./shellOutputEncoding";
 import { describeSpawnFailure, resolveUsableSpawnCwd } from "./spawnGuard";
-import { terminateProcessTree } from "./processTree";
 import { resolveSessionDir } from "./sessionPaths";
+import { terminateProcessTree } from "@argos/backend-core";
+import { getUserShell } from "@argos/backend-core/runtime/shellEnv";
 
 // Configuration with environment variable support
 const FOREGROUND_PREVIEW_CHARS = 12000;

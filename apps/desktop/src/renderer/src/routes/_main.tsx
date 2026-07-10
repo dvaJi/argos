@@ -494,9 +494,12 @@ function MainLayout() {
       void routerInstance.navigate({ to: settingsPath as any });
     };
 
-    const offNav = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
+    const ipcRenderer = window?.electron?.ipcRenderer;
+    if (!ipcRenderer) return;
+
+    ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
     return () => {
-      offNav?.();
+      ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, handleSettingsNavigate);
     };
   }, [routerInstance]);
 

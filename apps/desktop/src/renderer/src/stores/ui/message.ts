@@ -295,9 +295,18 @@ export async function loadMessages(sessionId: string, desiredCountOverride?: num
   try {
     const restored = await restoreMessageWindow(sessionId, desiredCount, requestId);
     if (!restored) {
+      console.log("[chat] loadMessages: no restore result for", sessionId);
       return null;
     }
     const result = restored.messages;
+    console.log(
+      "[chat] loadMessages:",
+      result.length,
+      "messages for",
+      sessionId,
+      "| roles:",
+      result.map((m) => m.role).join(","),
+    );
     if (!isCurrentLoadRequest(requestId, sessionId)) {
       return null;
     }

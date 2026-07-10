@@ -8,9 +8,11 @@ import { handlePair, handleListSessions, handleRevokeSession, handleIssuePairing
 import { SessionAuthRepository } from "./host/session-auth-repository";
 import { BunPathResolver } from "./host/bun-paths";
 import { DaemonConfigPresenter } from "./host/daemonConfigPresenter";
+import { DaemonArgosAgentRuntime } from "./host/daemonArgosAgentRuntime";
 import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
+import { ProviderImportService } from "@argos/backend-core";
 import { BunProviderExecutionPort } from "./host/bun-provider-execution";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
@@ -18,9 +20,14 @@ import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
+import { DaemonRemoteControlConfig } from "./host/daemonRemoteControlConfig";
+import { DaemonPluginPresenter } from "./host/daemonPluginPresenter";
+import { DaemonScheduledTasks } from "./host/daemonScheduledTasks";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
+import type { ProviderExecutionPort } from "@argos/backend-core";
+import type { SendMessageInput, ToolInteractionResponse } from "@shared/types/agent-interface";
 import {
   parseArgs,
   mergeOptions,
@@ -29,6 +36,21 @@ import {
   resolveWebRoot,
   type DaemonOptions,
 } from "./lifecycle";
+
+type DaemonProviderExecutionPort = Required<
+  Pick<
+    ProviderExecutionPort,
+    | "sendMessage"
+    | "steerActiveTurn"
+    | "respondToolInteraction"
+    | "cancelGeneration"
+    | "testConnection"
+    | "generateCompletion"
+    | "transcribeAudio"
+    | "warmupAcpProcess"
+    | "getAcpProcessConfigOptions"
+  >
+>;
 
 const startTime = Date.now();
 
@@ -49,6 +71,24 @@ const MIME_TYPES: Record<string, string> = {
   ".woff": "font/woff",
   ".map": "application/json; charset=utf-8",
 };
+
+const CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    headers.set(key, value);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 function serveStaticWeb(webRoot: string, pathname: string): Response {
   const safePath = pathname
@@ -115,10 +155,16 @@ export async function startDaemon(options?: {
   const db = await initializeDatabase(paths.getDatabasePath());
 
   const eventPublisher = new BunEventPublisher();
-  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir(), paths.getDataDir());
+  const configPresenter = new DaemonConfigPresenter(paths.getConfigDir(), paths.getDataDir(), db);
+  await configPresenter.initializeMcpHeadlessDefaults();
+
+  const argosAgentRuntimeHost = new DaemonArgosAgentRuntime(db);
+  argosAgentRuntimeHost.ensureBuiltinAgent();
+  configPresenter.setArgosAgentRuntime(argosAgentRuntimeHost.runtime);
+  logger.info("[daemon] Argos agent runtime initialized");
 
   const { BunSessionRepository } = await import("./host/bun-session-repository");
-  const sessionRepository = new BunSessionRepository(db);
+  const sessionRepository = new BunSessionRepository(db, eventPublisher);
 
   const sessions = await sessionRepository.list();
   logger.info(`[daemon] Restored ${sessions.length} session(s) from database`);
@@ -128,7 +174,7 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository);
+  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
@@ -137,7 +183,7 @@ export async function startDaemon(options?: {
 
   // Route execution by session provider: ACP-backed sessions go to the ACP port,
   // everything else to the HTTP/LLM port.
-  const providerExecutionPort: typeof httpProviderExecutionPort = {
+  const providerExecutionPort: DaemonProviderExecutionPort = {
     ...httpProviderExecutionPort,
     async sendMessage(sessionId, content) {
       const session = await sessionRepository.get(sessionId);
@@ -145,11 +191,40 @@ export async function startDaemon(options?: {
         ? acpProviderExecutionPort.sendMessage(sessionId, content)
         : httpProviderExecutionPort.sendMessage(sessionId, content);
     },
+    async steerActiveTurn(sessionId, content) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.steerActiveTurn(sessionId, content)
+        : httpProviderExecutionPort.steerActiveTurn(sessionId, content);
+    },
+    async respondToolInteraction(sessionId, messageId, toolCallId, response) {
+      const session = await sessionRepository.get(sessionId);
+      return (session as any)?.providerId === "acp"
+        ? acpProviderExecutionPort.respondToolInteraction(sessionId, messageId, toolCallId, response)
+        : httpProviderExecutionPort.respondToolInteraction(sessionId, messageId, toolCallId, response);
+    },
     async cancelGeneration(sessionId) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
         ? acpProviderExecutionPort.cancelGeneration(sessionId)
         : httpProviderExecutionPort.cancelGeneration(sessionId);
+    },
+    async testConnection(providerId, modelId) {
+      return providerId === "acp"
+        ? acpProviderExecutionPort.testConnection(providerId, modelId)
+        : httpProviderExecutionPort.testConnection(providerId, modelId);
+    },
+    async generateCompletion(input) {
+      return httpProviderExecutionPort.generateCompletion(input);
+    },
+    async transcribeAudio(providerId, modelId, audioBase64, mimeType, filename) {
+      return httpProviderExecutionPort.transcribeAudio(providerId, modelId, audioBase64, mimeType, filename);
+    },
+    async warmupAcpProcess(agentId, workdir) {
+      return acpProviderExecutionPort.warmupAcpProcess(agentId, workdir);
+    },
+    async getAcpProcessConfigOptions(agentId, workdir) {
+      return acpProviderExecutionPort.getAcpProcessConfigOptions(agentId, workdir);
     },
   };
 
@@ -159,6 +234,9 @@ export async function startDaemon(options?: {
     appVersion: resolveDaemonVersion(),
     eventPublisher,
     configPresenter,
+    configDir: paths.getConfigDir(),
+    sessionRepository,
+    db,
   });
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
   const skillRuntime = new DaemonSkillRuntime({
@@ -166,17 +244,39 @@ export async function startDaemon(options?: {
     appVersion: resolveDaemonVersion(),
     eventPublisher,
     configPresenter,
+    sessionRepository,
   });
   const syncRuntime = new DaemonSyncRuntime({
     dataDir: paths.getDataDir(),
     configDir: paths.getConfigDir(),
     eventPublisher,
   });
+  const scheduledTasks = new DaemonScheduledTasks({
+    configPresenter,
+    eventPublisher,
+    sessionRepository,
+    providerExecutionPort,
+  });
+  scheduledTasks.start();
   const memoryRuntime = new DaemonMemoryRuntime({
     db,
     configPresenter,
     dataDir: paths.getDataDir(),
   });
+  const remoteControlConfig = new DaemonRemoteControlConfig({
+    configPresenter: configPresenter as any,
+    dataDir: paths.getDataDir(),
+  });
+  const pluginPresenter = new DaemonPluginPresenter({
+    configPresenter,
+    mcpPresenter: mcpRuntime,
+    skillPresenter: skillRuntime.presenter,
+    configDir: paths.getConfigDir(),
+    dataDir: paths.getDataDir(),
+    appVersion: resolveDaemonVersion(),
+  });
+  await pluginPresenter.initialize();
+  const providerImportService = new ProviderImportService(configPresenter as any);
 
   const dispatcher =
     options?.dispatcher ??
@@ -185,10 +285,16 @@ export async function startDaemon(options?: {
       eventPublisher,
       sessionRepository,
       providerExecutionPort,
+      acpProviderExecutionPort as any,
       mcpRuntime,
       skillRuntime,
+      scheduledTasks,
       syncRuntime,
       memoryRuntime,
+      remoteControlConfig,
+      pluginPresenter,
+      providerImportService,
+      db,
     );
   setRouteDispatcher(dispatcher);
 
@@ -216,37 +322,43 @@ export async function startDaemon(options?: {
         });
       }
 
+      if (url.pathname.startsWith("/api/") && request.method === "OPTIONS") {
+        return withCors(new Response(null, { status: 204 }));
+      }
+
       if (webRoot && !url.pathname.startsWith("/api/")) {
         return serveStaticWeb(webRoot, url.pathname);
       }
 
       if (url.pathname === "/api/v1/pair" && request.method === "POST") {
-        return handlePair(request, sessionAuthRepo);
+        return withCors(await handlePair(request, sessionAuthRepo));
       }
 
       const authResult = await authorize(request, authConfig);
       if (!authResult.ok) {
-        return Response.json(
-          { ok: false, error: { code: authResult.code, message: authResult.message } },
-          { status: authResult.status },
+        return withCors(
+          Response.json(
+            { ok: false, error: { code: authResult.code, message: authResult.message } },
+            { status: authResult.status },
+          ),
         );
       }
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
-        return handleRouteDispatch(request);
+        return withCors(await handleRouteDispatch(request));
       }
 
       if (url.pathname === "/api/v1/sessions" && request.method === "GET") {
-        return handleListSessions(sessionAuthRepo);
+        return withCors(await handleListSessions(sessionAuthRepo));
       }
 
       if (url.pathname === "/api/v1/pair/token" && request.method === "POST") {
-        return handleIssuePairingToken(sessionAuthRepo, url.origin);
+        return withCors(await handleIssuePairingToken(sessionAuthRepo, url.origin));
       }
 
       if (url.pathname.startsWith("/api/v1/sessions/") && request.method === "DELETE") {
         const sessionId = url.pathname.slice("/api/v1/sessions/".length);
-        return handleRevokeSession(sessionAuthRepo, sessionId);
+        return withCors(await handleRevokeSession(sessionAuthRepo, sessionId));
       }
 
       if (url.pathname === "/api/v1/events") {
@@ -257,15 +369,19 @@ export async function startDaemon(options?: {
           },
         });
         if (!success) {
-          return Response.json(
-            { ok: false, error: { code: "upgrade_failed", message: "WebSocket upgrade failed" } },
-            { status: 500 },
+          return withCors(
+            Response.json(
+              { ok: false, error: { code: "upgrade_failed", message: "WebSocket upgrade failed" } },
+              { status: 500 },
+            ),
           );
         }
         return undefined as unknown as Response;
       }
 
-      return Response.json({ ok: false, error: { code: "not_found", message: "Unknown route" } }, { status: 404 });
+      return withCors(
+        Response.json({ ok: false, error: { code: "not_found", message: "Unknown route" } }, { status: 404 }),
+      );
     },
     websocket: {
       open(ws: any) {
@@ -339,7 +455,17 @@ export async function startDaemon(options?: {
     });
   }
 
-  setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() }, () => {
+  setupGracefulShutdown(eventPublisher, { stop: () => (server as any).stop() }, async () => {
+    try {
+      scheduledTasks.stop();
+    } catch {
+      logger.warn("[daemon] Failed to stop scheduled tasks cleanly");
+    }
+    try {
+      await pluginPresenter.shutdown();
+    } catch {
+      logger.warn("[daemon] Failed to shut down plugin presenter cleanly");
+    }
     try {
       db.close();
       logger.info("[daemon] Database closed");
@@ -351,6 +477,8 @@ export async function startDaemon(options?: {
   return {
     port: serverPort,
     close: async () => {
+      scheduledTasks.stop();
+      await pluginPresenter.shutdown();
       (server as any).stop();
     },
     eventPublisher,
@@ -389,7 +517,7 @@ Options:
   --host <host>       Bind address (default: 127.0.0.1)
   --port <port>       Bind port (default: 9527, 0 for auto)
   --data-dir <path>   Data directory (default: ~/.argos-daemon)
-  --web               Serve the web UI (uses --web-root, ./web, apps/desktop/out/web, or exe-dir/web)
+  --web               Serve the web UI (uses --web-root, ./web, ../../apps/desktop/out/web, or exe-dir/web)
   --web-root <path>   Web asset directory containing index.html
   --pair              Generate a one-time pairing token and print the URL
   --log-level <level> Log level: debug, info, warn, error (default: info)

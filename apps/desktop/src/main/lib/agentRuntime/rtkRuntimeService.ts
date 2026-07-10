@@ -12,7 +12,7 @@ import type {
   UsageDashboardRtkSummary,
 } from "@shared/types/agent-interface";
 import logger from "@shared/logger";
-import { getShellEnvironment, mergeCommandEnvironment } from "./shellEnvHelper";
+import { getShellEnvironment, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import { RuntimeHelper } from "../runtimeHelper";
 
 const RTK_ENABLED_SETTING_KEY = "rtkEnabled";

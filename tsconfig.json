@@ -9,10 +9,9 @@
     }
   ],
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@shadcn/*": [
-        "apps/desktop/src/shadcn/*"
+        "./apps/desktop/src/shadcn/*"
       ]
     }
   }

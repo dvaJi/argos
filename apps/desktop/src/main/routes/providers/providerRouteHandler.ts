@@ -1,4 +1,4 @@
-import type { IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
+import type { ILlmProviderPresenter } from "@shared/presenter";
 import {
   providersAddRoute,
   providersGetAcpProcessConfigOptionsRoute,
@@ -18,90 +18,58 @@ import {
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
 } from "@shared/contracts/routes";
-import type { ProviderImportService } from "./providerImportService";
+import type { ProviderImportService } from "@argos/backend-core";
 
 export async function dispatchProviderRoute(
   deps: {
-    configPresenter: IConfigPresenter;
     llmProviderPresenter: ILlmProviderPresenter;
     providerImportService: ProviderImportService;
+    invokeDaemonRoute: (routeName: string, rawInput: unknown) => Promise<unknown>;
   },
   routeName: string,
   rawInput: unknown,
 ): Promise<unknown> {
-  const { configPresenter, llmProviderPresenter, providerImportService } = deps;
-  const toProviderSummary = (provider: ReturnType<typeof configPresenter.getProviders>[number]) => {
-    const {
-      models: _models,
-      customModels: _customModels,
-      enabledModels: _enabledModels,
-      disabledModels: _disabledModels,
-      ...summary
-    } = provider;
-    return summary;
-  };
+  const { llmProviderPresenter, providerImportService, invokeDaemonRoute } = deps;
 
   switch (routeName) {
     case providersListRoute.name: {
-      providersListRoute.input.parse(rawInput);
-      return providersListRoute.output.parse({
-        providers: configPresenter.getProviders(),
-      });
+      const input = providersListRoute.input.parse(rawInput);
+      return providersListRoute.output.parse(await invokeDaemonRoute(providersListRoute.name, input));
     }
 
     case providersListSummariesRoute.name: {
-      providersListSummariesRoute.input.parse(rawInput);
-      return providersListSummariesRoute.output.parse({
-        providers: configPresenter.getProviders().map(toProviderSummary),
-      });
+      const input = providersListSummariesRoute.input.parse(rawInput);
+      return providersListSummariesRoute.output.parse(await invokeDaemonRoute(providersListSummariesRoute.name, input));
     }
 
     case providersListDefaultsRoute.name: {
-      providersListDefaultsRoute.input.parse(rawInput);
-      return providersListDefaultsRoute.output.parse({
-        providers: configPresenter.getDefaultProviders(),
-      });
+      const input = providersListDefaultsRoute.input.parse(rawInput);
+      return providersListDefaultsRoute.output.parse(await invokeDaemonRoute(providersListDefaultsRoute.name, input));
     }
 
     case providersSetByIdRoute.name: {
       const input = providersSetByIdRoute.input.parse(rawInput);
-      configPresenter.setProviderById(input.providerId, input.provider);
-      return providersSetByIdRoute.output.parse({
-        provider: configPresenter.getProviderById(input.providerId) ?? input.provider,
-      });
+      return providersSetByIdRoute.output.parse(await invokeDaemonRoute(providersSetByIdRoute.name, input));
     }
 
     case providersUpdateRoute.name: {
       const input = providersUpdateRoute.input.parse(rawInput);
-      const requiresRebuild = configPresenter.updateProviderAtomic(input.providerId, input.updates);
-      return providersUpdateRoute.output.parse({
-        provider: configPresenter.getProviderById(input.providerId),
-        requiresRebuild,
-      });
+      return providersUpdateRoute.output.parse(await invokeDaemonRoute(providersUpdateRoute.name, input));
     }
 
     case providersAddRoute.name: {
       const input = providersAddRoute.input.parse(rawInput);
-      configPresenter.addProviderAtomic(input.provider);
-      return providersAddRoute.output.parse({
-        provider: configPresenter.getProviderById(input.provider.id) ?? input.provider,
-      });
+      return providersAddRoute.output.parse(await invokeDaemonRoute(providersAddRoute.name, input));
     }
 
     case providersRemoveRoute.name: {
       const input = providersRemoveRoute.input.parse(rawInput);
-      configPresenter.removeProviderAtomic(input.providerId);
-      return providersRemoveRoute.output.parse({
-        removed: true,
-      });
+      return providersRemoveRoute.output.parse(await invokeDaemonRoute(providersRemoveRoute.name, input));
     }
 
     case providersReorderRoute.name: {
       const input = providersReorderRoute.input.parse(rawInput);
-      configPresenter.reorderProvidersAtomic(input.providers);
-      return providersReorderRoute.output.parse({
-        providers: configPresenter.getProviders(),
-      });
+      return providersReorderRoute.output.parse(await invokeDaemonRoute(providersReorderRoute.name, input));
     }
 
     case providersGetRateLimitStatusRoute.name: {
@@ -113,10 +81,7 @@ export async function dispatchProviderRoute(
 
     case providersRefreshModelsRoute.name: {
       const input = providersRefreshModelsRoute.input.parse(rawInput);
-      await llmProviderPresenter.refreshModels(input.providerId);
-      return providersRefreshModelsRoute.output.parse({
-        refreshed: true,
-      });
+      return providersRefreshModelsRoute.output.parse(await invokeDaemonRoute(providersRefreshModelsRoute.name, input));
     }
 
     case providersListOllamaModelsRoute.name: {
@@ -145,17 +110,16 @@ export async function dispatchProviderRoute(
 
     case providersWarmupAcpProcessRoute.name: {
       const input = providersWarmupAcpProcessRoute.input.parse(rawInput);
-      await llmProviderPresenter.warmupAcpProcess(input.agentId, input.workdir);
-      return providersWarmupAcpProcessRoute.output.parse({
-        warmedUp: true,
-      });
+      return providersWarmupAcpProcessRoute.output.parse(
+        await invokeDaemonRoute(providersWarmupAcpProcessRoute.name, input),
+      );
     }
 
     case providersGetAcpProcessConfigOptionsRoute.name: {
       const input = providersGetAcpProcessConfigOptionsRoute.input.parse(rawInput);
-      return providersGetAcpProcessConfigOptionsRoute.output.parse({
-        state: await llmProviderPresenter.getAcpProcessConfigOptions(input.agentId, input.workdir),
-      });
+      return providersGetAcpProcessConfigOptionsRoute.output.parse(
+        await invokeDaemonRoute(providersGetAcpProcessConfigOptionsRoute.name, input),
+      );
     }
 
     case providersImportScanRoute.name: {

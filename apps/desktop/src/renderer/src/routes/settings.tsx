@@ -45,15 +45,31 @@ const SETTINGS_SECTION_EVENT = "argos:settings-section";
 const browserMode = isBrowserMode();
 const BROWSER_SUPPORTED_SETTINGS = new Set<SettingsNavigationItem["routeName"]>([
   "settings-overview",
+  "settings-common",
+  "settings-display",
+  "settings-environments",
   "settings-provider",
+  "settings-argos-agents",
+  "settings-acp",
+  "settings-mcp",
+  "settings-server",
+  "settings-notifications-hooks",
+  "settings-scheduled-tasks",
+  "settings-skills",
+  "settings-prompt",
+  "settings-knowledge-base",
+  "settings-database",
+  "settings-shortcut",
+  "settings-about",
 ]);
 
 function isSettingAvailableInCurrentRuntime(routeName: SettingsNavigationItem["routeName"]): boolean {
-  if (!browserMode) {
-    return true;
-  }
+  void routeName; // referenced when the BROWSER_SUPPORTED_SETTINGS gate below is re-enabled
+  // if (!browserMode) {
+  return true;
+  // }
 
-  return BROWSER_SUPPORTED_SETTINGS.has(routeName);
+  // return BROWSER_SUPPORTED_SETTINGS.has(routeName);
 }
 
 function BrowserUnsupportedSettingsPage({ routeName }: { routeName: SettingsNavigationItem["routeName"] }) {
@@ -147,24 +163,23 @@ function SettingsLayout() {
     [],
   );
 
-  const settingGroups = useMemo(
-    () =>
-      getSettingsNavigationGroups()
-        .map((group) => ({
-          key: group.key,
-          titleKey: resolveTitle(group.titleKey),
-          items: group.items
-            .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
-            .map((item) => ({
-              title: resolveTitle(item.titleKey),
-              name: item.routeName,
-              icon: item.icon,
-              path: resolveSettingsNavigationPath(item.routeName),
-            })),
-        }))
-        .filter((group) => group.items.length > 0),
-    [],
-  );
+  const settingGroups = useMemo(() => {
+    const groups = getSettingsNavigationGroups()
+      .map((group) => ({
+        key: group.key,
+        titleKey: resolveTitle(group.titleKey),
+        items: group.items
+          .filter((item) => isSettingAvailableInCurrentRuntime(item.routeName))
+          .map((item) => ({
+            title: resolveTitle(item.titleKey),
+            name: item.routeName,
+            icon: item.icon,
+            path: resolveSettingsNavigationPath(item.routeName),
+          })),
+      }))
+      .filter((group) => group.items.length > 0);
+    return groups;
+  }, []);
 
   const pendingProviderImportPreview = providerDeeplinkImportState.preview;
   const pendingProviderImportToken = providerDeeplinkImportState.previewToken;
@@ -419,12 +434,15 @@ function SettingsLayout() {
       void handleProviderInstall();
     };
 
-    const offNav = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-    const offInst = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
+    const ipcRenderer = window?.electron?.ipcRenderer;
+    if (!ipcRenderer) return;
+
+    ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+    ipcRenderer.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
 
     return () => {
-      offNav?.();
-      offInst?.();
+      ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+      ipcRenderer.removeListener?.(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
     };
   }, [handleSettingsNavigate, handleProviderInstall]);
 

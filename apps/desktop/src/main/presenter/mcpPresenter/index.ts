@@ -13,9 +13,7 @@ import {
   McpSamplingRequestPayload,
   McpSamplingDecision,
 } from "@shared/presenter";
-import { ServerManager } from "./serverManager";
-import { ToolManager } from "./toolManager";
-import { McpRouterManager } from "./mcprouterManager";
+import { McpRouterManager, ServerManager, ToolManager } from "@argos/mcp-runtime";
 import { createDesktopMcpPorts } from "./desktopMcpPorts";
 import { eventBus, SendTarget } from "@/eventbus";
 import { MCP_EVENTS, NOTIFICATION_EVENTS } from "@/events";

@@ -1,83 +1,48 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HybridBridge, WebSocketBridgeAdapter } from "../../../src/preload/hybridBridge";
+import { describe, it, expect, vi } from "vitest";
+import { HybridBridge } from "../../../src/preload/hybridBridge";
 import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@shared/contracts/connection";
-
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readyState = MockWebSocket.CONNECTING;
-  url: string;
-  onopen: ((ev: Event) => void) | null = null;
-  onclose: ((ev: CloseEvent) => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
-  onerror: ((ev: Event) => void) | null = null;
-  sentMessages: string[] = [];
-
-  constructor(url: string) {
-    this.url = url;
-  }
-
-  send(data: string): void {
-    this.sentMessages.push(data);
-  }
-
-  close(): void {
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.(new CloseEvent("close"));
-  }
-
-  simulateOpen(): void {
-    this.readyState = MockWebSocket.OPEN;
-    this.onopen?.(new Event("open"));
-  }
-
-  simulateClose(): void {
-    this.readyState = MockWebSocket.CLOSED;
-    this.onclose?.(new CloseEvent("close"));
-  }
-}
-
-let originalWebSocket: typeof WebSocket;
 const noopBridge = {
   invoke: vi.fn<() => Promise<unknown>>(),
   on: vi.fn<() => () => void>(() => () => {}),
 } as any;
 
-let currentMockWs: MockWebSocket | null = null;
-
-function passthroughWebSocketFactory(this: unknown, url: string): MockWebSocket {
-  currentMockWs = new MockWebSocket(url);
-  return currentMockWs;
-}
-
-beforeEach(() => {
-  originalWebSocket = globalThis.WebSocket;
-  currentMockWs = null;
-  (globalThis as any).WebSocket = passthroughWebSocketFactory;
-});
-
-afterEach(() => {
-  (globalThis as any).WebSocket = originalWebSocket;
-});
-
 async function openRemoteSession(): Promise<{
   bridge: HybridBridge;
-  adapter: WebSocketBridgeAdapter;
-  mock: MockWebSocket;
+  wsBridge: {
+    getUrl: () => string;
+    isConnected: () => boolean;
+    onConnectionStateChange: (listener: (state: ConnectionState) => void) => () => void;
+    close: () => void;
+  };
+  emitState: (state: ConnectionState) => void;
 }> {
   const bridge = new HybridBridge(noopBridge);
-  const adapter = new WebSocketBridgeAdapter("ws://test:1/api/v1/events");
-  const connectPromise = (async () => {
-    bridge.setWsBridge(adapter, "remote");
-    await adapter.connect();
-  })();
-  if (!currentMockWs) throw new Error("Mock socket not created");
-  currentMockWs.simulateOpen();
-  await connectPromise;
-  return { bridge, adapter, mock: currentMockWs };
+  let listener: ((state: ConnectionState) => void) | null = null;
+  const wsBridge = {
+    getUrl: () => "ws://test:1/api/v1/events",
+    isConnected: () => true,
+    onConnectionStateChange: (nextListener: (state: ConnectionState) => void) => {
+      listener = nextListener;
+      nextListener({
+        mode: "remote",
+        url: "ws://test:1/api/v1/events",
+        connected: true,
+        lastError: null,
+      });
+      return () => {
+        listener = null;
+      };
+    },
+    close: vi.fn(),
+  };
+  bridge.setWsBridge(wsBridge as any, "remote");
+  return {
+    bridge,
+    wsBridge,
+    emitState: (state: ConnectionState) => {
+      listener?.(state);
+    },
+  };
 }
 
 describe("HybridBridge connection state", () => {
@@ -116,27 +81,20 @@ describe("HybridBridge connection state", () => {
     expect(bridge.getConnectionState().url).toBeNull();
   });
 
-  it("a WebSocket close before disconnect schedules a reconnect; disconnect cancels it", async () => {
-    vi.useFakeTimers();
-    try {
-      const { mock, adapter, bridge } = await openRemoteSession();
-      expect(bridge.getConnectionState().connected).toBe(true);
-
-      // First instance closes. The adapter should schedule a reconnect 3s later.
-      const firstMock = mock;
-      firstMock.simulateClose();
-      expect(bridge.getConnectionState().connected).toBe(false);
-
-      // Disconnect the adapter before the reconnect timer fires.
-      adapter.disconnect();
-      await vi.advanceTimersByTimeAsync(10_000);
-
-      // No new mock socket should have been constructed after the disconnect.
-      // (currentMockWs is the latest; it should still be the first one we made.)
-      expect(currentMockWs).toBe(firstMock);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("updates connection state from ws bridge notifications", async () => {
+    const { bridge, emitState } = await openRemoteSession();
+    emitState({
+      mode: "remote",
+      url: "ws://test:1/api/v1/events",
+      connected: false,
+      lastError: "WebSocket connection failed",
+    });
+    expect(bridge.getConnectionState()).toMatchObject({
+      mode: "remote",
+      url: "ws://test:1/api/v1/events",
+      connected: false,
+      lastError: "WebSocket connection failed",
+    });
   });
 
   it("routes daemon-owned invokes through the WebSocket bridge once attached", async () => {
@@ -150,10 +108,10 @@ describe("HybridBridge connection state", () => {
     bridge.setWsBridge(
       {
         connect: vi.fn(() => Promise.resolve()),
-        disconnect: vi.fn(),
+        close: vi.fn(),
         getUrl: () => "ws://test:1/api/v1/events",
         isConnected: () => false,
-        setConnectionStateSink: vi.fn(),
+        onConnectionStateChange: vi.fn(() => () => {}),
         invoke: wsInvoke,
         on: vi.fn(() => () => {}),
       } as any,

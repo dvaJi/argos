@@ -1,4 +1,4 @@
-import type { ArgosAgentConfig, ArgosSubagentSlot } from "@shared/types/agent-interface";
+import { ArgosAgentConfig, ArgosSubagentSlot } from "../types/agent-interface";
 
 export const ARGOS_SUBAGENT_SLOT_LIMIT = 5;
 export const ARGOS_SELF_SUBAGENT_SLOT_ID = "self";

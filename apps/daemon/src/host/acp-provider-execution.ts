@@ -1,14 +1,38 @@
 import type { ProviderExecutionPort, IEventPublisher } from "@argos/backend-core";
-import type { SendMessageInput, MessageStartResult } from "@shared/types/agent-interface";
-import type { ToolInteractionResponse, ToolInteractionResult } from "@argos/backend-core";
+import type {
+  SendMessageInput,
+  MessageStartResult,
+  ToolInteractionResponse,
+  ToolInteractionResult,
+} from "@shared/types/agent-interface";
 import type * as schema from "@agentclientprotocol/sdk";
-import { AcpSessionPersistence, createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
+import { randomUUID } from "node:crypto";
+import {
+  getAcpConfigOption,
+  getLegacyModeState,
+  hasAcpConfigStateData,
+  AcpContentMapper,
+  normalizeAcpConfigState,
+  updateAcpConfigStateValue,
+} from "@argos/acp-runtime";
+import { createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
+import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
+import type { AcpSessionRecord } from "@argos/acp-runtime/session/acpSessionManager";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
+import { methods as acpMethods } from "@agentclientprotocol/sdk";
+import type { AcpConfigState } from "@shared/presenter";
 
 const ACP_PROVIDER_ID = "acp";
+
+type PendingAcpPermission = {
+  sessionId: string;
+  toolCallId: string;
+  options: schema.PermissionOption[];
+  resolve: (response: schema.RequestPermissionResponse) => void;
+};
 
 /**
  * Daemon ACP execution adapter. Spawns and drives ACP agents via the shared
@@ -22,6 +46,8 @@ const ACP_PROVIDER_ID = "acp";
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
   private activeTurns = new Map<string, AbortController>();
+  private pendingPermissions = new Map<string, PendingAcpPermission>();
+  private readonly contentMapper = new AcpContentMapper();
 
   constructor(
     private readonly configPresenter: DaemonConfigPresenter,
@@ -48,10 +74,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           appVersion: this.deps.appVersion,
           eventPublisher: this.eventPublisher,
         });
-        const sessionPersistence = new AcpSessionPersistence(
-          createDaemonAcpSqlitePresenter(this.deps.db),
-          () => ports.paths.homeDir(),
-          () => ports.paths.homeDir(),
+        const sessionPersistence = new AcpSessionPersistence(createDaemonAcpSqlitePresenter(this.deps.db), () =>
+          ports.paths.homeDir(),
         );
         const acpProvider = (
           this.configPresenter as unknown as { getProviderById(id: string): unknown }
@@ -67,6 +91,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     return this.runtimePromise;
   }
 
+  private async getSessionRecord(conversationId: string): Promise<AcpSessionRecord | null> {
+    const runtime = await this.getRuntime();
+    return runtime.sessionManager.getSession(conversationId);
+  }
+
   async sendMessage(sessionId: string, content: string | SendMessageInput): Promise<MessageStartResult> {
     const session = await this.sessionRepository.get(sessionId);
     if (!session) throw new Error(`Session not found: ${sessionId}`);
@@ -79,15 +108,37 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     const text = typeof content === "string" ? content : content.text || "";
     const prompt: schema.ContentBlock[] = [{ type: "text", text }];
 
+    const requestId = randomUUID();
+    const assistantMessageId = randomUUID();
+
+    // Persist the user message as JSON ({text, files}).
+    await this.sessionRepository.addMessage(sessionId, "user", JSON.stringify({ text, files: [] }));
+
     const runtime = await this.getRuntime();
     const controller = new AbortController();
     this.activeTurns.set(sessionId, controller);
 
-    void this.runTurn(runtime, sessionId, agent, prompt, controller).finally(() => {
+    void this.runTurn(runtime, sessionId, agent, prompt, controller, requestId, assistantMessageId).finally(() => {
       this.activeTurns.delete(sessionId);
     });
 
-    return { accepted: true, requestId: null, messageId: null };
+    return { requestId, messageId: assistantMessageId };
+  }
+
+  async warmupAcpProcess(agentId: string, workdir?: string): Promise<void> {
+    const runtime = await this.getRuntime();
+    const agents = (await this.configPresenter.getAcpAgents()) as Array<{ id: string; name: string }>;
+    const agent = agents.find((entry) => entry.id === agentId);
+    if (!agent) {
+      throw new Error(`ACP agent not found for model ${agentId}`);
+    }
+
+    await runtime.processManager.warmupProcess(agent as never, workdir);
+  }
+
+  async getAcpProcessConfigOptions(agentId: string, workdir?: string): Promise<AcpConfigState | null> {
+    const runtime = await this.getRuntime();
+    return runtime.processManager.getProcessConfigState(agentId, workdir) ?? null;
   }
 
   private async runTurn(
@@ -96,33 +147,300 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     agent: { id: string; name: string },
     prompt: schema.ContentBlock[],
     controller: AbortController,
+    requestId: string,
+    assistantMessageId: string,
   ): Promise<void> {
+    let accumulatedText = "";
+    const streamedBlocks: Array<Record<string, unknown>> = [];
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
         agent: agent as never,
         prompt,
+        onPermission: (params) => this.handlePermissionRequest(sessionId, assistantMessageId, requestId, params),
       })) {
         if (controller.signal.aborted) break;
-        this.eventPublisher.publish("chat.stream", { sessionId, notification });
+
+        const mapped = this.contentMapper.map(notification);
+        for (const block of mapped.blocks) {
+          if (block.type === "content") {
+            accumulatedText += block.content ?? "";
+          } else if (block.type === "reasoning_content" && streamedBlocks.at(-1)?.type === "reasoning_content") {
+            const previous = streamedBlocks.at(-1);
+            if (previous) {
+              previous.content = `${previous.content ?? ""}${block.content ?? ""}`;
+            }
+          } else {
+            streamedBlocks.push(block);
+          }
+        }
+
+        // Emit progressive snapshot so the renderer shows streaming text.
+        const now = Date.now();
+        this.eventPublisher.publish("chat.stream.updated", {
+          kind: "snapshot",
+          requestId,
+          sessionId,
+          messageId: assistantMessageId,
+          updatedAt: now,
+          blocks: [{ type: "content", content: accumulatedText, status: "loading", timestamp: now }, ...streamedBlocks],
+        });
       }
-    } catch (error) {
-      this.eventPublisher.publish("chat.error", {
+
+      // Persist the assistant reply.
+      const replyBlocks = [
+        { type: "content", content: accumulatedText, status: "success", timestamp: Date.now() },
+        ...streamedBlocks,
+      ];
+      const persistedMessageId = await this.sessionRepository.addMessage(
         sessionId,
-        error: error instanceof Error ? error.message : String(error),
+        "assistant",
+        JSON.stringify(replyBlocks),
+      );
+
+      this.eventPublisher.publish("chat.stream.updated", {
+        kind: "snapshot",
+        requestId,
+        sessionId,
+        messageId: persistedMessageId,
+        updatedAt: Date.now(),
+        blocks: replyBlocks,
       });
-    } finally {
-      this.eventPublisher.publish("chat.stream.end", { sessionId });
+      this.eventPublisher.publish("chat.stream.completed", {
+        requestId,
+        sessionId,
+        messageId: persistedMessageId,
+        completedAt: Date.now(),
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.eventPublisher.publish("chat.stream.failed", {
+        requestId,
+        sessionId,
+        messageId: assistantMessageId,
+        failedAt: Date.now(),
+        error: errorMsg,
+      });
     }
   }
 
+  private pickPermissionResponse(
+    options: schema.PermissionOption[],
+    granted: boolean,
+  ): schema.RequestPermissionResponse {
+    const preferredKinds = granted
+      ? (["allow_once", "allow_always"] as const)
+      : (["reject_once", "reject_always"] as const);
+    const option = preferredKinds.map((kind) => options.find((candidate) => candidate.kind === kind)).find(Boolean);
+    return option
+      ? { outcome: { outcome: "selected", optionId: option.optionId } }
+      : { outcome: { outcome: "cancelled" } };
+  }
+
+  private async handlePermissionRequest(
+    sessionId: string,
+    messageId: string,
+    requestId: string,
+    params: schema.RequestPermissionRequest,
+  ): Promise<schema.RequestPermissionResponse> {
+    if ((await this.sessionRepository.getPermissionMode(sessionId)) === "full_access") {
+      return this.pickPermissionResponse(params.options, true);
+    }
+
+    const toolCallId = params.toolCall.toolCallId;
+    const toolName = params.toolCall.title?.trim() || toolCallId;
+    const toolArgs = params.toolCall.rawInput ? JSON.stringify(params.toolCall.rawInput) : "";
+    const now = Date.now();
+    this.eventPublisher.publish("chat.stream.updated", {
+      kind: "snapshot",
+      requestId,
+      sessionId,
+      messageId,
+      updatedAt: now,
+      blocks: [
+        {
+          type: "action",
+          action_type: "tool_call_permission",
+          content: `OpenCode requests permission to run ${toolName}.`,
+          status: "pending",
+          timestamp: now,
+          tool_call: { id: toolCallId, name: toolName, params: toolArgs },
+          extra: { needsUserAction: true, permissionRequestId: toolCallId, providerId: ACP_PROVIDER_ID },
+        },
+      ],
+    });
+
+    return await new Promise<schema.RequestPermissionResponse>((resolve) => {
+      this.pendingPermissions.set(toolCallId, { sessionId, toolCallId, options: params.options, resolve });
+    });
+  }
+
   async steerActiveTurn(_sessionId: string, _content: string | SendMessageInput): Promise<void> {
-    // ACP steering not yet wired in daemon mode.
+    await this.cancelGeneration(_sessionId);
+    await this.sendMessage(_sessionId, _content);
+  }
+
+  async getAcpSessionCommands(conversationId: string): Promise<
+    Array<{
+      name: string;
+      description: string;
+      input?: { hint: string } | null;
+    }>
+  > {
+    const session = await this.getSessionRecord(conversationId);
+    if (!session) {
+      return [];
+    }
+    return session.availableCommands ?? [];
+  }
+
+  async getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null> {
+    const session = await this.getSessionRecord(conversationId);
+    if (session?.configState) {
+      console.log(`[acp] getAcpSessionConfigOptions: in-memory session hit for ${conversationId}`);
+      return session.configState;
+    }
+
+    // Fallback: the ACP session may not exist in memory (e.g. after daemon
+    // restart). Derive the agent + workdir from the session record and read the
+    // process-level config state from the warmed-up process instead.
+    const sessionRow = await this.sessionRepository.get(conversationId);
+    if (!sessionRow) {
+      console.log(`[acp] getAcpSessionConfigOptions: no sessionRow for ${conversationId}`);
+      return null;
+    }
+    const agentId = sessionRow.modelId || "";
+    const workdir = sessionRow.projectDir || undefined;
+    console.log(`[acp] getAcpSessionConfigOptions: fallback agent=${agentId} workdir=${workdir}`);
+    if (!agentId) return null;
+    try {
+      // Ensure the process is warmed up first.
+      await this.warmupAcpProcess(agentId, workdir);
+      const runtime = await this.getRuntime();
+
+      // Config options (including model selection) come from `session/new`, not
+      // `initialize`. Create (or reuse) an ACP session to populate the config
+      // state, then read it from the process handle.
+      const agents = (await this.configPresenter.getAcpAgents()) as Array<{ id: string; name: string }>;
+      const agent = agents.find((a) => a.id === agentId);
+      if (agent) {
+        await runtime.sessionManager.getOrCreateSession(
+          conversationId,
+          agent as never,
+          {
+            onSessionUpdate: () => {},
+            onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+          },
+          workdir ?? null,
+        );
+      }
+
+      const state = runtime.processManager.getProcessConfigState(agentId, workdir) ?? null;
+      console.log(
+        `[acp] getAcpSessionConfigOptions: processConfigState=${state ? `${state.options?.length ?? 0} options` : "null"}`,
+      );
+      return state;
+    } catch (e) {
+      console.warn(`[acp] getAcpSessionConfigOptions: fallback failed:`, e);
+      return null;
+    }
+  }
+
+  async setAcpSessionConfigOption(
+    conversationId: string,
+    configId: string,
+    value: string | boolean,
+  ): Promise<AcpConfigState | null> {
+    const runtime = await this.getRuntime();
+    const session = runtime.sessionManager.getSession(conversationId);
+    if (!session) {
+      throw new Error(`ACP session not found: ${conversationId}`);
+    }
+
+    const option = getAcpConfigOption(session.configState, configId);
+    if (!option) {
+      throw new Error(`ACP config option "${configId}" is unavailable for conversation ${conversationId}`);
+    }
+
+    let nextConfigState: AcpConfigState | null = null;
+    if (configId === "__acp_legacy_mode__") {
+      if (typeof value !== "string") {
+        throw new Error("ACP legacy mode config option expects a string value");
+      }
+      await session.connection.agent.request(acpMethods.agent.session.setMode, {
+        sessionId: session.sessionId,
+        modeId: value,
+      });
+      session.currentModeId = value;
+      nextConfigState = updateAcpConfigStateValue(session.configState, configId, value) ?? session.configState ?? null;
+    } else if (configId === "__acp_legacy_model__") {
+      if (typeof value !== "string") {
+        throw new Error("ACP legacy model config option expects a string value");
+      }
+      const response = await session.connection.agent.request(acpMethods.agent.session.setConfigOption, {
+        sessionId: session.sessionId,
+        configId,
+        value,
+      });
+      const normalizedResponse = normalizeAcpConfigState({
+        configOptions: response.configOptions,
+      });
+      nextConfigState = hasAcpConfigStateData(normalizedResponse)
+        ? (updateAcpConfigStateValue(session.configState, configId, value) ?? normalizedResponse)
+        : (updateAcpConfigStateValue(session.configState, configId, value) ?? session.configState ?? null);
+    } else {
+      const response =
+        typeof value === "boolean"
+          ? await session.connection.agent.request(acpMethods.agent.session.setConfigOption, {
+              sessionId: session.sessionId,
+              configId,
+              type: "boolean",
+              value,
+            })
+          : await session.connection.agent.request(acpMethods.agent.session.setConfigOption, {
+              sessionId: session.sessionId,
+              configId,
+              value,
+            });
+
+      const normalizedResponse = normalizeAcpConfigState({
+        configOptions: response.configOptions,
+      });
+      nextConfigState = hasAcpConfigStateData(normalizedResponse)
+        ? normalizedResponse
+        : (updateAcpConfigStateValue(session.configState, configId, value) ?? session.configState ?? null);
+    }
+
+    if (!nextConfigState) {
+      return null;
+    }
+
+    session.configState = nextConfigState;
+
+    const legacyModeState = getLegacyModeState(nextConfigState);
+    if (legacyModeState) {
+      session.availableModes = legacyModeState.availableModes;
+      session.currentModeId = legacyModeState.currentModeId ?? session.currentModeId;
+    }
+
+    const updated = runtime.processManager.updateBoundProcessConfigState(conversationId, nextConfigState);
+    if (!updated) {
+      console.warn(
+        `[ACP] Bound process not found for conversation ${conversationId} while setting config option "${configId}".`,
+      );
+    }
+
+    return nextConfigState;
   }
 
   async cancelGeneration(sessionId: string): Promise<void> {
     const controller = this.activeTurns.get(sessionId);
     if (controller) controller.abort();
+    for (const [toolCallId, pending] of this.pendingPermissions) {
+      if (pending.sessionId !== sessionId) continue;
+      this.pendingPermissions.delete(toolCallId);
+      pending.resolve({ outcome: { outcome: "cancelled" } });
+    }
     try {
       const runtime = await this.getRuntime();
       await runtime.sessionManager.clearSession(sessionId);
@@ -132,11 +450,21 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   }
 
   async respondToolInteraction(
-    _sessionId: string,
+    sessionId: string,
     _messageId: string,
-    _toolCallId: string,
-    _response: ToolInteractionResponse,
+    toolCallId: string,
+    response: ToolInteractionResponse,
   ): Promise<ToolInteractionResult> {
+    const pending = this.pendingPermissions.get(toolCallId);
+    if (!pending || pending.sessionId !== sessionId) {
+      throw new Error(`ACP permission request not found: ${toolCallId}`);
+    }
+    if (response.kind !== "permission") {
+      throw new Error("ACP permission requests only accept permission responses.");
+    }
+
+    this.pendingPermissions.delete(toolCallId);
+    pending.resolve(this.pickPermissionResponse(pending.options, response.granted));
     return { handledInline: true };
   }
 

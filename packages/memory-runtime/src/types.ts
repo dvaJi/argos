@@ -184,7 +184,7 @@ export interface MemoryStatus {
 
 export interface MemoryPresenterDeps {
   repository: MemoryRepositoryPort;
-  resolveAgentConfig: (agentId: string) => ArgosAgentConfig | null;
+  resolveAgentConfig: (agentId: string) => Promise<ArgosAgentConfig | null> | ArgosAgentConfig | null;
   isManagedAgent?: (agentId: string) => boolean;
   getEmbeddings: (providerId: string, modelId: string, texts: string[]) => Promise<number[][]>;
   generateText: (providerId: string, modelId: string, prompt: string) => Promise<string>;

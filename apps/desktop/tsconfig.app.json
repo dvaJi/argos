@@ -25,6 +25,8 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
+    "noUnusedLocals": false,
+    "types": ["node"],
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
@@ -34,6 +36,9 @@
         "./src/renderer/api/*"
       ],
       "@shared/contracts/*": [
+        "../../packages/shared-contracts/src/*"
+      ],
+      "@argos/shared-contracts/*": [
         "../../packages/shared-contracts/src/*"
       ],
       "@shared/*": [

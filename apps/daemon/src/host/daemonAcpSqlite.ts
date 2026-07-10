@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ISQLitePresenter, AcpSessionEntity } from "@shared/presenter";
 
 type BunDatabase = {
@@ -100,10 +101,43 @@ export function createDaemonAcpSqlitePresenter(db: BunDatabase): ISQLitePresente
       db.prepare(`DELETE FROM acp_sessions WHERE conversation_id = ?`).run(conversationId);
     },
 
-    async createConversation(): Promise<string> {
-      throw new Error("daemon-side conversation creation not implemented");
+    async createConversation(title: string, settings: Partial<Record<string, unknown>> = {}): Promise<string> {
+      const conversationId = randomUUID();
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO daemon_sessions (id, agent_id, title, project_dir, permission_mode, is_pinned, is_draft, session_kind, parent_session_id, subagent_enabled, provider_id, model_id, status, created_at, updated_at, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        conversationId,
+        typeof settings.modelId === "string" && settings.modelId.trim() ? settings.modelId.trim() : "argos",
+        title?.trim() || "New Chat",
+        typeof settings.agentWorkspacePath === "string" && settings.agentWorkspacePath.trim()
+          ? settings.agentWorkspacePath.trim()
+          : null,
+        "default",
+        0,
+        0,
+        "regular",
+        null,
+        1,
+        typeof settings.providerId === "string" && settings.providerId.trim() ? settings.providerId.trim() : "",
+        typeof settings.modelId === "string" && settings.modelId.trim() ? settings.modelId.trim() : "",
+        "idle",
+        now,
+        now,
+        JSON.stringify({
+          chatMode: typeof settings.chatMode === "string" ? settings.chatMode : "acp agent",
+          providerId: typeof settings.providerId === "string" ? settings.providerId : "",
+          modelId: typeof settings.modelId === "string" ? settings.modelId : "",
+          systemPrompt: typeof settings.systemPrompt === "string" ? settings.systemPrompt : "",
+          acpWorkdirMap: settings.acpWorkdirMap ?? {},
+        }),
+      );
+      return conversationId;
     },
-    async deleteConversation(): Promise<void> {},
+    async deleteConversation(conversationId: string): Promise<void> {
+      db.prepare(`DELETE FROM daemon_sessions WHERE id = ?`).run(conversationId);
+    },
   };
 
   return presenter as unknown as ISQLitePresenter;

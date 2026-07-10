@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import type { MCPToolDefinition } from "@shared/presenter";
 import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
 import type { AgentPlanState, AgentPlanSnapshot, UpdatePlanArgs } from "@shared/types/agent-plan";
@@ -8,24 +8,24 @@ export const AGENT_CORE_TOOL_SERVER_NAME = "agent-core";
 
 const MAX_PLAN_ITEMS = 12;
 
-const planItemSchema = z.strictObject({
-  step: z
+const planItemSchema = zod.strictObject({
+  step: zod
     .string()
     .transform((value) => value.trim())
     .refine((value) => value.length > 0, "step must be a non-empty string"),
-  status: z.enum(["pending", "in_progress", "completed"]),
+  status: zod.enum(["pending", "in_progress", "completed"]),
 });
 
-export const updatePlanToolArgsSchema = z
+export const updatePlanToolArgsSchema = zod
   .strictObject({
-    explanation: z.string().optional(),
-    plan: z.array(planItemSchema).max(MAX_PLAN_ITEMS),
+    explanation: zod.string().optional(),
+    plan: zod.array(planItemSchema).max(MAX_PLAN_ITEMS),
   })
   .superRefine((value, context) => {
     const inProgressCount = value.plan.filter((item) => item.status === "in_progress").length;
     if (inProgressCount > 1) {
       context.issues.push({
-        code: z.ZodIssueCode.custom,
+        code: zod.ZodIssueCode.custom,
         path: ["plan"],
         message: "at most one step can be in_progress",
         input: undefined,
@@ -38,7 +38,7 @@ export interface AgentPlanToolCallOptions {
   onProgress?: (update: AgentToolProgressUpdate) => void;
 }
 
-const formatValidationError = (error: z.ZodError): string => {
+const formatValidationError = (error: zod.ZodError): string => {
   const firstIssue = error.issues[0];
   if (!firstIssue) {
     return "invalid update_plan arguments";
@@ -58,7 +58,7 @@ export class AgentPlanTool {
         name: UPDATE_PLAN_TOOL_NAME,
         description:
           "Update the visible progress checklist for the current multi-step task. Provide the complete current plan snapshot every time. Use short, concrete, verifiable steps. At most one step may be in_progress.",
-        parameters: z.toJSONSchema(updatePlanToolArgsSchema, { unrepresentable: "any" }) as {
+        parameters: zod.toJSONSchema(updatePlanToolArgsSchema, { unrepresentable: "any" }) as {
           type: string;
           properties: Record<string, unknown>;
           required?: string[];
@@ -142,7 +142,7 @@ export class AgentPlanTool {
     this.states.delete(conversationId);
   }
 
-  private normalizeArgs(args: z.output<typeof updatePlanToolArgsSchema>): UpdatePlanArgs {
+  private normalizeArgs(args: zod.output<typeof updatePlanToolArgsSchema>): UpdatePlanArgs {
     const explanation = args.explanation?.trim();
     return {
       ...(explanation ? { explanation } : {}),

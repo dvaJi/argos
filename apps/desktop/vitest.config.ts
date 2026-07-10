@@ -14,6 +14,7 @@ export default defineConfig({
       '@argos/backend-core/': resolve('../../packages/backend-core/src/'),
       '@argos/shared-contracts/': resolve('../../packages/shared-contracts/src/'),
       '@argos/client-sdk/': resolve('../../packages/client-sdk/src/'),
+      '@argos/agent-runtime': resolve('../../packages/agent-runtime/src'),
     },
     deps: {
       optimizer: {

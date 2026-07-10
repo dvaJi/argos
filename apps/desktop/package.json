@@ -15,8 +15,8 @@
     "test": "vitest",
     "test:main": "vitest --config vitest.config.ts test/main",
     "test:renderer": "vitest --config vitest.config.renderer.ts test/renderer",
-    "typecheck:node": "tsgo --noEmit -p tsconfig.node.json --composite false",
-    "typecheck:web": "tsgo --noEmit -p tsconfig.app.tsgo.json",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.app.json",
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
     "postinstall": "pnpm exec electron-builder install-app-deps"
   },
@@ -120,7 +120,6 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/xlsx": "^0.0.35",
-    "@typescript/native-preview": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/ui": "^4.1.9",
     "@xterm/xterm": "^6.0.0",

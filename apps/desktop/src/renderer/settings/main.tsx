@@ -35,8 +35,20 @@ import AboutUsSettings from "./components/AboutUsSettings";
 
 const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform);
 
+function RootErrorComponent({ error }: { error: Error }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+      <div className="max-w-lg space-y-2 rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="text-sm font-semibold">Settings error</div>
+        <p className="text-sm text-muted-foreground">{error.message}</p>
+      </div>
+    </div>
+  );
+}
+
 const rootRoute = createRootRoute({
   component: SettingsApp,
+  errorComponent: RootErrorComponent,
 });
 
 import type { RouteComponent } from "@tanstack/react-router";

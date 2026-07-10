@@ -364,40 +364,47 @@ export const setMcpEnabled = async (enabled: boolean) => {
     await mcpClient.setMcpEnabled(enabled);
     await loadConfig();
 
-    if (enabled) {
-      await startEnabledServers();
-      await updateAllServerStatuses();
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await Promise.all([loadTools(), loadClients(), loadPrompts()]);
-      setTimeout(async () => {
-        if (mcpStore.state.config.mcpEnabled) {
-          await Promise.all([loadTools(), loadClients()]);
-        }
-      }, 1000);
-    } else {
-      await Promise.allSettled(
-        Object.entries(mcpStore.state.config.mcpServers)
-          .filter(([, sc]) => !isPluginOwnedServerConfig(sc))
-          .map(([sn]) => mcpClient.stopServer(sn)),
-      );
-      mcpStore.setState((s) => ({
-        ...s,
-        serverStatuses: Object.fromEntries(
-          Object.entries(s.serverStatuses).filter(([sn]) => isPluginOwnedServerName(sn)),
-        ),
-        toolInputs: {},
-        toolResults: {},
-      }));
-      await Promise.all([loadTools(), loadClients(), loadResources(), loadPrompts()]);
+    // Post-persist side effects (start/stop servers, reload tools). These must
+    // NOT revert the toggle when they fail — the value already persisted, and in
+    // daemon/web mode the MCP runtime may not be able to start built-in servers
+    // (missing command binaries), so failures here are expected and non-fatal.
+    try {
+      if (enabled) {
+        await startEnabledServers();
+        await updateAllServerStatuses();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await Promise.all([loadTools(), loadClients(), loadPrompts()]);
+        setTimeout(async () => {
+          if (mcpStore.state.config.mcpEnabled) {
+            await Promise.all([loadTools(), loadClients()]);
+          }
+        }, 1000);
+      } else {
+        await Promise.allSettled(
+          Object.entries(mcpStore.state.config.mcpServers)
+            .filter(([, sc]) => !isPluginOwnedServerConfig(sc))
+            .map(([sn]) => mcpClient.stopServer(sn)),
+        );
+        mcpStore.setState((s) => ({
+          ...s,
+          serverStatuses: Object.fromEntries(
+            Object.entries(s.serverStatuses).filter(([sn]) => isPluginOwnedServerName(sn)),
+          ),
+          toolInputs: {},
+          toolResults: {},
+        }));
+        await Promise.all([loadTools(), loadClients(), loadResources(), loadPrompts()]);
+      }
+    } catch (postError) {
+      console.error("Post-toggle MCP setup failed (non-fatal, toggle stays persisted):", postError);
     }
 
     return true;
   } catch (error) {
+    // Persist itself failed — re-read the actual persisted state rather than
+    // blindly flipping the switch.
     console.error("Failed to set MCP enabled state:", error);
-    mcpStore.setState((s) => ({
-      ...s,
-      config: { ...s.config, mcpEnabled: !enabled },
-    }));
+    await loadConfig().catch(() => {});
     return false;
   }
 };
@@ -460,10 +467,8 @@ export const toggleServer = async (serverName: string) => {
   }));
 
   try {
+    // Persist — only this failure justifies rolling the toggle back.
     await mcpClient.setMcpServerEnabled(serverName, nextEnabled);
-    await loadConfig();
-    await updateServerStatus(serverName);
-    return true;
   } catch (error) {
     mcpStore.setState((s) => ({
       ...s,
@@ -472,11 +477,6 @@ export const toggleServer = async (serverName: string) => {
         mcpServers: { ...s.config.mcpServers, [serverName]: previousConfig },
       },
     }));
-    try {
-      await mcpClient.setMcpServerEnabled(serverName, previousConfig.enabled);
-    } catch (rollbackError) {
-      console.error(`Failed to rollback MCP server state for ${serverName}`, rollbackError);
-    }
     console.error(`Failed to toggle MCP server: ${serverName}`, error);
     return false;
   } finally {
@@ -485,6 +485,17 @@ export const toggleServer = async (serverName: string) => {
       serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false },
     }));
   }
+
+  // Persist succeeded — post-persist reload/status side effects must NOT revert
+  // the toggle when they fail (in daemon/web mode the MCP runtime may be unable
+  // to start servers or enumerate tools, which is expected and non-fatal).
+  try {
+    await loadConfig();
+    await updateServerStatus(serverName);
+  } catch (postError) {
+    console.error(`Post-toggle MCP setup failed for ${serverName} (non-fatal, toggle stays persisted):`, postError);
+  }
+  return true;
 };
 
 export const updateToolInput = (toolName: string, paramName: string, value: string) => {

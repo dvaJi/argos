@@ -174,7 +174,12 @@ export class DaemonAcpConfig {
   async getAcpAgents(): Promise<AcpAgentConfig[]> {
     if (!this.acpConfHelper.getGlobalEnabled()) return [];
     const [registryAgents, manualAgents] = await Promise.all([
-      this.listAcpRegistryAgents(),
+      // A registry fetch failure must not break agent listing (manual + argos
+      // agents should still be enumerable).
+      this.listAcpRegistryAgents().catch((error) => {
+        console.warn("[ACP] Failed to list registry agents:", error);
+        return [] as AcpRegistryAgent[];
+      }),
       this.listManualAcpAgents(),
     ]);
 

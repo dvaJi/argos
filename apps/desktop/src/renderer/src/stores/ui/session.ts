@@ -721,9 +721,23 @@ async function completeOnboardingStep(stepId: GuidedOnboardingStepId): Promise<v
 export async function sendMessage(sessionId: string, content: string | SendMessageInput): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
-    await chatClient.sendMessage(sessionId, content);
+    console.log(
+      "[chat] sendMessage →",
+      sessionId,
+      typeof content === "string" ? `(text ${content.length})` : "(object)",
+    );
+    const result = await chatClient.sendMessage(sessionId, content);
+    console.log(
+      "[chat] sendMessage ✓ accepted=",
+      result.accepted,
+      "requestId=",
+      result.requestId,
+      "messageId=",
+      result.messageId,
+    );
     await completeOnboardingStep("first-chat");
   } catch (sendError) {
+    console.error("[chat] sendMessage ✗", sendError);
     sessionStore.setState((prev) => ({
       ...prev,
       error: `Failed to send message: ${sendError}`,

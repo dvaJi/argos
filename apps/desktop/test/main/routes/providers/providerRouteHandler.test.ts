@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { dispatchProviderRoute } from "../../../../src/main/routes/providers/providerRouteHandler";
-import { providersImportApplyRoute, providersImportScanRoute } from "@shared/contracts/routes";
+import {
+  providersGetAcpProcessConfigOptionsRoute,
+  providersImportApplyRoute,
+  providersImportScanRoute,
+  providersWarmupAcpProcessRoute,
+} from "@shared/contracts/routes";
 
 describe("dispatchProviderRoute providers.listSummaries", () => {
-  it("returns lightweight provider summaries without model arrays", async () => {
-    const configPresenter = {
-      getProviders: vi.fn<(...args: any[]) => any>(() => [
+  it("proxies provider summaries through the daemon", async () => {
+    const invokeDaemonRoute = vi.fn<(...args: any[]) => any>(() => ({
+      providers: [
         {
           id: "openai",
           name: "OpenAI",
@@ -13,18 +18,20 @@ describe("dispatchProviderRoute providers.listSummaries", () => {
           apiKey: "sk-test",
           baseUrl: "https://api.openai.com/v1",
           enable: true,
-          models: [{ id: "gpt-5.4", name: "GPT-5.4", group: "default", providerId: "openai" }],
-          customModels: [{ id: "custom", name: "Custom", group: "custom", providerId: "openai" }],
-          enabledModels: ["gpt-5.4"],
-          disabledModels: ["custom"],
         },
-      ]),
+      ],
+    }));
+    const llmProviderPresenter = {
+      getProviderRateLimitStatus: vi.fn(),
+      listOllamaModels: vi.fn(),
+      listOllamaRunningModels: vi.fn(),
+      pullOllamaModels: vi.fn(),
     };
 
     const result = (await dispatchProviderRoute(
       {
-        configPresenter: configPresenter as any,
-        llmProviderPresenter: {} as any,
+        invokeDaemonRoute,
+        llmProviderPresenter: llmProviderPresenter as any,
         providerImportService: {} as any,
       },
       "providers.listSummaries",
@@ -43,15 +50,17 @@ describe("dispatchProviderRoute providers.listSummaries", () => {
         enable: true,
       }),
     ]);
-    expect(result.providers[0]).not.toHaveProperty("models");
-    expect(result.providers[0]).not.toHaveProperty("customModels");
-    expect(result.providers[0]).not.toHaveProperty("enabledModels");
-    expect(result.providers[0]).not.toHaveProperty("disabledModels");
+    expect(invokeDaemonRoute).toHaveBeenCalledWith("providers.listSummaries", {});
+    expect(llmProviderPresenter.getProviderRateLimitStatus).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.listOllamaModels).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.listOllamaRunningModels).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.pullOllamaModels).not.toHaveBeenCalled();
   });
 });
 
 describe("dispatchProviderRoute provider import routes", () => {
-  it("dispatches scan and apply through ProviderImportService", async () => {
+  it("keeps scan and apply on the desktop-local path", async () => {
+    const invokeDaemonRoute = vi.fn();
     const providerImportService = {
       scan: vi.fn<(...args: any[]) => any>(() => ({
         sessionId: "scan-1",
@@ -74,7 +83,7 @@ describe("dispatchProviderRoute provider import routes", () => {
 
     const scanResult = await dispatchProviderRoute(
       {
-        configPresenter: {} as any,
+        invokeDaemonRoute,
         llmProviderPresenter: {} as any,
         providerImportService: providerImportService as any,
       },
@@ -97,7 +106,7 @@ describe("dispatchProviderRoute provider import routes", () => {
     };
     const applyResult = await dispatchProviderRoute(
       {
-        configPresenter: {} as any,
+        invokeDaemonRoute,
         llmProviderPresenter: {} as any,
         providerImportService: providerImportService as any,
       },
@@ -109,5 +118,66 @@ describe("dispatchProviderRoute provider import routes", () => {
     expect(applyResult).toMatchObject({ summary: { imported: 0 } });
     expect(providerImportService.scan).toHaveBeenCalledTimes(1);
     expect(providerImportService.apply).toHaveBeenCalledWith(applyInput);
+    expect(invokeDaemonRoute).not.toHaveBeenCalled();
+  });
+});
+
+describe("dispatchProviderRoute provider ACP routes", () => {
+  it("routes warmup and ACP config options through the daemon", async () => {
+    const invokeDaemonRoute = vi.fn<(...args: any[]) => any>((route: string) => {
+      if (route === providersWarmupAcpProcessRoute.name) {
+        return { warmedUp: true };
+      }
+      if (route === providersGetAcpProcessConfigOptionsRoute.name) {
+        return { state: null };
+      }
+      return undefined;
+    });
+    const llmProviderPresenter = {
+      getProviderRateLimitStatus: vi.fn(),
+      listOllamaModels: vi.fn(),
+      listOllamaRunningModels: vi.fn(),
+      pullOllamaModels: vi.fn(),
+    };
+
+    const warmupResult = await dispatchProviderRoute(
+      {
+        invokeDaemonRoute,
+        providerImportService: {} as any,
+        llmProviderPresenter: llmProviderPresenter as any,
+      },
+      providersWarmupAcpProcessRoute.name,
+      {
+        agentId: "agent-1",
+        workdir: "/tmp/project",
+      },
+    );
+    const optionsResult = await dispatchProviderRoute(
+      {
+        invokeDaemonRoute,
+        providerImportService: {} as any,
+        llmProviderPresenter: {} as any,
+      },
+      providersGetAcpProcessConfigOptionsRoute.name,
+      {
+        agentId: "agent-1",
+        workdir: "/tmp/project",
+      },
+    );
+
+    expect(warmupResult).toEqual({ warmedUp: true });
+    expect(optionsResult).toEqual({ state: null });
+    expect(invokeDaemonRoute).toHaveBeenCalledWith(providersWarmupAcpProcessRoute.name, {
+      agentId: "agent-1",
+      workdir: "/tmp/project",
+    });
+    expect(invokeDaemonRoute).toHaveBeenCalledWith(providersGetAcpProcessConfigOptionsRoute.name, {
+      agentId: "agent-1",
+      workdir: "/tmp/project",
+    });
+    expect(llmProviderPresenter.getProviderRateLimitStatus).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.listOllamaModels).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.listOllamaRunningModels).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.pullOllamaModels).not.toHaveBeenCalled();
   });
 });

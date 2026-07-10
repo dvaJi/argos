@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { EntityIdSchema, ProviderModelSummarySchema, defineRouteContract } from "../common";
 import {
   ModelCapabilitiesSchema,
@@ -10,41 +10,41 @@ import {
 
 export const modelsGetProviderCatalogRoute = defineRouteContract({
   name: "models.getProviderCatalog",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
   }),
-  output: z.object({
+  output: zod.object({
     catalog: ProviderModelCatalogSchema,
   }),
 });
 
 export const modelsListRuntimeRoute = defineRouteContract({
   name: "models.listRuntime",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
   }),
-  output: z.object({
-    models: z.array(ProviderModelSummarySchema),
+  output: zod.object({
+    models: zod.array(ProviderModelSummarySchema),
   }),
 });
 
 export const modelsSetStatusRoute = defineRouteContract({
   name: "models.setStatus",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
-    enabled: z.boolean(),
+    modelId: zod.string().min(1),
+    enabled: zod.boolean(),
   }),
-  output: z.object({
+  output: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
-    enabled: z.boolean(),
+    modelId: zod.string().min(1),
+    enabled: zod.boolean(),
   }),
 });
 
 export const modelsAddCustomRoute = defineRouteContract({
   name: "models.addCustom",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
     model: ProviderModelSummarySchema.omit({
       providerId: true,
@@ -52,125 +52,125 @@ export const modelsAddCustomRoute = defineRouteContract({
       isCustom: true,
     }).loose(),
   }),
-  output: z.object({
+  output: zod.object({
     model: ProviderModelSummarySchema,
   }),
 });
 
 export const modelsRemoveCustomRoute = defineRouteContract({
   name: "models.removeCustom",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
+    modelId: zod.string().min(1),
   }),
-  output: z.object({
-    removed: z.boolean(),
+  output: zod.object({
+    removed: zod.boolean(),
   }),
 });
 
 export const modelsUpdateCustomRoute = defineRouteContract({
   name: "models.updateCustom",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
+    modelId: zod.string().min(1),
     updates: ProviderModelSummarySchema.partial(),
   }),
-  output: z.object({
-    updated: z.boolean(),
+  output: zod.object({
+    updated: zod.boolean(),
   }),
 });
 
 export const modelsGetConfigRoute = defineRouteContract({
   name: "models.getConfig",
-  input: z.object({
-    modelId: z.string().min(1),
-    providerId: z.string().min(1).optional(),
+  input: zod.object({
+    modelId: zod.string().min(1),
+    providerId: zod.string().min(1).optional(),
   }),
-  output: z.object({
+  output: zod.object({
     config: ModelConfigSchema,
   }),
 });
 
 export const modelsSetConfigRoute = defineRouteContract({
   name: "models.setConfig",
-  input: z.object({
-    modelId: z.string().min(1),
+  input: zod.object({
+    modelId: zod.string().min(1),
     providerId: EntityIdSchema,
     config: ModelConfigSchema,
   }),
-  output: z.object({
+  output: zod.object({
     config: ModelConfigSchema,
   }),
 });
 
 export const modelsResetConfigRoute = defineRouteContract({
   name: "models.resetConfig",
-  input: z.object({
-    modelId: z.string().min(1),
+  input: zod.object({
+    modelId: zod.string().min(1),
     providerId: EntityIdSchema,
   }),
-  output: z.object({
-    reset: z.boolean(),
+  output: zod.object({
+    reset: zod.boolean(),
   }),
 });
 
 export const modelsGetProviderConfigsRoute = defineRouteContract({
   name: "models.getProviderConfigs",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
   }),
-  output: z.object({
-    configs: z.array(ProviderModelConfigEntrySchema),
+  output: zod.object({
+    configs: zod.array(ProviderModelConfigEntrySchema),
   }),
 });
 
 export const modelsHasUserConfigRoute = defineRouteContract({
   name: "models.hasUserConfig",
-  input: z.object({
-    modelId: z.string().min(1),
+  input: zod.object({
+    modelId: zod.string().min(1),
     providerId: EntityIdSchema,
   }),
-  output: z.object({
-    hasConfig: z.boolean(),
+  output: zod.object({
+    hasConfig: zod.boolean(),
   }),
 });
 
 export const modelsExportConfigsRoute = defineRouteContract({
   name: "models.exportConfigs",
-  input: z.object({}).default({}),
-  output: z.object({
-    configs: z.record(z.string(), ModelConfigExportEntrySchema),
+  input: zod.object({}).default({}),
+  output: zod.object({
+    configs: zod.record(zod.string(), ModelConfigExportEntrySchema),
   }),
 });
 
 export const modelsImportConfigsRoute = defineRouteContract({
   name: "models.importConfigs",
-  input: z.object({
-    configs: z.record(z.string(), ModelConfigExportEntrySchema),
-    overwrite: z.boolean().default(false),
+  input: zod.object({
+    configs: zod.record(zod.string(), ModelConfigExportEntrySchema),
+    overwrite: zod.boolean().default(false),
   }),
-  output: z.object({
-    imported: z.boolean(),
-    overwrite: z.boolean(),
+  output: zod.object({
+    imported: zod.boolean(),
+    overwrite: zod.boolean(),
   }),
 });
 
 export const modelsSetBatchStatusRoute = defineRouteContract({
   name: "models.setBatchStatus",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    updates: z.array(
-      z.object({
-        modelId: z.string().min(1),
-        enabled: z.boolean(),
+    updates: zod.array(
+      zod.object({
+        modelId: zod.string().min(1),
+        enabled: zod.boolean(),
       }),
     ),
   }),
-  output: z.object({
-    results: z.array(
-      z.object({
-        modelId: z.string().min(1),
-        enabled: z.boolean(),
+  output: zod.object({
+    results: zod.array(
+      zod.object({
+        modelId: zod.string().min(1),
+        enabled: zod.boolean(),
       }),
     ),
   }),
@@ -178,25 +178,25 @@ export const modelsSetBatchStatusRoute = defineRouteContract({
 
 export const modelsGetCapabilitiesRoute = defineRouteContract({
   name: "models.getCapabilities",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
+    modelId: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     capabilities: ModelCapabilitiesSchema,
   }),
 });
 
 export const modelsTranscribeAudioRoute = defineRouteContract({
   name: "models.transcribeAudio",
-  input: z.object({
+  input: zod.object({
     providerId: EntityIdSchema,
-    modelId: z.string().min(1),
-    audioBase64: z.string().min(1).max(15_000_000),
-    mimeType: z.string().min(1).max(255),
-    filename: z.string().min(1).max(255).optional(),
+    modelId: zod.string().min(1),
+    audioBase64: zod.string().min(1).max(15_000_000),
+    mimeType: zod.string().min(1).max(255),
+    filename: zod.string().min(1).max(255).optional(),
   }),
-  output: z.object({
-    text: z.string(),
+  output: zod.object({
+    text: zod.string(),
   }),
 });

@@ -43,6 +43,25 @@ export interface ProviderExecutionPort {
   sendMessage(sessionId: string, content: string | SendMessageInput): Promise<MessageStartResult>;
   steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void>;
   cancelGeneration(sessionId: string): Promise<void>;
+  warmupAcpProcess?(agentId: string, workdir?: string): Promise<void>;
+  getAcpProcessConfigOptions?(agentId: string, workdir?: string): Promise<unknown>;
+  generateCompletion?(input: {
+    providerId: string;
+    modelId: string;
+    messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }>;
+    temperature?: number;
+    maxTokens?: number;
+  }): Promise<string>;
+  transcribeAudio?(
+    providerId: string,
+    modelId: string,
+    audioBase64: string,
+    mimeType: string,
+    filename?: string,
+  ): Promise<string>;
   respondToolInteraction(
     sessionId: string,
     messageId: string,

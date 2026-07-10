@@ -32,9 +32,10 @@ behavior and to make desktop a thin shell over the daemon.
 
 This SDD builds on:
 
-- `docs/architecture/headless-backend-kernel/`
-- `docs/architecture/daemon-transport-runtime/`
-- `docs/architecture/local-api-facade/`
+- archived implementation docs for the completed kernel/transport slices:
+  `docs/archives/headless-backend-kernel/` and
+  `docs/archives/daemon-transport-runtime/`
+- archived implementation doc `docs/archives/local-api-facade/`
 - `docs/architecture/acp-runtime-shared/`
 
 ## Target Architecture

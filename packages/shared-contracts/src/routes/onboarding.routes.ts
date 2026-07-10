@@ -1,85 +1,85 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 import { GUIDED_ONBOARDING_STEP_IDS, GUIDED_ONBOARDING_VERSION } from "@shared/guidedOnboarding";
 
 export const guidedOnboardingVersion = GUIDED_ONBOARDING_VERSION;
 export const guidedOnboardingStepIds = GUIDED_ONBOARDING_STEP_IDS;
 
-export const guidedOnboardingStepIdSchema = z.enum(guidedOnboardingStepIds);
+export const guidedOnboardingStepIdSchema = zod.enum(guidedOnboardingStepIds);
 
-export const guidedOnboardingStepStatusSchema = z.enum(["pending", "in_progress", "completed", "skipped"]);
+export const guidedOnboardingStepStatusSchema = zod.enum(["pending", "in_progress", "completed", "skipped"]);
 
-export const guidedOnboardingStatusSchema = z.enum(["idle", "active", "completed"]);
+export const guidedOnboardingStatusSchema = zod.enum(["idle", "active", "completed"]);
 
-export const guidedOnboardingStepStateSchema = z.object({
+export const guidedOnboardingStepStateSchema = zod.object({
   id: guidedOnboardingStepIdSchema,
-  required: z.boolean(),
+  required: zod.boolean(),
   status: guidedOnboardingStepStatusSchema,
-  startedAt: z.number().int().nonnegative().nullable(),
-  completedAt: z.number().int().nonnegative().nullable(),
-  skippedAt: z.number().int().nonnegative().nullable(),
+  startedAt: zod.number().int().nonnegative().nullable(),
+  completedAt: zod.number().int().nonnegative().nullable(),
+  skippedAt: zod.number().int().nonnegative().nullable(),
 });
 
-export const guidedOnboardingStateSchema = z.object({
-  version: z.literal(guidedOnboardingVersion),
+export const guidedOnboardingStateSchema = zod.object({
+  version: zod.literal(guidedOnboardingVersion),
   status: guidedOnboardingStatusSchema,
-  startedAt: z.number().int().nonnegative().nullable(),
-  completedAt: z.number().int().nonnegative().nullable(),
-  lastActiveAt: z.number().int().nonnegative(),
+  startedAt: zod.number().int().nonnegative().nullable(),
+  completedAt: zod.number().int().nonnegative().nullable(),
+  lastActiveAt: zod.number().int().nonnegative(),
   currentStepId: guidedOnboardingStepIdSchema.nullable(),
-  steps: z.array(guidedOnboardingStepStateSchema),
+  steps: zod.array(guidedOnboardingStepStateSchema),
 });
 
 export const onboardingGetStateRoute = defineRouteContract({
   name: "onboarding.getState",
-  input: z.object({}),
-  output: z.object({
+  input: zod.object({}),
+  output: zod.object({
     state: guidedOnboardingStateSchema,
   }),
 });
 
 export const onboardingStartRoute = defineRouteContract({
   name: "onboarding.start",
-  input: z.object({
-    force: z.boolean().optional(),
+  input: zod.object({
+    force: zod.boolean().optional(),
     stepId: guidedOnboardingStepIdSchema.optional(),
   }),
-  output: z.object({
+  output: zod.object({
     state: guidedOnboardingStateSchema,
   }),
 });
 
 export const onboardingSetStepStatusRoute = defineRouteContract({
   name: "onboarding.setStepStatus",
-  input: z.object({
+  input: zod.object({
     stepId: guidedOnboardingStepIdSchema,
-    status: z.enum(["in_progress", "completed", "skipped"]),
+    status: zod.enum(["in_progress", "completed", "skipped"]),
   }),
-  output: z.object({
+  output: zod.object({
     state: guidedOnboardingStateSchema,
   }),
 });
 
 export const onboardingCompleteRoute = defineRouteContract({
   name: "onboarding.complete",
-  input: z.object({
-    force: z.boolean().optional(),
+  input: zod.object({
+    force: zod.boolean().optional(),
   }),
-  output: z.object({
+  output: zod.object({
     state: guidedOnboardingStateSchema,
   }),
 });
 
 export const onboardingResetRoute = defineRouteContract({
   name: "onboarding.reset",
-  input: z.object({}),
-  output: z.object({
+  input: zod.object({}),
+  output: zod.object({
     state: guidedOnboardingStateSchema,
   }),
 });
 
-export type GuidedOnboardingStepId = z.infer<typeof guidedOnboardingStepIdSchema>;
-export type GuidedOnboardingStepStatus = z.infer<typeof guidedOnboardingStepStatusSchema>;
-export type GuidedOnboardingStatus = z.infer<typeof guidedOnboardingStatusSchema>;
-export type GuidedOnboardingStepState = z.infer<typeof guidedOnboardingStepStateSchema>;
-export type GuidedOnboardingState = z.infer<typeof guidedOnboardingStateSchema>;
+export type GuidedOnboardingStepId = zod.infer<typeof guidedOnboardingStepIdSchema>;
+export type GuidedOnboardingStepStatus = zod.infer<typeof guidedOnboardingStepStatusSchema>;
+export type GuidedOnboardingStatus = zod.infer<typeof guidedOnboardingStatusSchema>;
+export type GuidedOnboardingStepState = zod.infer<typeof guidedOnboardingStepStateSchema>;
+export type GuidedOnboardingState = zod.infer<typeof guidedOnboardingStateSchema>;

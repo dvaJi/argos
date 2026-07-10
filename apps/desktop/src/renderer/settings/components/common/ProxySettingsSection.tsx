@@ -21,8 +21,8 @@ export default function ProxySettingsSection() {
   const [showUrlError, setShowUrlError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const validateProxyUrl = (url?: string) => {
-    const value = url ?? customProxyUrl;
+  const validateProxyUrl = (url?: string | null) => {
+    const value = (url ?? customProxyUrl) || "";
     if (!value.trim()) {
       setShowUrlError(false);
       return;
@@ -56,8 +56,8 @@ export default function ProxySettingsSection() {
     const init = async () => {
       const mode = await configPresenter.getProxyMode();
       const url = await configPresenter.getCustomProxyUrl();
-      setSelectedProxyMode(mode);
-      setCustomProxyUrl(url);
+      setSelectedProxyMode(mode ?? "none");
+      setCustomProxyUrl(url ?? "");
       if (mode === "custom" && url) {
         validateProxyUrl(url);
       }

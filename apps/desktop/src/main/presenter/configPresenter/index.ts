@@ -70,6 +70,13 @@ import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { SettingsKey, SettingsSnapshotValues } from "@shared/contracts/routes";
 import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { invokeDaemonRoute } from "@/routes/daemonRouteProxy";
+import {
+  configListAgentsRoute,
+  configCreateArgosAgentRoute,
+  configUpdateArgosAgentRoute,
+  configDeleteArgosAgentRoute,
+} from "@shared/contracts/routes";
 import type { HookTestResult, HooksNotificationsSettings } from "@shared/hooksNotifications";
 import type {
   Agent,
@@ -797,6 +804,38 @@ export class ConfigPresenter implements IConfigPresenter {
     }
 
     this.syncRegistryAgentsToRepository();
+
+    // One-time: push desktop-owned custom Argos agents into the daemon so it is
+    // the single source of truth for custom agents. The builtin agent stays
+    // local (config-entry compat). Fire-and-forget; waits for the daemon sidecar.
+    void this.migrateCustomArgosAgentsToDaemon();
+  }
+
+  private async migrateCustomArgosAgentsToDaemon(): Promise<void> {
+    if ((this.getSetting<number>("argosCustomAgentsMigratedToDaemon") ?? 0) !== 0) {
+      return;
+    }
+    try {
+      const customAgents = this.getAgentRepositoryOrThrow()
+        .listAgents({ agentType: "argos" })
+        .filter((agent) => agent.source === "manual" && agent.id !== BUILTIN_ARGOS_AGENT_ID);
+
+      for (const agent of customAgents) {
+        await invokeDaemonRoute(configCreateArgosAgentRoute.name, {
+          id: agent.id,
+          name: agent.name,
+          enabled: agent.enabled,
+          description: agent.description,
+          icon: agent.icon,
+          avatar: agent.avatar,
+          config: agent.config,
+        });
+      }
+      this.store.set("argosCustomAgentsMigratedToDaemon", 1);
+    } catch (error) {
+      // Daemon not ready yet or transient failure; retry on next launch.
+      console.warn("[Config] Argos custom agent migration deferred:", error);
+    }
   }
 
   private reconcileLegacyBuiltinAgentSelections(): void {
@@ -2503,23 +2542,79 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   async listAgents(): Promise<Agent[]> {
-    return this.getAgentRepositoryOrThrow().listAgents();
+    // Argos agents (builtin + custom) are owned by the daemon; ACP agents remain
+    // in the desktop SQLite store. Merge both so the renderer sees every agent.
+    const localAcp = this.getAgentRepositoryOrThrow().listAgents({ agentType: "acp" });
+    let daemonArgos: Agent[] = [];
+    try {
+      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
+        agentType: "argos",
+      });
+      daemonArgos = result.agents ?? [];
+    } catch (error) {
+      console.warn("[Config] Failed to list Argos agents from daemon:", error);
+    }
+    return [...daemonArgos, ...localAcp];
   }
 
   async getAgent(agentId: string): Promise<Agent | null> {
-    return this.getAgentRepositoryOrThrow().getAgent(agentId);
+    const local = this.getAgentRepositoryOrThrow().getAgent(agentId);
+    if (local && local.type === "acp") {
+      return local;
+    }
+    try {
+      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
+        ids: [agentId],
+      });
+      return result.agents?.[0] ?? null;
+    } catch (error) {
+      console.warn("[Config] Failed to get agent from daemon:", error);
+      return local ?? null;
+    }
   }
 
   async getAgentType(agentId: string): Promise<AgentType | null> {
-    return this.getAgentRepositoryOrThrow().getAgentType(agentId);
+    const local = this.getAgentRepositoryOrThrow().getAgentType(agentId);
+    if (local === "acp") {
+      return "acp";
+    }
+    try {
+      const result = await invokeDaemonRoute<{ agents: Agent[] }>(configListAgentsRoute.name, {
+        ids: [agentId],
+      });
+      const agent = result.agents?.[0];
+      return agent ? (agent.type ?? null) : null;
+    } catch (error) {
+      console.warn("[Config] Failed to resolve agent type from daemon:", error);
+      return local ?? null;
+    }
   }
 
   async getArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig | null> {
-    return this.getAgentRepositoryOrThrow().getArgosAgentConfig(agentId);
+    // The builtin agent's config is the legacy config-entry compat surface and
+    // stays local (written via default-model/system-prompt/compaction entries).
+    if (agentId === BUILTIN_ARGOS_AGENT_ID) {
+      return this.getAgentRepositoryOrThrow().getArgosAgentConfig(agentId);
+    }
+    const resolved = await this.resolveArgosAgentConfig(agentId);
+    return resolved;
   }
 
   async resolveArgosAgentConfig(agentId: string): Promise<ArgosAgentConfig> {
-    return this.getAgentRepositoryOrThrow().resolveArgosAgentConfig(agentId || BUILTIN_ARGOS_AGENT_ID);
+    // Builtin config is resolved locally (config-entry compat). Custom agents
+    // are resolved by the daemon (single source of truth for custom agents).
+    if (!agentId || agentId === BUILTIN_ARGOS_AGENT_ID) {
+      return this.getAgentRepositoryOrThrow().resolveArgosAgentConfig(agentId || BUILTIN_ARGOS_AGENT_ID);
+    }
+    try {
+      const result = await invokeDaemonRoute<{ config: ArgosAgentConfig }>("config.resolveArgosAgentConfig", {
+        agentId,
+      });
+      return result.config;
+    } catch (error) {
+      console.warn("[Config] Failed to resolve Argos agent config from daemon:", error);
+      return this.getAgentRepositoryOrThrow().resolveArgosAgentConfig(BUILTIN_ARGOS_AGENT_ID);
+    }
   }
 
   async agentSupportsCapability(agentId: string, capability: "vision"): Promise<boolean> {
@@ -2535,25 +2630,43 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   async createArgosAgent(input: CreateArgosAgentInput): Promise<Agent> {
-    const created = this.getAgentRepositoryOrThrow().createArgosAgent(input);
+    // Custom Argos agents live in the daemon (single source of truth).
+    const result = await invokeDaemonRoute<{ agent: Agent }>(configCreateArgosAgentRoute.name, input as never);
     this.notifyAcpAgentsChanged();
-    return created;
+    return result.agent;
   }
 
   async updateArgosAgent(agentId: string, updates: UpdateArgosAgentInput): Promise<Agent | null> {
-    const updated = this.getAgentRepositoryOrThrow().updateArgosAgent(agentId, updates);
-    if (updated) {
-      this.notifyAcpAgentsChanged();
+    // Builtin config is mirrored: write locally (config-entry compat) and push
+    // to the daemon so the daemon-owned builtin listing stays consistent.
+    if (agentId === BUILTIN_ARGOS_AGENT_ID) {
+      const updated = this.getAgentRepositoryOrThrow().updateArgosAgent(agentId, updates);
+      try {
+        await invokeDaemonRoute<{ agent: Agent | null }>(configUpdateArgosAgentRoute.name, {
+          agentId,
+          updates: updates as never,
+        });
+      } catch (error) {
+        console.warn("[Config] Failed to mirror builtin agent update to daemon:", error);
+      }
+      if (updated) this.notifyAcpAgentsChanged();
+      return updated;
     }
-    return updated;
+
+    const result = await invokeDaemonRoute<{ agent: Agent | null }>(configUpdateArgosAgentRoute.name, {
+      agentId,
+      updates: updates as never,
+    });
+    if (result.agent) this.notifyAcpAgentsChanged();
+    return result.agent;
   }
 
   async deleteArgosAgent(agentId: string): Promise<boolean> {
-    const removed = this.getAgentRepositoryOrThrow().deleteArgosAgent(agentId);
-    if (removed) {
-      this.notifyAcpAgentsChanged();
-    }
-    return removed;
+    // The builtin agent is protected and cannot be deleted; custom agents are
+    // owned by the daemon.
+    const result = await invokeDaemonRoute<{ removed: boolean }>(configDeleteArgosAgentRoute.name, { agentId });
+    if (result.removed) this.notifyAcpAgentsChanged();
+    return result.removed;
   }
 
   async getAgentMcpSelections(agentId: string, isBuiltin?: boolean): Promise<string[]> {

@@ -74,7 +74,7 @@ export function resolveInjectionTokenBudget(value: number | null | undefined): n
 }
 
 export interface MemoryInjectionPort {
-  isEnabled(agentId: string): boolean;
+  isEnabled(agentId: string): Promise<boolean>;
   buildInjection(agentId: string, query: string): Promise<MemoryInjectionResult | MemoryInjectionPayload | null>;
 }
 

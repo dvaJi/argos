@@ -190,8 +190,9 @@ export class DaemonSyncRuntime {
           return { name: f, fileName: f, timestamp, createdAt: timestamp, size: stat.size };
         })
         .sort((a, b) => b.timestamp - a.timestamp);
-    } catch {
-      return [];
+    } catch (error) {
+      console.error("Failed to list daemon backup files:", error);
+      throw new Error("sync.error.backupListFailed");
     }
   }
 

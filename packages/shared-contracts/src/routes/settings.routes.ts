@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { TimestampMsSchema, defineRouteContract } from "../common";
 
 export const SETTINGS_KEYS = [
@@ -19,97 +19,97 @@ export const SETTINGS_KEYS = [
   "loggingEnabled",
 ] as const;
 
-export const SettingsKeySchema = z.enum(SETTINGS_KEYS);
+export const SettingsKeySchema = zod.enum(SETTINGS_KEYS);
 
-export const SettingsSnapshotValuesSchema = z.object({
-  fontSizeLevel: z.number().int(),
-  fontFamily: z.string(),
-  codeFontFamily: z.string(),
-  artifactsEffectEnabled: z.boolean(),
-  autoScrollEnabled: z.boolean(),
-  autoCompactionEnabled: z.boolean(),
-  autoCompactionTriggerThreshold: z.number().int(),
-  autoCompactionRetainRecentPairs: z.number().int(),
-  contentProtectionEnabled: z.boolean(),
-  privacyModeEnabled: z.boolean(),
-  notificationsEnabled: z.boolean(),
-  launchAtLoginEnabled: z.boolean(),
-  traceDebugEnabled: z.boolean(),
-  copyWithCotEnabled: z.boolean(),
-  loggingEnabled: z.boolean(),
+export const SettingsSnapshotValuesSchema = zod.object({
+  fontSizeLevel: zod.number().int(),
+  fontFamily: zod.string(),
+  codeFontFamily: zod.string(),
+  artifactsEffectEnabled: zod.boolean(),
+  autoScrollEnabled: zod.boolean(),
+  autoCompactionEnabled: zod.boolean(),
+  autoCompactionTriggerThreshold: zod.number().int(),
+  autoCompactionRetainRecentPairs: zod.number().int(),
+  contentProtectionEnabled: zod.boolean(),
+  privacyModeEnabled: zod.boolean(),
+  notificationsEnabled: zod.boolean(),
+  launchAtLoginEnabled: zod.boolean(),
+  traceDebugEnabled: zod.boolean(),
+  copyWithCotEnabled: zod.boolean(),
+  loggingEnabled: zod.boolean(),
 });
 
-export const SettingsChangeSchema = z.discriminatedUnion("key", [
-  z.object({
-    key: z.literal("fontSizeLevel"),
-    value: z.number().int().min(0).max(4),
+export const SettingsChangeSchema = zod.discriminatedUnion("key", [
+  zod.object({
+    key: zod.literal("fontSizeLevel"),
+    value: zod.number().int().min(0).max(4),
   }),
-  z.object({
-    key: z.literal("fontFamily"),
-    value: z.string(),
+  zod.object({
+    key: zod.literal("fontFamily"),
+    value: zod.string(),
   }),
-  z.object({
-    key: z.literal("codeFontFamily"),
-    value: z.string(),
+  zod.object({
+    key: zod.literal("codeFontFamily"),
+    value: zod.string(),
   }),
-  z.object({
-    key: z.literal("artifactsEffectEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("artifactsEffectEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("autoScrollEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("autoScrollEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("autoCompactionEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("autoCompactionEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("autoCompactionTriggerThreshold"),
-    value: z.number().int().min(5).max(95),
+  zod.object({
+    key: zod.literal("autoCompactionTriggerThreshold"),
+    value: zod.number().int().min(5).max(95),
   }),
-  z.object({
-    key: z.literal("autoCompactionRetainRecentPairs"),
-    value: z.number().int().min(1).max(10),
+  zod.object({
+    key: zod.literal("autoCompactionRetainRecentPairs"),
+    value: zod.number().int().min(1).max(10),
   }),
-  z.object({
-    key: z.literal("contentProtectionEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("contentProtectionEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("privacyModeEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("privacyModeEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("notificationsEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("notificationsEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("launchAtLoginEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("launchAtLoginEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("traceDebugEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("traceDebugEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("copyWithCotEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("copyWithCotEnabled"),
+    value: zod.boolean(),
   }),
-  z.object({
-    key: z.literal("loggingEnabled"),
-    value: z.boolean(),
+  zod.object({
+    key: zod.literal("loggingEnabled"),
+    value: zod.boolean(),
   }),
 ]);
 
 export const settingsGetSnapshotRoute = defineRouteContract({
   name: "settings.getSnapshot",
-  input: z
+  input: zod
     .object({
-      keys: z.array(SettingsKeySchema).optional(),
+      keys: zod.array(SettingsKeySchema).optional(),
     })
     .default({}),
-  output: z.object({
+  output: zod.object({
     version: TimestampMsSchema,
     values: SettingsSnapshotValuesSchema.partial(),
   }),
@@ -117,25 +117,25 @@ export const settingsGetSnapshotRoute = defineRouteContract({
 
 export const settingsListSystemFontsRoute = defineRouteContract({
   name: "settings.listSystemFonts",
-  input: z.object({}).default({}),
-  output: z.object({
-    fonts: z.array(z.string()),
+  input: zod.object({}).default({}),
+  output: zod.object({
+    fonts: zod.array(zod.string()),
   }),
 });
 
 export const settingsUpdateRoute = defineRouteContract({
   name: "settings.update",
-  input: z.object({
-    changes: z.array(SettingsChangeSchema).min(1),
+  input: zod.object({
+    changes: zod.array(SettingsChangeSchema).min(1),
   }),
-  output: z.object({
+  output: zod.object({
     version: TimestampMsSchema,
-    changedKeys: z.array(SettingsKeySchema).min(1),
+    changedKeys: zod.array(SettingsKeySchema).min(1),
     values: SettingsSnapshotValuesSchema.partial(),
   }),
 });
 
-export const SettingsActivityCategorySchema = z.enum([
+export const SettingsActivityCategorySchema = zod.enum([
   "provider",
   "model",
   "mcp",
@@ -149,7 +149,7 @@ export const SettingsActivityCategorySchema = z.enum([
   "system",
 ]);
 
-export const SettingsActivityActionSchema = z.enum([
+export const SettingsActivityActionSchema = zod.enum([
   "created",
   "updated",
   "enabled",
@@ -164,17 +164,17 @@ export const SettingsActivityActionSchema = z.enum([
   "removed",
 ]);
 
-export const SettingsActivityRecordSchema = z.object({
-  id: z.string(),
+export const SettingsActivityRecordSchema = zod.object({
+  id: zod.string(),
   category: SettingsActivityCategorySchema,
   action: SettingsActivityActionSchema,
-  targetType: z.string(),
-  targetId: z.string().nullable(),
-  targetLabel: z.string(),
-  routeName: z.string().nullable(),
-  routeParams: z.record(z.string(), z.string()),
-  summaryKey: z.string(),
-  summaryParams: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+  targetType: zod.string(),
+  targetId: zod.string().nullable(),
+  targetLabel: zod.string(),
+  routeName: zod.string().nullable(),
+  routeParams: zod.record(zod.string(), zod.string()),
+  summaryKey: zod.string(),
+  summaryParams: zod.record(zod.string(), zod.union([zod.string(), zod.number(), zod.boolean()])),
   createdAt: TimestampMsSchema,
 });
 
@@ -191,20 +191,20 @@ export const SettingsActivityInputSchema = SettingsActivityRecordSchema.omit({
 
 export const settingsActivityListRoute = defineRouteContract({
   name: "settings.activity.list",
-  input: z
+  input: zod
     .object({
-      limit: z.number().int().min(1).max(200).optional(),
+      limit: zod.number().int().min(1).max(200).optional(),
     })
     .default({}),
-  output: z.object({
-    activities: z.array(SettingsActivityRecordSchema),
+  output: zod.object({
+    activities: zod.array(SettingsActivityRecordSchema),
   }),
 });
 
-export type SettingsKey = z.infer<typeof SettingsKeySchema>;
-export type SettingsSnapshotValues = z.infer<typeof SettingsSnapshotValuesSchema>;
-export type SettingsChange = z.infer<typeof SettingsChangeSchema>;
-export type SettingsActivityCategory = z.infer<typeof SettingsActivityCategorySchema>;
-export type SettingsActivityAction = z.infer<typeof SettingsActivityActionSchema>;
-export type SettingsActivityRecord = z.infer<typeof SettingsActivityRecordSchema>;
-export type SettingsActivityInput = z.infer<typeof SettingsActivityInputSchema>;
+export type SettingsKey = zod.infer<typeof SettingsKeySchema>;
+export type SettingsSnapshotValues = zod.infer<typeof SettingsSnapshotValuesSchema>;
+export type SettingsChange = zod.infer<typeof SettingsChangeSchema>;
+export type SettingsActivityCategory = zod.infer<typeof SettingsActivityCategorySchema>;
+export type SettingsActivityAction = zod.infer<typeof SettingsActivityActionSchema>;
+export type SettingsActivityRecord = zod.infer<typeof SettingsActivityRecordSchema>;
+export type SettingsActivityInput = zod.infer<typeof SettingsActivityInputSchema>;

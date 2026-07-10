@@ -1,0 +1,3 @@
+- [x] Show the provider Advanced tab in browser mode and keep tab selection stable.
+- [x] Map browser legacy presenter calls for provider rate-limit load/save and listener cleanup.
+- [x] Run format, lint, and typecheck.

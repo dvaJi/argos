@@ -10,7 +10,7 @@ import axios from "axios";
 import { is } from "@electron-toolkit/utils";
 import { eventBus, SendTarget } from "../../eventbus";
 import { NOTIFICATION_EVENTS } from "../../events";
-import { svgSanitizer } from "../../lib/svgSanitizer";
+import { svgSanitizer } from "@argos/backend-core";
 
 // Lazy-loaded to avoid a circular dependency: this module is imported by
 // baseProvider, which the @/presenter barrel re-exports. Eagerly importing the

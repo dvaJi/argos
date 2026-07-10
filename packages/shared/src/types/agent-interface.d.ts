@@ -640,6 +640,7 @@ export interface ArgosAgentConfig {
 }
 
 export interface CreateArgosAgentInput {
+  id?: string;
   name: string;
   enabled?: boolean;
   description?: string;

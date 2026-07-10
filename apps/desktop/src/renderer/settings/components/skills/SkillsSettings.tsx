@@ -73,13 +73,16 @@ export default function SkillsSettings() {
     init();
 
     const handleSkillEvent = () => loadSkills();
-    const offInstalled = window.electron?.ipcRenderer?.on("skill:installed", handleSkillEvent);
-    const offUninstalled = window.electron?.ipcRenderer?.on("skill:uninstalled", handleSkillEvent);
-    const offMetadata = window.electron?.ipcRenderer?.on("skill:metadata-updated", handleSkillEvent);
+    const ipcRenderer = window.electron?.ipcRenderer;
+    if (!ipcRenderer) return;
+
+    ipcRenderer.on("skill:installed", handleSkillEvent);
+    ipcRenderer.on("skill:uninstalled", handleSkillEvent);
+    ipcRenderer.on("skill:metadata-updated", handleSkillEvent);
     return () => {
-      offInstalled?.();
-      offUninstalled?.();
-      offMetadata?.();
+      ipcRenderer.removeListener?.("skill:installed", handleSkillEvent);
+      ipcRenderer.removeListener?.("skill:uninstalled", handleSkillEvent);
+      ipcRenderer.removeListener?.("skill:metadata-updated", handleSkillEvent);
     };
   }, []);
 

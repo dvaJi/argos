@@ -118,7 +118,7 @@ async function bootstrap(): Promise<void> {
     }
     await import("../src/main");
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = err instanceof Error ? err.message : err instanceof Event ? `${err.type} event` : String(err);
     renderPage("Argos", `Connection failed: ${msg}`, "#e00");
   }
 }

@@ -1,26 +1,26 @@
-import { z } from "zod";
+import zod from "zod";
 import { AssistantMessageBlockSchema, EntityIdSchema, TimestampMsSchema, defineEventContract } from "../common";
 
-const AgentPlanItemSchema = z.object({
-  step: z.string(),
-  status: z.enum(["pending", "in_progress", "completed"]),
+const AgentPlanItemSchema = zod.object({
+  step: zod.string(),
+  status: zod.enum(["pending", "in_progress", "completed"]),
 });
 
 export const chatStreamUpdatedEvent = defineEventContract({
   name: "chat.stream.updated",
-  payload: z.object({
-    kind: z.literal("snapshot"),
+  payload: zod.object({
+    kind: zod.literal("snapshot"),
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
     updatedAt: TimestampMsSchema,
-    blocks: z.array(AssistantMessageBlockSchema),
+    blocks: zod.array(AssistantMessageBlockSchema),
   }),
 });
 
 export const chatStreamCompletedEvent = defineEventContract({
   name: "chat.stream.completed",
-  payload: z.object({
+  payload: zod.object({
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
@@ -30,24 +30,24 @@ export const chatStreamCompletedEvent = defineEventContract({
 
 export const chatStreamFailedEvent = defineEventContract({
   name: "chat.stream.failed",
-  payload: z.object({
+  payload: zod.object({
     requestId: EntityIdSchema,
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
     failedAt: TimestampMsSchema,
-    error: z.string(),
+    error: zod.string(),
   }),
 });
 
 export const chatPlanUpdatedEvent = defineEventContract({
   name: "chat.plan.updated",
-  payload: z.object({
+  payload: zod.object({
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
-    toolCallId: z.string().optional(),
-    plan: z.array(AgentPlanItemSchema),
-    explanation: z.string().optional(),
-    revision: z.number().int().positive(),
-    updatedAt: z.string(),
+    toolCallId: zod.string().optional(),
+    plan: zod.array(AgentPlanItemSchema),
+    explanation: zod.string().optional(),
+    revision: zod.number().int().positive(),
+    updatedAt: zod.string(),
   }),
 });

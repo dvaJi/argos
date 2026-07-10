@@ -65,6 +65,9 @@ import {
   configGetVoiceAiConfigRoute,
   configListAgentsRoute,
   configListCustomPromptsRoute,
+  configCreateArgosAgentRoute,
+  configUpdateArgosAgentRoute,
+  configDeleteArgosAgentRoute,
   configResetDefaultSystemPromptRoute,
   configResetShortcutKeysRoute,
   configResolveArgosAgentConfigRoute,
@@ -191,6 +194,23 @@ import {
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
 } from "./routes/providers.routes";
+import {
+  remoteClearBindingsRoute,
+  remoteClearPairCodeRoute,
+  remoteCreatePairCodeRoute,
+  remoteGetChannelBindingsRoute,
+  remoteGetChannelPairingRoute,
+  remoteGetChannelSettingsRoute,
+  remoteGetChannelStatusRoute,
+  remoteListChannelsRoute,
+  remoteRemoveChannelBindingRoute,
+  remoteRemoveChannelPrincipalRoute,
+  remoteSaveChannelSettingsRoute,
+  remoteWeixinRemoveAccountRoute,
+  remoteWeixinRestartAccountRoute,
+  remoteWeixinStartLoginRoute,
+  remoteWeixinWaitForLoginRoute,
+} from "./routes/remote.routes";
 import {
   projectListEnvironmentsRoute,
   projectListRecentRoute,
@@ -343,6 +363,7 @@ import {
   workspaceResolveMarkdownLinkedFileRoute,
   workspaceRevealFileInFolderRoute,
   workspaceSearchFilesRoute,
+  workspaceBrowseDirectoryRoute,
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
   workspaceWatchRoute,
@@ -360,6 +381,7 @@ export * from "./routes/models.routes";
 export * from "./routes/onboarding.routes";
 export * from "./routes/plugins.routes";
 export * from "./routes/providers.routes";
+export * from "./routes/remote.routes";
 export * from "./routes/project.routes";
 export * from "./routes/scheduledTasks.routes";
 export * from "./routes/settings.routes";
@@ -427,6 +449,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [workspaceGetGitStatusRoute.name]: workspaceGetGitStatusRoute,
   [workspaceGetGitDiffRoute.name]: workspaceGetGitDiffRoute,
   [workspaceSearchFilesRoute.name]: workspaceSearchFilesRoute,
+  [workspaceBrowseDirectoryRoute.name]: workspaceBrowseDirectoryRoute,
   [browserGetStatusRoute.name]: browserGetStatusRoute,
   [browserLoadUrlRoute.name]: browserLoadUrlRoute,
   [browserAttachCurrentWindowRoute.name]: browserAttachCurrentWindowRoute,
@@ -473,6 +496,9 @@ export const ARGOS_ROUTE_CATALOG = {
   [configSetDefaultSystemPromptIdRoute.name]: configSetDefaultSystemPromptIdRoute,
   [configGetAcpStateRoute.name]: configGetAcpStateRoute,
   [configListAgentsRoute.name]: configListAgentsRoute,
+  [configCreateArgosAgentRoute.name]: configCreateArgosAgentRoute,
+  [configUpdateArgosAgentRoute.name]: configUpdateArgosAgentRoute,
+  [configDeleteArgosAgentRoute.name]: configDeleteArgosAgentRoute,
   [configResolveArgosAgentConfigRoute.name]: configResolveArgosAgentConfigRoute,
   [configGetAgentMcpSelectionsRoute.name]: configGetAgentMcpSelectionsRoute,
   [configGetAcpSharedMcpSelectionsRoute.name]: configGetAcpSharedMcpSelectionsRoute,
@@ -676,6 +702,21 @@ export const ARGOS_ROUTE_CATALOG = {
   [memoryAddRoute.name]: memoryAddRoute,
   [memoryDeleteRoute.name]: memoryDeleteRoute,
   [memoryClearRoute.name]: memoryClearRoute,
+  [remoteListChannelsRoute.name]: remoteListChannelsRoute,
+  [remoteGetChannelSettingsRoute.name]: remoteGetChannelSettingsRoute,
+  [remoteSaveChannelSettingsRoute.name]: remoteSaveChannelSettingsRoute,
+  [remoteGetChannelStatusRoute.name]: remoteGetChannelStatusRoute,
+  [remoteGetChannelBindingsRoute.name]: remoteGetChannelBindingsRoute,
+  [remoteRemoveChannelBindingRoute.name]: remoteRemoveChannelBindingRoute,
+  [remoteRemoveChannelPrincipalRoute.name]: remoteRemoveChannelPrincipalRoute,
+  [remoteGetChannelPairingRoute.name]: remoteGetChannelPairingRoute,
+  [remoteCreatePairCodeRoute.name]: remoteCreatePairCodeRoute,
+  [remoteClearPairCodeRoute.name]: remoteClearPairCodeRoute,
+  [remoteClearBindingsRoute.name]: remoteClearBindingsRoute,
+  [remoteWeixinStartLoginRoute.name]: remoteWeixinStartLoginRoute,
+  [remoteWeixinWaitForLoginRoute.name]: remoteWeixinWaitForLoginRoute,
+  [remoteWeixinRemoveAccountRoute.name]: remoteWeixinRemoveAccountRoute,
+  [remoteWeixinRestartAccountRoute.name]: remoteWeixinRestartAccountRoute,
 } satisfies Record<string, RouteContract>;
 
 export type ArgosRouteCatalog = typeof ARGOS_ROUTE_CATALOG;

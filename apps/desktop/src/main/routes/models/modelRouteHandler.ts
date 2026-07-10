@@ -17,17 +17,16 @@ import {
   modelsTranscribeAudioRoute,
   modelsUpdateCustomRoute,
 } from "@shared/contracts/routes";
-import { readModelCapabilities } from "../config/configRouteSupport";
-
 export async function dispatchModelRoute(
   deps: {
     configPresenter: IConfigPresenter;
     llmProviderPresenter: ILlmProviderPresenter;
+    invokeDaemonRoute: (route: string, input: unknown) => Promise<unknown>;
   },
   routeName: string,
   rawInput: unknown,
 ): Promise<unknown> {
-  const { configPresenter, llmProviderPresenter } = deps;
+  const { configPresenter, llmProviderPresenter, invokeDaemonRoute } = deps;
 
   switch (routeName) {
     case modelsGetProviderCatalogRoute.name: {
@@ -43,7 +42,6 @@ export async function dispatchModelRoute(
         ]),
       );
       const modelStatusMap = configPresenter.getBatchModelStatus(input.providerId, modelIds);
-
       return modelsGetProviderCatalogRoute.output.parse({
         catalog: {
           providerModels,
@@ -63,94 +61,69 @@ export async function dispatchModelRoute(
 
     case modelsSetBatchStatusRoute.name: {
       const input = modelsSetBatchStatusRoute.input.parse(rawInput);
-      await llmProviderPresenter.batchUpdateModelStatus(input.providerId, input.updates);
-      return modelsSetBatchStatusRoute.output.parse({ results: input.updates });
+      return modelsSetBatchStatusRoute.output.parse(await invokeDaemonRoute(modelsSetBatchStatusRoute.name, input));
     }
 
     case modelsSetStatusRoute.name: {
       const input = modelsSetStatusRoute.input.parse(rawInput);
-      await llmProviderPresenter.updateModelStatus(input.providerId, input.modelId, input.enabled);
-      return modelsSetStatusRoute.output.parse(input);
+      return modelsSetStatusRoute.output.parse(await invokeDaemonRoute(modelsSetStatusRoute.name, input));
     }
 
     case modelsAddCustomRoute.name: {
       const input = modelsAddCustomRoute.input.parse(rawInput);
-      const model = await llmProviderPresenter.addCustomModel(input.providerId, input.model);
-      return modelsAddCustomRoute.output.parse({ model });
+      return modelsAddCustomRoute.output.parse(await invokeDaemonRoute(modelsAddCustomRoute.name, input));
     }
 
     case modelsRemoveCustomRoute.name: {
       const input = modelsRemoveCustomRoute.input.parse(rawInput);
-      return modelsRemoveCustomRoute.output.parse({
-        removed: await llmProviderPresenter.removeCustomModel(input.providerId, input.modelId),
-      });
+      return modelsRemoveCustomRoute.output.parse(await invokeDaemonRoute(modelsRemoveCustomRoute.name, input));
     }
 
     case modelsUpdateCustomRoute.name: {
       const input = modelsUpdateCustomRoute.input.parse(rawInput);
-      return modelsUpdateCustomRoute.output.parse({
-        updated: await llmProviderPresenter.updateCustomModel(input.providerId, input.modelId, input.updates),
-      });
+      return modelsUpdateCustomRoute.output.parse(await invokeDaemonRoute(modelsUpdateCustomRoute.name, input));
     }
 
     case modelsGetConfigRoute.name: {
       const input = modelsGetConfigRoute.input.parse(rawInput);
-      return modelsGetConfigRoute.output.parse({
-        config: configPresenter.getModelConfig(input.modelId, input.providerId),
-      });
+      return modelsGetConfigRoute.output.parse(await invokeDaemonRoute(modelsGetConfigRoute.name, input));
     }
 
     case modelsSetConfigRoute.name: {
       const input = modelsSetConfigRoute.input.parse(rawInput);
-      configPresenter.setModelConfig(input.modelId, input.providerId, input.config);
-      return modelsSetConfigRoute.output.parse({
-        config: configPresenter.getModelConfig(input.modelId, input.providerId),
-      });
+      return modelsSetConfigRoute.output.parse(await invokeDaemonRoute(modelsSetConfigRoute.name, input));
     }
 
     case modelsResetConfigRoute.name: {
       const input = modelsResetConfigRoute.input.parse(rawInput);
-      configPresenter.resetModelConfig(input.modelId, input.providerId);
-      return modelsResetConfigRoute.output.parse({
-        reset: true,
-      });
+      return modelsResetConfigRoute.output.parse(await invokeDaemonRoute(modelsResetConfigRoute.name, input));
     }
 
     case modelsGetProviderConfigsRoute.name: {
       const input = modelsGetProviderConfigsRoute.input.parse(rawInput);
-      return modelsGetProviderConfigsRoute.output.parse({
-        configs: configPresenter.getProviderModelConfigs(input.providerId),
-      });
+      return modelsGetProviderConfigsRoute.output.parse(
+        await invokeDaemonRoute(modelsGetProviderConfigsRoute.name, input),
+      );
     }
 
     case modelsHasUserConfigRoute.name: {
       const input = modelsHasUserConfigRoute.input.parse(rawInput);
-      return modelsHasUserConfigRoute.output.parse({
-        hasConfig: configPresenter.hasUserModelConfig(input.modelId, input.providerId),
-      });
+      return modelsHasUserConfigRoute.output.parse(await invokeDaemonRoute(modelsHasUserConfigRoute.name, input));
     }
 
     case modelsExportConfigsRoute.name: {
       modelsExportConfigsRoute.input.parse(rawInput);
-      return modelsExportConfigsRoute.output.parse({
-        configs: configPresenter.exportModelConfigs(),
-      });
+      return modelsExportConfigsRoute.output.parse(await invokeDaemonRoute(modelsExportConfigsRoute.name, {}));
     }
 
     case modelsImportConfigsRoute.name: {
       const input = modelsImportConfigsRoute.input.parse(rawInput);
-      configPresenter.importModelConfigs(input.configs, input.overwrite);
-      return modelsImportConfigsRoute.output.parse({
-        imported: true,
-        overwrite: input.overwrite,
-      });
+      return modelsImportConfigsRoute.output.parse(await invokeDaemonRoute(modelsImportConfigsRoute.name, input));
     }
 
     case modelsGetCapabilitiesRoute.name: {
       const input = modelsGetCapabilitiesRoute.input.parse(rawInput);
-      return modelsGetCapabilitiesRoute.output.parse({
-        capabilities: readModelCapabilities(configPresenter, input.providerId, input.modelId),
-      });
+      return modelsGetCapabilitiesRoute.output.parse(await invokeDaemonRoute(modelsGetCapabilitiesRoute.name, input));
     }
 
     case modelsTranscribeAudioRoute.name: {

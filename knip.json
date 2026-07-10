@@ -40,5 +40,5 @@
     "@argos/shared-contracts",
     "ollama"
   ],
-  "ignoreBinaries": ["bun", "tsgo"]
+  "ignoreBinaries": ["bun"]
 }

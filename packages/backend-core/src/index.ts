@@ -5,6 +5,7 @@ export * from "./scheduler/scheduler";
 export * from "./services/sessionService";
 export * from "./services/chatService";
 export * from "./services/providerService";
+export * from "./services/providerImportService";
 export * from "./dispatch/routeRuntime";
 export * from "./session";
 export * from "./provider";

@@ -3,6 +3,7 @@ import { methods as acpMethods } from "@agentclientprotocol/sdk";
 import type * as schema from "@agentclientprotocol/sdk";
 import { AcpProcessManager } from "./process/acpProcessManager";
 import { AcpSessionManager } from "./session/acpSessionManager";
+import type { PermissionResolver } from "./process/acpProcessManager";
 import { AcpSessionPersistence } from "./session/acpSessionPersistence";
 import { AcpPromptController } from "./session/acpPromptController";
 import type { AcpAgentConfig } from "@shared/presenter";
@@ -23,6 +24,7 @@ export interface AcpRuntime {
     agent: AcpAgentConfig;
     prompt: schema.ContentBlock[];
     workdir?: string;
+    onPermission?: PermissionResolver;
   }): AsyncGenerator<schema.SessionNotification, void, unknown>;
 }
 
@@ -90,7 +92,7 @@ export function createAcpRuntime(deps: {
         args.agent,
         {
           onSessionUpdate: () => {},
-          onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+          onPermission: args.onPermission ?? (async () => ({ outcome: { outcome: "cancelled" } })),
         },
         args.workdir,
       );

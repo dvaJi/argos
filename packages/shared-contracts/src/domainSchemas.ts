@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { BrowserPageStatus } from "@shared/types/browser";
 import { ApiEndpointType, ModelType, NEW_API_ENDPOINT_TYPES } from "@shared/model";
 import {
@@ -16,100 +16,100 @@ import {
   VerbositySchema,
 } from "@shared/types/model-db";
 
-export const ThemeModeSchema = z.enum(["dark", "light", "system"]);
+export const ThemeModeSchema = zod.enum(["dark", "light", "system"]);
 
-export const LanguageDirectionSchema = z.enum(["auto", "rtl", "ltr"]);
+export const LanguageDirectionSchema = zod.enum(["auto", "rtl", "ltr"]);
 
-export const ModelSelectionSchema = z.object({
-  providerId: z.string().min(1),
-  modelId: z.string().min(1),
+export const ModelSelectionSchema = zod.object({
+  providerId: zod.string().min(1),
+  modelId: zod.string().min(1),
 });
 
-export const BuiltinKnowledgeConfigSchema = z.object({
-  id: z.string().min(1),
-  description: z.string(),
+export const BuiltinKnowledgeConfigSchema = zod.object({
+  id: zod.string().min(1),
+  description: zod.string(),
   embedding: ModelSelectionSchema,
   rerank: ModelSelectionSchema.optional(),
-  dimensions: z.number(),
-  normalized: z.boolean(),
-  chunkSize: z.number().optional(),
-  chunkOverlap: z.number().optional(),
-  fragmentsNumber: z.number(),
-  separators: z.array(z.string()).optional(),
-  enabled: z.boolean(),
+  dimensions: zod.number(),
+  normalized: zod.boolean(),
+  chunkSize: zod.number().optional(),
+  chunkOverlap: zod.number().optional(),
+  fragmentsNumber: zod.number(),
+  separators: zod.array(zod.string()).optional(),
+  enabled: zod.boolean(),
 });
 
 export const ArgosAgentModelPresetSchema = ModelSelectionSchema.extend({
-  temperature: z.number().optional(),
-  contextLength: z.number().int().optional(),
-  maxTokens: z.number().int().optional(),
-  thinkingBudget: z.number().int().optional(),
+  temperature: zod.number().optional(),
+  contextLength: zod.number().int().optional(),
+  maxTokens: zod.number().int().optional(),
+  thinkingBudget: zod.number().int().optional(),
   reasoningEffort: ReasoningEffortSchema.optional(),
   verbosity: VerbositySchema.optional(),
-  forceInterleavedThinkingCompat: z.boolean().optional(),
+  forceInterleavedThinkingCompat: zod.boolean().optional(),
 });
 
-export const ProviderRateLimitStatusSchema = z.object({
-  config: z.object({
-    enabled: z.boolean(),
-    qpsLimit: z.number(),
+export const ProviderRateLimitStatusSchema = zod.object({
+  config: zod.object({
+    enabled: zod.boolean(),
+    qpsLimit: zod.number(),
   }),
-  currentQps: z.number(),
-  queueLength: z.number().int(),
-  lastRequestTime: z.number().int(),
+  currentQps: zod.number(),
+  queueLength: zod.number().int(),
+  lastRequestTime: zod.number().int(),
 });
 
-export const LlmProviderSchema = z.looseObject({
-  id: z.string().min(1),
-  capabilityProviderId: z.string().optional(),
-  name: z.string(),
-  apiType: z.string(),
-  apiKey: z.string(),
-  copilotClientId: z.string().optional(),
-  baseUrl: z.string(),
-  models: z.array(ProviderModelSummarySchema).optional(),
-  customModels: z.array(ProviderModelSummarySchema).optional(),
-  enable: z.boolean(),
-  enabledModels: z.array(z.string()).optional(),
-  disabledModels: z.array(z.string()).optional(),
-  custom: z.boolean().optional(),
-  oauthToken: z.string().optional(),
-  websites: z
+export const LlmProviderSchema = zod.looseObject({
+  id: zod.string().min(1),
+  capabilityProviderId: zod.string().optional(),
+  name: zod.string(),
+  apiType: zod.string(),
+  apiKey: zod.string(),
+  copilotClientId: zod.string().optional(),
+  baseUrl: zod.string(),
+  models: zod.array(ProviderModelSummarySchema).optional(),
+  customModels: zod.array(ProviderModelSummarySchema).optional(),
+  enable: zod.boolean(),
+  enabledModels: zod.array(zod.string()).optional(),
+  disabledModels: zod.array(zod.string()).optional(),
+  custom: zod.boolean().optional(),
+  oauthToken: zod.string().optional(),
+  websites: zod
     .object({
-      official: z.string(),
-      apiKey: z.string(),
-      name: z.string().optional(),
-      icon: z.string().optional(),
-      docs: z.string().optional(),
-      models: z.string().optional(),
-      defaultBaseUrl: z.string().optional(),
+      official: zod.string(),
+      apiKey: zod.string(),
+      name: zod.string().optional(),
+      icon: zod.string().optional(),
+      docs: zod.string().optional(),
+      models: zod.string().optional(),
+      defaultBaseUrl: zod.string().optional(),
     })
     .optional(),
-  rateLimit: z
+  rateLimit: zod
     .object({
-      enabled: z.boolean(),
-      qpsLimit: z.number(),
+      enabled: zod.boolean(),
+      qpsLimit: zod.number(),
     })
     .optional(),
-  rateLimitConfig: z
+  rateLimitConfig: zod
     .object({
-      enabled: z.boolean(),
-      qpsLimit: z.number(),
+      enabled: zod.boolean(),
+      qpsLimit: zod.number(),
     })
     .optional(),
-  credential: z
+  credential: zod
     .object({
-      accessKeyId: z.string(),
-      secretAccessKey: z.string(),
-      region: z.string().optional(),
+      accessKeyId: zod.string(),
+      secretAccessKey: zod.string(),
+      region: zod.string().optional(),
     })
     .optional(),
-  projectId: z.string().optional(),
-  location: z.string().optional(),
-  accountPrivateKey: z.string().optional(),
-  accountClientEmail: z.string().optional(),
-  apiVersion: z.enum(["v1", "v1beta1"]).optional(),
-  endpointMode: z.enum(["standard", "express"]).optional(),
+  projectId: zod.string().optional(),
+  location: zod.string().optional(),
+  accountPrivateKey: zod.string().optional(),
+  accountClientEmail: zod.string().optional(),
+  apiVersion: zod.enum(["v1", "v1beta1"]).optional(),
+  endpointMode: zod.enum(["standard", "express"]).optional(),
 });
 
 export const LlmProviderSummarySchema = LlmProviderSchema.omit({
@@ -119,326 +119,326 @@ export const LlmProviderSummarySchema = LlmProviderSchema.omit({
   disabledModels: true,
 });
 
-export const FileItemSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  type: z.string(),
-  size: z.number().optional(),
-  path: z.string(),
-  description: z.string().optional(),
-  content: z.string().optional(),
-  createdAt: z.number().int().optional(),
-  updatedAt: z.number().int().optional(),
+export const FileItemSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  type: zod.string(),
+  size: zod.number().optional(),
+  path: zod.string(),
+  description: zod.string().optional(),
+  content: zod.string().optional(),
+  createdAt: zod.number().int().optional(),
+  updatedAt: zod.number().int().optional(),
 });
 
-export const PromptParameterSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  required: z.boolean(),
+export const PromptParameterSchema = zod.object({
+  name: zod.string(),
+  description: zod.string().optional(),
+  required: zod.boolean(),
 });
 
-export const PromptMessageSchema = z.object({
-  role: z.string(),
-  content: z.object({
-    text: z.string(),
+export const PromptMessageSchema = zod.object({
+  role: zod.string(),
+  content: zod.object({
+    text: zod.string(),
   }),
 });
 
-export const PromptSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  description: z.string(),
-  content: z.string().optional(),
-  parameters: z.array(PromptParameterSchema).optional(),
-  files: z.array(FileItemSchema).optional(),
-  messages: z.array(PromptMessageSchema).optional(),
-  enabled: z.boolean().optional(),
-  source: z.enum(["local", "imported", "builtin"]).optional(),
-  createdAt: z.number().int().optional(),
-  updatedAt: z.number().int().optional(),
+export const PromptSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  description: zod.string(),
+  content: zod.string().optional(),
+  parameters: zod.array(PromptParameterSchema).optional(),
+  files: zod.array(FileItemSchema).optional(),
+  messages: zod.array(PromptMessageSchema).optional(),
+  enabled: zod.boolean().optional(),
+  source: zod.enum(["local", "imported", "builtin"]).optional(),
+  createdAt: zod.number().int().optional(),
+  updatedAt: zod.number().int().optional(),
 });
 
-export const SystemPromptSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  content: z.string(),
-  isDefault: z.boolean().optional(),
-  createdAt: z.number().int().optional(),
-  updatedAt: z.number().int().optional(),
+export const SystemPromptSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  content: zod.string(),
+  isDefault: zod.boolean().optional(),
+  createdAt: zod.number().int().optional(),
+  updatedAt: zod.number().int().optional(),
 });
 
-export const ShortcutKeySettingSchema = z.record(z.string(), z.string());
+export const ShortcutKeySettingSchema = zod.record(zod.string(), zod.string());
 
-export const ReasoningPortraitSchema = z.looseObject({
-  supported: z.boolean().optional(),
-  defaultEnabled: z.boolean().optional(),
+export const ReasoningPortraitSchema = zod.looseObject({
+  supported: zod.boolean().optional(),
+  defaultEnabled: zod.boolean().optional(),
   mode: ReasoningModeSchema.optional(),
-  budget: z
+  budget: zod
     .object({
-      default: z.number().int().optional(),
-      min: z.number().int().optional(),
-      max: z.number().int().optional(),
-      auto: z.number().int().optional(),
-      off: z.number().int().optional(),
-      unit: z.string().optional(),
+      default: zod.number().int().optional(),
+      min: zod.number().int().optional(),
+      max: zod.number().int().optional(),
+      auto: zod.number().int().optional(),
+      off: zod.number().int().optional(),
+      unit: zod.string().optional(),
     })
     .optional(),
   effort: ReasoningEffortSchema.optional(),
-  effortOptions: z.array(ReasoningEffortSchema).optional(),
+  effortOptions: zod.array(ReasoningEffortSchema).optional(),
   verbosity: VerbositySchema.optional(),
-  verbosityOptions: z.array(VerbositySchema).optional(),
-  level: z.string().optional(),
-  levelOptions: z.array(z.string()).optional(),
-  interleaved: z.boolean().optional(),
-  summaries: z.boolean().optional(),
+  verbosityOptions: zod.array(VerbositySchema).optional(),
+  level: zod.string().optional(),
+  levelOptions: zod.array(zod.string()).optional(),
+  interleaved: zod.boolean().optional(),
+  summaries: zod.boolean().optional(),
   visibility: ReasoningVisibilitySchema.optional(),
-  continuation: z.array(z.string()).optional(),
-  notes: z.array(z.string()).optional(),
+  continuation: zod.array(zod.string()).optional(),
+  notes: zod.array(zod.string()).optional(),
 });
 
-export const ModelCapabilitiesSchema = z.object({
-  supportsAudioInput: z.boolean().nullable(),
-  supportsReasoning: z.boolean().nullable(),
+export const ModelCapabilitiesSchema = zod.object({
+  supportsAudioInput: zod.boolean().nullable(),
+  supportsReasoning: zod.boolean().nullable(),
   reasoningPortrait: ReasoningPortraitSchema.nullable(),
-  thinkingBudgetRange: z
+  thinkingBudgetRange: zod
     .object({
-      min: z.number().int().optional(),
-      max: z.number().int().optional(),
-      default: z.number().int().optional(),
+      min: zod.number().int().optional(),
+      max: zod.number().int().optional(),
+      default: zod.number().int().optional(),
     })
     .nullable(),
-  supportsSearch: z.boolean().nullable(),
-  searchDefaults: z
+  supportsSearch: zod.boolean().nullable(),
+  searchDefaults: zod
     .object({
-      default: z.boolean().optional(),
-      forced: z.boolean().optional(),
-      strategy: z.enum(["turbo", "max"]).optional(),
+      default: zod.boolean().optional(),
+      forced: zod.boolean().optional(),
+      strategy: zod.enum(["turbo", "max"]).optional(),
     })
     .nullable(),
-  supportsTemperatureControl: z.boolean().nullable(),
-  temperatureCapability: z.boolean().nullable(),
+  supportsTemperatureControl: zod.boolean().nullable(),
+  temperatureCapability: zod.boolean().nullable(),
 });
 
-export const ModelConfigSchema = z.looseObject({
-  maxTokens: z.number().int(),
-  contextLength: z.number().int(),
-  temperature: z.number().optional(),
-  topP: z.number().min(0.1).max(1).optional(),
-  vision: z.boolean(),
-  speechRecognition: z.boolean().optional(),
-  functionCall: z.boolean(),
-  reasoning: z.boolean(),
-  type: z.enum(ModelType),
-  isUserDefined: z.boolean().optional(),
-  thinkingBudget: z.number().int().optional(),
-  forceInterleavedThinkingCompat: z.boolean().optional(),
+export const ModelConfigSchema = zod.looseObject({
+  maxTokens: zod.number().int(),
+  contextLength: zod.number().int(),
+  temperature: zod.number().optional(),
+  topP: zod.number().min(0.1).max(1).optional(),
+  vision: zod.boolean(),
+  speechRecognition: zod.boolean().optional(),
+  functionCall: zod.boolean(),
+  reasoning: zod.boolean(),
+  type: zod.enum(ModelType),
+  isUserDefined: zod.boolean().optional(),
+  thinkingBudget: zod.number().int().optional(),
+  forceInterleavedThinkingCompat: zod.boolean().optional(),
   reasoningEffort: ReasoningEffortSchema.optional(),
   reasoningVisibility: ReasoningVisibilitySchema.optional(),
   verbosity: VerbositySchema.optional(),
-  maxCompletionTokens: z.number().int().optional(),
-  conversationId: z.string().optional(),
-  apiEndpoint: z.enum(ApiEndpointType).optional(),
-  endpointType: z.enum(NEW_API_ENDPOINT_TYPES).optional(),
-  ownedBy: z.string().optional(),
-  enableSearch: z.boolean().optional(),
-  forcedSearch: z.boolean().optional(),
-  searchStrategy: z.enum(["turbo", "balanced", "precise"]).optional(),
+  maxCompletionTokens: zod.number().int().optional(),
+  conversationId: zod.string().optional(),
+  apiEndpoint: zod.enum(ApiEndpointType).optional(),
+  endpointType: zod.enum(NEW_API_ENDPOINT_TYPES).optional(),
+  ownedBy: zod.string().optional(),
+  enableSearch: zod.boolean().optional(),
+  forcedSearch: zod.boolean().optional(),
+  searchStrategy: zod.enum(["turbo", "balanced", "precise"]).optional(),
   imageGeneration: ImageGenerationOptionsSchema,
   videoGeneration: VideoGenerationOptionsSchema,
   tts: TtsSettingsSchema,
 });
 
-export const ProviderModelConfigEntrySchema = z.object({
-  modelId: z.string().min(1),
+export const ProviderModelConfigEntrySchema = zod.object({
+  modelId: zod.string().min(1),
   config: ModelConfigSchema,
 });
 
-export const ModelConfigExportEntrySchema = z.object({
-  id: z.string().min(1),
-  providerId: z.string().min(1),
+export const ModelConfigExportEntrySchema = zod.object({
+  id: zod.string().min(1),
+  providerId: zod.string().min(1),
   config: ModelConfigSchema,
-  source: z.enum(["user", "provider", "system"]).optional(),
+  source: zod.enum(["user", "provider", "system"]).optional(),
 });
 
-export const ModelStatusMapSchema = z.record(z.string(), z.boolean());
+export const ModelStatusMapSchema = zod.record(zod.string(), zod.boolean());
 
-export const ProviderModelCatalogSchema = z.object({
-  providerModels: z.array(ProviderModelSummarySchema),
-  customModels: z.array(ProviderModelSummarySchema),
-  dbProviderModels: z.array(ProviderModelSummarySchema),
+export const ProviderModelCatalogSchema = zod.object({
+  providerModels: zod.array(ProviderModelSummarySchema),
+  customModels: zod.array(ProviderModelSummarySchema),
+  dbProviderModels: zod.array(ProviderModelSummarySchema),
   modelStatusMap: ModelStatusMapSchema,
 });
 
-export const AcpConfigOptionValueSchema = z.looseObject({
-  value: z.string(),
-  label: z.string(),
-  description: z.string().nullable().optional(),
-  groupId: z.string().nullable().optional(),
-  groupLabel: z.string().nullable().optional(),
+export const AcpConfigOptionValueSchema = zod.looseObject({
+  value: zod.string(),
+  label: zod.string(),
+  description: zod.string().nullable().optional(),
+  groupId: zod.string().nullable().optional(),
+  groupLabel: zod.string().nullable().optional(),
 });
 
-export const AcpConfigOptionSchema = z.looseObject({
-  id: z.string(),
-  label: z.string(),
-  description: z.string().nullable().optional(),
-  type: z.enum(["select", "boolean"]),
-  category: z.string().nullable().optional(),
-  currentValue: z.union([z.string(), z.boolean()]),
-  options: z.array(AcpConfigOptionValueSchema).optional(),
+export const AcpConfigOptionSchema = zod.looseObject({
+  id: zod.string(),
+  label: zod.string(),
+  description: zod.string().nullable().optional(),
+  type: zod.enum(["select", "boolean"]),
+  category: zod.string().nullable().optional(),
+  currentValue: zod.union([zod.string(), zod.boolean()]),
+  options: zod.array(AcpConfigOptionValueSchema).optional(),
 });
 
-export const AcpConfigStateSchema = z.object({
-  source: z.enum(["configOptions", "legacy"]),
-  options: z.array(AcpConfigOptionSchema),
+export const AcpConfigStateSchema = zod.object({
+  source: zod.enum(["configOptions", "legacy"]),
+  options: zod.array(AcpConfigOptionSchema),
 });
 
-export const OllamaModelSchema = z.looseObject({
-  name: z.string(),
-  model: z.string().optional(),
-  size: z.number(),
-  digest: z.string(),
-  modified_at: z.union([z.string(), z.date()]),
-  details: z.looseObject({
-    format: z.string(),
-    family: z.string(),
-    families: z.array(z.string()).optional(),
-    parameter_size: z.string(),
-    quantization_level: z.string(),
+export const OllamaModelSchema = zod.looseObject({
+  name: zod.string(),
+  model: zod.string().optional(),
+  size: zod.number(),
+  digest: zod.string(),
+  modified_at: zod.union([zod.string(), zod.date()]),
+  details: zod.looseObject({
+    format: zod.string(),
+    family: zod.string(),
+    families: zod.array(zod.string()).optional(),
+    parameter_size: zod.string(),
+    quantization_level: zod.string(),
   }),
-  model_info: z
+  model_info: zod
     .looseObject({
-      context_length: z.number().int().optional(),
-      embedding_length: z.number().int().optional(),
-      vision: z
+      context_length: zod.number().int().optional(),
+      embedding_length: zod.number().int().optional(),
+      vision: zod
         .object({
-          embedding_length: z.number().int(),
+          embedding_length: zod.number().int(),
         })
         .optional(),
-      general: z
+      general: zod
         .object({
-          architecture: z.string().optional(),
-          file_type: z.string().optional(),
-          parameter_count: z.number().optional(),
-          quantization_version: z.number().optional(),
+          architecture: zod.string().optional(),
+          file_type: zod.string().optional(),
+          parameter_count: zod.number().optional(),
+          quantization_version: zod.number().optional(),
         })
         .optional(),
     })
     .optional(),
-  capabilities: z.array(z.string()).optional(),
+  capabilities: zod.array(zod.string()).optional(),
 });
 
-export const McpServerConfigSchema = z.looseObject({
-  type: z.string().optional(),
-  enabled: z.boolean().optional(),
-  command: z.string().optional(),
-  args: z.array(z.string()).optional(),
-  name: z.string().optional(),
-  env: z.record(z.string(), z.unknown()).optional(),
+export const McpServerConfigSchema = zod.looseObject({
+  type: zod.string().optional(),
+  enabled: zod.boolean().optional(),
+  command: zod.string().optional(),
+  args: zod.array(zod.string()).optional(),
+  name: zod.string().optional(),
+  env: zod.record(zod.string(), zod.unknown()).optional(),
 });
 
-export const AcpAgentConfigSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  description: z.string().optional(),
-  icon: z.string().optional(),
-  command: z.string().optional(),
-  args: z.array(z.string()).optional(),
+export const AcpAgentConfigSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  command: zod.string().optional(),
+  args: zod.array(zod.string()).optional(),
 });
 
-export const AcpAgentInstallStateSchema = z.looseObject({
-  status: z.enum(["not_installed", "installing", "installed", "error"]),
-  version: z.string().optional(),
-  distributionType: z.string().optional(),
-  lastCheckedAt: z.number().optional(),
-  installedAt: z.number().nullable().optional(),
-  installDir: z.string().nullable().optional(),
-  error: z.string().nullable().optional(),
+export const AcpAgentInstallStateSchema = zod.looseObject({
+  status: zod.enum(["not_installed", "installing", "installed", "error"]),
+  version: zod.string().optional(),
+  distributionType: zod.string().optional(),
+  lastCheckedAt: zod.number().optional(),
+  installedAt: zod.number().nullable().optional(),
+  installDir: zod.string().nullable().optional(),
+  error: zod.string().nullable().optional(),
 });
 
-export const AcpRegistryAgentSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  version: z.string(),
-  description: z.string().optional(),
-  icon: z.string().optional(),
-  repository: z.string().optional(),
-  enabled: z.boolean().optional(),
-  envOverride: z.record(z.string(), z.string()).optional(),
+export const AcpRegistryAgentSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  version: zod.string(),
+  description: zod.string().optional(),
+  icon: zod.string().optional(),
+  repository: zod.string().optional(),
+  enabled: zod.boolean().optional(),
+  envOverride: zod.record(zod.string(), zod.string()).optional(),
   installState: AcpAgentInstallStateSchema.nullable().optional(),
 });
 
-export const AcpManualAgentSchema = z.looseObject({
-  id: z.string().min(1),
-  name: z.string(),
-  command: z.string(),
-  args: z.array(z.string()).optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  enabled: z.boolean().optional(),
+export const AcpManualAgentSchema = zod.looseObject({
+  id: zod.string().min(1),
+  name: zod.string(),
+  command: zod.string(),
+  args: zod.array(zod.string()).optional(),
+  env: zod.record(zod.string(), zod.string()).optional(),
+  enabled: zod.boolean().optional(),
 });
 
-export const ArgosAgentConfigSchema = z.looseObject({
+export const ArgosAgentConfigSchema = zod.looseObject({
   defaultModelPreset: ArgosAgentModelPresetSchema.nullable().optional(),
   assistantModel: ModelSelectionSchema.nullable().optional(),
   visionModel: ModelSelectionSchema.nullable().optional(),
   imageGenerationModel: ModelSelectionSchema.nullable().optional(),
-  systemPrompt: z.string().optional(),
-  permissionMode: z.enum(["default", "full_access"]).optional(),
-  disabledAgentTools: z.array(z.string()).optional(),
-  enabledMcpServerIds: z.array(z.string()).optional(),
-  enabledPluginIds: z.array(z.string()).optional(),
-  enabledSkillNames: z.array(z.string()).optional(),
-  subagentEnabled: z.boolean().optional(),
-  defaultProjectPath: z.string().nullable().optional(),
+  systemPrompt: zod.string().optional(),
+  permissionMode: zod.enum(["default", "full_access"]).optional(),
+  disabledAgentTools: zod.array(zod.string()).optional(),
+  enabledMcpServerIds: zod.array(zod.string()).optional(),
+  enabledPluginIds: zod.array(zod.string()).optional(),
+  enabledSkillNames: zod.array(zod.string()).optional(),
+  subagentEnabled: zod.boolean().optional(),
+  defaultProjectPath: zod.string().nullable().optional(),
 });
 
-export const ConfigValueSchema = z.union([z.boolean(), z.number(), z.string(), z.null(), JsonValueSchema]);
+export const ConfigValueSchema = zod.union([zod.boolean(), zod.number(), zod.string(), zod.null(), JsonValueSchema]);
 
-export const PreparedMessageFileSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.string().optional(),
-  size: z.number().optional(),
-  content: z.string().optional(),
-  mimeType: z.string().optional(),
-  token: z.number().optional(),
-  thumbnail: z.string().optional(),
-  metadata: z.record(z.string(), FileMetadataValueSchema).optional(),
+export const PreparedMessageFileSchema = zod.object({
+  name: zod.string(),
+  path: zod.string(),
+  type: zod.string().optional(),
+  size: zod.number().optional(),
+  content: zod.string().optional(),
+  mimeType: zod.string().optional(),
+  token: zod.number().optional(),
+  thumbnail: zod.string().optional(),
+  metadata: zod.record(zod.string(), FileMetadataValueSchema).optional(),
 });
 
-export const DeviceInfoSchema = z.object({
-  platform: z.string(),
-  arch: z.string(),
-  cpuModel: z.string(),
-  totalMemory: z.number(),
-  osVersion: z.string(),
-  osVersionMetadata: z.array(
-    z.object({
-      name: z.string(),
-      build: z.number().int(),
+export const DeviceInfoSchema = zod.object({
+  platform: zod.string(),
+  arch: zod.string(),
+  cpuModel: zod.string(),
+  totalMemory: zod.number(),
+  osVersion: zod.string(),
+  osVersionMetadata: zod.array(
+    zod.object({
+      name: zod.string(),
+      build: zod.number().int(),
     }),
   ),
 });
 
-export const ProjectSchema = z.object({
-  path: z.string().min(1),
-  name: z.string(),
-  icon: z.string().nullable(),
-  lastAccessedAt: z.number().int(),
+export const ProjectSchema = zod.object({
+  path: zod.string().min(1),
+  name: zod.string(),
+  icon: zod.string().nullable(),
+  lastAccessedAt: zod.number().int(),
 });
 
-export const EnvironmentSummarySchema = z.object({
-  path: z.string().min(1),
-  name: z.string(),
-  sessionCount: z.number().int(),
-  lastUsedAt: z.number().int(),
-  isTemp: z.boolean(),
-  exists: z.boolean(),
+export const EnvironmentSummarySchema = zod.object({
+  path: zod.string().min(1),
+  name: zod.string(),
+  sessionCount: zod.number().int(),
+  lastUsedAt: zod.number().int(),
+  isTemp: zod.boolean(),
+  exists: zod.boolean(),
 });
 
-export const WorkspaceInvalidationKindSchema = z.enum(["fs", "git", "full"]);
-export const WorkspaceInvalidationSourceSchema = z.enum(["watcher", "fallback", "lifecycle"]);
-export const WorkspaceFilePreviewKindSchema = z.enum(["text", "markdown", "html", "pdf", "svg", "image", "binary"]);
-export const WorkspaceGitChangeTypeSchema = z.enum([
+export const WorkspaceInvalidationKindSchema = zod.enum(["fs", "git", "full"]);
+export const WorkspaceInvalidationSourceSchema = zod.enum(["watcher", "fallback", "lifecycle"]);
+export const WorkspaceFilePreviewKindSchema = zod.enum(["text", "markdown", "html", "pdf", "svg", "image", "binary"]);
+export const WorkspaceGitChangeTypeSchema = zod.enum([
   "modified",
   "added",
   "deleted",
@@ -449,7 +449,7 @@ export const WorkspaceGitChangeTypeSchema = z.enum([
   "unmerged",
 ]);
 
-export const WorkspaceFileNodeSchema: z.ZodType<{
+export const WorkspaceFileNodeSchema: zod.ZodType<{
   name: string;
   path: string;
   isDirectory: boolean;
@@ -461,99 +461,99 @@ export const WorkspaceFileNodeSchema: z.ZodType<{
     expanded?: boolean;
   }>;
   expanded?: boolean;
-}> = z.lazy(() =>
-  z.object({
-    name: z.string(),
-    path: z.string(),
-    isDirectory: z.boolean(),
-    children: z.array(WorkspaceFileNodeSchema).optional(),
-    expanded: z.boolean().optional(),
+}> = zod.lazy(() =>
+  zod.object({
+    name: zod.string(),
+    path: zod.string(),
+    isDirectory: zod.boolean(),
+    children: zod.array(WorkspaceFileNodeSchema).optional(),
+    expanded: zod.boolean().optional(),
   }),
 );
 
-export const WorkspaceFileMetadataSchema = z.object({
-  fileName: z.string(),
-  fileSize: z.number(),
-  fileDescription: z.string().optional(),
-  fileCreated: z.date(),
-  fileModified: z.date(),
+export const WorkspaceFileMetadataSchema = zod.object({
+  fileName: zod.string(),
+  fileSize: zod.number(),
+  fileDescription: zod.string().optional(),
+  fileCreated: zod.date(),
+  fileModified: zod.date(),
 });
 
-export const WorkspaceFilePreviewSchema = z.object({
-  path: z.string(),
-  relativePath: z.string(),
-  name: z.string(),
-  mimeType: z.string(),
+export const WorkspaceFilePreviewSchema = zod.object({
+  path: zod.string(),
+  relativePath: zod.string(),
+  name: zod.string(),
+  mimeType: zod.string(),
   kind: WorkspaceFilePreviewKindSchema,
-  content: z.string(),
-  previewUrl: z.string().optional(),
-  thumbnail: z.string().optional(),
-  language: z.string().nullable().optional(),
+  content: zod.string(),
+  previewUrl: zod.string().optional(),
+  thumbnail: zod.string().optional(),
+  language: zod.string().nullable().optional(),
   metadata: WorkspaceFileMetadataSchema,
 });
 
-export const WorkspaceGitFileChangeSchema = z.object({
-  path: z.string(),
-  relativePath: z.string(),
-  previousPath: z.string().nullable().optional(),
-  stagedStatus: z.string().nullable(),
-  unstagedStatus: z.string().nullable(),
+export const WorkspaceGitFileChangeSchema = zod.object({
+  path: zod.string(),
+  relativePath: zod.string(),
+  previousPath: zod.string().nullable().optional(),
+  stagedStatus: zod.string().nullable(),
+  unstagedStatus: zod.string().nullable(),
   type: WorkspaceGitChangeTypeSchema,
 });
 
-export const WorkspaceGitStateSchema = z.object({
-  workspacePath: z.string(),
-  branch: z.string().nullable(),
-  ahead: z.number().int(),
-  behind: z.number().int(),
-  changes: z.array(WorkspaceGitFileChangeSchema),
+export const WorkspaceGitStateSchema = zod.object({
+  workspacePath: zod.string(),
+  branch: zod.string().nullable(),
+  ahead: zod.number().int(),
+  behind: zod.number().int(),
+  changes: zod.array(WorkspaceGitFileChangeSchema),
 });
 
-export const WorkspaceGitDiffSchema = z.object({
-  workspacePath: z.string(),
-  filePath: z.string().nullable(),
-  relativePath: z.string().nullable(),
-  staged: z.string(),
-  unstaged: z.string(),
+export const WorkspaceGitDiffSchema = zod.object({
+  workspacePath: zod.string(),
+  filePath: zod.string().nullable(),
+  relativePath: zod.string().nullable(),
+  staged: zod.string(),
+  unstaged: zod.string(),
 });
 
-export const WorkspaceLinkedFileResolutionSchema = z.object({
-  path: z.string(),
-  name: z.string(),
-  relativePath: z.string(),
-  workspaceRoot: z.string().nullable(),
+export const WorkspaceLinkedFileResolutionSchema = zod.object({
+  path: zod.string(),
+  name: zod.string(),
+  relativePath: zod.string(),
+  workspaceRoot: zod.string().nullable(),
 });
 
-export const BrowserPageInfoSchema = z.object({
-  id: z.string(),
-  url: z.string(),
-  title: z.string().optional(),
-  favicon: z.string().optional(),
-  status: z.enum(BrowserPageStatus),
-  createdAt: z.number().int(),
-  updatedAt: z.number().int(),
+export const BrowserPageInfoSchema = zod.object({
+  id: zod.string(),
+  url: zod.string(),
+  title: zod.string().optional(),
+  favicon: zod.string().optional(),
+  status: zod.enum(BrowserPageStatus),
+  createdAt: zod.number().int(),
+  updatedAt: zod.number().int(),
 });
 
-export const YoBrowserStatusSchema = z.object({
-  initialized: z.boolean(),
+export const YoBrowserStatusSchema = zod.object({
+  initialized: zod.boolean(),
   page: BrowserPageInfoSchema.nullable(),
-  canGoBack: z.boolean(),
-  canGoForward: z.boolean(),
-  visible: z.boolean(),
-  loading: z.boolean(),
+  canGoBack: zod.boolean(),
+  canGoForward: zod.boolean(),
+  visible: zod.boolean(),
+  loading: zod.boolean(),
 });
 
-export const RectangleSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
+export const RectangleSchema = zod.object({
+  x: zod.number(),
+  y: zod.number(),
+  width: zod.number(),
+  height: zod.number(),
 });
 
-export const WindowStateSchema = z.object({
-  windowId: z.number().int().nullable(),
-  exists: z.boolean(),
-  isMaximized: z.boolean(),
-  isFullScreen: z.boolean(),
-  isFocused: z.boolean(),
+export const WindowStateSchema = zod.object({
+  windowId: zod.number().int().nullable(),
+  exists: zod.boolean(),
+  isMaximized: zod.boolean(),
+  isFullScreen: zod.boolean(),
+  isFocused: zod.boolean(),
 });

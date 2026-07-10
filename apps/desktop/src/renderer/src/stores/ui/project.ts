@@ -228,13 +228,7 @@ export async function openFolderPicker(): Promise<void> {
   try {
     const selectedPath = await projectClient.selectDirectory();
     if (selectedPath) {
-      const name = selectedPath.split(/[/\\]/).pop() ?? selectedPath;
-      projectStore.setState((prev) => {
-        const nextProjects = prev.projects.filter((project) => project.path !== selectedPath);
-        nextProjects.unshift({ name, path: selectedPath, icon: null });
-        return { ...prev, projects: reconcileProjects(prev, nextProjects) };
-      });
-      selectProject(selectedPath, "manual");
+      await selectProjectFolder(selectedPath, "manual");
     }
   } catch (e) {
     projectStore.setState((prev) => ({
@@ -242,6 +236,25 @@ export async function openFolderPicker(): Promise<void> {
       error: `Failed to open folder picker: ${e}`,
     }));
   }
+}
+
+/**
+ * Add a folder path to the project list and select it. Shared by the desktop
+ * native picker (`openFolderPicker`) and the web-mode `FolderPickerDialog`.
+ */
+export async function selectProjectFolder(
+  selectedPath: string,
+  reason: ProjectSelectionSource = "manual",
+): Promise<void> {
+  const path = selectedPath.trim();
+  if (!path) return;
+  const name = path.split(/[/\\]/).pop() ?? path;
+  projectStore.setState((prev) => {
+    const nextProjects = prev.projects.filter((project) => project.path !== path);
+    nextProjects.unshift({ name, path, icon: null });
+    return { ...prev, projects: reconcileProjects(prev, nextProjects) };
+  });
+  selectProject(path, reason);
 }
 
 export function useProjectStore() {

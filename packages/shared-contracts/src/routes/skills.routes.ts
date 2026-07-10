@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import type {
   SkillExtensionConfig,
   SkillFolderNode,
@@ -9,161 +9,161 @@ import type {
 } from "@shared/types/skill";
 import { EntityIdSchema, defineRouteContract } from "../common";
 
-const SkillMetadataSchema = z.custom<SkillMetadata>();
-const SkillInstallOptionsSchema = z.custom<SkillInstallOptions>().optional();
-const SkillInstallResultSchema = z.custom<SkillInstallResult>();
-const SkillFolderNodeSchema = z.custom<SkillFolderNode>();
-const SkillExtensionConfigSchema = z.custom<SkillExtensionConfig>();
-const SkillScriptDescriptorSchema = z.custom<SkillScriptDescriptor>();
+const SkillMetadataSchema = zod.custom<SkillMetadata>();
+const SkillInstallOptionsSchema = zod.custom<SkillInstallOptions>().optional();
+const SkillInstallResultSchema = zod.custom<SkillInstallResult>();
+const SkillFolderNodeSchema = zod.custom<SkillFolderNode>();
+const SkillExtensionConfigSchema = zod.custom<SkillExtensionConfig>();
+const SkillScriptDescriptorSchema = zod.custom<SkillScriptDescriptor>();
 
 export const skillsListMetadataRoute = defineRouteContract({
   name: "skills.listMetadata",
-  input: z.object({}),
-  output: z.object({
-    skills: z.array(SkillMetadataSchema),
+  input: zod.object({}),
+  output: zod.object({
+    skills: zod.array(SkillMetadataSchema),
   }),
 });
 
 export const skillsGetDirectoryRoute = defineRouteContract({
   name: "skills.getDirectory",
-  input: z.object({}),
-  output: z.object({
-    path: z.string(),
+  input: zod.object({}),
+  output: zod.object({
+    path: zod.string(),
   }),
 });
 
 export const skillsInstallFromFolderRoute = defineRouteContract({
   name: "skills.installFromFolder",
-  input: z.object({
-    folderPath: z.string(),
+  input: zod.object({
+    folderPath: zod.string(),
     options: SkillInstallOptionsSchema,
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsInstallFromZipRoute = defineRouteContract({
   name: "skills.installFromZip",
-  input: z.object({
-    zipPath: z.string(),
+  input: zod.object({
+    zipPath: zod.string(),
     options: SkillInstallOptionsSchema,
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsInstallFromUrlRoute = defineRouteContract({
   name: "skills.installFromUrl",
-  input: z.object({
-    url: z.string(),
+  input: zod.object({
+    url: zod.string(),
     options: SkillInstallOptionsSchema,
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsUninstallRoute = defineRouteContract({
   name: "skills.uninstall",
-  input: z.object({
-    name: z.string(),
+  input: zod.object({
+    name: zod.string(),
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsUpdateFileRoute = defineRouteContract({
   name: "skills.updateFile",
-  input: z.object({
-    name: z.string(),
-    content: z.string(),
+  input: zod.object({
+    name: zod.string(),
+    content: zod.string(),
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsSaveWithExtensionRoute = defineRouteContract({
   name: "skills.saveWithExtension",
-  input: z.object({
-    name: z.string(),
-    content: z.string(),
+  input: zod.object({
+    name: zod.string(),
+    content: zod.string(),
     config: SkillExtensionConfigSchema,
   }),
-  output: z.object({
+  output: zod.object({
     result: SkillInstallResultSchema,
   }),
 });
 
 export const skillsGetFolderTreeRoute = defineRouteContract({
   name: "skills.getFolderTree",
-  input: z.object({
-    name: z.string(),
+  input: zod.object({
+    name: zod.string(),
   }),
-  output: z.object({
-    nodes: z.array(SkillFolderNodeSchema),
+  output: zod.object({
+    nodes: zod.array(SkillFolderNodeSchema),
   }),
 });
 
 export const skillsOpenFolderRoute = defineRouteContract({
   name: "skills.openFolder",
-  input: z.object({}),
-  output: z.object({
-    opened: z.literal(true),
+  input: zod.object({}),
+  output: zod.object({
+    opened: zod.literal(true),
   }),
 });
 
 export const skillsGetExtensionRoute = defineRouteContract({
   name: "skills.getExtension",
-  input: z.object({
-    name: z.string(),
+  input: zod.object({
+    name: zod.string(),
   }),
-  output: z.object({
+  output: zod.object({
     config: SkillExtensionConfigSchema,
   }),
 });
 
 export const skillsSaveExtensionRoute = defineRouteContract({
   name: "skills.saveExtension",
-  input: z.object({
-    name: z.string(),
+  input: zod.object({
+    name: zod.string(),
     config: SkillExtensionConfigSchema,
   }),
-  output: z.object({
-    saved: z.literal(true),
+  output: zod.object({
+    saved: zod.literal(true),
   }),
 });
 
 export const skillsListScriptsRoute = defineRouteContract({
   name: "skills.listScripts",
-  input: z.object({
-    name: z.string(),
+  input: zod.object({
+    name: zod.string(),
   }),
-  output: z.object({
-    scripts: z.array(SkillScriptDescriptorSchema),
+  output: zod.object({
+    scripts: zod.array(SkillScriptDescriptorSchema),
   }),
 });
 
 export const skillsGetActiveRoute = defineRouteContract({
   name: "skills.getActive",
-  input: z.object({
+  input: zod.object({
     conversationId: EntityIdSchema,
   }),
-  output: z.object({
-    skills: z.array(z.string()),
+  output: zod.object({
+    skills: zod.array(zod.string()),
   }),
 });
 
 export const skillsSetActiveRoute = defineRouteContract({
   name: "skills.setActive",
-  input: z.object({
+  input: zod.object({
     conversationId: EntityIdSchema,
-    skills: z.array(z.string()),
+    skills: zod.array(zod.string()),
   }),
-  output: z.object({
-    skills: z.array(z.string()),
+  output: zod.object({
+    skills: zod.array(zod.string()),
   }),
 });

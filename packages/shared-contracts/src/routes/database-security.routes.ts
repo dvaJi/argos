@@ -1,116 +1,116 @@
-import { z } from "zod";
+import zod from "zod";
 import { TimestampMsSchema, defineRouteContract } from "../common";
 
-export const DatabaseSecurityPasswordStorageSchema = z.enum(["safeStorage", "manual", "none"]);
+export const DatabaseSecurityPasswordStorageSchema = zod.enum(["safeStorage", "manual", "none"]);
 
-export const DatabaseSecurityStatusSchema = z.object({
-  enabled: z.boolean(),
-  cipher: z.literal("sqlcipher"),
-  safeStorageAvailable: z.boolean(),
-  safeStorageBackend: z.string().optional(),
+export const DatabaseSecurityStatusSchema = zod.object({
+  enabled: zod.boolean(),
+  cipher: zod.literal("sqlcipher"),
+  safeStorageAvailable: zod.boolean(),
+  safeStorageBackend: zod.string().optional(),
   passwordStorage: DatabaseSecurityPasswordStorageSchema,
-  manualUnlockRequired: z.boolean(),
-  migrationInProgress: z.boolean(),
+  manualUnlockRequired: zod.boolean(),
+  migrationInProgress: zod.boolean(),
   lastMigrationAt: TimestampMsSchema.optional(),
 });
 
 export const databaseSecurityGetStatusRoute = defineRouteContract({
   name: "databaseSecurity.getStatus",
-  input: z.object({}).default({}),
-  output: z.object({
+  input: zod.object({}).default({}),
+  output: zod.object({
     status: DatabaseSecurityStatusSchema,
   }),
 });
 
 export const databaseSecurityEnableRoute = defineRouteContract({
   name: "databaseSecurity.enable",
-  input: z.object({
-    password: z.string().min(1),
+  input: zod.object({
+    password: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     status: DatabaseSecurityStatusSchema,
   }),
 });
 
 export const databaseSecurityChangePasswordRoute = defineRouteContract({
   name: "databaseSecurity.changePassword",
-  input: z.object({
-    currentPassword: z.string().min(1),
-    newPassword: z.string().min(1),
+  input: zod.object({
+    currentPassword: zod.string().min(1),
+    newPassword: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     status: DatabaseSecurityStatusSchema,
   }),
 });
 
 export const databaseSecurityDisableRoute = defineRouteContract({
   name: "databaseSecurity.disable",
-  input: z.object({
-    currentPassword: z.string().min(1),
+  input: zod.object({
+    currentPassword: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     status: DatabaseSecurityStatusSchema,
   }),
 });
 
-export const DatabaseSchemaIssueKindSchema = z.enum([
+export const DatabaseSchemaIssueKindSchema = zod.enum([
   "missing_table",
   "missing_column",
   "missing_index",
   "column_type_mismatch",
 ]);
 
-export const DatabaseSchemaIssueSchema = z.object({
+export const DatabaseSchemaIssueSchema = zod.object({
   kind: DatabaseSchemaIssueKindSchema,
-  table: z.string(),
-  name: z.string(),
-  repairable: z.boolean(),
-  message: z.string(),
-  expectedType: z.string().nullable().optional(),
-  actualType: z.string().nullable().optional(),
+  table: zod.string(),
+  name: zod.string(),
+  repairable: zod.boolean(),
+  message: zod.string(),
+  expectedType: zod.string().nullable().optional(),
+  actualType: zod.string().nullable().optional(),
 });
 
-export const DatabaseSchemaDiagnosisSchema = z.object({
-  checkedAt: z.number(),
-  isHealthy: z.boolean(),
-  issues: z.array(DatabaseSchemaIssueSchema),
-  repairableIssues: z.array(DatabaseSchemaIssueSchema),
-  manualIssues: z.array(DatabaseSchemaIssueSchema),
+export const DatabaseSchemaDiagnosisSchema = zod.object({
+  checkedAt: zod.number(),
+  isHealthy: zod.boolean(),
+  issues: zod.array(DatabaseSchemaIssueSchema),
+  repairableIssues: zod.array(DatabaseSchemaIssueSchema),
+  manualIssues: zod.array(DatabaseSchemaIssueSchema),
 });
 
-export const DatabaseRepairStatusSchema = z.enum(["healthy", "repaired", "manual-action-required"]);
+export const DatabaseRepairStatusSchema = zod.enum(["healthy", "repaired", "manual-action-required"]);
 
-export const DatabaseRepairReportSchema = z.object({
-  startedAt: z.number(),
-  finishedAt: z.number(),
+export const DatabaseRepairReportSchema = zod.object({
+  startedAt: zod.number(),
+  finishedAt: zod.number(),
   status: DatabaseRepairStatusSchema,
-  backupPath: z.string().nullable(),
+  backupPath: zod.string().nullable(),
   diagnosisBeforeRepair: DatabaseSchemaDiagnosisSchema,
   diagnosisAfterRepair: DatabaseSchemaDiagnosisSchema,
-  repairedIssues: z.array(DatabaseSchemaIssueSchema),
-  remainingIssues: z.array(DatabaseSchemaIssueSchema),
+  repairedIssues: zod.array(DatabaseSchemaIssueSchema),
+  remainingIssues: zod.array(DatabaseSchemaIssueSchema),
 });
 
 export const databaseSecurityDiagnoseSchemaRoute = defineRouteContract({
   name: "databaseSecurity.diagnoseSchema",
-  input: z.object({}).default({}),
-  output: z.object({
+  input: zod.object({}).default({}),
+  output: zod.object({
     diagnosis: DatabaseSchemaDiagnosisSchema,
   }),
 });
 
 export const databaseSecurityRepairSchemaRoute = defineRouteContract({
   name: "databaseSecurity.repairSchema",
-  input: z.object({}).default({}),
-  output: z.object({
+  input: zod.object({}).default({}),
+  output: zod.object({
     report: DatabaseRepairReportSchema,
   }),
 });
 
-export type DatabaseSecurityPasswordStorage = z.infer<typeof DatabaseSecurityPasswordStorageSchema>;
-export type DatabaseSecurityStatus = z.infer<typeof DatabaseSecurityStatusSchema>;
-export type DatabaseSchemaIssueKind = z.infer<typeof DatabaseSchemaIssueKindSchema>;
-export type DatabaseSchemaIssue = z.infer<typeof DatabaseSchemaIssueSchema>;
-export type DatabaseSchemaDiagnosis = z.infer<typeof DatabaseSchemaDiagnosisSchema>;
-export type DatabaseRepairStatus = z.infer<typeof DatabaseRepairStatusSchema>;
-export type DatabaseRepairReport = z.infer<typeof DatabaseRepairReportSchema>;
+export type DatabaseSecurityPasswordStorage = zod.infer<typeof DatabaseSecurityPasswordStorageSchema>;
+export type DatabaseSecurityStatus = zod.infer<typeof DatabaseSecurityStatusSchema>;
+export type DatabaseSchemaIssueKind = zod.infer<typeof DatabaseSchemaIssueKindSchema>;
+export type DatabaseSchemaIssue = zod.infer<typeof DatabaseSchemaIssueSchema>;
+export type DatabaseSchemaDiagnosis = zod.infer<typeof DatabaseSchemaDiagnosisSchema>;
+export type DatabaseRepairStatus = zod.infer<typeof DatabaseRepairStatusSchema>;
+export type DatabaseRepairReport = zod.infer<typeof DatabaseRepairReportSchema>;

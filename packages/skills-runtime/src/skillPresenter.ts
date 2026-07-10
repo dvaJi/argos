@@ -30,9 +30,15 @@ const SKILL_EVENTS = {
   ACTIVATED: "skill:activated",
   DEACTIVATED: "skill:deactivated",
 } as const;
-import logger from "@shared/logger";
 import { normalizeSkillAllowedTools } from "./toolNameMapping";
 import type { SkillHostPorts } from "./host/ports";
+
+const logger = {
+  warn: (...args: unknown[]) => console.warn(...args),
+  info: (...args: unknown[]) => console.info(...args),
+  error: (...args: unknown[]) => console.error(...args),
+  debug: (...args: unknown[]) => console.debug(...args),
+};
 
 interface ExternalSkillSource {
   id: string;

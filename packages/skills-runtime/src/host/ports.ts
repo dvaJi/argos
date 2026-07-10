@@ -15,8 +15,8 @@ export interface SkillEventPort {
 }
 
 /**
- * Optional host hooks. The runtime degrades gracefully when a host cannot
- * provide them (daemon v1 has no worker-thread JSON parsing and no shell open).
+ * Optional host hooks. Hosts may omit desktop-only capabilities such as
+ * worker-backed discovery or file-manager integration.
  */
 export interface SkillHostServices {
   /** Discover skill metadata (desktop runs it in a worker; daemon runs inline). */

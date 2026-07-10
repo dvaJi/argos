@@ -12,7 +12,6 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@argos/acp-runtime": ["../../packages/acp-runtime/src"],
       "@argos/acp-runtime/*": ["../../packages/acp-runtime/src/*"],
@@ -22,10 +21,13 @@
       "@argos/skills-runtime/*": ["../../packages/skills-runtime/src/*"],
       "@argos/memory-runtime": ["../../packages/memory-runtime/src"],
       "@argos/memory-runtime/*": ["../../packages/memory-runtime/src/*"],
+      "@argos/remote-control-runtime": ["../../packages/remote-control-runtime/src"],
+      "@argos/remote-control-runtime/*": ["../../packages/remote-control-runtime/src/*"],
       "@argos/backend-core": ["../../packages/backend-core/src"],
       "@argos/backend-core/*": ["../../packages/backend-core/src/*"],
       "@argos/shared-contracts": ["../../packages/shared-contracts/src"],
       "@argos/shared-contracts/*": ["../../packages/shared-contracts/src/*"],
+      "@shared/contracts/*": ["../../packages/shared-contracts/src/*"],
       "@shared/*": ["../../packages/shared/src/*"]
     }
   },

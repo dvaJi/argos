@@ -19,6 +19,11 @@ export function startApp(): void {
   }
   appStarted = true;
 
+  const userDataDir = process.env.ARGOS_USER_DATA_DIR;
+  if (userDataDir) {
+    app.setPath("userData", userDataDir);
+  }
+
   app.setName(APP_NAME);
   if (process.platform === "darwin") {
     if (app.isReady()) {

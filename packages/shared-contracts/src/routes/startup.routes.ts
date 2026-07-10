@@ -1,10 +1,10 @@
-import { z } from "zod";
+import zod from "zod";
 import { StartupBootstrapShellSchema, defineRouteContract } from "../common";
 
 export const startupGetBootstrapRoute = defineRouteContract({
   name: "startup.getBootstrap",
-  input: z.object({}),
-  output: z.object({
+  input: zod.object({}),
+  output: zod.object({
     bootstrap: StartupBootstrapShellSchema,
   }),
 });

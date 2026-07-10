@@ -268,8 +268,8 @@ export class ToolManager {
             continue; // Skip adding this tool
           }
 
-          const properties = tool.inputSchema.properties || {};
-          const toolProperties = { ...properties };
+          const properties = (tool.inputSchema.properties || {}) as Record<string, { description?: string }>;
+          const toolProperties: Record<string, { description?: string }> = { ...properties };
           for (const key in toolProperties) {
             if (!toolProperties[key].description) {
               toolProperties[key].description = "Params of " + key;

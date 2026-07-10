@@ -442,11 +442,7 @@ export function WelcomePage() {
                 <div key={step.id} className={`rounded-xl border px-3 py-2 ${guideStepClass(step.id, step.status)}`}>
                   <div className="flex items-center gap-2">
                     <span className={`h-3.5 w-3.5 shrink-0 ${guideStepIconClass(step.id, step.status)}`}>
-                      {step.status === "completed"
-                        ? "ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“"
-                        : step.status === "in_progress"
-                          ? "ÃƒÂ¢Ã¢â‚¬â€Ã‚Â"
-                          : "ÃƒÂ¢Ã¢â‚¬â€Ã¢â‚¬Â¹"}
+                      {step.status === "completed" ? "✓" : step.status === "in_progress" ? "●" : "○"}
                     </span>
                     <span className="truncate text-[11px] font-medium">{guideStepTitle(step.id)}</span>
                   </div>
@@ -513,7 +509,7 @@ export function WelcomePage() {
             onClick={() => void onSetupAcp()}
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/60 shrink-0">
-              <span className="w-4 h-4 text-muted-foreground">ÃƒÂ¢Ã…â€™Ã‹Å“</span>
+              <span className="w-4 h-4 text-muted-foreground">›</span>
             </div>
             <div className="text-left">
               <p className="text-sm text-foreground/80">Connect ACP Agent</p>

@@ -1,11 +1,11 @@
-import { z } from "zod";
+import zod from "zod";
 import { TimestampMsSchema, defineEventContract } from "../common";
 import { ModelConfigSchema } from "../domainSchemas";
 
 export const modelsChangedEvent = defineEventContract({
   name: "models.changed",
-  payload: z.object({
-    reason: z.enum([
+  payload: zod.object({
+    reason: zod.enum([
       "provider-models",
       "custom-models",
       "provider-db-loaded",
@@ -13,29 +13,29 @@ export const modelsChangedEvent = defineEventContract({
       "runtime-refresh",
       "agents",
     ]),
-    providerId: z.string().optional(),
+    providerId: zod.string().optional(),
     version: TimestampMsSchema,
   }),
 });
 
 export const modelsStatusChangedEvent = defineEventContract({
   name: "models.status.changed",
-  payload: z.object({
-    providerId: z.string(),
-    modelId: z.string(),
-    enabled: z.boolean(),
+  payload: zod.object({
+    providerId: zod.string(),
+    modelId: zod.string(),
+    enabled: zod.boolean(),
     version: TimestampMsSchema,
   }),
 });
 
 export const modelBatchStatusChangedEvent = defineEventContract({
   name: "models.batch.status.changed",
-  payload: z.object({
-    providerId: z.string(),
-    updates: z.array(
-      z.object({
-        modelId: z.string(),
-        enabled: z.boolean(),
+  payload: zod.object({
+    providerId: zod.string(),
+    updates: zod.array(
+      zod.object({
+        modelId: zod.string(),
+        enabled: zod.boolean(),
       }),
     ),
     version: TimestampMsSchema,
@@ -44,12 +44,12 @@ export const modelBatchStatusChangedEvent = defineEventContract({
 
 export const modelsConfigChangedEvent = defineEventContract({
   name: "models.config.changed",
-  payload: z.object({
-    changeType: z.enum(["updated", "reset", "imported"]),
-    providerId: z.string().optional(),
-    modelId: z.string().optional(),
+  payload: zod.object({
+    changeType: zod.enum(["updated", "reset", "imported"]),
+    providerId: zod.string().optional(),
+    modelId: zod.string().optional(),
     config: ModelConfigSchema.optional(),
-    overwrite: z.boolean().optional(),
+    overwrite: zod.boolean().optional(),
     version: TimestampMsSchema,
   }),
 });

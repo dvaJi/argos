@@ -1,16 +1,16 @@
-import { z } from "zod";
+import zod from "zod";
 import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
 import { EntityIdSchema, SessionStatusSchema, defineEventContract } from "../common";
 import { AcpConfigStateSchema } from "../domainSchemas";
 
-const PendingSessionInputRecordSchema = z.custom<PendingSessionInputRecord>();
+const PendingSessionInputRecordSchema = zod.custom<PendingSessionInputRecord>();
 
-const AcpSessionCommandSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  input: z
+const AcpSessionCommandSchema = zod.object({
+  name: zod.string(),
+  description: zod.string(),
+  input: zod
     .object({
-      hint: z.string(),
+      hint: zod.string(),
     })
     .nullable()
     .optional(),
@@ -18,50 +18,50 @@ const AcpSessionCommandSchema = z.object({
 
 export const sessionsUpdatedEvent = defineEventContract({
   name: "sessions.updated",
-  payload: z.object({
-    sessionIds: z.array(EntityIdSchema),
-    reason: z.enum(["created", "activated", "deactivated", "list-refreshed", "updated", "deleted"]),
+  payload: zod.object({
+    sessionIds: zod.array(EntityIdSchema),
+    reason: zod.enum(["created", "activated", "deactivated", "list-refreshed", "updated", "deleted"]),
     activeSessionId: EntityIdSchema.nullable().optional(),
-    webContentsId: z.number().int().optional(),
+    webContentsId: zod.number().int().optional(),
   }),
 });
 
 export const sessionsStatusChangedEvent = defineEventContract({
   name: "sessions.status.changed",
-  payload: z.object({
+  payload: zod.object({
     sessionId: EntityIdSchema,
     status: SessionStatusSchema,
-    reason: z.string().optional(),
-    version: z.number().int(),
+    reason: zod.string().optional(),
+    version: zod.number().int(),
   }),
 });
 
 export const sessionsPendingInputsChangedEvent = defineEventContract({
   name: "sessions.pendingInputs.changed",
-  payload: z.object({
+  payload: zod.object({
     sessionId: EntityIdSchema,
-    items: z.array(PendingSessionInputRecordSchema).optional(),
-    version: z.number().int(),
+    items: zod.array(PendingSessionInputRecordSchema).optional(),
+    version: zod.number().int(),
   }),
 });
 
 export const sessionsAcpCommandsReadyEvent = defineEventContract({
   name: "sessions.acp.commands.ready",
-  payload: z.object({
+  payload: zod.object({
     conversationId: EntityIdSchema,
     agentId: EntityIdSchema,
-    commands: z.array(AcpSessionCommandSchema),
-    version: z.number().int(),
+    commands: zod.array(AcpSessionCommandSchema),
+    version: zod.number().int(),
   }),
 });
 
 export const sessionsAcpConfigOptionsReadyEvent = defineEventContract({
   name: "sessions.acp.configOptions.ready",
-  payload: z.object({
+  payload: zod.object({
     conversationId: EntityIdSchema.optional(),
     agentId: EntityIdSchema,
-    workdir: z.string(),
+    workdir: zod.string(),
     configState: AcpConfigStateSchema,
-    version: z.number().int(),
+    version: zod.number().int(),
   }),
 });

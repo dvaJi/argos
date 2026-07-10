@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import {
   EntityIdSchema,
   SendMessageInputSchema,
@@ -9,12 +9,12 @@ import {
 
 export const chatSendMessageRoute = defineRouteContract({
   name: "chat.sendMessage",
-  input: z.object({
+  input: zod.object({
     sessionId: EntityIdSchema,
-    content: z.union([z.string(), SendMessageInputSchema]),
+    content: zod.union([zod.string(), SendMessageInputSchema]),
   }),
-  output: z.object({
-    accepted: z.boolean(),
+  output: zod.object({
+    accepted: zod.boolean(),
     requestId: EntityIdSchema.nullable(),
     messageId: EntityIdSchema.nullable(),
   }),
@@ -22,18 +22,18 @@ export const chatSendMessageRoute = defineRouteContract({
 
 export const chatSteerActiveTurnRoute = defineRouteContract({
   name: "chat.steerActiveTurn",
-  input: z.object({
+  input: zod.object({
     sessionId: EntityIdSchema,
-    content: z.union([z.string(), SendMessageInputSchema]),
+    content: zod.union([zod.string(), SendMessageInputSchema]),
   }),
-  output: z.object({
-    accepted: z.boolean(),
+  output: zod.object({
+    accepted: zod.boolean(),
   }),
 });
 
 export const chatStopStreamRoute = defineRouteContract({
   name: "chat.stopStream",
-  input: z
+  input: zod
     .object({
       sessionId: EntityIdSchema.optional(),
       requestId: EntityIdSchema.optional(),
@@ -41,22 +41,22 @@ export const chatStopStreamRoute = defineRouteContract({
     .refine((value) => Boolean(value.sessionId || value.requestId), {
       message: "sessionId or requestId is required",
     }),
-  output: z.object({
-    stopped: z.boolean(),
+  output: zod.object({
+    stopped: zod.boolean(),
   }),
 });
 
 export const chatRespondToolInteractionRoute = defineRouteContract({
   name: "chat.respondToolInteraction",
-  input: z.object({
+  input: zod.object({
     sessionId: EntityIdSchema,
     messageId: EntityIdSchema,
     toolCallId: EntityIdSchema,
     response: ToolInteractionResponseSchema,
   }),
-  output: z
+  output: zod
     .object({
-      accepted: z.literal(true),
+      accepted: zod.literal(true),
     })
     .extend(ToolInteractionResultSchema.shape),
 });

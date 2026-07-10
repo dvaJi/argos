@@ -1,36 +1,36 @@
-import { z } from "zod";
+import zod from "zod";
 import type { DialogButton, DialogIcon } from "@shared/presenter";
 import { EntityIdSchema, defineRouteContract } from "../common";
 
-const DialogIconSchema = z.custom<DialogIcon>();
-const DialogButtonSchema = z.custom<DialogButton>();
+const DialogIconSchema = zod.custom<DialogIcon>();
+const DialogButtonSchema = zod.custom<DialogButton>();
 
 export const dialogRespondRoute = defineRouteContract({
   name: "dialog.respond",
-  input: z.object({
+  input: zod.object({
     id: EntityIdSchema,
-    button: z.string(),
+    button: zod.string(),
   }),
-  output: z.object({
-    handled: z.literal(true),
+  output: zod.object({
+    handled: zod.literal(true),
   }),
 });
 
 export const dialogErrorRoute = defineRouteContract({
   name: "dialog.error",
-  input: z.object({
+  input: zod.object({
     id: EntityIdSchema,
   }),
-  output: z.object({
-    handled: z.literal(true),
+  output: zod.object({
+    handled: zod.literal(true),
   }),
 });
 
-export const dialogRequestSchema = z.object({
+export const dialogRequestSchema = zod.object({
   id: EntityIdSchema,
-  title: z.string(),
-  description: z.string().optional(),
+  title: zod.string(),
+  description: zod.string().optional(),
   icon: DialogIconSchema.optional(),
-  buttons: z.array(DialogButtonSchema),
-  timeout: z.number(),
+  buttons: zod.array(DialogButtonSchema),
+  timeout: zod.number(),
 });

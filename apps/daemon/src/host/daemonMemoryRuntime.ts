@@ -43,9 +43,12 @@ export class DaemonMemoryRuntime {
     this.repository = this.createRepository();
     this.presenter = new MemoryPresenter({
       repository: this.repository,
-      resolveAgentConfig: (agentId: string) => {
-        const agents = this.configPresenter.listAgents?.() ?? [];
-        return agents.find((a: any) => a.id === agentId) ?? null;
+      resolveAgentConfig: async (agentId: string) => {
+        try {
+          return await this.configPresenter.resolveArgosAgentConfig(agentId);
+        } catch {
+          return null;
+        }
       },
       getEmbeddings: (providerId: string, _modelId: string, texts: string[]) => this.getEmbeddings(providerId, texts),
       generateText: (providerId: string, modelId: string, prompt: string) =>

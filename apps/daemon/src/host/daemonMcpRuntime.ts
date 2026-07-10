@@ -9,8 +9,10 @@ import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 export class DaemonMcpRuntime {
   readonly serverManager: ServerManager;
   readonly toolManager: ToolManager;
+  private readonly configPresenter: DaemonConfigPresenter;
 
   constructor(configPresenter: DaemonConfigPresenter, ports: McpHostPorts) {
+    this.configPresenter = configPresenter;
     this.serverManager = new ServerManager(configPresenter as never, ports);
     this.toolManager = new ToolManager(configPresenter as never, this.serverManager, ports);
   }
@@ -31,6 +33,10 @@ export class DaemonMcpRuntime {
     return this.toolManager.getAllToolDefinitions(enabledMcpTools);
   }
 
+  async refreshNpmRegistry(): Promise<string> {
+    return await this.serverManager.refreshNpmRegistry();
+  }
+
   async getClients() {
     return this.toolManager.getRunningClients();
   }
@@ -40,18 +46,89 @@ export class DaemonMcpRuntime {
   }
 
   async listPrompts() {
-    return this.toolManager.getAllPrompts();
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    const clients = (await this.toolManager.getRunningClients()).filter(
+      (client) => enabled || Boolean(servers[client.serverName]?.ownerPluginId || servers[client.serverName]?.sourceId),
+    );
+
+    const prompts: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = [];
+    for (const client of clients) {
+      if (typeof client.listPrompts !== "function") continue;
+      const clientPrompts = await client.listPrompts().catch(() => []);
+      for (const prompt of clientPrompts ?? []) {
+        prompts.push({
+          id: prompt.name,
+          name: prompt.name,
+          description: prompt.description || "",
+          arguments: prompt.arguments || [],
+          files: prompt.files || [],
+          client: {
+            name: client.serverName,
+            icon: client.serverConfig["icons"] as string,
+          },
+        });
+      }
+    }
+    return prompts;
   }
 
   async getPrompt(prompt: unknown, args?: Record<string, unknown>) {
-    return this.toolManager.getPrompt(prompt as never, args);
+    const typedPrompt = prompt as { name: string; client: { name: string } };
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    if (!enabled && !(servers[typedPrompt.client.name]?.ownerPluginId || servers[typedPrompt.client.name]?.sourceId)) {
+      throw new Error("MCP functionality is disabled");
+    }
+    if (typedPrompt.client.name === "argos/custom-prompts-server") {
+      const customPrompts = await this.configPresenter.getCustomPrompts();
+      const foundPrompt = customPrompts?.find((entry: any) => entry.name === typedPrompt.name);
+      if (!foundPrompt) throw new Error(`Custom prompt "${typedPrompt.name}" not found`);
+      return {
+        name: foundPrompt.name,
+        description: foundPrompt.description,
+        content: foundPrompt.content || "",
+        messages: foundPrompt.messages || [],
+        arguments: foundPrompt.parameters || [],
+      };
+    }
+    return this.toolManager.getPromptByClient(typedPrompt.client.name, typedPrompt.name, args);
   }
 
   async listResources() {
-    return this.toolManager.getAllResources();
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    const clients = (await this.toolManager.getRunningClients()).filter(
+      (client) => enabled || Boolean(servers[client.serverName]?.ownerPluginId || servers[client.serverName]?.sourceId),
+    );
+
+    const resources: Array<Record<string, unknown> & { client: { name: string; icon: string } }> = [];
+    for (const client of clients) {
+      if (typeof client.listResources !== "function") continue;
+      const clientResources = await client.listResources().catch(() => []);
+      for (const resource of clientResources ?? []) {
+        resources.push({
+          ...resource,
+          client: {
+            name: client.serverName,
+            icon: client.serverConfig["icons"] as string,
+          },
+        });
+      }
+    }
+    return resources;
   }
 
   async readResource(resource: unknown) {
-    return this.toolManager.readResource(resource as never);
+    const typedResource = resource as { client: { name: string }; uri: string };
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = await this.configPresenter.getMcpServers();
+    if (
+      !enabled &&
+      !(servers[typedResource.client.name]?.ownerPluginId || servers[typedResource.client.name]?.sourceId)
+    ) {
+      throw new Error("MCP functionality is disabled");
+    }
+    return this.toolManager.readResourceByClient(typedResource.client.name, typedResource.uri);
   }
 }

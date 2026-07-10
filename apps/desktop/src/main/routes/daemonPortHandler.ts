@@ -8,7 +8,7 @@ export function registerDaemonPortHandler(): void {
   ipcMain.removeHandler(DAEMON_PORT_CHANNEL);
   ipcMain.handle(DAEMON_PORT_CHANNEL, () => {
     const handle = getSidecarHandle();
-    if (handle && handle.isRunning()) {
+    if (handle && handle.port > 0) {
       return { port: handle.port, host: "127.0.0.1" };
     }
     return null;
@@ -17,7 +17,7 @@ export function registerDaemonPortHandler(): void {
   ipcMain.removeHandler(PAIRING_URL_CHANNEL);
   ipcMain.handle(PAIRING_URL_CHANNEL, async () => {
     const handle = getSidecarHandle();
-    if (!handle || !handle.isRunning()) {
+    if (!handle || handle.port <= 0) {
       return { ok: false, error: { code: "daemon_not_running", message: "Daemon is not running" } };
     }
     try {

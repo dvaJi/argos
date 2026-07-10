@@ -62,7 +62,7 @@ export interface AgentToolRuntimePort {
   ): Promise<AgentTapeSearchResult[]>;
   listTapeAnchors?(conversationId: string, options?: AgentTapeAnchorsOptions): Promise<AgentTapeAnchorResult[]>;
   handoffTape?(conversationId: string, name: string, state?: Record<string, unknown>): Promise<AgentTapeAnchorResult>;
-  isMemoryEnabled?(agentId: string): boolean;
+  isMemoryEnabled?(agentId: string): Promise<boolean> | boolean;
   rememberMemory?(
     agentId: string,
     input: {

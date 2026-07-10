@@ -1,73 +1,40 @@
 import { describe, expect, it, vi } from "vitest";
 import { dispatchModelRoute } from "../../../../src/main/routes/models/modelRouteHandler";
 import { modelsGetProviderCatalogRoute } from "@shared/contracts/routes";
-import { ModelType } from "@shared/model";
 
 describe("dispatchModelRoute models.getProviderCatalog", () => {
-  it("includes provider DB-only models when resolving persisted model status", async () => {
+  it("reads provider catalog from local configPresenter", async () => {
+    const invokeDaemonRoute = vi.fn<(...args: any[]) => any>();
     const configPresenter = {
-      getProviderModels: vi.fn<(...args: any[]) => any>(() => [
-        {
-          id: "gpt-5",
-          name: "GPT-5",
-          group: "default",
-          providerId: "aihubmix",
-        },
-      ]),
-      getCustomModels: vi.fn<(...args: any[]) => any>(() => [
-        {
-          id: "custom-chat",
-          name: "Custom Chat",
-          group: "custom",
-          providerId: "aihubmix",
-          isCustom: true,
-        },
-      ]),
-      getDbProviderModels: vi.fn<(...args: any[]) => any>(() => [
-        {
-          id: "text-embedding-3-small",
-          name: "text-embedding-3-small",
-          group: "default",
-          providerId: "aihubmix",
-          enabled: false,
-          isCustom: false,
-          type: ModelType.Embedding,
-        },
-        {
-          id: "gpt-5",
-          name: "GPT-5",
-          group: "default",
-          providerId: "aihubmix",
-          enabled: false,
-          isCustom: false,
-          type: ModelType.Chat,
-        },
-      ]),
-      getBatchModelStatus: vi.fn<(...args: any[]) => any>((_providerId: string, modelIds: string[]) =>
-        Object.fromEntries(modelIds.map((modelId) => [modelId, modelId.includes("embedding")])),
-      ),
+      getProviderModels: vi.fn(() => []),
+      getCustomModels: vi.fn(() => []),
+      getDbProviderModels: vi.fn(() => []),
+      getBatchModelStatus: vi.fn(() => ({})),
+    };
+    const llmProviderPresenter = {
+      getModelList: vi.fn(),
+      transcribeAudioStandalone: vi.fn(),
     };
 
     const result = (await dispatchModelRoute(
       {
         configPresenter: configPresenter as any,
-        llmProviderPresenter: {} as any,
+        llmProviderPresenter: llmProviderPresenter as any,
+        invokeDaemonRoute,
       },
       modelsGetProviderCatalogRoute.name,
       {
         providerId: "aihubmix",
       },
-    )) as {
-      catalog: {
-        modelStatusMap: Record<string, boolean>;
-      };
-    };
+    )) as any;
 
-    expect(configPresenter.getBatchModelStatus).toHaveBeenCalledWith("aihubmix", [
-      "gpt-5",
-      "custom-chat",
-      "text-embedding-3-small",
-    ]);
-    expect(result.catalog.modelStatusMap["text-embedding-3-small"]).toBe(true);
+    expect(configPresenter.getProviderModels).toHaveBeenCalledWith("aihubmix");
+    expect(configPresenter.getCustomModels).toHaveBeenCalledWith("aihubmix");
+    expect(configPresenter.getDbProviderModels).toHaveBeenCalledWith("aihubmix");
+    expect(configPresenter.getBatchModelStatus).toHaveBeenCalled();
+    expect(invokeDaemonRoute).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.getModelList).not.toHaveBeenCalled();
+    expect(llmProviderPresenter.transcribeAudioStandalone).not.toHaveBeenCalled();
+    expect(result.catalog.dbProviderModels).toEqual([]);
   });
 });

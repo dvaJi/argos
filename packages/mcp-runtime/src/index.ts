@@ -4,3 +4,7 @@ export * from "./config/mcprouterManager";
 export * from "./runtime/mcpClient";
 export * from "./runtime/serverManager";
 export * from "./runtime/toolManager";
+export * from "./inMemory";
+export { Server } from "@modelcontextprotocol/sdk/server/index.js";
+export { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+export { type Transport } from "@modelcontextprotocol/sdk/shared/transport.js";

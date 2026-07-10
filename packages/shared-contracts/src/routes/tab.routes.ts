@@ -1,60 +1,60 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 import { RectangleSchema } from "../domainSchemas";
 
-const TabWatermarkTextsSchema = z
+const TabWatermarkTextsSchema = zod
   .object({
-    brand: z.string().optional(),
-    time: z.string().optional(),
-    tip: z.string().optional(),
-    model: z.string().optional(),
-    provider: z.string().optional(),
+    brand: zod.string().optional(),
+    time: zod.string().optional(),
+    tip: zod.string().optional(),
+    model: zod.string().optional(),
+    provider: zod.string().optional(),
   })
   .optional();
 
-const TabWatermarkConfigSchema = z
+const TabWatermarkConfigSchema = zod
   .object({
-    isDark: z.boolean().optional(),
-    version: z.string().optional(),
+    isDark: zod.boolean().optional(),
+    version: zod.string().optional(),
     texts: TabWatermarkTextsSchema,
   })
   .optional();
 
 export const tabNotifyRendererReadyRoute = defineRouteContract({
   name: "tab.notifyRendererReady",
-  input: z.object({}).default({}),
-  output: z.object({
-    notified: z.boolean(),
+  input: zod.object({}).default({}),
+  output: zod.object({
+    notified: zod.boolean(),
   }),
 });
 
 export const tabNotifyRendererActivatedRoute = defineRouteContract({
   name: "tab.notifyRendererActivated",
-  input: z.object({
-    sessionId: z.string().min(1),
+  input: zod.object({
+    sessionId: zod.string().min(1),
   }),
-  output: z.object({
-    notified: z.boolean(),
+  output: zod.object({
+    notified: zod.boolean(),
   }),
 });
 
 export const tabCaptureCurrentAreaRoute = defineRouteContract({
   name: "tab.captureCurrentArea",
-  input: z.object({
+  input: zod.object({
     rect: RectangleSchema,
   }),
-  output: z.object({
-    imageData: z.string().nullable(),
+  output: zod.object({
+    imageData: zod.string().nullable(),
   }),
 });
 
 export const tabStitchImagesWithWatermarkRoute = defineRouteContract({
   name: "tab.stitchImagesWithWatermark",
-  input: z.object({
-    images: z.array(z.string()),
+  input: zod.object({
+    images: zod.array(zod.string()),
     watermark: TabWatermarkConfigSchema,
   }),
-  output: z.object({
-    imageData: z.string().nullable(),
+  output: zod.object({
+    imageData: zod.string().nullable(),
   }),
 });

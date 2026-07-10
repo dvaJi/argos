@@ -11,8 +11,8 @@ import type { AcpHostPorts } from "@argos/acp-runtime";
  * Bridges the host-agnostic runtime to Electron `app`, `RuntimeHelper`,
  * `eventBus` / `publishArgosEvent`, and the desktop binary-read guard.
  *
- * The npm/uv registry is wired separately via `AcpConnectionManager` options,
- * so `ports.mcp` is left unset here.
+ * The npm/uv registry is wired separately by the ACP provider, so `ports.mcp`
+ * is left unset here.
  */
 export function createDesktopAcpPorts(): AcpHostPorts {
   const runtimeHelper = RuntimeHelper.getInstance();

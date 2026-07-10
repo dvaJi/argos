@@ -46,24 +46,6 @@ export function createDaemonAcpPorts(deps: {
   };
 }
 
-/** Minimal no-op SQLite stub so `AcpSessionPersistence` runs in ephemeral mode. */
-export function createDaemonAcpSqliteStub() {
-  const noop = async () => {};
-  return {
-    getAcpSession: async () => null,
-    getAcpSessionByAgentAndSessionId: async () => null,
-    upsertAcpSession: noop,
-    updateAcpSessionId: noop,
-    updateAcpSessionStatus: noop,
-    updateAcpWorkdir: noop,
-    startAcpTurn: noop,
-    finishAcpTurn: noop,
-    deleteAcpSession: noop,
-    createConversation: async () => "daemon-acp-conv" as unknown,
-    deleteConversation: noop,
-  } as unknown;
-}
-
 /** Resolve the daemon registry root (used by AcpLaunchSpecService). */
 export function daemonRegistryRoot(dataDir: string): string {
   return path.join(dataDir, "acp-registry");

@@ -159,4 +159,16 @@ describe("DaemonSyncRuntime cloud sync", () => {
     });
     expect(JSON.parse(fs.readFileSync(path.join(configDir, "config.json"), "utf-8"))).toEqual({ restored: true });
   });
+
+  it("surfaces backup directory read failures instead of hiding them", async () => {
+    const runtime = createRuntime();
+    const spy = vi.spyOn(fs, "readdirSync").mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    await expect(runtime.listBackups()).rejects.toThrow("sync.error.backupListFailed");
+    await expect(runtime.getBackupStatus()).rejects.toThrow("sync.error.backupListFailed");
+
+    spy.mockRestore();
+  });
 });

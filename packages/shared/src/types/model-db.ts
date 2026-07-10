@@ -1,34 +1,34 @@
-import { z } from "zod";
+import zod from "zod";
 
 // ---------- Zod Schemas ----------
 
 // Capability sub-schemas
 export const REASONING_EFFORT_VALUES = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-export const ReasoningEffortSchema = z.enum(REASONING_EFFORT_VALUES);
-export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+export const ReasoningEffortSchema = zod.enum(REASONING_EFFORT_VALUES);
+export type ReasoningEffort = zod.infer<typeof ReasoningEffortSchema>;
 export const DEFAULT_REASONING_EFFORT_OPTIONS: ReasoningEffort[] = ["minimal", "low", "medium", "high"];
 
-export const VerbositySchema = z.enum(["low", "medium", "high"]);
-export type Verbosity = z.infer<typeof VerbositySchema>;
+export const VerbositySchema = zod.enum(["low", "medium", "high"]);
+export type Verbosity = zod.infer<typeof VerbositySchema>;
 
-export const ReasoningModeSchema = z.enum(["budget", "effort", "level", "fixed", "mixed"]);
-export type ReasoningMode = z.infer<typeof ReasoningModeSchema>;
+export const ReasoningModeSchema = zod.enum(["budget", "effort", "level", "fixed", "mixed"]);
+export type ReasoningMode = zod.infer<typeof ReasoningModeSchema>;
 
 export const REASONING_VISIBILITY_VALUES = ["hidden", "summary", "full", "mixed", "omitted", "summarized"] as const;
 export const ANTHROPIC_REASONING_VISIBILITY_VALUES = ["omitted", "summarized"] as const;
-export const ReasoningVisibilitySchema = z.enum(REASONING_VISIBILITY_VALUES);
-export type ReasoningVisibility = z.infer<typeof ReasoningVisibilitySchema>;
+export const ReasoningVisibilitySchema = zod.enum(REASONING_VISIBILITY_VALUES);
+export type ReasoningVisibility = zod.infer<typeof ReasoningVisibilitySchema>;
 export type AnthropicReasoningVisibility = (typeof ANTHROPIC_REASONING_VISIBILITY_VALUES)[number];
 
-export const ReasoningSchema = z
+export const ReasoningSchema = zod
   .object({
-    supported: z.boolean().optional(),
-    default: z.boolean().optional(),
-    budget: z
+    supported: zod.boolean().optional(),
+    default: zod.boolean().optional(),
+    budget: zod
       .object({
-        default: z.number().int().optional(),
-        min: z.number().int().optional(),
-        max: z.number().int().optional(),
+        default: zod.number().int().optional(),
+        min: zod.number().int().optional(),
+        max: zod.number().int().optional(),
       })
       .optional(),
     effort: ReasoningEffortSchema.optional(),
@@ -36,101 +36,101 @@ export const ReasoningSchema = z
   })
   .optional();
 
-export const ReasoningBudgetSchema = z
+export const ReasoningBudgetSchema = zod
   .object({
-    default: z.number().int().optional(),
-    min: z.number().int().optional(),
-    max: z.number().int().optional(),
-    auto: z.number().int().optional(),
-    off: z.number().int().optional(),
-    unit: z.string().optional(),
+    default: zod.number().int().optional(),
+    min: zod.number().int().optional(),
+    max: zod.number().int().optional(),
+    auto: zod.number().int().optional(),
+    off: zod.number().int().optional(),
+    unit: zod.string().optional(),
   })
   .optional();
 
-export const ExtraReasoningSchema = z
+export const ExtraReasoningSchema = zod
   .object({
-    supported: z.boolean().optional(),
-    default_enabled: z.boolean().optional(),
+    supported: zod.boolean().optional(),
+    default_enabled: zod.boolean().optional(),
     mode: ReasoningModeSchema.optional(),
     budget: ReasoningBudgetSchema,
     effort: ReasoningEffortSchema.optional(),
-    effort_options: z.array(ReasoningEffortSchema).optional(),
+    effort_options: zod.array(ReasoningEffortSchema).optional(),
     verbosity: VerbositySchema.optional(),
-    verbosity_options: z.array(VerbositySchema).optional(),
-    level: z.string().optional(),
-    level_options: z.array(z.string()).optional(),
-    interleaved: z.boolean().optional(),
-    summaries: z.boolean().optional(),
+    verbosity_options: zod.array(VerbositySchema).optional(),
+    level: zod.string().optional(),
+    level_options: zod.array(zod.string()).optional(),
+    interleaved: zod.boolean().optional(),
+    summaries: zod.boolean().optional(),
     visibility: ReasoningVisibilitySchema.optional(),
-    continuation: z.array(z.string()).optional(),
-    notes: z.array(z.string()).optional(),
+    continuation: zod.array(zod.string()).optional(),
+    notes: zod.array(zod.string()).optional(),
   })
   .optional();
 
-export const ExtraCapabilitiesSchema = z
+export const ExtraCapabilitiesSchema = zod
   .object({
     reasoning: ExtraReasoningSchema,
   })
   .optional();
 
-export const SearchSchema = z
+export const SearchSchema = zod
   .object({
-    supported: z.boolean().optional(),
-    default: z.boolean().optional(),
-    forced_search: z.boolean().optional(),
-    search_strategy: z.string().optional(),
+    supported: zod.boolean().optional(),
+    default: zod.boolean().optional(),
+    forced_search: zod.boolean().optional(),
+    search_strategy: zod.string().optional(),
   })
   .optional();
 
-export const ModelSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().optional(),
-  display_name: z.string().optional(),
-  modalities: z
+export const ModelSchema = zod.object({
+  id: zod.string().min(1),
+  name: zod.string().optional(),
+  display_name: zod.string().optional(),
+  modalities: zod
     .object({
-      input: z.array(z.string()).optional(),
-      output: z.array(z.string()).optional(),
+      input: zod.array(zod.string()).optional(),
+      output: zod.array(zod.string()).optional(),
     })
     .optional(),
-  limit: z
+  limit: zod
     .object({
-      context: z.number().int().nonnegative().optional(),
-      output: z.number().int().nonnegative().optional(),
+      context: zod.number().int().nonnegative().optional(),
+      output: zod.number().int().nonnegative().optional(),
     })
     .optional(),
-  temperature: z.boolean().optional(),
-  tool_call: z.boolean().optional(),
+  temperature: zod.boolean().optional(),
+  tool_call: zod.boolean().optional(),
   reasoning: ReasoningSchema,
   extra_capabilities: ExtraCapabilitiesSchema,
   search: SearchSchema,
-  attachment: z.boolean().optional(),
-  open_weights: z.boolean().optional(),
-  knowledge: z.string().optional(),
-  release_date: z.string().optional(),
-  last_updated: z.string().optional(),
-  cost: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-  type: z.enum(["chat", "embedding", "rerank", "imageGeneration", "videoGeneration", "tts"]).optional(),
+  attachment: zod.boolean().optional(),
+  open_weights: zod.boolean().optional(),
+  knowledge: zod.string().optional(),
+  release_date: zod.string().optional(),
+  last_updated: zod.string().optional(),
+  cost: zod.record(zod.string(), zod.union([zod.string(), zod.number()])).optional(),
+  type: zod.enum(["chat", "embedding", "rerank", "imageGeneration", "videoGeneration", "tts"]).optional(),
 });
 
-export type ProviderModel = z.infer<typeof ModelSchema>;
+export type ProviderModel = zod.infer<typeof ModelSchema>;
 
-export const ProviderSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().optional(),
-  display_name: z.string().optional(),
-  api: z.string().optional(),
-  doc: z.string().optional(),
-  env: z.array(z.string()).optional(),
-  models: z.array(ModelSchema),
+export const ProviderSchema = zod.object({
+  id: zod.string().min(1),
+  name: zod.string().optional(),
+  display_name: zod.string().optional(),
+  api: zod.string().optional(),
+  doc: zod.string().optional(),
+  env: zod.array(zod.string()).optional(),
+  models: zod.array(ModelSchema),
 });
 
-export type ProviderEntry = z.infer<typeof ProviderSchema>;
+export type ProviderEntry = zod.infer<typeof ProviderSchema>;
 
-export const ProviderAggregateSchema = z.object({
-  providers: z.record(z.string(), ProviderSchema),
+export const ProviderAggregateSchema = zod.object({
+  providers: zod.record(zod.string(), ProviderSchema),
 });
 
-export type ProviderAggregate = z.infer<typeof ProviderAggregateSchema>;
+export type ProviderAggregate = zod.infer<typeof ProviderAggregateSchema>;
 
 export type ReasoningPortrait = {
   supported?: boolean;

@@ -1,14 +1,14 @@
-import { z } from "zod";
+import zod from "zod";
 
-export const ConnectionStateSchema = z.object({
-  mode: z.enum(["local", "remote"]),
-  url: z.string().nullable(),
-  connected: z.boolean(),
-  lastError: z.string().nullable(),
-  workspaceId: z.string().optional(),
+export const ConnectionStateSchema = zod.object({
+  mode: zod.enum(["local", "remote"]),
+  url: zod.string().nullable(),
+  connected: zod.boolean(),
+  lastError: zod.string().nullable(),
+  workspaceId: zod.string().optional(),
 });
 
-export type ConnectionState = z.infer<typeof ConnectionStateSchema>;
+export type ConnectionState = zod.infer<typeof ConnectionStateSchema>;
 
 export const CONNECTION_STATE_DEFAULT: ConnectionState = {
   mode: "local",

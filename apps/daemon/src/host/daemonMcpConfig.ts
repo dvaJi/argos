@@ -15,8 +15,32 @@ export class DaemonMcpConfig {
   private readonly mcprouterManager: McpRouterManager;
 
   constructor(configDir: string, configPresenter: DaemonConfigPresenter) {
-    this.mcpConfHelper = new McpConfHelper(createJsonStoreFactory(configDir));
+    // Treat the built-in knowledge server as supported so getMcpServers returns
+    // the full default set; the headless init below marks every built-in as
+    // user-removed so the daemon ships with an empty MCP catalog by default.
+    this.mcpConfHelper = new McpConfHelper(createJsonStoreFactory(configDir), {
+      isBuiltinKnowledgeSupported: () => Promise.resolve(true),
+    });
     this.mcprouterManager = new McpRouterManager(configPresenter as never);
+  }
+
+  /**
+   * Seed built-in MCP servers (same as desktop). The daemon now exposes the full
+   * built-in catalog — most disabled by default, started on-demand only (the
+   * daemon never auto-starts servers at construction, so there's no startup risk
+   * from missing command binaries). Earlier daemon versions marked every
+   * built-in as user-removed; clear that removal list so `McpConfHelper`
+   * re-exposes the built-ins. Idempotent.
+   */
+  async initializeHeadlessDefaults(): Promise<void> {
+    try {
+      const store = this.mcpConfHelper.getStoreForMigration();
+      const existingRemoved = new Set<string>((store.get("removedBuiltInServers") as string[]) ?? []);
+      if (existingRemoved.size === 0) return;
+      store.set("removedBuiltInServers", []);
+    } catch (error) {
+      console.warn("[daemon] Failed to restore MCP built-in defaults:", error);
+    }
   }
 
   // ---- server CRUD ----
@@ -26,11 +50,11 @@ export class DaemonMcpConfig {
   async getEnabledMcpServers() {
     return this.mcpConfHelper.getEnabledMcpServers();
   }
-  async addMcpServer(name: string, config: never) {
-    return this.mcpConfHelper.addMcpServer(name, config);
+  async addMcpServer(name: string, config: unknown) {
+    return this.mcpConfHelper.addMcpServer(name, config as never);
   }
-  async updateMcpServer(name: string, config: never) {
-    return this.mcpConfHelper.updateMcpServer(name, config);
+  async updateMcpServer(name: string, config: unknown) {
+    return this.mcpConfHelper.updateMcpServer(name, config as never);
   }
   async removeMcpServer(name: string) {
     return this.mcpConfHelper.removeMcpServer(name);
@@ -41,7 +65,7 @@ export class DaemonMcpConfig {
   getMcpEnabled() {
     return this.mcpConfHelper.getMcpEnabled();
   }
-  async setMcpEnabled(enabled: boolean) {
+  async setMcpEnabled(enabled: boolean): Promise<void> {
     return this.mcpConfHelper.setMcpEnabled(enabled);
   }
 
@@ -53,7 +77,7 @@ export class DaemonMcpConfig {
     return this.mcpConfHelper.setNpmRegistryCache(cache as never);
   }
   getCustomNpmRegistry() {
-    return this.mcpConfHelper.getCustomNpmRegistry();
+    return this.mcpConfHelper.getCustomNpmRegistry() ?? null;
   }
   setCustomNpmRegistry(registry: string) {
     return this.mcpConfHelper.setCustomNpmRegistry(registry);

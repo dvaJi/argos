@@ -8,10 +8,11 @@ import type { StoreCreationOptions, StoreFactory, StoreLike } from "@argos/backe
  * `AcpConfHelper` (and other shared config helpers) consume.
  */
 export function createJsonStoreFactory(configDir: string): StoreFactory {
-  return <TStore extends Record<string, unknown>>(options: StoreCreationOptions<TStore>) =>
-    new JsonStore<TStore>(join(configDir, `${options.name}.json`), options.defaults) as StoreLike<
-      TStore & Record<string, unknown>
-    >;
+  return <TStore>(options: StoreCreationOptions<TStore>) =>
+    new JsonStore<Record<string, unknown>>(
+      join(configDir, `${options.name}.json`),
+      options.defaults as Record<string, unknown> | undefined,
+    ) as StoreLike<TStore & Record<string, unknown>>;
 }
 
 class JsonStore<TStore extends Record<string, unknown>> implements StoreLike<TStore> {

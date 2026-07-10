@@ -75,7 +75,7 @@ describe("useMcpStore toggleServer rollback", () => {
     mcpClientMock.stopServer.mockClear();
   });
 
-  it("restores local state and persisted config when runtime sync fails", async () => {
+  it("reverts local state when the persist call itself fails (no daemon rollback)", async () => {
     const store = await setupStore();
 
     store.config = {
@@ -96,18 +96,55 @@ describe("useMcpStore toggleServer rollback", () => {
       ready: true,
     };
 
-    setMcpServerEnabledMutate.mockRejectedValueOnce(new Error("runtime failed"));
-    setMcpServerEnabledMutate.mockResolvedValueOnce(undefined);
+    setMcpServerEnabledMutate.mockRejectedValueOnce(new Error("persist failed"));
 
     const result = await store.toggleServer("demo");
 
     expect(result).toBe(false);
     expect(store.config.mcpServers.demo.enabled).toBe(false);
     expect(store.serverLoadingStates.demo).toBe(false);
+    // Only the failed persist attempt — no second "rollback" call (the daemon
+    // never accepted the change, so there is nothing to roll back remotely).
+    expect(setMcpServerEnabledMutate).toHaveBeenCalledTimes(1);
     expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ["demo", true]);
-    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(2, ["demo", false]);
     expect(mcpClientMock.startServer).not.toHaveBeenCalled();
     expect(mcpClientMock.stopServer).not.toHaveBeenCalled();
+  });
+
+  it("keeps the toggle persisted when post-persist runtime sync fails", async () => {
+    const store = await setupStore();
+
+    store.config = {
+      mcpServers: {
+        demo: {
+          command: "demo-command",
+          args: [],
+          env: {},
+          descriptions: "Demo server",
+          icons: "D",
+          autoApprove: [],
+          disable: false,
+          type: "stdio",
+          enabled: false,
+        },
+      },
+      mcpEnabled: true,
+      ready: true,
+    };
+
+    // Persist succeeds; post-persist status sync fails (e.g. daemon can't start
+    // the built-in server). The toggle must STAY persisted — a runtime-start
+    // failure must not revert an enabled flag the user just set.
+    setMcpServerEnabledMutate.mockResolvedValueOnce(undefined);
+    mcpClientMock.isServerRunning.mockRejectedValueOnce(new Error("daemon cannot start stdio server"));
+
+    const result = await store.toggleServer("demo");
+
+    expect(result).toBe(true);
+    expect(setMcpServerEnabledMutate).toHaveBeenCalledTimes(1);
+    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ["demo", true]);
+    // No rollback persist call.
+    expect(setMcpServerEnabledMutate).not.toHaveBeenCalledTimes(2);
   });
 
   it("hides enabled servers when MCP is globally disabled", async () => {

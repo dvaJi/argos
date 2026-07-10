@@ -1,88 +1,88 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 import { PreparedMessageFileSchema } from "../domainSchemas";
 
-const FileImageActionInputSchema = z.object({
-  source: z.string().min(1),
-  mimeType: z.string().optional(),
-  suggestedName: z.string().optional(),
+const FileImageActionInputSchema = zod.object({
+  source: zod.string().min(1),
+  mimeType: zod.string().optional(),
+  suggestedName: zod.string().optional(),
 });
 
 export const fileGetMimeTypeRoute = defineRouteContract({
   name: "file.getMimeType",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    mimeType: z.string(),
+  output: zod.object({
+    mimeType: zod.string(),
   }),
 });
 
 export const filePrepareFileRoute = defineRouteContract({
   name: "file.prepareFile",
-  input: z.object({
-    path: z.string().min(1),
-    mimeType: z.string().optional(),
+  input: zod.object({
+    path: zod.string().min(1),
+    mimeType: zod.string().optional(),
   }),
-  output: z.object({
+  output: zod.object({
     file: PreparedMessageFileSchema,
   }),
 });
 
 export const filePrepareDirectoryRoute = defineRouteContract({
   name: "file.prepareDirectory",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     file: PreparedMessageFileSchema,
   }),
 });
 
 export const fileReadFileRoute = defineRouteContract({
   name: "file.readFile",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    content: z.string(),
+  output: zod.object({
+    content: zod.string(),
   }),
 });
 
 export const fileIsDirectoryRoute = defineRouteContract({
   name: "file.isDirectory",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    isDirectory: z.boolean(),
+  output: zod.object({
+    isDirectory: zod.boolean(),
   }),
 });
 
 export const fileWriteImageBase64Route = defineRouteContract({
   name: "file.writeImageBase64",
-  input: z.object({
-    name: z.string().min(1),
-    content: z.string().min(1),
+  input: zod.object({
+    name: zod.string().min(1),
+    content: zod.string().min(1),
   }),
-  output: z.object({
-    path: z.string(),
+  output: zod.object({
+    path: zod.string(),
   }),
 });
 
 export const fileSaveImageRoute = defineRouteContract({
   name: "file.saveImage",
   input: FileImageActionInputSchema,
-  output: z.object({
-    canceled: z.boolean(),
-    path: z.string().optional(),
+  output: zod.object({
+    canceled: zod.boolean(),
+    path: zod.string().optional(),
   }),
 });
 
 export const fileCopyImageRoute = defineRouteContract({
   name: "file.copyImage",
   input: FileImageActionInputSchema,
-  output: z.object({
-    copied: z.boolean(),
+  output: zod.object({
+    copied: zod.boolean(),
   }),
 });

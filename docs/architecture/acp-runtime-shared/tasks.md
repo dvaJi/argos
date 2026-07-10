@@ -82,8 +82,8 @@ plus relevant `pnpm test` at every phase boundary.
       `publishArgosEvent` site with port calls; `node-pty` lazy-loaded
 - [x] Desktop adapter `acp/desktopPorts.ts` (`createDesktopAcpPorts`) bridges to
       Electron `app`/`RuntimeHelper`/`eventBus`/`binaryReadGuard`
-- [x] Threaded ports: `AcpProvider → AcpClientPresenter → AcpConnectionManager →
-      AcpProcessManager`; `AcpSessionRuntime → AcpSessionManager(lifecycle)`
+- [x] Threaded ports: `AcpProvider → createAcpRuntime → AcpProcessManager`;
+      `AcpSessionRuntime → AcpSessionManager(lifecycle)`
 - [x] Desktop `typecheck:node` green; ACP tests green
 
 ### T3.3 Session & persistence ✅
@@ -115,12 +115,12 @@ plus relevant `pnpm test` at every phase boundary.
 ## Phase 4 — Desktop Adapter
 
 ### T4.1 Desktop host ports
-- [ ] Implement `desktopPorts` (`apps/desktop/src/main/presenter/llmProviderPresenter/acp/desktopPorts.ts`)
+- [x] Implement `desktopPorts` (`apps/desktop/src/main/presenter/llmProviderPresenter/acp/desktopPorts.ts`)
       backed by `app`, `RuntimeHelper`, `eventBus`, `publishArgosEvent`
-- [ ] Unit-test the port adapters (tmp paths, event bridging)
+- [x] Unit-test the port adapters (tmp paths, event bridging)
 
 ### T4.2 Thin `AcpProvider`
-- [ ] Rewrite `providers/acpProvider.ts` to delegate to `createAcpRuntime`
+- [x] Rewrite `providers/acpProvider.ts` to delegate to `createAcpRuntime`
 - [ ] Preserve `coreStream`, permissions, summaries, debug, agent-refresh APIs
 - [ ] `providerInstanceManager.ts` construction unchanged
 - [ ] Full desktop ACP test suite (`acpProvider.test.ts` etc.) green
@@ -183,7 +183,6 @@ plus relevant `pnpm test` at every phase boundary.
 - [x] oxlint 0/0 on `packages/acp-runtime` + `apps/daemon/src`
 - [x] `oxfmt` applied across all touched files
 - [x] **124 ACP tests + 9 daemon tests green**
-- [ ] (Optional, deferred) Remove desktop re-export shims once all in-process
-      callers import `@argos/acp-runtime` directly (shims are harmless in the
-      meantime and keep the desktop build stable)
-- [ ] (Optional) Update `AGENTS.md` package table to list `@argos/acp-runtime`
+- [x] Remove desktop re-export shims once all in-process callers import
+      `@argos/acp-runtime` directly.
+- [x] `AGENTS.md` package table lists `@argos/acp-runtime`.

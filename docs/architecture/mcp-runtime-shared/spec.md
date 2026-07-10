@@ -8,9 +8,10 @@ the headless daemon, mirroring the completed ACP port.
 ## Background
 Desktop MCP lives in `apps/desktop/src/main/presenter/mcpPresenter/` (index 856,
 serverManager 314, mcpClient 1255, toolManager 885, mcprouterManager 125, +
-inMemoryServers). The daemon currently stubs only `mcp.getServers/getEnabled/
-getClients`; every other `mcp.*` route (~34) is rejected with "Coming soon".
-`DaemonConfigPresenter.getMcpServers()` is the only MCP method and reads raw JSON.
+inMemoryServers). The daemon now owns the MCP config surface plus the runtime
+routes for clients, tools, prompts, resources, and sampling acknowledgements;
+desktop only retains native/UI glue where necessary. `DaemonConfigPresenter.getMcpServers()`
+remains the canonical MCP config entrypoint on the daemon.
 
 ## Scope
 
@@ -31,14 +32,15 @@ getClients`; every other `mcp.*` route (~34) is rejected with "Coming soon".
 - Move `serverManager.ts`, `mcpClient.ts`, `toolManager.ts` behind host ports
   (RuntimeHelper → RuntimePort; `app.getPath/getVersion` → paths; `eventBus` →
   events; `@/presenter` singleton → injected ports; plugin policy → port).
-- Activate `startServer/stopServer/callTool/listTools/listResources/readResource/
-  listPrompts/getPrompt/sampling` routes on the daemon.
+- Keep the runtime routes on the daemon and finish any remaining host-port
+  decoupling in the shared package.
 - In-memory servers: desktop-only for v1 (they drag knowledge/session presenters).
 
 ### Out of scope (v1)
 - In-memory MCP servers on the daemon.
 - Plugin tool-policy enforcement on the daemon (no plugin runtime).
 - MCP router beyond the pure fetch API.
+- Additional daemon-side capability beyond the current runtime/config routes.
 
 ## Acceptance Criteria (Slice A)
 - `mcp.getServers/addServer/updateServer/removeServer/setServerEnabled/setEnabled/
@@ -46,6 +48,8 @@ getClients`; every other `mcp.*` route (~34) is rejected with "Coming soon".
   installMcpRouterServer/updateMcpRouterServersAuth/getNpmRegistryStatus/
   setCustomNpmRegistry/setAutoDetectNpmRegistry/clearNpmRegistryCache` work on the
   daemon, persisted to `<configDir>/mcp_servers.json`.
+- Daemon tests cover clients, tool definitions, prompts, resources, and sampling
+  acknowledgements through `daemonDispatcher`.
 - Desktop MCP unchanged (shims; existing MCP tests green).
 - No `electron`/`@/` imports inside `packages/mcp-runtime/src/`.
 - `typecheck:node`, daemon `tsc`, architecture guard, oxlint, MCP tests green.

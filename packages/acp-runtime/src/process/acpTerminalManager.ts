@@ -100,7 +100,7 @@ export class AcpTerminalManager {
     };
 
     // Collect output
-    ptyProcess.onData((data) => {
+    ptyProcess.onData((data: string) => {
       if (state.released) return;
       const nextBuffer = state.outputBuffer + data;
       state.outputBuffer = this.retainTailAtCharBoundary(nextBuffer, state.maxOutputBytes);
@@ -108,10 +108,10 @@ export class AcpTerminalManager {
     });
 
     // Handle exit
-    ptyProcess.onExit(({ exitCode, signal }) => {
+    ptyProcess.onExit(({ exitCode, signal }: { exitCode: number; signal?: number | null }) => {
       state.exitStatus = {
         exitCode: exitCode ?? null,
-        signal: signal !== undefined ? String(signal) : null,
+        signal: signal !== undefined && signal !== null ? String(signal) : null,
       };
       exitResolve(state.exitStatus);
     });

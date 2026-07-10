@@ -20,7 +20,9 @@ export const configInitHook: LifecycleHook = {
     console.log("configInitHook: Initializing application configuration");
 
     // Ensure presenter is available (should be initialized by database hook)
+    console.log("configInitHook: creating ConfigPresenter");
     const configPresenter = new ConfigPresenter();
+    console.log("configInitHook: ConfigPresenter created");
 
     // Read logging settings from config and apply
     const loggingEnabled = configPresenter.getLoggingEnabled();

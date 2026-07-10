@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@shadcn/components/ui/dialog";
-import { createRemoteControlRuntime } from "@api/RemoteControlRuntime";
 import { createDeviceClient } from "@api/DeviceClient";
 import { useAgentStore, selectedAgent as getSelectedAgent } from "@/stores/ui/agent";
 import {
@@ -23,12 +22,6 @@ import {
   type UISession,
 } from "@/stores/ui/session";
 import { useSpotlightStore } from "@/stores/ui/spotlight";
-import type {
-  RemoteChannel,
-  RemoteChannelStatus,
-  RemoteChannelDescriptor,
-  RemoteRuntimeState,
-} from "@shared/presenter";
 import AgentAvatar from "./icons/AgentAvatar";
 import ConnectionIndicator from "./ConnectionIndicator";
 import WindowSideBarSessionItem from "./WindowSideBarSessionItem";
@@ -43,7 +36,6 @@ type ShortcutPlatform = "mac" | "other";
 const PIN_FEEDBACK_DURATION_MS: Record<PinFeedbackMode, number> = { pinning: 560, unpinning: 460 };
 const getPinFeedbackMode = (nextPinned: boolean): PinFeedbackMode => (nextPinned ? "pinning" : "unpinning");
 
-const remoteControlRuntime = createRemoteControlRuntime();
 const deviceClient = createDeviceClient();
 
 export default function WindowSideBar() {
@@ -68,18 +60,10 @@ export default function WindowSideBar() {
   );
   const [showShortcutBadges, setShowShortcutBadges] = useState(false);
   const [shortcutModifierDown, setShortcutModifierDown] = useState(false);
-  const [remoteControlStatus, setRemoteControlStatus] = useState<Record<RemoteChannel, RemoteChannelStatus | null>>({
-    telegram: null,
-    feishu: null,
-    qqbot: null,
-    discord: null,
-    "weixin-ilink": null,
-  });
 
   const sessionListRef = useRef<HTMLDivElement | null>(null);
   const agentSwitchSeqRef = useRef(0);
   const agentSwitchQueueRef = useRef(Promise.resolve());
-  const remoteControlStatusTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pinFeedbackTimerRef = useRef<number | null>(null);
   const sessionListScrollFrameRef = useRef<number | null>(null);
   const shortcutBadgeTimerRef = useRef<number | null>(null);
@@ -310,37 +294,6 @@ export default function WindowSideBar() {
     void deviceClient.getDeviceInfo().then((info) => {
       setShortcutPlatform(info.platform === "darwin" ? "mac" : "other");
     });
-  }, []);
-
-  useEffect(() => {
-    const refreshStatus = async () => {
-      try {
-        const channels = await remoteControlRuntime.listRemoteChannels();
-        if (channels) {
-          const statuses = await Promise.all(
-            channels.filter((d) => d.implemented).map((d) => remoteControlRuntime.getChannelStatus(d.id)),
-          );
-          const map: Record<string, RemoteChannelStatus | null> = {
-            telegram: null,
-            feishu: null,
-            qqbot: null,
-            discord: null,
-            "weixin-ilink": null,
-          };
-          channels
-            .filter((d) => d.implemented)
-            .forEach((d, i) => {
-              map[d.id] = statuses[i];
-            });
-          setRemoteControlStatus(map as Record<RemoteChannel, RemoteChannelStatus | null>);
-        }
-      } catch {}
-    };
-    void refreshStatus();
-    remoteControlStatusTimerRef.current = setInterval(() => void refreshStatus(), 2000);
-    return () => {
-      if (remoteControlStatusTimerRef.current) clearInterval(remoteControlStatusTimerRef.current);
-    };
   }, []);
 
   useEffect(() => {

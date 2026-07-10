@@ -263,7 +263,7 @@ import {
 } from "./onboarding/onboardingRouteSupport";
 import { dispatchProviderRoute } from "./providers/providerRouteHandler";
 import { createNodeScheduler } from "@argos/backend-core";
-import { ProviderImportService } from "./providers/providerImportService";
+import { ProviderImportService } from "@argos/backend-core";
 import { ProviderService } from "./providers/providerService";
 import { createSettingsRouteAdapter } from "./settings/settingsAdapter";
 import { createSettingsRouteHandler } from "./settings/settingsHandler";
@@ -448,79 +448,6 @@ type WindowState = {
   isFullScreen: boolean;
   isFocused: boolean;
 };
-
-type MemoryListRow = ReturnType<MemoryPresenter["listMemories"]>[number];
-type MemorySearchRow = Awaited<ReturnType<MemoryPresenter["recall"]>>[number];
-
-function parseSourceEntryIds(raw: string | null): number[] | null {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return null;
-    }
-    const ids = parsed.filter((id): id is number => Number.isInteger(id) && id >= 0);
-    return ids.length > 0 ? ids : null;
-  } catch {
-    return null;
-  }
-}
-
-function parsePersonaState(raw: string | null): "draft" | "active" | "superseded" | "rejected" | null {
-  if (raw === "draft" || raw === "active" || raw === "superseded" || raw === "rejected") {
-    return raw;
-  }
-  return null;
-}
-
-function toMemoryItem(row: MemoryListRow) {
-  return {
-    id: row.id,
-    agentId: row.agent_id,
-    kind: row.kind,
-    category: row.category,
-    content: row.content,
-    importance: row.importance,
-    status: row.status,
-    sourceSession: row.source_session,
-    sourceEntryIds: parseSourceEntryIds(row.source_entry_ids),
-    supersededBy: row.superseded_by,
-    createdAt: row.created_at,
-    confidence: row.confidence,
-    personaState: parsePersonaState(row.persona_state),
-    isAnchor: row.is_anchor === 1,
-  };
-}
-
-function toMemorySearchResult(row: MemorySearchRow, listRowById: ReadonlyMap<string, MemoryListRow>) {
-  const source = listRowById.get(row.id);
-  return {
-    id: row.id,
-    agentId: source?.agent_id ?? "",
-    kind: row.kind,
-    category: source?.category ?? null,
-    content: row.content,
-    importance: row.importance,
-    status: source?.status ?? "fts_only",
-    sourceSession: row.sourceSession ?? source?.source_session ?? null,
-    sourceEntryIds: row.sourceEntryIds ?? parseSourceEntryIds(source?.source_entry_ids ?? null),
-    supersededBy: source?.superseded_by ?? null,
-    createdAt: source?.created_at ?? Date.now(),
-    confidence: source?.confidence ?? null,
-    personaState: parsePersonaState(source?.persona_state ?? null),
-    isAnchor: source?.is_anchor === 1,
-    score: row.score,
-    sources: row.sources,
-    similarity: row.similarity,
-  };
-}
-
-function resolveMemoryKindFromInput(input: { kind?: "episodic" | "semantic" }): "episodic" | "semantic" {
-  return input.kind ?? "semantic";
-}
 
 function readCurrentWindowState(runtime: MainKernelRouteRuntime, context: RouteContext): WindowState {
   const window = context.windowId != null ? BrowserWindow.fromId(context.windowId) : null;
@@ -715,6 +642,7 @@ function recordProviderOrModelRouteActivity(
           count: input.updates.length,
         },
       });
+      return;
     }
   }
 }
@@ -1076,9 +1004,9 @@ export async function dispatchArgosRoute(
   const providerResult = await runTrackedRouteTask(runtime, routeName, context, async () => {
     return await dispatchProviderRoute(
       {
-        configPresenter: runtime.configPresenter,
         llmProviderPresenter: runtime.llmProviderPresenter,
         providerImportService: runtime.providerImportService,
+        invokeDaemonRoute,
       },
       routeName,
       rawInput,
@@ -1094,6 +1022,7 @@ export async function dispatchArgosRoute(
       {
         configPresenter: runtime.configPresenter,
         llmProviderPresenter: runtime.llmProviderPresenter,
+        invokeDaemonRoute,
       },
       routeName,
       rawInput,
@@ -1719,37 +1648,7 @@ export async function dispatchArgosRoute(
       const coordinator = (runtime as Partial<MainKernelRouteRuntime>).startupWorkloadCoordinator;
 
       if (!coordinator) {
-        const activeSessionId = runtime.agentSessionPresenter.getActiveSessionId(context.webContentsId);
-        const activeSession = activeSessionId
-          ? ((await runtime.agentSessionPresenter.getLightweightSessionsByIds([activeSessionId]))[0] ?? null)
-          : null;
-        const [agents, acpEnabled] = await Promise.all([
-          runtime.configPresenter.listAgents(),
-          runtime.configPresenter.getAcpEnabled(),
-        ]);
-
-        const bootstrap = {
-          startupRunId: `startup:${context.webContentsId}:${Date.now()}`,
-          activeSessionId,
-          activeSession,
-          agents: agents
-            .filter((agent) => agent.type === "argos" || acpEnabled)
-            .map((agent) => ({
-              id: agent.id,
-              name: agent.name,
-              type: agent.type,
-              agentType: agent.agentType,
-              enabled: agent.enabled,
-              protected: agent.protected,
-              icon: agent.icon,
-              description: agent.description,
-              source: agent.source,
-              avatar: agent.avatar,
-            })),
-          defaultProjectPath: runtime.configPresenter.getDefaultProjectPath(),
-        };
-
-        return startupGetBootstrapRoute.output.parse({ bootstrap });
+        return startupGetBootstrapRoute.output.parse(await invokeDaemonRoute(startupGetBootstrapRoute.name, {}));
       }
 
       return await coordinator.scheduleTask({
@@ -1762,392 +1661,325 @@ export async function dispatchArgosRoute(
         dedupeKey: "main.bootstrap:route",
         runId: coordinator.getRunId("main"),
         run: async () => {
-          const startupRunId = coordinator.getRunId("main");
-          const activeSessionId = runtime.agentSessionPresenter.getActiveSessionId(context.webContentsId);
-          const activeSession = activeSessionId
-            ? ((await runtime.agentSessionPresenter.getLightweightSessionsByIds([activeSessionId]))[0] ?? null)
-            : null;
-          const [agents, acpEnabled] = await Promise.all([
-            runtime.configPresenter.listAgents(),
-            runtime.configPresenter.getAcpEnabled(),
-          ]);
-
-          const bootstrap = {
-            startupRunId,
-            activeSessionId,
-            activeSession,
-            agents: agents
-              .filter((agent) => agent.type === "argos" || acpEnabled)
-              .map((agent) => ({
-                id: agent.id,
-                name: agent.name,
-                type: agent.type,
-                agentType: agent.agentType,
-                enabled: agent.enabled,
-                protected: agent.protected,
-                icon: agent.icon,
-                description: agent.description,
-                source: agent.source,
-                avatar: agent.avatar,
-              })),
-            defaultProjectPath: runtime.configPresenter.getDefaultProjectPath(),
-          };
-
           coordinator.replayTarget("main");
-          return startupGetBootstrapRoute.output.parse({ bootstrap });
+          return startupGetBootstrapRoute.output.parse(await invokeDaemonRoute(startupGetBootstrapRoute.name, {}));
         },
       });
     }
 
     case sessionsCreateRoute.name: {
       const input = sessionsCreateRoute.input.parse(rawInput);
-      const session = await runtime.sessionService.createSession(input, context);
-      return sessionsCreateRoute.output.parse({ session });
+      return sessionsCreateRoute.output.parse(await invokeDaemonRoute(sessionsCreateRoute.name, input));
     }
 
     case sessionsRestoreRoute.name: {
       const input = sessionsRestoreRoute.input.parse(rawInput);
-      const result = await runtime.sessionService.restoreSession(input.sessionId, input.limit);
-      return sessionsRestoreRoute.output.parse(result);
+      return sessionsRestoreRoute.output.parse(await invokeDaemonRoute(sessionsRestoreRoute.name, input));
     }
 
     case sessionsListMessagesPageRoute.name: {
       const input = sessionsListMessagesPageRoute.input.parse(rawInput);
-      const page = await runtime.sessionService.listMessagesPage(input.sessionId, {
-        cursor: input.cursor ?? null,
-        limit: input.limit,
-      });
-      return sessionsListMessagesPageRoute.output.parse(page);
+      return sessionsListMessagesPageRoute.output.parse(
+        await invokeDaemonRoute(sessionsListMessagesPageRoute.name, input),
+      );
     }
 
     case sessionsListRoute.name: {
       const input = sessionsListRoute.input.parse(rawInput);
-      const sessions = await runtime.sessionService.listSessions(input);
-      return sessionsListRoute.output.parse({ sessions });
+      return sessionsListRoute.output.parse(await invokeDaemonRoute(sessionsListRoute.name, input));
     }
 
     case sessionsListLightweightRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         const input = sessionsListLightweightRoute.input.parse(rawInput);
-        const page = await runtime.agentSessionPresenter.getLightweightSessionList(input);
-        return sessionsListLightweightRoute.output.parse(page);
+        return sessionsListLightweightRoute.output.parse(
+          await invokeDaemonRoute(sessionsListLightweightRoute.name, input),
+        );
       });
     }
 
     case sessionsGetLightweightByIdsRoute.name: {
       const input = sessionsGetLightweightByIdsRoute.input.parse(rawInput);
-      const items = await runtime.agentSessionPresenter.getLightweightSessionsByIds(input.sessionIds);
-      return sessionsGetLightweightByIdsRoute.output.parse({ items });
+      return sessionsGetLightweightByIdsRoute.output.parse(
+        await invokeDaemonRoute(sessionsGetLightweightByIdsRoute.name, input),
+      );
     }
 
     case sessionsActivateRoute.name: {
       const input = sessionsActivateRoute.input.parse(rawInput);
-      await runtime.sessionService.activateSession(context, input.sessionId);
-      return sessionsActivateRoute.output.parse({ activated: true });
+      return sessionsActivateRoute.output.parse(await invokeDaemonRoute(sessionsActivateRoute.name, input));
     }
 
     case sessionsDeactivateRoute.name: {
       sessionsDeactivateRoute.input.parse(rawInput);
-      await runtime.sessionService.deactivateSession(context);
-      return sessionsDeactivateRoute.output.parse({ deactivated: true });
+      return sessionsDeactivateRoute.output.parse(await invokeDaemonRoute(sessionsDeactivateRoute.name, {}));
     }
 
     case sessionsGetActiveRoute.name: {
       sessionsGetActiveRoute.input.parse(rawInput);
-      const session = await runtime.sessionService.getActiveSession(context);
-      return sessionsGetActiveRoute.output.parse({ session });
+      return sessionsGetActiveRoute.output.parse(await invokeDaemonRoute(sessionsGetActiveRoute.name, {}));
     }
 
     case sessionsEnsureAcpDraftRoute.name: {
       const input = sessionsEnsureAcpDraftRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.ensureAcpDraftSession(input);
+      const session = await invokeDaemonRoute(sessionsEnsureAcpDraftRoute.name, input);
       return sessionsEnsureAcpDraftRoute.output.parse({ session });
     }
 
     case sessionsListPendingInputsRoute.name: {
       const input = sessionsListPendingInputsRoute.input.parse(rawInput);
-      const items = await runtime.agentSessionPresenter.listPendingInputs(input.sessionId);
+      const items = await invokeDaemonRoute(sessionsListPendingInputsRoute.name, input);
       return sessionsListPendingInputsRoute.output.parse({ items });
     }
 
     case sessionsQueuePendingInputRoute.name: {
       const input = sessionsQueuePendingInputRoute.input.parse(rawInput);
-      const item = await runtime.agentSessionPresenter.queuePendingInput(input.sessionId, input.content);
+      const item = await invokeDaemonRoute(sessionsQueuePendingInputRoute.name, input);
       return sessionsQueuePendingInputRoute.output.parse({ item });
     }
 
     case sessionsUpdateQueuedInputRoute.name: {
       const input = sessionsUpdateQueuedInputRoute.input.parse(rawInput);
-      const item = await runtime.agentSessionPresenter.updateQueuedInput(input.sessionId, input.itemId, input.content);
+      const item = await invokeDaemonRoute(sessionsUpdateQueuedInputRoute.name, input);
       return sessionsUpdateQueuedInputRoute.output.parse({ item });
     }
 
     case sessionsMoveQueuedInputRoute.name: {
       const input = sessionsMoveQueuedInputRoute.input.parse(rawInput);
-      const items = await runtime.agentSessionPresenter.moveQueuedInput(input.sessionId, input.itemId, input.toIndex);
+      const items = await invokeDaemonRoute(sessionsMoveQueuedInputRoute.name, input);
       return sessionsMoveQueuedInputRoute.output.parse({ items });
     }
 
     case sessionsConvertPendingInputToSteerRoute.name: {
       const input = sessionsConvertPendingInputToSteerRoute.input.parse(rawInput);
-      const item = await runtime.agentSessionPresenter.convertPendingInputToSteer(input.sessionId, input.itemId);
+      const item = await invokeDaemonRoute(sessionsConvertPendingInputToSteerRoute.name, input);
       return sessionsConvertPendingInputToSteerRoute.output.parse({ item });
     }
 
     case sessionsDeletePendingInputRoute.name: {
       const input = sessionsDeletePendingInputRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.deletePendingInput(input.sessionId, input.itemId);
+      await invokeDaemonRoute(sessionsDeletePendingInputRoute.name, input);
       return sessionsDeletePendingInputRoute.output.parse({ deleted: true });
     }
 
     case sessionsSteerPendingInputRoute.name: {
       const input = sessionsSteerPendingInputRoute.input.parse(rawInput);
-      if (!runtime.agentSessionPresenter.steerPendingInput) {
-        throw new Error("Steer pending input is not available");
-      }
-      const item = await runtime.agentSessionPresenter.steerPendingInput(input.sessionId, input.itemId);
+      const item = await invokeDaemonRoute(sessionsSteerPendingInputRoute.name, input);
       return sessionsSteerPendingInputRoute.output.parse({ item });
     }
 
     case sessionsRetryMessageRoute.name: {
       const input = sessionsRetryMessageRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.retryMessage(input.sessionId, input.messageId);
-      return sessionsRetryMessageRoute.output.parse({ retried: true });
+      return sessionsRetryMessageRoute.output.parse(await invokeDaemonRoute(sessionsRetryMessageRoute.name, input));
     }
 
     case sessionsDeleteMessageRoute.name: {
       const input = sessionsDeleteMessageRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.deleteMessage(input.sessionId, input.messageId);
-      return sessionsDeleteMessageRoute.output.parse({ deleted: true });
+      return sessionsDeleteMessageRoute.output.parse(await invokeDaemonRoute(sessionsDeleteMessageRoute.name, input));
     }
 
     case sessionsEditUserMessageRoute.name: {
       const input = sessionsEditUserMessageRoute.input.parse(rawInput);
-      const message = await runtime.agentSessionPresenter.editUserMessage(input.sessionId, input.messageId, input.text);
-      return sessionsEditUserMessageRoute.output.parse({ message });
+      return sessionsEditUserMessageRoute.output.parse(
+        await invokeDaemonRoute(sessionsEditUserMessageRoute.name, input),
+      );
     }
 
     case sessionsForkRoute.name: {
       const input = sessionsForkRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.forkSession(
-        input.sourceSessionId,
-        input.targetMessageId,
-        input.newTitle,
-      );
-      return sessionsForkRoute.output.parse({ session });
+      return sessionsForkRoute.output.parse(await invokeDaemonRoute(sessionsForkRoute.name, input));
     }
 
     case sessionsSearchHistoryRoute.name: {
       const input = sessionsSearchHistoryRoute.input.parse(rawInput);
-      const hits = await runtime.agentSessionPresenter.searchHistory(input.query, input.options);
+      const hits = await invokeDaemonRoute(sessionsSearchHistoryRoute.name, input);
       return sessionsSearchHistoryRoute.output.parse({ hits });
     }
 
     case sessionsGetSearchResultsRoute.name: {
       const input = sessionsGetSearchResultsRoute.input.parse(rawInput);
-      const results = await runtime.agentSessionPresenter.getSearchResults(input.messageId, input.searchId);
+      const results = await invokeDaemonRoute(sessionsGetSearchResultsRoute.name, input);
       return sessionsGetSearchResultsRoute.output.parse({ results });
     }
 
     case sessionsListMessageTracesRoute.name: {
       const input = sessionsListMessageTracesRoute.input.parse(rawInput);
-      const traces = await runtime.agentSessionPresenter.listMessageTraces(input.messageId);
+      const traces = await invokeDaemonRoute(sessionsListMessageTracesRoute.name, input);
       return sessionsListMessageTracesRoute.output.parse({ traces });
     }
 
     case sessionsGetViewManifestsRoute.name: {
       const input = sessionsGetViewManifestsRoute.input.parse(rawInput);
-      if (!runtime.agentSessionPresenter.getViewManifests) {
-        throw new Error("View manifests are not available");
-      }
-      const manifests = await runtime.agentSessionPresenter.getViewManifests(input.sessionId);
+      const manifests = await invokeDaemonRoute(sessionsGetViewManifestsRoute.name, input);
       return sessionsGetViewManifestsRoute.output.parse({ manifests });
     }
 
     case sessionsGetViewLineageRoute.name: {
       const input = sessionsGetViewLineageRoute.input.parse(rawInput);
-      if (!runtime.agentSessionPresenter.getViewLineage) {
-        throw new Error("View lineage is not available");
-      }
-      const lineage = await runtime.agentSessionPresenter.getViewLineage(input.sessionId);
+      const lineage = await invokeDaemonRoute(sessionsGetViewLineageRoute.name, input);
       return sessionsGetViewLineageRoute.output.parse({ lineage });
     }
 
     case sessionsTranslateTextRoute.name: {
       const input = sessionsTranslateTextRoute.input.parse(rawInput);
-      const text = await runtime.agentSessionPresenter.translateText(input.text, input.locale, input.agentId);
+      const text = await invokeDaemonRoute(sessionsTranslateTextRoute.name, input);
       return sessionsTranslateTextRoute.output.parse({ text });
     }
 
     case sessionsGetAgentsRoute.name: {
       sessionsGetAgentsRoute.input.parse(rawInput);
-      const agents = await runtime.agentSessionPresenter.getAgents();
+      const agents = await invokeDaemonRoute(sessionsGetAgentsRoute.name, {});
       return sessionsGetAgentsRoute.output.parse({ agents });
     }
 
     case sessionsRenameRoute.name: {
       const input = sessionsRenameRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.renameSession(input.sessionId, input.title);
-      return sessionsRenameRoute.output.parse({ updated: true });
+      return sessionsRenameRoute.output.parse(await invokeDaemonRoute(sessionsRenameRoute.name, input));
     }
 
     case sessionsTogglePinnedRoute.name: {
       const input = sessionsTogglePinnedRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.toggleSessionPinned(input.sessionId, input.pinned);
-      return sessionsTogglePinnedRoute.output.parse({ updated: true });
+      return sessionsTogglePinnedRoute.output.parse(await invokeDaemonRoute(sessionsTogglePinnedRoute.name, input));
     }
 
     case sessionsClearMessagesRoute.name: {
       const input = sessionsClearMessagesRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.clearSessionMessages(input.sessionId);
-      return sessionsClearMessagesRoute.output.parse({ cleared: true });
+      return sessionsClearMessagesRoute.output.parse(await invokeDaemonRoute(sessionsClearMessagesRoute.name, input));
     }
 
     case sessionsCompactRoute.name: {
       const input = sessionsCompactRoute.input.parse(rawInput);
-      const result = await runtime.agentSessionPresenter.compactSession(input.sessionId);
+      const result = await invokeDaemonRoute(sessionsCompactRoute.name, input);
       return sessionsCompactRoute.output.parse(result);
     }
 
     case sessionsExportRoute.name: {
       const input = sessionsExportRoute.input.parse(rawInput);
-      const result = await runtime.agentSessionPresenter.exportSession(input.sessionId, input.format);
+      const result = await invokeDaemonRoute(sessionsExportRoute.name, input);
       return sessionsExportRoute.output.parse(result);
     }
 
     case sessionsDeleteRoute.name: {
       const input = sessionsDeleteRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.deleteSession(input.sessionId);
-      return sessionsDeleteRoute.output.parse({ deleted: true });
+      return sessionsDeleteRoute.output.parse(await invokeDaemonRoute(sessionsDeleteRoute.name, input));
     }
 
     case sessionsGetAgentTransferImpactRoute.name: {
       const input = sessionsGetAgentTransferImpactRoute.input.parse(rawInput);
-      const impact = await runtime.agentSessionPresenter.getAgentTransferImpact(input.agentId);
+      const impact = await invokeDaemonRoute(sessionsGetAgentTransferImpactRoute.name, input);
       return sessionsGetAgentTransferImpactRoute.output.parse({ impact });
     }
 
     case sessionsMoveAgentSessionsRoute.name: {
       const input = sessionsMoveAgentSessionsRoute.input.parse(rawInput);
-      const result = await runtime.agentSessionPresenter.moveAgentSessions(input.fromAgentId, input.toAgentId);
+      const result = await invokeDaemonRoute(sessionsMoveAgentSessionsRoute.name, input);
       return sessionsMoveAgentSessionsRoute.output.parse(result);
     }
 
     case sessionsDeleteAgentSessionsRoute.name: {
       const input = sessionsDeleteAgentSessionsRoute.input.parse(rawInput);
-      const deletedSessionIds = await runtime.agentSessionPresenter.deleteAgentSessions(input.agentId);
+      const deletedSessionIds = await invokeDaemonRoute(sessionsDeleteAgentSessionsRoute.name, input);
       return sessionsDeleteAgentSessionsRoute.output.parse({ deletedSessionIds });
     }
 
     case sessionsMoveToAgentRoute.name: {
       const input = sessionsMoveToAgentRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.moveSessionToAgent(input.sessionId, input.toAgentId);
+      const session = await invokeDaemonRoute(sessionsMoveToAgentRoute.name, input);
       return sessionsMoveToAgentRoute.output.parse({ session });
     }
 
     case sessionsGetAcpSessionCommandsRoute.name: {
       const input = sessionsGetAcpSessionCommandsRoute.input.parse(rawInput);
-      const commands = await runtime.agentSessionPresenter.getAcpSessionCommands(input.sessionId);
+      const commands = await invokeDaemonRoute(sessionsGetAcpSessionCommandsRoute.name, input);
       return sessionsGetAcpSessionCommandsRoute.output.parse({ commands });
     }
 
     case sessionsGetAcpSessionConfigOptionsRoute.name: {
       const input = sessionsGetAcpSessionConfigOptionsRoute.input.parse(rawInput);
-      const state = await runtime.agentSessionPresenter.getAcpSessionConfigOptions(input.sessionId);
+      const state = await invokeDaemonRoute(sessionsGetAcpSessionConfigOptionsRoute.name, input);
       return sessionsGetAcpSessionConfigOptionsRoute.output.parse({ state });
     }
 
     case sessionsSetAcpSessionConfigOptionRoute.name: {
       const input = sessionsSetAcpSessionConfigOptionRoute.input.parse(rawInput);
-      const state = await runtime.agentSessionPresenter.setAcpSessionConfigOption(
-        input.sessionId,
-        input.configId,
-        input.value,
-      );
+      const state = await invokeDaemonRoute(sessionsSetAcpSessionConfigOptionRoute.name, input);
       return sessionsSetAcpSessionConfigOptionRoute.output.parse({ state });
     }
 
     case sessionsGetPermissionModeRoute.name: {
       const input = sessionsGetPermissionModeRoute.input.parse(rawInput);
-      const mode = await runtime.agentSessionPresenter.getPermissionMode(input.sessionId);
-      return sessionsGetPermissionModeRoute.output.parse({ mode });
+      return sessionsGetPermissionModeRoute.output.parse(
+        await invokeDaemonRoute(sessionsGetPermissionModeRoute.name, input),
+      );
     }
 
     case sessionsSetPermissionModeRoute.name: {
       const input = sessionsSetPermissionModeRoute.input.parse(rawInput);
-      await runtime.agentSessionPresenter.setPermissionMode(input.sessionId, input.mode);
-      return sessionsSetPermissionModeRoute.output.parse({ updated: true });
+      return sessionsSetPermissionModeRoute.output.parse(
+        await invokeDaemonRoute(sessionsSetPermissionModeRoute.name, input),
+      );
     }
 
     case sessionsSetSubagentEnabledRoute.name: {
       const input = sessionsSetSubagentEnabledRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.setSessionSubagentEnabled(input.sessionId, input.enabled);
-      return sessionsSetSubagentEnabledRoute.output.parse({ session });
+      return sessionsSetSubagentEnabledRoute.output.parse(
+        await invokeDaemonRoute(sessionsSetSubagentEnabledRoute.name, input),
+      );
     }
 
     case sessionsSetModelRoute.name: {
       const input = sessionsSetModelRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.setSessionModel(
-        input.sessionId,
-        input.providerId,
-        input.modelId,
-      );
-      return sessionsSetModelRoute.output.parse({ session });
+      return sessionsSetModelRoute.output.parse(await invokeDaemonRoute(sessionsSetModelRoute.name, input));
     }
 
     case sessionsSetProjectDirRoute.name: {
       const input = sessionsSetProjectDirRoute.input.parse(rawInput);
-      const session = await runtime.agentSessionPresenter.setSessionProjectDir(input.sessionId, input.projectDir);
-      return sessionsSetProjectDirRoute.output.parse({ session });
+      return sessionsSetProjectDirRoute.output.parse(await invokeDaemonRoute(sessionsSetProjectDirRoute.name, input));
     }
 
     case sessionsGetGenerationSettingsRoute.name: {
       const input = sessionsGetGenerationSettingsRoute.input.parse(rawInput);
-      const settings = await runtime.agentSessionPresenter.getSessionGenerationSettings(input.sessionId);
-      return sessionsGetGenerationSettingsRoute.output.parse({ settings });
+      return sessionsGetGenerationSettingsRoute.output.parse(
+        await invokeDaemonRoute(sessionsGetGenerationSettingsRoute.name, input),
+      );
     }
 
     case sessionsGetDisabledAgentToolsRoute.name: {
       const input = sessionsGetDisabledAgentToolsRoute.input.parse(rawInput);
-      const disabledAgentTools = await runtime.agentSessionPresenter.getSessionDisabledAgentTools(input.sessionId);
-      return sessionsGetDisabledAgentToolsRoute.output.parse({ disabledAgentTools });
+      return sessionsGetDisabledAgentToolsRoute.output.parse(
+        await invokeDaemonRoute(sessionsGetDisabledAgentToolsRoute.name, input),
+      );
     }
 
     case sessionsUpdateDisabledAgentToolsRoute.name: {
       const input = sessionsUpdateDisabledAgentToolsRoute.input.parse(rawInput);
-      const disabledAgentTools = await runtime.agentSessionPresenter.updateSessionDisabledAgentTools(
-        input.sessionId,
-        input.disabledAgentTools,
+      return sessionsUpdateDisabledAgentToolsRoute.output.parse(
+        await invokeDaemonRoute(sessionsUpdateDisabledAgentToolsRoute.name, input),
       );
-      return sessionsUpdateDisabledAgentToolsRoute.output.parse({ disabledAgentTools });
     }
 
     case sessionsUpdateGenerationSettingsRoute.name: {
       const input = sessionsUpdateGenerationSettingsRoute.input.parse(rawInput);
-      const settings = await runtime.agentSessionPresenter.updateSessionGenerationSettings(
-        input.sessionId,
-        input.settings,
+      return sessionsUpdateGenerationSettingsRoute.output.parse(
+        await invokeDaemonRoute(sessionsUpdateGenerationSettingsRoute.name, input),
       );
-      return sessionsUpdateGenerationSettingsRoute.output.parse({ settings });
     }
 
     case skillsListMetadataRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         skillsListMetadataRoute.input.parse(rawInput);
-        const skills = await runtime.skillPresenter.getMetadataList();
-        return skillsListMetadataRoute.output.parse({ skills });
+        return skillsListMetadataRoute.output.parse(await invokeDaemonRoute(skillsListMetadataRoute.name, {}));
       });
     }
 
     case skillsGetDirectoryRoute.name: {
       skillsGetDirectoryRoute.input.parse(rawInput);
-      const path = await runtime.skillPresenter.getSkillsDir();
-      return skillsGetDirectoryRoute.output.parse({ path });
+      return skillsGetDirectoryRoute.output.parse(await invokeDaemonRoute(skillsGetDirectoryRoute.name, {}));
     }
 
     case skillsInstallFromFolderRoute.name: {
       const input = skillsInstallFromFolderRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.installFromFolder(input.folderPath, input.options);
+      const result = (await invokeDaemonRoute(skillsInstallFromFolderRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillSettingsActivity(runtime, "created", "skill folder source");
       }
@@ -2156,7 +1988,7 @@ export async function dispatchArgosRoute(
 
     case skillsInstallFromZipRoute.name: {
       const input = skillsInstallFromZipRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.installFromZip(input.zipPath, input.options);
+      const result = (await invokeDaemonRoute(skillsInstallFromZipRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillSettingsActivity(runtime, "created", "skill zip source");
       }
@@ -2165,7 +1997,7 @@ export async function dispatchArgosRoute(
 
     case skillsInstallFromUrlRoute.name: {
       const input = skillsInstallFromUrlRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.installFromUrl(input.url, input.options);
+      const result = (await invokeDaemonRoute(skillsInstallFromUrlRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillSettingsActivity(runtime, "created", "skill URL source");
       }
@@ -2174,7 +2006,7 @@ export async function dispatchArgosRoute(
 
     case skillsUninstallRoute.name: {
       const input = skillsUninstallRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.uninstallSkill(input.name);
+      const result = (await invokeDaemonRoute(skillsUninstallRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillRemovedActivity(runtime, input.name);
       }
@@ -2183,7 +2015,7 @@ export async function dispatchArgosRoute(
 
     case skillsUpdateFileRoute.name: {
       const input = skillsUpdateFileRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.updateSkillFile(input.name, input.content);
+      const result = (await invokeDaemonRoute(skillsUpdateFileRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillUpdatedActivity(runtime, input.name);
       }
@@ -2192,7 +2024,7 @@ export async function dispatchArgosRoute(
 
     case skillsSaveWithExtensionRoute.name: {
       const input = skillsSaveWithExtensionRoute.input.parse(rawInput);
-      const result = await runtime.skillPresenter.saveSkillWithExtension(input.name, input.content, input.config);
+      const result = (await invokeDaemonRoute(skillsSaveWithExtensionRoute.name, input)) as { success?: boolean };
       if (didSkillOperationSucceed(result)) {
         recordSkillUpdatedActivity(runtime, input.name);
       }
@@ -2201,44 +2033,39 @@ export async function dispatchArgosRoute(
 
     case skillsGetFolderTreeRoute.name: {
       const input = skillsGetFolderTreeRoute.input.parse(rawInput);
-      const nodes = await runtime.skillPresenter.getSkillFolderTree(input.name);
-      return skillsGetFolderTreeRoute.output.parse({ nodes });
+      return skillsGetFolderTreeRoute.output.parse(await invokeDaemonRoute(skillsGetFolderTreeRoute.name, input));
     }
 
     case skillsOpenFolderRoute.name: {
       skillsOpenFolderRoute.input.parse(rawInput);
-      await runtime.skillPresenter.openSkillsFolder();
-      return skillsOpenFolderRoute.output.parse({ opened: true });
+      return skillsOpenFolderRoute.output.parse(await invokeDaemonRoute(skillsOpenFolderRoute.name, {}));
     }
 
     case skillsGetExtensionRoute.name: {
       const input = skillsGetExtensionRoute.input.parse(rawInput);
-      const config = await runtime.skillPresenter.getSkillExtension(input.name);
-      return skillsGetExtensionRoute.output.parse({ config });
+      return skillsGetExtensionRoute.output.parse(await invokeDaemonRoute(skillsGetExtensionRoute.name, input));
     }
 
     case skillsSaveExtensionRoute.name: {
       const input = skillsSaveExtensionRoute.input.parse(rawInput);
-      await runtime.skillPresenter.saveSkillExtension(input.name, input.config);
+      await invokeDaemonRoute(skillsSaveExtensionRoute.name, input);
       recordSkillUpdatedActivity(runtime, `${input.name} extension`, "skill-extension");
       return skillsSaveExtensionRoute.output.parse({ saved: true });
     }
 
     case skillsListScriptsRoute.name: {
       const input = skillsListScriptsRoute.input.parse(rawInput);
-      const scripts = await runtime.skillPresenter.listSkillScripts(input.name);
-      return skillsListScriptsRoute.output.parse({ scripts });
+      return skillsListScriptsRoute.output.parse(await invokeDaemonRoute(skillsListScriptsRoute.name, input));
     }
 
     case skillsGetActiveRoute.name: {
       const input = skillsGetActiveRoute.input.parse(rawInput);
-      const skills = await runtime.skillPresenter.getActiveSkills(input.conversationId);
-      return skillsGetActiveRoute.output.parse({ skills });
+      return skillsGetActiveRoute.output.parse(await invokeDaemonRoute(skillsGetActiveRoute.name, input));
     }
 
     case skillsSetActiveRoute.name: {
       const input = skillsSetActiveRoute.input.parse(rawInput);
-      const skills = await runtime.skillPresenter.setActiveSkills(input.conversationId, input.skills);
+      const result = await invokeDaemonRoute(skillsSetActiveRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "knowledge",
         action: "updated",
@@ -2250,60 +2077,53 @@ export async function dispatchArgosRoute(
           key: `active skills (${input.skills.length})`,
         },
       });
-      return skillsSetActiveRoute.output.parse({ skills });
+      return skillsSetActiveRoute.output.parse(result);
     }
 
     case mcpGetServersRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         mcpGetServersRoute.input.parse(rawInput);
-        const servers = await runtime.mcpPresenter.getMcpServers();
-        return mcpGetServersRoute.output.parse({ servers });
+        return mcpGetServersRoute.output.parse(await invokeDaemonRoute(mcpGetServersRoute.name, {}));
       });
     }
 
     case mcpGetEnabledRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         mcpGetEnabledRoute.input.parse(rawInput);
-        const enabled = await runtime.mcpPresenter.getMcpEnabled();
-        return mcpGetEnabledRoute.output.parse({ enabled });
+        return mcpGetEnabledRoute.output.parse(await invokeDaemonRoute(mcpGetEnabledRoute.name, {}));
       });
     }
 
     case mcpGetClientsRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         mcpGetClientsRoute.input.parse(rawInput);
-        const clients = await runtime.mcpPresenter.getMcpClients();
-        return mcpGetClientsRoute.output.parse({ clients });
+        return mcpGetClientsRoute.output.parse(await invokeDaemonRoute(mcpGetClientsRoute.name, {}));
       });
     }
 
     case mcpListToolDefinitionsRoute.name: {
       const input = mcpListToolDefinitionsRoute.input.parse(rawInput);
-      const tools = await runtime.mcpPresenter.getAllToolDefinitions(input.enabledMcpTools);
-      return mcpListToolDefinitionsRoute.output.parse({ tools });
+      return mcpListToolDefinitionsRoute.output.parse(await invokeDaemonRoute(mcpListToolDefinitionsRoute.name, input));
     }
 
     case mcpListPromptsRoute.name: {
       mcpListPromptsRoute.input.parse(rawInput);
-      const prompts = await runtime.mcpPresenter.getAllPrompts();
-      return mcpListPromptsRoute.output.parse({ prompts });
+      return mcpListPromptsRoute.output.parse(await invokeDaemonRoute(mcpListPromptsRoute.name, {}));
     }
 
     case mcpListResourcesRoute.name: {
       mcpListResourcesRoute.input.parse(rawInput);
-      const resources = await runtime.mcpPresenter.getAllResources();
-      return mcpListResourcesRoute.output.parse({ resources });
+      return mcpListResourcesRoute.output.parse(await invokeDaemonRoute(mcpListResourcesRoute.name, {}));
     }
 
     case mcpCallToolRoute.name: {
       const input = mcpCallToolRoute.input.parse(rawInput);
-      const result = await runtime.mcpPresenter.callTool(input.request);
-      return mcpCallToolRoute.output.parse(result);
+      return mcpCallToolRoute.output.parse(await invokeDaemonRoute(mcpCallToolRoute.name, input));
     }
 
     case mcpAddServerRoute.name: {
       const input = mcpAddServerRoute.input.parse(rawInput);
-      const success = await runtime.mcpPresenter.addMcpServer(input.serverName, input.config);
+      const success = mcpAddServerRoute.output.parse(await invokeDaemonRoute(mcpAddServerRoute.name, input)).success;
       if (success) {
         recordSettingsActivity(runtime, {
           category: "mcp",
@@ -2323,7 +2143,7 @@ export async function dispatchArgosRoute(
 
     case mcpUpdateServerRoute.name: {
       const input = mcpUpdateServerRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.updateMcpServer(input.serverName, input.config);
+      await invokeDaemonRoute(mcpUpdateServerRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: "updated",
@@ -2341,7 +2161,7 @@ export async function dispatchArgosRoute(
 
     case mcpRemoveServerRoute.name: {
       const input = mcpRemoveServerRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.removeMcpServer(input.serverName);
+      await invokeDaemonRoute(mcpRemoveServerRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: "removed",
@@ -2359,7 +2179,7 @@ export async function dispatchArgosRoute(
 
     case mcpSetServerEnabledRoute.name: {
       const input = mcpSetServerEnabledRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.setMcpServerEnabled(input.serverName, input.enabled);
+      await invokeDaemonRoute(mcpSetServerEnabledRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: input.enabled ? "enabled" : "disabled",
@@ -2377,7 +2197,7 @@ export async function dispatchArgosRoute(
 
     case mcpSetEnabledRoute.name: {
       const input = mcpSetEnabledRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.setMcpEnabled(input.enabled);
+      await invokeDaemonRoute(mcpSetEnabledRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: input.enabled ? "enabled" : "disabled",
@@ -2395,13 +2215,12 @@ export async function dispatchArgosRoute(
 
     case mcpIsServerRunningRoute.name: {
       const input = mcpIsServerRunningRoute.input.parse(rawInput);
-      const running = await runtime.mcpPresenter.isServerRunning(input.serverName);
-      return mcpIsServerRunningRoute.output.parse({ running });
+      return mcpIsServerRunningRoute.output.parse(await invokeDaemonRoute(mcpIsServerRunningRoute.name, input));
     }
 
     case mcpStartServerRoute.name: {
       const input = mcpStartServerRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.startServer(input.serverName);
+      await invokeDaemonRoute(mcpStartServerRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: "enabled",
@@ -2419,7 +2238,7 @@ export async function dispatchArgosRoute(
 
     case mcpStopServerRoute.name: {
       const input = mcpStopServerRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.stopServer(input.serverName);
+      await invokeDaemonRoute(mcpStopServerRoute.name, input);
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: "disabled",
@@ -2437,45 +2256,42 @@ export async function dispatchArgosRoute(
 
     case mcpGetPromptRoute.name: {
       const input = mcpGetPromptRoute.input.parse(rawInput);
-      const result = await runtime.mcpPresenter.getPrompt(input.prompt, input.args);
-      return mcpGetPromptRoute.output.parse({ result });
+      return mcpGetPromptRoute.output.parse(await invokeDaemonRoute(mcpGetPromptRoute.name, input));
     }
 
     case mcpReadResourceRoute.name: {
       const input = mcpReadResourceRoute.input.parse(rawInput);
-      const resource = await runtime.mcpPresenter.readResource(input.resource);
-      return mcpReadResourceRoute.output.parse({ resource });
+      return mcpReadResourceRoute.output.parse(await invokeDaemonRoute(mcpReadResourceRoute.name, input));
     }
 
     case mcpSubmitSamplingDecisionRoute.name: {
       const input = mcpSubmitSamplingDecisionRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.submitSamplingDecision(input.decision);
-      return mcpSubmitSamplingDecisionRoute.output.parse({ submitted: true });
+      return mcpSubmitSamplingDecisionRoute.output.parse(
+        await invokeDaemonRoute(mcpSubmitSamplingDecisionRoute.name, input),
+      );
     }
 
     case mcpCancelSamplingRequestRoute.name: {
       const input = mcpCancelSamplingRequestRoute.input.parse(rawInput);
-      await runtime.mcpPresenter.cancelSamplingRequest(input.requestId, input.reason);
-      return mcpCancelSamplingRequestRoute.output.parse({ cancelled: true });
+      return mcpCancelSamplingRequestRoute.output.parse(
+        await invokeDaemonRoute(mcpCancelSamplingRequestRoute.name, input),
+      );
     }
 
     case mcpGetNpmRegistryStatusRoute.name: {
       return await runTrackedRouteTask(runtime, routeName, context, async () => {
         mcpGetNpmRegistryStatusRoute.input.parse(rawInput);
-        if (!runtime.mcpPresenter.getNpmRegistryStatus) {
-          throw new Error("NPM registry status is not available");
-        }
-        const status = await runtime.mcpPresenter.getNpmRegistryStatus();
-        return mcpGetNpmRegistryStatusRoute.output.parse({ status });
+        return mcpGetNpmRegistryStatusRoute.output.parse(
+          await invokeDaemonRoute(mcpGetNpmRegistryStatusRoute.name, {}),
+        );
       });
     }
 
     case mcpRefreshNpmRegistryRoute.name: {
       mcpRefreshNpmRegistryRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.refreshNpmRegistry) {
-        throw new Error("NPM registry refresh is not available");
-      }
-      const registry = await runtime.mcpPresenter.refreshNpmRegistry();
+      const { registry } = mcpRefreshNpmRegistryRoute.output.parse(
+        await invokeDaemonRoute(mcpRefreshNpmRegistryRoute.name, {}),
+      );
       recordSettingsActivity(runtime, {
         category: "mcp",
         action: "refreshed",
@@ -2491,83 +2307,59 @@ export async function dispatchArgosRoute(
 
     case mcpSetCustomNpmRegistryRoute.name: {
       const input = mcpSetCustomNpmRegistryRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.setCustomNpmRegistry) {
-        throw new Error("Custom NPM registry is not available");
-      }
-      await runtime.mcpPresenter.setCustomNpmRegistry(input.registry);
-      return mcpSetCustomNpmRegistryRoute.output.parse({ updated: true });
+      return mcpSetCustomNpmRegistryRoute.output.parse(
+        await invokeDaemonRoute(mcpSetCustomNpmRegistryRoute.name, input),
+      );
     }
 
     case mcpSetAutoDetectNpmRegistryRoute.name: {
       const input = mcpSetAutoDetectNpmRegistryRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.setAutoDetectNpmRegistry) {
-        throw new Error("Auto detect NPM registry is not available");
-      }
-      await runtime.mcpPresenter.setAutoDetectNpmRegistry(input.enabled);
-      return mcpSetAutoDetectNpmRegistryRoute.output.parse({ enabled: input.enabled });
+      return mcpSetAutoDetectNpmRegistryRoute.output.parse(
+        await invokeDaemonRoute(mcpSetAutoDetectNpmRegistryRoute.name, input),
+      );
     }
 
     case mcpClearNpmRegistryCacheRoute.name: {
       mcpClearNpmRegistryCacheRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.clearNpmRegistryCache) {
-        throw new Error("NPM registry cache clearing is not available");
-      }
-      await runtime.mcpPresenter.clearNpmRegistryCache();
-      return mcpClearNpmRegistryCacheRoute.output.parse({ cleared: true });
+      return mcpClearNpmRegistryCacheRoute.output.parse(
+        await invokeDaemonRoute(mcpClearNpmRegistryCacheRoute.name, {}),
+      );
     }
 
     case mcpListMcpRouterServersRoute.name: {
       const input = mcpListMcpRouterServersRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.listMcpRouterServers) {
-        throw new Error("MCPRouter marketplace is not available");
-      }
-      const result = await runtime.mcpPresenter.listMcpRouterServers(input.page, input.limit);
-      return mcpListMcpRouterServersRoute.output.parse(result);
+      return mcpListMcpRouterServersRoute.output.parse(
+        await invokeDaemonRoute(mcpListMcpRouterServersRoute.name, input),
+      );
     }
 
     case mcpInstallMcpRouterServerRoute.name: {
       const input = mcpInstallMcpRouterServerRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.installMcpRouterServer) {
-        throw new Error("MCPRouter install is not available");
-      }
-      const installed = await runtime.mcpPresenter.installMcpRouterServer(input.serverKey);
-      return mcpInstallMcpRouterServerRoute.output.parse({ installed });
+      return mcpInstallMcpRouterServerRoute.output.parse(
+        await invokeDaemonRoute(mcpInstallMcpRouterServerRoute.name, input),
+      );
     }
 
     case mcpGetMcpRouterApiKeyRoute.name: {
       mcpGetMcpRouterApiKeyRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.getMcpRouterApiKey) {
-        throw new Error("MCPRouter API key is not available");
-      }
-      const apiKey = await runtime.mcpPresenter.getMcpRouterApiKey();
-      return mcpGetMcpRouterApiKeyRoute.output.parse({ apiKey });
+      return mcpGetMcpRouterApiKeyRoute.output.parse(await invokeDaemonRoute(mcpGetMcpRouterApiKeyRoute.name, {}));
     }
 
     case mcpSetMcpRouterApiKeyRoute.name: {
       const input = mcpSetMcpRouterApiKeyRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.setMcpRouterApiKey) {
-        throw new Error("MCPRouter API key is not available");
-      }
-      await runtime.mcpPresenter.setMcpRouterApiKey(input.key);
-      return mcpSetMcpRouterApiKeyRoute.output.parse({ set: true as const });
+      return mcpSetMcpRouterApiKeyRoute.output.parse(await invokeDaemonRoute(mcpSetMcpRouterApiKeyRoute.name, input));
     }
 
     case mcpIsServerInstalledRoute.name: {
       const input = mcpIsServerInstalledRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.isServerInstalled) {
-        throw new Error("Server installation check is not available");
-      }
-      const installed = await runtime.mcpPresenter.isServerInstalled(input.source, input.sourceId);
-      return mcpIsServerInstalledRoute.output.parse({ installed });
+      return mcpIsServerInstalledRoute.output.parse(await invokeDaemonRoute(mcpIsServerInstalledRoute.name, input));
     }
 
     case mcpUpdateMcpRouterServersAuthRoute.name: {
       const input = mcpUpdateMcpRouterServersAuthRoute.input.parse(rawInput);
-      if (!runtime.mcpPresenter.updateMcpRouterServersAuth) {
-        throw new Error("MCPRouter auth update is not available");
-      }
-      await runtime.mcpPresenter.updateMcpRouterServersAuth(input.apiKey);
-      return mcpUpdateMcpRouterServersAuthRoute.output.parse({ updated: true as const });
+      return mcpUpdateMcpRouterServersAuthRoute.output.parse(
+        await invokeDaemonRoute(mcpUpdateMcpRouterServersAuthRoute.name, input),
+      );
     }
 
     case syncGetBackupStatusRoute.name: {
@@ -2630,25 +2422,28 @@ export async function dispatchArgosRoute(
 
     case syncGetCloudConfigRoute.name: {
       syncGetCloudConfigRoute.input.parse(rawInput);
-      const config = runtime.configPresenter.getCloudSyncConfig();
+      const config = await invokeDaemonRoute(syncGetCloudConfigRoute.name, {});
       return syncGetCloudConfigRoute.output.parse({ config });
     }
 
     case syncSetCloudConfigRoute.name: {
       const input = syncSetCloudConfigRoute.input.parse(rawInput);
-      const config = runtime.configPresenter.setCloudSyncConfig(input.config);
+      const config = await invokeDaemonRoute(syncSetCloudConfigRoute.name, input);
       return syncSetCloudConfigRoute.output.parse({ config });
     }
 
     case syncTestCloudRoute.name: {
       syncTestCloudRoute.input.parse(rawInput);
-      const result = await runtime.syncPresenter.testCloudConnection();
+      const result = await invokeDaemonRoute(syncTestCloudRoute.name, {});
       return syncTestCloudRoute.output.parse({ result });
     }
 
     case syncUploadToCloudRoute.name: {
       syncUploadToCloudRoute.input.parse(rawInput);
-      const result = await runtime.syncPresenter.uploadLatestBackupToCloud();
+      const result = (await invokeDaemonRoute(syncUploadToCloudRoute.name, {})) as {
+        success?: boolean;
+        fileName?: string;
+      };
       if (result?.success) {
         recordSettingsActivity(runtime, {
           category: "data",
@@ -2668,7 +2463,10 @@ export async function dispatchArgosRoute(
 
     case syncPullFromCloudRoute.name: {
       const input = syncPullFromCloudRoute.input.parse(rawInput);
-      const result = await runtime.syncPresenter.pullLatestBackupFromCloud(input.mode);
+      const result = (await invokeDaemonRoute(syncPullFromCloudRoute.name, input)) as {
+        success?: boolean;
+        fileName?: string;
+      };
       if (result?.success) {
         recordSettingsActivity(runtime, {
           category: "data",
@@ -2748,70 +2546,45 @@ export async function dispatchArgosRoute(
 
     case memoryListRoute.name: {
       const input = memoryListRoute.input.parse(rawInput);
-      const rows = runtime.memoryPresenter.listMemories(input.agentId);
-      return memoryListRoute.output.parse({ memories: rows.map((row) => toMemoryItem(row)) });
+      return memoryListRoute.output.parse(await invokeDaemonRoute(memoryListRoute.name, input));
     }
 
     case memoryGetStatusRoute.name: {
       const input = memoryGetStatusRoute.input.parse(rawInput);
-      return memoryGetStatusRoute.output.parse({
-        status: runtime.memoryPresenter.getStatus(input.agentId),
-      });
+      return memoryGetStatusRoute.output.parse(await invokeDaemonRoute(memoryGetStatusRoute.name, input));
     }
 
     case memorySearchRoute.name: {
       const input = memorySearchRoute.input.parse(rawInput);
-      const recalls = await runtime.memoryPresenter.recall(input.agentId, input.query);
-      const allRows = runtime.memoryPresenter.listMemories(input.agentId);
-      const byId = new Map(allRows.map((row) => [row.id, row] as const));
-      const results = recalls.map((row) => toMemorySearchResult(row, byId));
-      const limited = input.limit ? results.slice(0, input.limit) : results;
-      return memorySearchRoute.output.parse({ results: limited });
+      return memorySearchRoute.output.parse(await invokeDaemonRoute(memorySearchRoute.name, input));
     }
 
     case memoryAddRoute.name: {
       const input = memoryAddRoute.input.parse(rawInput);
-      const ids = runtime.memoryPresenter.writeMemoriesSync(
-        [
-          {
-            kind: resolveMemoryKindFromInput(input),
-            category: input.category ?? null,
-            content: input.content,
-            importance: input.importance ?? 0.7,
-          },
-        ],
-        { agentId: input.agentId },
-      );
-      if (ids.length > 0) {
-        void runtime.memoryPresenter.processPendingEmbeddings(input.agentId).catch(() => undefined);
-      }
-      return memoryAddRoute.output.parse({
-        result: ids.length > 0 ? { action: "created", memoryId: ids[0] } : { action: "noop", reason: "duplicate" },
-      });
+      return memoryAddRoute.output.parse(await invokeDaemonRoute(memoryAddRoute.name, input));
     }
 
     case memoryDeleteRoute.name: {
       const input = memoryDeleteRoute.input.parse(rawInput);
-      return memoryDeleteRoute.output.parse({
-        ok: await runtime.memoryPresenter.deleteMemory(input.agentId, input.memoryId),
-      });
+      return memoryDeleteRoute.output.parse(await invokeDaemonRoute(memoryDeleteRoute.name, input));
     }
 
     case memoryClearRoute.name: {
       const input = memoryClearRoute.input.parse(rawInput);
-      return memoryClearRoute.output.parse({
-        removed: await runtime.memoryPresenter.clearMemories(input.agentId),
-      });
+      return memoryClearRoute.output.parse(await invokeDaemonRoute(memoryClearRoute.name, input));
     }
 
     case providersListModelsRoute.name: {
       const input = providersListModelsRoute.input.parse(rawInput);
-      return providersListModelsRoute.output.parse(await runtime.providerService.listModels(input.providerId));
+      const catalog = await invokeDaemonRoute(modelsGetProviderCatalogRoute.name, { providerId: input.providerId });
+      return providersListModelsRoute.output.parse(catalog);
     }
 
     case providersTestConnectionRoute.name: {
       const input = providersTestConnectionRoute.input.parse(rawInput);
-      return providersTestConnectionRoute.output.parse(await runtime.providerService.testConnection(input));
+      return providersTestConnectionRoute.output.parse(
+        await invokeDaemonRoute(providersTestConnectionRoute.name, input),
+      );
     }
 
     case chatSendMessageRoute.name: {

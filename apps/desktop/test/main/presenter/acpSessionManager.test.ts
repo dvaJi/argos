@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { AcpSessionManager } from "../../../src/main/presenter/llmProviderPresenter/acp";
+import { AcpSessionManager } from "@argos/acp-runtime/session/acpSessionManager";
 
 vi.mock("electron", () => ({
   app: {

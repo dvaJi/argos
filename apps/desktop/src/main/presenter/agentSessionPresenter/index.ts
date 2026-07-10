@@ -80,8 +80,15 @@ import {
 } from "../usageStats";
 import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
-import type { ProviderSessionPort, SessionPermissionPort, SessionUiPort } from "../runtimePorts";
-import { hasAcpConfigStateData } from "../llmProviderPresenter/acp/acpConfigState";
+import type {
+  DaemonAcpSessionPort,
+  DaemonSessionActionPort,
+  DaemonSessionQueryPort,
+  ProviderSessionPort,
+  SessionPermissionPort,
+  SessionUiPort,
+} from "../runtimePorts";
+import { hasAcpConfigStateData } from "@argos/acp-runtime";
 
 type SearchableSessionRow = {
   id: string;
@@ -259,6 +266,9 @@ export class AgentSessionPresenter {
   private providerSessionPort?: ProviderSessionPort;
   private sessionPermissionPort?: SessionPermissionPort;
   private sessionUiPort?: SessionUiPort;
+  private daemonAcpSessionPort?: DaemonAcpSessionPort;
+  private daemonSessionActionPort?: DaemonSessionActionPort;
+  private daemonSessionQueryPort?: DaemonSessionQueryPort;
   private usageStatsBackfillPromise: Promise<void> | null = null;
   private mainlineNormalizationPromise: Promise<void> | null = null;
   private readonly sessionStatusSnapshots = new Map<string, SessionWithState["status"]>();
@@ -274,6 +284,9 @@ export class AgentSessionPresenter {
       providerSessionPort?: ProviderSessionPort;
       sessionPermissionPort?: SessionPermissionPort;
       sessionUiPort?: SessionUiPort;
+      daemonAcpSessionPort?: DaemonAcpSessionPort;
+      daemonSessionActionPort?: DaemonSessionActionPort;
+      daemonSessionQueryPort?: DaemonSessionQueryPort;
     },
   ) {
     this.sqlitePresenter = sqlitePresenter;
@@ -287,6 +300,9 @@ export class AgentSessionPresenter {
     this.providerSessionPort = runtimePorts?.providerSessionPort;
     this.sessionPermissionPort = runtimePorts?.sessionPermissionPort ?? sessionRuntimePort;
     this.sessionUiPort = runtimePorts?.sessionUiPort ?? sessionRuntimePort;
+    this.daemonAcpSessionPort = runtimePorts?.daemonAcpSessionPort;
+    this.daemonSessionActionPort = runtimePorts?.daemonSessionActionPort;
+    this.daemonSessionQueryPort = runtimePorts?.daemonSessionQueryPort;
 
     // Register the built-in argos agent
     this.agentRegistry.register({ id: "argos", name: "Argos", type: "argos", enabled: true }, agentRuntimeAgent);
@@ -1102,6 +1118,10 @@ export class AgentSessionPresenter {
   }
 
   async searchHistory(query: string, options?: HistorySearchOptions): Promise<HistorySearchHit[]> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.searchHistory(query, options);
+    }
+
     const normalizedQuery = normalizeSearchText(query);
     if (!normalizedQuery) {
       return [];
@@ -1279,6 +1299,10 @@ export class AgentSessionPresenter {
   }
 
   async compactSession(sessionId: string): Promise<{ compacted: boolean; state: SessionCompactionState }> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.compactSession(sessionId);
+    }
+
     const session = this.sessionManager.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
@@ -1416,6 +1440,10 @@ export class AgentSessionPresenter {
   }
 
   async getSearchResults(messageId: string, searchId?: string): Promise<SearchResult[]> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.getSearchResults(messageId, searchId);
+    }
+
     const normalizedMessageId = messageId?.trim();
     if (!normalizedMessageId) {
       return [];
@@ -1580,6 +1608,10 @@ export class AgentSessionPresenter {
   }
 
   async listMessageTraces(messageId: string): Promise<MessageTraceRecord[]> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.listMessageTraces(messageId);
+    }
+
     if (!messageId?.trim()) return [];
     return this.sqlitePresenter.argosMessageTracesTable.listByMessageId(messageId).map((row) => ({
       id: row.id,
@@ -1597,6 +1629,10 @@ export class AgentSessionPresenter {
   }
 
   async getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.getViewManifests(sessionId);
+    }
+
     const table = this.sqlitePresenter.argosTapeEntriesTable;
     if (!table) return [];
     const rows = table.getBySession(sessionId);
@@ -1628,6 +1664,10 @@ export class AgentSessionPresenter {
   }
 
   async getViewLineage(sessionId: string): Promise<ArgosTapeViewManifestRecord[]> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.getViewLineage(sessionId);
+    }
+
     const records = await this.getViewManifests(sessionId);
     return records
       .slice()
@@ -1652,6 +1692,10 @@ export class AgentSessionPresenter {
   }
 
   async translateText(text: string, locale?: string, agentId?: string): Promise<string> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.translateText(text, locale, agentId);
+    }
+
     const input = text?.trim();
     if (!input) {
       return "";
@@ -1788,6 +1832,10 @@ export class AgentSessionPresenter {
     sessionId: string,
     format: ConversationExportFormat,
   ): Promise<{ filename: string; content: string }> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.exportSession(sessionId, format);
+    }
+
     const session = this.sessionManager.get(sessionId);
     if (!session) {
       throw new Error(`Session not found: ${sessionId}`);
@@ -1820,6 +1868,10 @@ export class AgentSessionPresenter {
   }
 
   async getAgentTransferImpact(agentId: string): Promise<AgentTransferImpact> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.getAgentTransferImpact(agentId);
+    }
+
     const normalizedAgentId = agentId.trim();
     if (!normalizedAgentId) {
       throw new Error("Agent id is required.");
@@ -1874,6 +1926,10 @@ export class AgentSessionPresenter {
     fromAgentId: string,
     toAgentId: string,
   ): Promise<{ movedSessionIds: string[]; deletedSessionIds: string[] }> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.moveAgentSessions(fromAgentId, toAgentId);
+    }
+
     const sourceAgentId = fromAgentId.trim();
     const targetAgentId = toAgentId.trim();
     if (!sourceAgentId || !targetAgentId) {
@@ -1973,6 +2029,10 @@ export class AgentSessionPresenter {
   }
 
   async deleteAgentSessions(agentId: string): Promise<string[]> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.deleteAgentSessions(agentId);
+    }
+
     const normalizedAgentId = agentId.trim();
     if (!normalizedAgentId) {
       throw new Error("Agent id is required.");
@@ -2012,6 +2072,10 @@ export class AgentSessionPresenter {
   }
 
   async moveSessionToAgent(sessionId: string, toAgentId: string): Promise<SessionWithState> {
+    if (this.daemonSessionActionPort) {
+      return await this.daemonSessionActionPort.moveSessionToAgent(sessionId, toAgentId);
+    }
+
     const updated = await this.moveSessionToAgentInternal(sessionId, toAgentId);
     this.emitSessionListUpdated({
       sessionIds: [sessionId],
@@ -2060,7 +2124,8 @@ export class AgentSessionPresenter {
     if (!(await this.isAcpBackedSession(sessionId, session.agentId))) {
       return [];
     }
-    return await (this.providerSessionPort?.getAcpSessionCommands?.(sessionId) ??
+    return await (this.daemonAcpSessionPort?.getAcpSessionCommands?.(sessionId) ??
+      this.providerSessionPort?.getAcpSessionCommands?.(sessionId) ??
       this.llmProviderPresenter.getAcpSessionCommands(sessionId));
   }
 
@@ -2074,6 +2139,7 @@ export class AgentSessionPresenter {
     }
 
     let configState =
+      (await this.daemonAcpSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
       (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
       (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
 
@@ -2096,6 +2162,7 @@ export class AgentSessionPresenter {
       this.llmProviderPresenter.prepareAcpSession(sessionId, session.agentId, session.projectDir));
 
     configState =
+      (await this.daemonAcpSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
       (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
       (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
 
@@ -2114,7 +2181,8 @@ export class AgentSessionPresenter {
     if (!(await this.isAcpBackedSession(sessionId, session.agentId))) {
       throw new Error("ACP session config options are only available for ACP sessions.");
     }
-    return await (this.providerSessionPort?.setAcpSessionConfigOption?.(sessionId, configId, value) ??
+    return await (this.daemonAcpSessionPort?.setAcpSessionConfigOption?.(sessionId, configId, value) ??
+      this.providerSessionPort?.setAcpSessionConfigOption?.(sessionId, configId, value) ??
       this.llmProviderPresenter.setAcpSessionConfigOption(sessionId, configId, value));
   }
 

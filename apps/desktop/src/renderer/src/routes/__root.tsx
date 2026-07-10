@@ -79,6 +79,18 @@ function RootComponent() {
   );
 }
 
+function RootErrorComponent({ error }: { error: Error }) {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background px-6 text-foreground">
+      <div className="max-w-lg space-y-2 rounded-lg border border-border bg-card p-6 shadow-sm">
+        <div className="text-sm font-semibold">Application error</div>
+        <p className="text-sm text-muted-foreground">{error.message}</p>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createRootRoute({
   component: RootComponent,
+  errorComponent: RootErrorComponent,
 });

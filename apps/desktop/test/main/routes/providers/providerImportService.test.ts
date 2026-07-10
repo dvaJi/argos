@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ProviderImportService } from "../../../../src/main/routes/providers/providerImportService";
+import { ProviderImportService } from "@argos/backend-core";
 import type { LLM_PROVIDER } from "@shared/presenter";
 
 const mockSqlite = vi.hoisted(() => ({

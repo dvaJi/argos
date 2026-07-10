@@ -141,8 +141,8 @@ export class MemoryPresenter {
 
   constructor(private readonly deps: MemoryPresenterDeps) {}
 
-  isEnabled(agentId: string): boolean {
-    return this.deps.resolveAgentConfig(agentId)?.memoryEnabled === true;
+  isEnabled(agentId: string): Promise<boolean> {
+    return Promise.resolve(this.deps.resolveAgentConfig(agentId)).then((config) => config?.memoryEnabled === true);
   }
 
   private assertSafeAgentId(agentId: string): void {
@@ -229,7 +229,7 @@ export class MemoryPresenter {
   }
 
   private async drainPendingEmbeddings(agentId: string, limit: number): Promise<void> {
-    const config = this.deps.resolveAgentConfig(agentId);
+    const config = await this.deps.resolveAgentConfig(agentId);
     const pending = this.deps.repository.listPendingEmbedding(limit, agentId);
     if (!pending.length) {
       return;
@@ -377,7 +377,7 @@ export class MemoryPresenter {
   }
 
   async recall(agentId: string, query: string, now = Date.now()): Promise<MemoryRecallItem[]> {
-    const config = this.deps.resolveAgentConfig(agentId);
+    const config = await this.deps.resolveAgentConfig(agentId);
     const { topK, rrfK, similarityThreshold, weights } = resolveRetrieval(config?.memoryRetrieval);
     const normalizedQuery = query.trim();
     if (!normalizedQuery) {
@@ -496,7 +496,7 @@ export class MemoryPresenter {
 
   async extractAndStore(input: MemoryExtractionInput): Promise<MemoryExtractionResult> {
     const { agentId, spanText, model, sourceSession, sourceEntryIds } = input;
-    if (this.disposed || !this.canWriteAgentMemory(agentId)) {
+    if (this.disposed || !(await this.canWriteAgentMemory(agentId))) {
       return { ok: false };
     }
 
@@ -505,7 +505,7 @@ export class MemoryPresenter {
       return { ok: true, createdIds: [] };
     }
 
-    const fallbackModel = model ?? this.resolveExtractionModel(agentId, null);
+    const fallbackModel = model ?? (await this.resolveExtractionModel(agentId, null));
     if (!fallbackModel) {
       return { ok: false };
     }
@@ -541,7 +541,7 @@ export class MemoryPresenter {
     const createdIds: string[] = [];
     const now = Date.now();
     for (const candidate of candidates) {
-      if (!this.canContinueAgentMemoryTask(agentId)) {
+      if (!(await this.canContinueAgentMemoryTask(agentId))) {
         break;
       }
       try {
@@ -682,7 +682,7 @@ export class MemoryPresenter {
   }
 
   async buildInjection(agentId: string, query: string): Promise<MemoryInjectionResult | MemoryInjectionPayload | null> {
-    if (!this.isEnabled(agentId)) {
+    if (!(await this.isEnabled(agentId))) {
       return null;
     }
 
@@ -798,11 +798,11 @@ export class MemoryPresenter {
     });
   }
 
-  private resolveExtractionModel(
+  private async resolveExtractionModel(
     agentId: string,
     fallback: { providerId: string; modelId: string } | null,
-  ): { providerId: string; modelId: string } | null {
-    const config = this.deps.resolveAgentConfig(agentId);
+  ): Promise<{ providerId: string; modelId: string } | null> {
+    const config = await this.deps.resolveAgentConfig(agentId);
     const model = config?.memoryExtractionModel;
     if (model?.providerId && model?.modelId) {
       return {
@@ -841,7 +841,7 @@ export class MemoryPresenter {
       return;
     }
 
-    const extractionModel = this.resolveExtractionModel(agentId, null);
+    const extractionModel = await this.resolveExtractionModel(agentId, null);
     if (!extractionModel) {
       return;
     }
@@ -905,7 +905,7 @@ export class MemoryPresenter {
     model: { providerId: string; modelId: string },
     sourceSession?: string | null,
   ): Promise<MemoryReflectionResult | null> {
-    if (this.disposed || !this.canWriteAgentMemory(agentId)) {
+    if (this.disposed || !(await this.canWriteAgentMemory(agentId))) {
       return null;
     }
 
@@ -992,7 +992,11 @@ export class MemoryPresenter {
     model: { providerId: string; modelId: string },
     sourceSession?: string | null,
   ): Promise<MemoryPersonaDraftResult | null> {
-    if (this.disposed || !this.canWriteAgentMemory(agentId) || !this.isPersonaEvolutionEnabled(agentId)) {
+    if (
+      this.disposed ||
+      !(await this.canWriteAgentMemory(agentId)) ||
+      !(await this.isPersonaEvolutionEnabled(agentId))
+    ) {
       return null;
     }
 
@@ -1193,10 +1197,9 @@ export class MemoryPresenter {
 
   private runBackgroundMaintenanceSweep(): void {
     for (const agentId of this.maintenanceAgents) {
-      if (!this.canContinueAgentMemoryTask(agentId)) {
-        continue;
-      }
-      void this.runConsolidationPass(agentId).catch(() => undefined);
+      void this.canContinueAgentMemoryTask(agentId).then((ok) => {
+        if (ok) void this.runConsolidationPass(agentId).catch(() => undefined);
+      });
     }
   }
 
@@ -1229,8 +1232,8 @@ export class MemoryPresenter {
     }
   }
 
-  private canWriteAgentMemory(agentId: string): boolean {
-    if (!this.isEnabled(agentId)) {
+  private async canWriteAgentMemory(agentId: string): Promise<boolean> {
+    if (!(await this.isEnabled(agentId))) {
       return false;
     }
     if (!this.isManagedAgent(agentId)) {
@@ -1239,15 +1242,15 @@ export class MemoryPresenter {
     return true;
   }
 
-  private canContinueAgentMemoryTask(agentId: string): boolean {
+  private async canContinueAgentMemoryTask(agentId: string): Promise<boolean> {
     if (this.disposed) {
       return false;
     }
-    return this.canWriteAgentMemory(agentId);
+    return await this.canWriteAgentMemory(agentId);
   }
 
-  private isPersonaEvolutionEnabled(agentId: string): boolean {
-    const config = this.deps.resolveAgentConfig(agentId);
+  private async isPersonaEvolutionEnabled(agentId: string): Promise<boolean> {
+    const config = await this.deps.resolveAgentConfig(agentId);
     return config?.memoryEnabled === true && config?.personaEvolutionEnabled === true;
   }
 

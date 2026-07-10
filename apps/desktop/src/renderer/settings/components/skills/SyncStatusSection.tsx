@@ -32,7 +32,7 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
     setScanning(true);
     try {
       const results = await skillSyncPresenter.scanExternalTools();
-      setTools(results);
+      setTools(Array.isArray(results) ? results : []);
     } catch (error) {
       console.error("Failed to scan external tools:", error);
       toast({

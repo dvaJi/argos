@@ -36,6 +36,19 @@ export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => 
   const cleanups = [
     chatClient.onStreamUpdated((payload) => {
       const blocks = payload.blocks as AssistantMessageBlock[];
+      const contentPreview = blocks?.map((b) => `${b.type}:${(b.content ?? "").slice(0, 80)}`).join(" | ") ?? "(none)";
+      console.log(
+        "[chat] stream.updated ←",
+        payload.requestId,
+        "session=",
+        payload.sessionId,
+        "active=",
+        options.getActiveSessionId(),
+        "blocks=",
+        payload.blocks?.length,
+        "content=",
+        contentPreview,
+      );
       if (payload.sessionId !== options.getActiveSessionId()) {
         return;
       }
@@ -56,6 +69,14 @@ export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => 
       }
     }),
     chatClient.onStreamCompleted((payload) => {
+      console.log(
+        "[chat] stream.completed ←",
+        payload.requestId,
+        "session=",
+        payload.sessionId,
+        "messageId=",
+        payload.messageId,
+      );
       if (payload.sessionId !== options.getActiveSessionId()) {
         return;
       }
@@ -63,6 +84,7 @@ export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => 
       reloadPersistedMessages(payload.sessionId);
     }),
     chatClient.onStreamFailed((payload) => {
+      console.log("[chat] stream.failed ←", payload.requestId, "session=", payload.sessionId, "error=", payload.error);
       if (payload.sessionId !== options.getActiveSessionId()) {
         return;
       }

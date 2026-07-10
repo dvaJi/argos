@@ -36,8 +36,8 @@ export interface McpProxyPort {
 
 /**
  * Host-specific service hooks. All optional — the runtime degrades gracefully
- * when a host cannot provide them (daemon v1 has no sampling UI, no plugins,
- * no in-memory knowledge servers).
+ * when a host cannot provide them (for example, when a host has no sampling
+ * UI or no in-memory knowledge servers).
  */
 export interface McpHostServices {
   /** MCP server requests LLM sampling; host resolves via UI + provider. */
@@ -46,13 +46,13 @@ export interface McpHostServices {
   generateCompletionStandalone?(...args: unknown[]): Promise<string>;
   getProviderModels?(providerId: string): unknown[];
   getCustomModels?(providerId: string): unknown[];
-  /** Plugin tool-permission policy (desktop plugin system). */
+  /** Plugin tool-permission policy (desktop or daemon plugin host). */
   getPluginToolPolicy?(serverId: string, toolName: string): unknown;
   /** ACP context for per-agent MCP gating. */
   getSession?(conversationId: string): unknown;
   getAcpAgents?(): Promise<unknown[]>;
   getAgentMcpSelections?(agentId: string): Promise<string[]>;
-  /** In-memory MCP servers (desktop-only knowledge/search integrations). */
+  /** In-memory MCP servers supplied by the host. */
   getInMemoryServer?(
     name: string,
     args: string[],

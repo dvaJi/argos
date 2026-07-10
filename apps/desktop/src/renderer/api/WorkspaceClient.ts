@@ -14,6 +14,7 @@ import {
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
   workspaceWatchRoute,
+  workspaceBrowseDirectoryRoute,
 } from "@shared/contracts/routes";
 import { getArgosBridge } from "./core";
 
@@ -89,6 +90,11 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.nodes;
   }
 
+  /** Browse a host directory (daemon-side) for the web-mode FolderPicker. */
+  async function browseDirectory(path?: string) {
+    return await bridge.invoke(workspaceBrowseDirectoryRoute.name, path ? { path } : {});
+  }
+
   function onInvalidated(
     listener: (payload: {
       workspacePath: string;
@@ -114,6 +120,7 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     getGitStatus,
     getGitDiff,
     searchFiles,
+    browseDirectory,
     onInvalidated,
   };
 }

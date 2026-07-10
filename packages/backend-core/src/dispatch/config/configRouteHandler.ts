@@ -38,6 +38,9 @@ import {
   configGetVoiceAiConfigRoute,
   configListAgentsRoute,
   configListCustomPromptsRoute,
+  configCreateArgosAgentRoute,
+  configUpdateArgosAgentRoute,
+  configDeleteArgosAgentRoute,
   configResetDefaultSystemPromptRoute,
   configResetShortcutKeysRoute,
   configResolveArgosAgentConfigRoute,
@@ -356,6 +359,27 @@ export async function dispatchConfigRoute(
       const input = configResolveArgosAgentConfigRoute.input.parse(rawInput);
       return configResolveArgosAgentConfigRoute.output.parse({
         config: await configPresenter.resolveArgosAgentConfig(input.agentId),
+      });
+    }
+
+    case configCreateArgosAgentRoute.name: {
+      const input = configCreateArgosAgentRoute.input.parse(rawInput);
+      return configCreateArgosAgentRoute.output.parse({
+        agent: await configPresenter.createArgosAgent(input as never),
+      });
+    }
+
+    case configUpdateArgosAgentRoute.name: {
+      const input = configUpdateArgosAgentRoute.input.parse(rawInput);
+      return configUpdateArgosAgentRoute.output.parse({
+        agent: await configPresenter.updateArgosAgent(input.agentId, input.updates as never),
+      });
+    }
+
+    case configDeleteArgosAgentRoute.name: {
+      const input = configDeleteArgosAgentRoute.input.parse(rawInput);
+      return configDeleteArgosAgentRoute.output.parse({
+        removed: await configPresenter.deleteArgosAgent(input.agentId),
       });
     }
 

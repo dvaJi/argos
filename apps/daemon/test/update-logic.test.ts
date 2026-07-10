@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkForUpdate, detectAsset, runSelfUpdate } from "../src/update";
+import { resolveDaemonVersion } from "../src/version";
 
-// When __DAEMON_VERSION__ is not injected (vitest/node), the resolved version is the dev fallback.
-const CURRENT = "0.0.0-dev";
+// Resolved dev version now reads from package.json when __DAEMON_VERSION__ is not injected.
+const CURRENT = resolveDaemonVersion();
 
 function mockFetch(handler: (url: URL) => Response): void {
   globalThis.fetch = ((url) => Promise.resolve(handler(new URL(url.toString())))) as typeof fetch;

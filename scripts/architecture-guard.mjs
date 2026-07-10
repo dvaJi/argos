@@ -85,6 +85,19 @@ const MIGRATED_RAW_CHANNEL_BASELINE = new Map([
   ['apps/desktop/src/renderer/src/App.tsx', 1]
 ])
 
+const PROVIDER_ROUTE_HANDLER_PATH = path.join(
+  ROOT,
+  'apps/desktop/src/main/routes/providers/providerRouteHandler.ts'
+)
+const MODEL_ROUTE_HANDLER_PATH = path.join(ROOT, 'apps/desktop/src/main/routes/models/modelRouteHandler.ts')
+const PROVIDER_ROUTE_HANDLER_ALLOWED_PRESENTER_METHODS = new Set([
+  'getProviderRateLimitStatus',
+  'listOllamaModels',
+  'listOllamaRunningModels',
+  'pullOllamaModels'
+])
+const MODEL_ROUTE_HANDLER_ALLOWED_PRESENTER_METHODS = new Set(['getModelList', 'transcribeAudioStandalone'])
+
 const HOT_PATH_FILES = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/index.ts'),
   path.join(ROOT, 'apps/desktop/src/main/eventbus.ts'),
@@ -487,6 +500,28 @@ async function main() {
       }
     }
 
+    if (path.resolve(filePath) === PROVIDER_ROUTE_HANDLER_PATH) {
+      const matches = [...source.matchAll(/llmProviderPresenter\.(\w+)/g)].map((match) => match[1])
+      for (const method of matches) {
+        if (!PROVIDER_ROUTE_HANDLER_ALLOWED_PRESENTER_METHODS.has(method)) {
+          violations.push(
+            `[provider-route-handler-backend-fallback] ${relativePath(filePath)} -> llmProviderPresenter.${method}`,
+          )
+        }
+      }
+    }
+
+    if (path.resolve(filePath) === MODEL_ROUTE_HANDLER_PATH) {
+      const matches = [...source.matchAll(/llmProviderPresenter\.(\w+)/g)].map((match) => match[1])
+      for (const method of matches) {
+        if (!MODEL_ROUTE_HANDLER_ALLOWED_PRESENTER_METHODS.has(method)) {
+          violations.push(
+            `[model-route-handler-backend-fallback] ${relativePath(filePath)} -> llmProviderPresenter.${method}`,
+          )
+        }
+      }
+    }
+
     if (RENDERER_IPC_GUARD_PATHS.some((guardPath) => isUnder(filePath, guardPath))) {
       if (source.includes('window.electron.ipcRenderer.on(')) {
         violations.push(`[renderer-direct-ipc] ${relativePath(filePath)}`)
@@ -525,6 +560,7 @@ async function main() {
   // === Shared runtime packages must be Electron-free ===
   const SHARED_PACKAGE_ROOTS = [
     { root: path.join(ROOT, 'packages/acp-runtime/src'), label: '@argos/acp-runtime' },
+    { root: path.join(ROOT, 'packages/agent-runtime/src'), label: '@argos/agent-runtime' },
     { root: path.join(ROOT, 'packages/mcp-runtime/src'), label: '@argos/mcp-runtime' },
     { root: path.join(ROOT, 'packages/skills-runtime/src'), label: '@argos/skills-runtime' },
   ]

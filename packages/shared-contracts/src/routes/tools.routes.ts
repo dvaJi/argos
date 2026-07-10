@@ -1,20 +1,20 @@
-import { z } from "zod";
+import zod from "zod";
 import type { MCPToolDefinition } from "@shared/presenter";
 import { defineRouteContract } from "../common";
 
-const MCPToolDefinitionSchema = z.custom<MCPToolDefinition>();
+const MCPToolDefinitionSchema = zod.custom<MCPToolDefinition>();
 
 export const toolsListDefinitionsRoute = defineRouteContract({
   name: "tools.listDefinitions",
-  input: z.object({
-    enabledMcpTools: z.array(z.string()).optional(),
-    disabledAgentTools: z.array(z.string()).optional(),
-    chatMode: z.enum(["agent", "acp agent"]).optional(),
-    supportsVision: z.boolean().optional(),
-    agentWorkspacePath: z.string().nullable().optional(),
-    conversationId: z.string().optional(),
+  input: zod.object({
+    enabledMcpTools: zod.array(zod.string()).optional(),
+    disabledAgentTools: zod.array(zod.string()).optional(),
+    chatMode: zod.enum(["agent", "acp agent"]).optional(),
+    supportsVision: zod.boolean().optional(),
+    agentWorkspacePath: zod.string().nullable().optional(),
+    conversationId: zod.string().optional(),
   }),
-  output: z.object({
-    tools: z.array(MCPToolDefinitionSchema),
+  output: zod.object({
+    tools: zod.array(MCPToolDefinitionSchema),
   }),
 });

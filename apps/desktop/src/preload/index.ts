@@ -11,8 +11,9 @@ import {
   buildRemoteWsUrl as buildWsUrl,
 } from "@shared/workspaceConfig";
 import { createBridge } from "./createBridge";
-import { HybridBridge, WebSocketBridgeAdapter } from "./hybridBridge";
-import { DAEMON_EVENTS } from "@/events";
+import { HybridBridge } from "./hybridBridge";
+import { WebSocketBridge } from "@argos/client-sdk";
+import { DAEMON_EVENTS } from "../main/events";
 
 const isDevHiddenApiEnabled = process.env.NODE_ENV === "development" || Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEV_WELCOME_OVERRIDE_KEY = "__argos_dev_force_welcome";
@@ -123,8 +124,8 @@ const ipcBridge = createBridge(ipcRenderer);
 const hybridBridge = new HybridBridge(ipcBridge);
 
 let cachedLocalDaemonPort: number | null = null;
-const workspaceConnections = new Map<string, WebSocketBridgeAdapter | null>();
-let localDaemonConnectInFlight: Promise<WebSocketBridgeAdapter | null> | null = null;
+const workspaceConnections = new Map<string, WebSocketBridge | null>();
+let localDaemonConnectInFlight: Promise<WebSocketBridge | null> | null = null;
 
 async function fetchLocalDaemonPort(): Promise<number | null> {
   if (cachedLocalDaemonPort !== null) return cachedLocalDaemonPort;
@@ -140,7 +141,7 @@ async function fetchLocalDaemonPort(): Promise<number | null> {
   return null;
 }
 
-async function waitForLocalDaemonPort(timeoutMs = 5000, intervalMs = 250): Promise<number | null> {
+async function waitForLocalDaemonPort(timeoutMs = 30000, intervalMs = 250): Promise<number | null> {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
@@ -155,33 +156,33 @@ async function waitForLocalDaemonPort(timeoutMs = 5000, intervalMs = 250): Promi
   return null;
 }
 
-async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocketBridgeAdapter> {
+async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocketBridge> {
   const existing = workspaceConnections.get(entry.id);
   if (existing && existing.isConnected()) return existing;
-  if (existing) existing.disconnect();
+  if (existing) existing.close();
 
   const wsUrl = buildWsUrl(entry.remoteUrl);
-  const adapter = new WebSocketBridgeAdapter(wsUrl);
-  workspaceConnections.set(entry.id, adapter);
-  hybridBridge.setWsBridge(adapter, "remote");
+  const bridge = new WebSocketBridge(wsUrl);
+  workspaceConnections.set(entry.id, bridge);
+  hybridBridge.setWsBridge(bridge, "remote");
 
   try {
-    await adapter.connect();
+    await bridge.connect();
     console.log(`[preload] Connected to remote workspace "${entry.name}" at ${wsUrl}`);
   } catch (error) {
     console.warn(`[preload] Failed to connect to remote workspace "${entry.name}":`, error);
   }
 
-  return adapter;
+  return bridge;
 }
 
-async function connectToLocalDaemon(): Promise<WebSocketBridgeAdapter | null> {
+async function connectToLocalDaemon(): Promise<WebSocketBridge | null> {
   if (localDaemonConnectInFlight) return localDaemonConnectInFlight;
 
   localDaemonConnectInFlight = (async () => {
     const existing = workspaceConnections.get(LOCAL_WORKSPACE_ID);
     if (existing && existing.isConnected()) return existing;
-    if (existing) existing.disconnect();
+    if (existing) existing.close();
 
     const port = await waitForLocalDaemonPort();
     if (!port) {
@@ -190,21 +191,24 @@ async function connectToLocalDaemon(): Promise<WebSocketBridgeAdapter | null> {
     }
 
     const wsUrl = buildWsUrl(`http://127.0.0.1:${port}`);
-    const adapter = new WebSocketBridgeAdapter(wsUrl);
-    workspaceConnections.set(LOCAL_WORKSPACE_ID, adapter);
-    hybridBridge.setWsBridge(adapter, "local");
+    const bridge = new WebSocketBridge(wsUrl);
+    workspaceConnections.set(LOCAL_WORKSPACE_ID, bridge);
+    hybridBridge.setWsBridge(bridge, "local");
 
     try {
-      await adapter.connect();
+      await bridge.connect();
       console.log(`[preload] Connected to local daemon at ${wsUrl}`);
     } catch (error) {
       console.warn("[preload] Failed to connect to local daemon:", error);
     }
 
-    return adapter;
+    return bridge;
   })().finally(() => {
     localDaemonConnectInFlight = null;
+    hybridBridge.setPendingBridgeConnection(null);
   });
+
+  hybridBridge.setPendingBridgeConnection(localDaemonConnectInFlight);
 
   return localDaemonConnectInFlight;
 }
@@ -216,7 +220,7 @@ function updateLocalDaemonPort(port: number | null): void {
 function disconnectRemoteWorkspace(id: string): void {
   const adapter = workspaceConnections.get(id);
   if (adapter) {
-    adapter.disconnect();
+    adapter.close();
     workspaceConnections.delete(id);
   }
 }
@@ -230,10 +234,7 @@ async function applyActiveWorkspace(config?: {
   if (!active) return;
 
   if (active.mode === "local") {
-    const adapter = await connectToLocalDaemon();
-    if (adapter) {
-      console.log(`[preload] Active workspace "${active.name}" using local daemon`);
-    }
+    await connectToLocalDaemon();
   } else {
     await connectToRemoteWorkspace(active);
   }
@@ -375,11 +376,12 @@ if (process.contextIsolated) {
   }
 }
 
+bindDaemonLifecycleEvents();
+initWorkspaceConnections();
+
 window.addEventListener("DOMContentLoaded", () => {
   cachedWebContentsId = ipcRenderer.sendSync("get-web-contents-id");
   cachedWindowId = ipcRenderer.sendSync("get-window-id");
   console.log("Preload: Initialized with WebContentsId:", cachedWebContentsId, "WindowId:", cachedWindowId);
   webFrame.setVisualZoomLevelLimits(1, 1);
-  bindDaemonLifecycleEvents();
-  initWorkspaceConnections();
 });

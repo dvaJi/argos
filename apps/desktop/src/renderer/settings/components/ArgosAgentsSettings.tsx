@@ -9,11 +9,11 @@ import { Textarea } from "@shadcn/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@shadcn/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@shadcn/components/ui/select";
 import { useLegacyPresenter } from "@api/legacy/presenters";
-import { createProjectClient } from "@api/ProjectClient";
 import { createToolClient } from "@api/ToolClient";
 import { useToast } from "@/components/use-toast";
 import ModelSelect from "@/components/ModelSelect";
 import ModelIcon from "@/components/icons/ModelIcon";
+import FolderPicker from "@/components/FolderPicker";
 import AgentAvatar from "@/components/icons/AgentAvatar";
 import AgentTransferDialog, { type TransferDialogAgent } from "@/components/agent/AgentTransferDialog";
 import { MemoryManagerDialog } from "./MemoryManagerDialog";
@@ -225,8 +225,6 @@ export default function ArgosAgentsSettings() {
   const { toast } = useToast();
   const configPresenter = useLegacyPresenter("configPresenter");
   const agentSessionPresenter = useLegacyPresenter("agentSessionPresenter");
-  const projectPresenter = useLegacyPresenter("projectPresenter");
-  const projectClient = useMemo(() => createProjectClient(), []);
   const toolClient = useMemo(() => createToolClient(), []);
   const modelStore = useModelStore();
 
@@ -753,19 +751,6 @@ export default function ArgosAgentsSettings() {
     },
     [],
   );
-
-  const handlePickProjectPath = useCallback(async () => {
-    try {
-      const selectedPath = await (typeof projectPresenter?.selectDirectory === "function"
-        ? projectPresenter.selectDirectory()
-        : projectClient.selectDirectory());
-      if (selectedPath) {
-        updateForm("defaultProjectPath", selectedPath);
-      }
-    } catch (error) {
-      toast({ title: "Failed to select folder", description: String(error), variant: "destructive" });
-    }
-  }, [projectClient, projectPresenter, toast, updateForm]);
 
   const resetEditor = useCallback(() => {
     setForm(buildFormFromAgent(selectedAgent));
@@ -1306,19 +1291,12 @@ export default function ArgosAgentsSettings() {
                       onChange={(e) => updateForm("defaultProjectPath", e.target.value)}
                       placeholder="Optional project directory"
                     />
-                    <Button
-                      variant="outline"
-                      title={form.defaultProjectPath || undefined}
-                      onClick={() => void handlePickProjectPath()}
-                    >
-                      <span className="sr-only">common.project.openFolder</span>
-                      <span>Browse</span>
-                      {form.defaultProjectPath && (
-                        <span className="sr-only">
-                          {form.defaultProjectPath.split(/[\\/]/).pop() ?? form.defaultProjectPath}
-                        </span>
-                      )}
-                    </Button>
+                    <FolderPicker
+                      value={form.defaultProjectPath}
+                      onChange={(path) => updateForm("defaultProjectPath", path)}
+                      placeholder="Browse"
+                      confirmLabel="Select folder"
+                    />
                     {form.defaultProjectPath && (
                       <Button variant="ghost" onClick={() => updateForm("defaultProjectPath", "")}>
                         Clear

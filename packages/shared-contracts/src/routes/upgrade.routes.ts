@@ -1,34 +1,34 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 
-const UpdateInfoSchema = z
+const UpdateInfoSchema = zod
   .object({
-    version: z.string(),
-    releaseDate: z.string(),
-    releaseNotes: z.string(),
-    githubUrl: z.string().optional(),
-    downloadUrl: z.string().optional(),
-    isMock: z.boolean().optional(),
+    version: zod.string(),
+    releaseDate: zod.string(),
+    releaseNotes: zod.string(),
+    githubUrl: zod.string().optional(),
+    downloadUrl: zod.string().optional(),
+    isMock: zod.boolean().optional(),
   })
   .nullable();
 
-const UpdateProgressSchema = z
+const UpdateProgressSchema = zod
   .object({
-    bytesPerSecond: z.number(),
-    percent: z.number(),
-    transferred: z.number(),
-    total: z.number(),
+    bytesPerSecond: zod.number(),
+    percent: zod.number(),
+    transferred: zod.number(),
+    total: zod.number(),
   })
   .nullable();
 
 export const upgradeGetStatusRoute = defineRouteContract({
   name: "upgrade.getStatus",
-  input: z.object({}),
-  output: z.object({
-    snapshot: z.object({
-      status: z.enum(["checking", "available", "not-available", "downloading", "downloaded", "error"]).nullable(),
+  input: zod.object({}),
+  output: zod.object({
+    snapshot: zod.object({
+      status: zod.enum(["checking", "available", "not-available", "downloading", "downloaded", "error"]).nullable(),
       progress: UpdateProgressSchema,
-      error: z.string().nullable(),
+      error: zod.string().nullable(),
       updateInfo: UpdateInfoSchema,
     }),
   }),
@@ -36,52 +36,52 @@ export const upgradeGetStatusRoute = defineRouteContract({
 
 export const upgradeCheckRoute = defineRouteContract({
   name: "upgrade.check",
-  input: z.object({
-    type: z.string().optional(),
+  input: zod.object({
+    type: zod.string().optional(),
   }),
-  output: z.object({
-    checked: z.literal(true),
+  output: zod.object({
+    checked: zod.literal(true),
   }),
 });
 
 export const upgradeOpenDownloadRoute = defineRouteContract({
   name: "upgrade.openDownload",
-  input: z.object({
-    type: z.enum(["github", "official"]),
+  input: zod.object({
+    type: zod.enum(["github", "official"]),
   }),
-  output: z.object({
-    opened: z.literal(true),
+  output: zod.object({
+    opened: zod.literal(true),
   }),
 });
 
 export const upgradeStartDownloadRoute = defineRouteContract({
   name: "upgrade.startDownload",
-  input: z.object({}),
-  output: z.object({
-    started: z.boolean(),
+  input: zod.object({}),
+  output: zod.object({
+    started: zod.boolean(),
   }),
 });
 
 export const upgradeMockDownloadedRoute = defineRouteContract({
   name: "upgrade.mockDownloaded",
-  input: z.object({}),
-  output: z.object({
-    updated: z.boolean(),
+  input: zod.object({}),
+  output: zod.object({
+    updated: zod.boolean(),
   }),
 });
 
 export const upgradeClearMockRoute = defineRouteContract({
   name: "upgrade.clearMock",
-  input: z.object({}),
-  output: z.object({
-    updated: z.boolean(),
+  input: zod.object({}),
+  output: zod.object({
+    updated: zod.boolean(),
   }),
 });
 
 export const upgradeRestartToUpdateRoute = defineRouteContract({
   name: "upgrade.restartToUpdate",
-  input: z.object({}),
-  output: z.object({
-    restarted: z.boolean(),
+  input: zod.object({}),
+  output: zod.object({
+    restarted: zod.boolean(),
   }),
 });

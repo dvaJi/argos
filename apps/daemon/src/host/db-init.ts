@@ -130,8 +130,16 @@ const CORE_TABLES = [
 
   `CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
     agent_type TEXT NOT NULL DEFAULT 'argos',
+    source TEXT NOT NULL DEFAULT 'manual',
+    name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    protected INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
+    icon TEXT,
+    avatar_json TEXT,
+    config_json TEXT,
+    state_json TEXT,
     config TEXT DEFAULT '{}',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
@@ -139,10 +147,16 @@ const CORE_TABLES = [
 
   `CREATE TABLE IF NOT EXISTS settings_activity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL,
-    old_value TEXT,
-    new_value TEXT,
-    timestamp INTEGER NOT NULL
+    category TEXT NOT NULL DEFAULT 'system',
+    action TEXT NOT NULL DEFAULT 'updated',
+    target_type TEXT NOT NULL DEFAULT '',
+    target_id TEXT,
+    target_label TEXT NOT NULL DEFAULT '',
+    route_name TEXT,
+    route_params_json TEXT NOT NULL DEFAULT '{}',
+    summary_key TEXT NOT NULL DEFAULT '',
+    summary_params_json TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL
   )`,
 
   `CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -228,12 +242,13 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_provider_models_provider ON provider_models(provider_id)`,
   `CREATE INDEX IF NOT EXISTS idx_model_configs_provider ON model_configs(provider_id)`,
   `CREATE INDEX IF NOT EXISTS idx_model_status_provider ON model_status(provider_id)`,
-  `CREATE INDEX IF NOT EXISTS idx_settings_activity_key ON settings_activity(key)`,
+  `CREATE INDEX IF NOT EXISTS idx_settings_activity_category ON settings_activity(category)`,
+  `CREATE INDEX IF NOT EXISTS idx_settings_activity_created ON settings_activity(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_auth_sessions_kind ON auth_sessions(kind)`,
   `CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires ON auth_sessions(expires_at)`,
 ];
 
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 3;
 
 export async function initializeDatabase(dbPath: string): Promise<any> {
   logger.info(`[db] Opening database at ${dbPath}`);
@@ -253,7 +268,13 @@ export async function initializeDatabase(dbPath: string): Promise<any> {
 
     logger.info("[db] Creating indexes...");
     for (const sql of INDEXES) {
-      db.exec(sql);
+      try {
+        db.exec(sql);
+      } catch {
+        // An index may reference a column added by a migration that hasn't run yet
+        // (e.g. settings_activity.category on legacy databases). The migration step
+        // below recreates these indexes once the columns exist.
+      }
     }
 
     const currentVersion = getSchemaVersion(db as any);
@@ -295,6 +316,15 @@ export async function initializeDatabase(dbPath: string): Promise<any> {
       }
 
       logger.info("[db] Schema repair completed");
+
+      // Recovery must also run migrations — the original failure may have
+      // occurred before migrations ran, leaving columns missing.
+      const repairedVersion = getSchemaVersion(repairDb as any);
+      if (repairedVersion < CURRENT_SCHEMA_VERSION) {
+        logger.info(`[db] Migrating schema from v${repairedVersion} to v${CURRENT_SCHEMA_VERSION} (recovery)`);
+        runMigrations(repairDb as any, repairedVersion);
+        setSchemaVersion(repairDb as any, CURRENT_SCHEMA_VERSION);
+      }
       return repairDb;
     } catch (repairError) {
       logger.error("[db] Schema repair failed:", repairError);
@@ -318,10 +348,102 @@ function setSchemaVersion(db: BunDatabase, version: number): void {
   db.exec(`INSERT OR REPLACE INTO schema_versions (version, applied_at) VALUES (${version}, ${Date.now()})`);
 }
 
-function runMigrations(_db: BunDatabase, _currentVersion: number): void {
-  // Future migrations go here
-  // Example:
-  // if (currentVersion < 2) {
-  //   db.exec("ALTER TABLE argos_sessions ADD COLUMN priority INTEGER DEFAULT 0");
-  // }
+export function runMigrations(db: BunDatabase, currentVersion: number): void {
+  // v2: expand the `agents` table to the full Argos/ACP row shape. Additive only;
+  // each column is guarded by introspection so re-runs and fresh installs (which
+  // already get the full DDL above) are safe.
+  if (currentVersion < 2) {
+    const existing = new Set(
+      db
+        .query<{ name: string }>("PRAGMA table_info(agents)")
+        .all()
+        .map((row) => row.name),
+    );
+    const addColumnIfMissing = (column: string, definition: string) => {
+      if (!existing.has(column)) {
+        db.exec(`ALTER TABLE agents ADD COLUMN ${column} ${definition}`);
+      }
+    };
+
+    addColumnIfMissing("agent_type", "TEXT NOT NULL DEFAULT 'argos'");
+    addColumnIfMissing("source", "TEXT NOT NULL DEFAULT 'manual'");
+    addColumnIfMissing("enabled", "INTEGER NOT NULL DEFAULT 1");
+    addColumnIfMissing("protected", "INTEGER NOT NULL DEFAULT 0");
+    addColumnIfMissing("description", "TEXT");
+    addColumnIfMissing("icon", "TEXT");
+    addColumnIfMissing("avatar_json", "TEXT");
+    addColumnIfMissing("config_json", "TEXT");
+    addColumnIfMissing("state_json", "TEXT");
+
+    try {
+      db.exec("CREATE INDEX IF NOT EXISTS idx_agents_type ON agents(agent_type)");
+    } catch {
+      // index may already exist
+    }
+    try {
+      db.exec("CREATE INDEX IF NOT EXISTS idx_agents_enabled ON agents(enabled)");
+    } catch {
+      // index may already exist
+    }
+  }
+
+  // v3: rebuild the `settings_activity` table to the rich schema (category/action/
+  // target_*/route/summary/created_at) that the activity-list query expects. Older
+  // databases created the table with a simpler key/old_value/new_value/timestamp
+  // shape; SQLite cannot ALTER TABLE DROP COLUMN reliably, so we rename, recreate,
+  // and copy any compatible rows. Idempotent — fresh installs already have v3 shape.
+  if (currentVersion < 3) {
+    const activityColumns = new Set(
+      db
+        .query<{ name: string }>("PRAGMA table_info(settings_activity)")
+        .all()
+        .map((row) => row.name),
+    );
+
+    const hasRichSchema = activityColumns.has("created_at") && activityColumns.has("category");
+    if (!hasRichSchema) {
+      db.exec("ALTER TABLE settings_activity RENAME TO settings_activity_legacy");
+      db.exec(`CREATE TABLE IF NOT EXISTS settings_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL DEFAULT 'system',
+        action TEXT NOT NULL DEFAULT 'updated',
+        target_type TEXT NOT NULL DEFAULT '',
+        target_id TEXT,
+        target_label TEXT NOT NULL DEFAULT '',
+        route_name TEXT,
+        route_params_json TEXT NOT NULL DEFAULT '{}',
+        summary_key TEXT NOT NULL DEFAULT '',
+        summary_params_json TEXT NOT NULL DEFAULT '{}',
+        created_at INTEGER NOT NULL
+      )`);
+      // Legacy rows used key/value/timestamp; migrate the timestamp across so the
+      // activity feed isn't empty after upgrade. Category/action are unknown for
+      // legacy rows so they default to 'system'/'updated'.
+      try {
+        db.exec(`INSERT INTO settings_activity (category, action, target_type, target_label, created_at)
+                 SELECT 'system', 'updated', COALESCE(key, ''), COALESCE(key, ''), COALESCE(timestamp, ${Date.now()})
+                 FROM settings_activity_legacy`);
+      } catch {
+        // if the legacy table shape differs, leave the new table empty
+      }
+      db.exec("DROP TABLE settings_activity_legacy");
+    }
+
+    try {
+      db.exec("CREATE INDEX IF NOT EXISTS idx_settings_activity_category ON settings_activity(category)");
+    } catch {
+      // index may already exist
+    }
+    try {
+      db.exec("CREATE INDEX IF NOT EXISTS idx_settings_activity_created ON settings_activity(created_at)");
+    } catch {
+      // index may already exist
+    }
+    // Drop a stale index from the legacy schema if it references the removed `key` column.
+    try {
+      db.exec("DROP INDEX IF EXISTS idx_settings_activity_key");
+    } catch {
+      // ignore
+    }
+  }
 }

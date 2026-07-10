@@ -48,7 +48,7 @@ Owned by `argos-connect-relay`.
 
 ## Cross-cutting
 
-- [x] Reference this model in follow-up SDDs before their implementation begins: `daemon-transport-runtime`, `headless-backend-kernel`, local-api-facade, pairing/session-auth, `argos-connect-relay`.
+- [x] Reference this model in follow-up SDDs before their implementation begins: `daemon-transport-runtime`, `headless-backend-kernel`, `docs/archives/local-api-facade`, pairing/session-auth, `argos-connect-relay`.
 - [x] Security review checklist (complete before Phase 1 implementation):
   - `/health` leaks no user/path/provider/model data in any mode.
   - Non-loopback + no credential is rejected on every privileged surface.

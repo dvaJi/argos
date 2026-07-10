@@ -738,6 +738,48 @@ describe("AgentSessionPresenter", () => {
   });
 
   describe("searchHistory", () => {
+    it("routes through the daemon query port when present", async () => {
+      const daemonSessionQueryPort = {
+        searchHistory: vi.fn<(...args: any[]) => any>().mockResolvedValue([
+          {
+            kind: "session" as const,
+            sessionId: "daemon-session",
+            title: "Daemon result",
+            projectDir: "/daemon",
+            updatedAt: 300,
+          },
+        ]),
+        getSearchResults: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        listMessageTraces: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getViewManifests: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        getViewLineage: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        translateText: vi.fn<(...args: any[]) => any>().mockResolvedValue("daemon text"),
+      };
+      const daemonPresenter = new AgentSessionPresenter(
+        argosAgent as any,
+        llmProviderPresenter,
+        configPresenter,
+        sqlitePresenter,
+        skillPresenter,
+        undefined,
+        {
+          daemonSessionQueryPort,
+        },
+      );
+
+      await expect(daemonPresenter.searchHistory("release", { limit: 5 })).resolves.toEqual([
+        {
+          kind: "session",
+          sessionId: "daemon-session",
+          title: "Daemon result",
+          projectDir: "/daemon",
+          updatedAt: 300,
+        },
+      ]);
+      expect(daemonSessionQueryPort.searchHistory).toHaveBeenCalledWith("release", { limit: 5 });
+      expect(sqlitePresenter.argosSearchDocumentsTable.searchFts).not.toHaveBeenCalled();
+    });
+
     it("returns session and message hits sorted by title relevance before recency", async () => {
       sqlitePresenter.argosSearchDocumentsTable.searchFts.mockReturnValue([
         {
@@ -1874,6 +1916,71 @@ describe("AgentSessionPresenter", () => {
   });
 
   describe("agent session transfer", () => {
+    it("prefers the daemon action port for transfer impact", async () => {
+      const daemonSessionActionPort = {
+        compactSession: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+          compacted: true,
+          state: { status: "idle", cursorOrderSeq: 1, summaryUpdatedAt: null },
+        }),
+        exportSession: vi
+          .fn<(...args: any[]) => any>()
+          .mockResolvedValue({ filename: "daemon.txt", content: "daemon" }),
+        getAgentTransferImpact: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+          agentId: "argos-writer",
+          totalSessions: 1,
+          regularSessions: 1,
+          subagentSessions: 0,
+          emptyDrafts: 0,
+          movableSessions: 1,
+          blockedSessions: 0,
+          samples: [],
+        }),
+        moveAgentSessions: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+          movedSessionIds: [],
+          deletedSessionIds: [],
+        }),
+        deleteAgentSessions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+        moveSessionToAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+          id: "s1",
+          agentId: "argos-coder",
+          providerId: "anthropic",
+          modelId: "claude-3-5-sonnet",
+          projectDir: "/repo",
+          title: "Test",
+          isDraft: false,
+          sessionKind: "regular",
+          parentSessionId: null,
+          subagentEnabled: true,
+          disabledAgentTools: [],
+          state: {
+            status: "idle",
+            providerId: "anthropic",
+            modelId: "claude-3-5-sonnet",
+            permissionMode: "default",
+          },
+          createdAt: 1000,
+          updatedAt: 1000,
+        }),
+      };
+      const daemonPresenter = new AgentSessionPresenter(
+        argosAgent as any,
+        llmProviderPresenter,
+        configPresenter,
+        sqlitePresenter,
+        skillPresenter,
+        undefined,
+        {
+          daemonSessionActionPort,
+        },
+      );
+
+      const impact = await daemonPresenter.getAgentTransferImpact("argos-writer");
+
+      expect(daemonSessionActionPort.getAgentTransferImpact).toHaveBeenCalledWith("argos-writer");
+      expect(sqlitePresenter.newSessionsTable.list).not.toHaveBeenCalled();
+      expect(impact.totalSessions).toBe(1);
+    });
+
     it("reports movable sessions and empty drafts before deleting an agent", async () => {
       const rows = [
         {
@@ -2495,6 +2602,50 @@ describe("AgentSessionPresenter", () => {
   });
 
   describe("getAcpSessionCommands", () => {
+    it("prefers the daemon ACP port when present", async () => {
+      sqlitePresenter.newSessionsTable.get.mockReturnValue({
+        id: "s-acp",
+        agent_id: "acp-coder",
+        title: "ACP",
+        project_dir: null,
+        is_pinned: 0,
+        created_at: 1000,
+        updated_at: 1000,
+      });
+      configPresenter.getAcpAgents.mockResolvedValue([{ id: "acp-coder", name: "ACP Coder", command: "acp-coder" }]);
+      argosAgent.getSessionState.mockResolvedValue({
+        status: "idle",
+        providerId: "acp",
+        modelId: "acp-coder",
+        permissionMode: "full_access",
+      });
+      const daemonAcpSessionPort = {
+        getAcpSessionCommands: vi
+          .fn<(...args: any[]) => any>()
+          .mockResolvedValue([{ name: "daemon-review", description: "daemon route", input: { hint: "ticket id" } }]),
+        getAcpSessionConfigOptions: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+        setAcpSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+      };
+      const daemonPresenter = new AgentSessionPresenter(
+        argosAgent as any,
+        llmProviderPresenter,
+        configPresenter,
+        sqlitePresenter,
+        skillPresenter,
+        undefined,
+        {
+          daemonAcpSessionPort,
+        },
+      );
+
+      const commands = await daemonPresenter.getAcpSessionCommands("s-acp");
+
+      expect(daemonAcpSessionPort.getAcpSessionCommands).toHaveBeenCalledWith("s-acp");
+      expect(llmProviderPresenter.getAcpSessionCommands).not.toHaveBeenCalled();
+      expect(commands).toHaveLength(1);
+      expect(commands[0].name).toBe("daemon-review");
+    });
+
     it("returns empty list for non-ACP sessions", async () => {
       sqlitePresenter.newSessionsTable.get.mockReturnValue({
         id: "s1",

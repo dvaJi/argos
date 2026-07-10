@@ -22,13 +22,13 @@ export const daemonSidecarHook: LifecycleHook = {
       const app = await import("electron").then((m) => m.app);
       const userDataPath = app.getPath("userData");
 
-      sidecarHandle = await startSidecar({
+      void startSidecar({
         dataDir: userDataPath,
         host: "127.0.0.1",
         port: 0,
         maxRetries: 3,
         healthCheckIntervalMs: 500,
-        healthCheckTimeoutMs: 10000,
+        healthCheckTimeoutMs: 30000,
         onStatusChange: (status) => {
           console.log(`[sidecar] Status: ${status}`);
           eventBus.sendToRendererIfAvailable(DAEMON_EVENTS.SIDECAR_STATUS_CHANGED, SendTarget.ALL_WINDOWS, {
@@ -41,10 +41,15 @@ export const daemonSidecarHook: LifecycleHook = {
             port,
           });
         },
-      });
-
-      (context as any).sidecar = sidecarHandle;
-      console.log(`daemonSidecarHook: Daemon sidecar started on port ${sidecarHandle.port}`);
+      })
+        .then((handle) => {
+          sidecarHandle = handle;
+          (context as any).sidecar = handle;
+          console.log(`daemonSidecarHook: Daemon sidecar started on port ${handle.port}`);
+        })
+        .catch((error) => {
+          console.error("daemonSidecarHook: Failed to start sidecar (non-critical):", error);
+        });
     } catch (error) {
       console.error("daemonSidecarHook: Failed to start sidecar (non-critical):", error);
     }

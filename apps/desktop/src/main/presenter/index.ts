@@ -73,9 +73,35 @@ import type { SQLitePresenter } from "./sqlitePresenter";
 import { DatabaseSecurityPresenter } from "./databaseSecurityPresenter";
 import { normalizeArgosSubagentSlots } from "@shared/lib/argosSubagents";
 import { subscribeArgosInternalSessionUpdates } from "./agentRuntimePresenter/internalSessionEvents";
-import type { ProviderCatalogPort, ProviderSessionPort, SessionPermissionPort, SessionUiPort } from "./runtimePorts";
+import {
+  sessionsGetAcpSessionCommandsRoute,
+  sessionsGetAcpSessionConfigOptionsRoute,
+  sessionsCompactRoute,
+  sessionsGetSearchResultsRoute,
+  sessionsGetAgentTransferImpactRoute,
+  sessionsGetViewLineageRoute,
+  sessionsGetViewManifestsRoute,
+  sessionsListMessageTracesRoute,
+  sessionsDeleteAgentSessionsRoute,
+  sessionsSearchHistoryRoute,
+  sessionsExportRoute,
+  sessionsMoveAgentSessionsRoute,
+  sessionsMoveToAgentRoute,
+  sessionsSetAcpSessionConfigOptionRoute,
+  sessionsTranslateTextRoute,
+} from "@shared/contracts/routes";
+import type {
+  DaemonAcpSessionPort,
+  DaemonSessionActionPort,
+  DaemonSessionQueryPort,
+  ProviderCatalogPort,
+  ProviderSessionPort,
+  SessionPermissionPort,
+  SessionUiPort,
+} from "./runtimePorts";
 import { handlePresenterCallError, handlePresenterCallResult } from "./presenterCallErrorHandler";
 import { createMainKernelRouteRuntime, registerMainKernelRoutes } from "@/routes";
+import { invokeDaemonRoute } from "@/routes/daemonRouteProxy";
 import { setupLegacyTypedEventBridge } from "@/routes/legacyTypedEventBridge";
 import { StartupWorkloadCoordinator } from "./startupWorkloadCoordinator";
 import type { StartupWorkloadTaskContext } from "./startupWorkloadCoordinator";
@@ -567,6 +593,106 @@ export class Presenter implements IPresenter {
         await this.llmproviderPresenter.getAcpSessionCommands(conversationId),
       clearAcpSession: async (conversationId) => await this.llmproviderPresenter.clearAcpSession(conversationId),
     };
+    const daemonSessionQueryPort: DaemonSessionQueryPort = {
+      searchHistory: async (query, options) => {
+        const result = sessionsSearchHistoryRoute.output.parse(
+          await invokeDaemonRoute(sessionsSearchHistoryRoute.name, { query, options }),
+        );
+        return result.hits;
+      },
+      getSearchResults: async (messageId, searchId) => {
+        const result = sessionsGetSearchResultsRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetSearchResultsRoute.name, { messageId, searchId }),
+        );
+        return result.results;
+      },
+      listMessageTraces: async (messageId) => {
+        const result = sessionsListMessageTracesRoute.output.parse(
+          await invokeDaemonRoute(sessionsListMessageTracesRoute.name, { messageId }),
+        );
+        return result.traces;
+      },
+      getViewManifests: async (sessionId) => {
+        const result = sessionsGetViewManifestsRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetViewManifestsRoute.name, { sessionId }),
+        );
+        return result.manifests;
+      },
+      getViewLineage: async (sessionId) => {
+        const result = sessionsGetViewLineageRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetViewLineageRoute.name, { sessionId }),
+        );
+        return result.lineage;
+      },
+      translateText: async (text, locale, agentId) => {
+        const result = sessionsTranslateTextRoute.output.parse(
+          await invokeDaemonRoute(sessionsTranslateTextRoute.name, { text, locale, agentId }),
+        );
+        return result.text;
+      },
+    };
+    const daemonAcpSessionPort: DaemonAcpSessionPort = {
+      getAcpSessionConfigOptions: async (conversationId) => {
+        const result = sessionsGetAcpSessionConfigOptionsRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetAcpSessionConfigOptionsRoute.name, { sessionId: conversationId }),
+        );
+        return result.state;
+      },
+      setAcpSessionConfigOption: async (conversationId, configId, value) => {
+        const result = sessionsSetAcpSessionConfigOptionRoute.output.parse(
+          await invokeDaemonRoute(sessionsSetAcpSessionConfigOptionRoute.name, {
+            sessionId: conversationId,
+            configId,
+            value,
+          }),
+        );
+        return result.state;
+      },
+      getAcpSessionCommands: async (conversationId) => {
+        const result = sessionsGetAcpSessionCommandsRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetAcpSessionCommandsRoute.name, { sessionId: conversationId }),
+        );
+        return result.commands;
+      },
+    };
+    const daemonSessionActionPort: DaemonSessionActionPort = {
+      compactSession: async (sessionId) => {
+        const result = sessionsCompactRoute.output.parse(
+          await invokeDaemonRoute(sessionsCompactRoute.name, { sessionId }),
+        );
+        return result;
+      },
+      exportSession: async (sessionId, format) => {
+        const result = sessionsExportRoute.output.parse(
+          await invokeDaemonRoute(sessionsExportRoute.name, { sessionId, format }),
+        );
+        return result;
+      },
+      getAgentTransferImpact: async (agentId) => {
+        const result = sessionsGetAgentTransferImpactRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetAgentTransferImpactRoute.name, { agentId }),
+        );
+        return result.impact;
+      },
+      moveAgentSessions: async (fromAgentId, toAgentId) => {
+        const result = sessionsMoveAgentSessionsRoute.output.parse(
+          await invokeDaemonRoute(sessionsMoveAgentSessionsRoute.name, { fromAgentId, toAgentId }),
+        );
+        return result;
+      },
+      deleteAgentSessions: async (agentId) => {
+        const result = sessionsDeleteAgentSessionsRoute.output.parse(
+          await invokeDaemonRoute(sessionsDeleteAgentSessionsRoute.name, { agentId }),
+        );
+        return result.deletedSessionIds;
+      },
+      moveSessionToAgent: async (sessionId, toAgentId) => {
+        const result = sessionsMoveToAgentRoute.output.parse(
+          await invokeDaemonRoute(sessionsMoveToAgentRoute.name, { sessionId, toAgentId }),
+        );
+        return result.session;
+      },
+    };
 
     // Initialize new agent architecture presenters
     const agentRuntimePresenter = new AgentRuntimePresenter(
@@ -595,6 +721,9 @@ export class Presenter implements IPresenter {
         providerSessionPort,
         sessionPermissionPort,
         sessionUiPort,
+        daemonAcpSessionPort,
+        daemonSessionActionPort,
+        daemonSessionQueryPort,
       },
     );
     this.projectPresenter = new ProjectPresenter(

@@ -6,13 +6,78 @@ import { SkillPresenter, type SkillHostPorts } from "@argos/skills-runtime";
 import type { SkillMetadata } from "@shared/types/skill";
 import type { IEventPublisher } from "@argos/backend-core";
 
-/** Minimal in-memory session-state port (daemon v1 has no session-skill persistence). */
-const daemonSessionStatePort = {
-  hasNewSession: async () => false,
-  getPersistedNewSessionSkills: () => [],
-  setPersistedNewSessionSkills: () => {},
-  repairImportedLegacySessionSkills: async () => [],
+type SessionRepositoryPort = {
+  get(sessionId: string): Promise<{ id: string } | null>;
 };
+
+type StoredSkillSessionState = {
+  activeSkills: string[];
+  updatedAt: number;
+};
+
+class DaemonSkillSessionStateStore {
+  private cache: Map<string, StoredSkillSessionState> | null = null;
+
+  constructor(private readonly filePath: string) {}
+
+  getSkills(conversationId: string): string[] {
+    return [...(this.load().get(conversationId)?.activeSkills ?? [])];
+  }
+
+  setSkills(conversationId: string, skills: string[]): void {
+    const normalized = Array.from(new Set(skills.map((skill) => skill.trim()).filter(Boolean)));
+    this.load().set(conversationId, { activeSkills: normalized, updatedAt: Date.now() });
+    this.save();
+  }
+
+  private load(): Map<string, StoredSkillSessionState> {
+    if (this.cache) {
+      return this.cache;
+    }
+
+    this.cache = new Map();
+    if (!fs.existsSync(this.filePath)) {
+      return this.cache;
+    }
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(this.filePath, "utf-8")) as Record<
+        string,
+        StoredSkillSessionState | string[]
+      >;
+      for (const [conversationId, value] of Object.entries(parsed)) {
+        if (Array.isArray(value)) {
+          this.cache.set(conversationId, {
+            activeSkills: value.map((skill) => skill.trim()).filter(Boolean),
+            updatedAt: Date.now(),
+          });
+          continue;
+        }
+
+        this.cache.set(conversationId, {
+          activeSkills: Array.isArray(value.activeSkills)
+            ? value.activeSkills.map((skill) => skill.trim()).filter(Boolean)
+            : [],
+          updatedAt: typeof value.updatedAt === "number" ? value.updatedAt : Date.now(),
+        });
+      }
+    } catch (error) {
+      console.warn(`[SkillPresenter] Failed to read daemon skill session state at ${this.filePath}:`, error);
+      this.cache = new Map();
+    }
+
+    return this.cache;
+  }
+
+  private save(): void {
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    const payload: Record<string, StoredSkillSessionState> = {};
+    for (const [conversationId, value] of this.load()) {
+      payload[conversationId] = value;
+    }
+    fs.writeFileSync(this.filePath, JSON.stringify(payload, null, 2));
+  }
+}
 
 /** Inline skill discovery (no worker thread) — scans for SKILL.md frontmatter. */
 function discoverSkillsInline(input: {
@@ -83,7 +148,9 @@ export class DaemonSkillRuntime {
     appVersion: string;
     eventPublisher: IEventPublisher;
     configPresenter: unknown;
+    sessionRepository: SessionRepositoryPort;
   }) {
+    const stateStore = new DaemonSkillSessionStateStore(path.join(deps.dataDir, "skill-session-state.json"));
     const ports: SkillHostPorts = {
       paths: {
         tempDir: () => tmpdir(),
@@ -98,6 +165,17 @@ export class DaemonSkillRuntime {
         discoverMetadata: discoverSkillsInline,
       },
     };
-    this.presenter = new SkillPresenter(deps.configPresenter as never, daemonSessionStatePort as never, ports);
+    this.presenter = new SkillPresenter(
+      deps.configPresenter as never,
+      {
+        hasNewSession: async (conversationId: string) => Boolean(await deps.sessionRepository.get(conversationId)),
+        getPersistedNewSessionSkills: (conversationId: string) => stateStore.getSkills(conversationId),
+        setPersistedNewSessionSkills: (conversationId: string, skills: string[]) =>
+          stateStore.setSkills(conversationId, skills),
+        repairImportedLegacySessionSkills: async (conversationId: string) =>
+          (await deps.sessionRepository.get(conversationId)) ? stateStore.getSkills(conversationId) : [],
+      },
+      ports,
+    );
   }
 }

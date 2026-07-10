@@ -1,4 +1,13 @@
-import type { AcpConfigState } from "@shared/presenter";
+import type { AcpConfigState, HistorySearchHit } from "@shared/presenter";
+import type {
+  AgentTransferImpact,
+  MessageTraceRecord,
+  SessionCompactionState,
+  SessionWithState,
+} from "@shared/types/agent-interface";
+import type { SearchResult } from "@shared/types/core/search";
+import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+import type { ConversationExportFormat } from "./exporter/formats/conversationExporter";
 
 type ModelIdentity = {
   id: string;
@@ -44,6 +53,43 @@ export interface ProviderSessionPort {
     }>
   >;
   clearAcpSession(conversationId: string): Promise<void>;
+}
+
+export interface DaemonAcpSessionPort {
+  getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null>;
+  setAcpSessionConfigOption(
+    conversationId: string,
+    configId: string,
+    value: string | boolean,
+  ): Promise<AcpConfigState | null>;
+  getAcpSessionCommands(conversationId: string): Promise<
+    Array<{
+      name: string;
+      description: string;
+      input?: { hint: string } | null;
+    }>
+  >;
+}
+
+export interface DaemonSessionQueryPort {
+  searchHistory(query: string, options?: { limit?: number }): Promise<HistorySearchHit[]>;
+  getSearchResults(messageId: string, searchId?: string): Promise<SearchResult[]>;
+  listMessageTraces(messageId: string): Promise<MessageTraceRecord[]>;
+  getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
+  getViewLineage(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
+  translateText(text: string, locale?: string, agentId?: string): Promise<string>;
+}
+
+export interface DaemonSessionActionPort {
+  compactSession(sessionId: string): Promise<{ compacted: boolean; state: SessionCompactionState }>;
+  exportSession(sessionId: string, format: ConversationExportFormat): Promise<{ filename: string; content: string }>;
+  getAgentTransferImpact(agentId: string): Promise<AgentTransferImpact>;
+  moveAgentSessions(
+    fromAgentId: string,
+    toAgentId: string,
+  ): Promise<{ movedSessionIds: string[]; deletedSessionIds: string[] }>;
+  deleteAgentSessions(agentId: string): Promise<string[]>;
+  moveSessionToAgent(sessionId: string, toAgentId: string): Promise<SessionWithState>;
 }
 
 export interface SessionPermissionPort {

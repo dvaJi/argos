@@ -1,6 +1,9 @@
-import { arch, cpus, platform, release, totalmem } from "node:os";
+import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
+import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
+import { ProviderImportService } from "@argos/backend-core";
 import { SettingsRouteHandler } from "@argos/backend-core/dispatch/settings/settingsHandler";
 import {
   createSettingsRouteAdapter,
@@ -14,9 +17,14 @@ import {
   completeGuidedOnboarding,
   resetGuidedOnboarding,
 } from "@argos/backend-core/dispatch/onboarding/onboardingRouteSupport";
+import type { ChatMessagePageResult, PendingSessionInputRecord, SessionWithState } from "@shared/types/agent-interface";
 import type { IConfigPresenter } from "@shared/presenter";
 import { resolveDaemonVersion } from "../version";
-import type { IEventPublisher, ProviderExecutionPort } from "@argos/backend-core";
+import type {
+  IEventPublisher,
+  ProviderExecutionPort,
+  SessionRepository as BaseSessionRepository,
+} from "@argos/backend-core";
 import {
   onboardingGetStateRoute,
   onboardingStartRoute,
@@ -26,6 +34,22 @@ import {
   settingsGetSnapshotRoute,
   settingsUpdateRoute,
   settingsActivityListRoute,
+  settingsListSystemFontsRoute,
+  remoteListChannelsRoute,
+  remoteGetChannelSettingsRoute,
+  remoteSaveChannelSettingsRoute,
+  remoteGetChannelStatusRoute,
+  remoteGetChannelBindingsRoute,
+  remoteRemoveChannelBindingRoute,
+  remoteRemoveChannelPrincipalRoute,
+  remoteGetChannelPairingRoute,
+  remoteCreatePairCodeRoute,
+  remoteClearPairCodeRoute,
+  remoteClearBindingsRoute,
+  remoteWeixinStartLoginRoute,
+  remoteWeixinWaitForLoginRoute,
+  remoteWeixinRemoveAccountRoute,
+  remoteWeixinRestartAccountRoute,
   providersListRoute,
   providersListSummariesRoute,
   providersListDefaultsRoute,
@@ -34,6 +58,8 @@ import {
   providersAddRoute,
   providersRemoveRoute,
   providersReorderRoute,
+  providersWarmupAcpProcessRoute,
+  providersGetAcpProcessConfigOptionsRoute,
   providersTestConnectionRoute,
   modelsGetProviderCatalogRoute,
   modelsGetConfigRoute,
@@ -50,13 +76,58 @@ import {
   modelsSetStatusRoute,
   modelsSetBatchStatusRoute,
   toolsListDefinitionsRoute,
+  workspaceBrowseDirectoryRoute,
+  fileIsDirectoryRoute,
+  filePrepareDirectoryRoute,
+  fileReadFileRoute,
+  fileGetMimeTypeRoute,
+  fileWriteImageBase64Route,
+  projectListRecentRoute,
+  projectListEnvironmentsRoute,
   sessionsCreateRoute,
   sessionsListRoute,
+  sessionsListLightweightRoute,
+  sessionsGetLightweightByIdsRoute,
+  sessionsListMessagesPageRoute,
+  sessionsEnsureAcpDraftRoute,
+  sessionsListPendingInputsRoute,
+  sessionsGetAgentsRoute,
+  sessionsGetAcpSessionCommandsRoute,
+  sessionsGetAcpSessionConfigOptionsRoute,
+  sessionsQueuePendingInputRoute,
+  sessionsUpdateQueuedInputRoute,
+  sessionsMoveQueuedInputRoute,
+  sessionsConvertPendingInputToSteerRoute,
+  sessionsSteerPendingInputRoute,
+  sessionsDeletePendingInputRoute,
+  sessionsRetryMessageRoute,
+  sessionsDeleteMessageRoute,
+  sessionsEditUserMessageRoute,
+  sessionsForkRoute,
+  sessionsSearchHistoryRoute,
+  sessionsGetSearchResultsRoute,
+  sessionsListMessageTracesRoute,
+  sessionsGetViewManifestsRoute,
+  sessionsGetViewLineageRoute,
+  sessionsTranslateTextRoute,
+  sessionsCompactRoute,
+  sessionsExportRoute,
+  sessionsGetAgentTransferImpactRoute,
+  sessionsMoveAgentSessionsRoute,
+  sessionsDeleteAgentSessionsRoute,
+  sessionsMoveToAgentRoute,
   sessionsRestoreRoute,
   sessionsDeleteRoute,
   sessionsRenameRoute,
   sessionsTogglePinnedRoute,
+  sessionsClearMessagesRoute,
   sessionsSetProjectDirRoute,
+  sessionsSetSubagentEnabledRoute,
+  sessionsSetModelRoute,
+  sessionsGetGenerationSettingsRoute,
+  sessionsUpdateGenerationSettingsRoute,
+  sessionsGetDisabledAgentToolsRoute,
+  sessionsUpdateDisabledAgentToolsRoute,
   sessionsGetActiveRoute,
   sessionsActivateRoute,
   sessionsDeactivateRoute,
@@ -103,6 +174,7 @@ import {
   skillsUpdateFileRoute,
   skillsSaveWithExtensionRoute,
   skillsGetFolderTreeRoute,
+  skillsOpenFolderRoute,
   skillsGetExtensionRoute,
   skillsSaveExtensionRoute,
   skillsListScriptsRoute,
@@ -133,9 +205,159 @@ import {
   systemConsumePendingProviderInstallRoute,
   upgradeGetStatusRoute,
   windowGetCurrentStateRoute,
+  sessionsGetPermissionModeRoute,
+  sessionsSetPermissionModeRoute,
+  sessionsSetAcpSessionConfigOptionRoute,
+  providersListModelsRoute,
+  providersGetRateLimitStatusRoute,
+  providersRefreshModelsRoute,
+  providersListOllamaModelsRoute,
+  providersListOllamaRunningModelsRoute,
+  providersPullOllamaModelRoute,
+  providersImportScanRoute,
+  providersImportApplyRoute,
+  modelsListRuntimeRoute,
+  modelsTranscribeAudioRoute,
+  sessionsResumePendingQueueRoute,
+  chatSteerActiveTurnRoute,
+  chatRespondToolInteractionRoute,
+  pluginsListRoute,
+  pluginsGetRoute,
+  pluginsEnableRoute,
+  pluginsDisableRoute,
+  pluginsInvokeActionRoute,
 } from "@argos/shared-contracts/routes";
 
 type RouteDispatcher = (route: ArgosRouteName, input: unknown) => Promise<unknown>;
+
+type DaemonAcpSessionExecutionPort = {
+  getAcpSessionCommands(conversationId: string): Promise<
+    Array<{
+      name: string;
+      description: string;
+      input?: { hint: string } | null;
+    }>
+  >;
+  getAcpSessionConfigOptions(sessionId: string): Promise<unknown>;
+  setAcpSessionConfigOption(sessionId: string, configId: string, value: string | boolean): Promise<unknown>;
+};
+
+type DaemonTranslatePort = {
+  generateCompletion?(input: {
+    providerId: string;
+    modelId: string;
+    messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }>;
+    temperature?: number;
+    maxTokens?: number;
+  }): Promise<string>;
+};
+
+type DaemonProviderExecutionPort = Required<
+  Pick<
+    ProviderExecutionPort,
+    | "sendMessage"
+    | "steerActiveTurn"
+    | "respondToolInteraction"
+    | "cancelGeneration"
+    | "testConnection"
+    | "warmupAcpProcess"
+    | "getAcpProcessConfigOptions"
+    | "transcribeAudio"
+    | "generateCompletion"
+  >
+> &
+  DaemonTranslatePort;
+
+type DaemonMcpConfigPort = {
+  getSetting<T>(key: string): T | undefined;
+  setSetting<T>(key: string, value: T): void;
+  getNpmRegistryCache(): { registry: string; lastChecked: number; isAutoDetect: boolean } | undefined;
+  getEffectiveNpmRegistry(): string | null;
+  getAutoDetectNpmRegistry(): boolean;
+  getCustomNpmRegistry(): string | null;
+  setCustomNpmRegistry(registry: string): void;
+  setAutoDetectNpmRegistry(enabled: boolean): void;
+  clearNpmRegistryCache(): void;
+  listMcpRouterServers(page: number, limit: number): Promise<unknown>;
+  installMcpRouterServer(serverKey: string): Promise<unknown>;
+};
+
+type DaemonProviderConfigPort = {
+  getDefaultProviders(): unknown[];
+  setProviderById(id: string, provider: unknown): void;
+  updateProviderAtomic(id: string, updates: unknown): boolean;
+  addProviderAtomic(provider: unknown): void;
+  removeProviderAtomic(providerId: string): void;
+  reorderProvidersAtomic(providers: unknown[]): void;
+  refreshProviderModels(providerId: string): Promise<unknown[]>;
+  listOllamaModels(providerId: string): Promise<unknown[]>;
+  listOllamaRunningModels(providerId: string): Promise<unknown[]>;
+  pullOllamaModel(providerId: string, modelName: string): Promise<boolean>;
+  getModelConfig(modelId: string, providerId?: string): unknown;
+  setModelConfig(modelId: string, providerId: string, config: unknown): void;
+  resetModelConfig(modelId: string, providerId: string): void;
+  getProviderModelConfigs(providerId: string): unknown[];
+  hasUserModelConfig(modelId: string, providerId: string): boolean;
+  exportModelConfigs(): Record<string, unknown>;
+  importModelConfigs(configs: Record<string, unknown>, overwrite?: boolean): void;
+  addCustomModel(providerId: string, model: unknown): void;
+  removeCustomModel(providerId: string, modelId: string): void;
+  updateCustomModel(providerId: string, modelId: string, updates: unknown): void;
+  setModelStatus(providerId: string, modelId: string, enabled: boolean): void;
+  getModelStatusMap(providerId?: string): Record<string, boolean>;
+};
+
+type DaemonScheduledTaskConfigPort = {
+  getSetting<T>(key: string): T | undefined;
+  setSetting<T>(key: string, value: T): void;
+};
+
+type DaemonSessionRepositoryPort = BaseSessionRepository & {
+  listPage(options?: {
+    limit?: number;
+    cursor?: {
+      updatedAt: number;
+      id: string;
+    } | null;
+    agentId?: string;
+    includeSubagents?: boolean;
+    parentSessionId?: string;
+  }): Promise<{
+    records: SessionWithState[];
+    nextCursor: {
+      updatedAt: number;
+      id: string;
+    } | null;
+    hasMore: boolean;
+  }>;
+  getMany(ids: string[]): Promise<SessionWithState[]>;
+  listRecentProjectDirs(limit?: number): Promise<Array<{ path: string; lastAccessedAt: number }>>;
+  listMessagesPage(
+    sessionId: string,
+    options?: {
+      limit?: number;
+      cursor?: {
+        orderSeq: number;
+        id: string;
+      } | null;
+    },
+  ): Promise<ChatMessagePageResult>;
+  createDraftAcpSession(input: {
+    agentId: string;
+    projectDir: string;
+    permissionMode?: "default" | "full_access";
+  }): Promise<SessionWithState>;
+  listPendingInputs(sessionId: string): Promise<PendingSessionInputRecord[]>;
+  resumePendingQueue(sessionId: string): Promise<void>;
+  getSearchResults(messageId: string, searchId?: string): Promise<unknown[]>;
+  listMessageTraces(messageId: string): Promise<unknown[]>;
+  getViewManifests(sessionId: string): Promise<unknown[]>;
+  getViewLineage(sessionId: string): Promise<unknown[]>;
+};
+
 function readHeadlessWindowState() {
   return {
     windowId: null,
@@ -166,12 +388,31 @@ function readHeadlessDeviceInfo() {
   };
 }
 
-const TIER1_PREFIXES = ["config.", "onboarding.", "settings.", "tools.", "databaseSecurity."];
-const TIER2_PREFIXES = ["providers.", "models.", "sessions.", "chat.", "plugins."];
+function parseSettingsStringRecord(value: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
 
-function getRoutePrefix(route: string): string {
-  const dotIdx = route.indexOf(".");
-  return dotIdx >= 0 ? route.slice(0, dotIdx + 1) : route;
+    return Object.entries(parsed).reduce<Record<string, string>>((acc, [key, item]) => {
+      if (typeof item === "string") {
+        acc[key] = item;
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
+function parseSettingsJsonObject(value: string): Record<string, string | number | boolean> {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 function isDesktopOnlyRoute(route: string): boolean {
@@ -192,20 +433,183 @@ function isDesktopOnlyRoute(route: string): boolean {
     "workspace.openFile",
     "skills.openFolder",
     "sync.openFolder",
-    "settings.listSystemFonts",
   ];
   return desktopOnly.some((prefix) => route.startsWith(prefix) || route === prefix);
 }
 
+/**
+ * Dispatch `remote.*` routes to the remote-control runtime. Config-surface only —
+ * the conversation/bot-reply flow is deferred until the daemon has an agent-loop
+ * runtime (see docs/architecture/remote-control-daemon-port/plan.md).
+ */
+async function dispatchRemoteRoute(
+  runtime: {
+    listRemoteChannels(): Promise<unknown[]>;
+    getChannelSettings(channel: string): Promise<unknown>;
+    saveChannelSettings(channel: string, settings: unknown): Promise<unknown>;
+    getChannelStatus(channel: string): Promise<unknown>;
+    getChannelBindings(channel: string): Promise<unknown[]>;
+    removeChannelBinding(channel: string, endpointKey: string): Promise<void>;
+    removeChannelPrincipal(channel: string, principalId: string): Promise<void>;
+    getChannelPairingSnapshot(channel: string): Promise<unknown>;
+    createChannelPairCode(channel: string): Promise<{ code: string; expiresAt: number }>;
+    clearChannelPairCode(channel: string): Promise<void>;
+    clearChannelBindings(channel: string): Promise<number>;
+    startWeixinIlinkLogin(input?: { force?: boolean }): Promise<unknown>;
+    waitForWeixinIlinkLogin(input: { sessionKey: string; timeoutMs?: number }): Promise<unknown>;
+    removeWeixinIlinkAccount(accountId: string): Promise<void>;
+    restartWeixinIlinkAccount(accountId: string): Promise<void>;
+  },
+  route: string,
+  rawInput: unknown,
+): Promise<unknown> {
+  type RemoteRuntime = typeof runtime;
+
+  const handlers: Partial<Record<string, (rt: RemoteRuntime, input: any) => Promise<unknown>>> = {
+    [remoteListChannelsRoute.name]: async (rt) => ({ channels: await rt.listRemoteChannels() }),
+    [remoteGetChannelSettingsRoute.name]: async (rt, input) => ({
+      settings: await rt.getChannelSettings(input.channel),
+    }),
+    [remoteSaveChannelSettingsRoute.name]: async (rt, input) => ({
+      settings: await rt.saveChannelSettings(input.channel, input.settings),
+    }),
+    [remoteGetChannelStatusRoute.name]: async (rt, input) => ({ status: await rt.getChannelStatus(input.channel) }),
+    [remoteGetChannelBindingsRoute.name]: async (rt, input) => ({
+      bindings: await rt.getChannelBindings(input.channel),
+    }),
+    [remoteRemoveChannelBindingRoute.name]: async (rt, input) => {
+      await rt.removeChannelBinding(input.channel, input.endpointKey);
+      return {};
+    },
+    [remoteRemoveChannelPrincipalRoute.name]: async (rt, input) => {
+      await rt.removeChannelPrincipal(input.channel, input.principalId);
+      return {};
+    },
+    [remoteGetChannelPairingRoute.name]: async (rt, input) => ({
+      snapshot: await rt.getChannelPairingSnapshot(input.channel),
+    }),
+    [remoteCreatePairCodeRoute.name]: async (rt, input) => rt.createChannelPairCode(input.channel),
+    [remoteClearPairCodeRoute.name]: async (rt, input) => {
+      await rt.clearChannelPairCode(input.channel);
+      return {};
+    },
+    [remoteClearBindingsRoute.name]: async (rt, input) => ({ count: await rt.clearChannelBindings(input.channel) }),
+    [remoteWeixinStartLoginRoute.name]: async (rt, input) => rt.startWeixinIlinkLogin(input),
+    [remoteWeixinWaitForLoginRoute.name]: async (rt, input) => rt.waitForWeixinIlinkLogin(input),
+    [remoteWeixinRemoveAccountRoute.name]: async (rt, input) => {
+      await rt.removeWeixinIlinkAccount(input.accountId);
+      return {};
+    },
+    [remoteWeixinRestartAccountRoute.name]: async (rt, input) => {
+      await rt.restartWeixinIlinkAccount(input.accountId);
+      return {};
+    },
+  };
+
+  const handler = handlers[route];
+  if (!handler) {
+    throw new Error(`Unhandled remote route: ${route}`);
+  }
+  return handler(runtime, rawInput as any);
+}
+
+function normalizeSearchText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".json": "application/json",
+  ".html": "text/html",
+  ".htm": "text/html",
+  ".css": "text/css",
+  ".js": "text/javascript",
+  ".ts": "text/typescript",
+  ".tsx": "text/typescript",
+  ".jsx": "text/javascript",
+  ".py": "text/x-python",
+  ".csv": "text/csv",
+  ".pdf": "application/pdf",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+};
+
+function inferMimeType(filePath: string): string {
+  return MIME_BY_EXTENSION[extname(filePath).toLowerCase()] ?? "application/octet-stream";
+}
+
+function buildSearchSnippet(content: string, query: string): string {
+  const normalizedContent = content.replace(/\s+/g, " ").trim();
+  if (!normalizedContent) {
+    return "";
+  }
+
+  const index = normalizedContent.toLowerCase().indexOf(query.toLowerCase());
+  if (index < 0) {
+    return normalizedContent.slice(0, 160);
+  }
+
+  const start = Math.max(0, index - 40);
+  const end = Math.min(normalizedContent.length, index + query.length + 80);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < normalizedContent.length ? "..." : "";
+  return `${prefix}${normalizedContent.slice(start, end)}${suffix}`;
+}
+
+function buildExportFilename(title: string, format: "markdown" | "html" | "txt" | "nowledge-mem"): string {
+  const safeTitle = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  const extension = format === "markdown" ? "md" : format === "nowledge-mem" ? "txt" : format;
+  return `${safeTitle || "session"}.${extension}`;
+}
+
+function buildExportContent(
+  title: string,
+  messages: Array<{
+    role: string;
+    content: string;
+    createdAt: number;
+  }>,
+  format: "markdown" | "html" | "txt" | "nowledge-mem",
+): string {
+  const lines = messages.map((message) => {
+    const timestamp = new Date(message.createdAt).toISOString();
+    return `${timestamp} ${message.role}: ${message.content}`;
+  });
+  const plainText = [`# ${title}`, "", ...lines].join("\n");
+  if (format === "html") {
+    return `<html><body><pre>${plainText.replace(/[&<>]/g, (char) => {
+      if (char === "&") return "&amp;";
+      if (char === "<") return "&lt;";
+      return "&gt;";
+    })}</pre></body></html>`;
+  }
+  if (format === "txt") {
+    return lines.join("\n");
+  }
+  return plainText;
+}
+
 export function createDaemonDispatcher(
   configPresenter: IConfigPresenter,
-  eventPublisher?: IEventPublisher,
-  sessionRepository?: any,
-  providerExecutionPort?: ProviderExecutionPort,
-  mcpRuntime?: {
+  eventPublisher: IEventPublisher,
+  sessionRepository: DaemonSessionRepositoryPort,
+  providerExecutionPort: DaemonProviderExecutionPort,
+  acpSessionExecutionPort: DaemonAcpSessionExecutionPort,
+  mcpRuntime: {
     startServer(n: string): Promise<void>;
     stopServer(n: string): Promise<void>;
     isServerRunning(n: string): boolean;
+    refreshNpmRegistry(): Promise<string>;
     listToolDefinitions(e?: string[]): Promise<unknown[]>;
     getClients(): Promise<unknown[]>;
     callTool(r: unknown): Promise<unknown>;
@@ -214,7 +618,7 @@ export function createDaemonDispatcher(
     listResources(): Promise<unknown[]>;
     readResource(r: unknown): Promise<unknown>;
   },
-  skillRuntime?: {
+  skillRuntime: {
     presenter: {
       getMetadataList(): Promise<unknown[]>;
       getSkillsDir(): Promise<string>;
@@ -225,6 +629,7 @@ export function createDaemonDispatcher(
       updateSkillFile(name: string, content: string): Promise<unknown>;
       saveSkillWithExtension(name: string, content: string, config: unknown): Promise<unknown>;
       getSkillFolderTree(name: string): Promise<unknown[]>;
+      openSkillsFolder(): Promise<void>;
       getSkillExtension(name: string): Promise<unknown>;
       saveSkillExtension(name: string, config: unknown): Promise<void>;
       listSkillScripts(name: string): Promise<unknown[]>;
@@ -232,7 +637,14 @@ export function createDaemonDispatcher(
       setActiveSkills(conversationId: string, skills: string[]): Promise<string[]>;
     };
   },
-  syncRuntime?: {
+  scheduledTasks: {
+    list(): { version: 1; tasks: unknown[] };
+    upsert(input: unknown): { task: unknown; settings: { version: 1; tasks: unknown[] } };
+    delete(id: string): { settings: { version: 1; tasks: unknown[] } };
+    toggle(id: string, enabled: boolean): { task: unknown; settings: { version: 1; tasks: unknown[] } };
+    fireNow(id: string): Promise<{ task: unknown; settings: { version: 1; tasks: unknown[] } }>;
+  },
+  syncRuntime: {
     getBackupStatus(): Promise<{ autoSyncEnabled: boolean; lastBackupTimestamp: number | null }>;
     listBackups(): Promise<{
       backups: Array<{ name?: string; fileName: string; timestamp?: number; createdAt: number; size: number }>;
@@ -263,7 +675,7 @@ export function createDaemonDispatcher(
     uploadToCloud(): Promise<{ success: boolean; message: string; fileName?: string }>;
     pullFromCloud(): Promise<{ success: boolean; message: string; fileName?: string }>;
   },
-  memoryRuntime?: {
+  memoryRuntime: {
     presenter: {
       listMemories(agentId: string): unknown[];
       getStatus(agentId: string): { total: number; pendingEmbedding: number; hasPersona: boolean };
@@ -271,13 +683,57 @@ export function createDaemonDispatcher(
       deleteMemory(agentId: string, memoryId: string): Promise<boolean>;
       clearMemories(agentId: string): Promise<number>;
     };
-    addMemory(agentId: string, content: string, kind?: string, importance?: number): Promise<{ id: string }>;
+    addMemory(
+      agentId: string,
+      content: string,
+      kind?: string,
+      importance?: number,
+      category?: string | null,
+    ): Promise<{ id: string }>;
+  },
+  remoteControl: {
+    runtime: {
+      listRemoteChannels(): Promise<unknown[]>;
+      getChannelSettings(channel: string): Promise<unknown>;
+      saveChannelSettings(channel: string, settings: unknown): Promise<unknown>;
+      getChannelStatus(channel: string): Promise<unknown>;
+      getChannelBindings(channel: string): Promise<unknown[]>;
+      removeChannelBinding(channel: string, endpointKey: string): Promise<void>;
+      removeChannelPrincipal(channel: string, principalId: string): Promise<void>;
+      getChannelPairingSnapshot(channel: string): Promise<unknown>;
+      createChannelPairCode(channel: string): Promise<{ code: string; expiresAt: number }>;
+      clearChannelPairCode(channel: string): Promise<void>;
+      clearChannelBindings(channel: string): Promise<number>;
+      startWeixinIlinkLogin(input?: { force?: boolean }): Promise<unknown>;
+      waitForWeixinIlinkLogin(input: { sessionKey: string; timeoutMs?: number }): Promise<unknown>;
+      removeWeixinIlinkAccount(accountId: string): Promise<void>;
+      restartWeixinIlinkAccount(accountId: string): Promise<void>;
+    };
+  },
+  pluginRuntime: {
+    listPlugins(): Promise<unknown[]>;
+    getPlugin(pluginId: string): Promise<unknown>;
+    enablePlugin(pluginId: string): Promise<unknown>;
+    disablePlugin(pluginId: string): Promise<unknown>;
+    invokeAction(pluginId: string, actionId: string, payload?: unknown): Promise<unknown>;
+  },
+  providerImportService: ProviderImportService,
+  settingsActivityDb: {
+    prepare(sql: string): {
+      all(...p: unknown[]): unknown[];
+    };
   },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
-  const runtime = { sessionRepository, providerExecutionPort };
+  const runtime: {
+    sessionRepository: DaemonSessionRepositoryPort;
+    providerExecutionPort: DaemonProviderExecutionPort;
+  } = { sessionRepository, providerExecutionPort };
+  const daemonConfig = configPresenter as IConfigPresenter & DaemonMcpConfigPort & DaemonProviderConfigPort;
+  const daemonSettings = configPresenter as IConfigPresenter & DaemonScheduledTaskConfigPort;
 
   return async function dispatchDaemonRoute(route: ArgosRouteName, rawInput: unknown): Promise<unknown> {
+    const routeName = route as string;
     if (route === tabNotifyRendererReadyRoute.name) {
       tabNotifyRendererReadyRoute.input.parse(rawInput);
       return tabNotifyRendererReadyRoute.output.parse({ notified: true });
@@ -306,12 +762,8 @@ export function createDaemonDispatcher(
     if (route === startupGetBootstrapRoute.name) {
       startupGetBootstrapRoute.input.parse(rawInput);
       const activeSession = runtime.sessionRepository ? await runtime.sessionRepository.getActive(0) : null;
-      const agents =
-        typeof (configPresenter as any).listAgents === "function" ? await (configPresenter as any).listAgents() : [];
-      const acpEnabled =
-        typeof (configPresenter as any).getAcpEnabled === "function"
-          ? await (configPresenter as any).getAcpEnabled()
-          : false;
+      const agents = await configPresenter.listAgents();
+      const acpEnabled = await configPresenter.getAcpEnabled();
 
       return startupGetBootstrapRoute.output.parse({
         bootstrap: {
@@ -332,10 +784,7 @@ export function createDaemonDispatcher(
               source: agent.source,
               avatar: agent.avatar,
             })),
-          defaultProjectPath:
-            typeof (configPresenter as any).getDefaultProjectPath === "function"
-              ? (configPresenter as any).getDefaultProjectPath()
-              : null,
+          defaultProjectPath: configPresenter.getDefaultProjectPath(),
         },
       });
     }
@@ -353,12 +802,12 @@ export function createDaemonDispatcher(
 
     if (route === mcpGetEnabledRoute.name) {
       mcpGetEnabledRoute.input.parse(rawInput);
-      return mcpGetEnabledRoute.output.parse({ enabled: configPresenter.getMcpEnabled() });
+      return mcpGetEnabledRoute.output.parse({ enabled: await configPresenter.getMcpEnabled() });
     }
 
     if (route === mcpGetClientsRoute.name) {
       mcpGetClientsRoute.input.parse(rawInput);
-      return mcpGetClientsRoute.output.parse({ clients: mcpRuntime ? await mcpRuntime.getClients() : [] });
+      return mcpGetClientsRoute.output.parse({ clients: await mcpRuntime.getClients() });
     }
 
     if (route === mcpAddServerRoute.name) {
@@ -403,25 +852,25 @@ export function createDaemonDispatcher(
     if (route === mcpGetMcpRouterApiKeyRoute.name) {
       mcpGetMcpRouterApiKeyRoute.input.parse(rawInput);
       return mcpGetMcpRouterApiKeyRoute.output.parse({
-        apiKey: ((configPresenter as any).getSetting("mcprouterApiKey") as string) ?? "",
+        apiKey: daemonConfig.getSetting<string>("mcprouterApiKey") ?? "",
       });
     }
 
     if (route === mcpSetMcpRouterApiKeyRoute.name) {
       const input = mcpSetMcpRouterApiKeyRoute.input.parse(rawInput);
-      (configPresenter as any).setSetting("mcprouterApiKey", input.key);
+      daemonConfig.setSetting("mcprouterApiKey", input.key);
       return mcpSetMcpRouterApiKeyRoute.output.parse({ set: true });
     }
 
     if (route === mcpListMcpRouterServersRoute.name) {
       const input = mcpListMcpRouterServersRoute.input.parse(rawInput);
-      const servers = await (configPresenter as any).listMcpRouterServers(input.page, input.limit);
+      const servers = await daemonConfig.listMcpRouterServers(input.page, input.limit);
       return mcpListMcpRouterServersRoute.output.parse({ servers });
     }
 
     if (route === mcpInstallMcpRouterServerRoute.name) {
       const input = mcpInstallMcpRouterServerRoute.input.parse(rawInput);
-      const installed = await (configPresenter as any).installMcpRouterServer(input.serverKey);
+      const installed = await daemonConfig.installMcpRouterServer(input.serverKey);
       return mcpInstallMcpRouterServerRoute.output.parse({ installed: Boolean(installed) });
     }
 
@@ -442,67 +891,63 @@ export function createDaemonDispatcher(
 
     if (route === mcpGetNpmRegistryStatusRoute.name) {
       mcpGetNpmRegistryStatusRoute.input.parse(rawInput);
-      const cache = (configPresenter as any).getNpmRegistryCache();
+      const cache = daemonConfig.getNpmRegistryCache();
       return mcpGetNpmRegistryStatusRoute.output.parse({
         status: {
-          currentRegistry: (configPresenter as any).getEffectiveNpmRegistry(),
+          currentRegistry: daemonConfig.getEffectiveNpmRegistry(),
           isFromCache: Boolean(cache),
           lastChecked: cache?.lastChecked,
-          autoDetectEnabled: (configPresenter as any).getAutoDetectNpmRegistry(),
-          customRegistry: (configPresenter as any).getCustomNpmRegistry() ?? undefined,
+          autoDetectEnabled: daemonConfig.getAutoDetectNpmRegistry(),
+          customRegistry: daemonConfig.getCustomNpmRegistry() ?? undefined,
         },
       });
     }
 
     if (route === mcpRefreshNpmRegistryRoute.name) {
-      // v1: no background speed test; return the effective registry.
       mcpRefreshNpmRegistryRoute.input.parse(rawInput);
       return mcpRefreshNpmRegistryRoute.output.parse({
-        registry: ((configPresenter as any).getEffectiveNpmRegistry() as string) ?? "",
+        registry: await mcpRuntime.refreshNpmRegistry(),
       });
     }
 
     if (route === mcpSetCustomNpmRegistryRoute.name) {
       const input = mcpSetCustomNpmRegistryRoute.input.parse(rawInput);
-      (configPresenter as any).setCustomNpmRegistry(input.registry ?? "");
+      daemonConfig.setCustomNpmRegistry(input.registry ?? "");
       return mcpSetCustomNpmRegistryRoute.output.parse({ updated: true });
     }
 
     if (route === mcpSetAutoDetectNpmRegistryRoute.name) {
       const input = mcpSetAutoDetectNpmRegistryRoute.input.parse(rawInput);
-      (configPresenter as any).setAutoDetectNpmRegistry(input.enabled);
+      daemonConfig.setAutoDetectNpmRegistry(input.enabled);
       return mcpSetAutoDetectNpmRegistryRoute.output.parse({ enabled: input.enabled });
     }
 
     if (route === mcpClearNpmRegistryCacheRoute.name) {
       mcpClearNpmRegistryCacheRoute.input.parse(rawInput);
-      (configPresenter as any).clearNpmRegistryCache();
+      daemonConfig.clearNpmRegistryCache();
       return mcpClearNpmRegistryCacheRoute.output.parse({ cleared: true });
     }
 
     // === MCP runtime routes (require a running MCP server) ===
     if (route === mcpStartServerRoute.name) {
       const input = mcpStartServerRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       await mcpRuntime.startServer(input.serverName);
       return mcpStartServerRoute.output.parse({ started: true });
     }
 
     if (route === mcpStopServerRoute.name) {
       const input = mcpStopServerRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       await mcpRuntime.stopServer(input.serverName);
       return mcpStopServerRoute.output.parse({ stopped: true });
     }
 
     if (route === mcpIsServerRunningRoute.name) {
       const input = mcpIsServerRunningRoute.input.parse(rawInput);
-      return mcpIsServerRunningRoute.output.parse({ running: mcpRuntime?.isServerRunning(input.serverName) ?? false });
+      return mcpIsServerRunningRoute.output.parse({ running: mcpRuntime.isServerRunning(input.serverName) });
     }
 
     if (route === mcpListToolDefinitionsRoute.name) {
       const input = mcpListToolDefinitionsRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpListToolDefinitionsRoute.output.parse({
         tools: await mcpRuntime.listToolDefinitions(input.enabledMcpTools),
       });
@@ -510,31 +955,26 @@ export function createDaemonDispatcher(
 
     if (route === mcpCallToolRoute.name) {
       const input = mcpCallToolRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpCallToolRoute.output.parse((await mcpRuntime.callTool(input.request)) as never);
     }
 
     if (route === mcpListPromptsRoute.name) {
       mcpListPromptsRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpListPromptsRoute.output.parse({ prompts: await mcpRuntime.listPrompts() });
     }
 
     if (route === mcpGetPromptRoute.name) {
       const input = mcpGetPromptRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpGetPromptRoute.output.parse({ result: await mcpRuntime.getPrompt(input.prompt, input.args) });
     }
 
     if (route === mcpListResourcesRoute.name) {
       mcpListResourcesRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpListResourcesRoute.output.parse({ resources: await mcpRuntime.listResources() });
     }
 
     if (route === mcpReadResourceRoute.name) {
       const input = mcpReadResourceRoute.input.parse(rawInput);
-      if (!mcpRuntime) throw new Error("MCP runtime not available in daemon mode");
       return mcpReadResourceRoute.output.parse({ resource: await mcpRuntime.readResource(input.resource) });
     }
 
@@ -553,91 +993,81 @@ export function createDaemonDispatcher(
     // === Skills routes ===
     if (route === skillsListMetadataRoute.name) {
       skillsListMetadataRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsListMetadataRoute.output.parse({ skills: await skillRuntime.presenter.getMetadataList() });
     }
     if (route === skillsGetDirectoryRoute.name) {
       skillsGetDirectoryRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsGetDirectoryRoute.output.parse({ path: await skillRuntime.presenter.getSkillsDir() });
     }
     if (route === skillsInstallFromFolderRoute.name) {
       const input = skillsInstallFromFolderRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsInstallFromFolderRoute.output.parse({
         result: await skillRuntime.presenter.installFromFolder(input.folderPath, input.options),
       });
     }
     if (route === skillsInstallFromZipRoute.name) {
       const input = skillsInstallFromZipRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsInstallFromZipRoute.output.parse({
         result: await skillRuntime.presenter.installFromZip(input.zipPath, input.options),
       });
     }
     if (route === skillsInstallFromUrlRoute.name) {
       const input = skillsInstallFromUrlRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsInstallFromUrlRoute.output.parse({
         result: await skillRuntime.presenter.installFromUrl(input.url, input.options),
       });
     }
     if (route === skillsUninstallRoute.name) {
       const input = skillsUninstallRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsUninstallRoute.output.parse({ result: await skillRuntime.presenter.uninstallSkill(input.name) });
     }
     if (route === skillsUpdateFileRoute.name) {
       const input = skillsUpdateFileRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsUpdateFileRoute.output.parse({
         result: await skillRuntime.presenter.updateSkillFile(input.name, input.content),
       });
     }
     if (route === skillsSaveWithExtensionRoute.name) {
       const input = skillsSaveWithExtensionRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsSaveWithExtensionRoute.output.parse({
         result: await skillRuntime.presenter.saveSkillWithExtension(input.name, input.content, input.config),
       });
     }
     if (route === skillsGetFolderTreeRoute.name) {
       const input = skillsGetFolderTreeRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsGetFolderTreeRoute.output.parse({
         nodes: await skillRuntime.presenter.getSkillFolderTree(input.name),
       });
     }
+    if (route === skillsOpenFolderRoute.name) {
+      skillsOpenFolderRoute.input.parse(rawInput);
+      throw new Error("Opening the skills folder is not available in daemon mode.");
+    }
     if (route === skillsGetExtensionRoute.name) {
       const input = skillsGetExtensionRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsGetExtensionRoute.output.parse({
         config: await skillRuntime.presenter.getSkillExtension(input.name),
       });
     }
     if (route === skillsSaveExtensionRoute.name) {
       const input = skillsSaveExtensionRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       await skillRuntime.presenter.saveSkillExtension(input.name, input.config);
       return skillsSaveExtensionRoute.output.parse({ saved: true });
     }
     if (route === skillsListScriptsRoute.name) {
       const input = skillsListScriptsRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsListScriptsRoute.output.parse({
         scripts: await skillRuntime.presenter.listSkillScripts(input.name),
       });
     }
     if (route === skillsGetActiveRoute.name) {
       const input = skillsGetActiveRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsGetActiveRoute.output.parse({
         skills: await skillRuntime.presenter.getActiveSkills(String(input.conversationId)),
       });
     }
     if (route === skillsSetActiveRoute.name) {
       const input = skillsSetActiveRoute.input.parse(rawInput);
-      if (!skillRuntime) throw new Error("Skills runtime not available in daemon mode");
       return skillsSetActiveRoute.output.parse({
         skills: await skillRuntime.presenter.setActiveSkills(String(input.conversationId), input.skills),
       });
@@ -646,7 +1076,6 @@ export function createDaemonDispatcher(
     // === Sync routes (daemon: local/cloud backup of JSON data dir) ===
     if (route === syncGetBackupStatusRoute.name) {
       syncGetBackupStatusRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       const status = await syncRuntime.getBackupStatus();
       return syncGetBackupStatusRoute.output.parse({
         status: { isBackingUp: false, lastBackupTime: status.lastBackupTimestamp ?? 0 },
@@ -654,12 +1083,10 @@ export function createDaemonDispatcher(
     }
     if (route === syncListBackupsRoute.name) {
       syncListBackupsRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncListBackupsRoute.output.parse(await syncRuntime.listBackups());
     }
     if (route === syncStartBackupRoute.name) {
       syncStartBackupRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       const result = await syncRuntime.startBackup();
       const backups = (await syncRuntime.listBackups()).backups;
       return syncStartBackupRoute.output.parse({
@@ -668,45 +1095,74 @@ export function createDaemonDispatcher(
     }
     if (route === syncImportRoute.name) {
       const input = syncImportRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       await syncRuntime.restoreBackup(input.backupFile);
       return syncImportRoute.output.parse({ result: { success: true, message: "restored" } });
     }
     if (route === syncGetCloudConfigRoute.name) {
       syncGetCloudConfigRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncGetCloudConfigRoute.output.parse({ config: await syncRuntime.getCloudConfig() });
     }
     if (route === syncSetCloudConfigRoute.name) {
       const input = syncSetCloudConfigRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncSetCloudConfigRoute.output.parse({ config: await syncRuntime.setCloudConfig(input.config) });
     }
     if (route === syncTestCloudRoute.name) {
       syncTestCloudRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncTestCloudRoute.output.parse({ result: await syncRuntime.testCloud() });
     }
     if (route === syncUploadToCloudRoute.name) {
       syncUploadToCloudRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncUploadToCloudRoute.output.parse({ result: await syncRuntime.uploadToCloud() });
     }
     if (route === syncPullFromCloudRoute.name) {
       syncPullFromCloudRoute.input.parse(rawInput);
-      if (!syncRuntime) throw new Error("Sync runtime not available in daemon mode");
       return syncPullFromCloudRoute.output.parse({ result: await syncRuntime.pullFromCloud() });
     }
 
-    // === Scheduled tasks (CRUD via JSON config; firing is desktop-only) ===
-    const readScheduledTasks = () => {
-      const stored = (configPresenter as any).getSetting("scheduledTasks") as
-        | { version?: number; tasks?: any[] }
-        | undefined;
-      return { version: 1 as const, tasks: Array.isArray(stored?.tasks) ? stored!.tasks : [] };
+    // === Scheduled tasks ===
+    type ScheduledTask = {
+      id: string;
+      name: string;
+      enabled: boolean;
+      trigger: {
+        kind: "once" | "daily" | "weekly";
+        firesAt?: number;
+        hour?: number;
+        minute?: number;
+        dayOfWeek?: number;
+      };
+      action:
+        | {
+            kind: "notify";
+            title: string;
+            body: string;
+          }
+        | {
+            kind: "prompt";
+            title: string;
+            message: string;
+            autoSend: boolean;
+            agentId?: string;
+            providerId?: string;
+            modelId?: string;
+            systemPrompt?: string;
+          };
+      createdAt: number;
+      lastFiredAt: number | null;
     };
-    const writeScheduledTasks = (settings: { version: 1; tasks: any[] }) => {
-      (configPresenter as any).setSetting("scheduledTasks", settings);
+    type ScheduledTasksSettings = { version: 1; tasks: ScheduledTask[] };
+    const readScheduledTasks = (): ScheduledTasksSettings => {
+      if (scheduledTasks) {
+        return scheduledTasks.list() as ScheduledTasksSettings;
+      }
+      const stored = daemonSettings.getSetting("scheduledTasks") as
+        | { version?: number; tasks?: ScheduledTask[] }
+        | undefined;
+      return { version: 1 as const, tasks: Array.isArray(stored?.tasks) ? stored.tasks : [] };
+    };
+    const writeScheduledTasks = (settings: ScheduledTasksSettings) => {
+      daemonSettings.setSetting("scheduledTasks", settings);
+      return settings;
     };
 
     if (route === scheduledTasksListRoute.name) {
@@ -715,9 +1171,12 @@ export function createDaemonDispatcher(
     }
     if (route === scheduledTasksUpsertRoute.name) {
       const input = scheduledTasksUpsertRoute.input.parse(rawInput);
+      if (scheduledTasks) {
+        return scheduledTasksUpsertRoute.output.parse(scheduledTasks.upsert(input));
+      }
       const settings = readScheduledTasks();
       const id = input.id || `task-${Date.now()}`;
-      const task = { ...input, id, createdAt: Date.now(), lastFiredAt: null } as never;
+      const task: ScheduledTask = { ...input, id, createdAt: Date.now(), lastFiredAt: null };
       const idx = settings.tasks.findIndex((t) => t.id === id);
       if (idx >= 0) {
         settings.tasks[idx] = { ...settings.tasks[idx], ...task };
@@ -732,6 +1191,9 @@ export function createDaemonDispatcher(
     }
     if (route === scheduledTasksDeleteRoute.name) {
       const input = scheduledTasksDeleteRoute.input.parse(rawInput);
+      if (scheduledTasks) {
+        return scheduledTasksDeleteRoute.output.parse(scheduledTasks.delete(input.id));
+      }
       const settings = readScheduledTasks();
       settings.tasks = settings.tasks.filter((t) => t.id !== input.id);
       writeScheduledTasks(settings);
@@ -739,6 +1201,9 @@ export function createDaemonDispatcher(
     }
     if (route === scheduledTasksToggleRoute.name) {
       const input = scheduledTasksToggleRoute.input.parse(rawInput);
+      if (scheduledTasks) {
+        return scheduledTasksToggleRoute.output.parse(scheduledTasks.toggle(input.id, input.enabled));
+      }
       const settings = readScheduledTasks();
       const task = settings.tasks.find((t) => t.id === input.id);
       if (task) task.enabled = input.enabled;
@@ -747,6 +1212,9 @@ export function createDaemonDispatcher(
     }
     if (route === scheduledTasksFireNowRoute.name) {
       const input = scheduledTasksFireNowRoute.input.parse(rawInput);
+      if (scheduledTasks) {
+        return scheduledTasksFireNowRoute.output.parse(await scheduledTasks.fireNow(input.id));
+      }
       const settings = readScheduledTasks();
       const task = settings.tasks.find((t) => t.id === input.id);
       if (task) task.lastFiredAt = Date.now();
@@ -774,18 +1242,15 @@ export function createDaemonDispatcher(
 
     if (route === memoryListRoute.name) {
       const input = memoryListRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       const rows = memoryRuntime.presenter.listMemories(input.agentId) as any[];
       return memoryListRoute.output.parse({ memories: rows.map(mapMemoryRow) });
     }
     if (route === memoryGetStatusRoute.name) {
       const input = memoryGetStatusRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       return memoryGetStatusRoute.output.parse({ status: memoryRuntime.presenter.getStatus(input.agentId) });
     }
     if (route === memorySearchRoute.name) {
       const input = memorySearchRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       const recallItems = (await memoryRuntime.presenter.recall(input.agentId, input.query)) as any[];
       const rows = memoryRuntime.presenter.listMemories(input.agentId) as any[];
       const rowMap = new Map(rows.map((r) => [r.id, r]));
@@ -797,7 +1262,6 @@ export function createDaemonDispatcher(
     }
     if (route === memoryAddRoute.name) {
       const input = memoryAddRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       const result = await memoryRuntime.addMemory(
         input.agentId,
         input.content,
@@ -809,18 +1273,166 @@ export function createDaemonDispatcher(
     }
     if (route === memoryDeleteRoute.name) {
       const input = memoryDeleteRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       const ok = await memoryRuntime.presenter.deleteMemory(input.agentId, input.memoryId);
       return memoryDeleteRoute.output.parse({ ok });
     }
     if (route === memoryClearRoute.name) {
       const input = memoryClearRoute.input.parse(rawInput);
-      if (!memoryRuntime) throw new Error("Memory runtime not available in daemon mode");
       const removed = await memoryRuntime.presenter.clearMemories(input.agentId);
       return memoryClearRoute.output.parse({ removed });
     }
 
+    if (routeName === pluginsListRoute.name) {
+      pluginsListRoute.input.parse(rawInput);
+      return pluginsListRoute.output.parse({
+        plugins: await pluginRuntime.listPlugins(),
+      });
+    }
+    if (routeName === pluginsGetRoute.name) {
+      const input = pluginsGetRoute.input.parse(rawInput);
+      return pluginsGetRoute.output.parse({
+        plugin: await pluginRuntime.getPlugin(input.pluginId),
+      });
+    }
+    if (routeName === pluginsEnableRoute.name) {
+      const input = pluginsEnableRoute.input.parse(rawInput);
+      return pluginsEnableRoute.output.parse({
+        result: await pluginRuntime.enablePlugin(input.pluginId),
+      });
+    }
+    if (routeName === pluginsDisableRoute.name) {
+      const input = pluginsDisableRoute.input.parse(rawInput);
+      return pluginsDisableRoute.output.parse({
+        result: await pluginRuntime.disablePlugin(input.pluginId),
+      });
+    }
+    if (routeName === pluginsInvokeActionRoute.name) {
+      const input = pluginsInvokeActionRoute.input.parse(rawInput);
+      return pluginsInvokeActionRoute.output.parse({
+        result: await pluginRuntime.invokeAction(input.pluginId, input.actionId, input.payload),
+      });
+    }
+
+    if (route === workspaceBrowseDirectoryRoute.name) {
+      const input = workspaceBrowseDirectoryRoute.input.parse(rawInput);
+      const home = homedir() || sep;
+      // Resolve the requested path: default to home; relative paths anchored at home;
+      // `~` expanded. Anything that doesn't resolve to a real directory falls back
+      // to home so the picker never dead-ends on an unreadable path.
+      let target = (input.path ?? "").trim();
+      if (!target || target === "~") target = home;
+      else if (target.startsWith("~/")) target = join(home, target.slice(2));
+      try {
+        target = isAbsolute(target) ? resolve(target) : resolve(home, target);
+        const stat = statSync(target);
+        if (!stat.isDirectory()) target = home;
+      } catch {
+        target = home;
+      }
+
+      const entries: Array<{ name: string; path: string; isDirectory: boolean }> = [];
+      let children: string[] = [];
+      try {
+        children = readdirSync(target) as string[];
+      } catch {
+        children = [];
+      }
+      for (const name of children) {
+        // Skip hidden entries for a cleaner navigation surface.
+        if (name.startsWith(".")) continue;
+        const childPath = join(target, name);
+        try {
+          if (statSync(childPath).isDirectory()) {
+            entries.push({ name, path: childPath, isDirectory: true });
+          }
+        } catch {
+          // unreadable entry — skip
+        }
+      }
+      entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }));
+
+      // Parent is the immediate ancestor, unless we're already at a root.
+      const parent = dirname(target);
+      return workspaceBrowseDirectoryRoute.output.parse({
+        path: target,
+        parent: parent && parent !== target ? parent : null,
+        home,
+        separator: sep === "\\" ? "\\" : "/",
+        entries,
+      });
+    }
+
+    if (route === projectListRecentRoute.name) {
+      const input = projectListRecentRoute.input.parse(rawInput);
+      // Derive recent projects from sessions' project_dir (most-recent-first).
+      // A project appears here once a chat session has used it.
+      const dirs = await sessionRepository.listRecentProjectDirs(input.limit ?? 20);
+      return projectListRecentRoute.output.parse({
+        projects: dirs.map((d) => ({
+          path: d.path,
+          name: d.path.split(/[/\\]/).pop() || d.path,
+          icon: null,
+          lastAccessedAt: d.lastAccessedAt,
+        })),
+      });
+    }
+
+    if (route === projectListEnvironmentsRoute.name) {
+      projectListEnvironmentsRoute.input.parse(rawInput);
+      return projectListEnvironmentsRoute.output.parse({ environments: [] });
+    }
+
+    if (route === fileIsDirectoryRoute.name) {
+      const input = fileIsDirectoryRoute.input.parse(rawInput);
+      let isDir = false;
+      try {
+        isDir = statSync(input.path).isDirectory();
+      } catch {
+        isDir = false;
+      }
+      return fileIsDirectoryRoute.output.parse({ isDirectory: isDir });
+    }
+
+    if (route === fileReadFileRoute.name) {
+      const input = fileReadFileRoute.input.parse(rawInput);
+      const content = readFileSync(input.path, "utf-8");
+      return fileReadFileRoute.output.parse({ content });
+    }
+
+    if (route === fileGetMimeTypeRoute.name) {
+      const input = fileGetMimeTypeRoute.input.parse(rawInput);
+      return fileGetMimeTypeRoute.output.parse({ mimeType: inferMimeType(input.path) });
+    }
+
+    if (route === filePrepareDirectoryRoute.name) {
+      const input = filePrepareDirectoryRoute.input.parse(rawInput);
+      mkdirSync(input.path, { recursive: true });
+      return filePrepareDirectoryRoute.output.parse({
+        file: { name: basename(input.path) || input.path, path: input.path, type: "directory" },
+      });
+    }
+
+    if (route === fileWriteImageBase64Route.name) {
+      const input = fileWriteImageBase64Route.input.parse(rawInput);
+      const target = join(homedir(), ".argos-daemon", "images", input.name);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, Buffer.from(input.content, "base64"));
+      return fileWriteImageBase64Route.output.parse({ path: target });
+    }
+
+    if (route.startsWith("remote.")) {
+      return dispatchRemoteRoute(remoteControl.runtime, route, rawInput);
+    }
+
+    if (route === settingsListSystemFontsRoute.name) {
+      // Headless/daemon mode cannot enumerate OS fonts; return an empty list so the
+      // font picker degrades to its built-in defaults instead of throwing.
+      settingsListSystemFontsRoute.input.parse(rawInput);
+      return settingsListSystemFontsRoute.output.parse({ fonts: [] });
+    }
+
     if (isDesktopOnlyRoute(route)) {
+      // Routes that are truly desktop-only (open windows, file dialogs) throw.
       throw new Error(`Route not available in headless mode: ${route}`);
     }
 
@@ -872,13 +1484,53 @@ export function createDaemonDispatcher(
     }
 
     if (route === settingsActivityListRoute.name) {
-      settingsActivityListRoute.input.parse(rawInput);
-      return settingsActivityListRoute.output.parse({ activities: [] });
+      const input = settingsActivityListRoute.input.parse(rawInput);
+      const safeLimit = Math.min(Math.max(Math.trunc(input.limit ?? 200), 1), 200);
+      const rows = settingsActivityDb
+        .prepare(
+          `
+          SELECT *
+          FROM settings_activity
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?
+        `,
+        )
+        .all(safeLimit) as Array<{
+        id: string;
+        category: unknown;
+        action: unknown;
+        target_type: unknown;
+        target_id: unknown;
+        target_label: unknown;
+        route_name: unknown;
+        route_params_json: string;
+        summary_key: unknown;
+        summary_params_json: string;
+        created_at: unknown;
+      }>;
+
+      const activities = rows.map((row) => ({
+        id: row.id,
+        category: String(row.category) as never,
+        action: String(row.action) as never,
+        targetType: String(row.target_type),
+        targetId: typeof row.target_id === "string" ? row.target_id : null,
+        targetLabel: typeof row.target_label === "string" ? row.target_label : "",
+        routeName: typeof row.route_name === "string" ? row.route_name : null,
+        routeParams: parseSettingsStringRecord(row.route_params_json),
+        summaryKey: String(row.summary_key),
+        summaryParams: parseSettingsJsonObject(row.summary_params_json),
+        createdAt: typeof row.created_at === "number" ? row.created_at : Number(row.created_at) || Date.now(),
+      }));
+
+      return settingsActivityListRoute.output.parse({ activities });
     }
 
     if (route === toolsListDefinitionsRoute.name) {
-      toolsListDefinitionsRoute.input.parse(rawInput);
-      return toolsListDefinitionsRoute.output.parse({ tools: [] });
+      const input = toolsListDefinitionsRoute.input.parse(rawInput);
+      return toolsListDefinitionsRoute.output.parse({
+        tools: await mcpRuntime.listToolDefinitions(input.enabledMcpTools),
+      });
     }
 
     if (route === providersListRoute.name) {
@@ -901,13 +1553,13 @@ export function createDaemonDispatcher(
     if (route === providersListDefaultsRoute.name) {
       providersListDefaultsRoute.input.parse(rawInput);
       return providersListDefaultsRoute.output.parse({
-        providers: (configPresenter as any).getDefaultProviders(),
+        providers: daemonConfig.getDefaultProviders(),
       });
     }
 
     if (route === providersSetByIdRoute.name) {
       const input = providersSetByIdRoute.input.parse(rawInput);
-      (configPresenter as any).setProviderById(input.providerId, input.provider);
+      daemonConfig.setProviderById(input.providerId, input.provider);
       return providersSetByIdRoute.output.parse({
         provider: configPresenter.getProviderById(input.providerId) ?? input.provider,
       });
@@ -915,7 +1567,7 @@ export function createDaemonDispatcher(
 
     if (route === providersUpdateRoute.name) {
       const input = providersUpdateRoute.input.parse(rawInput);
-      (configPresenter as any).updateProviderAtomic(input.providerId, input.updates);
+      daemonConfig.updateProviderAtomic(input.providerId, input.updates);
       return providersUpdateRoute.output.parse({
         provider: configPresenter.getProviderById(input.providerId),
         requiresRebuild: false,
@@ -924,7 +1576,7 @@ export function createDaemonDispatcher(
 
     if (route === providersAddRoute.name) {
       const input = providersAddRoute.input.parse(rawInput);
-      (configPresenter as any).addProviderAtomic(input.provider);
+      daemonConfig.addProviderAtomic(input.provider);
       return providersAddRoute.output.parse({
         provider: configPresenter.getProviderById(input.provider.id) ?? input.provider,
       });
@@ -932,13 +1584,13 @@ export function createDaemonDispatcher(
 
     if (route === providersRemoveRoute.name) {
       const input = providersRemoveRoute.input.parse(rawInput);
-      (configPresenter as any).removeProviderAtomic(input.providerId);
+      daemonConfig.removeProviderAtomic(input.providerId);
       return providersRemoveRoute.output.parse({ removed: true });
     }
 
     if (route === providersReorderRoute.name) {
       const input = providersReorderRoute.input.parse(rawInput);
-      (configPresenter as any).reorderProvidersAtomic(input.providers);
+      daemonConfig.reorderProvidersAtomic(input.providers);
       return providersReorderRoute.output.parse({
         providers: configPresenter.getProviders(),
       });
@@ -946,26 +1598,120 @@ export function createDaemonDispatcher(
 
     if (route === providersTestConnectionRoute.name) {
       const input = providersTestConnectionRoute.input.parse(rawInput);
-      if (!runtime.providerExecutionPort) {
-        return providersTestConnectionRoute.output.parse({
-          isOk: false,
-          errorMsg: "Provider connection testing not available without LLM provider runtime",
-        });
-      }
       const result = await runtime.providerExecutionPort.testConnection(input.providerId, input.modelId);
       return providersTestConnectionRoute.output.parse(result);
     }
 
+    if (route === providersWarmupAcpProcessRoute.name) {
+      const input = providersWarmupAcpProcessRoute.input.parse(rawInput);
+      await runtime.providerExecutionPort.warmupAcpProcess(input.agentId, input.workdir);
+      return providersWarmupAcpProcessRoute.output.parse({ warmedUp: true });
+    }
+
+    if (route === providersGetAcpProcessConfigOptionsRoute.name) {
+      const input = providersGetAcpProcessConfigOptionsRoute.input.parse(rawInput);
+      const state = await runtime.providerExecutionPort.getAcpProcessConfigOptions(input.agentId, input.workdir);
+      return providersGetAcpProcessConfigOptionsRoute.output.parse({ state: state ?? null });
+    }
+
+    if (route === providersListModelsRoute.name) {
+      const input = providersListModelsRoute.input.parse(rawInput);
+      // Lazy-fetch only when the provider has credentials; otherwise skip silently
+      // (a fetch would just fail and spam the log).
+      let providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
+      if (providerModels.length === 0) {
+        const provider = configPresenter.getProviderById(input.providerId) as
+          | { apiKey?: string; baseUrl?: string }
+          | undefined;
+        if (provider?.apiKey && provider?.baseUrl) {
+          try {
+            const fetched = await daemonConfig.refreshProviderModels(input.providerId);
+            providerModels = (fetched as any[]) ?? [];
+          } catch (error) {
+            console.warn(`[daemon] lazy model fetch failed for ${input.providerId}:`, error);
+          }
+        }
+      }
+      const customModels = configPresenter.getCustomModels(input.providerId) ?? [];
+      return providersListModelsRoute.output.parse({
+        providerModels: providerModels.map((m: any) => ({ ...m, providerId: input.providerId })),
+        customModels: customModels.map((m: any) => ({ ...m, providerId: input.providerId, isCustom: true })),
+      });
+    }
+
+    if (route === providersGetRateLimitStatusRoute.name) {
+      providersGetRateLimitStatusRoute.input.parse(rawInput);
+      return providersGetRateLimitStatusRoute.output.parse({
+        status: {
+          config: { enabled: false, qpsLimit: 0 },
+          currentQps: 0,
+          queueLength: 0,
+          lastRequestTime: 0,
+        },
+      });
+    }
+
+    if (route === providersRefreshModelsRoute.name) {
+      const input = providersRefreshModelsRoute.input.parse(rawInput);
+      await daemonConfig.refreshProviderModels(input.providerId);
+      return providersRefreshModelsRoute.output.parse({ refreshed: true });
+    }
+
+    if (route === providersListOllamaModelsRoute.name) {
+      const input = providersListOllamaModelsRoute.input.parse(rawInput);
+      const models = await daemonConfig.listOllamaModels(input.providerId);
+      return providersListOllamaModelsRoute.output.parse({ models });
+    }
+
+    if (route === providersListOllamaRunningModelsRoute.name) {
+      const input = providersListOllamaRunningModelsRoute.input.parse(rawInput);
+      const models = await daemonConfig.listOllamaRunningModels(input.providerId);
+      return providersListOllamaRunningModelsRoute.output.parse({ models });
+    }
+
+    if (route === providersPullOllamaModelRoute.name) {
+      const input = providersPullOllamaModelRoute.input.parse(rawInput);
+      const success = await daemonConfig.pullOllamaModel(input.providerId, input.modelName);
+      return providersPullOllamaModelRoute.output.parse({ success });
+    }
+
+    if (route === providersImportScanRoute.name) {
+      providersImportScanRoute.input.parse(rawInput);
+      return providersImportScanRoute.output.parse(await providerImportService.scan());
+    }
+
+    if (route === providersImportApplyRoute.name) {
+      const input = providersImportApplyRoute.input.parse(rawInput);
+      return providersImportApplyRoute.output.parse(providerImportService.apply(input));
+    }
+
     if (route === modelsGetProviderCatalogRoute.name) {
       const input = modelsGetProviderCatalogRoute.input.parse(rawInput);
-      const providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
+      // Lazy-fetch: if the provider has credentials but no stored model catalog
+      // yet (e.g. added in web mode, which doesn't auto-fetch on add), pull the
+      // OpenAI-compatible /models list once and persist it so the model picker is
+      // populated. Skip silently when the provider has no apiKey/baseUrl (a fetch
+      // would just fail) — only attempt when credentials are present.
+      let providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
+      if (providerModels.length === 0) {
+        const provider = configPresenter.getProviderById(input.providerId) as
+          | { apiKey?: string; baseUrl?: string }
+          | undefined;
+        if (provider?.apiKey && provider?.baseUrl) {
+          try {
+            providerModels = ((await daemonConfig.refreshProviderModels(input.providerId)) as any[]) ?? [];
+          } catch (error) {
+            console.warn(`[daemon] lazy model fetch failed for ${input.providerId}:`, error);
+          }
+        }
+      }
       const customModels = configPresenter.getCustomModels(input.providerId) ?? [];
       return modelsGetProviderCatalogRoute.output.parse({
         catalog: {
           providerModels,
           customModels,
           dbProviderModels: [],
-          modelStatusMap: {},
+          modelStatusMap: daemonConfig.getModelStatusMap(input.providerId),
         },
       });
     }
@@ -973,48 +1719,48 @@ export function createDaemonDispatcher(
     if (route === modelsGetConfigRoute.name) {
       const input = modelsGetConfigRoute.input.parse(rawInput);
       return modelsGetConfigRoute.output.parse({
-        config: (configPresenter as any).getModelConfig(input.modelId, input.providerId),
+        config: daemonConfig.getModelConfig(input.modelId, input.providerId),
       });
     }
 
     if (route === modelsSetConfigRoute.name) {
       const input = modelsSetConfigRoute.input.parse(rawInput);
-      (configPresenter as any).setModelConfig(input.modelId, input.providerId, input.config);
+      daemonConfig.setModelConfig(input.modelId, input.providerId, input.config);
       return modelsSetConfigRoute.output.parse({
-        config: (configPresenter as any).getModelConfig(input.modelId, input.providerId),
+        config: daemonConfig.getModelConfig(input.modelId, input.providerId),
       });
     }
 
     if (route === modelsResetConfigRoute.name) {
       const input = modelsResetConfigRoute.input.parse(rawInput);
-      (configPresenter as any).resetModelConfig(input.modelId, input.providerId);
+      daemonConfig.resetModelConfig(input.modelId, input.providerId);
       return modelsResetConfigRoute.output.parse({ reset: true });
     }
 
     if (route === modelsGetProviderConfigsRoute.name) {
       const input = modelsGetProviderConfigsRoute.input.parse(rawInput);
       return modelsGetProviderConfigsRoute.output.parse({
-        configs: (configPresenter as any).getProviderModelConfigs(input.providerId),
+        configs: daemonConfig.getProviderModelConfigs(input.providerId),
       });
     }
 
     if (route === modelsHasUserConfigRoute.name) {
       const input = modelsHasUserConfigRoute.input.parse(rawInput);
       return modelsHasUserConfigRoute.output.parse({
-        hasConfig: (configPresenter as any).hasUserModelConfig(input.modelId, input.providerId),
+        hasConfig: daemonConfig.hasUserModelConfig(input.modelId, input.providerId),
       });
     }
 
     if (route === modelsExportConfigsRoute.name) {
       modelsExportConfigsRoute.input.parse(rawInput);
       return modelsExportConfigsRoute.output.parse({
-        configs: (configPresenter as any).exportModelConfigs(),
+        configs: daemonConfig.exportModelConfigs(),
       });
     }
 
     if (route === modelsImportConfigsRoute.name) {
       const input = modelsImportConfigsRoute.input.parse(rawInput);
-      (configPresenter as any).importModelConfigs(input.configs, input.overwrite);
+      daemonConfig.importModelConfigs(input.configs, input.overwrite);
       return modelsImportConfigsRoute.output.parse({
         imported: true,
         overwrite: input.overwrite,
@@ -1023,29 +1769,33 @@ export function createDaemonDispatcher(
 
     if (route === modelsAddCustomRoute.name) {
       const input = modelsAddCustomRoute.input.parse(rawInput);
-      (configPresenter as any).addCustomModel(input.providerId, input.model);
+      daemonConfig.addCustomModel(input.providerId, input.model);
       return modelsAddCustomRoute.output.parse({ model: input.model });
     }
 
     if (route === modelsRemoveCustomRoute.name) {
       const input = modelsRemoveCustomRoute.input.parse(rawInput);
-      (configPresenter as any).removeCustomModel(input.providerId, input.modelId);
+      daemonConfig.removeCustomModel(input.providerId, input.modelId);
       return modelsRemoveCustomRoute.output.parse({ removed: true });
     }
 
     if (route === modelsUpdateCustomRoute.name) {
       const input = modelsUpdateCustomRoute.input.parse(rawInput);
-      (configPresenter as any).updateCustomModel(input.providerId, input.modelId, input.updates);
+      daemonConfig.updateCustomModel(input.providerId, input.modelId, input.updates);
       return modelsUpdateCustomRoute.output.parse({ updated: true });
     }
 
     if (route === modelsSetStatusRoute.name) {
       const input = modelsSetStatusRoute.input.parse(rawInput);
+      daemonConfig.setModelStatus(input.providerId, input.modelId, input.enabled);
       return modelsSetStatusRoute.output.parse(input);
     }
 
     if (route === modelsSetBatchStatusRoute.name) {
       const input = modelsSetBatchStatusRoute.input.parse(rawInput);
+      for (const update of input.updates) {
+        daemonConfig.setModelStatus(input.providerId, update.modelId, update.enabled);
+      }
       return modelsSetBatchStatusRoute.output.parse({ results: input.updates });
     }
 
@@ -1068,21 +1818,76 @@ export function createDaemonDispatcher(
       });
     }
 
+    if (route === modelsListRuntimeRoute.name) {
+      const input = modelsListRuntimeRoute.input.parse(rawInput);
+      const provider = configPresenter.getProviderById(input.providerId);
+      const enabledIds = new Set<string>(provider?.enabledModels ?? []);
+      const disabledIds = new Set<string>(provider?.disabledModels ?? []);
+      const allModels = [...(provider?.models ?? []), ...(provider?.customModels ?? [])];
+      const models = allModels
+        .filter((m: any) => !disabledIds.has(m.id) && (enabledIds.has(m.id) || m.enabled !== false))
+        .map((m: any) => ({ ...m, providerId: input.providerId }));
+      return modelsListRuntimeRoute.output.parse({ models });
+    }
+
+    if (route === modelsTranscribeAudioRoute.name) {
+      const input = modelsTranscribeAudioRoute.input.parse(rawInput);
+      return modelsTranscribeAudioRoute.output.parse({
+        text: await runtime.providerExecutionPort.transcribeAudio(
+          input.providerId,
+          input.modelId,
+          input.audioBase64,
+          input.mimeType,
+          input.filename,
+        ),
+      });
+    }
+
     if (route === sessionsListRoute.name) {
       const input = sessionsListRoute.input.parse(rawInput);
-      const sessions = await (runtime as any).sessionRepository.list(input);
+      const sessions = await runtime.sessionRepository!.list(input);
       return sessionsListRoute.output.parse({ sessions });
+    }
+
+    if (route === sessionsListLightweightRoute.name) {
+      const input = sessionsListLightweightRoute.input.parse(rawInput);
+      const page = await runtime.sessionRepository!.listPage({
+        limit: input.limit,
+        cursor: input.cursor ?? null,
+        includeSubagents: input.includeSubagents,
+        agentId: input.agentId,
+      });
+      const items = page.records.map((session: any) => {
+        const { providerId: _providerId, modelId: _modelId, ...item } = session;
+        return item;
+      });
+      return sessionsListLightweightRoute.output.parse({
+        items,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
+      });
+    }
+
+    if (route === sessionsGetLightweightByIdsRoute.name) {
+      const input = sessionsGetLightweightByIdsRoute.input.parse(rawInput);
+      const items = await runtime.sessionRepository!.getMany(input.sessionIds);
+      return sessionsGetLightweightByIdsRoute.output.parse({
+        items: items.map((session: any) => {
+          const { providerId: _providerId, modelId: _modelId, ...item } = session;
+          return item;
+        }),
+      });
     }
 
     if (route === sessionsCreateRoute.name) {
       const input = sessionsCreateRoute.input.parse(rawInput);
-      const session = await (runtime as any).sessionRepository.create(input, 0);
+      const session = await runtime.sessionRepository!.create(input, 0);
       return sessionsCreateRoute.output.parse({ session });
     }
 
     if (route === sessionsRestoreRoute.name) {
       const input = sessionsRestoreRoute.input.parse(rawInput);
-      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      const session = await runtime.sessionRepository!.get(input.sessionId);
       if (!session) {
         return sessionsRestoreRoute.output.parse({
           session: null,
@@ -1091,24 +1896,386 @@ export function createDaemonDispatcher(
           hasMore: false,
         });
       }
-      const messages = await (runtime as any).sessionRepository.listMessages(input.sessionId);
+      const page = await runtime.sessionRepository!.listMessagesPage(input.sessionId, { limit: input.limit });
       return sessionsRestoreRoute.output.parse({
         session,
-        messages: messages.map((m: any, idx: number) => ({
-          id: m.id,
-          sessionId: m.session_id,
-          role: m.role,
-          content: m.content,
-          status: "sent",
-          isContextEdge: idx === 0 ? 1 : 0,
-          metadata: m.metadata || "{}",
-          createdAt: m.created_at,
-          updatedAt: m.updated_at,
-          orderSeq: idx,
-        })),
-        nextCursor: null,
-        hasMore: false,
+        messages: page.messages,
+        nextCursor: page.nextCursor,
+        hasMore: page.hasMore,
       });
+    }
+
+    if (route === sessionsListMessagesPageRoute.name) {
+      const input = sessionsListMessagesPageRoute.input.parse(rawInput);
+      const page = await runtime.sessionRepository!.listMessagesPage(input.sessionId, {
+        cursor: input.cursor ?? null,
+        limit: input.limit,
+      });
+      return sessionsListMessagesPageRoute.output.parse(page);
+    }
+
+    if (route === sessionsEnsureAcpDraftRoute.name) {
+      const input = sessionsEnsureAcpDraftRoute.input.parse(rawInput);
+      const agent = (await configPresenter.getAcpAgents()).find((entry) => entry.id === input.agentId);
+      if (!agent) {
+        throw new Error(`ACP agent not found: ${input.agentId}`);
+      }
+      const session = await runtime.sessionRepository!.createDraftAcpSession(input);
+      return sessionsEnsureAcpDraftRoute.output.parse({ session });
+    }
+
+    if (route === sessionsListPendingInputsRoute.name) {
+      const input = sessionsListPendingInputsRoute.input.parse(rawInput);
+      const items = await runtime.sessionRepository!.listPendingInputs(input.sessionId);
+      return sessionsListPendingInputsRoute.output.parse({ items });
+    }
+
+    if (route === sessionsQueuePendingInputRoute.name) {
+      const input = sessionsQueuePendingInputRoute.input.parse(rawInput);
+      const item = await (runtime as any).sessionRepository.queuePendingInput(input.sessionId, input.content);
+      return sessionsQueuePendingInputRoute.output.parse({ item });
+    }
+
+    if (route === sessionsUpdateQueuedInputRoute.name) {
+      const input = sessionsUpdateQueuedInputRoute.input.parse(rawInput);
+      const item = await (runtime as any).sessionRepository.updateQueuedInput(
+        input.sessionId,
+        input.itemId,
+        input.content,
+      );
+      return sessionsUpdateQueuedInputRoute.output.parse({ item });
+    }
+
+    if (route === sessionsMoveQueuedInputRoute.name) {
+      const input = sessionsMoveQueuedInputRoute.input.parse(rawInput);
+      const items = await (runtime as any).sessionRepository.moveQueuedInput(
+        input.sessionId,
+        input.itemId,
+        input.toIndex,
+      );
+      return sessionsMoveQueuedInputRoute.output.parse({ items });
+    }
+
+    if (route === sessionsConvertPendingInputToSteerRoute.name) {
+      const input = sessionsConvertPendingInputToSteerRoute.input.parse(rawInput);
+      const item = await (runtime as any).sessionRepository.convertPendingInputToSteer(input.sessionId, input.itemId);
+      return sessionsConvertPendingInputToSteerRoute.output.parse({ item });
+    }
+
+    if (route === sessionsDeletePendingInputRoute.name) {
+      const input = sessionsDeletePendingInputRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.deletePendingInput(input.sessionId, input.itemId);
+      return sessionsDeletePendingInputRoute.output.parse({ deleted: true });
+    }
+
+    if (route === sessionsSteerPendingInputRoute.name) {
+      const input = sessionsSteerPendingInputRoute.input.parse(rawInput);
+      const item = await (runtime as any).sessionRepository.steerPendingInput(input.sessionId, input.itemId);
+      return sessionsSteerPendingInputRoute.output.parse({ item });
+    }
+
+    if (route === sessionsResumePendingQueueRoute.name) {
+      const input = sessionsResumePendingQueueRoute.input.parse(rawInput);
+      await runtime.sessionRepository.resumePendingQueue(input.sessionId);
+      return sessionsResumePendingQueueRoute.output.parse({ resumed: true });
+    }
+
+    if (route === sessionsRetryMessageRoute.name) {
+      const input = sessionsRetryMessageRoute.input.parse(rawInput);
+      const retryInput = await (runtime as any).sessionRepository.prepareRetryMessage(input.sessionId, input.messageId);
+      await runtime.providerExecutionPort.sendMessage(input.sessionId, retryInput);
+      return sessionsRetryMessageRoute.output.parse({ retried: true });
+    }
+
+    if (route === sessionsDeleteMessageRoute.name) {
+      const input = sessionsDeleteMessageRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.deleteMessage(input.sessionId, input.messageId);
+      return sessionsDeleteMessageRoute.output.parse({ deleted: true });
+    }
+
+    if (route === sessionsEditUserMessageRoute.name) {
+      const input = sessionsEditUserMessageRoute.input.parse(rawInput);
+      const message = await (runtime as any).sessionRepository.editUserMessage(
+        input.sessionId,
+        input.messageId,
+        input.text,
+      );
+      return sessionsEditUserMessageRoute.output.parse({ message });
+    }
+
+    if (route === sessionsForkRoute.name) {
+      const input = sessionsForkRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.forkSession(
+        input.sourceSessionId,
+        input.targetMessageId,
+        input.newTitle,
+      );
+      return sessionsForkRoute.output.parse({ session });
+    }
+
+    if (route === sessionsSearchHistoryRoute.name) {
+      const input = sessionsSearchHistoryRoute.input.parse(rawInput);
+      const normalizedQuery = normalizeSearchText(input.query);
+      const limit = Math.min(Math.max(input.options?.limit ?? 20, 1), 50);
+      const repo = runtime.sessionRepository as any;
+      const sessions = await repo.list({ includeSubagents: true });
+      const hits: Array<any> = [];
+
+      if (normalizedQuery) {
+        for (const session of sessions) {
+          const title = String(session.title ?? "");
+          if (title.toLowerCase().includes(normalizedQuery)) {
+            hits.push({
+              kind: "session",
+              sessionId: session.id,
+              title,
+              projectDir: session.projectDir ?? null,
+              updatedAt: session.updatedAt ?? 0,
+            });
+          }
+
+          const messages = await repo.listMessages(session.id);
+          for (const message of messages) {
+            const content = String(message.content ?? "");
+            if (!content.toLowerCase().includes(normalizedQuery)) {
+              continue;
+            }
+            if (message.role !== "user" && message.role !== "assistant") {
+              continue;
+            }
+            hits.push({
+              kind: "message",
+              sessionId: session.id,
+              messageId: message.id,
+              title,
+              role: message.role,
+              snippet: buildSearchSnippet(content, normalizedQuery),
+              updatedAt: message.updatedAt ?? session.updatedAt ?? 0,
+            });
+          }
+        }
+      }
+
+      return sessionsSearchHistoryRoute.output.parse({
+        hits: hits.slice(0, limit),
+      });
+    }
+
+    if (route === sessionsGetSearchResultsRoute.name) {
+      const input = sessionsGetSearchResultsRoute.input.parse(rawInput);
+      const results = await runtime.sessionRepository!.getSearchResults(input.messageId, input.searchId);
+      return sessionsGetSearchResultsRoute.output.parse({ results });
+    }
+
+    if (route === sessionsListMessageTracesRoute.name) {
+      const input = sessionsListMessageTracesRoute.input.parse(rawInput);
+      const traces = await runtime.sessionRepository!.listMessageTraces(input.messageId);
+      return sessionsListMessageTracesRoute.output.parse({ traces });
+    }
+
+    if (route === sessionsGetViewManifestsRoute.name) {
+      const input = sessionsGetViewManifestsRoute.input.parse(rawInput);
+      const manifests = await runtime.sessionRepository!.getViewManifests(input.sessionId);
+      return sessionsGetViewManifestsRoute.output.parse({ manifests });
+    }
+
+    if (route === sessionsGetViewLineageRoute.name) {
+      const input = sessionsGetViewLineageRoute.input.parse(rawInput);
+      const lineage = await runtime.sessionRepository!.getViewLineage(input.sessionId);
+      return sessionsGetViewLineageRoute.output.parse({ lineage });
+    }
+
+    if (route === sessionsTranslateTextRoute.name) {
+      const input = sessionsTranslateTextRoute.input.parse(rawInput);
+      const text = input.text.trim();
+      if (!text) {
+        return sessionsTranslateTextRoute.output.parse({ text: "" });
+      }
+      const defaultModel =
+        typeof (configPresenter as any).getDefaultModel === "function"
+          ? (configPresenter as any).getDefaultModel()
+          : undefined;
+      const providerId = defaultModel?.providerId?.trim();
+      const modelId = defaultModel?.modelId?.trim();
+      if (!providerId || !modelId) {
+        throw new Error("No default model configured for translation.");
+      }
+      const targetLanguage = typeof input.locale === "string" && input.locale.trim() ? input.locale.trim() : "English";
+      const translated = await runtime.providerExecutionPort.generateCompletion({
+        providerId,
+        modelId,
+        temperature: 0.2,
+        maxTokens: 1024,
+        messages: [
+          {
+            role: "system",
+            content: `You are a translation assistant. Translate the user input into ${targetLanguage}. Return only the translated text.`,
+          },
+          {
+            role: "user",
+            content: text,
+          },
+        ],
+      });
+      return sessionsTranslateTextRoute.output.parse({ text: translated.trim() });
+    }
+
+    if (route === sessionsCompactRoute.name) {
+      const input = sessionsCompactRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
+      }
+      return sessionsCompactRoute.output.parse({
+        compacted: false,
+        state: {
+          status: "idle",
+          cursorOrderSeq: 1,
+          summaryUpdatedAt: null,
+        },
+      });
+    }
+
+    if (route === sessionsExportRoute.name) {
+      const input = sessionsExportRoute.input.parse(rawInput);
+      const repo = runtime.sessionRepository as any;
+      const session = await repo.get(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
+      }
+      const messages = await repo.listMessages(input.sessionId);
+      const filename = buildExportFilename(session.title || "session", input.format);
+      const content = buildExportContent(
+        session.title || "Session",
+        messages.map((message: any) => ({
+          role: message.role,
+          content: String(message.content ?? ""),
+          createdAt: message.createdAt ?? session.createdAt ?? Date.now(),
+        })),
+        input.format,
+      );
+      return sessionsExportRoute.output.parse({ filename, content });
+    }
+
+    if (route === sessionsGetAgentTransferImpactRoute.name) {
+      const input = sessionsGetAgentTransferImpactRoute.input.parse(rawInput);
+      const repo = runtime.sessionRepository as any;
+      const sessions = await repo.list({ agentId: input.agentId, includeSubagents: true });
+      const samples: Array<any> = [];
+      let emptyDrafts = 0;
+      let movableSessions = 0;
+      let blockedSessions = 0;
+
+      for (const session of sessions) {
+        const messages = await repo.listMessages(session.id);
+        const hasMessages = messages.length > 0;
+        const children = await repo.list({ includeSubagents: true, parentSessionId: session.id });
+        const isEmptyDraft = Boolean(session.isDraft) && !hasMessages && children.length === 0;
+        const pendingInputs =
+          typeof repo.listPendingInputs === "function" ? await repo.listPendingInputs(session.id).catch(() => []) : [];
+        const hasPendingInput = Array.isArray(pendingInputs) && pendingInputs.length > 0;
+        const blockReason = session.status === "generating" ? "active" : hasPendingInput ? "pending-input" : undefined;
+
+        if (isEmptyDraft) {
+          emptyDrafts += 1;
+        } else if (blockReason) {
+          blockedSessions += 1;
+        } else {
+          movableSessions += 1;
+        }
+
+        if (samples.length < 6 && (!isEmptyDraft || blockReason)) {
+          samples.push({
+            id: session.id,
+            title: session.title,
+            sessionKind: session.sessionKind,
+            isDraft: Boolean(session.isDraft),
+            projectDir: session.projectDir ?? null,
+            status: session.status,
+            blockReason,
+          });
+        }
+      }
+
+      return sessionsGetAgentTransferImpactRoute.output.parse({
+        impact: {
+          agentId: input.agentId,
+          totalSessions: sessions.length,
+          regularSessions: sessions.filter((session: any) => session.sessionKind === "regular").length,
+          subagentSessions: sessions.filter((session: any) => session.sessionKind === "subagent").length,
+          emptyDrafts,
+          movableSessions,
+          blockedSessions,
+          samples,
+        },
+      });
+    }
+
+    if (route === sessionsMoveAgentSessionsRoute.name) {
+      const input = sessionsMoveAgentSessionsRoute.input.parse(rawInput);
+      const repo = runtime.sessionRepository as any;
+      const sessions = await repo.list({ agentId: input.fromAgentId, includeSubagents: true });
+      const movedSessionIds: string[] = [];
+      const deletedSessionIds: string[] = [];
+
+      for (const session of sessions) {
+        const messages = await repo.listMessages(session.id);
+        const children = await repo.list({ includeSubagents: true, parentSessionId: session.id });
+        const isEmptyDraft = Boolean(session.isDraft) && messages.length === 0 && children.length === 0;
+        if (isEmptyDraft) {
+          await repo.delete(session.id);
+          deletedSessionIds.push(session.id);
+          continue;
+        }
+        await repo.moveSessionToAgent(session.id, {
+          agentId: input.toAgentId,
+          providerId: "acp",
+          modelId: input.toAgentId,
+          projectDir: session.projectDir ?? null,
+          permissionMode: session.permissionMode ?? "default",
+          subagentEnabled: Boolean(session.subagentEnabled),
+          generationSettings: await repo.getGenerationSettings(session.id),
+          disabledAgentTools: await repo.getDisabledAgentTools(session.id),
+        });
+        movedSessionIds.push(session.id);
+      }
+
+      return sessionsMoveAgentSessionsRoute.output.parse({
+        movedSessionIds,
+        deletedSessionIds,
+      });
+    }
+
+    if (route === sessionsDeleteAgentSessionsRoute.name) {
+      const input = sessionsDeleteAgentSessionsRoute.input.parse(rawInput);
+      const repo = runtime.sessionRepository as any;
+      const sessions = await repo.list({ agentId: input.agentId, includeSubagents: true });
+      const deletedSessionIds: string[] = [];
+      for (const session of sessions) {
+        await repo.delete(session.id);
+        deletedSessionIds.push(session.id);
+      }
+      return sessionsDeleteAgentSessionsRoute.output.parse({ deletedSessionIds });
+    }
+
+    if (route === sessionsMoveToAgentRoute.name) {
+      const input = sessionsMoveToAgentRoute.input.parse(rawInput);
+      const repo = runtime.sessionRepository as any;
+      const session = await repo.get(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
+      }
+      const updated = await repo.moveSessionToAgent(input.sessionId, {
+        agentId: input.toAgentId,
+        providerId: "acp",
+        modelId: input.toAgentId,
+        projectDir: session.projectDir ?? null,
+        permissionMode: session.permissionMode ?? "default",
+        subagentEnabled: Boolean(session.subagentEnabled),
+        generationSettings: await repo.getGenerationSettings(input.sessionId),
+        disabledAgentTools: await repo.getDisabledAgentTools(input.sessionId),
+      });
+      return sessionsMoveToAgentRoute.output.parse({ session: updated });
     }
 
     if (route === sessionsDeleteRoute.name) {
@@ -1129,6 +2296,12 @@ export function createDaemonDispatcher(
       return sessionsTogglePinnedRoute.output.parse({ updated: true });
     }
 
+    if (route === sessionsClearMessagesRoute.name) {
+      const input = sessionsClearMessagesRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.clearMessages(input.sessionId);
+      return sessionsClearMessagesRoute.output.parse({ cleared: true });
+    }
+
     if (route === sessionsSetProjectDirRoute.name) {
       const input = sessionsSetProjectDirRoute.input.parse(rawInput);
       await (runtime as any).sessionRepository.setProjectDir(input.sessionId, input.projectDir);
@@ -1136,10 +2309,111 @@ export function createDaemonDispatcher(
       return sessionsSetProjectDirRoute.output.parse({ session });
     }
 
+    if (route === sessionsGetGenerationSettingsRoute.name) {
+      const input = sessionsGetGenerationSettingsRoute.input.parse(rawInput);
+      const settings = await (runtime as any).sessionRepository.getGenerationSettings(input.sessionId);
+      return sessionsGetGenerationSettingsRoute.output.parse({ settings });
+    }
+
+    if (route === sessionsSetModelRoute.name) {
+      const input = sessionsSetModelRoute.input.parse(rawInput);
+      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
+      }
+      if ((session as any).providerId === "acp") {
+        throw new Error("ACP session model is locked.");
+      }
+      await (runtime as any).sessionRepository.setProviderModel(input.sessionId, input.providerId, input.modelId);
+      const updated = await (runtime as any).sessionRepository.get(input.sessionId);
+      return sessionsSetModelRoute.output.parse({ session: updated });
+    }
+
+    if (route === sessionsGetDisabledAgentToolsRoute.name) {
+      const input = sessionsGetDisabledAgentToolsRoute.input.parse(rawInput);
+      const disabledAgentTools = await (runtime as any).sessionRepository.getDisabledAgentTools(input.sessionId);
+      return sessionsGetDisabledAgentToolsRoute.output.parse({ disabledAgentTools });
+    }
+
+    if (route === sessionsUpdateDisabledAgentToolsRoute.name) {
+      const input = sessionsUpdateDisabledAgentToolsRoute.input.parse(rawInput);
+      const disabledAgentTools = await (runtime as any).sessionRepository.updateDisabledAgentTools(
+        input.sessionId,
+        input.disabledAgentTools,
+      );
+      return sessionsUpdateDisabledAgentToolsRoute.output.parse({ disabledAgentTools });
+    }
+
+    if (route === sessionsUpdateGenerationSettingsRoute.name) {
+      const input = sessionsUpdateGenerationSettingsRoute.input.parse(rawInput);
+      const settings = await (runtime as any).sessionRepository.updateGenerationSettings(
+        input.sessionId,
+        input.settings,
+      );
+      return sessionsUpdateGenerationSettingsRoute.output.parse({ settings });
+    }
+
+    if (routeName === sessionsResumePendingQueueRoute.name) {
+      const input = sessionsResumePendingQueueRoute.input.parse(rawInput);
+      const resume = (runtime as any).sessionRepository?.resumePendingQueue;
+      if (typeof resume === "function") {
+        await resume.call((runtime as any).sessionRepository, input.sessionId);
+      }
+      return sessionsResumePendingQueueRoute.output.parse({ resumed: true });
+    }
+
+    if (route === sessionsSetSubagentEnabledRoute.name) {
+      const input = sessionsSetSubagentEnabledRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.setSubagentEnabled(input.sessionId, input.enabled);
+      const session = await (runtime as any).sessionRepository.get(input.sessionId);
+      return sessionsSetSubagentEnabledRoute.output.parse({ session });
+    }
+
     if (route === sessionsGetActiveRoute.name) {
       sessionsGetActiveRoute.input.parse(rawInput);
       const session = await (runtime as any).sessionRepository.getActive(0);
       return sessionsGetActiveRoute.output.parse({ session });
+    }
+
+    if (route === sessionsGetPermissionModeRoute.name) {
+      const input = sessionsGetPermissionModeRoute.input.parse(rawInput);
+      const mode = await (runtime as any).sessionRepository.getPermissionMode(input.sessionId);
+      return sessionsGetPermissionModeRoute.output.parse({ mode });
+    }
+
+    if (route === sessionsGetAgentsRoute.name) {
+      sessionsGetAgentsRoute.input.parse(rawInput);
+      const agents =
+        typeof (configPresenter as any).listAgents === "function" ? await (configPresenter as any).listAgents() : [];
+      const acpEnabled =
+        typeof (configPresenter as any).getAcpEnabled === "function"
+          ? await (configPresenter as any).getAcpEnabled()
+          : false;
+      return sessionsGetAgentsRoute.output.parse({
+        agents: agents.filter((agent: any) => agent.type === "argos" || acpEnabled),
+      });
+    }
+
+    if (route === sessionsGetAcpSessionCommandsRoute.name) {
+      const input = sessionsGetAcpSessionCommandsRoute.input.parse(rawInput);
+      const commands = await acpSessionExecutionPort?.getAcpSessionCommands(input.sessionId);
+      return sessionsGetAcpSessionCommandsRoute.output.parse({ commands: commands ?? [] });
+    }
+
+    if (route === sessionsGetAcpSessionConfigOptionsRoute.name) {
+      const input = sessionsGetAcpSessionConfigOptionsRoute.input.parse(rawInput);
+      const state = await acpSessionExecutionPort?.getAcpSessionConfigOptions(input.sessionId);
+      return sessionsGetAcpSessionConfigOptionsRoute.output.parse({ state: state ?? null });
+    }
+
+    if (route === sessionsSetAcpSessionConfigOptionRoute.name) {
+      const input = sessionsSetAcpSessionConfigOptionRoute.input.parse(rawInput);
+      const state = await acpSessionExecutionPort?.setAcpSessionConfigOption(
+        input.sessionId,
+        input.configId,
+        input.value,
+      );
+      return sessionsSetAcpSessionConfigOptionRoute.output.parse({ state: state ?? null });
     }
 
     if (route === sessionsActivateRoute.name) {
@@ -1154,14 +2428,31 @@ export function createDaemonDispatcher(
       return sessionsDeactivateRoute.output.parse({ deactivated: true });
     }
 
+    if (route === sessionsSetPermissionModeRoute.name) {
+      const input = sessionsSetPermissionModeRoute.input.parse(rawInput);
+      await (runtime as any).sessionRepository.setPermissionMode(input.sessionId, input.mode);
+      return sessionsSetPermissionModeRoute.output.parse({ updated: true });
+    }
+
     // === Chat Routes ===
     if (route === chatSendMessageRoute.name) {
       const input = chatSendMessageRoute.input.parse(rawInput);
+      console.log(`[chat] sendMessage → session=${input.sessionId}`);
       if (!runtime.providerExecutionPort) {
         throw new Error("Chat requires LLM provider runtime. Use testConnection to verify provider setup.");
       }
-      const result = await runtime.providerExecutionPort.sendMessage(input.sessionId, input.content);
-      return chatSendMessageRoute.output.parse(result);
+      try {
+        const result = await runtime.providerExecutionPort.sendMessage(input.sessionId, input.content);
+        console.log(`[chat] sendMessage ✓ requestId=${result.requestId} messageId=${result.messageId}`);
+        return chatSendMessageRoute.output.parse({
+          accepted: true,
+          requestId: result.requestId ?? null,
+          messageId: result.messageId ?? null,
+        });
+      } catch (e) {
+        console.error(`[chat] sendMessage ✗`, e);
+        throw e;
+      }
     }
 
     if (route === chatStopStreamRoute.name) {
@@ -1176,11 +2467,52 @@ export function createDaemonDispatcher(
       return chatStopStreamRoute.output.parse({ stopped: true });
     }
 
-    const prefix = getRoutePrefix(route);
-    if (TIER2_PREFIXES.some((prefix) => route.startsWith(prefix))) {
-      throw new Error(
-        `Route '${route}' requires additional runtime services not yet available in daemon mode. Coming soon.`,
+    if (route === chatSteerActiveTurnRoute.name) {
+      const input = chatSteerActiveTurnRoute.input.parse(rawInput);
+      if (!runtime.providerExecutionPort) {
+        throw new Error("Steer active turn requires LLM provider runtime");
+      }
+      await runtime.providerExecutionPort.steerActiveTurn(input.sessionId, input.content);
+      return chatSteerActiveTurnRoute.output.parse({ accepted: true });
+    }
+
+    if (route === chatRespondToolInteractionRoute.name) {
+      const input = chatRespondToolInteractionRoute.input.parse(rawInput);
+      if (!runtime.providerExecutionPort) {
+        throw new Error("Tool interaction response requires LLM provider runtime");
+      }
+      const result = await runtime.providerExecutionPort.respondToolInteraction(
+        input.sessionId,
+        input.messageId,
+        input.toolCallId,
+        input.response,
       );
+      return chatRespondToolInteractionRoute.output.parse({ accepted: true, ...result });
+    }
+
+    if (route === pluginsListRoute.name) {
+      pluginsListRoute.input.parse(rawInput);
+      return pluginsListRoute.output.parse({ plugins: [] });
+    }
+
+    if (route === pluginsGetRoute.name) {
+      const input = pluginsGetRoute.input.parse(rawInput);
+      return pluginsGetRoute.output.parse({ plugin: undefined });
+    }
+
+    if (route === pluginsEnableRoute.name) {
+      pluginsEnableRoute.input.parse(rawInput);
+      throw new Error("Plugin management is not available in headless mode");
+    }
+
+    if (route === pluginsDisableRoute.name) {
+      pluginsDisableRoute.input.parse(rawInput);
+      throw new Error("Plugin management is not available in headless mode");
+    }
+
+    if (route === pluginsInvokeActionRoute.name) {
+      pluginsInvokeActionRoute.input.parse(rawInput);
+      throw new Error("Plugin action invocation is not available in headless mode");
     }
 
     throw new Error(`Unknown route: ${route}`);

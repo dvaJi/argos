@@ -23,7 +23,6 @@ import { useGuidedOnboardingStep } from "@/composables/useGuidedOnboardingStep";
 import { useLegacyPresenter } from "@api/legacy/presenters";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "@/stores/startupWorkloadStore";
-import { isBrowserMode } from "@api/runtimeKind";
 
 interface ModelProviderSettingsProps {
   providerId?: string;
@@ -135,7 +134,6 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   }, [providerModelGuide.currentStepId, providerApiKeyGuide.currentStepId]);
 
   const startupWorkloadStore = useStartupWorkloadStore();
-  const browserMode = isBrowserMode();
 
   const continueProviderGuide = useCallback(
     async (state: any) => {
@@ -173,10 +171,16 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
     return providers.filter((provider) => provider.name.toLowerCase().includes(query));
   };
 
-  const visibleProviders = useMemo(
-    () => getSortedProviders().filter((provider) => provider.id !== "acp"),
-    [providerStore.providers, providerStore.providerOrder],
-  );
+  const visibleProviders = useMemo(() => {
+    const seen = new Set<string>();
+    return getSortedProviders().filter((provider) => {
+      if (provider.id === "acp" || seen.has(provider.id)) {
+        return false;
+      }
+      seen.add(provider.id);
+      return true;
+    });
+  }, [providerStore.providers, providerStore.providerOrder]);
 
   const allEnabledProviders = useMemo(() => visibleProviders.filter((p) => p.enable), [visibleProviders]);
   const allDisabledProviders = useMemo(() => visibleProviders.filter((p) => !p.enable), [visibleProviders]);
@@ -388,12 +392,12 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   }, []);
 
   useEffect(() => {
-    if (browserMode || !routeProviderId) {
+    if (!routeProviderId) {
       return;
     }
 
     void refreshProviderModels(routeProviderId);
-  }, [browserMode, routeProviderId]);
+  }, [routeProviderId]);
 
   if (showProviderSkeleton) {
     return (

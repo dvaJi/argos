@@ -478,12 +478,15 @@ export default function SettingsApp() {
       void handleProviderInstall();
     };
 
-    const offNav = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
-    const offInst = window?.electron?.ipcRenderer?.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
+    const ipcRenderer = window?.electron?.ipcRenderer;
+    if (!ipcRenderer) return;
+
+    ipcRenderer.on(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+    ipcRenderer.on(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
 
     return () => {
-      offNav?.();
-      offInst?.();
+      ipcRenderer.removeListener?.(SETTINGS_EVENTS.NAVIGATE, navigateHandler);
+      ipcRenderer.removeListener?.(SETTINGS_EVENTS.PROVIDER_INSTALL, installHandler);
     };
   }, [handleSettingsNavigate, handleProviderInstall]);
 
@@ -541,12 +544,15 @@ export default function SettingsApp() {
     setupMcpDeeplink();
     startupWorkloadState.connect();
 
-    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.SHOW_ERROR, (_event, error) => {
+    const handleShowError = (_event: unknown, error: { id: string; title: string; message: string; type: string }) => {
       showErrorToast(error);
-    });
-    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, (_event, payload) => {
+    };
+    const handleDatabaseRepairSuggested = (_event: unknown, payload: unknown) => {
       showDatabaseRepairSuggestedToast(payload as DatabaseRepairSuggestedPayload);
-    });
+    };
+
+    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
+    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, handleDatabaseRepairSuggested);
 
     const init = async () => {
       const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
@@ -599,8 +605,11 @@ export default function SettingsApp() {
         errorDisplayTimer.current = null;
       }
 
-      window.electron.ipcRenderer.removeAllListeners(NOTIFICATION_EVENTS.SHOW_ERROR);
-      window.electron.ipcRenderer.removeAllListeners(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED);
+      window.electron.ipcRenderer.removeListener?.(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
+      window.electron.ipcRenderer.removeListener?.(
+        NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED,
+        handleDatabaseRepairSuggested,
+      );
       window.removeEventListener("focus", handleWindowFocus);
       cleanupMcpDeeplink();
     };

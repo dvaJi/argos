@@ -33,7 +33,13 @@ export function resolveWebRoot(options?: {
 
   const searched = options?.explicitWebRoot
     ? [resolve(options.explicitWebRoot)]
-    : uniquePaths([resolve(cwd, "web"), resolve(cwd, "apps/desktop/out/web"), resolve(executableDir, "web")]);
+    : uniquePaths([
+        resolve(cwd, "web"),
+        resolve(cwd, "apps/desktop/out/web"),
+        resolve(cwd, "../apps/desktop/out/web"),
+        resolve(cwd, "../../apps/desktop/out/web"),
+        resolve(executableDir, "web"),
+      ]);
 
   const root = searched.find(hasWebIndex);
   if (root) {
@@ -123,11 +129,11 @@ export function ensureDirectories(paths: BunPathResolver): void {
 export function setupGracefulShutdown(
   eventPublisher: BunEventPublisher,
   server: { stop: () => void },
-  closeCallback?: () => void,
+  closeCallback?: () => void | Promise<void>,
 ): void {
   let shutdownInProgress = false;
 
-  function shutdown(signal: string) {
+  async function shutdown(signal: string) {
     if (shutdownInProgress) return;
     shutdownInProgress = true;
 
@@ -136,13 +142,13 @@ export function setupGracefulShutdown(
     server.stop();
 
     if (closeCallback) {
-      closeCallback();
+      await closeCallback();
     }
 
     console.log("[daemon] Shutdown complete.");
     process.exit(0);
   }
 
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { BuiltinKnowledgeServer } from "../../../../src/main/presenter/mcpPresenter/inMemoryServers/builtinKnowledgeServer";
+import { BuiltinKnowledgeServer } from "@argos/backend-core";
 
 const serverInstances = vi.hoisted(() => [] as Array<{ handlers: Map<unknown, Function> }>);
 const mockGetKnowledgeConfigs = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
@@ -59,7 +59,10 @@ describe("BuiltinKnowledgeServer", () => {
   });
 
   it("starts without env configs", async () => {
-    new BuiltinKnowledgeServer();
+    new BuiltinKnowledgeServer({
+      getKnowledgeConfigs: mockGetKnowledgeConfigs,
+      similarityQuery: mockSimilarityQuery,
+    });
 
     const handler = serverInstances[0].handlers.get(ListToolsRequestSchema);
     await expect(handler?.()).resolves.toEqual({ tools: [] });
@@ -71,7 +74,10 @@ describe("BuiltinKnowledgeServer", () => {
       createKnowledgeConfig("knowledge-2", false),
       createKnowledgeConfig("knowledge-3", true),
     ]);
-    new BuiltinKnowledgeServer();
+    new BuiltinKnowledgeServer({
+      getKnowledgeConfigs: mockGetKnowledgeConfigs,
+      similarityQuery: mockSimilarityQuery,
+    });
 
     const handler = serverInstances[0].handlers.get(ListToolsRequestSchema);
     const result = await handler?.();
@@ -100,7 +106,10 @@ describe("BuiltinKnowledgeServer", () => {
         distance: 0.2,
       },
     ]);
-    new BuiltinKnowledgeServer();
+    new BuiltinKnowledgeServer({
+      getKnowledgeConfigs: mockGetKnowledgeConfigs,
+      similarityQuery: mockSimilarityQuery,
+    });
 
     const handler = serverInstances[0].handlers.get(CallToolRequestSchema);
     const result = await handler?.({

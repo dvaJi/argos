@@ -1,7 +1,7 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 
-export const SettingsRouteNameSchema = z.enum([
+export const SettingsRouteNameSchema = zod.enum([
   "settings-overview",
   "settings-common",
   "settings-display",
@@ -26,53 +26,53 @@ export const SettingsRouteNameSchema = z.enum([
 
 export const systemOpenSettingsRoute = defineRouteContract({
   name: "system.openSettings",
-  input: z
+  input: zod
     .object({
       routeName: SettingsRouteNameSchema.optional(),
-      params: z.record(z.string(), z.string()).optional(),
-      section: z.string().optional(),
+      params: zod.record(zod.string(), zod.string()).optional(),
+      section: zod.string().optional(),
     })
     .default({}),
-  output: z.object({
-    windowId: z.number().int().nullable(),
+  output: zod.object({
+    windowId: zod.number().int().nullable(),
   }),
 });
 
-const ProviderInstallPreviewSchema = z.union([
-  z.object({
-    kind: z.literal("builtin"),
-    id: z.string(),
-    baseUrl: z.string(),
-    apiKey: z.string(),
-    maskedApiKey: z.string(),
-    iconModelId: z.string(),
-    willOverwrite: z.boolean(),
+const ProviderInstallPreviewSchema = zod.union([
+  zod.object({
+    kind: zod.literal("builtin"),
+    id: zod.string(),
+    baseUrl: zod.string(),
+    apiKey: zod.string(),
+    maskedApiKey: zod.string(),
+    iconModelId: zod.string(),
+    willOverwrite: zod.boolean(),
   }),
-  z.object({
-    kind: z.literal("custom"),
-    name: z.string(),
-    type: z.string(),
-    baseUrl: z.string(),
-    apiKey: z.string(),
-    maskedApiKey: z.string(),
-    iconModelId: z.string(),
+  zod.object({
+    kind: zod.literal("custom"),
+    name: zod.string(),
+    type: zod.string(),
+    baseUrl: zod.string(),
+    apiKey: zod.string(),
+    maskedApiKey: zod.string(),
+    iconModelId: zod.string(),
   }),
 ]);
 
 export const systemConsumePendingProviderInstallRoute = defineRouteContract({
   name: "system.consumePendingProviderInstall",
-  input: z.object({}).default({}),
-  output: z.object({
+  input: zod.object({}).default({}),
+  output: zod.object({
     preview: ProviderInstallPreviewSchema.nullable(),
   }),
 });
 
 export const systemSetPendingProviderInstallRoute = defineRouteContract({
   name: "system.setPendingProviderInstall",
-  input: z.object({
+  input: zod.object({
     preview: ProviderInstallPreviewSchema,
   }),
-  output: z.object({
-    success: z.boolean(),
+  output: zod.object({
+    success: zod.boolean(),
   }),
 });

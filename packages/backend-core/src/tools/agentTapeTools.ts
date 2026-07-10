@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import type { MCPToolDefinition } from "@shared/presenter";
 import { createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
 import type { AgentToolRuntimePort } from "./runtimePorts";
@@ -26,10 +26,10 @@ export interface AgentToolCallResult {
   };
 }
 
-const tapeInfoSchema = z.object({});
+const tapeInfoSchema = zod.object({});
 
-const tapeAnchorsSchema = z.object({
-  limit: z
+const tapeAnchorsSchema = zod.object({
+  limit: zod
     .number()
     .int()
     .min(1)
@@ -38,31 +38,31 @@ const tapeAnchorsSchema = z.object({
     .describe("Maximum number of recent anchors to return. Defaults to 20."),
 });
 
-const tapeEntryKindSchema = z.enum(["event", "anchor", "message", "tool_call", "tool_result"]);
+const tapeEntryKindSchema = zod.enum(["event", "anchor", "message", "tool_call", "tool_result"]);
 
 function isTapeSearchBoundary(value: string): boolean {
   const trimmed = value.trim();
   return Number.isFinite(Number(trimmed)) || Number.isFinite(Date.parse(trimmed));
 }
 
-const tapeSearchSchema = z.object({
-  query: z.string().trim().min(1).describe("Text to search within this session tape."),
-  limit: z
+const tapeSearchSchema = zod.object({
+  query: zod.string().trim().min(1).describe("Text to search within this session tape."),
+  limit: zod
     .number()
     .int()
     .min(1)
     .max(50)
     .optional()
     .describe("Maximum number of matching tape entries to return. Defaults to 20."),
-  kinds: z.array(tapeEntryKindSchema).optional().describe("Optional entry kind filter for this session tape search."),
-  start: z
+  kinds: zod.array(tapeEntryKindSchema).optional().describe("Optional entry kind filter for this session tape search."),
+  start: zod
     .string()
     .trim()
     .min(1)
     .refine(isTapeSearchBoundary, "Expected an ISO date/time or millisecond timestamp.")
     .optional()
     .describe("Optional inclusive ISO date/time or millisecond timestamp lower bound."),
-  end: z
+  end: zod
     .string()
     .trim()
     .min(1)
@@ -71,14 +71,14 @@ const tapeSearchSchema = z.object({
     .describe("Optional inclusive ISO date/time or millisecond timestamp upper bound."),
 });
 
-const tapeHandoffSchema = z.strictObject({
-  name: z
+const tapeHandoffSchema = zod.strictObject({
+  name: zod
     .string()
     .trim()
     .min(1)
     .optional()
     .describe("Handoff name. Values without a prefix are normalized to handoff/<name>."),
-  summary: z.string().trim().optional().default("").describe("Compact durable summary for the handoff anchor."),
+  summary: zod.string().trim().optional().default("").describe("Compact durable summary for the handoff anchor."),
 });
 
 const tapeToolSchemas = {
@@ -96,13 +96,13 @@ type TapeAnchorOverview = {
   createdAt: number;
 };
 
-function buildToolDefinition(name: TapeToolName, description: string, schema: z.ZodTypeAny): MCPToolDefinition {
+function buildToolDefinition(name: TapeToolName, description: string, schema: zod.ZodTypeAny): MCPToolDefinition {
   return {
     type: "function",
     function: {
       name,
       description,
-      parameters: z.toJSONSchema(schema, { unrepresentable: "any" }) as {
+      parameters: zod.toJSONSchema(schema, { unrepresentable: "any" }) as {
         type: string;
         properties: Record<string, unknown>;
         required?: string[];
@@ -139,7 +139,7 @@ function toTapeAnchorOverview(anchor: { name: string | null; entryId: number; cr
   };
 }
 
-function parseTapeHandoffArgs(rawArgs: Record<string, unknown>): z.infer<typeof tapeHandoffSchema> {
+function parseTapeHandoffArgs(rawArgs: Record<string, unknown>): zod.infer<typeof tapeHandoffSchema> {
   const parsed = tapeHandoffSchema.safeParse(rawArgs);
   if (parsed.success) {
     return parsed.data;

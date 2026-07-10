@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import type {
   MCPServerConfig,
   MCPToolCall,
@@ -12,16 +12,16 @@ import type {
 } from "@shared/presenter";
 import { defineRouteContract } from "../common";
 
-const MCPServerConfigSchema = z.custom<MCPServerConfig>();
-const McpClientSchema = z.custom<McpClient>();
-const MCPToolDefinitionSchema = z.custom<MCPToolDefinition>();
-const PromptListEntrySchema = z.custom<PromptListEntry>();
-const ResourceListEntrySchema = z.custom<ResourceListEntry>();
-const ResourceSchema = z.custom<Resource>();
-const MCPToolCallSchema = z.custom<MCPToolCall>();
-const MCPToolResponseSchema = z.custom<MCPToolResponse>();
-const McpSamplingDecisionSchema = z.custom<McpSamplingDecision>();
-const NpmRegistryStatusSchema = z.custom<{
+const MCPServerConfigSchema = zod.custom<MCPServerConfig>();
+const McpClientSchema = zod.custom<McpClient>();
+const MCPToolDefinitionSchema = zod.custom<MCPToolDefinition>();
+const PromptListEntrySchema = zod.custom<PromptListEntry>();
+const ResourceListEntrySchema = zod.custom<ResourceListEntry>();
+const ResourceSchema = zod.custom<Resource>();
+const MCPToolCallSchema = zod.custom<MCPToolCall>();
+const MCPToolResponseSchema = zod.custom<MCPToolResponse>();
+const McpSamplingDecisionSchema = zod.custom<McpSamplingDecision>();
+const NpmRegistryStatusSchema = zod.custom<{
   currentRegistry: string | null;
   isFromCache: boolean;
   lastChecked?: number;
@@ -31,304 +31,304 @@ const NpmRegistryStatusSchema = z.custom<{
 
 export const mcpGetServersRoute = defineRouteContract({
   name: "mcp.getServers",
-  input: z.object({}),
-  output: z.object({
-    servers: z.record(z.string(), MCPServerConfigSchema),
+  input: zod.object({}),
+  output: zod.object({
+    servers: zod.record(zod.string(), MCPServerConfigSchema),
   }),
 });
 
 export const mcpGetEnabledRoute = defineRouteContract({
   name: "mcp.getEnabled",
-  input: z.object({}),
-  output: z.object({
-    enabled: z.boolean(),
+  input: zod.object({}),
+  output: zod.object({
+    enabled: zod.boolean(),
   }),
 });
 
 export const mcpGetClientsRoute = defineRouteContract({
   name: "mcp.getClients",
-  input: z.object({}),
-  output: z.object({
-    clients: z.array(McpClientSchema),
+  input: zod.object({}),
+  output: zod.object({
+    clients: zod.array(McpClientSchema),
   }),
 });
 
 export const mcpListToolDefinitionsRoute = defineRouteContract({
   name: "mcp.listToolDefinitions",
-  input: z.object({
-    enabledMcpTools: z.array(z.string()).optional(),
+  input: zod.object({
+    enabledMcpTools: zod.array(zod.string()).optional(),
   }),
-  output: z.object({
-    tools: z.array(MCPToolDefinitionSchema),
+  output: zod.object({
+    tools: zod.array(MCPToolDefinitionSchema),
   }),
 });
 
 export const mcpListPromptsRoute = defineRouteContract({
   name: "mcp.listPrompts",
-  input: z.object({}),
-  output: z.object({
-    prompts: z.array(PromptListEntrySchema),
+  input: zod.object({}),
+  output: zod.object({
+    prompts: zod.array(PromptListEntrySchema),
   }),
 });
 
 export const mcpListResourcesRoute = defineRouteContract({
   name: "mcp.listResources",
-  input: z.object({}),
-  output: z.object({
-    resources: z.array(ResourceListEntrySchema),
+  input: zod.object({}),
+  output: zod.object({
+    resources: zod.array(ResourceListEntrySchema),
   }),
 });
 
 export const mcpCallToolRoute = defineRouteContract({
   name: "mcp.callTool",
-  input: z.object({
+  input: zod.object({
     request: MCPToolCallSchema,
   }),
-  output: z.object({
-    content: z.string(),
+  output: zod.object({
+    content: zod.string(),
     rawData: MCPToolResponseSchema,
   }),
 });
 
 export const mcpAddServerRoute = defineRouteContract({
   name: "mcp.addServer",
-  input: z.object({
-    serverName: z.string(),
+  input: zod.object({
+    serverName: zod.string(),
     config: MCPServerConfigSchema,
   }),
-  output: z.object({
-    success: z.boolean(),
+  output: zod.object({
+    success: zod.boolean(),
   }),
 });
 
 export const mcpUpdateServerRoute = defineRouteContract({
   name: "mcp.updateServer",
-  input: z.object({
-    serverName: z.string(),
-    config: z.custom<Partial<MCPServerConfig>>(),
+  input: zod.object({
+    serverName: zod.string(),
+    config: zod.custom<Partial<MCPServerConfig>>(),
   }),
-  output: z.object({
-    updated: z.literal(true),
+  output: zod.object({
+    updated: zod.literal(true),
   }),
 });
 
 export const mcpRemoveServerRoute = defineRouteContract({
   name: "mcp.removeServer",
-  input: z.object({
-    serverName: z.string(),
+  input: zod.object({
+    serverName: zod.string(),
   }),
-  output: z.object({
-    removed: z.literal(true),
+  output: zod.object({
+    removed: zod.literal(true),
   }),
 });
 
 export const mcpSetServerEnabledRoute = defineRouteContract({
   name: "mcp.setServerEnabled",
-  input: z.object({
-    serverName: z.string(),
-    enabled: z.boolean(),
+  input: zod.object({
+    serverName: zod.string(),
+    enabled: zod.boolean(),
   }),
-  output: z.object({
-    enabled: z.boolean(),
+  output: zod.object({
+    enabled: zod.boolean(),
   }),
 });
 
 export const mcpSetEnabledRoute = defineRouteContract({
   name: "mcp.setEnabled",
-  input: z.object({
-    enabled: z.boolean(),
+  input: zod.object({
+    enabled: zod.boolean(),
   }),
-  output: z.object({
-    enabled: z.boolean(),
+  output: zod.object({
+    enabled: zod.boolean(),
   }),
 });
 
 export const mcpIsServerRunningRoute = defineRouteContract({
   name: "mcp.isServerRunning",
-  input: z.object({
-    serverName: z.string(),
+  input: zod.object({
+    serverName: zod.string(),
   }),
-  output: z.object({
-    running: z.boolean(),
+  output: zod.object({
+    running: zod.boolean(),
   }),
 });
 
 export const mcpStartServerRoute = defineRouteContract({
   name: "mcp.startServer",
-  input: z.object({
-    serverName: z.string(),
+  input: zod.object({
+    serverName: zod.string(),
   }),
-  output: z.object({
-    started: z.literal(true),
+  output: zod.object({
+    started: zod.literal(true),
   }),
 });
 
 export const mcpStopServerRoute = defineRouteContract({
   name: "mcp.stopServer",
-  input: z.object({
-    serverName: z.string(),
+  input: zod.object({
+    serverName: zod.string(),
   }),
-  output: z.object({
-    stopped: z.literal(true),
+  output: zod.object({
+    stopped: zod.literal(true),
   }),
 });
 
 export const mcpGetPromptRoute = defineRouteContract({
   name: "mcp.getPrompt",
-  input: z.object({
+  input: zod.object({
     prompt: PromptListEntrySchema,
-    args: z.record(z.string(), z.unknown()).optional(),
+    args: zod.record(zod.string(), zod.unknown()).optional(),
   }),
-  output: z.object({
-    result: z.unknown(),
+  output: zod.object({
+    result: zod.unknown(),
   }),
 });
 
 export const mcpReadResourceRoute = defineRouteContract({
   name: "mcp.readResource",
-  input: z.object({
+  input: zod.object({
     resource: ResourceListEntrySchema,
   }),
-  output: z.object({
+  output: zod.object({
     resource: ResourceSchema,
   }),
 });
 
 export const mcpSubmitSamplingDecisionRoute = defineRouteContract({
   name: "mcp.submitSamplingDecision",
-  input: z.object({
+  input: zod.object({
     decision: McpSamplingDecisionSchema,
   }),
-  output: z.object({
-    submitted: z.literal(true),
+  output: zod.object({
+    submitted: zod.literal(true),
   }),
 });
 
 export const mcpCancelSamplingRequestRoute = defineRouteContract({
   name: "mcp.cancelSamplingRequest",
-  input: z.object({
-    requestId: z.string(),
-    reason: z.string().optional(),
+  input: zod.object({
+    requestId: zod.string(),
+    reason: zod.string().optional(),
   }),
-  output: z.object({
-    cancelled: z.literal(true),
+  output: zod.object({
+    cancelled: zod.literal(true),
   }),
 });
 
 export const mcpGetNpmRegistryStatusRoute = defineRouteContract({
   name: "mcp.getNpmRegistryStatus",
-  input: z.object({}),
-  output: z.object({
+  input: zod.object({}),
+  output: zod.object({
     status: NpmRegistryStatusSchema,
   }),
 });
 
 export const mcpRefreshNpmRegistryRoute = defineRouteContract({
   name: "mcp.refreshNpmRegistry",
-  input: z.object({}),
-  output: z.object({
-    registry: z.string(),
+  input: zod.object({}),
+  output: zod.object({
+    registry: zod.string(),
   }),
 });
 
 export const mcpSetCustomNpmRegistryRoute = defineRouteContract({
   name: "mcp.setCustomNpmRegistry",
-  input: z.object({
-    registry: z.string().optional(),
+  input: zod.object({
+    registry: zod.string().optional(),
   }),
-  output: z.object({
-    updated: z.literal(true),
+  output: zod.object({
+    updated: zod.literal(true),
   }),
 });
 
 export const mcpSetAutoDetectNpmRegistryRoute = defineRouteContract({
   name: "mcp.setAutoDetectNpmRegistry",
-  input: z.object({
-    enabled: z.boolean(),
+  input: zod.object({
+    enabled: zod.boolean(),
   }),
-  output: z.object({
-    enabled: z.boolean(),
+  output: zod.object({
+    enabled: zod.boolean(),
   }),
 });
 
 export const mcpClearNpmRegistryCacheRoute = defineRouteContract({
   name: "mcp.clearNpmRegistryCache",
-  input: z.object({}),
-  output: z.object({
-    cleared: z.literal(true),
+  input: zod.object({}),
+  output: zod.object({
+    cleared: zod.literal(true),
   }),
 });
 
-const McpRouterServerSchema = z.object({
-  uuid: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
-  name: z.string(),
-  author_name: z.string(),
-  title: z.string(),
-  description: z.string(),
-  content: z.string().optional(),
-  server_key: z.string(),
-  config_name: z.string().optional(),
-  server_url: z.string().optional(),
+const McpRouterServerSchema = zod.object({
+  uuid: zod.string(),
+  created_at: zod.string(),
+  updated_at: zod.string(),
+  name: zod.string(),
+  author_name: zod.string(),
+  title: zod.string(),
+  description: zod.string(),
+  content: zod.string().optional(),
+  server_key: zod.string(),
+  config_name: zod.string().optional(),
+  server_url: zod.string().optional(),
 });
 
 export const mcpListMcpRouterServersRoute = defineRouteContract({
   name: "mcp.listMcpRouterServers",
-  input: z.object({
-    page: z.number(),
-    limit: z.number(),
+  input: zod.object({
+    page: zod.number(),
+    limit: zod.number(),
   }),
-  output: z.object({
-    servers: z.array(McpRouterServerSchema),
+  output: zod.object({
+    servers: zod.array(McpRouterServerSchema),
   }),
 });
 
 export const mcpInstallMcpRouterServerRoute = defineRouteContract({
   name: "mcp.installMcpRouterServer",
-  input: z.object({
-    serverKey: z.string(),
+  input: zod.object({
+    serverKey: zod.string(),
   }),
-  output: z.object({
-    installed: z.boolean(),
+  output: zod.object({
+    installed: zod.boolean(),
   }),
 });
 
 export const mcpGetMcpRouterApiKeyRoute = defineRouteContract({
   name: "mcp.getMcpRouterApiKey",
-  input: z.object({}),
-  output: z.object({
-    apiKey: z.string(),
+  input: zod.object({}),
+  output: zod.object({
+    apiKey: zod.string(),
   }),
 });
 
 export const mcpSetMcpRouterApiKeyRoute = defineRouteContract({
   name: "mcp.setMcpRouterApiKey",
-  input: z.object({
-    key: z.string(),
+  input: zod.object({
+    key: zod.string(),
   }),
-  output: z.object({
-    set: z.literal(true),
+  output: zod.object({
+    set: zod.literal(true),
   }),
 });
 
 export const mcpIsServerInstalledRoute = defineRouteContract({
   name: "mcp.isServerInstalled",
-  input: z.object({
-    source: z.string(),
-    sourceId: z.string(),
+  input: zod.object({
+    source: zod.string(),
+    sourceId: zod.string(),
   }),
-  output: z.object({
-    installed: z.boolean(),
+  output: zod.object({
+    installed: zod.boolean(),
   }),
 });
 
 export const mcpUpdateMcpRouterServersAuthRoute = defineRouteContract({
   name: "mcp.updateMcpRouterServersAuth",
-  input: z.object({
-    apiKey: z.string(),
+  input: zod.object({
+    apiKey: zod.string(),
   }),
-  output: z.object({
-    updated: z.literal(true),
+  output: zod.object({
+    updated: zod.literal(true),
   }),
 });

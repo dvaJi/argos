@@ -21,13 +21,49 @@ type PendingRequest = {
   timeout: ReturnType<typeof setTimeout>;
 };
 
+type ConnectionState = {
+  connected: boolean;
+  url: string;
+  lastError: string | null;
+};
+
+type ConnectionStateListener = (state: ConnectionState) => void;
+
 const REQUEST_TIMEOUT_MS = 30_000;
+const DEFAULT_DATABASE_SECURITY_STATUS = {
+  enabled: false,
+  cipher: "sqlcipher" as const,
+  safeStorageAvailable: false,
+  passwordStorage: "none" as const,
+  manualUnlockRequired: false,
+  migrationInProgress: false,
+};
+
+const DEFAULT_DATABASE_DIAGNOSIS = {
+  checkedAt: Date.now(),
+  isHealthy: true,
+  issues: [],
+  repairableIssues: [],
+  manualIssues: [],
+};
+
+const DEFAULT_DATABASE_REPAIR_REPORT = {
+  startedAt: Date.now(),
+  finishedAt: Date.now(),
+  status: "healthy" as const,
+  backupPath: null,
+  diagnosisBeforeRepair: DEFAULT_DATABASE_DIAGNOSIS,
+  diagnosisAfterRepair: DEFAULT_DATABASE_DIAGNOSIS,
+  repairedIssues: [],
+  remainingIssues: [],
+};
 
 export class WebSocketBridge implements ArgosBridge {
   private ws: WebSocket | null = null;
   private url: string;
   private token: string;
   private eventListeners = new Map<string, Set<EventListener>>();
+  private connectionStateListeners = new Set<ConnectionStateListener>();
   private requestCallbacks = new Map<string, PendingRequest>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
@@ -36,10 +72,56 @@ export class WebSocketBridge implements ArgosBridge {
   private maxReconnectDelayMs = 30000;
   private closed = false;
   private pendingMessages: string[] = [];
+  private connected = false;
+  private lastError: string | null = null;
 
   constructor(url: string, token?: string) {
     this.url = url;
     this.token = token ?? "";
+  }
+
+  getUrl(): string {
+    return this.url;
+  }
+
+  isConnected(): boolean {
+    return this.connected && this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  onConnectionStateChange(listener: ConnectionStateListener): () => void {
+    this.connectionStateListeners.add(listener);
+    listener(this.getConnectionState());
+    return () => {
+      this.connectionStateListeners.delete(listener);
+    };
+  }
+
+  private getConnectionState(): ConnectionState {
+    return {
+      connected: this.isConnected(),
+      url: this.url,
+      lastError: this.lastError,
+    };
+  }
+
+  private emitConnectionState(partial?: Partial<ConnectionState>): void {
+    if (partial) {
+      if (typeof partial.connected === "boolean") {
+        this.connected = partial.connected;
+      }
+      if (Object.prototype.hasOwnProperty.call(partial, "lastError")) {
+        this.lastError = partial.lastError ?? null;
+      }
+    }
+
+    const state = this.getConnectionState();
+    for (const listener of this.connectionStateListeners) {
+      try {
+        listener(state);
+      } catch (error) {
+        console.error("[WebSocketBridge] Error in connection state listener:", error);
+      }
+    }
   }
 
   async connect(): Promise<void> {
@@ -52,6 +134,7 @@ export class WebSocketBridge implements ArgosBridge {
 
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
+        this.emitConnectionState({ connected: true, lastError: null });
         this.flushPendingMessages();
         this.resubscribeAll();
         resolve();
@@ -62,6 +145,7 @@ export class WebSocketBridge implements ArgosBridge {
       };
 
       this.ws.onclose = () => {
+        this.emitConnectionState({ connected: false });
         if (!this.closed) {
           this.scheduleReconnect();
         }
@@ -69,6 +153,7 @@ export class WebSocketBridge implements ArgosBridge {
 
       this.ws.onerror = (error) => {
         if (!this.closed) {
+          this.emitConnectionState({ connected: false, lastError: "WebSocket connection failed" });
           reject(error);
         }
       };
@@ -88,9 +173,34 @@ export class WebSocketBridge implements ArgosBridge {
     this.requestCallbacks.clear();
     this.ws?.close();
     this.ws = null;
+    this.emitConnectionState({ connected: false });
   }
 
   async invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>> {
+    if (routeName === "databaseSecurity.getStatus") {
+      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.enable") {
+      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.changePassword") {
+      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.disable") {
+      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.diagnoseSchema") {
+      return { diagnosis: DEFAULT_DATABASE_DIAGNOSIS } as ArgosRouteOutput<T>;
+    }
+
+    if (routeName === "databaseSecurity.repairSchema") {
+      return { report: DEFAULT_DATABASE_REPAIR_REPORT } as ArgosRouteOutput<T>;
+    }
+
     if (!hasArgosRouteContract(routeName)) {
       throw new Error(`Unknown route: ${routeName}`);
     }

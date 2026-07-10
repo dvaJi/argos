@@ -1,11 +1,11 @@
-import { z } from "zod";
+import zod from "zod";
 import { TimestampMsSchema, defineEventContract } from "../common";
 import { WorkspaceInvalidationKindSchema, WorkspaceInvalidationSourceSchema } from "../domainSchemas";
 
 export const workspaceInvalidatedEvent = defineEventContract({
   name: "workspace.invalidated",
-  payload: z.object({
-    workspacePath: z.string(),
+  payload: zod.object({
+    workspacePath: zod.string(),
     kind: WorkspaceInvalidationKindSchema,
     source: WorkspaceInvalidationSourceSchema,
     version: TimestampMsSchema,

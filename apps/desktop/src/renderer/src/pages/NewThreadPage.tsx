@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@shadcn/components/ui/dropdown-menu";
 import ChatInputBox from "@/components/chat/ChatInputBox";
+import { FolderPickerDialog } from "@/components/FolderPicker";
 import logoDark from "@/assets/logo-dark.png";
 import ChatInputToolbar from "@/components/chat/ChatInputToolbar";
 import ChatStatusBar from "@/components/chat/ChatStatusBar";
@@ -23,7 +24,7 @@ import {
   selectProject,
   fetchProjects,
   loadDefaultProjectPath,
-  openFolderPicker,
+  selectProjectFolder,
 } from "@/stores/ui/project";
 import { sessionStore, createSession, selectSession, sendMessage, fetchSessions } from "@/stores/ui/session";
 import { agentStore, selectedAgent as getSelectedAgent } from "@/stores/ui/agent";
@@ -83,6 +84,7 @@ export function NewThreadPage() {
   const lastAcpDraftKeyRef = useRef<string | null>(null);
   const acpDraftRequestSeqRef = useRef(0);
   const [isCompletingSwitchAgentGuide, setIsCompletingSwitchAgentGuide] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const currentDraftDefaultsTaskRef = useRef<Promise<void> | null>(null);
   const cancelEnsureDraftTaskRef = useRef<(() => void) | null>(null);
   const voiceInputConfigTokenRef = useRef(0);
@@ -770,7 +772,7 @@ export function NewThreadPage() {
                   )}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => openFolderPicker()}>
+              <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
                 <span>Open Folder</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -838,6 +840,12 @@ export function NewThreadPage() {
           onBack={() => void handleActiveChatGuideBack()}
           onExpert={() => void handleActiveChatGuideExpert()}
           onPrimary={() => void handleActiveChatGuidePrimary()}
+        />
+        <FolderPickerDialog
+          open={folderPickerOpen}
+          onOpenChange={setFolderPickerOpen}
+          initialPath={projectStore.state.selectedProjectPath ?? undefined}
+          onSelect={(path) => void selectProjectFolder(path, "manual")}
         />
       </div>
     </TooltipProvider>

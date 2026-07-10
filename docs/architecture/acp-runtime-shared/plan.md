@@ -129,7 +129,7 @@ export function createAcpRuntime(deps: {
 
 ### Desktop (`apps/desktop/src/main/presenter/llmProviderPresenter/providers/acpProvider.ts`)
 
-- `AcpProvider extends BaseLLMProvider` becomes a thin adapter: constructs
+  - `AcpProvider extends BaseLLMProvider` becomes a thin adapter: constructs
   `createAcpRuntime({ ports: desktopPorts, ... })` and delegates `coreStream`,
   permissions, summaries, debug, agent refresh to it.
 - `desktopPorts`:
@@ -140,8 +140,8 @@ export function createAcpRuntime(deps: {
   - `mcp`: injected `ProviderMcpRuntimePort`.
 - `providerInstanceManager.ts:281` still constructs `AcpProvider` by id `"acp"`;
   no change to the wiring boundary.
-- Re-export shims left at old paths (`acp/index.ts`) so in-process callers and
-  tests compile until fully migrated.
+  - The temporary re-export shims at old paths have already been removed now
+    that the in-process callers import `@argos/acp-runtime` directly.
 
 ### Daemon (`apps/daemon/src/host/acp-provider-execution.ts` — new)
 
@@ -228,8 +228,9 @@ Renderer ──bridge.invoke(chat.*)──▶ daemon dispatcher ──▶ AcpPro
 
 - Desktop public APIs (`IConfigPresenter` ACP methods, `AcpProvider` surface)
   stay signature-stable.
-- Old desktop import paths keep re-exporting from `@argos/acp-runtime` until
-  all in-process callers are updated; shims removed in the final phase.
+- Old desktop import paths were temporarily re-exported from
+  `@argos/acp-runtime`; that cleanup is now complete and the shims are archived
+  as removed implementation detail.
 - `scripts/architecture-guard.mjs`: allowlist `@argos/acp-runtime` import edges
   from `apps/desktop/src/main` and `apps/daemon/src`; forbid `electron`/`@/`
   imports inside `packages/acp-runtime/`.
@@ -255,11 +256,13 @@ Renderer ──bridge.invoke(chat.*)──▶ daemon dispatcher ──▶ AcpPro
 2. **Move pure modules** (zero-Electron: mappers, state, capabilities, conf
    helper, path guard, debug log).
 3. **Abstract & move** Electron-coupled modules (process/session/registry/
-   launch/init) behind ports; leave desktop re-export shims.
+   launch/init) behind ports; any temporary desktop re-export shims are removed
+   during cleanup.
 4. **Desktop adapter** rewrite (`AcpProvider` thin wrapper); keep tests green.
 5. **Routes** — new `config.*` ACP routes + `ConfigClient` wrappers + shared
    dispatcher handlers.
 6. **Daemon config** — extend `DaemonConfigPresenter` with full ACP surface.
 7. **Daemon execution** — `AcpProviderExecutionPort` + wiring + event bridging.
 8. **Renderer** — migrate `AcpSettings.tsx` off legacy transport.
-9. **Cleanup** — remove shims, finalize guard edges, full lint/type/test pass.
+9. **Cleanup** — finalize guard edges, full lint/type/test pass, and archive
+   the removed shim surface.

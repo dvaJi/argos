@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 import {
   WorkspaceFileNodeSchema,
@@ -8,140 +8,170 @@ import {
   WorkspaceLinkedFileResolutionSchema,
 } from "../domainSchemas";
 
-const WorkspaceRegistrationModeSchema = z.enum(["workspace", "workdir"]);
+const WorkspaceRegistrationModeSchema = zod.enum(["workspace", "workdir"]);
 
 export const workspaceRegisterRoute = defineRouteContract({
   name: "workspace.register",
-  input: z.object({
-    workspacePath: z.string().min(1),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
     mode: WorkspaceRegistrationModeSchema.default("workspace"),
   }),
-  output: z.object({
-    registered: z.boolean(),
+  output: zod.object({
+    registered: zod.boolean(),
   }),
 });
 
 export const workspaceUnregisterRoute = defineRouteContract({
   name: "workspace.unregister",
-  input: z.object({
-    workspacePath: z.string().min(1),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
     mode: WorkspaceRegistrationModeSchema.default("workspace"),
   }),
-  output: z.object({
-    unregistered: z.boolean(),
+  output: zod.object({
+    unregistered: zod.boolean(),
   }),
 });
 
 export const workspaceWatchRoute = defineRouteContract({
   name: "workspace.watch",
-  input: z.object({
-    workspacePath: z.string().min(1),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
   }),
-  output: z.object({
-    watching: z.boolean(),
+  output: zod.object({
+    watching: zod.boolean(),
   }),
 });
 
 export const workspaceUnwatchRoute = defineRouteContract({
   name: "workspace.unwatch",
-  input: z.object({
-    workspacePath: z.string().min(1),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
   }),
-  output: z.object({
-    watching: z.boolean(),
+  output: zod.object({
+    watching: zod.boolean(),
   }),
 });
 
 export const workspaceReadDirectoryRoute = defineRouteContract({
   name: "workspace.readDirectory",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    nodes: z.array(WorkspaceFileNodeSchema),
+  output: zod.object({
+    nodes: zod.array(WorkspaceFileNodeSchema),
   }),
 });
 
 export const workspaceExpandDirectoryRoute = defineRouteContract({
   name: "workspace.expandDirectory",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    nodes: z.array(WorkspaceFileNodeSchema),
+  output: zod.object({
+    nodes: zod.array(WorkspaceFileNodeSchema),
   }),
 });
 
 export const workspaceRevealFileInFolderRoute = defineRouteContract({
   name: "workspace.revealFileInFolder",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    revealed: z.boolean(),
+  output: zod.object({
+    revealed: zod.boolean(),
   }),
 });
 
 export const workspaceOpenFileRoute = defineRouteContract({
   name: "workspace.openFile",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
-    opened: z.boolean(),
+  output: zod.object({
+    opened: zod.boolean(),
   }),
 });
 
 export const workspaceReadFilePreviewRoute = defineRouteContract({
   name: "workspace.readFilePreview",
-  input: z.object({
-    path: z.string().min(1),
+  input: zod.object({
+    path: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     preview: WorkspaceFilePreviewSchema.nullable(),
   }),
 });
 
 export const workspaceResolveMarkdownLinkedFileRoute = defineRouteContract({
   name: "workspace.resolveMarkdownLinkedFile",
-  input: z.object({
-    workspacePath: z.string().nullable(),
-    href: z.string().min(1),
-    sourceFilePath: z.string().nullable().optional(),
+  input: zod.object({
+    workspacePath: zod.string().nullable(),
+    href: zod.string().min(1),
+    sourceFilePath: zod.string().nullable().optional(),
   }),
-  output: z.object({
+  output: zod.object({
     resolution: WorkspaceLinkedFileResolutionSchema.nullable(),
   }),
 });
 
 export const workspaceGetGitStatusRoute = defineRouteContract({
   name: "workspace.getGitStatus",
-  input: z.object({
-    workspacePath: z.string().min(1),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     state: WorkspaceGitStateSchema.nullable(),
   }),
 });
 
 export const workspaceGetGitDiffRoute = defineRouteContract({
   name: "workspace.getGitDiff",
-  input: z.object({
-    workspacePath: z.string().min(1),
-    filePath: z.string().optional(),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+    filePath: zod.string().optional(),
   }),
-  output: z.object({
+  output: zod.object({
     diff: WorkspaceGitDiffSchema.nullable(),
   }),
 });
 
 export const workspaceSearchFilesRoute = defineRouteContract({
   name: "workspace.searchFiles",
-  input: z.object({
-    workspacePath: z.string().min(1),
-    query: z.string(),
+  input: zod.object({
+    workspacePath: zod.string().min(1),
+    query: zod.string(),
   }),
-  output: z.object({
-    nodes: z.array(WorkspaceFileNodeSchema),
+  output: zod.object({
+    nodes: zod.array(WorkspaceFileNodeSchema),
+  }),
+});
+
+/**
+ * Browse a directory on the host filesystem (daemon-side). Powers the web-mode
+ * FolderPicker: the user navigates the real filesystem (which only the daemon
+ * can see) by typing a path and stepping through subdirectories — the same
+ * model t3code's web app uses. Desktop falls back to its native dialog; this
+ * route is the web/headless path. Returns the resolved absolute path, its
+ * parent, and the child entries (directories only, for navigation).
+ */
+export const workspaceBrowseDirectoryRoute = defineRouteContract({
+  name: "workspace.browseDirectory",
+  input: zod
+    .object({
+      path: zod.string().optional(),
+    })
+    .default({}),
+  output: zod.object({
+    path: zod.string(),
+    parent: zod.string().nullable(),
+    home: zod.string(),
+    separator: zod.enum(["/", "\\"]),
+    entries: zod.array(
+      zod.object({
+        name: zod.string(),
+        path: zod.string(),
+        isDirectory: zod.boolean(),
+      }),
+    ),
   }),
 });

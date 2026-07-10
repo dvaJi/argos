@@ -58,7 +58,6 @@ export class SVGSanitizer {
 
       // Basic SVG structure validation
       if (!this.isValidSVGStructure(svgContent)) {
-        console.warn("Invalid SVG structure");
         return null;
       }
 

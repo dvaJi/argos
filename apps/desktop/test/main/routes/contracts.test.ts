@@ -103,7 +103,6 @@ describe("main kernel contracts", () => {
         "skills.installFromFolder",
         "skills.installFromUrl",
         "skills.listMetadata",
-        "skills.openFolder",
         "skills.setActive",
         "sync.getBackupStatus",
         "sync.import",

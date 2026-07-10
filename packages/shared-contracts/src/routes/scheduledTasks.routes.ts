@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { defineRouteContract } from "../common";
 import {
   SCHEDULED_TASKS_VERSION,
@@ -6,68 +6,68 @@ import {
   SCHEDULED_TASK_ACTION_KINDS,
 } from "@shared/scheduledTasks";
 
-export const scheduledTaskTriggerKindSchema = z.enum(SCHEDULED_TASK_TRIGGER_KINDS);
-export const scheduledTaskActionKindSchema = z.enum(SCHEDULED_TASK_ACTION_KINDS);
+export const scheduledTaskTriggerKindSchema = zod.enum(SCHEDULED_TASK_TRIGGER_KINDS);
+export const scheduledTaskActionKindSchema = zod.enum(SCHEDULED_TASK_ACTION_KINDS);
 
-const hourSchema = z.number().int().min(0).max(23);
-const minuteSchema = z.number().int().min(0).max(59);
-const dayOfWeekSchema = z.number().int().min(0).max(6);
+const hourSchema = zod.number().int().min(0).max(23);
+const minuteSchema = zod.number().int().min(0).max(59);
+const dayOfWeekSchema = zod.number().int().min(0).max(6);
 
-export const scheduledTaskTriggerSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("once"),
-    firesAt: z.number().int().nonnegative(),
+export const scheduledTaskTriggerSchema = zod.discriminatedUnion("kind", [
+  zod.object({
+    kind: zod.literal("once"),
+    firesAt: zod.number().int().nonnegative(),
   }),
-  z.object({
-    kind: z.literal("daily"),
+  zod.object({
+    kind: zod.literal("daily"),
     hour: hourSchema,
     minute: minuteSchema,
   }),
-  z.object({
-    kind: z.literal("weekly"),
+  zod.object({
+    kind: zod.literal("weekly"),
     dayOfWeek: dayOfWeekSchema,
     hour: hourSchema,
     minute: minuteSchema,
   }),
 ]);
 
-export const scheduledTaskActionSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("notify"),
-    title: z.string().max(200),
-    body: z.string().max(2000),
+export const scheduledTaskActionSchema = zod.discriminatedUnion("kind", [
+  zod.object({
+    kind: zod.literal("notify"),
+    title: zod.string().max(200),
+    body: zod.string().max(2000),
   }),
-  z.object({
-    kind: z.literal("prompt"),
-    title: z.string().max(200),
-    message: z.string().max(20000),
-    autoSend: z.boolean(),
-    agentId: z.string().optional(),
-    providerId: z.string().optional(),
-    modelId: z.string().optional(),
-    systemPrompt: z.string().max(20000).optional(),
+  zod.object({
+    kind: zod.literal("prompt"),
+    title: zod.string().max(200),
+    message: zod.string().max(20000),
+    autoSend: zod.boolean(),
+    agentId: zod.string().optional(),
+    providerId: zod.string().optional(),
+    modelId: zod.string().optional(),
+    systemPrompt: zod.string().max(20000).optional(),
   }),
 ]);
 
-export const scheduledTaskSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).max(200),
-  enabled: z.boolean(),
+export const scheduledTaskSchema = zod.object({
+  id: zod.string().min(1),
+  name: zod.string().min(1).max(200),
+  enabled: zod.boolean(),
   trigger: scheduledTaskTriggerSchema,
   action: scheduledTaskActionSchema,
-  createdAt: z.number().int().nonnegative(),
-  lastFiredAt: z.number().int().nonnegative().nullable(),
+  createdAt: zod.number().int().nonnegative(),
+  lastFiredAt: zod.number().int().nonnegative().nullable(),
 });
 
-export const scheduledTasksSettingsSchema = z.object({
-  version: z.literal(SCHEDULED_TASKS_VERSION),
-  tasks: z.array(scheduledTaskSchema),
+export const scheduledTasksSettingsSchema = zod.object({
+  version: zod.literal(SCHEDULED_TASKS_VERSION),
+  tasks: zod.array(scheduledTaskSchema),
 });
 
 export const scheduledTasksListRoute = defineRouteContract({
   name: "scheduledTasks.list",
-  input: z.object({}),
-  output: z.object({
+  input: zod.object({}),
+  output: zod.object({
     settings: scheduledTasksSettingsSchema,
   }),
 });
@@ -75,13 +75,13 @@ export const scheduledTasksListRoute = defineRouteContract({
 export const scheduledTasksUpsertInputSchema = scheduledTaskSchema
   .omit({ id: true, createdAt: true, lastFiredAt: true })
   .extend({
-    id: z.string().min(1).optional(),
+    id: zod.string().min(1).optional(),
   });
 
 export const scheduledTasksUpsertRoute = defineRouteContract({
   name: "scheduledTasks.upsert",
   input: scheduledTasksUpsertInputSchema,
-  output: z.object({
+  output: zod.object({
     task: scheduledTaskSchema,
     settings: scheduledTasksSettingsSchema,
   }),
@@ -89,21 +89,21 @@ export const scheduledTasksUpsertRoute = defineRouteContract({
 
 export const scheduledTasksDeleteRoute = defineRouteContract({
   name: "scheduledTasks.delete",
-  input: z.object({
-    id: z.string().min(1),
+  input: zod.object({
+    id: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     settings: scheduledTasksSettingsSchema,
   }),
 });
 
 export const scheduledTasksToggleRoute = defineRouteContract({
   name: "scheduledTasks.toggle",
-  input: z.object({
-    id: z.string().min(1),
-    enabled: z.boolean(),
+  input: zod.object({
+    id: zod.string().min(1),
+    enabled: zod.boolean(),
   }),
-  output: z.object({
+  output: zod.object({
     task: scheduledTaskSchema,
     settings: scheduledTasksSettingsSchema,
   }),
@@ -111,10 +111,10 @@ export const scheduledTasksToggleRoute = defineRouteContract({
 
 export const scheduledTasksFireNowRoute = defineRouteContract({
   name: "scheduledTasks.fireNow",
-  input: z.object({
-    id: z.string().min(1),
+  input: zod.object({
+    id: zod.string().min(1),
   }),
-  output: z.object({
+  output: zod.object({
     task: scheduledTaskSchema,
     settings: scheduledTasksSettingsSchema,
   }),

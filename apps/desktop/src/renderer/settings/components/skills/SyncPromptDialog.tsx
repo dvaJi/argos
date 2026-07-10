@@ -86,9 +86,12 @@ export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialog
       }
     };
 
-    const off = window.electron?.ipcRenderer?.on(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
+    const ipcRenderer = window.electron?.ipcRenderer;
+    if (!ipcRenderer) return;
+
+    ipcRenderer.on(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
     return () => {
-      off?.();
+      ipcRenderer.removeListener?.(SKILL_SYNC_EVENTS.NEW_DISCOVERIES, handler);
     };
   }, []);
 

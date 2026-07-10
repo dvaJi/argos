@@ -38,7 +38,7 @@ import { EmbeddingManager } from "./managers/embeddingManager";
 import { ModelScopeSyncManager } from "./managers/modelScopeSyncManager";
 import type { OllamaProvider } from "./providers/ollamaProvider";
 import { ShowResponse } from "ollama";
-import { AcpSessionPersistence } from "@argos/acp-runtime";
+import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import { AcpProvider } from "./providers/acpProvider";
 import type { ProviderMcpRuntimePort } from "./runtimePorts";
 

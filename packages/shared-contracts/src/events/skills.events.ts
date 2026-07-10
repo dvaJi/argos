@@ -1,26 +1,26 @@
-import { z } from "zod";
+import zod from "zod";
 import type { SkillMetadata } from "@shared/types/skill";
 import { EntityIdSchema, defineEventContract } from "../common";
 
-const SkillMetadataSchema = z.custom<SkillMetadata>();
+const SkillMetadataSchema = zod.custom<SkillMetadata>();
 
 export const skillsCatalogChangedEvent = defineEventContract({
   name: "skills.catalog.changed",
-  payload: z.object({
-    reason: z.enum(["discovered", "installed", "uninstalled", "metadata-updated"]),
-    name: z.string().optional(),
+  payload: zod.object({
+    reason: zod.enum(["discovered", "installed", "uninstalled", "metadata-updated"]),
+    name: zod.string().optional(),
     skill: SkillMetadataSchema.optional(),
-    skills: z.array(SkillMetadataSchema).optional(),
-    version: z.number().int(),
+    skills: zod.array(SkillMetadataSchema).optional(),
+    version: zod.number().int(),
   }),
 });
 
 export const skillsSessionChangedEvent = defineEventContract({
   name: "skills.session.changed",
-  payload: z.object({
+  payload: zod.object({
     conversationId: EntityIdSchema,
-    skills: z.array(z.string()),
-    change: z.enum(["activated", "deactivated"]),
-    version: z.number().int(),
+    skills: zod.array(zod.string()),
+    change: zod.enum(["activated", "deactivated"]),
+    version: zod.number().int(),
   }),
 });

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import zod from "zod";
 import { TimestampMsSchema, defineEventContract } from "../common";
 import {
   AcpAgentConfigSchema,
@@ -11,9 +11,9 @@ import {
 
 export const configLanguageChangedEvent = defineEventContract({
   name: "config.language.changed",
-  payload: z.object({
-    requestedLanguage: z.string(),
-    locale: z.string(),
+  payload: zod.object({
+    requestedLanguage: zod.string(),
+    locale: zod.string(),
     direction: LanguageDirectionSchema,
     version: TimestampMsSchema,
   }),
@@ -21,59 +21,59 @@ export const configLanguageChangedEvent = defineEventContract({
 
 export const configThemeChangedEvent = defineEventContract({
   name: "config.theme.changed",
-  payload: z.object({
+  payload: zod.object({
     theme: ThemeModeSchema,
-    isDark: z.boolean(),
+    isDark: zod.boolean(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configSystemThemeChangedEvent = defineEventContract({
   name: "config.systemTheme.changed",
-  payload: z.object({
-    isDark: z.boolean(),
+  payload: zod.object({
+    isDark: zod.boolean(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configFloatingButtonChangedEvent = defineEventContract({
   name: "config.floatingButton.changed",
-  payload: z.object({
-    enabled: z.boolean(),
+  payload: zod.object({
+    enabled: zod.boolean(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configSyncSettingsChangedEvent = defineEventContract({
   name: "config.syncSettings.changed",
-  payload: z.object({
-    enabled: z.boolean(),
-    folderPath: z.string(),
+  payload: zod.object({
+    enabled: zod.boolean(),
+    folderPath: zod.string(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configDefaultProjectPathChangedEvent = defineEventContract({
   name: "config.defaultProjectPath.changed",
-  payload: z.object({
-    path: z.string().nullable(),
+  payload: zod.object({
+    path: zod.string().nullable(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configAgentsChangedEvent = defineEventContract({
   name: "config.agents.changed",
-  payload: z.object({
-    enabled: z.boolean(),
-    agents: z.array(AcpAgentConfigSchema),
-    agentIds: z.array(z.string()).optional(),
+  payload: zod.object({
+    enabled: zod.boolean(),
+    agents: zod.array(AcpAgentConfigSchema),
+    agentIds: zod.array(zod.string()).optional(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configShortcutKeysChangedEvent = defineEventContract({
   name: "config.shortcutKeys.changed",
-  payload: z.object({
+  payload: zod.object({
     shortcuts: ShortcutKeySettingSchema,
     version: TimestampMsSchema,
   }),
@@ -81,18 +81,18 @@ export const configShortcutKeysChangedEvent = defineEventContract({
 
 export const configSystemPromptsChangedEvent = defineEventContract({
   name: "config.systemPrompts.changed",
-  payload: z.object({
-    prompts: z.array(SystemPromptSchema),
-    defaultPromptId: z.string(),
-    prompt: z.string(),
+  payload: zod.object({
+    prompts: zod.array(SystemPromptSchema),
+    defaultPromptId: zod.string(),
+    prompt: zod.string(),
     version: TimestampMsSchema,
   }),
 });
 
 export const configCustomPromptsChangedEvent = defineEventContract({
   name: "config.customPrompts.changed",
-  payload: z.object({
-    prompts: z.array(PromptSchema),
+  payload: zod.object({
+    prompts: zod.array(PromptSchema),
     version: TimestampMsSchema,
   }),
 });

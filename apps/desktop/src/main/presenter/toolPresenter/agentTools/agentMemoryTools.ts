@@ -116,7 +116,7 @@ export class AgentMemoryToolHandler {
       return false;
     }
     const agentId = await this.resolveAgentId(conversationId);
-    return Boolean(agentId && this.runtimePort.isMemoryEnabled!(agentId));
+    return Boolean(agentId && (await this.runtimePort.isMemoryEnabled!(agentId)));
   }
 
   getToolDefinitions(): MCPToolDefinition[] {
@@ -153,7 +153,7 @@ export class AgentMemoryToolHandler {
     if (!agentId) {
       throw new Error(`${toolName} could not resolve the current agent.`);
     }
-    if (!this.runtimePort.isMemoryEnabled!(agentId)) {
+    if (!(await this.runtimePort.isMemoryEnabled!(agentId))) {
       return createMemoryResult(
         toolName as MemoryToolName,
         { ok: false, reason: "Memory is disabled for this agent." },

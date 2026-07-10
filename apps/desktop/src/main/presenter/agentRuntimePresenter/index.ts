@@ -411,7 +411,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   private async buildMemoryInjection(sessionId: string, query: string): Promise<string> {
     if (!this.memoryPort) return "";
     const agentId = this.getSessionAgentId(sessionId);
-    if (!agentId || !this.memoryPort.isEnabled(agentId)) return "";
+    if (!agentId || !(await this.memoryPort.isEnabled(agentId))) return "";
     try {
       const result = await this.memoryPort.buildInjection(agentId, query);
       if (!result) return "";
@@ -423,10 +423,10 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     }
   }
 
-  private triggerMemoryExtraction(sessionId: string, _assistantMessageId: string): void {
+  private async triggerMemoryExtraction(sessionId: string, _assistantMessageId: string): Promise<void> {
     if (!this.memoryPort) return;
     const agentId = this.getSessionAgentId(sessionId);
-    if (!agentId || !this.memoryPort.isEnabled(agentId)) return;
+    if (!agentId || !(await this.memoryPort.isEnabled(agentId))) return;
     const runtimePort = this.memoryPort as unknown as {
       extractAndStore?: (input: {
         agentId: string;
@@ -989,7 +989,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         this.clearActiveGeneration(sessionId, runId);
       }
       if (result?.status === "completed") {
-        this.triggerMemoryExtraction(sessionId, assistantMessageId);
+        void this.triggerMemoryExtraction(sessionId, assistantMessageId);
         void this.drainPendingQueueIfPossible(sessionId, "completed");
       } else if (result?.status === "aborted") {
         // Return-path abort: applyProcessResultStatus already dispatched terminal hooks + idle (guarded

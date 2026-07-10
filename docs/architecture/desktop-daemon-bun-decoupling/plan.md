@@ -13,6 +13,11 @@ model, but shape it around a thin desktop shell and a daemon-owned backend:
 - Desktop remains a thin client for daemon-owned work; it does not retain a
   second backend path as a fallback.
 
+This migration sits on top of the archived `headless-backend-kernel` and
+`daemon-transport-runtime` implementation docs. Their decisions are now folded
+into the current codebase and this goal tracks the remaining desktop/daemon
+boundary cleanup.
+
 This is a boundary migration, not a behavior rewrite. Each phase moves ownership
 from Electron-presenter execution to daemon execution while preserving the
 renderer-facing API.

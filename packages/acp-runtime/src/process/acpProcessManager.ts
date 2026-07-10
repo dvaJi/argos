@@ -1,5 +1,4 @@
-import spawn from "cross-spawn";
-import type { ChildProcessWithoutNullStreams } from "child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { Readable, Writable } from "node:stream";
 import * as fs from "fs";
 import * as path from "path";

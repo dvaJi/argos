@@ -24,7 +24,6 @@ export const DESKTOP_ONLY_ROUTE_PREFIXES = [
   "file.copyImage",
   "workspace.revealFileInFolder",
   "workspace.openFile",
-  "skills.openFolder",
   "sync.openFolder",
 ] as const;
 

@@ -17,8 +17,16 @@ import { createPathAliasPlugin } from "./vite-plugins/path-alias";
 export default defineConfig(() => {
   const projectRoot = resolve(".");
 
+  const daemonPort = parseInt(process.env.DAEMON_PORT || "9527", 10);
+
   return {
     root: resolve("src/renderer/web"),
+    server: {
+      port: 5180,
+      proxy: {
+        "/api": { target: `http://127.0.0.1:${daemonPort}`, changeOrigin: true, ws: true },
+      },
+    },
     resolve: {
       alias: [
         {
@@ -47,6 +55,7 @@ export default defineConfig(() => {
         contractsPkgDir: path.join(projectRoot, "..", "..", "packages", "shared-contracts", "src"),
         apiDir: path.join(projectRoot, "src", "renderer", "api"),
         shadcnDir: path.join(projectRoot, "src", "shadcn"),
+        settingsDir: path.join(projectRoot, "src", "renderer", "settings"),
       }),
       tailwindcss(),
       react(),

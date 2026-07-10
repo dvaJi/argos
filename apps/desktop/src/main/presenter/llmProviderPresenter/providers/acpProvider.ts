@@ -1,4 +1,4 @@
-import { methods as acpMethods } from "@agentclientprotocol/sdk";
+import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type * as schema from "@agentclientprotocol/sdk";
 import { BaseLLMProvider, SUMMARY_TITLES_PROMPT } from "../baseProvider";
 import type {
@@ -28,9 +28,6 @@ import { eventBus, SendTarget } from "@/eventbus";
 import { ACP_DEBUG_EVENTS, ACP_WORKSPACE_EVENTS, CONFIG_EVENTS } from "@/events";
 import { publishArgosEvent } from "@/routes/publishArgosEvent";
 import {
-  AcpProcessManager,
-  AcpSessionManager,
-  AcpSessionPersistence,
   AcpContentMapper,
   AcpMessageFormatter,
   getAcpConfigOption,
@@ -41,11 +38,13 @@ import {
   LEGACY_MODE_CONFIG_ID,
   normalizeAcpConfigState,
   updateAcpConfigStateValue,
-  type AcpProcessHandle,
-  type AcpSessionRecord,
 } from "@argos/acp-runtime";
+import { createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
+import { AcpSessionManager } from "@argos/acp-runtime/session/acpSessionManager";
+import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
+import { AcpProcessManager, type AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
+import type { AcpSessionRecord } from "@argos/acp-runtime/session/acpSessionManager";
 import { createDesktopAcpPorts } from "../acp/desktopPorts";
-import { AcpClientPresenter } from "@/presenter/acpClientPresenter";
 import { AcpPromptController } from "@argos/acp-runtime";
 import { nanoid } from "nanoid";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
@@ -124,7 +123,7 @@ export class AcpProvider extends BaseLLMProvider {
   private readonly processManager: AcpProcessManager;
   private readonly sessionManager: AcpSessionManager;
   private readonly sessionPersistence: AcpSessionPersistence;
-  private readonly acpRuntime: AcpClientPresenter;
+  private readonly acpRuntime: AcpRuntime;
   private readonly promptController: AcpPromptController;
   private readonly contentMapper = new AcpContentMapper();
   private readonly messageFormatter = new AcpMessageFormatter();
@@ -138,12 +137,18 @@ export class AcpProvider extends BaseLLMProvider {
   ) {
     super(provider, configPresenter, mcpRuntime);
     this.sessionPersistence = sessionPersistence;
-    this.acpRuntime = new AcpClientPresenter({
+    const ports = createDesktopAcpPorts();
+    if (mcpRuntime) {
+      ports.mcp = {
+        getNpmRegistry: async () => mcpRuntime.getNpmRegistry?.() ?? null,
+        getUvRegistry: async () => mcpRuntime.getUvRegistry?.() ?? null,
+      };
+    }
+    this.acpRuntime = createAcpRuntime({
       provider,
       configPresenter,
       sessionPersistence,
-      ports: createDesktopAcpPorts(),
-      mcpRuntime,
+      ports,
     });
     this.processManager = this.acpRuntime.processManager;
     this.sessionManager = this.acpRuntime.sessionManager;
@@ -273,6 +278,18 @@ export class AcpProvider extends BaseLLMProvider {
 
   public async clearSession(conversationId: string): Promise<void> {
     await this.sessionManager.clearSession(conversationId);
+  }
+
+  private toConnectionRef(handle: AcpProcessHandle) {
+    return {
+      id: `${handle.agentId}:${handle.workdir}`,
+      agentId: handle.agentId,
+      workdir: handle.workdir,
+      protocolVersion: String(PROTOCOL_VERSION),
+      capabilities: handle.agentCapabilities,
+      authMethods: handle.authMethods,
+      status: handle.status === "ready" ? "ready" : "error",
+    };
   }
 
   public async check(): Promise<{ isOk: boolean; errorMsg: string | null }> {
@@ -679,7 +696,7 @@ export class AcpProvider extends BaseLLMProvider {
             action: "initialize",
             sessionId: activeSessionId,
             message: "Connection is already initialized by the ACP runtime.",
-            payload: this.acpRuntime.toConnectionRef(handle),
+            payload: this.toConnectionRef(handle),
           });
           break;
         }

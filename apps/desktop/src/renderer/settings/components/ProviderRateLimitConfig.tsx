@@ -97,9 +97,9 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
 
     return () => {
       stopStatusPolling();
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.CONFIG_UPDATED);
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_EXECUTED);
-      window.electron.ipcRenderer.removeAllListeners(RATE_LIMIT_EVENTS.REQUEST_QUEUED);
+      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
+      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
+      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
     };
   }, [loadStatus, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
 
