@@ -134,32 +134,32 @@ const setup = async (options: SetupOptions = {}) => {
     }),
   };
 
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/sidebar", () => ({
+  vi.doMock("#/stores/ui/sidebar", () => ({
     useSidebarStore: () => sidebarStore,
   }));
-  vi.doMock("@/stores/theme", () => ({
+  vi.doMock("#/stores/theme", () => ({
     useThemeStore: () => themeStore,
   }));
-  vi.doMock("@/stores/ui/pageRouter", () => ({
+  vi.doMock("#/stores/ui/pageRouter", () => ({
     usePageRouterStore: () => pageRouterStore,
   }));
-  vi.doMock("@/stores/ui/spotlight", () => ({
+  vi.doMock("#/stores/ui/spotlight", () => ({
     useSpotlightStore: () => spotlightStore,
   }));
-  vi.doMock("@api/SettingsClient", () => ({
+  vi.doMock("#api/SettingsClient", () => ({
     createSettingsClient: vi.fn<(...args: any[]) => any>(() => settingsClient),
   }));
-  vi.doMock("@api/DeviceClient", () => ({
+  vi.doMock("#api/DeviceClient", () => ({
     createDeviceClient: vi.fn<(...args: any[]) => any>(() => deviceClient),
   }));
 
-  const WindowSideBar = (await import("@/components/WindowSideBar")).default;
+  const WindowSideBar = (await import("#/components/WindowSideBar")).default;
 
   const result = render(<WindowSideBar />);
 

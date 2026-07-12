@@ -8,24 +8,24 @@ import type {
   LLMResponse,
   MCPToolDefinition,
   ModelConfig,
-} from "@shared/presenter";
-import { ApiEndpointType } from "@shared/model";
+} from "@argos/shared/presenter";
+import { ApiEndpointType } from "@argos/shared/model";
 import {
   applyMoonshotKimiReasoningTemperaturePolicy,
   resolveMoonshotKimiTemperaturePolicy,
-} from "@shared/moonshotKimiPolicy";
+} from "@argos/shared/moonshotKimiPolicy";
 import {
   normalizeImageGenerationOptions,
   supportsOpenAIImageGenerationSettings,
   type ImageGenerationOptions,
-} from "@shared/imageGenerationSettings";
+} from "@argos/shared/imageGenerationSettings";
 import {
   isVideoGenerationModelConfig,
   normalizeVideoGenerationOptions,
   resolveOpenAICompatibleVideoRequestBodyShape,
   type VideoGenerationOptions,
   type VideoGenerationReference,
-} from "@shared/videoGenerationSettings";
+} from "@argos/shared/videoGenerationSettings";
 import {
   isChatAudioTtsModel,
   isGeminiGenerateContentTtsModel,
@@ -33,10 +33,10 @@ import {
   isTtsModelConfig,
   normalizeTtsSettings,
   ttsFormatToMimeType,
-} from "@shared/ttsSettings";
-import { presenter } from "@/presenter";
-import { EMBEDDING_TEST_KEY, isNormalized } from "@/utils/vector";
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
+} from "@argos/shared/ttsSettings";
+import { presenter } from "#/presenter";
+import { EMBEDDING_TEST_KEY, isNormalized } from "#/utils/vector";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
 import { mcpToolsToAISDKTools } from "./toolMapper";
 import { mapMessagesToModelMessages } from "./messageMapper";
 import { buildProviderOptions } from "./providerOptionsMapper";

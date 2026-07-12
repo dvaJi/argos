@@ -1,4 +1,4 @@
-import type { LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@shared/presenter";
+import type { LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 import type { ConfigTables } from "../sqlitePresenter/tables/configTables";
 import { SHARED_AGENT_MCP_SELECTION_ID } from "../sqlitePresenter/tables/configTables";
 import type { IModelStore } from "./providerModelHelper";

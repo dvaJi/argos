@@ -46,7 +46,7 @@ describe("architecture guard fixture coverage", () => {
     await writeFixtureFile("apps/desktop/src/main/presenter/sessionPresenter/index.ts", "export {};\n");
     await writeFixtureFile("apps/desktop/src/main/eventbus.ts", "export {};\n");
     await writeFixtureFile("apps/desktop/src/main/bunFallback.ts", 'import "bun:child_process";\n');
-    await writeFixtureFile("apps/desktop/src/renderer/api/legacy/.keep", "");
+    await writeFixtureFile("packages/ui/api/legacy/.keep", "");
     await writeFixtureFile("apps/daemon/src/index.ts", 'import { app } from "electron";\n');
     await writeFixtureFile("packages/acp-runtime/src/runtime.ts", 'import { app } from "electron";\n');
     await writeFixtureFile("docs/architecture/baselines/main-kernel-bridge-register.json", JSON.stringify({
@@ -86,7 +86,7 @@ describe("architecture guard fixture coverage", () => {
       currentPhase: "P5",
       bridges: [],
     }));
-    await writeFixtureFile("apps/desktop/src/renderer/api/legacy/.keep", "");
+    await writeFixtureFile("packages/ui/api/legacy/.keep", "");
 
     const result = runArchitectureGuard(fixtureRoot);
 

@@ -12,14 +12,14 @@ import type {
   ILlmProviderPresenter,
   AcpWorkdirInfo,
   IConversationExporter,
-} from "@shared/presenter";
-import type { AssistantMessageBlock, Message, UserMessageContent } from "@shared/chat";
-import type { NowledgeMemThread, NowledgeMemExportSummary } from "@shared/types/nowledgeMem";
+} from "@argos/shared/presenter";
+import type { AssistantMessageBlock, Message, UserMessageContent } from "@argos/shared/chat";
+import type { NowledgeMemThread, NowledgeMemExportSummary } from "@argos/shared/types/nowledgeMem";
 import { BrowserWindow, webContents as electronWebContents } from "electron";
 import { promises as fs } from "fs";
-import { presenter } from "@/presenter";
-import { eventBus } from "@/eventbus";
-import { TAB_EVENTS, CONVERSATION_EVENTS } from "@/events";
+import { presenter } from "#/presenter";
+import { eventBus } from "#/eventbus";
+import { TAB_EVENTS, CONVERSATION_EVENTS } from "#/events";
 import type { ISessionPresenter } from "./interface";
 import { MessageManager } from "./managers/messageManager";
 import { buildUserMessageContext } from "./messageFormatter";

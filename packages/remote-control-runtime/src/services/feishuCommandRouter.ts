@@ -1,5 +1,5 @@
-import type { ToolInteractionResponse } from "@shared/types/agent-interface";
-import type { SessionWithState } from "@shared/types/agent-interface";
+import type { ToolInteractionResponse } from "@argos/shared/types/agent-interface";
+import type { SessionWithState } from "@argos/shared/types/agent-interface";
 import type {
   FeishuInboundMessage,
   FeishuOutboundAction,

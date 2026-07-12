@@ -16,17 +16,17 @@ import type {
   AcpTurnStartPayload,
   LLM_PROVIDER,
   IConfigPresenter,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import {
   createStreamEvent,
   type LLMCoreStreamEvent,
   type PermissionRequestPayload,
   type PermissionRequestOption,
-} from "@shared/types/core/llm-events";
-import { ModelType } from "@shared/model";
-import { eventBus, SendTarget } from "@/eventbus";
-import { ACP_DEBUG_EVENTS, ACP_WORKSPACE_EVENTS, CONFIG_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+} from "@argos/shared/types/core/llm-events";
+import { ModelType } from "@argos/shared/model";
+import { eventBus, SendTarget } from "#/eventbus";
+import { ACP_DEBUG_EVENTS, ACP_WORKSPACE_EVENTS, CONFIG_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import {
   AcpContentMapper,
   AcpMessageFormatter,

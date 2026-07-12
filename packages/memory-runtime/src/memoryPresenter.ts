@@ -19,7 +19,7 @@ import {
   type MemoryPersonaDraftResult,
   type MemoryReflectionResult,
 } from "./types";
-import { CATEGORY_IMPORTANCE_FLOOR, isAgentMemoryCategory, type AgentMemoryCategory } from "@shared/types/agent-memory";
+import { CATEGORY_IMPORTANCE_FLOOR, isAgentMemoryCategory, type AgentMemoryCategory } from "@argos/shared/types/agent-memory";
 import { ADD_DECISION, buildDecisionPrompt, parseDecision, type MemoryDecision } from "./decision";
 import {
   appendMemorySection,

@@ -1,4 +1,4 @@
-import { EMBEDDING_TEST_KEY, isNormalized } from "@/utils/vector";
+import { EMBEDDING_TEST_KEY, isNormalized } from "#/utils/vector";
 import {
   ApiEndpointType,
   ModelType,
@@ -9,16 +9,16 @@ import {
   resolveNewApiEndpointTypeFromRoute,
   resolveProviderCapabilityProviderId,
   type NewApiEndpointType,
-} from "@shared/model";
-import { isTtsModelConfig, isTtsModelId } from "@shared/ttsSettings";
-import { isVideoGenerationModelConfig } from "@shared/videoGenerationSettings";
+} from "@argos/shared/model";
+import { isTtsModelConfig, isTtsModelId } from "@argos/shared/ttsSettings";
+import { isVideoGenerationModelConfig } from "@argos/shared/videoGenerationSettings";
 import {
   DEFAULT_MODEL_CONTEXT_LENGTH,
   DEFAULT_MODEL_MAX_TOKENS,
   resolveDerivedModelMaxTokens,
   resolveModelContextLength,
   resolveModelFunctionCall,
-} from "@shared/modelConfigDefaults";
+} from "@argos/shared/modelConfigDefaults";
 import {
   AWS_BEDROCK_PROVIDER,
   ChatMessage,
@@ -32,7 +32,7 @@ import {
   MODEL_META,
   ModelConfig,
   VERTEX_PROVIDER,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { BedrockClient, ListFoundationModelsCommand } from "@aws-sdk/client-bedrock";
 import { ProxyAgent } from "undici";
 import { BaseLLMProvider, SUMMARY_TITLES_PROMPT } from "../baseProvider";
@@ -59,7 +59,7 @@ import {
 } from "../providerRegistry";
 import { providerDbLoader } from "../../configPresenter/providerDbLoader";
 import { modelCapabilities, type CapabilityModelMatch } from "../../configPresenter/modelCapabilities";
-import { isImageInputSupported } from "@shared/types/model-db";
+import { isImageInputSupported } from "@argos/shared/types/model-db";
 
 const OPENAI_IMAGE_GENERATION_MODELS = ["gpt-4o-all", "gpt-4o-image"];
 const OPENAI_IMAGE_GENERATION_MODEL_PREFIXES = ["dall-e-", "gpt-image-"];

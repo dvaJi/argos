@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { FSWatcher, watch } from "chokidar";
 import matter from "gray-matter";
 import { unzipSync } from "fflate";
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import {
   ISkillPresenter,
   SkillMetadata,
@@ -21,7 +21,7 @@ import {
   SkillScriptRuntime,
   SkillViewResult,
   SkillLinkedFile,
-} from "@shared/types/skill";
+} from "@argos/shared/types/skill";
 const SKILL_EVENTS = {
   DISCOVERED: "skill:discovered",
   METADATA_UPDATED: "skill:metadata-updated",

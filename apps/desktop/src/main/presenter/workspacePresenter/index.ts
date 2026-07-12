@@ -5,9 +5,9 @@ import { fileURLToPath } from "url";
 import { promisify } from "util";
 import { shell } from "electron";
 import { FSWatcher, watch } from "chokidar";
-import { eventBus, SendTarget } from "@/eventbus";
-import { WORKSPACE_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { eventBus, SendTarget } from "#/eventbus";
+import { WORKSPACE_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import { readDirectoryShallow } from "./directoryReader";
 import { searchWorkspaceFiles } from "./workspaceFileSearch";
 import {
@@ -32,7 +32,7 @@ import type {
   WorkspaceInvalidationKind,
   WorkspaceInvalidationSource,
   WorkspaceLinkedFileResolution,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 const execFileAsync = promisify(execFile);
 

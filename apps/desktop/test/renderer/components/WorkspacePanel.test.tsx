@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import WorkspacePanel from "@/components/sidepanel/WorkspacePanel";
+import WorkspacePanel from "#/components/sidepanel/WorkspacePanel";
 
 const {
   showArtifactMock,
@@ -156,19 +156,19 @@ vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-vi.mock("@/stores/artifact", () => ({
+vi.mock("#/stores/artifact", () => ({
   useArtifactStore: () => artifactStore,
 }));
 
-vi.mock("@/stores/ui/message", () => ({
+vi.mock("#/stores/ui/message", () => ({
   useMessageStore: () => messageStore,
 }));
 
-vi.mock("@/stores/ui/sidepanel", () => ({
+vi.mock("#/stores/ui/sidepanel", () => ({
   useSidepanelStore: () => sidepanelStore,
 }));
 
-vi.mock("@api/WorkspaceClient", () => ({
+vi.mock("#api/WorkspaceClient", () => ({
   createWorkspaceClient: vi.fn<(...args: any[]) => any>(() => ({
     registerWorkspace: registerWorkspaceMock,
     watchWorkspace: watchWorkspaceMock,
@@ -186,26 +186,26 @@ vi.mock("@api/WorkspaceClient", () => ({
   })),
 }));
 
-vi.mock("@api/ProjectClient", () => ({
+vi.mock("#api/ProjectClient", () => ({
   createProjectClient: vi.fn<(...args: any[]) => any>(() => ({
     selectDirectory: selectDirectoryMock,
   })),
 }));
 
-vi.mock("@api/FileClient", () => ({
+vi.mock("#api/FileClient", () => ({
   createFileClient: vi.fn<(...args: any[]) => any>(() => ({
     isDirectory: isDirectoryMock,
     getPathForFile: getPathForFileMock,
   })),
 }));
 
-vi.mock("@/stores/ui/session", () => ({
+vi.mock("#/stores/ui/session", () => ({
   useSessionStore: () => ({
     setSessionProjectDir: setSessionProjectDirMock,
   }),
 }));
 
-vi.mock("@/components/workspace/WorkspaceFileNode", () => ({
+vi.mock("#/components/workspace/WorkspaceFileNode", () => ({
   default: ({
     node,
     onToggle,
@@ -235,7 +235,7 @@ vi.mock("@/components/workspace/WorkspaceFileNode", () => ({
   ),
 }));
 
-vi.mock("@/components/sidepanel/WorkspaceViewer", () => ({
+vi.mock("#/components/sidepanel/WorkspaceViewer", () => ({
   default: () => <div className="workspace-viewer-stub" />,
 }));
 

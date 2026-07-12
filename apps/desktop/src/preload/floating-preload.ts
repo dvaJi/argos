@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { FloatingWidgetSnapshot } from "@shared/types/floating-widget";
+import type { FloatingWidgetSnapshot } from "@argos/shared/types/floating-widget";
 
 // Define event constants directly to avoid path resolution issues
 const FLOATING_BUTTON_EVENTS = {

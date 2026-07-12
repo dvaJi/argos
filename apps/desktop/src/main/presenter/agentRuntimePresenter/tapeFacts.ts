@@ -1,4 +1,4 @@
-import type { AssistantMessageBlock, ChatMessageRecord } from "@shared/types/agent-interface";
+import type { AssistantMessageBlock, ChatMessageRecord } from "@argos/shared/types/agent-interface";
 import type { ArgosTapeEntriesTable } from "../sqlitePresenter/tables/argosTapeEntries";
 import type { ArgosTapeEntryRow } from "../sqlitePresenter/tables/argosTapeEntries";
 import { buildEffectiveTapeView } from "./tapeEffectiveView";

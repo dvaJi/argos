@@ -1,0 +1,269 @@
+import { useState, useRef, useCallback } from "react";
+import type { MessageFile } from "@argos/shared/types/agent-interface";
+import { createFileClient } from "#api/FileClient";
+import { useToast } from "#/components/use-toast";
+import { calculateImageTokens, getClipboardImageInfo, imageFileToBase64 } from "#/lib/image";
+import { approximateTokenSize } from "tokenx";
+
+export interface PromptFileItem {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  path: string;
+  description?: string;
+  content?: string;
+  createdAt: number;
+}
+
+export function useChatInputFiles(
+  fileInputRef: React.RefObject<HTMLInputElement | null>,
+  emit: (event: "file-upload", files: MessageFile[]) => void,
+) {
+  const fileClient = createFileClient();
+  const { toast } = useToast();
+  const [selectedFiles, setSelectedFiles] = useState<MessageFile[]>([]);
+  const selectedFilesRef = useRef<MessageFile[]>([]);
+
+  const syncFiles = useCallback(() => {
+    setSelectedFiles([...selectedFilesRef.current]);
+  }, []);
+
+  const emitFiles = useCallback(() => {
+    emit("file-upload", selectedFilesRef.current);
+  }, [emit]);
+
+  const getDisplayFileName = (file: File): string => {
+    return file.name?.trim() || "Unnamed file";
+  };
+
+  const formatFailedFileNames = (fileNames: string[]): string => {
+    const visibleNames = fileNames.slice(0, 3).join(", ");
+    const remainingCount = fileNames.length - 3;
+    if (remainingCount <= 0) {
+      return visibleNames;
+    }
+
+    return `${visibleNames}, and ${remainingCount} more`;
+  };
+
+  const showFileProcessingError = (fileNames: string[]) => {
+    if (fileNames.length === 0) {
+      return;
+    }
+
+    toast({
+      title: "File upload failed",
+      description: `Failed to process ${fileNames.length} file(s): ${formatFailedFileNames(fileNames)}`,
+      variant: "destructive",
+    });
+  };
+
+  const processFile = async (file: File, isImage: boolean = false): Promise<MessageFile | null> => {
+    try {
+      if (isImage || file.type.startsWith("image/")) {
+        const base64 = (await imageFileToBase64(file)) as string;
+        const imageInfo = await getClipboardImageInfo(file);
+
+        const tempFilePath = await fileClient.writeImageBase64({
+          name: file.name ?? "image",
+          content: base64,
+        });
+
+        return {
+          name: file.name ?? "image",
+          content: base64,
+          mimeType: file.type,
+          metadata: {
+            fileName: file.name ?? "image",
+            fileSize: file.size,
+            fileDescription: file.type,
+            fileCreated: new Date().toISOString(),
+            fileModified: new Date().toISOString(),
+          },
+          token: calculateImageTokens(imageInfo.width, imageInfo.height),
+          path: tempFilePath,
+          thumbnail: imageInfo.compressedBase64,
+        };
+      }
+
+      const path = fileClient.getPathForFile(file);
+      if (!path) {
+        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+      }
+      const mimeType = await fileClient.getMimeType(path);
+      return await fileClient.prepareFile(path, mimeType);
+    } catch (error) {
+      console.error("File processing failed:", error);
+      return null;
+    }
+  };
+
+  const processDroppedFile = async (file: File): Promise<MessageFile | null> => {
+    try {
+      const path = fileClient.getPathForFile(file);
+      if (!path) {
+        throw new Error(`Cannot resolve file path for ${getDisplayFileName(file)}`);
+      }
+
+      if (file.type === "") {
+        const isDirectory = await fileClient.isDirectory(path);
+        if (isDirectory) {
+          return await fileClient.prepareDirectory(path);
+        }
+      }
+
+      const mimeType = await fileClient.getMimeType(path);
+      return await fileClient.prepareFile(path, mimeType);
+    } catch (error) {
+      console.error("Dropped file processing failed:", error);
+      return null;
+    }
+  };
+
+  const processIncomingFiles = async (files: FileList, processor: (file: File) => Promise<MessageFile | null>) => {
+    let addedCount = 0;
+    const failedFileNames: string[] = [];
+
+    for (const file of Array.from(files)) {
+      const fileInfo = await processor(file);
+      if (fileInfo) {
+        selectedFilesRef.current.push(fileInfo);
+        addedCount += 1;
+      } else {
+        failedFileNames.push(getDisplayFileName(file));
+      }
+    }
+
+    if (addedCount > 0) {
+      syncFiles();
+      emitFiles();
+    }
+
+    showFileProcessingError(failedFileNames);
+  };
+
+  const handleFileSelect = async (e: Event) => {
+    const files = (e.target as HTMLInputElement).files;
+
+    if (files && files.length > 0) {
+      await processIncomingFiles(files, (file) => processFile(file));
+    }
+
+    if (e.target) {
+      (e.target as HTMLInputElement).value = "";
+    }
+  };
+
+  const handlePaste = async (e: ClipboardEvent, fromCapture = false) => {
+    if (!fromCapture && (e as any)?._argosHandled) return;
+    (e as any)._argosHandled = true;
+
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      await processIncomingFiles(files, (file) => processFile(file, file.type.startsWith("image/")));
+    }
+  };
+
+  const handleDrop = async (files: FileList) => {
+    await processIncomingFiles(files, processDroppedFile);
+  };
+
+  const deleteFile = (idx: number) => {
+    selectedFilesRef.current.splice(idx, 1);
+    syncFiles();
+    emitFiles();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const clearFiles = () => {
+    selectedFilesRef.current = [];
+    syncFiles();
+    emitFiles();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handlePromptFiles = async (files: PromptFileItem[]) => {
+    if (!files || files.length === 0) return;
+
+    let addedCount = 0;
+    let errorCount = 0;
+
+    for (const fileItem of files) {
+      try {
+        const exists = selectedFilesRef.current.some((f) => f.name === fileItem.name);
+        if (exists) {
+          continue;
+        }
+
+        const messageFile: MessageFile = {
+          name: fileItem.name,
+          content: fileItem.content || "",
+          mimeType: fileItem.type || "application/octet-stream",
+          metadata: {
+            fileName: fileItem.name,
+            fileSize: fileItem.size || 0,
+            fileDescription: fileItem.description || "",
+            fileCreated: new Date(fileItem.createdAt || Date.now()).toISOString(),
+            fileModified: new Date(fileItem.createdAt || Date.now()).toISOString(),
+          },
+          token: approximateTokenSize(fileItem.content || ""),
+          path: fileItem.path || fileItem.name,
+        };
+
+        if (!messageFile.content && fileItem.path) {
+          try {
+            const fileContent = await fileClient.readFile(fileItem.path);
+            messageFile.content = fileContent;
+            messageFile.token = approximateTokenSize(fileContent);
+          } catch (error) {
+            console.warn(`Failed to read file content: ${fileItem.path}`, error);
+          }
+        }
+
+        selectedFilesRef.current.push(messageFile);
+        addedCount++;
+      } catch (error) {
+        console.error("Failed to process prompt file:", fileItem, error);
+        errorCount++;
+      }
+    }
+
+    if (addedCount > 0) {
+      syncFiles();
+      toast({
+        title: "Files added",
+        description: `${addedCount} file(s) added successfully`,
+        variant: "default",
+      });
+      emitFiles();
+    }
+
+    if (errorCount > 0) {
+      toast({
+        title: "File processing error",
+        description: `Failed to process ${errorCount} file(s)`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  return {
+    selectedFiles,
+    handleFileSelect,
+    handlePaste,
+    handleDrop,
+    deleteFile,
+    clearFiles,
+    handlePromptFiles,
+    openFilePicker,
+  };
+}

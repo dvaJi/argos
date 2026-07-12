@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import path from "path";
-import { DirectoryMetaData } from "@shared/presenter";
+import { DirectoryMetaData } from "@argos/shared/presenter";
 
 export class DirectoryAdapter {
   dirPath: string;

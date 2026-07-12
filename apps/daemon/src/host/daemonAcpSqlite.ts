@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ISQLitePresenter, AcpSessionEntity } from "@shared/presenter";
+import type { ISQLitePresenter, AcpSessionEntity } from "@argos/shared/presenter";
 
 type BunDatabase = {
   prepare(sql: string): {

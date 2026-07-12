@@ -1,6 +1,6 @@
-import { IConfigPresenter } from "@shared/presenter";
-import { NowledgeMemThread } from "@shared/types/nowledgeMem";
-import logger from "@shared/logger";
+import { IConfigPresenter } from "@argos/shared/presenter";
+import { NowledgeMemThread } from "@argos/shared/types/nowledgeMem";
+import logger from "@argos/shared/logger";
 
 export interface NowledgeMemConfig {
   baseUrl: string;

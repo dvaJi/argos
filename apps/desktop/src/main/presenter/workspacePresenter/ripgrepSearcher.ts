@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import os from "os";
 import path from "path";
 import readline from "readline";
-import { RuntimeHelper } from "@/lib/runtimeHelper";
+import { RuntimeHelper } from "#/lib/runtimeHelper";
 
 export interface RipgrepSearchOptions {
   maxResults?: number;

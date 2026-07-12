@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ModelType } from "@shared/model";
+import { ModelType } from "@argos/shared/model";
 
 const skillsStoreMocks = vi.hoisted(() => ({
   state: {
@@ -9,7 +9,7 @@ const skillsStoreMocks = vi.hoisted(() => ({
   loadSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 }));
 
-vi.mock("@/stores/skillsStore", () => ({
+vi.mock("#/stores/skillsStore", () => ({
   useSkillsStore: () => skillsStoreMocks.state,
   loadSkills: skillsStoreMocks.loadSkills,
   uninstallSkill: vi.fn(),
@@ -105,7 +105,7 @@ describe("ArgosAgentsSettings", () => {
       ),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -113,14 +113,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -233,7 +233,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -241,14 +241,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     render(<ArgosAgentsSettings />);
 
@@ -309,7 +309,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -317,14 +317,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -384,7 +384,7 @@ describe("ArgosAgentsSettings", () => {
       selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -392,7 +392,7 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => ({
         allProviderModels: [],
         findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
@@ -402,7 +402,7 @@ describe("ArgosAgentsSettings", () => {
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -446,7 +446,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -454,14 +454,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -519,7 +519,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -527,14 +527,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -608,7 +608,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -616,14 +616,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -686,7 +686,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -694,14 +694,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -784,7 +784,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -792,14 +792,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -882,7 +882,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -890,14 +890,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 
@@ -1023,7 +1023,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -1031,14 +1031,14 @@ describe("ArgosAgentsSettings", () => {
         return {};
       },
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
     vi.doMock("@iconify/react", () => ({
       Icon: () => null,
     }));
 
-    const ArgosAgentsSettings = (await import("../../../src/renderer/settings/components/ArgosAgentsSettings")).default;
+    const ArgosAgentsSettings = (await import("#settings/components/ArgosAgentsSettings")).default;
 
     const result = render(<ArgosAgentsSettings />);
 

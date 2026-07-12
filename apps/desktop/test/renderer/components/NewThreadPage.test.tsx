@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { ReasoningEffort, Verbosity } from "@shared/types/model-db";
+import type { ReasoningEffort, Verbosity } from "@argos/shared/types/model-db";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,
@@ -116,40 +116,40 @@ const setup = async (options?: {
     return Promise.resolve(typeof resolver === "function" ? resolver(path) : resolver);
   });
 
-  vi.doMock("@/stores/ui/project", () => ({
+  vi.doMock("#/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/ui/draft", () => ({
+  vi.doMock("#/stores/ui/draft", () => ({
     useDraftStore: () => draftStore,
   }));
-  vi.doMock("@api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
-  vi.doMock("@api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("@api/FileClient", () => ({
+  vi.doMock("#api/FileClient", () => ({
     createFileClient: vi.fn<(...args: any[]) => any>(() => ({
       isDirectory: isDirectoryMock,
     })),
   }));
-  vi.doMock("@/lib/startupDeferred", () => ({
+  vi.doMock("#/lib/startupDeferred", () => ({
     scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       if (!options?.deferStartupTasks) void task();
       return () => {};
     }),
   }));
 
-  const NewThreadPage = (await import("@/pages/NewThreadPage")).default;
+  const NewThreadPage = (await import("#/pages/NewThreadPage")).default;
 
   render(<NewThreadPage />);
 

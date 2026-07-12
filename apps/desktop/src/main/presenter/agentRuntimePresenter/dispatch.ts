@@ -1,22 +1,22 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { STREAM_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { STREAM_EVENTS } from "#/events";
 import type {
   MCPToolCall,
   MCPContentItem,
   MCPResourceContent,
   MCPToolResponse,
   ToolCallImagePreview,
-} from "@shared/types/core/mcp";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
-import type { SearchResult } from "@shared/types/core/search";
-import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
-import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
-import type { AssistantMessageBlock, PermissionMode } from "@shared/types/agent-interface";
-import type { AgentPlanSnapshot } from "@shared/types/agent-plan";
+} from "@argos/shared/types/core/mcp";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import type { IToolPresenter } from "@argos/shared/types/presenters/tool.presenter";
+import type { AgentToolProgressUpdate } from "@argos/shared/types/presenters/tool.presenter";
+import type { AssistantMessageBlock, PermissionMode } from "@argos/shared/types/agent-interface";
+import type { AgentPlanSnapshot } from "@argos/shared/types/agent-plan";
 import { parseQuestionToolArgs, QUESTION_TOOL_NAME } from "../../lib/agentRuntime/questionTool";
 import { UPDATE_PLAN_TOOL_NAME } from "../toolPresenter/agentTools/agentPlanTool";
 import type { InterleavedReasoningConfig, IoParams, PendingToolInteraction, ProcessHooks, StreamState } from "./types";
-import type { ChatMessage, ChatMessageProviderOptions } from "@shared/types/core/chat-message";
+import type { ChatMessage, ChatMessageProviderOptions } from "@argos/shared/types/core/chat-message";
 import { nanoid } from "nanoid";
 import type { ToolBatchOutputFitItem, ToolOutputGuard } from "./toolOutputGuard";
 import { buildTerminalErrorBlocks } from "./messageStore";
@@ -30,8 +30,8 @@ import {
   emitArgosInternalSessionUpdate,
   extractWaitingInteraction,
 } from "./internalSessionEvents";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { extractToolCallImagePreviews } from "#/lib/toolCallImagePreviews";
 
 type PermissionType = "read" | "write" | "all" | "command";
 

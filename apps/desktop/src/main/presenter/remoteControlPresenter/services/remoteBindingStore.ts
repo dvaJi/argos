@@ -1,4 +1,4 @@
-import type { IConfigPresenter, PairableRemoteChannel, RemoteChannel } from "@shared/presenter";
+import type { IConfigPresenter, PairableRemoteChannel, RemoteChannel } from "@argos/shared/presenter";
 import {
   REMOTE_CONTROL_SETTING_KEY,
   TELEGRAM_AGENT_MENU_TTL_MS,

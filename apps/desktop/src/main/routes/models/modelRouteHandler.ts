@@ -1,4 +1,4 @@
-import type { IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
+import type { IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
 import {
   modelsAddCustomRoute,
   modelsExportConfigsRoute,
@@ -16,7 +16,7 @@ import {
   modelsSetStatusRoute,
   modelsTranscribeAudioRoute,
   modelsUpdateCustomRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 export async function dispatchModelRoute(
   deps: {
     configPresenter: IConfigPresenter;

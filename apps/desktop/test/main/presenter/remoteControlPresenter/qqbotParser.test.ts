@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QQBotParser } from "@/presenter/remoteControlPresenter/qqbot/qqbotParser";
+import { QQBotParser } from "#/presenter/remoteControlPresenter/qqbot/qqbotParser";
 
 describe("QQBotParser", () => {
   it("parses c2c commands from official dispatch payloads", () => {

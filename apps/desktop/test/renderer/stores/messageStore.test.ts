@@ -65,10 +65,10 @@ const setupStore = async () => {
     }),
   };
 
-  vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("../../../src/renderer/api/ChatClient", () => ({
+  vi.doMock("#api/ChatClient", () => ({
     createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
   }));
 
@@ -85,7 +85,7 @@ const setupStore = async () => {
       removeListener: vi.fn<(...args: any[]) => any>(),
     },
   };
-  const { useMessageStore } = await import("@/stores/ui/message");
+  const { useMessageStore } = await import("#/stores/ui/message");
   const store = useMessageStore();
   return { store, sessionClient, streamListeners, ipcListeners };
 };

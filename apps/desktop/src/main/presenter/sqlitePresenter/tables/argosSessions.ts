@@ -1,15 +1,15 @@
 import Database from "better-sqlite3-multiple-ciphers";
 import { BaseTable } from "./baseTable";
-import type { SessionGenerationSettings } from "@shared/types/agent-interface";
+import type { SessionGenerationSettings } from "@argos/shared/types/agent-interface";
 import {
   isReasoningEffort,
   isReasoningVisibility,
   isVerbosity,
   type ReasoningEffort,
   type ReasoningVisibility,
-} from "@shared/types/model-db";
-import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@shared/imageGenerationSettings";
-import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@shared/videoGenerationSettings";
+} from "@argos/shared/types/model-db";
+import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
+import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@argos/shared/videoGenerationSettings";
 
 type ArgosSessionGenerationSettings = Pick<
   SessionGenerationSettings,

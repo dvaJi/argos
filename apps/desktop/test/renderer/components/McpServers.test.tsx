@@ -70,11 +70,11 @@ const setup = async (
     loadResources: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
-  vi.doMock("@/stores/mcp", () => ({
+  vi.doMock("#/stores/mcp", () => ({
     useMcpStore: () => mcpStore,
   }));
 
-  const McpServers = (await import("@/components/mcp-config/components/McpServers")).default;
+  const McpServers = (await import("#/components/mcp-config/components/McpServers")).default;
 
   const result = render(<McpServers showFooterAddButton={options.showFooterAddButton} />);
 

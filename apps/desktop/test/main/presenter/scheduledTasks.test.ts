@@ -5,7 +5,7 @@ import {
   normalizeScheduledTasksConfig,
   shouldBackfillOneShot,
 } from "../../../src/main/presenter/scheduledTasks/normalize";
-import type { ScheduledTask } from "@shared/scheduledTasks";
+import type { ScheduledTask } from "@argos/shared/scheduledTasks";
 
 const baseTask = <T extends ScheduledTask>(overrides: T): T => overrides;
 

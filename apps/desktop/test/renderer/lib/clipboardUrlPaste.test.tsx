@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { extractPlainUrlFromClipboard, normalizeSingleHttpUrl } from "@/lib/clipboardUrlPaste";
+import { extractPlainUrlFromClipboard, normalizeSingleHttpUrl } from "#/lib/clipboardUrlPaste";
 
 function createClipboardData(data: Record<string, string>) {
   return {

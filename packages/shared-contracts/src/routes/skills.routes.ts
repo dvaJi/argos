@@ -6,7 +6,7 @@ import type {
   SkillInstallResult,
   SkillMetadata,
   SkillScriptDescriptor,
-} from "@shared/types/skill";
+} from "@argos/shared/types/skill";
 import { EntityIdSchema, defineRouteContract } from "../common";
 
 const SkillMetadataSchema = zod.custom<SkillMetadata>();

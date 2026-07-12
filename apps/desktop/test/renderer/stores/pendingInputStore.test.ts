@@ -41,11 +41,11 @@ const setupStore = async () => {
     onPendingInputsChanged: vi.fn<(...args: any[]) => any>(() => unsubscribePendingInputsChanged),
   };
 
-  vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
-  const { usePendingInputStore } = await import("@/stores/ui/pendingInput");
+  const { usePendingInputStore } = await import("#/stores/ui/pendingInput");
 
   return {
     store: usePendingInputStore(),

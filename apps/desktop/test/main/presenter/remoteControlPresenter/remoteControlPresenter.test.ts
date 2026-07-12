@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BrowserWindow } from "electron";
-import type { TelegramPollerStatusSnapshot } from "@/presenter/remoteControlPresenter/types";
+import type { TelegramPollerStatusSnapshot } from "#/presenter/remoteControlPresenter/types";
 
 type MockPollerDeps = {
   onStatusChange?: (snapshot: TelegramPollerStatusSnapshot) => void;
@@ -18,7 +18,7 @@ const telegramClientInstances: Array<{
 }> = [];
 let pollerStartImplementation: () => Promise<void> = async () => {};
 
-vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
+vi.mock("#/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
   TelegramPoller: class MockTelegramPoller {
     readonly start = vi.fn<(...args: any[]) => any>(async () => {
       await pollerStartImplementation();
@@ -46,7 +46,7 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
   },
 }));
 
-vi.mock("@/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
+vi.mock("#/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
   TelegramClient: class MockTelegramClient {
     readonly setMyCommands = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
@@ -56,8 +56,8 @@ vi.mock("@/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
   },
 }));
 
-import { RemoteControlPresenter } from "@/presenter/remoteControlPresenter";
-import { WeixinIlinkClient } from "@/presenter/remoteControlPresenter/weixinIlink/weixinIlinkClient";
+import { RemoteControlPresenter } from "#/presenter/remoteControlPresenter";
+import { WeixinIlinkClient } from "#/presenter/remoteControlPresenter/weixinIlink/weixinIlinkClient";
 
 const createConfigPresenter = () => {
   const store = new Map<string, unknown>([

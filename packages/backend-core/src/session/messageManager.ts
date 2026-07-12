@@ -1,4 +1,4 @@
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 import type { AgentRegistry } from "./agentRegistry";
 
 type SessionGetter = {

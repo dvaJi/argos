@@ -3,12 +3,12 @@ import type {
   MessageMetadata,
   PermissionMode,
   QuestionOption,
-} from "@shared/types/agent-interface";
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
-import type { ChatMessage, ChatMessageProviderOptions } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition, MCPToolResponse } from "@shared/types/core/mcp";
-import type { ModelConfig } from "@shared/presenter";
-import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
+} from "@argos/shared/types/agent-interface";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
+import type { ChatMessage, ChatMessageProviderOptions } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition, MCPToolResponse } from "@argos/shared/types/core/mcp";
+import type { ModelConfig } from "@argos/shared/presenter";
+import type { IToolPresenter } from "@argos/shared/types/presenters/tool.presenter";
 import type { ArgosMessageStore } from "./messageStore";
 import type { ToolOutputGuard } from "./toolOutputGuard";
 

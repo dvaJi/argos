@@ -40,15 +40,15 @@ const setupStore = async (options?: {
     }),
   };
 
-  vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
 
-  vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
-  const { useAgentStore } = await import("@/stores/ui/agent");
+  const { useAgentStore } = await import("#/stores/ui/agent");
   const store = useAgentStore();
 
   const emitAgentsChanged = (payload: Parameters<AgentChangedListener>[0]) => {

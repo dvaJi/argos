@@ -1,21 +1,21 @@
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import type {
   GuidedOnboardingState,
   GuidedOnboardingStepId,
   GuidedOnboardingStepState,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import {
   guidedOnboardingStateSchema,
   guidedOnboardingStepIds,
   guidedOnboardingVersion,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import {
   GUIDED_ONBOARDING_STEP_IDS as SHARED_GUIDED_ONBOARDING_STEP_IDS,
   LEGACY_GUIDED_ONBOARDING_STEP_IDS,
   isLegacyGuidedOnboardingStepId,
   isGuidedOnboardingRequiredStepId,
   type LegacyGuidedOnboardingStepId,
-} from "@shared/guidedOnboarding";
+} from "@argos/shared/guidedOnboarding";
 
 export const GUIDED_ONBOARDING_STATE_KEY = "guidedOnboardingState";
 

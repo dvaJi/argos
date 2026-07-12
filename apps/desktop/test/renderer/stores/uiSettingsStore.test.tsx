@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, act } from "@testing-library/react";
-import type { SettingsSnapshotValues } from "@shared/contracts/routes";
+import type { SettingsSnapshotValues } from "@argos/shared-contracts/routes";
 
 describe("uiSettingsStore", () => {
   let invoke: ReturnType<typeof vi.fn>;
@@ -9,7 +9,7 @@ describe("uiSettingsStore", () => {
   let mountedUnmountFns: Array<() => void>;
 
   const mountStoreHost = async () => {
-    const { useUiSettingsStore } = await import("../../../src/renderer/src/stores/uiSettingsStore");
+    const { useUiSettingsStore } = await import("#/stores/uiSettingsStore");
     let store: ReturnType<typeof useUiSettingsStore> | null = null;
 
     function Host() {

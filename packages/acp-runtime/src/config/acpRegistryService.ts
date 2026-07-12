@@ -5,7 +5,7 @@ import type {
   AcpRegistryBinaryDistribution,
   AcpRegistryDistribution,
   AcpRegistryPackageDistribution,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import {
   ACP_REGISTRY_CACHE_TTL_MS,
   ACP_REGISTRY_ICON_CACHE_DIRNAME,

@@ -55,7 +55,7 @@ vi.mock("undici", () => ({
   WebSocket: MockWebSocket,
 }));
 
-import { QQBotGatewaySession } from "@/presenter/remoteControlPresenter/qqbot/qqbotGatewaySession";
+import { QQBotGatewaySession } from "#/presenter/remoteControlPresenter/qqbot/qqbotGatewaySession";
 
 describe("QQBotGatewaySession", () => {
   beforeEach(() => {

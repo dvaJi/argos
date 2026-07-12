@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import MessageActionButtons from "@/components/message/MessageActionButtons";
+import MessageActionButtons from "#/components/message/MessageActionButtons";
 
 describe("MessageActionButtons", () => {
   it("calls callback props on clicks", async () => {

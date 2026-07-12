@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, act } from "@testing-library/react";
-import { resolveSamplingDefaultModel } from "@/stores/mcpSampling";
-import type { RENDERER_MODEL_META } from "@shared/presenter";
+import { resolveSamplingDefaultModel } from "#/stores/mcpSampling";
+import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
 
 const makeModel = (id: string, providerId: string, options?: { vision?: boolean }): RENDERER_MODEL_META => ({
   id,
@@ -127,23 +127,23 @@ const setupSamplingStore = async (options?: {
     cancelSamplingRequest: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
-  vi.doMock("@api/McpClient", () => ({
+  vi.doMock("#api/McpClient", () => ({
     createMcpClient: () => mcpClient,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/draft", () => ({
+  vi.doMock("#/stores/ui/draft", () => ({
     useDraftStore: () => draftStore,
   }));
 
-  const { useMcpSamplingStore } = await import("@/stores/mcpSampling");
+  const { useMcpSamplingStore } = await import("#/stores/mcpSampling");
   let store: ReturnType<typeof useMcpSamplingStore> | null = null;
 
   function Harness() {

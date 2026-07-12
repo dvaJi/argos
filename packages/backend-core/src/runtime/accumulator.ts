@@ -1,4 +1,4 @@
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
 import type { RuntimeStreamState } from "./types";
 
 export function accumulate(state: RuntimeStreamState, event: LLMCoreStreamEvent): void {

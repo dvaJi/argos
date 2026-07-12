@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertMarkdownToTelegramHtml } from "@/presenter/remoteControlPresenter/telegram/telegramMarkdown";
+import { convertMarkdownToTelegramHtml } from "#/presenter/remoteControlPresenter/telegram/telegramMarkdown";
 
 describe("convertMarkdownToTelegramHtml", () => {
   it("returns an empty string for empty input", () => {

@@ -1,17 +1,17 @@
 import { app, BrowserWindow } from "electron";
-import { presenter } from "@/presenter";
-import { IDeeplinkPresenter, MCPServerConfig } from "@shared/presenter";
+import { presenter } from "#/presenter";
+import { IDeeplinkPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import path from "path";
-import { NOTIFICATION_EVENTS, SETTINGS_EVENTS, DEEPLINK_EVENTS, MCP_EVENTS, WINDOW_EVENTS } from "@/events";
-import { eventBus, SendTarget } from "@/eventbus";
-import { consumeStartupDeepLink } from "@/lib/startupDeepLink";
+import { NOTIFICATION_EVENTS, SETTINGS_EVENTS, DEEPLINK_EVENTS, MCP_EVENTS, WINDOW_EVENTS } from "#/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { consumeStartupDeepLink } from "#/lib/startupDeepLink";
 import {
   PROVIDER_INSTALL_VERSION,
   isProviderInstallCustomType,
   maskApiKey,
   type ProviderInstallDeeplinkPayload,
   type ProviderInstallPreview,
-} from "@shared/providerDeeplink";
+} from "@argos/shared/providerDeeplink";
 
 interface MCPInstallConfig {
   mcpServers: Record<

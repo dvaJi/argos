@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import os from "os";
-import { AgentToolManager } from "@/presenter/toolPresenter/agentTools/agentToolManager";
-import { YoBrowserUnavailableError, buildYoBrowserUnavailablePayload } from "@/presenter/browser/YoBrowserErrors";
+import { AgentToolManager } from "#/presenter/toolPresenter/agentTools/agentToolManager";
+import { YoBrowserUnavailableError, buildYoBrowserUnavailablePayload } from "#/presenter/browser/YoBrowserErrors";
 
 vi.mock("electron", () => ({
   app: {

@@ -1,6 +1,6 @@
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
-import { summarizeToolCallPreview } from "@shared/lib/toolCallSummary";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import { summarizeToolCallPreview } from "@argos/shared/lib/toolCallSummary";
 import type { RemoteDeliverySegment, RemoteGeneratedImageAsset, RemoteRenderableBlock } from "../types";
 
 const TOOL_ARGS_PREVIEW_LIMIT = 1_200;

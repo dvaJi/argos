@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ModelType } from "@shared/model";
-import type { IConfigPresenter, LLM_PROVIDER, MODEL_META, OllamaModel } from "@shared/presenter";
+import { ModelType } from "@argos/shared/model";
+import type { IConfigPresenter, LLM_PROVIDER, MODEL_META, OllamaModel } from "@argos/shared/presenter";
 import { OllamaProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/ollamaProvider";
 
 const { mockExecFile, mockOllamaConstructorOptions } = vi.hoisted(() => ({
@@ -22,7 +22,7 @@ vi.mock("ollama", () => ({
   },
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     info: vi.fn<(...args: any[]) => any>(),
     warn: vi.fn<(...args: any[]) => any>(),
@@ -42,7 +42,7 @@ vi.mock("../../../../src/main/presenter/devicePresenter", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     configPresenter: {
       getProvider: vi.fn<(...args: any[]) => any>(),

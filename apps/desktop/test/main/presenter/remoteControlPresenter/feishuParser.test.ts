@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FeishuParser } from "@/presenter/remoteControlPresenter/feishu/feishuParser";
+import { FeishuParser } from "#/presenter/remoteControlPresenter/feishu/feishuParser";
 
 describe("FeishuParser", () => {
   it("parses direct-message commands from text payloads", () => {

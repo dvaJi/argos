@@ -3,7 +3,7 @@ import type {
   PendingSessionInputRecord,
   PendingSessionInputState,
   SendMessageInput,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { ArgosPendingInputRow } from "../sqlitePresenter/tables/argosPendingInputs";
 

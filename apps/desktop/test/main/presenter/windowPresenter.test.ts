@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ipcMain } from "electron";
-import { SETTINGS_EVENTS } from "@/events";
+import { SETTINGS_EVENTS } from "#/events";
 
 vi.mock("electron-window-state", () => ({
   default: vi.fn<(...args: any[]) => any>(() => ({
@@ -13,7 +13,7 @@ vi.mock("electron-window-state", () => ({
   })),
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     tabPresenter: {
       getWindowTabsData: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
@@ -30,7 +30,7 @@ describe("WindowPresenter settings navigation queue", () => {
   });
 
   it("queues settings events until the settings renderer reports ready", async () => {
-    const { WindowPresenter } = await import("@/presenter/windowPresenter");
+    const { WindowPresenter } = await import("#/presenter/windowPresenter");
     const presenter = new WindowPresenter({
       getContentProtectionEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
@@ -71,7 +71,7 @@ describe("WindowPresenter settings navigation queue", () => {
   });
 
   it("clears queued settings messages when the settings window state resets", async () => {
-    const { WindowPresenter } = await import("@/presenter/windowPresenter");
+    const { WindowPresenter } = await import("#/presenter/windowPresenter");
     const presenter = new WindowPresenter({
       getContentProtectionEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
@@ -100,7 +100,7 @@ describe("WindowPresenter settings navigation queue", () => {
   });
 
   it("consumes pending provider installs in FIFO order", async () => {
-    const { WindowPresenter } = await import("@/presenter/windowPresenter");
+    const { WindowPresenter } = await import("#/presenter/windowPresenter");
     const presenter = new WindowPresenter({
       getContentProtectionEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any);
@@ -133,7 +133,7 @@ describe("WindowPresenter settings navigation queue", () => {
   });
 
   it("keeps the settings window ready during same-document navigation", async () => {
-    const { WindowPresenter } = await import("@/presenter/windowPresenter");
+    const { WindowPresenter } = await import("#/presenter/windowPresenter");
     const presenter = new WindowPresenter({
       getContentProtectionEnabled: vi.fn<(...args: any[]) => any>(() => false),
     } as any);

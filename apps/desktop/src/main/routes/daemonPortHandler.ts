@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { getSidecarHandle } from "@/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
+import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
 
 const DAEMON_PORT_CHANNEL = "get-daemon-port";
 const PAIRING_URL_CHANNEL = "generate-pairing-url";

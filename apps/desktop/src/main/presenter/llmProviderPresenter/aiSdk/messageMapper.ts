@@ -1,4 +1,4 @@
-import type { ChatMessage, MCPToolDefinition } from "@shared/presenter";
+import type { ChatMessage, MCPToolDefinition } from "@argos/shared/presenter";
 import { generateId, type ModelMessage } from "ai";
 import { applyLegacyFunctionCallPrompt } from "./middlewares/legacyFunctionCallMiddleware";
 import {

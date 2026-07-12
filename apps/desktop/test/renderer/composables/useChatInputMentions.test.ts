@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MCPToolDefinition, PromptListEntry } from "@shared/presenter";
+import type { MCPToolDefinition, PromptListEntry } from "@argos/shared/presenter";
 import {
   filterSlashSuggestionItems,
   flattenPromptResultToText,
@@ -10,7 +10,7 @@ import {
   shouldShowManualCompactionCommand,
   sortSlashSuggestionItems,
   type SlashSuggestionItem,
-} from "@/components/chat/mentions/utils";
+} from "#/components/chat/mentions/utils";
 
 describe("flattenPromptResultToText", () => {
   it("extracts ordered text segments from prompt messages", () => {

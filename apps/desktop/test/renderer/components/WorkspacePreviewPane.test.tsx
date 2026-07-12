@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 
-import WorkspacePreviewPane from "../../../src/renderer/src/components/sidepanel/viewer/WorkspacePreviewPane";
-import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
+import WorkspacePreviewPane from "#/components/sidepanel/viewer/WorkspacePreviewPane";
+import type { MarkdownLinkContext } from "#/components/markdown/linkTypes";
 
 const createFilePreview = (overrides: Record<string, unknown> = {}) => ({
   path: "C:/repo/docs/index.html",

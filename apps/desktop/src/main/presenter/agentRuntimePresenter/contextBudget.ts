@@ -1,5 +1,5 @@
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 import { estimateMessagesTokens, estimateToolDefinitionTokens, fitMessagesToContextWindow } from "./contextBuilder";
 
 export const AGENT_DEFAULT_MAX_OUTPUT_TOKENS_CAP = 16_384;

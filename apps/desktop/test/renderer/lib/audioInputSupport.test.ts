@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { MessageFile } from "@shared/types/agent-interface";
-import { filterUnsupportedAudioAttachments, isAudioAttachment } from "@/lib/audioInputSupport";
+import type { MessageFile } from "@argos/shared/types/agent-interface";
+import { filterUnsupportedAudioAttachments, isAudioAttachment } from "#/lib/audioInputSupport";
 
 const createFile = (overrides: Partial<MessageFile>): MessageFile => ({
   name: "file.txt",

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createThrottle } from "@shared/utils/throttle";
+import { createThrottle } from "@argos/shared/utils/throttle";
 
 describe("createThrottle", () => {
   beforeEach(() => {

@@ -4,12 +4,12 @@ import type {
   IConfigPresenter,
   ISQLitePresenter,
   MESSAGE_METADATA,
-} from "@shared/presenter";
-import type { Message } from "@shared/chat";
+} from "@argos/shared/presenter";
+import type { Message } from "@argos/shared/chat";
 import { BrowserWindow, webContents as electronWebContents } from "electron";
-import { presenter } from "@/presenter";
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONVERSATION_EVENTS } from "@/events";
+import { presenter } from "#/presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONVERSATION_EVENTS } from "#/events";
 import { DEFAULT_SETTINGS } from "../const";
 import type { MessageManager } from "./messageManager";
 

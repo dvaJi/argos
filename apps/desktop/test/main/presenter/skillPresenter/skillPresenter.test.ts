@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, Mock, afterEach } from "vitest";
-import type { IConfigPresenter } from "@shared/presenter";
-import type { SkillMetadata } from "@shared/types/skill";
+import type { IConfigPresenter } from "@argos/shared/presenter";
+import type { SkillMetadata } from "@argos/shared/types/skill";
 import { app } from "electron";
 
 const DEFAULT_SKILLS_DIR = "/mock/home/.argos/skills";
@@ -148,7 +148,7 @@ vi.mock("../../../../src/main/events", () => ({
   },
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     warn: vi.fn<(...args: any[]) => any>(),
   },
@@ -163,7 +163,7 @@ import matter from "gray-matter";
 import { watch } from "chokidar";
 import { unzipSync } from "fflate";
 import { randomUUID } from "node:crypto";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 import { eventBus } from "../../../../src/main/eventbus";
 import { SKILL_EVENTS } from "../../../../src/main/events";
 import { SKILL_CONFIG, SkillPresenter } from "@argos/skills-runtime";

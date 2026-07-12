@@ -18,8 +18,8 @@
       "@argos/backend-core/*": ["../backend-core/src/*"],
       "@argos/shared-contracts": ["../shared-contracts/src"],
       "@argos/shared-contracts/*": ["../shared-contracts/src/*"],
-      "@shared/*": ["../shared/src/*"],
-      "@/*": ["../../apps/desktop/src/main/*"]
+      "@argos/shared/*": ["../shared/src/*"],
+      "#/*": ["../../apps/desktop/src/main/*"]
     }
   },
   "include": ["src/**/*"]

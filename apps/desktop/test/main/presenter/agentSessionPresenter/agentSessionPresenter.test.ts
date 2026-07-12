@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { nanoid } from "nanoid";
-import { AgentSessionPresenter } from "@/presenter/agentSessionPresenter/index";
+import { AgentSessionPresenter } from "#/presenter/agentSessionPresenter/index";
 
 vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-session-id") }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
     sendToMain: vi.fn<(...args: any[]) => any>(),
@@ -13,8 +13,8 @@ vi.mock("@/eventbus", () => ({
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/events", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/events")>();
+vi.mock("#/events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#/events")>();
   return {
     ...actual,
     SESSION_EVENTS: {
@@ -27,7 +27,7 @@ vi.mock("@/events", async (importOriginal) => {
   };
 });
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     commandPermissionService: {
       extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
@@ -48,7 +48,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 
 function createMockArgosAgent() {
   return {

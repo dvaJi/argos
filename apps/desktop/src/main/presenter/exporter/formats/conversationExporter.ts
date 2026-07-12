@@ -1,9 +1,9 @@
-import { AssistantMessageBlock, Message, UserMessageContent } from "@shared/chat";
-import { CONVERSATION } from "@shared/presenter";
+import { AssistantMessageBlock, Message, UserMessageContent } from "@argos/shared/chat";
+import { CONVERSATION } from "@argos/shared/presenter";
 import { getNormalizedUserMessageText } from "../../sessionPresenter/messageFormatter";
 import { conversationExportTemplates } from "../templates/conversationExportTemplates";
-import { NowledgeMemThread } from "@shared/types/nowledgeMem";
-import { NowledgeMemExportSummary } from "@shared/types/nowledgeMem";
+import { NowledgeMemThread } from "@argos/shared/types/nowledgeMem";
+import { NowledgeMemExportSummary } from "@argos/shared/types/nowledgeMem";
 import {
   buildNowledgeMemExportContent,
   generateNowledgeMemExportFilename,

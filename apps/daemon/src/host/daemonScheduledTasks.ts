@@ -1,6 +1,6 @@
 import type { IEventPublisher, ProviderExecutionPort, SessionRepository } from "@argos/backend-core";
 import { ScheduledTasksService, type ScheduledTasksUpsertInput } from "@argos/backend-core";
-import type { CreateSessionInput } from "@shared/types/agent-interface";
+import type { CreateSessionInput } from "@argos/shared/types/agent-interface";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 
 type ScheduledTaskSessionCreator = {

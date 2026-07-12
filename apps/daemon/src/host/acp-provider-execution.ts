@@ -4,7 +4,7 @@ import type {
   MessageStartResult,
   ToolInteractionResponse,
   ToolInteractionResult,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type * as schema from "@agentclientprotocol/sdk";
 import { randomUUID } from "node:crypto";
 import {
@@ -23,7 +23,7 @@ import type { BunSessionRepository } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
 import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type { AcpConfigState } from "@shared/presenter";
+import type { AcpConfigState } from "@argos/shared/presenter";
 
 const ACP_PROVIDER_ID = "acp";
 

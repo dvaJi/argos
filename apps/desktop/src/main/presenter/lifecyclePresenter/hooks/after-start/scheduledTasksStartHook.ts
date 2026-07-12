@@ -7,9 +7,9 @@
  * scheduler arms timers and backfills missed one-shot tasks.
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { presenter, getMainKernelRouteRuntime } from "@/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { presenter, getMainKernelRouteRuntime } from "#/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 export const scheduledTasksStartHook: LifecycleHook = {
   name: "scheduled-tasks-start",

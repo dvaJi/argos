@@ -11,7 +11,7 @@ import {
   FastGptKnowledgeServer,
   RagflowKnowledgeServer,
 } from "@argos/mcp-runtime";
-import { presenter } from "@/presenter";
+import { presenter } from "#/presenter";
 import type { ConversationSearchServerPorts } from "@argos/mcp-runtime";
 
 const getDesktopDb = () => (presenter.sqlitePresenter as unknown as { db: { prepare(sql: string): any } }).db;

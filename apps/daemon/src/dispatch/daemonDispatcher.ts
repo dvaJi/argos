@@ -17,8 +17,8 @@ import {
   completeGuidedOnboarding,
   resetGuidedOnboarding,
 } from "@argos/backend-core/dispatch/onboarding/onboardingRouteSupport";
-import type { ChatMessagePageResult, PendingSessionInputRecord, SessionWithState } from "@shared/types/agent-interface";
-import type { IConfigPresenter } from "@shared/presenter";
+import type { ChatMessagePageResult, PendingSessionInputRecord, SessionWithState } from "@argos/shared/types/agent-interface";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
 import type {
   IEventPublisher,

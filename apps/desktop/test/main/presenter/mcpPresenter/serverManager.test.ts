@@ -11,14 +11,14 @@ const clientMocks = vi.hoisted(() => ({
   isServerRunning: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: eventBusMocks,
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   MCP_EVENTS: {
     CLIENT_LIST_UPDATED: "client-list-updated",
   },
@@ -27,7 +27,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter/proxyConfig", () => ({
+vi.mock("#/presenter/proxyConfig", () => ({
   proxyConfig: {
     getProxyUrl: vi.fn<(...args: any[]) => any>(() => ""),
   },

@@ -107,23 +107,23 @@ async function setup(overrides?: {
     clearDefaultProject,
   };
 
-  vi.doMock("@/stores/ui/project", () => ({
+  vi.doMock("#/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
     refreshEnvironmentData,
     openDirectory,
     setDefaultProject,
     clearDefaultProject,
   }));
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
       pathExists: vi.fn<(...args: any[]) => any>().mockResolvedValue(overrides?.pathExists ?? true),
     }),
   }));
-  vi.doMock("@/components/use-toast", () => ({
+  vi.doMock("#/components/use-toast", () => ({
     useToast: () => ({ toast }),
   }));
 
-  const EnvironmentsSettings = (await import("../../../src/renderer/settings/components/EnvironmentsSettings")).default;
+  const EnvironmentsSettings = (await import("#settings/components/EnvironmentsSettings")).default;
 
   const result = render(<EnvironmentsSettings />);
 

@@ -1,7 +1,7 @@
 import { app } from "electron";
 import path from "path";
-import { isDestructiveDatabaseError, repairSQLiteDatabaseFile, SQLitePresenter } from "@/presenter/sqlitePresenter";
-import { classifySchemaError } from "@/presenter/sqlitePresenter/schemaErrorClassifier";
+import { isDestructiveDatabaseError, repairSQLiteDatabaseFile, SQLitePresenter } from "#/presenter/sqlitePresenter";
+import { classifySchemaError } from "#/presenter/sqlitePresenter/schemaErrorClassifier";
 
 /**
  * Database initialization interface

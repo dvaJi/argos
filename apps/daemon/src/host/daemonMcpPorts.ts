@@ -14,7 +14,7 @@ import {
 } from "@argos/mcp-runtime";
 import type { IEventPublisher } from "@argos/backend-core";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
-import type { PluginToolPolicyDecision } from "@shared/types/plugin";
+import type { PluginToolPolicyDecision } from "@argos/shared/types/plugin";
 
 type StoredToolPolicy = {
   pluginId: string;

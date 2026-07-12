@@ -1,10 +1,10 @@
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import {
   SETTINGS_KEYS,
   type SettingsChange,
   type SettingsKey,
   type SettingsSnapshotValues,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 
 const ALL_SETTINGS_KEYS: readonly SettingsKey[] = SETTINGS_KEYS;
 

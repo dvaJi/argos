@@ -12,9 +12,9 @@ import type {
   PendingSessionInputState,
   SendMessageInput,
   SessionWithState,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
-import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 
 type BunDatabase = any;
 

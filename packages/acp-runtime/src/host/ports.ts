@@ -2,7 +2,7 @@
  * Host-injected ports for the ACP runtime.
  *
  * The runtime consumes only this seam and must never import `electron`,
- * `@/eventbus`, `@/routes`, `@/lib/runtimeHelper`, or any desktop presenter.
+ * `#/eventbus`, `#/routes`, `#/lib/runtimeHelper`, or any desktop presenter.
  * Each host (desktop Electron, headless daemon) supplies its own implementation.
  */
 
@@ -37,7 +37,7 @@ export interface LifecyclePort {
 
 /**
  * Binary-file read gating for `fs/read_text_file`. Replaces
- * `@/lib/binaryReadGuard` (which depends on the desktop file/mime subsystem).
+ * `#/lib/binaryReadGuard` (which depends on the desktop file/mime subsystem).
  */
 export interface AcpFsHelpers {
   shouldRejectAcpTextRead(filePath: string): Promise<{ reject: boolean; mimeType?: string }>;

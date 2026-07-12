@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getSidecarHandleMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook", () => ({
+vi.mock("#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook", () => ({
   getSidecarHandle: getSidecarHandleMock,
 }));
 

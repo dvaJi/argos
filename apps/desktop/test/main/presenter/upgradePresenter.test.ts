@@ -65,7 +65,7 @@ vi.mock("electron-updater", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToMain: sendToMainMock,
@@ -76,7 +76,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     windowPresenter: {
       setApplicationQuitting: setApplicationQuittingMock,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { QQBotAuthGuard } from "@/presenter/remoteControlPresenter/services/qqbotAuthGuard";
+import { QQBotAuthGuard } from "#/presenter/remoteControlPresenter/services/qqbotAuthGuard";
 
 const createMessage = (overrides: Partial<Parameters<QQBotAuthGuard["ensureAuthorized"]>[0]> = {}) => ({
   kind: "message" as const,

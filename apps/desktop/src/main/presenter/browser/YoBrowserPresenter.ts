@@ -2,10 +2,10 @@ import { BrowserWindow, WebContents, WebContentsView } from "electron";
 import type { Rectangle } from "electron";
 import { is } from "@electron-toolkit/utils";
 import { nanoid } from "nanoid";
-import { eventBus, SendTarget } from "@/eventbus";
-import { YO_BROWSER_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import logger from "@shared/logger";
+import { eventBus, SendTarget } from "#/eventbus";
+import { YO_BROWSER_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import logger from "@argos/shared/logger";
 import {
   BrowserPageStatus,
   type BrowserPageInfo,
@@ -17,8 +17,8 @@ import {
   type YoBrowserActivityPoint,
   type YoBrowserActivityRect,
   type YoBrowserStatus,
-} from "@shared/types/browser";
-import type { DownloadInfo, IWindowPresenter, IYoBrowserPresenter } from "@shared/presenter";
+} from "@argos/shared/types/browser";
+import type { DownloadInfo, IWindowPresenter, IYoBrowserPresenter } from "@argos/shared/presenter";
 import { BrowserTab as BrowserPage } from "./BrowserTab";
 import { CDPManager } from "./CDPManager";
 import { DownloadManager } from "./DownloadManager";

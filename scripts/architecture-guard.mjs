@@ -21,17 +21,17 @@ const MAIN_GUARD_PATHS = [
   path.join(ROOT, 'apps/desktop/src/main/lib/agentRuntime')
 ]
 
-const RENDERER_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/renderer/src')
-const RENDERER_TYPED_BOUNDARY_ROOT = path.join(ROOT, 'apps/desktop/src/renderer/api')
-const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'apps/desktop/src/renderer/api/legacy')
+const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
+const RENDERER_TYPED_BOUNDARY_ROOT = path.join(ROOT, 'packages/ui/api')
+const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'packages/ui/api/legacy')
 const RENDERER_QUARANTINE_ROOTS = [RENDERER_QUARANTINE_ROOT]
 const RETIRED_RENDERER_LEGACY_ENTRY_PATHS = [
-  path.join(ROOT, 'apps/desktop/src/renderer/src/composables/usePresenter.ts')
+  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts')
 ]
 const RENDERER_QUARANTINE_MAX_SOURCE_FILES = 3
 const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
-  path.join(ROOT, 'apps/desktop/src/renderer/api/runtime.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/api/local-api.ts')
+  path.join(ROOT, 'packages/ui/api/runtime.ts'),
+  path.join(ROOT, 'packages/ui/api/local-api.ts')
 ]
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
 const DESKTOP_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src')
@@ -50,22 +50,22 @@ const BRIDGE_REGISTER_PATH = path.join(
 )
 
 const RENDERER_IPC_GUARD_PATHS = [
-  path.join(ROOT, 'apps/desktop/src/renderer/src/App.tsx'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/session.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/message.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/lib/storeInitializer.ts')
+  path.join(ROOT, 'packages/ui/src/App.tsx'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/session.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/message.ts'),
+  path.join(ROOT, 'packages/ui/src/lib/storeInitializer.ts')
 ]
 
 const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
-  path.join(ROOT, 'apps/desktop/src/renderer/src/App.tsx'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/uiSettingsStore.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/session.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/message.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/agent.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/pendingInput.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/pageRouter.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/ChatPage.tsx'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/NewThreadPage.tsx'),
+  path.join(ROOT, 'packages/ui/src/App.tsx'),
+  path.join(ROOT, 'packages/ui/src/stores/uiSettingsStore.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/session.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/message.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/agent.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/pendingInput.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/pageRouter.ts'),
+  path.join(ROOT, 'packages/ui/src/pages/ChatPage.tsx'),
+  path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.tsx'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/windowPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/configPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
@@ -73,7 +73,7 @@ const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter'),
   path.join(ROOT, 'apps/desktop/src/shared/contracts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/api'),
+  path.join(ROOT, 'packages/ui/api'),
   path.join(ROOT, 'apps/desktop/src/preload/createBridge.ts'),
   path.join(ROOT, 'apps/desktop/src/preload/bridges'),
   path.join(ROOT, 'apps/desktop/src/main/ipc'),
@@ -82,7 +82,7 @@ const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
 
 const MIGRATED_RAW_CHANNEL_BASELINE = new Map([
   ['apps/desktop/src/main/presenter/windowPresenter/index.ts', 4],
-  ['apps/desktop/src/renderer/src/App.tsx', 1]
+  ['packages/ui/src/App.tsx', 1]
 ])
 
 const PROVIDER_ROUTE_HANDLER_PATH = path.join(
@@ -226,7 +226,7 @@ async function resolveImport(specifier, importer, aliasRoot = MAIN_SOURCE_ROOT) 
     return null
   }
 
-  if (specifier.startsWith('@/')) {
+  if (specifier.startsWith('#/')) {
     return await tryFile(path.join(aliasRoot, specifier.slice(2)))
   }
 
@@ -490,8 +490,8 @@ async function main() {
     if (MAIN_GUARD_PATHS.some((guardPath) => isUnder(filePath, guardPath))) {
       for (const specifier of specifiers) {
         if (
-          specifier === '@/presenter' ||
-          specifier === '@/presenter/index' ||
+          specifier === '#/presenter' ||
+          specifier === '#/presenter/index' ||
           specifier === '../index' ||
           specifier === '../../index'
         ) {

@@ -1,5 +1,5 @@
 import { ElectronAPI } from "@electron-toolkit/preload";
-import type { ArgosBridge } from "@shared/contracts/bridge";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
 
 declare global {
   interface Window {

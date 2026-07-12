@@ -6,7 +6,7 @@ import type {
   AcpManualAgent,
   AcpRegistryAgent,
   AcpResolvedLaunchSpec,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { resolveAcpAgentAlias, SVGSanitizer } from "@argos/backend-core";
 import { AcpConfHelper, AcpLaunchSpecService, AcpRegistryService } from "@argos/acp-runtime";
 import { createJsonStoreFactory } from "./jsonStoreFactory";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { HybridBridge } from "../../../src/preload/hybridBridge";
-import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@shared/contracts/connection";
+import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@argos/shared-contracts/connection";
 const noopBridge = {
   invoke: vi.fn<() => Promise<unknown>>(),
   on: vi.fn<() => () => void>(() => () => {}),

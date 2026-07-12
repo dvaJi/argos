@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { app } from "electron";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AcpSessionPersistence } from "@argos/acp-runtime";
-import type { AcpSessionEntity, ISQLitePresenter } from "@shared/types/presenters";
+import type { AcpSessionEntity, ISQLitePresenter } from "@argos/shared/types/presenters";
 
 vi.mock("electron", () => ({
   app: {

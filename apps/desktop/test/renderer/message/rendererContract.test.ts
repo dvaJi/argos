@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import type { LLMAgentEvent } from "@shared/types/core/agent-events";
-import type { AssistantMessageBlock } from "@shared/chat";
+import type { LLMAgentEvent } from "@argos/shared/types/core/agent-events";
+import type { AssistantMessageBlock } from "@argos/shared/chat";
 
 /**
  * Event → UI block mapping contract tests

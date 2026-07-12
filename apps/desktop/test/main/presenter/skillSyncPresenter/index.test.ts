@@ -11,9 +11,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { SkillSyncPresenter } from "../../../../src/main/presenter/skillSyncPresenter";
-import { ConflictStrategy } from "@shared/types/skillSync";
-import type { ISkillPresenter } from "@shared/presenter";
-import type { ImportPreview, ExportPreview } from "@shared/types/skillSync";
+import { ConflictStrategy } from "@argos/shared/types/skillSync";
+import type { ISkillPresenter } from "@argos/shared/presenter";
+import type { ImportPreview, ExportPreview } from "@argos/shared/types/skillSync";
 
 const scanWorkerMock = vi.hoisted(() => ({
   scanExternalToolsInWorker: vi.fn<(...args: any[]) => any>(),
@@ -46,7 +46,7 @@ vi.mock("fs", () => ({
 }));
 
 // Mock eventbus
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
@@ -56,7 +56,7 @@ vi.mock("@/eventbus", () => ({
 }));
 
 // Mock events
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   SKILL_SYNC_EVENTS: {
     SCAN_STARTED: "scan-started",
     SCAN_COMPLETED: "scan-completed",

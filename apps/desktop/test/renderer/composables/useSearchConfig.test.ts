@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { useSearchConfig } from "@/composables/useSearchConfig";
+import { useSearchConfig } from "#/composables/useSearchConfig";
 
 describe("useSearchConfig", () => {
   it("computes visibility and option availability from capabilities", () => {

@@ -1,4 +1,4 @@
-import { settingsGetSnapshotRoute, settingsListSystemFontsRoute, settingsUpdateRoute } from "@shared/contracts/routes";
+import { settingsGetSnapshotRoute, settingsListSystemFontsRoute, settingsUpdateRoute } from "@argos/shared-contracts/routes";
 import { pickSettingsSnapshot, type SettingsRouteAdapter } from "./settingsAdapter";
 
 export class SettingsRouteHandler {

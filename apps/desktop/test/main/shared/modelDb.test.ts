@@ -8,7 +8,7 @@ import {
   normalizeReasoningEffortValue,
   sanitizeAggregate,
   type ReasoningPortrait,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 
 describe("sanitizeAggregate", () => {
   it("keeps extra_capabilities.reasoning portraits alongside legacy reasoning", () => {

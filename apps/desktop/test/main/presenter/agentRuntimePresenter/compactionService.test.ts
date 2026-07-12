@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import * as contextBuilderModule from "@/presenter/agentRuntimePresenter/contextBuilder";
+import * as contextBuilderModule from "#/presenter/agentRuntimePresenter/contextBuilder";
 import {
   appendReconstructionAnchorStateSection,
   appendSummarySection,
   CompactionService,
   type ModelSpec,
-} from "@/presenter/agentRuntimePresenter/compactionService";
-import type { SessionSummaryState } from "@/presenter/agentRuntimePresenter/sessionStore";
-import type { ArgosAgentConfig } from "@shared/types/agent-interface";
+} from "#/presenter/agentRuntimePresenter/compactionService";
+import type { SessionSummaryState } from "#/presenter/agentRuntimePresenter/sessionStore";
+import type { ArgosAgentConfig } from "@argos/shared/types/agent-interface";
 
 vi.mock("tokenx", () => ({
   approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),
 }));
 
-vi.mock("@/presenter/agentRuntimePresenter/contextBuilder", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/presenter/agentRuntimePresenter/contextBuilder")>();
+vi.mock("#/presenter/agentRuntimePresenter/contextBuilder", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#/presenter/agentRuntimePresenter/contextBuilder")>();
   return {
     ...actual,
     buildHistoryTurns: vi.fn<(...args: any[]) => any>(actual.buildHistoryTurns),

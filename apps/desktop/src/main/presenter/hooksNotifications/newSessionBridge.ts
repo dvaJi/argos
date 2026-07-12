@@ -1,4 +1,4 @@
-import type { HookEventName } from "@shared/hooksNotifications";
+import type { HookEventName } from "@argos/shared/hooksNotifications";
 import type { HookDispatchContext } from "./index";
 
 type HookDispatcher = {

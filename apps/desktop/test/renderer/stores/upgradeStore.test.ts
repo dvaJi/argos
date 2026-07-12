@@ -21,7 +21,7 @@ const devicePresenterMock = vi.hoisted(() => ({
   getDeviceInfo: vi.fn<(...args: any[]) => any>().mockResolvedValue({ platform: "darwin" }),
 }));
 
-vi.mock("@api/UpgradeClient", () => ({
+vi.mock("#api/UpgradeClient", () => ({
   createUpgradeClient: vi.fn<(...args: any[]) => any>(() => ({
     checkUpdate: upgradePresenterMock.checkUpdate,
     getUpdateStatus: upgradePresenterMock.getUpdateStatus,
@@ -49,13 +49,13 @@ vi.mock("@api/UpgradeClient", () => ({
   })),
 }));
 
-vi.mock("@api/DeviceClient", () => ({
+vi.mock("#api/DeviceClient", () => ({
   createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
     getDeviceInfo: devicePresenterMock.getDeviceInfo,
   })),
 }));
 
-import { useUpgradeStore } from "@/stores/upgrade";
+import { useUpgradeStore } from "#/stores/upgrade";
 
 const createUpdateInfo = () => ({
   version: "1.0.0-beta.4",

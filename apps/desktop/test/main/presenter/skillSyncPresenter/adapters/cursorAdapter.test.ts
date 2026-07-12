@@ -5,7 +5,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { CursorAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/cursorAdapter";
-import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
+import type { CanonicalSkill, ParseContext } from "@argos/shared/types/skillSync";
 
 describe("CursorAdapter", () => {
   const adapter = new CursorAdapter();

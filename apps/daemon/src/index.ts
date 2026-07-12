@@ -27,7 +27,7 @@ import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
 import type { ProviderExecutionPort } from "@argos/backend-core";
-import type { SendMessageInput, ToolInteractionResponse } from "@shared/types/agent-interface";
+import type { SendMessageInput, ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import {
   parseArgs,
   mergeOptions,

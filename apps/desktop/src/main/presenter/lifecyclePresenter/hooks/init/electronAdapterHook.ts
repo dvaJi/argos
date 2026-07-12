@@ -1,7 +1,7 @@
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 import { createElectronHostDependencies } from "@argos/electron-adapter";
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 
 export const electronAdapterHook: LifecycleHook = {
   name: "electron-adapter-init",

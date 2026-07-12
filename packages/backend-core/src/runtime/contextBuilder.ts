@@ -1,6 +1,6 @@
 import { approximateTokenSize } from "tokenx";
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 
 export function estimateMessagesTokens(messages: ChatMessage[]): number {
   let total = 0;

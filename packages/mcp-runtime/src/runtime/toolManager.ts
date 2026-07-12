@@ -16,8 +16,8 @@ import {
   MCPTextContent,
   IConfigPresenter,
   Resource,
-} from "@shared/presenter";
-import type { AgentToolAccessContext } from "@shared/types/presenters/tool.presenter";
+} from "@argos/shared/presenter";
+import type { AgentToolAccessContext } from "@argos/shared/types/presenters/tool.presenter";
 import { ServerManager } from "./serverManager";
 import { McpClient } from "./mcpClient";
 import { jsonrepair } from "jsonrepair";

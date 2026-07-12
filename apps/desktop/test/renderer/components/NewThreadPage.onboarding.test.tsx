@@ -94,34 +94,34 @@ const setup = async () => {
     ensureAcpDraftSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
   };
 
-  vi.doMock("@/stores/ui/project", () => ({
+  vi.doMock("#/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/ui/draft", () => ({
+  vi.doMock("#/stores/ui/draft", () => ({
     useDraftStore: () => draftStore,
   }));
-  vi.doMock("@api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
-  vi.doMock("@api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("@/lib/startupDeferred", () => ({
+  vi.doMock("#/lib/startupDeferred", () => ({
     scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       void task();
       return () => {};
     }),
   }));
-  vi.doMock("@/composables/useGuidedOnboardingStep", () => ({
+  vi.doMock("#/composables/useGuidedOnboardingStep", () => ({
     useGuidedOnboardingStep: (stepId: string) => ({
       onboardingState: { value: null },
       currentStepId: { value: stepId === "first-chat" ? "first-chat" : null },
@@ -140,7 +140,7 @@ const setup = async () => {
     }),
   }));
 
-  const NewThreadPage = (await import("@/pages/NewThreadPage")).default;
+  const NewThreadPage = (await import("#/pages/NewThreadPage")).default;
 
   render(<NewThreadPage />);
 

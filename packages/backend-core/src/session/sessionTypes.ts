@@ -1,4 +1,4 @@
-import type { ArgosSubagentMeta, SessionRecord } from "@shared/types/agent-interface";
+import type { ArgosSubagentMeta, SessionRecord } from "@argos/shared/types/agent-interface";
 
 export const parseSubagentMeta = (raw: string | null | undefined): ArgosSubagentMeta | null => {
   if (!raw) {

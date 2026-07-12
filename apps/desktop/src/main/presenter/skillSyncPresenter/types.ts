@@ -4,7 +4,7 @@
  * Internal types used by SkillSyncPresenter implementation
  */
 
-import type { CanonicalSkill, ConflictStrategy, ExternalSkillInfo } from "@shared/types/skillSync";
+import type { CanonicalSkill, ConflictStrategy, ExternalSkillInfo } from "@argos/shared/types/skillSync";
 
 /**
  * Parsed external skill with full content

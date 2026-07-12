@@ -1,6 +1,6 @@
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
-import type { ChatMessageProviderOptions } from "@shared/types/core/chat-message";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
+import type { ChatMessageProviderOptions } from "@argos/shared/types/core/chat-message";
 import type { StreamState } from "./types";
 
 export function finalizeTrailingPendingNarrativeBlocks(blocks: AssistantMessageBlock[]): void {

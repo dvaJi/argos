@@ -10,9 +10,9 @@ import {
   ModelConfig,
   OllamaModel,
   ProgressResponse,
-} from "@shared/presenter";
-import { ModelType } from "@shared/model";
-import { DEFAULT_MODEL_CONTEXT_LENGTH, DEFAULT_MODEL_MAX_TOKENS } from "@shared/modelConfigDefaults";
+} from "@argos/shared/presenter";
+import { ModelType } from "@argos/shared/model";
+import { DEFAULT_MODEL_CONTEXT_LENGTH, DEFAULT_MODEL_MAX_TOKENS } from "@argos/shared/modelConfigDefaults";
 import { BaseLLMProvider, SUMMARY_TITLES_PROMPT } from "../baseProvider";
 import { execFile } from "node:child_process";
 import { Ollama, ShowResponse } from "ollama";
@@ -25,7 +25,7 @@ import {
 } from "../aiSdk";
 import { normalizeOllamaOpenAIBaseUrl, normalizeOllamaSdkHost } from "../aiSdk/providerFactory";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
-import { isInsecureTlsAllowed } from "@/lib/insecureTls";
+import { isInsecureTlsAllowed } from "#/lib/insecureTls";
 
 const OLLAMA_LIST_TIMEOUT_MS = 5000;
 

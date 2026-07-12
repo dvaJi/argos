@@ -5,9 +5,9 @@ import type {
   AssistantMessageBlock,
   MessageMetadata,
   ArgosAgentConfig,
-} from "@shared/types/agent-interface";
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
+} from "@argos/shared/types/agent-interface";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
 import type { ArgosMessageStore } from "./messageStore";
 import type { ArgosSessionStore, ReconstructionAnchorPromptState, SessionSummaryState } from "./sessionStore";
 import {

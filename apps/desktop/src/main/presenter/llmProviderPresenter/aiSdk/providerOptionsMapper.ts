@@ -1,12 +1,12 @@
-import type { MCPToolDefinition, ModelConfig } from "@shared/presenter";
+import type { MCPToolDefinition, ModelConfig } from "@argos/shared/presenter";
 import type { ModelMessage } from "ai";
-import { resolveMoonshotKimiTemperaturePolicy } from "@shared/moonshotKimiPolicy";
+import { resolveMoonshotKimiTemperaturePolicy } from "@argos/shared/moonshotKimiPolicy";
 import {
   getReasoningEffectiveEnabledForProvider,
   hasAnthropicReasoningToggle,
   normalizeAnthropicReasoningVisibilityValue,
   normalizeReasoningEffortValue,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 import { resolvePromptCachePlan } from "../promptCacheStrategy";
 import { modelCapabilities } from "../../configPresenter/modelCapabilities";
 import { providerDbLoader } from "../../configPresenter/providerDbLoader";

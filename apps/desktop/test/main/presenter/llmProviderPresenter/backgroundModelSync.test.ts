@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, ISQLitePresenter, LLM_PROVIDER } from "@shared/presenter";
+import type { IConfigPresenter, ISQLitePresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import { LLMProviderPresenter } from "../../../../src/main/presenter/llmProviderPresenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
@@ -48,7 +48,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     devicePresenter: {
       cacheImage: vi.fn<(...args: any[]) => any>(),
@@ -56,7 +56,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>((eventName: string, handler: (...args: unknown[]) => void) => {
       const handlers = eventState.handlers.get(eventName) ?? [];
@@ -73,7 +73,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     PROXY_RESOLVED: "config:proxy-resolved",
     PROVIDER_ATOMIC_UPDATE: "config:provider-atomic-update",

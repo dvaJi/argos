@@ -7,7 +7,7 @@ import * as shellEnvHelper from "@argos/backend-core/runtime/shellEnv";
 import { AcpProcessManager, parseLoadSessionCapability } from "@argos/acp-runtime";
 import { createAcpTestPorts } from "./acpTestPorts";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },

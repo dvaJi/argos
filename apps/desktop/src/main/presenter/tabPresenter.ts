@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { eventBus } from "@/eventbus";
-import { WINDOW_EVENTS, CONFIG_EVENTS, SYSTEM_EVENTS, TAB_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { WINDOW_EVENTS, CONFIG_EVENTS, SYSTEM_EVENTS, TAB_EVENTS } from "#/events";
 import { is } from "@electron-toolkit/utils";
-import { ITabPresenter, TabCreateOptions, IWindowPresenter, TabData } from "@shared/presenter";
+import { ITabPresenter, TabCreateOptions, IWindowPresenter, TabData } from "@argos/shared/presenter";
 import {
   BrowserWindow,
   WebContentsView,
@@ -14,10 +14,11 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-import contextMenu from "@/contextMenuHelper";
-import { addWatermarkToNativeImage } from "@/lib/watermark";
-import { stitchImagesVertically } from "@/lib/scrollCapture";
-import { openExternalUrl } from "@/lib/externalUrl";
+import contextMenu from "#/contextMenuHelper";
+import { addWatermarkToNativeImage } from "#/lib/watermark";
+import { stitchImagesVertically } from "#/lib/scrollCapture";
+import { openExternalUrl } from "#/lib/externalUrl";
+import { resolveUiUrl } from "#/lib/daemonUi";
 import { presenter } from "./";
 import { getYoBrowserSession } from "./browser/yoBrowserSession";
 
@@ -209,13 +210,7 @@ export class TabPresenter implements ITabPresenter {
     // Load content
     if (url.startsWith("local://")) {
       const viewType = url.replace("local://", "");
-      if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-        view.webContents.loadURL(`${process.env["VITE_DEV_SERVER_URL"]}#/${viewType}`);
-      } else {
-        view.webContents.loadFile(join(__dirname, "../renderer/index.html"), {
-          hash: `/${viewType}`,
-        });
-      }
+      view.webContents.loadURL(resolveUiUrl(`/#/${viewType}`));
     } else {
       view.webContents.loadURL(url);
     }
@@ -1103,13 +1098,7 @@ export class TabPresenter implements ITabPresenter {
     const view = this.tabs.get(tabId);
     if (view && !view.webContents.isDestroyed()) {
       const url = "local://chat";
-      if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-        view.webContents.loadURL(`${process.env["VITE_DEV_SERVER_URL"]}#/chat`);
-      } else {
-        view.webContents.loadFile(join(__dirname, "../renderer/index.html"), {
-          hash: `/chat`,
-        });
-      }
+      view.webContents.loadURL(resolveUiUrl("/#/chat"));
       // Update the tab state
       const state = this.tabState.get(tabId);
       if (state) {

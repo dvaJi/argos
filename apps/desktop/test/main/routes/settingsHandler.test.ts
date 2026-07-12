@@ -1,5 +1,5 @@
-import { SettingsRouteHandler } from "@/routes/settings/settingsHandler";
-import type { SettingsRouteAdapter } from "@/routes/settings/settingsAdapter";
+import { SettingsRouteHandler } from "#/routes/settings/settingsHandler";
+import type { SettingsRouteAdapter } from "#/routes/settings/settingsAdapter";
 
 describe("SettingsRouteHandler", () => {
   const createAdapter = (): SettingsRouteAdapter => {

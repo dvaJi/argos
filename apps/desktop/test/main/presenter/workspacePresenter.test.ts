@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
+import { ARGOS_EVENT_CHANNEL } from "@argos/shared-contracts/channels";
 
 const { chokidarState, sendToRendererMock, execFileMock } = vi.hoisted(() => {
   const watchers: Array<{

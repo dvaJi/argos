@@ -1,7 +1,7 @@
 /**
  * Minimal framework-agnostic logger for the remote-control runtime.
  *
- * Replaces `@shared/logger` (which is Electron-coupled via electron-log) so the
+ * Replaces `@argos/shared/logger` (which is Electron-coupled via electron-log) so the
  * package stays portable across the Bun daemon and tests. Hosts that want richer
  * logging can wrap/replace this; the method surface mirrors electron-log.
  */

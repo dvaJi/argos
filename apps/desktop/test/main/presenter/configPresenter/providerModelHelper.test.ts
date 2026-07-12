@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModelConfig } from "@shared/presenter";
-import { ModelType } from "@shared/model";
+import type { ModelConfig } from "@argos/shared/presenter";
+import { ModelType } from "@argos/shared/model";
 import type { StoreFactory } from "@argos/backend-core";
 
 const storeStates = vi.hoisted(
@@ -62,7 +62,7 @@ const eventBusMocks = vi.hoisted(() => ({
   sendToRenderer: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: eventBusMocks.on,
     send: eventBusMocks.send,
@@ -268,7 +268,7 @@ describe("ConfigPresenter provider model cache invalidation", () => {
   });
 
   it("refreshes cached provider models after setModelConfig and resetModelConfig", async () => {
-    vi.doMock("@/presenter", () => ({
+    vi.doMock("#/presenter", () => ({
       presenter: {},
     }));
 
@@ -332,7 +332,7 @@ describe("ConfigPresenter provider model cache invalidation", () => {
   });
 
   it("refreshes cached provider models after importModelConfigs", async () => {
-    vi.doMock("@/presenter", () => ({
+    vi.doMock("#/presenter", () => ({
       presenter: {},
     }));
 
@@ -402,7 +402,7 @@ describe("ConfigPresenter provider DB model mapping", () => {
   });
 
   it("preserves embedding and rerank types from provider DB models", async () => {
-    vi.doMock("@/presenter", () => ({
+    vi.doMock("#/presenter", () => ({
       presenter: {},
     }));
 

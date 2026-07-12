@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
-import { DEV_EVENTS } from "@/events";
+import { DEV_EVENTS } from "#/events";
 
 const presenterMocks = {
   devicePresenter: {
@@ -38,27 +38,27 @@ const upgradeStoreMock = {
   handleUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 };
 
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: (name: keyof typeof presenterMocks) => presenterMocks[name],
 }));
 
-vi.mock("@/stores/upgrade", () => ({
+vi.mock("#/stores/upgrade", () => ({
   useUpgradeStore: () => upgradeStoreMock,
 }));
 
-vi.mock("@/stores/language", () => ({
+vi.mock("#/stores/language", () => ({
   useLanguageStore: () => ({
     dir: "ltr",
   }),
 }));
 
-vi.mock("@/stores/theme", () => ({
+vi.mock("#/stores/theme", () => ({
   useThemeStore: () => ({
     isDark: true,
   }),
 }));
 
-vi.mock("@/components/use-toast", () => ({
+vi.mock("#/components/use-toast", () => ({
   useToast: () => ({
     toast: vi.fn<(...args: any[]) => any>(),
   }),

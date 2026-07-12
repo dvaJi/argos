@@ -1,4 +1,4 @@
-import type { CONVERSATION_SETTINGS } from "@shared/presenter";
+import type { CONVERSATION_SETTINGS } from "@argos/shared/presenter";
 
 export const DEFAULT_SETTINGS: CONVERSATION_SETTINGS = {
   systemPrompt: "",

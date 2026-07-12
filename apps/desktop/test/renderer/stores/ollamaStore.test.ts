@@ -56,30 +56,30 @@ const setupStore = async (overrides?: {
     ...overrides?.providerStore,
   };
 
-  vi.doMock("../../../src/renderer/api/ProviderClient", () => ({
+  vi.doMock("#api/ProviderClient", () => ({
     createProviderClient: vi.fn<(...args: any[]) => any>(() => providerClient),
   }));
 
-  vi.doMock("../../../src/renderer/api/ModelClient", () => ({
+  vi.doMock("#api/ModelClient", () => ({
     createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
-  vi.doMock("@api/legacy/runtime", () => ({
+  vi.doMock("#api/legacy/runtime", () => ({
     createLegacyIpcSubscriptionScope: () => ({
       on: vi.fn<(...args: any[]) => any>(),
       cleanup: vi.fn<(...args: any[]) => any>(),
     }),
   }));
 
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
 
-  const { useOllamaStore } = await import("@/stores/ollamaStore");
+  const { useOllamaStore } = await import("#/stores/ollamaStore");
 
   return {
     store: useOllamaStore(),

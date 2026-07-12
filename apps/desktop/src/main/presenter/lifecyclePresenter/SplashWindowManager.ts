@@ -8,12 +8,13 @@ import { BrowserWindow, ipcMain, nativeImage } from "electron";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { eventBus } from "../../eventbus";
-import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "@/events";
-import { ISplashWindowManager } from "@shared/presenter";
+import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "#/events";
+import { ISplashWindowManager } from "@argos/shared/presenter";
 import { is } from "@electron-toolkit/utils";
+import { resolveUiUrl } from "#/lib/daemonUi";
 import icon from "../../../../resources/icon.png?asset"; // App icon (macOS/Linux)
 import iconWin from "../../../../resources/icon.ico?asset"; // App icon (Windows)
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 import { ErrorOccurredEventData, HookExecutedEventData, HookFailedEventData, ProgressUpdatedEventData } from "./types";
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import {
@@ -24,8 +25,8 @@ import {
   type DatabaseUnlockProgressPayload,
   type DatabaseUnlockRequestPayload,
   type DatabaseUnlockReason,
-} from "@shared/contracts/databaseSecurity";
-import { activateAppOnMac } from "@/lib/activateApp";
+} from "@argos/shared-contracts/databaseSecurity";
+import { activateAppOnMac } from "#/lib/activateApp";
 
 type SplashActivityStatus = "running" | "completed" | "failed";
 
@@ -499,7 +500,7 @@ export class SplashWindowManager implements ISplashWindowManager {
     }
 
     if (
-      await this.tryLoadSplashFile(path.join(__dirname, "../renderer/splash/index.html"), {
+      await this.tryLoadSplashUrl(resolveUiUrl("/splash/index.html"), "daemon splash", {
         quiet: is.dev,
       })
     ) {
@@ -544,30 +545,6 @@ export class SplashWindowManager implements ISplashWindowManager {
       }
       if (!options.quiet) {
         console.warn(`[SplashWindow] Failed to load ${source} (${url}); falling back:`, error);
-      }
-      return false;
-    }
-  }
-
-  private async tryLoadSplashFile(filePath: string, options: { quiet?: boolean } = {}): Promise<boolean> {
-    const splashWindow = this.splashWindow;
-    if (!splashWindow || !this.shouldContinueSplashLoad()) {
-      return false;
-    }
-
-    try {
-      await splashWindow.loadFile(filePath);
-      if (!this.shouldContinueSplashLoad()) {
-        return false;
-      }
-      this.markSplashLoaded();
-      return true;
-    } catch (error) {
-      if (!this.shouldContinueSplashLoad()) {
-        return false;
-      }
-      if (!options.quiet) {
-        console.warn(`[SplashWindow] Failed to load splash file (${filePath}); falling back:`, error);
       }
       return false;
     }

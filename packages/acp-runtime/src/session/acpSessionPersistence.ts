@@ -7,7 +7,7 @@ import type {
   AcpSessionEntity,
   AgentSessionLifecycleStatus,
   ISQLitePresenter,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 export interface AcpRemoteSessionSyncInput {
   agentId: string;

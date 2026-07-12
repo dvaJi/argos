@@ -1,5 +1,5 @@
 import type { ProviderExecutionPort, IEventPublisher } from "@argos/backend-core";
-import type { SendMessageInput, MessageStartResult } from "@shared/types/agent-interface";
+import type { SendMessageInput, MessageStartResult } from "@argos/shared/types/agent-interface";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
 import { randomUUID } from "node:crypto";

@@ -6,8 +6,8 @@ import type {
   UserMessageContent,
   UserMessageMentionBlock,
   UserMessageTextBlock,
-} from "@shared/chat";
-import type { ChatMessage, ChatMessageContent } from "@shared/presenter";
+} from "@argos/shared/chat";
+import type { ChatMessage, ChatMessageContent } from "@argos/shared/presenter";
 import { nanoid } from "nanoid";
 
 const FILE_CONTENT_MAX_CHARS = 8000;

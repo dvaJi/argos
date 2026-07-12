@@ -46,10 +46,10 @@ const setup = async (query: Record<string, string> = {}) => {
     clearNpmRegistryCache: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
-  vi.doMock("@/stores/mcp", () => ({
+  vi.doMock("#/stores/mcp", () => ({
     useMcpStore: () => mcpStore,
   }));
-  vi.doMock("@/composables/useGuidedOnboardingStep", () => ({
+  vi.doMock("#/composables/useGuidedOnboardingStep", () => ({
     useGuidedOnboardingStep: () => ({
       showGuide: { value: false },
       stepIndex: { value: 1 },
@@ -59,13 +59,13 @@ const setup = async (query: Record<string, string> = {}) => {
       skipStep: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
       focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     }),
   }));
 
-  const McpSettings = (await import("../../../src/renderer/settings/components/McpSettings")).default;
+  const McpSettings = (await import("#settings/components/McpSettings")).default;
 
   const result = render(<McpSettings />);
 

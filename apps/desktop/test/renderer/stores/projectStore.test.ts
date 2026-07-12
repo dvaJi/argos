@@ -26,7 +26,7 @@ const setupStore = async (overrides?: {
     ),
   };
 
-  vi.doMock("../../../src/renderer/api/ProjectClient", () => ({
+  vi.doMock("#api/ProjectClient", () => ({
     createProjectClient: vi.fn<(...args: any[]) => any>(() => ({
       listRecent: projectPresenter.getRecentProjects,
       listEnvironments: projectPresenter.getEnvironments,
@@ -34,11 +34,11 @@ const setupStore = async (overrides?: {
       selectDirectory: projectPresenter.selectDirectory,
     })),
   }));
-  vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
 
-  const { useProjectStore } = await import("@/stores/ui/project");
+  const { useProjectStore } = await import("#/stores/ui/project");
   const store = useProjectStore();
   const emitDefaultProjectPathChanged = (path: string | null) => {
     for (const listener of defaultProjectPathListeners) {

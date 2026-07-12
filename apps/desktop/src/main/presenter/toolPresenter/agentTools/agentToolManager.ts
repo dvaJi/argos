@@ -1,19 +1,19 @@
-import type { IConfigPresenter, MCPToolDefinition } from "@shared/presenter";
-import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
+import type { IConfigPresenter, MCPToolDefinition } from "@argos/shared/presenter";
+import type { AgentToolProgressUpdate } from "@argos/shared/types/presenters/tool.presenter";
 import { toJSONSchema, z } from "zod";
 import fs from "fs";
 import path from "path";
 import { app, nativeImage } from "electron";
-import logger from "@shared/logger";
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { ToolCallImagePreview } from "@shared/types/core/mcp";
-import type { SkillManageResult } from "@shared/types/skill";
-import { buildBinaryReadGuidance, shouldRejectAgentBinaryRead } from "@/lib/binaryReadGuard";
+import logger from "@argos/shared/logger";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
+import type { SkillManageResult } from "@argos/shared/types/skill";
+import { buildBinaryReadGuidance, shouldRejectAgentBinaryRead } from "#/lib/binaryReadGuard";
 import { AgentFileSystemHandler } from "./agentFileSystemHandler";
 import { AgentBashHandler } from "./agentBashHandler";
 import { SkillTools } from "../../skillPresenter/skillTools";
 import { SkillExecutionService } from "../../skillPresenter/skillExecutionService";
-import { questionToolSchema, QUESTION_TOOL_NAME } from "@/lib/agentRuntime/questionTool";
+import { questionToolSchema, QUESTION_TOOL_NAME } from "#/lib/agentRuntime/questionTool";
 import {
   ChatSettingsToolHandler,
   buildChatSettingsToolDefinitions,
@@ -28,7 +28,7 @@ import { AgentImageGenerationTool, IMAGE_GENERATE_TOOL_NAME } from "./agentImage
 import { AgentPlanTool, UPDATE_PLAN_TOOL_NAME } from "./agentPlanTool";
 import { AgentTapeToolHandler } from "./agentTapeTools";
 import { AgentMemoryToolHandler } from "./agentMemoryTools";
-import { createAgentToolErrorResult } from "@shared/lib/agentToolResultEnvelope";
+import { createAgentToolErrorResult } from "@argos/shared/lib/agentToolResultEnvelope";
 import { isYoBrowserUnavailableError } from "../../browser/YoBrowserErrors";
 
 // Consider moving to a shared handlers location in future refactoring
@@ -698,7 +698,7 @@ export class AgentToolManager {
       throw new Error("process tool requires a conversation ID");
     }
 
-    const { backgroundExecSessionManager } = await import("@/lib/agentRuntime/backgroundExecSessionManager");
+    const { backgroundExecSessionManager } = await import("#/lib/agentRuntime/backgroundExecSessionManager");
 
     const validationResult = this.fileSystemSchemas.process.safeParse(args);
     if (!validationResult.success) {

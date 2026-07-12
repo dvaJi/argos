@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@shared/presenter";
-import { ApiEndpointType, ModelType } from "@shared/model";
+import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@argos/shared/presenter";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
 import { modelCapabilities } from "../../../../src/main/presenter/configPresenter/modelCapabilities";
@@ -9,7 +9,7 @@ const { mockRunAiSdkCoreStream } = vi.hoisted(() => ({
   mockRunAiSdkCoreStream: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     info: vi.fn<(...args: any[]) => any>(),
     warn: vi.fn<(...args: any[]) => any>(),
@@ -31,7 +31,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     devicePresenter: {
       cacheImage: vi.fn<(...args: any[]) => any>(),
@@ -39,7 +39,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -52,7 +52,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     PROXY_RESOLVED: "PROXY_RESOLVED",
     PROVIDER_ATOMIC_UPDATE: "PROVIDER_ATOMIC_UPDATE",

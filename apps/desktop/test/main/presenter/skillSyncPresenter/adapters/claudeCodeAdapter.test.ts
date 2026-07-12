@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { ClaudeCodeAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/claudeCodeAdapter";
-import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
+import type { CanonicalSkill, ParseContext } from "@argos/shared/types/skillSync";
 
 describe("ClaudeCodeAdapter", () => {
   const adapter = new ClaudeCodeAdapter();

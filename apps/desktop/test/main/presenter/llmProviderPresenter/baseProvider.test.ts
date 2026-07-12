@@ -6,10 +6,10 @@ import type {
   LLMResponse,
   MCPToolDefinition,
   ModelConfig,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { BaseLLMProvider } from "../../../../src/main/presenter/llmProviderPresenter/baseProvider";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -22,7 +22,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },

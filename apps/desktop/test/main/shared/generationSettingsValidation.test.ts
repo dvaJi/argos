@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from "@shared/modelConfigDefaults";
-import { validateGenerationNumericField } from "@shared/utils/generationSettingsValidation";
+import { MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from "@argos/shared/modelConfigDefaults";
+import { validateGenerationNumericField } from "@argos/shared/utils/generationSettingsValidation";
 
 describe("validateGenerationNumericField timeout bounds", () => {
   it("accepts timeout values within the supported range", () => {

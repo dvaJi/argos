@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { ReasoningPortrait } from "@shared/types/model-db";
-import { ApiEndpointType, ModelType } from "@shared/model";
+import type { ReasoningPortrait } from "@argos/shared/types/model-db";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
 
 type SetupOptions = {
   providerId: string;
@@ -73,20 +73,20 @@ const setup = async (options: SetupOptions) => {
     }),
   };
 
-  vi.doMock("@/stores/modelConfigStore", () => ({
+  vi.doMock("#/stores/modelConfigStore", () => ({
     useModelConfigStore: () => modelConfigStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
-  vi.doMock("@api/ModelClient", () => ({
+  vi.doMock("#api/ModelClient", () => ({
     createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
-  const ModelConfigDialog = (await import("@/components/settings/ModelConfigDialog")).default;
+  const ModelConfigDialog = (await import("#/components/settings/ModelConfigDialog")).default;
   const result = render(
     <ModelConfigDialog
       open

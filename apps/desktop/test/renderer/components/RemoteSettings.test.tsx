@@ -135,7 +135,7 @@ const setup = async (options: SetupOptions = {}) => {
 
   const toast = vi.fn<(...args: any[]) => any>();
 
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: (name: string) => {
       if (name === "agentSessionPresenter") return agentSessionPresenter;
       if (name === "projectPresenter") return projectPresenter;
@@ -143,13 +143,13 @@ const setup = async (options: SetupOptions = {}) => {
     },
     useLegacyRemoteControlPresenter: () => remoteControlPresenter,
   }));
-  vi.doMock("@/components/use-toast", () => ({
+  vi.doMock("#/components/use-toast", () => ({
     useToast: () => ({
       toast,
     }),
   }));
 
-  const RemoteSettings = (await import("../../../src/renderer/settings/components/RemoteSettings")).default;
+  const RemoteSettings = (await import("#settings/components/RemoteSettings")).default;
 
   const result = render(<RemoteSettings />);
 

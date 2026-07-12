@@ -5,13 +5,13 @@ import type {
   AgentTapeAnchorsOptions,
   AgentTapeSearchOptions,
   ChatMessageRecord,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type { ArgosMessageStore } from "./messageStore";
 import type { ArgosTapeEntryRow, ArgosTapeSearchInput } from "../sqlitePresenter/tables/argosTapeEntries";
 import { appendMessageRecordToTape } from "./tapeFacts";
 import { buildEffectiveTapeView, getLastEffectiveTokenUsage, searchEffectiveTapeRows } from "./tapeEffectiveView";
 import { TAPE_VIEW_MANIFEST_EVENT_NAME, verifyTapeViewManifest } from "./tapeViewManifest";
-import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 
 export type TapeMigrationState = "none" | "ready";
 

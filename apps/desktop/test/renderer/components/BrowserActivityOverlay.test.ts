@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
-import type { YoBrowserActivityPayload } from "@shared/types/browser";
+import type { YoBrowserActivityPayload } from "@argos/shared/types/browser";
 
 describe("BrowserActivityOverlay", () => {
   beforeEach(() => {

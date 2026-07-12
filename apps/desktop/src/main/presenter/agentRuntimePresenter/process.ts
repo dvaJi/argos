@@ -1,5 +1,5 @@
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
-import type { PermissionRequestPayload } from "@shared/types/core/llm-events";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
+import type { PermissionRequestPayload } from "@argos/shared/types/core/llm-events";
 import type { IoParams, PendingToolInteraction, ProcessParams, ProcessResult, StreamState } from "./types";
 import { createState } from "./types";
 import { accumulate, finalizeTrailingPendingNarrativeBlocks } from "./accumulator";

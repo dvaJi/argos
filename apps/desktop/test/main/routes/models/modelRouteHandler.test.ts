@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { dispatchModelRoute } from "../../../../src/main/routes/models/modelRouteHandler";
-import { modelsGetProviderCatalogRoute } from "@shared/contracts/routes";
+import { modelsGetProviderCatalogRoute } from "@argos/shared-contracts/routes";
 
 describe("dispatchModelRoute models.getProviderCatalog", () => {
   it("reads provider catalog from local configPresenter", async () => {

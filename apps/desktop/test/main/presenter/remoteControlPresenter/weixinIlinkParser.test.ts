@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WeixinIlinkParser } from "@/presenter/remoteControlPresenter/weixinIlink/weixinIlinkParser";
+import { WeixinIlinkParser } from "#/presenter/remoteControlPresenter/weixinIlink/weixinIlinkParser";
 
 describe("WeixinIlinkParser", () => {
   it("parses encrypted image media attachments from iLink messages", () => {

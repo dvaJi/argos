@@ -3,10 +3,10 @@ import * as fs from "fs";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { type WebContents, app } from "electron";
-import type { AcpBuiltinAgentId, AcpAgentConfig, AcpAgentProfile } from "@shared/presenter";
+import type { AcpBuiltinAgentId, AcpAgentConfig, AcpAgentProfile } from "@argos/shared/presenter";
 import { spawn } from "node-pty";
 import type { IPty } from "node-pty";
-import { RuntimeHelper } from "@/lib/runtimeHelper";
+import { RuntimeHelper } from "#/lib/runtimeHelper";
 import {
   getPathEntriesFromEnv,
   getShellEnvironment,

@@ -22,13 +22,13 @@ const ANALYSIS_TARGETS = [
   },
   {
     label: 'renderer',
-    root: path.join(ROOT, 'apps/desktop/src/renderer/src')
+    root: path.join(ROOT, 'packages/ui/src')
   }
 ]
 
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
-const RENDERER_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/renderer/src')
-const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'apps/desktop/src/renderer/api/legacy')
+const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
+const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'packages/ui/api/legacy')
 const RENDERER_QUARANTINE_ROOTS = [RENDERER_QUARANTINE_ROOT]
 const RENDERER_QUARANTINE_EXIT_MAX_FILES = 3
 const BRIDGE_REGISTER_PATH = path.join(
@@ -46,15 +46,15 @@ const HOT_PATH_FILES = [
 ]
 
 const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
-  path.join(ROOT, 'apps/desktop/src/renderer/src/App.tsx'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/uiSettingsStore.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/session.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/message.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/agent.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/pendingInput.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui/pageRouter.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/ChatPage.tsx'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/NewThreadPage.tsx'),
+  path.join(ROOT, 'packages/ui/src/App.tsx'),
+  path.join(ROOT, 'packages/ui/src/stores/uiSettingsStore.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/session.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/message.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/agent.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/pendingInput.ts'),
+  path.join(ROOT, 'packages/ui/src/stores/ui/pageRouter.ts'),
+  path.join(ROOT, 'packages/ui/src/pages/ChatPage.tsx'),
+  path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.tsx'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/windowPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/configPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/agentSessionPresenter'),
@@ -62,7 +62,7 @@ const MIGRATED_RAW_CHANNEL_GUARD_PATHS = [
   path.join(ROOT, 'apps/desktop/src/main/presenter/sessionPresenter'),
   path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter'),
   path.join(ROOT, 'apps/desktop/src/shared/contracts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/api'),
+  path.join(ROOT, 'packages/ui/api'),
   path.join(ROOT, 'apps/desktop/src/preload/createBridge.ts'),
   path.join(ROOT, 'apps/desktop/src/preload/bridges'),
   path.join(ROOT, 'apps/desktop/src/main/ipc'),
@@ -248,12 +248,12 @@ async function resolveImport(specifier, importer, scopeRoot) {
     return null
   }
 
-  if (specifier.startsWith('@/')) {
+  if (specifier.startsWith('#/')) {
     return await tryFile(path.join(scopeRoot, specifier.slice(2)))
   }
 
-  if (specifier.startsWith('@shared/')) {
-    return await tryFile(path.join(ROOT, 'apps/desktop/src/shared', specifier.slice('@shared/'.length)))
+  if (specifier.startsWith('@argos/shared/')) {
+    return await tryFile(path.join(ROOT, 'apps/desktop/src/shared', specifier.slice('@argos/shared/'.length)))
   }
 
   if (specifier.startsWith('.')) {
@@ -739,8 +739,8 @@ function renderBoundaryBaselineReport({
 
   lines.push('## Renderer Single-Track Split')
   lines.push('')
-  lines.push('- Business layer: `src/renderer/src/**`')
-  lines.push('- Quarantine layer: `src/renderer/api/legacy/**`')
+  lines.push('- Business layer: `packages/ui/src/**`')
+  lines.push('- Quarantine layer: `packages/ui/api/legacy/**`')
   lines.push('')
   lines.push('| Legacy surface | Business layer | Quarantine layer | Total |')
   lines.push('| --- | --- | --- | --- |')
@@ -962,10 +962,10 @@ async function main() {
     {
       phase: 'P0',
       indicator:
-        'Fixed quarantine path `src/renderer/api/legacy/**` exists and baseline emits business/quarantine split metrics',
+        'Fixed quarantine path `packages/ui/api/legacy/**` exists and baseline emits business/quarantine split metrics',
       current: quarantineExists
-        ? '`src/renderer/api/legacy/**` exists; split metrics emitted'
-        : '`src/renderer/api/legacy/**` missing',
+        ? '`packages/ui/api/legacy/**` exists; split metrics emitted'
+        : '`packages/ui/api/legacy/**` missing',
       status: quarantineExists ? 'ready' : 'blocked'
     },
     {

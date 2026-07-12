@@ -1,4 +1,4 @@
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import type { z } from "zod";
 import {
   StartupWorkloadChangedPayloadSchema,
@@ -7,7 +7,7 @@ import {
   StartupWorkloadTargetSchema,
   StartupWorkloadTaskIdSchema,
   StartupWorkloadTaskSchema,
-} from "@shared/contracts/common";
+} from "@argos/shared-contracts/common";
 
 type StartupWorkloadTarget = z.output<typeof StartupWorkloadTargetSchema>;
 type StartupWorkloadPhase = z.output<typeof StartupWorkloadPhaseSchema>;

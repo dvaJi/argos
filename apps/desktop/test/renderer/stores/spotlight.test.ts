@@ -41,34 +41,34 @@ const setupStore = async (options?: { hasActiveSession?: boolean; historyHits?: 
     goToNewThread: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("@api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("@api/SettingsClient", () => ({
+  vi.doMock("#api/SettingsClient", () => ({
     createSettingsClient: vi.fn<(...args: any[]) => any>(() => settingsClient),
   }));
 
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
 
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
 
-  vi.doMock("@/stores/ui/pageRouter", () => ({
+  vi.doMock("#/stores/ui/pageRouter", () => ({
     usePageRouterStore: () => pageRouterStore,
   }));
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
 
-  vi.doMock("@shared/settingsNavigation", () => ({
+  vi.doMock("@argos/shared/settingsNavigation", () => ({
     SETTINGS_NAVIGATION_ITEMS: [],
   }));
 
-  const { useSpotlightStore } = await import("@/stores/ui/spotlight");
+  const { useSpotlightStore } = await import("#/stores/ui/spotlight");
   const store = useSpotlightStore();
 
   return {

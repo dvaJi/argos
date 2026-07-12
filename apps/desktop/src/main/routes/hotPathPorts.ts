@@ -1,5 +1,5 @@
-import type { IAgentSessionPresenter, IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
-import type { ArgosEventName, ArgosEventPayload } from "@shared/contracts/events";
+import type { IAgentSessionPresenter, IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
+import type { ArgosEventName, ArgosEventPayload } from "@argos/shared-contracts/events";
 import type {
   ChatMessagePageResult,
   ChatMessageRecord,
@@ -10,7 +10,7 @@ import type {
   SessionWithState,
   ToolInteractionResponse,
   ToolInteractionResult,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type {
   ProviderCatalogPort as PresenterProviderCatalogPort,
   SessionPermissionPort as PresenterSessionPermissionPort,

@@ -2,9 +2,9 @@ import type {
   MessageMetadata,
   UsageDashboardCalendarDay,
   UsageStatsBackfillStatus,
-} from "@shared/types/agent-interface";
-import type { IConfigPresenter } from "@shared/presenter";
-import type { ProviderModel } from "@shared/types/model-db";
+} from "@argos/shared/types/agent-interface";
+import type { IConfigPresenter } from "@argos/shared/presenter";
+import type { ProviderModel } from "@argos/shared/types/model-db";
 import { providerDbLoader } from "./configPresenter/providerDbLoader";
 
 export const DASHBOARD_STATS_BACKFILL_KEY = "dashboardStatsBackfillV1";

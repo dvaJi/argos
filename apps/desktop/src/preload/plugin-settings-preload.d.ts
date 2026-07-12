@@ -1,5 +1,5 @@
-import type { JsonValue } from "@shared/contracts/common";
-import type { PluginActionResult, PluginSettingsApiStatus } from "@shared/types/plugin";
+import type { JsonValue } from "@argos/shared-contracts/common";
+import type { PluginActionResult, PluginSettingsApiStatus } from "@argos/shared/types/plugin";
 
 export interface ArgosPluginSettingsApi {
   getPluginId(): string;

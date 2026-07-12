@@ -1,4 +1,4 @@
-import type { ILlmProviderPresenter } from "@shared/presenter";
+import type { ILlmProviderPresenter } from "@argos/shared/presenter";
 import {
   providersAddRoute,
   providersGetAcpProcessConfigOptionsRoute,
@@ -17,7 +17,7 @@ import {
   providersSetByIdRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import type { ProviderImportService } from "@argos/backend-core";
 
 export async function dispatchProviderRoute(

@@ -1,9 +1,9 @@
 import { app, shell } from "electron";
 import fs from "fs";
 import path from "path";
-import type { IDevicePresenter } from "@shared/presenter";
+import type { IDevicePresenter } from "@argos/shared/presenter";
 import type { SQLitePresenter } from "../sqlitePresenter";
-import type { EnvironmentSummary, Project } from "@shared/types/agent-interface";
+import type { EnvironmentSummary, Project } from "@argos/shared/types/agent-interface";
 
 export class ProjectPresenter {
   private sqlitePresenter: SQLitePresenter;

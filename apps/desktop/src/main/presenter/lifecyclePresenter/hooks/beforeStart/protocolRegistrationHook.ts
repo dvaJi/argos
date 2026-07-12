@@ -4,15 +4,15 @@
  */
 
 import { protocol, app } from "electron";
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
 import path from "path";
 import fs from "fs";
 import { is } from "@electron-toolkit/utils";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 import {
   resolveWorkspacePreviewRequest,
   WORKSPACE_PREVIEW_PROTOCOL,
-} from "@/presenter/workspacePresenter/workspacePreviewProtocol";
+} from "#/presenter/workspacePresenter/workspacePreviewProtocol";
 
 const getMimeTypeForPath = (filePath: string): string => {
   const extension = path.extname(filePath).toLowerCase();

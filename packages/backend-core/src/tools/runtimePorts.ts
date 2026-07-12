@@ -1,4 +1,4 @@
-import type { IFilePresenter, ILlmProviderPresenter, IWindowPresenter, IYoBrowserPresenter } from "@shared/presenter";
+import type { IFilePresenter, ILlmProviderPresenter, IWindowPresenter, IYoBrowserPresenter } from "@argos/shared/presenter";
 import type {
   ArgosSubagentMeta,
   ArgosSubagentSlot,
@@ -11,8 +11,8 @@ import type {
   SendMessageInput,
   SessionGenerationSettings,
   SessionKind,
-} from "@shared/types/agent-interface";
-import type { ISkillPresenter } from "@shared/types/skill";
+} from "@argos/shared/types/agent-interface";
+import type { ISkillPresenter } from "@argos/shared/types/skill";
 
 export interface ConversationSessionInfo {
   sessionId: string;

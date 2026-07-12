@@ -1,4 +1,4 @@
-import type { AcpAgentConfig, AcpConfigState, IConfigPresenter } from "@shared/presenter";
+import type { AcpAgentConfig, AcpConfigState, IConfigPresenter } from "@argos/shared/presenter";
 import type { AgentSessionState } from "../protocol/types";
 import type {
   AcpProcessManager,

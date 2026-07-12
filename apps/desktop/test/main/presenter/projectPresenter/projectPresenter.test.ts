@@ -32,7 +32,7 @@ vi.mock("fs", () => ({
   },
 }));
 
-import { ProjectPresenter } from "@/presenter/projectPresenter/index";
+import { ProjectPresenter } from "#/presenter/projectPresenter/index";
 
 function createMockSqlitePresenter() {
   return {

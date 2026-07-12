@@ -1,5 +1,5 @@
-import type { AssistantMessageBlock } from "@shared/chat";
-import type { AcpConfigState } from "@shared/presenter";
+import type { AssistantMessageBlock } from "@argos/shared/chat";
+import type { AcpConfigState } from "@argos/shared/presenter";
 
 export type ArgosAgentEvent =
   | { type: "message.delta"; conversationId: string; text: string }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ModelType } from "@shared/model";
+import { ModelType } from "@argos/shared/model";
 
 const createQueryCache = () => {
   return {
@@ -64,27 +64,27 @@ const setupStore = async (overrides?: { modelClient?: Record<string, any>; provi
     ...overrides?.providerStore,
   };
 
-  vi.doMock("@/stores/agentModelStore", () => ({
+  vi.doMock("#/stores/agentModelStore", () => ({
     useAgentModelStore: () => agentModelStore,
   }));
 
-  vi.doMock("@/stores/modelConfigStore", () => ({
+  vi.doMock("#/stores/modelConfigStore", () => ({
     useModelConfigStore: () => modelConfigStore,
   }));
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
 
-  vi.doMock("../../../src/renderer/api/ModelClient", () => ({
+  vi.doMock("#api/ModelClient", () => ({
     createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
   }));
 
-  vi.doMock("@/composables/useIpcMutation", () => ({
+  vi.doMock("#/composables/useIpcMutation", () => ({
     useIpcMutation: () => ({ mutateAsync: vi.fn<(...args: any[]) => any>() }),
   }));
 
-  const { useModelStore } = await import("@/stores/modelStore");
+  const { useModelStore } = await import("#/stores/modelStore");
   const store = useModelStore();
 
   return {

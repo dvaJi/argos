@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
 
 export type ArgosInternalSessionRuntimeStatus = "idle" | "generating" | "blocked" | "done" | "error";
 

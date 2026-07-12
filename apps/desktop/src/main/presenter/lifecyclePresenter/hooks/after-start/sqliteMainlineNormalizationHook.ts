@@ -1,6 +1,6 @@
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
-import { presenter } from "@/presenter";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
+import { presenter } from "#/presenter";
 
 export const sqliteMainlineNormalizationHook: LifecycleHook = {
   name: "sqlite-mainline-normalization",

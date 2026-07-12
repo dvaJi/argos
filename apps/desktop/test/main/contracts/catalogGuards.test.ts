@@ -1,6 +1,6 @@
-import { AssistantMessageBlockSchema } from "@shared/contracts/common";
-import { hasArgosEventContract } from "@shared/contracts/events";
-import { hasArgosRouteContract, SettingsChangeSchema } from "@shared/contracts/routes";
+import { AssistantMessageBlockSchema } from "@argos/shared-contracts/common";
+import { hasArgosEventContract } from "@argos/shared-contracts/events";
+import { hasArgosRouteContract, SettingsChangeSchema } from "@argos/shared-contracts/routes";
 
 describe("contract runtime guards", () => {
   it("rejects inherited event and route keys", () => {

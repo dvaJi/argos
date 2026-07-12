@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { useThinkingBudget, type ThinkingBudgetRange } from "@/composables/useThinkingBudget";
+import { useThinkingBudget, type ThinkingBudgetRange } from "#/composables/useThinkingBudget";
 
 describe("useThinkingBudget", () => {
   it("computes showThinkingBudget only when reasoning supported and range provided", () => {

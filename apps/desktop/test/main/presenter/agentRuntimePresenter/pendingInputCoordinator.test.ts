@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PendingInputCoordinator } from "@/presenter/agentRuntimePresenter/pendingInputCoordinator";
-import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
+import { PendingInputCoordinator } from "#/presenter/agentRuntimePresenter/pendingInputCoordinator";
+import type { PendingSessionInputRecord } from "@argos/shared/types/agent-interface";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
@@ -11,13 +11,13 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   SESSION_EVENTS: {
     PENDING_INPUTS_UPDATED: "session:pending-inputs-updated",
   },
 }));
 
-vi.mock("@/routes/publishArgosEvent", () => ({
+vi.mock("#/routes/publishArgosEvent", () => ({
   publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 

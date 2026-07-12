@@ -3,9 +3,9 @@ import ElectronStore from "electron-store";
 import fs from "fs";
 import path from "path";
 import Database from "better-sqlite3-multiple-ciphers";
-import type { IConfigPresenter } from "@shared/presenter";
-import type { DatabaseSecurityStatus } from "@shared/contracts/routes";
-import type { DatabaseUnlockReason } from "@shared/contracts/databaseSecurity";
+import type { IConfigPresenter } from "@argos/shared/presenter";
+import type { DatabaseSecurityStatus } from "@argos/shared-contracts/routes";
+import type { DatabaseUnlockReason } from "@argos/shared-contracts/databaseSecurity";
 import { openSQLiteDatabase, type SQLitePresenter } from "../sqlitePresenter";
 import { configureSQLCipherCompatibility } from "../sqlitePresenter/connectionConfig";
 

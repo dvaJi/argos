@@ -4,7 +4,7 @@ import {
   CHANNEL_PLUGIN_SCHEMA_VERSION,
   isChannelPluginManifest,
   parseChannelPluginManifest,
-} from "@/presenter/remoteControlPresenter/types/channel";
+} from "#/presenter/remoteControlPresenter/types/channel";
 
 describe("Channel plugin manifest ABI", () => {
   it("accepts a valid plugin manifest", () => {

@@ -1,8 +1,8 @@
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import type { MCPToolDefinition } from "@shared/presenter";
-import type { ArgosSubagentSlot } from "@shared/types/agent-interface";
-import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import type { ArgosSubagentSlot } from "@argos/shared/types/agent-interface";
+import type { AgentToolProgressUpdate } from "@argos/shared/types/presenters/tool.presenter";
 import type { AgentToolCallResult } from "./agentToolManager";
 import type { AgentToolRuntimePort, ConversationSessionInfo } from "../runtimePorts";
 

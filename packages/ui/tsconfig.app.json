@@ -1,0 +1,56 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": [
+    "src/env.d.ts",
+    "src/**/*",
+    "src/**/*.tsx",
+    "src/assets/**/*",
+    "floating/env.d.ts",
+    "floating/**/*",
+    "floating/**/*.tsx",
+    "floating/assets/**/*",
+    "splash/**/*",
+    "splash/**/*.tsx",
+    "splash/assets/**/*",
+    "browser-overlay/**/*",
+    "browser-overlay/**/*.tsx",
+    "browser-overlay/assets/**/*",
+    "settings/**/*",
+    "settings/**/*.tsx",
+    "web/**/*",
+    "web/**/*.tsx",
+    "api/**/*",
+    "shadcn/**/*",
+    "components/**/*"
+  ],
+  "compilerOptions": {
+    "module": "esnext",
+    "composite": false,
+    "declaration": false,
+    "emitDeclarationOnly": false,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "paths": {
+      "#/*": [
+        "./src/*"
+      ],
+      "#api/*": [
+        "./api/*"
+      ],
+      "@argos/shared-contracts/*": [
+        "../../packages/shared-contracts/src/*"
+      ],
+      "@argos/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "#shadcn/*": [
+        "./shadcn/*"
+      ],
+      "#settings/*": [
+        "./settings/*"
+      ]
+    }
+  }
+}

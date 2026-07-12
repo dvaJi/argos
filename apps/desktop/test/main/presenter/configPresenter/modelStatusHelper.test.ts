@@ -5,7 +5,7 @@ const { send } = vi.hoisted(() => ({
   send: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     send,
   },

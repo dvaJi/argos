@@ -1,9 +1,9 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryManagerPanel } from "../../../src/renderer/settings/components/MemoryManagerPanel";
-import type { MemoryClient } from "../../../src/renderer/settings/components/MemoryManagerPanel";
+import { MemoryManagerPanel } from "#settings/components/MemoryManagerPanel";
+import type { MemoryClient } from "#settings/components/MemoryManagerPanel";
 
-vi.mock("@/components/use-toast", () => ({
+vi.mock("#/components/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
 }));
 

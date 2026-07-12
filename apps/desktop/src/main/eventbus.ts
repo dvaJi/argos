@@ -1,4 +1,4 @@
-import { IWindowPresenter, ITabPresenter } from "@shared/presenter";
+import { IWindowPresenter, ITabPresenter } from "@argos/shared/presenter";
 import EventEmitter from "events";
 
 export enum SendTarget {

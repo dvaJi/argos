@@ -1,11 +1,11 @@
-import type { ArgosBridge } from "@shared/contracts/bridge";
-import { createBrowserClient } from "../../../src/renderer/api/BrowserClient";
-import { createChatClient } from "../../../src/renderer/api/ChatClient";
-import { createConfigClient } from "../../../src/renderer/api/ConfigClient";
-import { createModelClient } from "../../../src/renderer/api/ModelClient";
-import { createProviderClient } from "../../../src/renderer/api/ProviderClient";
-import { createSessionClient } from "../../../src/renderer/api/SessionClient";
-import { createSettingsClient } from "../../../src/renderer/api/SettingsClient";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import { createBrowserClient } from "#api/BrowserClient";
+import { createChatClient } from "#api/ChatClient";
+import { createConfigClient } from "#api/ConfigClient";
+import { createModelClient } from "#api/ModelClient";
+import { createProviderClient } from "#api/ProviderClient";
+import { createSessionClient } from "#api/SessionClient";
+import { createSettingsClient } from "#api/SettingsClient";
 
 describe("renderer api clients", () => {
   function createBridge(): ArgosBridge {

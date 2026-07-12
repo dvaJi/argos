@@ -12,15 +12,15 @@ import {
   PromptListEntry,
   McpSamplingRequestPayload,
   McpSamplingDecision,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { McpRouterManager, ServerManager, ToolManager } from "@argos/mcp-runtime";
 import { createDesktopMcpPorts } from "./desktopMcpPorts";
-import { eventBus, SendTarget } from "@/eventbus";
-import { MCP_EVENTS, NOTIFICATION_EVENTS } from "@/events";
-import { presenter } from "@/presenter";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
-import type { AgentToolAccessContext } from "@shared/types/presenters/tool.presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { MCP_EVENTS, NOTIFICATION_EVENTS } from "#/events";
+import { presenter } from "#/presenter";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { extractToolCallImagePreviews } from "#/lib/toolCallImagePreviews";
+import type { AgentToolAccessContext } from "@argos/shared/types/presenters/tool.presenter";
 
 // Complete McpPresenter implementation
 export class McpPresenter implements IMCPPresenter {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AWS_BEDROCK_PROVIDER, IConfigPresenter } from "@shared/presenter";
+import type { AWS_BEDROCK_PROVIDER, IConfigPresenter } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 const { mockBedrockSend, mockRunAiSdkCoreStream, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
@@ -18,7 +18,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -28,7 +28,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },

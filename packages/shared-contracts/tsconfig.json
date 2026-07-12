@@ -12,9 +12,9 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/src/*"]
+      "@argos/shared-contracts/*": ["./src/*"],
+      "@argos/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src/**/*"]

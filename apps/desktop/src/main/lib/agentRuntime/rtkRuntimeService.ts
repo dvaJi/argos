@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { app } from "electron";
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import type {
   RtkFailureStage,
   RtkHealthStatus,
@@ -10,8 +10,8 @@ import type {
   UsageDashboardRtkData,
   UsageDashboardRtkDay,
   UsageDashboardRtkSummary,
-} from "@shared/types/agent-interface";
-import logger from "@shared/logger";
+} from "@argos/shared/types/agent-interface";
+import logger from "@argos/shared/logger";
 import { getShellEnvironment, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import { RuntimeHelper } from "../runtimeHelper";
 

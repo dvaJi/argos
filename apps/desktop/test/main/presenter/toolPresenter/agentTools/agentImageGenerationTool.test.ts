@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import os from "os";
-import { AgentToolManager } from "@/presenter/toolPresenter/agentTools/agentToolManager";
-import { IMAGE_GENERATE_TOOL_NAME } from "@/presenter/toolPresenter/agentTools/agentImageGenerationTool";
-import { ApiEndpointType, ModelType } from "@shared/model";
+import { AgentToolManager } from "#/presenter/toolPresenter/agentTools/agentToolManager";
+import { IMAGE_GENERATE_TOOL_NAME } from "#/presenter/toolPresenter/agentTools/agentImageGenerationTool";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
 
 vi.mock("electron", () => ({
   app: {

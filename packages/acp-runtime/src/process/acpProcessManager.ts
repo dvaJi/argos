@@ -12,7 +12,7 @@ import type {
   AcpAgentState,
   AcpConfigState,
   AcpResolvedLaunchSpec,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import type { AgentProcessHandle, AgentProcessManager } from "../protocol/types";
 import {
   getPathEntriesFromEnv,

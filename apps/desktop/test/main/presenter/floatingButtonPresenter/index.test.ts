@@ -4,7 +4,7 @@ import {
   getCollapsedWidgetSize,
   getExpandedWidgetSize,
 } from "../../../../src/main/presenter/floatingButtonPresenter/layout";
-import type { SessionWithState } from "@shared/types/agent-interface";
+import type { SessionWithState } from "@argos/shared/types/agent-interface";
 
 const {
   electronState,

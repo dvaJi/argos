@@ -5,11 +5,11 @@
  * Setup log and proxy
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { setLoggingEnabled } from "@shared/logger";
-import { proxyConfig, ProxyMode } from "@/presenter/proxyConfig";
-import { ConfigPresenter } from "@/presenter/configPresenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { setLoggingEnabled } from "@argos/shared/logger";
+import { proxyConfig, ProxyMode } from "#/presenter/proxyConfig";
+import { ConfigPresenter } from "#/presenter/configPresenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 export const configInitHook: LifecycleHook = {
   name: "config-initialization",

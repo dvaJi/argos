@@ -89,7 +89,7 @@ describe("resolveWebRoot", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(!result.ok && result.message).toContain("build:web");
-    expect(!result.ok && result.searched.length).toBe(5);
+    expect(!result.ok && result.message).toContain("@argos/ui build");
+    expect(!result.ok && result.searched.length).toBe(11);
   });
 });

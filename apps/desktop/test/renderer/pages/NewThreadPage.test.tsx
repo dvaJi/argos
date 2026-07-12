@@ -117,44 +117,44 @@ const setup = async (pendingModelId: string) => {
     ensureAcpDraftSession: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("@/stores/ui/project", () => ({
+  vi.doMock("#/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/ui/draft", () => ({
+  vi.doMock("#/stores/ui/draft", () => ({
     useDraftStore: () => draftStore,
   }));
-  vi.doMock("@api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
-  vi.doMock("@api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("@/lib/startupDeferred", () => ({
+  vi.doMock("#/lib/startupDeferred", () => ({
     scheduleStartupDeferredTask: vi.fn<(...args: any[]) => any>((task: () => void | Promise<void>) => {
       void task();
       return () => {};
     }),
   }));
-  vi.doMock("@/components/chat/ChatInputBox", () => ({
+  vi.doMock("#/components/chat/ChatInputBox", () => ({
     default: ({ modelValue }: { modelValue?: string }) => <div data-testid="chat-input">{modelValue}</div>,
   }));
-  vi.doMock("@/components/chat/ChatStatusBar", () => ({
+  vi.doMock("#/components/chat/ChatStatusBar", () => ({
     default: () => <div data-testid="chat-status-bar" />,
   }));
   vi.doMock("@iconify/react", () => ({
     Icon: () => <span />,
   }));
 
-  const NewThreadPage = (await import("@/pages/NewThreadPage")).default;
+  const NewThreadPage = (await import("#/pages/NewThreadPage")).default;
 
   const result = render(<NewThreadPage />);
 

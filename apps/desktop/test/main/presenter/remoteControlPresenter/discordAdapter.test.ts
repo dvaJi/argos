@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DiscordRuntimeStatusSnapshot } from "@/presenter/remoteControlPresenter/types";
+import type { DiscordRuntimeStatusSnapshot } from "#/presenter/remoteControlPresenter/types";
 
 type MockRuntimeDeps = {
   onStatusChange?: (snapshot: DiscordRuntimeStatusSnapshot) => void;
@@ -17,7 +17,7 @@ const clientInstances: Array<{
   sendTypingIndicator: ReturnType<typeof vi.fn>;
 }> = [];
 
-vi.mock("@/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
+vi.mock("#/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
   DiscordRuntime: class MockDiscordRuntime {
     readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
@@ -43,7 +43,7 @@ vi.mock("@/presenter/remoteControlPresenter/discord/discordRuntime", () => ({
   },
 }));
 
-vi.mock("@/presenter/remoteControlPresenter/discord/discordClient", () => ({
+vi.mock("#/presenter/remoteControlPresenter/discord/discordClient", () => ({
   DiscordClient: class MockDiscordClient {
     readonly sendMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue("msg-1");
     readonly sendTypingIndicator = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
@@ -54,7 +54,7 @@ vi.mock("@/presenter/remoteControlPresenter/discord/discordClient", () => ({
   },
 }));
 
-import { DiscordAdapter } from "@/presenter/remoteControlPresenter/adapters/discord/DiscordAdapter";
+import { DiscordAdapter } from "#/presenter/remoteControlPresenter/adapters/discord/DiscordAdapter";
 
 describe("DiscordAdapter", () => {
   beforeEach(() => {

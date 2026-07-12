@@ -1,9 +1,9 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { useModelTypeDetection } from "@/composables/useModelTypeDetection";
+import { useModelTypeDetection } from "#/composables/useModelTypeDetection";
 
 const getModelConfig = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 
-vi.mock("@/stores/modelConfigStore", () => ({
+vi.mock("#/stores/modelConfigStore", () => ({
   useModelConfigStore: () => ({
     getModelConfig,
   }),

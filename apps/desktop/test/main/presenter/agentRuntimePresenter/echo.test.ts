@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { StreamState, IoParams } from "@/presenter/agentRuntimePresenter/types";
-import { createState } from "@/presenter/agentRuntimePresenter/types";
+import type { StreamState, IoParams } from "#/presenter/agentRuntimePresenter/types";
+import { createState } from "#/presenter/agentRuntimePresenter/types";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/routes/publishArgosEvent", () => ({
+vi.mock("#/routes/publishArgosEvent", () => ({
   publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   STREAM_EVENTS: {
     RESPONSE: "stream:response",
     END: "stream:end",
@@ -19,9 +19,9 @@ vi.mock("@/events", () => ({
   },
 }));
 
-import { cloneBlocksForRenderer, startEcho } from "@/presenter/agentRuntimePresenter/echo";
-import { eventBus } from "@/eventbus";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { cloneBlocksForRenderer, startEcho } from "#/presenter/agentRuntimePresenter/echo";
+import { eventBus } from "#/eventbus";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 
 function createIo(): IoParams {
   return {

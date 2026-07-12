@@ -28,7 +28,7 @@ vi.mock("@electron-toolkit/utils", () => ({
   },
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     info: vi.fn<(...args: any[]) => any>(),
     warn: vi.fn<(...args: any[]) => any>(),
@@ -39,7 +39,7 @@ vi.mock("@shared/logger", () => ({
 import {
   BackgroundExecSessionManager,
   backgroundExecSessionManager,
-} from "@/lib/agentRuntime/backgroundExecSessionManager";
+} from "#/lib/agentRuntime/backgroundExecSessionManager";
 
 class MockStream extends EventEmitter {}
 

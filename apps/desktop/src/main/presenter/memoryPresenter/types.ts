@@ -1,5 +1,5 @@
-import type { AgentMemoryCategory } from "@shared/types/agent-memory";
-import type { ArgosAgentConfig, ArgosAgentMemoryRetrieval } from "@shared/types/agent-interface";
+import type { AgentMemoryCategory } from "@argos/shared/types/agent-memory";
+import type { ArgosAgentConfig, ArgosAgentMemoryRetrieval } from "@argos/shared/types/agent-interface";
 import type {
   AgentMemoryInsertInput,
   AgentMemoryKind,

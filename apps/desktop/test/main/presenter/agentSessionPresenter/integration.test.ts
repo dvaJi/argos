@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AgentSessionPresenter } from "@/presenter/agentSessionPresenter/index";
-import { AgentRuntimePresenter } from "@/presenter/agentRuntimePresenter/index";
-import { estimateMessagesTokens } from "@/presenter/agentRuntimePresenter/contextBuilder";
-import { NewSessionHooksBridge } from "@/presenter/hooksNotifications/newSessionBridge";
-import type { ReasoningEffort, Verbosity } from "@shared/types/model-db";
+import { AgentSessionPresenter } from "#/presenter/agentSessionPresenter/index";
+import { AgentRuntimePresenter } from "#/presenter/agentRuntimePresenter/index";
+import { estimateMessagesTokens } from "#/presenter/agentRuntimePresenter/contextBuilder";
+import { NewSessionHooksBridge } from "#/presenter/hooksNotifications/newSessionBridge";
+import type { ReasoningEffort, Verbosity } from "@argos/shared/types/model-db";
 
 vi.mock("nanoid", () => {
   let counter = 0;
   return { nanoid: vi.fn<(...args: any[]) => any>(() => `id-${++counter}`) };
 });
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
     sendToMain: vi.fn<(...args: any[]) => any>(),
@@ -19,8 +19,8 @@ vi.mock("@/eventbus", () => ({
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/events", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/events")>();
+vi.mock("#/events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#/events")>();
   return {
     ...actual,
     SESSION_EVENTS: {
@@ -39,7 +39,7 @@ vi.mock("@/events", async (importOriginal) => {
   };
 });
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     commandPermissionService: {
       extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
@@ -60,7 +60,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 
 function createMockSqlitePresenter() {
   // In-memory storage for integration-level testing

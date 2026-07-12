@@ -1,8 +1,8 @@
 import type { IEventPublisher } from "@argos/backend-core";
-import type { eventBus as EventBusType } from "@/eventbus";
-import { SendTarget } from "@/eventbus";
-import { getArgosEventContract, type ArgosEventName } from "@shared/contracts/events";
-import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
+import type { eventBus as EventBusType } from "#/eventbus";
+import { SendTarget } from "#/eventbus";
+import { getArgosEventContract, type ArgosEventName } from "@argos/shared-contracts/events";
+import { ARGOS_EVENT_CHANNEL } from "@argos/shared-contracts/channels";
 
 export class ElectronEventPublisher implements IEventPublisher {
   private handlers = new Map<string, Set<(payload: unknown) => void>>();

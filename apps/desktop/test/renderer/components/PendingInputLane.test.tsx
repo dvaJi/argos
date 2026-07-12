@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
-import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
+import type { PendingSessionInputRecord } from "@argos/shared/types/agent-interface";
 
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ disabled, children, onClick, ...props }: any) => (
     <button disabled={disabled} onClick={onClick} {...props}>
       {children}
@@ -24,7 +24,7 @@ vi.mock("vuedraggable", () => ({
   ),
 }));
 
-import PendingInputLane from "@/components/chat/PendingInputLane";
+import PendingInputLane from "#/components/chat/PendingInputLane";
 
 function buildPendingInput(
   id: string,

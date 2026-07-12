@@ -1,4 +1,4 @@
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 
 export type TapeEffectiveViewEntry = {
   sessionId: string;

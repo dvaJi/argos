@@ -1,20 +1,20 @@
 import { randomUUID } from "node:crypto";
 import log from "electron-log";
-import type { IConfigPresenter, INotificationPresenter, IWindowPresenter } from "@shared/presenter";
-import { DEEPLINK_EVENTS } from "@/events";
+import type { IConfigPresenter, INotificationPresenter, IWindowPresenter } from "@argos/shared/presenter";
+import { DEEPLINK_EVENTS } from "#/events";
 import {
   SCHEDULED_TASKS_VERSION,
   SCHEDULED_TASK_DEFAULT_AGENT_ID,
   type ScheduledTask,
   type ScheduledTaskAction,
   type ScheduledTasksSettings,
-} from "@shared/scheduledTasks";
+} from "@argos/shared/scheduledTasks";
 import type { z } from "zod";
 import {
   scheduledTaskActionSchema,
   scheduledTaskTriggerSchema,
   type scheduledTasksUpsertInputSchema,
-} from "@shared/contracts/routes/scheduledTasks.routes";
+} from "@argos/shared-contracts/routes/scheduledTasks.routes";
 import { computeNextFireAt, shouldBackfillOneShot } from "./normalize";
 
 const MAX_TIMEOUT_MS = 12 * 60 * 60 * 1000; // 12h chained-timeout cap

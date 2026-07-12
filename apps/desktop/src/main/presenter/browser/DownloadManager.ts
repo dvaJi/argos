@@ -1,6 +1,6 @@
 import { session as electronSession, type DownloadItem, type Session, type WebContents } from "electron";
 import { nanoid } from "nanoid";
-import type { DownloadInfo } from "@shared/types/browser";
+import type { DownloadInfo } from "@argos/shared/types/browser";
 
 type PendingDownloadRequest = {
   url: string;

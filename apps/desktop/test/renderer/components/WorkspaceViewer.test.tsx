@@ -47,7 +47,7 @@ describe("WorkspaceViewer", () => {
 
     const openFileMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
-    vi.doMock("@/stores/ui/sidepanel", () => ({
+    vi.doMock("#/stores/ui/sidepanel", () => ({
       useSidepanelStore: () => sidepanelStore,
     }));
 
@@ -55,17 +55,17 @@ describe("WorkspaceViewer", () => {
       Icon: () => <span data-testid="icon" />,
     }));
 
-    vi.doMock("@api/WorkspaceClient", () => ({
+    vi.doMock("#api/WorkspaceClient", () => ({
       createWorkspaceClient: () => ({
         openFile: openFileMock,
       }),
     }));
 
-    vi.doMock("@/components/sidepanel/viewer/WorkspaceCodePane", () => ({
+    vi.doMock("#/components/sidepanel/viewer/WorkspaceCodePane", () => ({
       default: ({ source }: { source: any }) => <div data-testid="code-pane">{source.type}</div>,
     }));
 
-    vi.doMock("@/components/sidepanel/viewer/WorkspacePreviewPane", () => ({
+    vi.doMock("#/components/sidepanel/viewer/WorkspacePreviewPane", () => ({
       default: ({ sessionId, previewKind }: { sessionId?: string; previewKind: string }) => (
         <div data-testid="preview-pane" data-session-id={sessionId}>
           {previewKind}
@@ -73,11 +73,11 @@ describe("WorkspaceViewer", () => {
       ),
     }));
 
-    vi.doMock("@/components/sidepanel/viewer/WorkspaceInfoPane", () => ({
+    vi.doMock("#/components/sidepanel/viewer/WorkspaceInfoPane", () => ({
       default: () => <div data-testid="info-pane">info</div>,
     }));
 
-    const WorkspaceViewer = (await import("@/components/sidepanel/WorkspaceViewer")).default;
+    const WorkspaceViewer = (await import("#/components/sidepanel/WorkspaceViewer")).default;
     const result = render(
       <WorkspaceViewer
         sessionId="thread-1"

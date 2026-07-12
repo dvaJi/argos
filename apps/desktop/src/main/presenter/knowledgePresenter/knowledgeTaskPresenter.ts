@@ -2,7 +2,7 @@
  * KnowledgeTaskPresenter - Focused on global task scheduling and sequential execution
  * This class manages a queue of knowledge-related tasks, allowing for efficient processing and management of these tasks.
  */
-import { IKnowledgeTaskPresenter, KnowledgeChunkTask, TaskQueueStatus, TaskStatusSummary } from "@shared/presenter";
+import { IKnowledgeTaskPresenter, KnowledgeChunkTask, TaskQueueStatus, TaskStatusSummary } from "@argos/shared/presenter";
 
 export class KnowledgeTaskPresenter implements IKnowledgeTaskPresenter {
   private queue: KnowledgeChunkTask[] = [];

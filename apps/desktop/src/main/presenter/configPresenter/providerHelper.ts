@@ -1,7 +1,7 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
-import { checkRequiresRebuild, ProviderBatchUpdate, ProviderChange } from "@shared/provider-operations";
-import { LLM_PROVIDER } from "@shared/presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
+import { checkRequiresRebuild, ProviderBatchUpdate, ProviderChange } from "@argos/shared/provider-operations";
+import { LLM_PROVIDER } from "@argos/shared/presenter";
 import type { StoreLike } from "@argos/backend-core";
 
 type SetSetting = <T>(key: string, value: T) => void;

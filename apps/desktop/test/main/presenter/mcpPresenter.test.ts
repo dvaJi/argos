@@ -50,7 +50,7 @@ vi.mock("@argos/mcp-runtime/config/mcprouterManager", () => ({
   }),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     send: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -62,7 +62,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: { CONFIG_CHANGED: "config-changed", AGENTS_CHANGED: "agents-changed" },
   MCP_EVENTS: {
     SERVER_STARTED: "server-started",
@@ -74,7 +74,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     configPresenter: {},
   },

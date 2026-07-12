@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import type { AssistantMessageBlock } from "@shared/chat";
-import type { LLMAgentEvent } from "@shared/types/core/agent-events";
+import type { AssistantMessageBlock } from "@argos/shared/chat";
+import type { LLMAgentEvent } from "@argos/shared/types/core/agent-events";
 
 /**
  * Message block data structure snapshot tests

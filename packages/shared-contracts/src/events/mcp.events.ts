@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { MCPServerConfig, McpSamplingDecision, McpSamplingRequestPayload } from "@shared/presenter";
+import type { MCPServerConfig, McpSamplingDecision, McpSamplingRequestPayload } from "@argos/shared/presenter";
 import { defineEventContract } from "../common";
 
 const McpSamplingRequestSchema = zod.custom<McpSamplingRequestPayload>();

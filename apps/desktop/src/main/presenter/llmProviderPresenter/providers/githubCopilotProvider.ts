@@ -7,7 +7,7 @@ import {
   ModelConfig,
   MCPToolDefinition,
   IConfigPresenter,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { BaseLLMProvider, SUMMARY_TITLES_PROMPT } from "../baseProvider";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { getGlobalGitHubCopilotDeviceFlow, GitHubCopilotDeviceFlow } from "../../githubCopilotDeviceFlow";

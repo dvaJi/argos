@@ -1,4 +1,4 @@
-import type { SkillMetadata } from "@shared/types/skill";
+import type { SkillMetadata } from "@argos/shared/types/skill";
 
 /** Filesystem + bundle paths (replaces `app.getPath`/`app.getAppPath`/`app.isPackaged`). */
 export interface SkillPathsPort {

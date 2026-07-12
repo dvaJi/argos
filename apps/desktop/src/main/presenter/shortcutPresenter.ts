@@ -4,7 +4,7 @@ import { presenter } from ".";
 import { SHORTCUT_EVENTS, TRAY_EVENTS } from "../events";
 import { eventBus, SendTarget } from "../eventbus";
 import { defaultShortcutKey, ShortcutKeySetting } from "./configPresenter/shortcutKeySettings";
-import { IConfigPresenter, IShortcutPresenter } from "@shared/presenter";
+import { IConfigPresenter, IShortcutPresenter } from "@argos/shared/presenter";
 import { is } from "@electron-toolkit/utils";
 
 const defaultMenuLabels = {

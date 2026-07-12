@@ -25,7 +25,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     send: state.send,
   },

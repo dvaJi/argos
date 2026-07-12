@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("ConfigPresenter provider model capability mapping", () => {
   const loadConfigPresenter = async () => {
-    vi.doMock("@/presenter", () => ({
+    vi.doMock("#/presenter", () => ({
       presenter: {},
     }));
 

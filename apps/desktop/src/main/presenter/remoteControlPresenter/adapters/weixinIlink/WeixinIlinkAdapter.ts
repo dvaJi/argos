@@ -8,7 +8,7 @@ import { WeixinIlinkCommandRouter } from "../../services/weixinIlinkCommandRoute
 import { WeixinIlinkClient } from "../../weixinIlink/weixinIlinkClient";
 import { WeixinIlinkParser } from "../../weixinIlink/weixinIlinkParser";
 import { WeixinIlinkRuntime } from "../../weixinIlink/weixinIlinkRuntime";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 
 const DEFAULT_STATUS: WeixinIlinkRuntimeStatusSnapshot = {
   state: "stopped",

@@ -34,11 +34,21 @@ export function resolveWebRoot(options?: {
   const searched = options?.explicitWebRoot
     ? [resolve(options.explicitWebRoot)]
     : uniquePaths([
-        resolve(cwd, "web"),
+        // Standalone UI build (the @argos/ui package) — dev + packaged.
+        resolve(cwd, "packages/ui/dist"),
+        resolve(cwd, "../packages/ui/dist"),
+        resolve(cwd, "apps/ui/dist"),
+        resolve(cwd, "../apps/ui/dist"),
+        // Packaged desktop: web assets bundled as resources/web.
+        resolve(cwd, "resources/web"),
+        resolve(executableDir, "web"),
+        resolve(executableDir, "../web"),
+        resolve(executableDir, "resources/web"),
+        resolve(executableDir, "../resources/web"),
+        // Legacy desktop out/web location (transitional).
         resolve(cwd, "apps/desktop/out/web"),
         resolve(cwd, "../apps/desktop/out/web"),
         resolve(cwd, "../../apps/desktop/out/web"),
-        resolve(executableDir, "web"),
       ]);
 
   const root = searched.find(hasWebIndex);
@@ -51,7 +61,7 @@ export function resolveWebRoot(options?: {
     searched,
     message: [
       "Web assets not found.",
-      "Run `pnpm --filter @argos/desktop build:web` or pass `--web-root <path>`.",
+        "Run `pnpm --filter @argos/ui build` or pass `--web-root <path>`.",
       `Searched: ${searched.join(", ")}`,
     ].join(" "),
   };

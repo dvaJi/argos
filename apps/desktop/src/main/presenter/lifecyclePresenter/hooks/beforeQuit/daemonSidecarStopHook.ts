@@ -1,5 +1,5 @@
-import { LifecycleHook } from "@shared/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook } from "@argos/shared/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 import { getSidecarHandle } from "../init/daemonSidecarHook";
 
 export const daemonSidecarStopHook: LifecycleHook = {

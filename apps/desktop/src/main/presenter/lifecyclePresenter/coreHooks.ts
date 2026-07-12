@@ -1,4 +1,4 @@
-import { ILifecycleManager } from "@shared/presenter";
+import { ILifecycleManager } from "@argos/shared/presenter";
 import * as hooks from "./hooks";
 
 /**

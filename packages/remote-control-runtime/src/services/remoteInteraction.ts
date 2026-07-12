@@ -1,4 +1,4 @@
-import type { AssistantMessageBlock, QuestionOption } from "@shared/types/agent-interface";
+import type { AssistantMessageBlock, QuestionOption } from "@argos/shared/types/agent-interface";
 import type {
   RemotePendingInteraction,
   RemotePendingInteractionPermission,

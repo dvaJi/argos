@@ -1,14 +1,14 @@
 import zod from "zod";
-import { ModelType, NEW_API_ENDPOINT_TYPES } from "@shared/model";
-import type { Agent } from "@shared/types/agent-interface";
-import { ReasoningEffortSchema, ReasoningVisibilitySchema, VerbositySchema } from "@shared/types/model-db";
+import { ModelType, NEW_API_ENDPOINT_TYPES } from "@argos/shared/model";
+import type { Agent } from "@argos/shared/types/agent-interface";
+import { ReasoningEffortSchema, ReasoningVisibilitySchema, VerbositySchema } from "@argos/shared/types/model-db";
 import {
   OPENAI_IMAGE_GENERATION_BACKGROUND_VALUES,
   IMAGE_GENERATION_MODERATION_VALUES,
   IMAGE_GENERATION_OUTPUT_FORMAT_VALUES,
   IMAGE_GENERATION_QUALITY_VALUES,
-} from "@shared/imageGenerationSettings";
-import { TTS_RESPONSE_FORMAT_VALUES } from "@shared/ttsSettings";
+} from "@argos/shared/imageGenerationSettings";
+import { TTS_RESPONSE_FORMAT_VALUES } from "@argos/shared/ttsSettings";
 
 export type JsonValue =
   | string

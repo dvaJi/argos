@@ -28,24 +28,24 @@ vi.mock("electron", () => ({
   app: appMock,
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: eventBusMock,
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
   },
 }));
 
-vi.mock("@/routes/publishArgosEvent", () => ({
+vi.mock("#/routes/publishArgosEvent", () => ({
   publishArgosEvent: publishArgosEventMock,
 }));
 
-vi.mock("@/lib/runtimeHelper", () => ({
+vi.mock("#/lib/runtimeHelper", () => ({
   RuntimeHelper: {
     getInstance: vi.fn(() => runtimeHelperMock),
   },
 }));
 
-vi.mock("@/lib/binaryReadGuard", () => ({
+vi.mock("#/lib/binaryReadGuard", () => ({
   shouldRejectAcpTextRead: shouldRejectAcpTextReadMock,
   buildBinaryReadGuidance: buildBinaryReadGuidanceMock,
 }));

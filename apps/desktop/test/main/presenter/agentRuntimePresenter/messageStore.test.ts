@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ArgosMessageStore } from "@/presenter/agentRuntimePresenter/messageStore";
-import { cloneBlocksForRenderer } from "@/presenter/agentRuntimePresenter/echo";
-import logger from "@shared/logger";
+import { ArgosMessageStore } from "#/presenter/agentRuntimePresenter/messageStore";
+import { cloneBlocksForRenderer } from "#/presenter/agentRuntimePresenter/echo";
+import logger from "@argos/shared/logger";
 
 vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-msg-id") }));
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     error: vi.fn<(...args: any[]) => any>(),
   },

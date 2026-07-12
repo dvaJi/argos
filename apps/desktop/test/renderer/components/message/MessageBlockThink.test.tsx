@@ -6,11 +6,11 @@ const configClient = {
   setSetting: vi.fn<(...args: any[]) => any>(),
 };
 
-vi.mock("@api/ConfigClient", () => ({
+vi.mock("#api/ConfigClient", () => ({
   createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
 }));
 
-vi.mock("@/components/think-content", () => ({
+vi.mock("#/components/think-content", () => ({
   ThinkContent: ({
     label,
     expanded,
@@ -24,7 +24,7 @@ vi.mock("@/components/think-content", () => ({
   }) => <div className="think-content-stub">{label}</div>,
 }));
 
-import MessageBlockThink from "@/components/message/MessageBlockThink";
+import MessageBlockThink from "#/components/message/MessageBlockThink";
 
 describe("MessageBlockThink", () => {
   it("renders seconds from block.reasoning_time when present", async () => {

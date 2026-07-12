@@ -1,4 +1,4 @@
-import type { ArgosAgentMemoryRetrieval } from "@shared/types/agent-interface";
+import type { ArgosAgentMemoryRetrieval } from "@argos/shared/types/agent-interface";
 import {
   CONFIDENCE_BOOST,
   DEFAULT_CONFIDENCE,

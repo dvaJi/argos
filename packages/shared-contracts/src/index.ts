@@ -10,5 +10,5 @@ export * from "./remoteControlErrors";
 export * from "./providerImport";
 export * from "./auth";
 export * from "./desktop-only";
-export * from "@shared/scheduledTasks";
-export * from "@shared/guidedOnboarding";
+export * from "@argos/shared/scheduledTasks";
+export * from "@argos/shared/guidedOnboarding";

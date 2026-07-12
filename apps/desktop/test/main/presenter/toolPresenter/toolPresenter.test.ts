@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { MCPToolDefinition } from "@shared/presenter";
-import { ToolPresenter } from "@/presenter/toolPresenter";
-import { TAPE_TOOL_NAMES, UPDATE_PLAN_TOOL_NAME } from "@/presenter/toolPresenter/agentTools";
-import { CommandPermissionService } from "@/presenter/permission";
-import { IMAGE_GENERATE_TOOL_NAME } from "@shared/agentImageGenerationTool";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import { ToolPresenter } from "#/presenter/toolPresenter";
+import { TAPE_TOOL_NAMES, UPDATE_PLAN_TOOL_NAME } from "#/presenter/toolPresenter/agentTools";
+import { CommandPermissionService } from "#/presenter/permission";
+import { IMAGE_GENERATE_TOOL_NAME } from "@argos/shared/agentImageGenerationTool";
 
 vi.mock("electron", () => ({
   app: {

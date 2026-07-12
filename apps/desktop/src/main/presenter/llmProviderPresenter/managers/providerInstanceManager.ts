@@ -1,5 +1,5 @@
-import { ProviderBatchUpdate, ProviderChange } from "@shared/provider-operations";
-import { LLM_PROVIDER } from "@shared/presenter";
+import { ProviderBatchUpdate, ProviderChange } from "@argos/shared/provider-operations";
+import { LLM_PROVIDER } from "@argos/shared/presenter";
 import { BaseLLMProvider } from "../baseProvider";
 import { GithubCopilotProvider } from "../providers/githubCopilotProvider";
 import { OllamaProvider } from "../providers/ollamaProvider";
@@ -13,7 +13,7 @@ import type { ProviderMcpRuntimePort } from "../runtimePorts";
 import { resolveAiSdkProviderDefinition } from "../providerRegistry";
 
 interface ProviderInstanceManagerOptions {
-  configPresenter: import("@shared/presenter").IConfigPresenter;
+  configPresenter: import("@argos/shared/presenter").IConfigPresenter;
   activeStreams: Map<string, StreamState>;
   rateLimitManager: RateLimitManager;
   getCurrentProviderId: () => string | null;

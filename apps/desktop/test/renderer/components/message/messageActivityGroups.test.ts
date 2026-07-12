@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
+import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 import {
   type ActivityDurationLabels,
   buildAssistantRenderItems,
   formatActivityDuration,
-} from "@/components/message/messageActivityGroups";
+} from "#/components/message/messageActivityGroups";
 
 const createBlock = (
   type: DisplayAssistantMessageBlock["type"],

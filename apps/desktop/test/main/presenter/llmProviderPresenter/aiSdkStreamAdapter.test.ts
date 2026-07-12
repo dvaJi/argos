@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { adaptAiSdkStream } from "@/presenter/llmProviderPresenter/aiSdk/streamAdapter";
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
+import { adaptAiSdkStream } from "#/presenter/llmProviderPresenter/aiSdk/streamAdapter";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
 
 async function collectEvents(parts: any[], options: Parameters<typeof adaptAiSdkStream>[1]) {
   async function* stream() {

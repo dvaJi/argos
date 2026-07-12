@@ -10,7 +10,7 @@ import type {
   IWindowPresenter,
   TelegramRemoteSettings,
   WeixinIlinkRemoteSettings,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import type { AgentRuntimePresenter } from "../agentRuntimePresenter";
 
 export interface RemoteControlPresenterDeps {

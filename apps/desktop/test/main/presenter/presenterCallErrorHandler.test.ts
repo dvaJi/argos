@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   sendToWebContents: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToWebContents: mocks.sendToWebContents,
   },

@@ -7,9 +7,9 @@ import {
   LLMCoreStreamEvent,
   MCPToolDefinition,
   ModelConfig,
-} from "@shared/presenter";
-import { DEFAULT_MODEL_CONTEXT_LENGTH, DEFAULT_MODEL_MAX_TOKENS } from "@shared/modelConfigDefaults";
-import { createStreamEvent } from "@shared/types/core/llm-events";
+} from "@argos/shared/presenter";
+import { DEFAULT_MODEL_CONTEXT_LENGTH, DEFAULT_MODEL_MAX_TOKENS } from "@argos/shared/modelConfigDefaults";
+import { createStreamEvent } from "@argos/shared/types/core/llm-events";
 import { BaseLLMProvider } from "../baseProvider";
 import { proxyConfig } from "../../proxyConfig";
 import { ProxyAgent } from "undici";

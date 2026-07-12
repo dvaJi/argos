@@ -4,7 +4,7 @@ import {
   findDeepLinkArg,
   findStartupDeepLink,
   storeStartupDeepLink,
-} from "@/lib/startupDeepLink";
+} from "#/lib/startupDeepLink";
 
 describe("startupDeepLink utilities", () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import type { LLMAgentEvent } from "@shared/types/core/agent-events";
-import type { AssistantMessageBlock } from "@shared/chat";
+import type { LLMAgentEvent } from "@argos/shared/types/core/agent-events";
+import type { AssistantMessageBlock } from "@argos/shared/chat";
 
 /**
  * Performance evaluation tests - verify event handling performance under large-text and image scenarios

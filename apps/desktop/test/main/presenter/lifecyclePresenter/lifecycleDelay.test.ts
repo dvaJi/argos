@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeLifecycleHookDelayMs } from "@/presenter/lifecyclePresenter/lifecycleDelay";
+import { normalizeLifecycleHookDelayMs } from "#/presenter/lifecyclePresenter/lifecycleDelay";
 
 describe("normalizeLifecycleHookDelayMs", () => {
   it("defaults missing and empty values to zero", () => {

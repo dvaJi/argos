@@ -1,4 +1,4 @@
-import type { IAgentImplementation, Agent } from "@shared/types/agent-interface";
+import type { IAgentImplementation, Agent } from "@argos/shared/types/agent-interface";
 
 export class AgentRegistry {
   private agents: Map<string, { meta: Agent; impl: IAgentImplementation }> = new Map();

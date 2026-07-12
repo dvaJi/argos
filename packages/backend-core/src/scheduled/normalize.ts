@@ -7,7 +7,7 @@ import {
   type ScheduledTaskTrigger,
   type ScheduledTasksSettings,
   createDefaultScheduledTasksSettings,
-} from "@shared/scheduledTasks";
+} from "@argos/shared/scheduledTasks";
 
 const TriggerSchema = zod.discriminatedUnion("kind", [
   zod.object({ kind: zod.literal("once"), firesAt: zod.number().int().nonnegative() }),

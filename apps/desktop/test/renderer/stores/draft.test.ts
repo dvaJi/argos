@@ -6,7 +6,7 @@ describe("draft store generation settings", () => {
   });
 
   it("includes topP overrides in new session input", async () => {
-    const { useDraftStore } = await import("@/stores/ui/draft");
+    const { useDraftStore } = await import("#/stores/ui/draft");
     const draftStore = useDraftStore();
 
     draftStore.updateGenerationSettings({ topP: 0.72 });
@@ -15,7 +15,7 @@ describe("draft store generation settings", () => {
   });
 
   it("omits topP after clearing the override", async () => {
-    const { useDraftStore } = await import("@/stores/ui/draft");
+    const { useDraftStore } = await import("#/stores/ui/draft");
     const draftStore = useDraftStore();
 
     draftStore.updateGenerationSettings({ topP: 0.72 });

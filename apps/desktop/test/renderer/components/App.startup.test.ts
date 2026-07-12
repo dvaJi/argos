@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
-import { APP_RUNTIME_EVENTS, DEEPLINK_EVENTS, DEV_EVENTS, SHORTCUT_EVENTS } from "@/events";
-import { GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "@/lib/onboardingResume";
+import { APP_RUNTIME_EVENTS, DEEPLINK_EVENTS, DEV_EVENTS, SHORTCUT_EVENTS } from "#/events";
+import { GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "#/lib/onboardingResume";
 
 const DEV_WELCOME_OVERRIDE_KEY = "__argos_dev_force_welcome";
 

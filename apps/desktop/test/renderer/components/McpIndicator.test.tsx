@@ -121,33 +121,33 @@ const setup = async (options?: {
     sendToWindow: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("@/stores/mcp", () => ({
+  vi.doMock("#/stores/mcp", () => ({
     useMcpStore: () => mcpStore,
   }));
-  vi.doMock("@/stores/ui/session", () => ({
+  vi.doMock("#/stores/ui/session", () => ({
     useSessionStore: () => sessionStore,
   }));
-  vi.doMock("@/stores/ui/draft", () => ({
+  vi.doMock("#/stores/ui/draft", () => ({
     useDraftStore: () => draftStore,
   }));
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
-  vi.doMock("@/stores/ui/project", () => ({
+  vi.doMock("#/stores/ui/project", () => ({
     useProjectStore: () => projectStore,
   }));
-  vi.doMock("@api/ToolClient", () => ({
+  vi.doMock("#api/ToolClient", () => ({
     createToolClient: vi.fn<(...args: any[]) => any>(() => ({
       getAllToolDefinitions: toolPresenter.getAllToolDefinitions,
     })),
   }));
-  vi.doMock("@api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
       getSessionDisabledAgentTools: agentSessionPresenter.getSessionDisabledAgentTools,
       updateSessionDisabledAgentTools: agentSessionPresenter.updateSessionDisabledAgentTools,
     })),
   }));
-  vi.doMock("@api/SkillClient", () => ({
+  vi.doMock("#api/SkillClient", () => ({
     createSkillClient: vi.fn<(...args: any[]) => any>(() => ({
       onSessionChanged: vi.fn<(...args: any[]) => any>(
         (
@@ -167,7 +167,7 @@ const setup = async (options?: {
       ),
     })),
   }));
-  vi.doMock("@api/SettingsClient", () => ({
+  vi.doMock("#api/SettingsClient", () => ({
     createSettingsClient: vi.fn<(...args: any[]) => any>(() => ({
       openSettings: windowPresenter.createSettingsWindow,
     })),
@@ -176,7 +176,7 @@ const setup = async (options?: {
     Icon: () => null,
   }));
 
-  const McpIndicator = (await import("@/components/chat-input/McpIndicator")).default;
+  const McpIndicator = (await import("#/components/chat-input/McpIndicator")).default;
   const onToggleSubagents = vi.fn<(...args: any[]) => any>();
 
   const result = render(

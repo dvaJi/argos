@@ -1,13 +1,52 @@
-import log from "electron-log";
-import { app } from "electron";
-import path from "path";
-import { is } from "@electron-toolkit/utils";
+// Web-safe logger. Uses console in the browser/renderer and lazily adopts
+// electron-log in the Electron main process (process.type === "browser") when
+// available. There are intentionally NO top-level electron imports so the web
+// bundle never pulls electron into the client.
 
-// Configure log file path
-// Use logger for recording instead of console
-const userData = app?.getPath("userData") || "";
-if (userData) {
-  log.transports.file.resolvePathFn = () => path.join(userData, "logs/main.log");
+function isDev(): boolean {
+  try {
+    const meta = import.meta as unknown as { env?: { DEV?: boolean } };
+    if (meta.env?.DEV != null) {
+      return Boolean(meta.env.DEV);
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    return typeof process !== "undefined" && process.env?.NODE_ENV !== "production";
+  } catch {
+    return false;
+  }
+}
+
+let electronLog: any = null;
+let electronLogReady = false;
+
+function ensureElectronLog(): any {
+  if (electronLogReady) return electronLog;
+  electronLogReady = true;
+  try {
+    const proc: any = typeof process !== "undefined" ? process : undefined;
+    if (!proc || proc.type !== "browser") return (electronLog = null);
+    const requireFn = (globalThis as any).require;
+    if (typeof requireFn !== "function") return (electronLog = null);
+
+    const elog = requireFn("electron-log");
+    const electron = requireFn("electron");
+    const nodePath = requireFn("path");
+    const userData = electron?.app?.getPath?.("userData");
+    if (userData) {
+      elog.transports.file.resolvePathFn = () => nodePath.join(userData, "logs/main.log");
+    }
+    elog.transports.file.level = "info";
+    elog.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
+    elog.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
+    elog.transports.console.level = isDev() ? "debug" : "info";
+    electronLog = elog;
+  } catch {
+    electronLog = null;
+  }
+  return electronLog;
 }
 
 // Get logging switch status
@@ -16,27 +55,38 @@ let loggingEnabled = false;
 // Export method to set logging switch
 export function setLoggingEnabled(enabled: boolean): void {
   loggingEnabled = enabled;
-  // If logging is disabled, set file log level to false
-  log.transports.file.level = enabled ? "info" : false;
+  const el = ensureElectronLog();
+  if (el) {
+    el.transports.file.level = enabled ? "info" : false;
+  }
 }
 
-// Configure console logging
-log.transports.console.level = is.dev ? "debug" : "info";
-
-// Configure file logging
-log.transports.file.level = "info";
-log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
-log.transports.file.format = "[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}";
+const forward = (level: "error" | "warn" | "info" | "verbose" | "debug" | "silly", ...params: unknown[]): void => {
+  const el = ensureElectronLog();
+  if (el) {
+    el[level](...params);
+    return;
+  }
+  const consoleFn =
+    level === "warn"
+      ? console.warn
+      : level === "error"
+        ? console.error
+        : level === "verbose" || level === "silly" || level === "debug"
+          ? console.debug
+          : console.log;
+  consoleFn(...params);
+};
 
 // Create different level logging functions
 const logger = {
-  error: (...params: unknown[]) => log.error(...params),
-  warn: (...params: unknown[]) => log.warn(...params),
-  info: (...params: unknown[]) => log.info(...params),
-  verbose: (...params: unknown[]) => log.verbose(...params),
-  debug: (...params: unknown[]) => log.debug(...params),
-  silly: (...params: unknown[]) => log.silly(...params),
-  log: (...params: unknown[]) => log.info(...params),
+  error: (...params: unknown[]) => forward("error", ...params),
+  warn: (...params: unknown[]) => forward("warn", ...params),
+  info: (...params: unknown[]) => forward("info", ...params),
+  verbose: (...params: unknown[]) => forward("verbose", ...params),
+  debug: (...params: unknown[]) => forward("debug", ...params),
+  silly: (...params: unknown[]) => forward("silly", ...params),
+  log: (...params: unknown[]) => forward("info", ...params),
 };
 
 // Intercept console methods and redirect to logger
@@ -52,43 +102,37 @@ function hookConsole() {
 
   // Replace console methods
   console.log = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.info(...args);
     }
   };
 
   console.error = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.error(...args);
     }
   };
 
   console.warn = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.warn(...args);
     }
   };
 
   console.info = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.info(...args);
     }
   };
 
   console.debug = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.debug(...args);
     }
   };
 
   console.trace = (...args: unknown[]) => {
-    // Only log when logging is enabled or in development mode
-    if (loggingEnabled || is.dev) {
+    if (loggingEnabled || isDev()) {
       logger.debug(...args);
     }
   };

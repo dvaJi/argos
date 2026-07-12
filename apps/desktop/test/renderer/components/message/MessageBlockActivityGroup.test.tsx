@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import MessageBlockActivityGroup from "@/components/message/MessageBlockActivityGroup";
-import type { DisplayAssistantMessageBlock, DisplayMessageUsage } from "@/components/chat/messageListItems";
+import MessageBlockActivityGroup from "#/components/message/MessageBlockActivityGroup";
+import type { DisplayAssistantMessageBlock, DisplayMessageUsage } from "#/components/chat/messageListItems";
 
 const usage: DisplayMessageUsage = {
   context_usage: 0,

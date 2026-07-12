@@ -1,6 +1,6 @@
 import zod from "zod";
 import { AgentBootstrapItemSchema, TimestampMsSchema, defineRouteContract } from "../common";
-import type { Agent } from "@shared/types/agent-interface";
+import type { Agent } from "@argos/shared/types/agent-interface";
 import {
   AcpAgentConfigSchema,
   AcpAgentInstallStateSchema,

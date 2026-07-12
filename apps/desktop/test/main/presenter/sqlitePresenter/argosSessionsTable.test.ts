@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ArgosSessionsTable } from "@/presenter/sqlitePresenter/tables/argosSessions";
+import { ArgosSessionsTable } from "#/presenter/sqlitePresenter/tables/argosSessions";
 
 describe("ArgosSessionsTable.updateSummaryStateIfMatches", () => {
   const run = vi.fn<(...args: any[]) => any>();

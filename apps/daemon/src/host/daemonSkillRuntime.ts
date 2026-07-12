@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import matter from "gray-matter";
 import { SkillPresenter, type SkillHostPorts } from "@argos/skills-runtime";
-import type { SkillMetadata } from "@shared/types/skill";
+import type { SkillMetadata } from "@argos/shared/types/skill";
 import type { IEventPublisher } from "@argos/backend-core";
 
 type SessionRepositoryPort = {

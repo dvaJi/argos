@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useMessageScroll } from "@/composables/message/useMessageScroll";
+import { useMessageScroll } from "#/composables/message/useMessageScroll";
 
 class IO {
   cb: any;

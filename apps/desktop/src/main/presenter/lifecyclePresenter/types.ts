@@ -3,7 +3,7 @@
  * These types define the structure of data passed with lifecycle events
  */
 
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 /**
  * Base interface for all lifecycle events

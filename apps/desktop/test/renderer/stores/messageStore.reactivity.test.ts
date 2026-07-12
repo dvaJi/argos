@@ -35,10 +35,10 @@ describe("messageStore reactivity", () => {
       }),
     };
 
-    vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+    vi.doMock("#api/SessionClient", () => ({
       createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
     }));
-    vi.doMock("../../../src/renderer/api/ChatClient", () => ({
+    vi.doMock("#api/ChatClient", () => ({
       createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
     }));
 
@@ -49,7 +49,7 @@ describe("messageStore reactivity", () => {
       },
     };
 
-    const { useMessageStore } = await import("@/stores/ui/message");
+    const { useMessageStore } = await import("#/stores/ui/message");
     const store = useMessageStore();
 
     await store.loadMessages("s1");

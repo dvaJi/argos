@@ -1,4 +1,4 @@
-import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
+import type { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import { methods as acpMethods } from "@agentclientprotocol/sdk";
 import type * as schema from "@agentclientprotocol/sdk";
 import { AcpProcessManager } from "./process/acpProcessManager";
@@ -6,7 +6,7 @@ import { AcpSessionManager } from "./session/acpSessionManager";
 import type { PermissionResolver } from "./process/acpProcessManager";
 import { AcpSessionPersistence } from "./session/acpSessionPersistence";
 import { AcpPromptController } from "./session/acpPromptController";
-import type { AcpAgentConfig } from "@shared/presenter";
+import type { AcpAgentConfig } from "@argos/shared/presenter";
 import type { AcpHostPorts } from "./host/ports";
 
 export interface AcpRuntime {

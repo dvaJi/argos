@@ -18,11 +18,11 @@ describe("artifact store", () => {
       setViewMode: vi.fn<(...args: any[]) => any>(),
     };
 
-    vi.doMock("@/stores/ui/sidepanel", () => ({
+    vi.doMock("#/stores/ui/sidepanel", () => ({
       useSidepanelStore: () => sidepanelStore,
     }));
 
-    const { useArtifactStore } = await import("@/stores/artifact");
+    const { useArtifactStore } = await import("#/stores/artifact");
     return {
       store: useArtifactStore(),
       sidepanelStore,

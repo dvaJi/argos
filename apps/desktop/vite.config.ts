@@ -2,12 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { resolve } from 'path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-import react, {reactCompilerPreset} from '@vitejs/plugin-react'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import monacoEditorPlugin from '@dvaji/vite-plugin-monaco-editor'
-import tailwindcss from '@tailwindcss/vite'
 import { electronSimple } from 'vite-plugin-electron/multi-env'
-import babel from '@rolldown/plugin-babel';
 import { createPathAliasPlugin } from './vite-plugins/path-alias'
 
 /**
@@ -40,6 +35,16 @@ function electronAssetPlugin(projectRoot: string): Plugin {
   }
 }
 
+/**
+ * Desktop is now an Electron *shell* only.
+ *
+ * The React UI lives in the standalone `@argos/ui` package, which builds
+ * its own static assets. The daemon serves those assets over HTTP, and the
+ * desktop windows load them from `http://127.0.0.1:<daemonPort>/`.
+ *
+ * This config therefore only builds the Electron main process and preload.
+ * All renderer/UI compilation happens in `packages/ui`.
+ */
 export default defineConfig(({ mode }) => {
   const projectRoot = resolve('.')
   const isDev = mode !== 'production'
@@ -61,13 +66,9 @@ export default defineConfig(({ mode }) => {
 
   const pathAliasOpts = {
     projectRoot,
-    rendererSrcDir: path.join(projectRoot, 'src', 'renderer', 'src'),
     mainDir: path.join(projectRoot, 'src', 'main'),
     sharedPkgDir: path.join(projectRoot, '..', '..', 'packages', 'shared', 'src'),
     contractsPkgDir: path.join(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src'),
-    apiDir: path.join(projectRoot, 'src', 'renderer', 'api'),
-    shadcnDir: path.join(projectRoot, 'src', 'shadcn'),
-    settingsDir: path.join(projectRoot, 'src', 'renderer', 'settings'),
   }
   const pathAlias = () => createPathAliasPlugin(pathAliasOpts)
 
@@ -75,70 +76,11 @@ export default defineConfig(({ mode }) => {
   const processEnvDefines = Object.fromEntries(
     Object.entries(env)
       .filter(([k]) => k.startsWith('VITE_'))
-      .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v)])
+      .map(([k, v]) => [`process.env.${k}`, JSON.stringify(v)]),
   )
 
   return {
-    root: resolve('src/renderer'),
-    resolve: {
-      alias: [
-        { find: '@shared/contracts', replacement: path.resolve(projectRoot, '..', '..', 'packages', 'shared-contracts', 'src') },
-        { find: '@shared', replacement: path.resolve(projectRoot, '..', '..', 'packages', 'shared', 'src') },
-        { find: '@api', replacement: resolve('src/renderer/api') },
-        { find: '@shadcn', replacement: resolve('src/shadcn') },
-        { find: '@settings', replacement: resolve('src/renderer/settings') },
-      ],
-    },
-    optimizeDeps: {
-      exclude: ['stream-monaco'],
-      include: ['@antv/infographic', 'monaco-editor', 'axios'],
-    },
-    server: {
-      host: '0.0.0.0',
-    },
-    worker: {
-      format: 'es',
-    },
-    build: {
-      outDir: resolve('out/renderer'),
-      emptyOutDir: true,
-      cssCodeSplit: false,
-      rolldownOptions: {
-        input: {
-          index: resolve('src/renderer/index.html'),
-          browserOverlay: resolve('src/renderer/browser-overlay/index.html'),
-          floating: resolve('src/renderer/floating/index.html'),
-          splash: resolve('src/renderer/splash/index.html'),
-        },
-      },
-    },
     plugins: [
-      pathAlias(),
-      electronAssetPlugin(projectRoot),
-      tanstackRouter({
-        target: 'react',
-        autoCodeSplitting: true,
-        routesDirectory: resolve('src/renderer/src/routes'),
-        generatedRouteTree: resolve('src/renderer/src/routeTree.gen.ts'),
-      }),
-      tailwindcss(),
-      monacoEditorPlugin({
-        languageWorkers: [],
-        customWorkers: [
-          { label: 'editorWorkerService', entry: 'monaco-editor/esm/vs/editor/editor.worker.js' },
-          { label: 'typescript', entry: 'monaco-editor/esm/vs/language/typescript/ts.worker.js' },
-          { label: 'css', entry: 'monaco-editor/esm/vs/language/css/css.worker.js' },
-          { label: 'html', entry: 'monaco-editor/esm/vs/language/html/html.worker.js' },
-          { label: 'json', entry: 'monaco-editor/esm/vs/language/json/json.worker.js' },
-        ],
-        customDistPath(_root, buildOutDir, _base) {
-          return path.resolve(buildOutDir, 'monacoeditorwork')
-        },
-      }),
-      react(),
-      babel({
-        presets: [reactCompilerPreset()]
-      }),
       electronSimple({
         main: {
           input: {
@@ -155,7 +97,7 @@ export default defineConfig(({ mode }) => {
             build: {
               outDir: resolve('out/main'),
               emptyOutDir: true,
-              rolldownOptions: {
+              rollupOptions: {
                 external: ['sharp', '@duckdb/node-api'],
                 output: {
                   entryFileNames: '[name].js',
@@ -178,14 +120,14 @@ export default defineConfig(({ mode }) => {
           options: {
             build: {
               outDir: resolve('out/preload'),
-              rolldownOptions: {
+              rollupOptions: {
                 external: externalDeps.filter((d) => d !== '@electron-toolkit/preload'),
                 output: {
                   format: 'es',
                   codeSplitting: true,
                   inlineDynamicImports: false,
                   entryFileNames: '[name].mjs',
-                  chunkFileNames: 'chunks/[name]-[hash].mjs',
+                  chunkFileNames: 'chunks/[name]-[hash].js',
                   assetFileNames: '[name].[ext]',
                 },
               },

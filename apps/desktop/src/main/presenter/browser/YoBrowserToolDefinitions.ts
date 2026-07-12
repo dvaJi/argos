@@ -1,5 +1,5 @@
 import { toJSONSchema, z } from "zod";
-import type { MCPToolDefinition } from "@shared/presenter";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
 
 const yoBrowserSchemas = {
   get_browser_status: z.object({}),

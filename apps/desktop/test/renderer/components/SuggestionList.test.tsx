@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { SuggestionListItem } from "@/components/chat/mentions/SuggestionList";
-import SuggestionList from "@/components/chat/mentions/SuggestionList";
+import type { SuggestionListItem } from "#/components/chat/mentions/SuggestionList";
+import SuggestionList from "#/components/chat/mentions/SuggestionList";
 
 const buildItems = (count: number): SuggestionListItem[] =>
   Array.from({ length: count }, (_, index) => ({

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { DisplayUserMessage, DisplayUserMessageMentionBlock } from "@/components/chat/messageListItems";
-import type { MessageFile } from "@shared/types/agent-interface";
-import MessageItemUser from "@/components/message/MessageItemUser";
+import type { DisplayUserMessage, DisplayUserMessageMentionBlock } from "#/components/chat/messageListItems";
+import type { MessageFile } from "@argos/shared/types/agent-interface";
+import MessageItemUser from "#/components/message/MessageItemUser";
 
 const originalApi = window.api;
 
@@ -20,17 +20,17 @@ vi.mock("@iconify/react", () => ({
   Icon: () => <span className="icon-stub" />,
 }));
 
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
     previewFile: vi.fn<(...args: any[]) => any>(),
   }),
 }));
 
-vi.mock("@/components/message/MessageInfo", () => ({
+vi.mock("#/components/message/MessageInfo", () => ({
   default: () => <div className="message-info-stub" />,
 }));
 
-vi.mock("@/components/chat/ChatAttachmentItem", () => ({
+vi.mock("#/components/chat/ChatAttachmentItem", () => ({
   default: ({ file, onClick }: { file: MessageFile; onClick?: () => void }) => (
     <button type="button" className="attachment-stub" onClick={onClick}>
       {file.name}
@@ -38,7 +38,7 @@ vi.mock("@/components/chat/ChatAttachmentItem", () => ({
   ),
 }));
 
-vi.mock("@/components/message/MessageToolbar", () => ({
+vi.mock("#/components/message/MessageToolbar", () => ({
   default: ({ onEdit }: { onEdit?: () => void }) => (
     <div className="message-toolbar-stub">
       <button type="button" data-action="edit" onClick={onEdit}>
@@ -48,7 +48,7 @@ vi.mock("@/components/message/MessageToolbar", () => ({
   ),
 }));
 
-vi.mock("@/components/message/MessageContent", () => ({
+vi.mock("#/components/message/MessageContent", () => ({
   default: ({ content }: { content: any[] }) => (
     <div className="message-content-stub text-sm whitespace-pre-wrap break-all">
       {content.map((block: any, index: number) => (
@@ -60,7 +60,7 @@ vi.mock("@/components/message/MessageContent", () => ({
   ),
 }));
 
-vi.mock("@/components/message/MessageTextContent", () => ({
+vi.mock("#/components/message/MessageTextContent", () => ({
   default: ({ content }: { content: string }) => (
     <div className="message-text-stub text-sm whitespace-pre-wrap break-all">{content}</div>
   ),

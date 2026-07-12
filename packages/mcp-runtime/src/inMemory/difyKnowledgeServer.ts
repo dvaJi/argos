@@ -45,7 +45,7 @@ interface DifySearchResponse {
 }
 
 // Import the MCPTextContent interface
-import { MCPTextContent } from "@shared/presenter";
+import { MCPTextContent } from "@argos/shared/presenter";
 
 export class DifyKnowledgeServer {
   private server: Server;

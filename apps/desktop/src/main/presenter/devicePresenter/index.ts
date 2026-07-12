@@ -1,4 +1,4 @@
-import { IDevicePresenter, DeviceInfo, MemoryInfo, DiskInfo } from "@shared/presenter";
+import { IDevicePresenter, DeviceInfo, MemoryInfo, DiskInfo } from "@argos/shared/presenter";
 import os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -13,7 +13,7 @@ import { NOTIFICATION_EVENTS } from "../../events";
 import { svgSanitizer } from "@argos/backend-core";
 
 // Lazy-loaded to avoid a circular dependency: this module is imported by
-// baseProvider, which the @/presenter barrel re-exports. Eagerly importing the
+// baseProvider, which the #/presenter barrel re-exports. Eagerly importing the
 // barrel here makes BaseLLMProvider undefined at provider class-definition time.
 const getPresenter = async () => (await import("../index")).presenter;
 const execAsync = promisify(exec);

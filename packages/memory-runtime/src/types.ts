@@ -1,5 +1,5 @@
-import type { AgentMemoryCategory } from "@shared/types/agent-memory";
-import type { ArgosAgentConfig, ArgosAgentMemoryRetrieval } from "@shared/types/agent-interface";
+import type { AgentMemoryCategory } from "@argos/shared/types/agent-memory";
+import type { ArgosAgentConfig, ArgosAgentMemoryRetrieval } from "@argos/shared/types/agent-interface";
 
 export type AgentMemoryKind = "episodic" | "semantic" | "reflection" | "persona" | "working";
 export type AgentMemoryStatus = "pending_embedding" | "embedded" | "error" | "fts_only" | "archived" | "conflicted";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@shared/presenter";
+import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@argos/shared/presenter";
 import {
   AiSdkProvider,
   normalizeExtractedImageText,
@@ -30,7 +30,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -40,7 +40,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },

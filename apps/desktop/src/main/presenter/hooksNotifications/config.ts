@@ -7,7 +7,7 @@ import {
   HookCommandItem,
   HookEventName,
   HooksNotificationsSettings,
-} from "@shared/hooksNotifications";
+} from "@argos/shared/hooksNotifications";
 
 const HookCommandItemSchema = z.object({
   id: z.unknown().optional(),

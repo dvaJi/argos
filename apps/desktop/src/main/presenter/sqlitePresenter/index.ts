@@ -12,7 +12,7 @@ import {
   CONVERSATION_SETTINGS,
   AcpSessionEntity,
   AgentSessionLifecycleStatus,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { MessageAttachmentsTable } from "./tables/messageAttachments";
 import { AcpSessionsTable, type AcpSessionUpsertData } from "./tables/acpSessions";
 import { AcpTurnsTable, type AcpTurnStatus } from "./tables/acpTurns";
@@ -39,7 +39,7 @@ import { NewSessionActiveSkillsTable } from "./tables/newSessionActiveSkills";
 import { NewSessionDisabledAgentToolsTable } from "./tables/newSessionDisabledAgentTools";
 import { SettingsActivityTable } from "./tables/settingsActivity";
 import { DatabaseRepairService, SchemaInspector } from "./schemaRepair";
-import type { SettingsActivityInput, SettingsActivityRecord } from "@shared/contracts/routes";
+import type { SettingsActivityInput, SettingsActivityRecord } from "@argos/shared-contracts/routes";
 import { configureSQLiteConnection } from "./connectionConfig";
 import { LegacyChatImportService } from "../agentSessionPresenter/legacyImportService";
 

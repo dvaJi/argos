@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type Database from "better-sqlite3-multiple-ciphers";
-import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@shared/presenter";
+import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 import { ConfigTables } from "../sqlitePresenter/tables/configTables";
 import { openSQLiteDatabase } from "../sqlitePresenter";
 

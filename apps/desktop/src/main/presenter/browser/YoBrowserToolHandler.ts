@@ -1,7 +1,7 @@
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 import { getYoBrowserToolDefinitions } from "./YoBrowserToolDefinitions";
 import type { YoBrowserPresenter } from "./YoBrowserPresenter";
-import { BrowserPageStatus, type YoBrowserStatus } from "@shared/types/browser";
+import { BrowserPageStatus, type YoBrowserStatus } from "@argos/shared/types/browser";
 import {
   YoBrowserUnavailableError,
   buildYoBrowserUnavailablePayload,

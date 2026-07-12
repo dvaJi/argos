@@ -1,8 +1,8 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
-import { ModelConfig, MODEL_META } from "@shared/presenter";
-import { ModelType } from "@shared/model";
-import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
+import { ModelConfig, MODEL_META } from "@argos/shared/presenter";
+import { ModelType } from "@argos/shared/model";
+import { resolveVideoGenerationCompatType } from "@argos/shared/videoGenerationSettings";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
 export type IModelStore = {

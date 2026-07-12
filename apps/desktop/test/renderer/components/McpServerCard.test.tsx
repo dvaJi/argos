@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import McpServerCard from "@/components/mcp-config/components/McpServerCard";
+import McpServerCard from "#/components/mcp-config/components/McpServerCard";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,

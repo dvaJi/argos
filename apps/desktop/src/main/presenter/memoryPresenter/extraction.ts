@@ -1,5 +1,5 @@
 import type { MemoryCandidate } from "./types";
-import { AGENT_MEMORY_CATEGORIES, isAgentMemoryCategory } from "@shared/types/agent-memory";
+import { AGENT_MEMORY_CATEGORIES, isAgentMemoryCategory } from "@argos/shared/types/agent-memory";
 
 const MAX_SPAN_CHARS = 12000;
 const MAX_CANDIDATES = 8;

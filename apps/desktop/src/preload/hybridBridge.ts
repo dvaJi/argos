@@ -1,11 +1,11 @@
-import type { ArgosBridge } from "@shared/contracts/bridge";
-import type { ArgosEventName, ArgosEventPayload } from "@shared/contracts/events";
-import type { ArgosRouteInput, ArgosRouteName, ArgosRouteOutput } from "@shared/contracts/routes";
-import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@shared/contracts/connection";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import type { ArgosEventName, ArgosEventPayload } from "@argos/shared-contracts/events";
+import type { ArgosRouteInput, ArgosRouteName, ArgosRouteOutput } from "@argos/shared-contracts/routes";
+import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@argos/shared-contracts/connection";
 import {
   isDesktopOnlyRoute as isDesktopOnlyRouteShared,
   isDesktopOnlyEvent as isDesktopOnlyEventShared,
-} from "@shared/contracts/desktop-only";
+} from "@argos/shared-contracts/desktop-only";
 import { WebSocketBridge } from "@argos/client-sdk";
 
 function isDesktopOnlyRoute(route: string): boolean {

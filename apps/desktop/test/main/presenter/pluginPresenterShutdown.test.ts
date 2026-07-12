@@ -5,7 +5,7 @@ vi.mock("electron", () => ({
   app: { getAppPath: vi.fn<(...args: any[]) => any>(() => "/mock/app") },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>(), send: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "ALL_WINDOWS" },
 }));

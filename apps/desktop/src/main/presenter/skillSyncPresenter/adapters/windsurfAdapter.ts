@@ -11,7 +11,7 @@
  * - Single file per workflow (no subfolder support)
  */
 
-import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@shared/types/skillSync";
+import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@argos/shared/types/skillSync";
 
 /**
  * Windsurf format adapter

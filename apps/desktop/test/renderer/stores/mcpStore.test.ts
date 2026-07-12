@@ -31,15 +31,15 @@ const createQueryState = () => ({
   refetch: vi.fn<(...args: any[]) => any>(async () => ({ status: "success", data: undefined })),
 });
 
-vi.mock("@api/McpClient", () => ({
+vi.mock("#api/McpClient", () => ({
   createMcpClient: vi.fn<(...args: any[]) => any>(() => mcpClientMock),
 }));
 
-vi.mock("../../../src/renderer/api/ConfigClient", () => ({
+vi.mock("#api/ConfigClient", () => ({
   createConfigClient: vi.fn<(...args: any[]) => any>(() => configPresenterMock),
 }));
 
-vi.mock("@/composables/useIpcMutation", () => ({
+vi.mock("#/composables/useIpcMutation", () => ({
   useIpcMutation: (options: { mutation?: (...args: any[]) => unknown }) => ({
     mutateAsync: options.mutation?.toString().includes("setMcpServerEnabled")
       ? setMcpServerEnabledMutate
@@ -47,11 +47,11 @@ vi.mock("@/composables/useIpcMutation", () => ({
   }),
 }));
 
-vi.mock("@/composables/useIpcQuery", () => ({
+vi.mock("#/composables/useIpcQuery", () => ({
   useIpcQuery: () => createQueryState(),
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   MCP_EVENTS: {
     SERVER_STARTED: "server-started",
     SERVER_STOPPED: "server-stopped",
@@ -63,7 +63,7 @@ vi.mock("@/events", () => ({
 
 const setupStore = async () => {
   vi.resetModules();
-  const { useMcpStore } = await import("@/stores/mcp");
+  const { useMcpStore } = await import("#/stores/mcp");
   return useMcpStore();
 };
 

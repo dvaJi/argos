@@ -5,11 +5,11 @@ import type {
   ArgosAgentConfig,
   CreateArgosAgentInput,
   UpdateArgosAgentInput,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import { mergeArgosConfig } from "./configMerge";
 import type { AgentSessionLookupPort, ArgosAgentRow, ArgosAgentStore, EnsureBuiltinArgosAgentDefaults } from "./types";
 import { clone, parseJson, sanitizeString, stringifyJson, toAgent } from "./types";
-import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
+import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
 
 /** Stable id of the built-in Argos agent. */
 export const BUILTIN_ARGOS_AGENT_ID = "argos";

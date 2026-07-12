@@ -1,6 +1,6 @@
 import fs from "fs";
 import type Database from "better-sqlite3-multiple-ciphers";
-import type { DatabaseRepairReport, DatabaseSchemaDiagnosis, DatabaseSchemaIssue } from "@shared/presenter";
+import type { DatabaseRepairReport, DatabaseSchemaDiagnosis, DatabaseSchemaIssue } from "@argos/shared/presenter";
 import { getSchemaCatalog } from "./schemaCatalog";
 import type { SchemaTableSpec } from "./schemaTypes";
 

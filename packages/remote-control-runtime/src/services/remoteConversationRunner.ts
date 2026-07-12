@@ -8,8 +8,8 @@ import type {
   SendMessageInput,
   SessionWithState,
   ToolInteractionResponse,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
 import type { RemoteConfigPort, AgentSessionPort, GenerationPort, FilePort } from "../ports";
 import {
   TELEGRAM_RECENT_SESSION_LIMIT,
@@ -23,7 +23,7 @@ import {
   type TelegramAgentOption,
   type TelegramModelProviderOption,
 } from "../types";
-import { resolveAcpAgentAlias } from "@shared/utils/acpAgentAlias";
+import { resolveAcpAgentAlias } from "@argos/shared/utils/acpAgentAlias";
 import { safeParseAssistantBlocks } from "../telegram/telegramOutbound";
 import {
   REMOTE_NO_RESPONSE_TEXT,

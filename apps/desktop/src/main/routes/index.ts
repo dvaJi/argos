@@ -17,8 +17,8 @@ import type {
   IWindowPresenter,
   IWorkspacePresenter,
   IYoBrowserPresenter,
-} from "@shared/presenter";
-import { ARGOS_ROUTE_INVOKE_CHANNEL } from "@shared/contracts/channels";
+} from "@argos/shared/presenter";
+import { ARGOS_ROUTE_INVOKE_CHANNEL } from "@argos/shared-contracts/channels";
 import {
   browserAttachCurrentWindowRoute,
   browserDestroyRoute,
@@ -248,7 +248,7 @@ import {
   workspaceUnwatchRoute,
   workspaceWatchRoute,
   type SettingsActivityInput,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import { ChatService } from "./chat/chatService";
 import { invokeDaemonRoute } from "./daemonRouteProxy";
 import { dispatchConfigRoute } from "./config/configRouteHandler";
@@ -268,11 +268,11 @@ import { ProviderService } from "./providers/providerService";
 import { createSettingsRouteAdapter } from "./settings/settingsAdapter";
 import { createSettingsRouteHandler } from "./settings/settingsHandler";
 import { SessionService } from "./sessions/sessionService";
-import type { StartupWorkloadCoordinator } from "@/presenter/startupWorkloadCoordinator";
-import type { PluginPresenter } from "@/presenter/pluginPresenter";
-import type { DatabaseSecurityPresenter } from "@/presenter/databaseSecurityPresenter";
-import type { SQLitePresenter } from "@/presenter/sqlitePresenter";
-import type { ScheduledTasksService } from "@/presenter/scheduledTasks";
+import type { StartupWorkloadCoordinator } from "#/presenter/startupWorkloadCoordinator";
+import type { PluginPresenter } from "#/presenter/pluginPresenter";
+import type { DatabaseSecurityPresenter } from "#/presenter/databaseSecurityPresenter";
+import type { SQLitePresenter } from "#/presenter/sqlitePresenter";
+import type { ScheduledTasksService } from "#/presenter/scheduledTasks";
 import type { MemoryPresenter } from "@argos/memory-runtime";
 import {
   scheduledTasksDeleteRoute,
@@ -280,7 +280,7 @@ import {
   scheduledTasksListRoute,
   scheduledTasksToggleRoute,
   scheduledTasksUpsertRoute,
-} from "@shared/contracts/routes/scheduledTasks.routes";
+} from "@argos/shared-contracts/routes/scheduledTasks.routes";
 
 export type MainKernelRouteRuntime = {
   configPresenter: IConfigPresenter;

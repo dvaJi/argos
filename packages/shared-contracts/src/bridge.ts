@@ -1,6 +1,6 @@
 import type { ArgosEventName, ArgosEventPayload } from "./events";
 import type { ArgosRouteInput, ArgosRouteName, ArgosRouteOutput } from "./routes";
-import type { WorkspaceEntry } from "@shared/workspaceConfig";
+import type { WorkspaceEntry } from "@argos/shared/workspaceConfig";
 
 export interface ArgosBridge {
   invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>>;

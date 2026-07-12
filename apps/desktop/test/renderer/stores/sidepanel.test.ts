@@ -12,7 +12,7 @@ describe("sidepanel store", () => {
 
     const storageRef = { value: 520 };
 
-    const { useSidepanelStore } = await import("@/stores/ui/sidepanel");
+    const { useSidepanelStore } = await import("#/stores/ui/sidepanel");
     return {
       store: useSidepanelStore(),
       storageRef,

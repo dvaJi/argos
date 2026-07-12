@@ -5,7 +5,7 @@ import {
   MESSAGE_STATUS,
   ISQLitePresenter,
   SQLITE_MESSAGE,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import {
   Message,
   AssistantMessageBlock,
@@ -13,9 +13,9 @@ import {
   UserMessageTextBlock,
   UserMessageMentionBlock,
   UserMessageCodeBlock,
-} from "@shared/chat";
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONVERSATION_EVENTS } from "@/events";
+} from "@argos/shared/chat";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONVERSATION_EVENTS } from "#/events";
 
 export class MessageManager implements IMessageManager {
   private sqlitePresenter: ISQLitePresenter;

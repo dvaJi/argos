@@ -2,7 +2,7 @@ import * as Lark from "@larksuiteoapi/node-sdk";
 import { createReadStream } from "node:fs";
 import { access } from "node:fs/promises";
 import type { EventHandles } from "@larksuiteoapi/node-sdk";
-import type { FeishuBrand } from "@shared/presenter";
+import type { FeishuBrand } from "@argos/shared/presenter";
 import { FEISHU_OUTBOUND_TEXT_LIMIT, type FeishuInteractiveCardPayload, type FeishuTransportTarget } from "../types";
 
 export type FeishuRawMessageEvent = Parameters<NonNullable<EventHandles["im.message.receive_v1"]>>[0];

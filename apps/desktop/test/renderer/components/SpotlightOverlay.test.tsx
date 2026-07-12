@@ -33,11 +33,11 @@ const setup = async () => {
     executeActiveItem: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("@/stores/ui/spotlight", () => ({
+  vi.doMock("#/stores/ui/spotlight", () => ({
     useSpotlightStore: () => spotlightStore,
   }));
 
-  const SpotlightOverlay = (await import("@/components/spotlight/SpotlightOverlay")).default;
+  const SpotlightOverlay = (await import("#/components/spotlight/SpotlightOverlay")).default;
 
   const result = render(<SpotlightOverlay />);
 

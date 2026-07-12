@@ -8,8 +8,8 @@ import type {
   MCPToolDefinition,
   IConfigPresenter,
   ISkillPresenter,
-} from "@shared/presenter";
-import { SETTINGS_EVENTS } from "@/events";
+} from "@argos/shared/presenter";
+import { SETTINGS_EVENTS } from "#/events";
 import type { AgentToolRuntimePort } from "../runtimePorts";
 
 export const CHAT_SETTINGS_SKILL_NAME = "argos-settings";

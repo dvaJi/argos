@@ -3,7 +3,7 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 import { platform, is } from "@electron-toolkit/utils";
 import icon from "../../../../resources/icon.png?asset";
 import iconWin from "../../../../resources/icon.ico?asset";
@@ -11,6 +11,7 @@ import { eventBus } from "../../eventbus";
 import { TAB_EVENTS } from "../../events";
 import { presenter } from "../";
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
+import { resolveUiUrl } from "#/lib/daemonUi";
 
 interface FloatingChatConfig {
   size: {
@@ -290,12 +291,7 @@ export class FloatingChatWindow {
       throw new Error("Window is not available for page loading");
     }
 
-    const isDev = is.dev;
-    if (isDev) {
-      await this.window.loadURL("http://localhost:5173/");
-    } else {
-      await this.window.loadFile(path.join(__dirname, "../renderer/index.html"));
-    }
+    await this.window.loadURL(resolveUiUrl("/"));
 
     this.window.webContents.once("did-finish-load", () => {
       logger.info("FloatingChatWindow did-finish-load, requesting fresh data");

@@ -6,7 +6,7 @@ import {
   type ScheduledTask,
   type ScheduledTaskAction,
   type ScheduledTasksSettings,
-} from "@shared/scheduledTasks";
+} from "@argos/shared/scheduledTasks";
 import {
   scheduledTaskActionSchema,
   scheduledTaskTriggerSchema,

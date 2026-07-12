@@ -1,4 +1,4 @@
-import type { IFilePresenter, ILlmProviderPresenter, IWindowPresenter, IYoBrowserPresenter } from "@shared/presenter";
+import type { IFilePresenter, ILlmProviderPresenter, IWindowPresenter, IYoBrowserPresenter } from "@argos/shared/presenter";
 import type {
   ArgosSubagentMeta,
   ArgosSubagentSlot,
@@ -11,9 +11,9 @@ import type {
   SendMessageInput,
   SessionGenerationSettings,
   SessionKind,
-} from "@shared/types/agent-interface";
-import type { ISkillPresenter } from "@shared/types/skill";
-import type { AgentMemoryCategory } from "@shared/types/agent-memory";
+} from "@argos/shared/types/agent-interface";
+import type { ISkillPresenter } from "@argos/shared/types/skill";
+import type { AgentMemoryCategory } from "@argos/shared/types/agent-memory";
 import type { ArgosInternalSessionUpdate } from "../agentRuntimePresenter/internalSessionEvents";
 import type { MemoryWriteOutcome } from "../memoryPresenter/types";
 

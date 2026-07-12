@@ -1,6 +1,6 @@
 import Database from "better-sqlite3-multiple-ciphers";
 import { BaseTable } from "./baseTable";
-import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@shared/presenter";
+import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 
 type ProviderRow = {
   id: string;

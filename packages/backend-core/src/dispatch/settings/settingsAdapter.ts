@@ -1,4 +1,4 @@
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import {
   SETTINGS_KEYS,
   type SettingsChange,

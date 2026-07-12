@@ -1,4 +1,4 @@
-import { ChatService } from "@/routes/chat/chatService";
+import { ChatService } from "#/routes/chat/chatService";
 
 describe("ChatService", () => {
   const createScheduler = () => ({

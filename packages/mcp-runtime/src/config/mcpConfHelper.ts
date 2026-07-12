@@ -1,4 +1,4 @@
-import { BuiltinKnowledgeConfig, MCPServerConfig } from "@shared/presenter";
+import { BuiltinKnowledgeConfig, MCPServerConfig } from "@argos/shared/presenter";
 import { compare } from "compare-versions";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
@@ -894,7 +894,7 @@ export class McpConfHelper {
   private generateUniqueServerName(packageName: string, existingServers: Record<string, MCPServerConfig>): string {
     // Clean up package name to create a suitable server name
     let baseName = packageName
-      .replace(/[@/]/g, "-")
+      .replace(/[#/]/g, "-")
       .replace(/[^a-zA-Z0-9-_]/g, "")
       .toLowerCase();
 

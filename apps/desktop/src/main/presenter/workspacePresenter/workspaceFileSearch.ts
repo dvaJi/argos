@@ -1,6 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
-import type { WorkspaceFileNode } from "@shared/presenter";
+import type { WorkspaceFileNode } from "@argos/shared/presenter";
 import { searchFiles } from "./fileSearcher";
 import { resolveWorkspacePath } from "./pathResolver";
 import { checkSensitiveFile, isBinaryFile } from "./fileSecurity";

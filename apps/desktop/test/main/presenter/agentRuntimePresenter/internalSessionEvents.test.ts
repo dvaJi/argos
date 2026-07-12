@@ -4,7 +4,7 @@ import {
   extractWaitingInteraction,
   emitArgosInternalSessionUpdate,
   subscribeArgosInternalSessionUpdates,
-} from "@/presenter/agentRuntimePresenter/internalSessionEvents";
+} from "#/presenter/agentRuntimePresenter/internalSessionEvents";
 
 describe("internalSessionEvents", () => {
   afterEach(() => {

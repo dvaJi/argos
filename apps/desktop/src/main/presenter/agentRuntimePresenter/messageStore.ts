@@ -9,9 +9,9 @@ import type {
   MessageTraceRecord,
   UserMessageContent,
   AssistantMessageBlock,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
-import logger from "@shared/logger";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import logger from "@argos/shared/logger";
 import type { ArgosMessageRow } from "../sqlitePresenter/tables/argosMessages";
 import type { ArgosAssistantBlockRow } from "../sqlitePresenter/tables/argosAssistantBlocks";
 import type { ArgosUserMessageFileRow } from "../sqlitePresenter/tables/argosUserMessageFiles";

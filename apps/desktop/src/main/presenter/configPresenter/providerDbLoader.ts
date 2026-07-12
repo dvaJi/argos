@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { app } from "electron";
-import { ProviderAggregate, ProviderEntry, ProviderModel, sanitizeAggregate } from "@shared/types/model-db";
+import { ProviderAggregate, ProviderEntry, ProviderModel, sanitizeAggregate } from "@argos/shared/types/model-db";
 import { resolveProviderId } from "./providerId";
-import { eventBus, SendTarget } from "@/eventbus";
-import { PROVIDER_DB_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { PROVIDER_DB_EVENTS } from "#/events";
 
 const DEFAULT_PROVIDER_DB_URL =
   "https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json";

@@ -1,4 +1,4 @@
-import type { Agent, AgentAvatar, ArgosAgentConfig } from "@shared/types/agent-interface";
+import type { Agent, AgentAvatar, ArgosAgentConfig } from "@argos/shared/types/agent-interface";
 
 /**
  * Canonical Argos-agent row shape. Mirrors the desktop `agents` SQLite table

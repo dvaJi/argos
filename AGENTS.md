@@ -3,13 +3,17 @@
 Use the fff MCP tools for all file search operations instead of default tools.
 
 ## Project Structure & Module Organization
-- `src/main/`: Electron main process; presenters in `presenter/` (Window/Tab/Thread/Mcp/Config/LLMProvider), `eventbus.ts` for app events.
-- `src/preload/`: Secure IPC bridge (contextIsolation on). Typed `window.argos` bridge via `createBridge.ts` → `packages/client-sdk`.
-- `src/renderer/`: React 19 + TanStack Router app. App code in `src/renderer/src` (`components/`, `stores`, `pages`, `lib`). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
-- `src/renderer/api/`: Renderer-main boundary layer. Typed `*Client` classes, event subscriptions, named runtime wrappers. `src/renderer/api/legacy/` is quarantine-only compatibility code (max 3 files).
-- `src/shadcn/`: shadcn/ui components shared across renderers.
-- `src/shared/`: Shared route contracts (Zod-validated), event contracts, types, and utilities.
-- `test/`: Vitest suites (`test/main`, `test/renderer`) with setup files.
+
+The UI is extracted from the desktop shell (CodeNomad-style): the desktop app is an Electron shell that loads its UI over HTTP from the local daemon, and `@argos/ui` is a standalone, reusable web package.
+
+- `apps/desktop/src/main/`: Electron main process (the **shell**); presenters in `presenter/` (Window/Tab/Thread/Mcp/Config/LLMProvider), `eventbus.ts` for app events. Windows load UI routes from the local daemon via `lib/daemonUi.ts` (`resolveUiUrl`).
+- `apps/desktop/src/preload/`: Secure IPC bridge (contextIsolation on). Typed `window.argos` **hybrid bridge** via `createBridge.ts` → `packages/client-sdk` (WebSocket→daemon for routes, IPC→main for native-only routes).
+- `packages/ui/` (`@argos/ui`): the **React 19 + TanStack Router frontend** — built independently to `dist/`, served by the daemon. App code in `src/` (`components/`, `stores`, `pages`, `lib`); secondary renderers `settings/`, `floating/`, `splash/`, `browser-overlay/`, `web/`. UI↔backend boundary in `api/` (typed `*Client` classes); `api/legacy/` is quarantine-only compatibility code (max 3 files).
+- `packages/ui/shadcn/`: shadcn/ui components shared across renderers.
+- `packages/shared-contracts/` (`@argos/shared-contracts`): Shared route contracts (Zod-validated), event contracts, the `ArgosBridge` interface, and the `ARGOS_ROUTE_CATALOG`.
+- `packages/shared/` (`@argos/shared`): Shared types and utilities (web-safe; no hard electron dependency).
+- `apps/daemon/` (`@argos/daemon`): Backend server (Bun) that serves the `@argos/ui` build over HTTP and exposes `/api/v1/route` + `/api/v1/events`.
+- `apps/desktop/test/` (`test/main`, `test/renderer`) and `packages/ui`: Vitest suites with setup files.
 - `scripts/`: Build/signing/runtime installers, architecture guards, commit checks.
 - Build outputs/assets: `build/`, `resources/`, `out/`, `dist/`.
 
@@ -37,9 +41,9 @@ Never run dev servers in the foreground. Use background processes with log captu
 pnpm run dev > /tmp/desktop-dev.log 2>&1 &
 echo $! > /tmp/desktop-dev.pid
 
-# Wait for Vite readiness (poll the dev server)
+# Wait for Vite readiness (poll the @argos/ui dev server)
 for i in {1..60}; do
-  curl -fsS http://127.0.0.1:5173 >/dev/null && break
+  curl -fsS http://127.0.0.1:5180 >/dev/null && break
   sleep 1
 done
 
@@ -50,8 +54,10 @@ tail -n 200 /tmp/desktop-dev.log
 ### Electron Readiness Checks
 
 Two readiness states matter:
-1. **Vite renderer ready**: Poll `http://127.0.0.1:5173` (server binds to `0.0.0.0`)
+1. **Vite renderer ready**: Poll `http://127.0.0.1:5180` (the `@argos/ui` dev server; it proxies `/api` → daemon)
 2. **Electron process launched**: Check logs for errors
+
+In dev, the desktop shell loads windows from the `@argos/ui` dev server when `VITE_DEV_SERVER_URL` is set; otherwise (and in packaged builds) it loads from the local daemon (`http://127.0.0.1:<port>`).
 
 ### Stopping Dev Servers
 
@@ -69,8 +75,9 @@ kill $(cat /tmp/desktop-dev.pid)
 
 | Package | Path | Dev Command | Notes |
 |---------|------|-------------|-------|
-| `@argos/desktop` | `apps/desktop/` | `pnpm run dev` | Main Electron app (Vite 8 + vite-plugin-electron + Rolldown) |
-| `@argos/daemon` | `apps/daemon/` | `cd apps/daemon && bun run dev` | Background daemon (Bun) |
+| `@argos/desktop` | `apps/desktop/` | `pnpm run dev` | Electron **shell** only (main + preload); loads UI from the daemon (Vite 8 + vite-plugin-electron + Rolldown) |
+| `@argos/ui` | `packages/ui/` | `pnpm --filter @argos/ui run dev` | React 19 frontend; builds to `dist/`, served by the daemon (no electron dependency) |
+| `@argos/daemon` | `apps/daemon/` | `cd apps/daemon && bun run dev` | Backend server (Bun); serves the UI + `/api/v1/route` + `/api/v1/events` |
 | `@argos/backend-core` | `packages/backend-core/` | — | Shared backend logic |
 | `@argos/acp-runtime` | `packages/acp-runtime/` | — | ACP runtime (process/session/registry, host-port injected) |
 | `@argos/mcp-runtime` | `packages/mcp-runtime/` | — | MCP runtime (client/server/tools, host-port injected) |
@@ -86,32 +93,32 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 
 ### How it works
 
-1. **Route contracts** (`src/shared/contracts/routes/*.routes.ts`): Zod-validated input/output schemas per operation.
-2. **Bridge** (`src/shared/contracts/bridge.ts`): `ArgosBridge` interface with `invoke(routeName, input)` and `on(eventName, listener)`.
-3. **Preload** (`src/preload/createBridge.ts`): Creates `window.argos` bridge from IPC.
-4. **Typed Clients** (`src/renderer/api/*Client.ts`): Domain-specific clients (e.g., `ChatClient`, `ConfigClient`, `SessionClient`) that wrap `bridge.invoke()`.
-5. **Runtime wrappers** (`src/renderer/api/runtime.ts`): Named helpers for clipboard, paths, external open — no `window.api` directly.
+1. **Route contracts** (`packages/shared-contracts/src/routes/*.routes.ts`): Zod-validated input/output schemas per operation.
+2. **Bridge** (`packages/shared-contracts/src/bridge.ts`): `ArgosBridge` interface with `invoke(routeName, input)` and `on(eventName, listener)`.
+3. **Preload** (`apps/desktop/src/preload/createBridge.ts`): Creates the `window.argos` hybrid bridge (IPC for native-only routes; WebSocket→daemon for the rest).
+4. **Typed Clients** (`packages/ui/api/*Client.ts`): Domain-specific clients (e.g., `ChatClient`, `ConfigClient`, `SessionClient`) that wrap `bridge.invoke()`.
+5. **Runtime wrappers** (`packages/ui/api/runtime.ts`): Named helpers for clipboard, paths, external open — no `window.api` directly.
 
 ### Adding a new renderer-main capability
 
-1. Define route in `src/shared/contracts/routes/<domain>.routes.ts`
-2. Add to `ARGOS_ROUTE_CATALOG` in `src/shared/contracts/routes.ts`
-3. Register route handler in `src/main/routes/`
-4. Create or extend `src/renderer/api/<Domain>Client.ts`
-5. Use the client from renderer business code
+1. Define route in `packages/shared-contracts/src/routes/<domain>.routes.ts`
+2. Add to `ARGOS_ROUTE_CATALOG` in `packages/shared-contracts/src/routes.ts`
+3. Register route handler in `apps/desktop/src/main/routes/` (desktop) and/or `apps/daemon/src/dispatch/` (daemon)
+4. Create or extend `packages/ui/api/<Domain>Client.ts`
+5. Use the client from UI business code
 
-### Legacy quarantine (`src/renderer/api/legacy/`)
+### Legacy quarantine (`packages/ui/api/legacy/`)
 
 - Only allowed place for `useLegacyPresenter()` and `window.electron`/`window.api` access
 - Max 3 source files; additions require updating the architecture baseline
-- The settings renderer (`src/renderer/settings/`) still imports from here — migration pending
-- Business code under `src/renderer/src/` must **never** import from `@api/legacy/`
+- The settings renderer (`packages/ui/settings/`) still imports from here — migration pending
+- Business code under `packages/ui/src/` must **never** import from `#api/legacy/`
 
 ### Architecture guards
 
 `pnpm run lint` runs two guard scripts before oxlint:
 - `scripts/architecture-guard.mjs`: Enforces quarantine bounds, prevents legacy imports in business code, validates bridge register, tracks hot-path edges
-- `scripts/agent-cleanup-guard.mjs`: Prevents new code from importing legacy presenter directories or `@shared/chat`
+- `scripts/agent-cleanup-guard.mjs`: Prevents new code from importing legacy presenter directories or `@argos/chat`
 
 ## Coding Style & Naming Conventions
 - TypeScript + React 19 + TanStack Router; TanStack Store for state; Tailwind CSS + shadcn/ui for styles.
@@ -124,18 +131,22 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 - Two separate configs: `vitest.config.ts` (main, node env) and `vitest.config.renderer.ts` (renderer, jsdom env).
 - Location mirrors source under `test/main/**` and `test/renderer/**`.
 - Names: `*.test.ts`/`*.test.tsx`/`*.spec.ts`. Coverage: `pnpm run test:coverage`.
-- Test aliases match Vite aliases: `@` → renderer src, `@api` → renderer api, `@shared` → shared.
+- Test aliases match Vite aliases: `#` → UI src, `#api` → UI api, `@argos/shared` → shared.
 
 ## Path Aliases
 
-| Alias | Main process resolves to | Renderer resolves to |
-|-------|-------------------------|---------------------|
-| `@/` | `src/main/` | `src/renderer/src/` |
-| `@api` | — | `src/renderer/api/` |
-| `@shared` | `src/shared/` | `src/shared/` |
-| `@shadcn` | — | `src/shadcn/` |
+Path aliases use the `#` prefix (Node subpath-imports style) for **internal** module references, and real workspace package names for cross-package references. This avoids colliding with npm scoped packages (`@scope/name`).
 
-The `@/` alias is context-sensitive: a custom Vite plugin (`pathAliasPlugin`) resolves it to `src/main/` for main-process files and `src/renderer/src/` for renderer files.
+| Alias | `@argos/desktop` (main) resolves to | `@argos/ui` resolves to |
+|-------|--------------------------------------|-------------------------|
+| `#/` | `apps/desktop/src/main/` | `packages/ui/src/` |
+| `#api` | — | `packages/ui/api/` |
+| `#shadcn` | — | `packages/ui/shadcn/` |
+| `#settings` | — | `packages/ui/settings/` |
+| `@argos/shared` | `packages/shared/` | `packages/shared/` |
+| `@argos/shared-contracts` | `packages/shared-contracts/` | `packages/shared-contracts/` |
+
+The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugin` in each package's `vite-plugins/path-alias.ts`) resolves it to `src/main/` for desktop main-process files and `src/` for UI files. `@argos/shared` and `@argos/shared-contracts` are real workspace packages resolved via their `exports` maps (with `tsconfig` `paths` pointing at source for type checking).
 
 ## Commit & Pull Request Guidelines
 - Conventional commits enforced by hook: `type(scope): subject` ≤ 50 chars; types: `feat|fix|docs|dx|style|refactor|perf|test|workflow|build|ci|chore|types|wip|release`.

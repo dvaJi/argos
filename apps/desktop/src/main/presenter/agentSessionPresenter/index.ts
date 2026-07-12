@@ -36,11 +36,11 @@ import type {
   UsageDashboardBreakdownItem,
   UsageStatsBackfillStatus,
   PendingSessionInputRecord,
-} from "@shared/types/agent-interface";
-import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/agent-interface";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import { TAPE_VIEW_MANIFEST_EVENT_NAME } from "../agentRuntimePresenter/tapeViewManifest";
-import type { Message } from "@shared/chat";
-import type { SearchResult } from "@shared/types/core/search";
+import type { Message } from "@argos/shared/chat";
+import type { SearchResult } from "@argos/shared/types/core/search";
 import type {
   AcpConfigState,
   IConfigPresenter,
@@ -51,16 +51,16 @@ import type {
   ILlmProviderPresenter,
   ISkillPresenter,
   CONVERSATION,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { ArgosMessageRow } from "../sqlitePresenter/tables/argosMessages";
 import { AgentRegistry } from "@argos/backend-core";
 import { NewSessionManager } from "./sessionManager";
 import { NewMessageManager } from "./messageManager";
 import { LegacyChatImportService } from "./legacyImportService";
-import { eventBus, SendTarget } from "@/eventbus";
-import { SESSION_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { eventBus, SendTarget } from "#/eventbus";
+import { SESSION_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import {
   buildConversationExportContent,
   generateExportFilename,
@@ -78,7 +78,7 @@ import {
   resolveUsageModelId,
   resolveUsageProviderId,
 } from "../usageStats";
-import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
+import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import type {
   DaemonAcpSessionPort,

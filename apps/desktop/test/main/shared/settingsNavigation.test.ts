@@ -4,7 +4,7 @@ import {
   getSettingsNavigationItems,
   getSettingsRouteItems,
   resolveSettingsNavigationPath,
-} from "@shared/settingsNavigation";
+} from "@argos/shared/settingsNavigation";
 
 describe("settings navigation helpers", () => {
   it("resolves direct settings routes", () => {

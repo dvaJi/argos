@@ -1,4 +1,4 @@
-import type { LLM_PROVIDER, MODEL_META } from "@shared/presenter";
+import type { LLM_PROVIDER, MODEL_META } from "@argos/shared/presenter";
 
 export const PROVIDER_IMPORT_SOURCE_IDS = ["cc-switch", "alma", "cherry-studio", "hermes", "openclaw"] as const;
 export const PROVIDER_IMPORT_CUSTOM_API_TYPES = [

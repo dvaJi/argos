@@ -31,12 +31,12 @@ describe("DatabaseInitializer", () => {
         getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
       },
     }));
-    vi.doMock("@/presenter/sqlitePresenter", () => ({
+    vi.doMock("#/presenter/sqlitePresenter", () => ({
       SQLitePresenter,
       repairSQLiteDatabaseFile,
       isDestructiveDatabaseError,
     }));
-    vi.doMock("@/presenter/sqlitePresenter/schemaErrorClassifier", () => ({
+    vi.doMock("#/presenter/sqlitePresenter/schemaErrorClassifier", () => ({
       classifySchemaError,
     }));
 
@@ -70,12 +70,12 @@ describe("DatabaseInitializer", () => {
         getPath: vi.fn<(...args: any[]) => any>().mockReturnValue("C:/Users/test/AppData/Roaming/Argos"),
       },
     }));
-    vi.doMock("@/presenter/sqlitePresenter", () => ({
+    vi.doMock("#/presenter/sqlitePresenter", () => ({
       SQLitePresenter,
       repairSQLiteDatabaseFile,
       isDestructiveDatabaseError,
     }));
-    vi.doMock("@/presenter/sqlitePresenter/schemaErrorClassifier", () => ({
+    vi.doMock("#/presenter/sqlitePresenter/schemaErrorClassifier", () => ({
       classifySchemaError,
     }));
 

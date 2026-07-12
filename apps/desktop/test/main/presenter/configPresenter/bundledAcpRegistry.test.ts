@@ -40,7 +40,7 @@ describe("Bundled ACP registry manifest", () => {
     expect(mimo).toBeDefined();
     expect(mimo?.name).toBe("MiMo Code");
     expect(mimo?.distribution.npx).toBeDefined();
-    expect(mimo?.distribution.npx?.package).toMatch(/^@mimo-ai\/cli@/);
+    expect(mimo?.distribution.npx?.package).toMatch(/^@mimo-ai\/cli#/);
     expect(mimo?.distribution.npx?.args).toEqual(["acp"]);
   });
 

@@ -1,23 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import MessageItemAssistant from "@/components/message/MessageItemAssistant";
-import type { DisplayAssistantMessage, DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
+import MessageItemAssistant from "#/components/message/MessageItemAssistant";
+import type { DisplayAssistantMessage, DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 
-vi.mock("@/stores/uiSettingsStore", () => ({
+vi.mock("#/stores/uiSettingsStore", () => ({
   useUiSettingsStore: () => ({}),
 }));
 
-vi.mock("@/stores/theme", () => ({
+vi.mock("#/stores/theme", () => ({
   useThemeStore: () => ({
     isDark: false,
   }),
 }));
 
-vi.mock("@shadcn/components/ui/spinner", () => ({
+vi.mock("#shadcn/components/ui/spinner", () => ({
   Spinner: () => <div data-testid="spinner" />,
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ children, ...props }: Record<string, any>) => (
     <button type="button" {...props}>
       {children}
@@ -25,7 +25,7 @@ vi.mock("@shadcn/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@shadcn/components/ui/dialog", () => ({
+vi.mock("#shadcn/components/ui/dialog", () => ({
   Dialog: ({ children }: Record<string, any>) => <div>{children}</div>,
   DialogContent: ({ children }: Record<string, any>) => <div>{children}</div>,
   DialogDescription: ({ children }: Record<string, any>) => <div>{children}</div>,
@@ -34,7 +34,7 @@ vi.mock("@shadcn/components/ui/dialog", () => ({
   DialogTitle: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@shadcn/components/ui/context-menu", () => ({
+vi.mock("#shadcn/components/ui/context-menu", () => ({
   ContextMenu: ({ children }: Record<string, any>) => <div>{children}</div>,
   ContextMenuContent: ({ children }: Record<string, any>) => <div>{children}</div>,
   ContextMenuItem: ({ children }: Record<string, any>) => <div>{children}</div>,
@@ -42,59 +42,59 @@ vi.mock("@shadcn/components/ui/context-menu", () => ({
   ContextMenuTrigger: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/ModelIcon", () => ({
+vi.mock("#/components/message/ModelIcon", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageInfo", () => ({
+vi.mock("#/components/message/MessageInfo", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockContent", () => ({
+vi.mock("#/components/message/MessageBlockContent", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockThink", () => ({
+vi.mock("#/components/message/MessageBlockThink", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockToolCall", () => ({
+vi.mock("#/components/message/MessageBlockToolCall", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockError", () => ({
+vi.mock("#/components/message/MessageBlockError", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockQuestionRequest", () => ({
+vi.mock("#/components/message/MessageBlockQuestionRequest", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageToolbar", () => ({
+vi.mock("#/components/message/MessageToolbar", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockAction", () => ({
+vi.mock("#/components/message/MessageBlockAction", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockImage", () => ({
+vi.mock("#/components/message/MessageBlockImage", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockAudio", () => ({
+vi.mock("#/components/message/MessageBlockAudio", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockPlan", () => ({
+vi.mock("#/components/message/MessageBlockPlan", () => ({
   default: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@/components/message/MessageBlockVideo", () => ({
+vi.mock("#/components/message/MessageBlockVideo", () => ({
   default: ({ block }: { block?: any }) => <div data-testid="video-block" />,
 }));
 
-vi.mock("@/components/message/MessageBlockActivityGroup", () => ({
+vi.mock("#/components/message/MessageBlockActivityGroup", () => ({
   default: ({ blocks }: { blocks: any[] }) => (
     <div data-testid="activity-group" data-block-count={String(blocks.length)}>
       activity

@@ -4,10 +4,10 @@ import path from "path";
 
 import { BaseFileAdapter } from "./BaseFileAdapter";
 import { FileAdapterConstructor } from "./FileAdapterConstructor";
-import { FileOperation, IConfigPresenter } from "@shared/presenter";
+import { FileOperation, IConfigPresenter } from "@argos/shared/presenter";
 import { detectMimeType, getMimeTypeAdapterMap } from "./mime";
-import { IFilePresenter } from "@shared/presenter";
-import { MessageFile } from "@shared/chat";
+import { IFilePresenter } from "@argos/shared/presenter";
+import { MessageFile } from "@argos/shared/chat";
 import { approximateTokenSize } from "tokenx";
 import { ImageFileAdapter } from "./ImageFileAdapter";
 import { nanoid } from "nanoid";

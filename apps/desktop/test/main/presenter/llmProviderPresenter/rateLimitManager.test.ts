@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     send: vi.fn<(...args: any[]) => any>(),
   },
@@ -9,7 +9,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   RATE_LIMIT_EVENTS: {
     CONFIG_UPDATED: "rate-limit:config-updated",
     REQUEST_QUEUED: "rate-limit:request-queued",
@@ -18,8 +18,8 @@ vi.mock("@/events", () => ({
   },
 }));
 
-import { eventBus } from "@/eventbus";
-import { RateLimitManager } from "@/presenter/llmProviderPresenter/managers/rateLimitManager";
+import { eventBus } from "#/eventbus";
+import { RateLimitManager } from "#/presenter/llmProviderPresenter/managers/rateLimitManager";
 
 function createConfigPresenter(rateLimit?: { enabled: boolean; qpsLimit: number }) {
   const provider = {

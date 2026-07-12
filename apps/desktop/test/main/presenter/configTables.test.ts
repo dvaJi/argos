@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@shared/presenter";
+import type { LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 
 const sqliteModule = await import("better-sqlite3-multiple-ciphers").catch(() => null);
 const configTablesModule = sqliteModule

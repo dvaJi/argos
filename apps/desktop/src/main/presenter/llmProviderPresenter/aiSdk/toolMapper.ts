@@ -1,4 +1,4 @@
-import type { MCPToolDefinition } from "@shared/presenter";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
 import { jsonSchema, tool, type ToolSet } from "ai";
 
 type JsonSchema = Record<string, unknown>;
