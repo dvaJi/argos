@@ -80,6 +80,10 @@ export default function AcpDiagnostics({ agentId, agentName, launchSource, workd
   }, [agentId, workdir, llmProviderPresenter]);
 
   useEffect(() => {
+    setRemoteSessions([]);
+  }, [agentId, workdir]);
+
+  useEffect(() => {
     refreshDiagnostics();
   }, [refreshDiagnostics]);
 
@@ -200,7 +204,7 @@ export default function AcpDiagnostics({ agentId, agentName, launchSource, workd
                       <a
                         href={method.link}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-muted-foreground underline hover:text-foreground"
                       >
                         Get credentials
@@ -294,7 +298,15 @@ export default function AcpDiagnostics({ agentId, agentName, launchSource, workd
                           variant="ghost"
                           className="h-7 text-destructive"
                           disabled={loading}
-                          onClick={() => void runAction("sessionCloseRemote", { sessionId: session.sessionId })}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Close remote session? This permanently closes the remote ACP session and the agent will no longer be able to resume it.",
+                              )
+                            ) {
+                              void runAction("sessionCloseRemote", { sessionId: session.sessionId });
+                            }
+                          }}
                         >
                           Close Remote
                         </Button>

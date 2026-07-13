@@ -243,7 +243,7 @@ export class AcpMessageFormatter {
 
       normalized.push({
         type: "resource_link",
-        uri: file.path || file.name,
+        uri: file.path || file.name || "unknown",
         name: file.name,
         ...(typeof mimeType === "string" ? { mimeType } : {}),
       });

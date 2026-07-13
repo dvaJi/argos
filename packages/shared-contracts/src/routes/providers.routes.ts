@@ -204,6 +204,9 @@ const AcpDebugActionTypeSchema = zod.enum([
   "sessionResume",
   "sessionClose",
   "sessionFork",
+  "sessionImport",
+  "sessionDetach",
+  "sessionCloseRemote",
   "prompt",
   "cancel",
   "setSessionMode",
@@ -223,6 +226,13 @@ const AcpDebugEventEntrySchema = zod.object({
   message: zod.string().optional(),
 });
 
+const AcpAuthEnvVarSchema = zod.object({
+  name: zod.string(),
+  label: zod.string().optional(),
+  secret: zod.boolean().optional(),
+  optional: zod.boolean().optional(),
+});
+
 const AcpAgentDiagnosticsSchema = zod.object({
   ready: zod.boolean(),
   agentId: zod.string(),
@@ -231,7 +241,16 @@ const AcpAgentDiagnosticsSchema = zod.object({
   protocolVersion: zod.string().optional(),
   agentName: zod.string().optional(),
   agentVersion: zod.string().optional(),
-  authMethods: zod.array(zod.object({ id: zod.string(), type: zod.string().optional() })),
+  authMethods: zod.array(
+    zod.object({
+      id: zod.string(),
+      type: zod.string().optional(),
+      vars: zod.array(AcpAuthEnvVarSchema).optional(),
+      link: zod.string().nullable().optional(),
+    }),
+  ),
+  authRequired: zod.boolean(),
+  authRequiredMessage: zod.string().nullable().optional(),
   capabilities: zod.object({
     loadSession: zod.boolean(),
     sessionList: zod.boolean(),
