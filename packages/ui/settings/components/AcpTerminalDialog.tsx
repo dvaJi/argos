@@ -177,8 +177,9 @@ export default function AcpTerminalDialog({
   };
 
   useEffect(() => {
+    let setupTimer: ReturnType<typeof setTimeout> | undefined;
     if (open) {
-      setTimeout(() => {
+      setupTimer = setTimeout(() => {
         ensureTerminal();
         setupIpcListeners();
         setStatus("idle");
@@ -191,6 +192,8 @@ export default function AcpTerminalDialog({
       removeIpcListeners();
       cleanupTerminal();
     }
+
+    return () => clearTimeout(setupTimer);
   }, [open]);
 
   useEffect(() => {

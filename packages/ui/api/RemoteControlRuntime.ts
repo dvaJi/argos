@@ -4,14 +4,14 @@ import type {
   RemoteChannelDescriptor,
   RemoteChannelStatus,
 } from "@argos/shared/presenter";
-import { useLegacyRemoteControlPresenter } from "./legacy/presenters";
+import { getLegacyRemoteControlPresenter } from "./legacy/presenters";
 
 type RemoteControlPresenterCompat = IRemoteControlPresenter & {
   listRemoteChannels?: () => Promise<RemoteChannelDescriptor[]>;
   getChannelStatus?: (channel: RemoteChannel) => Promise<RemoteChannelStatus>;
 };
 
-const defaultRemoteControlPresenter = useLegacyRemoteControlPresenter() as RemoteControlPresenterCompat;
+const defaultRemoteControlPresenter = getLegacyRemoteControlPresenter() as RemoteControlPresenterCompat;
 
 export function createRemoteControlRuntime(presenter: RemoteControlPresenterCompat = defaultRemoteControlPresenter) {
   async function listRemoteChannels(): Promise<RemoteChannelDescriptor[] | null> {

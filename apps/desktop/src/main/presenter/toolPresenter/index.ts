@@ -10,14 +10,10 @@ import type { PermissionMode } from "@argos/shared/types/agent-interface";
 import { resolveToolOffloadTemplatePath } from "#/lib/agentRuntime/sessionPaths";
 import { QUESTION_TOOL_NAME } from "#/lib/agentRuntime/questionTool";
 import { ToolMapper, type ToolSource } from "./toolMapper";
-import {
-  AgentToolManager,
-  IMAGE_GENERATE_TOOL_NAME,
-  UPDATE_PLAN_TOOL_NAME,
-  AGENT_TAPE_TOOL_SERVER_NAME,
-  TAPE_TOOL_NAMES,
-  type AgentToolCallResult,
-} from "./agentTools";
+import { AgentToolManager, type AgentToolCallResult } from "./agentTools/agentToolManager";
+import { IMAGE_GENERATE_TOOL_NAME } from "./agentTools/agentImageGenerationTool";
+import { UPDATE_PLAN_TOOL_NAME } from "./agentTools/agentPlanTool";
+import { AGENT_TAPE_TOOL_SERVER_NAME, TAPE_TOOL_NAMES } from "./agentTools/agentTapeTools";
 import type { AgentToolRuntimePort } from "./runtimePorts";
 import { createAgentToolErrorResult, createAgentToolSuccessResult } from "@argos/shared/lib/agentToolResultEnvelope";
 import { jsonrepair } from "jsonrepair";

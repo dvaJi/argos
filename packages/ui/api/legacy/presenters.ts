@@ -1,7 +1,12 @@
 "use no memo";
 import type { IPresenter } from "@argos/shared/presenter";
 import { type IRemoteControlPresenter } from "@argos/shared/presenter";
-import { useLegacyPresenterTransport, useLegacyRemoteControlPresenterTransport } from "./presenterTransport";
+import {
+  getLegacyPresenterTransport,
+  getLegacyRemoteControlPresenterTransport,
+  useLegacyPresenterTransport,
+  useLegacyRemoteControlPresenterTransport,
+} from "./presenterTransport";
 export { getLegacyWebContentsId } from "./runtime";
 
 interface LegacyPresenterOptions {
@@ -19,6 +24,16 @@ export function useLegacyRemoteControlPresenter(options?: LegacyPresenterOptions
   return useLegacyRemoteControlPresenterTransport(options);
 }
 
+/** Non-React accessor for legacy bridges used by runtime factories. */
+export function getLegacyRemoteControlPresenter(options?: LegacyPresenterOptions): IRemoteControlPresenter {
+  return getLegacyRemoteControlPresenterTransport(options);
+}
+
 export function useLegacyShortcutPresenter(options?: LegacyPresenterOptions) {
   return useLegacyPresenter("shortcutPresenter", options);
+}
+
+/** Non-React accessor for legacy bridges used by runtime factories. */
+export function getLegacyShortcutPresenter(options?: LegacyPresenterOptions) {
+  return getLegacyPresenterTransport("shortcutPresenter", options);
 }

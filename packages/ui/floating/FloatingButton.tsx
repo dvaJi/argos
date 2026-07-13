@@ -107,21 +107,17 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
   );
 
   const toggleExpanded = useCallback(() => {
-    setSnapshot((prev) => {
-      const nextExpanded = !prev.expanded;
-      syncCloseMotionState(nextExpanded);
-      window.floatingButtonAPI.setExpanded(nextExpanded);
-      return { ...prev, expanded: nextExpanded };
-    });
-  }, [syncCloseMotionState]);
+    setExpanded(!snapshot.expanded);
+  }, [setExpanded, snapshot.expanded]);
 
-  const setHovering = useCallback((hovering: boolean) => {
-    setIsHovering((prev) => {
-      if (prev === hovering) return prev;
+  const setHovering = useCallback(
+    (hovering: boolean) => {
+      if (isHovering === hovering) return;
+      setIsHovering(hovering);
       window.floatingButtonAPI.setHovering(hovering);
-      return hovering;
-    });
-  }, []);
+    },
+    [isHovering],
+  );
 
   const startDragging = useCallback(() => {
     const ds = dragStateRef.current;
@@ -168,21 +164,15 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
         setIsDragging(false);
         window.floatingButtonAPI.onDragEnd(event.screenX, event.screenY);
       } else {
-        setSnapshot((prev) => {
-          if (!prev.expanded) {
-            const nextExpanded = true;
-            syncCloseMotionState(nextExpanded);
-            window.floatingButtonAPI.setExpanded(nextExpanded);
-            return { ...prev, expanded: nextExpanded };
-          }
-          return prev;
-        });
+        if (!snapshot.expanded) {
+          setExpanded(true);
+        }
       }
 
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     },
-    [clearDragTimer, handleMouseMove, syncCloseMotionState],
+    [clearDragTimer, handleMouseMove, setExpanded, snapshot.expanded],
   );
 
   const handleMouseDown = useCallback(
@@ -243,15 +233,10 @@ export default function FloatingButton({ theme }: FloatingButtonProps) {
   }, []);
 
   const handleWindowBlur = useCallback(() => {
-    setSnapshot((prev) => {
-      if (prev.expanded) {
-        syncCloseMotionState(false);
-        window.floatingButtonAPI.setExpanded(false);
-        return { ...prev, expanded: false };
-      }
-      return prev;
-    });
-  }, [syncCloseMotionState]);
+    if (snapshot.expanded) {
+      setExpanded(false);
+    }
+  }, [setExpanded, snapshot.expanded]);
 
   useEffect(() => {
     window.floatingButtonAPI

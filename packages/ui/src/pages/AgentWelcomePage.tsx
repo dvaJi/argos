@@ -25,7 +25,7 @@ export function AgentWelcomePage() {
     <div className="h-full w-full flex flex-col" style={{ WebkitAppRegion: "drag" } as CSSProperties}>
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div className="mb-5">
-          <img src={logoDark} className="w-16 h-16" loading="lazy" />
+          <img src={logoDark} alt="Argos" className="w-16 h-16" loading="lazy" />
         </div>
 
         <h1 className="mb-10 text-3xl font-semibold text-foreground">Select an Agent</h1>

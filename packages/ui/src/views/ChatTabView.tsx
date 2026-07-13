@@ -32,19 +32,14 @@ export function ChatTabView() {
   const [isReady, setIsReady] = useState(false);
   const cancelDeferredHydrationRef = useRef<(() => void) | null>(null);
 
-  let startupWorkloadStore: ReturnType<typeof useStartupWorkloadStore> | null = null;
-  try {
-    startupWorkloadStore = useStartupWorkloadStore();
-  } catch {
-    console.warn("[Startup][Renderer] startupWorkloadStore unavailable in ChatTabView");
-  }
+  const startupWorkloadStore = useStartupWorkloadStore();
 
   useEffect(() => {
     let cancelled = false;
     let criticalLoadPromises: Promise<void> | null = null;
 
     const run = async () => {
-      startupWorkloadStore?.connect();
+      startupWorkloadStore.connect();
       console.info("[Startup][Renderer] ChatTabView critical hydration begin");
 
       try {

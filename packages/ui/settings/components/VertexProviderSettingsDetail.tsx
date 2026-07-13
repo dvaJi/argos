@@ -1,4 +1,4 @@
-import { useState, useMemo, type FocusEvent } from "react";
+import { useEffect, useState, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -28,7 +28,7 @@ export default function VertexProviderSettingsDetail({
   const [accountPrivateKey, setAccountPrivateKey] = useState(provider.accountPrivateKey || "");
   const [showPrivateKey, setShowPrivateKey] = useState(false);
 
-  useMemo(() => {
+  useEffect(() => {
     setProjectId(provider.projectId || "");
     setLocation(provider.location || "");
     setApiVersion(provider.apiVersion || "v1");

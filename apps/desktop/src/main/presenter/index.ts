@@ -51,7 +51,9 @@ import { CONFIG_EVENTS } from "#/events";
 import { KnowledgePresenter } from "./knowledgePresenter";
 import { WorkspacePresenter } from "./workspacePresenter";
 import { ToolPresenter } from "./toolPresenter";
-import { CommandPermissionService, FilePermissionService, SettingsPermissionService } from "./permission";
+import { CommandPermissionService } from "./permission/commandPermissionService";
+import { FilePermissionService } from "./permission/filePermissionService";
+import { SettingsPermissionService } from "./permission/settingsPermissionService";
 import type { AgentToolRuntimePort } from "./toolPresenter/runtimePorts";
 
 import { ConversationExporterService } from "./exporter";

@@ -1,6 +1,6 @@
 import { Store } from "@tanstack/store";
 import { useStore } from "@tanstack/react-store";
-import { useSidepanelStore } from "./ui/sidepanel";
+import { clearArtifact, getSessionState, selectArtifact, setViewMode, sidepanelStore } from "./ui/sidepanel";
 
 export interface ArtifactState {
   id: string;
@@ -42,11 +42,10 @@ export const isOpen = () => {
     return false;
   }
 
-  const sidepanelStore = useSidepanelStore();
-  const sessionState = sidepanelStore.getSessionState(currentThreadId);
+  const sessionState = getSessionState(currentThreadId);
   return (
-    sidepanelStore.open &&
-    sidepanelStore.activeTab === "workspace" &&
+    sidepanelStore.state.open &&
+    sidepanelStore.state.activeTab === "workspace" &&
     sessionState.selectedArtifactContext?.artifactId === currentArtifact.id
   );
 };
@@ -63,8 +62,7 @@ const applyArtifactSelection = (
     currentMessageId: messageId,
     currentThreadId: threadId,
   }));
-  const sidepanelStore = useSidepanelStore();
-  sidepanelStore.selectArtifact(
+  selectArtifact(
     threadId,
     {
       threadId,
@@ -113,8 +111,7 @@ export const hideArtifact = () => {
     currentThreadId: null,
   }));
   if (threadId) {
-    const sidepanelStore = useSidepanelStore();
-    sidepanelStore.clearArtifact(threadId);
+    clearArtifact(threadId);
   }
 };
 
@@ -157,8 +154,7 @@ export const syncArtifact = (artifact: ArtifactState, messageId: string, threadI
 
 export const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
   const contextKey = makeContextKey(artifact.id, messageId, threadId);
-  const sidepanelStore = useSidepanelStore();
-  const panelWasHidden = !sidepanelStore.open;
+  const panelWasHidden = !sidepanelStore.state.open;
   const currentMatches =
     validateContext(messageId, threadId) && artifactStore.state.currentArtifact?.id === artifact.id;
 
@@ -169,7 +165,7 @@ export const completeArtifact = (artifact: ArtifactState, messageId: string, thr
   }
 
   if (currentMatches) {
-    sidepanelStore.setViewMode(threadId, "preview");
+    setViewMode(threadId, "preview");
   }
 
   artifactStore.setState((prev) => {

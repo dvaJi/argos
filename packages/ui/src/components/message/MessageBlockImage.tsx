@@ -131,6 +131,7 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
               <ImageActionContextMenu source={resolvedImageSrc} mimeType={resolvedImageMimeType}>
                 <img
                   src={resolvedImageSrc}
+                  alt="Generated image"
                   className="max-w-[400px] rounded-md cursor-pointer hover:shadow-md transition-shadow"
                   onClick={openFullImage}
                   onError={() => setImageError(true)}
@@ -175,7 +176,11 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
           <div className="flex items-center justify-center">
             {resolvedImageData && (
               <ImageActionContextMenu source={resolvedImageSrc} mimeType={resolvedImageMimeType}>
-                <img src={resolvedImageSrc} className="rounded-md max-h-[80vh] max-w-full object-contain" />
+                <img
+                  src={resolvedImageSrc}
+                  alt="Generated image"
+                  className="rounded-md max-h-[80vh] max-w-full object-contain"
+                />
               </ImageActionContextMenu>
             )}
           </div>

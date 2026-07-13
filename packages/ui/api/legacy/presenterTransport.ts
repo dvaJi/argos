@@ -105,7 +105,7 @@ interface UsePresenterOptions {
   safeCall?: boolean;
 }
 
-export function useLegacyPresenterTransport<T extends keyof IPresenter>(
+export function getLegacyPresenterTransport<T extends keyof IPresenter>(
   name: T,
   options?: UsePresenterOptions,
 ): IPresenter[T] {
@@ -113,7 +113,10 @@ export function useLegacyPresenterTransport<T extends keyof IPresenter>(
   return getCachedLegacyProxy<IPresenter[T]>("presenter:call", safeCall, name);
 }
 
-export function useLegacyRemoteControlPresenterTransport(options?: UsePresenterOptions): IRemoteControlPresenter {
+export function getLegacyRemoteControlPresenterTransport(options?: UsePresenterOptions): IRemoteControlPresenter {
   const safeCall = options?.safeCall ?? true;
   return getCachedLegacyProxy<IRemoteControlPresenter>("remoteControlPresenter:call", safeCall);
 }
+
+export const useLegacyPresenterTransport = getLegacyPresenterTransport;
+export const useLegacyRemoteControlPresenterTransport = getLegacyRemoteControlPresenterTransport;

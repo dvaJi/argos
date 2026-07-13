@@ -38,7 +38,7 @@ export default function FileItem({
                 className="flex flex-col gap-2 bg-card border items-center shadow-sm justify-start rounded-md text-xs select-none hover:bg-accent relative p-2"
                 onClick={() => onClick?.(fileName)}
               >
-                <img src={thumbnail} className="w-20 h-20 rounded-md border object-cover" />
+                <img src={thumbnail} alt={fileName} className="w-20 h-20 rounded-md border object-cover" />
                 <div className="text-center max-w-20">
                   <div className="text-xs leading-none pb-1 truncate text-ellipsis whitespace-nowrap">{fileName}</div>
                   <div className="text-[10px] leading-none text-muted-foreground truncate text-ellipsis whitespace-nowrap">
@@ -64,7 +64,7 @@ export default function FileItem({
                 onClick={() => onClick?.(fileName)}
               >
                 {thumbnail ? (
-                  <img src={thumbnail} className="w-8 h-8 rounded-md border" />
+                  <img src={thumbnail} alt={fileName} className="w-8 h-8 rounded-md border" />
                 ) : (
                   <Icon
                     icon={getFileIcon()}

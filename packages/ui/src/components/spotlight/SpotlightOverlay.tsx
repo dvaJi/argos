@@ -159,11 +159,13 @@ export default function SpotlightOverlay() {
       return;
     if (activeChangeSource.current === "mouse") return;
 
-    setTimeout(() => {
+    const scrollTimer = setTimeout(() => {
       resultsContainerRef.current
         ?.querySelector<HTMLElement>('[data-spotlight-active="true"]')
         ?.scrollIntoView({ block: "nearest" });
     }, 0);
+
+    return () => clearTimeout(scrollTimer);
   }, [spotlightStore.open, spotlightStore.activeIndex, spotlightStore.results.length]);
 
   if (!spotlightStore.open) return null;

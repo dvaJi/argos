@@ -172,7 +172,10 @@ export const MessageItemUser: FC<MessageItemUserProps> = ({
   }, [message.id, visibleMessageText, isCollapsible]);
 
   useEffect(() => {
-    if (isEditMode) setTimeout(() => autoResize(), 0);
+    if (!isEditMode) return;
+
+    const resizeTimer = setTimeout(() => autoResize(), 0);
+    return () => clearTimeout(resizeTimer);
   }, [editedText]);
 
   useEffect(() => {

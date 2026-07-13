@@ -1,6 +1,7 @@
 import { type FC, useMemo } from "react";
 import { MessageBlockAction } from "#/components/message/MessageBlockAction";
 import { useMessageCapture } from "#/composables/message/useMessageCapture";
+import { useThemeStore } from "#/stores/theme";
 import { type DisplayAssistantMessageBlock, type DisplayMessage, type MessageListItem } from "./messageListItems";
 import MessageListRow from "./MessageListRow";
 
@@ -37,10 +38,11 @@ const MessageList: FC<MessageListProps> = ({
   onEditSave,
   onMeasure,
 }) => {
+  const themeStore = useThemeStore();
   const traceMessageIdSet = useMemo(() => new Set(traceMessageIds), [traceMessageIds]);
   const allRenderedMessages = useMemo(() => messages, [messages]);
   const displayMessages = useMemo(() => allRenderedMessages, [allRenderedMessages]);
-  const { isCapturing, captureMessage } = (useMessageCapture as any)();
+  const { isCapturing, captureMessage } = useMessageCapture(themeStore.isDark);
 
   const resolveCaptureParentId = (messageId: string, parentId?: string): string | undefined => {
     const messageItems = displayMessages;

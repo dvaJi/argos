@@ -724,7 +724,7 @@ export function NewThreadPage() {
       <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="mb-4">
-            <img src={logoDark} className="w-14 h-14" loading="lazy" />
+            <img src={logoDark} alt="Argos" className="w-14 h-14" loading="lazy" />
           </div>
 
           <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>

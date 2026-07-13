@@ -156,10 +156,13 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
   };
 
   useEffect(() => {
+    let isDisposed = false;
+    let pullToLoadTimer: ReturnType<typeof setTimeout> | undefined;
     const init = async () => {
       await loadApiKey();
       await fetchPage();
-      setTimeout(() => {
+      if (isDisposed) return;
+      pullToLoadTimer = setTimeout(() => {
         const el = scrollContainerRef.current;
         if (el && !hasMore) {
           const contentTooShort = el.scrollHeight <= el.clientHeight;
@@ -170,7 +173,12 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
         }
       }, 100);
     };
-    init();
+    void init();
+
+    return () => {
+      isDisposed = true;
+      clearTimeout(pullToLoadTimer);
+    };
   }, []);
 
   return (

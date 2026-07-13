@@ -1,7 +1,7 @@
 import type { IShortcutPresenter } from "@argos/shared/presenter";
-import { useLegacyShortcutPresenter } from "./legacy/presenters";
+import { getLegacyShortcutPresenter } from "./legacy/presenters";
 
-const defaultShortcutPresenter = useLegacyShortcutPresenter();
+const defaultShortcutPresenter = getLegacyShortcutPresenter();
 
 export function createShortcutRuntime(presenter: IShortcutPresenter = defaultShortcutPresenter) {
   function registerShortcuts() {
