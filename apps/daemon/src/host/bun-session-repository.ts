@@ -380,7 +380,10 @@ export class BunSessionRepository implements SessionRepository {
       subagentEnabled: input.subagentEnabled ?? true,
       providerId: input.providerId || "",
       modelId: input.modelId || "",
-      message: input.message || null,
+      // Message persistence belongs to the provider execution path. Keeping
+      // session creation side-effect free lets the caller start the initial
+      // turn exactly once, just like later chat.sendMessage requests.
+      message: null,
       generationSettings: input.generationSettings ?? null,
       disabledAgentTools: input.disabledAgentTools ?? [],
     });

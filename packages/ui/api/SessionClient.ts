@@ -61,7 +61,11 @@ import {
   sessionsUpdateGenerationSettingsRoute,
   sessionsUpdateQueuedInputRoute,
 } from "@argos/shared-contracts/routes";
-import type { CreateSessionInput, PendingSessionInputRecord, SendMessageInput } from "@argos/shared/types/agent-interface";
+import type {
+  CreateSessionInput,
+  PendingSessionInputRecord,
+  SendMessageInput,
+} from "@argos/shared/types/agent-interface";
 import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import { getArgosBridge } from "./core";
 

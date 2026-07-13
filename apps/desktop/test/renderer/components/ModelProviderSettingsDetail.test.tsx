@@ -66,9 +66,7 @@ async function setup(options?: { provider?: LLM_PROVIDER; updatedProvider?: LLM_
     }),
   }));
 
-  const ModelProviderSettingsDetail = (
-    await import("#settings/components/ModelProviderSettingsDetail")
-  ).default;
+  const ModelProviderSettingsDetail = (await import("#settings/components/ModelProviderSettingsDetail")).default;
 
   const onProviderConfigured = vi.fn<(...args: any[]) => any>();
   const onProviderModelEnabled = vi.fn<(...args: any[]) => any>();

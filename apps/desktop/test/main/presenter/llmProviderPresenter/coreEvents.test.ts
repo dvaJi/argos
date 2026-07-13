@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createStreamEvent, isTextEvent, isToolCallStartEvent, isErrorEvent } from "@argos/shared/types/core/llm-events";
+import {
+  createStreamEvent,
+  isTextEvent,
+  isToolCallStartEvent,
+  isErrorEvent,
+} from "@argos/shared/types/core/llm-events";
 
 describe("LLMCoreStreamEvent Factory Functions", () => {
   describe("createStreamEvent", () => {

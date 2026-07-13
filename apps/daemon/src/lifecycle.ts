@@ -61,7 +61,7 @@ export function resolveWebRoot(options?: {
     searched,
     message: [
       "Web assets not found.",
-        "Run `pnpm --filter @argos/ui build` or pass `--web-root <path>`.",
+      "Run `pnpm --filter @argos/ui build` or pass `--web-root <path>`.",
       `Searched: ${searched.join(", ")}`,
     ].join(" "),
   };

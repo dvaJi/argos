@@ -11,7 +11,7 @@ import { eventBus } from "../../eventbus";
 import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "#/events";
 import { ISplashWindowManager } from "@argos/shared/presenter";
 import { is } from "@electron-toolkit/utils";
-import { resolveUiUrl } from "#/lib/daemonUi";
+import { getDaemonUiBase, getDevServerBase } from "#/lib/daemonUi";
 import icon from "../../../../resources/icon.png?asset"; // App icon (macOS/Linux)
 import iconWin from "../../../../resources/icon.ico?asset"; // App icon (Windows)
 import { LifecyclePhase } from "@argos/shared/lifecycle";
@@ -482,7 +482,7 @@ export class SplashWindowManager implements ISplashWindowManager {
       return;
     }
 
-    const rendererUrl = process.env["VITE_DEV_SERVER_URL"];
+    const rendererUrl = getDevServerBase();
 
     if (is.dev && rendererUrl) {
       const devUrls = [
@@ -500,7 +500,7 @@ export class SplashWindowManager implements ISplashWindowManager {
     }
 
     if (
-      await this.tryLoadSplashUrl(resolveUiUrl("/splash/index.html"), "daemon splash", {
+      await this.tryLoadSplashUrl(`${getDaemonUiBase()}/splash/index.html`, "daemon splash", {
         quiet: is.dev,
       })
     ) {

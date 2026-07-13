@@ -1,4 +1,9 @@
-import type { IFilePresenter, ILlmProviderPresenter, IWindowPresenter, IYoBrowserPresenter } from "@argos/shared/presenter";
+import type {
+  IFilePresenter,
+  ILlmProviderPresenter,
+  IWindowPresenter,
+  IYoBrowserPresenter,
+} from "@argos/shared/presenter";
 import type {
   ArgosSubagentMeta,
   ArgosSubagentSlot,

@@ -101,14 +101,12 @@ export class HybridBridge implements ArgosBridge {
       return this.ipcBridge.invoke(routeName, input);
     }
 
-    if (!this.wsBridge) {
-      if (this.pendingBridgeConnection) {
-        await this.pendingBridgeConnection;
-      }
+    if (!this.wsBridge?.isConnected() && this.pendingBridgeConnection) {
+      await this.pendingBridgeConnection;
     }
 
-    if (!this.wsBridge) {
-      throw new Error("Daemon bridge is not available");
+    if (!this.wsBridge?.isConnected()) {
+      throw new Error("Daemon bridge is not connected");
     }
 
     return this.wsBridge.invoke(routeName, input);

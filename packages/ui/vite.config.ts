@@ -61,9 +61,11 @@ export default defineConfig(({ mode }) => {
       include: ["@antv/infographic", "monaco-editor", "axios"],
     },
     server: {
+      host: "127.0.0.1",
       port: 5180,
+      strictPort: true,
       proxy: {
-        "/api": { target: `http://127.0.0.1:${daemonPort}`, changeOrigin: true, ws: true },
+        "/api/v1": { target: `http://127.0.0.1:${daemonPort}`, changeOrigin: true, ws: true },
       },
     },
     worker: {

@@ -55,6 +55,7 @@ import { WORKSPACE_EVENTS } from "#/events";
 import { filterUnsupportedAudioAttachments } from "#/lib/audioInputSupport";
 import { useMessageWindow } from "#/composables/message/useMessageWindow";
 import { playChatInputHeroFlight } from "#/lib/chatInputHero";
+import { useRuntimeConnectionState } from "#/composables/useRuntimeConnectionState";
 import type {
   ChatMessageRecord,
   AssistantMessageBlock,
@@ -84,6 +85,8 @@ export function ChatPage({ sessionId }: ChatPageProps) {
   const streamState = useStore(streamStateStore);
   const spotlightStore = useSpotlightStore();
   const modelStore = useModelStore();
+  const connectionState = useRuntimeConnectionState();
+  const isDaemonConnected = connectionState.connected;
   const chatClient = useMemo(() => createChatClient(), []);
   const modelClient = useMemo(() => createModelClient(), []);
   const sessionClient = useMemo(() => createSessionClient(), []);
@@ -360,6 +363,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
     isAtCapacity();
   const isInputSubmitDisabled =
     isAcpWorkdirMissing ||
+    !isDaemonConnected ||
     Boolean(activePendingInteraction) ||
     isHandlingInteraction ||
     (isGenerating && isAtCapacity()) ||
@@ -429,7 +433,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
   );
 
   const onSubmit = useCallback(async () => {
-    if (isReadOnlySession || isAcpWorkdirMissing) return;
+    if (isReadOnlySession || isAcpWorkdirMissing || !isDaemonConnected) return;
     if (activePendingInteraction || isHandlingInteraction) return;
     const text = message.trim();
     const files = await prepareFilesForCurrentModel([...attachedFiles]);
@@ -450,6 +454,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
   }, [
     isReadOnlySession,
     isAcpWorkdirMissing,
+    isDaemonConnected,
     activePendingInteraction,
     isHandlingInteraction,
     message,
@@ -464,7 +469,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
 
   const onCommandSubmit = useCallback(
     async (command: string) => {
-      if (isReadOnlySession || isAcpWorkdirMissing) return;
+      if (isReadOnlySession || isAcpWorkdirMissing || !isDaemonConnected) return;
       if (activePendingInteraction || isHandlingInteraction) return;
       const text = command.trim();
       if (!text) return;
@@ -482,6 +487,7 @@ export function ChatPage({ sessionId }: ChatPageProps) {
     [
       isReadOnlySession,
       isAcpWorkdirMissing,
+      isDaemonConnected,
       activePendingInteraction,
       isHandlingInteraction,
       attachedFiles,

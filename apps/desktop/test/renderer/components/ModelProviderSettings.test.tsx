@@ -126,8 +126,7 @@ const setup = async (options?: {
     }),
   }));
 
-  const ModelProviderSettings = (await import("#settings/components/ModelProviderSettings"))
-    .default;
+  const ModelProviderSettings = (await import("#settings/components/ModelProviderSettings")).default;
 
   const result = render(<ModelProviderSettings providerId={routeProviderId} />);
 

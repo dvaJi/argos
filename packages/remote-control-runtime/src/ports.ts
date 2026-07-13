@@ -80,7 +80,10 @@ export interface AgentSessionPort {
     toolCallId: string,
     response: unknown,
   ): Promise<{ waitingForUserMessage: boolean }>;
-  getSearchResults?(messageId: string, searchId?: string): Promise<import("@argos/shared/types/core/search").SearchResult[]>;
+  getSearchResults?(
+    messageId: string,
+    searchId?: string,
+  ): Promise<import("@argos/shared/types/core/search").SearchResult[]>;
 }
 
 /**

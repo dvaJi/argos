@@ -47,7 +47,10 @@
 - [ ] **Native routes under served model**: confirm file dialogs / `native_required` routes still work via the hybrid bridge when the UI is served over `http://127.0.0.1` (cross-origin preload injection).
 - [ ] **Splash startup ordering**: daemon ready before splash loads (inline fallback exercised).
 - [ ] **Packaged build**: `electron-builder` packaging — confirm `packages/ui/dist` → `resources/web` and daemon dist → `daemon`; packaged app loads UI from sidecar.
-- [ ] **Dev HMR orchestration**: in-shell HMR requires concurrent `@argos/ui dev` (port 5180) + `VITE_DEV_SERVER_URL` wiring (currently dev is daemon-served from a pre-built `packages/ui/dist`).
+- [x] **Dev HMR orchestration**: root `pnpm dev` runs the cross-platform `scripts/dev.mjs` launcher. It directly starts each workspace's Vite CLI (without Windows batch wrappers), verifies `@argos/ui` at IPv4 `127.0.0.1:5180`, then starts `@argos/desktop`. This prevents Electron from loading the UI before Vite is available and lets Ctrl+C terminate both process trees. `ARGOS_UI_DEV_SERVER_URL=http://127.0.0.1:5180` explicitly selects the UI server. Vite's internally assigned `VITE_DEV_SERVER_URL` remains reserved for its shell placeholder renderer.
+- [x] **Dev proxy isolation**: proxy only `/api/v1`, the daemon transport namespace. Do not proxy `/api/*` broadly because Vite serves the UI's `#api` source alias at paths such as `/api/ConfigClient.ts`.
+- [x] **Bridge startup readiness**: daemon routes wait for the preload WebSocket to open; chat composers remain disabled while connecting, so an initial prompt cannot be persisted without starting its agent run. The local connection indicator also reflects the actual WebSocket state.
+- [x] **Initial-turn dispatch**: `sessions.create` now creates only the session; the daemon starts its initial prompt through the same provider-execution path as `chat.sendMessage`, preventing user-only first sessions.
 
 ### Cleanup
 - [ ] `apps/desktop/package.json` still carries UI-only deps (react, `@tanstack/*`, monaco, tiptap, …) now unused by the shell → run `knip` and prune.

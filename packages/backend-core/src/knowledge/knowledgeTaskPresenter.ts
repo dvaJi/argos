@@ -1,4 +1,9 @@
-import { IKnowledgeTaskPresenter, KnowledgeChunkTask, TaskQueueStatus, TaskStatusSummary } from "@argos/shared/presenter";
+import {
+  IKnowledgeTaskPresenter,
+  KnowledgeChunkTask,
+  TaskQueueStatus,
+  TaskStatusSummary,
+} from "@argos/shared/presenter";
 
 export class KnowledgeTaskPresenter implements IKnowledgeTaskPresenter {
   private queue: KnowledgeChunkTask[] = [];

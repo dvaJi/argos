@@ -22,6 +22,15 @@ function isDev(): boolean {
 let electronLog: any = null;
 let electronLogReady = false;
 
+const unhookedConsole = {
+  log: console.log,
+  error: console.error,
+  warn: console.warn,
+  info: console.info,
+  debug: console.debug,
+  trace: console.trace,
+};
+
 function ensureElectronLog(): any {
   if (electronLogReady) return electronLog;
   electronLogReady = true;
@@ -69,12 +78,12 @@ const forward = (level: "error" | "warn" | "info" | "verbose" | "debug" | "silly
   }
   const consoleFn =
     level === "warn"
-      ? console.warn
+      ? unhookedConsole.warn
       : level === "error"
-        ? console.error
+        ? unhookedConsole.error
         : level === "verbose" || level === "silly" || level === "debug"
-          ? console.debug
-          : console.log;
+          ? unhookedConsole.debug
+          : unhookedConsole.log;
   consoleFn(...params);
 };
 
@@ -91,15 +100,6 @@ const logger = {
 
 // Intercept console methods and redirect to logger
 function hookConsole() {
-  const originalConsole = {
-    log: console.log,
-    error: console.error,
-    warn: console.warn,
-    info: console.info,
-    debug: console.debug,
-    trace: console.trace,
-  };
-
   // Replace console methods
   console.log = (...args: unknown[]) => {
     if (loggingEnabled || isDev()) {
@@ -137,7 +137,7 @@ function hookConsole() {
     }
   };
 
-  return originalConsole;
+  return unhookedConsole;
 }
 
 // Export original console methods for restoration when needed

@@ -137,7 +137,7 @@ describe("SplashWindowManager display gating", () => {
     mockIpcMain.on.mockClear();
     splashLoadMocks.loadURL = undefined;
     splashLoadMocks.loadFile = undefined;
-    delete process.env.VITE_DEV_SERVER_URL;
+    delete process.env.ARGOS_UI_DEV_SERVER_URL;
   });
 
   afterEach(async () => {
@@ -301,7 +301,7 @@ describe("SplashWindowManager display gating", () => {
   });
 
   it("falls back to an inline splash renderer when the dev page is unavailable", async () => {
-    process.env.VITE_DEV_SERVER_URL = "http://localhost:5173";
+    process.env.ARGOS_UI_DEV_SERVER_URL = "http://localhost:5180";
     splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async (url: string) => {
       if (url.startsWith("data:text/html")) {
         return;
@@ -321,14 +321,13 @@ describe("SplashWindowManager display gating", () => {
 
     const splashWindow = createdWindows[0];
     expect(splashWindow).toBeTruthy();
-    expect(splashWindow.loadURL).toHaveBeenNthCalledWith(1, "http://localhost:5173/splash/index.html");
-    expect(splashWindow.loadURL).toHaveBeenNthCalledWith(2, "http://localhost:5173/splash/");
-    expect(splashWindow.loadFile).toHaveBeenCalledTimes(1);
+    expect(splashWindow.loadURL).toHaveBeenNthCalledWith(1, "http://localhost:5180/splash/index.html");
+    expect(splashWindow.loadURL).toHaveBeenNthCalledWith(2, "http://localhost:5180/splash/");
     expect(splashWindow.loadURL).toHaveBeenLastCalledWith(expect.stringMatching(/^data:text\/html/));
   });
 
   it("stops splash renderer fallback quietly after the hidden splash is suppressed", async () => {
-    process.env.VITE_DEV_SERVER_URL = "http://localhost:5173";
+    process.env.ARGOS_UI_DEV_SERVER_URL = "http://localhost:5180";
     const errorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});
     const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
     splashLoadMocks.loadURL = vi.fn<(...args: any[]) => any>(async () => {

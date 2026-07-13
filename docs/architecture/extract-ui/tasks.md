@@ -18,7 +18,9 @@ Actionable checklist (status of the migration). See `plan.md` for full detail.
 - [ ] Native-only routes still work via hybrid bridge over `http://127.0.0.1` origin
 - [ ] Splash startup ordering (inline fallback path)
 - [ ] `electron-builder` packaging produces working app (web + daemon bundled)
-- [ ] Dev HMR: concurrent `@argos/ui dev` (5180) + `VITE_DEV_SERVER_URL`
+- [x] Dev HMR: concurrent `@argos/ui dev` (5180) + explicit UI server URL
+- [x] Prevent initial chat submission while the daemon bridge is connecting
+- [x] Dispatch a new session's initial prompt through daemon provider execution
 
 ## TODO — cleanup
 - [ ] `knip` + prune UI-only deps from `apps/desktop/package.json`

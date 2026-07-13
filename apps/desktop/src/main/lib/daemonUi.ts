@@ -1,6 +1,7 @@
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
 
 const DEFAULT_DAEMON_PORT = 9527;
+const UI_DEV_SERVER_URL_ENV = "ARGOS_UI_DEV_SERVER_URL";
 
 /**
  * Base URL the local daemon serves the @argos/ui build from.
@@ -12,16 +13,16 @@ export function getDaemonUiBase(): string {
   return `http://127.0.0.1:${port}`;
 }
 
-/** The @argos/ui Vite dev server URL, when running in development. */
+/** The explicitly configured @argos/ui Vite dev server URL, when running in development. */
 export function getDevServerBase(): string | null {
-  const url = process.env["VITE_DEV_SERVER_URL"];
+  const url = process.env[UI_DEV_SERVER_URL_ENV];
   return url ? url : null;
 }
 
 /**
  * Resolve a UI route to a loadable URL.
  *
- * In development (when VITE_DEV_SERVER_URL is set) this points at the
+ * In development (when ARGOS_UI_DEV_SERVER_URL is set) this points at the
  * @argos/ui Vite dev server (HMR). In packaged builds it points at the
  * local daemon, which serves the @argos/ui static build over HTTP —
  * the desktop shell is otherwise UI-free (CodeNomad-style).

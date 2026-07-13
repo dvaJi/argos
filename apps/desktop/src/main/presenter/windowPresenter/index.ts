@@ -19,7 +19,7 @@ import {
   WINDOW_EVENTS,
 } from "#/events"; // System/Window/Config/Shortcut event constants
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook"; // Local daemon sidecar port
-import { resolveUiUrl, waitForDaemonPort } from "#/lib/daemonUi"; // UI URL resolution (dev server / daemon)
+import { getDevServerBase, resolveUiUrl, waitForDaemonPort } from "#/lib/daemonUi"; // UI URL resolution (dev server / daemon)
 import { presenter } from "../"; // Global presenter registry
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import windowStateManager from "electron-window-state"; // Window state manager
@@ -892,12 +892,7 @@ export class WindowPresenter implements IWindowPresenter {
     // The React UI lives in the standalone @argos/ui package and is served
     // over HTTP by the daemon sidecar. The desktop shell is just an
     // Electron window pointing at that URL (CodeNomad-style).
-    if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-      console.log(`Loading UI dev server in dev mode: ${process.env["VITE_DEV_SERVER_URL"]}#/chat`);
-      appWindow.loadURL(process.env["VITE_DEV_SERVER_URL"] + "#/chat");
-    } else {
-      void this.loadUiUrl(appWindow, "/#/chat");
-    }
+    void this.loadUiUrl(appWindow, "/#/chat");
 
     // DevTools no longer opens automatically; open it via the menu or a shortcut
     // In dev it auto-opens for easier debugging
@@ -920,7 +915,7 @@ export class WindowPresenter implements IWindowPresenter {
    * packaged so the window navigates once the backend is up.
    */
   private async loadUiUrl(window: BrowserWindow, route: string): Promise<void> {
-    if (process.env["VITE_DEV_SERVER_URL"]) {
+    if (getDevServerBase()) {
       const url = resolveUiUrl(route);
       console.log(`[window] Loading UI route from dev server: ${url}`);
       try {

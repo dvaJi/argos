@@ -2,7 +2,11 @@ import { Store } from "@tanstack/store";
 import { useStore } from "@tanstack/react-store";
 import { normalizeImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
 import { normalizeVideoGenerationOptions } from "@argos/shared/videoGenerationSettings";
-import type { CreateSessionInput, PermissionMode, SessionGenerationSettings } from "@argos/shared/types/agent-interface";
+import type {
+  CreateSessionInput,
+  PermissionMode,
+  SessionGenerationSettings,
+} from "@argos/shared/types/agent-interface";
 
 export interface StartDeeplinkPayload {
   token: number;

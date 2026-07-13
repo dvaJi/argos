@@ -42,6 +42,7 @@ import { scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 import { isManualCompactionCommand } from "#/components/chat/mentions/utils";
 import { filterUnsupportedAudioAttachments } from "#/lib/audioInputSupport";
 import { cancelChatInputHeroFlight, prepareChatInputHeroFlight } from "#/lib/chatInputHero";
+import { useRuntimeConnectionState } from "#/composables/useRuntimeConnectionState";
 import type { ArgosAgentConfig, MessageFile, SessionGenerationSettings } from "@argos/shared/types/agent-interface";
 
 const configClient = createConfigClient();
@@ -58,6 +59,8 @@ export function NewThreadPage() {
   const agentState = useStore(agentStore);
   const modelState = useStore(modelStore);
   const draftState = useStore(draftStore);
+  const connectionState = useRuntimeConnectionState();
+  const isDaemonConnected = connectionState.connected;
 
   const switchAgentGuide = useGuidedOnboardingStep("switch-agent");
   const switchModelGuide = useGuidedOnboardingStep("switch-model");
@@ -256,7 +259,7 @@ export function NewThreadPage() {
   const submitText = useCallback(
     async (text: string, files: MessageFile[]) => {
       if (!text.trim()) return;
-      if (isAcpWorkdirUnavailable) return;
+      if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
 
       const chatInputBoxEl = firstChatGuideHostRef.current?.querySelector(
         '[data-testid="chat-input-box"]',
@@ -313,6 +316,7 @@ export function NewThreadPage() {
     },
     [
       isAcpWorkdirUnavailable,
+      isDaemonConnected,
       selectedAgent,
       isAcpSelectedAgent,
       acpDraftSessionId,
@@ -324,7 +328,7 @@ export function NewThreadPage() {
   );
 
   const onSubmit = useCallback(async () => {
-    if (isAcpWorkdirUnavailable) return;
+    if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
     const text = message.trim();
     if (!text) return;
     if (shouldIgnoreManualCompactionDraft(text)) return;
@@ -336,11 +340,11 @@ export function NewThreadPage() {
     } catch (e) {
       console.error("[NewThreadPage] submit failed:", e);
     }
-  }, [isAcpWorkdirUnavailable, message, attachedFiles, prepareFilesForCurrentModel, submitText]);
+  }, [isAcpWorkdirUnavailable, isDaemonConnected, message, attachedFiles, prepareFilesForCurrentModel, submitText]);
 
   const onCommandSubmit = useCallback(
     async (command: string) => {
-      if (isAcpWorkdirUnavailable) return;
+      if (isAcpWorkdirUnavailable || !isDaemonConnected) return;
       const text = command.trim();
       if (!text) return;
       if (shouldIgnoreManualCompactionDraft(text)) return;
@@ -352,7 +356,7 @@ export function NewThreadPage() {
         console.error("[NewThreadPage] submit failed:", e);
       }
     },
-    [isAcpWorkdirUnavailable, attachedFiles, prepareFilesForCurrentModel, submitText],
+    [isAcpWorkdirUnavailable, isDaemonConnected, attachedFiles, prepareFilesForCurrentModel, submitText],
   );
 
   const onFilesChange = useCallback(
@@ -795,7 +799,7 @@ export function NewThreadPage() {
               sessionId={acpDraftSessionId}
               workspacePath={projectState.selectedProjectPath ?? null}
               isAcpSession={isAcpSelectedAgent}
-              submitDisabled={isAcpWorkdirUnavailable}
+              submitDisabled={isAcpWorkdirUnavailable || !isDaemonConnected}
               onUpdateFiles={onFilesChange}
               onPendingSkillsChange={onPendingSkillsChange}
               onCommandSubmit={onCommandSubmit}
@@ -809,7 +813,7 @@ export function NewThreadPage() {
                 showVoiceInput={isVoiceInputEnabled}
                 isVoiceInputListening={false}
                 isVoiceInputTranscribing={false}
-                sendDisabled={isAcpWorkdirUnavailable || !message.trim()}
+                sendDisabled={isAcpWorkdirUnavailable || !isDaemonConnected || !message.trim()}
                 onAttach={onAttach}
                 onVoiceInput={() => {}}
                 onSend={onSubmit}

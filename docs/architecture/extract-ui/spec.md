@@ -20,7 +20,7 @@ apps/daemon (@argos/daemon)  Bun server: serves UI + /api/v1/route + /api/v1/eve
 apps/desktop (@argos/desktop) Electron shell: main + preload only; windows load UI from the daemon
 ```
 
-- Desktop windows load `http://127.0.0.1:<daemonPort>/...` (or `VITE_DEV_SERVER_URL` in dev) via `lib/daemonUi.ts#resolveUiUrl`.
+- Desktop windows load `http://127.0.0.1:<daemonPort>/...` (or the explicit `ARGOS_UI_DEV_SERVER_URL` in dev) via `lib/daemonUi.ts#resolveUiUrl`.
 - The daemon sidecar is started with `--web --web-root <packages/ui/dist | resources/web>` so it serves the UI.
 - The preload keeps the hybrid bridge; settings' legacy `useLegacyPresenter()` still works inside the shell.
 
@@ -43,4 +43,4 @@ Migrated to `#`-prefix (Node subpath style) for internal refs, and real package 
 ## Out of scope
 
 - Settings `useLegacyPresenter()` → typed-client migration (tracked as a follow-up).
-- In-shell HMR dev orchestration (concurrent `@argos/ui dev` + `VITE_DEV_SERVER_URL`).
+- None.

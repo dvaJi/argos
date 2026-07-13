@@ -1,4 +1,9 @@
-import { ApiEndpointType, ModelType, isNewApiEndpointType, resolveProviderCapabilityProviderId } from "@argos/shared/model";
+import {
+  ApiEndpointType,
+  ModelType,
+  isNewApiEndpointType,
+  resolveProviderCapabilityProviderId,
+} from "@argos/shared/model";
 import { IModelConfig, ModelConfig, ModelConfigSource } from "@argos/shared/presenter";
 import {
   DEFAULT_MODEL_TIMEOUT,

@@ -3,7 +3,7 @@
   "remoteCache": {
     "enabled": true
   },
-  "globalPassThroughEnv": ["CI", "GITHUB_ACTIONS"],
+  "globalPassThroughEnv": ["CI", "GITHUB_ACTIONS", "ARGOS_UI_DEV_SERVER_URL"],
   "tasks": {
     "transit": {
       "dependsOn": ["^transit"]

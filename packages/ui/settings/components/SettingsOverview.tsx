@@ -7,7 +7,11 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "#shadcn/compon
 import { InputGroup, InputGroupAddon, InputGroupInput } from "#shadcn/components/ui/input-group";
 import { createSettingsClient } from "#api/SettingsClient";
 import type { SettingsActivityRecord } from "@argos/shared-contracts/routes";
-import { getSettingsNavigationItems, resolveTitle, resolveSettingsNavigationPath } from "@argos/shared/settingsNavigation";
+import {
+  getSettingsNavigationItems,
+  resolveTitle,
+  resolveSettingsNavigationPath,
+} from "@argos/shared/settingsNavigation";
 import type { SettingsNavigationItem } from "@argos/shared/settingsNavigation";
 import { ensureInitialized, useProviderStore } from "#/stores/providerStore";
 import { initialize as initializeModels, useModelStore } from "#/stores/modelStore";

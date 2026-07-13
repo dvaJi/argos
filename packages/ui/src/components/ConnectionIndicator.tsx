@@ -14,7 +14,6 @@ const STATUS_CONFIG: Record<IndicatorStatus, { color: string; icon: string; labe
 };
 
 function deriveStatus(state: ConnectionState): IndicatorStatus {
-  if (state.mode === "local") return "connected";
   if (state.connected) return "connected";
   if (state.lastError) return "error";
   if (state.url) return "connecting";

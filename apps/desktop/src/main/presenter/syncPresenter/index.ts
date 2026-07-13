@@ -3,7 +3,13 @@ import path from "path";
 import fs from "fs";
 import Database from "better-sqlite3-multiple-ciphers";
 import { zipSync, unzipSync } from "fflate";
-import { ISyncPresenter, IConfigPresenter, ISQLitePresenter, SyncBackupInfo, CloudSyncResult } from "@argos/shared/presenter";
+import {
+  ISyncPresenter,
+  IConfigPresenter,
+  ISQLitePresenter,
+  SyncBackupInfo,
+  CloudSyncResult,
+} from "@argos/shared/presenter";
 import { CloudStorageService } from "./cloudStorageService";
 import { eventBus, SendTarget } from "#/eventbus";
 import { SYNC_EVENTS } from "#/events";

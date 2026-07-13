@@ -1,6 +1,11 @@
 import { nanoid } from "nanoid";
 import type { SQLitePresenter } from "../sqlitePresenter";
-import type { ArgosSubagentMeta, SessionKind, SessionPageCursor, SessionRecord } from "@argos/shared/types/agent-interface";
+import type {
+  ArgosSubagentMeta,
+  SessionKind,
+  SessionPageCursor,
+  SessionRecord,
+} from "@argos/shared/types/agent-interface";
 import type { SessionListPageCursor } from "../sqlitePresenter/tables/newSessions";
 
 const parseSubagentMeta = (raw: string | null | undefined): ArgosSubagentMeta | null => {

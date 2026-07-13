@@ -3,7 +3,11 @@ import path from "path";
 import fs from "fs";
 import Database from "better-sqlite3-multiple-ciphers";
 import type { SQLitePresenter } from "../sqlitePresenter";
-import type { AssistantMessageBlock, LegacyImportStatus, UserMessageContent } from "@argos/shared/types/agent-interface";
+import type {
+  AssistantMessageBlock,
+  LegacyImportStatus,
+  UserMessageContent,
+} from "@argos/shared/types/agent-interface";
 import type { SearchResult } from "@argos/shared/types/core/search";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import { ArgosMessageStore } from "../agentRuntimePresenter/messageStore";
