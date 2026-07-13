@@ -1,6 +1,6 @@
 import Database from "better-sqlite3-multiple-ciphers";
 import { BaseTable } from "./baseTable";
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
 
 export interface ArgosAssistantBlockRow {
   message_id: string;

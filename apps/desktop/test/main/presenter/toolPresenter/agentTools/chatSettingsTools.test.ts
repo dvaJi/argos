@@ -1,11 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { SETTINGS_EVENTS } from "@/events";
+import { SETTINGS_EVENTS } from "#/events";
 import {
   ChatSettingsToolHandler,
   buildChatSettingsToolDefinitions,
   CHAT_SETTINGS_SKILL_NAME,
   CHAT_SETTINGS_TOOL_NAMES,
-} from "@/presenter/toolPresenter/agentTools/chatSettingsTools";
+} from "#/presenter/toolPresenter/agentTools/chatSettingsTools";
 
 describe("ChatSettingsToolHandler", () => {
   const configPresenter = {

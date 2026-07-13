@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { useChatConfigFields } from "@/composables/useChatConfigFields";
-import type { ThinkingBudgetRange } from "@/composables/useThinkingBudget";
+import { useChatConfigFields } from "#/composables/useChatConfigFields";
+import type { ThinkingBudgetRange } from "#/composables/useThinkingBudget";
 
 function createFields(
   supportsTemperatureControl: boolean | null,

@@ -2,9 +2,9 @@
  * Tray destroy hook
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { presenter } from "@/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { presenter } from "#/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 export const trayDestroyHook: LifecycleHook = {
   name: "tray-destroy",

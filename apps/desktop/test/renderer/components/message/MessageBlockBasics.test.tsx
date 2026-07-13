@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import MessageBlockAction from "@/components/message/MessageBlockAction";
-import MessageBlockError from "@/components/message/MessageBlockError";
-import MessageBlockPlan from "@/components/message/MessageBlockPlan";
-import MessageBlockQuestionRequest from "@/components/message/MessageBlockQuestionRequest";
-import ChatToolInteractionOverlay from "@/components/chat/ChatToolInteractionOverlay";
-import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
+import MessageBlockAction from "#/components/message/MessageBlockAction";
+import MessageBlockError from "#/components/message/MessageBlockError";
+import MessageBlockPlan from "#/components/message/MessageBlockPlan";
+import MessageBlockQuestionRequest from "#/components/message/MessageBlockQuestionRequest";
+import ChatToolInteractionOverlay from "#/components/chat/ChatToolInteractionOverlay";
+import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ children, onClick, ...props }: Record<string, any>) => (
     <button type="button" onClick={onClick} {...props}>
       {children}

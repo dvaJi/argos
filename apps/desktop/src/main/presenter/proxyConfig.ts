@@ -1,7 +1,7 @@
 import { session } from "electron";
 import { Agent, EnvHttpProxyAgent, setGlobalDispatcher } from "undici";
-import { eventBus } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
 
 // Keep it simple for now: use the system proxy
 export enum ProxyMode {
@@ -146,7 +146,7 @@ export class ProxyConfig {
     try {
       // Check the URL format; ensure it starts with http:// or https://
       const urlPattern =
-        /^(http|https):\/\/(?:([^:@/]+)(?::([^@/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
+        /^(http|https):\/\/(?:([^:#/]+)(?::([^#/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
       if (!urlPattern.test(url)) {
         return false;
       }

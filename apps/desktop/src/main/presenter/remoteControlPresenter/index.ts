@@ -1,5 +1,5 @@
 import { BrowserWindow } from "electron";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 import type {
   ChannelSettingsMap,
   DiscordPairingSnapshot,
@@ -24,7 +24,7 @@ import type {
   TelegramRemoteBindingSummary,
   TelegramRemoteSettings,
   TelegramRemoteStatus,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import {
   DISCORD_REMOTE_DEFAULT_AGENT_ID,
   QQBOT_REMOTE_DEFAULT_AGENT_ID,
@@ -46,7 +46,7 @@ import {
 } from "./types";
 import type { ChannelAdapterConfig } from "./types/channel";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
-import { REMOTE_CONTROL_ERROR_MESSAGES } from "@shared/contracts/remoteControlErrors";
+import { REMOTE_CONTROL_ERROR_MESSAGES } from "@argos/shared-contracts/remoteControlErrors";
 import type { RemoteControlPresenterDeps } from "./interface";
 import { RemoteBindingStore } from "./services/remoteBindingStore";
 import { RemoteConversationRunner } from "./services/remoteConversationRunner";

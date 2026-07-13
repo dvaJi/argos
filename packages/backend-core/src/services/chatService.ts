@@ -1,4 +1,4 @@
-import type { SendMessageInput } from "@shared/types/agent-interface";
+import type { SendMessageInput } from "@argos/shared/types/agent-interface";
 import type {
   MessageRepository,
   ProviderCatalogPort,

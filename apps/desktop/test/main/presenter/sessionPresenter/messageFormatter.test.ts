@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AssistantMessageBlock, Message, UserMessageContent } from "@shared/chat";
+import type { AssistantMessageBlock, Message, UserMessageContent } from "@argos/shared/chat";
 import {
   addContextMessages,
   buildUserMessageContext,
   formatUserMessageContent,
-} from "@/presenter/sessionPresenter/messageFormatter";
+} from "#/presenter/sessionPresenter/messageFormatter";
 
 const baseUsage = {
   context_usage: 0,

@@ -1,11 +1,11 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
+import { eventBus, SendTarget } from "#/eventbus";
+import { ARGOS_EVENT_CHANNEL } from "@argos/shared-contracts/channels";
 import {
   getArgosEventContract,
   type ArgosEventEnvelope,
   type ArgosEventName,
   type ArgosEventPayload,
-} from "@shared/contracts/events";
+} from "@argos/shared-contracts/events";
 
 export function publishArgosEvent<T extends ArgosEventName>(name: T, payload: unknown): void {
   const contract = getArgosEventContract(name);

@@ -4,7 +4,7 @@ import type {
   SkillManageRequest,
   SkillManageResult,
   SkillViewResult,
-} from "@shared/types/skill";
+} from "@argos/shared/types/skill";
 
 export class SkillTools {
   constructor(private readonly skillPresenter: ISkillPresenter) {}

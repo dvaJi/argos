@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { useViewportSize } from "@/composables/useViewportSize";
+import { useViewportSize } from "#/composables/useViewportSize";
 
 describe("useViewportSize", () => {
   it("manages size and returns fixed dimensions for tablet/mobile", () => {

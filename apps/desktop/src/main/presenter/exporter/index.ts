@@ -1,6 +1,6 @@
 import type { IConversationExporter } from "./interface";
-import type { ISQLitePresenter, IConfigPresenter, NowledgeMemConfig } from "@shared/presenter";
-import type { Message } from "@shared/chat";
+import type { ISQLitePresenter, IConfigPresenter, NowledgeMemConfig } from "@argos/shared/presenter";
+import type { Message } from "@argos/shared/chat";
 import { MessageManager } from "../sessionPresenter/managers/messageManager";
 import {
   buildConversationExportContent,
@@ -8,7 +8,7 @@ import {
   generateExportFilename,
 } from "./formats/conversationExporter";
 import { NowledgeMemPresenter } from "../nowledgeMemPresenter";
-import type { NowledgeMemThread, NowledgeMemExportSummary } from "@shared/types/nowledgeMem";
+import type { NowledgeMemThread, NowledgeMemExportSummary } from "@argos/shared/types/nowledgeMem";
 
 interface ExporterDependencies {
   sqlitePresenter: ISQLitePresenter;

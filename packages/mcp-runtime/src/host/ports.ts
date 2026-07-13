@@ -1,4 +1,4 @@
-import type { MCPServerConfig } from "@shared/presenter";
+import type { MCPServerConfig } from "@argos/shared/presenter";
 
 /** Paths the MCP runtime needs (replaces `app.getPath`/`app.getVersion`). */
 export interface McpPathsPort {
@@ -29,7 +29,7 @@ export interface McpEventPort {
   subscribe(channel: string, handler: (payload: unknown) => void): () => void;
 }
 
-/** Outbound proxy resolution (replaces `@/presenter/proxyConfig`). */
+/** Outbound proxy resolution (replaces `#/presenter/proxyConfig`). */
 export interface McpProxyPort {
   getProxyUrl(): string | null;
 }

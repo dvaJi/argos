@@ -20,14 +20,14 @@ import {
   AcpWorkdirInfo,
   AcpDebugRequest,
   AcpDebugRunResult,
-} from "@shared/presenter";
-import { ApiEndpointType, ModelType } from "@shared/model";
-import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@shared/imageGenerationSettings";
-import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@shared/videoGenerationSettings";
-import { ProviderChange, ProviderBatchUpdate } from "@shared/provider-operations";
-import { isProviderDbBackedProvider } from "@shared/providerDeeplink";
-import { eventBus } from "@/eventbus";
-import { CONFIG_EVENTS, PROVIDER_DB_EVENTS } from "@/events";
+} from "@argos/shared/presenter";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
+import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
+import { normalizeVideoGenerationOptions, type VideoGenerationOptions } from "@argos/shared/videoGenerationSettings";
+import { ProviderChange, ProviderBatchUpdate } from "@argos/shared/provider-operations";
+import { isProviderDbBackedProvider } from "@argos/shared/providerDeeplink";
+import { eventBus } from "#/eventbus";
+import { CONFIG_EVENTS, PROVIDER_DB_EVENTS } from "#/events";
 import { BaseLLMProvider, isAudioTranscriptionNotSupportedError } from "./baseProvider";
 import { ProviderConfig, StreamState } from "./types";
 import { RateLimitManager } from "./managers/rateLimitManager";

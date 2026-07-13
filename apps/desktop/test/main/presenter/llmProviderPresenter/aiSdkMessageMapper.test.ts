@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { modelMessageSchema } from "ai";
-import { mapMessagesToModelMessages } from "@/presenter/llmProviderPresenter/aiSdk/messageMapper";
+import { mapMessagesToModelMessages } from "#/presenter/llmProviderPresenter/aiSdk/messageMapper";
 
 function convertToOpenAICompatibleChatMessagesForTest(messages: any[]) {
   return messages.map((message) => {

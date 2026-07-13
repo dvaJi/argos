@@ -1,4 +1,4 @@
-import type { IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
+import type { IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
 import {
   modelsAddCustomRoute,
   modelsExportConfigsRoute,

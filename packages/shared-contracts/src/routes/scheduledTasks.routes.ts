@@ -4,7 +4,7 @@ import {
   SCHEDULED_TASKS_VERSION,
   SCHEDULED_TASK_TRIGGER_KINDS,
   SCHEDULED_TASK_ACTION_KINDS,
-} from "@shared/scheduledTasks";
+} from "@argos/shared/scheduledTasks";
 
 export const scheduledTaskTriggerKindSchema = zod.enum(SCHEDULED_TASK_TRIGGER_KINDS);
 export const scheduledTaskActionKindSchema = zod.enum(SCHEDULED_TASK_ACTION_KINDS);

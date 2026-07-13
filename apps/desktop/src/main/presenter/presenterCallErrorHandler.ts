@@ -1,5 +1,5 @@
-import { eventBus } from "@/eventbus";
-import { NOTIFICATION_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { NOTIFICATION_EVENTS } from "#/events";
 import { buildDatabaseRepairSuggestedPayload } from "./sqlitePresenter/schemaErrorClassifier";
 
 interface PresenterCallErrorContext {

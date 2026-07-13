@@ -1,4 +1,4 @@
-import type { ToolInteractionResponse, SessionWithState } from "@shared/types/agent-interface";
+import type { ToolInteractionResponse, SessionWithState } from "@argos/shared/types/agent-interface";
 import type {
   RemotePendingInteraction,
   TelegramAgentOption,

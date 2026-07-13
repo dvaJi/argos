@@ -4,7 +4,7 @@ import {
   FileValidationResult,
   IFileValidationService,
 } from "../../../src/main/presenter/filePresenter/FileValidationService";
-import { IConfigPresenter } from "@shared/presenter";
+import { IConfigPresenter } from "@argos/shared/presenter";
 
 // Mock all external dependencies
 const mockConfigPresenter: IConfigPresenter = {

@@ -1,7 +1,7 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import type { SettingsKey, SettingsSnapshotValues } from "@shared/contracts/routes";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import type { SettingsKey, SettingsSnapshotValues } from "@argos/shared-contracts/routes";
 import fontList from "font-list";
 
 const AUTO_COMPACTION_TRIGGER_THRESHOLD_DEFAULT = 80;

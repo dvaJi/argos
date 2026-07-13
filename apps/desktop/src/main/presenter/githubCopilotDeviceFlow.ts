@@ -380,9 +380,9 @@ export class GitHubCopilotDeviceFlow {
             shell.openExternal(msg.url);
           } else if (msg.type === "copy-to-clipboard") {
             // Lazy import avoids a circular dependency: this module is imported by
-            // providers, which the @/presenter barrel re-exports. Loading the barrel
+            // providers, which the #/presenter barrel re-exports. Loading the barrel
             // eagerly makes BaseLLMProvider undefined at provider class-definition time.
-            void import("@/presenter").then(({ presenter }) => {
+            void import("#/presenter").then(({ presenter }) => {
               const mainWindow = presenter.windowPresenter.mainWindow;
               if (mainWindow) {
                 mainWindow.webContents.executeJavaScript(`window.api.copyText('${msg.text}')`);

@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { AntigravityAdapter } from "../../../../../src/main/presenter/skillSyncPresenter/adapters/antigravityAdapter";
-import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
+import type { CanonicalSkill, ParseContext } from "@argos/shared/types/skillSync";
 
 describe("AntigravityAdapter", () => {
   const adapter = new AntigravityAdapter();

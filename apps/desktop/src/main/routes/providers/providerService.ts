@@ -1,4 +1,4 @@
-import type { ProviderCatalogPort } from "@/presenter/runtimePorts";
+import type { ProviderCatalogPort } from "#/presenter/runtimePorts";
 import type { ProviderExecutionPort } from "../hotPathPorts";
 import type { Scheduler } from "@argos/backend-core";
 

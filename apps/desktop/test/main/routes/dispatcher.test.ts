@@ -9,8 +9,8 @@ import type {
   IWindowPresenter,
   IWorkspacePresenter,
   IYoBrowserPresenter,
-} from "@shared/presenter";
-import { createMainKernelRouteRuntime, dispatchArgosRoute } from "@/routes";
+} from "@argos/shared/presenter";
+import { createMainKernelRouteRuntime, dispatchArgosRoute } from "#/routes";
 
 type MockWindow = {
   id: number;

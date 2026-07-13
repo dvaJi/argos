@@ -8,7 +8,7 @@ import type {
   SessionWithState,
   ToolInteractionResponse,
   ToolInteractionResult,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type { ArgosEventName, ArgosEventPayload } from "@argos/shared-contracts/events";
 
 export type SessionListFilters = {

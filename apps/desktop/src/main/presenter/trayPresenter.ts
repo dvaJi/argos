@@ -1,7 +1,7 @@
 import { Tray, Menu, app, nativeImage, NativeImage } from "electron";
 import * as path from "path";
-import { eventBus } from "@/eventbus";
-import { TRAY_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { TRAY_EVENTS } from "#/events";
 
 const trayMenuLabels = {
   open: "Open/Hide",

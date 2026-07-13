@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import path from "node:path";
-import logger from "@shared/logger";
-import type { ProviderCatalogPort } from "@/presenter/runtimePorts";
+import logger from "@argos/shared/logger";
+import type { ProviderCatalogPort } from "#/presenter/runtimePorts";
 
 export interface BuildSystemEnvPromptOptions {
   providerId?: string;

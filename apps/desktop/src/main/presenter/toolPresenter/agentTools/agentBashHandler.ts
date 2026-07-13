@@ -3,16 +3,16 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { z } from "zod";
-import logger from "@shared/logger";
-import type { IConfigPresenter } from "@shared/presenter";
-import { getBackgroundExecConfig } from "@/lib/agentRuntime/backgroundExecSessionManager";
-import { backgroundExecSessionManager } from "@/lib/agentRuntime/backgroundExecSessionManager";
+import logger from "@argos/shared/logger";
+import type { IConfigPresenter } from "@argos/shared/presenter";
+import { getBackgroundExecConfig } from "#/lib/agentRuntime/backgroundExecSessionManager";
+import { backgroundExecSessionManager } from "#/lib/agentRuntime/backgroundExecSessionManager";
 import { terminateProcessTree } from "@argos/backend-core";
-import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
+import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
-import { createUtf8OutputDecoderPair, prepareShellCommandForUtf8Output } from "@/lib/agentRuntime/shellOutputEncoding";
-import { resolveUsableSpawnCwd } from "@/lib/agentRuntime/spawnGuard";
-import { resolveSessionDir } from "@/lib/agentRuntime/sessionPaths";
+import { createUtf8OutputDecoderPair, prepareShellCommandForUtf8Output } from "#/lib/agentRuntime/shellOutputEncoding";
+import { resolveUsableSpawnCwd } from "#/lib/agentRuntime/spawnGuard";
+import { resolveSessionDir } from "#/lib/agentRuntime/sessionPaths";
 
 // Consider moving to a shared handlers location in future refactoring
 import { CommandPermissionRequiredError, CommandPermissionService } from "../../permission/commandPermissionService";

@@ -1,6 +1,6 @@
 import zod from "zod";
 import { defineRouteContract } from "../common";
-import { AGENT_MEMORY_CATEGORIES } from "@shared/types/agent-memory";
+import { AGENT_MEMORY_CATEGORIES } from "@argos/shared/types/agent-memory";
 
 const AgentIdSchema = zod.string().regex(/^[a-zA-Z0-9_-]{1,128}$/, "invalid agentId");
 

@@ -9,14 +9,14 @@ import {
   IKnowledgeTaskPresenter,
   KnowledgeFileResult,
   KnowledgeChunkMessage,
-} from "@shared/presenter";
-import { presenter } from "@/presenter";
+} from "@argos/shared/presenter";
+import { presenter } from "#/presenter";
 import { nanoid } from "nanoid";
-import { RecursiveCharacterTextSplitter } from "@/lib/textsplitters";
-import { sanitizeText } from "@/utils/strings";
-import { getMetric, normalizeDistance } from "@/utils/vector";
-import { eventBus, SendTarget } from "@/eventbus";
-import { RAG_EVENTS } from "@/events";
+import { RecursiveCharacterTextSplitter } from "#/lib/textsplitters";
+import { sanitizeText } from "#/utils/strings";
+import { getMetric, normalizeDistance } from "#/utils/vector";
+import { eventBus, SendTarget } from "#/eventbus";
+import { RAG_EVENTS } from "#/events";
 
 export class KnowledgeStorePresenter {
   private readonly vectorP: IVectorDatabasePresenter;

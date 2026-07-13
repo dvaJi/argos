@@ -4,7 +4,7 @@ import {
   buildResumeContext,
   fitMessagesToContextWindow,
   truncateContext,
-} from "@/presenter/agentRuntimePresenter/contextBuilder";
+} from "#/presenter/agentRuntimePresenter/contextBuilder";
 
 vi.mock("tokenx", () => ({
   approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => {

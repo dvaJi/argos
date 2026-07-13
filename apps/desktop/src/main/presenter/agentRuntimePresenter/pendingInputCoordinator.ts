@@ -1,11 +1,11 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { SESSION_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { eventBus, SendTarget } from "#/eventbus";
+import { SESSION_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import type {
   PendingSessionInputRecord,
   PendingSessionInputState,
   SendMessageInput,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import { ArgosPendingInputStore } from "./pendingInputStore";
 
 const MAX_ACTIVE_PENDING_INPUTS = 5;

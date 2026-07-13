@@ -1,7 +1,7 @@
 import { EventEmitter } from "events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BrowserTab } from "@/presenter/browser/BrowserTab";
-import { BrowserPageStatus } from "@shared/types/browser";
+import { BrowserTab } from "#/presenter/browser/BrowserTab";
+import { BrowserPageStatus } from "@argos/shared/types/browser";
 
 class MockWebContents extends EventEmitter {
   url = "about:blank";

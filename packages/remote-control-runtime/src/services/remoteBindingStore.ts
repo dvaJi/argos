@@ -1,4 +1,4 @@
-import type { PairableRemoteChannel, RemoteChannel } from "@shared/presenter";
+import type { PairableRemoteChannel, RemoteChannel } from "@argos/shared/presenter";
 import type { ConfigPort } from "../ports";
 import {
   REMOTE_CONTROL_SETTING_KEY,

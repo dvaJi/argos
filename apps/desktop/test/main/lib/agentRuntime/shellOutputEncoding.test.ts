@@ -3,7 +3,7 @@ import {
   createUtf8StreamDecoder,
   prepareProcessEnvForUtf8Output,
   prepareShellCommandForUtf8Output,
-} from "@/lib/agentRuntime/shellOutputEncoding";
+} from "#/lib/agentRuntime/shellOutputEncoding";
 
 describe("shellOutputEncoding", () => {
   const originalPlatform = Object.getOwnPropertyDescriptor(process, "platform");

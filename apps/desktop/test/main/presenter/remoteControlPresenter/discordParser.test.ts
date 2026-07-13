@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DiscordParser } from "@/presenter/remoteControlPresenter/discord/discordParser";
+import { DiscordParser } from "#/presenter/remoteControlPresenter/discord/discordParser";
 
 describe("DiscordParser", () => {
   it("parses mentioned guild messages and strips the leading bot mention", () => {

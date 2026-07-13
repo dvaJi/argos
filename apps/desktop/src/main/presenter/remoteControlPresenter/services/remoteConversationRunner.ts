@@ -9,15 +9,15 @@ import type {
   SendMessageInput,
   SessionWithState,
   ToolInteractionResponse,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
 import type {
   IConfigPresenter,
   IAgentSessionPresenter,
   IFilePresenter,
   ITabPresenter,
   IWindowPresenter,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import type { AgentRuntimePresenter } from "../../agentRuntimePresenter";
 import {
   TELEGRAM_RECENT_SESSION_LIMIT,

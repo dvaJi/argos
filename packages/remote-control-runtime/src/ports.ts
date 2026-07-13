@@ -12,7 +12,7 @@ import type {
   SendMessageInput,
   SessionWithState,
   CreateSessionInput,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 
 /** Read/write the persisted `remoteControl` config blob (a single JSON value). */
 export interface ConfigPort {
@@ -80,7 +80,10 @@ export interface AgentSessionPort {
     toolCallId: string,
     response: unknown,
   ): Promise<{ waitingForUserMessage: boolean }>;
-  getSearchResults?(messageId: string, searchId?: string): Promise<import("@shared/types/core/search").SearchResult[]>;
+  getSearchResults?(
+    messageId: string,
+    searchId?: string,
+  ): Promise<import("@argos/shared/types/core/search").SearchResult[]>;
 }
 
 /**
@@ -97,7 +100,7 @@ export interface GenerationPort {
 
 /** Optional file-preparation hook (desktop `filePresenter`). Null in daemon v1. */
 export interface FilePort {
-  prepareFile(filePath: string, mediaType?: string): Promise<import("@shared/types/agent-interface").MessageFile>;
+  prepareFile(filePath: string, mediaType?: string): Promise<import("@argos/shared/types/agent-interface").MessageFile>;
 }
 
 export interface RemoteControlRuntimePorts {

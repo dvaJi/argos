@@ -1,7 +1,7 @@
 import type { ChannelAdapterConfig, SendMessageOptions } from "../../types/channel";
 import { ChannelAdapter } from "../../channelAdapter";
 import type { FeishuRuntimeStatusSnapshot, FeishuTransportTarget } from "../../types";
-import type { FeishuBrand } from "@shared/presenter";
+import type { FeishuBrand } from "@argos/shared/presenter";
 import { FeishuAuthGuard } from "../../services/feishuAuthGuard";
 import { RemoteBindingStore } from "../../services/remoteBindingStore";
 import { RemoteConversationRunner } from "../../services/remoteConversationRunner";
@@ -9,7 +9,7 @@ import { FeishuCommandRouter } from "../../services/feishuCommandRouter";
 import { FeishuClient } from "../../feishu/feishuClient";
 import { FeishuParser } from "../../feishu/feishuParser";
 import { FeishuRuntime } from "../../feishu/feishuRuntime";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 
 const DEFAULT_STATUS: FeishuRuntimeStatusSnapshot = {
   state: "stopped",

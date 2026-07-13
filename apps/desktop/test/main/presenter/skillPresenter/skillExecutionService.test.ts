@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import fs from "fs";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ISkillPresenter } from "@shared/types/skill";
+import type { ISkillPresenter } from "@argos/shared/types/skill";
 import { SkillExecutionService } from "../../../../src/main/presenter/skillPresenter/skillExecutionService";
 
 vi.mock("child_process", () => ({

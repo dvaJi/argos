@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { SkillMetadata } from "@shared/types/skill";
+import type { SkillMetadata } from "@argos/shared/types/skill";
 import { EntityIdSchema, defineEventContract } from "../common";
 
 const SkillMetadataSchema = zod.custom<SkillMetadata>();

@@ -49,7 +49,7 @@ const createPluginPresenter = async (
   optionsOrAppPath: CreatePluginPresenterOptions | string = process.cwd(),
 ) => {
   const options = typeof optionsOrAppPath === "string" ? { appPath: optionsOrAppPath } : optionsOrAppPath;
-  const { PluginPresenter } = await import("@/presenter/pluginPresenter");
+  const { PluginPresenter } = await import("#/presenter/pluginPresenter");
   const mcpServers: Record<string, unknown> = {};
   const configPresenter = {
     getMcpServers: vi.fn<(...args: any[]) => any>().mockImplementation(async () => mcpServers),
@@ -614,7 +614,7 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     await writeFile(workspaceManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
     const presenter = await createPluginPresenter("darwin", fixture.appPath);
-    const { getPluginToolPolicy } = await import("@/presenter/pluginPresenter/toolPolicyStore");
+    const { getPluginToolPolicy } = await import("#/presenter/pluginPresenter/toolPolicyStore");
 
     const enabled = await presenter.enablePlugin(fixture.pluginId);
     expect(enabled.ok).toBe(true);

@@ -1,5 +1,5 @@
-import type { IConfigPresenter } from "@shared/presenter";
-import type { ConfigEntryChange, ConfigEntryKey, ConfigEntryValues } from "@shared/contracts/routes";
+import type { IConfigPresenter } from "@argos/shared/presenter";
+import type { ConfigEntryChange, ConfigEntryKey, ConfigEntryValues } from "@argos/shared-contracts/routes";
 
 const RTL_LOCALES = new Set(["fa-IR", "he-IL"]);
 

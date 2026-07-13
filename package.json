@@ -33,7 +33,7 @@
     "typecheck:web": "turbo run typecheck:web --filter=@argos/desktop",
     "typecheck": "turbo run typecheck --filter=@argos/desktop",
     "start": "pnpm --filter @argos/desktop start",
-    "dev": "pnpm --filter @argos/desktop dev",
+    "dev": "node scripts/dev.mjs",
     "dev:trace": "pnpm --filter @argos/desktop dev",
     "dev:inspect": "pnpm --filter @argos/desktop dev:inspect",
     "dev:linux": "pnpm --filter @argos/desktop dev:linux",

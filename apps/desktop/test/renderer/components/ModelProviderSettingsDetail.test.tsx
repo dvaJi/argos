@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 
 const createProvider = (overrides?: Partial<LLM_PROVIDER>): LLM_PROVIDER => ({
   id: "anthropic",
@@ -49,26 +49,24 @@ async function setup(options?: { provider?: LLM_PROVIDER; updatedProvider?: LLM_
     disableAllModels: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   };
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/uiSettingsStore", () => ({
+  vi.doMock("#/stores/uiSettingsStore", () => ({
     useUiSettingsStore: () => ({
       traceDebugEnabled: false,
     }),
   }));
-  vi.doMock("@/stores/modelCheck", () => ({
+  vi.doMock("#/stores/modelCheck", () => ({
     useModelCheckStore: () => ({
       openDialog: vi.fn<(...args: any[]) => any>(),
     }),
   }));
 
-  const ModelProviderSettingsDetail = (
-    await import("../../../src/renderer/settings/components/ModelProviderSettingsDetail")
-  ).default;
+  const ModelProviderSettingsDetail = (await import("#settings/components/ModelProviderSettingsDetail")).default;
 
   const onProviderConfigured = vi.fn<(...args: any[]) => any>();
   const onProviderModelEnabled = vi.fn<(...args: any[]) => any>();

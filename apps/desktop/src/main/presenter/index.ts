@@ -30,8 +30,8 @@ import {
   IAgentSessionPresenter,
   IProjectPresenter,
   IRemoteControlPresenter,
-} from "@shared/presenter";
-import { eventBus } from "@/eventbus";
+} from "@argos/shared/presenter";
+import { eventBus } from "#/eventbus";
 import { LLMProviderPresenter } from "./llmProviderPresenter";
 import { SessionPresenter } from "./sessionPresenter";
 import { MessageManager } from "./sessionPresenter/managers/messageManager";
@@ -47,11 +47,13 @@ import { TrayPresenter } from "./trayPresenter";
 import { OAuthPresenter } from "./oauthPresenter";
 import { FloatingButtonPresenter } from "./floatingButtonPresenter";
 import { YoBrowserPresenter } from "./browser/YoBrowserPresenter";
-import { CONFIG_EVENTS } from "@/events";
+import { CONFIG_EVENTS } from "#/events";
 import { KnowledgePresenter } from "./knowledgePresenter";
 import { WorkspacePresenter } from "./workspacePresenter";
 import { ToolPresenter } from "./toolPresenter";
-import { CommandPermissionService, FilePermissionService, SettingsPermissionService } from "./permission";
+import { CommandPermissionService } from "./permission/commandPermissionService";
+import { FilePermissionService } from "./permission/filePermissionService";
+import { SettingsPermissionService } from "./permission/settingsPermissionService";
 import type { AgentToolRuntimePort } from "./toolPresenter/runtimePorts";
 
 import { ConversationExporterService } from "./exporter";
@@ -71,7 +73,7 @@ import { PluginPresenter } from "./pluginPresenter";
 import { AgentRepository } from "./agentRepository";
 import type { SQLitePresenter } from "./sqlitePresenter";
 import { DatabaseSecurityPresenter } from "./databaseSecurityPresenter";
-import { normalizeArgosSubagentSlots } from "@shared/lib/argosSubagents";
+import { normalizeArgosSubagentSlots } from "@argos/shared/lib/argosSubagents";
 import { subscribeArgosInternalSessionUpdates } from "./agentRuntimePresenter/internalSessionEvents";
 import {
   sessionsGetAcpSessionCommandsRoute,
@@ -89,7 +91,7 @@ import {
   sessionsMoveToAgentRoute,
   sessionsSetAcpSessionConfigOptionRoute,
   sessionsTranslateTextRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 import type {
   DaemonAcpSessionPort,
   DaemonSessionActionPort,
@@ -100,9 +102,9 @@ import type {
   SessionUiPort,
 } from "./runtimePorts";
 import { handlePresenterCallError, handlePresenterCallResult } from "./presenterCallErrorHandler";
-import { createMainKernelRouteRuntime, registerMainKernelRoutes } from "@/routes";
-import { invokeDaemonRoute } from "@/routes/daemonRouteProxy";
-import { setupLegacyTypedEventBridge } from "@/routes/legacyTypedEventBridge";
+import { createMainKernelRouteRuntime, registerMainKernelRoutes } from "#/routes";
+import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
+import { setupLegacyTypedEventBridge } from "#/routes/legacyTypedEventBridge";
 import { StartupWorkloadCoordinator } from "./startupWorkloadCoordinator";
 import type { StartupWorkloadTaskContext } from "./startupWorkloadCoordinator";
 
@@ -1143,7 +1145,7 @@ export function getInstance(lifecycleManager: ILifecycleManager): Presenter {
 
 registerMainKernelRoutes(ipcMain, () => (presenter ? getMainKernelRouteRuntime() : undefined));
 
-import { registerDaemonPortHandler } from "@/routes/daemonPortHandler";
+import { registerDaemonPortHandler } from "#/routes/daemonPortHandler";
 registerDaemonPortHandler();
 
 // Guard: Rolldown may bundle this module twice due to circular imports,

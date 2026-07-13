@@ -1,5 +1,5 @@
 import { shell } from "electron";
-import { normalizeExternalUrl } from "@shared/externalUrl";
+import { normalizeExternalUrl } from "@argos/shared/externalUrl";
 
 export function openExternalUrl(url: string, source: string): boolean {
   const externalUrl = normalizeExternalUrl(url);

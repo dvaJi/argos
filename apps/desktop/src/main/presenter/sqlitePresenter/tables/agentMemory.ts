@@ -1,5 +1,5 @@
 import Database from "better-sqlite3-multiple-ciphers";
-import { AGENT_MEMORY_CATEGORIES, type AgentMemoryCategory } from "@shared/types/agent-memory";
+import { AGENT_MEMORY_CATEGORIES, type AgentMemoryCategory } from "@argos/shared/types/agent-memory";
 import { BaseTable } from "./baseTable";
 
 export type AgentMemoryKind = "episodic" | "semantic" | "reflection" | "persona" | "working";

@@ -8,7 +8,7 @@ import { QQBotCommandRouter } from "../../services/qqbotCommandRouter";
 import { QQBotClient } from "../../qqbot/qqbotClient";
 import { QQBotParser } from "../../qqbot/qqbotParser";
 import { QQBotRuntime } from "../../qqbot/qqbotRuntime";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 
 const DEFAULT_STATUS: QQBotRuntimeStatusSnapshot = {
   state: "stopped",

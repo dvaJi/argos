@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveCurrentGuidedOnboardingStepId } from "@shared/guidedOnboarding";
+import { resolveCurrentGuidedOnboardingStepId } from "@argos/shared/guidedOnboarding";
 
 describe("resolveCurrentGuidedOnboardingStepId", () => {
   it("prefers in_progress over pending when currentStepId is empty", () => {

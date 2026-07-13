@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { useInputHistory } from "@/components/chat-input/composables/useInputHistory";
+import { useInputHistory } from "#/components/chat-input/composables/useInputHistory";
 
 // mock search history module with a simple ring buffer
 let entries = ["alpha", "beta", "gamma"];
 let idx = entries.length;
-vi.mock("@/lib/searchHistory", () => ({
+vi.mock("#/lib/searchHistory", () => ({
   searchHistory: {
     addSearch: (v: string) => {
       entries.push(v);

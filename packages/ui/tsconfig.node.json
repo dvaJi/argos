@@ -1,0 +1,35 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": [
+    "vite.config.*",
+    "vite-plugins/**/*"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "paths": {
+      "*": [
+        "./*"
+      ],
+      "#/*": [
+        "./src/*"
+      ],
+      "#api/*": [
+        "./api/*"
+      ],
+      "@argos/shared-contracts/*": [
+        "../../packages/shared-contracts/src/*"
+      ],
+      "@argos/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "#shadcn/*": [
+        "./shadcn/*"
+      ],
+      "#settings/*": [
+        "./settings/*"
+      ]
+    }
+  }
+}

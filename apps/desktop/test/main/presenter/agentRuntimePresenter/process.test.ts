@@ -3,18 +3,18 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { app } from "electron";
-import type { LLMCoreStreamEvent } from "@shared/types/core/llm-events";
-import type { MCPToolDefinition } from "@shared/presenter";
-import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
-import type { ProcessParams } from "@/presenter/agentRuntimePresenter/types";
-import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
+import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import type { IToolPresenter } from "@argos/shared/types/presenters/tool.presenter";
+import type { ProcessParams } from "#/presenter/agentRuntimePresenter/types";
+import { ToolOutputGuard } from "#/presenter/agentRuntimePresenter/toolOutputGuard";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   STREAM_EVENTS: {
     RESPONSE: "stream:response",
     END: "stream:end",
@@ -22,7 +22,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     commandPermissionService: {
       extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
@@ -36,8 +36,8 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-import { processStream } from "@/presenter/agentRuntimePresenter/process";
-import { eventBus } from "@/eventbus";
+import { processStream } from "#/presenter/agentRuntimePresenter/process";
+import { eventBus } from "#/eventbus";
 
 const DEFAULT_INTERLEAVED_REASONING = {
   preserveReasoningContent: false,

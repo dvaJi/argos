@@ -4,22 +4,18 @@ import type {
   MCPToolDefinition,
   MCPToolCall,
   MCPToolResponse,
-} from "@shared/presenter";
-import type { AgentToolAccessContext, AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
-import type { PermissionMode } from "@shared/types/agent-interface";
-import { resolveToolOffloadTemplatePath } from "@/lib/agentRuntime/sessionPaths";
-import { QUESTION_TOOL_NAME } from "@/lib/agentRuntime/questionTool";
+} from "@argos/shared/presenter";
+import type { AgentToolAccessContext, AgentToolProgressUpdate } from "@argos/shared/types/presenters/tool.presenter";
+import type { PermissionMode } from "@argos/shared/types/agent-interface";
+import { resolveToolOffloadTemplatePath } from "#/lib/agentRuntime/sessionPaths";
+import { QUESTION_TOOL_NAME } from "#/lib/agentRuntime/questionTool";
 import { ToolMapper, type ToolSource } from "./toolMapper";
-import {
-  AgentToolManager,
-  IMAGE_GENERATE_TOOL_NAME,
-  UPDATE_PLAN_TOOL_NAME,
-  AGENT_TAPE_TOOL_SERVER_NAME,
-  TAPE_TOOL_NAMES,
-  type AgentToolCallResult,
-} from "./agentTools";
+import { AgentToolManager, type AgentToolCallResult } from "./agentTools/agentToolManager";
+import { IMAGE_GENERATE_TOOL_NAME } from "./agentTools/agentImageGenerationTool";
+import { UPDATE_PLAN_TOOL_NAME } from "./agentTools/agentPlanTool";
+import { AGENT_TAPE_TOOL_SERVER_NAME, TAPE_TOOL_NAMES } from "./agentTools/agentTapeTools";
 import type { AgentToolRuntimePort } from "./runtimePorts";
-import { createAgentToolErrorResult, createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
+import { createAgentToolErrorResult, createAgentToolSuccessResult } from "@argos/shared/lib/agentToolResultEnvelope";
 import { jsonrepair } from "jsonrepair";
 import { CommandPermissionService } from "../permission";
 import { YO_BROWSER_TOOL_NAMES } from "../browser/YoBrowserToolDefinitions";

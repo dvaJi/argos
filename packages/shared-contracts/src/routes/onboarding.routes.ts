@@ -1,6 +1,6 @@
 import zod from "zod";
 import { defineRouteContract } from "../common";
-import { GUIDED_ONBOARDING_STEP_IDS, GUIDED_ONBOARDING_VERSION } from "@shared/guidedOnboarding";
+import { GUIDED_ONBOARDING_STEP_IDS, GUIDED_ONBOARDING_VERSION } from "@argos/shared/guidedOnboarding";
 
 export const guidedOnboardingVersion = GUIDED_ONBOARDING_VERSION;
 export const guidedOnboardingStepIds = GUIDED_ONBOARDING_STEP_IDS;

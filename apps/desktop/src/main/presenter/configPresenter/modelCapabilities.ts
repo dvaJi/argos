@@ -1,12 +1,12 @@
-import { eventBus } from "@/eventbus";
-import { PROVIDER_DB_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { PROVIDER_DB_EVENTS } from "#/events";
 import {
   ProviderAggregate,
   ProviderModel,
   ReasoningPortrait,
   type ReasoningEffort,
   type Verbosity,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 import { providerDbLoader } from "./providerDbLoader";
 import { resolveProviderId as resolveProviderIdAlias } from "./providerId";
 

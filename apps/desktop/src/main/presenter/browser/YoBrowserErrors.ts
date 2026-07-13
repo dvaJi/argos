@@ -1,4 +1,4 @@
-import type { YoBrowserStatus } from "@shared/types/browser";
+import type { YoBrowserStatus } from "@argos/shared/types/browser";
 
 export const YO_BROWSER_UNAVAILABLE_ERROR_CODE = "yobrowser_unavailable";
 

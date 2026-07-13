@@ -1,4 +1,4 @@
-import type { AWS_BEDROCK_PROVIDER, IConfigPresenter, LLM_PROVIDER, VERTEX_PROVIDER } from "@shared/presenter";
+import type { AWS_BEDROCK_PROVIDER, IConfigPresenter, LLM_PROVIDER, VERTEX_PROVIDER } from "@argos/shared/presenter";
 import { wrapLanguageModel } from "ai";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createAnthropic } from "@ai-sdk/anthropic";

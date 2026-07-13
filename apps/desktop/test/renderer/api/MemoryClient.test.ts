@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ArgosBridge } from "@shared/contracts/bridge";
-import { createMemoryClient } from "../../../src/renderer/api/MemoryClient";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import { createMemoryClient } from "#api/MemoryClient";
 
 function createBridge(): ArgosBridge & { invoke: ReturnType<typeof vi.fn> } {
   return {

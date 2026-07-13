@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RENDERER_MODEL_META } from "@shared/presenter";
-import { resolveChatModelByQuery, resolvePreferredChatModel, resolveSamplingChatModel } from "@/lib/chatModelSelection";
+import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
+import { resolveChatModelByQuery, resolvePreferredChatModel, resolveSamplingChatModel } from "#/lib/chatModelSelection";
 
 const makeModel = (id: string, providerId: string, options?: { vision?: boolean }): RENDERER_MODEL_META => ({
   id,

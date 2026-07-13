@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ArgosMessagesTable } from "@/presenter/sqlitePresenter/tables/argosMessages";
+import { ArgosMessagesTable } from "#/presenter/sqlitePresenter/tables/argosMessages";
 
 function createMessageRow(orderSeq: number) {
   return {

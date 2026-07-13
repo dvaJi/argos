@@ -8,23 +8,23 @@ import {
   KnowledgeFileMessage,
   QueryResult,
   KnowledgeFileResult,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { FileValidationResult } from "../filePresenter/FileValidationService";
-import { eventBus } from "@/eventbus";
-import { MCP_EVENTS } from "@/events";
+import { eventBus } from "#/eventbus";
+import { MCP_EVENTS } from "#/events";
 import { KnowledgeConfHelper } from "../configPresenter/knowledgeConfHelper";
 import { DuckDBPresenter } from "./database/duckdbPresenter";
 import { KnowledgeStorePresenter } from "./knowledgeStorePresenter";
 import { KnowledgeTaskPresenter } from "./knowledgeTaskPresenter";
-import { getMetric } from "@/utils/vector";
+import { getMetric } from "#/utils/vector";
 import { presenter } from "..";
-import { IFilePresenter } from "@shared/presenter";
-import { DIALOG_WARN } from "@shared/dialog";
+import { IFilePresenter } from "@argos/shared/presenter";
+import { DIALOG_WARN } from "@argos/shared/dialog";
 import {
   RecursiveCharacterTextSplitter,
   SupportedTextSplitterLanguages,
   type SupportedTextSplitterLanguage,
-} from "@/lib/textsplitters";
+} from "#/lib/textsplitters";
 
 export class KnowledgePresenter implements IKnowledgePresenter {
   /**

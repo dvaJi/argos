@@ -14,13 +14,10 @@
       "*": [
         "./*"
       ],
-      "@/*": [
+      "#/*": [
         "./src/main/*"
       ],
-      "@shared/contracts/*": [
-        "../../packages/shared-contracts/src/*"
-      ],
-      "@shared/*": [
+      "@argos/shared/*": [
         "../../packages/shared/src/*"
       ],
       "@argos/electron-adapter": [

@@ -16,7 +16,7 @@ import {
   normalizeOllamaSdkHost,
   normalizeVertexRequestBody,
   normalizeVertexBaseUrl,
-} from "@/presenter/llmProviderPresenter/aiSdk/providerFactory";
+} from "#/presenter/llmProviderPresenter/aiSdk/providerFactory";
 
 describe("AI SDK provider factory", () => {
   beforeEach(() => {

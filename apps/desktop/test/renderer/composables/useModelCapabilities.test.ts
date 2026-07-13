@@ -3,11 +3,11 @@ const modelClient = vi.hoisted(() => ({
   getCapabilities: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@api/ModelClient", () => ({
+vi.mock("#api/ModelClient", () => ({
   createModelClient: vi.fn<(...args: any[]) => any>(() => modelClient),
 }));
 
-import { useModelCapabilities } from "@/composables/useModelCapabilities";
+import { useModelCapabilities } from "#/composables/useModelCapabilities";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

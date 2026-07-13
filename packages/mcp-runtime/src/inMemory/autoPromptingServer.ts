@@ -6,8 +6,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import zod from "zod";
-import { Prompt } from "@shared/presenter";
-import { isSafeRegexPattern } from "@shared/regexValidator";
+import { Prompt } from "@argos/shared/presenter";
+import { isSafeRegexPattern } from "@argos/shared/regexValidator";
 
 const TemplateParameterSchema = zod.object({
   name: zod.string().describe("Parameter name"),

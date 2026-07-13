@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
-import Loading from "../../../src/renderer/splash/Loading";
-import { DATABASE_UNLOCK_REQUEST_CHANNEL } from "@shared/contracts/databaseSecurity";
+import Loading from "#splash/Loading";
+import { DATABASE_UNLOCK_REQUEST_CHANNEL } from "@argos/shared-contracts/databaseSecurity";
 
 type IpcListener = (event: unknown, payload: unknown) => void;
 

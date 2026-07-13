@@ -1,4 +1,4 @@
-import { eventBus, SendTarget } from "@/eventbus";
+import { eventBus, SendTarget } from "#/eventbus";
 import {
   IConfigPresenter,
   LLM_PROVIDER,
@@ -18,31 +18,31 @@ import {
   AcpRegistryAgent,
   AcpResolvedLaunchSpec,
   ProviderDbRefreshResult,
-} from "@shared/presenter";
-import type { CloudSyncConfigView, CloudSyncConfigInput, ResolvedCloudSyncConfig } from "@shared/presenter";
-import { ProviderBatchUpdate } from "@shared/provider-operations";
-import { SearchEngineTemplate } from "@shared/chat";
+} from "@argos/shared/presenter";
+import type { CloudSyncConfigView, CloudSyncConfigInput, ResolvedCloudSyncConfig } from "@argos/shared/presenter";
+import { ProviderBatchUpdate } from "@argos/shared/provider-operations";
+import { SearchEngineTemplate } from "@argos/shared/chat";
 import {
   ModelType,
   isNewApiEndpointType,
   resolveProviderCapabilityProviderId,
   type NewApiEndpointType,
-} from "@shared/model";
-import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
+} from "@argos/shared/model";
+import { resolveVideoGenerationCompatType } from "@argos/shared/videoGenerationSettings";
 import {
   DEFAULT_MODEL_CAPABILITY_FALLBACKS,
   resolveDerivedModelMaxTokens,
   resolveModelContextLength,
   resolveModelFunctionCall,
   resolveModelVision,
-} from "@shared/modelConfigDefaults";
+} from "@argos/shared/modelConfigDefaults";
 import ElectronStore from "electron-store";
 import path from "path";
 import { app, nativeTheme, shell, safeStorage } from "electron";
 import fs from "fs";
-import { CONFIG_EVENTS, SYSTEM_EVENTS, FLOATING_BUTTON_EVENTS, SESSION_EVENTS, MCP_EVENTS } from "@/events";
+import { CONFIG_EVENTS, SYSTEM_EVENTS, FLOATING_BUTTON_EVENTS, SESSION_EVENTS, MCP_EVENTS } from "#/events";
 import { McpConfHelper } from "@argos/mcp-runtime";
-import { presenter } from "@/presenter";
+import { presenter } from "#/presenter";
 import { compare } from "compare-versions";
 import { defaultShortcutKey, ShortcutKeySetting } from "./shortcutKeySettings";
 import { ModelConfigHelper } from "./modelConfig";
@@ -54,7 +54,7 @@ import {
   type ProviderModel,
   type ReasoningEffort,
   type Verbosity,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 import { modelCapabilities } from "./modelCapabilities";
 import { ProviderHelper } from "./providerHelper";
 import { ModelStatusHelper } from "./modelStatusHelper";
@@ -66,29 +66,29 @@ import { SVGSanitizer } from "@argos/backend-core";
 import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
 import { DEFAULT_PROVIDERS, resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
-import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
+import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
 import type { SQLitePresenter } from "../sqlitePresenter";
-import type { SettingsKey, SettingsSnapshotValues } from "@shared/contracts/routes";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { invokeDaemonRoute } from "@/routes/daemonRouteProxy";
+import type { SettingsKey, SettingsSnapshotValues } from "@argos/shared-contracts/routes";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import {
   configListAgentsRoute,
   configCreateArgosAgentRoute,
   configUpdateArgosAgentRoute,
   configDeleteArgosAgentRoute,
-} from "@shared/contracts/routes";
-import type { HookTestResult, HooksNotificationsSettings } from "@shared/hooksNotifications";
+} from "@argos/shared-contracts/routes";
+import type { HookTestResult, HooksNotificationsSettings } from "@argos/shared/hooksNotifications";
 import type {
   Agent,
   AgentType,
   CreateArgosAgentInput,
   ArgosAgentConfig,
   UpdateArgosAgentInput,
-} from "@shared/types/agent-interface";
-import type { FloatingButtonBounds } from "@shared/types/floating-widget";
+} from "@argos/shared/types/agent-interface";
+import type { FloatingButtonBounds } from "@argos/shared/types/floating-widget";
 import { createDefaultHooksNotificationsConfig, normalizeHooksNotificationsConfig } from "../hooksNotifications/config";
 import { normalizeScheduledTasksConfig } from "../scheduledTasks/normalize";
-import { createDefaultScheduledTasksSettings, type ScheduledTasksSettings } from "@shared/scheduledTasks";
+import { createDefaultScheduledTasksSettings, type ScheduledTasksSettings } from "@argos/shared/scheduledTasks";
 import {
   AcpDbStore,
   AppSettingsDbBackedStore,

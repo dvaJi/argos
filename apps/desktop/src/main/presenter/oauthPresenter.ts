@@ -4,7 +4,7 @@ import * as http from "http";
 import { URL } from "url";
 import { createGitHubCopilotOAuth, GitHubCopilotOAuth } from "./githubCopilotOAuth";
 import { getGlobalGitHubCopilotDeviceFlow } from "./githubCopilotDeviceFlow";
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 
 export interface OAuthConfig {
   authUrl: string;

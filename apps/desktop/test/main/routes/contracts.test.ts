@@ -5,7 +5,7 @@ import {
   chatStreamUpdatedEvent,
   settingsChangedEvent,
   sessionsUpdatedEvent,
-} from "@shared/contracts/events";
+} from "@argos/shared-contracts/events";
 import {
   ARGOS_ROUTE_CATALOG,
   chatRespondToolInteractionRoute,
@@ -32,8 +32,8 @@ import {
   sessionsRestoreRoute,
   sessionsUpdateGenerationSettingsRoute,
   systemOpenSettingsRoute,
-} from "@shared/contracts/routes";
-import { SessionGenerationSettingsPatchSchema } from "@shared/contracts/common";
+} from "@argos/shared-contracts/routes";
+import { SessionGenerationSettingsPatchSchema } from "@argos/shared-contracts/common";
 
 describe("main kernel contracts", () => {
   it("registers typed route catalog entries through phase4", () => {

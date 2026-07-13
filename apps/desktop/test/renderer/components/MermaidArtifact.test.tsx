@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
-import MermaidArtifact from "@/components/artifacts/MermaidArtifact";
+import MermaidArtifact from "#/components/artifacts/MermaidArtifact";
 
 vi.mock("mermaid", () => ({
   default: {

@@ -1,6 +1,6 @@
 import zod from "zod";
-import { BrowserPageStatus } from "@shared/types/browser";
-import { ApiEndpointType, ModelType, NEW_API_ENDPOINT_TYPES } from "@shared/model";
+import { BrowserPageStatus } from "@argos/shared/types/browser";
+import { ApiEndpointType, ModelType, NEW_API_ENDPOINT_TYPES } from "@argos/shared/model";
 import {
   FileMetadataValueSchema,
   ImageGenerationOptionsSchema,
@@ -14,7 +14,7 @@ import {
   ReasoningModeSchema,
   ReasoningVisibilitySchema,
   VerbositySchema,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 
 export const ThemeModeSchema = zod.enum(["dark", "light", "system"]);
 

@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { app } from "electron";
-import { RemoteConversationRunner } from "@/presenter/remoteControlPresenter/services/remoteConversationRunner";
+import { RemoteConversationRunner } from "#/presenter/remoteControlPresenter/services/remoteConversationRunner";
 
 const createSession = (overrides: Record<string, unknown> = {}) => ({
   id: "session-1",

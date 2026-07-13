@@ -10,7 +10,12 @@
 import * as fs from "fs";
 import * as path from "path";
 import { homedir } from "os";
-import type { ExternalToolConfig, ExternalSkillInfo, ScanResult, FormatCapabilities } from "@shared/types/skillSync";
+import type {
+  ExternalToolConfig,
+  ExternalSkillInfo,
+  ScanResult,
+  FormatCapabilities,
+} from "@argos/shared/types/skillSync";
 import { resolveSafePath, isFilenameSafe, validateFileSize, MAX_FILE_SIZE } from "./security";
 
 // ============================================================================

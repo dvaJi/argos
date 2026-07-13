@@ -3,8 +3,8 @@
  */
 
 import { app } from "electron";
-import { eventBus, SendTarget } from "@/eventbus";
-import { LIFECYCLE_EVENTS, WINDOW_EVENTS, UPDATE_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { LIFECYCLE_EVENTS, WINDOW_EVENTS, UPDATE_EVENTS } from "#/events";
 import { SplashWindowManager } from "./SplashWindowManager";
 import {
   HookExecutionResult,
@@ -13,8 +13,8 @@ import {
   LifecycleContext,
   LifecycleHook,
   LifecycleState,
-} from "@shared/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+} from "@argos/shared/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 import {
   PhaseStartedEventData,
   PhaseCompletedEventData,
@@ -25,7 +25,7 @@ import {
   BaseLifecycleEvent,
 } from "./types";
 import { is } from "@electron-toolkit/utils";
-import { presenter } from "@/presenter";
+import { presenter } from "#/presenter";
 import { normalizeLifecycleHookDelayMs } from "./lifecycleDelay";
 
 export { registerCoreHooks } from "./coreHooks";

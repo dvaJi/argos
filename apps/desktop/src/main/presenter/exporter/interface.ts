@@ -1,5 +1,5 @@
-import type { NowledgeMemThread, NowledgeMemExportSummary } from "@shared/types/nowledgeMem";
-import type { NowledgeMemConfig } from "@shared/presenter";
+import type { NowledgeMemThread, NowledgeMemExportSummary } from "@argos/shared/types/nowledgeMem";
+import type { NowledgeMemConfig } from "@argos/shared/presenter";
 
 export interface IConversationExporter {
   exportConversation(

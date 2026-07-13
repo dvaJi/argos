@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
-import { MessageBlockContent } from "@/components/message/MessageBlockContent";
-import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
-import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
+import { MessageBlockContent } from "#/components/message/MessageBlockContent";
+import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
+import type { MarkdownLinkContext } from "#/components/markdown/linkTypes";
 
 const { syncArtifactMock, completeArtifactMock, getSearchResultsMock } = vi.hoisted(() => ({
   syncArtifactMock: vi.fn<(...args: any[]) => any>(),
@@ -10,32 +10,32 @@ const { syncArtifactMock, completeArtifactMock, getSearchResultsMock } = vi.hois
   getSearchResultsMock: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
-vi.mock("@/stores/artifact", () => ({
+vi.mock("#/stores/artifact", () => ({
   useArtifactStore: () => ({
     syncArtifact: syncArtifactMock,
     completeArtifact: completeArtifactMock,
   }),
 }));
 
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
     getSearchResults: getSearchResultsMock,
   }),
 }));
 
-vi.mock("@/components/artifacts/ArtifactThinking", () => ({
+vi.mock("#/components/artifacts/ArtifactThinking", () => ({
   default: () => <div className="artifact-thinking-stub" />,
 }));
 
-vi.mock("@/components/artifacts/ArtifactPreview", () => ({
+vi.mock("#/components/artifacts/ArtifactPreview", () => ({
   default: ({ block }: { block: any }) => <div className="artifact-preview-stub">{block.artifact?.title}</div>,
 }));
 
-vi.mock("@/components/artifacts/ToolCallPreview", () => ({
+vi.mock("#/components/artifacts/ToolCallPreview", () => ({
   default: () => <div className="tool-preview-stub" />,
 }));
 
-vi.mock("@/components/markdown/MarkdownRenderer", () => ({
+vi.mock("#/components/markdown/MarkdownRenderer", () => ({
   default: ({
     content,
     messageId,

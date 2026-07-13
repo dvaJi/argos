@@ -1,9 +1,9 @@
 import { app, shell } from "electron";
 import path from "path";
 import type { SkillHostPorts } from "@argos/skills-runtime";
-import { eventBus, SendTarget } from "@/eventbus";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import type { ArgosEventName } from "@shared/contracts/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import type { ArgosEventName } from "@argos/shared-contracts/events";
 import { discoverSkillMetadataInWorker } from "./discoveryWorker";
 
 /**

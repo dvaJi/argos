@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import type { MessageFile } from "@shared/types/agent-interface";
-import { useChatInputFiles } from "@/components/chat/composables/useChatInputFiles";
+import type { MessageFile } from "@argos/shared/types/agent-interface";
+import { useChatInputFiles } from "#/components/chat/composables/useChatInputFiles";
 
 const { toastMock, fileClient } = vi.hoisted(() => ({
   toastMock: vi.fn<(...args: any[]) => any>(),
@@ -18,17 +18,17 @@ const { toastMock, fileClient } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/components/use-toast", () => ({
+vi.mock("#/components/use-toast", () => ({
   useToast: () => ({
     toast: toastMock,
   }),
 }));
 
-vi.mock("@api/FileClient", () => ({
+vi.mock("#api/FileClient", () => ({
   createFileClient: () => fileClient,
 }));
 
-vi.mock("@/lib/image", () => ({
+vi.mock("#/lib/image", () => ({
   calculateImageTokens: vi.fn<(...args: any[]) => any>(() => 12),
   getClipboardImageInfo: vi.fn<(...args: any[]) => any>(() =>
     Promise.resolve({

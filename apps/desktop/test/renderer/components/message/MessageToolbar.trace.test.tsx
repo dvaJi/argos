@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 
 let traceDebugEnabled = true;
 
-vi.mock("@/stores/uiSettingsStore", () => ({
+vi.mock("#/stores/uiSettingsStore", () => ({
   useUiSettingsStore: () => ({
     get traceDebugEnabled() {
       return traceDebugEnabled;
@@ -15,7 +15,7 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ children, onClick, ...props }: Record<string, any>) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -23,14 +23,14 @@ vi.mock("@shadcn/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@shadcn/components/ui/tooltip", () => ({
+vi.mock("#shadcn/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: Record<string, any>) => <div>{children}</div>,
   Tooltip: ({ children }: Record<string, any>) => <div>{children}</div>,
   TooltipTrigger: ({ children }: Record<string, any>) => <div>{children}</div>,
   TooltipContent: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-import MessageToolbar from "@/components/message/MessageToolbar";
+import MessageToolbar from "#/components/message/MessageToolbar";
 
 const baseProps = {
   usage: {

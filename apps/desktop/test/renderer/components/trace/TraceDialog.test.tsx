@@ -6,20 +6,20 @@ const { listMessageTracesMock, getViewManifestsMock } = vi.hoisted(() => ({
   getViewManifestsMock: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@api/SessionClient", () => ({
+vi.mock("#api/SessionClient", () => ({
   createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
     listMessageTraces: listMessageTracesMock,
     getViewManifests: getViewManifestsMock,
   })),
 }));
 
-vi.mock("@api/DeviceClient", () => ({
+vi.mock("#api/DeviceClient", () => ({
   createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
     copyText: vi.fn<(...args: any[]) => any>(),
   })),
 }));
 
-vi.mock("@/stores/uiSettingsStore", () => ({
+vi.mock("#/stores/uiSettingsStore", () => ({
   useUiSettingsStore: () => ({
     formattedCodeFontFamily: "monospace",
   }),
@@ -37,7 +37,7 @@ vi.mock("stream-monaco", () => ({
   }),
 }));
 
-vi.mock("@shadcn/components/ui/dialog", () => ({
+vi.mock("#shadcn/components/ui/dialog", () => ({
   Dialog: ({ children }: Record<string, any>) => <div>{children}</div>,
   DialogContent: ({ children }: Record<string, any>) => <div>{children}</div>,
   DialogHeader: ({ children }: Record<string, any>) => <div>{children}</div>,
@@ -45,7 +45,7 @@ vi.mock("@shadcn/components/ui/dialog", () => ({
   DialogFooter: ({ children }: Record<string, any>) => <div>{children}</div>,
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ children, onClick, ...props }: Record<string, any>) => (
     <button onClick={onClick} {...props}>
       {children}
@@ -53,7 +53,7 @@ vi.mock("@shadcn/components/ui/button", () => ({
   ),
 }));
 
-vi.mock("@shadcn/components/ui/spinner", () => ({
+vi.mock("#shadcn/components/ui/spinner", () => ({
   Spinner: () => <div className="spinner" />,
 }));
 
@@ -61,7 +61,7 @@ vi.mock("@iconify/react", () => ({
   Icon: ({ icon }: { icon: string }) => <span data-icon={icon} />,
 }));
 
-import TraceDialog from "@/components/trace/TraceDialog";
+import TraceDialog from "#/components/trace/TraceDialog";
 
 const mountDialog = () => render(<TraceDialog messageId={null} agentId={null} onClose={() => {}} />);
 

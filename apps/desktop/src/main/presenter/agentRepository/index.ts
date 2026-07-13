@@ -5,15 +5,15 @@ import type {
   AcpAgentState,
   AcpManualAgent,
   AcpRegistryAgent,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import type {
   Agent,
   AgentAvatar,
   ArgosAgentConfig,
   CreateArgosAgentInput,
   UpdateArgosAgentInput,
-} from "@shared/types/agent-interface";
-import { createDefaultArgosSubagentSlots, normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
+} from "@argos/shared/types/agent-interface";
+import { createDefaultArgosSubagentSlots, normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { AgentRow } from "../sqlitePresenter/tables/agents";
 

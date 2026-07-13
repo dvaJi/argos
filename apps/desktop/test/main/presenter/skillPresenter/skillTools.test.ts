@@ -6,7 +6,7 @@ import type {
   SkillManageRequest,
   SkillMetadata,
   SkillViewResult,
-} from "@shared/types/skill";
+} from "@argos/shared/types/skill";
 
 describe("SkillTools", () => {
   let skillTools: SkillTools;

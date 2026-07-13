@@ -1,4 +1,4 @@
-import type { IConfigPresenter, Prompt, ShortcutKeySetting } from "@shared/presenter";
+import type { IConfigPresenter, Prompt, ShortcutKeySetting } from "@argos/shared/presenter";
 import {
   configAddCustomPromptRoute,
   configAddSystemPromptRoute,

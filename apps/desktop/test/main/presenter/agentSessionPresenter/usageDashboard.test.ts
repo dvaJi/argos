@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AgentSessionPresenter } from "@/presenter/agentSessionPresenter/index";
-import { ArgosMessageStore } from "@/presenter/agentRuntimePresenter/messageStore";
-import { DASHBOARD_STATS_BACKFILL_KEY, type UsageStatsRecordInput } from "@/presenter/usageStats";
+import { AgentSessionPresenter } from "#/presenter/agentSessionPresenter/index";
+import { ArgosMessageStore } from "#/presenter/agentRuntimePresenter/messageStore";
+import { DASHBOARD_STATS_BACKFILL_KEY, type UsageStatsRecordInput } from "#/presenter/usageStats";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
     sendToMain: vi.fn<(...args: any[]) => any>(),
@@ -12,8 +12,8 @@ vi.mock("@/eventbus", () => ({
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/events", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/events")>();
+vi.mock("#/events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("#/events")>();
   return {
     ...actual,
     SESSION_EVENTS: {
@@ -26,7 +26,7 @@ vi.mock("@/events", async (importOriginal) => {
   };
 });
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     commandPermissionService: {
       extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
@@ -47,7 +47,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/lib/agentRuntime/rtkRuntimeService", () => ({
+vi.mock("#/lib/agentRuntime/rtkRuntimeService", () => ({
   rtkRuntimeService: {
     startHealthCheck: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
     retryHealthCheck: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),

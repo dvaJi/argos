@@ -1,8 +1,8 @@
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
-import { eventBus, SendTarget } from "@/eventbus";
-import { DAEMON_EVENTS } from "@/events";
-import { startSidecar, type SidecarHandle } from "@/presenter/sidecarManager";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
+import { eventBus, SendTarget } from "#/eventbus";
+import { DAEMON_EVENTS } from "#/events";
+import { startSidecar, type SidecarHandle } from "#/presenter/sidecarManager";
 
 let sidecarHandle: SidecarHandle | null = null;
 

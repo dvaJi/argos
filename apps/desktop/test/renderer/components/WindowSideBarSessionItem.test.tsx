@@ -30,7 +30,7 @@ const mountComponent = async (options?: {
 }) => {
   vi.resetModules();
 
-  const WindowSideBarSessionItem = (await import("@/components/WindowSideBarSessionItem")).default;
+  const WindowSideBarSessionItem = (await import("#/components/WindowSideBarSessionItem")).default;
 
   const onSelect = vi.fn<(...args: any[]) => any>();
   const onTogglePin = vi.fn<(...args: any[]) => any>();

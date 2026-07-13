@@ -9,12 +9,12 @@ import {
   KeyStatus,
   LLM_EMBEDDING_ATTRS,
   IConfigPresenter,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { DevicePresenter } from "../devicePresenter";
 import { jsonrepair } from "jsonrepair";
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
-import logger from "@shared/logger";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
+import logger from "@argos/shared/logger";
 import { resolveRequestTraceContext, type ProviderRequestTracePayload } from "./requestTrace";
 import type { ProviderMcpRuntimePort } from "./runtimePorts";
 import { normalizeToolInputSchema } from "./aiSdk/toolMapper";

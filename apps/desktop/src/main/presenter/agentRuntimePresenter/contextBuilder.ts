@@ -1,15 +1,15 @@
 import fs from "fs";
 import path from "path";
 import { approximateTokenSize } from "tokenx";
-import type { ChatMessage, ChatMessageProviderOptions } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
+import type { ChatMessage, ChatMessageProviderOptions } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 import type {
   ChatMessageRecord,
   AssistantMessageBlock,
   MessageFile,
   MessageMetadata,
   SendMessageInput,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type { ArgosMessageStore } from "./messageStore";
 
 const IMAGE_TOKEN_ESTIMATE = 512;

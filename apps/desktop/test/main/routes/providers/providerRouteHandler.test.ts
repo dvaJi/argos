@@ -5,7 +5,7 @@ import {
   providersImportApplyRoute,
   providersImportScanRoute,
   providersWarmupAcpProcessRoute,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 
 describe("dispatchProviderRoute providers.listSummaries", () => {
   it("proxies provider summaries through the daemon", async () => {

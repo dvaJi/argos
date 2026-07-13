@@ -1,5 +1,5 @@
 import { createBridge } from "@argos/client-sdk/ipc-bridge";
-import { ARGOS_EVENT_CHANNEL, ARGOS_ROUTE_INVOKE_CHANNEL } from "@shared/contracts/channels";
+import { ARGOS_EVENT_CHANNEL, ARGOS_ROUTE_INVOKE_CHANNEL } from "@argos/shared-contracts/channels";
 import { afterEach } from "vitest";
 
 afterEach(() => {

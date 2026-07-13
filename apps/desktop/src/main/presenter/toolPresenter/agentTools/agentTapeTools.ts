@@ -1,6 +1,6 @@
 import { toJSONSchema, z } from "zod";
-import type { MCPToolDefinition } from "@shared/presenter";
-import { createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import { createAgentToolSuccessResult } from "@argos/shared/lib/agentToolResultEnvelope";
 import type { AgentToolRuntimePort } from "../runtimePorts";
 import type { AgentToolCallResult } from "./agentToolManager";
 

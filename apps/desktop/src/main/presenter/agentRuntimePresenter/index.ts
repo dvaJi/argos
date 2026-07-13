@@ -26,19 +26,19 @@ import type {
   ToolInteractionResult,
   UserMessageContent,
   ArgosAgentConfig,
-} from "@shared/types/agent-interface";
-import type { MCPToolCall, MCPToolResponse, ToolCallImagePreview } from "@shared/types/core/mcp";
-import type { ChatMessage } from "@shared/types/core/chat-message";
+} from "@argos/shared/types/agent-interface";
+import type { MCPToolCall, MCPToolResponse, ToolCallImagePreview } from "@argos/shared/types/core/mcp";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
 import type {
   IConfigPresenter,
   ILlmProviderPresenter,
   ISkillPresenter,
   ModelConfig,
   RateLimitQueueSnapshot,
-} from "@shared/presenter";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
-import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
-import type { ReasoningPortrait } from "@shared/types/model-db";
+} from "@argos/shared/presenter";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
+import type { IToolPresenter } from "@argos/shared/types/presenters/tool.presenter";
+import type { ReasoningPortrait } from "@argos/shared/types/model-db";
 import {
   getReasoningEffectiveEnabledForProvider,
   hasAnthropicReasoningToggle,
@@ -47,32 +47,32 @@ import {
   normalizeReasoningEffortValue,
   normalizeReasoningVisibilityValue,
   isVerbosity,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 import {
   normalizeLegacyThinkingBudgetValue,
   parseFiniteNumericValue,
   toValidNonNegativeInteger,
   validateGenerationNumericField,
-} from "@shared/utils/generationSettingsValidation";
-import { resolveMoonshotKimiTemperaturePolicy } from "@shared/moonshotKimiPolicy";
-import { DEFAULT_MODEL_TIMEOUT, MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from "@shared/modelConfigDefaults";
+} from "@argos/shared/utils/generationSettingsValidation";
+import { resolveMoonshotKimiTemperaturePolicy } from "@argos/shared/moonshotKimiPolicy";
+import { DEFAULT_MODEL_TIMEOUT, MODEL_TIMEOUT_MAX_MS, MODEL_TIMEOUT_MIN_MS } from "@argos/shared/modelConfigDefaults";
 import {
   normalizeImageGenerationOptions,
   supportsOpenAIImageGenerationSettings,
-} from "@shared/imageGenerationSettings";
-import { ApiEndpointType, ModelType, isDeepSeekSeriesModelId } from "@shared/model";
-import { isTtsModelConfig, isTtsModelId } from "@shared/ttsSettings";
+} from "@argos/shared/imageGenerationSettings";
+import { ApiEndpointType, ModelType, isDeepSeekSeriesModelId } from "@argos/shared/model";
+import { isTtsModelConfig, isTtsModelId } from "@argos/shared/ttsSettings";
 import {
   isVideoGenerationModelConfig,
   normalizeVideoGenerationOptions,
   supportsOpenAICompatibleVideoGeneration,
-} from "@shared/videoGenerationSettings";
+} from "@argos/shared/videoGenerationSettings";
 import { nanoid } from "nanoid";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type { ArgosTapeEntryRow } from "../sqlitePresenter/tables/argosTapeEntries";
-import { eventBus, SendTarget } from "@/eventbus";
-import { MCP_EVENTS, SESSION_EVENTS, STREAM_EVENTS } from "@/events";
-import { buildRuntimeCapabilitiesPrompt, buildSystemEnvPrompt } from "@/lib/agentRuntime/systemEnvPromptBuilder";
+import { eventBus, SendTarget } from "#/eventbus";
+import { MCP_EVENTS, SESSION_EVENTS, STREAM_EVENTS } from "#/events";
+import { buildRuntimeCapabilitiesPrompt, buildSystemEnvPrompt } from "#/lib/agentRuntime/systemEnvPromptBuilder";
 import { buildContextWithMetadata, buildResumeContext, isContextHistoryRecord } from "./contextBuilder";
 import {
   createTapeViewManifest,
@@ -111,8 +111,8 @@ import type { NewSessionHooksBridge } from "../hooksNotifications/newSessionBrid
 import { providerDbLoader } from "../configPresenter/providerDbLoader";
 import { resolveSessionVisionTarget } from "../vision/sessionVisionResolver";
 import type { ProviderCatalogPort, SessionPermissionPort, SessionUiPort } from "../runtimePorts";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { extractToolCallImagePreviews } from "#/lib/toolCallImagePreviews";
 import {
   buildAssistantPreviewMarkdown,
   buildAssistantResponseMarkdown,
@@ -2367,8 +2367,8 @@ export class AgentRuntimePresenter implements IAgentImplementation {
             modelConfig: ModelConfig,
             temperature: number,
             maxTokens: number,
-            tools: import("@shared/types/core/mcp").MCPToolDefinition[],
-          ) => AsyncGenerator<import("@shared/types/core/llm-events").LLMCoreStreamEvent>;
+            tools: import("@argos/shared/types/core/mcp").MCPToolDefinition[],
+          ) => AsyncGenerator<import("@argos/shared/types/core/llm-events").LLMCoreStreamEvent>;
         };
       }
     ).getProviderInstance(state.providerId);

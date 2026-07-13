@@ -9,7 +9,7 @@ import {
   subscribe,
   writeConfig,
   type ServerConfig,
-} from "@shared/serverConfig";
+} from "@argos/shared/serverConfig";
 
 class EventTargetStub {
   private listeners = new Map<string, Set<EventListener>>();

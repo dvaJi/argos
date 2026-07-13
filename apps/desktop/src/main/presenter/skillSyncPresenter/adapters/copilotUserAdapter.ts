@@ -6,7 +6,7 @@
  */
 
 import { ClaudeCodeAdapter } from "./claudeCodeAdapter";
-import type { CanonicalSkill, ParseContext } from "@shared/types/skillSync";
+import type { CanonicalSkill, ParseContext } from "@argos/shared/types/skillSync";
 
 /**
  * GitHub Copilot user-level format adapter

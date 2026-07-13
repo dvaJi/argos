@@ -9,7 +9,7 @@ import type {
   AcpLegacyBuiltinAgentId,
   AcpManualAgent,
   MCPServerConfig,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { ACP_LEGACY_AGENT_ID_ALIASES, resolveAcpAgentAlias } from "@argos/backend-core";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 

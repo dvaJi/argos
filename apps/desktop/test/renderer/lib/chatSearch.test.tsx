@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyChatSearchHighlights, clearChatSearchHighlights, setActiveChatSearchMatch } from "@/lib/chatSearch";
+import { applyChatSearchHighlights, clearChatSearchHighlights, setActiveChatSearchMatch } from "#/lib/chatSearch";
 
 describe("chatSearch", () => {
   it("highlights case-insensitive matches and activates the selected one", () => {

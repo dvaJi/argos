@@ -3,19 +3,19 @@ import { render, screen, act } from "@testing-library/react";
 
 const translateText = vi.fn<(...args: any[]) => any>();
 
-vi.mock("@api/SessionClient", () => ({
+vi.mock("#api/SessionClient", () => ({
   createSessionClient: vi.fn<(...args: any[]) => any>(() => ({
     translateText,
   })),
 }));
 
-vi.mock("@/stores/ui/agent", () => ({
+vi.mock("#/stores/ui/agent", () => ({
   useAgentStore: () => ({
     selectedAgentId: null,
   }),
 }));
 
-vi.mock("@shadcn/components/ui/button", () => ({
+vi.mock("#shadcn/components/ui/button", () => ({
   Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }));
 
@@ -57,7 +57,7 @@ describe("TranslatePopup", () => {
   });
 
   it("opens the popup, clamps it to the viewport, and requests translation", async () => {
-    const TranslatePopup = (await import("@/components/popup/TranslatePopup")).default;
+    const TranslatePopup = (await import("#/components/popup/TranslatePopup")).default;
 
     const { container } = render(<TranslatePopup />);
 
@@ -93,7 +93,7 @@ describe("TranslatePopup", () => {
     );
     vi.spyOn<(...args: any[]) => any>(window, "cancelAnimationFrame").mockImplementation(() => undefined);
 
-    render((await import("@/components/popup/TranslatePopup")).default);
+    render((await import("#/components/popup/TranslatePopup")).default);
 
     expect(addEventListenerSpy.mock.calls.some(([type]) => type === "pointermove")).toBe(false);
 

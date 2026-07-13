@@ -1,6 +1,6 @@
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
-import type { ToolCallImagePreview } from "@shared/types/core/mcp";
-import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
+import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
+import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@argos/shared/agentImageGenerationTool";
 
 export function prepareToolImagePreviewPresentation(params: {
   toolCallId?: string;

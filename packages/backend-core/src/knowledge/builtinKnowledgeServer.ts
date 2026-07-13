@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { BuiltinKnowledgeConfig, MCPTextContent, QueryResult } from "@shared/presenter";
+import type { BuiltinKnowledgeConfig, MCPTextContent, QueryResult } from "@argos/shared/presenter";
 import { CallToolRequestSchema, ListToolsRequestSchema, Server, type Transport } from "../../../mcp-runtime/src/index";
 
 const BuiltinKnowledgeSearchArgsSchema = zod.object({

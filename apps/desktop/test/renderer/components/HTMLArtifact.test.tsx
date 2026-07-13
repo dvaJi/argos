@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import HTMLArtifact from "@/components/artifacts/HTMLArtifact";
+import HTMLArtifact from "#/components/artifacts/HTMLArtifact";
 
 describe("HTMLArtifact", () => {
   it("uses full-height classes for desktop viewport", () => {

@@ -9,13 +9,13 @@ const { mockGetThinkingBudgetRange, mockGetModel, mockGetReasoningPortrait, mock
   }),
 );
 
-vi.mock("@/presenter/configPresenter/providerDbLoader", () => ({
+vi.mock("#/presenter/configPresenter/providerDbLoader", () => ({
   providerDbLoader: {
     getModel: mockGetModel,
   },
 }));
 
-vi.mock("@/presenter/configPresenter/modelCapabilities", () => ({
+vi.mock("#/presenter/configPresenter/modelCapabilities", () => ({
   modelCapabilities: {
     getThinkingBudgetRange: mockGetThinkingBudgetRange,
     getReasoningPortrait: mockGetReasoningPortrait,
@@ -23,7 +23,7 @@ vi.mock("@/presenter/configPresenter/modelCapabilities", () => ({
   },
 }));
 
-import { buildProviderOptions } from "@/presenter/llmProviderPresenter/aiSdk/providerOptionsMapper";
+import { buildProviderOptions } from "#/presenter/llmProviderPresenter/aiSdk/providerOptionsMapper";
 
 describe("AI SDK provider options", () => {
   const baseModelConfig = {

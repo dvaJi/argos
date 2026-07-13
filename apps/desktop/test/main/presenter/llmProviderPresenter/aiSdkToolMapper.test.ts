@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mcpToolsToAISDKTools, normalizeToolInputSchema } from "@/presenter/llmProviderPresenter/aiSdk/toolMapper";
+import { mcpToolsToAISDKTools, normalizeToolInputSchema } from "#/presenter/llmProviderPresenter/aiSdk/toolMapper";
 
 describe("AI SDK tool schema normalization", () => {
   it("normalizes discriminated union schemas to a top-level object schema", () => {

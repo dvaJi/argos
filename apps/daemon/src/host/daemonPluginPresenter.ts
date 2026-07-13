@@ -5,7 +5,7 @@ import path from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { unzipSync } from "fflate";
-import type { IConfigPresenter, MCPServerConfig } from "@shared/presenter";
+import type { IConfigPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import type {
   ArgosPluginManifest,
   PluginActionResult,
@@ -17,8 +17,8 @@ import type {
   PluginSettingsContribution,
   PluginToolPolicyDecision,
   RuntimeDependencyRecord,
-} from "@shared/types/plugin";
-import { OFFICIAL_PLUGIN_SOURCE } from "@shared/types/plugin";
+} from "@argos/shared/types/plugin";
+import { OFFICIAL_PLUGIN_SOURCE } from "@argos/shared/types/plugin";
 import { resolveDaemonVersion } from "../version";
 import { createJsonStoreFactory } from "./jsonStoreFactory";
 

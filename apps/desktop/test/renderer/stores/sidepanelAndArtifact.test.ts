@@ -8,8 +8,10 @@ describe("artifact store", () => {
       selectedArtifactContext: null,
     };
     const sidepanelStore = {
-      open: true,
-      activeTab: "workspace",
+      state: {
+        open: true,
+        activeTab: "workspace",
+      },
       getSessionState: vi.fn<(...args: any[]) => any>(() => sessionState),
       selectArtifact: vi.fn<(...args: any[]) => any>((_sessionId: string, context: unknown) => {
         sessionState.selectedArtifactContext = context;
@@ -18,13 +20,17 @@ describe("artifact store", () => {
       setViewMode: vi.fn<(...args: any[]) => any>(),
     };
 
-    vi.doMock("@/stores/ui/sidepanel", () => ({
-      useSidepanelStore: () => sidepanelStore,
+    vi.doMock("#/stores/ui/sidepanel", () => ({
+      sidepanelStore: sidepanelStore,
+      getSessionState: sidepanelStore.getSessionState,
+      selectArtifact: sidepanelStore.selectArtifact,
+      clearArtifact: sidepanelStore.clearArtifact,
+      setViewMode: sidepanelStore.setViewMode,
     }));
 
-    const { useArtifactStore } = await import("@/stores/artifact");
+    const store = await import("#/stores/artifact");
     return {
-      store: useArtifactStore(),
+      store,
       sidepanelStore,
     };
   };

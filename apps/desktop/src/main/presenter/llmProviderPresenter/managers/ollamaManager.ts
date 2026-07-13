@@ -1,7 +1,7 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { OLLAMA_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { OllamaModel } from "@shared/presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { OLLAMA_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { OllamaModel } from "@argos/shared/presenter";
 import { ShowResponse } from "ollama";
 import { OllamaProvider } from "../providers/ollamaProvider";
 import { BaseLLMProvider } from "../baseProvider";

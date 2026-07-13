@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { DialogButton, DialogIcon } from "@shared/presenter";
+import type { DialogButton, DialogIcon } from "@argos/shared/presenter";
 import { EntityIdSchema, defineRouteContract } from "../common";
 
 const DialogIconSchema = zod.custom<DialogIcon>();

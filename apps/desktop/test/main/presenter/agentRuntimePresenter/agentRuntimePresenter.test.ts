@@ -3,26 +3,26 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { app } from "electron";
-import type { ArgosSessionState } from "@shared/types/agent-interface";
-import { ApiEndpointType, ModelType } from "@shared/model";
-import { AgentRuntimePresenter } from "@/presenter/agentRuntimePresenter/index";
-import { NewSessionHooksBridge } from "@/presenter/hooksNotifications/newSessionBridge";
-import { estimateMessagesTokens } from "@/presenter/agentRuntimePresenter/contextBuilder";
-import { estimateToolReserveTokens, getUsableContextLength } from "@/presenter/agentRuntimePresenter/contextBudget";
+import type { ArgosSessionState } from "@argos/shared/types/agent-interface";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
+import { AgentRuntimePresenter } from "#/presenter/agentRuntimePresenter/index";
+import { NewSessionHooksBridge } from "#/presenter/hooksNotifications/newSessionBridge";
+import { estimateMessagesTokens } from "#/presenter/agentRuntimePresenter/contextBuilder";
+import { estimateToolReserveTokens, getUsableContextLength } from "#/presenter/agentRuntimePresenter/contextBudget";
 
 vi.mock("nanoid", () => ({ nanoid: vi.fn<(...args: any[]) => any>(() => "mock-msg-id") }));
 
 // Mock eventBus
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: { on: vi.fn<(...args: any[]) => any>(), sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/routes/publishArgosEvent", () => ({
+vi.mock("#/routes/publishArgosEvent", () => ({
   publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   SESSION_EVENTS: {
     LIST_UPDATED: "session:list-updated",
     ACTIVATED: "session:activated",
@@ -45,7 +45,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     skillPresenter: {
       getMetadataList: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
@@ -67,7 +67,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/lib/agentRuntime/systemEnvPromptBuilder", () => ({
+vi.mock("#/lib/agentRuntime/systemEnvPromptBuilder", () => ({
   buildRuntimeCapabilitiesPrompt: vi.fn<(...args: any[]) => any>(() => "RUNTIME_CAPABILITIES"),
   buildSystemEnvPrompt: vi.fn<(...args: any[]) => any>(
     async (options?: { providerId?: string; modelId?: string; now?: Date; workdir?: string | null }) => {
@@ -85,15 +85,15 @@ vi.mock("@/lib/agentRuntime/systemEnvPromptBuilder", () => ({
 }));
 
 // Mock processStream to avoid timer/async complexity
-vi.mock("@/presenter/agentRuntimePresenter/process", () => ({
+vi.mock("#/presenter/agentRuntimePresenter/process", () => ({
   processStream: vi.fn<(...args: any[]) => any>().mockResolvedValue({ status: "completed" }),
 }));
 
-import { eventBus } from "@/eventbus";
-import { processStream } from "@/presenter/agentRuntimePresenter/process";
-import { presenter } from "@/presenter";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { buildRuntimeCapabilitiesPrompt, buildSystemEnvPrompt } from "@/lib/agentRuntime/systemEnvPromptBuilder";
+import { eventBus } from "#/eventbus";
+import { processStream } from "#/presenter/agentRuntimePresenter/process";
+import { presenter } from "#/presenter";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { buildRuntimeCapabilitiesPrompt, buildSystemEnvPrompt } from "#/lib/agentRuntime/systemEnvPromptBuilder";
 
 function getSkillPresenterMock() {
   return presenter.skillPresenter as {
@@ -4142,8 +4142,8 @@ describe("AgentRuntimePresenter", () => {
     });
 
     it("fails retry with budget guidance when the current input cannot fit", async () => {
-      const actualProcessModule = await vi.importActual<typeof import("@/presenter/agentRuntimePresenter/process")>(
-        "@/presenter/agentRuntimePresenter/process",
+      const actualProcessModule = await vi.importActual<typeof import("#/presenter/agentRuntimePresenter/process")>(
+        "#/presenter/agentRuntimePresenter/process",
       );
       (processStream as ReturnType<typeof vi.fn>).mockImplementationOnce(actualProcessModule.processStream);
       const consoleError = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => {});

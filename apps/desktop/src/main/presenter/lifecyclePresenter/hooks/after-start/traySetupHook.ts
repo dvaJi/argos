@@ -3,9 +3,9 @@
  * Initializes the system tray icon and menu
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { presenter } from "@/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { presenter } from "#/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 export const traySetupHook: LifecycleHook = {
   name: "tray-setup",

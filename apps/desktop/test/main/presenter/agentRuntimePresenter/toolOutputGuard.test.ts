@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
-import { getUsableContextLength } from "@/presenter/agentRuntimePresenter/contextBudget";
-import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
+import { getUsableContextLength } from "#/presenter/agentRuntimePresenter/contextBudget";
+import { ToolOutputGuard } from "#/presenter/agentRuntimePresenter/toolOutputGuard";
 
 vi.mock("tokenx", () => ({
   approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),

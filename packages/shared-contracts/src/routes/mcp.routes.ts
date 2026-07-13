@@ -9,7 +9,7 @@ import type {
   PromptListEntry,
   Resource,
   ResourceListEntry,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { defineRouteContract } from "../common";
 
 const MCPServerConfigSchema = zod.custom<MCPServerConfig>();

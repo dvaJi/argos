@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { QuestionOption } from "@shared/types/agent-interface";
+import type { QuestionOption } from "@argos/shared/types/agent-interface";
 import type {
   DiscordPairingSnapshot,
   DiscordRemoteBindingSummary,
@@ -24,7 +24,7 @@ import type {
   TelegramStreamMode,
   WeixinIlinkAccountSummary,
   WeixinIlinkRemoteSettings,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 export const REMOTE_CONTROL_SETTING_KEY = "remoteControl";
 export const TELEGRAM_REMOTE_POLL_LIMIT = 20;

@@ -1,4 +1,4 @@
-import type { MCPToolDefinition } from "@shared/presenter";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
 
 export type ToolSource = "mcp" | "agent";
 

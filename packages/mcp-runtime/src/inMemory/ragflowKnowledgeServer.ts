@@ -42,7 +42,7 @@ interface RagflowSearchResponse {
 }
 
 // Import the MCPTextContent interface
-import { MCPTextContent } from "@shared/presenter";
+import { MCPTextContent } from "@argos/shared/presenter";
 
 export class RagflowKnowledgeServer {
   private server: Server;

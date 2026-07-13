@@ -1,6 +1,6 @@
 import Database from "better-sqlite3-multiple-ciphers";
 import { nanoid } from "nanoid";
-import type { SettingsActivityInput, SettingsActivityRecord } from "@shared/contracts/routes";
+import type { SettingsActivityInput, SettingsActivityRecord } from "@argos/shared-contracts/routes";
 import { BaseTable } from "./baseTable";
 
 const SETTINGS_ACTIVITY_RETENTION_LIMIT = 2000;

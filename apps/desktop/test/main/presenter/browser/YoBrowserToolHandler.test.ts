@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { YoBrowserToolHandler } from "@/presenter/browser/YoBrowserToolHandler";
+import { YoBrowserToolHandler } from "#/presenter/browser/YoBrowserToolHandler";
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     warn: vi.fn<(...args: any[]) => any>(),
     error: vi.fn<(...args: any[]) => any>(),

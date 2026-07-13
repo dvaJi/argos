@@ -1,4 +1,4 @@
-import { SessionService } from "@/routes/sessions/sessionService";
+import { SessionService } from "#/routes/sessions/sessionService";
 
 describe("SessionService", () => {
   const createScheduler = () => ({

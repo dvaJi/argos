@@ -2,10 +2,10 @@
 import { BrowserWindow } from "electron";
 import { MessageFile } from "./chat";
 import { ShowResponse } from "ollama";
-import { ShortcutKeySetting } from "@/presenter/configPresenter/shortcutKeySettings";
-import type { NewApiEndpointType } from "@shared/model";
-import type { FloatingButtonBounds } from "@shared/types/floating-widget";
-import { ApiEndpointType, ModelType } from "@shared/model";
+import { ShortcutKeySetting } from "#/presenter/configPresenter/shortcutKeySettings";
+import type { NewApiEndpointType } from "@argos/shared/model";
+import type { FloatingButtonBounds } from "@argos/shared/types/floating-widget";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
 import type { ImageGenerationOptions } from "../../imageGenerationSettings";
 import type { VideoGenerationOptions } from "../../videoGenerationSettings";
 import type { TtsSettings } from "../../ttsSettings";
@@ -267,16 +267,16 @@ export interface IWindowPresenter {
   maximize(windowId: number): void;
   close(windowId: number): void;
   createSettingsWindow(
-    navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
+    navigation?: import("@argos/shared/settingsNavigation").SettingsNavigationPayload,
   ): Promise<number | null>;
   navigateToSettings(
-    navigation?: import("@shared/settingsNavigation").SettingsNavigationPayload,
+    navigation?: import("@argos/shared/settingsNavigation").SettingsNavigationPayload,
   ): Promise<number | null>;
   closeSettingsWindow(): void;
   getSettingsWindowId(): number | null;
   focusMainWindow(): boolean;
-  setPendingSettingsProviderInstall(preview: import("@shared/providerDeeplink").ProviderInstallPreview): void;
-  consumePendingSettingsProviderInstall(): import("@shared/providerDeeplink").ProviderInstallPreview | null;
+  setPendingSettingsProviderInstall(preview: import("@argos/shared/providerDeeplink").ProviderInstallPreview): void;
+  consumePendingSettingsProviderInstall(): import("@argos/shared/providerDeeplink").ProviderInstallPreview | null;
   hide(windowId: number): void;
   show(windowId?: number, shouldFocus?: boolean): void;
   isMaximized(windowId: number): boolean;
@@ -2028,7 +2028,7 @@ export type ChatMessageContent = import("../../core/llm-events").ChatMessageCont
 export type LLMAgentEventData = import("../../core/agent-events").LLMAgentEventData;
 export type LLMAgentEvent = import("../../core/agent-events").LLMAgentEvent;
 
-export { ShortcutKey, ShortcutKeySetting } from "@/presenter/configPresenter/shortcutKeySettings";
+export { ShortcutKey, ShortcutKeySetting } from "#/presenter/configPresenter/shortcutKeySettings";
 
 export interface DefaultModelSetting {
   id: string;

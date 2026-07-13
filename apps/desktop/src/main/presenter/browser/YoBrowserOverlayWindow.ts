@@ -4,8 +4,9 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { is } from "@electron-toolkit/utils";
-import { browserActivityChangedEvent } from "@shared/contracts/events";
-import type { YoBrowserActivityPayload } from "@shared/types/browser";
+import { browserActivityChangedEvent } from "@argos/shared-contracts/events";
+import type { YoBrowserActivityPayload } from "@argos/shared/types/browser";
+import { resolveUiUrl } from "#/lib/daemonUi";
 
 const OVERLAY_AUTO_HIDE_MS = 4200;
 
@@ -159,11 +160,7 @@ export class YoBrowserOverlayWindow {
     }
 
     try {
-      if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-        await overlayWindow.loadURL(`${process.env["VITE_DEV_SERVER_URL"]}/browser-overlay/`);
-      } else {
-        await overlayWindow.loadFile(join(__dirname, "../renderer/browser-overlay/index.html"));
-      }
+      await overlayWindow.loadURL(resolveUiUrl("/browser-overlay/"));
 
       this.ready = true;
       this.loadingPromise = null;

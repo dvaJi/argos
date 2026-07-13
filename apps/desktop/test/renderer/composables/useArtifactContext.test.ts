@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { useArtifactContext } from "@/composables/useArtifactContext";
+import { useArtifactContext } from "#/composables/useArtifactContext";
 
 describe("useArtifactContext", () => {
   it("builds a stable context key from thread/message/artifact", () => {

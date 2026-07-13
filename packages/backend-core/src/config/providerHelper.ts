@@ -1,5 +1,5 @@
-import { checkRequiresRebuild, type ProviderBatchUpdate, type ProviderChange } from "@shared/provider-operations";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import { checkRequiresRebuild, type ProviderBatchUpdate, type ProviderChange } from "@argos/shared/provider-operations";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import type { StoreLike } from "./storeLike";
 
 type SetSetting = <T>(key: string, value: T) => void;

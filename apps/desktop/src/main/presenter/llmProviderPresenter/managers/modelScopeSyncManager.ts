@@ -3,7 +3,7 @@ import {
   MCPServerConfig,
   ModelScopeMcpSyncOptions,
   ModelScopeMcpSyncResult,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import { convertModelScopeMcpServerToConfig, fetchModelScopeMcpServers, ModelScopeMcpServer } from "../modelScopeMcp";
 
 interface ModelScopeSyncManagerOptions {

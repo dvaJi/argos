@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 
 const passthrough = (name: string) => (props: any) => <div>{props.children}</div>;
 
@@ -36,36 +36,36 @@ async function setup(options?: {
     openDialog: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: (name: string, opts?: { safeCall?: boolean }) => {
       if (name === "llmproviderPresenter") return llmproviderPresenter;
       throw new Error(`Unexpected presenter: ${name}`);
     },
   }));
 
-  vi.doMock("@/stores/modelCheck", () => ({
+  vi.doMock("#/stores/modelCheck", () => ({
     useModelCheckStore: () => modelCheckStore,
   }));
-  vi.doMock("@/components/use-toast", () => ({
+  vi.doMock("#/components/use-toast", () => ({
     useToast: () => ({
       toast,
     }),
   }));
 
-  vi.doMock("@shadcn/components/ui/input", () => ({
+  vi.doMock("#shadcn/components/ui/input", () => ({
     Input: ({ value, onChange, ...rest }: any) => <input value={value ?? ""} onChange={onChange} {...rest} />,
   }));
-  vi.doMock("@shadcn/components/ui/button", () => ({
+  vi.doMock("#shadcn/components/ui/button", () => ({
     Button: ({ children, onClick, ...rest }: any) => (
       <button type="button" onClick={onClick} {...rest}>
         {children}
       </button>
     ),
   }));
-  vi.doMock("@shadcn/components/ui/label", () => ({
+  vi.doMock("#shadcn/components/ui/label", () => ({
     Label: ({ children, ...rest }: any) => <label {...rest}>{children}</label>,
   }));
-  vi.doMock("@shadcn/components/ui/tooltip", () => ({
+  vi.doMock("#shadcn/components/ui/tooltip", () => ({
     Tooltip: passthrough("Tooltip"),
     TooltipContent: passthrough("TooltipContent"),
     TooltipProvider: passthrough("TooltipProvider"),
@@ -75,7 +75,7 @@ async function setup(options?: {
     Icon: () => <i />,
   }));
 
-  const ProviderApiConfig = (await import("../../../src/renderer/settings/components/ProviderApiConfig")).default;
+  const ProviderApiConfig = (await import("#settings/components/ProviderApiConfig")).default;
 
   const onApiHostChange = vi.fn<(...args: any[]) => any>();
   const onValidateKey = vi.fn<(...args: any[]) => any>();
@@ -213,32 +213,32 @@ describe("ProviderApiConfig", () => {
     });
 
     vi.resetModules();
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter,
     }));
-    vi.doMock("@/stores/modelCheck", () => ({
+    vi.doMock("#/stores/modelCheck", () => ({
       useModelCheckStore: () => ({ openDialog: vi.fn<(...args: any[]) => any>() }),
     }));
-    vi.doMock("@/components/use-toast", () => ({
+    vi.doMock("#/components/use-toast", () => ({
       useToast: () => ({ toast: vi.fn<(...args: any[]) => any>() }),
     }));
-    vi.doMock("@shadcn/components/ui/input", () => ({
+    vi.doMock("#shadcn/components/ui/input", () => ({
       Input: (props: any) => <input value={props.value ?? ""} onChange={props.onChange} />,
     }));
-    vi.doMock("@shadcn/components/ui/button", () => ({
+    vi.doMock("#shadcn/components/ui/button", () => ({
       Button: (props: any) => <button onClick={props.onClick}>{props.children}</button>,
     }));
-    vi.doMock("@shadcn/components/ui/label", () => ({
+    vi.doMock("#shadcn/components/ui/label", () => ({
       Label: (props: any) => <label>{props.children}</label>,
     }));
-    vi.doMock("@shadcn/components/ui/tooltip", () => ({
+    vi.doMock("#shadcn/components/ui/tooltip", () => ({
       Tooltip: passthrough("Tooltip"),
       TooltipContent: passthrough("TooltipContent"),
       TooltipProvider: passthrough("TooltipProvider"),
       TooltipTrigger: passthrough("TooltipTrigger"),
     }));
 
-    const ProviderApiConfig = (await import("../../../src/renderer/settings/components/ProviderApiConfig")).default;
+    const ProviderApiConfig = (await import("#settings/components/ProviderApiConfig")).default;
 
     render(
       <ProviderApiConfig

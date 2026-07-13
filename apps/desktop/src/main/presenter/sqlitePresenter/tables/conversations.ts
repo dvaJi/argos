@@ -1,7 +1,7 @@
 import { BaseTable } from "./baseTable";
 import type Database from "better-sqlite3-multiple-ciphers";
-import { CONVERSATION, CONVERSATION_SETTINGS } from "@shared/presenter";
-import { isReasoningEffort, isVerbosity } from "@shared/types/model-db";
+import { CONVERSATION, CONVERSATION_SETTINGS } from "@argos/shared/presenter";
+import { isReasoningEffort, isVerbosity } from "@argos/shared/types/model-db";
 import { nanoid } from "nanoid";
 
 type ConversationRow = {

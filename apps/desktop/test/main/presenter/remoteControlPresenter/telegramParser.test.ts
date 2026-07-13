@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TelegramParser } from "@/presenter/remoteControlPresenter/telegram/telegramParser";
+import { TelegramParser } from "#/presenter/remoteControlPresenter/telegram/telegramParser";
 
 describe("TelegramParser", () => {
   it("parses text messages and commands", () => {

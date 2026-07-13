@@ -1,7 +1,7 @@
 import type * as schema from "@agentclientprotocol/sdk";
-import type { AcpConfigState } from "@shared/presenter";
-import type { AssistantMessageBlock } from "@shared/chat";
-import { createStreamEvent, type LLMCoreStreamEvent } from "@shared/types/core/llm-events";
+import type { AcpConfigState } from "@argos/shared/presenter";
+import type { AssistantMessageBlock } from "@argos/shared/chat";
+import { createStreamEvent, type LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
 import { normalizeAcpConfigState } from "./acpConfigState";
 
 export interface PlanEntry {

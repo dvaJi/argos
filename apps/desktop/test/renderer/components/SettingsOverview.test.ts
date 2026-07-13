@@ -39,45 +39,45 @@ describe("SettingsOverview", () => {
       };
     });
 
-    vi.doMock("@api/SettingsClient", () => ({
+    vi.doMock("#api/SettingsClient", () => ({
       createSettingsClient: () => ({ listRecentActivity }),
     }));
 
-    vi.doMock("@/stores/providerStore", () => ({
+    vi.doMock("#/stores/providerStore", () => ({
       ensureInitialized,
       useProviderStore: () => ({ providers: [] }),
     }));
 
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       initialize: initializeModels,
       useModelStore: () => ({ enabledModels: [] }),
     }));
 
-    vi.doMock("@/stores/mcp", () => ({
+    vi.doMock("#/stores/mcp", () => ({
       loadConfig,
       useMcpStore: () => ({ mcpEnabled: false, serverList: [] }),
     }));
 
-    vi.doMock("@/stores/sync", () => ({
+    vi.doMock("#/stores/sync", () => ({
       initializeSync,
       useSyncStore: () => ({ lastSyncTime: null }),
     }));
 
-    vi.doMock("@/stores/ui/agent", () => ({
+    vi.doMock("#/stores/ui/agent", () => ({
       fetchAgents,
       useAgentStore: () => ({ enabledAgents: [] }),
     }));
 
-    vi.doMock("../../../src/renderer/settings/components/DashboardSettings", () => ({
+    vi.doMock("#settings/components/DashboardSettings", () => ({
       default: () => createElement("div", { "data-testid": "dashboard-settings" }),
     }));
 
-    vi.doMock("../../../src/renderer/settings/components/control-center/SettingsPageShell", () => ({
+    vi.doMock("#settings/components/control-center/SettingsPageShell", () => ({
       default: ({ children, title, description, ...props }: any) =>
         createElement("div", props, createElement("h1", null, title), createElement("p", null, description), children),
     }));
 
-    vi.doMock("../../../src/renderer/settings/components/control-center/SettingsSectionCard", () => ({
+    vi.doMock("#settings/components/control-center/SettingsSectionCard", () => ({
       default: ({ children, title, description }: any) =>
         createElement(
           "section",
@@ -88,7 +88,7 @@ describe("SettingsOverview", () => {
         ),
     }));
 
-    vi.doMock("../../../src/renderer/settings/components/control-center/StatusMetricCard", () => ({
+    vi.doMock("#settings/components/control-center/StatusMetricCard", () => ({
       default: ({ label, onSelect }: any) => createElement("button", { onClick: onSelect, type: "button" }, label),
     }));
 
@@ -98,7 +98,7 @@ describe("SettingsOverview", () => {
   });
 
   it("runs the startup effect once across rerenders from local state changes", async () => {
-    const SettingsOverview = (await import("../../../src/renderer/settings/components/SettingsOverview")).default;
+    const SettingsOverview = (await import("#settings/components/SettingsOverview")).default;
 
     render(createElement(SettingsOverview));
 
@@ -119,7 +119,7 @@ describe("SettingsOverview", () => {
   });
 
   it("navigates recent activity rows with resolved router paths", async () => {
-    const SettingsOverview = (await import("../../../src/renderer/settings/components/SettingsOverview")).default;
+    const SettingsOverview = (await import("#settings/components/SettingsOverview")).default;
 
     render(createElement(SettingsOverview));
 

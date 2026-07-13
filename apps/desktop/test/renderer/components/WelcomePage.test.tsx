@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "@/lib/onboardingResume";
+import { GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "#/lib/onboardingResume";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => <span />,
 }));
 
-vi.mock("@/components/icons/ModelIcon", () => ({
+vi.mock("#/components/icons/ModelIcon", () => ({
   default: () => <span />,
 }));
 
@@ -40,13 +40,13 @@ describe("WelcomePage", () => {
       currentStepId: "select-provider",
     });
 
-    vi.doMock("@api/ConfigClient", () => ({
+    vi.doMock("#api/ConfigClient", () => ({
       createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
-    vi.doMock("@api/OnboardingClient", () => ({
+    vi.doMock("#api/OnboardingClient", () => ({
       createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
         getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
@@ -126,11 +126,11 @@ describe("WelcomePage", () => {
         setStepStatus: onboardingSetStepStatus,
       })),
     }));
-    vi.doMock("@/stores/ui/pageRouter", () => ({
+    vi.doMock("#/stores/ui/pageRouter", () => ({
       usePageRouterStore: () => pageRouter,
     }));
 
-    const WelcomePage = (await import("@/pages/WelcomePage")).default;
+    const WelcomePage = (await import("#/pages/WelcomePage")).default;
 
     const { container } = render(<WelcomePage />);
     await act(async () => {});
@@ -214,13 +214,13 @@ describe("WelcomePage", () => {
       currentStepId: "select-provider",
     });
 
-    vi.doMock("@api/ConfigClient", () => ({
+    vi.doMock("#api/ConfigClient", () => ({
       createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
-    vi.doMock("@api/OnboardingClient", () => ({
+    vi.doMock("#api/OnboardingClient", () => ({
       createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
         getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
@@ -300,11 +300,11 @@ describe("WelcomePage", () => {
         setStepStatus: onboardingSetStepStatus,
       })),
     }));
-    vi.doMock("@/stores/ui/pageRouter", () => ({
+    vi.doMock("#/stores/ui/pageRouter", () => ({
       usePageRouterStore: () => pageRouter,
     }));
 
-    const WelcomePage = (await import("@/pages/WelcomePage")).default;
+    const WelcomePage = (await import("#/pages/WelcomePage")).default;
 
     const { container } = render(<WelcomePage />);
     await act(async () => {});
@@ -351,13 +351,13 @@ describe("WelcomePage", () => {
       currentStepId: "select-provider",
     });
 
-    vi.doMock("@api/ConfigClient", () => ({
+    vi.doMock("#api/ConfigClient", () => ({
       createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         setSetting: configPresenter.setSetting,
         openSettings,
       })),
     }));
-    vi.doMock("@api/OnboardingClient", () => ({
+    vi.doMock("#api/OnboardingClient", () => ({
       createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
         getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
@@ -437,11 +437,11 @@ describe("WelcomePage", () => {
         setStepStatus: onboardingSetStepStatus,
       })),
     }));
-    vi.doMock("@/stores/ui/pageRouter", () => ({
+    vi.doMock("#/stores/ui/pageRouter", () => ({
       usePageRouterStore: () => pageRouter,
     }));
 
-    const WelcomePage = (await import("@/pages/WelcomePage")).default;
+    const WelcomePage = (await import("#/pages/WelcomePage")).default;
 
     const { container } = render(<WelcomePage />);
     await act(async () => {});
@@ -479,12 +479,12 @@ describe("WelcomePage", () => {
       currentStepId: "first-chat",
     });
 
-    vi.doMock("@api/ConfigClient", () => ({
+    vi.doMock("#api/ConfigClient", () => ({
       createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         openSettings,
       })),
     }));
-    vi.doMock("@api/OnboardingClient", () => ({
+    vi.doMock("#api/OnboardingClient", () => ({
       createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
         getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 1,
@@ -547,11 +547,11 @@ describe("WelcomePage", () => {
         start: onboardingStart,
       })),
     }));
-    vi.doMock("@/stores/ui/pageRouter", () => ({
+    vi.doMock("#/stores/ui/pageRouter", () => ({
       usePageRouterStore: () => pageRouter,
     }));
 
-    const WelcomePage = (await import("@/pages/WelcomePage")).default;
+    const WelcomePage = (await import("#/pages/WelcomePage")).default;
 
     const { container } = render(<WelcomePage />);
     await act(async () => {});
@@ -586,12 +586,12 @@ describe("WelcomePage", () => {
       currentStepId: "first-chat",
     });
 
-    vi.doMock("@api/ConfigClient", () => ({
+    vi.doMock("#api/ConfigClient", () => ({
       createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
         openSettings,
       })),
     }));
-    vi.doMock("@api/OnboardingClient", () => ({
+    vi.doMock("#api/OnboardingClient", () => ({
       createOnboardingClient: vi.fn<(...args: any[]) => any>(() => ({
         getState: vi.fn<(...args: any[]) => any>().mockResolvedValue({
           version: 4,
@@ -671,11 +671,11 @@ describe("WelcomePage", () => {
         setStepStatus: onboardingSetStepStatus,
       })),
     }));
-    vi.doMock("@/stores/ui/pageRouter", () => ({
+    vi.doMock("#/stores/ui/pageRouter", () => ({
       usePageRouterStore: () => pageRouter,
     }));
 
-    const WelcomePage = (await import("@/pages/WelcomePage")).default;
+    const WelcomePage = (await import("#/pages/WelcomePage")).default;
 
     const { container } = render(<WelcomePage />);
     await act(async () => {});

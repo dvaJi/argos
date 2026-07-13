@@ -1,4 +1,4 @@
-import { presenter } from "@/presenter";
+import { presenter } from "#/presenter";
 
 export function handleShowHiddenWindow(mustShow: boolean) {
   const allWindows = presenter.windowPresenter.getAllWindows();

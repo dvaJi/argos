@@ -1,13 +1,13 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { AdapterRegistry, ChannelManager } from "@/presenter/remoteControlPresenter/channelManager";
+import { AdapterRegistry, ChannelManager } from "#/presenter/remoteControlPresenter/channelManager";
 import type {
   ChannelAdapterConfig,
   ChannelFactory,
   ChannelStatusSnapshot,
   IChannelAdapter,
   SendMessageOptions,
-} from "@/presenter/remoteControlPresenter/types/channel";
+} from "#/presenter/remoteControlPresenter/types/channel";
 
 class FakeAdapter extends EventEmitter implements IChannelAdapter {
   notifyChatIds: string[] = [];

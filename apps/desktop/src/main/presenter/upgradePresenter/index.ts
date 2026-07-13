@@ -1,9 +1,9 @@
 import { app, shell } from "electron";
-import { IUpgradePresenter, UpdateStatus, UpdateProgress, IConfigPresenter } from "@shared/presenter";
-import { eventBus, SendTarget } from "@/eventbus";
-import { UPDATE_EVENTS, WINDOW_EVENTS } from "@/events";
-import { presenter } from "@/presenter";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { IUpgradePresenter, UpdateStatus, UpdateProgress, IConfigPresenter } from "@argos/shared/presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { UPDATE_EVENTS, WINDOW_EVENTS } from "#/events";
+import { presenter } from "#/presenter";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import electronUpdater from "electron-updater";
 import type { UpdateInfo } from "electron-updater";
 import { compare } from "compare-versions";

@@ -1,24 +1,24 @@
 import fs from "fs";
 import path from "path";
 import { spawn } from "child_process";
-import logger from "@shared/logger";
-import type { IConfigPresenter } from "@shared/presenter";
+import logger from "@argos/shared/logger";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import type {
   ISkillPresenter,
   SkillExtensionConfig,
   SkillRuntimePreference,
   SkillScriptDescriptor,
-} from "@shared/types/skill";
-import { backgroundExecSessionManager } from "@/lib/agentRuntime/backgroundExecSessionManager";
-import { rtkRuntimeService } from "@/lib/agentRuntime/rtkRuntimeService";
+} from "@argos/shared/types/skill";
+import { backgroundExecSessionManager } from "#/lib/agentRuntime/backgroundExecSessionManager";
+import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import {
   createUtf8OutputDecoderPair,
   prepareProcessEnvForUtf8Output,
   prepareShellCommandForUtf8Output,
-} from "@/lib/agentRuntime/shellOutputEncoding";
-import { resolveSessionDir } from "@/lib/agentRuntime/sessionPaths";
-import { RuntimeHelper } from "@/lib/runtimeHelper";
+} from "#/lib/agentRuntime/shellOutputEncoding";
+import { resolveSessionDir } from "#/lib/agentRuntime/sessionPaths";
+import { RuntimeHelper } from "#/lib/runtimeHelper";
 
 const DEFAULT_TIMEOUT_MS = 120000;
 const FOREGROUND_OFFLOAD_THRESHOLD = 10000;

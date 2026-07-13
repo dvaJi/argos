@@ -1,14 +1,19 @@
-import { ApiEndpointType, ModelType, isNewApiEndpointType, resolveProviderCapabilityProviderId } from "@shared/model";
-import { IModelConfig, ModelConfig, ModelConfigSource } from "@shared/presenter";
+import {
+  ApiEndpointType,
+  ModelType,
+  isNewApiEndpointType,
+  resolveProviderCapabilityProviderId,
+} from "@argos/shared/model";
+import { IModelConfig, ModelConfig, ModelConfigSource } from "@argos/shared/presenter";
 import {
   DEFAULT_MODEL_TIMEOUT,
   DEFAULT_MODEL_CAPABILITY_FALLBACKS,
   resolveDerivedModelMaxTokens,
   resolveModelContextLength,
   resolveModelFunctionCall,
-} from "@shared/modelConfigDefaults";
-import { applyMoonshotKimiReasoningTemperaturePolicy } from "@shared/moonshotKimiPolicy";
-import { resolveVideoGenerationCompatType } from "@shared/videoGenerationSettings";
+} from "@argos/shared/modelConfigDefaults";
+import { applyMoonshotKimiReasoningTemperaturePolicy } from "@argos/shared/moonshotKimiPolicy";
+import { resolveVideoGenerationCompatType } from "@argos/shared/videoGenerationSettings";
 import { providerDbLoader } from "./providerDbLoader";
 import {
   hasAnthropicReasoningToggle,
@@ -20,7 +25,7 @@ import {
   ReasoningPortrait,
   isVerbosity,
   type Verbosity,
-} from "@shared/types/model-db";
+} from "@argos/shared/types/model-db";
 import { resolveProviderId } from "./providerId";
 import { modelCapabilities } from "./modelCapabilities";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";

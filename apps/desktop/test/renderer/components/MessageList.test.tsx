@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import type { DisplayAssistantMessageBlock, DisplayMessage } from "@/components/chat/messageListItems";
+import type { DisplayAssistantMessageBlock, DisplayMessage } from "#/components/chat/messageListItems";
 
-vi.mock("@/components/message/MessageItemUser", () => ({
+vi.mock("#/components/message/MessageItemUser", () => ({
   default: ({ message, isReadOnly }: any) => (
     <div className="user-item" data-read-only={String(isReadOnly)}>
       {message.id}
@@ -10,7 +10,7 @@ vi.mock("@/components/message/MessageItemUser", () => ({
   ),
 }));
 
-vi.mock("@/components/message/MessageItemAssistant", () => ({
+vi.mock("#/components/message/MessageItemAssistant", () => ({
   default: ({ message, isReadOnly }: any) => (
     <div className="assistant-item" data-read-only={String(isReadOnly)}>
       {message.id}
@@ -18,18 +18,18 @@ vi.mock("@/components/message/MessageItemAssistant", () => ({
   ),
 }));
 
-vi.mock("@/components/message/MessageBlockAction", () => ({
+vi.mock("#/components/message/MessageBlockAction", () => ({
   default: ({ block }: any) => <div className="rate-limit-block-stub">{block.action_type || "unknown"}</div>,
 }));
 
-vi.mock("@/composables/message/useMessageCapture", () => ({
+vi.mock("#/composables/message/useMessageCapture", () => ({
   useMessageCapture: () => ({
     isCapturing: false,
     captureMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   }),
 }));
 
-import MessageList from "@/components/chat/MessageList";
+import MessageList from "#/components/chat/MessageList";
 
 function createMessage(id: string, role: "user" | "assistant", orderSeq: number): DisplayMessage {
   return {

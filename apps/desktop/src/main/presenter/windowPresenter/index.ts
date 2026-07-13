@@ -1,15 +1,15 @@
 // src\main\presenter\windowPresenter\index.ts
 import { BrowserWindow, shell, nativeImage, ipcMain, screen, webContents as electronWebContents } from "electron";
 import { dirname, join } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import icon from "../../../../resources/icon.png?asset"; // App icon (macOS/Linux)
 import iconWin from "../../../../resources/icon.ico?asset"; // App icon (Windows)
 import { is } from "@electron-toolkit/utils"; // Electron utilities
-import { IConfigPresenter, IWindowPresenter } from "@shared/presenter"; // Window Presenter interface
-import { resolveSettingsNavigationPath, type SettingsNavigationPayload } from "@shared/settingsNavigation";
-import { eventBus } from "@/eventbus"; // Event bus
+import { IConfigPresenter, IWindowPresenter } from "@argos/shared/presenter"; // Window Presenter interface
+import { resolveSettingsNavigationPath, type SettingsNavigationPayload } from "@argos/shared/settingsNavigation";
+import { eventBus } from "#/eventbus"; // Event bus
 import {
   CONFIG_EVENTS,
   DEEPLINK_EVENTS,
@@ -17,17 +17,19 @@ import {
   SHORTCUT_EVENTS,
   SYSTEM_EVENTS,
   WINDOW_EVENTS,
-} from "@/events"; // System/Window/Config/Shortcut event constants
+} from "#/events"; // System/Window/Config/Shortcut event constants
+import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook"; // Local daemon sidecar port
+import { getDevServerBase, resolveUiUrl, waitForDaemonPort } from "#/lib/daemonUi"; // UI URL resolution (dev server / daemon)
 import { presenter } from "../"; // Global presenter registry
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import windowStateManager from "electron-window-state"; // Window state manager
 // TrayPresenter is globally managed in main/index.ts, this Presenter is not responsible for its lifecycle
 import { TabPresenter } from "../tabPresenter"; // TabPresenter type
 import { FloatingChatWindow } from "./FloatingChatWindow"; // Floating chat window
-import type { ProviderInstallPreview } from "@shared/providerDeeplink";
+import type { ProviderInstallPreview } from "@argos/shared/providerDeeplink";
 import { StartupWorkloadCoordinator } from "../startupWorkloadCoordinator";
-import { openExternalUrl } from "@/lib/externalUrl";
-import { activateAppOnMac } from "@/lib/activateApp";
+import { openExternalUrl } from "#/lib/externalUrl";
+import { activateAppOnMac } from "#/lib/activateApp";
 
 type PendingSettingsMessage = {
   channel: string;
@@ -886,17 +888,11 @@ export class WindowPresenter implements IWindowPresenter {
       }
     });
 
-    // --- Load the renderer HTML file ---
-    // Standalone browser renderer has been removed. All windows load the main chat shell.
-    if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-      console.log(`Loading main renderer URL in dev mode: ${process.env["VITE_DEV_SERVER_URL"]}#/chat`);
-      appWindow.loadURL(process.env["VITE_DEV_SERVER_URL"] + "#/chat");
-    } else {
-      console.log(`Loading packaged main renderer file: ${join(__dirname, "../renderer/index.html")}`);
-      appWindow.loadFile(join(__dirname, "../renderer/index.html"), {
-        hash: "/chat",
-      });
-    }
+    // --- Load the UI from the local daemon (served web build) ---
+    // The React UI lives in the standalone @argos/ui package and is served
+    // over HTTP by the daemon sidecar. The desktop shell is just an
+    // Electron window pointing at that URL (CodeNomad-style).
+    void this.loadUiUrl(appWindow, "/#/chat");
 
     // DevTools no longer opens automatically; open it via the menu or a shortcut
     // In dev it auto-opens for easier debugging
@@ -910,6 +906,37 @@ export class WindowPresenter implements IWindowPresenter {
       this.mainWindowId = windowId; // First window becomes the main window
     }
     return windowId; // Return the new window's ID
+  }
+
+  /**
+   * Load a UI route. In development this hits the @argos/ui Vite dev
+   * server; in packaged builds it loads from the local daemon (which
+   * serves the @argos/ui static build). Waits for the daemon port when
+   * packaged so the window navigates once the backend is up.
+   */
+  private async loadUiUrl(window: BrowserWindow, route: string): Promise<void> {
+    if (getDevServerBase()) {
+      const url = resolveUiUrl(route);
+      console.log(`[window] Loading UI route from dev server: ${url}`);
+      try {
+        await window.loadURL(url);
+      } catch (error) {
+        console.error(`[window] Failed to load UI route ${url}:`, error);
+      }
+      return;
+    }
+
+    const port = await waitForDaemonPort(30000);
+    if (getSidecarHandle() && !port) {
+      console.warn("[window] Daemon port unavailable after timeout");
+    }
+    const url = resolveUiUrl(route);
+    console.log(`[window] Loading UI route from daemon: ${url}`);
+    try {
+      await window.loadURL(url);
+    } catch (error) {
+      console.error(`[window] Failed to load UI route ${url}:`, error);
+    }
   }
 
   /**
@@ -1377,16 +1404,9 @@ export class WindowPresenter implements IWindowPresenter {
       ? resolveSettingsNavigationPath(navigation.routeName, navigation.params, process.platform, process.arch)
       : null;
 
-    if (is.dev && process.env["VITE_DEV_SERVER_URL"]) {
-      const settingsUrl = new URL("/settings/index.html", process.env["VITE_DEV_SERVER_URL"]);
-      if (initialNavigationPath) {
-        settingsUrl.hash = initialNavigationPath;
-      }
-      return settingsUrl.toString();
-    }
-
-    const packagedSettingsUrl = pathToFileURL(join(__dirname, "../renderer/settings/index.html")).toString();
-    return initialNavigationPath ? `${packagedSettingsUrl}#${initialNavigationPath}` : packagedSettingsUrl;
+    // dev → @argos/ui Vite dev server; packaged → local daemon (served web build).
+    const settingsUrl = resolveUiUrl("/settings/index.html");
+    return initialNavigationPath ? `${settingsUrl}#${initialNavigationPath}` : settingsUrl;
   }
 
   private flushPendingSettingsMessages(): void {

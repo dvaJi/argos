@@ -1,4 +1,4 @@
-import type { MCPContentItem, ToolCallImagePreview } from "@shared/types/core/mcp";
+import type { MCPContentItem, ToolCallImagePreview } from "@argos/shared/types/core/mcp";
 
 type ImagePreviewInput = {
   data: string;

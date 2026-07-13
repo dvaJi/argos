@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { PendingSessionInputRecord } from "@shared/types/agent-interface";
+import type { PendingSessionInputRecord } from "@argos/shared/types/agent-interface";
 import { EntityIdSchema, SessionStatusSchema, defineEventContract } from "../common";
 import { AcpConfigStateSchema } from "../domainSchemas";
 

@@ -379,7 +379,7 @@ function startupWorkloadStoreMock() {
   };
 }
 
-vi.mock("@/stores/startupWorkloadStore", startupWorkloadStoreMock);
+vi.mock("#/stores/startupWorkloadStore", startupWorkloadStoreMock);
 vi.mock("../src/renderer/src/stores/startupWorkloadStore", startupWorkloadStoreMock);
 
 // Mock @iconify/react

@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
-import { resolveToolOffloadPath } from "@/lib/agentRuntime/sessionPaths";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
+import { resolveToolOffloadPath } from "#/lib/agentRuntime/sessionPaths";
 import { preflightRequestContext } from "./contextBudget";
 
 const TOOL_OUTPUT_OFFLOAD_THRESHOLD = 5000;

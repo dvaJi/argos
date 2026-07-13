@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
+import type { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 
 vi.mock("electron", () => ({
@@ -12,7 +12,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     devicePresenter: {
       cacheImage: vi.fn<(...args: any[]) => any>(),
@@ -20,7 +20,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -33,7 +33,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     PROXY_RESOLVED: "PROXY_RESOLVED",
     PROVIDER_ATOMIC_UPDATE: "PROVIDER_ATOMIC_UPDATE",

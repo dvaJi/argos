@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ArgosBridge } from "@shared/contracts/bridge";
-import { createOnboardingClient } from "../../../src/renderer/api/OnboardingClient";
-import type { GuidedOnboardingState } from "@shared/contracts/routes";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import { createOnboardingClient } from "#api/OnboardingClient";
+import type { GuidedOnboardingState } from "@argos/shared-contracts/routes";
 
 const createState = (): GuidedOnboardingState => ({
   version: 4,

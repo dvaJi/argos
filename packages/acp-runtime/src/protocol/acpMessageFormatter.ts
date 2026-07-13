@@ -1,5 +1,5 @@
 import type * as schema from "@agentclientprotocol/sdk";
-import type { ChatMessage } from "@shared/presenter";
+import type { ChatMessage } from "@argos/shared/presenter";
 
 interface FormatOptions {
   promptCapabilities?: schema.PromptCapabilities;

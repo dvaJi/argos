@@ -1,8 +1,8 @@
-import type { eventBus } from "@/eventbus";
-import { SendTarget } from "@/eventbus";
-import type { IAgentSessionPresenter, IConfigPresenter, ILlmProviderPresenter } from "@shared/presenter";
-import { getArgosEventContract, type ArgosEventPayload, type ArgosEventName } from "@shared/contracts/events";
-import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
+import type { eventBus } from "#/eventbus";
+import { SendTarget } from "#/eventbus";
+import type { IAgentSessionPresenter, IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
+import { getArgosEventContract, type ArgosEventPayload, type ArgosEventName } from "@argos/shared-contracts/events";
+import { ARGOS_EVENT_CHANNEL } from "@argos/shared-contracts/channels";
 import type {
   SessionRepository,
   MessageRepository,

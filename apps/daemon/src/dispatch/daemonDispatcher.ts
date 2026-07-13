@@ -17,8 +17,12 @@ import {
   completeGuidedOnboarding,
   resetGuidedOnboarding,
 } from "@argos/backend-core/dispatch/onboarding/onboardingRouteSupport";
-import type { ChatMessagePageResult, PendingSessionInputRecord, SessionWithState } from "@shared/types/agent-interface";
-import type { IConfigPresenter } from "@shared/presenter";
+import type {
+  ChatMessagePageResult,
+  PendingSessionInputRecord,
+  SessionWithState,
+} from "@argos/shared/types/agent-interface";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
 import type {
   IEventPublisher,
@@ -1882,6 +1886,16 @@ export function createDaemonDispatcher(
     if (route === sessionsCreateRoute.name) {
       const input = sessionsCreateRoute.input.parse(rawInput);
       const session = await runtime.sessionRepository!.create(input, 0);
+      if (input.message.trim() || (input.files?.length ?? 0) > 0) {
+        void runtime.providerExecutionPort
+          .sendMessage(session.id, {
+            text: input.message,
+            files: input.files ?? [],
+          })
+          .catch((error) => {
+            console.error(`[sessions.create] Failed to start initial turn for session=${session.id}:`, error);
+          });
+      }
       return sessionsCreateRoute.output.parse({ session });
     }
 

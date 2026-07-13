@@ -66,7 +66,7 @@ vi.mock("@larksuiteoapi/node-sdk", () => ({
   },
 }));
 
-import { FeishuClient } from "@/presenter/remoteControlPresenter/feishu/feishuClient";
+import { FeishuClient } from "#/presenter/remoteControlPresenter/feishu/feishuClient";
 
 describe("FeishuClient", () => {
   beforeEach(() => {

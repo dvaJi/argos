@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { MarkdownLinkContext } from "@/components/markdown/linkTypes";
+import type { MarkdownLinkContext } from "#/components/markdown/linkTypes";
 
 describe("LinkNode", () => {
   const setup = async (options: { href: string; linkContext?: MarkdownLinkContext }) => {
@@ -25,19 +25,19 @@ describe("LinkNode", () => {
       },
     };
 
-    vi.doMock("@/stores/ui/sidepanel", () => ({
+    vi.doMock("#/stores/ui/sidepanel", () => ({
       useSidepanelStore: () => sidepanelStore,
     }));
 
-    vi.doMock("@/stores/ui/session", () => ({
+    vi.doMock("#/stores/ui/session", () => ({
       useSessionStore: () => sessionStore,
     }));
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: () => ({}),
     }));
 
-    const LinkNode = (await import("@/components/markdown/LinkNode")).default;
+    const LinkNode = (await import("#/components/markdown/LinkNode")).default;
     const result = render(
       <LinkNode
         node={{
@@ -99,11 +99,11 @@ describe("LinkNode", () => {
       selectFile: vi.fn<(...args: any[]) => any>(),
     };
 
-    vi.doMock("@/stores/ui/sidepanel", () => ({
+    vi.doMock("#/stores/ui/sidepanel", () => ({
       useSidepanelStore: () => sidepanelStore,
     }));
 
-    vi.doMock("@/stores/ui/session", () => ({
+    vi.doMock("#/stores/ui/session", () => ({
       useSessionStore: () => ({
         sessions: [],
         activeSessionId: null,
@@ -111,11 +111,11 @@ describe("LinkNode", () => {
       }),
     }));
 
-    vi.doMock("@api/legacy/presenters", () => ({
+    vi.doMock("#api/legacy/presenters", () => ({
       useLegacyPresenter: () => ({}),
     }));
 
-    const LinkNode = (await import("@/components/markdown/LinkNode")).default;
+    const LinkNode = (await import("#/components/markdown/LinkNode")).default;
     render(
       <LinkNode
         node={{

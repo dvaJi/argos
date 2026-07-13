@@ -5,13 +5,13 @@
 
 import { app } from "electron";
 import { optimizer } from "@electron-toolkit/utils";
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { eventBus } from "@/eventbus";
-import { WINDOW_EVENTS, TRAY_EVENTS, FLOATING_BUTTON_EVENTS, SETTINGS_EVENTS } from "@/events";
-import { handleShowHiddenWindow } from "@/utils";
-import { presenter } from "@/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
-import { activateAppOnMac } from "@/lib/activateApp";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { eventBus } from "#/eventbus";
+import { WINDOW_EVENTS, TRAY_EVENTS, FLOATING_BUTTON_EVENTS, SETTINGS_EVENTS } from "#/events";
+import { handleShowHiddenWindow } from "#/utils";
+import { presenter } from "#/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
+import { activateAppOnMac } from "#/lib/activateApp";
 
 export const eventListenerSetupHook: LifecycleHook = {
   name: "event-listener-setup",

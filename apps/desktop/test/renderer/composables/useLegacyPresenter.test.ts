@@ -14,7 +14,7 @@ describe("useLegacyPresenter", () => {
   });
 
   it("preserves undefined properties in object payloads across IPC", async () => {
-    const { useLegacyPresenter } = await import("@api/legacy/presenters");
+    const { useLegacyPresenter } = await import("#api/legacy/presenters");
     const presenter = useLegacyPresenter("agentSessionPresenter");
 
     await presenter.updateSessionGenerationSettings("s1", {
@@ -35,7 +35,7 @@ describe("useLegacyPresenter", () => {
   });
 
   it("returns a stable presenter instance for repeated calls with the same inputs", async () => {
-    const { useLegacyPresenter } = await import("@api/legacy/presenters");
+    const { useLegacyPresenter } = await import("#api/legacy/presenters");
     const firstPresenter = useLegacyPresenter("agentSessionPresenter", { safeCall: true });
     const secondPresenter = useLegacyPresenter("agentSessionPresenter", { safeCall: true });
 
@@ -43,7 +43,7 @@ describe("useLegacyPresenter", () => {
   });
 
   it("returns a stable remote control presenter outside React render paths", async () => {
-    const { useLegacyRemoteControlPresenter } = await import("@api/legacy/presenters");
+    const { useLegacyRemoteControlPresenter } = await import("#api/legacy/presenters");
 
     const firstPresenter = useLegacyRemoteControlPresenter({ safeCall: true });
     const secondPresenter = useLegacyRemoteControlPresenter({ safeCall: true });

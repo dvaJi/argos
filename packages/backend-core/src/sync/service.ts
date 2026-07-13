@@ -1,6 +1,6 @@
 import path from "path";
 import { zipSync } from "fflate";
-import type { SyncBackupInfo, CloudSyncResult } from "@shared/presenter";
+import type { SyncBackupInfo, CloudSyncResult } from "@argos/shared/presenter";
 import { CloudStorageService } from "./cloudStorageService";
 import type { SyncServiceDeps, BackupStatus } from "./types";
 

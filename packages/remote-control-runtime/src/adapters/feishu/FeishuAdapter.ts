@@ -1,7 +1,7 @@
 import type { ChannelAdapterConfig, SendMessageOptions } from "../../types/channel";
 import { ChannelAdapter } from "../../channelAdapter";
 import type { FeishuRuntimeStatusSnapshot, FeishuTransportTarget } from "../../types";
-import type { FeishuBrand } from "@shared/presenter";
+import type { FeishuBrand } from "@argos/shared/presenter";
 import { FeishuAuthGuard } from "../../services/feishuAuthGuard";
 import { RemoteBindingStore } from "../../services/remoteBindingStore";
 import { RemoteConversationRunner } from "../../services/remoteConversationRunner";

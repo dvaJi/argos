@@ -18,7 +18,7 @@ import type {
   ParseContext,
   FormatCapabilities,
   KiroExportOptions,
-} from "@shared/types/skillSync";
+} from "@argos/shared/types/skillSync";
 
 /**
  * Kiro format adapter

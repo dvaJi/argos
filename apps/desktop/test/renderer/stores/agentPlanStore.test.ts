@@ -6,7 +6,7 @@ describe("agentPlanStore", () => {
   });
 
   it("defaults new session progress panels to collapsed and ignores stale snapshots", async () => {
-    const { useAgentPlanStore } = await import("@/stores/ui/agentPlan");
+    const { useAgentPlanStore } = await import("#/stores/ui/agentPlan");
     const store = useAgentPlanStore();
 
     expect(store.isCollapsed("s1")).toBe(true);

@@ -8,11 +8,11 @@ const setupStore = async (options?: { activeAgentSession?: { id: string } | null
     }),
   };
 
-  vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
 
-  const { usePageRouterStore } = await import("@/stores/ui/pageRouter");
+  const { usePageRouterStore } = await import("#/stores/ui/pageRouter");
   const store = usePageRouterStore();
 
   return {
@@ -98,11 +98,11 @@ describe("pageRouter.initialize", () => {
       getActive: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
     };
 
-    vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+    vi.doMock("#api/SessionClient", () => ({
       createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
     }));
 
-    const { usePageRouterStore } = await import("@/stores/ui/pageRouter");
+    const { usePageRouterStore } = await import("#/stores/ui/pageRouter");
     const store = usePageRouterStore();
 
     await store.initialize();

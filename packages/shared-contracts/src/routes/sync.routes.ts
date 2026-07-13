@@ -1,5 +1,5 @@
 import zod from "zod";
-import type { SyncBackupInfo, CloudSyncResult } from "@shared/presenter";
+import type { SyncBackupInfo, CloudSyncResult } from "@argos/shared/presenter";
 import { defineRouteContract } from "../common";
 
 const SyncBackupInfoSchema = zod.custom<SyncBackupInfo>();

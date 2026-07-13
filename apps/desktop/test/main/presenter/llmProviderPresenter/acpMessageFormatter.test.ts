@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AcpMessageFormatter } from "@argos/acp-runtime";
-import type { ChatMessage } from "@shared/presenter";
+import type { ChatMessage } from "@argos/shared/presenter";
 
 describe("AcpMessageFormatter", () => {
   it("formats only the latest user message by default", () => {

@@ -1,19 +1,19 @@
 import type { IpcRendererEvent } from "electron";
-import type { ArgosBridge } from "@shared/contracts/bridge";
-import { ARGOS_EVENT_CHANNEL, ARGOS_ROUTE_INVOKE_CHANNEL } from "@shared/contracts/channels";
+import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import { ARGOS_EVENT_CHANNEL, ARGOS_ROUTE_INVOKE_CHANNEL } from "@argos/shared-contracts/channels";
 import {
   getArgosEventContract,
   hasArgosEventContract,
   type ArgosEventEnvelope,
   type ArgosEventName,
-} from "@shared/contracts/events";
+} from "@argos/shared-contracts/events";
 import {
   getArgosRouteContract,
   hasArgosRouteContract,
   type ArgosRouteInput,
   type ArgosRouteName,
   type ArgosRouteOutput,
-} from "@shared/contracts/routes";
+} from "@argos/shared-contracts/routes";
 
 export type IpcRendererLike = {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>;

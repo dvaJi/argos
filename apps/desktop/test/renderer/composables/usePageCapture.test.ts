@@ -6,14 +6,14 @@ const { captureCurrentAreaMock, stitchImagesWithWatermarkMock, copyImageMock } =
   copyImageMock: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@api/TabClient", () => ({
+vi.mock("#api/TabClient", () => ({
   createTabClient: vi.fn<(...args: any[]) => any>(() => ({
     captureCurrentArea: captureCurrentAreaMock,
     stitchImagesWithWatermark: stitchImagesWithWatermarkMock,
   })),
 }));
 
-vi.mock("@api/DeviceClient", () => ({
+vi.mock("#api/DeviceClient", () => ({
   createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
     copyImage: copyImageMock,
   })),
@@ -31,7 +31,7 @@ describe("usePageCapture", () => {
   });
 
   it("captures the final clipped segment without reporting invalid capture height", async () => {
-    const { usePageCapture } = await import("@/composables/usePageCapture");
+    const { usePageCapture } = await import("#/composables/usePageCapture");
     const consoleErrorSpy = vi.spyOn<(...args: any[]) => any>(console, "error").mockImplementation(() => undefined);
     let scrollTop = 0;
 

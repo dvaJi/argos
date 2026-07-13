@@ -1,4 +1,4 @@
-import type { IConfigPresenter, MCPToolDefinition } from "@shared/presenter";
+import type { IConfigPresenter, MCPToolDefinition } from "@argos/shared/presenter";
 
 export async function getAgentFilteredTools(
   agentId: string,

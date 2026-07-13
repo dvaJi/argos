@@ -1,14 +1,14 @@
 import zod from "zod";
-import type { SearchResult } from "@shared/types/core/search";
+import type { SearchResult } from "@argos/shared/types/core/search";
 import type {
   Agent,
   AgentTransferImpact,
   MessageTraceRecord,
   PendingSessionInputRecord,
   SendMessageInput,
-} from "@shared/types/agent-interface";
-import type { HistorySearchHit } from "@shared/types/presenters/agent-session.presenter";
-import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/agent-interface";
+import type { HistorySearchHit } from "@argos/shared/types/presenters/agent-session.presenter";
+import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import {
   SessionListItemSchema,
   SessionPageCursorSchema,

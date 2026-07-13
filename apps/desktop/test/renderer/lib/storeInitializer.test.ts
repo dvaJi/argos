@@ -20,37 +20,37 @@ describe("initAppStores", () => {
         callOrder.push("providerInitialize");
       }),
     };
-    vi.doMock("@/stores/uiSettingsStore", () => ({
+    vi.doMock("#/stores/uiSettingsStore", () => ({
       useUiSettingsStore: () => uiSettingsStore,
     }));
-    vi.doMock("@/stores/providerStore", () => ({
+    vi.doMock("#/stores/providerStore", () => ({
       useProviderStore: () => providerStore,
     }));
-    vi.doMock("@/stores/startupWorkloadStore", () => ({
+    vi.doMock("#/stores/startupWorkloadStore", () => ({
       useStartupWorkloadStore: () => startupWorkloadStore,
     }));
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => ({}),
     }));
-    vi.doMock("@/stores/ollamaStore", () => ({
+    vi.doMock("#/stores/ollamaStore", () => ({
       useOllamaStore: () => ({}),
     }));
-    vi.doMock("@/stores/mcp", () => ({
+    vi.doMock("#/stores/mcp", () => ({
       useMcpStore: () => ({}),
     }));
-    vi.doMock("@/lib/ipcSubscription", () => ({
+    vi.doMock("#/lib/ipcSubscription", () => ({
       createIpcSubscriptionScope: () => ({
         on: vi.fn<(...args: any[]) => any>(),
         cleanup: vi.fn<(...args: any[]) => any>(),
       }),
     }));
-    vi.doMock("@/events", () => ({
+    vi.doMock("#/events", () => ({
       DEEPLINK_EVENTS: {
         MCP_INSTALL: "mcp-install",
       },
     }));
 
-    const { initAppStores } = await import("@/lib/storeInitializer");
+    const { initAppStores } = await import("#/lib/storeInitializer");
 
     await initAppStores();
 

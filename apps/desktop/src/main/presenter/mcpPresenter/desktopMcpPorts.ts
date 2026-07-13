@@ -1,12 +1,12 @@
 import { app } from "electron";
 import type { McpHostPorts } from "@argos/mcp-runtime";
-import { eventBus, SendTarget } from "@/eventbus";
-import { RuntimeHelper } from "@/lib/runtimeHelper";
-import { proxyConfig } from "@/presenter/proxyConfig";
-import { presenter } from "@/presenter";
-import { getPluginToolPolicy } from "@/presenter/pluginPresenter/toolPolicyStore";
+import { eventBus, SendTarget } from "#/eventbus";
+import { RuntimeHelper } from "#/lib/runtimeHelper";
+import { proxyConfig } from "#/presenter/proxyConfig";
+import { presenter } from "#/presenter";
+import { getPluginToolPolicy } from "#/presenter/pluginPresenter/toolPolicyStore";
 import { getInMemoryServer } from "./inMemoryServers/builder";
-import { NOTIFICATION_EVENTS } from "@/events";
+import { NOTIFICATION_EVENTS } from "#/events";
 
 /**
  * Desktop (Electron main) implementation of the MCP host ports. Bridges the

@@ -5,7 +5,7 @@ import {
   buildRequestContextOverflowErrorMessage,
   getUsableContextLength,
   preflightRequestContext,
-} from "@/presenter/agentRuntimePresenter/contextBudget";
+} from "#/presenter/agentRuntimePresenter/contextBudget";
 
 vi.mock("tokenx", () => ({
   approximateTokenSize: vi.fn<(...args: any[]) => any>((text: string) => text.length),

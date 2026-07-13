@@ -1,4 +1,4 @@
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import {
   completeGuidedOnboarding,
   GUIDED_ONBOARDING_STATE_KEY,
@@ -6,7 +6,7 @@ import {
   resetGuidedOnboarding,
   setGuidedOnboardingStepStatus,
   startGuidedOnboarding,
-} from "@/routes/onboarding/onboardingRouteSupport";
+} from "#/routes/onboarding/onboardingRouteSupport";
 
 describe("onboardingRouteSupport", () => {
   const createConfigPresenter = () => {

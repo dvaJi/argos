@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { QQBotRuntimeStatusSnapshot } from "@/presenter/remoteControlPresenter/types";
+import type { QQBotRuntimeStatusSnapshot } from "#/presenter/remoteControlPresenter/types";
 
 type MockRuntimeDeps = {
   onStatusChange?: (snapshot: QQBotRuntimeStatusSnapshot) => void;
@@ -19,7 +19,7 @@ const clientInstances: Array<{
   sendGroupImage: ReturnType<typeof vi.fn>;
 }> = [];
 
-vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
+vi.mock("#/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
   QQBotRuntime: class MockQQBotRuntime {
     readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
@@ -44,7 +44,7 @@ vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotRuntime", () => ({
   },
 }));
 
-vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotClient", () => ({
+vi.mock("#/presenter/remoteControlPresenter/qqbot/qqbotClient", () => ({
   QQBotClient: class MockQQBotClient {
     readonly sendC2CMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue({
       id: "msg_reply_1",
@@ -65,7 +65,7 @@ vi.mock("@/presenter/remoteControlPresenter/qqbot/qqbotClient", () => ({
   },
 }));
 
-import { QQBotAdapter } from "@/presenter/remoteControlPresenter/adapters/qqbot/QQBotAdapter";
+import { QQBotAdapter } from "#/presenter/remoteControlPresenter/adapters/qqbot/QQBotAdapter";
 
 describe("QQBotAdapter", () => {
   beforeEach(() => {

@@ -1,6 +1,6 @@
 import { WebContents } from "electron";
 import { nanoid } from "nanoid";
-import { BrowserPageStatus, type BrowserPageInfo, type ScreenshotOptions } from "@shared/types/browser";
+import { BrowserPageStatus, type BrowserPageInfo, type ScreenshotOptions } from "@argos/shared/types/browser";
 import { CDPManager } from "./CDPManager";
 import { ScreenshotManager } from "./ScreenshotManager";
 

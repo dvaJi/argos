@@ -6,7 +6,7 @@ describe("providerDeeplinkImportStore", () => {
   });
 
   it("increments preview token for each provider deeplink preview", async () => {
-    const { useProviderDeeplinkImportStore } = await import("@/stores/providerDeeplinkImport");
+    const { useProviderDeeplinkImportStore } = await import("#/stores/providerDeeplinkImport");
     const store = useProviderDeeplinkImportStore();
     const firstPreview = {
       kind: "builtin" as const,

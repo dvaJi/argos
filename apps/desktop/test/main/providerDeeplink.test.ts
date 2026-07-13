@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isProviderInstallCustomType, maskApiKey } from "@shared/providerDeeplink";
+import { isProviderInstallCustomType, maskApiKey } from "@argos/shared/providerDeeplink";
 
 describe("maskApiKey", () => {
   it("fully masks keys with length up to 4", () => {

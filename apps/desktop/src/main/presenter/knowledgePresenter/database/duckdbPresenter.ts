@@ -14,7 +14,7 @@ import {
   KnowledgeFileMessage,
   KnowledgeChunkMessage,
   KnowledgeTaskStatus,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 import { nanoid } from "nanoid";
 import { app } from "electron";

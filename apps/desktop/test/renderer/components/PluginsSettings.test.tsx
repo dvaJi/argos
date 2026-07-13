@@ -8,11 +8,11 @@ const pluginClient = {
   invokeAction: vi.fn<(...args: any[]) => any>(),
 };
 
-vi.mock("@api/PluginClient", () => ({
+vi.mock("#api/PluginClient", () => ({
   createPluginClient: () => pluginClient,
 }));
 
-vi.mock("@/composables/useGuidedOnboardingStep", () => ({
+vi.mock("#/composables/useGuidedOnboardingStep", () => ({
   useGuidedOnboardingStep: () => ({
     showGuide: { value: false },
     stepIndex: { value: 1 },
@@ -23,7 +23,7 @@ vi.mock("@/composables/useGuidedOnboardingStep", () => ({
   }),
 }));
 
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
     focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
@@ -61,7 +61,7 @@ describe("PluginsSettings", () => {
   });
 
   it("shows the settings action for a disabled plugin with a settings contribution", async () => {
-    const PluginsSettings = (await import("../../../src/renderer/settings/components/PluginsSettings")).default;
+    const PluginsSettings = (await import("#settings/components/PluginsSettings")).default;
 
     const { container } = render(<PluginsSettings />);
 
@@ -72,7 +72,7 @@ describe("PluginsSettings", () => {
   });
 
   it("opens plugin settings without enabling the plugin first", async () => {
-    const PluginsSettings = (await import("../../../src/renderer/settings/components/PluginsSettings")).default;
+    const PluginsSettings = (await import("#settings/components/PluginsSettings")).default;
 
     const { container } = render(<PluginsSettings />);
 

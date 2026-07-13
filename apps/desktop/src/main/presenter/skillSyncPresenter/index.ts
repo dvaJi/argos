@@ -22,14 +22,14 @@ import type {
   ExternalSkillInfo,
   ScanCache,
   NewDiscovery,
-} from "@shared/types/skillSync";
-import { ConflictStrategy } from "@shared/types/skillSync";
-import type { ISkillPresenter, IConfigPresenter } from "@shared/presenter";
+} from "@argos/shared/types/skillSync";
+import { ConflictStrategy } from "@argos/shared/types/skillSync";
+import type { ISkillPresenter, IConfigPresenter } from "@argos/shared/presenter";
 import { toolScanner, resolveSkillsDir } from "./toolScanner";
 import { formatConverter } from "./formatConverter";
 import type { SyncContext } from "./types";
-import { eventBus, SendTarget } from "@/eventbus";
-import { SKILL_SYNC_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { SKILL_SYNC_EVENTS } from "#/events";
 import { isValidToolId, isValidConflictStrategy, checkWritePermission } from "./security";
 import { scanAndDetectDiscoveriesInWorker, scanExternalToolsInWorker } from "./scanWorker";
 

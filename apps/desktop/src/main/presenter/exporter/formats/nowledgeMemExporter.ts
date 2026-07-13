@@ -1,7 +1,7 @@
-import { AssistantMessageBlock, Message, UserMessageContent } from "@shared/chat";
-import { CONVERSATION } from "@shared/presenter";
+import { AssistantMessageBlock, Message, UserMessageContent } from "@argos/shared/chat";
+import { CONVERSATION } from "@argos/shared/presenter";
 import { getNormalizedUserMessageText } from "../../sessionPresenter/messageFormatter";
-import { NowledgeMemMessage, NowledgeMemThread } from "@shared/types/nowledgeMem";
+import { NowledgeMemMessage, NowledgeMemThread } from "@argos/shared/types/nowledgeMem";
 
 export function generateNowledgeMemExportFilename(conversation: CONVERSATION, timestamp: Date = new Date()): string {
   const safeTitle = conversation.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "_").substring(0, 50);

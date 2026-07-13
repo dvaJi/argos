@@ -9,13 +9,13 @@ import {
   type FloatingWidgetDockSide,
   type WidgetRect,
 } from "./layout";
-import type { FloatingWidgetSnapshot } from "@shared/types/floating-widget";
-import type { Agent, SessionWithState } from "@shared/types/agent-interface";
+import type { FloatingWidgetSnapshot } from "@argos/shared/types/floating-widget";
+import type { Agent, SessionWithState } from "@argos/shared/types/agent-interface";
 import { BrowserWindow, ipcMain, Menu, app, screen } from "electron";
-import { FLOATING_BUTTON_EVENTS } from "@/events";
+import { FLOATING_BUTTON_EVENTS } from "#/events";
 import { presenter } from "../index";
-import { IConfigPresenter } from "@shared/presenter";
-import { FLOATING_BUTTON_AVAILABLE } from "@shared/featureFlags";
+import { IConfigPresenter } from "@argos/shared/presenter";
+import { FLOATING_BUTTON_AVAILABLE } from "@argos/shared/featureFlags";
 
 const EMPTY_SNAPSHOT: FloatingWidgetSnapshot = {
   expanded: false,

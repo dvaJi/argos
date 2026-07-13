@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@shared/presenter";
+import type { ChatMessage } from "@argos/shared/presenter";
 import { generateId } from "ai";
 import { jsonrepair } from "jsonrepair";
 

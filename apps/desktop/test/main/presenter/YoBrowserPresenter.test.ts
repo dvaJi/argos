@@ -169,7 +169,7 @@ describe("YoBrowserPresenter", () => {
       };
     });
 
-    vi.doMock("@shared/logger", () => ({
+    vi.doMock("@argos/shared/logger", () => ({
       default: {
         info: vi.fn<(...args: any[]) => any>(),
         warn: vi.fn<(...args: any[]) => any>(),
@@ -177,7 +177,7 @@ describe("YoBrowserPresenter", () => {
       },
     }));
 
-    vi.doMock("@/eventbus", () => ({
+    vi.doMock("#/eventbus", () => ({
       eventBus: {
         sendToRenderer: sendToRendererMock,
       },
@@ -186,7 +186,7 @@ describe("YoBrowserPresenter", () => {
       },
     }));
 
-    vi.doMock("@/events", () => ({
+    vi.doMock("#/events", () => ({
       YO_BROWSER_EVENTS: {
         OPEN_REQUESTED: "yo-browser:open-requested",
         WINDOW_CREATED: "yo-browser:window-created",
@@ -198,18 +198,18 @@ describe("YoBrowserPresenter", () => {
       },
     }));
 
-    vi.doMock("@/presenter/browser/DownloadManager", () => ({
+    vi.doMock("#/presenter/browser/DownloadManager", () => ({
       DownloadManager: class {
         downloadFile = vi.fn<(...args: any[]) => any>();
       },
     }));
 
-    vi.doMock("@/presenter/browser/yoBrowserSession", () => ({
+    vi.doMock("#/presenter/browser/yoBrowserSession", () => ({
       getYoBrowserSession: () => ({}),
       clearYoBrowserSessionData: vi.fn<(...args: any[]) => any>(),
     }));
 
-    vi.doMock("@/presenter/browser/YoBrowserOverlayWindow", () => ({
+    vi.doMock("#/presenter/browser/YoBrowserOverlayWindow", () => ({
       YoBrowserOverlayWindow: class {
         updateBounds = overlayUpdateBoundsMock;
         sendActivity = overlaySendActivityMock;
@@ -218,7 +218,7 @@ describe("YoBrowserPresenter", () => {
       },
     }));
 
-    const { YoBrowserPresenter } = await import("@/presenter/browser/YoBrowserPresenter");
+    const { YoBrowserPresenter } = await import("#/presenter/browser/YoBrowserPresenter");
 
     const windowPresenter = {
       show: vi.fn<(...args: any[]) => any>((windowId: number) => {

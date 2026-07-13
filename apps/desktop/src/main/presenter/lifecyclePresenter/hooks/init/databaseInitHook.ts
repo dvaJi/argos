@@ -3,10 +3,10 @@
  * This hook initializes the database and makes it available to other components
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
 import { DatabaseInitializer } from "../../DatabaseInitializer";
-import { LifecyclePhase } from "@shared/lifecycle";
-import { DatabaseSecurityPresenter } from "@/presenter/databaseSecurityPresenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
+import { DatabaseSecurityPresenter } from "#/presenter/databaseSecurityPresenter";
 
 export const databaseInitHook: LifecycleHook = {
   name: "database-initialization",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { extractToolCallImagePreviews } from "@/lib/toolCallImagePreviews";
+import { extractToolCallImagePreviews } from "#/lib/toolCallImagePreviews";
 
 describe("extractToolCallImagePreviews", () => {
   it("extracts and caches MCP structured image output", async () => {

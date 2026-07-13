@@ -27,8 +27,7 @@
       "@argos/backend-core/*": ["../../packages/backend-core/src/*"],
       "@argos/shared-contracts": ["../../packages/shared-contracts/src"],
       "@argos/shared-contracts/*": ["../../packages/shared-contracts/src/*"],
-      "@shared/contracts/*": ["../../packages/shared-contracts/src/*"],
-      "@shared/*": ["../../packages/shared/src/*"]
+      "@argos/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src/**/*"]

@@ -1,7 +1,7 @@
 import path from "path";
 import { clipboard, contextBridge, nativeImage, webUtils, webFrame, ipcRenderer, shell } from "electron";
 import { exposeElectronAPI } from "@electron-toolkit/preload";
-import { normalizeExternalUrl } from "@shared/externalUrl";
+import { normalizeExternalUrl } from "@argos/shared/externalUrl";
 import {
   type WorkspaceEntry,
   LOCAL_WORKSPACE_ID,
@@ -9,7 +9,7 @@ import {
   writeWorkspaceConfig,
   notifyWorkspaceConfigChanged,
   buildRemoteWsUrl as buildWsUrl,
-} from "@shared/workspaceConfig";
+} from "@argos/shared/workspaceConfig";
 import { createBridge } from "./createBridge";
 import { HybridBridge } from "./hybridBridge";
 import { WebSocketBridge } from "@argos/client-sdk";

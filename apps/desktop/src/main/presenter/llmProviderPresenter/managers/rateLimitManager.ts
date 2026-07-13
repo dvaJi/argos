@@ -1,6 +1,6 @@
-import { RATE_LIMIT_EVENTS } from "@/events";
-import { eventBus, SendTarget } from "@/eventbus";
-import { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
+import { RATE_LIMIT_EVENTS } from "#/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import {
   ExecuteWithRateLimitOptions,
   ProviderRateLimitState,

@@ -1,5 +1,5 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
 import type { StoreLike } from "@argos/backend-core";
 
 type SetSetting = <T>(key: string, value: T) => void;

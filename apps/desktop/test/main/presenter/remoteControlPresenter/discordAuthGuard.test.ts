@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DiscordAuthGuard } from "@/presenter/remoteControlPresenter/services/discordAuthGuard";
+import { DiscordAuthGuard } from "#/presenter/remoteControlPresenter/services/discordAuthGuard";
 
 const createMessage = (overrides: Partial<Parameters<DiscordAuthGuard["ensureAuthorized"]>[0]> = {}) => ({
   kind: "message" as const,

@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import ElectronStore from "electron-store";
 import { unzipSync } from "fflate";
-import type { IConfigPresenter, IMCPPresenter, ISkillPresenter, MCPServerConfig } from "@shared/presenter";
+import type { IConfigPresenter, IMCPPresenter, ISkillPresenter, MCPServerConfig } from "@argos/shared/presenter";
 import type {
   ArgosPluginManifest,
   PluginActionResult,
@@ -20,8 +20,8 @@ import type {
   PluginRuntimeStatus,
   PluginSettingsContribution,
   RuntimeDependencyRecord,
-} from "@shared/types/plugin";
-import { OFFICIAL_PLUGIN_SOURCE } from "@shared/types/plugin";
+} from "@argos/shared/types/plugin";
+import { OFFICIAL_PLUGIN_SOURCE } from "@argos/shared/types/plugin";
 import { registerPluginToolPolicy, unregisterPluginToolPolicies } from "./toolPolicyStore";
 
 const execFileAsync = promisify(execFile);

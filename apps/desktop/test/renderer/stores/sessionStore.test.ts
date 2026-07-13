@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "@/lib/onboardingResume";
+import { GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT, GUIDED_ONBOARDING_RESUME_STORAGE_KEY } from "#/lib/onboardingResume";
 
 type SessionListTestItem = {
   id: string;
@@ -253,31 +253,31 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
     }),
   };
 
-  vi.doMock("../../../src/renderer/api/ConfigClient", () => ({
+  vi.doMock("#api/ConfigClient", () => ({
     createConfigClient: vi.fn<(...args: any[]) => any>(() => configClient),
   }));
-  vi.doMock("../../../src/renderer/api/OnboardingClient", () => ({
+  vi.doMock("#api/OnboardingClient", () => ({
     createOnboardingClient: vi.fn<(...args: any[]) => any>(() => onboardingClient),
   }));
-  vi.doMock("../../../src/renderer/api/SessionClient", () => ({
+  vi.doMock("#api/SessionClient", () => ({
     createSessionClient: vi.fn<(...args: any[]) => any>(() => sessionClient),
   }));
-  vi.doMock("../../../src/renderer/api/ChatClient", () => ({
+  vi.doMock("#api/ChatClient", () => ({
     createChatClient: vi.fn<(...args: any[]) => any>(() => chatClient),
   }));
-  vi.doMock("@api/TabClient", () => ({
+  vi.doMock("#api/TabClient", () => ({
     createTabClient: vi.fn<(...args: any[]) => any>(() => tabClient),
   }));
 
-  vi.doMock("@/stores/ui/pageRouter", () => ({
+  vi.doMock("#/stores/ui/pageRouter", () => ({
     usePageRouterStore: () => pageRouter,
   }));
-  vi.doMock("@/stores/ui/agent", () => ({
+  vi.doMock("#/stores/ui/agent", () => ({
     useAgentStore: () => agentStore,
   }));
   const clearStreamingState = vi.fn<(...args: any[]) => any>();
   const setCurrentSessionId = vi.fn<(...args: any[]) => any>();
-  vi.doMock("@/stores/ui/message", () => ({
+  vi.doMock("#/stores/ui/message", () => ({
     useMessageStore: () => ({
       clearStreamingState,
       loadMessages: vi.fn<(...args: any[]) => any>(),
@@ -288,7 +288,7 @@ const setupStore = async (options: SetupStoreOptions = {}) => {
     getWebContentsId: vi.fn<(...args: any[]) => any>(() => 1),
   };
 
-  const { useSessionStore } = await import("@/stores/ui/session");
+  const { useSessionStore } = await import("#/stores/ui/session");
   const store = useSessionStore();
   const emitSessionUpdate = (payload: unknown) => {
     for (const handler of sessionListeners) {

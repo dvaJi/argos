@@ -14,14 +14,14 @@ const presenterMocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: eventBusMocks,
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   MCP_EVENTS: {
     CLIENT_LIST_UPDATED: "client-list-updated",
     CONFIG_CHANGED: "config-changed",
@@ -32,7 +32,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: presenterMocks,
 }));
 

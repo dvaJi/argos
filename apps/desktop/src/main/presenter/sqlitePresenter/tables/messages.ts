@@ -1,6 +1,6 @@
 import { Database } from "better-sqlite3-multiple-ciphers";
 import { BaseTable } from "./baseTable";
-import { SQLITE_MESSAGE } from "@shared/presenter";
+import { SQLITE_MESSAGE } from "@argos/shared/presenter";
 import { nanoid } from "nanoid";
 
 export class MessagesTable extends BaseTable {

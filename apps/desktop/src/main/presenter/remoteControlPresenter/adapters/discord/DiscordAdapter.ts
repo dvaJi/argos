@@ -8,7 +8,7 @@ import { DiscordCommandRouter } from "../../services/discordCommandRouter";
 import { DiscordClient } from "../../discord/discordClient";
 import { DiscordParser } from "../../discord/discordParser";
 import { DiscordRuntime } from "../../discord/discordRuntime";
-import logger from "@shared/logger";
+import logger from "@argos/shared/logger";
 
 const DEFAULT_STATUS: DiscordRuntimeStatusSnapshot = {
   state: "stopped",

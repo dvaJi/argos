@@ -1,4 +1,4 @@
-import type { LLM_PROVIDER, MCPServerConfig, ModelScopeMcpSyncOptions } from "@shared/presenter";
+import type { LLM_PROVIDER, MCPServerConfig, ModelScopeMcpSyncOptions } from "@argos/shared/presenter";
 
 export interface ModelScopeMcpServerResponse {
   code: number;

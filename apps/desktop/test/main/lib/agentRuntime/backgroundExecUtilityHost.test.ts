@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getParentPortMessagePayload } from "@/lib/agentRuntime/backgroundExecUtilityHost";
-import type { BackgroundExecRpcRequest } from "@/lib/agentRuntime/backgroundExecSessionManager";
+import { getParentPortMessagePayload } from "#/lib/agentRuntime/backgroundExecUtilityHost";
+import type { BackgroundExecRpcRequest } from "#/lib/agentRuntime/backgroundExecSessionManager";
 
 describe("backgroundExecUtilityHost", () => {
   const request: BackgroundExecRpcRequest = {

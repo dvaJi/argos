@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { useMessageCapture } from "@/composables/message/useMessageCapture";
+import { useMessageCapture } from "#/composables/message/useMessageCapture";
 
-vi.mock("@/composables/usePageCapture", () => ({
+vi.mock("#/composables/usePageCapture", () => ({
   usePageCapture: () => ({
     isCapturing: { value: false },
     captureAndCopy: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
 }));
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: (name: string) => {
     if (name === "devicePresenter") {
       return { getAppVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("1.0.0") };
@@ -15,7 +15,7 @@ vi.mock("@api/legacy/presenters", () => ({
     return {};
   },
 }));
-vi.mock("@/stores/theme", () => ({
+vi.mock("#/stores/theme", () => ({
   useThemeStore: () => ({
     isDark: false,
   }),

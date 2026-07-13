@@ -142,11 +142,11 @@ vi.mock("@electron-toolkit/preload", () => ({
   exposeElectronAPI: vi.fn(),
 }));
 
-vi.mock("@shared/externalUrl", () => ({
+vi.mock("@argos/shared/externalUrl", () => ({
   normalizeExternalUrl: (url: string) => url,
 }));
 
-vi.mock("@shared/workspaceConfig", () => ({
+vi.mock("@argos/shared/workspaceConfig", () => ({
   LOCAL_WORKSPACE_ID: "local",
   readWorkspaceConfig: () => state.workspaceConfig,
   writeWorkspaceConfig: vi.fn(),
@@ -154,7 +154,7 @@ vi.mock("@shared/workspaceConfig", () => ({
   buildRemoteWsUrl: (remoteUrl: string) => `ws://${remoteUrl.replace(/^https?:\/\//, "")}`,
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   DAEMON_EVENTS: {
     SIDECAR_PORT_ASSIGNED: "daemon.sidecar.portAssigned",
     SIDECAR_STATUS_CHANGED: "daemon.sidecar.statusChanged",

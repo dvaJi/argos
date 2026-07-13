@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CONFIG_EVENTS } from "../../../../src/main/events";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     send: vi.fn<(...args: any[]) => any>(),
@@ -15,7 +15,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {},
 }));
 
@@ -38,7 +38,7 @@ import {
   getDeprecatedProviderModelSelectionKeysToClear,
   removeDeprecatedBuiltinProviders,
 } from "../../../../src/main/presenter/configPresenter";
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 
 const createProvider = (id: string): LLM_PROVIDER => ({
   id,

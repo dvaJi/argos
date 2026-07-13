@@ -11,9 +11,9 @@ import type {
   ModelConfig,
   ModelConfigSource,
   OllamaModel,
-} from "@shared/presenter";
-import { normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
-import type { Agent } from "@shared/types/agent-interface";
+} from "@argos/shared/presenter";
+import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
+import type { Agent } from "@argos/shared/types/agent-interface";
 import { DaemonAcpConfig } from "./daemonAcpConfig";
 
 /** Minimal SQLite surface for the `model_status` table. */
@@ -25,8 +25,8 @@ export interface ModelStatusDb {
   };
 }
 import { DaemonMcpConfig } from "./daemonMcpConfig";
-import { ModelType } from "@shared/model";
-import type { ScheduledTasksSettings } from "@shared/scheduledTasks";
+import { ModelType } from "@argos/shared/model";
+import type { ScheduledTasksSettings } from "@argos/shared/scheduledTasks";
 import type { ArgosAgentRuntime } from "@argos/agent-runtime";
 
 type Store = Record<string, unknown>;

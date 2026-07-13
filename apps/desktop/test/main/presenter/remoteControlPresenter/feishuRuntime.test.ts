@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { FeishuRuntime } from "@/presenter/remoteControlPresenter/feishu/feishuRuntime";
+import { FeishuRuntime } from "#/presenter/remoteControlPresenter/feishu/feishuRuntime";
 import {
   FEISHU_CONVERSATION_POLL_TIMEOUT_MS,
   FEISHU_OUTBOUND_TEXT_LIMIT,
   TELEGRAM_STREAM_POLL_INTERVAL_MS,
   type FeishuInboundMessage,
-} from "@/presenter/remoteControlPresenter/types";
+} from "#/presenter/remoteControlPresenter/types";
 
 const createParsedMessage = (overrides: Partial<FeishuInboundMessage> = {}): FeishuInboundMessage => ({
   kind: "message" as const,

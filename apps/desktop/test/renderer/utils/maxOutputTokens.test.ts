@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateSafeDefaultMaxTokens, GLOBAL_OUTPUT_TOKEN_MAX } from "@/utils/maxOutputTokens";
+import { calculateSafeDefaultMaxTokens, GLOBAL_OUTPUT_TOKEN_MAX } from "#/utils/maxOutputTokens";
 
 describe("calculateSafeDefaultMaxTokens", () => {
   describe("base cases", () => {

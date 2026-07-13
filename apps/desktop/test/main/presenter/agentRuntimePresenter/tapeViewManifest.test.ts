@@ -8,8 +8,8 @@ import {
   stableJsonStringify,
   resolveTapeViewManifestPolicy,
   type TapeViewContextSelection,
-} from "@/presenter/agentRuntimePresenter/tapeViewManifest";
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+} from "#/presenter/agentRuntimePresenter/tapeViewManifest";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 
 function makeRecord(overrides: Partial<ChatMessageRecord> = {}): ChatMessageRecord {
   return {

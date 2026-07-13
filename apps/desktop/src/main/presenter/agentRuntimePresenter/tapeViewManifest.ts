@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
-import type { ChatMessage } from "@shared/types/core/chat-message";
-import type { MCPToolDefinition } from "@shared/types/core/mcp";
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 import type {
   ArgosTapeViewEntryRef,
   ArgosTapeViewExcludedRef,
@@ -9,7 +9,7 @@ import type {
   ArgosTapeViewPolicy,
   ArgosTapeViewTaskType,
   ArgosTapeViewTokenBudget,
-} from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/tape-view-manifest";
 import { estimateMessagesTokens } from "./contextBuilder";
 
 export const TAPE_VIEW_MANIFEST_EVENT_NAME = "view/assembled";

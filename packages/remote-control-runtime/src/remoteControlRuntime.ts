@@ -1,4 +1,4 @@
-import { resolveAcpAgentAlias } from "@shared/utils/acpAgentAlias";
+import { resolveAcpAgentAlias } from "@argos/shared/utils/acpAgentAlias";
 import logger from "./logger";
 import type {
   ChannelSettingsMap,
@@ -24,7 +24,7 @@ import type {
   TelegramRemoteBindingSummary,
   TelegramRemoteSettings,
   TelegramRemoteStatus,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 import {
   DISCORD_REMOTE_DEFAULT_AGENT_ID,
   QQBOT_REMOTE_DEFAULT_AGENT_ID,
@@ -45,7 +45,7 @@ import {
   type WeixinIlinkRuntimeStatusSnapshot,
 } from "./types";
 import type { ChannelAdapterConfig } from "./types/channel";
-import { REMOTE_CONTROL_ERROR_MESSAGES } from "@shared/contracts/remoteControlErrors";
+import { REMOTE_CONTROL_ERROR_MESSAGES } from "@argos/shared-contracts/remoteControlErrors";
 import type { RemoteControlRuntimePorts } from "./ports";
 import { RemoteBindingStore } from "./services/remoteBindingStore";
 import { RemoteConversationRunner, setRuntimeDataDir } from "./services/remoteConversationRunner";

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nanoid } from "nanoid";
-import { ArgosPendingInputStore } from "@/presenter/agentRuntimePresenter/pendingInputStore";
-import type { ArgosPendingInputRow } from "@/presenter/sqlitePresenter/tables/argosPendingInputs";
+import { ArgosPendingInputStore } from "#/presenter/agentRuntimePresenter/pendingInputStore";
+import type { ArgosPendingInputRow } from "#/presenter/sqlitePresenter/tables/argosPendingInputs";
 
 vi.mock("nanoid", () => ({
   nanoid: vi.fn<(...args: any[]) => any>(),

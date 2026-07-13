@@ -4,22 +4,22 @@ import os from "os";
 import path from "path";
 import { app } from "electron";
 import { approximateTokenSize } from "tokenx";
-import type { InterleavedReasoningConfig, IoParams, StreamState } from "@/presenter/agentRuntimePresenter/types";
-import { createState } from "@/presenter/agentRuntimePresenter/types";
-import { estimateMessagesTokens } from "@/presenter/agentRuntimePresenter/contextBuilder";
-import type { MCPToolDefinition } from "@shared/presenter";
-import type { IToolPresenter } from "@shared/types/presenters/tool.presenter";
-import { ToolOutputGuard } from "@/presenter/agentRuntimePresenter/toolOutputGuard";
-import { QUESTION_TOOL_NAME } from "@/lib/agentRuntime/questionTool";
-import { ARGOS_EVENT_CHANNEL } from "@shared/contracts/channels";
-import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
+import type { InterleavedReasoningConfig, IoParams, StreamState } from "#/presenter/agentRuntimePresenter/types";
+import { createState } from "#/presenter/agentRuntimePresenter/types";
+import { estimateMessagesTokens } from "#/presenter/agentRuntimePresenter/contextBuilder";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import type { IToolPresenter } from "@argos/shared/types/presenters/tool.presenter";
+import { ToolOutputGuard } from "#/presenter/agentRuntimePresenter/toolOutputGuard";
+import { QUESTION_TOOL_NAME } from "#/lib/agentRuntime/questionTool";
+import { ARGOS_EVENT_CHANNEL } from "@argos/shared-contracts/channels";
+import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@argos/shared/agentImageGenerationTool";
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: { sendToRenderer: vi.fn<(...args: any[]) => any>() },
   SendTarget: { ALL_WINDOWS: "all" },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   STREAM_EVENTS: {
     RESPONSE: "stream:response",
     END: "stream:end",
@@ -27,7 +27,7 @@ vi.mock("@/events", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     commandPermissionService: {
       extractCommandSignature: vi.fn<(...args: any[]) => any>().mockReturnValue("mock-signature"),
@@ -45,10 +45,10 @@ import {
   executeTools as executeToolsInternal,
   finalize,
   finalizeError,
-} from "@/presenter/agentRuntimePresenter/dispatch";
-import type { EchoHandle } from "@/presenter/agentRuntimePresenter/echo";
-import { accumulate } from "@/presenter/agentRuntimePresenter/accumulator";
-import { eventBus } from "@/eventbus";
+} from "#/presenter/agentRuntimePresenter/dispatch";
+import type { EchoHandle } from "#/presenter/agentRuntimePresenter/echo";
+import { accumulate } from "#/presenter/agentRuntimePresenter/accumulator";
+import { eventBus } from "#/eventbus";
 
 function createIo(overrides?: Partial<IoParams>): IoParams {
   return {

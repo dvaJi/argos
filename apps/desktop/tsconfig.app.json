@@ -1,23 +1,24 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/**/*",
-    "src/renderer/src/**/*.tsx",
-    "src/renderer/src/assets/**/*",
-    "src/renderer/floating/env.d.ts",
-    "src/renderer/floating/**/*",
-    "src/renderer/floating/**/*.tsx",
-    "src/renderer/floating/assets/**/*",
-    "src/renderer/splash/**/*",
-    "src/renderer/splash/**/*.tsx",
-    "src/renderer/splash/assets/**/*",
-    "src/preload/*.d.ts",
-    "src/renderer/api/**/*",
-    "src/shared/**/*",
-    "src/shadcn/**/*",
-    "src/renderer/settings/**/*",
-    "src/renderer/settings/**/*.tsx"
+    "../../packages/ui/src/env.d.ts",
+    "../../packages/ui/src/**/*",
+    "../../packages/ui/src/**/*.tsx",
+    "../../packages/ui/src/assets/**/*",
+    "../../packages/ui/floating/env.d.ts",
+    "../../packages/ui/floating/**/*",
+    "../../packages/ui/floating/**/*.tsx",
+    "../../packages/ui/splash/**/*",
+    "../../packages/ui/splash/**/*.tsx",
+    "../../packages/ui/browser-overlay/**/*",
+    "../../packages/ui/browser-overlay/**/*.tsx",
+    "../../packages/ui/settings/**/*",
+    "../../packages/ui/settings/**/*.tsx",
+    "../../packages/ui/web/**/*",
+    "../../packages/ui/web/**/*.tsx",
+    "../../packages/ui/api/**/*",
+    "../../packages/ui/shadcn/**/*",
+    "../../packages/ui/components/**/*"
   ],
   "compilerOptions": {
     "module": "esnext",
@@ -29,26 +30,23 @@
     "types": ["node"],
     "jsx": "react-jsx",
     "paths": {
-      "@/*": [
-        "./src/renderer/src/*"
+      "#/*": [
+        "../../packages/ui/src/*"
       ],
-      "@api/*": [
-        "./src/renderer/api/*"
-      ],
-      "@shared/contracts/*": [
-        "../../packages/shared-contracts/src/*"
+      "#api/*": [
+        "../../packages/ui/api/*"
       ],
       "@argos/shared-contracts/*": [
         "../../packages/shared-contracts/src/*"
       ],
-      "@shared/*": [
+      "@argos/shared/*": [
         "../../packages/shared/src/*"
       ],
-      "@shadcn/*": [
-        "./src/shadcn/*"
+      "#shadcn/*": [
+        "../../packages/ui/shadcn/*"
       ],
-      "@settings/*": [
-        "./src/renderer/settings/*"
+      "#settings/*": [
+        "../../packages/ui/settings/*"
       ]
     }
   }

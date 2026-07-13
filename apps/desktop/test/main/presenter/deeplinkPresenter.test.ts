@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEEPLINK_EVENTS, NOTIFICATION_EVENTS, SETTINGS_EVENTS } from "@/events";
+import { DEEPLINK_EVENTS, NOTIFICATION_EVENTS, SETTINGS_EVENTS } from "#/events";
 
 const browserWindowFromIdMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const electronAppMock = vi.hoisted(() => ({
@@ -38,11 +38,11 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: presenterMock,
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: eventBusMock,
   SendTarget: {
     ALL_WINDOWS: "all_windows",
@@ -84,7 +84,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes start deeplink to a chat window even when settings is focused", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const chatWindow = {
       id: 1,
@@ -122,7 +122,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes no-slash start deeplinks to a chat window", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const chatWindow = {
       id: 1,
@@ -152,7 +152,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes MCP imports through settings IPC instead of localStorage injection", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       mcpServers: {
@@ -188,7 +188,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("stores no-slash MCP install deeplinks until MCP is ready", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       mcpServers: {
@@ -208,7 +208,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes built-in provider imports to settings and stores the preview for replay", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       id: "openai",
@@ -237,7 +237,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes custom provider imports to settings and stores the preview for replay", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       name: "My Proxy",
@@ -263,7 +263,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("routes no-slash provider imports to settings and stores the preview for replay", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       name: "My Proxy",
@@ -286,7 +286,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("rejects invalid provider payloads and emits an error notification", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       id: "openai",
@@ -311,7 +311,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("rejects provider payloads with missing base64 padding", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const validBase64 = createProviderInstallBase64({
       id: "openai",
@@ -326,7 +326,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("rejects provider payloads with invalid base64 characters", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const validBase64 = createProviderInstallBase64({
       id: "openai",
@@ -341,7 +341,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("rejects truncated provider base64 payloads before JSON parsing", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const validBase64 = createProviderInstallBase64({
       id: "openai",
@@ -356,7 +356,7 @@ describe("DeeplinkPresenter", () => {
   });
 
   it("redacts sensitive provider deeplink values in logs", async () => {
-    const { DeeplinkPresenter } = await import("@/presenter/deeplinkPresenter");
+    const { DeeplinkPresenter } = await import("#/presenter/deeplinkPresenter");
     const deeplinkPresenter = new DeeplinkPresenter();
     const payload = {
       id: "openai",

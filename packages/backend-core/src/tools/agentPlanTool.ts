@@ -1,7 +1,7 @@
 import zod from "zod";
-import type { MCPToolDefinition } from "@shared/presenter";
-import type { AgentToolProgressUpdate } from "@shared/types/presenters/tool.presenter";
-import type { AgentPlanState, AgentPlanSnapshot, UpdatePlanArgs } from "@shared/types/agent-plan";
+import type { MCPToolDefinition } from "@argos/shared/presenter";
+import type { AgentToolProgressUpdate } from "@argos/shared/types/presenters/tool.presenter";
+import type { AgentPlanState, AgentPlanSnapshot, UpdatePlanArgs } from "@argos/shared/types/agent-plan";
 
 export const UPDATE_PLAN_TOOL_NAME = "update_plan";
 export const AGENT_CORE_TOOL_SERVER_NAME = "agent-core";

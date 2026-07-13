@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { HybridBridge } from "../../../src/preload/hybridBridge";
-import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@shared/contracts/connection";
+import { CONNECTION_STATE_DEFAULT, type ConnectionState } from "@argos/shared-contracts/connection";
 const noopBridge = {
   invoke: vi.fn<() => Promise<unknown>>(),
   on: vi.fn<() => () => void>(() => () => {}),
@@ -97,7 +97,7 @@ describe("HybridBridge connection state", () => {
     });
   });
 
-  it("routes daemon-owned invokes through the WebSocket bridge once attached", async () => {
+  it("routes daemon-owned invokes through the WebSocket bridge once connected", async () => {
     const ipcInvoke = vi.fn(() => Promise.resolve({ from: "ipc" }));
     const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
     const bridge = new HybridBridge({
@@ -110,7 +110,7 @@ describe("HybridBridge connection state", () => {
         connect: vi.fn(() => Promise.resolve()),
         close: vi.fn(),
         getUrl: () => "ws://test:1/api/v1/events",
-        isConnected: () => false,
+        isConnected: () => true,
         onConnectionStateChange: vi.fn(() => () => {}),
         invoke: wsInvoke,
         on: vi.fn(() => () => {}),
@@ -124,8 +124,41 @@ describe("HybridBridge connection state", () => {
     expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
+  it("waits for the initial daemon connection before invoking a route", async () => {
+    const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
+    let connected = false;
+    let finishConnection: (() => void) | undefined;
+    const bridge = new HybridBridge(noopBridge);
+    bridge.setWsBridge(
+      {
+        close: vi.fn(),
+        getUrl: () => "ws://test:1/api/v1/events",
+        isConnected: () => connected,
+        onConnectionStateChange: vi.fn(() => () => {}),
+        invoke: wsInvoke,
+        on: vi.fn(() => () => {}),
+      } as any,
+      "local",
+    );
+    bridge.setPendingBridgeConnection(
+      new Promise<void>((resolve) => {
+        finishConnection = () => {
+          connected = true;
+          resolve();
+        };
+      }) as any,
+    );
+
+    const invoke = bridge.invoke("chat.sendMessage" as any, {} as any);
+    expect(wsInvoke).not.toHaveBeenCalled();
+    finishConnection?.();
+    await invoke;
+
+    expect(wsInvoke).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects daemon-owned invokes when no daemon bridge is available", async () => {
     const bridge = new HybridBridge(noopBridge);
-    await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("Daemon bridge is not available");
+    await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("Daemon bridge is not connected");
   });
 });

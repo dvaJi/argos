@@ -15,7 +15,7 @@ vi.mock("better-sqlite3-multiple-ciphers", () => ({
   default: vi.fn<(...args: any[]) => any>(),
 }));
 
-import { LegacyChatImportService } from "@/presenter/agentSessionPresenter/legacyImportService";
+import { LegacyChatImportService } from "#/presenter/agentSessionPresenter/legacyImportService";
 
 function createMockSqlitePresenter() {
   const statusStore = new Map<string, any>();

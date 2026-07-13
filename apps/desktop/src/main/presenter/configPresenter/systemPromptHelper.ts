@@ -1,7 +1,7 @@
-import { eventBus, SendTarget } from "@/eventbus";
-import { CONFIG_EVENTS } from "@/events";
-import { SystemPrompt } from "@shared/presenter";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { eventBus, SendTarget } from "#/eventbus";
+import { CONFIG_EVENTS } from "#/events";
+import { SystemPrompt } from "@argos/shared/presenter";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import type { StoreLike } from "@argos/backend-core";
 
 type SetSetting = <T>(key: string, value: T) => void;

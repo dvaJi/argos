@@ -29,13 +29,13 @@ const PRIMARY_MAIN_GUARD_PATHS = [
 ]
 
 const RENDERER_CHAT_GUARD_PATHS = [
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/ChatPage.vue'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/pages/NewThreadPage.vue'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/components/chat'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/components/message'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/composables/useArtifacts.ts'),
-  path.join(ROOT, 'apps/desktop/src/renderer/src/components/sidepanel/WorkspacePanel.vue')
+  path.join(ROOT, 'packages/ui/src/pages/ChatPage.vue'),
+  path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.vue'),
+  path.join(ROOT, 'packages/ui/src/stores/ui'),
+  path.join(ROOT, 'packages/ui/src/components/chat'),
+  path.join(ROOT, 'packages/ui/src/components/message'),
+  path.join(ROOT, 'packages/ui/src/composables/useArtifacts.ts'),
+  path.join(ROOT, 'packages/ui/src/components/sidepanel/WorkspacePanel.vue')
 ]
 
 const LEGACY_AGENT_RUNTIME_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/agentPresenter')
@@ -132,10 +132,10 @@ function isLegacyMainImport(filePath, specifier) {
   }
 
   return (
-    specifier === '@/presenter/agentPresenter' ||
-    specifier.startsWith('@/presenter/agentPresenter/') ||
-    specifier === '@/presenter/sessionPresenter' ||
-    specifier.startsWith('@/presenter/sessionPresenter/')
+    specifier === '#/presenter/agentPresenter' ||
+    specifier.startsWith('#/presenter/agentPresenter/') ||
+    specifier === '#/presenter/sessionPresenter' ||
+    specifier.startsWith('#/presenter/sessionPresenter/')
   )
 }
 
@@ -154,13 +154,13 @@ async function findViolations() {
     path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/syncPresenter/index.ts'),
     path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/providers'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/pages/ChatPage.tsx'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/pages/NewThreadPage.tsx'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/stores/ui'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/components/chat'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/components/message'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/composables/useArtifacts.ts'),
-    path.join(ROOT, 'apps/desktop/src/renderer/src/components/sidepanel/WorkspacePanel.tsx')
+    path.join(ROOT, 'packages/ui/src/pages/ChatPage.tsx'),
+    path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.tsx'),
+    path.join(ROOT, 'packages/ui/src/stores/ui'),
+    path.join(ROOT, 'packages/ui/src/components/chat'),
+    path.join(ROOT, 'packages/ui/src/components/message'),
+    path.join(ROOT, 'packages/ui/src/composables/useArtifacts.ts'),
+    path.join(ROOT, 'packages/ui/src/components/sidepanel/WorkspacePanel.tsx')
   ]
 
   const fileSet = new Set()
@@ -188,7 +188,7 @@ async function findViolations() {
 
       if (
         isProtectedPath(filePath, RENDERER_CHAT_GUARD_PATHS) &&
-        (specifier === '@shared/chat' || specifier.startsWith('@shared/chat/'))
+        (specifier === '@argos/shared/chat' || specifier.startsWith('@argos/shared/chat/'))
       ) {
         violations.push(buildViolation('legacy-chat-import', filePath, specifier))
       }

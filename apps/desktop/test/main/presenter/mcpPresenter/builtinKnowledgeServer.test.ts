@@ -11,7 +11,7 @@ vi.mock("@modelcontextprotocol/sdk/server/index.js", () => ({
   Server: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     configPresenter: {
       getKnowledgeConfigs: mockGetKnowledgeConfigs,

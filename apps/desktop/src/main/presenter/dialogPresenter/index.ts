@@ -4,10 +4,10 @@
  * Only one message dialog can exist within a single active window. Repeated calls will trigger the callback of the previous dialog with null.
  * @see {@link SendTarget.DEFAULT_WINDOW}
  */
-import { DialogRequest, DialogRequestParams, DialogResponse, IDialogPresenter } from "@shared/presenter";
-import { eventBus, SendTarget } from "@/eventbus";
-import { DIALOG_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { DialogRequest, DialogRequestParams, DialogResponse, IDialogPresenter } from "@argos/shared/presenter";
+import { eventBus, SendTarget } from "#/eventbus";
+import { DIALOG_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 import { nanoid } from "nanoid";
 
 export class DialogPresenter implements IDialogPresenter {

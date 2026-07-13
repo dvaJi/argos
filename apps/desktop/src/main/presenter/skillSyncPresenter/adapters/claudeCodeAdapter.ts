@@ -11,7 +11,7 @@
  */
 
 import matter from "gray-matter";
-import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@shared/types/skillSync";
+import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@argos/shared/types/skillSync";
 
 /**
  * Claude Code format adapter

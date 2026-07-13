@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { ModelType } from "@shared/model";
+import { ModelType } from "@argos/shared/model";
 
 const setup = async () => {
   vi.resetModules();
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => ({
       sortedProviders: [
         { id: "ollama", name: "Ollama", enable: true },
@@ -14,7 +14,7 @@ const setup = async () => {
     }),
   }));
 
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => ({
       enabledModels: [
         {
@@ -28,19 +28,19 @@ const setup = async () => {
     }),
   }));
 
-  vi.doMock("@/stores/theme", () => ({
+  vi.doMock("#/stores/theme", () => ({
     useThemeStore: () => ({
       isDark: false,
     }),
   }));
 
-  vi.doMock("@/stores/language", () => ({
+  vi.doMock("#/stores/language", () => ({
     useLanguageStore: () => ({
       dir: "ltr",
     }),
   }));
 
-  vi.doMock("@/components/chat-input/composables/useChatMode", () => ({
+  vi.doMock("#/components/chat-input/composables/useChatMode", () => ({
     useChatMode: () => ({
       currentMode: { value: "agent" },
     }),
@@ -50,7 +50,7 @@ const setup = async () => {
     Icon: () => <span className="icon-stub" />,
   }));
 
-  const ModelChooser = (await import("@/components/ModelChooser")).default;
+  const ModelChooser = (await import("#/components/ModelChooser")).default;
 
   const onUpdateModel = vi.fn<(...args: any[]) => any>();
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { DevicePresenter } from "../../../src/main/presenter/devicePresenter/index";
 
-// Mock eventBus (imported by DevicePresenter via @/eventbus)
-vi.mock("@/eventbus", () => ({
+// Mock eventBus (imported by DevicePresenter via #/eventbus)
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -13,7 +13,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-// Mock svgSanitizer (imported by DevicePresenter via @/lib/svgSanitizer)
+// Mock svgSanitizer (imported by DevicePresenter via #/lib/svgSanitizer)
 vi.mock("@argos/backend-core", () => ({
   svgSanitizer: {
     sanitize: vi.fn<(...args: any[]) => any>(),

@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
 import { AcpFsHandler } from "@argos/acp-runtime";
-import { buildBinaryReadGuidance, shouldRejectAcpTextRead } from "@/lib/binaryReadGuard";
+import { buildBinaryReadGuidance, shouldRejectAcpTextRead } from "#/lib/binaryReadGuard";
 import type { AcpFsHelpers } from "@argos/acp-runtime";
 
 const fsHelpers: AcpFsHelpers = {

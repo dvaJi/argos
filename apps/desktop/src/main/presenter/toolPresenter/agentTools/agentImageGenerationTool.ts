@@ -1,7 +1,7 @@
 import { toJSONSchema, z } from "zod";
-import type { IConfigPresenter, MCPToolDefinition } from "@shared/presenter";
-import type { ToolCallImagePreview } from "@shared/types/core/mcp";
-import type { ImageGenerationOptions } from "@shared/imageGenerationSettings";
+import type { IConfigPresenter, MCPToolDefinition } from "@argos/shared/presenter";
+import type { ToolCallImagePreview } from "@argos/shared/types/core/mcp";
+import type { ImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
 import {
   IMAGE_GENERATION_MODERATION_VALUES,
   IMAGE_GENERATION_OUTPUT_FORMAT_VALUES,
@@ -9,11 +9,11 @@ import {
   OPENAI_IMAGE_GENERATION_BACKGROUND_VALUES,
   isValidOpenAIImageGenerationSize,
   normalizeImageGenerationOptions,
-} from "@shared/imageGenerationSettings";
-import { ApiEndpointType, ModelType } from "@shared/model";
-import { createAgentToolErrorResult, createAgentToolSuccessResult } from "@shared/lib/agentToolResultEnvelope";
-import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@shared/agentImageGenerationTool";
-import logger from "@shared/logger";
+} from "@argos/shared/imageGenerationSettings";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
+import { createAgentToolErrorResult, createAgentToolSuccessResult } from "@argos/shared/lib/agentToolResultEnvelope";
+import { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME } from "@argos/shared/agentImageGenerationTool";
+import logger from "@argos/shared/logger";
 import type { AgentToolRuntimePort } from "../runtimePorts";
 
 export { IMAGE_GENERATE_TOOL_NAME, IMAGE_GENERATION_TOOL_SERVER_NAME };

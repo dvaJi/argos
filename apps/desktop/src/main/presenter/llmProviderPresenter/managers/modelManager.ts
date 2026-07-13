@@ -1,5 +1,5 @@
-import { MODEL_META } from "@shared/presenter";
-import { IConfigPresenter } from "@shared/presenter";
+import { MODEL_META } from "@argos/shared/presenter";
+import { IConfigPresenter } from "@argos/shared/presenter";
 import { BaseLLMProvider } from "../baseProvider";
 
 interface ModelManagerOptions {

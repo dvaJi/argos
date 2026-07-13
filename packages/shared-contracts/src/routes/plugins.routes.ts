@@ -1,6 +1,6 @@
 import zod from "zod";
 import { defineRouteContract, JsonValueSchema } from "../common";
-import type { PluginActionResult, PluginInvokeActionRequest, PluginListItem } from "@shared/types/plugin";
+import type { PluginActionResult, PluginInvokeActionRequest, PluginListItem } from "@argos/shared/types/plugin";
 
 const PluginListItemSchema = zod.custom<PluginListItem>();
 const PluginActionResultSchema = zod.custom<PluginActionResult>();

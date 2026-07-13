@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { AcpProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/acpProvider";
 import { LEGACY_MODE_CONFIG_ID } from "@argos/acp-runtime";
 import { ACP_WORKSPACE_EVENTS } from "../../../src/main/events";
-import { eventBus, SendTarget } from "@/eventbus";
-import type { AcpConfigState } from "@shared/types/presenters";
+import { eventBus, SendTarget } from "#/eventbus";
+import type { AcpConfigState } from "@argos/shared/types/presenters";
 
 vi.mock("electron", () => ({
   app: {
@@ -12,7 +12,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -24,7 +24,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     mcpPresenter: {
       getAllToolDefinitions: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
@@ -33,7 +33,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/presenter/proxyConfig", () => ({
+vi.mock("#/presenter/proxyConfig", () => ({
   proxyConfig: {
     getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
-import SvgArtifact from "@/components/artifacts/SvgArtifact";
+import SvgArtifact from "#/components/artifacts/SvgArtifact";
 
-vi.mock("@api/DeviceClient", () => ({
+vi.mock("#api/DeviceClient", () => ({
   createDeviceClient: vi.fn<(...args: any[]) => any>(() => ({
     sanitizeSvgContent: vi.fn<(...args: any[]) => any>(async (content: string) => content),
   })),

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProviderImportService } from "@argos/backend-core";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 
 const mockSqlite = vi.hoisted(() => ({
   rowsByPath: new Map<string, Record<string, unknown>[]>(),

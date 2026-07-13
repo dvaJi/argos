@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import MessageBlockToolCall from "@/components/message/MessageBlockToolCall";
-import type { DisplayAssistantMessageBlock } from "@/components/chat/messageListItems";
+import MessageBlockToolCall from "#/components/message/MessageBlockToolCall";
+import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 
 const { selectSessionMock } = vi.hoisted(() => ({
   selectSessionMock: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/stores/theme", () => ({
+vi.mock("#/stores/theme", () => ({
   useThemeStore: () => ({
     isDark: false,
   }),
 }));
 
-vi.mock("@/stores/ui/session", () => ({
+vi.mock("#/stores/ui/session", () => ({
   selectSession: selectSessionMock,
 }));
 

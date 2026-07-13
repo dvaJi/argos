@@ -1,5 +1,5 @@
-import { WeixinIlinkRuntime } from "@/presenter/remoteControlPresenter/weixinIlink/weixinIlinkRuntime";
-import type { RemoteGeneratedImageAsset, WeixinIlinkInboundMessage } from "@/presenter/remoteControlPresenter/types";
+import { WeixinIlinkRuntime } from "#/presenter/remoteControlPresenter/weixinIlink/weixinIlinkRuntime";
+import type { RemoteGeneratedImageAsset, WeixinIlinkInboundMessage } from "#/presenter/remoteControlPresenter/types";
 
 describe("WeixinIlinkRuntime", () => {
   const createRuntime = (overrides: Partial<ConstructorParameters<typeof WeixinIlinkRuntime>[0]> = {}) =>

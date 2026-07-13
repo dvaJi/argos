@@ -10,7 +10,7 @@ import type {
   AcpRegistryAgent,
   AcpRegistryBinaryDistribution,
   AcpResolvedLaunchSpec,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 type RegistryDistributionSelection =
   | {

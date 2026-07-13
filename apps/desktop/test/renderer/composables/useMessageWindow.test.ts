@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { useMessageWindow } from "@/composables/message/useMessageWindow";
-import type { MessageListItem, DisplayMessageUsage } from "@/components/chat/messageListItems";
+import { useMessageWindow } from "#/composables/message/useMessageWindow";
+import type { MessageListItem, DisplayMessageUsage } from "#/components/chat/messageListItems";
 
 const usage: DisplayMessageUsage = {
   context_usage: 0,

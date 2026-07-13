@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import WorkspaceFileNode from "@/components/workspace/WorkspaceFileNode";
-import { CHAT_INPUT_WORKSPACE_ITEM_MIME } from "@/lib/chatInputWorkspaceReference";
+import WorkspaceFileNode from "#/components/workspace/WorkspaceFileNode";
+import { CHAT_INPUT_WORKSPACE_ITEM_MIME } from "#/lib/chatInputWorkspaceReference";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-vi.mock("@api/legacy/presenters", () => ({
+vi.mock("#api/legacy/presenters", () => ({
   useLegacyPresenter: () => ({
     openFile: vi.fn<(...args: any[]) => any>(),
     revealFileInFolder: vi.fn<(...args: any[]) => any>(),

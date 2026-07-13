@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SHORTCUT_EVENTS, TRAY_EVENTS } from "@/events";
+import { SHORTCUT_EVENTS, TRAY_EVENTS } from "#/events";
 
 const registerMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
 const unregisterAllMock = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
@@ -45,11 +45,11 @@ vi.mock("@electron-toolkit/utils", () => ({
   },
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: presenterMock,
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: eventBusMock,
   SendTarget: {
     ALL_WINDOWS: "ALL_WINDOWS",
@@ -104,7 +104,7 @@ describe("ShortcutPresenter", () => {
   });
 
   it("registers sidebar and workspace menu accelerators and sends renderer events to the focused window", async () => {
-    const { ShortcutPresenter } = await import("@/presenter/shortcutPresenter");
+    const { ShortcutPresenter } = await import("#/presenter/shortcutPresenter");
     const shortcutPresenter = new ShortcutPresenter(createConfigPresenter());
 
     shortcutPresenter.registerShortcuts();
@@ -132,7 +132,7 @@ describe("ShortcutPresenter", () => {
   });
 
   it("does not register app-scoped shortcuts through globalShortcut", async () => {
-    const { ShortcutPresenter } = await import("@/presenter/shortcutPresenter");
+    const { ShortcutPresenter } = await import("#/presenter/shortcutPresenter");
     const shortcutPresenter = new ShortcutPresenter(createConfigPresenter());
 
     shortcutPresenter.registerShortcuts();
@@ -163,7 +163,7 @@ describe("ShortcutPresenter", () => {
       },
     });
 
-    const { ShortcutPresenter } = await import("@/presenter/shortcutPresenter");
+    const { ShortcutPresenter } = await import("#/presenter/shortcutPresenter");
     const shortcutPresenter = new ShortcutPresenter(createConfigPresenter());
 
     shortcutPresenter.registerShortcuts();
@@ -197,7 +197,7 @@ describe("ShortcutPresenter", () => {
     });
     presenterMock.windowPresenter.getSettingsWindowId.mockReturnValue(99);
 
-    const { ShortcutPresenter } = await import("@/presenter/shortcutPresenter");
+    const { ShortcutPresenter } = await import("#/presenter/shortcutPresenter");
     const shortcutPresenter = new ShortcutPresenter(createConfigPresenter());
 
     shortcutPresenter.registerShortcuts();

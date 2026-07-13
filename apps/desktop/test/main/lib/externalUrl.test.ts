@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { shell } from "electron";
-import { isValidExternalUrl, normalizeExternalUrl } from "@shared/externalUrl";
-import { openExternalUrl } from "@/lib/externalUrl";
+import { isValidExternalUrl, normalizeExternalUrl } from "@argos/shared/externalUrl";
+import { openExternalUrl } from "#/lib/externalUrl";
 
 describe("external URL validation", () => {
   beforeEach(() => {

@@ -37,7 +37,7 @@ import {
   ChatMessage,
   McpSamplingRequestPayload,
   McpSamplingDecision,
-} from "@shared/presenter";
+} from "@argos/shared/presenter";
 
 const ALLOWED_SAMPLING_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 

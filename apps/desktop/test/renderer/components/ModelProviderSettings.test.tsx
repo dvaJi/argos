@@ -92,19 +92,19 @@ const setup = async (options?: {
           ? { id: "select-provider", status: "pending", required: true }
           : { id: "provider-api-key", status: "completed", required: false };
 
-  vi.doMock("@/stores/providerStore", () => ({
+  vi.doMock("#/stores/providerStore", () => ({
     useProviderStore: () => providerStore,
   }));
-  vi.doMock("@/stores/modelStore", () => ({
+  vi.doMock("#/stores/modelStore", () => ({
     useModelStore: () => modelStore,
   }));
-  vi.doMock("@/stores/theme", () => ({
+  vi.doMock("#/stores/theme", () => ({
     useThemeStore: () => ({ isDark: false }),
   }));
-  vi.doMock("@/stores/language", () => ({
+  vi.doMock("#/stores/language", () => ({
     useLanguageStore: () => ({ dir: "ltr" }),
   }));
-  vi.doMock("@/composables/useGuidedOnboardingStep", () => ({
+  vi.doMock("#/composables/useGuidedOnboardingStep", () => ({
     useGuidedOnboardingStep: (stepId: string) => ({
       onboardingState: { value: null },
       currentStepId: { value: guideCurrentStepId },
@@ -120,14 +120,13 @@ const setup = async (options?: {
       forceComplete: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
       focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     }),
   }));
 
-  const ModelProviderSettings = (await import("../../../src/renderer/settings/components/ModelProviderSettings"))
-    .default;
+  const ModelProviderSettings = (await import("#settings/components/ModelProviderSettings")).default;
 
   const result = render(<ModelProviderSettings providerId={routeProviderId} />);
 

@@ -1,11 +1,11 @@
-import type { ArgosEventPayload } from "@shared/contracts/events";
-import { AssistantMessageBlockSchema } from "@shared/contracts/common";
-import type { AssistantMessageBlock } from "@shared/types/agent-interface";
+import type { ArgosEventPayload } from "@argos/shared-contracts/events";
+import { AssistantMessageBlockSchema } from "@argos/shared-contracts/common";
+import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
 import type { StreamState, IoParams } from "./types";
-import { createThrottle } from "@shared/utils/throttle";
-import { eventBus, SendTarget } from "@/eventbus";
-import { STREAM_EVENTS } from "@/events";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
+import { createThrottle } from "@argos/shared/utils/throttle";
+import { eventBus, SendTarget } from "#/eventbus";
+import { STREAM_EVENTS } from "#/events";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
 
 const RENDERER_FLUSH_INTERVAL = 120;
 const DB_FLUSH_INTERVAL = 600;

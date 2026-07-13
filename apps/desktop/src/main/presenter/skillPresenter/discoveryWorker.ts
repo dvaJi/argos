@@ -1,6 +1,6 @@
-import logger from "@shared/logger";
-import type { SkillMetadata } from "@shared/types/skill";
-import { runInlineJsonWorker } from "@/lib/runInlineJsonWorker";
+import logger from "@argos/shared/logger";
+import type { SkillMetadata } from "@argos/shared/types/skill";
+import { runInlineJsonWorker } from "#/lib/runInlineJsonWorker";
 
 type SkillDiscoveryWarning =
   | {

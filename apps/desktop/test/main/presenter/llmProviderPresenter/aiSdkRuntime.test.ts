@@ -17,7 +17,7 @@ vi.mock("ai", () => ({
   embedMany: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: {
     devicePresenter: {
       cacheImage: mockCacheImage,
@@ -25,7 +25,7 @@ vi.mock("@/presenter", () => ({
   },
 }));
 
-vi.mock("@/presenter/llmProviderPresenter/aiSdk/providerFactory", () => ({
+vi.mock("#/presenter/llmProviderPresenter/aiSdk/providerFactory", () => ({
   createAiSdkProviderContext: mockCreateAiSdkProviderContext,
   normalizeGeminiBaseUrl: vi.fn<(...args: any[]) => any>((baseUrl?: string) => {
     const normalized = (baseUrl || "").trim().replace(/\/+$/, "");
@@ -42,8 +42,8 @@ vi.mock("@/presenter/llmProviderPresenter/aiSdk/providerFactory", () => ({
   }),
 }));
 
-import { runAiSdkCoreStream, runAiSdkGenerateText } from "@/presenter/llmProviderPresenter/aiSdk/runtime";
-import { modelCapabilities } from "@/presenter/configPresenter/modelCapabilities";
+import { runAiSdkCoreStream, runAiSdkGenerateText } from "#/presenter/llmProviderPresenter/aiSdk/runtime";
+import { modelCapabilities } from "#/presenter/configPresenter/modelCapabilities";
 
 describe("AI SDK runtime", () => {
   const createTextRuntimeContext = (overrides: Record<string, unknown> = {}) =>

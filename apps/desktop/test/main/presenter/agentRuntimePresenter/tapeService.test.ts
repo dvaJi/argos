@@ -1,15 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildContext } from "@/presenter/agentRuntimePresenter/contextBuilder";
-import { ArgosTapeService } from "@/presenter/agentRuntimePresenter/tapeService";
+import { buildContext } from "#/presenter/agentRuntimePresenter/contextBuilder";
+import { ArgosTapeService } from "#/presenter/agentRuntimePresenter/tapeService";
 import {
   appendMessageReplacementToTape,
   appendMessageRetractionToTape,
-} from "@/presenter/agentRuntimePresenter/tapeFacts";
+} from "#/presenter/agentRuntimePresenter/tapeFacts";
 import {
   createTapeViewManifest,
   TAPE_VIEW_MANIFEST_EVENT_NAME,
-} from "@/presenter/agentRuntimePresenter/tapeViewManifest";
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+} from "#/presenter/agentRuntimePresenter/tapeViewManifest";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 
 function createTapeTableMock() {
   const entries: any[] = [];

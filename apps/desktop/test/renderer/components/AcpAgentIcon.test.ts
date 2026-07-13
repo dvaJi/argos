@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act, waitFor } from "@testing-library/react"
 
 const getAcpRegistryIconMarkup = vi.fn<(...args: any[]) => any>();
 
-vi.mock("@api/ConfigClient", () => ({
+vi.mock("#api/ConfigClient", () => ({
   createConfigClient: vi.fn<(...args: any[]) => any>(() => ({
     getAcpRegistryIconMarkup,
   })),

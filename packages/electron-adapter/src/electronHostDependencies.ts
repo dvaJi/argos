@@ -5,7 +5,7 @@ import { ElectronCredentialStore } from "./electronSecrets";
 import { ElectronDatabaseProvider } from "./electronDatabase";
 import { ElectronSubprocessRunner } from "./electronSubprocess";
 import { ElectronEventPublisher } from "./electronEventPublisher";
-import type { eventBus as EventBusType } from "@/eventbus";
+import type { eventBus as EventBusType } from "#/eventbus";
 
 export function createElectronHostDependencies(options: {
   configStore?: ElectronConfigStore;

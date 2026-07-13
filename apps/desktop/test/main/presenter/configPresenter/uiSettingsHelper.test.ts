@@ -1,7 +1,7 @@
 import fontList from "font-list";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { UiSettingsHelper } from "@/presenter/configPresenter/uiSettingsHelper";
+import { UiSettingsHelper } from "#/presenter/configPresenter/uiSettingsHelper";
 
 vi.mock("font-list", () => {
   const getFonts = vi.fn<(...args: any[]) => any>();

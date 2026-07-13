@@ -1,9 +1,9 @@
 import { app } from "electron";
-import { eventBus, SendTarget } from "@/eventbus";
-import { publishArgosEvent } from "@/routes/publishArgosEvent";
-import { RuntimeHelper } from "@/lib/runtimeHelper";
-import { buildBinaryReadGuidance, shouldRejectAcpTextRead } from "@/lib/binaryReadGuard";
-import type { ArgosEventName } from "@shared/contracts/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { publishArgosEvent } from "#/routes/publishArgosEvent";
+import { RuntimeHelper } from "#/lib/runtimeHelper";
+import { buildBinaryReadGuidance, shouldRejectAcpTextRead } from "#/lib/binaryReadGuard";
+import type { ArgosEventName } from "@argos/shared-contracts/events";
 import type { AcpHostPorts } from "@argos/acp-runtime";
 
 /**

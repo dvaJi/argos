@@ -1,5 +1,5 @@
-import type { ExternalToolConfig, NewDiscovery, ScanCache, ScanResult } from "@shared/types/skillSync";
-import { runInlineJsonWorker } from "@/lib/runInlineJsonWorker";
+import type { ExternalToolConfig, NewDiscovery, ScanCache, ScanResult } from "@argos/shared/types/skillSync";
+import { runInlineJsonWorker } from "#/lib/runInlineJsonWorker";
 
 type WorkerExternalSkillInfo = {
   name: string;

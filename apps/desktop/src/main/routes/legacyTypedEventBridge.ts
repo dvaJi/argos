@@ -1,5 +1,5 @@
 import { BrowserWindow } from "electron";
-import { eventBus } from "@/eventbus";
+import { eventBus } from "#/eventbus";
 import {
   CONFIG_EVENTS,
   FLOATING_BUTTON_EVENTS,
@@ -8,9 +8,9 @@ import {
   SYNC_EVENTS,
   SYSTEM_EVENTS,
   WINDOW_EVENTS,
-} from "@/events";
+} from "#/events";
 import { publishArgosEvent } from "./publishArgosEvent";
-import type { IConfigPresenter, ILlmProviderPresenter, ShortcutKeySetting } from "@shared/presenter";
+import type { IConfigPresenter, ILlmProviderPresenter, ShortcutKeySetting } from "@argos/shared/presenter";
 import {
   readAcpState,
   readLanguageState,

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi, beforeAll, afterEach } from "vitest";
 import { LLMProviderPresenter } from "../../../src/main/presenter/llmProviderPresenter/index";
 import { ConfigPresenter } from "../../../src/main/presenter/configPresenter/index";
-import { LLM_PROVIDER, ChatMessage, ISQLitePresenter } from "@shared/presenter";
+import { LLM_PROVIDER, ChatMessage, ISQLitePresenter } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
-import { ApiEndpointType, ModelType } from "@shared/model";
+import { ApiEndpointType, ModelType } from "@argos/shared/model";
 
 const { mockRunAiSdkCoreStream, mockRunAiSdkDimensions, mockRunAiSdkEmbeddings, mockRunAiSdkGenerateText } = vi.hoisted(
   () => ({
@@ -54,7 +54,7 @@ vi.mock("electron", () => {
 });
 
 // Mock eventBus
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -80,12 +80,12 @@ const presenterRuntimeMock = vi.hoisted(() => ({
 }));
 
 // Mock presenter
-vi.mock("@/presenter", () => ({
+vi.mock("#/presenter", () => ({
   presenter: presenterRuntimeMock,
 }));
 
 // Mock proxy config
-vi.mock("@/presenter/proxyConfig", () => ({
+vi.mock("#/presenter/proxyConfig", () => ({
   proxyConfig: {
     getProxyUrl: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
   },

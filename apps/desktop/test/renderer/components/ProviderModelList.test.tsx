@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ModelType } from "@shared/model";
+import { ModelType } from "@argos/shared/model";
 
 vi.mock("@iconify/react", () => ({
   Icon: () => null,
@@ -20,16 +20,16 @@ describe("ProviderModelList", () => {
       disableAllModels: vi.fn<(...args: any[]) => any>(),
     };
 
-    vi.doMock("@/stores/modelStore", () => ({
+    vi.doMock("#/stores/modelStore", () => ({
       useModelStore: () => modelStore,
     }));
-    vi.doMock("@/stores/uiSettingsStore", () => ({
+    vi.doMock("#/stores/uiSettingsStore", () => ({
       useUiSettingsStore: () => ({
         traceDebugEnabled: false,
       }),
     }));
 
-    const ProviderModelList = (await import("../../../src/renderer/settings/components/ProviderModelList")).default;
+    const ProviderModelList = (await import("#settings/components/ProviderModelList")).default;
 
     const { container } = render(
       <ProviderModelList

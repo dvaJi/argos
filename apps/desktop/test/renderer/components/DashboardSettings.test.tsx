@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { UsageDashboardData } from "@shared/types/agent-interface";
+import type { UsageDashboardData } from "@argos/shared/types/agent-interface";
 
 function buildDashboard(overrides: Partial<UsageDashboardData> = {}): UsageDashboardData {
   return {
@@ -97,14 +97,14 @@ async function setup(
   const retryRtkHealthCheck =
     options.retryRtkHealthCheck ?? vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
 
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: () => ({
       getUsageDashboard,
       retryRtkHealthCheck,
     }),
   }));
 
-  const DashboardSettings = (await import("../../../src/renderer/settings/components/DashboardSettings")).default;
+  const DashboardSettings = (await import("#settings/components/DashboardSettings")).default;
 
   const result = render(<DashboardSettings />);
 

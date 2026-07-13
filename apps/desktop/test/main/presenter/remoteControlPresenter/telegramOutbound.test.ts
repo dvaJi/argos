@@ -5,7 +5,7 @@ import {
   extractTelegramDraftText,
   extractTelegramStreamText,
   shouldSendTelegramDraft,
-} from "@/presenter/remoteControlPresenter/telegram/telegramOutbound";
+} from "#/presenter/remoteControlPresenter/telegram/telegramOutbound";
 
 describe("telegramOutbound", () => {
   it("extracts streaming text from content blocks", () => {

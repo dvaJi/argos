@@ -17,7 +17,7 @@ import type {
   SkillReference,
   SkillScript,
   ExternalToolConfig,
-} from "@shared/types/skillSync";
+} from "@argos/shared/types/skillSync";
 import { getAdapter, getAllAdapters } from "./adapters";
 import { EXTERNAL_TOOLS } from "./toolScanner";
 import { isFilenameSafe, isPathWithinBase, validateFileSize, MAX_SUBFOLDER_FILE_SIZE } from "./security";

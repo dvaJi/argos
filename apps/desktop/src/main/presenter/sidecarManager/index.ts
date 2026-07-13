@@ -99,22 +99,60 @@ function findBunExecutable(): string {
   return "bun";
 }
 
-function getExecutableArgs(executable: string, options: SidecarOptions): string[] {
+function getExecutableArgs(executable: string, options: SidecarOptions, webRoot: string | null): string[] {
   const isDev = process.env.NODE_ENV === "development" || executable.endsWith(".ts");
 
-  if (isDev) {
-    return [
-      executable,
-      "--host",
-      options.host || "127.0.0.1",
-      "--port",
-      String(options.port || 0),
-      "--data-dir",
-      options.dataDir,
-    ];
+  const base = isDev
+    ? [
+        executable,
+        "--host",
+        options.host || "127.0.0.1",
+        "--port",
+        String(options.port || 0),
+        "--data-dir",
+        options.dataDir,
+      ]
+    : ["--host", options.host || "127.0.0.1", "--port", String(options.port || 0), "--data-dir", options.dataDir];
+
+  // Serve the @argos/ui build from the daemon so the desktop shell can load it
+  // over http://127.0.0.1:<port>. In dev this is the built packages/ui/dist;
+  // in packaged builds it is the bundled resources/web.
+  if (webRoot) {
+    base.push("--web", "--web-root", webRoot);
   }
 
-  return ["--host", options.host || "127.0.0.1", "--port", String(options.port || 0), "--data-dir", options.dataDir];
+  return base;
+}
+
+/**
+ * Resolve the directory the daemon should serve as the web UI root.
+ * Returns null when no built UI is available (e.g. dev without a UI build —
+ * in that case the shell falls back to VITE_DEV_SERVER_URL).
+ */
+function resolveSidecarWebRoot(isDev: boolean): string | null {
+  if (isDev) {
+    const seeds = [process.cwd(), process.resourcesPath].filter(Boolean) as string[];
+    for (const seed of seeds) {
+      let current = seed;
+      const visited = new Set<string>();
+      while (!visited.has(current)) {
+        visited.add(current);
+        const candidate = join(current, "packages", "ui", "dist", "index.html");
+        if (existsSync(candidate)) {
+          return join(current, "packages", "ui", "dist");
+        }
+        const parent = dirname(current);
+        if (parent === current) break;
+        current = parent;
+      }
+    }
+    return null;
+  }
+
+  // Packaged: electron-builder copies packages/ui/dist -> resources/web
+  const resourcesPath = process.resourcesPath || join(process.cwd(), "resources");
+  const packagedIndex = join(resourcesPath, "web", "index.html");
+  return existsSync(packagedIndex) ? join(resourcesPath, "web") : null;
 }
 
 async function reserveFreePort(host: string): Promise<number> {
@@ -232,10 +270,11 @@ export async function startSidecar(options: SidecarOptions): Promise<SidecarHand
   async function startProcess(): Promise<void> {
     const executable = findDaemonExecutable();
     const isDev = executable.endsWith(".ts");
+    const webRoot = resolveSidecarWebRoot(isDev);
     const cmd = isDev ? findBunExecutable() : executable;
     const args = isDev
-      ? ["run", ...getExecutableArgs(executable, { ...options, port: reservedPort || port })]
-      : getExecutableArgs(executable, { ...options, port: reservedPort || port });
+      ? ["run", ...getExecutableArgs(executable, { ...options, port: reservedPort || port }, webRoot)]
+      : getExecutableArgs(executable, { ...options, port: reservedPort || port }, webRoot);
 
     const desktopBootstrapSecret = generateDesktopBootstrapSecret();
     console.log("[sidecar] Launching daemon", {

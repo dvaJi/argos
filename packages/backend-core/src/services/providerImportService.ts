@@ -4,8 +4,8 @@ import path from "node:path";
 import Database from "better-sqlite3-multiple-ciphers";
 import { parse as parseYaml } from "yaml";
 import { nanoid } from "nanoid";
-import type { IConfigPresenter, LLM_PROVIDER, MODEL_META } from "@shared/presenter";
-import { ModelType } from "@shared/model";
+import type { IConfigPresenter, LLM_PROVIDER, MODEL_META } from "@argos/shared/presenter";
+import { ModelType } from "@argos/shared/model";
 import {
   PROVIDER_IMPORT_CUSTOM_API_TYPES,
   PROVIDER_IMPORT_SOURCE_IDS,
@@ -22,8 +22,8 @@ import {
   type ProviderImportSelection,
   type ProviderImportSourceId,
   type ProviderImportSourceScan,
-} from "@shared/providerImport";
-import type { ProviderChange } from "@shared/provider-operations";
+} from "@argos/shared/providerImport";
+import type { ProviderChange } from "@argos/shared/provider-operations";
 
 type SourceDefinition = {
   id: ProviderImportSourceId;

@@ -1,4 +1,4 @@
-import { LLM_EMBEDDING_ATTRS } from "@shared/presenter";
+import { LLM_EMBEDDING_ATTRS } from "@argos/shared/presenter";
 import { BaseLLMProvider } from "../baseProvider";
 
 interface EmbeddingManagerOptions {

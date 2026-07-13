@@ -100,24 +100,24 @@ const setup = async (
     },
   };
 
-  vi.doMock("@/stores/sync", () => ({
+  vi.doMock("#/stores/sync", () => ({
     useSyncStore: () => syncStore,
   }));
-  vi.doMock("@/stores/uiSettingsStore", () => ({
+  vi.doMock("#/stores/uiSettingsStore", () => ({
     useUiSettingsStore: () => uiSettingsStore,
   }));
-  vi.doMock("@/stores/language", () => ({
+  vi.doMock("#/stores/language", () => ({
     useLanguageStore: () => ({
       dir: "ltr",
     }),
   }));
-  vi.doMock("@api/legacy/presenters", () => ({
+  vi.doMock("#api/legacy/presenters", () => ({
     useLegacyPresenter: (name: keyof typeof presenterMocks) => presenterMocks[name],
   }));
-  vi.doMock("@api/DatabaseSecurityClient", () => ({
+  vi.doMock("#api/DatabaseSecurityClient", () => ({
     createDatabaseSecurityClient: () => databaseSecurityClient,
   }));
-  vi.doMock("@/components/use-toast", () => ({
+  vi.doMock("#/components/use-toast", () => ({
     useToast: () => ({
       toast,
     }),
@@ -126,7 +126,7 @@ const setup = async (
     openExternal,
   };
 
-  const DataSettings = (await import("../../../src/renderer/settings/components/DataSettings")).default;
+  const DataSettings = (await import("#settings/components/DataSettings")).default;
 
   const result = render(<DataSettings />);
 

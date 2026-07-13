@@ -81,7 +81,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
   },
@@ -90,7 +90,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/routes/publishArgosEvent", () => ({
+vi.mock("#/routes/publishArgosEvent", () => ({
   publishArgosEvent: vi.fn<(...args: any[]) => any>(),
 }));
 

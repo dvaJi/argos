@@ -2,9 +2,9 @@
  * Presenter lifecycle hook
  */
 
-import { LifecyclePhase } from "@shared/lifecycle";
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { getInstance } from "@/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { getInstance } from "#/presenter";
 
 export const presenterInitHook: LifecycleHook = {
   name: "presenter-initialization",

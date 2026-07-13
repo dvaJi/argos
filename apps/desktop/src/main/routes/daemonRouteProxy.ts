@@ -1,5 +1,5 @@
-import { getSidecarHandle } from "@/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
-import type { SidecarHandle } from "@/presenter/sidecarManager";
+import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
+import type { SidecarHandle } from "#/presenter/sidecarManager";
 
 type DaemonRouteEnvelope = {
   route: string;

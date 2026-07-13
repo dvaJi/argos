@@ -1,12 +1,12 @@
-import type { AcpConfigState, HistorySearchHit } from "@shared/presenter";
+import type { AcpConfigState, HistorySearchHit } from "@argos/shared/presenter";
 import type {
   AgentTransferImpact,
   MessageTraceRecord,
   SessionCompactionState,
   SessionWithState,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
-import type { ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import type { ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 import type { ConversationExportFormat } from "./exporter/formats/conversationExporter";
 
 type ModelIdentity = {

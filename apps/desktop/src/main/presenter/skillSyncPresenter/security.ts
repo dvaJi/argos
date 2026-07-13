@@ -10,7 +10,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { ConflictStrategy, type ExternalToolConfig } from "@shared/types/skillSync";
+import { ConflictStrategy, type ExternalToolConfig } from "@argos/shared/types/skillSync";
 import { EXTERNAL_TOOLS } from "./toolScanner";
 
 // ============================================================================

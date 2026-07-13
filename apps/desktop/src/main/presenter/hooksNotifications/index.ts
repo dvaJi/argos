@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { app } from "electron";
 import log from "electron-log";
 import fs from "fs";
-import type { IConfigPresenter } from "@shared/presenter";
+import type { IConfigPresenter } from "@argos/shared/presenter";
 import type {
   HookCommandItem,
   HookCommandResult,
@@ -10,7 +10,7 @@ import type {
   HookEventPayload,
   HookTestResult,
   HooksNotificationsSettings,
-} from "@shared/hooksNotifications";
+} from "@argos/shared/hooksNotifications";
 
 const HOOK_PAYLOAD_VERSION = 1 as const;
 const COMMAND_TIMEOUT_MS = 30_000;

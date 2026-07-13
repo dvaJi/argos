@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TelegramClient } from "@/presenter/remoteControlPresenter/telegram/telegramClient";
+import { TelegramClient } from "#/presenter/remoteControlPresenter/telegram/telegramClient";
 
 describe("TelegramClient", () => {
   beforeEach(() => {

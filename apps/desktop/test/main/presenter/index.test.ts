@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Presenter } from "@/presenter";
+import { Presenter } from "#/presenter";
 
 vi.mock("electron-updater", () => ({
   default: {

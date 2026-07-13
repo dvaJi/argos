@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderHelper } from "../../../../src/main/presenter/configPresenter/providerHelper";
-import type { LLM_PROVIDER } from "@shared/presenter";
+import type { LLM_PROVIDER } from "@argos/shared/presenter";
 
 const { send } = vi.hoisted(() => ({
   send: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     send,
   },

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useArtifactExport } from "@/composables/useArtifactExport";
+import { useArtifactExport } from "#/composables/useArtifactExport";
 
 vi.mock("mermaid", () => ({
   default: {

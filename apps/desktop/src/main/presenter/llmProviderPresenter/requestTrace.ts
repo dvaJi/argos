@@ -1,4 +1,4 @@
-import type { ModelConfig } from "@shared/presenter";
+import type { ModelConfig } from "@argos/shared/presenter";
 
 export interface ProviderRequestTracePayload {
   endpoint: string;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IConfigPresenter, LLM_PROVIDER } from "@shared/presenter";
+import type { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
 import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
 
@@ -18,7 +18,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     info: vi.fn<(...args: any[]) => any>(),
     warn: vi.fn<(...args: any[]) => any>(),
@@ -30,7 +30,7 @@ vi.mock("@shared/logger", () => ({
   },
 }));
 
-vi.mock("@/eventbus", () => ({
+vi.mock("#/eventbus", () => ({
   eventBus: {
     on: vi.fn<(...args: any[]) => any>(),
     sendToRenderer: vi.fn<(...args: any[]) => any>(),
@@ -43,7 +43,7 @@ vi.mock("@/eventbus", () => ({
   },
 }));
 
-vi.mock("@/events", () => ({
+vi.mock("#/events", () => ({
   CONFIG_EVENTS: {
     MODEL_LIST_CHANGED: "MODEL_LIST_CHANGED",
   },

@@ -3,7 +3,7 @@ import path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, type _Object } from "@aws-sdk/client-s3";
-import type { SyncBackupInfo } from "@shared/presenter";
+import type { SyncBackupInfo } from "@argos/shared/presenter";
 
 /**
  * Resolved cloud config carrying the real secret. Built in the main process from

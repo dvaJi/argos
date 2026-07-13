@@ -3,8 +3,8 @@ import {
   encodeAudioBufferAsWav,
   isSpeechRecognitionSupported,
   useSpeechRecognition,
-} from "@/components/chat/composables/useSpeechRecognition";
-import { useAudioRecorder } from "@/components/chat/composables/useAudioRecorder";
+} from "#/components/chat/composables/useSpeechRecognition";
+import { useAudioRecorder } from "#/components/chat/composables/useAudioRecorder";
 
 class FakeMediaRecorder {
   static isTypeSupported = vi.fn<(...args: any[]) => any>((mimeType: string) =>

@@ -12,7 +12,7 @@
  */
 
 import matter from "gray-matter";
-import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@shared/types/skillSync";
+import type { IFormatAdapter, CanonicalSkill, ParseContext, FormatCapabilities } from "@argos/shared/types/skillSync";
 
 /**
  * Tool name mappings between Copilot and Argos

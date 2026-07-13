@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { useArtifactViewMode } from "@/composables/useArtifactViewMode";
+import { useArtifactViewMode } from "#/composables/useArtifactViewMode";
 
 const mkArtifact = (id: string, type: string, status: "loaded" | "loading" | "error" = "loaded") =>
   ({

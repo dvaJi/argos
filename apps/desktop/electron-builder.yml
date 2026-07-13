@@ -48,6 +48,9 @@ extraResources:
   - from: ./apps/daemon/dist/
     to: daemon
     filter: ["argos-daemon*"]
+  - from: ./packages/ui/dist/
+    to: web
+    filter: ["**/*"]
 electronLanguages:
   - zh-CN
   - zh-TW

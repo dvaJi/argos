@@ -12,9 +12,9 @@ import type {
   PendingSessionInputState,
   SendMessageInput,
   SessionWithState,
-} from "@shared/types/agent-interface";
-import type { SearchResult } from "@shared/types/core/search";
-import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@shared/types/tape-view-manifest";
+} from "@argos/shared/types/agent-interface";
+import type { SearchResult } from "@argos/shared/types/core/search";
+import type { ArgosTapeViewManifest, ArgosTapeViewManifestRecord } from "@argos/shared/types/tape-view-manifest";
 
 type BunDatabase = any;
 
@@ -380,7 +380,10 @@ export class BunSessionRepository implements SessionRepository {
       subagentEnabled: input.subagentEnabled ?? true,
       providerId: input.providerId || "",
       modelId: input.modelId || "",
-      message: input.message || null,
+      // Message persistence belongs to the provider execution path. Keeping
+      // session creation side-effect free lets the caller start the initial
+      // turn exactly once, just like later chat.sendMessage requests.
+      message: null,
       generationSettings: input.generationSettings ?? null,
       disabledAgentTools: input.disabledAgentTools ?? [],
     });

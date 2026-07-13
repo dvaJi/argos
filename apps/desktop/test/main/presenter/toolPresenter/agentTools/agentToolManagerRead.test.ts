@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { AgentToolManager } from "@/presenter/toolPresenter/agentTools/agentToolManager";
-import * as sessionVisionResolverModule from "@/presenter/vision/sessionVisionResolver";
+import { AgentToolManager } from "#/presenter/toolPresenter/agentTools/agentToolManager";
+import * as sessionVisionResolverModule from "#/presenter/vision/sessionVisionResolver";
 
 vi.mock("fs", async (importOriginal) => {
   const actual = (await importOriginal()) as typeof import("fs");

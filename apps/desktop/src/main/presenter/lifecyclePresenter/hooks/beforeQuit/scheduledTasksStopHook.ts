@@ -3,9 +3,9 @@
  * Cancels all armed timers so the scheduler does not fire during shutdown.
  */
 
-import { LifecycleHook, LifecycleContext } from "@shared/presenter";
-import { presenter } from "@/presenter";
-import { LifecyclePhase } from "@shared/lifecycle";
+import { LifecycleHook, LifecycleContext } from "@argos/shared/presenter";
+import { presenter } from "#/presenter";
+import { LifecyclePhase } from "@argos/shared/lifecycle";
 
 export const scheduledTasksStopHook: LifecycleHook = {
   name: "scheduled-tasks-stop",

@@ -1,4 +1,4 @@
-import type { BuiltinKnowledgeConfig } from "@shared/presenter";
+import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
 import type { StoreLike, StoreFactory } from "@argos/backend-core";
 
 type KnowledgeConfigStore = {

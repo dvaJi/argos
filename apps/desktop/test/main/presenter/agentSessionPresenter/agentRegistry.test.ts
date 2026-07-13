@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { AgentRegistry } from "@argos/backend-core";
-import type { IAgentImplementation, Agent } from "@shared/types/agent-interface";
+import type { IAgentImplementation, Agent } from "@argos/shared/types/agent-interface";
 
 function createMockAgent(): IAgentImplementation {
   return {

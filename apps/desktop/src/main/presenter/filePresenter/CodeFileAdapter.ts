@@ -1,7 +1,7 @@
 import { BaseFileAdapter } from "./BaseFileAdapter";
 import fs from "fs/promises";
 import path from "path";
-import { getLanguageFromFilename } from "@shared/utils/codeLanguage";
+import { getLanguageFromFilename } from "@argos/shared/utils/codeLanguage";
 
 export class CodeFileAdapter extends BaseFileAdapter {
   private maxFileSize: number;

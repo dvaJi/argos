@@ -13,7 +13,7 @@
     "emitDeclarationOnly": false,
     "noEmit": true,
     "paths": {
-      "@shared/*": ["../shared/src/*"]
+      "@argos/shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src/**/*"]

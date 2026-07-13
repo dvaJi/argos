@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import ReactArtifact from "@/components/artifacts/ReactArtifact";
+import ReactArtifact from "#/components/artifacts/ReactArtifact";
 
 describe("ReactArtifact", () => {
   it("uses full-height iframe classes without fixed minimum height", () => {

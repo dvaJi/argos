@@ -1,5 +1,5 @@
-import type { ArgosAgentConfig } from "@shared/types/agent-interface";
-import { createDefaultArgosSubagentSlots, normalizeArgosSubagentConfig } from "@shared/lib/argosSubagents";
+import type { ArgosAgentConfig } from "@argos/shared/types/agent-interface";
+import { createDefaultArgosSubagentSlots, normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
 
 /**
  * Merge a built-in base config with a per-agent override, falling back to safe

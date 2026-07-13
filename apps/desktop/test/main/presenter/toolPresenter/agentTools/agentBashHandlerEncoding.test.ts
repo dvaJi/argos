@@ -13,7 +13,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("@shared/logger", () => ({
+vi.mock("@argos/shared/logger", () => ({
   default: {
     info: vi.fn<(...args: any[]) => any>(),
     warn: vi.fn<(...args: any[]) => any>(),

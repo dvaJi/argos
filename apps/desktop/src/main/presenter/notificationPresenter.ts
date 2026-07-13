@@ -1,7 +1,7 @@
 import { nativeImage, Notification, NotificationConstructorOptions } from "electron";
 import icon from "../../../resources/icon.png?asset";
-import { eventBus, SendTarget } from "@/eventbus";
-import { NOTIFICATION_EVENTS } from "@/events";
+import { eventBus, SendTarget } from "#/eventbus";
+import { NOTIFICATION_EVENTS } from "#/events";
 import { presenter } from ".";
 
 interface NotificationItem {

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NewMessageManager } from "@/presenter/agentSessionPresenter/messageManager";
+import { NewMessageManager } from "#/presenter/agentSessionPresenter/messageManager";
 import type { AgentRegistry } from "@argos/backend-core";
-import type { NewSessionManager } from "@/presenter/agentSessionPresenter/sessionManager";
-import type { ChatMessageRecord } from "@shared/types/agent-interface";
+import type { NewSessionManager } from "#/presenter/agentSessionPresenter/sessionManager";
+import type { ChatMessageRecord } from "@argos/shared/types/agent-interface";
 
 const mockMessage: ChatMessageRecord = {
   id: "m1",

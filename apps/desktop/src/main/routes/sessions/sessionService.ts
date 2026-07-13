@@ -3,7 +3,7 @@ import type {
   CreateSessionInput,
   MessagePageCursor,
   SessionWithState,
-} from "@shared/types/agent-interface";
+} from "@argos/shared/types/agent-interface";
 import type { MessageRepository, SessionListFilters, SessionRepository } from "../hotPathPorts";
 import type { Scheduler } from "@argos/backend-core";
 

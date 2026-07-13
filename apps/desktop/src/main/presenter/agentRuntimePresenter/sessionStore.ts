@@ -1,5 +1,5 @@
 import { SQLitePresenter } from "../sqlitePresenter";
-import type { PermissionMode, SessionGenerationSettings } from "@shared/types/agent-interface";
+import type { PermissionMode, SessionGenerationSettings } from "@argos/shared/types/agent-interface";
 import type { ArgosSessionSummaryRow } from "../sqlitePresenter/tables/argosSessions";
 import type { ArgosTapeEntryRow } from "../sqlitePresenter/tables/argosTapeEntries";
 

@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as crypto from "crypto";
-import { FileMetaData } from "@shared/presenter";
+import { FileMetaData } from "@argos/shared/presenter";
 import path from "path";
 import { detectMimeType } from "./mimeDetection";
 

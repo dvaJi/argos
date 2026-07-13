@@ -5,7 +5,7 @@ import {
   createDefaultHooksNotificationsConfig,
   normalizeHooksNotificationsConfig,
 } from "../../../src/main/presenter/hooksNotifications/config";
-import { DEFAULT_IMPORTANT_HOOK_EVENTS } from "@shared/hooksNotifications";
+import { DEFAULT_IMPORTANT_HOOK_EVENTS } from "@argos/shared/hooksNotifications";
 
 vi.mock("electron-log", () => ({
   default: {
