@@ -20,6 +20,7 @@ import {
   AcpWorkdirInfo,
   AcpDebugRequest,
   AcpDebugRunResult,
+  AcpAgentDiagnostics,
 } from "@argos/shared/presenter";
 import { ApiEndpointType, ModelType } from "@argos/shared/model";
 import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
@@ -122,6 +123,7 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
       },
       acpSessionPersistence: this.acpSessionPersistence,
       mcpRuntime,
+      sqlitePresenter,
     });
     this.modelManager = new ModelManager({
       configPresenter,
@@ -931,6 +933,14 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
       throw new Error("ACP provider unavailable");
     }
     return await provider.runDebugAction(request);
+  }
+
+  getAcpAgentDiagnostics(agentId: string, workdir?: string | null): AcpAgentDiagnostics {
+    const provider = this.getAcpProviderInstance();
+    if (!provider) {
+      throw new Error("ACP provider unavailable");
+    }
+    return provider.getAcpDiagnostics(agentId, workdir);
   }
 
   async resolveAgentPermission(requestId: string, granted: boolean): Promise<void> {

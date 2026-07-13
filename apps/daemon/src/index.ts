@@ -49,6 +49,8 @@ type DaemonProviderExecutionPort = Required<
     | "transcribeAudio"
     | "warmupAcpProcess"
     | "getAcpProcessConfigOptions"
+    | "runAcpDebugAction"
+    | "getAcpAgentDiagnostics"
   >
 >;
 
@@ -225,6 +227,12 @@ export async function startDaemon(options?: {
     },
     async getAcpProcessConfigOptions(agentId, workdir) {
       return acpProviderExecutionPort.getAcpProcessConfigOptions(agentId, workdir);
+    },
+    async runAcpDebugAction(request) {
+      return acpProviderExecutionPort.runAcpDebugAction(request);
+    },
+    async getAcpAgentDiagnostics(agentId, workdir) {
+      return acpProviderExecutionPort.getAcpAgentDiagnostics(agentId, workdir);
     },
   };
 

@@ -12,6 +12,7 @@ export interface AcpCapabilitySupport {
   sessionResume: boolean;
   sessionClose: boolean;
   sessionFork: boolean;
+  authLogout: boolean;
 }
 
 export interface AcpCapabilitySnapshot {
@@ -43,6 +44,7 @@ export function buildCapabilitySnapshot(initializeResult: schema.InitializeRespo
       sessionResume: Boolean(sessionCapabilities?.resume),
       sessionClose: Boolean(sessionCapabilities?.close),
       sessionFork: Boolean(sessionCapabilities?.fork),
+      authLogout: Boolean(agentCapabilities?.auth?.logout),
     },
   };
 }
@@ -74,4 +76,48 @@ export function buildClientCapabilities(options: AcpCapabilityOptions = {}): sch
   }
 
   return caps;
+}
+
+/**
+ * ACP agents report authentication failures through JSON-RPC error codes.
+ * `-32042` is the ACP "authentication required" code; `-32800` is a custom
+ * auth-related code some agents use. We also treat any error whose message
+ * clearly references authentication as auth-required so the renderer can show
+ * a safe, actionable status instead of a raw stack trace.
+ */
+export const ACP_AUTH_REQUIRED_ERROR_CODES = new Set<number>([-32042, -32800]);
+
+export function isAuthRequiredError(error: unknown): boolean {
+  if (!error) return false;
+  const code = (error as { code?: unknown }).code;
+  if (typeof code === "number" && ACP_AUTH_REQUIRED_ERROR_CODES.has(code)) {
+    return true;
+  }
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof (error as { message?: unknown }).message === "string"
+        ? (error as { message: string }).message
+        : typeof error === "string"
+          ? error
+          : "";
+  if (!message) return false;
+  return /\b(authentication|authenticate|unauthorized|not authorized|login required|auth token|missing credential)\b/i.test(
+    message,
+  );
+}
+
+/**
+ * Determine whether the client should advertise `auth.terminal` support.
+ *
+ * Per ACP, the client must only declare `auth.terminal=true` after it is able
+ * to run an interactive terminal auth flow. We gate it on the advertised auth
+ * methods containing a `terminal` method so we never promise a flow we cannot
+ * surface.
+ */
+export function clientSupportsTerminalAuth(authMethods: ReadonlyArray<unknown> | undefined): boolean {
+  if (!Array.isArray(authMethods)) return false;
+  return authMethods.some(
+    (method) => Boolean(method) && typeof method === "object" && (method as { type?: unknown }).type === "terminal",
+  );
 }

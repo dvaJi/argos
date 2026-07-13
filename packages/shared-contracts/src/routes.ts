@@ -175,6 +175,7 @@ import {
 } from "./routes/scheduledTasks.routes";
 import {
   providersAddRoute,
+  providersGetAcpAgentDiagnosticsRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersGetRateLimitStatusRoute,
   providersImportApplyRoute,
@@ -193,6 +194,7 @@ import {
   providersTestConnectionRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
+  providersRunAcpDebugActionRoute,
 } from "./routes/providers.routes";
 import {
   remoteClearBindingsRoute,
@@ -600,6 +602,8 @@ export const ARGOS_ROUTE_CATALOG = {
   [providersPullOllamaModelRoute.name]: providersPullOllamaModelRoute,
   [providersWarmupAcpProcessRoute.name]: providersWarmupAcpProcessRoute,
   [providersGetAcpProcessConfigOptionsRoute.name]: providersGetAcpProcessConfigOptionsRoute,
+  [providersRunAcpDebugActionRoute.name]: providersRunAcpDebugActionRoute,
+  [providersGetAcpAgentDiagnosticsRoute.name]: providersGetAcpAgentDiagnosticsRoute,
   [providersImportScanRoute.name]: providersImportScanRoute,
   [providersImportApplyRoute.name]: providersImportApplyRoute,
   [modelsGetProviderCatalogRoute.name]: modelsGetProviderCatalogRoute,

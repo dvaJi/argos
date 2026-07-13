@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AcpProviderExecutionPort } from "../src/host/acp-provider-execution";
+import { resolvePermissionWithTimeout, AcpMessageFormatter } from "@argos/acp-runtime";
 
 describe("AcpProviderExecutionPort", () => {
   const permissionRequest = {
@@ -103,6 +104,166 @@ describe("AcpProviderExecutionPort", () => {
       (port as any).handlePermissionRequest("conversation-1", "message-1", "request-1", permissionRequest),
     ).resolves.toEqual({
       outcome: { outcome: "selected", optionId: "allow-once" },
+    });
+  });
+
+  it("computes agent diagnostics from the process manager snapshot", async () => {
+    const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
+      dataDir: "/tmp",
+      appVersion: "1.0.0",
+      db: { prepare: vi.fn() },
+    });
+    const runtime = {
+      processManager: {
+        listProcesses: () => [
+          {
+            agentId: "opencode",
+            workdir: "/repo",
+            status: "ready",
+            launchFingerprint: "cmd:opencode",
+            capabilitySnapshot: { protocolVersion: 1, agentInfo: { name: "OpenCode", version: "2.0" } },
+            authMethods: [{ id: "oauth", type: "oauth" }],
+            supportsLoadSession: true,
+            supportsSessionList: true,
+            supportsSessionResume: false,
+            supportsSessionClose: true,
+            supportsSessionFork: false,
+            supportsAuthLogout: true,
+          },
+        ],
+        getDebugEvents: () => [],
+      },
+    };
+    (port as any).runtimePromise = Promise.resolve(runtime);
+
+    const diagnostics = await port.getAcpAgentDiagnostics("opencode", "/repo");
+
+    expect(diagnostics).toMatchObject({
+      ready: true,
+      agentId: "opencode",
+      workdir: "/repo",
+      launchSource: "cmd:opencode",
+      protocolVersion: "1",
+      agentName: "OpenCode",
+      agentVersion: "2.0",
+      authMethods: [{ id: "oauth", type: "oauth" }],
+      capabilities: {
+        loadSession: true,
+        sessionList: true,
+        sessionResume: false,
+        sessionClose: true,
+        sessionFork: false,
+        authLogout: true,
+        fs: true,
+        terminal: true,
+      },
+      lastError: null,
+    });
+  });
+
+  it("returns an error result when the debug action targets an unknown agent", async () => {
+    const port = new AcpProviderExecutionPort(
+      {
+        getAcpAgents: vi.fn(async () => []),
+        getProviderById: vi.fn(() => ({ id: "acp", name: "ACP" })),
+      } as never,
+      {} as never,
+      { publish: vi.fn() } as never,
+      { dataDir: "/tmp", appVersion: "1.0.0", db: { prepare: vi.fn() } },
+    );
+    (port as any).runtimePromise = Promise.resolve({ processManager: {}, sessionManager: {}, sessionPersistence: {} });
+
+    await expect(port.runAcpDebugAction({ agentId: "ghost", action: "initialize" })).rejects.toThrow(/Agent not found/);
+  });
+
+  it("clears stale permission overlays without throwing on unknown tool call ids", async () => {
+    const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
+      dataDir: "/tmp",
+      appVersion: "1.0.0",
+      db: { prepare: vi.fn() },
+    });
+
+    await expect(
+      port.respondToolInteraction("conversation-1", "message-1", "ghost-tool", {
+        kind: "permission",
+        granted: true,
+      }),
+    ).resolves.toEqual({ handledInline: true });
+  });
+
+  it("times out a hanging permission resolver with a cancelled outcome", async () => {
+    vi.useFakeTimers();
+    try {
+      const onTimeout = vi.fn();
+      const promise = resolvePermissionWithTimeout(() => new Promise(() => {}), 1000, onTimeout);
+      await vi.advanceTimersByTimeAsync(1000);
+      await expect(promise).resolves.toEqual({ outcome: { outcome: "cancelled" } });
+      expect(onTimeout).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns the resolver result when it settles before the timeout", async () => {
+    const onTimeout = vi.fn();
+    await expect(
+      resolvePermissionWithTimeout(
+        async () => ({ outcome: { outcome: "selected", optionId: "allow-once" } }),
+        1000,
+        onTimeout,
+      ),
+    ).resolves.toEqual({ outcome: { outcome: "selected", optionId: "allow-once" } });
+    expect(onTimeout).not.toHaveBeenCalled();
+  });
+
+  describe("AcpMessageFormatter.mapInput", () => {
+    it("maps a text-only input to a single text block", () => {
+      expect(AcpMessageFormatter.mapInput({ text: "hello" })).toEqual([{ type: "text", text: "hello" }]);
+    });
+
+    it("maps an image to an image block when the agent supports images", () => {
+      const blocks = AcpMessageFormatter.mapInput(
+        { text: "look", files: [{ name: "pic.png", path: "/a/pic.png", mimeType: "image/png", content: "BASE64" }] },
+        { image: true },
+      );
+      expect(blocks).toEqual([
+        { type: "text", text: "look" },
+        { type: "image", data: "BASE64", mimeType: "image/png", uri: "/a/pic.png" },
+      ]);
+    });
+
+    it("falls back to a text reference when the agent does not support images", () => {
+      const blocks = AcpMessageFormatter.mapInput(
+        { text: "look", files: [{ name: "pic.png", path: "/a/pic.png", mimeType: "image/png", content: "BASE64" }] },
+        { image: false },
+      );
+      expect(blocks[1]).toEqual({ type: "resource_link", uri: "/a/pic.png", name: "pic.png", mimeType: "image/png" });
+    });
+
+    it("maps audio to an audio block when supported, else a text reference", () => {
+      const audioFile = { name: "clip.mp3", path: "/a/clip.mp3", mimeType: "audio/mpeg", content: "AUDIO" };
+      const supported = AcpMessageFormatter.mapInput({ text: "", files: [audioFile] }, { audio: true });
+      expect(supported[0]).toEqual({ type: "audio", data: "AUDIO", mimeType: "audio/mpeg" });
+
+      const unsupported = AcpMessageFormatter.mapInput({ text: "", files: [audioFile] }, { audio: false });
+      expect(unsupported[0]).toEqual({ type: "text", text: "[audio audio/mpeg]" });
+    });
+
+    it("references non-media files as resource links", () => {
+      const blocks = AcpMessageFormatter.mapInput({
+        text: "see",
+        files: [{ name: "notes.txt", path: "/a/notes.txt", mimeType: "text/plain" }],
+      });
+      expect(blocks[1]).toEqual({
+        type: "resource_link",
+        uri: "/a/notes.txt",
+        name: "notes.txt",
+        mimeType: "text/plain",
+      });
+    });
+
+    it("returns an empty text block for empty input", () => {
+      expect(AcpMessageFormatter.mapInput({ text: "", files: [] })).toEqual([{ type: "text", text: "" }]);
     });
   });
 

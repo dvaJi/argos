@@ -48,6 +48,7 @@ interface ToolCallState {
   paramsCaptured: boolean;
   status?: schema.ToolCallStatus | null;
   started: boolean;
+  rawContents?: schema.ToolCallContent[];
 }
 
 const now = () => Date.now();
@@ -203,6 +204,9 @@ export class AcpContentMapper {
     }
 
     const content = "content" in update ? (update.content ?? undefined) : undefined;
+    if (content?.length) {
+      state.rawContents = [...(state.rawContents ?? []), ...content];
+    }
     const paramsChunk = this.stringifyToolParams(update);
     const contentChunk = this.formatToolCallContent(content, "");
     const chunk = paramsChunk ?? (state.paramsCaptured ? "" : contentChunk);
@@ -410,6 +414,7 @@ export class AcpContentMapper {
           name: state.toolName,
           params: finalArgs,
         },
+        ...(state.rawContents?.length ? { raw_contents: state.rawContents } : {}),
       }),
     );
     this.toolCallStates.delete(this.getToolCallStateKey(state.sessionId, toolCallId));

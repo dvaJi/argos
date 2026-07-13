@@ -18,3 +18,5 @@ export * from "./config/acpLaunchSpecService";
 export * from "./config/acpRegistryService";
 export * from "./config/acpRegistryMigrationService";
 export * from "./session/acpPromptController";
+export * from "./debug/runAcpDebugAction";
+export * from "./process/permissionTimeout";

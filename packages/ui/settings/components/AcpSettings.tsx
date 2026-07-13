@@ -31,6 +31,7 @@ import type { AcpManualAgent, AcpRegistryAgent } from "@argos/shared/presenter";
 import { createConfigClient } from "#api/ConfigClient";
 import { toast } from "#/components/use-toast";
 import AcpDebugDialog from "./AcpDebugDialog";
+import AcpDiagnostics from "./AcpDiagnostics";
 import AcpAgentIcon from "#/components/icons/AcpAgentIcon";
 import AgentMcpSelector from "#/components/mcp-config/AgentMcpSelector";
 
@@ -595,6 +596,7 @@ export default function AcpSettings() {
                           </div>
                         </div>
                       </CardContent>
+                      <AcpDiagnostics agentId={agent.id} agentName={agent.name} launchSource={agent.source} />
                     </Card>
                   ))}
                 </div>
@@ -684,6 +686,7 @@ export default function AcpSettings() {
                             </Button>
                           </div>
                         </CardContent>
+                        <AcpDiagnostics agentId={agent.id} agentName={agent.name} launchSource={agent.source} />
                       </Card>
                     ))}
                   </div>

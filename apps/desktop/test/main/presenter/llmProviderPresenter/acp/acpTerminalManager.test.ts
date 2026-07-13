@@ -107,4 +107,60 @@ describe("AcpTerminalManager", () => {
       truncated: true,
     });
   });
+
+  it("preserves UTF-8 character boundaries when truncating multibyte output", async () => {
+    const pty = createPty();
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(pty as never);
+    const manager = new AcpTerminalManager(() => "/tmp");
+
+    const response = await manager.createTerminal({
+      sessionId: "session-1",
+      command: "cat",
+      outputByteLimit: 4,
+      cwd: "/tmp/workspace",
+    });
+    const onData = pty.onData.mock.calls[0][0] as (data: string) => void;
+
+    onData("ab你好");
+
+    const result = await manager.terminalOutput({ sessionId: "session-1", terminalId: response.terminalId });
+    expect(result.truncated).toBe(true);
+    expect(result.output).not.toContain("\uFFFD");
+  });
+
+  it("kill is idempotent and only kills the pty once", async () => {
+    const pty = createPty();
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(pty as never);
+    const manager = new AcpTerminalManager(() => "/tmp");
+
+    const response = await manager.createTerminal({
+      sessionId: "session-1",
+      command: "node",
+      cwd: "/tmp/workspace",
+    });
+
+    await manager.killTerminal({ terminalId: response.terminalId });
+    await manager.killTerminal({ terminalId: response.terminalId });
+
+    expect(pty.kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("release is idempotent and stops collecting output", async () => {
+    const pty = createPty();
+    vi.mocked<(...args: any[]) => any>(spawn).mockReturnValue(pty as never);
+    const manager = new AcpTerminalManager(() => "/tmp");
+
+    const response = await manager.createTerminal({
+      sessionId: "session-1",
+      command: "node",
+      cwd: "/tmp/workspace",
+    });
+    const onData = pty.onData.mock.calls[0][0] as (data: string) => void;
+
+    onData("before-release");
+    await manager.releaseTerminal({ terminalId: response.terminalId });
+    onData("after-release");
+
+    await expect(manager.terminalOutput({ sessionId: "session-1", terminalId: response.terminalId })).rejects.toThrow();
+  });
 });

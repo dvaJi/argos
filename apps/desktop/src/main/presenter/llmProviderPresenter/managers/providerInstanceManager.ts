@@ -20,6 +20,7 @@ interface ProviderInstanceManagerOptions {
   setCurrentProviderId: (providerId: string | null) => void;
   acpSessionPersistence?: AcpSessionPersistence;
   mcpRuntime?: ProviderMcpRuntimePort;
+  sqlitePresenter?: import("@argos/shared/presenter").ISQLitePresenter;
 }
 
 export class ProviderInstanceManager {
@@ -289,6 +290,7 @@ export class ProviderInstanceManager {
           this.options.configPresenter,
           this.options.acpSessionPersistence,
           this.options.mcpRuntime,
+          this.options.sqlitePresenter,
         );
       }
 

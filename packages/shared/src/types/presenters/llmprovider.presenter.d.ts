@@ -4,7 +4,7 @@ import { ModelType } from "../core/model";
 import type { NewApiEndpointType } from "@argos/shared/model";
 import type { ImageGenerationOptions } from "../../imageGenerationSettings";
 import type { VideoGenerationOptions } from "../../videoGenerationSettings";
-import type { AcpDebugRequest, AcpDebugRunResult, AcpWorkdirInfo } from "./legacy.presenters";
+import type { AcpDebugRequest, AcpDebugRunResult, AcpWorkdirInfo, AcpAgentDiagnostics } from "./legacy.presenters";
 
 /**
  * LLM Provider Presenter Interface
@@ -361,6 +361,7 @@ export interface ILlmProviderPresenter {
     }>
   >;
   runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
+  getAcpAgentDiagnostics(agentId: string, workdir?: string | null): AcpAgentDiagnostics;
   resolveAgentPermission(requestId: string, granted: boolean): Promise<void>;
   clearAcpSession(conversationId: string): Promise<void>;
 }

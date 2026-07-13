@@ -10,6 +10,7 @@ import type {
   ToolInteractionResult,
 } from "@argos/shared/types/agent-interface";
 import type { ArgosEventName, ArgosEventPayload } from "@argos/shared-contracts/events";
+import type { AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
 
 export type SessionListFilters = {
   agentId?: string;
@@ -45,6 +46,8 @@ export interface ProviderExecutionPort {
   cancelGeneration(sessionId: string): Promise<void>;
   warmupAcpProcess?(agentId: string, workdir?: string): Promise<void>;
   getAcpProcessConfigOptions?(agentId: string, workdir?: string): Promise<unknown>;
+  runAcpDebugAction?(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
+  getAcpAgentDiagnostics?(agentId: string, workdir?: string | null): Promise<AcpAgentDiagnostics>;
   generateCompletion?(input: {
     providerId: string;
     modelId: string;

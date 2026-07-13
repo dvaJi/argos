@@ -194,6 +194,106 @@ export const providersGetAcpProcessConfigOptionsRoute = defineRouteContract({
   }),
 });
 
+const AcpDebugActionTypeSchema = zod.enum([
+  "initialize",
+  "authenticate",
+  "logout",
+  "newSession",
+  "loadSession",
+  "sessionList",
+  "sessionResume",
+  "sessionClose",
+  "sessionFork",
+  "sessionImport",
+  "sessionDetach",
+  "sessionCloseRemote",
+  "prompt",
+  "cancel",
+  "setSessionMode",
+  "setSessionModel",
+  "extMethod",
+  "extNotification",
+]);
+
+const AcpDebugEventEntrySchema = zod.object({
+  id: zod.string(),
+  kind: zod.enum(["request", "response", "notification", "permission", "lifecycle", "stderr", "error"]),
+  action: zod.string(),
+  agentId: zod.string(),
+  sessionId: zod.string().optional(),
+  timestamp: zod.number(),
+  payload: zod.unknown().optional(),
+  message: zod.string().optional(),
+});
+
+const AcpAuthEnvVarSchema = zod.object({
+  name: zod.string(),
+  label: zod.string().optional(),
+  secret: zod.boolean().optional(),
+  optional: zod.boolean().optional(),
+});
+
+const AcpAgentDiagnosticsSchema = zod.object({
+  ready: zod.boolean(),
+  agentId: zod.string(),
+  workdir: zod.string().nullable(),
+  launchSource: zod.string().nullable(),
+  protocolVersion: zod.string().optional(),
+  agentName: zod.string().optional(),
+  agentVersion: zod.string().optional(),
+  authMethods: zod.array(
+    zod.object({
+      id: zod.string(),
+      type: zod.string().optional(),
+      vars: zod.array(AcpAuthEnvVarSchema).optional(),
+      link: zod.string().nullable().optional(),
+    }),
+  ),
+  authRequired: zod.boolean(),
+  authRequiredMessage: zod.string().nullable().optional(),
+  capabilities: zod.object({
+    loadSession: zod.boolean(),
+    sessionList: zod.boolean(),
+    sessionResume: zod.boolean(),
+    sessionClose: zod.boolean(),
+    sessionFork: zod.boolean(),
+    authLogout: zod.boolean(),
+    fs: zod.boolean(),
+    terminal: zod.boolean(),
+  }),
+  lastError: zod.string().nullable(),
+});
+
+export const providersRunAcpDebugActionRoute = defineRouteContract({
+  name: "providers.runAcpDebugAction",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    action: AcpDebugActionTypeSchema,
+    payload: zod.record(zod.string(), zod.unknown()).optional(),
+    sessionId: zod.string().optional(),
+    workdir: zod.string().optional(),
+    methodName: zod.string().optional(),
+    webContentsId: zod.number().optional(),
+  }),
+  output: zod.object({
+    status: zod.enum(["ok", "error"]),
+    sessionId: zod.string().optional(),
+    error: zod.string().optional(),
+    events: zod.array(AcpDebugEventEntrySchema),
+  }),
+});
+
+export const providersGetAcpAgentDiagnosticsRoute = defineRouteContract({
+  name: "providers.getAcpAgentDiagnostics",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    workdir: zod.string().nullable().optional(),
+  }),
+  output: zod.object({
+    diagnostics: AcpAgentDiagnosticsSchema,
+  }),
+});
+
 export const providersImportScanRoute = defineRouteContract({
   name: "providers.import.scan",
   input: zod.object({}).default({}),

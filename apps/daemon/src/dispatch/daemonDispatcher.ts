@@ -63,6 +63,8 @@ import {
   providersRemoveRoute,
   providersReorderRoute,
   providersWarmupAcpProcessRoute,
+  providersRunAcpDebugActionRoute,
+  providersGetAcpAgentDiagnosticsRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersTestConnectionRoute,
   modelsGetProviderCatalogRoute,
@@ -269,6 +271,8 @@ type DaemonProviderExecutionPort = Required<
     | "testConnection"
     | "warmupAcpProcess"
     | "getAcpProcessConfigOptions"
+    | "runAcpDebugAction"
+    | "getAcpAgentDiagnostics"
     | "transcribeAudio"
     | "generateCompletion"
   >
@@ -1616,6 +1620,18 @@ export function createDaemonDispatcher(
       const input = providersGetAcpProcessConfigOptionsRoute.input.parse(rawInput);
       const state = await runtime.providerExecutionPort.getAcpProcessConfigOptions(input.agentId, input.workdir);
       return providersGetAcpProcessConfigOptionsRoute.output.parse({ state: state ?? null });
+    }
+
+    if (route === providersRunAcpDebugActionRoute.name) {
+      const input = providersRunAcpDebugActionRoute.input.parse(rawInput);
+      const result = await runtime.providerExecutionPort.runAcpDebugAction(input);
+      return providersRunAcpDebugActionRoute.output.parse(result);
+    }
+
+    if (route === providersGetAcpAgentDiagnosticsRoute.name) {
+      const input = providersGetAcpAgentDiagnosticsRoute.input.parse(rawInput);
+      const diagnostics = await runtime.providerExecutionPort.getAcpAgentDiagnostics(input.agentId, input.workdir);
+      return providersGetAcpAgentDiagnosticsRoute.output.parse({ diagnostics });
     }
 
     if (route === providersListModelsRoute.name) {
