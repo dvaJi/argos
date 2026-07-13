@@ -23,6 +23,7 @@ function createDebugSessionId() {
 const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
   { value: "initialize", label: "Initialize" },
   { value: "authenticate", label: "Authenticate" },
+  { value: "logout", label: "Logout" },
   { value: "newSession", label: "New Session" },
   { value: "loadSession", label: "Load Session" },
   { value: "sessionList", label: "Session List" },

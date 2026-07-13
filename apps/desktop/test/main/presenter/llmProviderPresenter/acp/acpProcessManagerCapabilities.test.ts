@@ -157,6 +157,7 @@ describe("AcpProcessManager initialized capabilities", () => {
       sessionResume: true,
       sessionClose: true,
       sessionFork: true,
+      authLogout: false,
     });
   });
 });

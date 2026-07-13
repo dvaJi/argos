@@ -1,5 +1,6 @@
 import type * as schema from "@agentclientprotocol/sdk";
 import type { ChatMessage } from "@argos/shared/presenter";
+import type { SendMessageInput } from "@argos/shared/types/agent-interface";
 
 interface FormatOptions {
   promptCapabilities?: schema.PromptCapabilities;
@@ -13,7 +14,7 @@ interface FormatResult {
 
 type NormalizedContent =
   | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string; uri?: string }
+  | { type: "image"; data: string; mimeType: string; uri?: string; name?: string }
   | { type: "audio"; data: string; mimeType: string }
   | { type: "resource_link"; uri: string; name?: string; mimeType?: string }
   | { type: "resource"; uri: string; text: string; mimeType?: string };
@@ -161,7 +162,7 @@ export class AcpMessageFormatter {
           };
         }
         return item.uri
-          ? { type: "resource_link", uri: item.uri, name: "image", mimeType: item.mimeType }
+          ? { type: "resource_link", uri: item.uri, name: item.name ?? "image", mimeType: item.mimeType }
           : { type: "text", text: `[image ${item.mimeType}]` };
       case "audio":
         if (capabilities?.audio) {
@@ -197,5 +198,62 @@ export class AcpMessageFormatter {
       mimeType: match[1],
       data: match[2],
     };
+  }
+
+  /**
+   * Map a single-turn user input (text + files) into ACP `ContentBlock`s,
+   * gated by the agent's `promptCapabilities`. Files whose type the agent
+   * cannot accept (image/audio) degrade to a text reference so the turn
+   * still works without unsupported multimodal content. This intentionally
+   * sends only the current turn — conversation history is owned by the agent.
+   */
+  static mapInput(input: SendMessageInput, capabilities?: schema.PromptCapabilities): schema.ContentBlock[] {
+    const normalized: NormalizedContent[] = [];
+    const text = typeof input.text === "string" && input.text.trim().length > 0 ? input.text.trim() : "";
+    if (text) {
+      normalized.push({ type: "text", text });
+    }
+
+    (input.files ?? []).forEach((file: NonNullable<SendMessageInput["files"]>[number]) => {
+      const mimeType =
+        file.mimeType ?? (file.metadata?.fileDescription ? undefined : file.type) ?? "application/octet-stream";
+      const isImage = typeof mimeType === "string" && mimeType.startsWith("image/");
+      const isAudio = typeof mimeType === "string" && mimeType.startsWith("audio/");
+
+      if (isImage) {
+        const data = typeof file.content === "string" ? file.content : "";
+        normalized.push({
+          type: "image",
+          data,
+          mimeType,
+          name: file.name,
+          ...(file.path ? { uri: file.path } : {}),
+        });
+        return;
+      }
+      if (isAudio) {
+        const data = typeof file.content === "string" ? file.content : "";
+        normalized.push({
+          type: "audio",
+          data,
+          mimeType,
+        });
+        return;
+      }
+
+      normalized.push({
+        type: "resource_link",
+        uri: file.path || file.name,
+        name: file.name,
+        ...(typeof mimeType === "string" ? { mimeType } : {}),
+      });
+    });
+
+    if (!normalized.length) {
+      normalized.push({ type: "text", text: "" });
+    }
+
+    const formatter = new AcpMessageFormatter();
+    return normalized.map((item) => formatter.toContentBlock(item, capabilities));
   }
 }

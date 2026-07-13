@@ -7,7 +7,9 @@ import type { PermissionResolver } from "./process/acpProcessManager";
 import { AcpSessionPersistence } from "./session/acpSessionPersistence";
 import { AcpPromptController } from "./session/acpPromptController";
 import type { AcpAgentConfig } from "@argos/shared/presenter";
+import type { SendMessageInput } from "@argos/shared/types/agent-interface";
 import type { AcpHostPorts } from "./host/ports";
+import { AcpMessageFormatter } from "./protocol/acpMessageFormatter";
 
 export interface AcpRuntime {
   processManager: AcpProcessManager;
@@ -22,7 +24,7 @@ export interface AcpRuntime {
   runPromptTurn(args: {
     conversationId: string;
     agent: AcpAgentConfig;
-    prompt: schema.ContentBlock[];
+    prompt: SendMessageInput;
     workdir?: string;
     onPermission?: PermissionResolver;
   }): AsyncGenerator<schema.SessionNotification, void, unknown>;
@@ -102,10 +104,13 @@ export function createAcpRuntime(deps: {
         queue.push(notification),
       );
 
+      const promptCapabilities = resolvePromptCapabilities(processManager, args.agent.id, session.workdir);
+      const promptBlocks = AcpMessageFormatter.mapInput(args.prompt, promptCapabilities);
+
       const promptPromise = session.connection.agent
         .request(acpMethods.agent.session.prompt, {
           sessionId: session.sessionId,
-          prompt: args.prompt,
+          prompt: promptBlocks,
         })
         .then(() => {
           queue.push(null); // sentinel: turn finished
@@ -128,4 +133,21 @@ export function createAcpRuntime(deps: {
       }
     },
   };
+}
+
+/**
+ * Best-effort lookup of the active process handle for an agent/workdir and its
+ * declared `promptCapabilities`, used to gate input-content mapping.
+ */
+function resolvePromptCapabilities(
+  processManager: AcpProcessManager,
+  agentId: string,
+  workdir?: string,
+): schema.PromptCapabilities | undefined {
+  const workdirMatches = (candidate: { workdir?: string | null }) =>
+    !workdir || !candidate.workdir || candidate.workdir === workdir;
+  const handle =
+    processManager.listProcesses().find((candidate) => candidate.agentId === agentId && workdirMatches(candidate)) ??
+    processManager.listProcesses().find((candidate) => candidate.agentId === agentId);
+  return handle?.promptCapabilities ?? handle?.agentCapabilities?.promptCapabilities;
 }

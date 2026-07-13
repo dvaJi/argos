@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { AcpProvider } from "../../../src/main/presenter/llmProviderPresenter/providers/acpProvider";
-import { LEGACY_MODE_CONFIG_ID } from "@argos/acp-runtime";
+import { LEGACY_MODE_CONFIG_ID, AcpMessageFormatter } from "@argos/acp-runtime";
 import { ACP_WORKSPACE_EVENTS } from "../../../src/main/events";
 import { eventBus, SendTarget } from "#/eventbus";
 import type { AcpConfigState } from "@argos/shared/types/presenters";
@@ -55,6 +55,7 @@ const acpAgentFromMethods = (methods: Record<string, (p: any) => any>) => {
     "session/close": "closeSession",
     "session/fork": "forkSession",
     authenticate: "authenticate",
+    logout: "logout",
   };
   const dispatch = async (method: string, params: any) => {
     const fn = methods[nameByMethod[method] ?? method];
@@ -464,6 +465,75 @@ describe("AcpProvider runDebugAction error handling", () => {
     expect(registerSessionWorkdir).toHaveBeenCalledWith("forked-session", "/tmp/debug-workdir");
     expect(registerSessionListener).toHaveBeenCalledWith("agent1", "forked-session", expect.any(Function));
     expect(registerPermissionResolver).toHaveBeenCalledWith("agent1", "forked-session", expect.any(Function));
+  });
+
+  it("sends logout and returns ok when the agent advertises auth.logout", async () => {
+    const logout = vi.fn<(...args: any[]) => any>().mockResolvedValue({});
+    const provider = Object.create(AcpProvider.prototype) as any;
+    provider.configPresenter = {
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
+    };
+    provider.processManager = {
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+        workdir: "/tmp/debug-workdir",
+        supportsAuthLogout: true,
+        connection: {
+          agent: acpAgentFromMethods({ logout }),
+        },
+        status: "ready",
+        agentId: "agent1",
+      }),
+    };
+    provider.sessionManager = {
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    };
+
+    const result = await provider.runDebugAction({
+      agentId: "agent1",
+      action: "logout",
+    } as any);
+
+    expect(result.status).toBe("ok");
+    expect(logout).toHaveBeenCalledWith({});
+  });
+
+  it("rejects logout when the agent does not advertise auth.logout", async () => {
+    const logout = vi.fn<(...args: any[]) => any>().mockResolvedValue({});
+    const provider = Object.create(AcpProvider.prototype) as any;
+    provider.configPresenter = {
+      getAcpAgents: vi.fn<(...args: any[]) => any>().mockResolvedValue([agent]),
+    };
+    provider.processManager = {
+      getDebugEvents: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
+      registerSessionWorkdir: vi.fn<(...args: any[]) => any>(),
+      registerSessionListener: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      registerPermissionResolver: vi.fn<(...args: any[]) => any>().mockReturnValue(() => {}),
+      getConnection: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+        workdir: "/tmp/debug-workdir",
+        supportsAuthLogout: false,
+        connection: {
+          agent: acpAgentFromMethods({ logout }),
+        },
+        status: "ready",
+        agentId: "agent1",
+      }),
+    };
+    provider.sessionManager = {
+      resolveMcpServersForAgent: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+    };
+
+    const result = await provider.runDebugAction({
+      agentId: "agent1",
+      action: "logout",
+    } as any);
+
+    expect(result.status).toBe("error");
+    expect(result.error).toContain("Agent did not advertise auth.logout capability");
+    expect(logout).not.toHaveBeenCalled();
   });
 
   it("uses real ACP MCP selections for debug sessions", async () => {
@@ -1144,5 +1214,42 @@ describe("AcpProvider runDebugAction error handling", () => {
       }),
     );
     expect(queue.done).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ACP prompt turn input content (§5)", () => {
+  it("maps current-turn text and gates image by promptCapabilities", () => {
+    const textOnly = AcpMessageFormatter.mapInput({ text: "hi", files: [] });
+    expect(textOnly).toEqual([{ type: "text", text: "hi" }]);
+
+    const imageSupported = AcpMessageFormatter.mapInput(
+      { text: "see", files: [{ name: "p.png", path: "/p.png", mimeType: "image/png", content: "DATA" }] },
+      { image: true },
+    );
+    expect(imageSupported[1]).toEqual({ type: "image", data: "DATA", mimeType: "image/png", uri: "/p.png" });
+
+    const imageUnsupported = AcpMessageFormatter.mapInput(
+      { text: "see", files: [{ name: "p.png", path: "/p.png", mimeType: "image/png", content: "DATA" }] },
+      { image: false },
+    );
+    expect(imageUnsupported[1]).toEqual({
+      type: "resource_link",
+      uri: "/p.png",
+      name: "p.png",
+      mimeType: "image/png",
+    });
+  });
+
+  it("gates audio by promptCapabilities with text fallback", () => {
+    const audioFile = { name: "c.mp3", path: "/c.mp3", mimeType: "audio/mpeg", content: "AUD" };
+    expect(AcpMessageFormatter.mapInput({ text: "", files: [audioFile] }, { audio: true })[0]).toEqual({
+      type: "audio",
+      data: "AUD",
+      mimeType: "audio/mpeg",
+    });
+    expect(AcpMessageFormatter.mapInput({ text: "", files: [audioFile] }, { audio: false })[0]).toEqual({
+      type: "text",
+      text: "[audio audio/mpeg]",
+    });
   });
 });

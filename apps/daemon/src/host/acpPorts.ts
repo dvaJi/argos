@@ -2,6 +2,7 @@ import { tmpdir, homedir } from "node:os";
 import path from "node:path";
 import type { AcpHostPorts } from "@argos/acp-runtime";
 import type { IEventPublisher } from "@argos/backend-core";
+import { shouldRejectAcpTextRead, buildBinaryReadGuidance } from "./acpBinaryGuard";
 
 /**
  * Daemon implementation of the ACP host ports. Resolves paths from the OS and
@@ -40,8 +41,9 @@ export function createDaemonAcpPorts(deps: {
       },
     },
     fs: {
-      shouldRejectAcpTextRead: async () => ({ reject: false }),
-      buildBinaryReadGuidance: () => "",
+      shouldRejectAcpTextRead: (filePath) => shouldRejectAcpTextRead(filePath),
+      buildBinaryReadGuidance: (filePath, mimeType, source) =>
+        buildBinaryReadGuidance(filePath, mimeType ?? "", source as "acp" | "agent"),
     },
   };
 }

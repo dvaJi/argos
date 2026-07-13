@@ -875,12 +875,16 @@ export type StandaloneVideoGenerationResult = {
 export type AcpDebugActionType =
   | "initialize"
   | "authenticate"
+  | "logout"
   | "newSession"
   | "loadSession"
   | "sessionList"
   | "sessionResume"
   | "sessionClose"
   | "sessionFork"
+  | "sessionImport"
+  | "sessionDetach"
+  | "sessionCloseRemote"
   | "prompt"
   | "cancel"
   | "setSessionMode"
@@ -923,6 +927,52 @@ export interface AcpDebugRunResult {
   sessionId?: string;
   error?: string;
   events: AcpDebugEventEntry[];
+}
+
+export interface AcpDiagnosticsCapabilities {
+  loadSession: boolean;
+  sessionList: boolean;
+  sessionResume: boolean;
+  sessionClose: boolean;
+  sessionFork: boolean;
+  authLogout: boolean;
+  fs: boolean;
+  terminal: boolean;
+}
+
+export interface AcpAuthEnvVar {
+  name: string;
+  label?: string;
+  secret?: boolean;
+  optional?: boolean;
+}
+
+export interface AcpAgentDiagnostics {
+  ready: boolean;
+  agentId: string;
+  workdir: string | null;
+  launchSource: string | null;
+  protocolVersion?: string;
+  agentName?: string;
+  agentVersion?: string;
+  authMethods: Array<{
+    id: string;
+    type?: string;
+    vars?: AcpAuthEnvVar[];
+    link?: string | null;
+  }>;
+  authRequired: boolean;
+  authRequiredMessage?: string | null;
+  capabilities: AcpDiagnosticsCapabilities;
+  lastError: string | null;
+}
+
+export interface AcpRemoteSessionSummary {
+  sessionId: string;
+  title?: string;
+  updatedAt?: number;
+  workdir?: string;
+  conversationId?: string;
 }
 
 export type AcpLegacyBuiltinAgentId = "kimi-cli" | "claude-code-acp" | "codex-acp" | "dimcode-acp";
@@ -1289,6 +1339,7 @@ export interface ILlmProviderPresenter {
   >;
   resolveAgentPermission(requestId: string, granted: boolean): Promise<void>;
   runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
+  getAcpAgentDiagnostics(agentId: string, workdir?: string | null): AcpAgentDiagnostics;
   getProviderInstance(providerId: string): unknown;
   getExistingProviderInstance?(providerId: string): unknown;
 }

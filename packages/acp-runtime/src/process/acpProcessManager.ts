@@ -23,6 +23,7 @@ import {
 import {
   buildCapabilitySnapshot,
   buildClientCapabilities,
+  clientSupportsTerminalAuth,
   type AcpCapabilitySnapshot,
 } from "../protocol/acpCapabilities";
 import { AcpFsHandler } from "./acpFsHandler";
@@ -36,6 +37,7 @@ import {
 } from "../protocol/acpConfigState";
 import type { AcpHostPorts } from "../host/ports";
 import { AcpDebugLog } from "../config/acpDebugLog";
+import { DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS, resolvePermissionWithTimeout } from "./permissionTimeout";
 
 const ACP_WORKSPACE_EVENTS = {
   SESSION_MODES_READY: "acp-workspace:session-modes-ready",
@@ -67,6 +69,7 @@ export interface AcpProcessHandle extends AgentProcessHandle {
   supportsSessionResume?: boolean;
   supportsSessionClose?: boolean;
   supportsSessionFork?: boolean;
+  supportsAuthLogout?: boolean;
   launchFingerprint: string;
 }
 
@@ -204,6 +207,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
   private readonly sessionListeners = new Map<string, SessionListenerEntry>();
   private readonly bufferedSessionUpdates = new Map<string, BufferedSessionUpdate[]>();
   private readonly permissionResolvers = new Map<string, PermissionResolverEntry>();
+  private permissionResolverTimeoutMs = DEFAULT_PERMISSION_RESOLVER_TIMEOUT_MS;
   private readonly ports: AcpHostPorts;
   private terminalManager!: AcpTerminalManager;
   private readonly sessionWorkdirs = new Map<string, string>();
@@ -835,6 +839,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         clientCapabilities: buildClientCapabilities({
           enableFs: true,
           enableTerminal: true,
+          enableTerminalAuth: clientSupportsTerminalAuth(handleSeed.authMethods),
         }),
         clientInfo: { name: "Argos", version: this.ports.paths.appVersion() },
       };
@@ -918,6 +923,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       handleSeed.supportsSessionResume = capabilitySnapshot.supports.sessionResume;
       handleSeed.supportsSessionClose = capabilitySnapshot.supports.sessionClose;
       handleSeed.supportsSessionFork = capabilitySnapshot.supports.sessionFork;
+      handleSeed.supportsAuthLogout = capabilitySnapshot.supports.authLogout;
       if (capabilitySnapshot.mcpCapabilities) {
         handleSeed.mcpCapabilities = capabilitySnapshot.mcpCapabilities;
         console.info("[ACP] MCP capabilities:", capabilitySnapshot.mcpCapabilities);
@@ -995,6 +1001,7 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
       supportsSessionResume: handleSeed.supportsSessionResume,
       supportsSessionClose: handleSeed.supportsSessionClose,
       supportsSessionFork: handleSeed.supportsSessionFork,
+      supportsAuthLogout: handleSeed.supportsAuthLogout,
       launchFingerprint,
     };
     readyHandle = handle;
@@ -1647,6 +1654,20 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
     for (const [sessionId, updates] of this.bufferedSessionUpdates.entries()) {
       const fresh = updates.filter((update) => now - update.receivedAt <= SESSION_UPDATE_BUFFER_TTL_MS);
       if (fresh.length === updates.length) continue;
+      const expiredCount = updates.length - fresh.length;
+      const listenerEntry = this.sessionListeners.get(sessionId);
+      if (listenerEntry) {
+        this.debugLog.append(listenerEntry.agentId, {
+          kind: "lifecycle",
+          action: "session/update.buffer.expired",
+          sessionId,
+          payload: { expiredCount, remaining: fresh.length },
+        });
+      } else {
+        console.warn(
+          `[ACP] Dropped ${expiredCount} expired buffered session update(s) for unbound session "${sessionId}" (${fresh.length} remaining)`,
+        );
+      }
       if (fresh.length) {
         this.bufferedSessionUpdates.set(sessionId, fresh);
       } else {
@@ -1671,7 +1692,21 @@ export class AcpProcessManager implements AgentProcessManager<AcpProcessHandle, 
         sessionId: params.sessionId,
         payload: params,
       });
-      return await entry.resolver(params);
+      return await resolvePermissionWithTimeout(
+        () => entry.resolver(params),
+        this.permissionResolverTimeoutMs,
+        () => {
+          console.warn(
+            `[ACP] Permission resolver timed out for session "${params.sessionId}" after ${this.permissionResolverTimeoutMs}ms, returning cancelled`,
+          );
+          this.debugLog.append(entry.agentId, {
+            kind: "permission",
+            action: "session/request_permission.timeout",
+            sessionId: params.sessionId,
+            payload: { timeoutMs: this.permissionResolverTimeoutMs },
+          });
+        },
+      );
     } catch (error) {
       console.error("[ACP] Permission resolver failed:", error);
       return { outcome: { outcome: "cancelled" } };

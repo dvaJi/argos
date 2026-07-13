@@ -16,14 +16,16 @@ import {
   updateAcpConfigStateValue,
 } from "@argos/acp-runtime";
 import { createAcpRuntime, type AcpRuntime } from "@argos/acp-runtime";
+import { runAcpDebugAction, computeAcpDiagnostics } from "@argos/acp-runtime";
 import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import type { AcpSessionRecord } from "@argos/acp-runtime/session/acpSessionManager";
+import type { AcpProcessHandle } from "@argos/acp-runtime/process/acpProcessManager";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
 import { createDaemonAcpPorts } from "./acpPorts";
 import { createDaemonAcpSqlitePresenter } from "./daemonAcpSqlite";
-import { methods as acpMethods } from "@agentclientprotocol/sdk";
-import type { AcpConfigState } from "@argos/shared/presenter";
+import { methods as acpMethods, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
+import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunResult } from "@argos/shared/presenter";
 
 const ACP_PROVIDER_ID = "acp";
 
@@ -106,19 +108,43 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     if (!agent) throw new Error(`ACP agent not found for model ${agentId}`);
 
     const text = typeof content === "string" ? content : content.text || "";
-    const prompt: schema.ContentBlock[] = [{ type: "text", text }];
+    const files = typeof content === "string" ? [] : (content.files ?? []);
+    const prompt: SendMessageInput = { text, files };
 
     const requestId = randomUUID();
     const assistantMessageId = randomUUID();
 
     // Persist the user message as JSON ({text, files}).
-    await this.sessionRepository.addMessage(sessionId, "user", JSON.stringify({ text, files: [] }));
+    await this.sessionRepository.addMessage(
+      sessionId,
+      "user",
+      JSON.stringify({
+        text,
+        files: files.map((file) => ({
+          name: file.name,
+          path: file.path,
+          type: file.type,
+          mimeType: file.mimeType,
+          size: file.size,
+        })),
+      }),
+    );
 
     const runtime = await this.getRuntime();
+    const record = await this.getSessionRecord(sessionId);
     const controller = new AbortController();
     this.activeTurns.set(sessionId, controller);
 
-    void this.runTurn(runtime, sessionId, agent, prompt, controller, requestId, assistantMessageId).finally(() => {
+    void this.runTurn(
+      runtime,
+      sessionId,
+      agent,
+      prompt,
+      controller,
+      requestId,
+      assistantMessageId,
+      record?.workdir,
+    ).finally(() => {
       this.activeTurns.delete(sessionId);
     });
 
@@ -141,14 +167,48 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     return runtime.processManager.getProcessConfigState(agentId, workdir) ?? null;
   }
 
+  private toConnectionRef(handle: AcpProcessHandle) {
+    return {
+      id: `${handle.agentId}:${handle.workdir}`,
+      agentId: handle.agentId,
+      workdir: handle.workdir,
+      protocolVersion: String(PROTOCOL_VERSION),
+      capabilities: handle.agentCapabilities,
+      authMethods: handle.authMethods,
+      status: handle.status === "ready" ? "ready" : "error",
+    };
+  }
+
+  async runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult> {
+    const runtime = await this.getRuntime();
+    const acpProvider = (this.configPresenter as unknown as { getProviderById(id: string): unknown }).getProviderById(
+      ACP_PROVIDER_ID,
+    ) as { id: string } | undefined;
+    return runAcpDebugAction({
+      request,
+      provider: { id: acpProvider?.id ?? ACP_PROVIDER_ID },
+      getAcpAgents: () => this.configPresenter.getAcpAgents() as Promise<Array<{ id: string; name: string }>>,
+      processManager: runtime.processManager,
+      sessionManager: runtime.sessionManager,
+      sessionPersistence: runtime.sessionPersistence,
+      toConnectionRef: (handle) => this.toConnectionRef(handle),
+    });
+  }
+
+  async getAcpAgentDiagnostics(agentId: string, workdir?: string | null): Promise<AcpAgentDiagnostics> {
+    const runtime = await this.getRuntime();
+    return computeAcpDiagnostics(runtime.processManager, agentId, workdir);
+  }
+
   private async runTurn(
     runtime: AcpRuntime,
     sessionId: string,
     agent: { id: string; name: string },
-    prompt: schema.ContentBlock[],
+    prompt: SendMessageInput,
     controller: AbortController,
     requestId: string,
     assistantMessageId: string,
+    workdir?: string,
   ): Promise<void> {
     let accumulatedText = "";
     const streamedBlocks: Array<Record<string, unknown>> = [];
@@ -157,6 +217,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         conversationId: sessionId,
         agent: agent as never,
         prompt,
+        workdir,
         onPermission: (params) => this.handlePermissionRequest(sessionId, assistantMessageId, requestId, params),
       })) {
         if (controller.signal.aborted) break;
@@ -457,7 +518,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   ): Promise<ToolInteractionResult> {
     const pending = this.pendingPermissions.get(toolCallId);
     if (!pending || pending.sessionId !== sessionId) {
-      throw new Error(`ACP permission request not found: ${toolCallId}`);
+      // Stale overlay: the session was interrupted/closed before the user
+      // responded. Clear it gracefully instead of throwing so the renderer can
+      // drop the overlay without surfacing an error.
+      console.warn(`[acp] respondToolInteraction: no pending permission for ${toolCallId} (session ${sessionId})`);
+      this.pendingPermissions.delete(toolCallId);
+      return { handledInline: true };
     }
     if (response.kind !== "permission") {
       throw new Error("ACP permission requests only accept permission responses.");

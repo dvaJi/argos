@@ -84,6 +84,7 @@ describe("AcpCapabilities", () => {
         sessionResume: true,
         sessionClose: true,
         sessionFork: false,
+        authLogout: false,
       });
     });
   });
