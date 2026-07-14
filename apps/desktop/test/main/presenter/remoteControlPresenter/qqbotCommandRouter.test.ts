@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { QQBotCommandRouter } from "#/presenter/remoteControlPresenter/services/qqbotCommandRouter";
+import { QQBotCommandRouter } from "@argos/remote-control-runtime/services/qqbotCommandRouter";
 
 const createMessage = (overrides: Partial<Parameters<QQBotCommandRouter["handleMessage"]>[0]> = {}) => ({
   kind: "message" as const,

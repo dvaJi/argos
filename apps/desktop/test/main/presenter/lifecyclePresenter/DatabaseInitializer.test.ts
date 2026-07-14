@@ -50,7 +50,7 @@ describe("DatabaseInitializer", () => {
 
     expect(SQLitePresenter).toHaveBeenCalledTimes(2);
     expect(repairSQLiteDatabaseFile).toHaveBeenCalledTimes(1);
-    expect(repairSQLiteDatabaseFile).toHaveBeenCalledWith("C:/tmp/argos-agent.db", undefined);
+    expect(repairSQLiteDatabaseFile).toHaveBeenCalledWith("C:/tmp/argos-agent.db");
     expect(result).toBe(presenterInstance);
   });
 

@@ -16,7 +16,7 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkills, uninstallSkill } from "#/stores/skillsStore";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { SkillMetadata } from "@argos/shared/types/skill";
 import SkillCard from "./SkillCard";
 import SkillInstallDialog from "./SkillInstallDialog";
@@ -30,7 +30,7 @@ import SettingsPageShell from "../control-center/SettingsPageShell";
 export default function SkillsSettings() {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -38,6 +38,7 @@ export default function SkillsSettings() {
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [syncMode, setSyncMode] = useState<"import" | "export">("import");
+  const [importSelection, setImportSelection] = useState<{ toolId: string; skills: string[] } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<SkillMetadata | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -138,6 +139,7 @@ export default function SkillsSettings() {
             variant="outline"
             size="sm"
             onClick={() => {
+              setImportSelection(null);
               setSyncMode("export");
               setSyncDialogOpen(true);
             }}
@@ -166,7 +168,8 @@ export default function SkillsSettings() {
 
           <div className="mb-4">
             <SyncStatusSection
-              onImport={() => {
+              onImport={(toolId, selectedSkills) => {
+                setImportSelection({ toolId, skills: selectedSkills });
                 setSyncMode("import");
                 setSyncDialogOpen(true);
               }}
@@ -223,9 +226,15 @@ export default function SkillsSettings() {
           onInstalled={() => loadSkills()}
         />
         <SkillSyncDialog
+          key={`${syncMode}:${importSelection?.toolId ?? "generic"}:${syncDialogOpen ? "open" : "closed"}`}
           open={syncDialogOpen}
-          onOpenChange={setSyncDialogOpen}
+          onOpenChange={(open) => {
+            setSyncDialogOpen(open);
+            if (!open) setImportSelection(null);
+          }}
           mode={syncMode}
+          initialToolId={syncMode === "import" ? importSelection?.toolId : undefined}
+          initialSkills={syncMode === "import" ? importSelection?.skills : undefined}
           onCompleted={() => loadSkills()}
         />
         <SkillEditorSheet
@@ -236,6 +245,7 @@ export default function SkillsSettings() {
         />
         <SyncPromptDialog
           onImport={() => {
+            setImportSelection(null);
             setSyncMode("import");
             setSyncDialogOpen(true);
           }}

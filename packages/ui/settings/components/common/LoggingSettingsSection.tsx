@@ -11,12 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { uiSettingsStore, setLoggingEnabled } from "#/stores/uiSettingsStore";
 import { languageStore } from "#/stores/language";
 
 export default function LoggingSettingsSection() {
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
   const loggingEnabled = useStore(uiSettingsStore, (s) => s.loggingEnabled);
 
   const [isLoggingDialogOpen, setIsLoggingDialogOpen] = useState(false);

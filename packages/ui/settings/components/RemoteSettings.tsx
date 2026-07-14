@@ -6,7 +6,7 @@ import { Label } from "#shadcn/components/ui/label";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { useLegacyRemoteControlPresenter, useLegacyPresenter } from "#api/legacy/presenters";
+import { useRemoteControlPresenter, usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import type { TelegramRemoteSettings, TelegramPairingSnapshot } from "@argos/shared/presenter";
 
@@ -22,8 +22,8 @@ const CHANNELS: { key: ChannelKey; label: string; icon: string }[] = [
 
 export default function RemoteSettings() {
   const { toast } = useToast();
-  const remoteControlPresenter = useLegacyRemoteControlPresenter();
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const remoteControlPresenter = useRemoteControlPresenter();
+  const configPresenter = usePresenter("configPresenter");
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>("telegram");

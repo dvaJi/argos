@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": "scripts/{architecture,agent-cleanup,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,rebuild-native,ensure-pnpm-store,commit-check,architecture-paths-guard}.mjs",
+      "entry": "scripts/{architecture,agent-cleanup,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,ensure-pnpm-store,commit-check,architecture-paths-guard}.mjs",
       "project": "scripts/**/*.mjs"
     },
     "apps/desktop": {

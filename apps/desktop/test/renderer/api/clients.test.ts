@@ -6,6 +6,7 @@ import { createModelClient } from "#api/ModelClient";
 import { createProviderClient } from "#api/ProviderClient";
 import { createSessionClient } from "#api/SessionClient";
 import { createSettingsClient } from "#api/SettingsClient";
+import { createSyncClient } from "#api/SyncClient";
 
 describe("renderer api clients", () => {
   function createBridge(): ArgosBridge {
@@ -124,6 +125,17 @@ describe("renderer api clients", () => {
       section: "fonts",
     });
     expect(bridge.on).toHaveBeenCalledWith("settings.changed", expect.any(Function));
+  });
+
+  it("passes the displayed sync folder to the native open-folder route", async () => {
+    const bridge = createBridge();
+    const client = createSyncClient(bridge);
+
+    await client.openSyncFolder("C:\\Backups\\Argos");
+
+    expect(bridge.invoke).toHaveBeenCalledWith("sync.openFolder", {
+      folderPath: "C:\\Backups\\Argos",
+    });
   });
 
   it("routes session and chat calls through the shared registry names", async () => {

@@ -1,10 +1,10 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 
 export abstract class BaseTable {
-  protected db: Database.Database;
+  protected db: Database;
   protected tableName: string;
 
-  constructor(db: Database.Database, tableName: string) {
+  constructor(db: Database, tableName: string) {
     this.db = db;
     this.tableName = tableName;
   }

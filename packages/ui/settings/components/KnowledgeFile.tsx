@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadc
 import { toast } from "#/components/use-toast";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Input } from "#shadcn/components/ui/input";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import KnowledgeFileItem from "./KnowledgeFileItem";
 import type { BuiltinKnowledgeConfig, KnowledgeFileMessage } from "@argos/shared/presenter";
 import { RAG_EVENTS } from "#/events";
@@ -17,7 +17,7 @@ interface KnowledgeFileProps {
 }
 
 export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeFile }: KnowledgeFileProps) {
-  const knowledgePresenter = useLegacyPresenter("knowledgePresenter");
+  const knowledgePresenter = usePresenter("knowledgePresenter");
   const [fileList, setFileList] = useState<KnowledgeFileMessage[]>([]);
   const [acceptExts, setAcceptExts] = useState<string[]>([]);
   const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);

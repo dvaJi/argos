@@ -95,6 +95,11 @@ type JsonStoreLike<TStore extends Record<string, unknown>> = {
   readonly path: string;
 };
 
+export type PluginSettingsWebAsset = {
+  filePath: string;
+  isEntry: boolean;
+};
+
 export class DaemonPluginPresenter {
   private readonly configPresenter: PluginPresenterDeps["configPresenter"];
   private readonly mcpPresenter: PluginPresenterDeps["mcpPresenter"];
@@ -106,6 +111,7 @@ export class DaemonPluginPresenter {
   private readonly store: JsonStoreLike<PluginStoreShape>;
   private readonly toolPolicyStore: JsonStoreLike<ToolPolicyStoreShape>;
   private officialPlugins = new Map<string, ResolvedOfficialPlugin>();
+  private settingsBaseUrl = "";
 
   constructor(deps: PluginPresenterDeps) {
     this.configPresenter = deps.configPresenter;
@@ -148,6 +154,10 @@ export class DaemonPluginPresenter {
         });
       }
     }
+  }
+
+  setSettingsBaseUrl(baseUrl: string | null): void {
+    this.settingsBaseUrl = baseUrl?.replace(/\/+$/, "") ?? "";
   }
 
   async shutdown(): Promise<void> {
@@ -247,7 +257,15 @@ export class DaemonPluginPresenter {
   async invokeAction(pluginId: string, actionId: string, payload?: unknown): Promise<PluginActionResult> {
     try {
       if (actionId === "settings.open") {
-        throw new Error("Plugin settings UI is not available in daemon mode");
+        if (!this.getSettingsContribution(pluginId)) {
+          throw new Error(`Plugin ${pluginId} does not provide a settings contribution`);
+        }
+        return {
+          ok: true,
+          data: {
+            settingsUrl: `${this.settingsBaseUrl}/api/v1/plugins/${encodeURIComponent(pluginId)}/settings/`,
+          },
+        };
       }
 
       switch (actionId) {
@@ -293,6 +311,35 @@ export class DaemonPluginPresenter {
         error,
       });
       return this.errorResult(error);
+    }
+  }
+
+  resolveSettingsWebAsset(pluginId: string, assetPath: string): PluginSettingsWebAsset | null {
+    const settings = this.getSettingsContribution(pluginId);
+    if (!settings) {
+      return null;
+    }
+
+    try {
+      const entryPath = fs.realpathSync(settings.entry);
+      const settingsRoot = fs.realpathSync(path.dirname(entryPath));
+      const unresolvedPath = assetPath ? path.resolve(settingsRoot, assetPath) : entryPath;
+      if (unresolvedPath !== settingsRoot && !unresolvedPath.startsWith(`${settingsRoot}${path.sep}`)) {
+        return null;
+      }
+      const filePath = fs.realpathSync(unresolvedPath);
+      if (filePath !== settingsRoot && !filePath.startsWith(`${settingsRoot}${path.sep}`)) {
+        return null;
+      }
+      if (!fs.statSync(filePath).isFile()) {
+        return null;
+      }
+      return {
+        filePath,
+        isEntry: filePath === entryPath,
+      };
+    } catch {
+      return null;
     }
   }
 

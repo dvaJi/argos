@@ -114,7 +114,7 @@ async function setup(overrides?: {
     setDefaultProject,
     clearDefaultProject,
   }));
-  vi.doMock("#api/legacy/presenters", () => ({
+  vi.doMock("#api/presenterBridge", () => ({
     useLegacyPresenter: () => ({
       pathExists: vi.fn<(...args: any[]) => any>().mockResolvedValue(overrides?.pathExists ?? true),
     }),

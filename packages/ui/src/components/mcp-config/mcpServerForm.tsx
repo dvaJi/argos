@@ -1,11 +1,11 @@
-import { type FC, type FormEvent, useState, useMemo, useEffect, useCallback } from "react";
+import { type FC, type FormEvent, useState, useMemo, useEffect } from "react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { Textarea } from "#shadcn/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
-import { MCPServerConfig } from "@argos/shared/presenter";
+import type { MCPServerConfig } from "@argos/shared/presenter";
 import { EmojiPicker } from "#/components/emoji-picker";
 import { useToast } from "#/components/use-toast";
 import { Icon } from "@iconify/react";
@@ -38,6 +38,13 @@ const placeholder = `MCP config example:
 const customHeadersPlaceholder = `Authorization=Bearer your_token
 HTTP-Referer=argos.aipurrjects.xyz`;
 
+const formatJsonHeaders = (headers: Record<string, string>): string =>
+  Object.entries(headers)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+
+const createArgsRows = (values: string[]) => values.map((value) => ({ id: nanoid(), value }));
+
 export const McpServerForm: FC<McpServerFormProps> = ({
   serverName: serverNameProp,
   initialConfig,
@@ -47,10 +54,10 @@ export const McpServerForm: FC<McpServerFormProps> = ({
 }) => {
   const { toast } = useToast();
   const deviceClient = createDeviceClient();
+  const initialArgs = Array.isArray(initialConfig?.args) ? initialConfig.args : [];
 
   const [name, setName] = useState(serverNameProp || "");
   const [command, setCommand] = useState(initialConfig?.command || "npx");
-  const [args, setArgs] = useState(initialConfig?.args?.join("\n") || "");
   const [env, setEnv] = useState(JSON.stringify(initialConfig?.env || {}, null, 2));
   const [descriptions, setDescriptions] = useState(initialConfig?.descriptions || "");
   const [icons, setIcons] = useState(initialConfig?.icons || "📁");
@@ -58,9 +65,10 @@ export const McpServerForm: FC<McpServerFormProps> = ({
     (initialConfig?.type as MCPServerTypeOption | undefined) || "stdio",
   );
   const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "");
-  const [customHeaders, setCustomHeaders] = useState("");
+  const [customHeaders, setCustomHeaders] = useState(() =>
+    initialConfig?.customHeaders ? formatJsonHeaders(initialConfig.customHeaders) : "",
+  );
   const [customHeadersFocused, setCustomHeadersFocused] = useState(false);
-  const [customHeadersDisplayValue, setCustomHeadersDisplayValue] = useState("");
   const [npmRegistry, setNpmRegistry] = useState(initialConfig?.customNpmRegistry || "");
   const [autoApproveAll, setAutoApproveAll] = useState(initialConfig?.autoApprove?.includes("all") || false);
   const [autoApproveRead, setAutoApproveRead] = useState(
@@ -71,8 +79,8 @@ export const McpServerForm: FC<McpServerFormProps> = ({
   );
   const [currentStep, setCurrentStep] = useState(editMode ? "detailed" : "simple");
   const [jsonConfig, setJsonConfig] = useState("");
-  const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>([]);
-  const [foldersList, setFoldersList] = useState<string[]>([]);
+  const [argsRows, setArgsRows] = useState<Array<{ id: string; value: string }>>(() => createArgsRows(initialArgs));
+  const [foldersList, setFoldersList] = useState<string[]>(() => [...initialArgs]);
 
   const isInMemoryType = useMemo(() => type === "inmemory", [type]);
   const isBuildInFileSystem = useMemo(() => isInMemoryType && name === "buildInFileSystem", [isInMemoryType, name]);
@@ -91,11 +99,6 @@ export const McpServerForm: FC<McpServerFormProps> = ({
     [type, command],
   );
 
-  const formatJsonHeaders = (headers: Record<string, string>): string =>
-    Object.entries(headers)
-      .map(([key, value]) => `${key}=${value}`)
-      .join("\n");
-
   const parseKeyValueHeaders = (text: string): Record<string, string> => {
     const headers: Record<string, string> = {};
     if (!text) return headers;
@@ -110,16 +113,6 @@ export const McpServerForm: FC<McpServerFormProps> = ({
       }
     }
     return headers;
-  };
-
-  const createArgsRows = (values: string[]) => values.map((v) => ({ id: nanoid(), value: v }));
-
-  const syncArgsRowsFromString = (value: string) => {
-    const parsedValues = value ? value.split(/\r?\n/) : [];
-    const currentValues = argsRows.map((row) => row.value);
-    if (parsedValues.length === currentValues.length && parsedValues.every((val, i) => val === currentValues[i]))
-      return;
-    setArgsRows(createArgsRows(parsedValues));
   };
 
   const addArgsRow = () => setArgsRows((prev) => [...prev, { id: nanoid(), value: "" }]);
@@ -141,30 +134,6 @@ export const McpServerForm: FC<McpServerFormProps> = ({
   };
 
   const removeFolder = (index: number) => setFoldersList((prev) => prev.filter((_, i) => i !== index));
-
-  useEffect(() => {
-    if (isBuildInFileSystem) {
-      if (args) {
-        setFoldersList(args.split(/\r?\n/).filter((item) => item.trim().length > 0));
-      } else {
-        setFoldersList([]);
-      }
-    } else {
-      syncArgsRowsFromString(args || "");
-    }
-  }, [args]);
-
-  useEffect(() => {
-    if (isBuildInFileSystem) return;
-    const joinedArgs = argsRows.map((row) => row.value).join("\n");
-    if (args !== joinedArgs) setArgs(joinedArgs);
-  }, [argsRows]);
-
-  useEffect(() => {
-    if (isBuildInFileSystem) {
-      setArgs(foldersList.join("\n"));
-    }
-  }, [foldersList]);
 
   const validateKeyValueHeaders = (text: string): boolean => {
     if (!text.trim()) return true;
@@ -208,64 +177,25 @@ export const McpServerForm: FC<McpServerFormProps> = ({
       return "=" + trimmedVal.substring(0, 2) + "*".repeat(8) + trimmedVal.substring(trimmedVal.length - 2);
     });
 
-  const updateCustomHeadersDisplay = useCallback(() => {
+  const customHeadersDisplayValue = useMemo(() => {
     if (customHeadersFocused || !customHeaders.trim()) {
-      setCustomHeadersDisplayValue(customHeaders);
-    } else {
-      setCustomHeadersDisplayValue(
-        customHeaders
-          .split("\n")
-          .map((line) => {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || !trimmedLine.includes("=")) return line;
-            return maskSensitiveValue(line);
-          })
-          .join("\n"),
-      );
+      return customHeaders;
     }
+    return customHeaders
+      .split("\n")
+      .map((line) => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || !trimmedLine.includes("=")) return line;
+        return maskSensitiveValue(line);
+      })
+      .join("\n");
   }, [customHeaders, customHeadersFocused]);
-
-  useEffect(() => {
-    updateCustomHeadersDisplay();
-  }, [updateCustomHeadersDisplay]);
 
   useEffect(() => {
     if (defaultJsonConfig) {
       setJsonConfig(defaultJsonConfig);
     }
   }, [defaultJsonConfig]);
-
-  useEffect(() => {
-    if (initialConfig && editMode && !defaultJsonConfig) {
-      setCommand(initialConfig.command || "npx");
-      setEnv(JSON.stringify(initialConfig.env || {}, null, 2));
-      setDescriptions(initialConfig.descriptions || "");
-      setIcons(initialConfig.icons || "📁");
-      setType(initialConfig.type || "stdio");
-      setBaseUrl(initialConfig.baseUrl || "");
-      setNpmRegistry(initialConfig.customNpmRegistry || "");
-      const incomingArgs = Array.isArray(initialConfig.args) ? initialConfig.args : [];
-      if (isBuildInFileSystem) {
-        setFoldersList(incomingArgs);
-        setArgs(incomingArgs.join("\n"));
-      } else {
-        syncArgsRowsFromString(incomingArgs.join("\n"));
-      }
-      if (initialConfig.customHeaders) {
-        setCustomHeaders(formatJsonHeaders(initialConfig.customHeaders));
-      } else {
-        setCustomHeaders("");
-      }
-      setAutoApproveAll(initialConfig.autoApprove?.includes("all") || false);
-      setAutoApproveRead(
-        initialConfig.autoApprove?.includes("read") || initialConfig.autoApprove?.includes("all") || false,
-      );
-      setAutoApproveWrite(
-        initialConfig.autoApprove?.includes("write") || initialConfig.autoApprove?.includes("all") || false,
-      );
-      setCurrentStep("detailed");
-    }
-  }, [initialConfig, editMode, defaultJsonConfig]);
 
   const parseJsonConfig = () => {
     try {
@@ -280,6 +210,8 @@ export const McpServerForm: FC<McpServerFormProps> = ({
       setDescriptions(serverConfig.descriptions || "");
       setIcons(serverConfig.icons || "📁");
       const incomingArgs = Array.isArray(serverConfig.args) ? serverConfig.args : [];
+      setArgsRows(createArgsRows(incomingArgs));
+      setFoldersList(incomingArgs);
       const incomingType = serverConfig.type as MCPServerTypeOption | undefined;
       const url = serverConfig.url || serverConfig.baseUrl || "";
       setBaseUrl(url);
@@ -507,6 +439,7 @@ export const McpServerForm: FC<McpServerFormProps> = ({
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                      aria-label={`Remove folder ${folder}`}
                       onClick={() => removeFolder(index)}
                     >
                       <X className="h-3 w-3" />
@@ -532,15 +465,13 @@ export const McpServerForm: FC<McpServerFormProps> = ({
           {!showFolderSelector && showArgsInput && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground" htmlFor="server-args">
-                  Arguments
-                </Label>
+                <Label className="text-xs text-muted-foreground">Arguments</Label>
                 <Button type="button" variant="ghost" size="sm" onClick={addArgsRow}>
                   Add Argument
                 </Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {argsRows.map((row) => (
+                {argsRows.map((row, index) => (
                   <div key={row.id} className="grid grid-cols-12 gap-2 items-center">
                     <Input
                       value={row.value}
@@ -556,6 +487,7 @@ export const McpServerForm: FC<McpServerFormProps> = ({
                       variant="ghost"
                       size="icon"
                       className="col-span-1"
+                      aria-label={`Remove argument ${index + 1}`}
                       onClick={() => removeArgsRow(row.id)}
                     >
                       <X className="h-4 w-4" />
@@ -563,7 +495,6 @@ export const McpServerForm: FC<McpServerFormProps> = ({
                   </div>
                 ))}
               </div>
-              <Input id="server-args" value={args} onChange={(e) => setArgs(e.target.value)} className="hidden" />
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { FeishuAuthGuard } from "#/presenter/remoteControlPresenter/services/feishuAuthGuard";
+import { FeishuAuthGuard } from "@argos/remote-control-runtime/services/feishuAuthGuard";
 
 const createMessage = (overrides: Partial<Parameters<FeishuAuthGuard["ensureAuthorized"]>[0]> = {}) => ({
   kind: "message" as const,

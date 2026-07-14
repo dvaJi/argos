@@ -157,7 +157,7 @@ export class McpPresenter implements IMCPPresenter {
     limit: number,
   ): Promise<{
     servers: Array<{
-      uuid: string;
+      uuid?: string;
       created_at: string;
       updated_at: string;
       name: string;

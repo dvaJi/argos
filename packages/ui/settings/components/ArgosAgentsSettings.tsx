@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/compon
 import { Textarea } from "#shadcn/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { createToolClient } from "#api/ToolClient";
 import { useToast } from "#/components/use-toast";
 import ModelSelect from "#/components/ModelSelect";
@@ -223,8 +223,8 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
 
 export default function ArgosAgentsSettings() {
   const { toast } = useToast();
-  const configPresenter = useLegacyPresenter("configPresenter");
-  const agentSessionPresenter = useLegacyPresenter("agentSessionPresenter");
+  const configPresenter = usePresenter("configPresenter");
+  const agentSessionPresenter = usePresenter("agentSessionPresenter");
   const toolClient = useMemo(() => createToolClient(), []);
   const modelStore = useModelStore();
 

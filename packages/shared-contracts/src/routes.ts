@@ -19,11 +19,7 @@ import {
   chatStopStreamRoute,
 } from "./routes/chat.routes";
 import {
-  databaseSecurityChangePasswordRoute,
   databaseSecurityDiagnoseSchemaRoute,
-  databaseSecurityDisableRoute,
-  databaseSecurityEnableRoute,
-  databaseSecurityGetStatusRoute,
   databaseSecurityRepairSchemaRoute,
 } from "./routes/database-security.routes";
 import {
@@ -626,10 +622,6 @@ export const ARGOS_ROUTE_CATALOG = {
   [chatSteerActiveTurnRoute.name]: chatSteerActiveTurnRoute,
   [chatStopStreamRoute.name]: chatStopStreamRoute,
   [chatRespondToolInteractionRoute.name]: chatRespondToolInteractionRoute,
-  [databaseSecurityGetStatusRoute.name]: databaseSecurityGetStatusRoute,
-  [databaseSecurityEnableRoute.name]: databaseSecurityEnableRoute,
-  [databaseSecurityChangePasswordRoute.name]: databaseSecurityChangePasswordRoute,
-  [databaseSecurityDisableRoute.name]: databaseSecurityDisableRoute,
   [databaseSecurityDiagnoseSchemaRoute.name]: databaseSecurityDiagnoseSchemaRoute,
   [databaseSecurityRepairSchemaRoute.name]: databaseSecurityRepairSchemaRoute,
   [skillsListMetadataRoute.name]: skillsListMetadataRoute,

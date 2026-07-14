@@ -8,7 +8,7 @@ import ModelSelect from "#/components/ModelSelect";
 import ModelIcon from "#/components/icons/ModelIcon";
 import { themeStore } from "#/stores/theme";
 import { modelStore } from "#/stores/modelStore";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { RENDERER_MODEL_META } from "@argos/shared/presenter";
 
 interface SelectedModel {
@@ -17,7 +17,7 @@ interface SelectedModel {
 }
 
 export default function DefaultModelSettingsSection() {
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
   const isDark = useStore(themeStore, (s) => s.isDark);
   const enabledModels = useStore(modelStore, (s) => s.enabledModels);
 

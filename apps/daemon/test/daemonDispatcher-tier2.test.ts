@@ -691,7 +691,6 @@ describe("DaemonDispatcher Tier 2 routes no longer return Coming soon", () => {
         configPresenter: {
           listMcpRouterServers: vi.fn(async () => [
             {
-              uuid: "router-1",
               created_at: "2026-01-01T00:00:00Z",
               updated_at: "2026-01-02T00:00:00Z",
               name: "router-one",

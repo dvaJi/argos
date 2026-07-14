@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FeishuRuntimeStatusSnapshot } from "#/presenter/remoteControlPresenter/types";
+import type { FeishuRuntimeStatusSnapshot } from "@argos/remote-control-runtime/types";
 
 type MockRuntimeDeps = {
   onStatusChange?: (snapshot: FeishuRuntimeStatusSnapshot) => void;
@@ -17,7 +17,7 @@ const clientInstances: Array<{
   sendImage: ReturnType<typeof vi.fn>;
 }> = [];
 
-vi.mock("#/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
+vi.mock("@argos/remote-control-runtime/feishu/feishuRuntime", () => ({
   FeishuRuntime: class MockFeishuRuntime {
     readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
@@ -42,7 +42,7 @@ vi.mock("#/presenter/remoteControlPresenter/feishu/feishuRuntime", () => ({
   },
 }));
 
-vi.mock("#/presenter/remoteControlPresenter/feishu/feishuClient", () => ({
+vi.mock("@argos/remote-control-runtime/feishu/feishuClient", () => ({
   FeishuClient: class MockFeishuClient {
     readonly sendText = vi.fn<(...args: any[]) => any>().mockResolvedValue("om_1");
     readonly sendImage = vi.fn<(...args: any[]) => any>().mockResolvedValue("om_image_1");
@@ -53,7 +53,7 @@ vi.mock("#/presenter/remoteControlPresenter/feishu/feishuClient", () => ({
   },
 }));
 
-import { FeishuAdapter } from "#/presenter/remoteControlPresenter/adapters/feishu/FeishuAdapter";
+import { FeishuAdapter } from "@argos/remote-control-runtime/adapters/feishu/FeishuAdapter";
 
 describe("FeishuAdapter", () => {
   beforeEach(() => {

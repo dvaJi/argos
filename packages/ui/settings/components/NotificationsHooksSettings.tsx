@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
@@ -9,7 +9,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type {
   HookCommandItem,
   HookEventName,
@@ -86,7 +86,7 @@ const eventLabels: Record<string, string> = Object.fromEntries(HOOK_EVENT_NAMES.
 
 export default function NotificationsHooksSettings() {
   const { toast } = useToast();
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
 
   const [config, setConfig] = useState<HooksNotificationsSettings | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,50 +94,40 @@ export default function NotificationsHooksSettings() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [testResults, setTestResults] = useState<Record<string, HookTestResult | null>>({});
-  const pendingSaveRef = useRef(false);
+  const saveInFlightRef = useRef(false);
+  const pendingSaveRef = useRef<HooksNotificationsSettings | null>(null);
 
-  const loadConfig = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const result = await configPresenter.getHooksNotificationsConfig();
-      setConfig(result);
-    } catch (error) {
-      toast({
-        title: "Operation failed",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [configPresenter, toast]);
-
-  const persistConfig = useCallback(async () => {
-    if (!config) return;
-    if (isSaving) {
-      pendingSaveRef.current = true;
+  const persistConfig = async (nextConfig?: HooksNotificationsSettings) => {
+    const configToSave = nextConfig ?? config;
+    if (!configToSave) return;
+    if (saveInFlightRef.current) {
+      pendingSaveRef.current = configToSave;
       return;
     }
+    saveInFlightRef.current = true;
     setIsSaving(true);
     try {
-      const updated = await configPresenter.setHooksNotificationsConfig(config);
-      if (updated) setConfig(updated);
+      let currentConfig: HooksNotificationsSettings | null = configToSave;
+      while (currentConfig) {
+        const updated = await configPresenter.setHooksNotificationsConfig(currentConfig);
+        currentConfig = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (!currentConfig && updated) setConfig(updated);
+      }
     } catch (error) {
+      pendingSaveRef.current = null;
       toast({
         title: "Operation failed",
         description: error instanceof Error ? error.message : String(error),
         variant: "destructive",
       });
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
-      if (pendingSaveRef.current) {
-        pendingSaveRef.current = false;
-        void persistConfig();
-      }
     }
-  }, [config, isSaving, configPresenter, toast]);
+  };
 
-  const addHook = useCallback(() => {
+  const addHook = () => {
     if (!config) return;
     const draft: HookCommandItem = {
       id: crypto.randomUUID(),
@@ -146,94 +136,83 @@ export default function NotificationsHooksSettings() {
       command: "",
       events: [...DEFAULT_IMPORTANT_HOOK_EVENTS],
     };
-    setConfig({ ...config, hooks: [...config.hooks, draft] });
-    void persistConfig();
-  }, [config, persistConfig]);
+    const nextConfig = { ...config, hooks: [...config.hooks, draft] };
+    setConfig(nextConfig);
+    void persistConfig(nextConfig);
+  };
 
-  const removeHook = useCallback(
-    (hookId: string) => {
-      if (!config) return;
-      setConfig({ ...config, hooks: config.hooks.filter((h) => h.id !== hookId) });
-      setTesting((prev) => {
-        const next = { ...prev };
-        delete next[hookId];
-        return next;
-      });
-      setTestResults((prev) => {
-        const next = { ...prev };
-        delete next[hookId];
-        return next;
-      });
-      void persistConfig();
-    },
-    [config, persistConfig],
-  );
+  const removeHook = (hookId: string) => {
+    if (!config) return;
+    const nextConfig = { ...config, hooks: config.hooks.filter((h) => h.id !== hookId) };
+    setConfig(nextConfig);
+    setTesting((prev) => {
+      const next = { ...prev };
+      delete next[hookId];
+      return next;
+    });
+    setTestResults((prev) => {
+      const next = { ...prev };
+      delete next[hookId];
+      return next;
+    });
+    void persistConfig(nextConfig);
+  };
 
-  const updateHookEnabled = useCallback(
-    (hookId: string, enabled: boolean) => {
-      if (!config) return;
-      setConfig({
-        ...config,
-        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, enabled } : h)),
-      });
-      void persistConfig();
-    },
-    [config, persistConfig],
-  );
+  const updateHookEnabled = (hookId: string, enabled: boolean) => {
+    if (!config) return;
+    const nextConfig = {
+      ...config,
+      hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, enabled } : h)),
+    };
+    setConfig(nextConfig);
+    void persistConfig(nextConfig);
+  };
 
-  const updateHookEvent = useCallback(
-    (hookId: string, eventName: HookEventName, checked: boolean) => {
-      if (!config) return;
-      setConfig({
-        ...config,
-        hooks: config.hooks.map((h) => {
-          if (h.id !== hookId) return h;
-          const events = new Set(h.events);
-          if (checked) events.add(eventName);
-          else events.delete(eventName);
-          return { ...h, events: Array.from(events) };
-        }),
-      });
-      void persistConfig();
-    },
-    [config, persistConfig],
-  );
+  const updateHookEvent = (hookId: string, eventName: HookEventName, checked: boolean) => {
+    if (!config) return;
+    const nextConfig = {
+      ...config,
+      hooks: config.hooks.map((h) => {
+        if (h.id !== hookId) return h;
+        const events = new Set(h.events);
+        if (checked) events.add(eventName);
+        else events.delete(eventName);
+        return { ...h, events: Array.from(events) };
+      }),
+    };
+    setConfig(nextConfig);
+    void persistConfig(nextConfig);
+  };
 
-  const updateHookField = useCallback(
-    (hookId: string, field: "name" | "command", value: string) => {
-      if (!config) return;
-      setConfig({
-        ...config,
-        hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, [field]: value } : h)),
-      });
-    },
-    [config],
-  );
+  const updateHookField = (hookId: string, field: "name" | "command", value: string) => {
+    if (!config) return;
+    setConfig({
+      ...config,
+      hooks: config.hooks.map((h) => (h.id === hookId ? { ...h, [field]: value } : h)),
+    });
+  };
 
-  const runHookTest = useCallback(
-    async (hookId: string) => {
-      if (testing[hookId]) return;
-      setTesting((prev) => ({ ...prev, [hookId]: true }));
-      setTestResults((prev) => ({ ...prev, [hookId]: null }));
-      try {
-        await persistConfig();
-        const result = await configPresenter.testHookCommand(hookId);
-        setTestResults((prev) => ({ ...prev, [hookId]: result }));
-      } catch (error) {
-        setTestResults((prev) => ({
-          ...prev,
-          [hookId]: {
-            success: false,
-            durationMs: 0,
-            error: error instanceof Error ? error.message : String(error),
-          },
-        }));
-      } finally {
-        setTesting((prev) => ({ ...prev, [hookId]: false }));
-      }
-    },
-    [testing, persistConfig, configPresenter],
-  );
+  const runHookTest = async (hookId: string) => {
+    if (testing[hookId]) return;
+    setTesting((prev) => ({ ...prev, [hookId]: true }));
+    setTestResults((prev) => ({ ...prev, [hookId]: null }));
+    try {
+      await persistConfig();
+      const result = await configPresenter.testHookCommand(hookId);
+      setTestResults((prev) => ({ ...prev, [hookId]: result }));
+    } catch (error) {
+      setTestResults((prev) => ({
+        ...prev,
+        [hookId]: {
+          success: false,
+          durationMs: 0,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      }));
+    } finally {
+      setTesting((prev) => ({ ...prev, [hookId]: false }));
+    }
+  };
 
   const formatPreview = (value?: string) => {
     if (!value) return "";
@@ -241,8 +220,31 @@ export default function NotificationsHooksSettings() {
   };
 
   useEffect(() => {
+    let active = true;
+
+    const loadConfig = async () => {
+      setIsLoading(true);
+      try {
+        const result = await configPresenter.getHooksNotificationsConfig();
+        if (active) setConfig(result);
+      } catch (error) {
+        if (active) {
+          toast({
+            title: "Operation failed",
+            description: error instanceof Error ? error.message : String(error),
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
     void loadConfig();
-  }, [loadConfig]);
+    return () => {
+      active = false;
+    };
+  }, [configPresenter, toast]);
 
   if (isLoading) {
     return (

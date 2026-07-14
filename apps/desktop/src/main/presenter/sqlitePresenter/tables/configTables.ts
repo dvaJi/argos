@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 
@@ -75,7 +75,7 @@ const stringifyJson = (value: unknown): string => JSON.stringify(value ?? null);
 const now = (): number => Date.now();
 
 export class ConfigTables extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "providers");
   }
 

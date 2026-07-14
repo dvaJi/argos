@@ -27,7 +27,7 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
 
 interface BuiltinKnowledgeSettingsProps {
@@ -37,7 +37,7 @@ interface BuiltinKnowledgeSettingsProps {
 export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowledgeSettingsProps) {
   const mcpStore = useMcpStore();
   const { toast } = useToast();
-  const knowledgePresenter = useLegacyPresenter("configPresenter");
+  const knowledgePresenter = usePresenter("configPresenter");
 
   const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
   const [configs, setConfigs] = useState<BuiltinKnowledgeConfig[]>([]);

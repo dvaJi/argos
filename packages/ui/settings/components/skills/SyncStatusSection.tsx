@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { ScanResult } from "@argos/shared/types/skillSync";
 import SyncStatusCard from "./SyncStatusCard";
 
@@ -12,21 +12,14 @@ interface SyncStatusSectionProps {
 
 export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) {
   const { toast } = useToast();
-  const skillSyncPresenter = useLegacyPresenter("skillSyncPresenter");
+  const skillSyncPresenter = usePresenter("skillSyncPresenter");
 
   const [tools, setTools] = useState<ScanResult[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [syncingTools, setSyncingTools] = useState<Set<string>>(new Set());
 
-  const sortedTools = useMemo(() => {
-    return [...tools]
-      .filter((tool) => !tool.toolId.includes("project"))
-      .sort((a, b) => {
-        if (a.available && !b.available) return -1;
-        if (!a.available && b.available) return 1;
-        return (b.skills?.length ?? 0) - (a.skills?.length ?? 0);
-      });
-  }, [tools]);
+  const sortedTools = [...tools]
+    .filter((tool) => !tool.toolId.includes("project") && tool.available && tool.skills.length > 0)
+    .sort((a, b) => (b.skills?.length ?? 0) - (a.skills?.length ?? 0));
 
   const refresh = async () => {
     setScanning(true);
@@ -45,7 +38,7 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
     }
   };
 
-  const handleSync = async (toolId: string) => {
+  const handleSync = (toolId: string) => {
     const tool = tools.find((t) => t.toolId === toolId);
     if (!tool || !tool.available) return;
 
@@ -62,32 +55,51 @@ export default function SyncStatusSection({ onImport }: SyncStatusSectionProps) 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium">External Tool Skills</h3>
-          <p className="text-xs text-muted-foreground">Skills detected from other AI coding tools</p>
+        <div className="min-w-0 pr-4">
+          <h3 className="text-sm font-medium text-balance">External Skill Sources</h3>
+          <p className="text-xs text-muted-foreground text-pretty">
+            Compatible skill folders found in other coding tools. Importing copies them into Argos; these are not ACP
+            agents.
+          </p>
         </div>
-        <Button variant="ghost" size="sm" disabled={scanning} onClick={refresh}>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={scanning}
+          aria-label="Scan external skill sources"
+          title="Scan external skill sources"
+          onClick={refresh}
+        >
           <Icon
             icon={scanning ? "lucide:loader-2" : "lucide:refresh-cw"}
-            className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`}
+            aria-hidden="true"
+            className={`size-4 ${scanning ? "animate-spin" : ""}`}
           />
         </Button>
       </div>
 
       {scanning && tools.length === 0 ? (
         <div className="flex items-center justify-center py-6">
-          <Icon icon="lucide:loader-2" className="w-5 h-5 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Scanning...</span>
+          <Icon icon="lucide:loader-2" aria-hidden="true" className="size-5 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Scanning…</span>
         </div>
-      ) : tools.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-6 text-center">
-          <Icon icon="lucide:inbox" className="w-10 h-10 text-muted-foreground/50 mb-2" />
-          <p className="text-sm text-muted-foreground">No external tools found</p>
+      ) : sortedTools.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-6 text-center">
+          <Icon icon="lucide:inbox" aria-hidden="true" className="size-10 text-muted-foreground/50" />
+          <div>
+            <p className="text-sm font-medium">No External Skills Detected</p>
+            <p className="text-xs text-muted-foreground text-pretty">
+              Argos did not find compatible skills in supported tool folders.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" disabled={scanning} onClick={refresh}>
+            Scan Again
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
           {sortedTools.map((tool) => (
-            <SyncStatusCard key={tool.toolId} tool={tool} syncing={syncingTools.has(tool.toolId)} onSync={handleSync} />
+            <SyncStatusCard key={tool.toolId} tool={tool} onSync={handleSync} />
           ))}
         </div>
       )}

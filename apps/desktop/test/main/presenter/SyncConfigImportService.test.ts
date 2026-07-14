@@ -258,16 +258,11 @@ class MockConfigTables {
   }
 }
 
-vi.doMock("better-sqlite3-multiple-ciphers", () => ({
-  default: MockDatabase,
-  Database: MockDatabase,
-}));
-
 vi.doMock("../../../src/main/presenter/sqlitePresenter/tables/configTables", () => ({
   ConfigTables: MockConfigTables,
 }));
 
-const { default: Database } = await import("better-sqlite3-multiple-ciphers");
+const { NullDatabase: Database } = await import("../../src/main/presenter/sqlitePresenter/dbType");
 const { SyncConfigImportService } = await import("../../../src/main/presenter/syncPresenter/configImportService");
 const { ConfigTables } = await import("../../../src/main/presenter/sqlitePresenter/tables/configTables");
 

@@ -14,7 +14,7 @@ import { Switch } from "#shadcn/components/ui/switch";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "#shadcn/components/ui/sheet";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkillRuntime, saveSkillWithExtension } from "#/stores/skillsStore";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type {
   SkillExtensionConfig,
   SkillMetadata,
@@ -59,7 +59,7 @@ function parseSkillContent(content: string | null): string {
 const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose }: SkillEditorFormProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const skillPresenter = useLegacyPresenter("skillPresenter", { safeCall: false });
+  const skillPresenter = usePresenter("skillPresenter", { safeCall: false });
 
   const [editName] = useState(skill.name);
   const [editDescription, setEditDescription] = useState(skill.description);
@@ -307,7 +307,7 @@ const SkillEditorForm = memo(function SkillEditorForm({ skill, onSaved, onClose 
 export default function SkillEditorSheet({ skill, open, onOpenChange, onSaved }: SkillEditorSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-2xl flex h-full max-h-screen flex-col overflow-hidden p-6 pt-12">
+      <SheetContent className="flex h-full max-h-screen flex-col overflow-hidden p-6 pt-12 sm:max-w-3xl lg:max-w-4xl">
         <SheetHeader>
           <SheetTitle>Edit Skill</SheetTitle>
           <SheetDescription>{skill?.name}</SheetDescription>

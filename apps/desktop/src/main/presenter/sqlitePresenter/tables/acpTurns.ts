@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export type AcpTurnStatus = "active" | "completed" | "cancelled" | "error";
@@ -26,7 +26,7 @@ type AcpTurnDbRow = {
 };
 
 export class AcpTurnsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "acp_turns");
   }
 

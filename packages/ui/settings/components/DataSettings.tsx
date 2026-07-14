@@ -40,7 +40,7 @@ import {
   pullFromCloud,
 } from "#/stores/sync";
 import { useLanguageStore } from "#/stores/language";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { createOnboardingClient } from "#api/OnboardingClient";
 import { createDatabaseSecurityClient } from "#api/DatabaseSecurityClient";
 import { createBrowserClient } from "#api/BrowserClient";
@@ -49,7 +49,6 @@ import { useToast } from "#/components/use-toast";
 import PrivacySettingsSection from "./common/PrivacySettingsSection";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import ProviderConfigImportDialog from "./ProviderConfigImportDialog";
-import type { DatabaseSecurityStatus } from "@argos/shared-contracts/routes";
 import type { DatabaseRepairReport } from "@argos/shared/presenter";
 import type { ProviderImportApplyResult } from "@argos/shared/providerImport";
 
@@ -129,8 +128,8 @@ export default function DataSettings() {
   const { toast } = useToast();
   const languageStore = useLanguageStore();
   const syncStore = useSyncStore();
-  const devicePresenter = useLegacyPresenter("devicePresenter");
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const devicePresenter = usePresenter("devicePresenter");
+  const configPresenter = usePresenter("configPresenter");
   const onboardingClient = createOnboardingClient();
   const databaseSecurityClient = createDatabaseSecurityClient();
   const browserClient = createBrowserClient();
@@ -147,15 +146,6 @@ export default function DataSettings() {
   const [isClearSandboxDialogOpen, setIsClearSandboxDialogOpen] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [lastRepairReport, setLastRepairReport] = useState<DatabaseRepairReport | null>(null);
-  const [databaseSecurityStatus, setDatabaseSecurityStatus] = useState<DatabaseSecurityStatus | null>(null);
-  const [isDatabaseSecurityStatusLoaded, setIsDatabaseSecurityStatusLoaded] = useState(false);
-  const [hasDatabaseSecurityStatusError, setHasDatabaseSecurityStatusError] = useState(false);
-  const [isDatabaseSecurityBusy, setIsDatabaseSecurityBusy] = useState(false);
-  const [isDatabaseEncryptionDialogOpen, setIsDatabaseEncryptionDialogOpen] = useState(false);
-  const [databaseEncryptionAction, setDatabaseEncryptionAction] = useState<"enable" | "change" | "disable">("enable");
-  const [databaseCurrentPassword, setDatabaseCurrentPassword] = useState("");
-  const [databaseNewPassword, setDatabaseNewPassword] = useState("");
-  const [databaseConfirmPassword, setDatabaseConfirmPassword] = useState("");
   const [cloudProviderMode, setCloudProviderMode] = useState<CloudSyncProviderMode>("r2");
   const [cloudPullMode, setCloudPullMode] = useState<"increment" | "overwrite">("increment");
   const [cloudForm, setCloudForm] = useState(createDefaultCloudSyncForm());
@@ -219,62 +209,6 @@ export default function DataSettings() {
     }
     return "Enter a secret to save or replace the stored cloud credential.";
   }, [hasStoredCloudSecret, cloudForm.secretAccessKey]);
-  const databasePasswordValidation = useMemo(() => {
-    if (databaseEncryptionAction === "disable") return "";
-    if (!databaseNewPassword && !databaseConfirmPassword) return "";
-    if (databaseNewPassword !== databaseConfirmPassword) return "Passwords do not match.";
-    return "";
-  }, [databaseConfirmPassword, databaseEncryptionAction, databaseNewPassword]);
-  const isDatabaseSecurityActionDisabled = useMemo(
-    () =>
-      !isDatabaseSecurityStatusLoaded ||
-      hasDatabaseSecurityStatusError ||
-      isDatabaseSecurityBusy ||
-      isBackupActive ||
-      isImporting ||
-      Boolean(databaseSecurityStatus?.migrationInProgress),
-    [
-      databaseSecurityStatus?.migrationInProgress,
-      hasDatabaseSecurityStatusError,
-      isBackupActive,
-      isDatabaseSecurityBusy,
-      isDatabaseSecurityStatusLoaded,
-      isImporting,
-    ],
-  );
-  const canEnableDatabaseEncryption = useMemo(
-    () =>
-      !isDatabaseSecurityActionDisabled &&
-      !databaseSecurityStatus?.enabled &&
-      Boolean(databaseNewPassword) &&
-      databaseNewPassword === databaseConfirmPassword,
-    [databaseConfirmPassword, databaseNewPassword, databaseSecurityStatus?.enabled, isDatabaseSecurityActionDisabled],
-  );
-  const canChangeDatabasePassword = useMemo(
-    () =>
-      !isDatabaseSecurityActionDisabled &&
-      Boolean(databaseSecurityStatus?.enabled) &&
-      Boolean(databaseCurrentPassword) &&
-      Boolean(databaseNewPassword) &&
-      databaseNewPassword === databaseConfirmPassword,
-    [
-      databaseConfirmPassword,
-      databaseCurrentPassword,
-      databaseNewPassword,
-      databaseSecurityStatus?.enabled,
-      isDatabaseSecurityActionDisabled,
-    ],
-  );
-  const canDisableDatabaseEncryption = useMemo(
-    () =>
-      !isDatabaseSecurityActionDisabled && Boolean(databaseSecurityStatus?.enabled) && Boolean(databaseCurrentPassword),
-    [databaseCurrentPassword, databaseSecurityStatus?.enabled, isDatabaseSecurityActionDisabled],
-  );
-  const canSubmitDatabaseEncryptionDialog = useMemo(() => {
-    if (databaseEncryptionAction === "enable") return canEnableDatabaseEncryption;
-    if (databaseEncryptionAction === "change") return canChangeDatabasePassword;
-    return canDisableDatabaseEncryption;
-  }, [canChangeDatabasePassword, canDisableDatabaseEncryption, canEnableDatabaseEncryption, databaseEncryptionAction]);
 
   const formatBytes = (bytes: number) => {
     if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -294,14 +228,23 @@ export default function DataSettings() {
   const handleSyncEnabledChange = useCallback((value: boolean) => setSyncEnabled(value), [setSyncEnabled]);
 
   const handleBackup = useCallback(async () => {
-    const backupInfo = await startBackup();
-    if (!backupInfo) return;
-    toast({
-      title: "Backup successful",
-      description: `${new Date(backupInfo.createdAt).toLocaleString()} (${formatBytes(backupInfo.size)})`,
-      duration: 4000,
-    });
-  }, [syncStore, toast]);
+    try {
+      const backupInfo = await startBackup();
+      if (!backupInfo) return;
+      toast({
+        title: "Backup successful",
+        description: `${new Date(backupInfo.createdAt).toLocaleString()} (${formatBytes(backupInfo.size)})`,
+        duration: 4000,
+      });
+    } catch (error) {
+      toast({
+        title: "Backup failed",
+        description: error instanceof Error ? error.message : "Could not create the backup.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, [toast]);
 
   const persistCloudConfig = useCallback(async (): Promise<boolean> => {
     if (isCloudSaveDisabled) return false;
@@ -362,94 +305,6 @@ export default function DataSettings() {
       });
     }
   }, [cloudPullMode, toast]);
-
-  const clearDatabasePasswordFields = useCallback(() => {
-    setDatabaseCurrentPassword("");
-    setDatabaseNewPassword("");
-    setDatabaseConfirmPassword("");
-  }, []);
-
-  const refreshDatabaseSecurityStatus = useCallback(async () => {
-    setHasDatabaseSecurityStatusError(false);
-    try {
-      setDatabaseSecurityStatus(await databaseSecurityClient.getStatus());
-      setIsDatabaseSecurityStatusLoaded(true);
-    } catch (error) {
-      console.error("Failed to load database encryption status:", error);
-      setHasDatabaseSecurityStatusError(true);
-    }
-  }, [databaseSecurityClient]);
-
-  const openDatabaseEncryptionDialog = useCallback(
-    (action: "enable" | "change" | "disable") => {
-      if (isDatabaseSecurityActionDisabled) return;
-      setDatabaseEncryptionAction(action);
-      clearDatabasePasswordFields();
-      setIsDatabaseEncryptionDialogOpen(true);
-    },
-    [clearDatabasePasswordFields, isDatabaseSecurityActionDisabled],
-  );
-
-  const closeDatabaseEncryptionDialog = useCallback(() => {
-    if (isDatabaseSecurityBusy) return;
-    setIsDatabaseEncryptionDialogOpen(false);
-    clearDatabasePasswordFields();
-  }, [clearDatabasePasswordFields, isDatabaseSecurityBusy]);
-
-  const runDatabaseSecurityAction = useCallback(
-    async (action: () => Promise<DatabaseSecurityStatus>, successTitle: string) => {
-      if (isDatabaseSecurityBusy) return;
-      setIsDatabaseSecurityBusy(true);
-      try {
-        setDatabaseSecurityStatus(await action());
-        setIsDatabaseSecurityStatusLoaded(true);
-        setHasDatabaseSecurityStatusError(false);
-        clearDatabasePasswordFields();
-        setIsDatabaseEncryptionDialogOpen(false);
-        toast({ title: successTitle, duration: 4000 });
-      } catch (error) {
-        console.error("Database encryption action failed:", error);
-        toast({
-          title: "Database encryption failed",
-          description: error instanceof Error ? error.message : "Could not update database encryption settings.",
-          variant: "destructive",
-          duration: 5000,
-        });
-      } finally {
-        setIsDatabaseSecurityBusy(false);
-      }
-    },
-    [clearDatabasePasswordFields, isDatabaseSecurityBusy, toast],
-  );
-
-  const submitDatabaseEncryptionDialog = useCallback(async () => {
-    if (!canSubmitDatabaseEncryptionDialog) return;
-    if (databaseEncryptionAction === "enable") {
-      await runDatabaseSecurityAction(
-        () => databaseSecurityClient.enable(databaseNewPassword),
-        "Database encryption enabled",
-      );
-      return;
-    }
-    if (databaseEncryptionAction === "change") {
-      await runDatabaseSecurityAction(
-        () => databaseSecurityClient.changePassword(databaseCurrentPassword, databaseNewPassword),
-        "Database password changed",
-      );
-      return;
-    }
-    await runDatabaseSecurityAction(
-      () => databaseSecurityClient.disable(databaseCurrentPassword),
-      "Database encryption disabled",
-    );
-  }, [
-    canSubmitDatabaseEncryptionDialog,
-    databaseCurrentPassword,
-    databaseEncryptionAction,
-    databaseNewPassword,
-    databaseSecurityClient,
-    runDatabaseSecurityAction,
-  ]);
 
   const handleImport = useCallback(async () => {
     if (!selectedBackup) return;
@@ -522,11 +377,6 @@ export default function DataSettings() {
   useEffect(() => {
     void (async () => {
       await initializeSync();
-      try {
-        await refreshDatabaseSecurityStatus();
-      } catch {
-        setHasDatabaseSecurityStatusError(true);
-      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -964,262 +814,6 @@ export default function DataSettings() {
         </div>
 
         <PrivacySettingsSection />
-
-        <div className="rounded-xl border border-border bg-card/30 p-4">
-          <div className="flex flex-col gap-4" dir={dir}>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="flex gap-3">
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background text-foreground">
-                  <Icon icon="lucide:user-key" className="h-4 w-4" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <div className="text-sm font-medium">Database Encryption</div>
-                  <p className="text-xs text-muted-foreground">Manage SQLCipher protection for local databases.</p>
-                </div>
-              </div>
-              <span
-                className={cn(
-                  "inline-flex w-fit items-center rounded-md border px-2 py-1 text-xs font-medium",
-                  hasDatabaseSecurityStatusError && !databaseSecurityStatus
-                    ? "border-amber-500/30 text-amber-600 dark:text-amber-400"
-                    : databaseSecurityStatus?.enabled
-                      ? "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                      : "border-border text-muted-foreground",
-                )}
-              >
-                {hasDatabaseSecurityStatusError && !databaseSecurityStatus
-                  ? "Unknown"
-                  : !databaseSecurityStatus
-                    ? "Loading"
-                    : databaseSecurityStatus.enabled
-                      ? "Enabled"
-                      : "Disabled"}
-              </span>
-            </div>
-
-            <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-              <div className="flex justify-between gap-3">
-                <span>Cipher</span>
-                <span className="text-foreground">
-                  {databaseSecurityStatus?.cipher ?? (hasDatabaseSecurityStatusError ? "Unknown" : "Loading")}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span>System unlock</span>
-                <span className="text-foreground">
-                  {!databaseSecurityStatus
-                    ? hasDatabaseSecurityStatusError
-                      ? "Unknown"
-                      : "Loading"
-                    : databaseSecurityStatus.safeStorageAvailable
-                      ? "Available"
-                      : "Unavailable"}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span>Startup unlock</span>
-                <span className="text-foreground">
-                  {!databaseSecurityStatus
-                    ? hasDatabaseSecurityStatusError
-                      ? "Unknown"
-                      : "Loading"
-                    : !databaseSecurityStatus.enabled
-                      ? "Not required"
-                      : databaseSecurityStatus.manualUnlockRequired
-                        ? "Manual"
-                        : "System managed"}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span>Last migration</span>
-                <span className="text-foreground">
-                  {!databaseSecurityStatus
-                    ? hasDatabaseSecurityStatusError
-                      ? "Unknown"
-                      : "Loading"
-                    : databaseSecurityStatus.lastMigrationAt
-                      ? new Date(databaseSecurityStatus.lastMigrationAt).toLocaleString()
-                      : "Never"}
-                </span>
-              </div>
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Passwords can be stored in the system credential store when supported.
-            </p>
-            {databaseSecurityStatus && !databaseSecurityStatus.safeStorageAvailable && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                Secure system credential storage is unavailable on this device.
-              </p>
-            )}
-
-            {isDatabaseSecurityStatusLoaded && !hasDatabaseSecurityStatusError && (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                {!databaseSecurityStatus?.enabled ? (
-                  <Button
-                    className="w-full justify-center sm:w-36"
-                    disabled={isDatabaseSecurityActionDisabled}
-                    onClick={() => openDatabaseEncryptionDialog("enable")}
-                  >
-                    <span>Set Password</span>
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center sm:w-36"
-                    disabled={isDatabaseSecurityActionDisabled}
-                    onClick={() => openDatabaseEncryptionDialog("change")}
-                  >
-                    <span>Change Password</span>
-                  </Button>
-                )}
-                {databaseSecurityStatus?.enabled && (
-                  <Button
-                    variant="destructive"
-                    className="w-full justify-center sm:w-36"
-                    disabled={isDatabaseSecurityActionDisabled}
-                    onClick={() => openDatabaseEncryptionDialog("disable")}
-                  >
-                    <span>Disable Encryption</span>
-                  </Button>
-                )}
-              </div>
-            )}
-
-            <Dialog open={isDatabaseEncryptionDialogOpen} onOpenChange={setIsDatabaseEncryptionDialogOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-base">
-                    <Icon
-                      icon={
-                        databaseEncryptionAction === "enable"
-                          ? "lucide:shield-lock"
-                          : databaseEncryptionAction === "change"
-                            ? "lucide:key-round"
-                            : "lucide:shield-off"
-                      }
-                      className="h-4 w-4"
-                    />
-                    <span>
-                      {databaseEncryptionAction === "enable"
-                        ? "Enable Database Encryption"
-                        : databaseEncryptionAction === "change"
-                          ? "Change Database Password"
-                          : "Disable Database Encryption"}
-                    </span>
-                  </DialogTitle>
-                  <DialogDescription>
-                    {databaseEncryptionAction === "enable"
-                      ? "Set a password to encrypt your local databases."
-                      : databaseEncryptionAction === "change"
-                        ? "Enter the current password and choose a new one."
-                        : "Enter the current password to disable encryption."}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="flex flex-col gap-3 py-2">
-                  {databaseEncryptionAction !== "enable" && (
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs" htmlFor="database-current-password">
-                        Current password
-                      </Label>
-                      <Input
-                        id="database-current-password"
-                        value={databaseCurrentPassword}
-                        onChange={(e) => setDatabaseCurrentPassword(e.target.value)}
-                        type="password"
-                        autoComplete="current-password"
-                        className="h-9!"
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void submitDatabaseEncryptionDialog();
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {databaseEncryptionAction !== "disable" && (
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs" htmlFor="database-new-password">
-                        New password
-                      </Label>
-                      <Input
-                        id="database-new-password"
-                        value={databaseNewPassword}
-                        onChange={(e) => setDatabaseNewPassword(e.target.value)}
-                        type="password"
-                        autoComplete="new-password"
-                        className="h-9!"
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void submitDatabaseEncryptionDialog();
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {databaseEncryptionAction !== "disable" && (
-                    <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs" htmlFor="database-confirm-password">
-                        Confirm password
-                      </Label>
-                      <Input
-                        id="database-confirm-password"
-                        value={databaseConfirmPassword}
-                        onChange={(e) => setDatabaseConfirmPassword(e.target.value)}
-                        type="password"
-                        autoComplete="new-password"
-                        className="h-9!"
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void submitDatabaseEncryptionDialog();
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {databasePasswordValidation && <p className="text-xs text-destructive">{databasePasswordValidation}</p>}
-                {databaseSecurityStatus && !databaseSecurityStatus.safeStorageAvailable && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Secure system credential storage is unavailable on this device.
-                  </p>
-                )}
-
-                <DialogFooter className="gap-2 sm:justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isDatabaseSecurityBusy}
-                    onClick={closeDatabaseEncryptionDialog}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={databaseEncryptionAction === "disable" ? "destructive" : "default"}
-                    disabled={!canSubmitDatabaseEncryptionDialog}
-                    onClick={() => void submitDatabaseEncryptionDialog()}
-                  >
-                    <span>
-                      {databaseEncryptionAction === "enable"
-                        ? "Enable"
-                        : databaseEncryptionAction === "change"
-                          ? "Change"
-                          : "Disable"}
-                    </span>
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
 
         <div className="rounded-xl border border-border bg-card/30 p-4">
           <div className="flex flex-col divide-y divide-border" dir={dir}>

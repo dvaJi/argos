@@ -58,6 +58,16 @@ export function setRuntimeDataDir(dataDir: string): void {
 }
 const REMOTE_ATTACHMENT_FETCH_TIMEOUT_MS = 35_000;
 
+const normalizeProjectDir = (projectDir: string | null | undefined): string | null => {
+  const trimmed = projectDir?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalized = path.resolve(trimmed);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+};
+
 const MIME_EXTENSION: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -416,7 +426,9 @@ export class RemoteConversationRunner {
   constructor(
     private readonly deps: RemoteConversationRunnerDeps,
     private readonly bindingStore: RemoteBindingStore,
-  ) {}
+  ) {
+    setRuntimeDataDir(deps.dataDir);
+  }
 
   async createNewSession(
     endpointKey: string,
@@ -465,6 +477,42 @@ export class RemoteConversationRunner {
     return session;
   }
 
+  private async reuseMostRecentProjectSession(
+    endpointKey: string,
+    bindingMeta?: RemoteEndpointBindingMeta,
+  ): Promise<SessionWithState | null> {
+    const agentId = await this.deps.resolveDefaultAgentId();
+    const projectDir = normalizeProjectDir(await this.resolveDefaultWorkdirForAgent(endpointKey, agentId));
+    if (!projectDir) {
+      return null;
+    }
+
+    const sessions = await this.deps.sessionPort.getSessionList({ agentId });
+    const reusable = sessions
+      .filter(
+        (session) =>
+          session.agentId === agentId &&
+          session.sessionKind === "regular" &&
+          session.isDraft !== true &&
+          normalizeProjectDir(session.projectDir) === projectDir,
+      )
+      .sort(
+        (left, right) =>
+          right.updatedAt - left.updatedAt || right.createdAt - left.createdAt || right.id.localeCompare(left.id),
+      )[0];
+
+    if (!reusable) {
+      return null;
+    }
+
+    if (bindingMeta) {
+      this.bindingStore.setBinding(endpointKey, reusable.id, bindingMeta);
+    } else {
+      this.bindingStore.setBinding(endpointKey, reusable.id);
+    }
+    return reusable;
+  }
+
   async ensureBoundSession(
     endpointKey: string,
     bindingMeta?: RemoteEndpointBindingMeta,
@@ -477,13 +525,19 @@ export class RemoteConversationRunner {
       if (options?.requireCurrentDefaultAgent) {
         const defaultAgentId = await this.deps.resolveDefaultAgentId();
         if (existing.agentId !== defaultAgentId) {
-          return await this.createNewSession(endpointKey, undefined, bindingMeta);
+          return (
+            (await this.reuseMostRecentProjectSession(endpointKey, bindingMeta)) ??
+            (await this.createNewSession(endpointKey, undefined, bindingMeta))
+          );
         }
       }
       return existing;
     }
 
-    return await this.createNewSession(endpointKey, undefined, bindingMeta);
+    return (
+      (await this.reuseMostRecentProjectSession(endpointKey, bindingMeta)) ??
+      (await this.createNewSession(endpointKey, undefined, bindingMeta))
+    );
   }
 
   async listSessions(endpointKey: string): Promise<SessionWithState[]> {

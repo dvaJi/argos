@@ -4,9 +4,9 @@ import { defineRouteContract } from "../common";
 /**
  * Remote-control channel routes (config surface).
  *
- * These routes expose the bot-channel configuration/pairing/status/bindings to
- * both desktop and web. The bot→agent→reply flow (conversation runner) is NOT
- * routed here yet — it is deferred until the daemon gains an agent-loop runtime.
+ * These routes expose daemon-owned bot-channel configuration, pairing, status,
+ * bindings, and login flows to both desktop and web clients. Incoming messages
+ * are handled directly by the daemon runtime and do not cross this API.
  *
  * Schemas are intentionally permissive (`zod.unknown()` / `passthrough`) for the
  * nested channel settings/status shapes; the canonical validation lives in

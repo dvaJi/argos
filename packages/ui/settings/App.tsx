@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { ArrowLeft } from "lucide-react";
 import { uiSettingsStore, getFontSizeClass, loadSettings as loadUiSettings } from "../src/stores/uiSettingsStore";
 import { modelCheckStore } from "../src/stores/modelCheck";
@@ -89,7 +89,7 @@ export default function SettingsApp() {
   const { isMacOS, isWinMacOS } = useDeviceVersion();
   useFontManager();
 
-  const windowPresenter = useLegacyPresenter("windowPresenter");
+  const windowPresenter = usePresenter("windowPresenter");
 
   const themeState = useStore(themeStore);
   const modelCheckState = useStore(modelCheckStore);

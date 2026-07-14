@@ -1,4 +1,4 @@
-﻿import Database from "better-sqlite3-multiple-ciphers";
+﻿import { NullDatabase, type DatabaseLike as Database } from "./dbType";
 import { ConversationsTable } from "./tables/conversations";
 import { MessagesTable } from "./tables/messages";
 import { MessageAttachmentsTable } from "./tables/messageAttachments";
@@ -30,10 +30,10 @@ import type { SchemaTableSpec } from "./schemaTypes";
 
 interface CatalogDefinition {
   name: string;
-  createTable: (db: Database.Database) => BaseTable;
+  createTable: (db: Database) => BaseTable;
   repairableColumns?: Record<string, string>;
   typeCheckedColumns?: string[];
-  afterRepair?: (db: Database.Database) => void;
+  afterRepair?: (db: Database) => void;
 }
 
 function normalizeDeclaredType(type: string | null | undefined): string | null {
@@ -211,7 +211,7 @@ export function getSchemaCatalog(): SchemaTableSpec[] {
     return cachedCatalog;
   }
 
-  const catalogDb = new Database(":memory:");
+  const catalogDb = new NullDatabase();
 
   try {
     cachedCatalog = CATALOG_DEFINITIONS.map((definition) => {

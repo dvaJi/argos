@@ -72,7 +72,7 @@ export const syncImportRoute = defineRouteContract({
 
 export const syncOpenFolderRoute = defineRouteContract({
   name: "sync.openFolder",
-  input: zod.object({}),
+  input: zod.object({ folderPath: zod.string().optional() }),
   output: zod.object({
     opened: zod.literal(true),
   }),

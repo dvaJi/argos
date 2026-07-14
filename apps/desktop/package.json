@@ -41,7 +41,6 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@jxa/run": "^1.4.0",
-    "@larksuiteoapi/node-sdk": "^1.64.0",
     "@modelcontextprotocol/sdk": "catalog:",
     "ai": "catalog:",
     "axios": "^1.16.1",

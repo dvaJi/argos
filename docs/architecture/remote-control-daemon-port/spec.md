@@ -15,11 +15,12 @@ replies through the bot must work without the Electron app running.
 
 ## Background / Problem
 
-**Symptom (current):** the Remote Channels settings page
-(`apps/desktop/src/renderer/settings/components/RemoteSettings.tsx`) is blank /
-non-functional in web mode. The `webBridge.ts` shim returns `null` for the
-`remoteControlPresenter:call` IPC channel with a comment claiming the subsystem
-is "desktop-backed" — which is architecturally wrong.
+**Current transitional state:** web and desktop can configure channels through
+daemon `remote.*` routes, and the Electron-free implementation exists in
+`packages/remote-control-runtime`. However, the daemon constructs it in
+`configOnly` mode while Electron still constructs a second, copied runtime for
+live bot traffic. This duplicates every adapter, router, binding service, and
+conversation-runner change and can run different behavior by host.
 
 **Root cause:** the entire `RemoteControlPresenter`
 (`apps/desktop/src/main/presenter/remoteControlPresenter/`, ~1800 lines + 5
@@ -59,8 +60,9 @@ The subsystem is almost entirely framework-agnostic:
 The conversation runner polls `agentRuntimePresenter.getActiveGeneration(
 sessionId)` to track the in-flight assistant event while streaming a bot reply.
 The daemon has `providerExecutionPort.sendMessage/cancelGeneration/
-respondToolInteraction` but **no `getActiveGeneration(sessionId)` accessor**.
-This must be added (it tracks generation state internally already).
+respondToolInteraction` and both HTTP and ACP execution paths. It still needs a
+small read accessor over their existing in-flight maps so the shared runner can
+observe and cancel the active turn.
 
 ## Acceptance Criteria
 
@@ -127,19 +129,12 @@ A new package `packages/remote-control-runtime/` (mirroring `agent-runtime`,
 adapters, and the conversation runner — all Electron-free. Both the daemon
 (`DaemonRemoteControlRuntime` host) and desktop (thin proxy) import from it.
 
-### [NEEDS CLARIFICATION] Feishu SDK on Bun
+### [DECIDED] Feishu SDK runs under Bun
 
-`@larksuiteoapi/node-sdk` is the only heavy third-party dependency. Two options:
-
-- **(A)** Verify it works under Bun as-is (preferred — least work). Feasibility
-  check is the first implementation task; if it fails, fall back to (B).
-- **(B)** Reimplement the Feishu WebSocket client + REST wrappers with `fetch`
-  + Bun `WebSocket` (significant work, deferred until (A) is proven infeasible).
-
-If Feishu proves non-portable in this port, **Feishu may be temporarily
-disabled in daemon mode** (channel descriptor `implemented: false` when running
-headless) while the other 4 channels ship. This is an acceptable graceful
-degradation and would be tracked as a follow-up.
+The installed `@larksuiteoapi/node-sdk` module imports successfully under the
+repository's Bun runtime from `packages/remote-control-runtime`. The shared
+Feishu adapter remains enabled; no daemon-only reimplementation or degradation
+is required for this cutover.
 
 ### [DECIDED] Desktop role after port — thin proxy
 
@@ -155,10 +150,9 @@ pattern.
 permissive nested-blob schema (`zod.unknown()` passthrough), matching how desktop
 already stores it today. No dedicated JSON store.
 
-### [DEFERRED — verify during implementation] Feishu SDK on Bun
+### [DECIDED] One implementation, one runtime owner
 
-`@larksuiteoapi/node-sdk` is the only heavy third-party dependency. Verify it
-works under Bun as-is (first implementation task). If it fails, Feishu is
-temporarily marked `implemented: false` in daemon mode while the other 4
-channels ship; a Feishu-native reimplementation is tracked as a follow-up.
-
+All portable implementation code lives in `packages/remote-control-runtime`.
+Only the daemon instantiates it. Electron exposes a compatibility proxy over
+typed daemon routes and must not keep copied adapters, routers, or a
+conversation runner.

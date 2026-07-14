@@ -107,8 +107,7 @@ export class RemoteControlRuntime {
   }
 
   async initialize(): Promise<void> {
-    // Config-only mode (daemon before its agent-loop runtime lands): manage
-    // config/pairing/status without connecting channel adapters.
+    // Explicit test/diagnostic mode: manage config without network connections.
     if (this.ports.configOnly) {
       return;
     }

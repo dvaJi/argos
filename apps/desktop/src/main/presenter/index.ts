@@ -72,7 +72,6 @@ import type { RemoteControlPresenterLike } from "./remoteControlPresenter/interf
 import { PluginPresenter } from "./pluginPresenter";
 import { AgentRepository } from "./agentRepository";
 import type { SQLitePresenter } from "./sqlitePresenter";
-import { DatabaseSecurityPresenter } from "./databaseSecurityPresenter";
 import { normalizeArgosSubagentSlots } from "@argos/shared/lib/argosSubagents";
 import { subscribeArgosInternalSessionUpdates } from "./agentRuntimePresenter/internalSessionEvents";
 import {
@@ -211,7 +210,6 @@ export class Presenter implements IPresenter {
   projectPresenter: IProjectPresenter;
   pluginPresenter: PluginPresenter;
   memoryPresenter: MemoryPresenter;
-  databaseSecurityPresenter: DatabaseSecurityPresenter;
   hooksNotifications: HooksNotificationsService;
   scheduledTasks: ScheduledTasksService;
   commandPermissionService: CommandPermissionService;
@@ -231,8 +229,6 @@ export class Presenter implements IPresenter {
     const context = lifecycleManager.getLifecycleContext();
     this.configPresenter = context.config as IConfigPresenter;
     this.sqlitePresenter = context.database as ISQLitePresenter;
-    this.databaseSecurityPresenter =
-      (context.databaseSecurity as DatabaseSecurityPresenter | undefined) ?? new DatabaseSecurityPresenter();
     const agentRepository = new AgentRepository(this.sqlitePresenter as unknown as SQLitePresenter);
     (
       this.configPresenter as IConfigPresenter & {
@@ -732,14 +728,7 @@ export class Presenter implements IPresenter {
       this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
       this.devicePresenter,
     );
-    this.#remoteControlPresenter = new RemoteControlPresenter({
-      configPresenter: this.configPresenter,
-      agentSessionPresenter: this.agentSessionPresenter,
-      filePresenter: this.filePresenter,
-      agentRuntimePresenter,
-      windowPresenter: this.windowPresenter,
-      tabPresenter: this.tabPresenter,
-    });
+    this.#remoteControlPresenter = new RemoteControlPresenter();
     this.#remoteControlBridge = this.#remoteControlPresenter;
 
     // Update hooksNotifications with actual dependencies now that agentSessionPresenter is ready
@@ -1117,7 +1106,6 @@ const buildMainKernelRouteRuntime = () =>
     tabPresenter: presenter.tabPresenter,
     startupWorkloadCoordinator: presenter.startupWorkloadCoordinator,
     pluginPresenter: presenter.pluginPresenter,
-    databaseSecurityPresenter: presenter.databaseSecurityPresenter,
     scheduledTasks: presenter.scheduledTasks,
     memoryPresenter: presenter.memoryPresenter,
   });

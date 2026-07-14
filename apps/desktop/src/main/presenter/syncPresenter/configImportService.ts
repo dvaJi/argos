@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "./../sqlitePresenter/dbType";
 import type { IModelConfig, LLM_PROVIDER, MCPServerConfig, MODEL_META } from "@argos/shared/presenter";
 import { ConfigTables } from "../sqlitePresenter/tables/configTables";
 import { openSQLiteDatabase } from "../sqlitePresenter";
@@ -14,8 +14,6 @@ export type SyncBackupManifest = {
   files?: string[];
   configStorage?: "sqlite" | string;
   configSchemaVersion?: number;
-  databaseEncrypted?: boolean;
-  databaseCipher?: "sqlcipher" | string;
 };
 
 export type SyncConfigImportMode = "increment" | "overwrite";
@@ -108,7 +106,7 @@ const getStatusKey = (providerId: string, modelId: string): string =>
 export class SyncConfigImportService {
   constructor(
     private readonly targetDbPath: string,
-    private readonly openDatabase: (dbPath: string) => Database.Database = openSQLiteDatabase,
+    private readonly openDatabase: (dbPath: string) => Database = openSQLiteDatabase,
   ) {}
 
   readManifest(extractionDir: string): SyncBackupManifest | null {

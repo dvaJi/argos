@@ -7,7 +7,7 @@
     "src/shared/**/*"
   ],
   "compilerOptions": {
-    "composite": true,
+    "composite": false,
     "resolveJsonModule": false,
     "moduleResolution": "bundler",
     "paths": {

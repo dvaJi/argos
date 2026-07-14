@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Button } from "#shadcn/components/ui/button";
 import { Badge } from "#shadcn/components/ui/badge";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { loadSkills, useSkillsStore } from "#/stores/skillsStore";
 
 type AgentExtensionPolicyValue = {
@@ -109,7 +109,7 @@ export default function AgentExtensionPolicyPanel({
   onChange,
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
   const skillsStore = useSkillsStore();
   const [loading, setLoading] = useState(false);
   const [mcpServers, setMcpServers] = useState<

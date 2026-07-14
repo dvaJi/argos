@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RemoteBindingStore } from "#/presenter/remoteControlPresenter/services/remoteBindingStore";
+import { RemoteBindingStore } from "@argos/remote-control-runtime/services/remoteBindingStore";
 
 const createConfigPresenter = () => {
   const store = new Map<string, unknown>();

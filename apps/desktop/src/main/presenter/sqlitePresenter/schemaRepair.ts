@@ -1,5 +1,5 @@
 import fs from "fs";
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "./dbType";
 import type { DatabaseRepairReport, DatabaseSchemaDiagnosis, DatabaseSchemaIssue } from "@argos/shared/presenter";
 import { getSchemaCatalog } from "./schemaCatalog";
 import type { SchemaTableSpec } from "./schemaTypes";
@@ -18,11 +18,11 @@ function createIssue(issue: DatabaseSchemaIssue): DatabaseSchemaIssue {
   return issue;
 }
 
-function quotePragmaTableName(db: Database.Database, tableName: string): string {
+function quotePragmaTableName(db: Database, tableName: string): string {
   return db.prepare("SELECT quote(?)").pluck().get(tableName) as string;
 }
 
-function readSchemaSnapshot(db: Database.Database): Map<string, SchemaSnapshotTable> {
+function readSchemaSnapshot(db: Database): Map<string, SchemaSnapshotTable> {
   const tableRows = db
     .prepare(
       `SELECT name
@@ -61,7 +61,7 @@ function readSchemaSnapshot(db: Database.Database): Map<string, SchemaSnapshotTa
 
 export class SchemaInspector {
   constructor(
-    private readonly db: Database.Database,
+    private readonly db: Database,
     private readonly catalog: SchemaTableSpec[] = getSchemaCatalog(),
   ) {}
 
@@ -155,7 +155,7 @@ export class DatabaseRepairService {
   private readonly inspector: SchemaInspector;
 
   constructor(
-    private readonly db: Database.Database,
+    private readonly db: Database,
     private readonly dbPath?: string,
     private readonly catalog: SchemaTableSpec[] = getSchemaCatalog(),
   ) {

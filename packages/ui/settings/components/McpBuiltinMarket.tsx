@@ -12,7 +12,7 @@ interface McpBuiltinMarketProps {
 }
 
 type MarketItem = {
-  uuid: string;
+  uuid?: string;
   created_at: string;
   updated_at: string;
   name: string;
@@ -233,7 +233,7 @@ export default function McpBuiltinMarket({ embedded = false, onBack }: McpBuilti
         <div className="p-4 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 items-stretch">
           {items.map((item) => (
             <div
-              key={item.uuid}
+              key={item.server_key}
               className="border rounded-lg p-3 bg-card hover:bg-accent/30 transition-colors flex flex-col h-full"
             >
               <div className="text-xs text-muted-foreground">{item.author_name}</div>

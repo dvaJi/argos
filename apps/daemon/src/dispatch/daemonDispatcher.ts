@@ -24,6 +24,7 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
+import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import type {
   IEventPublisher,
   ProviderExecutionPort,
@@ -39,6 +40,8 @@ import {
   settingsUpdateRoute,
   settingsActivityListRoute,
   settingsListSystemFontsRoute,
+  databaseSecurityDiagnoseSchemaRoute,
+  databaseSecurityRepairSchemaRoute,
   remoteListChannelsRoute,
   remoteGetChannelSettingsRoute,
   remoteSaveChannelSettingsRoute,
@@ -1532,6 +1535,18 @@ export function createDaemonDispatcher(
       }));
 
       return settingsActivityListRoute.output.parse({ activities });
+    }
+
+    if (route === databaseSecurityDiagnoseSchemaRoute.name) {
+      databaseSecurityDiagnoseSchemaRoute.input.parse(rawInput);
+      const diagnosis = diagnoseDaemonSchema(settingsActivityDb as never);
+      return databaseSecurityDiagnoseSchemaRoute.output.parse({ diagnosis });
+    }
+
+    if (route === databaseSecurityRepairSchemaRoute.name) {
+      databaseSecurityRepairSchemaRoute.input.parse(rawInput);
+      const report = repairDaemonSchema(settingsActivityDb as never);
+      return databaseSecurityRepairSchemaRoute.output.parse({ report });
     }
 
     if (route === toolsListDefinitionsRoute.name) {

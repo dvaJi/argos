@@ -3,7 +3,6 @@ packages:
   - packages/*
 allowBuilds:
   "@tailwindcss/oxide": true
-  better-sqlite3-multiple-ciphers: false
   classic-level: true
   electron: true
   electron-winstaller: true
@@ -86,8 +85,7 @@ minimumReleaseAgeExclude:
   - "@oxc-project/*"
   - "typescript"
   - "@typescript/*"
-patchedDependencies:
-  better-sqlite3-multiple-ciphers@12.10.0: patches/better-sqlite3-multiple-ciphers@12.10.0.patch
+patchedDependencies: {}
 publicHoistPattern:
   - "@img/sharp-*"
 supportedArchitectures:

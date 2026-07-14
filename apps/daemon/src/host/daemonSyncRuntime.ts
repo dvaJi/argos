@@ -59,13 +59,19 @@ const DAEMON_BACKUP_FILE_NAME_REGEX = /^(?:daemon-)?backup-\d+\.zip$/;
  * implementation rather than a shared port.
  */
 export class DaemonSyncRuntime {
-  private readonly backupDir: string;
+  private readonly configDir: string;
   private readonly cloudConfigPath: string;
+  private readonly configPresenter: { getSyncFolderPath(): string };
 
-  constructor(deps: { dataDir: string; configDir: string; eventPublisher: IEventPublisher }) {
-    this.backupDir = path.join(deps.configDir, "backups");
+  constructor(deps: {
+    configDir: string;
+    eventPublisher: IEventPublisher;
+    configPresenter: { getSyncFolderPath(): string };
+  }) {
+    this.configDir = deps.configDir;
+    this.configPresenter = deps.configPresenter;
     this.cloudConfigPath = path.join(deps.configDir, "cloud-sync.json");
-    if (!fs.existsSync(this.backupDir)) fs.mkdirSync(this.backupDir, { recursive: true });
+    this.ensureBackupDir();
   }
 
   async getBackupStatus(): Promise<{ autoSyncEnabled: boolean; lastBackupTimestamp: number | null }> {
@@ -81,9 +87,10 @@ export class DaemonSyncRuntime {
   }
 
   async startBackup(): Promise<{ timestamp: number }> {
+    const backupDir = this.ensureBackupDir();
     const timestamp = Date.now();
     const name = `backup-${timestamp}.zip`;
-    const target = path.join(this.backupDir, name);
+    const target = path.join(backupDir, name);
     // Collect JSON config files from the config dir.
     const entries: Record<string, Uint8Array> = {};
     for (const file of this.configFiles()) {
@@ -98,7 +105,7 @@ export class DaemonSyncRuntime {
   }
 
   async restoreBackup(name: string): Promise<void> {
-    const target = path.join(this.backupDir, name);
+    const target = path.join(this.resolveBackupDir(), name);
     if (!fs.existsSync(target)) throw new Error(`Backup not found: ${name}`);
     const raw = fs.readFileSync(target);
     const extracted = unzipSync(new Uint8Array(raw));
@@ -144,7 +151,7 @@ export class DaemonSyncRuntime {
         return { success: false, message: "sync.error.noLocalBackup" };
       }
 
-      await service.uploadBackup(path.join(this.backupDir, backup.fileName), backup.fileName);
+      await service.uploadBackup(path.join(this.resolveBackupDir(), backup.fileName), backup.fileName);
       return { success: true, message: "sync.success.cloudUploaded", fileName: backup.fileName };
     } catch (error) {
       console.error("Daemon cloud upload failed:", error);
@@ -155,7 +162,7 @@ export class DaemonSyncRuntime {
   async pullFromCloud(): Promise<CloudSyncResult> {
     try {
       const service = this.buildCloudService();
-      const fileName = await service.downloadLatest(this.backupDir);
+      const fileName = await service.downloadLatest(this.ensureBackupDir());
       if (!fileName) {
         return { success: false, message: "sync.error.cloudNoBackup" };
       }
@@ -179,12 +186,13 @@ export class DaemonSyncRuntime {
   }
 
   private listBackupsSync(): BackupInfo[] {
+    const backupDir = this.ensureBackupDir();
     try {
       return fs
-        .readdirSync(this.backupDir)
+        .readdirSync(backupDir)
         .filter((f) => DAEMON_BACKUP_FILE_NAME_REGEX.test(f))
         .map((f) => {
-          const stat = fs.statSync(path.join(this.backupDir, f));
+          const stat = fs.statSync(path.join(backupDir, f));
           const match = f.match(/backup-(\d+)\.zip$/);
           const timestamp = match ? Number(match[1]) : stat.mtimeMs;
           return { name: f, fileName: f, timestamp, createdAt: timestamp, size: stat.size };
@@ -197,7 +205,17 @@ export class DaemonSyncRuntime {
   }
 
   private configDirRoot(): string {
-    return path.dirname(this.backupDir);
+    return this.configDir;
+  }
+
+  private resolveBackupDir(): string {
+    return this.configPresenter.getSyncFolderPath().trim() || path.join(this.configDir, "backups");
+  }
+
+  private ensureBackupDir(): string {
+    const backupDir = this.resolveBackupDir();
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    return backupDir;
   }
 
   private configFiles(): string[] {

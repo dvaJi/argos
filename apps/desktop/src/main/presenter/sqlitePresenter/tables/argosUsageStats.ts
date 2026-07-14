@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import type { UsageStatsRecordInput } from "../../usageStats";
 
@@ -78,7 +78,7 @@ function normalizeAggregate(row: AggregateRow | undefined): ArgosUsageStatsSumma
 }
 
 export class ArgosUsageStatsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_usage_stats");
   }
 

@@ -2,6 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import { BunProviderExecutionPort } from "../src/host/bun-provider-execution";
 
 describe("BunProviderExecutionPort", () => {
+  it("exposes the active generation without leaking its controller", () => {
+    const port = new BunProviderExecutionPort({} as any, {} as any);
+    (port as any).activeGenerations.set("session-1", {
+      controller: new AbortController(),
+      eventId: "event-1",
+      runId: "run-1",
+    });
+
+    expect(port.getActiveGeneration("session-1")).toEqual({ eventId: "event-1", runId: "run-1" });
+    expect(port.getActiveGeneration("missing")).toBeNull();
+  });
+
   it("transcribes audio through the provider API", async () => {
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const body = init?.body as FormData;

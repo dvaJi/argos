@@ -18,14 +18,12 @@ export interface IDatabaseInitializer {
  */
 export class DatabaseInitializer implements IDatabaseInitializer {
   private dbPath: string;
-  private password?: string;
   private database?: SQLitePresenter;
 
-  constructor(options?: { password?: string; dbPath?: string }) {
+  constructor(options?: { dbPath?: string }) {
     // Initialize database path
     const dbDir = path.join(app.getPath("userData"), "app_db");
     this.dbPath = options?.dbPath ?? path.join(dbDir, "agent.db");
-    this.password = options?.password;
   }
 
   /**
@@ -39,7 +37,7 @@ export class DatabaseInitializer implements IDatabaseInitializer {
 
       while (true) {
         try {
-          this.database = new SQLitePresenter(this.dbPath, this.password);
+          this.database = new SQLitePresenter(this.dbPath);
 
           const isValid = await this.validateConnection();
           if (!isValid) {
@@ -61,7 +59,7 @@ export class DatabaseInitializer implements IDatabaseInitializer {
 
           repairAttempted = true;
           console.warn(`DatabaseInitializer: Attempting one-off schema repair for ${classified.dedupeKey}`);
-          repairSQLiteDatabaseFile(this.dbPath, this.password);
+          repairSQLiteDatabaseFile(this.dbPath);
         }
       }
     } catch (error) {

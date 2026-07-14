@@ -1948,7 +1948,7 @@ export interface IMCPPresenter {
     limit: number,
   ): Promise<{
     servers: Array<{
-      uuid: string;
+      uuid?: string;
       created_at: string;
       updated_at: string;
       name: string;
@@ -2012,7 +2012,7 @@ export interface ISyncPresenter {
     importedSessions?: number;
   }>;
   checkSyncFolder(): Promise<{ exists: boolean; path: string }>;
-  openSyncFolder(): Promise<void>;
+  openSyncFolder(folderPath?: string): Promise<void>;
 
   // Cloud sync (S3-compatible) operations
   testCloudConnection(config?: CloudSyncConfigInput): Promise<CloudSyncResult>;
@@ -2611,14 +2611,6 @@ export interface ILifecycleManager {
 export interface ISplashWindowManager {
   create(): Promise<void>;
   updateProgress(phase: LifecyclePhase, progress: number): void;
-  showDatabaseUnlockProgress?(
-    payload: { active: boolean; safeStorageAvailable: boolean },
-    options?: { skipDelay?: boolean },
-  ): void;
-  requestDatabaseUnlock?(payload: {
-    reason: "manual-required" | "safe-storage-unavailable" | "system-key-missing" | "invalid";
-    safeStorageAvailable: boolean;
-  }): Promise<string | null>;
   close(): Promise<void>;
   isVisible(): boolean;
 }

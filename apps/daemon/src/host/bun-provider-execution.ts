@@ -58,7 +58,7 @@ function extractTextFromMessageContent(raw: string): string {
 }
 
 export class BunProviderExecutionPort implements ProviderExecutionPort {
-  private activeControllers = new Map<string, AbortController>();
+  private activeGenerations = new Map<string, { controller: AbortController; eventId: string; runId: string }>();
 
   constructor(
     private readonly configPresenter: DaemonConfigPresenter,
@@ -246,7 +246,11 @@ export class BunProviderExecutionPort implements ProviderExecutionPort {
 
     // Call the LLM API
     const controller = new AbortController();
-    this.activeControllers.set(sessionId, controller);
+    this.activeGenerations.set(sessionId, {
+      controller,
+      eventId: requestId,
+      runId: requestId,
+    });
 
     let assistantMessageId: string | null = null;
     try {
@@ -327,8 +331,13 @@ export class BunProviderExecutionPort implements ProviderExecutionPort {
       }
       throw error;
     } finally {
-      this.activeControllers.delete(sessionId);
+      this.activeGenerations.delete(sessionId);
     }
+  }
+
+  getActiveGeneration(sessionId: string): { eventId: string; runId: string } | null {
+    const active = this.activeGenerations.get(sessionId);
+    return active ? { eventId: active.eventId, runId: active.runId } : null;
   }
 
   async steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void> {
@@ -337,10 +346,10 @@ export class BunProviderExecutionPort implements ProviderExecutionPort {
   }
 
   async cancelGeneration(sessionId: string): Promise<void> {
-    const controller = this.activeControllers.get(sessionId);
-    if (controller) {
-      controller.abort();
-      this.activeControllers.delete(sessionId);
+    const active = this.activeGenerations.get(sessionId);
+    if (active) {
+      active.controller.abort();
+      this.activeGenerations.delete(sessionId);
     }
   }
 

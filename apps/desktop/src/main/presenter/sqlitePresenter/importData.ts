@@ -1,5 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
-import { configureSQLiteConnection } from "./connectionConfig";
+import { NullDatabase, type DatabaseLike as Database } from "./dbType";
 
 export interface ImportSummary {
   tableCounts: Record<string, number>;
@@ -12,31 +11,16 @@ type ColumnInfo = {
 
 /**
  * Data import class
- * Used to import data from an external SQLite database into the current database
+ * Used to import data from an external SQLite database into the current database.
+ * Desktop stub — real import happens on the daemon (bun:sqlite).
  */
 export class DataImporter {
-  private sourceDb: Database.Database;
-  private targetDb: Database.Database;
+  private sourceDb: Database;
+  private targetDb: Database;
 
-  constructor(
-    sourcePath: string,
-    targetDbOrPath: Database.Database | string,
-    sourcePassword?: string,
-    targetPassword?: string,
-  ) {
-    this.sourceDb = new Database(sourcePath);
-    this.configureConnection(this.sourceDb, sourcePassword);
-
-    if (typeof targetDbOrPath === "string") {
-      this.targetDb = new Database(targetDbOrPath);
-      this.configureConnection(this.targetDb, targetPassword);
-    } else {
-      this.targetDb = targetDbOrPath;
-    }
-  }
-
-  private configureConnection(db: Database.Database, password?: string): void {
-    configureSQLiteConnection(db, password);
+  constructor(_sourcePath: string, _targetDbOrPath: Database | string) {
+    this.sourceDb = new NullDatabase();
+    this.targetDb = typeof _targetDbOrPath === "string" ? new NullDatabase() : _targetDbOrPath;
   }
 
   /**
@@ -159,7 +143,7 @@ export class DataImporter {
     return inserted;
   }
 
-  private getTableColumns(db: Database.Database, tableName: string): ColumnInfo[] {
+  private getTableColumns(db: Database, tableName: string): ColumnInfo[] {
     const wrappedTableName = this.wrapIdentifier(tableName);
     try {
       const columns = db.prepare(`PRAGMA table_info(${wrappedTableName})`).all() as ColumnInfo[];

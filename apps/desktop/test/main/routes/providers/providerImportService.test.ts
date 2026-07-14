@@ -17,7 +17,7 @@ vi.mock("node:fs", async () => {
   };
 });
 
-vi.mock("better-sqlite3-multiple-ciphers", () => {
+vi.mock("../../src/main/presenter/sqlitePresenter/dbType", () => {
   class MockDatabase {
     private readonly dbPath: string;
 

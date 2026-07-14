@@ -1,9 +1,9 @@
 import { type FC, useEffect } from "react";
-import { createLegacyIpcSubscriptionScope } from "#api/legacy/runtime";
+import { createIpcSubscriptionScope } from "#api/runtime";
 
 export const SelectedTextContextMenu: FC = () => {
   useEffect(() => {
-    const contextMenuEventScope = createLegacyIpcSubscriptionScope();
+    const contextMenuEventScope = createIpcSubscriptionScope();
 
     const handleTranslate = (text: string, x?: number, y?: number) => {
       window.dispatchEvent(

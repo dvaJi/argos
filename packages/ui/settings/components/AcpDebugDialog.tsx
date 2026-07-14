@@ -4,7 +4,7 @@ import { Input } from "#shadcn/components/ui/input";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
-import { getLegacyWebContentsId, useLegacyPresenter } from "#api/legacy/presenters";
+import { getRuntimeWebContentsId, usePresenter } from "#api/presenterBridge";
 import { ACP_DEBUG_EVENTS } from "#/events";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
@@ -40,8 +40,8 @@ const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
 
 export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName }: AcpDebugDialogProps) {
   const { toast } = useToast();
-  const llmProviderPresenter = useLegacyPresenter("llmproviderPresenter");
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const llmProviderPresenter = usePresenter("llmproviderPresenter");
+  const configPresenter = usePresenter("configPresenter");
 
   const [selectedMethod, setSelectedMethod] = useState<AcpDebugRequest["action"]>("newSession");
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const [customMethod, setCustomMethod] = useState("");
   const [debugSessionId, setDebugSessionId] = useState(createDebugSessionId());
   const seenIds = useRef(new Set<string>());
-  const webContentsId = getLegacyWebContentsId();
+  const webContentsId = getRuntimeWebContentsId();
 
   const requiresCustomMethod = useMemo(
     () => ["extMethod", "extNotification"].includes(selectedMethod),

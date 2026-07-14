@@ -1,7 +1,7 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
+import { type FC, useState, useEffect, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import type { ScanResult, ImportPreview } from "@argos/shared/types/skillSync";
 import { ConflictStrategy } from "@argos/shared/types/skillSync";
@@ -11,21 +11,30 @@ import ConflictResolver, { type ConflictItem } from "./ConflictResolver";
 
 interface ImportWizardProps {
   currentStep: number;
+  initialToolId?: string;
+  initialSkills?: string[];
   onStepChange: (value: number) => void;
   onComplete: () => void;
   onCancel: () => void;
 }
 
-export const ImportWizard: FC<ImportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
+export const ImportWizard: FC<ImportWizardProps> = ({
+  currentStep,
+  initialToolId,
+  initialSkills,
+  onStepChange,
+  onComplete,
+  onCancel,
+}) => {
   const { toast } = useToast();
-  const skillSyncPresenter = useLegacyPresenter("skillSyncPresenter");
+  const skillSyncPresenter = usePresenter("skillSyncPresenter");
 
   const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
-  const [selectedToolId, setSelectedToolId] = useState<string | null>(null);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [selectedToolId, setSelectedToolId] = useState<string | null>(initialToolId ?? null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(initialSkills ?? []);
   const [importPreviews, setImportPreviews] = useState<ImportPreview[]>([]);
   const [conflictStrategies, setConflictStrategies] = useState<Record<string, ConflictStrategy>>({});
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0, currentSkill: "" });
@@ -82,6 +91,12 @@ export const ImportWizard: FC<ImportWizardProps> = ({ currentStep, onStepChange,
     if (currentStep === 1) {
       onCancel();
     } else {
+      if (currentStep === 2) {
+        setSelectedToolId(null);
+        setSelectedSkills([]);
+        setImportPreviews([]);
+        setConflictStrategies({});
+      }
       onStepChange(currentStep - 1);
     }
   };
@@ -160,15 +175,6 @@ export const ImportWizard: FC<ImportWizardProps> = ({ currentStep, onStepChange,
   useEffect(() => {
     void scanTools();
   }, []);
-
-  useEffect(() => {
-    if (currentStep === 1) {
-      setSelectedToolId(null);
-      setSelectedSkills([]);
-      setImportPreviews([]);
-      setConflictStrategies({});
-    }
-  }, [currentStep]);
 
   return (
     <div className="flex flex-col h-full">

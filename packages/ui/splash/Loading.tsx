@@ -1,12 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import {
-  DATABASE_UNLOCK_CANCEL_CHANNEL,
-  DATABASE_UNLOCK_PROGRESS_CHANNEL,
-  DATABASE_UNLOCK_REQUEST_CHANNEL,
-  DATABASE_UNLOCK_SUBMIT_CHANNEL,
-  type DatabaseUnlockProgressPayload,
-  type DatabaseUnlockRequestPayload,
-} from "@argos/shared-contracts/databaseSecurity";
+import { useCallback, useEffect, useState } from "react";
 import logoSrc from "../src/assets/logo.png";
 import logoDarkSrc from "../src/assets/logo-dark.png";
 import { TextShimmer } from "../components/agent-elements/text-shimmer";
@@ -116,218 +108,27 @@ function StatusList({ activities }: { activities: SplashActivityItem[] }) {
   );
 }
 
-function UnlockPanel(props: {
-  requestId: string;
-  unlockReason: DatabaseUnlockRequestPayload["reason"];
-  safeStorageAvailable: boolean;
-  unlockSubmitting: boolean;
-  password: string;
-  passwordInputRef: React.RefObject<HTMLInputElement | null>;
-  onPasswordChange: (next: string) => void;
-  onSubmit: () => void;
-  onCancel: () => void;
-  busy: boolean;
-  title: string;
-  subtitle: string;
-  hint: string;
-  errorMessage?: string;
-  primaryLabel: string;
-  cancelLabel: string;
-}) {
-  return (
-    <form
-      className="splash-unlock__panel"
-      onSubmit={(e) => {
-        e.preventDefault();
-        props.onSubmit();
-      }}
-      data-testid="splash-unlock-panel"
-    >
-      <h1 className="splash-unlock__title">{props.title}</h1>
-      <p className="splash-unlock__subtitle">{props.subtitle}</p>
-      <label className="splash-unlock__label" htmlFor="database-password">
-        SQLite password
-      </label>
-      <input
-        id="database-password"
-        ref={props.passwordInputRef}
-        className="splash-unlock__input"
-        type="password"
-        autoComplete="current-password"
-        autoFocus
-        disabled={props.busy}
-        value={props.password}
-        onChange={(e) => props.onPasswordChange(e.target.value)}
-      />
-      {props.errorMessage ? <div className="splash-unlock__message">{props.errorMessage}</div> : null}
-      <div className="splash-unlock__actions">
-        <button
-          className="splash-unlock__button splash-unlock__button--primary"
-          type="submit"
-          disabled={!props.password || props.busy}
-        >
-          {props.busy ? "Opening..." : props.primaryLabel}
-        </button>
-        <button className="splash-unlock__button" type="button" onClick={props.onCancel}>
-          {props.cancelLabel}
-        </button>
-      </div>
-      <p className="splash-unlock__hint">{props.hint}</p>
-    </form>
-  );
-}
-
 export default function Loading() {
   const [activities, setActivities] = useState<SplashActivityItem[]>([]);
-  const [mode, setMode] = useState<"loading" | "system-unlock" | "unlock">("loading");
-  const [requestId, setRequestId] = useState("");
-  const [password, setPassword] = useState("");
-  const [unlockReason, setUnlockReason] = useState<DatabaseUnlockRequestPayload["reason"]>("manual-required");
-  const [safeStorageAvailable, setSafeStorageAvailable] = useState(false);
-  const [unlockSubmitting, setUnlockSubmitting] = useState(false);
-  const passwordInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSplashUpdate = useCallback((_event: unknown, payload: SplashUpdatePayload) => {
     setActivities(payload.activities?.slice(0, 3) ?? []);
   }, []);
 
-  const unlockError = useMemo(() => {
-    if (unlockReason === "invalid") {
-      return "Wrong password. Try again.";
-    }
-    return "";
-  }, [unlockReason]);
-
-  const unlockHint = useMemo(() => {
-    if (unlockReason === "system-key-missing") {
-      return "The saved system credential is missing or cannot be decrypted. Enter the SQLite password once to unlock and save it again.";
-    }
-    if (!safeStorageAvailable) {
-      return "System unlock is unavailable on this device, so manual unlock is required.";
-    }
-    return "Enter the SQLite password to unlock this database. Future startups can open automatically after it is saved to the system credential store.";
-  }, [unlockReason, safeStorageAvailable]);
-
-  const handleUnlockRequest = useCallback((_event: unknown, payload: DatabaseUnlockRequestPayload) => {
-    setRequestId(payload.requestId);
-    setUnlockReason(payload.reason);
-    setSafeStorageAvailable(payload.safeStorageAvailable);
-    setPassword("");
-    setUnlockSubmitting(false);
-    setMode("unlock");
-    setTimeout(() => {
-      passwordInputRef.current?.focus();
-    }, 0);
-  }, []);
-
-  const handleUnlockProgress = useCallback((_event: unknown, payload: DatabaseUnlockProgressPayload) => {
-    setUnlockSubmitting(false);
-    if (payload.active) {
-      setSafeStorageAvailable(payload.safeStorageAvailable);
-      setMode("system-unlock");
-      return;
-    }
-    setMode((prev) => (prev === "system-unlock" ? "loading" : prev));
-  }, []);
-
-  const submitUnlock = useCallback(() => {
-    if (!requestId || !password || unlockSubmitting) {
-      return;
-    }
-    setUnlockSubmitting(true);
-    window.electron?.ipcRenderer?.send?.(DATABASE_UNLOCK_SUBMIT_CHANNEL, {
-      requestId,
-      password,
-    });
-    setPassword("");
-  }, [requestId, password, unlockSubmitting]);
-
-  const cancelUnlock = useCallback(() => {
-    if (!requestId) {
-      return;
-    }
-    const canceledRequestId = requestId;
-    setUnlockSubmitting(false);
-    window.electron?.ipcRenderer?.send?.(DATABASE_UNLOCK_CANCEL_CHANNEL, {
-      requestId: canceledRequestId,
-    });
-    setRequestId("");
-    setPassword("");
-    setUnlockReason("manual-required");
-    setSafeStorageAvailable(false);
-    setMode("loading");
-  }, [requestId]);
-
   useEffect(() => {
     window.electron?.ipcRenderer?.on?.("splash-update", handleSplashUpdate);
-    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
-    window.electron?.ipcRenderer?.on?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
     return () => {
       window.electron?.ipcRenderer?.removeListener?.("splash-update", handleSplashUpdate);
-      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_REQUEST_CHANNEL, handleUnlockRequest);
-      window.electron?.ipcRenderer?.removeListener?.(DATABASE_UNLOCK_PROGRESS_CHANNEL, handleUnlockProgress);
     };
-  }, [handleSplashUpdate, handleUnlockRequest, handleUnlockProgress]);
+  }, [handleSplashUpdate]);
 
   return (
     <div className="splash-shell">
-      {mode === "loading" && (
-        <div className="splash-stage" data-testid="splash-stage">
-          <Emblem />
-          <h1 className="splash-wordmark">Argos</h1>
-          <StatusList activities={activities} />
-        </div>
-      )}
-
-      {mode === "system-unlock" && (
-        <div className="splash-unlock" data-testid="splash-system-unlock">
-          <div className="splash-stage">
-            <Emblem />
-            <h1 className="splash-wordmark">Argos</h1>
-            <UnlockPanel
-              requestId={requestId}
-              unlockReason={unlockReason}
-              safeStorageAvailable={safeStorageAvailable}
-              unlockSubmitting={unlockSubmitting}
-              password={password}
-              passwordInputRef={passwordInputRef}
-              onPasswordChange={setPassword}
-              onSubmit={submitUnlock}
-              onCancel={cancelUnlock}
-              busy={unlockSubmitting}
-              title="Argos"
-              subtitle="Unlocking local database"
-              hint="Argos is reading the saved password from the system credential store."
-              errorMessage={unlockError}
-              primaryLabel="Unlock"
-              cancelLabel="Quit"
-            />
-          </div>
-        </div>
-      )}
-
-      {mode === "unlock" && (
-        <div className="splash-unlock" data-testid="splash-unlock">
-          <UnlockPanel
-            requestId={requestId}
-            unlockReason={unlockReason}
-            safeStorageAvailable={safeStorageAvailable}
-            unlockSubmitting={unlockSubmitting}
-            password={password}
-            passwordInputRef={passwordInputRef}
-            onPasswordChange={setPassword}
-            onSubmit={submitUnlock}
-            onCancel={cancelUnlock}
-            busy={unlockSubmitting}
-            title="Argos"
-            subtitle="Local database is encrypted"
-            hint={unlockHint}
-            errorMessage={unlockError}
-            primaryLabel="Unlock"
-            cancelLabel="Quit"
-          />
-        </div>
-      )}
+      <div className="splash-stage" data-testid="splash-stage">
+        <Emblem />
+        <h1 className="splash-wordmark">Argos</h1>
+        <StatusList activities={activities} />
+      </div>
     </div>
   );
 }

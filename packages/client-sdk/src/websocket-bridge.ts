@@ -33,14 +33,6 @@ type ConnectionState = {
 type ConnectionStateListener = (state: ConnectionState) => void;
 
 const REQUEST_TIMEOUT_MS = 30_000;
-const DEFAULT_DATABASE_SECURITY_STATUS = {
-  enabled: false,
-  cipher: "sqlcipher" as const,
-  safeStorageAvailable: false,
-  passwordStorage: "none" as const,
-  manualUnlockRequired: false,
-  migrationInProgress: false,
-};
 
 const DEFAULT_DATABASE_DIAGNOSIS = {
   checkedAt: Date.now(),
@@ -182,22 +174,6 @@ export class WebSocketBridge implements ArgosBridge {
   }
 
   async invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>> {
-    if (routeName === "databaseSecurity.getStatus") {
-      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
-    }
-
-    if (routeName === "databaseSecurity.enable") {
-      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
-    }
-
-    if (routeName === "databaseSecurity.changePassword") {
-      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
-    }
-
-    if (routeName === "databaseSecurity.disable") {
-      return { status: DEFAULT_DATABASE_SECURITY_STATUS } as ArgosRouteOutput<T>;
-    }
-
     if (routeName === "databaseSecurity.diagnoseSchema") {
       return { diagnosis: DEFAULT_DATABASE_DIAGNOSIS } as ArgosRouteOutput<T>;
     }

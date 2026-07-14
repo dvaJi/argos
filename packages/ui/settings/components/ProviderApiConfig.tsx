@@ -5,7 +5,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import GitHubCopilotOAuth from "./GitHubCopilotOAuth";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import { useModelCheckStore } from "#/stores/modelCheck";
 import type { LLM_PROVIDER, KeyStatus } from "@argos/shared/presenter";
@@ -52,7 +52,7 @@ export default function ProviderApiConfig({
   onOAuthSuccess,
   onOAuthError,
 }: ProviderApiConfigProps) {
-  const llmProviderPresenter = useLegacyPresenter("llmproviderPresenter", { safeCall: false });
+  const llmProviderPresenter = usePresenter("llmproviderPresenter", { safeCall: false });
   const modelCheckStore = useModelCheckStore();
   const { toast } = useToast();
 

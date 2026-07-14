@@ -116,11 +116,8 @@ export interface RemoteControlRuntimePorts {
    */
   onOpenEndpoint?: (endpointKey: string) => Promise<{ status: string }>;
   /**
-   * When true, the runtime manages config/pairing/status only and does NOT start
-   * channel adapters (`initialize()` and the per-channel `rebuild*Runtime()` calls
-   * skip adapter connection). Used by the daemon until its agent-loop runtime lands
-   * (the conversation runner needs generation tracking that the daemon lacks today).
-   * `getChannelStatus` reports `stopped` in this mode.
+   * Test/diagnostic mode that manages configuration without connecting channel
+   * adapters. Production daemon hosts must leave this false.
    */
   configOnly?: boolean;
   /** Override for tests; defaults to `Date.now`. */

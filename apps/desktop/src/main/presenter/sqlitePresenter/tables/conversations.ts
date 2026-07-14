@@ -1,5 +1,5 @@
 import { BaseTable } from "./baseTable";
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { CONVERSATION, CONVERSATION_SETTINGS } from "@argos/shared/presenter";
 import { isReasoningEffort, isVerbosity } from "@argos/shared/types/model-db";
 import { nanoid } from "nanoid";
@@ -42,7 +42,7 @@ function getJsonField<T>(val: string | null | undefined, fallback: T): T {
 }
 
 export class ConversationsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "conversations");
   }
 

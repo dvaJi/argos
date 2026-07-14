@@ -12,7 +12,7 @@
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "postinstall": "node scripts/rebuild-native.mjs",
+    "postinstall": "pnpm run installRuntime",
     "test": "turbo run test --filter=@argos/desktop --filter=@argos/daemon",
     "test:main": "pnpm --filter @argos/desktop test:main",
     "test:renderer": "pnpm --filter @argos/desktop test:renderer",
@@ -77,7 +77,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "catalog:",
-    "better-sqlite3-multiple-ciphers": "12.10.0",
     "fflate": "catalog:",
     "nanoid": "catalog:",
     "tokenx": "catalog:",

@@ -260,7 +260,7 @@ export const mcpClearNpmRegistryCacheRoute = defineRouteContract({
 });
 
 const McpRouterServerSchema = zod.object({
-  uuid: zod.string(),
+  uuid: zod.string().optional(),
   created_at: zod.string(),
   updated_at: zod.string(),
   name: zod.string(),

@@ -20,15 +20,22 @@ export interface IConfigStore {
   onChanged(callback: (key: string, value: unknown) => void): () => void;
 }
 
-export interface IDatabaseProvider {
-  open(path: string, encryptionKey?: string): Promise<unknown>;
-  close(): Promise<void>;
-}
-
 export interface ISubprocessRunner {
   spawn(command: string, args: string[], options?: Record<string, unknown>): unknown;
   exec(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }>;
 }
+
+export interface SqliteReaderStatement {
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+}
+
+export interface SqliteReaderPort {
+  prepare(sql: string): SqliteReaderStatement;
+  close(): void;
+}
+
+export type SqliteReaderFactory = (dbPath: string) => SqliteReaderPort;
 
 export interface IEventPublisher {
   publish(eventName: string, payload: unknown): void;
@@ -39,7 +46,6 @@ export interface HostDependencies {
   paths: IPathResolver;
   credentials: ICredentialStore;
   config: IConfigStore;
-  database: IDatabaseProvider;
   subprocess: ISubprocessRunner;
   events: IEventPublisher;
 }

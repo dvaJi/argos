@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RemoteAuthGuard } from "#/presenter/remoteControlPresenter/services/remoteAuthGuard";
+import { RemoteAuthGuard } from "@argos/remote-control-runtime/services/remoteAuthGuard";
 
 const createMessage = (overrides: Partial<Parameters<RemoteAuthGuard["ensureAuthorized"]>[0]> = {}) => ({
   updateId: 1,

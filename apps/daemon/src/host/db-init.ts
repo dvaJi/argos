@@ -12,7 +12,7 @@ type BunDatabase = {
   close(): void;
 };
 
-const CORE_TABLES = [
+export const CORE_TABLES = [
   `CREATE TABLE IF NOT EXISTS schema_versions (
     version INTEGER PRIMARY KEY,
     applied_at INTEGER NOT NULL
@@ -232,7 +232,7 @@ const CORE_TABLES = [
   `CREATE TRIGGER IF NOT EXISTS agent_memory_fts_au AFTER UPDATE OF content ON agent_memory BEGIN INSERT INTO agent_memory_fts(agent_memory_fts, rowid, content, agent_id) VALUES ('delete', old.rowid, old.content, old.agent_id); INSERT INTO agent_memory_fts(rowid, content, agent_id) VALUES (new.rowid, new.content, new.agent_id); END`,
 ];
 
-const INDEXES = [
+export const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_argos_messages_session ON argos_messages(session_id)`,
   `CREATE INDEX IF NOT EXISTS idx_argos_messages_role ON argos_messages(role)`,
   `CREATE INDEX IF NOT EXISTS idx_argos_user_messages_session ON argos_user_messages(session_id)`,
@@ -248,7 +248,7 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires ON auth_sessions(expires_at)`,
 ];
 
-const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export async function initializeDatabase(dbPath: string): Promise<any> {
   logger.info(`[db] Opening database at ${dbPath}`);
@@ -333,7 +333,7 @@ export async function initializeDatabase(dbPath: string): Promise<any> {
   }
 }
 
-function getSchemaVersion(db: BunDatabase): number {
+export function getSchemaVersion(db: BunDatabase): number {
   try {
     const result = db
       .query<{ version: number }>("SELECT version FROM schema_versions ORDER BY version DESC LIMIT 1")
@@ -344,7 +344,7 @@ function getSchemaVersion(db: BunDatabase): number {
   }
 }
 
-function setSchemaVersion(db: BunDatabase, version: number): void {
+export function setSchemaVersion(db: BunDatabase, version: number): void {
   db.exec(`INSERT OR REPLACE INTO schema_versions (version, applied_at) VALUES (${version}, ${Date.now()})`);
 }
 

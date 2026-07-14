@@ -47,8 +47,8 @@ export function createSyncClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.result;
   }
 
-  async function openSyncFolder() {
-    await bridge.invoke(syncOpenFolderRoute.name, {});
+  async function openSyncFolder(folderPath?: string) {
+    await bridge.invoke(syncOpenFolderRoute.name, { folderPath });
   }
 
   async function getCloudConfig() {

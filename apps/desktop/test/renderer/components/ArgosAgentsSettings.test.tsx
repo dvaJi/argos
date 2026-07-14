@@ -105,7 +105,7 @@ describe("ArgosAgentsSettings", () => {
       ),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -233,7 +233,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -309,7 +309,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -384,7 +384,7 @@ describe("ArgosAgentsSettings", () => {
       selectDirectory: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -446,7 +446,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -519,7 +519,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -608,7 +608,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -686,7 +686,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -784,7 +784,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -882,7 +882,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;
@@ -1023,7 +1023,7 @@ describe("ArgosAgentsSettings", () => {
       findModelByIdOrName: vi.fn<(...args: any[]) => any>(() => null),
     };
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: (name: string) => {
         if (name === "configPresenter") return configPresenter;
         if (name === "projectPresenter") return projectPresenter;

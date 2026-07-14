@@ -1,7 +1,7 @@
 import { app, shell } from "electron";
 import path from "path";
 import fs from "fs";
-import Database from "better-sqlite3-multiple-ciphers";
+import { NullDatabase, type DatabaseLike as Database } from "./../sqlitePresenter/dbType";
 import { zipSync, unzipSync } from "fflate";
 import {
   ISyncPresenter,
@@ -107,8 +107,9 @@ export class SyncPresenter implements ISyncPresenter {
     return { exists, path: syncFolderPath };
   }
 
-  public async openSyncFolder(): Promise<void> {
-    const { exists, path: syncFolderPath } = await this.checkSyncFolder();
+  public async openSyncFolder(folderPath?: string): Promise<void> {
+    const syncFolderPath = folderPath?.trim() || this.configPresenter.getSyncFolderPath();
+    const exists = fs.existsSync(syncFolderPath);
     if (!exists) {
       fs.mkdirSync(syncFolderPath, { recursive: true });
     }
@@ -300,8 +301,6 @@ export class SyncPresenter implements ISyncPresenter {
       const manifest = configImportService.readManifest(extractionDir);
       const backupVersion = this.resolveBackupVersion(manifest);
       const usesSqliteConfigStorage = backupVersion >= 2 && manifest?.configStorage === "sqlite";
-      const activeDatabasePassword = this.getActiveDatabasePassword();
-      const backupDatabasePassword = this.resolveBackupDatabasePassword(manifest, activeDatabasePassword);
 
       const backupDbSource = this.resolveBackupDbSource(extractionDir);
       const backupAppSettingsPath = path.join(extractionDir, ZIP_PATHS.appSettings);
@@ -314,7 +313,6 @@ export class SyncPresenter implements ISyncPresenter {
       if (usesSqliteConfigStorage && backupDbSource.type !== "agent") {
         throw new Error("sync.error.noValidBackup");
       }
-      this.assertOverwriteEncryptionCompatible(backupDbSource.type, importMode, manifest, activeDatabasePassword);
 
       this.sqlitePresenter.close();
       sqliteClosed = true;
@@ -336,7 +334,7 @@ export class SyncPresenter implements ISyncPresenter {
 
       if (backupDbSource.type === "agent") {
         if (importMode === ImportMode.OVERWRITE) {
-          const backupDb = this.openBackupDatabase(backupDbSource.path, backupDatabasePassword);
+          const backupDb = this.openBackupDatabase(backupDbSource.path);
           importedConversationCount =
             this.countTableRows(backupDb, "new_sessions") || this.countTableRows(backupDb, "conversations");
           backupDb.close();
@@ -358,12 +356,7 @@ export class SyncPresenter implements ISyncPresenter {
             this.copyFile(backupSystemPromptsPath, this.SYSTEM_PROMPTS_PATH);
           }
         } else {
-          const importer = new DataImporter(
-            backupDbSource.path,
-            this.DB_PATH,
-            backupDatabasePassword,
-            activeDatabasePassword,
-          );
+          const importer = new DataImporter(backupDbSource.path, this.DB_PATH);
           const summary = await importer.importData();
           importer.close();
           importedConversationCount = summary.tableCounts.new_sessions || summary.tableCounts.conversations || 0;
@@ -495,8 +488,6 @@ export class SyncPresenter implements ISyncPresenter {
         createdAt: timestamp,
         configStorage: "sqlite",
         configSchemaVersion: CURRENT_SYNC_CONFIG_SCHEMA_VERSION,
-        databaseEncrypted: Boolean(this.getActiveDatabasePassword()),
-        databaseCipher: this.getActiveDatabasePassword() ? "sqlcipher" : undefined,
         files: Object.keys(files),
       };
       files[ZIP_PATHS.manifest] = new Uint8Array(Buffer.from(JSON.stringify(manifest, null, 2), "utf-8"));
@@ -587,47 +578,8 @@ export class SyncPresenter implements ISyncPresenter {
     return new SyncConfigImportService(this.DB_PATH, (dbPath) => sqlitePresenter.openDatabaseConnection(dbPath));
   }
 
-  private openBackupDatabase(dbPath: string, password: string | undefined): Database.Database {
-    const db = new Database(dbPath, { readonly: true });
-    if (password) {
-      db.pragma("cipher='sqlcipher'");
-      db.key(Buffer.from(password, "utf8"));
-    }
-    return db;
-  }
-
-  private getActiveDatabasePassword(): string | undefined {
-    return (this.sqlitePresenter as unknown as Partial<SQLitePresenter>).getDatabasePassword?.();
-  }
-
-  private resolveBackupDatabasePassword(
-    manifest: SyncBackupManifest | null,
-    activeDatabasePassword: string | undefined,
-  ): string | undefined {
-    if (!manifest?.databaseEncrypted) {
-      return undefined;
-    }
-    if (!activeDatabasePassword) {
-      throw new Error("sync.error.encryptedBackupPasswordMissing");
-    }
-    return activeDatabasePassword;
-  }
-
-  private assertOverwriteEncryptionCompatible(
-    backupDbType: BackupDbSource["type"],
-    importMode: ImportMode,
-    manifest: SyncBackupManifest | null,
-    activeDatabasePassword: string | undefined,
-  ): void {
-    if (backupDbType !== "agent" || importMode !== ImportMode.OVERWRITE) {
-      return;
-    }
-
-    const backupDatabaseEncrypted = manifest?.databaseEncrypted === true;
-    const activeDatabaseEncrypted = Boolean(activeDatabasePassword);
-    if (backupDatabaseEncrypted !== activeDatabaseEncrypted) {
-      throw new Error("sync.error.overwriteEncryptionMismatch");
-    }
+  private openBackupDatabase(_dbPath: string): Database {
+    return new NullDatabase();
   }
 
   private ensureSqliteConfigStorageReady(): void {
@@ -1007,7 +959,7 @@ export class SyncPresenter implements ISyncPresenter {
     fs.rmdirSync(dirPath);
   }
 
-  private countTableRows(db: Database.Database, tableName: string): number {
+  private countTableRows(db: Database, tableName: string): number {
     const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
     if (!exists) {
       return 0;

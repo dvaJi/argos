@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DaemonMcpConfig } from "../src/host/daemonMcpConfig";
 
 describe("DaemonMcpConfig", () => {
@@ -38,5 +38,34 @@ describe("DaemonMcpConfig", () => {
     // Idempotent: a second run is a no-op (removal list already empty).
     await mcpConfig.initializeHeadlessDefaults();
     expect(store.get("removedBuiltInServers") ?? []).toHaveLength(0);
+  });
+
+  it("unwraps the documented MCPRouter data.servers response", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "argos-daemon-mcp-market-"));
+    cleanupRoots.push(root);
+    const mcpConfig = new DaemonMcpConfig(root, {} as never);
+    const listServers = vi.fn(async () => ({
+      servers: [
+        {
+          created_at: "2025-07-10T05:54:47.334381Z",
+          updated_at: "2025-07-10T05:54:47.334381Z",
+          name: "time-mcp",
+          author_name: "anthropic",
+          title: "Time MCP Server",
+          description: "Time and timezone tools",
+          server_key: "time",
+          config_name: "time",
+          server_url: "https://mcprouter.co/time",
+        },
+      ],
+    }));
+    Object.defineProperty(mcpConfig, "mcprouterManager", {
+      value: { listServers },
+    });
+
+    await expect(mcpConfig.listMcpRouterServers(1, 20)).resolves.toEqual([
+      expect.objectContaining({ server_key: "time" }),
+    ]);
+    expect(listServers).toHaveBeenCalledWith(1, 20);
   });
 });

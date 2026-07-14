@@ -11,7 +11,7 @@ vi.mock("electron", () => ({
   },
 }));
 
-vi.mock("better-sqlite3-multiple-ciphers", () => ({
+vi.mock("../../src/main/presenter/sqlitePresenter/dbType", () => ({
   default: vi.fn<(...args: any[]) => any>(),
 }));
 

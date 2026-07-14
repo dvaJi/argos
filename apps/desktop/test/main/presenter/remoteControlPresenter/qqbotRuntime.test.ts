@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildFeishuPendingInteractionText } from "#/presenter/remoteControlPresenter/feishu/feishuInteractionPrompt";
-import { QQBotRuntime } from "#/presenter/remoteControlPresenter/qqbot/qqbotRuntime";
+import { buildFeishuPendingInteractionText } from "@argos/remote-control-runtime/feishu/feishuInteractionPrompt";
+import { QQBotRuntime } from "@argos/remote-control-runtime/qqbot/qqbotRuntime";
 import {
   FEISHU_CONVERSATION_POLL_TIMEOUT_MS,
   TELEGRAM_STREAM_POLL_INTERVAL_MS,
@@ -8,7 +8,7 @@ import {
   type QQBotTransportTarget,
   type RemoteDeliverySegment,
   type RemotePendingInteraction,
-} from "#/presenter/remoteControlPresenter/types";
+} from "@argos/remote-control-runtime/types";
 
 const createRuntime = () => {
   const onFatalError = vi.fn<(...args: any[]) => any>();

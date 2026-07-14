@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
 
@@ -53,7 +53,7 @@ function buildPersistedExtra(block: AssistantMessageBlock): PersistedBlockExtra 
 }
 
 export class ArgosAssistantBlocksTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_assistant_blocks");
   }
 

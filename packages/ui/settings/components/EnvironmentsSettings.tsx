@@ -3,7 +3,7 @@ import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import {
   useProjectStore,
   refreshEnvironmentData,
@@ -21,7 +21,7 @@ type EnvironmentListItem = EnvironmentSummary & {
 export default function EnvironmentsSettings() {
   const { toast } = useToast();
   const projectStore = useProjectStore();
-  const projectPresenter = useLegacyPresenter("projectPresenter", { safeCall: false });
+  const projectPresenter = usePresenter("projectPresenter", { safeCall: false });
 
   const [isLoading, setIsLoading] = useState(false);
   const [showMissing, setShowMissing] = useState(false);

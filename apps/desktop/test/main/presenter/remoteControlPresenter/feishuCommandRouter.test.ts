@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { FeishuCommandRouter } from "#/presenter/remoteControlPresenter/services/feishuCommandRouter";
+import { FeishuCommandRouter } from "@argos/remote-control-runtime/services/feishuCommandRouter";
 
 const createMessage = (overrides: Partial<Parameters<FeishuCommandRouter["handleMessage"]>[0]> = {}) => ({
   kind: "message" as const,

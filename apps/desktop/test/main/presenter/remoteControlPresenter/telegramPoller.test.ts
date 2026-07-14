@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { TelegramApiRequestError } from "#/presenter/remoteControlPresenter/telegram/telegramClient";
-import { TelegramPoller } from "#/presenter/remoteControlPresenter/telegram/telegramPoller";
-import {
-  TELEGRAM_OUTBOUND_TEXT_LIMIT,
-  TELEGRAM_STREAM_POLL_INTERVAL_MS,
-} from "#/presenter/remoteControlPresenter/types";
+import { TelegramApiRequestError } from "@argos/remote-control-runtime/telegram/telegramClient";
+import { TelegramPoller } from "@argos/remote-control-runtime/telegram/telegramPoller";
+import { TELEGRAM_OUTBOUND_TEXT_LIMIT, TELEGRAM_STREAM_POLL_INTERVAL_MS } from "@argos/remote-control-runtime/types";
 
 const createClient = () => {
   let nextMessageId = 100;

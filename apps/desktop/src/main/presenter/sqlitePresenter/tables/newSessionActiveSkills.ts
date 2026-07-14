@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface NewSessionActiveSkillRow {
@@ -10,7 +10,7 @@ export interface NewSessionActiveSkillRow {
 const NORMALIZATION_SCHEMA_VERSION = 26;
 
 export class NewSessionActiveSkillsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "new_session_active_skills");
   }
 

@@ -1,15 +1,11 @@
 # Remote Control Daemon Port — Implementation Plan
 
-> **SCOPE REVISION (discovered at Slice 2):** The conversation runner's bot-reply
-> model needs the desktop's event-driven agent-loop runtime (`getActiveGeneration`
-> + streaming + tool interactions). The daemon's Argos execution is a basic
-> single-shot non-streaming fetch with none of that. So **this port now ships the
-> config surface only** (settings/pairing/status/bindings — what the settings page
-> needs, no agent runtime required). The bot→agent→reply flow is **deferred until
-> the daemon gains an agent-loop runtime** (a separate, larger effort). The
-> `packages/remote-control-runtime/` package (Slice 1, done) stays in place,
-> ready for that day. Sections below that reference `getActiveGeneration` /
-> conversation-runner wiring describe the eventual full state, not this slice.
+> **SCOPE RESTORED:** The daemon now has persistent session APIs plus HTTP and
+> ACP execution ports. This change completes the originally specified cutover:
+> add the small remote-control adapters over those APIs, start channel runtimes
+> in the daemon, and delete the duplicated Electron implementation. HTTP turns
+> may still produce a single final snapshot while ACP turns stream; that is a
+> transport capability difference, not a reason for a second runtime owner.
 
 ## Approach
 
@@ -35,10 +31,9 @@ command) layered on daemon state.
                                                         │             └─ providerExecutionPort (in-proc)
                                                         └──────────────────────────┘
 
-Desktop extra (native UX only):
-  RemoteControlPresenter (proxy) → remote.* routes
-  + WeChat login BrowserWindow (calls remote.startWeixinIlinkLogin, renders QR)
-  + /open command (resolves daemon session → focuses desktop chat window)
+Desktop compatibility only:
+  RemoteControlPresenter proxy → remote.* routes
+  (no adapters, pollers, binding store, or conversation runner)
 ```
 
 ## Affected Interfaces / Data Flow
@@ -164,13 +159,11 @@ helper (mirroring `dispatchConfigRoute`). Each route maps to a runtime method.
 `apps/desktop/src/main/presenter/remoteControlPresenter/index.ts` is reduced to:
 - A proxy that forwards every method to daemon `remote.*` routes via
   `invokeDaemonRoute` (same pattern as configPresenter agent delegation).
-- The **WeChat login window** stays: on `startWeixinIlinkLogin`, call the daemon
-  route to get `{ sessionKey, loginUrl }`, then `openWeixinIlinkLoginWindow(
-  loginUrl)` for the native QR window; `waitForWeixinIlinkLogin` calls the daemon
-  route. The window is pure UX; state is daemon-owned.
-- The **`/open` command** stays a desktop-only layer: the conversation runner's
-  `open()` calls a desktop route that resolves the daemon session and focuses a
-  chat window. (In daemon-only/web mode, `/open` returns `windowNotFound`.)
+- WeChat login returns `{ sessionKey, loginUrl }` from the daemon and is rendered
+  by the existing UI. The desktop proxy does not own a login `BrowserWindow`.
+- `/open` is headless and returns `windowNotFound` until a separate typed
+  desktop-handoff route is designed; it does not justify hosting bot logic in
+  Electron.
 
 The desktop stops constructing adapters, the `ChannelManager`, pollers, etc.
 
