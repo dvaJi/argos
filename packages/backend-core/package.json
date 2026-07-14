@@ -9,9 +9,19 @@
     "./*": "./src/*"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "catalog:",
+    "@ai-sdk/anthropic": "catalog:",
+    "@ai-sdk/azure": "catalog:",
+    "@ai-sdk/google": "catalog:",
+    "@ai-sdk/google-vertex": "catalog:",
+    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/openai-compatible": "catalog:",
+    "@ai-sdk/provider": "catalog:",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
+    "ai": "catalog:",
     "level": "catalog:",
+    "undici": "^7.0.0",
     "yaml": "catalog:",
     "zod": "catalog:"
   },

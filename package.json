@@ -76,7 +76,6 @@
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "catalog:",
     "fflate": "catalog:",
     "nanoid": "catalog:",
     "tokenx": "catalog:",
@@ -84,10 +83,10 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
-    "@electron/rebuild": "^4.0.6",
+    "@electron/rebuild": "^4.2.0",
     "electron": "catalog:",
     "electron-builder": "catalog:",
-    "knip": "^6.23.0",
+    "knip": "^6.26.0",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "turbo": "catalog:",

@@ -23,6 +23,7 @@
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
     "@agentclientprotocol/sdk": "^0.28.1",
+    "ai": "catalog:",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",

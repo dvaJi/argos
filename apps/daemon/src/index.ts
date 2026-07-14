@@ -13,7 +13,7 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { ProviderImportService } from "@argos/backend-core";
-import { BunProviderExecutionPort } from "./host/bun-provider-execution";
+import { AiSdkProviderExecutionPort } from "./host/aiSdk-provider-execution";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
@@ -273,7 +273,7 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
+  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),

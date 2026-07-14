@@ -3,14 +3,7 @@ import path from "path";
 import fs from "fs";
 import { NullDatabase, type DatabaseLike as Database } from "./../sqlitePresenter/dbType";
 import { zipSync, unzipSync } from "fflate";
-import {
-  ISyncPresenter,
-  IConfigPresenter,
-  ISQLitePresenter,
-  SyncBackupInfo,
-  CloudSyncResult,
-} from "@argos/shared/presenter";
-import { CloudStorageService } from "./cloudStorageService";
+import { ISyncPresenter, IConfigPresenter, ISQLitePresenter, SyncBackupInfo } from "@argos/shared/presenter";
 import { eventBus, SendTarget } from "#/eventbus";
 import { SYNC_EVENTS } from "#/events";
 import { DataImporter } from "../sqlitePresenter/importData";
@@ -121,82 +114,18 @@ export class SyncPresenter implements ISyncPresenter {
     return { isBackingUp: this.isBackingUp, lastBackupTime };
   }
 
-  // === Cloud sync (S3-compatible) ===
+  // === Cloud sync — handled by the daemon (bun:sqlite S3) ===
 
-  private buildCloudService(): CloudStorageService {
-    const resolved = this.configPresenter.getResolvedCloudSyncConfig();
-    if (!resolved) {
-      throw new Error("sync.error.cloudNotConfigured");
-    }
-    return new CloudStorageService(resolved);
+  public async testCloudConnection(): Promise<{ success: boolean; message: string }> {
+    throw new Error("Cloud sync is handled by the daemon");
   }
 
-  private normalizeCloudError(error: unknown): string {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.startsWith("sync.error.")) {
-      return message;
-    }
-    return message || "sync.error.cloudOperationFailed";
+  public async uploadLatestBackupToCloud(): Promise<{ success: boolean; message: string }> {
+    throw new Error("Cloud sync is handled by the daemon");
   }
 
-  public async testCloudConnection(): Promise<CloudSyncResult> {
-    try {
-      const service = this.buildCloudService();
-      await service.testConnection();
-      return { success: true, message: "sync.success.cloudConnected" };
-    } catch (error) {
-      console.error("Cloud connection test failed:", error);
-      return { success: false, message: this.normalizeCloudError(error) };
-    }
-  }
-
-  public async uploadLatestBackupToCloud(): Promise<CloudSyncResult> {
-    try {
-      const service = this.buildCloudService();
-      const backups = (await this.listBackups()).filter(({ fileName }) => BACKUP_FILE_NAME_REGEX.test(fileName));
-      if (backups.length === 0) {
-        return { success: false, message: "sync.error.noLocalBackup" };
-      }
-      const { path: syncFolderPath } = await this.checkSyncFolder();
-      const backupsDir = this.getBackupsDirectory(syncFolderPath);
-
-      for (const backup of backups) {
-        const localPath = path.join(backupsDir, backup.fileName);
-        if (!fs.existsSync(localPath)) {
-          continue;
-        }
-        try {
-          this.validateBackupArchive(localPath);
-        } catch (error) {
-          console.warn("Skipping invalid local backup during cloud upload:", backup.fileName, error);
-          continue;
-        }
-        await service.uploadBackup(localPath, backup.fileName);
-        return { success: true, message: "sync.success.cloudUploaded", fileName: backup.fileName };
-      }
-
-      return { success: false, message: "sync.error.noLocalBackup" };
-    } catch (error) {
-      console.error("Cloud upload failed:", error);
-      return { success: false, message: this.normalizeCloudError(error) };
-    }
-  }
-
-  public async pullLatestBackupFromCloud(importMode: ImportMode = ImportMode.INCREMENT): Promise<CloudSyncResult> {
-    try {
-      const service = this.buildCloudService();
-      const { path: syncFolderPath } = await this.checkSyncFolder();
-      const backupsDir = this.getBackupsDirectory(syncFolderPath);
-      const fileName = await service.downloadLatest(backupsDir);
-      if (!fileName) {
-        return { success: false, message: "sync.error.cloudNoBackup" };
-      }
-      const result = await this.importFromSync(fileName, importMode);
-      return { ...result, fileName };
-    } catch (error) {
-      console.error("Cloud pull failed:", error);
-      return { success: false, message: this.normalizeCloudError(error) };
-    }
+  public async pullLatestBackupFromCloud(_importMode?: unknown): Promise<{ success: boolean; message: string }> {
+    throw new Error("Cloud sync is handled by the daemon");
   }
 
   public async listBackups(): Promise<SyncBackupInfo[]> {
@@ -779,30 +708,6 @@ export class SyncPresenter implements ISyncPresenter {
 
       fs.mkdirSync(path.dirname(destination), { recursive: true });
       fs.writeFileSync(destination, Buffer.from(fileContent));
-    }
-  }
-
-  private validateBackupArchive(backupZipPath: string): void {
-    const extractionDir = path.join(app.getPath("temp"), `argos-backup-validate-${Date.now()}`);
-    fs.mkdirSync(extractionDir, { recursive: true });
-
-    try {
-      this.extractBackupArchive(backupZipPath, extractionDir);
-      const configImportService = this.createConfigImportService();
-      const manifest = configImportService.readManifest(extractionDir);
-      const backupVersion = this.resolveBackupVersion(manifest);
-      const usesSqliteConfigStorage = backupVersion >= 2 && manifest?.configStorage === "sqlite";
-      const backupDbSource = this.resolveBackupDbSource(extractionDir);
-      const backupAppSettingsPath = path.join(extractionDir, ZIP_PATHS.appSettings);
-
-      if (!backupDbSource || !fs.existsSync(backupAppSettingsPath)) {
-        throw new Error("sync.error.noValidBackup");
-      }
-      if (usesSqliteConfigStorage && backupDbSource.type !== "agent") {
-        throw new Error("sync.error.noValidBackup");
-      }
-    } finally {
-      this.removeDirectory(extractionDir);
     }
   }
 
