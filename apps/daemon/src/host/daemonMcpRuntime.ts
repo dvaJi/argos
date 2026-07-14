@@ -21,6 +21,32 @@ export class DaemonMcpRuntime {
     await this.serverManager.startServer(serverName);
   }
 
+  async startEnabledServers(): Promise<{ started: string[]; failed: Array<{ serverName: string; error: string }> }> {
+    if (!(await this.configPresenter.getMcpEnabled())) return { started: [], failed: [] };
+
+    const servers = await this.configPresenter.getMcpServers();
+    const candidates = Object.entries(servers).filter(
+      ([, config]) => config.enabled && !config.ownerPluginId && config.source !== "plugin",
+    );
+    const started: string[] = [];
+    const failed: Array<{ serverName: string; error: string }> = [];
+
+    await Promise.all(
+      candidates.map(async ([serverName]) => {
+        try {
+          await this.startServer(serverName);
+          started.push(serverName);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failed.push({ serverName, error: message });
+          console.error(`[MCP] Failed to auto-start ${serverName}:`, error);
+        }
+      }),
+    );
+
+    return { started, failed };
+  }
+
   async stopServer(serverName: string) {
     await this.serverManager.stopServer(serverName);
   }

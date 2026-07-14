@@ -147,7 +147,19 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
       if (mcpStore.serverLoadingStates[serverName]) return;
       const success = await mcpStore.toggleServer(serverName);
       if (!success) {
-        toast({ title: "Operation Failed", description: "Request failed", variant: "destructive" });
+        const message = mcpStore.getServerError(serverName) || "The server lifecycle request failed";
+        toast({ title: "Operation Failed", description: message, variant: "destructive" });
+      }
+    };
+
+    const handleRuntimeToggle = async (serverName: string, isRunning: boolean) => {
+      const result = await mcpStore.setServerRunning(serverName, !isRunning);
+      if (!result.success) {
+        toast({
+          title: isRunning ? "Could not stop server" : "Could not start server",
+          description: result.error || "The server lifecycle request failed",
+          variant: "destructive",
+        });
       }
     };
 
@@ -252,6 +264,7 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
                     resourcesCount={getServerResourcesCount(server.name)}
                     onClick={() => setSelectedDetailServerName(server.name)}
                     onToggle={() => handleToggleServer(server.name)}
+                    onRuntimeToggle={() => handleRuntimeToggle(server.name, server.isRunning)}
                     onEdit={() => openEditServerDialog(server.name)}
                     onRemove={() => handleRemoveServer(server.name)}
                     onViewTools={() => handleViewTools(server.name)}

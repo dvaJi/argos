@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const setMcpServerEnabledMutate = vi.hoisted(() => vi.fn<(...args: any[]) => any>());
+import type { MCPServerConfig } from "@argos/shared/presenter";
 
 const mcpClientMock = vi.hoisted(() => ({
   getMcpServers: vi.fn<(...args: any[]) => any>().mockResolvedValue({}),
   getMcpEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   getAllPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
+  setMcpServerEnabled: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   startServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   stopServer: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
   isServerRunning: vi.fn<(...args: any[]) => any>().mockResolvedValue(false),
@@ -14,221 +14,113 @@ const mcpClientMock = vi.hoisted(() => ({
   getAllResources: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
 }));
 
-const configPresenterMock = vi.hoisted(() => ({
+const configClientMock = vi.hoisted(() => ({
   getCustomPrompts: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
   getSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
   setSetting: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-  onCustomPromptsChanged: vi.fn<(...args: any[]) => any>(() => vi.fn<(...args: any[]) => any>()),
+  onCustomPromptsChanged: vi.fn<(...args: any[]) => any>(() => () => {}),
 }));
 
-const createQueryState = () => ({
-  data: { value: undefined },
-  error: { value: null },
-  isLoading: { value: false },
-  isFetching: { value: false },
-  isRefreshing: { value: false },
-  refresh: vi.fn<(...args: any[]) => any>(async () => ({ status: "success", data: undefined })),
-  refetch: vi.fn<(...args: any[]) => any>(async () => ({ status: "success", data: undefined })),
+vi.mock("#api/McpClient", () => ({ createMcpClient: () => mcpClientMock }));
+vi.mock("#api/ConfigClient", () => ({ createConfigClient: () => configClientMock }));
+
+const demoConfig = (enabled: boolean): MCPServerConfig => ({
+  command: "demo-command",
+  args: [],
+  env: {},
+  descriptions: "Demo server",
+  icons: "D",
+  autoApprove: [],
+  disable: false,
+  type: "stdio",
+  enabled,
 });
 
-vi.mock("#api/McpClient", () => ({
-  createMcpClient: vi.fn<(...args: any[]) => any>(() => mcpClientMock),
-}));
-
-vi.mock("#api/ConfigClient", () => ({
-  createConfigClient: vi.fn<(...args: any[]) => any>(() => configPresenterMock),
-}));
-
-vi.mock("#/composables/useIpcMutation", () => ({
-  useIpcMutation: (options: { mutation?: (...args: any[]) => unknown }) => ({
-    mutateAsync: options.mutation?.toString().includes("setMcpServerEnabled")
-      ? setMcpServerEnabledMutate
-      : vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
-  }),
-}));
-
-vi.mock("#/composables/useIpcQuery", () => ({
-  useIpcQuery: () => createQueryState(),
-}));
-
-vi.mock("#/events", () => ({
-  MCP_EVENTS: {
-    SERVER_STARTED: "server-started",
-    SERVER_STOPPED: "server-stopped",
-    CONFIG_CHANGED: "config-changed",
-    SERVER_STATUS_CHANGED: "server-status-changed",
-    TOOL_CALL_RESULT: "tool-call-result",
-  },
-}));
-
-const setupStore = async () => {
+async function setup(enabled = false) {
   vi.resetModules();
-  const { useMcpStore } = await import("#/stores/mcp");
-  return useMcpStore();
-};
+  const module = await import("#/stores/mcp");
+  module.mcpStore.setState(() => ({
+    config: { mcpServers: { demo: demoConfig(enabled) }, mcpEnabled: true, ready: true },
+    mcpInstallCache: null,
+    serverStatuses: { demo: false },
+    serverLoadingStates: {},
+    serverErrors: {},
+    configLoading: false,
+    toolLoadingStates: {},
+    toolInputs: {},
+    toolResults: {},
+    enabledToolNames: [],
+    tools: [],
+    toolsLoading: false,
+    toolsError: false,
+    toolsErrorMessage: "",
+    clients: [],
+    resources: [],
+    prompts: [],
+  }));
+  return module;
+}
 
-describe("useMcpStore toggleServer rollback", () => {
-  beforeEach(async () => {
+describe("MCP server lifecycle store", () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    setMcpServerEnabledMutate.mockReset();
-    mcpClientMock.startServer.mockClear();
-    mcpClientMock.stopServer.mockClear();
+    mcpClientMock.setMcpServerEnabled.mockResolvedValue(true);
+    mcpClientMock.startServer.mockResolvedValue(undefined);
+    mcpClientMock.stopServer.mockResolvedValue(undefined);
+    mcpClientMock.isServerRunning.mockResolvedValue(false);
   });
 
-  it("reverts local state when the persist call itself fails (no daemon rollback)", async () => {
-    const store = await setupStore();
+  it("rolls back the enabled preference when persistence fails", async () => {
+    const store = await setup(false);
+    mcpClientMock.setMcpServerEnabled.mockRejectedValueOnce(new Error("persist failed"));
 
-    store.config = {
-      mcpServers: {
-        demo: {
-          command: "demo-command",
-          args: [],
-          env: {},
-          descriptions: "Demo server",
-          icons: "D",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: false,
-        },
-      },
-      mcpEnabled: true,
-      ready: true,
-    };
+    await expect(store.toggleServer("demo")).resolves.toBe(false);
 
-    setMcpServerEnabledMutate.mockRejectedValueOnce(new Error("persist failed"));
-
-    const result = await store.toggleServer("demo");
-
-    expect(result).toBe(false);
-    expect(store.config.mcpServers.demo.enabled).toBe(false);
-    expect(store.serverLoadingStates.demo).toBe(false);
-    // Only the failed persist attempt — no second "rollback" call (the daemon
-    // never accepted the change, so there is nothing to roll back remotely).
-    expect(setMcpServerEnabledMutate).toHaveBeenCalledTimes(1);
-    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ["demo", true]);
+    expect(store.mcpStore.state.config.mcpServers.demo.enabled).toBe(false);
     expect(mcpClientMock.startServer).not.toHaveBeenCalled();
-    expect(mcpClientMock.stopServer).not.toHaveBeenCalled();
+    expect(store.mcpStore.state.serverErrors.demo).toBe("persist failed");
   });
 
-  it("keeps the toggle persisted when post-persist runtime sync fails", async () => {
-    const store = await setupStore();
+  it("starts a server after enabling it", async () => {
+    const store = await setup(false);
+    mcpClientMock.isServerRunning.mockResolvedValue(true);
 
-    store.config = {
-      mcpServers: {
-        demo: {
-          command: "demo-command",
-          args: [],
-          env: {},
-          descriptions: "Demo server",
-          icons: "D",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: false,
-        },
-      },
-      mcpEnabled: true,
-      ready: true,
-    };
+    await expect(store.toggleServer("demo")).resolves.toBe(true);
 
-    // Persist succeeds; post-persist status sync fails (e.g. daemon can't start
-    // the built-in server). The toggle must STAY persisted — a runtime-start
-    // failure must not revert an enabled flag the user just set.
-    setMcpServerEnabledMutate.mockResolvedValueOnce(undefined);
-    mcpClientMock.isServerRunning.mockRejectedValueOnce(new Error("daemon cannot start stdio server"));
-
-    const result = await store.toggleServer("demo");
-
-    expect(result).toBe(true);
-    expect(setMcpServerEnabledMutate).toHaveBeenCalledTimes(1);
-    expect(setMcpServerEnabledMutate).toHaveBeenNthCalledWith(1, ["demo", true]);
-    // No rollback persist call.
-    expect(setMcpServerEnabledMutate).not.toHaveBeenCalledTimes(2);
+    expect(mcpClientMock.setMcpServerEnabled).toHaveBeenCalledWith("demo", true);
+    expect(mcpClientMock.startServer).toHaveBeenCalledWith("demo");
+    expect(store.mcpStore.state.serverStatuses.demo).toBe(true);
   });
 
-  it("hides enabled servers when MCP is globally disabled", async () => {
-    const store = await setupStore();
+  it("keeps the enabled preference and exposes the runtime error when startup fails", async () => {
+    const store = await setup(false);
+    mcpClientMock.startServer.mockRejectedValueOnce(new Error("command not found"));
 
-    store.config = {
-      mcpServers: {
-        demo: {
-          command: "demo-command",
-          args: [],
-          env: {},
-          descriptions: "Demo server",
-          icons: "D",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: true,
-        },
-        "cua-driver": {
-          command: "/mock/cua-driver",
-          args: ["mcp"],
-          env: {},
-          descriptions: "Computer Use",
-          icons: "plugin",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: true,
-          source: "plugin",
-          sourceId: "com.argos.plugins.cua",
-          ownerPluginId: "com.argos.plugins.cua",
-        },
-      },
-      mcpEnabled: false,
-      ready: true,
-    };
+    await expect(store.toggleServer("demo")).resolves.toBe(false);
 
-    expect(store.serverList).toHaveLength(1);
-    expect(store.pluginServerList.map((server) => server.name)).toEqual(["cua-driver"]);
-    expect(store.enabledServers).toEqual([]);
-    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(["cua-driver"]);
-    expect(store.enabledServerCount).toBe(0);
+    expect(store.mcpStore.state.config.mcpServers.demo.enabled).toBe(true);
+    expect(store.mcpStore.state.serverErrors.demo).toBe("command not found");
+    expect(store.mcpStore.state.serverLoadingStates.demo).toBe(false);
   });
 
-  it("hides plugin-owned servers from MCP UI lists", async () => {
-    const store = await setupStore();
+  it("directly starts an enabled but stopped server", async () => {
+    const store = await setup(true);
+    mcpClientMock.isServerRunning.mockResolvedValue(true);
 
-    store.config = {
-      mcpServers: {
-        demo: {
-          command: "demo-command",
-          args: [],
-          env: {},
-          descriptions: "Demo server",
-          icons: "D",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: true,
-        },
-        "cua-driver": {
-          command: "/Applications/Argos Computer Use.app/Contents/MacOS/cua-driver",
-          args: ["mcp"],
-          env: {},
-          descriptions: "Computer Use",
-          icons: "plugin",
-          autoApprove: [],
-          disable: false,
-          type: "stdio",
-          enabled: true,
-          source: "plugin",
-          sourceId: "com.argos.plugins.cua",
-          ownerPluginId: "com.argos.plugins.cua",
-        },
-      },
-      mcpEnabled: true,
-      ready: true,
-    };
+    await expect(store.setServerRunning("demo", true)).resolves.toEqual({ success: true });
 
-    expect(store.serverList.map((server) => server.name)).toEqual(["demo"]);
-    expect(store.pluginServerList.map((server) => server.name)).toEqual(["cua-driver"]);
-    expect(store.enabledServers.map((server) => server.name)).toEqual(["demo"]);
-    expect(store.enabledPluginServers.map((server) => server.name)).toEqual(["cua-driver"]);
-    expect(store.enabledServerCount).toBe(1);
-    expect(store.config.mcpServers["cua-driver"]).toBeDefined();
+    expect(mcpClientMock.setMcpServerEnabled).not.toHaveBeenCalled();
+    expect(mcpClientMock.startServer).toHaveBeenCalledWith("demo");
+    expect(store.mcpStore.state.serverStatuses.demo).toBe(true);
+  });
+
+  it("enables a disabled server before a direct start", async () => {
+    const store = await setup(false);
+
+    await expect(store.setServerRunning("demo", true)).resolves.toEqual({ success: true });
+
+    expect(mcpClientMock.setMcpServerEnabled).toHaveBeenCalledWith("demo", true);
+    expect(mcpClientMock.startServer).toHaveBeenCalledWith("demo");
+    expect(store.mcpStore.state.config.mcpServers.demo.enabled).toBe(true);
   });
 });

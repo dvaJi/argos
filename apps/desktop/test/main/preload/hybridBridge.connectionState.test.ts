@@ -28,6 +28,8 @@ async function openRemoteSession(): Promise<{
         url: "ws://test:1/api/v1/events",
         connected: true,
         lastError: null,
+        reconnectAttempt: 0,
+        maxReconnectAttempts: 10,
       });
       return () => {
         listener = null;
@@ -57,11 +59,13 @@ describe("HybridBridge connection state", () => {
     bridge.onConnectionStateChange((state) => states.push(state));
 
     bridge.setWsBridge(null);
-    expect(states.at(-1)).toEqual({
+    expect(states.at(-1)).toMatchObject({
       mode: "local",
       url: null,
       connected: false,
       lastError: null,
+      reconnectAttempt: 0,
+      maxReconnectAttempts: 10,
     });
   });
 
@@ -88,12 +92,16 @@ describe("HybridBridge connection state", () => {
       url: "ws://test:1/api/v1/events",
       connected: false,
       lastError: "WebSocket connection failed",
+      reconnectAttempt: 2,
+      maxReconnectAttempts: 10,
     });
     expect(bridge.getConnectionState()).toMatchObject({
       mode: "remote",
       url: "ws://test:1/api/v1/events",
       connected: false,
       lastError: "WebSocket connection failed",
+      reconnectAttempt: 2,
+      maxReconnectAttempts: 10,
     });
   });
 

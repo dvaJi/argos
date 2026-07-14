@@ -2,6 +2,7 @@ import type { ArgosBridge } from "@argos/shared-contracts/bridge";
 import { providersChangedEvent, providersOllamaPullProgressEvent } from "@argos/shared-contracts/events";
 import {
   providersAddRoute,
+  providersGetAcpAgentDiagnosticsRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersGetRateLimitStatusRoute,
   providersImportApplyRoute,
@@ -16,13 +17,14 @@ import {
   providersRefreshModelsRoute,
   providersRemoveRoute,
   providersReorderRoute,
+  providersRunAcpDebugActionRoute,
   providersSetByIdRoute,
   providersTestConnectionRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
 } from "@argos/shared-contracts/routes";
 import type { ProviderImportSelection } from "@argos/shared/providerImport";
-import type { LLM_PROVIDER } from "@argos/shared/presenter";
+import type { AcpDebugRequest, LLM_PROVIDER } from "@argos/shared/presenter";
 import { getArgosBridge } from "./core";
 
 export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
@@ -124,6 +126,15 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     return result.state;
   }
 
+  async function runAcpDebugAction(input: Omit<AcpDebugRequest, "webContentsId">) {
+    return await bridge.invoke(providersRunAcpDebugActionRoute.name, input);
+  }
+
+  async function getAcpAgentDiagnostics(agentId: string, workdir?: string | null) {
+    const result = await bridge.invoke(providersGetAcpAgentDiagnosticsRoute.name, { agentId, workdir });
+    return result.diagnostics;
+  }
+
   async function scanProviderImports() {
     return await bridge.invoke(providersImportScanRoute.name, {});
   }
@@ -199,6 +210,8 @@ export function createProviderClient(bridge: ArgosBridge = getArgosBridge()) {
     pullOllamaModels,
     warmupAcpProcess,
     getAcpProcessConfigOptions,
+    runAcpDebugAction,
+    getAcpAgentDiagnostics,
     scanProviderImports,
     applyProviderImports,
     onProvidersChanged,

@@ -120,13 +120,7 @@ function sniffMagicMime(filePath: string): string | null {
     if (buffer[0] === 0xff && buffer[1] === 0xd8) return "image/jpeg";
     if (buffer[0] === 0x47 && buffer[1] === 0x49) return "image/gif";
     if (buffer[0] === 0x25 && buffer[1] === 0x50) return "application/pdf";
-    if (
-      bytesRead >= 4 &&
-      buffer[0] === 0x50 &&
-      buffer[1] === 0x4b &&
-      buffer[2] === 0x03 &&
-      buffer[3] === 0x04
-    ) {
+    if (bytesRead >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04) {
       return "application/zip";
     }
   } catch {

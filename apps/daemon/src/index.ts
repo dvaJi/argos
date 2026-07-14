@@ -247,6 +247,14 @@ export async function startDaemon(options?: {
     db,
   });
   const mcpRuntime = new DaemonMcpRuntime(configPresenter, mcpPorts);
+  void mcpRuntime
+    .startEnabledServers()
+    .then(({ started, failed }) => {
+      logger.info(`[daemon] MCP startup complete: ${started.length} started, ${failed.length} failed`);
+    })
+    .catch((error) => {
+      logger.error("[daemon] MCP startup failed before server initialization", error);
+    });
   const skillRuntime = new DaemonSkillRuntime({
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),

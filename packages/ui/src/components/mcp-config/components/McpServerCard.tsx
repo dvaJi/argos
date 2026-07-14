@@ -37,6 +37,7 @@ interface McpServerCardProps {
   promptsCount?: number;
   resourcesCount?: number;
   onToggle?: () => void;
+  onRuntimeToggle?: () => void;
   onEdit?: () => void;
   onRemove?: () => void;
   onViewLogs?: () => void;
@@ -57,6 +58,7 @@ export const McpServerCard: FC<McpServerCardProps> = ({
   promptsCount,
   resourcesCount,
   onToggle,
+  onRuntimeToggle,
   onEdit,
   onRemove,
   onViewTools,
@@ -97,6 +99,14 @@ export const McpServerCard: FC<McpServerCardProps> = ({
     <div
       className="bg-card flex flex-col shadow-sm border rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md group cursor-pointer"
       onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
     >
       <div className="px-4 py-2 flex-1">
         <div className="flex items-center justify-between mb-1">
@@ -174,7 +184,23 @@ export const McpServerCard: FC<McpServerCardProps> = ({
             )}
           </div>
 
-          <div className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <div
+            className="flex shrink-0 items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={disabled || isLoading}
+              aria-label={`${server.isRunning ? "Stop" : "Start"} ${server.name}`}
+              onClick={onRuntimeToggle}
+            >
+              <Icon icon={server.isRunning ? "lucide:square" : "lucide:play"} className="size-3" />
+              {server.isRunning ? "Stop" : "Start"}
+            </Button>
             <Switch checked={server.enabled} disabled={disabled || isLoading} onCheckedChange={onToggle} />
           </div>
         </div>

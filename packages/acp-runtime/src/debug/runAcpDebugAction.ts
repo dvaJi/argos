@@ -43,13 +43,44 @@ export interface RunAcpDebugActionDeps {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const healthCheckFlights = new WeakMap<AcpProcessManager, Map<string, Promise<AcpDebugRunResult>>>();
+
+const getHealthCheckKey = (request: AcpDebugRequest): string =>
+  `${resolveAcpAgentAlias(request.agentId)}::${request.workdir?.trim() ?? ""}`;
+
 /**
  * Execute a single ACP debug/lifecycle action (initialize, authenticate,
  * logout, session list/resume/close/fork, prompt, etc.) against a live agent
  * connection resolved from the shared process manager. Host-agnostic: event
  * forwarding is delegated to `deps.onEvent`.
  */
-export async function runAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<AcpDebugRunResult> {
+export function runAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<AcpDebugRunResult> {
+  if (deps.request.action !== "healthCheck") {
+    return executeAcpDebugAction(deps);
+  }
+
+  let managerFlights = healthCheckFlights.get(deps.processManager);
+  if (!managerFlights) {
+    managerFlights = new Map();
+    healthCheckFlights.set(deps.processManager, managerFlights);
+  }
+
+  const key = getHealthCheckKey(deps.request);
+  const existing = managerFlights.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const flight = executeAcpDebugAction(deps).finally(() => {
+    if (managerFlights?.get(key) === flight) {
+      managerFlights.delete(key);
+    }
+  });
+  managerFlights.set(key, flight);
+  return flight;
+}
+
+async function executeAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<AcpDebugRunResult> {
   const {
     request,
     provider,
@@ -87,7 +118,7 @@ export async function runAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<Ac
     typeof processManager.getDebugEvents === "function" ? [...processManager.getDebugEvents(agent.id)] : [];
 
   const pushEvent = (entry: Omit<AcpDebugEventEntry, "id" | "timestamp" | "agentId">): void => {
-    const record: AcpDebugEventEntry = {
+    const record: AcpDebugEventEntry = processManager.appendDebugEvent?.(agent.id, entry) ?? {
       ...entry,
       id: nanoid(),
       timestamp: Date.now(),
@@ -199,6 +230,60 @@ export async function runAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<Ac
           message: "Connection is already initialized by the ACP runtime.",
           payload: toConnectionRef(handle),
         });
+        break;
+      }
+      case "healthCheck": {
+        const body: schema.NewSessionRequest = {
+          cwd: resolveWorkdir(),
+          mcpServers: [],
+        };
+        pushEvent({
+          kind: "request",
+          action: "healthCheck/session/new",
+          payload: body,
+        });
+        const response = await connection.agent.request(acpMethods.agent.session.new, body);
+        if (!response.sessionId) {
+          throw new Error("ACP health check did not return a session ID");
+        }
+
+        activeSessionId = response.sessionId;
+        pushEvent({
+          kind: "response",
+          action: "healthCheck/session/new",
+          sessionId: activeSessionId,
+          payload: response,
+        });
+
+        try {
+          if (handle.supportsSessionClose) {
+            pushEvent({
+              kind: "request",
+              action: "healthCheck/session/close",
+              sessionId: activeSessionId,
+              payload: { sessionId: activeSessionId },
+            });
+            const closeResponse = await connection.agent.request(acpMethods.agent.session.close, {
+              sessionId: activeSessionId,
+            });
+            pushEvent({
+              kind: "response",
+              action: "healthCheck/session/close",
+              sessionId: activeSessionId,
+              payload: closeResponse,
+            });
+          }
+        } catch (cleanupError) {
+          pushEvent({
+            kind: "lifecycle",
+            action: "healthCheck/cleanup",
+            sessionId: activeSessionId,
+            message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+          });
+        } finally {
+          processManager.clearSession(activeSessionId);
+          activeSessionId = undefined;
+        }
         break;
       }
       case "authenticate": {
@@ -578,10 +663,9 @@ export async function runAcpDebugAction(deps: RunAcpDebugActionDeps): Promise<Ac
         activeSessionId = sessionToImport;
         if (typeof sessionPersistence?.saveSessionData === "function") {
           const existing = await sessionPersistence.getSessionData(importedConversationId, agent.id);
-          const previousFingerprints = Array.isArray(
-            (existing?.metadata as { replay?: { fingerprints?: unknown[] } })?.replay?.fingerprints,
-          )
-            ? (existing?.metadata as { replay: { fingerprints: string[] } }).replay.fingerprints
+          const replay = (existing?.metadata as { replay?: { fingerprints?: unknown[] } } | undefined)?.replay;
+          const previousFingerprints = Array.isArray(replay?.fingerprints)
+            ? replay.fingerprints.filter((fingerprint): fingerprint is string => typeof fingerprint === "string")
             : [];
           const newFingerprints = replayFingerprints.filter((fp) => !previousFingerprints.includes(fp));
           await sessionPersistence.saveSessionData(
@@ -846,18 +930,20 @@ export function computeAcpDiagnostics(
   const handle = processManager
     .listProcesses()
     .find((candidate) => candidate.agentId === agentId && (!workdir || candidate.workdir === workdir));
-  const ready = handle?.status === "ready";
   const snapshot = handle?.capabilitySnapshot;
   const authMethods = (handle?.authMethods ?? []).map((method) => {
-    const untyped = method as { type?: unknown; vars?: unknown; link?: unknown };
+    const untyped = method as { name?: unknown; type?: unknown; vars?: unknown; link?: unknown };
+    const nameValue = typeof untyped.name === "string" ? untyped.name : undefined;
     const typeValue = typeof untyped.type === "string" ? untyped.type : undefined;
     const base: {
       id: string;
+      name?: string;
       type?: string;
       vars?: Array<{ name: string; label?: string; secret?: boolean; optional?: boolean }>;
       link?: string | null;
     } = {
       id: method.id,
+      name: nameValue,
       type: typeValue,
     };
     if (typeValue === "env_var") {
@@ -879,7 +965,21 @@ export function computeAcpDiagnostics(
     return base;
   });
   const debugEvents = processManager.getDebugEvents(agentId);
-  const lastErrorEntry = [...debugEvents].reverse().find((entry) => entry.kind === "error");
+  const lastOperationalSuccess = [...debugEvents]
+    .reverse()
+    .find(
+      (entry) =>
+        entry.kind === "response" && ["healthCheck/session/new", "session/new", "newSession"].includes(entry.action),
+    );
+  const lastErrorEntry = [...debugEvents]
+    .reverse()
+    .find(
+      (entry) =>
+        entry.kind === "error" &&
+        ["healthCheck", "session/initialize", "initialize", "process.error"].includes(entry.action) &&
+        (!lastOperationalSuccess || entry.timestamp >= lastOperationalSuccess.timestamp),
+    );
+  const ready = handle?.status === "ready" && Boolean(lastOperationalSuccess) && !lastErrorEntry;
   const lastErrorMessage =
     lastErrorEntry?.message ?? (lastErrorEntry?.payload as { message?: string } | undefined)?.message ?? null;
   const authErrorMessage =

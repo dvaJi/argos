@@ -196,6 +196,7 @@ export const providersGetAcpProcessConfigOptionsRoute = defineRouteContract({
 
 const AcpDebugActionTypeSchema = zod.enum([
   "initialize",
+  "healthCheck",
   "authenticate",
   "logout",
   "newSession",

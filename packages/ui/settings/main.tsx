@@ -32,6 +32,7 @@ import KnowledgeBaseSettings from "./components/KnowledgeBaseSettings";
 import DataSettings from "./components/DataSettings";
 import ShortcutSettings from "./components/ShortcutSettings";
 import AboutUsSettings from "./components/AboutUsSettings";
+import DaemonConnectionBanner from "../src/components/DaemonConnectionBanner";
 
 const settingsRouteItems = getSettingsRouteItems(window.electron?.process?.platform);
 
@@ -142,6 +143,7 @@ const root = createRoot(document.getElementById("app")!);
 root.render(
   <QueryClientProvider client={queryClient}>
     <RouterProvider router={settingsRouter} />
+    <DaemonConnectionBanner placement="overlay" />
   </QueryClientProvider>,
 );
 

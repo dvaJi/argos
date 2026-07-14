@@ -874,6 +874,7 @@ export type StandaloneVideoGenerationResult = {
 
 export type AcpDebugActionType =
   | "initialize"
+  | "healthCheck"
   | "authenticate"
   | "logout"
   | "newSession"
@@ -957,6 +958,7 @@ export interface AcpAgentDiagnostics {
   agentVersion?: string;
   authMethods: Array<{
     id: string;
+    name?: string;
     type?: string;
     vars?: AcpAuthEnvVar[];
     link?: string | null;

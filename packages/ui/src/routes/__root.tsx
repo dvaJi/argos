@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { Toaster } from "sonner";
@@ -8,6 +8,7 @@ import { themeStore, type ThemeMode } from "../stores/theme";
 import { uiSettingsStore, getFontSizeClass } from "../stores/uiSettingsStore";
 import { modelCheckStore } from "../stores/modelCheck";
 import ModelCheckDialog from "../components/settings/ModelCheckDialog";
+import DaemonConnectionBanner from "../components/DaemonConnectionBanner";
 
 const resolveThemeName = (themeMode: ThemeMode, isDark: boolean) => {
   return themeMode === "system" ? (isDark ? "dark" : "light") : themeMode;
@@ -40,15 +41,9 @@ function RootComponent() {
   const uiSettingsState = useStore(uiSettingsStore);
   const modelCheckState = useStore(modelCheckStore);
 
-  const toasterTheme = useMemo(
-    () => (themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode),
-    [themeState.themeMode, themeState.isDark],
-  );
-
-  const [modelCheckOpen, setModelCheckOpen] = useState(false);
-  useEffect(() => {
-    setModelCheckOpen(modelCheckState.isDialogOpen);
-  }, [modelCheckState.isDialogOpen]);
+  const toasterTheme =
+    themeState.themeMode === "system" ? (themeState.isDark ? "dark" : "light") : themeState.themeMode;
+  const modelCheckOpen = modelCheckState.isDialogOpen;
 
   useEffect(() => {
     syncAppearanceClasses(
@@ -66,6 +61,7 @@ function RootComponent() {
       data-testid="app-root"
       className={`flex flex-col h-screen ${isWinMacOS ? "bg-window-background" : "bg-background"}`}
     >
+      <DaemonConnectionBanner />
       <Outlet />
       <Toaster theme={toasterTheme as "light" | "dark" | "system"} />
       <ModelCheckDialog

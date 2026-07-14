@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { WebSocketBridge } from "@argos/client-sdk/websocket-bridge";
+import { RECONNECT_EXHAUSTED_ERROR } from "@argos/shared-contracts/connection";
 
 class MockWebSocket {
   static CONNECTING = 0;
@@ -42,6 +43,11 @@ class MockWebSocket {
 
   simulateError(): void {
     this.onerror?.(new Event("error"));
+  }
+
+  simulateUnexpectedClose(): void {
+    this.readyState = MockWebSocket.CLOSED;
+    this.onclose?.(new CloseEvent("close"));
   }
 }
 
@@ -150,11 +156,18 @@ describe("WebSocketBridge", () => {
       JSON.stringify({
         type: "event",
         name: "chat.stream.updated",
-        payload: { sessionId: "test", content: "hello" },
+        payload: {
+          kind: "snapshot",
+          sessionId: "test",
+          requestId: "request-1",
+          messageId: "message-1",
+          updatedAt: Date.now(),
+          blocks: [],
+        },
       }),
     );
 
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledTimes(1);
 
     bridge.close();
   });
@@ -208,6 +221,53 @@ describe("WebSocketBridge", () => {
 
     expect((bridge as any).closed).toBe(true);
     expect((bridge as any).reconnectTimer).toBeNull();
+  });
+
+  it("reports an unexpected daemon disconnect while reconnecting", async () => {
+    const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
+    const states: Array<{
+      connected: boolean;
+      lastError: string | null;
+      reconnectAttempt: number;
+      maxReconnectAttempts: number;
+    }> = [];
+    bridge.onConnectionStateChange((state) => states.push(state));
+    await bridge.connect();
+
+    const ws = (bridge as any).ws as MockWebSocket;
+    ws.simulateUnexpectedClose();
+
+    expect(states.at(-1)).toMatchObject({
+      connected: false,
+      lastError: "Daemon connection closed",
+      reconnectAttempt: 1,
+      maxReconnectAttempts: 10,
+    });
+    expect((bridge as any).reconnectTimer).not.toBeNull();
+
+    bridge.close();
+  });
+
+  it("reports when automatic reconnect attempts are exhausted", async () => {
+    const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
+    const states: Array<{
+      connected: boolean;
+      lastError: string | null;
+      reconnectAttempt: number;
+      maxReconnectAttempts: number;
+    }> = [];
+    bridge.onConnectionStateChange((state) => states.push(state));
+    (bridge as any).reconnectAttempts = (bridge as any).maxReconnectAttempts;
+
+    (bridge as any).scheduleReconnect();
+
+    expect(states.at(-1)).toMatchObject({
+      connected: false,
+      lastError: RECONNECT_EXHAUSTED_ERROR,
+      reconnectAttempt: 10,
+      maxReconnectAttempts: 10,
+    });
+    bridge.close();
   });
 
   it("resubscribes all events on reconnect", async () => {

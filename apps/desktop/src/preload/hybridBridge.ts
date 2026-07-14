@@ -48,6 +48,8 @@ export class HybridBridge implements ArgosBridge {
         this.setConnectionState({
           connected: state.connected,
           lastError: state.lastError,
+          reconnectAttempt: state.reconnectAttempt,
+          maxReconnectAttempts: state.maxReconnectAttempts,
         }),
       );
       this.setConnectionState({
@@ -55,6 +57,7 @@ export class HybridBridge implements ArgosBridge {
         url: wsBridge.getUrl(),
         connected: wsBridge.isConnected(),
         lastError: null,
+        reconnectAttempt: 0,
       });
     } else {
       this.setConnectionState({
@@ -62,6 +65,7 @@ export class HybridBridge implements ArgosBridge {
         url: null,
         connected: false,
         lastError: null,
+        reconnectAttempt: 0,
       });
     }
 

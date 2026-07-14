@@ -14,6 +14,21 @@ export type RouteDispatcher = (route: ArgosRouteName, input: unknown) => Promise
 
 let routeDispatcher: RouteDispatcher | null = null;
 
+export function ensureJsonSerializableRouteResponse(result: RouteDispatchResponse): RouteDispatchResponse {
+  try {
+    JSON.stringify(result);
+    return result;
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "serialization_error",
+        message: "Route returned a value that cannot be sent to the client",
+      },
+    };
+  }
+}
+
 export function setRouteDispatcher(dispatcher: RouteDispatcher): void {
   routeDispatcher = dispatcher;
 }
@@ -40,7 +55,7 @@ export async function dispatchRoute(route: string, input: unknown): Promise<Rout
     const parsedInput = contract.input.parse(input);
     const output = await routeDispatcher(route as ArgosRouteName, parsedInput);
     const parsedOutput = contract.output.parse(output);
-    return { ok: true, output: parsedOutput };
+    return ensureJsonSerializableRouteResponse({ ok: true, output: parsedOutput });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const code = message.includes("validation") ? "validation_error" : "dispatch_error";

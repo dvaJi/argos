@@ -12,6 +12,7 @@ import {
   hasArgosEventContract,
 } from "@argos/shared-contracts/events";
 import type { ArgosBridge } from "@argos/shared-contracts/bridge";
+import { RECONNECT_EXHAUSTED_ERROR } from "@argos/shared-contracts/connection";
 
 type EventListener<T = unknown> = (payload: T) => void;
 
@@ -25,6 +26,8 @@ type ConnectionState = {
   connected: boolean;
   url: string;
   lastError: string | null;
+  reconnectAttempt: number;
+  maxReconnectAttempts: number;
 };
 
 type ConnectionStateListener = (state: ConnectionState) => void;
@@ -101,6 +104,8 @@ export class WebSocketBridge implements ArgosBridge {
       connected: this.isConnected(),
       url: this.url,
       lastError: this.lastError,
+      reconnectAttempt: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
     };
   }
 
@@ -145,7 +150,7 @@ export class WebSocketBridge implements ArgosBridge {
       };
 
       this.ws.onclose = () => {
-        this.emitConnectionState({ connected: false });
+        this.emitConnectionState({ connected: false, lastError: "Daemon connection closed" });
         if (!this.closed) {
           this.scheduleReconnect();
         }
@@ -349,10 +354,15 @@ export class WebSocketBridge implements ArgosBridge {
   }
 
   private scheduleReconnect(): void {
-    if (this.closed || this.reconnectAttempts >= this.maxReconnectAttempts) return;
+    if (this.closed) return;
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.emitConnectionState({ connected: false, lastError: RECONNECT_EXHAUSTED_ERROR });
+      return;
+    }
 
     const delay = Math.min(this.reconnectDelayMs * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelayMs);
     this.reconnectAttempts++;
+    this.emitConnectionState();
 
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch(() => {

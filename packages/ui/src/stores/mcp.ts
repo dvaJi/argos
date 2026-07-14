@@ -26,6 +26,7 @@ interface McpState {
   mcpInstallCache: string | null;
   serverStatuses: Record<string, boolean>;
   serverLoadingStates: Record<string, boolean>;
+  serverErrors: Record<string, string | undefined>;
   configLoading: boolean;
   toolLoadingStates: Record<string, boolean>;
   toolInputs: Record<string, Record<string, string>>;
@@ -49,6 +50,7 @@ export const mcpStore = new Store<McpState>({
   mcpInstallCache: null,
   serverStatuses: {},
   serverLoadingStates: {},
+  serverErrors: {},
   configLoading: false,
   toolLoadingStates: {},
   toolInputs: {},
@@ -453,6 +455,7 @@ export const toggleServer = async (serverName: string) => {
 
   const nextEnabled = !serverConfig.enabled;
   const previousConfig = { ...serverConfig };
+  let persisted = false;
 
   mcpStore.setState((s) => ({
     ...s,
@@ -464,38 +467,97 @@ export const toggleServer = async (serverName: string) => {
       },
     },
     serverLoadingStates: { ...s.serverLoadingStates, [serverName]: true },
+    serverErrors: { ...s.serverErrors, [serverName]: undefined },
   }));
 
   try {
-    // Persist — only this failure justifies rolling the toggle back.
     await mcpClient.setMcpServerEnabled(serverName, nextEnabled);
-  } catch (error) {
-    mcpStore.setState((s) => ({
-      ...s,
-      config: {
-        ...s.config,
-        mcpServers: { ...s.config.mcpServers, [serverName]: previousConfig },
-      },
-    }));
-    console.error(`Failed to toggle MCP server: ${serverName}`, error);
-    return false;
-  } finally {
+    persisted = true;
+
+    if (mcpStore.state.config.mcpEnabled) {
+      if (nextEnabled) await mcpClient.startServer(serverName);
+      else await mcpClient.stopServer(serverName);
+    }
+
+    await updateServerStatus(serverName);
     mcpStore.setState((s) => ({
       ...s,
       serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false },
     }));
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    mcpStore.setState((s) => ({
+      ...s,
+      ...(persisted
+        ? {}
+        : {
+            config: {
+              ...s.config,
+              mcpServers: { ...s.config.mcpServers, [serverName]: previousConfig },
+            },
+          }),
+      serverStatuses: persisted && nextEnabled ? { ...s.serverStatuses, [serverName]: false } : s.serverStatuses,
+      serverErrors: { ...s.serverErrors, [serverName]: message },
+      serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false },
+    }));
+    console.error(`Failed to toggle MCP server: ${serverName}`, error);
+    return false;
+  }
+};
+
+export const setServerRunning = async (
+  serverName: string,
+  shouldRun: boolean,
+): Promise<{ success: boolean; error?: string }> => {
+  if (mcpStore.state.serverLoadingStates[serverName]) {
+    return { success: false, error: "A server operation is already in progress" };
   }
 
-  // Persist succeeded — post-persist reload/status side effects must NOT revert
-  // the toggle when they fail (in daemon/web mode the MCP runtime may be unable
-  // to start servers or enumerate tools, which is expected and non-fatal).
+  const serverConfig = mcpStore.state.config.mcpServers[serverName];
+  if (!serverConfig) return { success: false, error: `MCP server ${serverName} was not found` };
+  if (!mcpStore.state.config.mcpEnabled) return { success: false, error: "MCP is disabled" };
+
+  mcpStore.setState((s) => ({
+    ...s,
+    serverLoadingStates: { ...s.serverLoadingStates, [serverName]: true },
+    serverErrors: { ...s.serverErrors, [serverName]: undefined },
+  }));
+
   try {
-    await loadConfig();
+    if (shouldRun && !serverConfig.enabled) {
+      await mcpClient.setMcpServerEnabled(serverName, true);
+      mcpStore.setState((s) => ({
+        ...s,
+        config: {
+          ...s.config,
+          mcpServers: {
+            ...s.config.mcpServers,
+            [serverName]: { ...serverConfig, enabled: true },
+          },
+        },
+      }));
+    }
+
+    if (shouldRun) await mcpClient.startServer(serverName);
+    else await mcpClient.stopServer(serverName);
     await updateServerStatus(serverName);
-  } catch (postError) {
-    console.error(`Post-toggle MCP setup failed for ${serverName} (non-fatal, toggle stays persisted):`, postError);
+    mcpStore.setState((s) => ({
+      ...s,
+      serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false },
+    }));
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    mcpStore.setState((s) => ({
+      ...s,
+      serverStatuses: shouldRun ? { ...s.serverStatuses, [serverName]: false } : s.serverStatuses,
+      serverErrors: { ...s.serverErrors, [serverName]: message },
+      serverLoadingStates: { ...s.serverLoadingStates, [serverName]: false },
+    }));
+    console.error(`Failed to ${shouldRun ? "start" : "stop"} MCP server: ${serverName}`, error);
+    return { success: false, error: message };
   }
-  return true;
 };
 
 export const updateToolInput = (toolName: string, paramName: string, value: string) => {
@@ -753,15 +815,18 @@ export const getToolsError = () => mcpStore.state.toolsError;
 
 export const getToolsErrorMessage = () => mcpStore.state.toolsErrorMessage;
 
+export const getServerError = (serverName: string) => mcpStore.state.serverErrors[serverName];
+
 export const getMcpEnabled = () => mcpStore.state.config.mcpEnabled;
 
 export const getAllServerList = () => {
-  const { config, serverStatuses, serverLoadingStates } = mcpStore.state;
+  const { config, serverStatuses, serverLoadingStates, serverErrors } = mcpStore.state;
   const servers = Object.entries(config.mcpServers ?? {}).map(([name, serverConfig]) => ({
     name,
     ...serverConfig,
     isRunning: serverStatuses[name] || false,
     isLoading: serverLoadingStates[name] || false,
+    errorMessage: serverErrors[name],
   }));
 
   return servers.sort((a, b) => {
@@ -812,6 +877,7 @@ export function useMcpStore() {
     updateServer,
     removeServer,
     toggleServer,
+    setServerRunning,
     updateToolInput,
     callTool,
     getPrompt,
@@ -833,6 +899,7 @@ export function useMcpStore() {
     getToolsLoading,
     getToolsError,
     getToolsErrorMessage,
+    getServerError,
     getMcpEnabled,
     getAllServerList,
     getServerList,
