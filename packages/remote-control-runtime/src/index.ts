@@ -2,7 +2,7 @@
  * @argos/remote-control-runtime — daemon-owned bot channel runtimes.
  *
  * Framework-agnostic port of the desktop `RemoteControlPresenter`. Runs the
- * Telegram / Discord / Feishu / QQ Bot / WeChat iLink bot adapters in any host
+ * Telegram / Discord / QQ Bot / WeChat iLink bot adapters in any host
  * (the Bun daemon, or tests). Hosts inject `RemoteControlRuntimePorts`.
  *
  * Electron couplings from the original desktop presenter are removed:

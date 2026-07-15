@@ -517,7 +517,7 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     const config = {
       appId: "cli_fixture_app_id",
       appSecret: "fixture-secret",
-      brand: "feishu",
+      brand: "telegram",
       preset: "preset.default",
     };
     await writeFile(path.join(fixture.installedRoot, "config.json"), `${JSON.stringify(config)}\n`);
@@ -569,7 +569,7 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
     const config = {
       appId: "cli_fixture_app_id",
       appSecret: "fixture-secret",
-      brand: "feishu",
+      brand: "telegram",
       preset: "preset.default",
     };
 
@@ -904,47 +904,6 @@ describe.skipIf(!fs.existsSync(path.join(process.cwd(), "plugins", "cua", "plugi
       expect(source).toContain("CUA_DRIVER_MCP_MODE");
       expect(source).toContain("Call get_window_state with the same pid and window_id");
     }
-  });
-
-  it("pins the Feishu MCP bootstrap package and keeps registry selection explicit", async () => {
-    const source = await readFile("plugins/feishu/mcp/serve.mjs", "utf8");
-
-    expect(source).not.toContain("@modelcontextprotocol/sdk");
-    expect(source).toContain("Content-Length:");
-    expect(source).toContain("@larksuiteoapi/lark-mcp@0.5.1");
-    expect(source).toContain("REGISTRY_OVERRIDE");
-    expect(source).not.toContain("registry.npmmirror.com");
-  });
-
-  it("uses conservative Feishu MCP defaults in the plugin manifest", async () => {
-    const manifest = JSON.parse(await readFile("plugins/feishu/plugin.json", "utf8"));
-
-    expect(manifest.mcpServers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "feishu-tools",
-          autoApprove: [],
-        }),
-      ]),
-    );
-  });
-
-  it("declares a Feishu plugin skill for MCP tool routing", async () => {
-    const manifest = JSON.parse(await readFile("plugins/feishu/plugin.json", "utf8"));
-    const skill = await readFile("plugins/feishu/skills/feishu-tools/SKILL.md", "utf8");
-
-    expect(manifest.capabilities).toContain("skills.register");
-    expect(manifest.skills).toEqual([
-      {
-        id: "feishu-tools",
-        path: "skills/feishu-tools/SKILL.md",
-        scope: "agent",
-      },
-    ]);
-    expect(skill).toContain("This plugin is an MCP server tool surface");
-    expect(skill).toContain("Do not ask the user to classify the plugin");
-    expect(skill).toContain("Use the live tool names and descriptions in the current session");
-    expect(skill).toContain("Feishu plugin settings");
   });
 
   it("skips install telemetry in the bundled CUA CLI entrypoint", async () => {

@@ -1240,7 +1240,6 @@ if (!_alreadyRegistered) {
           (method === "listRemoteChannels" ||
             method.startsWith("getChannel") ||
             method.startsWith("getTelegram") ||
-            method.startsWith("getFeishu") ||
             method.startsWith("getQQBot") ||
             method.startsWith("getDiscord") ||
             method.startsWith("getWeixinIlink"));

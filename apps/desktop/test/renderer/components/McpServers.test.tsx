@@ -118,13 +118,13 @@ describe("McpServers", () => {
       serverList: [{ name: "user-server" }],
       config: {
         mcpServers: {
-          "feishu-tools": {
+          "qqbot-tools": {
             type: "stdio",
             command: "node",
             args: [],
             enabled: true,
             source: "plugin",
-            ownerPluginId: "com.argos.plugins.feishu",
+            ownerPluginId: "com.argos.plugins.qqbot",
           },
           "user-server": {
             type: "stdio",
@@ -139,7 +139,7 @@ describe("McpServers", () => {
     const cards = screen.getAllByTestId("server-card").map((card) => card.textContent);
 
     expect(cards).toEqual(["user-server"]);
-    expect(container.textContent).not.toContain("feishu-tools");
+    expect(container.textContent).not.toContain("qqbot-tools");
   });
 
   it("shows the empty state when only plugin-owned MCP servers exist", async () => {
@@ -147,13 +147,13 @@ describe("McpServers", () => {
       serverList: [],
       config: {
         mcpServers: {
-          "feishu-tools": {
+          "qqbot-tools": {
             type: "stdio",
             command: "node",
             args: [],
             enabled: true,
             source: "plugin",
-            ownerPluginId: "com.argos.plugins.feishu",
+            ownerPluginId: "com.argos.plugins.qqbot",
           },
         },
       },

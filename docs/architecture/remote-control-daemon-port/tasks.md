@@ -38,7 +38,7 @@ Update status (`[ ]` → `[x]`) as work lands.
 
 - [x] 2b.1 Add `configOnly?: boolean` to `RemoteControlRuntimePorts` (skip adapter
       start; `getChannelStatus` reports `stopped`).
-- [x] 2b.2 Guard `initialize()` + all 5 `rebuild*Runtime()` methods on `configOnly`.
+- [x] 2b.2 Guard `initialize()` + all 4 `rebuild*Runtime()` methods on `configOnly`.
 - [x] 2b.3 Add framework-agnostic `logger.ts` to the package (replaces the
       Electron-coupled `@shared/logger`).
 
@@ -53,11 +53,7 @@ Update status (`[ ]` → `[x]`) as work lands.
 - [x] 3.4 Move `weixinIlink/` into the shared runtime (pure
       fetch + node:crypto).
 - [x] 3.5 Move all adapters into the shared runtime.
-- [x] 3.6 **Feishu feasibility check:** run `@larksuiteoapi/node-sdk` under Bun
-      (minimal WSClient smoke). If OK → move `feishu/` verbatim. If not → mark
-      Feishu `implemented: false` in daemon mode + open follow-up issue for a
-      native reimplementation; move the other 4 channels.
-- [x] 3.7 Move conversation runner into the shared runtime: replace
+- [x] 3.6 Move conversation runner into the shared runtime: replace
       `app.getPath("userData")` (2 sites) with the injected `dataDir` port;
       drop `open()` + `resolveChatWindow()` (move to a desktop-only override
       hook, or return `windowNotFound`); drop `windowPresenter`/`tabPresenter`
@@ -116,7 +112,6 @@ Update status (`[ ]` → `[x]`) as work lands.
 
 ## Notes
 
-- Feishu's SDK import smoke passes under Bun 1.3.14.
 - The architecture guard prevents portable runtime code from returning to the
   Electron presenter directory.
 - Each slice should leave the repo typechecking + linting green.

@@ -16,7 +16,7 @@ When Argos's Telegram remote control bot delivers AI replies, command output, an
 
 ## Constraints
 
-- Keep behavior parity with the existing Feishu pattern: a dedicated `telegramMarkdown.ts` module living next to `telegramClient.ts`, surfaced through a single conversion entry point.
+- Keep behavior parity with the existing channel Markdown-converter pattern: a dedicated `telegramMarkdown.ts` module living next to `telegramClient.ts`, surfaced through a single conversion entry point.
 - No new runtime dependency; the conversion is implemented locally to keep the bundle lean and stay within Telegram's HTML subset.
 - Do not change `chunkTelegramText` semantics or the streaming delivery state shape.
 

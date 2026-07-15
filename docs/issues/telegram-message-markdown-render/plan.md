@@ -2,7 +2,7 @@
 
 ## Approach
 
-- Add `src/main/presenter/remoteControlPresenter/telegram/telegramMarkdown.ts` exposing `convertMarkdownToTelegramHtml(text: string): string`, mirroring the Feishu-side `feishuMarkdown.ts` module location and shape.
+- Add `src/main/presenter/remoteControlPresenter/telegram/telegramMarkdown.ts` exposing `convertMarkdownToTelegramHtml(text: string): string`, matching the existing channel Markdown-converter pattern.
 - The converter:
   - Escapes `&`, `<`, `>` first to make raw text safe for `parse_mode: 'HTML'`.
   - Converts common GFM pipe tables into fenced fixed-width text before code-block extraction.

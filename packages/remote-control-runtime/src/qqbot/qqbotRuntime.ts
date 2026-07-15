@@ -1,5 +1,5 @@
 import {
-  FEISHU_CONVERSATION_POLL_TIMEOUT_MS,
+  REMOTE_CONVERSATION_POLL_TIMEOUT_MS,
   TELEGRAM_STREAM_POLL_INTERVAL_MS,
   buildQQBotEndpointKey,
   type RemoteDeliverySegment,
@@ -12,7 +12,7 @@ import { REMOTE_NO_RESPONSE_TEXT } from "../services/remoteBlockRenderer";
 import type { QQBotCommandRouteResult } from "../services/qqbotCommandRouter";
 import { QQBotCommandRouter } from "../services/qqbotCommandRouter";
 import type { RemoteConversationExecution } from "../services/remoteConversationRunner";
-import { buildFeishuPendingInteractionText } from "../feishu/feishuInteractionPrompt";
+import { buildPendingInteractionText } from "../services/pendingInteractionPrompt";
 import { QQBotClient } from "./qqbotClient";
 import { QQBotGatewaySession, type QQBotGatewayBotUser } from "./qqbotGatewaySession";
 import { QQBotParser } from "./qqbotParser";
@@ -326,7 +326,7 @@ export class QQBotRuntime {
 
       const sourceMessageId = this.getConversationSourceMessageId(message, execution, snapshot);
       const deliverySegments = this.getSnapshotDeliverySegments(snapshot, sourceMessageId);
-      const timedOut = Date.now() - startedAt >= FEISHU_CONVERSATION_POLL_TIMEOUT_MS;
+      const timedOut = Date.now() - startedAt >= REMOTE_CONVERSATION_POLL_TIMEOUT_MS;
       this.syncToolBuffer(endpointKey, sourceMessageId, deliverySegments, {
         flushTrailingBatch: snapshot.completed || timedOut,
       });
@@ -336,7 +336,7 @@ export class QQBotRuntime {
           await this.flushBufferedProcessMessages(endpointKey, sendContext, {
             reserveTerminalSlot: true,
           });
-          await this.sendText(sendContext, buildFeishuPendingInteractionText(snapshot.pendingInteraction));
+          await this.sendText(sendContext, buildPendingInteractionText(snapshot.pendingInteraction));
           this.clearToolBuffer(endpointKey);
           this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
           return;

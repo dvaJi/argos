@@ -3,8 +3,6 @@ import type {
   DiscordRemoteSettings,
   DiscordRemoteStatus,
   DiscordPairingSnapshot,
-  FeishuPairingSnapshot,
-  FeishuRemoteStatus,
   IRemoteControlPresenter,
   PairableRemoteChannel,
   RemoteBindingSummary,
@@ -51,7 +49,6 @@ export class RemoteControlRouteClient implements IRemoteControlPresenter {
   }
 
   getChannelStatus(channel: "telegram"): Promise<TelegramRemoteStatus>;
-  getChannelStatus(channel: "feishu"): Promise<FeishuRemoteStatus>;
   getChannelStatus(channel: "qqbot"): Promise<QQBotRemoteStatus>;
   getChannelStatus(channel: "discord"): Promise<DiscordRemoteStatus>;
   getChannelStatus(channel: "weixin-ilink"): Promise<WeixinIlinkRemoteStatus>;
@@ -73,7 +70,6 @@ export class RemoteControlRouteClient implements IRemoteControlPresenter {
   }
 
   getChannelPairingSnapshot(channel: "telegram"): Promise<TelegramPairingSnapshot>;
-  getChannelPairingSnapshot(channel: "feishu"): Promise<FeishuPairingSnapshot>;
   getChannelPairingSnapshot(channel: "qqbot"): Promise<QQBotPairingSnapshot>;
   getChannelPairingSnapshot(channel: "discord"): Promise<DiscordPairingSnapshot>;
   getChannelPairingSnapshot(channel: PairableRemoteChannel): Promise<RemotePairingSnapshot>;

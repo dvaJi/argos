@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { DISCORD_REMOTE_COMMANDS, buildDiscordBindingMeta, buildDiscordEndpointKey } from "../types";
 import type { RemoteConversationExecution } from "./remoteConversationRunner";
-import { buildFeishuPendingInteractionText } from "../feishu/feishuInteractionPrompt";
+import { buildPendingInteractionText } from "./pendingInteractionPrompt";
 import { DiscordAuthGuard } from "./discordAuthGuard";
 import { RemoteBindingStore } from "./remoteBindingStore";
 import { RemoteConversationRunner } from "./remoteConversationRunner";
@@ -85,7 +85,7 @@ export class DiscordCommandRouter {
 
         if (command === "pending") {
           return {
-            replies: [buildFeishuPendingInteractionText(pendingInteraction)],
+            replies: [buildPendingInteractionText(pendingInteraction)],
           };
         }
 

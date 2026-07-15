@@ -45,8 +45,8 @@ describe("DaemonRemoteControlRuntime", () => {
     await host.initialize();
 
     const channels = await host.runtime.listRemoteChannels();
-    expect(channels.length).toBe(5);
-    expect(channels.map((c: any) => c.id).sort()).toEqual(["discord", "feishu", "qqbot", "telegram", "weixin-ilink"]);
+    expect(channels.length).toBe(4);
+    expect(channels.map((c: any) => c.id).sort()).toEqual(["discord", "qqbot", "telegram", "weixin-ilink"]);
   });
 
   it("round-trips Telegram settings through the config blob", async () => {

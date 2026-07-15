@@ -202,7 +202,6 @@ Triggers support once, daily, and weekly; actions support notification and promp
 ```mermaid
 flowchart LR
     Telegram["Telegram"] --> Remote["RemoteControlPresenter"]
-    Feishu["Feishu/Lark"] --> Remote
     QQ["QQBot"] --> Remote
     Discord["Discord"] --> Remote
     WeChat["WeChat iLink"] --> Remote

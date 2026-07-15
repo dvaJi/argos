@@ -52,7 +52,6 @@ Electron imports removed):
 | `services/remoteConversationRunner.ts` | `src/conversationRunner.ts` | `app.getPath` → `DataDirPort`; drop `open()`/`resolveChatWindow()` (desktop-only override) |
 | `services/remote*Router.ts`, `*AuthGuard.ts`, `remoteBlockRenderer.ts`, `remoteInteraction.ts` | `src/services/*` | none |
 | `telegram/*`, `discord/*`(client+parser), `qqbot/*`(client+parser), `weixinIlink/*`, `adapters/**` | `src/channels/<channel>/*` | `undici` WebSocket → Bun/global `WebSocket` |
-| `feishu/*` | `src/channels/feishu/*` | verify `@larksuiteoapi/node-sdk` on Bun (risk) |
 
 The package exports a `RemoteControlRuntime` façade (the current `index.ts`
 class minus Electron: no `BrowserWindow`, no `openWeixinIlinkLoginWindow`).
@@ -222,9 +221,9 @@ RemoteControlRuntime.ts`) keeps its current shape but routes through
    typechecking standalone.
 2. **Slice 2 — Daemon accessor + config key.** Add `getActiveGeneration` to
    provider execution; add `remoteControl` to config enum.
-3. **Slice 3 — Move adapters + conversation runner.** Port the 5 channel
+3. **Slice 3 — Move adapters + conversation runner.** Port the 4 channel
    adapters (swap `undici` WS, `net.fetch`); port the conversation runner (data
-   dir port, drop `open()`/window deps). Verify Feishu SDK on Bun.
+   dir port, drop `open()`/window deps).
 4. **Slice 4 — Daemon host + routes.** `DaemonRemoteControlRuntime`, route
    contracts, dispatcher handlers, wiring in `index.ts`.
 5. **Slice 5 — Desktop thin proxy.** Reduce desktop presenter to daemon proxy +

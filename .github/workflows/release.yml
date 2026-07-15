@@ -207,7 +207,6 @@ jobs:
           pnpm run build
           pnpm run packaging:validate
           pnpm run build:daemon
-          pnpm run plugin:bundle -- --name feishu --platform win32 --arch ${{ matrix.arch }}
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --win --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -216,11 +215,6 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: win32
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
-
-      - name: Verify bundled plugins
-        shell: bash
-        run: |
-          pnpm run plugin:verify -- --name feishu --platform win32 --arch ${{ matrix.arch }} --plugin-root dist/${{ matrix.unpacked }}/resources/app.asar.unpacked/plugins
 
       - name: Stage daemon binary
         shell: bash
@@ -282,7 +276,6 @@ jobs:
         run: |
           pnpm run build
           pnpm run build:daemon
-          pnpm run plugin:bundle -- --name feishu --platform linux --arch ${{ matrix.arch }}
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --linux --${{ matrix.arch }} --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -291,11 +284,6 @@ jobs:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
           ARGOS_TARGET_ARCH: ${{ matrix.arch }}
-
-      - name: Verify bundled plugins
-        shell: bash
-        run: |
-          pnpm run plugin:verify -- --name feishu --platform linux --arch ${{ matrix.arch }} --plugin-root dist/linux-unpacked/resources/app.asar.unpacked/plugins
 
       - name: Stage daemon binary
         shell: bash
@@ -367,7 +355,6 @@ jobs:
           pnpm run build:daemon
           pnpm run plugin:cua:build:mac:${{ matrix.arch }}
           pnpm run plugin:bundle -- --name cua --platform darwin --arch ${{ matrix.arch }}
-          pnpm run plugin:bundle -- --name feishu --platform darwin --arch ${{ matrix.arch }}
           pnpm exec electron-builder --config apps/desktop/electron-builder.yml --mac --${{ matrix.arch }} --publish=never
         env:
           CSC_LINK: ${{ secrets.ARGOS_CSC_LINK }}
@@ -395,7 +382,6 @@ jobs:
           fi
           PLUGIN_ROOT="${APP_DIR}/Contents/Resources/app.asar.unpacked/plugins"
           pnpm run plugin:verify -- --name cua --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
-          pnpm run plugin:verify -- --name feishu --platform darwin --arch "$TARGET_ARCH" --plugin-root "$PLUGIN_ROOT"
 
       - name: Stage daemon binary
         shell: bash

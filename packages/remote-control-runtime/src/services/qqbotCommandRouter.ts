@@ -8,7 +8,7 @@ import type {
 } from "../types";
 import { QQBOT_REMOTE_COMMANDS, buildQQBotBindingMeta, buildQQBotEndpointKey } from "../types";
 import type { RemoteConversationExecution } from "./remoteConversationRunner";
-import { buildFeishuPendingInteractionText } from "../feishu/feishuInteractionPrompt";
+import { buildPendingInteractionText } from "./pendingInteractionPrompt";
 import { QQBotAuthGuard, type QQBotAuthResult } from "./qqbotAuthGuard";
 import { RemoteBindingStore } from "./remoteBindingStore";
 import { RemoteConversationRunner } from "./remoteConversationRunner";
@@ -79,7 +79,7 @@ export class QQBotCommandRouter {
 
         if (command === "pending") {
           return {
-            replies: [buildFeishuPendingInteractionText(pendingInteraction)],
+            replies: [buildPendingInteractionText(pendingInteraction)],
           };
         }
 

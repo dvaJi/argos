@@ -13,9 +13,9 @@ import { defineRouteContract } from "../common";
  * `@argos/remote-control-runtime` (`normalizeRemoteControlConfig` etc.).
  */
 
-const RemoteChannelSchema = zod.enum(["telegram", "feishu", "qqbot", "discord", "weixin-ilink"]);
+const RemoteChannelSchema = zod.enum(["telegram", "qqbot", "discord", "weixin-ilink"]);
 
-const PairableRemoteChannelSchema = zod.enum(["telegram", "feishu", "qqbot", "discord"]);
+const PairableRemoteChannelSchema = zod.enum(["telegram", "qqbot", "discord"]);
 
 export const remoteListChannelsRoute = defineRouteContract({
   name: "remote.listChannels",

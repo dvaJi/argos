@@ -112,7 +112,7 @@ const actionItems: Array<{
     titleKey: "routes.settings-remote",
     routeName: "settings-remote",
     icon: "lucide:smartphone",
-    keywords: ["remote", "telegram", "feishu"],
+    keywords: ["remote", "telegram"],
   },
 ];
 

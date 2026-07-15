@@ -2,14 +2,14 @@
 
 ## Goal
 
-Move the **remote control subsystem** (Telegram / Discord / Feishu / QQ Bot /
+Move the **remote control subsystem** (Telegram / Discord / QQ Bot /
 WeChat iLink bot integrations) from the Electron desktop main process into the
 daemon, so that bot channels are available and run identically in **both
 desktop and web mode**. Today the subsystem is desktop-only; in web mode every
 `remoteControlPresenter:call` returns null and the Remote Channels settings page
 is non-functional.
 
-Concretely: configuring a Telegram (or Discord/Feishu/QQ/WeChat) bot from the
+Concretely: configuring a Telegram (or Discord/QQ/WeChat) bot from the
 web UI, having the daemon maintain the long-lived bot connection, and receiving
 replies through the bot must work without the Electron app running.
 
@@ -32,7 +32,7 @@ daemon is the correct owner.
 
 The subsystem is almost entirely framework-agnostic:
 
-- **Channel adapters** (telegram/discord/feishu/qqbot/weixinIlink) — pure
+- **Channel adapters** (telegram/discord/qqbot/weixinIlink) — pure
   `fetch`/WebSocket + `node:crypto`/`node:fs`. No Electron. Run in-process (no
   child processes spawned).
 - **`ChannelManager` / `ChannelAdapter`** — in-memory adapter registry. No
@@ -67,7 +67,7 @@ observe and cancel the active turn.
 ## Acceptance Criteria
 
 1. **Web mode configuration works.** From `/#/settings/remote`, a user can
-   configure each channel (Telegram, Discord, Feishu, QQ Bot, WeChat iLink),
+   configure each channel (Telegram, Discord, QQ Bot, WeChat iLink),
    save settings, and see live channel status — without the Electron app.
 2. **Bot runtime lives in the daemon.** Enabling a channel starts its adapter
    (poller / gateway / webhook) inside the daemon process; it keeps running when
@@ -106,14 +106,13 @@ observe and cancel the active turn.
   reduced to the WeChat login-window UX shim that calls daemon routes. The
   `/open` desktop-handoff command stays a desktop-only nicety layered on top.
 - **Bun compatibility** must be verified for:
-  - `@larksuiteoapi/node-sdk` (Feishu — the only heavy SDK; risk item).
   - `undici` `WebSocket` (Discord/QQ gateway) → swap to Bun's built-in
     `WebSocket`.
 
 ## Non-Goals
 
 - **New channels.** No new bot platforms are added; the existing 5 port as-is.
-- **Webhook mode for Telegram/Feishu.** Keep the current polling/WebSocket model.
+- **Webhook mode for Telegram.** Keep the current polling/WebSocket model.
 - **Redesigning the conversation-runner polling.** The `getActiveGeneration`
   polling loop ports as-is (only the accessor is added).
 - **Multi-daemon / clustered bots.** Single daemon instance, as today.
@@ -128,13 +127,6 @@ A new package `packages/remote-control-runtime/` (mirroring `agent-runtime`,
 `RemoteBindingStore`, the `ChannelManager`/`ChannelAdapter` base, all channel
 adapters, and the conversation runner — all Electron-free. Both the daemon
 (`DaemonRemoteControlRuntime` host) and desktop (thin proxy) import from it.
-
-### [DECIDED] Feishu SDK runs under Bun
-
-The installed `@larksuiteoapi/node-sdk` module imports successfully under the
-repository's Bun runtime from `packages/remote-control-runtime`. The shared
-Feishu adapter remains enabled; no daemon-only reimplementation or degradation
-is required for this cutover.
 
 ### [DECIDED] Desktop role after port — thin proxy
 

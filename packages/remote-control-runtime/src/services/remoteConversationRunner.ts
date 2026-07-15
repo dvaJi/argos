@@ -864,15 +864,13 @@ export class RemoteConversationRunner {
   private getChannelDefaultWorkdir(endpointKey: string): string | null {
     const channelDefaultWorkdir = endpointKey.startsWith("telegram:")
       ? this.bindingStore.getTelegramDefaultWorkdir?.()
-      : endpointKey.startsWith("feishu:")
-        ? this.bindingStore.getFeishuDefaultWorkdir?.()
-        : endpointKey.startsWith("qqbot:")
-          ? this.bindingStore.getQQBotDefaultWorkdir?.()
-          : endpointKey.startsWith("discord:")
-            ? this.bindingStore.getDiscordDefaultWorkdir?.()
-            : endpointKey.startsWith("weixin-ilink:")
-              ? this.bindingStore.getWeixinIlinkDefaultWorkdir?.()
-              : "";
+      : endpointKey.startsWith("qqbot:")
+        ? this.bindingStore.getQQBotDefaultWorkdir?.()
+        : endpointKey.startsWith("discord:")
+          ? this.bindingStore.getDiscordDefaultWorkdir?.()
+          : endpointKey.startsWith("weixin-ilink:")
+            ? this.bindingStore.getWeixinIlinkDefaultWorkdir?.()
+            : "";
 
     const normalized = channelDefaultWorkdir?.trim();
     return normalized || null;
