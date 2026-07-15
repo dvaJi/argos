@@ -1,7 +1,7 @@
 import type { ProviderExecutionPort, IEventPublisher } from "@argos/backend-core";
 import type { SendMessageInput, MessageStartResult } from "@argos/shared/types/agent-interface";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
-import { streamText, generateText } from "ai";
+import { streamText, generateText, transcribe } from "ai";
 import { createAiSdkProviderContext, type AiSdkProviderKind } from "@argos/backend-core/provider/aiSdk";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 import type { BunSessionRepository } from "./bun-session-repository";
@@ -281,41 +281,36 @@ export class AiSdkProviderExecutionPort implements ProviderExecutionPort {
     modelId: string,
     audioBase64: string,
     mimeType: string,
-    filename?: string,
+    _filename?: string,
   ): Promise<string> {
     const provider = this.getProvider(providerId);
     if (!provider) throw new Error(`Provider not found: ${providerId}`);
     if (!provider.apiKey) throw new Error(`No API key configured for ${providerId}`);
 
-    let base = provider.baseUrl || "";
-    if (!base) throw new Error(`No base URL configured for provider ${providerId}`);
-    base = base.replace(/\/+$/, "");
-    if (!base.includes("/audio/transcriptions")) {
-      if (!base.endsWith("/v1")) base += "/v1";
-      base += "/audio/transcriptions";
-    }
-
     const normalizedAudioBase64 = audioBase64.replace(/\s/g, "").trim();
     if (!normalizedAudioBase64) throw new Error("Audio data is required for transcription");
 
     const audioBuffer = Buffer.from(normalizedAudioBase64, "base64");
-    const formData = new FormData();
-    formData.append("file", new Blob([audioBuffer], { type: mimeType.trim() || "audio/wav" }), filename?.trim() || "recording.wav");
-    formData.append("model", modelId);
 
-    const response = await fetch(base, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${provider.apiKey}` },
-      body: formData,
+    const providerKind = resolveProviderKind(provider);
+    const ctx = createAiSdkProviderContext({
+      providerKind,
+      provider,
+      configPresenter: this.configPresenter as any,
+      defaultHeaders: {},
+      modelId,
+      proxyUrl: resolveProxyUrl(),
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => "Unknown error");
-      throw new Error(`Audio transcription error (${response.status}): ${errorBody.slice(0, 500)}`);
+    if (!ctx.transcriptionModel) {
+      throw new Error(`Provider ${providerId} does not support audio transcription`);
     }
 
-    const payload = (await response.json()) as { text?: unknown };
-    if (typeof payload.text !== "string") throw new Error("Invalid audio transcription response");
-    return payload.text.trim();
+    const result = await transcribe({
+      model: ctx.transcriptionModel,
+      audio: audioBuffer,
+    });
+
+    return result.text.trim();
   }
 }

@@ -13,21 +13,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^1.2.1",
     "@argos/acp-runtime": "workspace:*",
     "@argos/agent-runtime": "workspace:*",
+    "@argos/backend-core": "workspace:*",
     "@argos/mcp-runtime": "workspace:*",
-    "@argos/skills-runtime": "workspace:*",
     "@argos/memory-runtime": "workspace:*",
     "@argos/remote-control-runtime": "workspace:*",
-    "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
-    "@agentclientprotocol/sdk": "^0.28.1",
+    "@argos/skills-runtime": "workspace:*",
+    "@duckdb/node-api": "1.5.3-r.1",
     "ai": "catalog:",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",
-    "@duckdb/node-api": "1.5.3-r.1",
     "zod": "catalog:"
   },
   "devDependencies": {

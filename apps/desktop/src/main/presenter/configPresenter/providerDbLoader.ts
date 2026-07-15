@@ -1,320 +1,97 @@
-import fs from "fs";
-import path from "path";
-import { app } from "electron";
-import { ProviderAggregate, ProviderEntry, ProviderModel, sanitizeAggregate } from "@argos/shared/types/model-db";
-import { resolveProviderId } from "./providerId";
+import { invokeDaemonRoute } from "#/routes/daemonRouteProxy";
 import { eventBus, SendTarget } from "#/eventbus";
 import { PROVIDER_DB_EVENTS } from "#/events";
+import { providersGetProviderDbRoute, providersRefreshProviderDbRoute } from "@argos/shared-contracts/routes";
+import type { ProviderAggregate, ProviderEntry, ProviderModel } from "@argos/shared/types/model-db";
+import type { ProviderDbRefreshResult } from "@argos/shared/presenter";
+import { resolveProviderId } from "./providerId";
 
-const DEFAULT_PROVIDER_DB_URL =
-  "https://raw.githubusercontent.com/ThinkInAIXYZ/PublicProviderConf/refs/heads/dev/dist/all.json";
+/**
+ * Desktop-side mirror of the daemon-owned provider-DB catalog.
+ *
+ * The daemon is the single source of truth for the catalog (it resolves the
+ * built-in db, refreshes it, and enforces privacy mode). The desktop shell no
+ * longer touches `electron.app` paths or the remote catalog directly — it
+ * reads a cached snapshot over the daemon route, so headless / remote-desktop
+ * mode always agrees with the daemon.
+ */
+let catalog: ProviderAggregate | null = null;
+let sourceUrl = "";
 
-type MetaFile = {
-  sourceUrl: string;
-  etag?: string;
-  lastUpdated: number;
-  ttlHours: number;
-  lastAttemptedAt?: number;
-};
+async function syncFromDaemon(): Promise<void> {
+  const res = await invokeDaemonRoute<{ catalog: ProviderAggregate; sourceUrl: string; lastUpdated: number | null }>(
+    providersGetProviderDbRoute.name,
+    {},
+  );
+  catalog = res.catalog ?? null;
+  sourceUrl = res.sourceUrl ?? "";
+}
 
-export type ProviderDbRefreshResult = {
-  status: "updated" | "not-modified" | "skipped" | "error";
-  lastUpdated: number | null;
-  providersCount: number;
-  message?: string;
-};
+function emitLoaded(): void {
+  if (!catalog) return;
+  const providersCount = Object.keys(catalog.providers || {}).length;
+  eventBus.send(PROVIDER_DB_EVENTS.LOADED, SendTarget.ALL_WINDOWS, { providersCount });
+}
 
-export class ProviderDbLoader {
-  private cache: ProviderAggregate | null = null;
-  private userDataDir: string;
-  private cacheDir: string;
-  private cacheFilePath: string;
-  private metaFilePath: string;
-  private refreshPromise: Promise<ProviderDbRefreshResult> | null = null;
-  private privacyModeResolver: () => boolean = () => false;
+function emitUpdated(lastUpdated: number | null): void {
+  if (!catalog) return;
+  const providersCount = Object.keys(catalog.providers || {}).length;
+  eventBus.send(PROVIDER_DB_EVENTS.UPDATED, SendTarget.ALL_WINDOWS, { providersCount, lastUpdated });
+}
 
-  constructor() {
-    this.userDataDir = app.getPath("userData");
-    this.cacheDir = path.join(this.userDataDir, "provider-db");
-    this.cacheFilePath = path.join(this.cacheDir, "providers.json");
-    this.metaFilePath = path.join(this.cacheDir, "meta.json");
+export const providerDbLoader = {
+  setPrivacyModeResolver(_resolver?: () => boolean): void {
+    // Privacy mode is enforced by the daemon, which owns the catalog refresh.
+  },
 
-    try {
-      if (!fs.existsSync(this.cacheDir)) fs.mkdirSync(this.cacheDir, { recursive: true });
-    } catch {}
-  }
-
-  setPrivacyModeResolver(resolver?: () => boolean): void {
-    this.privacyModeResolver = resolver ?? (() => false);
-  }
-
-  // Public: initialize on app start (non-blocking refresh)
   async initialize(): Promise<void> {
-    // Load from cache or built-in
-    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn();
-    if (this.cache) {
-      try {
-        const providersCount = Object.keys(this.cache.providers || {}).length;
-        eventBus.send(PROVIDER_DB_EVENTS.LOADED, SendTarget.ALL_WINDOWS, {
-          providersCount,
-        });
-      } catch {}
+    try {
+      await syncFromDaemon();
+      emitLoaded();
+    } catch (error) {
+      console.warn("[providerDbLoader] Initial catalog sync from daemon failed:", error);
+    }
+  },
+
+  async refreshIfNeeded(force = false): Promise<ProviderDbRefreshResult> {
+    const result = await invokeDaemonRoute<{
+      providersCount: number;
+      lastUpdated: number | null;
+      sourceUrl: string;
+      status: ProviderDbRefreshResult["status"];
+    }>(providersRefreshProviderDbRoute.name, { force });
+
+    await syncFromDaemon();
+    if (result.status !== "error") {
+      emitUpdated(result.lastUpdated);
     }
 
-    if (this.isAutomaticRefreshBlocked()) {
-      return;
-    }
-
-    // Always refresh once in the background on startup to pick up upstream updates.
-    void this.refreshIfNeeded(true, { automatic: true })
-      .then((result) => {
-        if (result.status === "error") {
-          console.warn("[ProviderDbLoader] Startup refresh failed:", result.message);
-        }
-      })
-      .catch((error) => {
-        console.warn("[ProviderDbLoader] Startup refresh failed:", error);
-      });
-  }
+    return {
+      status: result.status,
+      lastUpdated: result.lastUpdated,
+      providersCount: result.providersCount,
+    };
+  },
 
   getDb(): ProviderAggregate | null {
-    if (this.cache) return this.cache;
-    // Lazy try again if not initialized yet
-    this.cache = this.loadFromCache() ?? this.loadFromBuiltIn();
-    return this.cache;
-  }
+    return catalog;
+  },
 
   getProvider(providerId: string): ProviderEntry | undefined {
-    const db = this.getDb();
-    if (!db) return undefined;
+    if (!catalog) return undefined;
     const resolvedId = resolveProviderId(providerId);
-    return db.providers?.[resolvedId ?? providerId];
-  }
+    return catalog.providers?.[resolvedId ?? providerId];
+  },
 
   getModel(providerId: string, modelId: string): ProviderModel | undefined {
     const provider = this.getProvider(providerId);
     if (!provider) return undefined;
     return provider.models.find((m) => m.id === modelId);
-  }
+  },
 
   getSourceUrl(): string {
-    return this.readMeta()?.sourceUrl?.trim() || this.getProviderDbUrl();
-  }
+    return sourceUrl;
+  },
+};
 
-  private loadFromCache(): ProviderAggregate | null {
-    try {
-      if (!fs.existsSync(this.cacheFilePath)) return null;
-      const raw = fs.readFileSync(this.cacheFilePath, "utf-8");
-      const parsed = JSON.parse(raw);
-      const sanitized = sanitizeAggregate(parsed);
-      if (!sanitized) return null;
-      return sanitized;
-    } catch {
-      return null;
-    }
-  }
-
-  private loadFromBuiltIn(): ProviderAggregate | null {
-    try {
-      const helperPath = path.join(app.getAppPath(), "resources", "model-db", "providers.json");
-      if (!fs.existsSync(helperPath)) return null;
-      const raw = fs.readFileSync(helperPath, "utf-8");
-      const parsed = JSON.parse(raw);
-      const sanitized = sanitizeAggregate(parsed);
-      return sanitized ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  private readMeta(): MetaFile | null {
-    try {
-      if (!fs.existsSync(this.metaFilePath)) return null;
-      const raw = fs.readFileSync(this.metaFilePath, "utf-8");
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
-
-  private writeMeta(meta: MetaFile): void {
-    try {
-      fs.writeFileSync(this.metaFilePath, JSON.stringify(meta, null, 2), "utf-8");
-    } catch {}
-  }
-
-  private writeCacheAtomically(db: ProviderAggregate): void {
-    const tmp = this.cacheFilePath + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-    fs.renameSync(tmp, this.cacheFilePath);
-  }
-
-  private now(): number {
-    return Date.now();
-  }
-
-  private getTtlHours(): number {
-    const env = process.env.PROVIDER_DB_TTL_HOURS;
-    const v = env ? Number(env) : 4;
-    return Number.isFinite(v) && v > 0 ? v : 4;
-  }
-
-  private getProviderDbUrl(): string {
-    const value = process.env.VITE_PROVIDER_DB_URL;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.length > 0) return trimmed;
-    }
-
-    return DEFAULT_PROVIDER_DB_URL;
-  }
-
-  async refreshIfNeeded(
-    force = false,
-    options: {
-      automatic?: boolean;
-    } = {},
-  ): Promise<ProviderDbRefreshResult> {
-    const meta = this.readMeta();
-    if (options.automatic && this.isAutomaticRefreshBlocked()) {
-      return this.createResult("skipped", meta);
-    }
-
-    if (this.refreshPromise) return this.refreshPromise;
-
-    const ttlHours = this.getTtlHours();
-    const url = this.getProviderDbUrl();
-
-    const needFirstFetch = !meta || !fs.existsSync(this.cacheFilePath);
-    const freshnessTimestamp = meta?.lastAttemptedAt ?? meta?.lastUpdated ?? 0;
-    const expired = meta ? this.now() - freshnessTimestamp > ttlHours * 3600 * 1000 : true;
-
-    if (!force && !needFirstFetch && !expired) {
-      return this.createResult("skipped", meta);
-    }
-
-    this.refreshPromise = this.fetchAndUpdate(url, meta || undefined).finally(() => {
-      this.refreshPromise = null;
-    });
-
-    return this.refreshPromise;
-  }
-
-  private isAutomaticRefreshBlocked(): boolean {
-    try {
-      return Boolean(this.privacyModeResolver());
-    } catch {
-      return false;
-    }
-  }
-
-  private createResult(
-    status: ProviderDbRefreshResult["status"],
-    meta?: MetaFile | null,
-    message?: string,
-  ): ProviderDbRefreshResult {
-    const db = this.getDb();
-    const providersCount = Object.keys(db?.providers || {}).length;
-    return {
-      status,
-      lastUpdated: meta?.lastUpdated ?? null,
-      providersCount,
-      ...(message ? { message } : {}),
-    };
-  }
-
-  private createAttemptMeta(prevMeta: MetaFile | undefined, url: string, now: number): MetaFile | null {
-    if (!prevMeta) return null;
-    return {
-      ...prevMeta,
-      sourceUrl: url,
-      ttlHours: this.getTtlHours(),
-      lastAttemptedAt: now,
-    };
-  }
-
-  private async fetchAndUpdate(url: string, prevMeta?: MetaFile): Promise<ProviderDbRefreshResult> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    try {
-      const headers: Record<string, string> = {};
-      if (prevMeta?.etag) headers["If-None-Match"] = prevMeta.etag;
-
-      const res = await fetch(url, { headers, signal: controller.signal });
-      const now = this.now();
-
-      if (res.status === 304 && prevMeta) {
-        const meta: MetaFile = {
-          ...prevMeta,
-          sourceUrl: url,
-          ttlHours: this.getTtlHours(),
-          lastAttemptedAt: now,
-        };
-        this.writeMeta(meta);
-        return this.createResult("not-modified", meta);
-      }
-
-      if (!res.ok) {
-        const meta = this.createAttemptMeta(prevMeta, url, now);
-        if (meta) this.writeMeta(meta);
-        return this.createResult("error", meta, `Request failed with status ${res.status}`);
-      }
-
-      const text = await res.text();
-      // Size guard (≈ 5MB)
-      if (text.length > 5 * 1024 * 1024) {
-        const meta = this.createAttemptMeta(prevMeta, url, now);
-        if (meta) this.writeMeta(meta);
-        return this.createResult("error", meta, "Provider DB payload exceeds size limit");
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        const meta = this.createAttemptMeta(prevMeta, url, now);
-        if (meta) this.writeMeta(meta);
-        return this.createResult("error", meta, "Provider DB payload is not valid JSON");
-      }
-
-      const sanitized = sanitizeAggregate(parsed);
-      if (!sanitized) {
-        const meta = this.createAttemptMeta(prevMeta, url, now);
-        if (meta) this.writeMeta(meta);
-        return this.createResult("error", meta, "Provider DB payload failed validation");
-      }
-
-      const etag = res.headers.get("etag") || undefined;
-      const meta: MetaFile = {
-        sourceUrl: url,
-        etag,
-        lastUpdated: now,
-        ttlHours: this.getTtlHours(),
-        lastAttemptedAt: now,
-      };
-
-      // Write cache atomically and update in-memory
-      this.writeCacheAtomically(sanitized);
-      this.writeMeta(meta);
-      this.cache = sanitized;
-      try {
-        const providersCount = Object.keys(this.cache.providers || {}).length;
-        eventBus.send(PROVIDER_DB_EVENTS.UPDATED, SendTarget.ALL_WINDOWS, {
-          providersCount,
-          lastUpdated: meta.lastUpdated,
-        });
-      } catch {}
-      return this.createResult("updated", meta);
-    } catch (error) {
-      const meta = this.createAttemptMeta(prevMeta, url, this.now());
-      if (meta) this.writeMeta(meta);
-      const message = error instanceof Error ? error.message : "Unknown provider DB refresh error";
-      return this.createResult("error", meta, message);
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-}
-
-// Shared singleton
-export const providerDbLoader = new ProviderDbLoader();
+export type { ProviderDbRefreshResult };

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { IConfigPresenter, LLM_PROVIDER, ModelConfig } from "@argos/shared/presenter";
 import { ApiEndpointType, ModelType } from "@argos/shared/model";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
-import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
+import { resolveAiSdkProviderDefinition } from "@argos/backend-core/provider/registry";
 import { modelCapabilities } from "../../../../src/main/presenter/configPresenter/modelCapabilities";
 
 const { mockRunAiSdkCoreStream } = vi.hoisted(() => ({

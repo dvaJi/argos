@@ -73,6 +73,9 @@ export async function dispatchProviderRoute(
     }
 
     case providersGetRateLimitStatusRoute.name: {
+      // Shell-only: rate-limit status is real-time runtime state tied to the local
+      // provider instances. The daemon currently returns a stub for this route, so the
+      // desktop keeps owning it until the daemon tracks real per-provider rate limits.
       const input = providersGetRateLimitStatusRoute.input.parse(rawInput);
       return providersGetRateLimitStatusRoute.output.parse({
         status: llmProviderPresenter.getProviderRateLimitStatus(input.providerId),
@@ -86,26 +89,23 @@ export async function dispatchProviderRoute(
 
     case providersListOllamaModelsRoute.name: {
       const input = providersListOllamaModelsRoute.input.parse(rawInput);
-      const models = await llmProviderPresenter.listOllamaModels(input.providerId);
-      return providersListOllamaModelsRoute.output.parse({
-        models,
-      });
+      return providersListOllamaModelsRoute.output.parse(
+        await invokeDaemonRoute(providersListOllamaModelsRoute.name, input),
+      );
     }
 
     case providersListOllamaRunningModelsRoute.name: {
       const input = providersListOllamaRunningModelsRoute.input.parse(rawInput);
-      const models = await llmProviderPresenter.listOllamaRunningModels(input.providerId);
-      return providersListOllamaRunningModelsRoute.output.parse({
-        models,
-      });
+      return providersListOllamaRunningModelsRoute.output.parse(
+        await invokeDaemonRoute(providersListOllamaRunningModelsRoute.name, input),
+      );
     }
 
     case providersPullOllamaModelRoute.name: {
       const input = providersPullOllamaModelRoute.input.parse(rawInput);
-      const success = await llmProviderPresenter.pullOllamaModels(input.providerId, input.modelName);
-      return providersPullOllamaModelRoute.output.parse({
-        success,
-      });
+      return providersPullOllamaModelRoute.output.parse(
+        await invokeDaemonRoute(providersPullOllamaModelRoute.name, input),
+      );
     }
 
     case providersWarmupAcpProcessRoute.name: {

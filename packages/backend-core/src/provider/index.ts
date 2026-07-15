@@ -22,3 +22,5 @@ export {
   type ModelScopeMcpServerResponse,
 } from "./modelScopeMcp";
 export * from "./aiSdk";
+export * from "./providerDbLoader";
+export * from "./registry";

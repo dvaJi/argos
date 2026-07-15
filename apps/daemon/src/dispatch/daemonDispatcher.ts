@@ -2,6 +2,7 @@ import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
 import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
+import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
 import { ProviderImportService } from "@argos/backend-core";
 import { SettingsRouteHandler } from "@argos/backend-core/dispatch/settings/settingsHandler";
@@ -219,6 +220,8 @@ import {
   sessionsSetAcpSessionConfigOptionRoute,
   providersListModelsRoute,
   providersGetRateLimitStatusRoute,
+  providersGetProviderDbRoute,
+  providersRefreshProviderDbRoute,
   providersRefreshModelsRoute,
   providersListOllamaModelsRoute,
   providersListOllamaRunningModelsRoute,
@@ -319,6 +322,13 @@ type DaemonProviderConfigPort = {
   updateCustomModel(providerId: string, modelId: string, updates: unknown): void;
   setModelStatus(providerId: string, modelId: string, enabled: boolean): void;
   getModelStatusMap(providerId?: string): Record<string, boolean>;
+  getDaemonProviderDb(): { catalog: unknown; sourceUrl: string; lastUpdated: number | null };
+  refreshDaemonProviderDb(force: boolean): Promise<{
+    providersCount: number;
+    lastUpdated: number | null;
+    sourceUrl: string;
+    status: "updated" | "not-modified" | "skipped" | "error";
+  }>;
 };
 
 type DaemonScheduledTaskConfigPort = {
@@ -1690,6 +1700,27 @@ export function createDaemonDispatcher(
       const input = providersRefreshModelsRoute.input.parse(rawInput);
       await daemonConfig.refreshProviderModels(input.providerId);
       return providersRefreshModelsRoute.output.parse({ refreshed: true });
+    }
+
+    if (route === providersGetProviderDbRoute.name) {
+      providersGetProviderDbRoute.input.parse(rawInput);
+      const result = daemonConfig.getDaemonProviderDb();
+      return providersGetProviderDbRoute.output.parse({
+        catalog: (result.catalog as ProviderAggregate) ?? { providers: {} },
+        sourceUrl: result.sourceUrl,
+        lastUpdated: result.lastUpdated,
+      });
+    }
+
+    if (route === providersRefreshProviderDbRoute.name) {
+      const input = providersRefreshProviderDbRoute.input.parse(rawInput);
+      const result = await daemonConfig.refreshDaemonProviderDb(input.force);
+      return providersRefreshProviderDbRoute.output.parse({
+        providersCount: result.providersCount,
+        lastUpdated: result.lastUpdated,
+        sourceUrl: result.sourceUrl,
+        status: result.status,
+      });
     }
 
     if (route === providersListOllamaModelsRoute.name) {

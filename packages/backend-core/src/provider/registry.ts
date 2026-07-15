@@ -198,6 +198,7 @@ const PROVIDER_ID_REGISTRY = new Map<string, AiSdkProviderDefinition>([
     "deepseek",
     createDefinition({
       ...OPENAI_BASE,
+      modelSource: "provider-db",
       checkStrategy: "key-status",
       keyStatusStrategy: "deepseek",
     }),

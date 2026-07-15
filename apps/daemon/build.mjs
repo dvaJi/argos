@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, cpSync, mkdirSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { platform } from "node:os";
 import process from "node:process";
 
@@ -9,6 +11,20 @@ const version = process.env.DAEMON_VERSION || pkg.version;
 const isWin = process.env.ARGOS_TARGET_OS === "win32" || (!process.env.ARGOS_TARGET_OS && platform() === "win32");
 
 const outfile = isWin ? "dist/argos-daemon.exe" : "dist/argos-daemon";
+const distDir = dirname(outfile);
+
+// Bundle the provider catalog (single source: the desktop built-in) next to the
+// binary so the daemon can resolve provider-db models offline (e.g. DeepSeek).
+const daemonDir = dirname(fileURLToPath(import.meta.url));
+const modelDbSrc = join(daemonDir, "..", "desktop", "resources", "model-db", "providers.json");
+if (existsSync(modelDbSrc)) {
+  const modelDbDestDir = join(distDir, "model-db");
+  mkdirSync(modelDbDestDir, { recursive: true });
+  cpSync(modelDbSrc, join(modelDbDestDir, "providers.json"));
+  console.log(`Bundled provider catalog -> ${join(modelDbDestDir, "providers.json")}`);
+} else {
+  console.warn(`[build] Provider catalog not found at ${modelDbSrc}; daemon will rely on remote fetch.`);
+}
 
 const args = [
   "build",

@@ -7,6 +7,7 @@ import {
   OllamaModelSchema,
   ProviderRateLimitStatusSchema,
 } from "../domainSchemas";
+import { ProviderAggregateSchema } from "@argos/shared/types/model-db";
 import { PROVIDER_IMPORT_CUSTOM_API_TYPES, PROVIDER_IMPORT_SOURCE_IDS } from "../providerImport";
 
 const ProviderImportSourceIdSchema = zod.enum(PROVIDER_IMPORT_SOURCE_IDS);
@@ -128,6 +129,29 @@ export const providersGetRateLimitStatusRoute = defineRouteContract({
   }),
   output: zod.object({
     status: ProviderRateLimitStatusSchema,
+  }),
+});
+
+export const providersGetProviderDbRoute = defineRouteContract({
+  name: "providers.getProviderDb",
+  input: zod.object({}),
+  output: zod.object({
+    catalog: ProviderAggregateSchema,
+    sourceUrl: zod.string(),
+    lastUpdated: zod.number().nullable(),
+  }),
+});
+
+export const providersRefreshProviderDbRoute = defineRouteContract({
+  name: "providers.refreshProviderDb",
+  input: zod.object({
+    force: zod.boolean().optional().default(false),
+  }),
+  output: zod.object({
+    providersCount: zod.number(),
+    lastUpdated: zod.number().nullable(),
+    sourceUrl: zod.string(),
+    status: zod.enum(["updated", "not-modified", "skipped", "error"]),
   }),
 });
 

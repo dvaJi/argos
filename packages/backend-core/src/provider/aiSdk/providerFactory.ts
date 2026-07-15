@@ -36,6 +36,7 @@ export interface AiSdkProviderContext {
   model: any;
   embeddingModel?: any;
   imageModel?: any;
+  transcriptionModel?: any;
   endpoint: string;
   imageEndpoint?: string;
   embeddingEndpoint?: string;
@@ -517,6 +518,7 @@ export function createAiSdkProviderContext(params: CreateAiSdkProviderContextPar
           model: maybeWrapModel(provider.chat(params.modelId) as any),
           embeddingModel: provider.embedding(params.modelId),
           imageModel: provider.image(params.modelId),
+          transcriptionModel: provider.transcription(params.modelId),
           endpoint: buildOpenAIEndpoint(baseUrl || "https://api.openai.com/v1", "/chat/completions"),
         };
       }
@@ -539,6 +541,7 @@ export function createAiSdkProviderContext(params: CreateAiSdkProviderContextPar
         model: maybeWrapModel(provider.chatModel(params.modelId) as any),
         embeddingModel: provider.embeddingModel(params.modelId),
         imageModel: provider.imageModel(params.modelId),
+        transcriptionModel: provider.transcriptionModel?.(params.modelId),
         endpoint: buildOpenAIEndpoint(openAICompatibleBaseUrl, "/chat/completions"),
       };
     }

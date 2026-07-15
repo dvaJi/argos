@@ -179,10 +179,12 @@ export class ArgosUsageStatsTable extends BaseTable {
   }
 
   count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) AS count FROM argos_usage_stats").get() as {
-      count: number;
-    };
-    return row.count;
+    const row = this.db.prepare("SELECT COUNT(*) AS count FROM argos_usage_stats").get() as
+      | {
+          count: number;
+        }
+      | undefined;
+    return row?.count ?? 0;
   }
 
   deleteAll(): void {
@@ -190,10 +192,12 @@ export class ArgosUsageStatsTable extends BaseTable {
   }
 
   getRecordingStartedAt(): number | null {
-    const row = this.db.prepare("SELECT MIN(created_at) AS started_at FROM argos_usage_stats").get() as {
-      started_at: number | null;
-    };
-    return row.started_at ?? null;
+    const row = this.db.prepare("SELECT MIN(created_at) AS started_at FROM argos_usage_stats").get() as
+      | {
+          started_at: number | null;
+        }
+      | undefined;
+    return row?.started_at ?? null;
   }
 
   getSummary(): ArgosUsageStatsSummary {
