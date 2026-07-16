@@ -15,8 +15,8 @@
     "test:main": "vitest --config vitest.config.ts test/main",
     "test:renderer": "vitest --config vitest.config.renderer.ts test/renderer",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
-    "typecheck": "pnpm run typecheck:node",
-    "postinstall": "pnpm exec electron-builder install-app-deps"
+    "typecheck": "bun run typecheck:node",
+    "postinstall": "bun x electron-builder install-app-deps"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.2.1",
@@ -66,7 +66,6 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "run-applescript": "^7.1.0",
-    "sharp": "^0.35.3",
     "turndown": "^7.2.4",
     "undici": "^8.7.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",

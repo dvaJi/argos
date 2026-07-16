@@ -55,21 +55,19 @@ jobs:
           fetch-depth: 2
 
       - uses: ./.github/actions/setup-build
-        with:
-          setup-bun: "true"
 
       - name: lint
-        run: pnpm run lint
+        run: bun run lint
 
       - name: format:check
-        run: pnpm run format:check
+        run: bun run format:check
 
       - name: Typecheck and build affected packages
-        run: pnpm turbo run typecheck build --affected --output-logs=new-only
+        run: bun x turbo run typecheck build --affected --output-logs=new-only
         env:
           VITE_PROVIDER_DB_URL: ${{ secrets.CDN_PROVIDER_DB_URL }}
           ARGOS_TARGET_OS: linux
           ARGOS_TARGET_ARCH: x64
 
       - name: Daemon unit tests
-        run: pnpm turbo run test --filter=@argos/daemon --output-logs=new-only
+        run: bun x turbo run test --filter=@argos/daemon --output-logs=new-only

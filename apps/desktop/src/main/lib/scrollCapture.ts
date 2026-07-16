@@ -1,5 +1,5 @@
 import { NativeImage, WebContentsView, nativeImage } from "electron";
-import sharp from "sharp";
+import { callDaemonRoute } from "#/lib/daemonProxy";
 
 export interface ScrollCaptureOptions {
   hideElements?: string[]; // CSS selector array for hiding specific elements
@@ -286,16 +286,24 @@ export async function stitchImagesVertically(imageBuffers: Buffer[]): Promise<Na
     return nativeImage.createFromBuffer(imageBuffers[0]);
   }
 
-  console.log(`Starting to stitch ${imageBuffers.length} images using Sharp`);
+  console.log(`Starting to stitch ${imageBuffers.length} images via daemon`);
 
-  // Get metadata for all images
+  // Get metadata for all images via daemon
   const imageInfos = await Promise.all(
     imageBuffers.map(async (buffer, index) => {
       try {
-        const metadata = await sharp(buffer).metadata();
+        const result = await callDaemonRoute<{
+          imageBase64: string;
+          metadata?: { width?: number; height?: number; format?: string };
+        }>("image.process", {
+          imageBase64: buffer.toString("base64"),
+          operations: [{ type: "metadata" }],
+        });
+        const metadata = result.metadata ?? {};
         console.log(`Image ${index + 1} dimensions: ${metadata.width}x${metadata.height}`);
         return {
           buffer,
+          base64: buffer.toString("base64"),
           width: metadata.width || 0,
           height: metadata.height || 0,
           index,
@@ -313,30 +321,16 @@ export async function stitchImagesVertically(imageBuffers: Buffer[]): Promise<Na
 
   console.log(`Stitched image dimensions: ${maxWidth}x${totalHeight}`);
 
-  // Create blank canvas
-  const canvas = sharp({
-    create: {
-      width: maxWidth,
-      height: totalHeight,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  });
-
   // Prepare composite operation
-  const composite: Array<{
-    input: Buffer;
-    top: number;
-    left: number;
-  }> = [];
+  const compositeBuffers: Array<{ base64: string; top: number; left: number }> = [];
   let currentTop = 0;
 
   for (const imageInfo of imageInfos) {
     // Calculate center position
     const left = Math.floor((maxWidth - imageInfo.width) / 2);
 
-    composite.push({
-      input: imageInfo.buffer,
+    compositeBuffers.push({
+      base64: imageInfo.base64,
       top: currentTop,
       left: left,
     });
@@ -345,12 +339,21 @@ export async function stitchImagesVertically(imageBuffers: Buffer[]): Promise<Na
     currentTop += imageInfo.height;
   }
 
-  // Execute composition
-  const stitchedBuffer = await canvas.composite(composite).png().toBuffer();
+  // Execute composition via daemon
+  const result = await callDaemonRoute<{ imageBase64: string }>("image.process", {
+    imageBase64: imageBuffers[0].toString("base64"),
+    operations: [
+      {
+        type: "composite",
+        buffers: compositeBuffers,
+      },
+      { type: "png" },
+    ],
+  });
 
-  // Create NativeImage
+  const stitchedBuffer = Buffer.from(result.imageBase64, "base64");
   const stitchedImage = nativeImage.createFromBuffer(stitchedBuffer);
 
-  console.log(`Successfully stitched ${imageBuffers.length} images using Sharp`);
+  console.log(`Successfully stitched ${imageBuffers.length} images via daemon`);
   return stitchedImage;
 }

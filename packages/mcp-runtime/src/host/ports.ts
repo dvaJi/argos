@@ -16,9 +16,9 @@ export interface McpRuntimePort {
   processCommandWithArgs(command: string, args: string[]): { command: string; args: string[] };
   normalizePathEnv(paths: string[]): { key: string; value: string };
   getDefaultPaths(homeDir?: string): string[];
-  getNodeRuntimePath(): string | null;
+  getBunRuntimePath(): string | null;
   getUvRuntimePath(): string | null;
-  setNodeRuntimePath(path: string | null): void;
+  setBunRuntimePath(path: string | null): void;
   setUvRuntimePath(path: string | null): void;
 }
 

@@ -508,22 +508,17 @@ class AcpInitHelper {
 
     if (useBuiltinRuntime) {
       const uvRuntimePath = this.runtimeHelper.getUvRuntimePath();
-      const nodeRuntimePath = this.runtimeHelper.getNodeRuntimePath();
+      const bunRuntimePath = this.runtimeHelper.getBunRuntimePath();
 
       if (uvRuntimePath) {
         prependPathSources.push(uvRuntimePath);
         console.log("[ACP Init] Added UV runtime path:", uvRuntimePath);
       }
 
-      if (process.platform === "win32") {
-        if (nodeRuntimePath) {
-          prependPathSources.push(nodeRuntimePath);
-          console.log("[ACP Init] Added Node runtime path (Windows):", nodeRuntimePath);
-        }
-      } else if (nodeRuntimePath) {
-        const nodeBinPath = path.join(nodeRuntimePath, "bin");
-        prependPathSources.push(nodeBinPath);
-        console.log("[ACP Init] Added Node runtime path (Unix):", nodeBinPath);
+      if (bunRuntimePath) {
+        const bunDir = path.dirname(bunRuntimePath);
+        prependPathSources.push(bunDir);
+        console.log("[ACP Init] Added Bun runtime path:", bunDir);
       }
 
       if (prependPathSources.length > 0) {

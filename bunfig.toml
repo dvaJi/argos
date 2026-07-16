@@ -1,0 +1,11 @@
+[install]
+minimumReleaseAge = 86400
+minimumReleaseAgeExcludes = [
+  "@oxlint/*",
+  "@dvaji/*",
+  "rolldown",
+  "@rolldown/*",
+  "@oxc-project/*",
+  "typescript",
+  "@typescript/*",
+]

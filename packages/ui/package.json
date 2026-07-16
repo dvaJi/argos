@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck:web": "tsc --noEmit -p tsconfig.app.json --composite false",
-    "typecheck": "pnpm run typecheck:web",
+    "typecheck": "bun run typecheck:web",
     "test": "vitest",
     "test:renderer": "vitest --config vitest.config.renderer.ts test/renderer"
   },

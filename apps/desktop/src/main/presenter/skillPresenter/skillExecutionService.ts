@@ -250,7 +250,7 @@ export class SkillExecutionService {
     }
 
     if (script.runtime === "node") {
-      return await this.resolveNodeRuntime(extension.runtimePolicy.node, env);
+      return await this.resolveBunRuntime(extension.runtimePolicy.node, env);
     }
 
     return await this.resolvePythonRuntime(extension.runtimePolicy.python, env, skillRoot);
@@ -293,34 +293,34 @@ export class SkillExecutionService {
     return fallback;
   }
 
-  private async resolveNodeRuntime(
+  private async resolveBunRuntime(
     preference: SkillRuntimePreference,
     env: Record<string, string>,
   ): Promise<RuntimeCommand> {
     if (preference === "builtin") {
-      const bundledNode = this.getBundledRuntimeCommand("node");
-      if (!bundledNode) {
-        throw new Error("Bundled node runtime is not available");
+      const bundledBun = this.getBundledRuntimeCommand("node");
+      if (!bundledBun) {
+        throw new Error("Bundled bun runtime is not available");
       }
-      return { command: bundledNode, mode: "node" };
+      return { command: bundledBun, mode: "node" };
     }
 
     if (preference === "system") {
-      if (!(await this.hasCommand("node", ["--version"], env))) {
-        throw new Error("System node runtime is not available");
+      if (!(await this.hasCommand("bun", ["--version"], env))) {
+        throw new Error("System bun runtime is not available");
       }
-      return { command: "node", mode: "node" };
+      return { command: "bun", mode: "node" };
     }
 
-    if (await this.hasCommand("node", ["--version"], env)) {
-      return { command: "node", mode: "node" };
+    if (await this.hasCommand("bun", ["--version"], env)) {
+      return { command: "bun", mode: "node" };
     }
 
-    const bundledNode = this.getBundledRuntimeCommand("node");
-    if (!bundledNode) {
-      throw new Error("No compatible node runtime found for this skill");
+    const bundledBun = this.getBundledRuntimeCommand("node");
+    if (!bundledBun) {
+      throw new Error("No compatible bun runtime found for this skill");
     }
-    return { command: bundledNode, mode: "node" };
+    return { command: bundledBun, mode: "node" };
   }
 
   private async findSystemPythonRuntime(env: Record<string, string>): Promise<RuntimeCommand | null> {
@@ -619,7 +619,7 @@ export class SkillExecutionService {
     if (command === "uv" && !this.runtimeHelper.getUvRuntimePath()) {
       return null;
     }
-    if (command === "node" && !this.runtimeHelper.getNodeRuntimePath()) {
+    if (command === "node" && !this.runtimeHelper.getBunRuntimePath()) {
       return null;
     }
 

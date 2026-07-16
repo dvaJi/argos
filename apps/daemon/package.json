@@ -25,6 +25,7 @@
     "@argos/skills-runtime": "workspace:*",
     "@duckdb/node-api": "1.5.3-r.1",
     "ai": "catalog:",
+    "sharp": "^0.34.0",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",

@@ -18,15 +18,15 @@ The UI is extracted from the desktop shell (CodeNomad-style): the desktop app is
 - Build outputs/assets: `build/`, `resources/`, `out/`, `dist/`.
 
 ## Build, Test, and Development Commands
-- Install: `pnpm install` + `pnpm run installRuntime` (first time).
-- Dev: `pnpm run dev` (HMR). Inspect: `pnpm run dev:inspect`; Linux: `pnpm run dev:linux`.
+- Install: `bun install` + `bun run installRuntime` (first time).
+- Dev: `bun run dev` (HMR). Inspect: `bun run dev:inspect`; Linux: `bun run dev:linux`.
 - Preview: `pnpm start`.
-- Type check: `pnpm run typecheck` (or `typecheck:node` / `typecheck:web`). Uses `tsgo` (native TS preview).
-- Lint: `pnpm run lint` (runs `agent-cleanup-guard`, `architecture-guard`, then `oxlint`).
-- Format: `pnpm run format` (oxfmt). Check: `pnpm run format:check`.
-- After completing a feature, always run `pnpm run format` and `pnpm run lint`.
-- Test: `pnpm test`, `test:main`, `test:renderer`, `test:coverage`, `test:watch`, `test:ui`.
-- Build: `pnpm run build` then `build:win|mac|linux` (add `:x64|:arm64`).
+- Type check: `bun run typecheck` (or `typecheck:node` / `typecheck:web`). Uses `tsgo` (native TS preview).
+- Lint: `bun run lint` (runs `agent-cleanup-guard`, `architecture-guard`, then `oxlint`).
+- Format: `bun run format` (oxfmt). Check: `bun run format:check`.
+- After completing a feature, always run `bun run format` and `bun run lint`.
+- Test: `bun test`, `test:main`, `test:renderer`, `test:coverage`, `test:watch`, `test:ui`.
+- Build: `bun run build` then `build:win|mac|linux` (add `:x64|:arm64`).
 
 ## Turborepo + Vite + Electron Development
 
@@ -38,7 +38,7 @@ Never run dev servers in the foreground. Use background processes with log captu
 
 ```bash
 # Start the dev command in background, redirect logs
-pnpm run dev > /tmp/desktop-dev.log 2>&1 &
+bun run dev > /tmp/desktop-dev.log 2>&1 &
 echo $! > /tmp/desktop-dev.pid
 
 # Wait for Vite readiness (poll the @argos/ui dev server)
@@ -75,8 +75,8 @@ kill $(cat /tmp/desktop-dev.pid)
 
 | Package | Path | Dev Command | Notes |
 |---------|------|-------------|-------|
-| `@argos/desktop` | `apps/desktop/` | `pnpm run dev` | Electron **shell** only (main + preload); loads UI from the daemon (Vite 8 + vite-plugin-electron + Rolldown) |
-| `@argos/ui` | `packages/ui/` | `pnpm --filter @argos/ui run dev` | React 19 frontend; builds to `dist/`, served by the daemon (no electron dependency) |
+| `@argos/desktop` | `apps/desktop/` | `bun run dev` | Electron **shell** only (main + preload); loads UI from the daemon (Vite 8 + vite-plugin-electron + Rolldown) |
+| `@argos/ui` | `packages/ui/` | `bun run --filter @argos/ui dev` | React 19 frontend; builds to `dist/`, served by the daemon (no electron dependency) |
 | `@argos/daemon` | `apps/daemon/` | `cd apps/daemon && bun run dev` | Backend server (Bun); serves the UI + `/api/v1/route` + `/api/v1/events` |
 | `@argos/backend-core` | `packages/backend-core/` | — | Shared backend logic |
 | `@argos/acp-runtime` | `packages/acp-runtime/` | — | ACP runtime (process/session/registry, host-port injected) |
@@ -116,13 +116,13 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 
 ### Architecture guards
 
-`pnpm run lint` runs two guard scripts before oxlint:
+`bun run lint` runs two guard scripts before oxlint:
 - `scripts/architecture-guard.mjs`: Enforces quarantine bounds, prevents legacy imports in business code, validates bridge register, tracks hot-path edges
 - `scripts/agent-cleanup-guard.mjs`: Prevents new code from importing legacy presenter directories or `@argos/chat`
 
 ## Coding Style & Naming Conventions
 - TypeScript + React 19 + TanStack Router; TanStack Store for state; Tailwind CSS + shadcn/ui for styles.
-- Oxfmt: double quotes, semicolons, width 120, trailing commas. Run `pnpm run format`.
+- Oxfmt: double quotes, semicolons, width 120, trailing commas. Run `bun run format`.
 - OxLint for JS/TS; hooks run `lint-staged` and `typecheck`.
 - Names: React components PascalCase (`ChatInput.tsx`); variables/functions `camelCase`; types/classes `PascalCase`; constants `SCREAMING_SNAKE_CASE`.
 
@@ -130,7 +130,7 @@ The codebase is migrating from legacy `useLegacyPresenter()` to a typed route/cl
 - Framework: Vitest (+ jsdom for renderer, node for main) and React Testing Library.
 - Two separate configs: `vitest.config.ts` (main, node env) and `vitest.config.renderer.ts` (renderer, jsdom env).
 - Location mirrors source under `test/main/**` and `test/renderer/**`.
-- Names: `*.test.ts`/`*.test.tsx`/`*.spec.ts`. Coverage: `pnpm run test:coverage`.
+- Names: `*.test.ts`/`*.test.tsx`/`*.spec.ts`. Coverage: `bun run test:coverage`.
 - Test aliases match Vite aliases: `#` → UI src, `#api` → UI api, `@argos/shared` → shared.
 
 ## Path Aliases
@@ -158,9 +158,9 @@ The `#/` alias is context-sensitive: a custom Vite plugin (`createPathAliasPlugi
 ## Architecture Notes & Security
 - Patterns: Presenter pattern in main; EventBus for inter-process events; typed route contracts as renderer-main boundary; two-layer LLM provider (Agent Loop + Provider); integrated MCP tools.
 - Secrets: use `.env` (see `.env.example`); never commit keys.
-- Toolchains: Node 24.14.1, pnpm 10.33.4 (pnpm only). Windows: enable Developer Mode for symlinks.
+- Toolchains: Bun 1.3.14. Windows: enable Developer Mode for symlinks.
 - Build: Vite 8 with Rolldown; `vite-plugin-electron` multi-env for main/preload/renderer.
-- Runtimes: bundled Node, ripgrep, uv, rtk in `runtime/` — installed via `pnpm run installRuntime`.
+- Runtimes: bundled Bun, ripgrep, uv, rtk in `runtime/` — installed via `bun run installRuntime`.
 
 ## Specification-Driven Development
 

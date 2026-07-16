@@ -233,6 +233,7 @@ import {
   sessionsResumePendingQueueRoute,
   chatSteerActiveTurnRoute,
   chatRespondToolInteractionRoute,
+  imageProcessRoute,
   pluginsListRoute,
   pluginsGetRoute,
   pluginsEnableRoute,
@@ -1439,6 +1440,78 @@ export function createDaemonDispatcher(
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, Buffer.from(input.content, "base64"));
       return fileWriteImageBase64Route.output.parse({ path: target });
+    }
+
+    if (route === imageProcessRoute.name) {
+      const input = imageProcessRoute.input.parse(rawInput);
+      const { default: sharp } = await import("sharp");
+      let pipeline = sharp(Buffer.from(input.imageBase64, "base64"));
+      let metadataResult: { width?: number; height?: number; format?: string } | undefined;
+
+      for (const op of input.operations) {
+        switch (op.type) {
+          case "metadata": {
+            const meta = await pipeline.metadata();
+            metadataResult = {
+              width: meta.width ?? undefined,
+              height: meta.height ?? undefined,
+              format: meta.format ?? undefined,
+            };
+            break;
+          }
+          case "resize": {
+            pipeline = pipeline.resize(op.width, op.height, {
+              fit: op.fit,
+              withoutEnlargement: op.withoutEnlargement,
+            });
+            break;
+          }
+          case "jpeg": {
+            pipeline = pipeline.jpeg({ quality: op.quality, mozjpeg: true });
+            break;
+          }
+          case "png": {
+            pipeline = pipeline.png();
+            break;
+          }
+          case "webp": {
+            pipeline = pipeline.webp({ quality: op.quality });
+            break;
+          }
+          case "gif": {
+            pipeline = pipeline.gif();
+            break;
+          }
+          case "composite": {
+            pipeline = pipeline.composite(
+              op.buffers.map((b) => ({
+                input: Buffer.from(b.base64, "base64"),
+                top: b.top,
+                left: b.left,
+              })),
+            );
+            break;
+          }
+          case "toFormat": {
+            if (op.format === "jpeg") {
+              pipeline = pipeline.jpeg(op.quality ? { quality: op.quality } : undefined);
+            } else if (op.format === "png") {
+              pipeline = pipeline.png();
+            } else if (op.format === "webp") {
+              pipeline = pipeline.webp(op.quality ? { quality: op.quality } : undefined);
+            } else if (op.format === "gif") {
+              pipeline = pipeline.gif();
+            }
+            break;
+          }
+        }
+      }
+
+      const resultBuffer = await pipeline.toBuffer();
+      return imageProcessRoute.output.parse({
+        imageBase64: resultBuffer.toString("base64"),
+        metadata: metadataResult,
+      });
     }
 
     if (route.startsWith("remote.")) {

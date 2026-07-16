@@ -1,6 +1,7 @@
 import { BrowserWindow, Menu, MenuItemConstructorOptions, WebContents, dialog, net } from "electron";
+    import { writeFile } from "fs/promises";
 import path from "path";
-import sharp from "sharp";
+import { callDaemonRoute } from "#/lib/daemonProxy";
 
 interface ContextMenuOptions {
   webContents: WebContents;
@@ -168,24 +169,27 @@ export default function contextMenu(options: ContextMenuOptions): () => void {
               throw new Error("Could not get image data");
             }
 
-            // Process the image with sharp and save it
-            const fileExt = path.extname(filePath).toLowerCase().substring(1);
-
             // Process the image format based on the target file extension
-            const sharpInstance = sharp(imageBuffer);
+            const fileExt = path.extname(filePath).toLowerCase().substring(1);
+            let formatOp: { type: "toFormat"; format: "jpeg" | "png" | "webp" | "gif"; quality?: number } | undefined;
 
             if (fileExt === "jpg" || fileExt === "jpeg") {
-              await sharpInstance.jpeg({ quality: 90 }).toFile(filePath);
+              formatOp = { type: "toFormat", format: "jpeg", quality: 90 };
             } else if (fileExt === "png") {
-              await sharpInstance.png().toFile(filePath);
+              formatOp = { type: "toFormat", format: "png" };
             } else if (fileExt === "webp") {
-              await sharpInstance.webp().toFile(filePath);
+              formatOp = { type: "toFormat", format: "webp" };
             } else if (fileExt === "gif") {
-              await sharpInstance.gif().toFile(filePath);
-            } else {
-              // Default: save in the original format
-              await sharpInstance.toFile(filePath);
+              formatOp = { type: "toFormat", format: "gif" };
             }
+
+            const ops = formatOp ? [formatOp] : [];
+            const result = await callDaemonRoute<{ imageBase64: string }>("image.process", {
+              imageBase64: imageBuffer.toString("base64"),
+              operations: ops,
+            });
+            const outputBuffer = Buffer.from(result.imageBase64, "base64");
+            await writeFile(filePath, outputBuffer);
 
             console.log("contextMenu: pic saved ", filePath);
           } catch (error) {

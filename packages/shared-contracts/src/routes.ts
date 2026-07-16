@@ -18,6 +18,7 @@ import {
   chatSteerActiveTurnRoute,
   chatStopStreamRoute,
 } from "./routes/chat.routes";
+import { imageProcessRoute } from "./routes/image.routes";
 import {
   databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityRepairSchemaRoute,
@@ -371,6 +372,7 @@ import {
 
 export * from "./routes/browser.routes";
 export * from "./routes/chat.routes";
+export * from "./routes/image.routes";
 export * from "./routes/config.routes";
 export * from "./routes/database-security.routes";
 export * from "./routes/dialog.routes";
@@ -626,6 +628,7 @@ export const ARGOS_ROUTE_CATALOG = {
   [chatSteerActiveTurnRoute.name]: chatSteerActiveTurnRoute,
   [chatStopStreamRoute.name]: chatStopStreamRoute,
   [chatRespondToolInteractionRoute.name]: chatRespondToolInteractionRoute,
+  [imageProcessRoute.name]: imageProcessRoute,
   [databaseSecurityDiagnoseSchemaRoute.name]: databaseSecurityDiagnoseSchemaRoute,
   [databaseSecurityRepairSchemaRoute.name]: databaseSecurityRepairSchemaRoute,
   [skillsListMetadataRoute.name]: skillsListMetadataRoute,

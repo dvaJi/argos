@@ -170,21 +170,13 @@ export class McpClient {
     return this.ports.runtime.expandPath(inputPath);
   }
 
-  public get nodeRuntimePath(): string | null {
-    this.ports.runtime.initializeRuntimes();
-    return this.ports.runtime.getNodeRuntimePath();
-  }
-
-  public set nodeRuntimePath(value: string | null) {
-    this.ports.runtime.setNodeRuntimePath(value);
-  }
-
   public get bunRuntimePath(): string | null {
-    return this.nodeRuntimePath;
+    this.ports.runtime.initializeRuntimes();
+    return this.ports.runtime.getBunRuntimePath();
   }
 
   public set bunRuntimePath(value: string | null) {
-    this.nodeRuntimePath = value;
+    this.ports.runtime.setBunRuntimePath(value);
   }
 
   public get uvRuntimePath(): string | null {
@@ -294,22 +286,22 @@ export class McpClient {
             const allPaths = [...existingPaths, ...defaultPaths];
             // Add runtime paths
             const uvRuntimePath = this.ports.runtime.getUvRuntimePath();
-            const nodeRuntimePath = this.ports.runtime.getNodeRuntimePath();
+            const bunRuntimePath = this.ports.runtime.getBunRuntimePath();
             if (process.platform === "win32") {
               // On Windows, only add node and uv paths
               if (uvRuntimePath) {
                 allPaths.unshift(uvRuntimePath);
               }
-              if (nodeRuntimePath) {
-                allPaths.unshift(nodeRuntimePath);
+              if (bunRuntimePath) {
+                allPaths.unshift(bunRuntimePath);
               }
             } else {
               // Other platforms priority: node > uv
               if (uvRuntimePath) {
                 allPaths.unshift(uvRuntimePath);
               }
-              if (nodeRuntimePath) {
-                allPaths.unshift(path.join(nodeRuntimePath, "bin"));
+              if (bunRuntimePath) {
+                allPaths.unshift(path.dirname(bunRuntimePath));
               }
             }
 
@@ -341,22 +333,22 @@ export class McpClient {
           const allPaths = [...existingPaths, ...defaultPaths];
           // Add runtime paths
           const uvRuntimePath = this.ports.runtime.getUvRuntimePath();
-          const nodeRuntimePath = this.ports.runtime.getNodeRuntimePath();
+          const bunRuntimePath = this.ports.runtime.getBunRuntimePath();
           if (process.platform === "win32") {
             // On Windows, only add node and uv paths
             if (uvRuntimePath) {
               allPaths.unshift(uvRuntimePath);
             }
-            if (nodeRuntimePath) {
-              allPaths.unshift(nodeRuntimePath);
+            if (bunRuntimePath) {
+              allPaths.unshift(bunRuntimePath);
             }
           } else {
             // Other platforms priority: node > uv
             if (uvRuntimePath) {
               allPaths.unshift(uvRuntimePath);
             }
-            if (nodeRuntimePath) {
-              allPaths.unshift(path.join(nodeRuntimePath, "bin"));
+            if (bunRuntimePath) {
+              allPaths.unshift(path.join(bunRuntimePath, "bin"));
             }
           }
 

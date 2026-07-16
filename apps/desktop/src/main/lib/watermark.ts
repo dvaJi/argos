@@ -1,5 +1,5 @@
 import { nativeImage } from "electron";
-import sharp from "sharp";
+import { callDaemonRoute } from "#/lib/daemonProxy";
 
 export interface WatermarkOptions {
   isDark?: boolean;
@@ -99,44 +99,41 @@ const createWatermarkSvg = (width: number, options: WatermarkOptions): string =>
  */
 export const addWatermarkToImage = async (imageBuffer: Buffer, options: WatermarkOptions = {}): Promise<Buffer> => {
   try {
-    // Get original image information
-    const { width, height } = await sharp(imageBuffer).metadata();
+    // Get original image dimensions via daemon
+    const metaResult = await callDaemonRoute<{
+      imageBase64: string;
+      metadata?: { width?: number; height?: number; format?: string };
+    }>("image.process", {
+      imageBase64: imageBuffer.toString("base64"),
+      operations: [{ type: "metadata" }],
+    });
+
+    const width = metaResult.metadata?.width;
+    const height = metaResult.metadata?.height;
 
     if (!width || !height) {
       throw new Error("Unable to get image dimensions");
     }
 
-    const borderHeight = 80;
     const watermarkSvg = createWatermarkSvg(width, options);
     const watermarkBuffer = Buffer.from(watermarkSvg);
 
-    // Create watermarked image
-    const result = await sharp({
-      create: {
-        width,
-        height: height + borderHeight,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      },
-    })
-      .composite([
-        // Original image
+    // Create a larger canvas and composite image + watermark via daemon
+    const result = await callDaemonRoute<{ imageBase64: string }>("image.process", {
+      imageBase64: imageBuffer.toString("base64"),
+      operations: [
         {
-          input: imageBuffer,
-          top: 0,
-          left: 0,
+          type: "composite",
+          buffers: [
+            { base64: imageBuffer.toString("base64"), top: 0, left: 0 },
+            { base64: watermarkBuffer.toString("base64"), top: height, left: 0 },
+          ],
         },
-        // Watermark
-        {
-          input: watermarkBuffer,
-          top: height,
-          left: 0,
-        },
-      ])
-      .png()
-      .toBuffer();
+        { type: "png" },
+      ],
+    });
 
-    return result;
+    return Buffer.from(result.imageBase64, "base64");
   } catch (error) {
     console.error("Error adding watermark:", error);
     // If watermark addition fails, return original image
