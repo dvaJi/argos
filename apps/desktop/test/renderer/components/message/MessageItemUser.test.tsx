@@ -20,7 +20,7 @@ vi.mock("@iconify/react", () => ({
   Icon: () => <span className="icon-stub" />,
 }));
 
-vi.mock("#api/legacy/presenters", () => ({
+vi.mock("#api/presenterBridge", () => ({
   useLegacyPresenter: () => ({
     previewFile: vi.fn<(...args: any[]) => any>(),
   }),

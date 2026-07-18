@@ -1,57 +1,5 @@
 import zod from "zod";
-import { TimestampMsSchema, defineRouteContract } from "../common";
-
-export const DatabaseSecurityPasswordStorageSchema = zod.enum(["safeStorage", "manual", "none"]);
-
-export const DatabaseSecurityStatusSchema = zod.object({
-  enabled: zod.boolean(),
-  cipher: zod.literal("sqlcipher"),
-  safeStorageAvailable: zod.boolean(),
-  safeStorageBackend: zod.string().optional(),
-  passwordStorage: DatabaseSecurityPasswordStorageSchema,
-  manualUnlockRequired: zod.boolean(),
-  migrationInProgress: zod.boolean(),
-  lastMigrationAt: TimestampMsSchema.optional(),
-});
-
-export const databaseSecurityGetStatusRoute = defineRouteContract({
-  name: "databaseSecurity.getStatus",
-  input: zod.object({}).default({}),
-  output: zod.object({
-    status: DatabaseSecurityStatusSchema,
-  }),
-});
-
-export const databaseSecurityEnableRoute = defineRouteContract({
-  name: "databaseSecurity.enable",
-  input: zod.object({
-    password: zod.string().min(1),
-  }),
-  output: zod.object({
-    status: DatabaseSecurityStatusSchema,
-  }),
-});
-
-export const databaseSecurityChangePasswordRoute = defineRouteContract({
-  name: "databaseSecurity.changePassword",
-  input: zod.object({
-    currentPassword: zod.string().min(1),
-    newPassword: zod.string().min(1),
-  }),
-  output: zod.object({
-    status: DatabaseSecurityStatusSchema,
-  }),
-});
-
-export const databaseSecurityDisableRoute = defineRouteContract({
-  name: "databaseSecurity.disable",
-  input: zod.object({
-    currentPassword: zod.string().min(1),
-  }),
-  output: zod.object({
-    status: DatabaseSecurityStatusSchema,
-  }),
-});
+import { defineRouteContract } from "../common";
 
 export const DatabaseSchemaIssueKindSchema = zod.enum([
   "missing_table",
@@ -107,8 +55,6 @@ export const databaseSecurityRepairSchemaRoute = defineRouteContract({
   }),
 });
 
-export type DatabaseSecurityPasswordStorage = zod.infer<typeof DatabaseSecurityPasswordStorageSchema>;
-export type DatabaseSecurityStatus = zod.infer<typeof DatabaseSecurityStatusSchema>;
 export type DatabaseSchemaIssueKind = zod.infer<typeof DatabaseSchemaIssueKindSchema>;
 export type DatabaseSchemaIssue = zod.infer<typeof DatabaseSchemaIssueSchema>;
 export type DatabaseSchemaDiagnosis = zod.infer<typeof DatabaseSchemaDiagnosisSchema>;

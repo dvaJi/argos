@@ -97,7 +97,8 @@ export class DaemonMcpConfig {
 
   // ---- mcprouter (apiKey is read/written on the config store directly) ----
   async listMcpRouterServers(page: number, limit: number) {
-    return this.mcprouterManager.listServers(page, limit);
+    const data = await this.mcprouterManager.listServers(page, limit);
+    return data?.servers ?? [];
   }
   async installMcpRouterServer(serverKey: string) {
     return this.mcprouterManager.installServer(serverKey);

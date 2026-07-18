@@ -1,7 +1,7 @@
-FROM node:22-slim
+FROM oven/bun:1.3.14
 
-# Configure npm registry mirror
-RUN npm config set registry https://registry.npmmirror.com 
+# Configure npm registry mirror (used by electron-builder and other tools that still invoke npm)
+RUN npm config set registry https://registry.npmmirror.com
 
 RUN ldd --version
 # Install build-required system dependencies
@@ -18,9 +18,9 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN npm install \
-    && npm run installRuntime:linux:x64 \
-    && npm install --cpu=wasm32 sharp
+RUN bun install \
+    && bun run installRuntime:linux:x64 \
+    && bun install --cpu=wasm32 sharp
 
 # Build command
-CMD ["npm", "run", "build:linux:x64"] 
+CMD ["bun", "run", "build:linux:x64"]

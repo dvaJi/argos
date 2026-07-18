@@ -13,7 +13,6 @@ type SetupOptions = {
     allowedUserIds?: number[];
   };
   telegramChannelSettingsOverride?: Record<string, unknown>;
-  feishuChannelSettingsOverride?: Record<string, unknown>;
   status?: {
     enabled: boolean;
     state: "disabled" | "stopped" | "starting" | "running" | "backoff" | "error";
@@ -77,7 +76,6 @@ const setup = async (options: SetupOptions = {}) => {
   const remoteControlPresenter = {
     listRemoteChannels: vi.fn<(...args: any[]) => any>(async () => [
       { id: "telegram", implemented: true },
-      { id: "feishu", implemented: true },
       { id: "qqbot", implemented: true },
       { id: "discord", implemented: true },
       { id: "weixin-ilink", implemented: true },
@@ -135,7 +133,7 @@ const setup = async (options: SetupOptions = {}) => {
 
   const toast = vi.fn<(...args: any[]) => any>();
 
-  vi.doMock("#api/legacy/presenters", () => ({
+  vi.doMock("#api/presenterBridge", () => ({
     useLegacyPresenter: (name: string) => {
       if (name === "agentSessionPresenter") return agentSessionPresenter;
       if (name === "projectPresenter") return projectPresenter;
@@ -209,11 +207,7 @@ describe("RemoteSettings", () => {
   });
 
   it("uses remote control as the channel section title", async () => {
-    const { container } = await setup({
-      feishuChannelSettingsOverride: {
-        remoteEnabled: true,
-      },
-    });
+    const { container } = await setup();
 
     const text = container.textContent!;
     expect(text).not.toContain("settings.remote.sections.accessRules");

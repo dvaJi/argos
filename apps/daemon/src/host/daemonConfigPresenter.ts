@@ -1,7 +1,9 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DEFAULT_PROVIDERS, normalizeScheduledTasksConfig } from "@argos/backend-core";
+import { ProviderDbLoader, resolveAiSdkProviderDefinition } from "@argos/backend-core/provider";
 import type {
   BuiltinKnowledgeConfig,
   IConfigPresenter,
@@ -13,6 +15,8 @@ import type {
   OllamaModel,
 } from "@argos/shared/presenter";
 import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
+import type { ProviderAggregate, ProviderModel } from "@argos/shared/types/model-db";
+import type { ProviderDbRefreshResult } from "@argos/backend-core/provider";
 import type { Agent } from "@argos/shared/types/agent-interface";
 import { DaemonAcpConfig } from "./daemonAcpConfig";
 
@@ -24,6 +28,24 @@ export interface ModelStatusDb {
     run(...params: unknown[]): { changes: number };
   };
 }
+
+export function resolveDaemonProviderDbBuiltIn(): string | undefined {
+  const candidates = [
+    process.env.ARGOS_PROVIDER_DB_BUILTIN,
+    join(dirname(process.execPath), "model-db", "providers.json"),
+    join(dirname(fileURLToPath(import.meta.url)), "..", "resources", "model-db", "providers.json"),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+function createDaemonProviderDbLoader(dataDir: string): ProviderDbLoader {
+  const cacheDir = join(dataDir, "cache", "provider-db");
+  return new ProviderDbLoader({ cacheDir, builtInDbPath: resolveDaemonProviderDbBuiltIn() });
+}
+
 import { DaemonMcpConfig } from "./daemonMcpConfig";
 import { ModelType } from "@argos/shared/model";
 import type { ScheduledTasksSettings } from "@argos/shared/scheduledTasks";
@@ -83,11 +105,13 @@ export class DaemonConfigPresenter {
   private readonly mcpConfig: DaemonMcpConfig;
   private argosAgentRuntime: ArgosAgentRuntime | null = null;
   private readonly db?: ModelStatusDb;
+  private readonly providerDbLoader: ProviderDbLoader;
 
-  constructor(configDir: string, dataDir: string = configDir, db?: ModelStatusDb) {
+  constructor(configDir: string, dataDir: string = configDir, db?: ModelStatusDb, providerDbLoader?: ProviderDbLoader) {
     this.filePath = join(configDir, "config.json");
     this.store = this.load();
     this.db = db;
+    this.providerDbLoader = providerDbLoader ?? createDaemonProviderDbLoader(dataDir);
     this.acpConfig = new DaemonAcpConfig({
       configDir,
       dataDir,
@@ -343,6 +367,38 @@ export class DaemonConfigPresenter {
   }
 
   /**
+   * Returns the full provider-DB catalog owned by the daemon. This is the single
+   * source of truth for model metadata; desktop reads it via the daemon route.
+   */
+  getDaemonProviderDb(): { catalog: ProviderAggregate | null; sourceUrl: string; lastUpdated: number | null } {
+    const meta = this.providerDbLoader.getMetaInfo();
+    return {
+      catalog: this.providerDbLoader.getDb(),
+      sourceUrl: meta.sourceUrl,
+      lastUpdated: meta.lastUpdated,
+    };
+  }
+
+  /**
+   * Refreshes the daemon-owned provider-DB catalog and returns its current state.
+   */
+  async refreshDaemonProviderDb(force = false): Promise<{
+    providersCount: number;
+    lastUpdated: number | null;
+    sourceUrl: string;
+    status: ProviderDbRefreshResult["status"];
+  }> {
+    const result = await this.providerDbLoader.refreshIfNeeded(force);
+    const meta = this.providerDbLoader.getMetaInfo();
+    return {
+      providersCount: result.providersCount,
+      lastUpdated: meta.lastUpdated,
+      sourceUrl: meta.sourceUrl,
+      status: result.status,
+    };
+  }
+
+  /**
    * Per-model enabled/disabled state, persisted in the `model_status` SQLite table.
    * The model picker toggles call `setModelStatus`; `getModelStatusMap` feeds the
    * `modelStatusMap` returned by `models.getProviderCatalog`.
@@ -536,9 +592,51 @@ export class DaemonConfigPresenter {
       throw new Error(`Provider ${providerId} has no API key configured`);
     }
 
-    const models = await this.fetchProviderModels(provider);
+    const definition = resolveAiSdkProviderDefinition(provider);
+    const modelSource = definition?.modelSource ?? "openai";
+
+    const models =
+      modelSource === "provider-db"
+        ? await this.fetchProviderModelsFromCatalog(provider)
+        : await this.fetchProviderModels(provider);
     this.setProviderModels(providerId, models);
     return models;
+  }
+
+  private async fetchProviderModelsFromCatalog(provider: LLM_PROVIDER): Promise<MODEL_META[]> {
+    // Ensure the catalog is fresh (cached + remote refresh) before reading.
+    await this.providerDbLoader.refreshIfNeeded();
+
+    const definition = resolveAiSdkProviderDefinition(provider);
+    const sourceId = definition?.providerDbSourceId ?? provider.id;
+    const entry = this.providerDbLoader.getProvider(sourceId);
+    if (!entry) return [];
+
+    return entry.models.map((model) => this.mapProviderDbModelToMeta(provider.id, model));
+  }
+
+  private mapProviderDbModelToMeta(providerId: string, model: ProviderModel): MODEL_META {
+    const id = model.id;
+    const name = model.display_name || model.name || model.id;
+    const vision = model.modalities?.input?.includes("image") || undefined;
+    const functionCall = model.tool_call || undefined;
+    const reasoning = model.reasoning?.supported || undefined;
+    const type = model.type ? (model.type as ModelType) : undefined;
+    const contextLength = model.limit?.context;
+    const maxTokens = model.limit?.output;
+
+    return {
+      id,
+      name,
+      group: "default",
+      providerId,
+      vision,
+      functionCall,
+      reasoning,
+      type,
+      contextLength,
+      maxTokens,
+    };
   }
 
   async listOllamaModels(providerId: string): Promise<OllamaModel[]> {

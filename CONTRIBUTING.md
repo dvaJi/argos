@@ -20,7 +20,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 - Code submitted to `master` must ensure:
   - Basic functionality works
   - No compilation errors
-  - Project can start normally with `pnpm run dev`
+  - Project can start normally with `bun run dev`
 
 #### Major Features or Refactoring
 
@@ -31,8 +31,8 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 - `master` is the integration branch.
 - Cut a short-lived `release/<version>` branch from an existing commit on `master`.
-- macOS and Linux maintainers land the release with `pnpm run release:ff -- release/<version> --tag v<version>`.
-- Windows maintainers must use the documented manual release steps instead of `pnpm run release:ff`.
+- macOS and Linux maintainers land the release with `bun run release:ff -- release/<version> --tag v<version>`.
+- Windows maintainers must use the documented manual release steps instead of `bun run release:ff`.
 - Create the release tag on the same commit after `master` has been fast-forwarded.
 - See [docs/release-flow.md](./docs/release-flow.md) for the full maintainer procedure, manual fallback, and guardrails.
 
@@ -55,7 +55,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 2. Install required development tools:
 
-   - Install [Node.js](https://nodejs.org/) (Latest LTS version recommended)
+   - Install [Bun](https://bun.sh/) (version >= 1.3.14)
 
 3. Additional setup based on your operating system:
 
@@ -99,7 +99,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 5. Start the development server:
    ```bash
-   pnpm run dev
+   bun run dev
    ```
 
 ## Project Structure
@@ -109,7 +109,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 - `src/renderer/`: React 19 + TanStack Router app. Business/UI code lives under `src/renderer/src` (components, stores, pages, lib). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
 - `src/renderer/api/`: Renderer-main boundary layer. Put typed `*Client` classes, event subscriptions, and named runtime wrappers here. `src/renderer/api/legacy/` is quarantine-only compatibility code.
 - `src/shared/`: Shared route contracts, event contracts, types, and utilities used by both processes. Legacy presenter typings still exist for main internals and quarantine adapters.
-- `runtime/`: Bundled runtimes used by MCP and agent tooling (Node/uv).
+- `runtime/`: Bundled runtimes used by MCP and agent tooling (Bun/uv).
 - `scripts/`, `resources/`: Build, packaging, and asset pipelines.
 - `build/`, `out/`, `dist/`: Build outputs (do not edit manually).
 - `docs/`: Design docs and guides.
@@ -123,7 +123,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 - **Presenters stay in main**: Presenters still own most main-process capabilities, but on active paths they are an implementation detail behind routes, events, and wrappers. `src/renderer/api/legacy/**` is quarantine-only compatibility code.
 - **Multi-window + multi-tab shell**: WindowPresenter and TabPresenter manage true Electron windows/BrowserViews with detach/move support; an EventBus fans out cross-process events.
 - **Clear data boundaries**: Chat data lives in SQLite (`app_db/chat.db`), settings in Electron Store, knowledge bases in DuckDB, and backups via SyncPresenter. Renderer never touches the filesystem directly.
-- **Tooling-first runtime**: LLMProviderPresenter handles streaming, rate limits, and provider instances (cloud/local/ACP agent). MCPPresenter boots MCP servers, router marketplace, and in-memory tools with a bundled Node runtime.
+- **Tooling-first runtime**: LLMProviderPresenter handles streaming, rate limits, and provider instances (cloud/local/ACP agent). MCPPresenter boots MCP servers, router marketplace, and in-memory tools with a bundled Bun runtime.
 - **Safety & resilience**: `contextIsolation` is on; renderer-side OS/file/network access is gated behind typed bridges or quarantined wrappers; backup/import pipelines validate inputs; rate-limit guards prevent provider overload.
 
 ```
@@ -157,7 +157,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 ### Domain Modules & Feature Notes
 
 - **LLM pipeline**: `LLMProviderPresenter` orchestrates providers with rate-limit guards, per-provider instances, model discovery, ModelScope sync, custom model import, Ollama lifecycle, embeddings, and the agent loop (tool calls, streaming states). Session persistence for ACP agents lives in `AcpSessionPersistence`.
-- **MCP stack**: `McpPresenter` uses ServerManager/ToolManager/McpRouterManager to start/stop servers, choose npm registries, auto-start default/builtin servers, and surface tools/prompts/resources. Supports StreamableHTTP/SSE/Stdio transports and a debugging UI.
+- **MCP stack**: `McpPresenter` uses ServerManager/ToolManager/McpRouterManager to start/stop servers, choose package registries, auto-start default/builtin servers, and surface tools/prompts/resources. Supports StreamableHTTP/SSE/Stdio transports and a debugging UI.
 - **ACP (Agent Client Protocol)**: ACP providers spawn agent processes, map notifications into chat blocks, and feed the **ACP Workspace** (plan panel with incremental updates, terminal output, and a guarded file tree that requires `registerWorkdir`). PlanStateManager deduplicates plan items and keeps recent completions.
 - **Knowledge & search**: Built-in knowledge bases use DuckDB/vector pipelines with text splitters and MCP-backed configs; search assistants auto-select models and support API + simulated-browser engines via MCP or custom templates.
 - **Shell & UX**: Multi-window/multi-tab navigation, floating chat window, deeplink handling, sync/backup/restore (SQLite + configs zipped with manifest), notifications, and upgrade channel selection.
@@ -169,13 +169,13 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 - **State & UI**: Favor TanStack Store and composition utilities; keep components stateless where possible and compatible with detached tabs. Consider artifacts, variants, and streaming states when touching chat flows.
 - **LLM/MCP/ACP changes**: Respect rate limits; clean up active streams before switching providers; prefer typed events on migrated paths instead of adding new raw IPC or presenter reflection. For MCP, persist changes through main-owned config/runtime layers and surface server start/stop events. For ACP, always call `registerWorkdir` before reading the filesystem and clear plan/workspace state when sessions end.
 - **Data & persistence**: Route conversation/settings/provider/backup changes through main-owned clients or compatibility adapters; do not write directly into `appData` or other local stores from the renderer.
-- **Testing & quality gates**: Before sending a PR, run `pnpm run format`, `pnpm run lint`, `pnpm run typecheck`, and relevant `pnpm test*` suites.
+- **Testing & quality gates**: Before sending a PR, run `bun run format`, `bun run lint`, `bun run typecheck`, and relevant `bun test*` suites.
 
 ## Code Style
 
 - TypeScript + React 19 + TanStack Router + TanStack Store; Tailwind CSS + shadcn/ui for styling.
-- Oxfmt enforces double quotes, semicolons, width 120, and trailing commas; `pnpm run format` before committing.
-- OxLint is used for linting (`pnpm run lint`). Type checking via `pnpm run typecheck` (node + web targets).
+- Oxfmt enforces double quotes, semicolons, width 120, and trailing commas; `bun run format` before committing.
+- OxLint is used for linting (`bun run lint`). Type checking via `bun run typecheck` (node + web targets).
 - Tests use Vitest (`test/main`, `test/renderer`). Name tests `*.test.ts`/`*.test.tsx`/`*.spec.ts`.
 - Follow naming conventions: PascalCase components/types, camelCase variables/functions, SCREAMING_SNAKE_CASE constants.
 

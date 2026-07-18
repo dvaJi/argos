@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export type LegacyImportState = "idle" | "running" | "completed" | "failed" | "skipped";
@@ -17,7 +17,7 @@ export interface LegacyImportStatusRow {
 }
 
 export class LegacyImportStatusTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "legacy_import_status");
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RemoteCommandRouter } from "#/presenter/remoteControlPresenter/services/remoteCommandRouter";
+import { RemoteCommandRouter } from "@argos/remote-control-runtime/services/remoteCommandRouter";
 
 const createMessage = (overrides: Partial<Parameters<RemoteCommandRouter["handleMessage"]>[0]> = {}) => ({
   kind: "message" as const,

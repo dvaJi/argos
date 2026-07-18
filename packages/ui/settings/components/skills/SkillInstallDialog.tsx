@@ -16,7 +16,7 @@ import {
 } from "#shadcn/components/ui/alert-dialog";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, installFromFolder, installFromZip, installFromUrl } from "#/stores/skillsStore";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 
 interface SkillInstallDialogProps {
   open: boolean;
@@ -27,7 +27,7 @@ interface SkillInstallDialogProps {
 export default function SkillInstallDialog({ open, onOpenChange, onInstalled }: SkillInstallDialogProps) {
   const { toast } = useToast();
   const skillsStore = useSkillsStore();
-  const devicePresenter = useLegacyPresenter("devicePresenter");
+  const devicePresenter = usePresenter("devicePresenter");
 
   const [activeTab, setActiveTab] = useState("folder");
   const [installUrl, setInstallUrl] = useState("");

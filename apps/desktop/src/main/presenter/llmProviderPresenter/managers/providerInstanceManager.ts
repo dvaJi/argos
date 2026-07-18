@@ -10,7 +10,7 @@ import { RateLimitManager } from "./rateLimitManager";
 import { StreamState } from "../types";
 import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
-import { resolveAiSdkProviderDefinition } from "../providerRegistry";
+import { resolveAiSdkProviderDefinition } from "@argos/backend-core/provider/registry";
 
 interface ProviderInstanceManagerOptions {
   configPresenter: import("@argos/shared/presenter").IConfigPresenter;

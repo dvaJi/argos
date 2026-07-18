@@ -104,19 +104,6 @@ plugin:runtime/darwin/<arch>/Argos Computer Use.app/Contents/MacOS/cua-driver
 
 Each `.dcplugin` contains only the runtime directory for its target architecture.
 
-## Feishu Plugin Artifacts
-
-The feishu plugin targets all platforms (darwin, linux, win32). Its MCP server uses
-`node serve.mjs` which calls `npx` at runtime to download the `@larksuiteoapi/lark-mcp`
-package on first use.
-
-```text
-argos-plugin-feishu-<version>-darwin-arm64.dcplugin
-argos-plugin-feishu-<version>-darwin-x64.dcplugin
-argos-plugin-feishu-<version>-linux-x64.dcplugin
-argos-plugin-feishu-<version>-win32-x64.dcplugin
-```
-
 ## Output Locations
 
 Standalone packages:
@@ -136,9 +123,9 @@ build/bundled-plugins/
 The build matrix in `.github/workflows/build.yml` bundles plugins before running `electron-builder`
 on every platform:
 
-- **macOS**: bundles both CUA (with native build) and feishu plugins.
-- **Linux**: bundles feishu plugin only (CUA is macOS-only).
-- **Windows**: bundles feishu plugin only.
+- **macOS**: bundles the CUA plugin (with native build).
+- **Linux**: CUA is macOS-only; no `.dcplugin` is bundled.
+- **Windows**: CUA is macOS-only; no `.dcplugin` is bundled.
 
 Electron Builder embeds `.dcplugin` files from `build/bundled-plugins/` into:
 
@@ -158,8 +145,6 @@ Expected embedded files (macOS example):
 ```text
 app.asar.unpacked/plugins/argos-plugin-cua-<version>-darwin-x64.dcplugin
 app.asar.unpacked/plugins/argos-plugin-cua-<version>-darwin-arm64.dcplugin
-app.asar.unpacked/plugins/argos-plugin-feishu-<version>-darwin-x64.dcplugin
-app.asar.unpacked/plugins/argos-plugin-feishu-<version>-darwin-arm64.dcplugin
 ```
 
 ## Adding a New Plugin

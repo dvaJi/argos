@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { AGENT_MEMORY_CATEGORIES, type AgentMemoryCategory } from "@argos/shared/types/agent-memory";
 import { BaseTable } from "./baseTable";
 
@@ -94,7 +94,7 @@ function normalizeCategory(category: AgentMemoryCategory | null | undefined): Ag
 export class AgentMemoryTable extends BaseTable {
   private ftsReady = false;
 
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "agent_memory");
   }
 

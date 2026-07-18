@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface ArgosSearchDocumentRow {
@@ -33,7 +33,7 @@ function buildFtsMatchQuery(query: string): string {
 export class ArgosSearchDocumentsTable extends BaseTable {
   private ftsUnavailable = false;
 
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_search_documents");
   }
 

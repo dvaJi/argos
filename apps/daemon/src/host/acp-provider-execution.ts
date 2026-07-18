@@ -47,7 +47,7 @@ type PendingAcpPermission = {
  */
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
-  private activeTurns = new Map<string, AbortController>();
+  private activeTurns = new Map<string, { controller: AbortController; eventId: string; runId: string }>();
   private pendingPermissions = new Map<string, PendingAcpPermission>();
   private readonly contentMapper = new AcpContentMapper();
 
@@ -133,7 +133,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     const runtime = await this.getRuntime();
     const record = await this.getSessionRecord(sessionId);
     const controller = new AbortController();
-    this.activeTurns.set(sessionId, controller);
+    this.activeTurns.set(sessionId, {
+      controller,
+      eventId: assistantMessageId,
+      runId: requestId,
+    });
 
     void this.runTurn(
       runtime,
@@ -149,6 +153,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     });
 
     return { requestId, messageId: assistantMessageId };
+  }
+
+  getActiveGeneration(sessionId: string): { eventId: string; runId: string } | null {
+    const active = this.activeTurns.get(sessionId);
+    return active ? { eventId: active.eventId, runId: active.runId } : null;
   }
 
   async warmupAcpProcess(agentId: string, workdir?: string): Promise<void> {
@@ -495,8 +504,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
   }
 
   async cancelGeneration(sessionId: string): Promise<void> {
-    const controller = this.activeTurns.get(sessionId);
-    if (controller) controller.abort();
+    const active = this.activeTurns.get(sessionId);
+    if (active) active.controller.abort();
     for (const [toolCallId, pending] of this.pendingPermissions) {
       if (pending.sessionId !== sessionId) continue;
       this.pendingPermissions.delete(toolCallId);

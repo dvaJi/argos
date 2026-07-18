@@ -1,9 +1,8 @@
-export type RemoteChannelId = "telegram" | "feishu" | "qqbot" | "discord" | "weixin-ilink";
+export type RemoteChannelId = "telegram" | "qqbot" | "discord" | "weixin-ilink";
 export type RemoteChannel = RemoteChannelId;
-export type PairableRemoteChannel = Extract<RemoteChannelId, "telegram" | "feishu" | "qqbot" | "discord">;
+export type PairableRemoteChannel = Extract<RemoteChannelId, "telegram" | "qqbot" | "discord">;
 export type RemoteBindingKind = "dm" | "group" | "topic";
 export type TelegramStreamMode = "draft" | "final";
-export type FeishuBrand = "feishu" | "lark";
 export type RemoteRuntimeState = "disabled" | "stopped" | "starting" | "running" | "backoff" | "error";
 
 export interface RemoteChannelDescriptor {
@@ -34,10 +33,6 @@ export interface TelegramRemoteBindingSummary {
   updatedAt: number;
 }
 
-export interface FeishuRemoteBindingSummary extends RemoteBindingSummary {
-  channel: "feishu";
-}
-
 export interface QQBotRemoteBindingSummary extends RemoteBindingSummary {
   channel: "qqbot";
 }
@@ -50,12 +45,6 @@ export interface TelegramPairingSnapshot {
   pairCode: string | null;
   pairCodeExpiresAt: number | null;
   allowedUserIds: number[];
-}
-
-export interface FeishuPairingSnapshot {
-  pairCode: string | null;
-  pairCodeExpiresAt: number | null;
-  pairedUserOpenIds: string[];
 }
 
 export interface QQBotPairingSnapshot {
@@ -71,11 +60,7 @@ export interface DiscordPairingSnapshot {
   pairedChannelIds: string[];
 }
 
-export type RemotePairingSnapshot =
-  | TelegramPairingSnapshot
-  | FeishuPairingSnapshot
-  | QQBotPairingSnapshot
-  | DiscordPairingSnapshot;
+export type RemotePairingSnapshot = TelegramPairingSnapshot | QQBotPairingSnapshot | DiscordPairingSnapshot;
 
 export interface WeixinIlinkAccountSummary {
   accountId: string;
@@ -89,18 +74,6 @@ export interface TelegramRemoteSettings {
   remoteEnabled: boolean;
   defaultAgentId: string;
   defaultWorkdir: string;
-}
-
-export interface FeishuRemoteSettings {
-  brand: FeishuBrand;
-  appId: string;
-  appSecret: string;
-  verificationToken: string;
-  encryptKey: string;
-  remoteEnabled: boolean;
-  defaultAgentId: string;
-  defaultWorkdir: string;
-  pairedUserOpenIds: string[];
 }
 
 export interface QQBotRemoteSettings {
@@ -129,14 +102,12 @@ export interface WeixinIlinkRemoteSettings {
 
 export type RemoteChannelSettings =
   | TelegramRemoteSettings
-  | FeishuRemoteSettings
   | QQBotRemoteSettings
   | DiscordRemoteSettings
   | WeixinIlinkRemoteSettings;
 
 export type ChannelSettingsMap = {
   telegram: TelegramRemoteSettings;
-  feishu: FeishuRemoteSettings;
   qqbot: QQBotRemoteSettings;
   discord: DiscordRemoteSettings;
   "weixin-ilink": WeixinIlinkRemoteSettings;
@@ -153,19 +124,6 @@ export interface TelegramRemoteStatus {
   botUser: {
     id: number;
     username?: string;
-  } | null;
-}
-
-export interface FeishuRemoteStatus {
-  channel: "feishu";
-  enabled: boolean;
-  state: RemoteRuntimeState;
-  bindingCount: number;
-  pairedUserCount: number;
-  lastError: string | null;
-  botUser: {
-    openId: string;
-    name?: string;
   } | null;
 }
 
@@ -216,7 +174,6 @@ export interface WeixinIlinkRemoteStatus {
 
 export type RemoteChannelStatus =
   | TelegramRemoteStatus
-  | FeishuRemoteStatus
   | QQBotRemoteStatus
   | DiscordRemoteStatus
   | WeixinIlinkRemoteStatus;
@@ -246,7 +203,6 @@ export interface IRemoteControlPresenter {
   ): Promise<ChannelSettingsMap[T]>;
 
   getChannelStatus(channel: "telegram"): Promise<TelegramRemoteStatus>;
-  getChannelStatus(channel: "feishu"): Promise<FeishuRemoteStatus>;
   getChannelStatus(channel: "qqbot"): Promise<QQBotRemoteStatus>;
   getChannelStatus(channel: "discord"): Promise<DiscordRemoteStatus>;
   getChannelStatus(channel: "weixin-ilink"): Promise<WeixinIlinkRemoteStatus>;
@@ -257,7 +213,6 @@ export interface IRemoteControlPresenter {
   removeChannelPrincipal(channel: PairableRemoteChannel, principalId: string): Promise<void>;
 
   getChannelPairingSnapshot(channel: "telegram"): Promise<TelegramPairingSnapshot>;
-  getChannelPairingSnapshot(channel: "feishu"): Promise<FeishuPairingSnapshot>;
   getChannelPairingSnapshot(channel: "qqbot"): Promise<QQBotPairingSnapshot>;
   getChannelPairingSnapshot(channel: "discord"): Promise<DiscordPairingSnapshot>;
   getChannelPairingSnapshot(channel: PairableRemoteChannel): Promise<RemotePairingSnapshot>;

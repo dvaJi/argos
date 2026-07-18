@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import os from "os";
-import Database from "better-sqlite3-multiple-ciphers";
+import { NullDatabase as Database } from "../../src/main/presenter/sqlitePresenter/dbType";
 import { unzipSync, zipSync } from "fflate";
 import * as fsMock from "fs";
 
@@ -21,7 +21,7 @@ const mainPresenterMocks = vi.hoisted(() => ({
   broadcastConversationThreadListUpdate: vi.fn<(...args: any[]) => any>(),
 }));
 
-vi.mock("better-sqlite3-multiple-ciphers", async () => {
+vi.mock("../../src/main/presenter/sqlitePresenter/dbType", async () => {
   const fs = await vi.importActual<typeof import("fs")>("fs");
   const path = await vi.importActual<typeof import("path")>("path");
 

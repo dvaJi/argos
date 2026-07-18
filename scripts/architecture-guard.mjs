@@ -23,12 +23,10 @@ const MAIN_GUARD_PATHS = [
 
 const RENDERER_SOURCE_ROOT = path.join(ROOT, 'packages/ui/src')
 const RENDERER_TYPED_BOUNDARY_ROOT = path.join(ROOT, 'packages/ui/api')
-const RENDERER_QUARANTINE_ROOT = path.join(ROOT, 'packages/ui/api/legacy')
-const RENDERER_QUARANTINE_ROOTS = [RENDERER_QUARANTINE_ROOT]
 const RETIRED_RENDERER_LEGACY_ENTRY_PATHS = [
-  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts')
+  path.join(ROOT, 'packages/ui/src/composables/usePresenter.ts'),
+  path.join(ROOT, 'packages/ui/api/legacy')
 ]
-const RENDERER_QUARANTINE_MAX_SOURCE_FILES = 3
 const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
   path.join(ROOT, 'packages/ui/api/runtime.ts'),
   path.join(ROOT, 'packages/ui/api/local-api.ts')
@@ -36,6 +34,11 @@ const RENDERER_TYPED_BOUNDARY_WINDOW_API_ALLOWLIST = [
 const MAIN_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src/main')
 const DESKTOP_SOURCE_ROOT = path.join(ROOT, 'apps/desktop/src')
 const DAEMON_SOURCE_ROOT = path.join(ROOT, 'apps/daemon/src')
+const DESKTOP_REMOTE_CONTROL_ROOT = path.join(
+  ROOT,
+  'apps/desktop/src/main/presenter/remoteControlPresenter'
+)
+const DESKTOP_REMOTE_CONTROL_ALLOWLIST = new Set(['index.ts', 'interface.ts'])
 const PHASE_ORDER = new Map([
   ['P0', 0],
   ['P1', 1],
@@ -114,7 +117,7 @@ const GENERIC_LEGACY_PRESENTER_CALL_PATTERN =
 const LEGACY_PRESENTER_HELPER_CALL_PATTERN =
   /(?<!function\s)\b(?:usePresenter|useLegacyPresenter|useLegacy[A-Z][A-Za-z]*Presenter)\s*\(/g
 const LEGACY_PRESENTER_IMPORT_PATTERN =
-  /\b(?:import|export)\b[\s\S]*?from\s*['"][^'"]*(?:composables\/usePresenter|legacy\/presenters)['"]|\bimport\s*['"][^'"]*(?:composables\/usePresenter|legacy\/presenters)['"]/g
+  /\b(?:import|export)\b[\s\S]*?from\s*['"][^'"]*(?:composables\/usePresenter|presenterBridge)['"]|\bimport\s*['"][^'"]*(?:composables\/usePresenter|presenterBridge)['"]/g
 const WINDOW_ELECTRON_PATTERN = /window\.electron\b/g
 const WINDOW_API_PATTERN = /window\.api\b/g
 const IPC_RENDERER_LISTENER_PATTERN =
@@ -150,8 +153,8 @@ function isUnder(targetPath, parentPath) {
   )
 }
 
-function isRendererQuarantineFile(filePath) {
-  return RENDERER_QUARANTINE_ROOTS.some((quarantineRoot) => isUnder(filePath, quarantineRoot))
+function isRendererQuarantineFile() {
+  return false
 }
 
 async function pathExists(targetPath) {
@@ -367,23 +370,19 @@ async function main() {
     violations.push(`[bridge-register-invalid] ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  if (!(await pathExists(RENDERER_QUARANTINE_ROOT))) {
-    violations.push(
-      `[renderer-quarantine-missing] ${relativePath(RENDERER_QUARANTINE_ROOT)} must exist as the only allowed renderer legacy quarantine directory`
-    )
-  }
-
-  const quarantineFiles = await collectFiles(RENDERER_QUARANTINE_ROOT)
-  if (quarantineFiles.length > RENDERER_QUARANTINE_MAX_SOURCE_FILES) {
-    violations.push(
-      `[renderer-quarantine-growth] ${relativePath(RENDERER_QUARANTINE_ROOT)} expected <= ${RENDERER_QUARANTINE_MAX_SOURCE_FILES} source files, found ${quarantineFiles.length}`
-    )
-  }
-
   for (const retiredEntryPath of RETIRED_RENDERER_LEGACY_ENTRY_PATHS) {
     if (await pathExists(retiredEntryPath)) {
       violations.push(
         `[renderer-retired-legacy-entry] ${relativePath(retiredEntryPath)} must remain deleted`
+      )
+    }
+  }
+
+  for (const filePath of await collectFiles(DESKTOP_REMOTE_CONTROL_ROOT)) {
+    const relative = path.relative(DESKTOP_REMOTE_CONTROL_ROOT, filePath)
+    if (!DESKTOP_REMOTE_CONTROL_ALLOWLIST.has(relative)) {
+      violations.push(
+        `[desktop-remote-runtime-ownership] ${relativePath(filePath)} must live in @argos/remote-control-runtime and run in the daemon`
       )
     }
   }
@@ -562,6 +561,7 @@ async function main() {
     { root: path.join(ROOT, 'packages/acp-runtime/src'), label: '@argos/acp-runtime' },
     { root: path.join(ROOT, 'packages/agent-runtime/src'), label: '@argos/agent-runtime' },
     { root: path.join(ROOT, 'packages/mcp-runtime/src'), label: '@argos/mcp-runtime' },
+    { root: path.join(ROOT, 'packages/remote-control-runtime/src'), label: '@argos/remote-control-runtime' },
     { root: path.join(ROOT, 'packages/skills-runtime/src'), label: '@argos/skills-runtime' },
   ]
   const FORBIDDEN_PACKAGE_IMPORTS = [

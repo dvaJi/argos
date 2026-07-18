@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IConfigPresenter, LLM_PROVIDER } from "@argos/shared/presenter";
 import { AiSdkProvider } from "../../../../src/main/presenter/llmProviderPresenter/providers/aiSdkProvider";
-import { resolveAiSdkProviderDefinition } from "../../../../src/main/presenter/llmProviderPresenter/providerRegistry";
+import { resolveAiSdkProviderDefinition } from "@argos/backend-core/provider/registry";
 
 const { mockGetProvider, mockRunAiSdkGenerateText } = vi.hoisted(() => ({
   mockGetProvider: vi.fn<(...args: any[]) => any>(),

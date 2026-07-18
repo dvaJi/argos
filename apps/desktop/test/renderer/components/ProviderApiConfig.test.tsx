@@ -36,7 +36,7 @@ async function setup(options?: {
     openDialog: vi.fn<(...args: any[]) => any>(),
   };
 
-  vi.doMock("#api/legacy/presenters", () => ({
+  vi.doMock("#api/presenterBridge", () => ({
     useLegacyPresenter: (name: string, opts?: { safeCall?: boolean }) => {
       if (name === "llmproviderPresenter") return llmproviderPresenter;
       throw new Error(`Unexpected presenter: ${name}`);
@@ -213,7 +213,7 @@ describe("ProviderApiConfig", () => {
     });
 
     vi.resetModules();
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter,
     }));
     vi.doMock("#/stores/modelCheck", () => ({

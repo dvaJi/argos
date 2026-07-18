@@ -13,9 +13,9 @@ export function createMcpTestPorts(overrides: Partial<McpHostPorts["services"]> 
       processCommandWithArgs: (command, args) => ({ command, args }),
       normalizePathEnv: (paths) => ({ key: "PATH", value: paths.join(":") }),
       getDefaultPaths: () => [],
-      getNodeRuntimePath: () => null,
+      getBunRuntimePath: () => null,
       getUvRuntimePath: () => null,
-      setNodeRuntimePath: () => {},
+      setBunRuntimePath: () => {},
       setUvRuntimePath: () => {},
     },
     events: {

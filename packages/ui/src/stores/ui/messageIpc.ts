@@ -1,5 +1,5 @@
 import { createChatClient } from "../../../api/ChatClient";
-import { onLegacyIpcChannel } from "#api/legacy/runtime";
+import { onIpcChannel } from "#api/runtime";
 import { STREAM_EVENTS } from "#/events";
 import type { AssistantMessageBlock } from "@argos/shared/types/agent-interface";
 
@@ -91,10 +91,10 @@ export function bindMessageStoreIpc(options: BindMessageStoreIpcOptions): () => 
 
       reloadPersistedMessages(payload.sessionId);
     }),
-    onLegacyIpcChannel(STREAM_EVENTS.END, (_event, payload) => {
+    onIpcChannel(STREAM_EVENTS.END, (_event, payload) => {
       reloadPersistedMessagesFromLegacyEvent(payload);
     }),
-    onLegacyIpcChannel(STREAM_EVENTS.ERROR, (_event, payload) => {
+    onIpcChannel(STREAM_EVENTS.ERROR, (_event, payload) => {
       reloadPersistedMessagesFromLegacyEvent(payload);
     }),
   ];

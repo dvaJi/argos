@@ -178,7 +178,7 @@ export const SETTINGS_NAVIGATION_ITEMS: SettingsNavigationItem[] = [
     icon: "lucide:smartphone",
     position: 5.25,
     groupKey: "system",
-    keywords: ["remote", "telegram", "feishu", "control"],
+    keywords: ["remote", "telegram", "control"],
   },
   {
     routeName: "settings-notifications-hooks",

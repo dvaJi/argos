@@ -1,11 +1,55 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
 import { createPluginClient } from "#api/PluginClient";
-import type { PluginActionResult, PluginListItem, PluginRuntimeState } from "@argos/shared/types/plugin";
+import type {
+  PluginActionResult,
+  PluginInvokeActionRequest,
+  PluginListItem,
+  PluginRuntimeState,
+} from "@argos/shared/types/plugin";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 
 const pluginClient = createPluginClient();
+
+type OpenPluginSettings = {
+  pluginId: string;
+  title: string;
+  url: string;
+};
+
+type PluginSettingsFrameRequest = {
+  source: "argos-plugin-settings-frame";
+  requestId: string;
+  pluginId: string;
+  method: "getStatus" | "enable" | "disable" | "invokeAction";
+  args?: unknown[];
+};
+
+function getSettingsUrl(result: PluginActionResult): string | null {
+  if (!result.data || Array.isArray(result.data) || typeof result.data !== "object") return null;
+  const settingsUrl = result.data.settingsUrl;
+  if (typeof settingsUrl !== "string") return null;
+  if (settingsUrl.startsWith("/")) return settingsUrl;
+  try {
+    const url = new URL(settingsUrl);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function isPluginSettingsFrameRequest(value: unknown): value is PluginSettingsFrameRequest {
+  if (!value || typeof value !== "object") return false;
+  const request = value as Partial<PluginSettingsFrameRequest>;
+  return (
+    request.source === "argos-plugin-settings-frame" &&
+    typeof request.requestId === "string" &&
+    typeof request.pluginId === "string" &&
+    typeof request.method === "string"
+  );
+}
 
 function formatRuntimeState(state?: PluginRuntimeState): string {
   if (!state) return "-";
@@ -29,6 +73,8 @@ export default function PluginsSettings() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [pendingPluginId, setPendingPluginId] = useState<string | null>(null);
+  const [openPluginSettings, setOpenPluginSettings] = useState<OpenPluginSettings | null>(null);
+  const settingsFrameRef = useRef<HTMLIFrameElement>(null);
 
   const loadPlugins = useCallback(async () => {
     setLoading(true);
@@ -38,9 +84,8 @@ export default function PluginsSettings() {
       setPlugins(result);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to load plugins");
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, []);
 
   const runPluginAction = useCallback(
@@ -50,14 +95,14 @@ export default function PluginsSettings() {
       try {
         const result = await action();
         if (!result.ok) {
-          throw new Error(result.error || "Action failed");
+          setErrorMessage(result.error || "Action failed");
+        } else {
+          await loadPlugins();
         }
-        await loadPlugins();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Action failed");
-      } finally {
-        setPendingPluginId(null);
       }
+      setPendingPluginId(null);
     },
     [loadPlugins],
   );
@@ -72,15 +117,99 @@ export default function PluginsSettings() {
     [runPluginAction],
   );
 
-  const openSettings = useCallback(
-    (pluginId: string) =>
-      runPluginAction(pluginId, () => pluginClient.invokeAction({ pluginId, actionId: "settings.open" })),
-    [runPluginAction],
-  );
+  const openSettings = useCallback(async (plugin: PluginListItem) => {
+    setPendingPluginId(plugin.id);
+    setErrorMessage("");
+    try {
+      const result = await pluginClient.invokeAction({ pluginId: plugin.id, actionId: "settings.open" });
+      if (!result.ok) {
+        setErrorMessage(result.error || "Failed to open plugin settings");
+      } else {
+        const url = getSettingsUrl(result);
+        if (url) {
+          setOpenPluginSettings({ pluginId: plugin.id, title: plugin.settings?.title || plugin.name, url });
+        }
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to open plugin settings");
+    }
+    setPendingPluginId(null);
+  }, []);
 
   useEffect(() => {
     void loadPlugins();
   }, [loadPlugins]);
+
+  useEffect(() => {
+    if (!openPluginSettings) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== settingsFrameRef.current?.contentWindow || !isPluginSettingsFrameRequest(event.data)) {
+        return;
+      }
+      const request = event.data;
+      if (request.pluginId !== openPluginSettings.pluginId) return;
+
+      void (async () => {
+        try {
+          let value: unknown;
+          if (request.method === "getStatus") {
+            const plugin = await pluginClient.getPlugin(request.pluginId);
+            value = {
+              pluginId: request.pluginId,
+              platform: "daemon",
+              arch: "unknown",
+              enabled: Boolean(plugin?.enabled),
+              runtime: plugin?.runtime,
+              mcpServers: plugin?.mcpServers,
+            };
+          } else if (request.method === "enable") {
+            value = await pluginClient.enablePlugin(request.pluginId);
+            await loadPlugins();
+          } else if (request.method === "disable") {
+            value = await pluginClient.disablePlugin(request.pluginId);
+            await loadPlugins();
+          } else {
+            const [actionId, payload] = request.args ?? [];
+            if (typeof actionId !== "string") {
+              settingsFrameRef.current?.contentWindow?.postMessage(
+                {
+                  source: "argos-plugin-settings-host",
+                  requestId: request.requestId,
+                  ok: false,
+                  error: "Plugin action ID is required",
+                },
+                "*",
+              );
+              return;
+            }
+            value = await pluginClient.invokeAction({
+              pluginId: request.pluginId,
+              actionId,
+              payload: payload as PluginInvokeActionRequest["payload"],
+            });
+          }
+          settingsFrameRef.current?.contentWindow?.postMessage(
+            { source: "argos-plugin-settings-host", requestId: request.requestId, ok: true, value },
+            "*",
+          );
+        } catch (error) {
+          settingsFrameRef.current?.contentWindow?.postMessage(
+            {
+              source: "argos-plugin-settings-host",
+              requestId: request.requestId,
+              ok: false,
+              error: error instanceof Error ? error.message : "Plugin settings request failed",
+            },
+            "*",
+          );
+        }
+      })();
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [loadPlugins, openPluginSettings]);
 
   return (
     <SettingsPageShell
@@ -180,7 +309,7 @@ export default function PluginsSettings() {
                   size="sm"
                   variant="outline"
                   disabled={pendingPluginId === plugin.id}
-                  onClick={() => void openSettings(plugin.id)}
+                  onClick={() => void openSettings(plugin)}
                 >
                   <Icon icon="lucide:settings" className="mr-2 h-4 w-4" />
                   Settings
@@ -202,6 +331,24 @@ export default function PluginsSettings() {
           </article>
         ))}
       </div>
+
+      <Dialog open={Boolean(openPluginSettings)} onOpenChange={(open) => !open && setOpenPluginSettings(null)}>
+        <DialogContent className="flex h-[80dvh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle>{openPluginSettings?.title || "Plugin Settings"}</DialogTitle>
+            <DialogDescription>Configure this plugin through the daemon.</DialogDescription>
+          </DialogHeader>
+          {openPluginSettings && (
+            <iframe
+              ref={settingsFrameRef}
+              src={openPluginSettings.url}
+              title={`${openPluginSettings.title} settings`}
+              sandbox="allow-forms allow-scripts"
+              className="min-h-0 flex-1 border-0 bg-background"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </SettingsPageShell>
   );
 }

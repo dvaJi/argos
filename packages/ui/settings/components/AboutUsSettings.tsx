@@ -14,7 +14,7 @@ import { useUpgradeStore } from "#/stores/upgrade";
 import { useLanguageStore } from "#/stores/language";
 import { useThemeStore } from "#/stores/theme";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { DEV_EVENTS, SETTINGS_EVENTS } from "#/events";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 import logoImg from "#/assets/logo.png";
@@ -23,9 +23,9 @@ export default function AboutUsSettings() {
   const { toast } = useToast();
   const themeStore = useThemeStore();
   const languageStore = useLanguageStore();
-  const devicePresenter = useLegacyPresenter("devicePresenter");
-  const configPresenter = useLegacyPresenter("configPresenter");
-  const windowPresenter = useLegacyPresenter("windowPresenter");
+  const devicePresenter = usePresenter("devicePresenter");
+  const configPresenter = usePresenter("configPresenter");
+  const windowPresenter = usePresenter("windowPresenter");
   const upgrade = useUpgradeStore();
 
   const [appVersion, setAppVersion] = useState("");

@@ -8,7 +8,7 @@ import * as path from "path";
  */
 export class RuntimeHelper {
   private static instance: RuntimeHelper | null = null;
-  private nodeRuntimePath: string | null = null;
+  private bunRuntimePath: string | null = null;
   private uvRuntimePath: string | null = null;
   private ripgrepRuntimePath: string | null = null;
   private rtkRuntimePath: string | null = null;
@@ -38,7 +38,7 @@ export class RuntimeHelper {
     }
 
     if (force) {
-      this.nodeRuntimePath = null;
+      this.bunRuntimePath = null;
       this.uvRuntimePath = null;
       this.ripgrepRuntimePath = null;
       this.rtkRuntimePath = null;
@@ -46,21 +46,21 @@ export class RuntimeHelper {
 
     const runtimeBasePath = path.join(app.getAppPath(), "runtime").replace("app.asar", "app.asar.unpacked");
 
-    // Check if node runtime file exists
-    const nodeRuntimePath = path.join(runtimeBasePath, "node");
+    // Resolve Bun binary: prefer bundled runtime/bun, then PATH, then null
+    const bundledBunDir = path.join(runtimeBasePath, "bun");
     if (process.platform === "win32") {
-      const nodeExe = path.join(nodeRuntimePath, "node.exe");
-      if (fs.existsSync(nodeExe)) {
-        this.nodeRuntimePath = nodeRuntimePath;
+      const bunExe = path.join(bundledBunDir, "bun.exe");
+      if (fs.existsSync(bunExe)) {
+        this.bunRuntimePath = bunExe;
       } else {
-        this.nodeRuntimePath = null;
+        this.bunRuntimePath = this.findInPath("bun.exe");
       }
     } else {
-      const nodeBin = path.join(nodeRuntimePath, "bin", "node");
-      if (fs.existsSync(nodeBin)) {
-        this.nodeRuntimePath = nodeRuntimePath;
+      const bunBin = path.join(bundledBunDir, "bun");
+      if (fs.existsSync(bunBin)) {
+        this.bunRuntimePath = bunBin;
       } else {
-        this.nodeRuntimePath = null;
+        this.bunRuntimePath = this.findInPath("bun");
       }
     }
 
@@ -128,15 +128,33 @@ export class RuntimeHelper {
   }
 
   /**
-   * Get Node.js runtime path
-   * @returns Node.js runtime path or null if not found
+   * Get Bun runtime path
+   * @returns Bun binary path or null if not found
    */
-  public getNodeRuntimePath(): string | null {
-    return this.nodeRuntimePath;
+  public getBunRuntimePath(): string | null {
+    return this.bunRuntimePath;
   }
 
-  public setNodeRuntimePath(value: string | null): void {
-    this.nodeRuntimePath = value;
+  public setBunRuntimePath(value: string | null): void {
+    this.bunRuntimePath = value;
+  }
+
+  /**
+   * Find a command in PATH
+   */
+  private findInPath(command: string): string | null {
+    const separator = process.platform === "win32" ? ";" : ":";
+    const pathEnv = process.env.PATH || process.env.Path || "";
+    const candidates = pathEnv.split(separator).filter(Boolean);
+    for (const dir of candidates) {
+      const full = path.join(dir, command);
+      try {
+        if (fs.existsSync(full)) return full;
+      } catch {
+        // ignore
+      }
+    }
+    return null;
   }
 
   /**
@@ -172,8 +190,8 @@ export class RuntimeHelper {
 
     const candidates: string[] = [];
 
-    if (this.nodeRuntimePath) {
-      candidates.push(process.platform === "win32" ? this.nodeRuntimePath : path.join(this.nodeRuntimePath, "bin"));
+    if (this.bunRuntimePath) {
+      candidates.push(path.dirname(this.bunRuntimePath));
     }
     if (this.uvRuntimePath) {
       candidates.push(this.uvRuntimePath);
@@ -250,88 +268,15 @@ export class RuntimeHelper {
     // Get command basename (remove path)
     const basename = path.basename(command);
 
-    // Handle Node.js related commands (all platforms use same logic)
+    // Handle Node.js related commands -> map to Bun
     if (["node", "npm", "npx"].includes(basename)) {
-      if (this.nodeRuntimePath) {
-        if (process.platform === "win32") {
-          if (basename === "node") {
-            const nodeExe = path.join(this.nodeRuntimePath, "node.exe");
-            if (checkExists) {
-              if (fs.existsSync(nodeExe)) {
-                return nodeExe;
-              }
-              // If doesn't exist, return original command to let system find it via PATH
-              return command;
-            } else {
-              return nodeExe;
-            }
-          } else if (basename === "npm") {
-            // Windows usually has npm as .cmd file
-            const npmCmd = path.join(this.nodeRuntimePath, "npm.cmd");
-            if (checkExists) {
-              if (fs.existsSync(npmCmd)) {
-                return npmCmd;
-              }
-              // Check if npm exists without .cmd extension
-              const npmPath = path.join(this.nodeRuntimePath, "npm");
-              if (fs.existsSync(npmPath)) {
-                return npmPath;
-              }
-              // If doesn't exist, return original command to let system find it via PATH
-              return command;
-            } else {
-              // For mcpClient: return default path without checking
-              if (fs.existsSync(npmCmd)) {
-                return npmCmd;
-              }
-              return path.join(this.nodeRuntimePath, "npm");
-            }
-          } else if (basename === "npx") {
-            // On Windows, npx is typically a .cmd file
-            const npxCmd = path.join(this.nodeRuntimePath, "npx.cmd");
-            if (checkExists) {
-              if (fs.existsSync(npxCmd)) {
-                return npxCmd;
-              }
-              // Check if npx exists without .cmd extension
-              const npxPath = path.join(this.nodeRuntimePath, "npx");
-              if (fs.existsSync(npxPath)) {
-                return npxPath;
-              }
-              // If doesn't exist, return original command to let system find it via PATH
-              return command;
-            } else {
-              // For mcpClient: return default path without checking
-              if (fs.existsSync(npxCmd)) {
-                return npxCmd;
-              }
-              return path.join(this.nodeRuntimePath, "npx");
-            }
-          }
-        } else {
-          // Non-Windows platforms
-          let targetCommand: string;
-          if (basename === "node") {
-            targetCommand = "node";
-          } else if (basename === "npm") {
-            targetCommand = "npm";
-          } else if (basename === "npx") {
-            targetCommand = "npx";
-          } else {
-            targetCommand = basename;
-          }
-          const nodePath = path.join(this.nodeRuntimePath, "bin", targetCommand);
-          if (checkExists) {
-            if (fs.existsSync(nodePath)) {
-              return nodePath;
-            }
-            // If doesn't exist, return original command to let system find it via PATH
-            return command;
-          } else {
-            return nodePath;
-          }
+      const bunPath = this.bunRuntimePath;
+      if (bunPath) {
+        if (!checkExists || fs.existsSync(bunPath)) {
+          return bunPath;
         }
       }
+      return command;
     }
 
     // UV command handling (all platforms)
@@ -439,8 +384,16 @@ export class RuntimeHelper {
    * @returns Processed command and arguments
    */
   public processCommandWithArgs(command: string, args: string[]): { command: string; args: string[] } {
+    const resolvedCommand = this.replaceWithRuntimeCommand(command, true, false);
+    const basename = path.basename(command);
+    if (basename === "npx" && resolvedCommand !== command) {
+      return {
+        command: resolvedCommand,
+        args: ["x", ...args],
+      };
+    }
     return {
-      command: this.replaceWithRuntimeCommand(command, true, false),
+      command: resolvedCommand,
       args: args.map((arg) => this.replaceWithRuntimeCommand(arg, true, false)),
     };
   }

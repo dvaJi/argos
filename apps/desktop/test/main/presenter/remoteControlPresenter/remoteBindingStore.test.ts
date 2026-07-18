@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RemoteBindingStore } from "#/presenter/remoteControlPresenter/services/remoteBindingStore";
+import { RemoteBindingStore } from "@argos/remote-control-runtime/services/remoteBindingStore";
 
 const createConfigPresenter = () => {
   const store = new Map<string, unknown>();
@@ -134,55 +134,6 @@ describe("RemoteBindingStore", () => {
     );
   });
 
-  it("migrates legacy root-level feishu config into the nested structure", () => {
-    const configPresenter = createConfigPresenter();
-    configPresenter.setSetting("remoteControl", {
-      appId: "cli_a",
-      appSecret: "secret",
-      verificationToken: "verify",
-      encryptKey: "encrypt",
-      enabled: true,
-      defaultAgentId: "argos",
-      pairedUserOpenIds: ["ou_1", "ou_2"],
-      lastFatalError: "fatal",
-      pairing: {
-        code: "123456",
-        expiresAt: 456,
-      },
-      bindings: {
-        "feishu:oc_x:root": {
-          sessionId: "session-feishu",
-          updatedAt: 2,
-        },
-      },
-    });
-
-    const store = new RemoteBindingStore(configPresenter as any);
-
-    expect(store.getFeishuConfig()).toEqual(
-      expect.objectContaining({
-        appId: "cli_a",
-        appSecret: "secret",
-        verificationToken: "verify",
-        encryptKey: "encrypt",
-        enabled: true,
-        pairedUserOpenIds: ["ou_1", "ou_2"],
-        lastFatalError: "fatal",
-        pairing: expect.objectContaining({
-          code: "123456",
-          expiresAt: 456,
-          failedAttempts: 0,
-        }),
-      }),
-    );
-    expect(store.getBinding("feishu:oc_x:root")).toEqual(
-      expect.objectContaining({
-        sessionId: "session-feishu",
-        updatedAt: 2,
-      }),
-    );
-  });
-
   it("migrates legacy root-level discord config into the nested structure", () => {
     const configPresenter = createConfigPresenter();
     configPresenter.setSetting("remoteControl", {
@@ -243,22 +194,6 @@ describe("RemoteBindingStore", () => {
         },
         bindings: {},
       },
-      feishu: {
-        appId: "cli_a",
-        appSecret: "secret",
-        verificationToken: "verify",
-        encryptKey: "encrypt",
-        enabled: true,
-        defaultAgentId: "argos",
-        pairedUserOpenIds: ["ou_1", "ou_2"],
-        lastFatalError: null,
-        pairing: {
-          code: null,
-          expiresAt: null,
-          failedAttempts: 0,
-        },
-        bindings: {},
-      },
       qqbot: {
         appId: "app-1",
         clientSecret: "secret",
@@ -293,12 +228,10 @@ describe("RemoteBindingStore", () => {
     const store = new RemoteBindingStore(configPresenter as any);
 
     store.removeAllowedUser(456);
-    store.removeFeishuPairedUser("ou_2");
     store.removeQQBotPairedUser("user_openid_2");
     store.removeDiscordPairedChannel("channel-2");
 
     expect(store.getAllowedUserIds()).toEqual([123]);
-    expect(store.getFeishuPairedUserOpenIds()).toEqual(["ou_1"]);
     expect(store.getQQBotPairedUserIds()).toEqual(["user_openid_1"]);
     expect(store.getDiscordPairedChannelIds()).toEqual(["channel-1"]);
   });
@@ -436,7 +369,7 @@ describe("RemoteBindingStore", () => {
     const store = new RemoteBindingStore(configPresenter as any);
 
     store.setBinding("telegram:100:0", "session-1", {
-      channel: "feishu",
+      channel: "discord",
       kind: "dm",
       chatId: "100",
       threadId: null,
@@ -528,8 +461,8 @@ describe("RemoteBindingStore", () => {
     store.setChannelDefaultAgentId("telegram:100:0", "codex");
     expect(store.getTelegramDefaultAgentId()).toBe("codex");
 
-    store.setChannelDefaultAgentId("feishu:oc_x:root", "codex");
-    expect(store.getFeishuDefaultAgentId()).toBe("codex");
+    store.setChannelDefaultAgentId("weixin-ilink:abc", "codex");
+    expect(store.getWeixinIlinkDefaultAgentId()).toBe("codex");
 
     store.setChannelDefaultAgentId("qqbot:c2c:abc", "codex");
     expect(store.getQQBotDefaultAgentId()).toBe("codex");

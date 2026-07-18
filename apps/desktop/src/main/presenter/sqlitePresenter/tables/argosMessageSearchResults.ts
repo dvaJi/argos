@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { nanoid } from "nanoid";
 import { BaseTable } from "./baseTable";
 
@@ -14,7 +14,7 @@ export interface ArgosMessageSearchResultRow {
 }
 
 export class ArgosMessageSearchResultsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_message_search_results");
   }
 

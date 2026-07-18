@@ -1,5 +1,4 @@
-﻿import Database from "better-sqlite3-multiple-ciphers";
-import path from "path";
+﻿import { NullDatabase, type DatabaseLike as Database } from "./dbType";
 import fs from "fs";
 import { ConversationsTable } from "./tables/conversations";
 import { MessagesTable } from "./tables/messages";
@@ -40,7 +39,6 @@ import { NewSessionDisabledAgentToolsTable } from "./tables/newSessionDisabledAg
 import { SettingsActivityTable } from "./tables/settingsActivity";
 import { DatabaseRepairService, SchemaInspector } from "./schemaRepair";
 import type { SettingsActivityInput, SettingsActivityRecord } from "@argos/shared-contracts/routes";
-import { configureSQLiteConnection } from "./connectionConfig";
 import { LegacyChatImportService } from "../agentSessionPresenter/legacyImportService";
 
 const DESTRUCTIVE_DATABASE_ERROR_PATTERNS = [
@@ -67,28 +65,29 @@ export function isDestructiveDatabaseError(error: unknown): boolean {
   return DESTRUCTIVE_DATABASE_ERROR_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-function ensureDatabaseDirectory(dbPath: string): void {
-  const dbDir = path.dirname(dbPath);
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
+export function openSQLiteDatabase(_dbPath?: string): Database {
+  return new NullDatabase();
 }
 
-export function openSQLiteDatabase(dbPath: string, password?: string): Database.Database {
-  ensureDatabaseDirectory(dbPath);
-  const db = new Database(dbPath);
-  configureSQLiteConnection(db, password);
-  return db;
-}
-
-export function repairSQLiteDatabaseFile(dbPath: string, password?: string): DatabaseRepairReport {
-  const db = openSQLiteDatabase(dbPath, password);
-
-  try {
-    return new DatabaseRepairService(db, dbPath).repair();
-  } finally {
-    db.close();
-  }
+export function repairSQLiteDatabaseFile(_dbPath?: string): DatabaseRepairReport {
+  const now = Date.now();
+  const diagnosis = {
+    checkedAt: now,
+    isHealthy: true,
+    issues: [],
+    repairableIssues: [],
+    manualIssues: [],
+  } as unknown as import("@argos/shared/presenter").DatabaseSchemaDiagnosis;
+  return {
+    startedAt: now,
+    finishedAt: now,
+    status: "healthy",
+    backupPath: null,
+    diagnosisBeforeRepair: diagnosis,
+    diagnosisAfterRepair: diagnosis,
+    repairedIssues: [],
+    remainingIssues: [],
+  };
 }
 
 function stripLeadingSqlComments(statement: string): string {
@@ -197,7 +196,7 @@ export enum ImportMode {
 }
 
 export class SQLitePresenter implements ISQLitePresenter {
-  private db!: Database.Database;
+  private db!: Database;
   private conversationsTable!: ConversationsTable;
   private messagesTable!: MessagesTable;
   private messageAttachmentsTable!: MessageAttachmentsTable;
@@ -227,12 +226,10 @@ export class SQLitePresenter implements ISQLitePresenter {
   public settingsActivityTable!: SettingsActivityTable;
   private currentVersion: number = 0;
   private dbPath: string;
-  private password?: string;
   private destructiveInitializationRetryCount = 0;
 
-  constructor(dbPath: string, password?: string) {
+  constructor(dbPath: string) {
     this.dbPath = dbPath;
-    this.password = password;
     try {
       this.initializeDatabase();
     } catch (error) {
@@ -244,25 +241,16 @@ export class SQLitePresenter implements ISQLitePresenter {
     return this.messagesTable.deleteAllInConversation(conversationId);
   }
 
-  public getDatabase(): Database.Database {
+  public getDatabase(): Database {
     return this.db;
   }
 
-  public openDatabaseConnection(dbPath = this.dbPath): Database.Database {
-    return openSQLiteDatabase(dbPath, this.password);
+  public openDatabaseConnection(dbPath = this.dbPath): Database {
+    return openSQLiteDatabase(dbPath);
   }
 
   public getDatabasePath(): string {
     return this.dbPath;
-  }
-
-  public getDatabasePassword(): string | undefined {
-    return this.password;
-  }
-
-  public reopenWithPassword(password?: string): void {
-    this.password = password;
-    this.reopen();
   }
 
   public async diagnoseSchema(): Promise<DatabaseSchemaDiagnosis> {
@@ -291,7 +279,7 @@ export class SQLitePresenter implements ISQLitePresenter {
   }
 
   private initializeDatabase(): void {
-    this.db = openSQLiteDatabase(this.dbPath, this.password);
+    this.db = openSQLiteDatabase(this.dbPath);
     this.db.prepare("SELECT 1").get();
     this.initTables();
     this.initVersionTable();

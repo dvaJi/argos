@@ -1,6 +1,6 @@
 import {
   DISCORD_REMOTE_COMMANDS,
-  FEISHU_CONVERSATION_POLL_TIMEOUT_MS,
+  REMOTE_CONVERSATION_POLL_TIMEOUT_MS,
   TELEGRAM_STREAM_POLL_INTERVAL_MS,
   buildDiscordEndpointKey,
   type DiscordInboundMessage,
@@ -13,7 +13,7 @@ import type { DiscordCommandRouteResult } from "../services/discordCommandRouter
 import { DiscordCommandRouter } from "../services/discordCommandRouter";
 import type { RemoteConversationExecution } from "../services/remoteConversationRunner";
 import { REMOTE_NO_RESPONSE_TEXT } from "../services/remoteBlockRenderer";
-import { buildFeishuPendingInteractionText } from "../feishu/feishuInteractionPrompt";
+import { buildPendingInteractionText } from "../services/pendingInteractionPrompt";
 import { DiscordClient, type DiscordBotIdentity, type DiscordSlashCommandDefinition } from "./discordClient";
 import { DiscordGatewaySession, type DiscordGatewayBotUser } from "./discordGatewaySession";
 import { DiscordParser } from "./discordParser";
@@ -419,7 +419,7 @@ export class DiscordRuntime {
 
           await this.deps.client.sendMessage(
             target.channelId,
-            buildFeishuPendingInteractionText(snapshot.pendingInteraction),
+            buildPendingInteractionText(snapshot.pendingInteraction),
           );
           this.deps.bindingStore.clearRemoteDeliveryState(endpointKey);
           return;
@@ -440,7 +440,7 @@ export class DiscordRuntime {
         return;
       }
 
-      if (Date.now() - startedAt >= FEISHU_CONVERSATION_POLL_TIMEOUT_MS) {
+      if (Date.now() - startedAt >= REMOTE_CONVERSATION_POLL_TIMEOUT_MS) {
         const timeoutText = "The current conversation timed out before finishing. Please try again.";
         if (deliveryState) {
           deliveryState = await this.syncDeliverySegments(

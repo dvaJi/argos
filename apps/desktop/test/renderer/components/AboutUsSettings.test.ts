@@ -38,7 +38,7 @@ const upgradeStoreMock = {
   handleUpdate: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
 };
 
-vi.mock("#api/legacy/presenters", () => ({
+vi.mock("#api/presenterBridge", () => ({
   useLegacyPresenter: (name: keyof typeof presenterMocks) => presenterMocks[name],
 }));
 

@@ -3,13 +3,13 @@
 ## Touch points
 
 ### Shared types — `src/main/presenter/remoteControlPresenter/types.ts`
-- `agent` entry added to `TELEGRAM_REMOTE_COMMANDS`, `FEISHU_REMOTE_COMMANDS`, `QQBOT_REMOTE_COMMANDS`, `DISCORD_REMOTE_COMMANDS`. Weixin iLink keeps its private `COMMANDS` array.
+- `agent` entry added to `TELEGRAM_REMOTE_COMMANDS`, `QQBOT_REMOTE_COMMANDS`, `DISCORD_REMOTE_COMMANDS`. Weixin iLink keeps its private `COMMANDS` array.
 - New types: `TelegramAgentOption`, `TelegramAgentMenuState`, `TelegramAgentMenuCallback`.
 - New constants/codecs: `TELEGRAM_AGENT_MENU_TTL_MS`, `buildAgentMenuChoiceCallbackData`, `buildAgentMenuCancelCallbackData`, `parseAgentMenuCallbackData`. Callback prefix `agent`, mirrors the existing `model` prefix model.
 
 ### Persistence — `src/main/presenter/remoteControlPresenter/services/remoteBindingStore.ts`
 - New menu state: `createAgentMenuState`, `getAgentMenuState`, `clearAgentMenuState` plus `clearAgentMenuStatesForEndpoint` / `clearExpiredAgentMenuStates`. Cleared on rebind, on `clearTransientStateForEndpoint`, and on full `clearBindings()`.
-- New helper: `setChannelDefaultAgentId(endpointKey, agentId)` — picks the right per-channel updater (`updateTelegramConfig` / `updateFeishuConfig` / `updateQQBotConfig` / `updateDiscordConfig` / `updateWeixinIlinkConfig`).
+- New helper: `setChannelDefaultAgentId(endpointKey, agentId)` — picks the right per-channel updater (`updateTelegramConfig` / `updateQQBotConfig` / `updateDiscordConfig` / `updateWeixinIlinkConfig`).
 
 ### Runner — `src/main/presenter/remoteControlPresenter/services/remoteConversationRunner.ts`
 - `listAvailableAgents()` → `TelegramAgentOption[]`: `configPresenter.listAgents()` filtered by `enabled !== false`, projected to `{ agentId, agentName, agentType, source }`.
@@ -28,7 +28,7 @@
 - Helpers added: `buildAgentMenuKeyboard`, `formatAgentMenuText`, `formatAgentButtonLabel`, `formatAgentSwitchSuccessText`, `buildExpiredAgentMenuResult`.
 
 ### Text-channel routers
-- `feishuCommandRouter.ts`, `qqbotCommandRouter.ts`, `discordCommandRouter.ts`, `weixinIlinkCommandRouter.ts`: each gets a `case 'agent'` that delegates to a new `handleAgentCommand` private method, plus a `formatAgentOverview` helper. The pattern is symmetric to `handleModelCommand` / `formatModelOverview`.
+- `qqbotCommandRouter.ts`, `discordCommandRouter.ts`, `weixinIlinkCommandRouter.ts`: each gets a `case 'agent'` that delegates to a new `handleAgentCommand` private method, plus a `formatAgentOverview` helper. The pattern is symmetric to `handleModelCommand` / `formatModelOverview`.
 
 ## Decisions
 
@@ -42,5 +42,4 @@
 - `remoteBindingStore.test.ts`: agent menu state lifecycle; `setChannelDefaultAgentId` for each endpoint prefix.
 - `remoteConversationRunner.test.ts`: enabled-only filter, alias-tolerant match, unknown agent rejection, ACP workdir guard, successful switch + new session.
 - `remoteCommandRouter.test.ts` (Telegram): `/agent` menu render; callback success path; callback ACP-failure surfaces as alert; `/help` includes `/agent`.
-- `feishuCommandRouter.test.ts`: text overview without args; `/agent <id>` happy path.
-- (qqbot/discord/weixin tests intentionally light — same code path as Feishu, covered by the runner tests.)
+- (qqbot/discord/weixin tests intentionally light — same code path, covered by the runner tests.)

@@ -7,7 +7,7 @@ vi.mock("@iconify/react", () => ({
   Icon: () => null,
 }));
 
-vi.mock("#api/legacy/presenters", () => ({
+vi.mock("#api/presenterBridge", () => ({
   useLegacyPresenter: () => ({
     openFile: vi.fn<(...args: any[]) => any>(),
     revealFileInFolder: vi.fn<(...args: any[]) => any>(),

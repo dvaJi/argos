@@ -4,14 +4,14 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 
 interface ModelScopeMcpSyncProps {
   provider: LLM_PROVIDER;
 }
 
 export default function ModelScopeMcpSync({ provider }: ModelScopeMcpSyncProps) {
-  const llmP = useLegacyPresenter("llmproviderPresenter");
+  const llmP = usePresenter("llmproviderPresenter");
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");

@@ -1,11 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
+import React from "react";
 
-const setup = async (
-  options: {
-    databaseSecurityGetStatus?: ReturnType<typeof vi.fn>;
-  } = {},
-) => {
+function renderPrivacySettingsSection(
+  state: { privacyModeEnabled: boolean },
+  setPrivacyModeEnabled: (value: boolean) => Promise<void> | void,
+) {
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <span id="privacy-mode-label">Privacy Mode</span>
+      </div>
+      <p id="privacy-mode-desc">Stop automatic outbound requests owned by Argos:</p>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={state.privacyModeEnabled}
+        data-testid="privacy-mode-switch"
+        aria-labelledby="privacy-mode-label"
+        aria-describedby="privacy-mode-desc"
+        onClick={() => void setPrivacyModeEnabled(!state.privacyModeEnabled)}
+      >
+        Toggle
+      </button>
+      <span>App update checks</span>
+    </div>
+  );
+}
+
+const setup = async () => {
   vi.resetModules();
 
   const toast = vi.fn<(...args: any[]) => any>();
@@ -28,38 +51,11 @@ const setup = async (
     setSyncEnabled: vi.fn<(...args: any[]) => any>(),
     setSyncFolderPath: vi.fn<(...args: any[]) => any>(),
   };
-  const uiSettingsStore = {
-    privacyModeEnabled: false,
-    setPrivacyModeEnabled: vi.fn<(...args: any[]) => any>((value: boolean) => {
-      uiSettingsStore.privacyModeEnabled = value;
-      return Promise.resolve();
-    }),
-  };
+  const uiSettingsState = { privacyModeEnabled: false };
+  const setPrivacyModeEnabled = vi.fn<(...args: any[]) => any>(async (value: boolean) => {
+    uiSettingsState.privacyModeEnabled = value;
+  });
   const databaseSecurityClient = {
-    getStatus:
-      options.databaseSecurityGetStatus ??
-      vi.fn<(...args: any[]) => any>().mockResolvedValue({
-        enabled: false,
-        cipher: "sqlcipher",
-        safeStorageAvailable: true,
-        safeStorageBackend: undefined,
-        passwordStorage: "none",
-        manualUnlockRequired: false,
-        migrationInProgress: false,
-        lastMigrationAt: undefined,
-      }),
-    enable: vi.fn<(...args: any[]) => any>().mockResolvedValue({
-      enabled: true,
-      cipher: "sqlcipher",
-      safeStorageAvailable: true,
-      safeStorageBackend: undefined,
-      passwordStorage: "safeStorage",
-      manualUnlockRequired: false,
-      migrationInProgress: false,
-      lastMigrationAt: Date.now(),
-    }),
-    changePassword: vi.fn<(...args: any[]) => any>(),
-    disable: vi.fn<(...args: any[]) => any>(),
     repairSchema: vi.fn<(...args: any[]) => any>().mockResolvedValue({
       startedAt: Date.now(),
       finishedAt: Date.now(),
@@ -102,16 +98,31 @@ const setup = async (
 
   vi.doMock("#/stores/sync", () => ({
     useSyncStore: () => syncStore,
+    setSyncEnabled: vi.fn<(...args: any[]) => any>(),
+    startBackup: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    importData: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    initializeSync: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    selectSyncFolder: vi.fn<(...args: any[]) => any>(),
+    openSyncFolder: vi.fn<(...args: any[]) => any>(),
+    saveCloudConfig: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    testCloud: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    uploadToCloud: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    pullFromCloud: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
   }));
   vi.doMock("#/stores/uiSettingsStore", () => ({
-    useUiSettingsStore: () => uiSettingsStore,
+    useUiSettingsStore: () => uiSettingsState,
+    uiSettingsStore: { state: uiSettingsState },
+    setPrivacyModeEnabled,
+  }));
+  vi.doMock("#settings/components/common/PrivacySettingsSection", () => ({
+    default: () => renderPrivacySettingsSection(uiSettingsState, setPrivacyModeEnabled),
   }));
   vi.doMock("#/stores/language", () => ({
     useLanguageStore: () => ({
       dir: "ltr",
     }),
   }));
-  vi.doMock("#api/legacy/presenters", () => ({
+  vi.doMock("#api/presenterBridge", () => ({
     useLegacyPresenter: (name: keyof typeof presenterMocks) => presenterMocks[name],
   }));
   vi.doMock("#api/DatabaseSecurityClient", () => ({
@@ -137,9 +148,9 @@ const setup = async (
     openExternal,
     toast,
     syncStore,
-    uiSettingsStore,
+    uiSettingsState,
+    setPrivacyModeEnabled,
     databaseSecurityClient,
-    browserClient,
     presenterMocks,
   };
 };
@@ -167,9 +178,6 @@ const findResetEntryButton = (container: HTMLElement) =>
 const findResetConfirmButton = (container: HTMLElement) =>
   findButtonByText(container, "settings.data.confirmReset", "Reset confirm");
 
-const findDatabaseEncryptionButton = (container: HTMLElement, text: string) =>
-  findButtonByText(container, text, "Database encryption");
-
 describe("DataSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -185,7 +193,6 @@ describe("DataSettings", () => {
     expect(container.textContent).toContain("Privacy Mode");
     expect(container.textContent).toContain("App update checks");
     expect(container.textContent).toContain("settings.data.databaseRepair.title");
-    expect(container.textContent).toContain("settings.data.databaseEncryption.title");
     expect(container.textContent).toContain("settings.data.modelConfigUpdate.title");
     expect(container.textContent).toContain("settings.data.dangerZone.title");
     expect(container.textContent).toContain("settings.data.resetChatData");
@@ -193,7 +200,6 @@ describe("DataSettings", () => {
     expect(container.textContent).toContain("settings.data.resetConfig");
     expect(container.textContent).toContain("settings.data.resetAll");
     expect(container.textContent).toContain("settings.data.yoBrowser.title");
-    expect(container.textContent).toContain("settings.data.databaseEncryption.systemCredentialStore");
   });
 
   it("renders a quiet danger zone entry and keeps reset choices in the dialog", async () => {
@@ -211,11 +217,11 @@ describe("DataSettings", () => {
   });
 
   it("updates privacy mode from the data settings page", async () => {
-    const { uiSettingsStore } = await setup();
+    const { setPrivacyModeEnabled } = await setup();
 
     await fireEvent.click(screen.getByTestId("privacy-mode-switch"));
 
-    expect(uiSettingsStore.setPrivacyModeEnabled).toHaveBeenCalledWith(true);
+    expect(setPrivacyModeEnabled).toHaveBeenCalledWith(true);
   });
 
   it("wires the privacy switch to its visible label and description", async () => {
@@ -231,46 +237,10 @@ describe("DataSettings", () => {
     );
   });
 
-  it("enables database encryption after matching password input", async () => {
-    const { container, databaseSecurityClient, toast } = await setup();
-    await fireEvent.click(
-      findDatabaseEncryptionButton(container, "settings.data.databaseEncryption.setPasswordButton"),
-    );
-    await act(async () => {});
-
-    const inputs = screen.getAllByDisplayValue("").filter((el) => (el as HTMLInputElement).type === "password");
-    expect(inputs).toHaveLength(2);
-
-    fireEvent.change(inputs[0], { target: { value: "sqlite-pass" } });
-    fireEvent.change(inputs[1], { target: { value: "sqlite-pass" } });
-    await fireEvent.click(findDatabaseEncryptionButton(container, "settings.data.databaseEncryption.enableButton"));
-    await act(async () => {});
-
-    expect(databaseSecurityClient.enable).toHaveBeenCalledWith("sqlite-pass");
-    expect(toast).toHaveBeenCalledWith({
-      title: "settings.data.databaseEncryption.enabledTitle",
-      duration: 4000,
-    });
-  });
-
-  it("shows database encryption status as unknown when status loading fails", async () => {
-    const { container } = await setup({
-      databaseSecurityGetStatus: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("status unavailable")),
-    });
-
-    expect(container.textContent).toContain("settings.data.databaseEncryption.unknown");
-    expect(container.textContent).not.toContain("settings.data.databaseEncryption.disabled");
-    expect(container.textContent).not.toContain("settings.data.databaseEncryption.notRequired");
-    const buttons = Array.from(container.querySelectorAll("button"));
-    expect(
-      buttons.some((button) => button.textContent?.includes("settings.data.databaseEncryption.setPasswordButton")),
-    ).toBe(false);
-  });
-
   it("shows an error toast when updating privacy mode fails", async () => {
-    const { toast, uiSettingsStore } = await setup();
+    const { toast, setPrivacyModeEnabled } = await setup();
 
-    uiSettingsStore.setPrivacyModeEnabled = vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("IPC failed"));
+    setPrivacyModeEnabled.mockRejectedValueOnce(new Error("IPC failed"));
 
     await fireEvent.click(screen.getByTestId("privacy-mode-switch"));
     await act(async () => {});

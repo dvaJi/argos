@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "./dbType";
 
 export interface SchemaColumnSpec {
   name: string;
@@ -17,5 +17,5 @@ export interface SchemaTableSpec {
   createSql: string;
   columns: SchemaColumnSpec[];
   indexes: SchemaIndexSpec[];
-  afterRepair?: (db: Database.Database) => void;
+  afterRepair?: (db: Database) => void;
 }

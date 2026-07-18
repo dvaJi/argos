@@ -30,15 +30,14 @@ const { DaemonSyncRuntime } = await import("../src/host/daemonSyncRuntime");
 describe("DaemonSyncRuntime cloud sync", () => {
   let tempDir: string;
   let configDir: string;
-  let dataDir: string;
+  let syncFolderPath: string;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "argos-daemon-sync-"));
     configDir = path.join(tempDir, "config");
-    dataDir = path.join(tempDir, "data");
     fs.mkdirSync(configDir, { recursive: true });
-    fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(path.join(configDir, "config.json"), JSON.stringify({ provider: "test" }));
+    syncFolderPath = "";
     vi.clearAllMocks();
   });
 
@@ -49,14 +48,33 @@ describe("DaemonSyncRuntime cloud sync", () => {
 
   function createRuntime(): InstanceType<typeof DaemonSyncRuntime> {
     return new DaemonSyncRuntime({
-      dataDir,
       configDir,
+      configPresenter: {
+        getSyncFolderPath: () => syncFolderPath,
+      },
       eventPublisher: {
         publish: vi.fn(),
         subscribe: vi.fn(() => vi.fn()),
       },
     });
   }
+
+  it("creates and lists local backups in the configured sync folder", async () => {
+    syncFolderPath = path.join(tempDir, "selected-sync-folder");
+    const runtime = createRuntime();
+
+    const { timestamp } = await runtime.startBackup();
+    const { backups } = await runtime.listBackups();
+
+    expect(backups).toEqual([
+      expect.objectContaining({
+        fileName: `backup-${timestamp}.zip`,
+        createdAt: timestamp,
+      }),
+    ]);
+    expect(fs.existsSync(path.join(syncFolderPath, `backup-${timestamp}.zip`))).toBe(true);
+    expect(fs.existsSync(path.join(configDir, "backups", `backup-${timestamp}.zip`))).toBe(false);
+  });
 
   it("persists cloud config without exposing the secret in the config view", async () => {
     const runtime = createRuntime();

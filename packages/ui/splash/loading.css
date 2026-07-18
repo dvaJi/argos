@@ -143,17 +143,6 @@
   }
 }
 
-@keyframes splash-panel-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 /* ==========================================================================
    Shell
    ========================================================================== */
@@ -498,146 +487,11 @@
 }
 
 /* ==========================================================================
-   Unlock panel
-   ========================================================================== */
-
-.splash-unlock {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-}
-
-.splash-unlock__panel {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: min(320px, 100%);
-  flex-direction: column;
-  gap: 11px;
-  padding: var(--grid-6);
-  border: 1px solid var(--splash-border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--splash-bg-elevated);
-  box-shadow: 0 24px 60px -28px var(--splash-shadow);
-  animation: splash-panel-in 320ms var(--dc-ease-glide) both;
-}
-
-.splash-unlock__title {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: var(--weight-display);
-  letter-spacing: var(--tracking-tight);
-  color: var(--splash-ink);
-  margin: 0;
-}
-
-.splash-unlock__subtitle {
-  color: var(--splash-ink-dim);
-  font-size: 13px;
-  margin: 0 0 4px;
-}
-
-.splash-unlock__label {
-  margin-top: 8px;
-  color: var(--splash-ink-dim);
-  font-family: var(--font-mono-display);
-  font-size: 11px;
-  letter-spacing: var(--tracking-mono);
-  text-transform: uppercase;
-}
-
-.splash-unlock__input {
-  height: 36px;
-  border: 1px solid var(--splash-border);
-  border-radius: var(--radius-md);
-  outline: none;
-  background: transparent;
-  color: var(--splash-ink);
-  padding: 0 10px;
-  font-family: var(--font-mono-display);
-  font-size: 13px;
-  caret-color: var(--splash-accent);
-  transition:
-    border-color var(--dc-motion-snap) var(--dc-ease-snap),
-    box-shadow var(--dc-motion-snap) var(--dc-ease-snap);
-}
-
-.splash-unlock__input:focus {
-  border-color: var(--splash-accent);
-  box-shadow: 0 0 0 3px hsl(199 89% 56% / 0.18);
-}
-
-.splash-unlock__message {
-  color: var(--status-failed-ink);
-  font-family: var(--font-mono-display);
-  font-size: 11px;
-  letter-spacing: var(--tracking-mono);
-}
-
-.splash-unlock__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.splash-unlock__button {
-  height: 34px;
-  border: 1px solid var(--splash-border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--splash-ink);
-  padding: 0 14px;
-  font-size: 13px;
-  cursor: pointer;
-  transition:
-    background-color var(--dc-motion-snap) var(--dc-ease-snap),
-    border-color var(--dc-motion-snap) var(--dc-ease-snap),
-    transform var(--dc-motion-snap) var(--dc-ease-snap);
-}
-
-.splash-unlock__button:hover:not(:disabled) {
-  background: var(--status-running-bg);
-}
-
-.splash-unlock__button:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.splash-unlock__button:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.splash-unlock__button--primary {
-  border-color: var(--splash-accent);
-  background: var(--splash-accent);
-  color: var(--splash-accent-press);
-}
-
-.splash-unlock__button--primary:hover:not(:disabled) {
-  background: hsl(199 89% 62%);
-  border-color: hsl(199 89% 62%);
-}
-
-.splash-unlock__hint {
-  margin: 4px 0 0;
-  color: var(--splash-ink-faint);
-  font-family: var(--font-mono-display);
-  font-size: 11px;
-  letter-spacing: var(--tracking-mono);
-  line-height: 1.45;
-}
-
-/* ==========================================================================
    Reduced motion — everything settles instantly.
    ========================================================================== */
 
 @media (prefers-reduced-motion: reduce) {
   .splash-stage,
-  .splash-unlock__panel,
   .splash-wordmark,
   .splash-logo {
     animation: none !important;

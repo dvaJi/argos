@@ -20,7 +20,7 @@ import { useThemeStore } from "#/stores/theme";
 import { useLanguageStore } from "#/stores/language";
 import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOverlay";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { continueGuidedOnboardingFromSettings } from "../lib/guidedOnboardingSettings";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 
@@ -100,7 +100,7 @@ export default function ModelProviderSettings({ providerId: routeProviderId }: M
   const providerStore = useProviderStore();
   const modelStore = useModelStore();
   const themeStore = useThemeStore();
-  const windowPresenter = useLegacyPresenter("windowPresenter");
+  const windowPresenter = usePresenter("windowPresenter");
   const router = useRouter();
 
   const guideRootRef = useRef<HTMLDivElement | null>(null);

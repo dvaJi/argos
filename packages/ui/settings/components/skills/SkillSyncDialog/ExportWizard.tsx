@@ -6,7 +6,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "#shadcn/components/ui/radio-group";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import { useSkillsStore, loadSkills } from "#/stores/skillsStore";
 import type { ExternalToolConfig, ExportPreview, KiroInclusionMode } from "@argos/shared/types/skillSync";
@@ -22,7 +22,7 @@ interface ExportWizardProps {
 
 export const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
   const { toast } = useToast();
-  const skillSyncPresenter = useLegacyPresenter("skillSyncPresenter");
+  const skillSyncPresenter = usePresenter("skillSyncPresenter");
   const skillsStore = useSkillsStore();
   const localSkills = skillsStore.skills;
   const loadingSkills = skillsStore.loading;

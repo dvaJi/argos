@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface NewProjectRow {
@@ -9,7 +9,7 @@ export interface NewProjectRow {
 }
 
 export class NewProjectsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "new_projects");
   }
 

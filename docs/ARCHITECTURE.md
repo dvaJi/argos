@@ -43,9 +43,8 @@ Key takeaways:
 | `ToolPresenter` | `src/main/presenter/toolPresenter/` | Aggregates MCP tools and local agent tools, permission pre-checks, call routing |
 | `LLMProviderPresenter` | `src/main/presenter/llmProviderPresenter/` | Provider instances, model/runtime management, ACP helper, AI SDK runtime |
 | `StartupWorkloadCoordinator` | `src/main/presenter/startupWorkloadCoordinator/` | Phased background task scheduling for startup/settings/floating targets |
-| `RemoteControlPresenter` | `src/main/presenter/remoteControlPresenter/` | Telegram, Feishu/Lark, QQBot, Discord, WeChat iLink remote control |
+| `RemoteControlPresenter` | `src/main/presenter/remoteControlPresenter/` | Telegram, QQBot, Discord, WeChat iLink remote control |
 | `ScheduledTasksService` | `src/main/presenter/scheduledTasks/` | One-time, daily, and weekly task scheduling plus prompt/notify action dispatch |
-| `DatabaseSecurityPresenter` | `src/main/presenter/databaseSecurityPresenter/` | SQLCipher enable, password change, disable, safeStorage/manual unlock |
 | Spotlight search | `src/renderer/src/stores/ui/spotlight.ts` | Global search, session/message navigation, settings navigation, and non-destructive actions |
 
 ## Current Layering

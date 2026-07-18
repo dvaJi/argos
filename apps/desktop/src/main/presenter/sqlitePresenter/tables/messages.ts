@@ -1,4 +1,4 @@
-import { Database } from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import { SQLITE_MESSAGE } from "@argos/shared/presenter";
 import { nanoid } from "nanoid";

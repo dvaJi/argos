@@ -47,7 +47,7 @@ Beyond chat, Argos supports agentic workflows: rich tool calling via MCP (Model 
 - **Local Model Deployment**: Integrated Ollama with download, deploy, and run controls — no command line needed.
 - **Rich Chat Experience**: Markdown + [CodeMirror](https://codemirror.net/) rendering, multi-window/multi-tab parallelism, Artifacts, message retry and conversation forking, multi-modal (images, Mermaid, text-to-image), inline source highlighting.
 - **Search Extensions**: Built-in BoSearch and Brave Search MCP integrations, plus any custom search engine via a search-assistant model.
-- **MCP Support**: Full Resources/Prompts/Tools coverage, semantic workflows, inMemory services, StreamableHTTP/SSE/Stdio transports, visual debugging, and bundled Node.js / npx runtime.
+- **MCP Support**: Full Resources/Prompts/Tools coverage, semantic workflows, inMemory services, StreamableHTTP/SSE/Stdio transports, visual debugging, and bundled Bun interpreter.
 - **Skills**: Install from folders, ZIPs, or URLs; enable per conversation; import/export with Claude Code, Codex, Cursor, Windsurf, GitHub Copilot, Kiro, Antigravity, OpenCode, Goose, Kilo Code, and more. Built-ins cover code review, document collaboration, Office/PDF, frontend design, MCP development, and others.
 - **ACP Agent Integration**: Run ACP-compatible agents (built-in or custom commands) as selectable "models" with a native workspace UI.
 - **Remote Control**: Drive Argos sessions from Telegram, Feishu/Lark, QQBot, Discord, and WeChat iLink.
@@ -122,8 +122,8 @@ Read the [Contribution Guidelines](./CONTRIBUTING.md) first. Windows and Linux b
 ### Install Dependencies
 
 ```bash
-pnpm install
-pnpm run installRuntime
+bun install
+bun run installRuntime
 # if you hit `No module named 'distutils'`:
 pip install setuptools
 ```
@@ -133,19 +133,19 @@ pip install setuptools
 ### Start Development
 
 ```bash
-pnpm run dev
+bun run dev
 ```
 
 ### Build
 
 ```bash
-pnpm run build:win        # Windows (current arch)
-pnpm run build:mac        # macOS   (current arch)
-pnpm run build:linux      # Linux   (current arch)
+bun run build:win        # Windows (current arch)
+bun run build:mac        # macOS   (current arch)
+bun run build:linux      # Linux   (current arch)
 # Or target a specific architecture:
-pnpm run build:win:x64    pnpm run build:win:arm64
-pnpm run build:mac:x64    pnpm run build:mac:arm64
-pnpm run build:linux:x64  pnpm run build:linux:arm64
+bun run build:win:x64    bun run build:win:arm64
+bun run build:mac:x64    bun run build:mac:arm64
+bun run build:linux:x64  bun run build:linux:arm64
 ```
 
 See the [Developer Guide](./docs/developer-guide.md) for project structure and architecture.

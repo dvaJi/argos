@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { ChannelAdapter } from "#/presenter/remoteControlPresenter/channelAdapter";
-import type { ChannelAdapterConfig, SendMessageOptions } from "#/presenter/remoteControlPresenter/types/channel";
+import { ChannelAdapter } from "@argos/remote-control-runtime/channelAdapter";
+import type { ChannelAdapterConfig, SendMessageOptions } from "@argos/remote-control-runtime/types/channel";
 
 class TestChannelAdapter extends ChannelAdapter {
   readonly performConnectSpy = vi.fn<(...args: any[]) => any>(async () => {

@@ -2,8 +2,8 @@
 // pushes it to the dvaJi/homebrew-tap repo.
 //
 // Usage:
-//   ARGOS_TAP_TOKEN=<token> pnpm run distro:bump-tap -- 0.1.0
-//   DRY_RUN=1 pnpm run distro:bump-tap -- 0.1.0   # print formula, do not push
+//   ARGOS_TAP_TOKEN=<token> bun run distro:bump-tap -- 0.1.0
+//   DRY_RUN=1 bun run distro:bump-tap -- 0.1.0   # print formula, do not push
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";

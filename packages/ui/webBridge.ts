@@ -387,7 +387,6 @@ async function resolveRemoteControlRoute(args: unknown[]): Promise<unknown> {
   const CHANNEL_BY_PREFIX: Record<string, string> = {
     Telegram: "telegram",
     Discord: "discord",
-    Feishu: "feishu",
     QQBot: "qqbot",
     WeixinIlink: "weixin-ilink",
   };

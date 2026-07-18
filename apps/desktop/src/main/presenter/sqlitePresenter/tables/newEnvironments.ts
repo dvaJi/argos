@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface NewEnvironmentRow {
@@ -8,7 +8,7 @@ export interface NewEnvironmentRow {
 }
 
 export class NewEnvironmentsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "new_environments");
   }
 

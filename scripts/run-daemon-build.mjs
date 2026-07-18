@@ -15,10 +15,10 @@ const result =
   process.platform === "win32"
     ? spawnSync(
         "cmd.exe",
-        ["/d", "/s", "/c", "pnpm turbo run build --filter=@argos/daemon"],
+        ["/d", "/s", "/c", "bun x turbo run build --filter=@argos/daemon"],
         spawnOptions,
       )
-    : spawnSync("pnpm", ["turbo", "run", "build", "--filter=@argos/daemon"], spawnOptions);
+    : spawnSync("bun", ["x", "turbo", "run", "build", "--filter=@argos/daemon"], spawnOptions);
 
 if (result.error) throw result.error;
 process.exitCode = result.status ?? 1;

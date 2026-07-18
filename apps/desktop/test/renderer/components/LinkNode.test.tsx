@@ -33,7 +33,7 @@ describe("LinkNode", () => {
       useSessionStore: () => sessionStore,
     }));
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: () => ({}),
     }));
 
@@ -111,7 +111,7 @@ describe("LinkNode", () => {
       }),
     }));
 
-    vi.doMock("#api/legacy/presenters", () => ({
+    vi.doMock("#api/presenterBridge", () => ({
       useLegacyPresenter: () => ({}),
     }));
 

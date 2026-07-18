@@ -3,8 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { app } from "electron";
-import { RemoteConversationRunner } from "#/presenter/remoteControlPresenter/services/remoteConversationRunner";
+import { RemoteConversationRunner } from "@argos/remote-control-runtime/services/remoteConversationRunner";
 
 const createSession = (overrides: Record<string, unknown> = {}) => ({
   id: "session-1",
@@ -13,6 +12,8 @@ const createSession = (overrides: Record<string, unknown> = {}) => ({
   projectDir: null,
   isPinned: false,
   isDraft: false,
+  sessionKind: "regular",
+  subagentEnabled: false,
   createdAt: 1,
   updatedAt: 1,
   status: "idle",
@@ -35,7 +36,6 @@ const encryptAes128Ecb = (content: Buffer, key: Buffer): Buffer => {
 describe("RemoteConversationRunner", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation(() => "/mock/path");
   });
 
   it("creates new sessions with the current default argos agent", async () => {
@@ -44,15 +44,16 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           createDetachedSession: vi
             .fn<(...args: any[]) => any>()
             .mockResolvedValue(createSession({ agentId: "argos-alt" })),
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-alt"),
       },
       bindingStore as any,
@@ -106,11 +107,12 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: agentRuntimePresenter as any,
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: agentRuntimePresenter as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-new"),
       },
       bindingStore as any,
@@ -125,6 +127,128 @@ describe("RemoteConversationRunner", () => {
       agentId: "argos-new",
     });
     expect(bindingStore.setBinding).toHaveBeenCalledWith("telegram:100:0", "session-new");
+  });
+
+  it("reuses the most recent compatible project session when the endpoint is unbound", async () => {
+    const reusable = createSession({
+      id: "session-reusable",
+      projectDir: "/workspaces/argos",
+      updatedAt: 50,
+    });
+    const agentSessionPresenter = {
+      createDetachedSession: vi.fn<(...args: any[]) => any>(),
+      getSessionList: vi.fn<(...args: any[]) => any>().mockResolvedValue([
+        createSession({
+          id: "session-other-project",
+          projectDir: "/workspaces/other",
+          updatedAt: 100,
+        }),
+        createSession({
+          id: "session-draft",
+          projectDir: "/workspaces/argos",
+          isDraft: true,
+          updatedAt: 90,
+        }),
+        createSession({
+          id: "session-subagent",
+          projectDir: "/workspaces/argos",
+          sessionKind: "subagent",
+          updatedAt: 80,
+        }),
+        createSession({
+          id: "session-older",
+          projectDir: "/workspaces/argos",
+          updatedAt: 40,
+        }),
+        reusable,
+      ]),
+    };
+    const bindingStore = {
+      getBinding: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      setBinding: vi.fn<(...args: any[]) => any>(),
+    };
+    const runner = new RemoteConversationRunner(
+      {
+        configPort: createConfigPresenter({
+          getDefaultProjectPath: vi.fn<(...args: any[]) => any>(() => "/workspaces/argos/"),
+        }) as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {} as any,
+        windowPresenter: {} as any,
+        tabPresenter: {} as any,
+        dataDir: "/mock/path",
+        resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+      },
+      bindingStore as any,
+    );
+
+    const session = await runner.ensureBoundSession("telegram:100:0", {
+      channel: "telegram",
+      kind: "dm",
+      chatId: "100",
+      threadId: null,
+    });
+
+    expect(session.id).toBe("session-reusable");
+    expect(agentSessionPresenter.getSessionList).toHaveBeenCalledWith({ agentId: "argos" });
+    expect(agentSessionPresenter.createDetachedSession).not.toHaveBeenCalled();
+    expect(bindingStore.setBinding).toHaveBeenCalledWith("telegram:100:0", "session-reusable", {
+      channel: "telegram",
+      kind: "dm",
+      chatId: "100",
+      threadId: null,
+    });
+  });
+
+  it("creates a new session when the configured project has no compatible recent session", async () => {
+    const created = createSession({
+      id: "session-created",
+      projectDir: "/workspaces/argos",
+    });
+    const agentSessionPresenter = {
+      createDetachedSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(created),
+      getSessionList: vi.fn<(...args: any[]) => any>().mockResolvedValue([
+        createSession({
+          id: "session-other-agent",
+          agentId: "argos-other",
+          projectDir: "/workspaces/argos",
+          updatedAt: 100,
+        }),
+        createSession({
+          id: "session-other-project",
+          projectDir: "/workspaces/other",
+          updatedAt: 90,
+        }),
+      ]),
+    };
+    const bindingStore = {
+      getBinding: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
+      setBinding: vi.fn<(...args: any[]) => any>(),
+    };
+    const runner = new RemoteConversationRunner(
+      {
+        configPort: createConfigPresenter({
+          getDefaultProjectPath: vi.fn<(...args: any[]) => any>(() => "/workspaces/argos"),
+        }) as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {} as any,
+        windowPresenter: {} as any,
+        tabPresenter: {} as any,
+        dataDir: "/mock/path",
+        resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
+      },
+      bindingStore as any,
+    );
+
+    const session = await runner.ensureBoundSession("telegram:100:0");
+
+    expect(session.id).toBe("session-created");
+    expect(agentSessionPresenter.createDetachedSession).toHaveBeenCalledWith({
+      title: "New Chat",
+      agentId: "argos",
+      projectDir: "/workspaces/argos",
+    });
+    expect(bindingStore.setBinding).toHaveBeenCalledWith("telegram:100:0", "session-created");
   });
 
   it("downloads inbound remote files into the session workspace before sending", async () => {
@@ -154,14 +278,15 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        filePresenter: filePresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        filePort: filePresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -236,14 +361,15 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        filePresenter: filePresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        filePort: filePresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -329,14 +455,15 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        filePresenter: filePresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        filePort: filePresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -415,13 +542,14 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -502,14 +630,15 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        filePresenter: filePresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        filePort: filePresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -579,9 +708,6 @@ describe("RemoteConversationRunner", () => {
     const toolOutputImage = Buffer.from("tool output image");
     await fs.writeFile(path.join(cacheDir, "generated.png"), cachedImage);
     await fs.writeFile(path.join(cacheDir, "screenshot.png"), screenshotImage);
-    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) =>
-      name === "userData" ? userData : "/mock/path",
-    );
 
     const assistantMessage = {
       id: "assistant-images",
@@ -683,13 +809,14 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: userData,
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -744,9 +871,6 @@ describe("RemoteConversationRunner", () => {
   it("persists generated remote images in user data when no workspace is available", async () => {
     const userData = await fs.mkdtemp(path.join(os.tmpdir(), "argos-user-data-"));
     const image = Buffer.from("generated image without workspace");
-    vi.mocked<(...args: any[]) => any>(app.getPath).mockImplementation((name: string) =>
-      name === "userData" ? userData : "/mock/path",
-    );
 
     const assistantMessage = {
       id: "assistant-images-no-workspace",
@@ -778,13 +902,14 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: userData,
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -843,11 +968,12 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {} as any,
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-default"),
       },
       bindingStore as any,
@@ -881,11 +1007,12 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {} as any,
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-default"),
       },
       {
@@ -910,11 +1037,11 @@ describe("RemoteConversationRunner", () => {
   it("returns noSession when /open has no bound session", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           getSession: vi.fn<(...args: any[]) => any>(),
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {
           getAllWindows: vi.fn<(...args: any[]) => any>(),
           getFocusedWindow: vi.fn<(...args: any[]) => any>(),
@@ -924,6 +1051,7 @@ describe("RemoteConversationRunner", () => {
         tabPresenter: {
           getWindowType: vi.fn<(...args: any[]) => any>(),
         } as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       {
@@ -942,12 +1070,12 @@ describe("RemoteConversationRunner", () => {
     const show = vi.fn<(...args: any[]) => any>();
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           getSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(createSession()),
           activateSession,
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {
           getAllWindows: vi.fn<(...args: any[]) => any>().mockReturnValue([]),
           getFocusedWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
@@ -957,6 +1085,7 @@ describe("RemoteConversationRunner", () => {
         tabPresenter: {
           getWindowType: vi.fn<(...args: any[]) => any>().mockReturnValue("chat"),
         } as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       {
@@ -973,39 +1102,21 @@ describe("RemoteConversationRunner", () => {
     });
     expect(activateSession).not.toHaveBeenCalled();
     expect(show).not.toHaveBeenCalled();
-    expect(createAppWindow).toHaveBeenCalledWith({
-      initialRoute: "chat",
-    });
+    expect(createAppWindow).not.toHaveBeenCalled();
   });
 
   it("returns ok and activates the bound session when /open resolves a chat window", async () => {
     const session = createSession();
-    const activateSession = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
-    const show = vi.fn<(...args: any[]) => any>();
-    const chatWindow = {
-      id: 7,
-      webContents: {
-        id: 70,
-      },
-      isDestroyed: vi.fn<(...args: any[]) => any>().mockReturnValue(false),
-    };
+    const onOpenEndpoint = vi.fn<(...args: any[]) => any>().mockResolvedValue({ status: "ok" });
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           getSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(session),
-          activateSession,
         } as any,
-        agentRuntimePresenter: {} as any,
-        windowPresenter: {
-          getAllWindows: vi.fn<(...args: any[]) => any>().mockReturnValue([chatWindow]),
-          getFocusedWindow: vi.fn<(...args: any[]) => any>().mockReturnValue(chatWindow),
-          createAppWindow: vi.fn<(...args: any[]) => any>(),
-          show,
-        } as any,
-        tabPresenter: {
-          getWindowType: vi.fn<(...args: any[]) => any>().mockReturnValue("chat"),
-        } as any,
+        generationPort: {} as any,
+        onOpenEndpoint,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       {
@@ -1021,8 +1132,7 @@ describe("RemoteConversationRunner", () => {
       status: "ok",
       session,
     });
-    expect(activateSession).toHaveBeenCalledWith(70, "session-1");
-    expect(show).toHaveBeenCalledWith(7, true);
+    expect(onOpenEndpoint).toHaveBeenCalledWith("telegram:100:0");
   });
 
   it("does not fall back to the previous active assistant event while waiting for a new reply", async () => {
@@ -1079,11 +1189,12 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: agentRuntimePresenter as any,
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: agentRuntimePresenter as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos-legacy"),
       },
       bindingStore as any,
@@ -1118,8 +1229,8 @@ describe("RemoteConversationRunner", () => {
   it("extracts the latest pending interaction from assistant action blocks", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           getSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(createSession()),
           sendMessage: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
           getMessages: vi.fn<(...args: any[]) => any>().mockResolvedValue([
@@ -1164,9 +1275,10 @@ describe("RemoteConversationRunner", () => {
             },
           ]),
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -1200,8 +1312,8 @@ describe("RemoteConversationRunner", () => {
   it("keeps stream text empty while the assistant is still reasoning", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           getSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(createSession()),
           getMessages: vi.fn<(...args: any[]) => any>().mockResolvedValue([
             {
@@ -1234,7 +1346,7 @@ describe("RemoteConversationRunner", () => {
             ]),
           }),
         } as any,
-        agentRuntimePresenter: {
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue({
             eventId: "assistant-1",
             runId: "run-1",
@@ -1242,6 +1354,7 @@ describe("RemoteConversationRunner", () => {
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       {
@@ -1346,13 +1459,14 @@ describe("RemoteConversationRunner", () => {
     };
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: agentSessionPresenter as any,
-        agentRuntimePresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: agentSessionPresenter as any,
+        generationPort: {
           getActiveGeneration: vi.fn<(...args: any[]) => any>().mockReturnValue(null),
         } as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("argos"),
       },
       bindingStore as any,
@@ -1408,15 +1522,16 @@ describe("RemoteConversationRunner", () => {
     );
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter({
+        configPort: createConfigPresenter({
           getDefaultProjectPath: vi.fn<(...args: any[]) => any>(() => "/workspaces/remote"),
         }) as any,
-        agentSessionPresenter: {
+        sessionPort: {
           createDetachedSession,
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("acp-agent"),
       },
       {
@@ -1439,13 +1554,14 @@ describe("RemoteConversationRunner", () => {
   it("requires a channel default workdir for ACP workdir resolution", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter({
+        configPort: createConfigPresenter({
           getDefaultProjectPath: vi.fn<(...args: any[]) => any>(() => "/workspaces/global"),
         }) as any,
-        agentSessionPresenter: {} as any,
-        agentRuntimePresenter: {} as any,
+        sessionPort: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("acp-agent"),
       },
       {
@@ -1459,13 +1575,14 @@ describe("RemoteConversationRunner", () => {
   it("prefers the discord channel default workdir for ACP sessions", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter({
+        configPort: createConfigPresenter({
           getDefaultProjectPath: vi.fn<(...args: any[]) => any>(() => "/workspaces/global"),
         }) as any,
-        agentSessionPresenter: {} as any,
-        agentRuntimePresenter: {} as any,
+        sessionPort: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("acp-agent"),
       },
       {
@@ -1479,13 +1596,14 @@ describe("RemoteConversationRunner", () => {
   it("rejects ACP session creation when no channel workdir is configured", async () => {
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: createConfigPresenter() as any,
-        agentSessionPresenter: {
+        configPort: createConfigPresenter() as any,
+        sessionPort: {
           createDetachedSession: vi.fn<(...args: any[]) => any>(),
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("acp-agent"),
       },
       {
@@ -1508,11 +1626,12 @@ describe("RemoteConversationRunner", () => {
     });
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: configPresenter as any,
-        agentSessionPresenter: {} as any,
-        agentRuntimePresenter: {} as any,
+        configPort: configPresenter as any,
+        sessionPort: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       {} as any,
@@ -1539,13 +1658,14 @@ describe("RemoteConversationRunner", () => {
     });
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: configPresenter as any,
-        agentSessionPresenter: {
+        configPort: configPresenter as any,
+        sessionPort: {
           createDetachedSession,
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>().mockResolvedValue("codex"),
       },
       {
@@ -1571,11 +1691,12 @@ describe("RemoteConversationRunner", () => {
     });
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: configPresenter as any,
-        agentSessionPresenter: {} as any,
-        agentRuntimePresenter: {} as any,
+        configPort: configPresenter as any,
+        sessionPort: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       { setChannelDefaultAgentId: vi.fn<(...args: any[]) => any>() } as any,
@@ -1595,13 +1716,14 @@ describe("RemoteConversationRunner", () => {
     const setChannelDefaultAgentId = vi.fn<(...args: any[]) => any>();
     const runner = new RemoteConversationRunner(
       {
-        configPresenter: configPresenter as any,
-        agentSessionPresenter: {
+        configPort: configPresenter as any,
+        sessionPort: {
           createDetachedSession: vi.fn<(...args: any[]) => any>(),
         } as any,
-        agentRuntimePresenter: {} as any,
+        generationPort: {} as any,
         windowPresenter: {} as any,
         tabPresenter: {} as any,
+        dataDir: "/mock/path",
         resolveDefaultAgentId: vi.fn<(...args: any[]) => any>(),
       },
       {

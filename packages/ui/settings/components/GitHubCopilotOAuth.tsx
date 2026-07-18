@@ -3,7 +3,7 @@ import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Icon } from "@iconify/react";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { useProviderStore } from "#/stores/providerStore";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useModelCheckStore } from "#/stores/modelCheck";
@@ -15,7 +15,7 @@ interface GitHubCopilotOAuthProps {
 }
 
 export default function GitHubCopilotOAuth({ provider, onAuthSuccess, onAuthError }: GitHubCopilotOAuthProps) {
-  const oauthPresenter = useLegacyPresenter("oauthPresenter");
+  const oauthPresenter = usePresenter("oauthPresenter");
   const providerStore = useProviderStore();
   const modelCheckStore = useModelCheckStore();
 

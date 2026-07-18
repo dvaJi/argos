@@ -1,36 +1,8 @@
-import type {
-  DiscordRemoteSettings,
-  FeishuRemoteSettings,
-  IConfigPresenter,
-  IAgentSessionPresenter,
-  IFilePresenter,
-  IRemoteControlPresenter,
-  QQBotRemoteSettings,
-  ITabPresenter,
-  IWindowPresenter,
-  TelegramRemoteSettings,
-  WeixinIlinkRemoteSettings,
-} from "@argos/shared/presenter";
-import type { AgentRuntimePresenter } from "../agentRuntimePresenter";
-
-export interface RemoteControlPresenterDeps {
-  configPresenter: IConfigPresenter;
-  agentSessionPresenter: IAgentSessionPresenter;
-  filePresenter?: IFilePresenter;
-  agentRuntimePresenter: AgentRuntimePresenter;
-  windowPresenter: IWindowPresenter;
-  tabPresenter: ITabPresenter;
-}
+import type { IRemoteControlPresenter } from "@argos/shared/presenter";
 
 export interface RemoteRuntimeLifecycle {
   initialize(): Promise<void>;
   destroy(): Promise<void>;
 }
 
-export interface RemoteControlPresenterLike extends IRemoteControlPresenter, RemoteRuntimeLifecycle {
-  buildTelegramSettingsSnapshot(): TelegramRemoteSettings;
-  buildFeishuSettingsSnapshot(): FeishuRemoteSettings;
-  buildQQBotSettingsSnapshot(): QQBotRemoteSettings;
-  buildDiscordSettingsSnapshot(): DiscordRemoteSettings;
-  buildWeixinIlinkSettingsSnapshot(): WeixinIlinkRemoteSettings;
-}
+export interface RemoteControlPresenterLike extends IRemoteControlPresenter, RemoteRuntimeLifecycle {}

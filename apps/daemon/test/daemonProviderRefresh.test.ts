@@ -1,9 +1,10 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createDaemonDispatcher } from "../src/dispatch/daemonDispatcher";
-import { DaemonConfigPresenter } from "../src/host/daemonConfigPresenter";
+import { DaemonConfigPresenter, resolveDaemonProviderDbBuiltIn } from "../src/host/daemonConfigPresenter";
+import { ProviderDbLoader } from "@argos/backend-core/provider";
 import {
   providersListModelsRoute,
   providersListOllamaModelsRoute,
@@ -178,6 +179,179 @@ describe("daemon provider model refresh", () => {
       );
     } finally {
       vi.unstubAllGlobals();
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves provider-db models (e.g. deepseek) from the catalog without calling /v1/models", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-provider-db-"));
+    try {
+      const deepseekEntry = {
+        id: "deepseek",
+        name: "DeepSeek",
+        models: [
+          {
+            id: "deepseek-chat",
+            name: "deepseek-chat",
+            display_name: "DeepSeek Chat",
+            type: "chat",
+            modalities: { input: ["text", "image"] },
+            tool_call: true,
+            reasoning: { supported: true },
+            limit: { context: 64000, output: 8000 },
+          },
+          {
+            id: "deepseek-reasoner",
+            display_name: "DeepSeek Reasoner",
+            type: "chat",
+          },
+        ],
+      };
+
+      const fakeLoader = {
+        refreshIfNeeded: vi.fn().mockResolvedValue({ status: "skipped", lastUpdated: null, providersCount: 1 }),
+        getProvider: (id: string) => (id === "deepseek" ? (deepseekEntry as any) : undefined),
+      } as unknown as ProviderDbLoader;
+
+      const configPresenter = new DaemonConfigPresenter(
+        path.join(root, "config"),
+        path.join(root, "data"),
+        undefined,
+        fakeLoader,
+      );
+      configPresenter.setProviders([
+        {
+          id: "deepseek",
+          name: "DeepSeek",
+          apiType: "deepseek",
+          apiKey: "test-key",
+          baseUrl: "https://api.deepseek.com/v1",
+          enable: true,
+          models: [],
+          customModels: [],
+        } as any,
+      ]);
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const dispatcher = createDaemonDispatcher(configPresenter as any);
+      await expect(dispatcher(providersRefreshModelsRoute.name, { providerId: "deepseek" })).resolves.toEqual({
+        refreshed: true,
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining("api.deepseek.com"), expect.anything());
+
+      const models = configPresenter.getProviderModels("deepseek");
+      expect(models).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "deepseek-chat",
+            name: "DeepSeek Chat",
+            providerId: "deepseek",
+            group: "default",
+            vision: true,
+            functionCall: true,
+            reasoning: true,
+            type: "chat",
+            contextLength: 64000,
+            maxTokens: 8000,
+          }),
+          expect.objectContaining({
+            id: "deepseek-reasoner",
+            name: "DeepSeek Reasoner",
+            providerId: "deepseek",
+          }),
+        ]),
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves provider-db models from a bundled catalog file offline (no network)", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-provider-db-offline-"));
+    try {
+      const builtInPath = path.join(root, "providers.json");
+      await writeFile(
+        builtInPath,
+        JSON.stringify({
+          providers: {
+            deepseek: {
+              id: "deepseek",
+              name: "DeepSeek",
+              models: [
+                {
+                  id: "deepseek-chat",
+                  name: "deepseek-chat",
+                  display_name: "DeepSeek Chat",
+                  type: "chat",
+                  limit: { context: 64000, output: 8000 },
+                },
+              ],
+            },
+          },
+        }),
+      );
+
+      const loader = new ProviderDbLoader({
+        cacheDir: path.join(root, "cache"),
+        builtInDbPath: builtInPath,
+      });
+      loader.refreshIfNeeded = vi.fn().mockResolvedValue({
+        status: "skipped",
+        lastUpdated: null,
+        providersCount: 1,
+      });
+
+      const configPresenter = new DaemonConfigPresenter(
+        path.join(root, "config"),
+        path.join(root, "data"),
+        undefined,
+        loader,
+      );
+      configPresenter.setProviders([
+        {
+          id: "deepseek",
+          name: "DeepSeek",
+          apiType: "deepseek",
+          apiKey: "test-key",
+          baseUrl: "https://api.deepseek.com/v1",
+          enable: true,
+          models: [],
+          customModels: [],
+        } as any,
+      ]);
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const dispatcher = createDaemonDispatcher(configPresenter as any);
+      await expect(dispatcher(providersRefreshModelsRoute.name, { providerId: "deepseek" })).resolves.toEqual({
+        refreshed: true,
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining("api.deepseek.com"), expect.anything());
+      const models = configPresenter.getProviderModels("deepseek");
+      expect(models.find((m) => m.id === "deepseek-chat")).toBeTruthy();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("resolveDaemonProviderDbBuiltIn honors ARGOS_PROVIDER_DB_BUILTIN", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-provider-db-env-"));
+    try {
+      const builtInPath = path.join(root, "providers.json");
+      await writeFile(builtInPath, JSON.stringify({ providers: {} }));
+
+      const previous = process.env.ARGOS_PROVIDER_DB_BUILTIN;
+      process.env.ARGOS_PROVIDER_DB_BUILTIN = builtInPath;
+      try {
+        expect(resolveDaemonProviderDbBuiltIn()).toBe(builtInPath);
+      } finally {
+        if (previous === undefined) delete process.env.ARGOS_PROVIDER_DB_BUILTIN;
+        else process.env.ARGOS_PROVIDER_DB_BUILTIN = previous;
+      }
+    } finally {
       await rm(root, { recursive: true, force: true });
     }
   });

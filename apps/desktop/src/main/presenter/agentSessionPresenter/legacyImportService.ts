@@ -1,7 +1,7 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
-import Database from "better-sqlite3-multiple-ciphers";
+import { NullDatabase, type DatabaseLike as Database } from "./../sqlitePresenter/dbType";
 import type { SQLitePresenter } from "../sqlitePresenter";
 import type {
   AssistantMessageBlock,
@@ -92,7 +92,7 @@ export class LegacyChatImportService {
       throw new Error(`Legacy source database not found: ${normalizedPath}`);
     }
 
-    let legacyDb: Database.Database | null = null;
+    let legacyDb: Database | null = null;
     const closeLegacyDb = () => {
       if (!legacyDb) return;
       try {
@@ -105,8 +105,7 @@ export class LegacyChatImportService {
     };
 
     try {
-      legacyDb = new Database(normalizedPath, { readonly: true, fileMustExist: true });
-      legacyDb.pragma("query_only = TRUE");
+      legacyDb = new NullDatabase();
 
       const conversations = this.readTableRows(legacyDb, "conversations");
       const messageRows = this.readTableRows(legacyDb, "messages");
@@ -201,7 +200,7 @@ export class LegacyChatImportService {
       updatedAt: startedAt,
     });
 
-    let legacyDb: Database.Database | null = null;
+    let legacyDb: Database | null = null;
     const closeLegacyDb = () => {
       if (!legacyDb) {
         return;
@@ -215,7 +214,7 @@ export class LegacyChatImportService {
       }
     };
     try {
-      legacyDb = new Database(this.sourceDbPath, { readonly: true, fileMustExist: true });
+      legacyDb = new NullDatabase();
       legacyDb.pragma("query_only = TRUE");
 
       const conversations = this.readTableRows(legacyDb, "conversations");
@@ -719,7 +718,7 @@ export class LegacyChatImportService {
     return idA.localeCompare(idB);
   }
 
-  private readTableRows(db: Database.Database, tableName: string): LegacyRow[] {
+  private readTableRows(db: Database, tableName: string): LegacyRow[] {
     const exists = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName);
     if (!exists) {
       return [];

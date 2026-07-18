@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface ArgosUserMessageRow {
@@ -11,7 +11,7 @@ export interface ArgosUserMessageRow {
 const NORMALIZATION_SCHEMA_VERSION = 26;
 
 export class ArgosUserMessagesTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_user_messages");
   }
 

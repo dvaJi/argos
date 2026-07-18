@@ -1,5 +1,5 @@
 import { BaseTable } from "./baseTable";
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { CONVERSATION, CONVERSATION_SETTINGS } from "@argos/shared/presenter";
 import { isReasoningEffort, isVerbosity } from "@argos/shared/types/model-db";
 import { nanoid } from "nanoid";
@@ -42,7 +42,7 @@ function getJsonField<T>(val: string | null | undefined, fallback: T): T {
 }
 
 export class ConversationsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "conversations");
   }
 
@@ -507,9 +507,11 @@ export class ConversationsTable extends BaseTable {
   async list(page: number, pageSize: number): Promise<{ total: number; list: CONVERSATION[] }> {
     const offset = (page - 1) * pageSize;
 
-    const totalResult = this.db.prepare("SELECT COUNT(*) as count FROM conversations").get() as {
-      count: number;
-    };
+    const totalResult = this.db.prepare("SELECT COUNT(*) as count FROM conversations").get() as
+      | {
+          count: number;
+        }
+      | undefined;
 
     const results = this.db
       .prepare(
@@ -553,7 +555,7 @@ export class ConversationsTable extends BaseTable {
     })[];
 
     return {
-      total: totalResult.count,
+      total: totalResult?.count ?? 0,
       list: results.map((row) => ({
         id: row.id,
         title: row.title,
@@ -764,9 +766,11 @@ export class ConversationsTable extends BaseTable {
   }
 
   async count(): Promise<number> {
-    const result = this.db.prepare("SELECT COUNT(*) as count FROM conversations").get() as {
-      count: number;
-    };
-    return result.count;
+    const result = this.db.prepare("SELECT COUNT(*) as count FROM conversations").get() as
+      | {
+          count: number;
+        }
+      | undefined;
+    return result?.count ?? 0;
   }
 }

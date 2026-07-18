@@ -5,26 +5,26 @@ This document reflects the current structure after retirement. It is intended fo
 ## Prerequisites
 
 - Node.js `>= 24.14.1` (24.14.1 recommended)
-- pnpm `>= 10.11`
+- Bun 
 - Git
 - An editor with TypeScript / React support (Tailwind IntelliSense, ES7+ React/Redux/React-Native snippets)
 
 ## Starting the Project
 
 ```bash
-pnpm install
-pnpm run installRuntime
-pnpm run dev
+bun install
+bun run installRuntime
+bun run dev
 ```
 
 Common commands:
 
 ```bash
-pnpm run dev
-pnpm run dev:inspect
-pnpm run start
-pnpm run build
-pnpm run typecheck
+bun run dev
+bun run dev:inspect
+bun run start
+bun run build
+bun run typecheck
 pnpm run format
 pnpm run lint
 pnpm test
@@ -150,7 +150,7 @@ After making changes, run at minimum:
 ```bash
 pnpm run format
 pnpm run lint
-pnpm run typecheck
+bun run typecheck
 ```
 
 If you changed the main-process chat pipeline, also run the relevant Vitest suites and execute:

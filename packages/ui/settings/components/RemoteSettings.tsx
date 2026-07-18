@@ -6,15 +6,14 @@ import { Label } from "#shadcn/components/ui/label";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { useLegacyRemoteControlPresenter, useLegacyPresenter } from "#api/legacy/presenters";
+import { useRemoteControlPresenter, usePresenter } from "#api/presenterBridge";
 import { useToast } from "#/components/use-toast";
 import type { TelegramRemoteSettings, TelegramPairingSnapshot } from "@argos/shared/presenter";
 
-type ChannelKey = "telegram" | "feishu" | "qqbot" | "discord" | "weixin";
+type ChannelKey = "telegram" | "qqbot" | "discord" | "weixin";
 
 const CHANNELS: { key: ChannelKey; label: string; icon: string }[] = [
   { key: "telegram", label: "Telegram", icon: "simple-icons:telegram" },
-  { key: "feishu", label: "Feishu", icon: "simple-icons:feishu" },
   { key: "qqbot", label: "QQ Bot", icon: "simple-icons:tencentqq" },
   { key: "discord", label: "Discord", icon: "simple-icons:discord" },
   { key: "weixin", label: "WeChat", icon: "simple-icons:wechat" },
@@ -22,8 +21,8 @@ const CHANNELS: { key: ChannelKey; label: string; icon: string }[] = [
 
 export default function RemoteSettings() {
   const { toast } = useToast();
-  const remoteControlPresenter = useLegacyRemoteControlPresenter();
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const remoteControlPresenter = useRemoteControlPresenter();
+  const configPresenter = usePresenter("configPresenter");
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeChannel, setActiveChannel] = useState<ChannelKey>("telegram");
@@ -236,7 +235,7 @@ export default function RemoteSettings() {
                         <Input placeholder="Enter Discord Bot Token" type="password" disabled />
                       </div>
                     )}
-                    {(channel.key === "feishu" || channel.key === "qqbot" || channel.key === "weixin") && (
+                    {(channel.key === "qqbot" || channel.key === "weixin") && (
                       <div className="text-sm text-muted-foreground">Configuration options for {channel.label}</div>
                     )}
                     <Button size="sm" disabled={saving} onClick={() => void handleSaveConfig(channel.key)}>

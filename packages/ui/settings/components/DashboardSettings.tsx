@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Button } from "#shadcn/components/ui/button";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { UsageDashboardData } from "@argos/shared/types/agent-interface";
 import UsageNostalgiaCard from "./control-center/UsageNostalgiaCard";
 
@@ -12,7 +12,7 @@ export interface DashboardSettingsProps {
 }
 
 export default function DashboardSettings({ hideNostalgia = false, onDashboardLoaded }: DashboardSettingsProps) {
-  const agentSessionPresenter = useLegacyPresenter("agentSessionPresenter");
+  const agentSessionPresenter = usePresenter("agentSessionPresenter");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [dashboard, setDashboard] = useState<UsageDashboardData | null>(null);

@@ -56,7 +56,7 @@ import {
   type AiSdkProviderDefinition,
   type AiSdkRouteStrategy,
   resolveAiSdkProviderDefinition,
-} from "../providerRegistry";
+} from "@argos/backend-core/provider/registry";
 import { providerDbLoader } from "../../configPresenter/providerDbLoader";
 import { modelCapabilities, type CapabilityModelMatch } from "../../configPresenter/modelCapabilities";
 import { isImageInputSupported } from "@argos/shared/types/model-db";

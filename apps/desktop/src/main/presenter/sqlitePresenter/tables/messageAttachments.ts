@@ -1,4 +1,4 @@
-import { Database } from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import { nanoid } from "nanoid";
 

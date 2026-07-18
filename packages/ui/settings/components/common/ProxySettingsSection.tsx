@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Input } from "#shadcn/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { languageStore } from "#/stores/language";
 
 const PROXY_MODES = [
@@ -15,7 +15,7 @@ const URL_PATTERN =
   /^(http|https):\/\/(?:([^:#/]+)(?::([^#/]*))?@)?([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(:[0-9]+)?(\/[^\s]*)?$/;
 
 export default function ProxySettingsSection() {
-  const configPresenter = useLegacyPresenter("configPresenter");
+  const configPresenter = usePresenter("configPresenter");
   const [selectedProxyMode, setSelectedProxyMode] = useState("system");
   const [customProxyUrl, setCustomProxyUrl] = useState("");
   const [showUrlError, setShowUrlError] = useState(false);

@@ -12,7 +12,6 @@
     "declaration": false,
     "emitDeclarationOnly": false,
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
       "@argos/backend-core": ["../backend-core/src"],
       "@argos/backend-core/*": ["../backend-core/src/*"],

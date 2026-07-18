@@ -5,7 +5,6 @@ export * from "./channels";
 export * from "./common";
 export * from "./domainSchemas";
 export * from "./acp";
-export * from "./databaseSecurity";
 export * from "./remoteControlErrors";
 export * from "./providerImport";
 export * from "./auth";

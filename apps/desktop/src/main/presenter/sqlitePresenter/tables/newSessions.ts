@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface NewSessionRow {
@@ -29,7 +29,7 @@ export type SessionListPageResult = {
 };
 
 export class NewSessionsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "new_sessions");
   }
 

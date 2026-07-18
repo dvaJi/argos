@@ -48,7 +48,7 @@ describe("DaemonPluginPresenter", () => {
       appVersion: "1.0.0",
     });
 
-    return { presenter, configPresenter, mcpPresenter, skillPresenter };
+    return { presenter, configPresenter, mcpPresenter, skillPresenter, root };
   }
 
   it("stops plugin-owned MCP servers during shutdown", async () => {
@@ -59,12 +59,39 @@ describe("DaemonPluginPresenter", () => {
     expect(mcpPresenter.stopServer).toHaveBeenCalledWith("fixture-server");
   });
 
-  it("rejects plugin settings UI actions in daemon mode", async () => {
-    const { presenter } = createPresenter();
+  it("hosts plugin settings UI actions in daemon mode", async () => {
+    const { presenter, root } = createPresenter();
+    const settingsRoot = path.join(root, "settings");
+    const assetsRoot = path.join(settingsRoot, "assets");
+    fs.mkdirSync(assetsRoot, { recursive: true });
+    fs.writeFileSync(path.join(settingsRoot, "index.html"), "<html></html>");
+    fs.writeFileSync(path.join(assetsRoot, "index.js"), "console.log('settings')");
+    vi.spyOn(presenter as any, "getSettingsContribution").mockReturnValue({
+      id: "fixture-settings",
+      ownerPluginId: "fixture-plugin",
+      title: "Fixture Settings",
+      placement: "plugins",
+      entry: path.join(settingsRoot, "index.html"),
+      preloadTypes: path.join(root, "settings-preload.d.ts"),
+    });
 
     await expect(presenter.invokeAction("fixture-plugin", "settings.open")).resolves.toEqual({
-      ok: false,
-      error: "Plugin settings UI is not available in daemon mode",
+      ok: true,
+      data: { settingsUrl: "/api/v1/plugins/fixture-plugin/settings/" },
     });
+    presenter.setSettingsBaseUrl("http://127.0.0.1:43127/");
+    await expect(presenter.invokeAction("fixture-plugin", "settings.open")).resolves.toEqual({
+      ok: true,
+      data: { settingsUrl: "http://127.0.0.1:43127/api/v1/plugins/fixture-plugin/settings/" },
+    });
+    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "")).toEqual({
+      filePath: path.join(settingsRoot, "index.html"),
+      isEntry: true,
+    });
+    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "assets/index.js")).toEqual({
+      filePath: path.join(assetsRoot, "index.js"),
+      isEntry: false,
+    });
+    expect(presenter.resolveSettingsWebAsset("fixture-plugin", "../secret.txt")).toBeNull();
   });
 });

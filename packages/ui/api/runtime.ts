@@ -79,3 +79,46 @@ export function subscribeRuntimeConnectionState(listener: (state: ConnectionStat
     return () => {};
   }
 }
+
+type IpcListener = (...args: any[]) => void;
+
+type IpcRendererLike = {
+  invoke(channel: string, ...args: unknown[]): Promise<unknown>;
+  on(channel: string, listener: IpcListener): unknown;
+  send(channel: string, ...args: unknown[]): void;
+};
+
+function getIpcRenderer(): IpcRendererLike | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { electron?: { ipcRenderer?: IpcRendererLike } }).electron?.ipcRenderer ?? null;
+}
+
+export function hasIpcRenderer(): boolean {
+  return getIpcRenderer() != null;
+}
+
+export function onIpcChannel(channel: string, listener: IpcListener): () => void {
+  const ipcRenderer = getIpcRenderer();
+  if (!ipcRenderer) return () => {};
+  const cleanup: unknown = ipcRenderer.on(channel, listener);
+  return typeof cleanup === "function" ? cleanup : () => {};
+}
+
+export function sendIpc(channel: string, ...args: unknown[]): void {
+  getIpcRenderer()?.send(channel, ...args);
+}
+
+export function createIpcSubscriptionScope() {
+  const unsubscribers: Array<() => void> = [];
+  const on = (channel: string, listener: IpcListener) => {
+    const unsubscribe = onIpcChannel(channel, listener);
+    unsubscribers.push(unsubscribe);
+    return unsubscribe;
+  };
+  const cleanup = () => {
+    for (const unsubscribe of unsubscribers.splice(0)) {
+      unsubscribe();
+    }
+  };
+  return { on, cleanup };
+}

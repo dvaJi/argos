@@ -31,9 +31,9 @@ export function createDesktopMcpPorts(configPresenter: {
       processCommandWithArgs: (command, args) => runtimeHelper.processCommandWithArgs(command, args),
       normalizePathEnv: (paths) => runtimeHelper.normalizePathEnv(paths),
       getDefaultPaths: (homeDir) => runtimeHelper.getDefaultPaths(homeDir ?? ""),
-      getNodeRuntimePath: () => runtimeHelper.getNodeRuntimePath(),
+      getBunRuntimePath: () => runtimeHelper.getBunRuntimePath(),
       getUvRuntimePath: () => runtimeHelper.getUvRuntimePath(),
-      setNodeRuntimePath: (p) => runtimeHelper.setNodeRuntimePath(p),
+      setBunRuntimePath: (p) => runtimeHelper.setBunRuntimePath(p),
       setUvRuntimePath: (p) => runtimeHelper.setUvRuntimePath(p),
     },
     events: {

@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 
 import Loading from "#splash/Loading";
-import { DATABASE_UNLOCK_REQUEST_CHANNEL } from "@argos/shared-contracts/databaseSecurity";
 
 type IpcListener = (event: unknown, payload: unknown) => void;
 
@@ -104,42 +103,6 @@ describe("Loading (splash)", () => {
     });
     expect(container.querySelectorAll(".splash-status__row--done").length).toBe(3);
     expect(container.querySelectorAll(".splash-status__row--active").length).toBe(0);
-  });
-
-  it("mounts the unlock panel when a DATABASE_UNLOCK_REQUEST_CHANNEL event fires", () => {
-    render(<Loading />);
-    act(() => {
-      emit(DATABASE_UNLOCK_REQUEST_CHANNEL, {
-        requestId: "req-1",
-        reason: "manual-required",
-        safeStorageAvailable: true,
-      });
-    });
-    const panel = screen.getByTestId("splash-unlock-panel");
-    expect(panel).toBeTruthy();
-    expect(panel.querySelector('input[type="password"]')).toBeTruthy();
-    expect(panel.textContent ?? "").toContain("Local database is encrypted");
-  });
-
-  it("sends DATABASE_UNLOCK_SUBMIT_CHANNEL with the typed password", () => {
-    setupElectronMock();
-    const send = (window as any).electron.ipcRenderer.send as ReturnType<typeof vi.fn>;
-    send.mockClear();
-    render(<Loading />);
-    act(() => {
-      emit(DATABASE_UNLOCK_REQUEST_CHANNEL, {
-        requestId: "req-2",
-        reason: "manual-required",
-        safeStorageAvailable: true,
-      });
-    });
-    const input = screen.getByTestId("splash-unlock-panel").querySelector('input[type="password"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "open-sesame" } });
-    fireEvent.submit(screen.getByTestId("splash-unlock-panel"));
-    expect(send).toHaveBeenCalledWith("database-security:unlock-submit", {
-      requestId: "req-2",
-      password: "open-sesame",
-    });
   });
 
   it("uses dark splash tokens by default and switches to light tokens when prefers-color-scheme: light is set", () => {

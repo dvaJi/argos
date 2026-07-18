@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildFeishuPendingInteractionText } from "#/presenter/remoteControlPresenter/feishu/feishuInteractionPrompt";
-import { QQBotRuntime } from "#/presenter/remoteControlPresenter/qqbot/qqbotRuntime";
+import { buildPendingInteractionText } from "@argos/remote-control-runtime/services/pendingInteractionPrompt";
+import { QQBotRuntime } from "@argos/remote-control-runtime/qqbot/qqbotRuntime";
 import {
-  FEISHU_CONVERSATION_POLL_TIMEOUT_MS,
+  REMOTE_CONVERSATION_POLL_TIMEOUT_MS,
   TELEGRAM_STREAM_POLL_INTERVAL_MS,
   type QQBotInboundMessage,
   type QQBotTransportTarget,
   type RemoteDeliverySegment,
   type RemotePendingInteraction,
-} from "#/presenter/remoteControlPresenter/types";
+} from "@argos/remote-control-runtime/types";
 
 const createRuntime = () => {
   const onFatalError = vi.fn<(...args: any[]) => any>();
@@ -510,7 +510,7 @@ describe("QQBotRuntime", () => {
     );
     expect(client.sendGroupMessage).toHaveBeenNthCalledWith(
       2,
-      createExpectedPayload(GROUP_TARGET, 5, buildFeishuPendingInteractionText(interaction)),
+      createExpectedPayload(GROUP_TARGET, 5, buildPendingInteractionText(interaction)),
     );
   });
 
@@ -535,7 +535,7 @@ describe("QQBotRuntime", () => {
     await flushMicrotasks();
     expect(client.sendC2CMessage).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(FEISHU_CONVERSATION_POLL_TIMEOUT_MS + TELEGRAM_STREAM_POLL_INTERVAL_MS * 2);
+    await vi.advanceTimersByTimeAsync(REMOTE_CONVERSATION_POLL_TIMEOUT_MS + TELEGRAM_STREAM_POLL_INTERVAL_MS * 2);
     await deliveryPromise;
 
     expect(client.sendC2CMessage).toHaveBeenCalledTimes(2);

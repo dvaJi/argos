@@ -5,10 +5,6 @@ import type {
   DiscordRemoteBindingSummary,
   DiscordRemoteSettings,
   DiscordRemoteStatus,
-  FeishuBrand,
-  FeishuPairingSnapshot,
-  FeishuRemoteSettings,
-  FeishuRemoteStatus,
   QQBotPairingSnapshot,
   QQBotRemoteBindingSummary,
   QQBotRemoteSettings,
@@ -31,14 +27,10 @@ export const TELEGRAM_REMOTE_POLL_LIMIT = 20;
 export const TELEGRAM_REMOTE_POLL_TIMEOUT_SEC = 30;
 export const TELEGRAM_OUTBOUND_TEXT_LIMIT = 4096;
 export const TELEGRAM_PAIR_CODE_TTL_MS = 10 * 60 * 1000;
-export const FEISHU_PAIR_CODE_TTL_MS = TELEGRAM_PAIR_CODE_TTL_MS;
 export const QQBOT_PAIR_CODE_TTL_MS = TELEGRAM_PAIR_CODE_TTL_MS;
 export const DISCORD_PAIR_CODE_TTL_MS = TELEGRAM_PAIR_CODE_TTL_MS;
 export const REMOTE_PAIR_CODE_MAX_FAILURES = 5;
-export const FEISHU_INBOUND_DEDUP_TTL_MS = 30 * 60 * 1000;
-export const FEISHU_INBOUND_DEDUP_LIMIT = 2048;
-export const FEISHU_CONVERSATION_POLL_TIMEOUT_MS = 5 * 60 * 1000;
-export const FEISHU_OUTBOUND_TEXT_LIMIT = 8_000;
+export const REMOTE_CONVERSATION_POLL_TIMEOUT_MS = 5 * 60 * 1000;
 export const TELEGRAM_TYPING_DELAY_MS = 800;
 export const TELEGRAM_STREAM_POLL_INTERVAL_MS = 450;
 export const TELEGRAM_STREAM_START_TIMEOUT_MS = 8_000;
@@ -48,12 +40,10 @@ export const TELEGRAM_MODEL_MENU_TTL_MS = 10 * 60 * 1000;
 export const TELEGRAM_AGENT_MENU_TTL_MS = 10 * 60 * 1000;
 export const TELEGRAM_INTERACTION_CALLBACK_TTL_MS = 10 * 60 * 1000;
 export const TELEGRAM_REMOTE_DEFAULT_AGENT_ID = "argos";
-export const FEISHU_REMOTE_DEFAULT_AGENT_ID = TELEGRAM_REMOTE_DEFAULT_AGENT_ID;
 export const QQBOT_REMOTE_DEFAULT_AGENT_ID = TELEGRAM_REMOTE_DEFAULT_AGENT_ID;
 export const DISCORD_REMOTE_DEFAULT_AGENT_ID = TELEGRAM_REMOTE_DEFAULT_AGENT_ID;
 export const WEIXIN_ILINK_REMOTE_DEFAULT_AGENT_ID = TELEGRAM_REMOTE_DEFAULT_AGENT_ID;
 export const TELEGRAM_REMOTE_REACTION_EMOJI = "🤯";
-export const FEISHU_REMOTE_REACTION_EMOJI = "THINKING";
 export const QQBOT_GROUP_AND_C2C_INTENT = 1 << 25;
 export const TELEGRAM_REMOTE_COMMANDS = [
   {
@@ -95,57 +85,6 @@ export const TELEGRAM_REMOTE_COMMANDS = [
   {
     command: "model",
     description: "Switch provider and model",
-  },
-  {
-    command: "agent",
-    description: "View or switch the current agent",
-  },
-  {
-    command: "status",
-    description: "Show runtime and session status",
-  },
-] as const;
-
-export const FEISHU_REMOTE_COMMANDS = [
-  {
-    command: "start",
-    description: "Show remote control status",
-  },
-  {
-    command: "help",
-    description: "Show available commands",
-  },
-  {
-    command: "pair",
-    description: "Authorize this Feishu account",
-  },
-  {
-    command: "new",
-    description: "Start a new session",
-  },
-  {
-    command: "sessions",
-    description: "List recent sessions",
-  },
-  {
-    command: "use",
-    description: "Bind a listed session",
-  },
-  {
-    command: "stop",
-    description: "Stop the active generation",
-  },
-  {
-    command: "open",
-    description: "Open the current session on desktop",
-  },
-  {
-    command: "pending",
-    description: "Show the current pending interaction",
-  },
-  {
-    command: "model",
-    description: "View or switch the current model",
   },
   {
     command: "agent",
@@ -280,7 +219,6 @@ export type TelegramPairingState = {
   failedAttempts: number;
 };
 
-export type FeishuPairingState = TelegramPairingState;
 export type QQBotPairingState = TelegramPairingState;
 export type DiscordPairingState = TelegramPairingState;
 
@@ -300,21 +238,6 @@ export interface TelegramRemoteRuntimeConfig {
   lastFatalError: string | null;
   pairing: TelegramPairingState;
   bindings: Record<string, TelegramEndpointBinding>;
-}
-
-export interface FeishuRemoteRuntimeConfig {
-  brand: FeishuBrand;
-  appId: string;
-  appSecret: string;
-  verificationToken: string;
-  encryptKey: string;
-  enabled: boolean;
-  defaultAgentId: string;
-  defaultWorkdir: string;
-  pairedUserOpenIds: string[];
-  lastFatalError: string | null;
-  pairing: FeishuPairingState;
-  bindings: Record<string, RemoteEndpointBinding>;
 }
 
 export interface QQBotRemoteRuntimeConfig {
@@ -361,7 +284,6 @@ export interface WeixinIlinkRemoteRuntimeConfig {
 
 export interface RemoteControlConfig {
   telegram: TelegramRemoteRuntimeConfig;
-  feishu: FeishuRemoteRuntimeConfig;
   qqbot: QQBotRemoteRuntimeConfig;
   discord: DiscordRemoteRuntimeConfig;
   weixinIlink: WeixinIlinkRemoteRuntimeConfig;
@@ -390,30 +312,6 @@ export interface TelegramInboundCallbackQuery extends TelegramInboundBase {
 }
 
 export type TelegramInboundEvent = TelegramInboundMessage | TelegramInboundCallbackQuery;
-
-export interface FeishuRawMention {
-  key: string;
-  id?: {
-    open_id?: string;
-  };
-  name?: string;
-}
-
-export interface FeishuInboundMessage {
-  kind: "message";
-  eventId: string;
-  chatId: string;
-  threadId: string | null;
-  messageId: string;
-  chatType: "p2p" | "group";
-  senderOpenId: string | null;
-  text: string;
-  command: TelegramCommandPayload | null;
-  mentionedBot: boolean;
-  mentions: FeishuRawMention[];
-  attachments: RemoteInputAttachment[];
-  allAttachmentsFailed?: boolean;
-}
 
 export interface QQBotInboundMessage {
   kind: "message";
@@ -662,36 +560,10 @@ export type TelegramPendingInteractionCallback =
       optionIndex: number;
     };
 
-export interface FeishuCardConfig {
-  enable_forward?: boolean;
-  update_multi?: boolean;
-  wide_screen_mode?: boolean;
-}
-
-export interface FeishuInteractiveCardPayload {
-  config?: FeishuCardConfig;
-  header?: Record<string, unknown>;
-  elements?: Array<Record<string, unknown>>;
-  i18n_elements?: Record<string, Array<Record<string, unknown>>>;
-  card_link?: Record<string, unknown>;
-}
-
-export type FeishuOutboundAction =
-  | {
-      type: "sendText";
-      text: string;
-    }
-  | {
-      type: "sendCard";
-      card: FeishuInteractiveCardPayload;
-      fallbackText: string;
-    };
-
 const TELEGRAM_MODEL_MENU_CALLBACK_PREFIX = "model";
 const TELEGRAM_AGENT_MENU_CALLBACK_PREFIX = "agent";
 const TELEGRAM_INTERACTION_CALLBACK_PREFIX = "pending";
 const TELEGRAM_ENDPOINT_KEY_REGEX = /^telegram:(-?\d+):(-?\d+)$/;
-const FEISHU_ENDPOINT_KEY_REGEX = /^feishu:([^:]+):([^:]+)$/;
 const QQBOT_ENDPOINT_KEY_REGEX = /^qqbot:(c2c|group):([^:]+)$/;
 const DISCORD_ENDPOINT_KEY_REGEX = /^discord:(dm|channel):([^:]+)$/;
 const WEIXIN_ILINK_ENDPOINT_KEY_REGEX = /^weixin-ilink:([^:]+):([^:]+)$/;
@@ -842,12 +714,6 @@ export interface TelegramPollerStatusSnapshot {
   botUser: TelegramRemoteStatus["botUser"];
 }
 
-export interface FeishuRuntimeStatusSnapshot {
-  state: RemoteRuntimeState;
-  lastError: string | null;
-  botUser: FeishuRemoteStatus["botUser"];
-}
-
 export interface QQBotRuntimeStatusSnapshot {
   state: RemoteRuntimeState;
   lastError: string | null;
@@ -875,12 +741,6 @@ export interface TelegramTransportTarget {
   messageThreadId: number;
 }
 
-export interface FeishuTransportTarget {
-  chatId: string;
-  threadId: string | null;
-  replyToMessageId?: string | null;
-}
-
 export interface QQBotTransportTarget {
   chatType: "c2c" | "group";
   openId: string;
@@ -906,24 +766,6 @@ export const createDefaultRemoteControlConfig = (): RemoteControlConfig => ({
     defaultAgentId: TELEGRAM_REMOTE_DEFAULT_AGENT_ID,
     defaultWorkdir: "",
     pollOffset: 0,
-    lastFatalError: null,
-    pairing: {
-      code: null,
-      expiresAt: null,
-      failedAttempts: 0,
-    },
-    bindings: {},
-  },
-  feishu: {
-    brand: "feishu",
-    appId: "",
-    appSecret: "",
-    verificationToken: "",
-    encryptKey: "",
-    enabled: false,
-    defaultAgentId: FEISHU_REMOTE_DEFAULT_AGENT_ID,
-    defaultWorkdir: "",
-    pairedUserOpenIds: [],
     lastFatalError: null,
     pairing: {
       code: null,
@@ -971,7 +813,7 @@ export const createDefaultRemoteControlConfig = (): RemoteControlConfig => ({
 });
 
 const RemoteEndpointBindingMetaSchema = z.object({
-  channel: z.enum(["telegram", "feishu", "qqbot", "discord", "weixin-ilink"]).optional(),
+  channel: z.enum(["telegram", "qqbot", "discord", "weixin-ilink"]).optional(),
   kind: z.enum(["dm", "group", "topic"]).optional(),
   chatId: z.string().optional(),
   threadId: z.string().nullable().optional(),
@@ -997,21 +839,6 @@ const TelegramRemoteRuntimeConfigSchema = z.object({
   defaultWorkdir: z.string().optional(),
   streamMode: z.enum(["draft", "final"]).optional(),
   pollOffset: z.number().int().nonnegative().optional(),
-  lastFatalError: z.string().nullable().optional(),
-  pairing: PairingStateSchema.optional(),
-  bindings: z.record(z.string(), z.unknown()).optional(),
-});
-
-const FeishuRemoteRuntimeConfigSchema = z.object({
-  brand: z.enum(["feishu", "lark"]).optional(),
-  appId: z.string().optional(),
-  appSecret: z.string().optional(),
-  verificationToken: z.string().optional(),
-  encryptKey: z.string().optional(),
-  enabled: z.boolean().optional(),
-  defaultAgentId: z.string().optional(),
-  defaultWorkdir: z.string().optional(),
-  pairedUserOpenIds: z.array(z.string()).optional(),
   lastFatalError: z.string().nullable().optional(),
   pairing: PairingStateSchema.optional(),
   bindings: z.record(z.string(), z.unknown()).optional(),
@@ -1061,14 +888,12 @@ const WeixinIlinkRemoteRuntimeConfigSchema = z.object({
 
 const RemoteControlConfigSchema = z.object({
   telegram: TelegramRemoteRuntimeConfigSchema.optional(),
-  feishu: FeishuRemoteRuntimeConfigSchema.optional(),
   qqbot: QQBotRemoteRuntimeConfigSchema.optional(),
   discord: DiscordRemoteRuntimeConfigSchema.optional(),
   weixinIlink: WeixinIlinkRemoteRuntimeConfigSchema.optional(),
 });
 
 type LegacyTelegramRemoteConfig = z.infer<typeof TelegramRemoteRuntimeConfigSchema>;
-type LegacyFeishuRemoteConfig = z.infer<typeof FeishuRemoteRuntimeConfigSchema>;
 type LegacyQQBotRemoteConfig = z.infer<typeof QQBotRemoteRuntimeConfigSchema>;
 type LegacyDiscordRemoteConfig = z.infer<typeof DiscordRemoteRuntimeConfigSchema>;
 type LegacyWeixinIlinkRemoteConfig = z.infer<typeof WeixinIlinkRemoteRuntimeConfigSchema>;
@@ -1101,30 +926,6 @@ const extractLegacyTelegramConfig = (input: unknown): LegacyTelegramRemoteConfig
   }
 
   const parsed = TelegramRemoteRuntimeConfigSchema.safeParse(record);
-  return parsed.success ? parsed.data : null;
-};
-
-const extractLegacyFeishuConfig = (input: unknown): LegacyFeishuRemoteConfig | null => {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return null;
-  }
-
-  const record = input as Record<string, unknown>;
-  if (
-    !hasAnyOwn(record, [
-      "appId",
-      "appSecret",
-      "verificationToken",
-      "encryptKey",
-      "pairedUserOpenIds",
-      "lastFatalError",
-    ]) &&
-    !hasBindingPrefix(record, "feishu:")
-  ) {
-    return null;
-  }
-
-  const parsed = FeishuRemoteRuntimeConfigSchema.safeParse(record);
   return parsed.success ? parsed.data : null;
 };
 
@@ -1196,9 +997,6 @@ export const normalizeTelegramUserIds = (input: Array<number | string> | undefin
   }
   return Array.from(normalized).sort((left, right) => left - right);
 };
-
-export const normalizeFeishuOpenIds = (input: Array<string | number> | undefined): string[] =>
-  normalizeStringList(input);
 
 export const normalizeQQBotUserIds = (input: Array<string | number> | undefined): string[] =>
   normalizeStringList(input);
@@ -1303,7 +1101,7 @@ const normalizeBindingMeta = (
     return deriveWeixinIlinkBindingMeta(endpointKey) ?? undefined;
   }
 
-  return deriveFeishuBindingMeta(endpointKey) ?? undefined;
+  return undefined;
 };
 
 const normalizeBindings = (
@@ -1339,7 +1137,6 @@ export const normalizeRemoteControlConfig = (input: unknown): RemoteControlConfi
   }
 
   const telegram = parsed.data.telegram ?? extractLegacyTelegramConfig(input) ?? {};
-  const feishu = parsed.data.feishu ?? extractLegacyFeishuConfig(input) ?? {};
   const qqbot = parsed.data.qqbot ?? extractLegacyQQBotConfig(input) ?? {};
   const discord = parsed.data.discord ?? extractLegacyDiscordConfig(input) ?? {};
   const weixinIlink = parsed.data.weixinIlink ?? extractLegacyWeixinIlinkConfig(input) ?? {};
@@ -1366,27 +1163,6 @@ export const normalizeRemoteControlConfig = (input: unknown): RemoteControlConfi
             : 0,
       },
       bindings: normalizeBindings(telegram.bindings, "telegram"),
-    },
-    feishu: {
-      brand: feishu.brand === "lark" ? "lark" : "feishu",
-      appId: feishu.appId?.trim() || "",
-      appSecret: feishu.appSecret?.trim() || "",
-      verificationToken: feishu.verificationToken?.trim() || "",
-      encryptKey: feishu.encryptKey?.trim() || "",
-      enabled: Boolean(feishu.enabled),
-      defaultAgentId: feishu.defaultAgentId?.trim() || defaults.feishu.defaultAgentId,
-      defaultWorkdir: feishu.defaultWorkdir?.trim() || "",
-      pairedUserOpenIds: normalizeFeishuOpenIds(feishu.pairedUserOpenIds),
-      lastFatalError: feishu.lastFatalError?.trim() || null,
-      pairing: {
-        code: feishu.pairing?.code?.trim() || null,
-        expiresAt: typeof feishu.pairing?.expiresAt === "number" ? feishu.pairing.expiresAt : null,
-        failedAttempts:
-          typeof feishu.pairing?.failedAttempts === "number" && feishu.pairing.failedAttempts >= 0
-            ? Math.trunc(feishu.pairing.failedAttempts)
-            : 0,
-      },
-      bindings: normalizeBindings(feishu.bindings, "feishu"),
     },
     qqbot: {
       appId: qqbot.appId?.trim() || "",
@@ -1469,48 +1245,6 @@ export const deriveTelegramBindingMeta = (endpointKey: string): RemoteEndpointBi
   }
 
   return buildTelegramBindingMeta(endpoint.chatId, endpoint.messageThreadId);
-};
-
-export const buildFeishuEndpointKey = (chatId: string, threadId?: string | null): string =>
-  `feishu:${chatId}:${threadId?.trim() || "root"}`;
-
-export const parseFeishuEndpointKey = (
-  endpointKey: string,
-): Pick<RemoteBindingSummary, "chatId" | "threadId"> | null => {
-  const match = FEISHU_ENDPOINT_KEY_REGEX.exec(endpointKey.trim());
-  if (!match) {
-    return null;
-  }
-
-  return {
-    chatId: match[1],
-    threadId: match[2] === "root" ? null : match[2],
-  };
-};
-
-export const buildFeishuBindingMeta = (params: {
-  chatId: string;
-  threadId?: string | null;
-  chatType: "p2p" | "group";
-}): RemoteEndpointBindingMeta => ({
-  channel: "feishu",
-  kind: params.chatType === "p2p" ? "dm" : params.threadId ? "topic" : "group",
-  chatId: params.chatId.trim(),
-  threadId: params.threadId?.trim() || null,
-});
-
-export const deriveFeishuBindingMeta = (endpointKey: string): RemoteEndpointBindingMeta | null => {
-  const endpoint = parseFeishuEndpointKey(endpointKey);
-  if (!endpoint) {
-    return null;
-  }
-
-  return {
-    channel: "feishu",
-    kind: endpoint.threadId ? "topic" : "group",
-    chatId: endpoint.chatId,
-    threadId: endpoint.threadId,
-  };
 };
 
 export const buildQQBotEndpointKey = (chatType: "c2c" | "group", chatId: string): string =>
@@ -1625,7 +1359,6 @@ export const buildBindingSummary = (
   const meta =
     binding.meta ??
     deriveTelegramBindingMeta(endpointKey) ??
-    deriveFeishuBindingMeta(endpointKey) ??
     deriveQQBotBindingMeta(endpointKey) ??
     deriveDiscordBindingMeta(endpointKey) ??
     deriveWeixinIlinkBindingMeta(endpointKey);
@@ -1660,18 +1393,6 @@ export const normalizeTelegramSettingsInput = (input: TelegramRemoteSettings): T
   defaultWorkdir: input.defaultWorkdir?.trim() ?? "",
 });
 
-export const normalizeFeishuSettingsInput = (input: FeishuRemoteSettings): FeishuRemoteSettings => ({
-  brand: input.brand === "lark" ? "lark" : "feishu",
-  appId: input.appId?.trim() ?? "",
-  appSecret: input.appSecret?.trim() ?? "",
-  verificationToken: input.verificationToken?.trim() ?? "",
-  encryptKey: input.encryptKey?.trim() ?? "",
-  remoteEnabled: Boolean(input.remoteEnabled),
-  defaultAgentId: input.defaultAgentId?.trim() || FEISHU_REMOTE_DEFAULT_AGENT_ID,
-  defaultWorkdir: input.defaultWorkdir?.trim() ?? "",
-  pairedUserOpenIds: normalizeFeishuOpenIds(input.pairedUserOpenIds),
-});
-
 export const normalizeQQBotSettingsInput = (input: QQBotRemoteSettings): QQBotRemoteSettings => ({
   appId: input.appId?.trim() ?? "",
   clientSecret: input.clientSecret?.trim() ?? "",
@@ -1700,12 +1421,6 @@ export const buildTelegramPairingSnapshot = (settings: TelegramRemoteRuntimeConf
   pairCode: settings.pairing.code,
   pairCodeExpiresAt: settings.pairing.expiresAt,
   allowedUserIds: [...settings.allowlist],
-});
-
-export const buildFeishuPairingSnapshot = (settings: FeishuRemoteRuntimeConfig): FeishuPairingSnapshot => ({
-  pairCode: settings.pairing.code,
-  pairCodeExpiresAt: settings.pairing.expiresAt,
-  pairedUserOpenIds: [...settings.pairedUserOpenIds],
 });
 
 export const buildQQBotPairingSnapshot = (settings: QQBotRemoteRuntimeConfig): QQBotPairingSnapshot => ({

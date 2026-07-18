@@ -145,9 +145,9 @@ const testPorts: McpHostPorts = {
       processCommandWithArgs: (c: string, a: string[]) => rh.processCommandWithArgs(c, a),
       normalizePathEnv: (p: string[]) => rh.normalizePathEnv(p),
       getDefaultPaths: (h?: string) => rh.getDefaultPaths(h ?? ""),
-      getNodeRuntimePath: () => rh.getNodeRuntimePath(),
+      getBunRuntimePath: () => rh.getBunRuntimePath(),
       getUvRuntimePath: () => rh.getUvRuntimePath(),
-      setNodeRuntimePath: (p: string | null) => rh.setNodeRuntimePath(p),
+      setBunRuntimePath: (p: string | null) => rh.setBunRuntimePath(p),
       setUvRuntimePath: (p: string | null) => rh.setUvRuntimePath(p),
     };
   })(),
@@ -176,7 +176,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
     mockFsExistsSync.mockReset();
     mockFsExistsSync.mockReturnValue(false);
     runtimeHelper.runtimesInitialized = false;
-    runtimeHelper.setNodeRuntimePath(null);
+    runtimeHelper.setBunRuntimePath(null);
     runtimeHelper.setUvRuntimePath(null);
 
     mockHandleSamplingRequest.mockReset();
@@ -380,7 +380,7 @@ describe("McpClient Runtime Command Processing Tests", () => {
       const client = new McpClient("test", { type: "stdio" }, testPorts);
 
       expect((client as any).uvRuntimePath).toBeTruthy();
-      expect((client as any).nodeRuntimePath).toBeNull();
+      expect((client as any).bunRuntimePath).toBeNull();
     });
 
     it("should handle missing runtime files gracefully", () => {

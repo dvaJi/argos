@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface ArgosPendingInputRow {
@@ -15,7 +15,7 @@ export interface ArgosPendingInputRow {
 }
 
 export class ArgosPendingInputsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_pending_inputs");
   }
 

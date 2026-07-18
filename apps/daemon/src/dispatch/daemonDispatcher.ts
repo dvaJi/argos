@@ -2,6 +2,7 @@ import { arch, cpus, homedir, platform, release, totalmem } from "node:os";
 import { readdirSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { sep, dirname, resolve, isAbsolute, join, basename, extname } from "node:path";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
+import type { ProviderAggregate } from "@argos/shared/types/model-db";
 import { dispatchConfigRoute } from "@argos/backend-core/dispatch/config/configRouteHandler";
 import { ProviderImportService } from "@argos/backend-core";
 import { SettingsRouteHandler } from "@argos/backend-core/dispatch/settings/settingsHandler";
@@ -24,6 +25,7 @@ import type {
 } from "@argos/shared/types/agent-interface";
 import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
+import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
 import type {
   IEventPublisher,
   ProviderExecutionPort,
@@ -39,6 +41,8 @@ import {
   settingsUpdateRoute,
   settingsActivityListRoute,
   settingsListSystemFontsRoute,
+  databaseSecurityDiagnoseSchemaRoute,
+  databaseSecurityRepairSchemaRoute,
   remoteListChannelsRoute,
   remoteGetChannelSettingsRoute,
   remoteSaveChannelSettingsRoute,
@@ -216,6 +220,8 @@ import {
   sessionsSetAcpSessionConfigOptionRoute,
   providersListModelsRoute,
   providersGetRateLimitStatusRoute,
+  providersGetProviderDbRoute,
+  providersRefreshProviderDbRoute,
   providersRefreshModelsRoute,
   providersListOllamaModelsRoute,
   providersListOllamaRunningModelsRoute,
@@ -227,6 +233,7 @@ import {
   sessionsResumePendingQueueRoute,
   chatSteerActiveTurnRoute,
   chatRespondToolInteractionRoute,
+  imageProcessRoute,
   pluginsListRoute,
   pluginsGetRoute,
   pluginsEnableRoute,
@@ -316,6 +323,13 @@ type DaemonProviderConfigPort = {
   updateCustomModel(providerId: string, modelId: string, updates: unknown): void;
   setModelStatus(providerId: string, modelId: string, enabled: boolean): void;
   getModelStatusMap(providerId?: string): Record<string, boolean>;
+  getDaemonProviderDb(): { catalog: unknown; sourceUrl: string; lastUpdated: number | null };
+  refreshDaemonProviderDb(force: boolean): Promise<{
+    providersCount: number;
+    lastUpdated: number | null;
+    sourceUrl: string;
+    status: "updated" | "not-modified" | "skipped" | "error";
+  }>;
 };
 
 type DaemonScheduledTaskConfigPort = {
@@ -1428,6 +1442,78 @@ export function createDaemonDispatcher(
       return fileWriteImageBase64Route.output.parse({ path: target });
     }
 
+    if (route === imageProcessRoute.name) {
+      const input = imageProcessRoute.input.parse(rawInput);
+      const { default: sharp } = await import("sharp");
+      let pipeline = sharp(Buffer.from(input.imageBase64, "base64"));
+      let metadataResult: { width?: number; height?: number; format?: string } | undefined;
+
+      for (const op of input.operations) {
+        switch (op.type) {
+          case "metadata": {
+            const meta = await pipeline.metadata();
+            metadataResult = {
+              width: meta.width ?? undefined,
+              height: meta.height ?? undefined,
+              format: meta.format ?? undefined,
+            };
+            break;
+          }
+          case "resize": {
+            pipeline = pipeline.resize(op.width, op.height, {
+              fit: op.fit,
+              withoutEnlargement: op.withoutEnlargement,
+            });
+            break;
+          }
+          case "jpeg": {
+            pipeline = pipeline.jpeg({ quality: op.quality, mozjpeg: true });
+            break;
+          }
+          case "png": {
+            pipeline = pipeline.png();
+            break;
+          }
+          case "webp": {
+            pipeline = pipeline.webp({ quality: op.quality });
+            break;
+          }
+          case "gif": {
+            pipeline = pipeline.gif();
+            break;
+          }
+          case "composite": {
+            pipeline = pipeline.composite(
+              op.buffers.map((b) => ({
+                input: Buffer.from(b.base64, "base64"),
+                top: b.top,
+                left: b.left,
+              })),
+            );
+            break;
+          }
+          case "toFormat": {
+            if (op.format === "jpeg") {
+              pipeline = pipeline.jpeg(op.quality ? { quality: op.quality } : undefined);
+            } else if (op.format === "png") {
+              pipeline = pipeline.png();
+            } else if (op.format === "webp") {
+              pipeline = pipeline.webp(op.quality ? { quality: op.quality } : undefined);
+            } else if (op.format === "gif") {
+              pipeline = pipeline.gif();
+            }
+            break;
+          }
+        }
+      }
+
+      const resultBuffer = await pipeline.toBuffer();
+      return imageProcessRoute.output.parse({
+        imageBase64: resultBuffer.toString("base64"),
+        metadata: metadataResult,
+      });
+    }
+
     if (route.startsWith("remote.")) {
       return dispatchRemoteRoute(remoteControl.runtime, route, rawInput);
     }
@@ -1532,6 +1618,18 @@ export function createDaemonDispatcher(
       }));
 
       return settingsActivityListRoute.output.parse({ activities });
+    }
+
+    if (route === databaseSecurityDiagnoseSchemaRoute.name) {
+      databaseSecurityDiagnoseSchemaRoute.input.parse(rawInput);
+      const diagnosis = diagnoseDaemonSchema(settingsActivityDb as never);
+      return databaseSecurityDiagnoseSchemaRoute.output.parse({ diagnosis });
+    }
+
+    if (route === databaseSecurityRepairSchemaRoute.name) {
+      databaseSecurityRepairSchemaRoute.input.parse(rawInput);
+      const report = repairDaemonSchema(settingsActivityDb as never);
+      return databaseSecurityRepairSchemaRoute.output.parse({ report });
     }
 
     if (route === toolsListDefinitionsRoute.name) {
@@ -1675,6 +1773,27 @@ export function createDaemonDispatcher(
       const input = providersRefreshModelsRoute.input.parse(rawInput);
       await daemonConfig.refreshProviderModels(input.providerId);
       return providersRefreshModelsRoute.output.parse({ refreshed: true });
+    }
+
+    if (route === providersGetProviderDbRoute.name) {
+      providersGetProviderDbRoute.input.parse(rawInput);
+      const result = daemonConfig.getDaemonProviderDb();
+      return providersGetProviderDbRoute.output.parse({
+        catalog: (result.catalog as ProviderAggregate) ?? { providers: {} },
+        sourceUrl: result.sourceUrl,
+        lastUpdated: result.lastUpdated,
+      });
+    }
+
+    if (route === providersRefreshProviderDbRoute.name) {
+      const input = providersRefreshProviderDbRoute.input.parse(rawInput);
+      const result = await daemonConfig.refreshDaemonProviderDb(input.force);
+      return providersRefreshProviderDbRoute.output.parse({
+        providersCount: result.providersCount,
+        lastUpdated: result.lastUpdated,
+        sourceUrl: result.sourceUrl,
+        status: result.status,
+      });
     }
 
     if (route === providersListOllamaModelsRoute.name) {

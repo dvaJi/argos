@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import type { UsageStatsRecordInput } from "../../usageStats";
 
@@ -78,7 +78,7 @@ function normalizeAggregate(row: AggregateRow | undefined): ArgosUsageStatsSumma
 }
 
 export class ArgosUsageStatsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_usage_stats");
   }
 
@@ -179,10 +179,12 @@ export class ArgosUsageStatsTable extends BaseTable {
   }
 
   count(): number {
-    const row = this.db.prepare("SELECT COUNT(*) AS count FROM argos_usage_stats").get() as {
-      count: number;
-    };
-    return row.count;
+    const row = this.db.prepare("SELECT COUNT(*) AS count FROM argos_usage_stats").get() as
+      | {
+          count: number;
+        }
+      | undefined;
+    return row?.count ?? 0;
   }
 
   deleteAll(): void {
@@ -190,10 +192,12 @@ export class ArgosUsageStatsTable extends BaseTable {
   }
 
   getRecordingStartedAt(): number | null {
-    const row = this.db.prepare("SELECT MIN(created_at) AS started_at FROM argos_usage_stats").get() as {
-      started_at: number | null;
-    };
-    return row.started_at ?? null;
+    const row = this.db.prepare("SELECT MIN(created_at) AS started_at FROM argos_usage_stats").get() as
+      | {
+          started_at: number | null;
+        }
+      | undefined;
+    return row?.started_at ?? null;
   }
 
   getSummary(): ArgosUsageStatsSummary {

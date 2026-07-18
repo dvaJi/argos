@@ -10,7 +10,7 @@ import {
 } from "#shadcn/components/ui/dialog";
 import { Button } from "#shadcn/components/ui/button";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import type { NewDiscovery } from "@argos/shared/types/skillSync";
 import { SKILL_SYNC_EVENTS } from "#/events";
 
@@ -48,7 +48,7 @@ const toolIconBgs: Record<string, string> = {
 };
 
 export default function SyncPromptDialog({ onImport, onClose }: SyncPromptDialogProps) {
-  const skillSyncPresenter = useLegacyPresenter("skillSyncPresenter");
+  const skillSyncPresenter = usePresenter("skillSyncPresenter");
   const [isOpen, setIsOpen] = useState(false);
   const [discoveries, setDiscoveries] = useState<NewDiscovery[]>([]);
   const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());

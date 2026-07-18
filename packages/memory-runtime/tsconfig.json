@@ -4,7 +4,7 @@
     "strict": true, "esModuleInterop": true, "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true, "resolveJsonModule": false,
     "composite": false, "declaration": false, "emitDeclarationOnly": false,
-    "noEmit": true, "baseUrl": ".",
+    "noEmit": true,
     "paths": {
       "@argos/backend-core": ["../backend-core/src"],
       "@argos/backend-core/*": ["../backend-core/src/*"],

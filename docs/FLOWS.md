@@ -202,7 +202,6 @@ Triggers support once, daily, and weekly; actions support notification and promp
 ```mermaid
 flowchart LR
     Telegram["Telegram"] --> Remote["RemoteControlPresenter"]
-    Feishu["Feishu/Lark"] --> Remote
     QQ["QQBot"] --> Remote
     Discord["Discord"] --> Remote
     WeChat["WeChat iLink"] --> Remote
@@ -212,14 +211,3 @@ flowchart LR
 ```
 
 Unified remote control supports binding, default agent, default workdir, `/sessions`, `/model`, status output, media/Markdown rendering, and tool interaction prompts. Protocol differences per channel live in `remoteControlPresenter/<channel>/` and `remoteControlPresenter/services/*CommandRouter.ts`.
-
-## 10. Local Data Security
-
-SQLite database encryption is managed by `DatabaseSecurityPresenter`:
-
-- `databaseSecurity.getStatus`
-- `databaseSecurity.enable`
-- `databaseSecurity.changePassword`
-- `databaseSecurity.disable`
-
-Once enabled, `agent.db` is migrated using SQLCipher; the password is preferentially saved wrapped via Electron `safeStorage`. When safeStorage is unavailable or unwrapping fails, manual unlock is entered.

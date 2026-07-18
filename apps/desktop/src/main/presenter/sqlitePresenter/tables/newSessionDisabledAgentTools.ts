@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface NewSessionDisabledAgentToolRow {
@@ -10,7 +10,7 @@ export interface NewSessionDisabledAgentToolRow {
 const NORMALIZATION_SCHEMA_VERSION = 26;
 
 export class NewSessionDisabledAgentToolsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "new_session_disabled_agent_tools");
   }
 

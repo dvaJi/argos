@@ -51,7 +51,7 @@ describe("RuntimeHelper", () => {
     const helper = RuntimeHelper.getInstance();
     helper.initializeRuntimes(true);
 
-    expect(helper.getNodeRuntimePath()).toBeNull();
+    expect(helper.getBunRuntimePath()).toBeNull();
     expect(helper.getUvRuntimePath()).toBeNull();
     expect(helper.getRipgrepRuntimePath()).toBeNull();
     expect(helper.getRtkRuntimePath()).toBeNull();

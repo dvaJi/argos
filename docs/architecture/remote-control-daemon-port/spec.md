@@ -2,24 +2,25 @@
 
 ## Goal
 
-Move the **remote control subsystem** (Telegram / Discord / Feishu / QQ Bot /
+Move the **remote control subsystem** (Telegram / Discord / QQ Bot /
 WeChat iLink bot integrations) from the Electron desktop main process into the
 daemon, so that bot channels are available and run identically in **both
 desktop and web mode**. Today the subsystem is desktop-only; in web mode every
 `remoteControlPresenter:call` returns null and the Remote Channels settings page
 is non-functional.
 
-Concretely: configuring a Telegram (or Discord/Feishu/QQ/WeChat) bot from the
+Concretely: configuring a Telegram (or Discord/QQ/WeChat) bot from the
 web UI, having the daemon maintain the long-lived bot connection, and receiving
 replies through the bot must work without the Electron app running.
 
 ## Background / Problem
 
-**Symptom (current):** the Remote Channels settings page
-(`apps/desktop/src/renderer/settings/components/RemoteSettings.tsx`) is blank /
-non-functional in web mode. The `webBridge.ts` shim returns `null` for the
-`remoteControlPresenter:call` IPC channel with a comment claiming the subsystem
-is "desktop-backed" — which is architecturally wrong.
+**Current transitional state:** web and desktop can configure channels through
+daemon `remote.*` routes, and the Electron-free implementation exists in
+`packages/remote-control-runtime`. However, the daemon constructs it in
+`configOnly` mode while Electron still constructs a second, copied runtime for
+live bot traffic. This duplicates every adapter, router, binding service, and
+conversation-runner change and can run different behavior by host.
 
 **Root cause:** the entire `RemoteControlPresenter`
 (`apps/desktop/src/main/presenter/remoteControlPresenter/`, ~1800 lines + 5
@@ -31,7 +32,7 @@ daemon is the correct owner.
 
 The subsystem is almost entirely framework-agnostic:
 
-- **Channel adapters** (telegram/discord/feishu/qqbot/weixinIlink) — pure
+- **Channel adapters** (telegram/discord/qqbot/weixinIlink) — pure
   `fetch`/WebSocket + `node:crypto`/`node:fs`. No Electron. Run in-process (no
   child processes spawned).
 - **`ChannelManager` / `ChannelAdapter`** — in-memory adapter registry. No
@@ -59,13 +60,14 @@ The subsystem is almost entirely framework-agnostic:
 The conversation runner polls `agentRuntimePresenter.getActiveGeneration(
 sessionId)` to track the in-flight assistant event while streaming a bot reply.
 The daemon has `providerExecutionPort.sendMessage/cancelGeneration/
-respondToolInteraction` but **no `getActiveGeneration(sessionId)` accessor**.
-This must be added (it tracks generation state internally already).
+respondToolInteraction` and both HTTP and ACP execution paths. It still needs a
+small read accessor over their existing in-flight maps so the shared runner can
+observe and cancel the active turn.
 
 ## Acceptance Criteria
 
 1. **Web mode configuration works.** From `/#/settings/remote`, a user can
-   configure each channel (Telegram, Discord, Feishu, QQ Bot, WeChat iLink),
+   configure each channel (Telegram, Discord, QQ Bot, WeChat iLink),
    save settings, and see live channel status — without the Electron app.
 2. **Bot runtime lives in the daemon.** Enabling a channel starts its adapter
    (poller / gateway / webhook) inside the daemon process; it keeps running when
@@ -104,14 +106,13 @@ This must be added (it tracks generation state internally already).
   reduced to the WeChat login-window UX shim that calls daemon routes. The
   `/open` desktop-handoff command stays a desktop-only nicety layered on top.
 - **Bun compatibility** must be verified for:
-  - `@larksuiteoapi/node-sdk` (Feishu — the only heavy SDK; risk item).
   - `undici` `WebSocket` (Discord/QQ gateway) → swap to Bun's built-in
     `WebSocket`.
 
 ## Non-Goals
 
 - **New channels.** No new bot platforms are added; the existing 5 port as-is.
-- **Webhook mode for Telegram/Feishu.** Keep the current polling/WebSocket model.
+- **Webhook mode for Telegram.** Keep the current polling/WebSocket model.
 - **Redesigning the conversation-runner polling.** The `getActiveGeneration`
   polling loop ports as-is (only the accessor is added).
 - **Multi-daemon / clustered bots.** Single daemon instance, as today.
@@ -127,20 +128,6 @@ A new package `packages/remote-control-runtime/` (mirroring `agent-runtime`,
 adapters, and the conversation runner — all Electron-free. Both the daemon
 (`DaemonRemoteControlRuntime` host) and desktop (thin proxy) import from it.
 
-### [NEEDS CLARIFICATION] Feishu SDK on Bun
-
-`@larksuiteoapi/node-sdk` is the only heavy third-party dependency. Two options:
-
-- **(A)** Verify it works under Bun as-is (preferred — least work). Feasibility
-  check is the first implementation task; if it fails, fall back to (B).
-- **(B)** Reimplement the Feishu WebSocket client + REST wrappers with `fetch`
-  + Bun `WebSocket` (significant work, deferred until (A) is proven infeasible).
-
-If Feishu proves non-portable in this port, **Feishu may be temporarily
-disabled in daemon mode** (channel descriptor `implemented: false` when running
-headless) while the other 4 channels ship. This is an acceptable graceful
-degradation and would be tracked as a follow-up.
-
 ### [DECIDED] Desktop role after port — thin proxy
 
 Desktop `RemoteControlPresenter` forwards all `remote.*` calls to the daemon
@@ -155,10 +142,9 @@ pattern.
 permissive nested-blob schema (`zod.unknown()` passthrough), matching how desktop
 already stores it today. No dedicated JSON store.
 
-### [DEFERRED — verify during implementation] Feishu SDK on Bun
+### [DECIDED] One implementation, one runtime owner
 
-`@larksuiteoapi/node-sdk` is the only heavy third-party dependency. Verify it
-works under Bun as-is (first implementation task). If it fails, Feishu is
-temporarily marked `implemented: false` in daemon mode while the other 4
-channels ship; a Feishu-native reimplementation is tracked as a follow-up.
-
+All portable implementation code lives in `packages/remote-control-runtime`.
+Only the daemon instantiates it. Electron exposes a compatibility proxy over
+typed daemon routes and must not keep copied adapters, routers, or a
+conversation runner.

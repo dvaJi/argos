@@ -24,36 +24,6 @@ export class HttpClient {
   }
 
   async invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>> {
-    if (routeName === "databaseSecurity.getStatus") {
-      return {
-        status: {
-          enabled: false,
-          cipher: "sqlcipher",
-          safeStorageAvailable: false,
-          passwordStorage: "none",
-          manualUnlockRequired: false,
-          migrationInProgress: false,
-        },
-      } as ArgosRouteOutput<T>;
-    }
-
-    if (
-      routeName === "databaseSecurity.enable" ||
-      routeName === "databaseSecurity.changePassword" ||
-      routeName === "databaseSecurity.disable"
-    ) {
-      return {
-        status: {
-          enabled: false,
-          cipher: "sqlcipher",
-          safeStorageAvailable: false,
-          passwordStorage: "none",
-          manualUnlockRequired: false,
-          migrationInProgress: false,
-        },
-      } as ArgosRouteOutput<T>;
-    }
-
     if (routeName === "databaseSecurity.diagnoseSchema") {
       return {
         diagnosis: {

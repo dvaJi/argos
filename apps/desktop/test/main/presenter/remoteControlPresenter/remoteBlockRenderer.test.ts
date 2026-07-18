@@ -8,7 +8,7 @@ import {
   buildRemoteStreamText,
   buildRemoteTraceText,
   buildRemoteStatusText,
-} from "#/presenter/remoteControlPresenter/services/remoteBlockRenderer";
+} from "@argos/remote-control-runtime/services/remoteBlockRenderer";
 
 describe("remoteBlockRenderer", () => {
   it("renders reasoning and answer blocks in order", async () => {

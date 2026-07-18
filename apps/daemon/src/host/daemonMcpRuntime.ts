@@ -1,4 +1,5 @@
 import { ServerManager, ToolManager, type McpHostPorts } from "@argos/mcp-runtime";
+import type { MCPServerConfig, MCPToolDefinition, McpClient } from "@argos/shared/presenter";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
 
 /**
@@ -24,7 +25,7 @@ export class DaemonMcpRuntime {
   async startEnabledServers(): Promise<{ started: string[]; failed: Array<{ serverName: string; error: string }> }> {
     if (!(await this.configPresenter.getMcpEnabled())) return { started: [], failed: [] };
 
-    const servers = await this.configPresenter.getMcpServers();
+    const servers = (await this.configPresenter.getMcpServers()) as Record<string, MCPServerConfig>;
     const candidates = Object.entries(servers).filter(
       ([, config]) => config.enabled && !config.ownerPluginId && config.source !== "plugin",
     );
@@ -63,8 +64,90 @@ export class DaemonMcpRuntime {
     return await this.serverManager.refreshNpmRegistry();
   }
 
-  async getClients() {
-    return this.toolManager.getRunningClients();
+  async getClients(): Promise<McpClient[]> {
+    const enabled = await this.configPresenter.getMcpEnabled();
+    const servers = (await this.configPresenter.getMcpServers()) as Record<string, MCPServerConfig>;
+    const clients = (await this.toolManager.getRunningClients()).filter(
+      (client) =>
+        enabled ||
+        Boolean(
+          servers[client.serverName]?.ownerPluginId ||
+          (servers[client.serverName]?.source === "plugin" && servers[client.serverName]?.sourceId),
+        ),
+    );
+
+    return await Promise.all(
+      clients.map(async (client) => {
+        const tools = await client.listTools();
+        const toolDefinitions: MCPToolDefinition[] = (tools ?? []).map((tool) => {
+          const properties = Object.fromEntries(
+            Object.entries(tool.inputSchema.properties ?? {}).map(([name, property]) => {
+              const normalizedProperty =
+                property && typeof property === "object" ? { ...(property as Record<string, unknown>) } : property;
+              if (
+                normalizedProperty &&
+                typeof normalizedProperty === "object" &&
+                !("description" in normalizedProperty)
+              ) {
+                normalizedProperty.description = `Params of ${name}`;
+              }
+              return [name, normalizedProperty];
+            }),
+          );
+
+          return {
+            type: "function",
+            function: {
+              name: tool.name,
+              description: tool.description ?? "",
+              parameters: {
+                type: "object",
+                properties,
+                required: Array.isArray(tool.inputSchema.required) ? tool.inputSchema.required : [],
+              },
+            },
+            server: {
+              name: client.serverName,
+              icons: String(client.serverConfig.icons ?? ""),
+              description: String(client.serverConfig.description ?? client.serverConfig.descriptions ?? ""),
+            },
+          };
+        });
+
+        const summary: McpClient = {
+          name: client.serverName,
+          icon: String(client.serverConfig.icons ?? ""),
+          isRunning: client.isServerRunning(),
+          tools: toolDefinitions,
+        };
+
+        if (typeof client.listPrompts === "function") {
+          const prompts = await client.listPrompts().catch(() => []);
+          if (prompts?.length) {
+            summary.prompts = prompts.map((prompt) => ({
+              id: prompt.name,
+              name: prompt.name,
+              content: prompt.description ?? "",
+              description: prompt.description ?? "",
+              arguments: prompt.arguments ?? [],
+              client: {
+                name: client.serverName,
+                icon: String(client.serverConfig.icons ?? ""),
+              },
+            }));
+          }
+        }
+
+        if (typeof client.listResources === "function") {
+          const resources = await client.listResources().catch(() => []);
+          if (resources?.length) {
+            summary.resources = resources;
+          }
+        }
+
+        return summary;
+      }),
+    );
   }
 
   async callTool(request: unknown) {

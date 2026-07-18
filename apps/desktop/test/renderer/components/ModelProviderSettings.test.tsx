@@ -120,7 +120,7 @@ const setup = async (options?: {
       forceComplete: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
     }),
   }));
-  vi.doMock("#api/legacy/presenters", () => ({
+  vi.doMock("#api/presenterBridge", () => ({
     useLegacyPresenter: () => ({
       focusMainWindow: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
     }),

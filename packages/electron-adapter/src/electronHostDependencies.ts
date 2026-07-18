@@ -2,7 +2,6 @@ import type { HostDependencies } from "@argos/backend-core";
 import { ElectronPathResolver } from "./electronPaths";
 import { ElectronConfigStore } from "./electronConfig";
 import { ElectronCredentialStore } from "./electronSecrets";
-import { ElectronDatabaseProvider } from "./electronDatabase";
 import { ElectronSubprocessRunner } from "./electronSubprocess";
 import { ElectronEventPublisher } from "./electronEventPublisher";
 import type { eventBus as EventBusType } from "#/eventbus";
@@ -38,13 +37,12 @@ export function createElectronHostDependencies(options: {
     },
   });
   const config = options.configStore ?? new ElectronConfigStore();
-  const database = new ElectronDatabaseProvider();
   const subprocess = new ElectronSubprocessRunner();
   const events = options.eventBusInstance
     ? new ElectronEventPublisher(options.eventBusInstance)
     : new ElectronEventPublisher({} as any);
 
-  return { paths, credentials, config, database, subprocess, events };
+  return { paths, credentials, config, subprocess, events };
 }
 
 export type { HostDependencies };

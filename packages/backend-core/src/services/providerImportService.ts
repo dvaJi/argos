@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import Database from "better-sqlite3-multiple-ciphers";
 import { parse as parseYaml } from "yaml";
 import { nanoid } from "nanoid";
 import type { IConfigPresenter, LLM_PROVIDER, MODEL_META } from "@argos/shared/presenter";
+import type { SqliteReaderFactory } from "../host/interfaces";
 import { ModelType } from "@argos/shared/model";
 import {
   PROVIDER_IMPORT_CUSTOM_API_TYPES,
@@ -328,6 +328,7 @@ type ProviderImportServiceOptions = {
   homeDir?: string;
   platform?: NodeJS.Platform;
   appDataDir?: string;
+  sqliteReader?: SqliteReaderFactory;
 };
 
 export class ProviderImportService {
@@ -335,6 +336,7 @@ export class ProviderImportService {
   private readonly homeDir: string;
   private readonly platform: NodeJS.Platform;
   private readonly appDataDir: string;
+  private readonly sqliteReader: SqliteReaderFactory | undefined;
 
   constructor(
     private readonly configPresenter: IConfigPresenter,
@@ -343,6 +345,7 @@ export class ProviderImportService {
     this.homeDir = options.homeDir ?? os.homedir();
     this.platform = options.platform ?? process.platform;
     this.appDataDir = options.appDataDir ?? process.env.APPDATA ?? path.join(this.homeDir, "AppData", "Roaming");
+    this.sqliteReader = options.sqliteReader;
   }
 
   async scan(): Promise<ProviderImportScanResult> {
@@ -574,10 +577,8 @@ export class ProviderImportService {
   }
 
   private readAlma(definition: SourceDefinition, dbPath: string): ProviderImportRawProvider[] {
-    const db = new Database(dbPath, {
-      readonly: true,
-      fileMustExist: true,
-    });
+    if (!this.sqliteReader) return [];
+    const db = this.sqliteReader(dbPath);
     try {
       const table = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'providers'").get();
       if (!table) return [];
@@ -745,10 +746,8 @@ export class ProviderImportService {
   }
 
   private readCcSwitch(definition: SourceDefinition, dbPath: string): ProviderImportRawProvider[] {
-    const db = new Database(dbPath, {
-      readonly: true,
-      fileMustExist: true,
-    });
+    if (!this.sqliteReader) return [];
+    const db = this.sqliteReader(dbPath);
     try {
       const table = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'providers'").get();
       if (!table) return [];

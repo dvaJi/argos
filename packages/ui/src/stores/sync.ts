@@ -56,7 +56,7 @@ export const startBackup = async (): Promise<SyncBackupInfo | null> => {
     return backupInfo;
   } catch (error) {
     console.error("backup failed:", error);
-    return null;
+    throw error;
   } finally {
     syncStore.setState((s) => ({ ...s, isBackingUp: false }));
   }
@@ -185,7 +185,7 @@ export const selectSyncFolder = async () => {
 
 export const openSyncFolder = async () => {
   if (!syncStore.state.syncEnabled) return;
-  await syncClient.openSyncFolder();
+  await syncClient.openSyncFolder(syncStore.state.syncFolderPath || undefined);
 };
 
 export const restartApp = async () => {

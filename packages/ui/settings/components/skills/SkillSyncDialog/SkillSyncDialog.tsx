@@ -1,5 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useCallback } from "react";
-import { Icon } from "@iconify/react";
+import { type FC, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
 import ImportWizard from "./ImportWizard";
 import ExportWizard from "./ExportWizard";
@@ -7,18 +6,21 @@ import ExportWizard from "./ExportWizard";
 interface SkillSyncDialogProps {
   open: boolean;
   mode: "import" | "export";
+  initialToolId?: string;
+  initialSkills?: string[];
   onOpenChange: (value: boolean) => void;
   onCompleted: () => void;
 }
 
-export const SkillSyncDialog: FC<SkillSyncDialogProps> = ({ open, mode, onOpenChange, onCompleted }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-
-  useEffect(() => {
-    if (open) {
-      setCurrentStep(1);
-    }
-  }, [open]);
+export const SkillSyncDialog: FC<SkillSyncDialogProps> = ({
+  open,
+  mode,
+  initialToolId,
+  initialSkills,
+  onOpenChange,
+  onCompleted,
+}) => {
+  const [currentStep, setCurrentStep] = useState(() => (mode === "import" && initialToolId ? 2 : 1));
 
   const handleComplete = () => {
     onCompleted();
@@ -43,6 +45,8 @@ export const SkillSyncDialog: FC<SkillSyncDialogProps> = ({ open, mode, onOpenCh
           {mode === "import" ? (
             <ImportWizard
               currentStep={currentStep}
+              initialToolId={initialToolId}
+              initialSkills={initialSkills}
               onStepChange={setCurrentStep}
               onComplete={handleComplete}
               onCancel={handleCancel}

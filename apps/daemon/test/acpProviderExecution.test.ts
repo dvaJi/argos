@@ -16,6 +16,21 @@ describe("AcpProviderExecutionPort", () => {
     ],
   } as any;
 
+  it("exposes the active ACP turn identifiers", () => {
+    const port = new AcpProviderExecutionPort({} as never, {} as never, { publish: vi.fn() } as never, {
+      dataDir: "/tmp",
+      appVersion: "1.0.0",
+      db: { prepare: vi.fn() },
+    });
+    (port as any).activeTurns.set("session-1", {
+      controller: new AbortController(),
+      eventId: "assistant-1",
+      runId: "request-1",
+    });
+
+    expect(port.getActiveGeneration("session-1")).toEqual({ eventId: "assistant-1", runId: "request-1" });
+  });
+
   it("publishes and persists decoded ACP assistant text chunks", async () => {
     const addMessage = vi.fn(async () => "persisted-assistant-1");
     const publish = vi.fn();

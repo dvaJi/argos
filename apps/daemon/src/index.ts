@@ -13,14 +13,14 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { ProviderImportService } from "@argos/backend-core";
-import { BunProviderExecutionPort } from "./host/bun-provider-execution";
+import { AiSdkProviderExecutionPort } from "./host/aiSdk-provider-execution";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
 import { DaemonSkillRuntime } from "./host/daemonSkillRuntime";
 import { DaemonSyncRuntime } from "./host/daemonSyncRuntime";
 import { DaemonMemoryRuntime } from "./host/daemonMemoryRuntime";
-import { DaemonRemoteControlConfig } from "./host/daemonRemoteControlConfig";
+import { DaemonRemoteControlRuntime } from "./host/daemonRemoteControlRuntime";
 import { DaemonPluginPresenter } from "./host/daemonPluginPresenter";
 import { DaemonScheduledTasks } from "./host/daemonScheduledTasks";
 import { logger } from "./logging";
@@ -41,6 +41,7 @@ type DaemonProviderExecutionPort = Required<
   Pick<
     ProviderExecutionPort,
     | "sendMessage"
+    | "getActiveGeneration"
     | "steerActiveTurn"
     | "respondToolInteraction"
     | "cancelGeneration"
@@ -79,6 +80,48 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
+
+const PLUGIN_SETTINGS_BRIDGE_SOURCE = String.raw`(() => {
+  const scriptUrl = new URL(document.currentScript.src);
+  const pluginId = scriptUrl.searchParams.get("pluginId") || "";
+  const pending = new Map();
+  let requestCounter = 0;
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.source !== "argos-plugin-settings-host" || typeof message.requestId !== "string") return;
+    const request = pending.get(message.requestId);
+    if (!request) return;
+    pending.delete(message.requestId);
+    if (message.ok) request.resolve(message.value);
+    else request.reject(new Error(message.error || "Plugin settings request failed"));
+  });
+
+  const request = (method, args = []) => new Promise((resolve, reject) => {
+    const requestId = String(++requestCounter);
+    pending.set(requestId, { resolve, reject });
+    window.parent.postMessage({
+      source: "argos-plugin-settings-frame",
+      requestId,
+      pluginId,
+      method,
+      args,
+    }, "*");
+  });
+
+  Object.defineProperty(window, "argosPlugin", {
+    configurable: false,
+    enumerable: true,
+    writable: false,
+    value: Object.freeze({
+      getPluginId: () => pluginId,
+      getStatus: () => request("getStatus"),
+      enable: () => request("enable"),
+      disable: () => request("disable"),
+      invokeAction: (actionId, payload) => request("invokeAction", [actionId, payload]),
+    }),
+  });
+})();`;
 
 function withCors(response: Response): Response {
   const headers = new Headers(response.headers);
@@ -125,6 +168,60 @@ function serveStaticWeb(webRoot: string, pathname: string): Response {
   }
 
   return Response.json({ ok: false, error: { code: "not_found", message: "Web assets not found" } }, { status: 404 });
+}
+
+async function servePluginSettingsAsset(
+  pluginPresenter: DaemonPluginPresenter,
+  pluginId: string,
+  assetPath: string,
+): Promise<Response> {
+  const entry = pluginPresenter.resolveSettingsWebAsset(pluginId, "");
+  if (!entry) {
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "Plugin settings not found" } },
+      { status: 404 },
+    );
+  }
+
+  if (assetPath === "__argos_bridge.js") {
+    return new Response(PLUGIN_SETTINGS_BRIDGE_SOURCE, {
+      headers: {
+        "Content-Type": MIME_TYPES[".js"],
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  const asset = pluginPresenter.resolveSettingsWebAsset(pluginId, assetPath);
+  if (!asset) {
+    return Response.json(
+      { ok: false, error: { code: "not_found", message: "Plugin settings asset not found" } },
+      { status: 404 },
+    );
+  }
+
+  const ext = asset.filePath.match(/\.[^.]+$/)?.[0] ?? "";
+  if (asset.isEntry) {
+    const html = await Bun.file(asset.filePath).text();
+    const bridgeTag = `<script src="./__argos_bridge.js?pluginId=${encodeURIComponent(pluginId)}"></script>`;
+    const content = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${bridgeTag}</head>`) : `${bridgeTag}${html}`;
+    return new Response(content, {
+      headers: {
+        "Content-Type": MIME_TYPES[".html"],
+        "Cache-Control": "no-cache",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  return new Response(Bun.file(asset.filePath), {
+    headers: {
+      "Content-Type": MIME_TYPES[ext] ?? "application/octet-stream",
+      "Cache-Control": "no-cache",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }
 
 export type DaemonHandle = {
@@ -176,7 +273,7 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new BunProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
+  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
@@ -187,6 +284,12 @@ export async function startDaemon(options?: {
   // everything else to the HTTP/LLM port.
   const providerExecutionPort: DaemonProviderExecutionPort = {
     ...httpProviderExecutionPort,
+    getActiveGeneration(sessionId) {
+      return (
+        acpProviderExecutionPort.getActiveGeneration(sessionId) ??
+        httpProviderExecutionPort.getActiveGeneration(sessionId)
+      );
+    },
     async sendMessage(sessionId, content) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
@@ -263,9 +366,9 @@ export async function startDaemon(options?: {
     sessionRepository,
   });
   const syncRuntime = new DaemonSyncRuntime({
-    dataDir: paths.getDataDir(),
     configDir: paths.getConfigDir(),
     eventPublisher,
+    configPresenter,
   });
   const scheduledTasks = new DaemonScheduledTasks({
     configPresenter,
@@ -279,8 +382,10 @@ export async function startDaemon(options?: {
     configPresenter,
     dataDir: paths.getDataDir(),
   });
-  const remoteControlConfig = new DaemonRemoteControlConfig({
-    configPresenter: configPresenter as any,
+  const remoteControlRuntime = new DaemonRemoteControlRuntime({
+    configPresenter,
+    sessionRepository,
+    providerExecutionPort,
     dataDir: paths.getDataDir(),
   });
   const pluginPresenter = new DaemonPluginPresenter({
@@ -292,7 +397,13 @@ export async function startDaemon(options?: {
     appVersion: resolveDaemonVersion(),
   });
   await pluginPresenter.initialize();
-  const providerImportService = new ProviderImportService(configPresenter as any);
+  await remoteControlRuntime.initialize();
+  const providerImportService = new ProviderImportService(configPresenter as any, {
+    sqliteReader: (dbPath) => {
+      const { Database } = require("bun:sqlite");
+      return new Database(dbPath, { readonly: true });
+    },
+  });
 
   const dispatcher =
     options?.dispatcher ??
@@ -307,7 +418,7 @@ export async function startDaemon(options?: {
       scheduledTasks,
       syncRuntime,
       memoryRuntime,
-      remoteControlConfig,
+      remoteControlRuntime,
       pluginPresenter,
       providerImportService,
       db,
@@ -358,6 +469,22 @@ export async function startDaemon(options?: {
             { status: authResult.status },
           ),
         );
+      }
+
+      const pluginSettingsMatch = url.pathname.match(/^\/api\/v1\/plugins\/([^/]+)\/settings(?:\/(.*))?$/);
+      if (pluginSettingsMatch && request.method === "GET") {
+        try {
+          const pluginId = decodeURIComponent(pluginSettingsMatch[1]);
+          const assetPath = decodeURIComponent(pluginSettingsMatch[2] ?? "");
+          return withCors(await servePluginSettingsAsset(pluginPresenter, pluginId, assetPath));
+        } catch {
+          return withCors(
+            Response.json(
+              { ok: false, error: { code: "bad_request", message: "Invalid plugin settings path" } },
+              { status: 400 },
+            ),
+          );
+        }
       }
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
@@ -443,6 +570,10 @@ export async function startDaemon(options?: {
   });
 
   const serverPort = (server as any).port ?? port;
+  if (!isNonLoopbackHost(host)) {
+    const originHost = host === "::1" ? "[::1]" : host;
+    pluginPresenter.setSettingsBaseUrl(`http://${originHost}:${serverPort}`);
+  }
   logger.info(`[daemon] Listening on http://${host}:${serverPort}`);
   logger.info(`[daemon] Health: http://${host}:${serverPort}/health`);
   logger.info(`[daemon] Routes: POST http://${host}:${serverPort}/api/v1/route`);
@@ -478,6 +609,11 @@ export async function startDaemon(options?: {
       logger.warn("[daemon] Failed to stop scheduled tasks cleanly");
     }
     try {
+      await remoteControlRuntime.destroy();
+    } catch {
+      logger.warn("[daemon] Failed to shut down remote-control runtime cleanly");
+    }
+    try {
       await pluginPresenter.shutdown();
     } catch {
       logger.warn("[daemon] Failed to shut down plugin presenter cleanly");
@@ -494,6 +630,7 @@ export async function startDaemon(options?: {
     port: serverPort,
     close: async () => {
       scheduledTasks.stop();
+      await remoteControlRuntime.destroy();
       await pluginPresenter.shutdown();
       (server as any).stop();
     },

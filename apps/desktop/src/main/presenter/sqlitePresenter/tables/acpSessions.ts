@@ -1,4 +1,4 @@
-import type Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import type { AgentSessionLifecycleStatus } from "@argos/shared/presenter";
 import { BaseTable } from "./baseTable";
 
@@ -34,7 +34,7 @@ export type AcpSessionUpsertData = {
 };
 
 export class AcpSessionsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "acp_sessions");
   }
 

@@ -15,6 +15,8 @@ export default defineConfig({
       '@argos/shared-contracts/': resolve('../../packages/shared-contracts/src/'),
       '@argos/client-sdk/': resolve('../../packages/client-sdk/src/'),
       '@argos/agent-runtime': resolve('../../packages/agent-runtime/src'),
+      '@argos/remote-control-runtime': resolve('../../packages/remote-control-runtime/src'),
+      '@argos/remote-control-runtime/': resolve('../../packages/remote-control-runtime/src/'),
     },
     deps: {
       optimizer: {
@@ -28,6 +30,7 @@ export default defineConfig({
     alias: {
       '@argos/shared-contracts': resolve('../../packages/shared-contracts/src'),
       '@argos/shared': resolve('../../packages/shared/src'),
+      '@argos/remote-control-runtime': resolve('../../packages/remote-control-runtime/src'),
     }
   }
 })

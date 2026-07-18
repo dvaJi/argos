@@ -6,11 +6,11 @@ import NowledgeMemSettings from "./NowledgeMemSettings";
 import BuiltinKnowledgeSettings from "./BuiltinKnowledgeSettings";
 import KnowledgeFile from "./KnowledgeFile";
 import type { BuiltinKnowledgeConfig } from "@argos/shared/presenter";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 
 export default function KnowledgeBaseSettings() {
-  const knowledgePresenter = useLegacyPresenter("knowledgePresenter");
+  const knowledgePresenter = usePresenter("knowledgePresenter");
   const [enableBuiltinKnowledge, setEnableBuiltinKnowledge] = useState(false);
   const [showBuiltinKnowledgeDetail, setShowBuiltinKnowledgeDetail] = useState(false);
   const [builtinKnowledgeDetail, setBuiltinKnowledgeDetail] = useState<BuiltinKnowledgeConfig | null>(null);

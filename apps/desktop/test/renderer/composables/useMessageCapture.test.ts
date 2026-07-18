@@ -7,7 +7,7 @@ vi.mock("#/composables/usePageCapture", () => ({
     captureAndCopy: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
   }),
 }));
-vi.mock("#api/legacy/presenters", () => ({
+vi.mock("#api/presenterBridge", () => ({
   useLegacyPresenter: (name: string) => {
     if (name === "devicePresenter") {
       return { getAppVersion: vi.fn<(...args: any[]) => any>().mockResolvedValue("1.0.0") };

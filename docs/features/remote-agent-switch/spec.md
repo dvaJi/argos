@@ -2,7 +2,7 @@
 
 ## User Need
 
-Remote control users (Telegram / Feishu / QQBot / Discord / Weixin iLink) can already switch the model via `/model`, but they cannot switch agents — they're stuck on whatever default agent the desktop user configured. This is especially painful when wanting to try different ACP agents (Claude Code, Codex) from the bot.
+Remote control users (Telegram / QQBot / Discord / Weixin iLink) can already switch the model via `/model`, but they cannot switch agents — they're stuck on whatever default agent the desktop user configured. This is especially painful when wanting to try different ACP agents (Claude Code, Codex) from the bot.
 
 ## Goal
 
@@ -16,7 +16,7 @@ Add a `/agent` slash command on every remote channel:
 
 1. `/agent` (no args) shows enabled agents from `configPresenter.listAgents()`.
    - Telegram: inline keyboard menu, mirroring `/model`'s shape (one button per agent + Cancel).
-   - Feishu/QQBot/Discord/Weixin iLink: text overview with usage hint and `<id>`/name/type/source.
+   - QQBot/Discord/Weixin iLink: text overview with usage hint and `<id>`/name/type/source.
 2. `/agent <id>` (text channels) and a button click (Telegram) switch the channel's `defaultAgentId` and create a new bound session whose `agentId` matches.
 3. Agent identifier is `Agent.id` (with `resolveAcpAgentAlias` fallback for legacy ACP aliases).
 4. The reply explicitly tells the user a new session was created.

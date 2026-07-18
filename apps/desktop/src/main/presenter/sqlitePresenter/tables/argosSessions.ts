@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 import type { SessionGenerationSettings } from "@argos/shared/types/agent-interface";
 import {
@@ -58,7 +58,7 @@ export interface ArgosSessionSummaryRow {
 }
 
 export class ArgosSessionsTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_sessions");
   }
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TelegramPollerStatusSnapshot } from "#/presenter/remoteControlPresenter/types";
+import type { TelegramPollerStatusSnapshot } from "@argos/remote-control-runtime/types";
 
 type MockPollerDeps = {
   onStatusChange?: (snapshot: TelegramPollerStatusSnapshot) => void;
@@ -18,7 +18,7 @@ const clientInstances: Array<{
   sendChatAction: ReturnType<typeof vi.fn>;
 }> = [];
 
-vi.mock("#/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
+vi.mock("@argos/remote-control-runtime/telegram/telegramPoller", () => ({
   TelegramPoller: class MockTelegramPoller {
     readonly start = vi.fn<(...args: any[]) => any>(async () => {
       this.deps.onStatusChange?.({
@@ -43,7 +43,7 @@ vi.mock("#/presenter/remoteControlPresenter/telegram/telegramPoller", () => ({
   },
 }));
 
-vi.mock("#/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
+vi.mock("@argos/remote-control-runtime/telegram/telegramClient", () => ({
   TelegramClient: class MockTelegramClient {
     readonly setMyCommands = vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined);
     readonly sendMessage = vi.fn<(...args: any[]) => any>().mockResolvedValue(101);
@@ -55,7 +55,7 @@ vi.mock("#/presenter/remoteControlPresenter/telegram/telegramClient", () => ({
   },
 }));
 
-import { TelegramAdapter } from "#/presenter/remoteControlPresenter/adapters/telegram/TelegramAdapter";
+import { TelegramAdapter } from "@argos/remote-control-runtime/adapters/telegram/TelegramAdapter";
 
 describe("TelegramAdapter", () => {
   beforeEach(() => {

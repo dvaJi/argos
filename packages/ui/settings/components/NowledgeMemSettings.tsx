@@ -4,10 +4,10 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { useToast } from "#/components/use-toast";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 
 export default function NowledgeMemSettings() {
-  const exporterPresenter = useLegacyPresenter("exporter");
+  const exporterPresenter = usePresenter("exporter");
   const { toast } = useToast();
 
   const [testingConnection, setTestingConnection] = useState(false);

@@ -47,7 +47,7 @@ export async function clearYoBrowserSessionData(): Promise<void> {
   await Promise.all([
     targetSession.clearCache(),
     targetSession.clearStorageData({
-      storages: ["cookies", "filesystem", "indexdb", "localstorage", "serviceworkers", "websql", "cachestorage"],
+      storages: ["cookies", "filesystem", "indexdb", "localstorage", "serviceworkers", "cachestorage"],
     }),
   ]);
 }

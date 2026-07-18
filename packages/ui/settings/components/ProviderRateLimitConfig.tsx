@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { RATE_LIMIT_EVENTS } from "#/events";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
 import { useToast } from "#/components/use-toast";
@@ -31,7 +31,7 @@ function convertIntervalToQps(interval: number): number {
 }
 
 export default function ProviderRateLimitConfig({ provider, onConfigChanged }: ProviderRateLimitConfigProps) {
-  const llmPresenter = useLegacyPresenter("llmproviderPresenter");
+  const llmPresenter = usePresenter("llmproviderPresenter");
   const { toast } = useToast();
 
   const [rateLimitEnabled, setRateLimitEnabled] = useState(provider.rateLimit?.enabled ?? false);

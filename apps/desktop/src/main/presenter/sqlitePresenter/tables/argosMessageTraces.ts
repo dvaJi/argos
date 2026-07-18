@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { BaseTable } from "./baseTable";
 
 export interface ArgosMessageTraceRow {
@@ -16,7 +16,7 @@ export interface ArgosMessageTraceRow {
 }
 
 export class ArgosMessageTracesTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "argos_message_traces");
   }
 

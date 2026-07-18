@@ -1,4 +1,4 @@
-import Database from "better-sqlite3-multiple-ciphers";
+import type { DatabaseLike as Database } from "../dbType";
 import { nanoid } from "nanoid";
 import type { SettingsActivityInput, SettingsActivityRecord } from "@argos/shared-contracts/routes";
 import { BaseTable } from "./baseTable";
@@ -21,7 +21,7 @@ type SettingsActivityRow = {
 };
 
 export class SettingsActivityTable extends BaseTable {
-  constructor(db: Database.Database) {
+  constructor(db: Database) {
     super(db, "settings_activity");
   }
 

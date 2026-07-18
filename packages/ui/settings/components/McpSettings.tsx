@@ -16,7 +16,7 @@ import McpBuiltinMarket from "./McpBuiltinMarket";
 import GuidedOnboardingOverlay from "#/components/onboarding/GuidedOnboardingOverlay";
 import { McpServers, type McpServersRef } from "#/components/mcp-config/components/McpServers";
 import { useGuidedOnboardingStep } from "#/composables/useGuidedOnboardingStep";
-import { useLegacyPresenter } from "#api/legacy/presenters";
+import { usePresenter } from "#api/presenterBridge";
 import { useMcpStore } from "#/stores/mcp";
 import { useLanguageStore } from "#/stores/language";
 import { useToast } from "#/components/use-toast";
@@ -29,7 +29,7 @@ export default function McpSettings() {
   const { toast } = useToast();
   const router = useRouter();
   const routerState = useRouterState();
-  const windowPresenter = useLegacyPresenter("windowPresenter");
+  const windowPresenter = usePresenter("windowPresenter");
   const mcpServersRef = useRef<McpServersRef | null>(null);
   const guideRootRef = useRef<HTMLDivElement | null>(null);
   const mcpActionsRef = useRef<HTMLDivElement | null>(null);

@@ -1,7 +1,7 @@
 import { BaseFileAdapter } from "./BaseFileAdapter";
 import fs from "fs/promises";
 import path from "path";
-import sharp from "sharp";
+import { callDaemonRoute } from "#/lib/daemonProxy";
 // import { VisionService } from '../llm/VisionService'
 // import { loadVisionConfig } from '../../utils/env'
 
@@ -30,37 +30,36 @@ export class ImageFileAdapter extends BaseFileAdapter {
    */
   private async extractImageMetadata(): Promise<void> {
     try {
-      const metadata = await sharp(this.filePath).metadata();
+      const buffer = await fs.readFile(this.filePath);
+      const result = await callDaemonRoute<{
+        imageBase64: string;
+        metadata?: { width?: number; height?: number; format?: string };
+      }>("image.process", {
+        imageBase64: buffer.toString("base64"),
+        operations: [{ type: "metadata" }],
+      });
       this.imageMetadata = {
-        width: metadata.width,
-        height: metadata.height,
-        format: metadata.format,
+        width: result.metadata?.width,
+        height: result.metadata?.height,
+        format: result.metadata?.format,
       };
     } catch (error) {
       console.error("Error extracting image metadata:", error);
-      // If sharp fails, at least get format from file extension
+      // Fallback to file extension
       this.imageMetadata.format = path.extname(this.filePath).substring(1).toLowerCase();
     }
   }
 
   public async getThumbnail(): Promise<string | undefined> {
-    // Compress image and convert to JPG format
-    const compressedImage = await sharp(this.filePath)
-      .resize(256, 256, {
-        // Limit max dimensions
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({
-        // Convert to JPG uniformly
-        quality: 70, // Compression quality
-        mozjpeg: true, // Use mozjpeg optimization
-      });
-
-    const buffer = await compressedImage.toBuffer();
-
-    const base64ImageString = buffer.toString("base64");
-    return `data:image/jpeg;base64,${base64ImageString}`;
+    const buffer = await fs.readFile(this.filePath);
+    const result = await callDaemonRoute<{ imageBase64: string }>("image.process", {
+      imageBase64: buffer.toString("base64"),
+      operations: [
+        { type: "resize", width: 256, height: 256, fit: "inside", withoutEnlargement: true },
+        { type: "jpeg", quality: 70 },
+      ],
+    });
+    return `data:image/jpeg;base64,${result.imageBase64}`;
   }
 
   public async getLLMContent(): Promise<string | undefined> {
@@ -72,25 +71,23 @@ export class ImageFileAdapter extends BaseFileAdapter {
     // Extract image metadata
     await this.extractImageMetadata();
 
-    // Compress image and convert to JPG format
-    const compressedImage = await sharp(this.filePath)
-      .resize(1200, 1200, {
-        // Limit max dimensions
-        fit: "inside",
-        withoutEnlargement: true,
-      })
-      .jpeg({
-        // Convert to JPG uniformly
-        quality: 70, // Compression quality
-        mozjpeg: true, // Use mozjpeg optimization
-      });
-    this.imageMetadata.compressWidth = (await compressedImage.metadata()).width ?? this.imageMetadata.width;
-    this.imageMetadata.compressHeight = (await compressedImage.metadata()).height ?? this.imageMetadata.height;
+    const buffer = await fs.readFile(this.filePath);
+    const result = await callDaemonRoute<{
+      imageBase64: string;
+      metadata?: { width?: number; height?: number; format?: string };
+    }>("image.process", {
+      imageBase64: buffer.toString("base64"),
+      operations: [
+        { type: "resize", width: 1200, height: 1200, fit: "inside", withoutEnlargement: true },
+        { type: "jpeg", quality: 70 },
+        { type: "metadata" },
+      ],
+    });
 
-    const buffer = await compressedImage.toBuffer();
+    this.imageMetadata.compressWidth = result.metadata?.width ?? this.imageMetadata.width;
+    this.imageMetadata.compressHeight = result.metadata?.height ?? this.imageMetadata.height;
 
-    const base64ImageString = buffer.toString("base64");
-    return `data:image/jpeg;base64,${base64ImageString}`;
+    return `data:image/jpeg;base64,${result.imageBase64}`;
   }
 
   async getContent(): Promise<string | undefined> {

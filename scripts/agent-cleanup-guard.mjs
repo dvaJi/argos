@@ -29,33 +29,17 @@ const PRIMARY_MAIN_GUARD_PATHS = [
 ]
 
 const RENDERER_CHAT_GUARD_PATHS = [
-  path.join(ROOT, 'packages/ui/src/pages/ChatPage.vue'),
-  path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.vue'),
+  path.join(ROOT, 'packages/ui/src/pages/ChatPage.tsx'),
+  path.join(ROOT, 'packages/ui/src/pages/NewThreadPage.tsx'),
   path.join(ROOT, 'packages/ui/src/stores/ui'),
   path.join(ROOT, 'packages/ui/src/components/chat'),
   path.join(ROOT, 'packages/ui/src/components/message'),
   path.join(ROOT, 'packages/ui/src/composables/useArtifacts.ts'),
-  path.join(ROOT, 'packages/ui/src/components/sidepanel/WorkspacePanel.vue')
+  path.join(ROOT, 'packages/ui/src/components/sidepanel/WorkspacePanel.tsx')
 ]
 
-const LEGACY_AGENT_RUNTIME_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/agentPresenter')
 const PROVIDER_LAYER_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/llmProviderPresenter/providers')
 const SKILL_PRESENTER_DIR = path.join(ROOT, 'apps/desktop/src/main/presenter/skillPresenter')
-const LEGACY_AGENT_RUNTIME_GLOBALS = [
-  'sessionManager',
-  'toolPresenter',
-  'mcpPresenter',
-  'configPresenter',
-  'skillPresenter',
-  'filePermissionService',
-  'settingsPermissionService',
-  'agentSessionPresenter',
-  'sessionPresenter',
-  'yoBrowserPresenter',
-  'filePresenter',
-  'llmproviderPresenter',
-  'windowPresenter'
-]
 
 function toPosix(value) {
   return value.split(path.sep).join('/')
@@ -209,16 +193,6 @@ async function findViolations() {
       (source.includes('getLegacyConversation') || source.includes('updateLegacyConversationSettings'))
     ) {
       violations.push(buildViolation('skill-legacy-fallback', filePath, 'legacy conversation skills'))
-    }
-
-    if (isProtectedPath(filePath, [LEGACY_AGENT_RUNTIME_DIR])) {
-      for (const legacyGlobal of LEGACY_AGENT_RUNTIME_GLOBALS) {
-        if (source.includes(`presenter.${legacyGlobal}`)) {
-          violations.push(
-            buildViolation(`agent-global-${legacyGlobal}`, filePath, `presenter.${legacyGlobal}`)
-          )
-        }
-      }
     }
 
     if (isProtectedPath(filePath, [PROVIDER_LAYER_DIR]) && source.includes('presenter.mcpPresenter')) {
