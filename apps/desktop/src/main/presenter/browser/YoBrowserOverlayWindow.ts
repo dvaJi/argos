@@ -1,12 +1,9 @@
 import { BrowserWindow, type Rectangle } from "electron";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { is } from "@electron-toolkit/utils";
 import { browserActivityChangedEvent } from "@argos/shared-contracts/events";
 import type { YoBrowserActivityPayload } from "@argos/shared/types/browser";
 import { resolveUiUrl } from "#/lib/daemonUi";
+import { getPreloadPath } from "#/lib/paths";
 
 const OVERLAY_AUTO_HIDE_MS = 4200;
 
@@ -134,7 +131,7 @@ export class YoBrowserOverlayWindow {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: join(__dirname, "../preload/browserOverlay.mjs"),
+        preload: getPreloadPath("browserOverlay.mjs"),
         devTools: is.dev,
         sandbox: false,
       },

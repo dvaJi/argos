@@ -21,3 +21,10 @@
 - [x] Step 5: Remove ACP methods from `ISessionPresenter` interface (`session.presenter.d.ts`)
 - [x] Step 5: Update desktop tests (agentSessionPresenter, agentRuntimePresenter, llmProviderPresenter, integration, usageDashboard)
 - [x] Verify: typecheck (shared-contracts/daemon/desktop) + oxfmt + oxlint + daemon/desktop test suites
+- [x] Step 6: Remove desktop AcpProvider class (~48KB), desktopPorts.ts, acpProvider.test.ts, desktopPorts.test.ts
+- [x] Step 6: Remove AcpProvider import from ProviderInstanceManager + ACP creation branch
+- [x] Step 6: Remove AcpSessionPersistence from LLMProviderPresenter (field, constructor, ProviderInstanceManager options)
+- [x] Step 6: Replace configPresenter.refreshAcpProviderAgents with no-op (daemon manages its own process lifecycle)
+- [x] Step 6: Remove AcpProvider import from configPresenter
+- [x] Step 6: Remove `app` (electron) import from LLMProviderPresenter (was only used for AcpSessionPersistence)
+- [x] Verify: typecheck + oxfmt + oxlint + daemon/desktop test suites after file deletions

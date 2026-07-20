@@ -2,11 +2,9 @@ import { app, BrowserWindow, shell } from "electron";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
-import path, { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { promisify } from "node:util";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import ElectronStore from "electron-store";
 import { unzipSync } from "fflate";
 import type { IConfigPresenter, IMCPPresenter, ISkillPresenter, MCPServerConfig } from "@argos/shared/presenter";
@@ -23,6 +21,7 @@ import type {
 } from "@argos/shared/types/plugin";
 import { OFFICIAL_PLUGIN_SOURCE } from "@argos/shared/types/plugin";
 import { registerPluginToolPolicy, unregisterPluginToolPolicies } from "./toolPolicyStore";
+import { getPreloadPath } from "#/lib/paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -488,7 +487,7 @@ export class PluginPresenter {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.join(__dirname, "../preload/pluginSettings.mjs"),
+        preload: getPreloadPath("pluginSettings.mjs"),
         sandbox: false,
       },
     });

@@ -1172,11 +1172,7 @@ describe("AgentSessionPresenter", () => {
           permissionMode: "full_access",
         }),
       );
-      expect(acpDaemonPort.prepareAcpSession).toHaveBeenCalledWith(
-        "mock-session-id",
-        "acp-coder",
-        "/tmp/workspace",
-      );
+      expect(acpDaemonPort.prepareAcpSession).toHaveBeenCalledWith("mock-session-id", "acp-coder", "/tmp/workspace");
       expect(argosAgent.processMessage).not.toHaveBeenCalled();
       expect(session.isDraft).toBe(true);
       expect(session.providerId).toBe("acp");
@@ -1345,9 +1341,7 @@ describe("AgentSessionPresenter", () => {
         sessionRows.delete(id);
       });
 
-      acpDaemonPort.setAcpWorkdir
-        .mockRejectedValueOnce(new Error("warmup failed"))
-        .mockResolvedValueOnce(undefined);
+      acpDaemonPort.setAcpWorkdir.mockRejectedValueOnce(new Error("warmup failed")).mockResolvedValueOnce(undefined);
       argosAgent.getSessionState.mockResolvedValue({
         status: "idle",
         providerId: "acp",

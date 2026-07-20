@@ -1,9 +1,5 @@
 // src\main\presenter\windowPresenter\index.ts
 import { BrowserWindow, shell, nativeImage, ipcMain, screen, webContents as electronWebContents } from "electron";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import icon from "../../../../resources/icon.png?asset"; // App icon (macOS/Linux)
 import iconWin from "../../../../resources/icon.ico?asset"; // App icon (Windows)
 import { is } from "@electron-toolkit/utils"; // Electron utilities
@@ -20,6 +16,7 @@ import {
 } from "#/events"; // System/Window/Config/Shortcut event constants
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook"; // Local daemon sidecar port
 import { getDevServerBase, resolveUiUrl, waitForDaemonPort } from "#/lib/daemonUi"; // UI URL resolution (dev server / daemon)
+import { getPreloadPath } from "#/lib/paths";
 import { presenter } from "../"; // Global presenter registry
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import windowStateManager from "electron-window-state"; // Window state manager
@@ -651,7 +648,7 @@ export class WindowPresenter implements IWindowPresenter {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: join(__dirname, "../preload/index.mjs"), // Preload script path
+        preload: getPreloadPath("index.mjs"), // Preload script path
         sandbox: false, // Disable sandbox so preload can access Node.js APIs
         devTools: is.dev, // Enable DevTools in dev mode
       },

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { agentProcessStream, type AgentMessageStore, type AgentProcessParams, type AgentToolPresenter } from "@argos/backend-core/agent/processStream";
+import {
+  agentProcessStream,
+  type AgentMessageStore,
+  type AgentProcessParams,
+  type AgentToolPresenter,
+} from "@argos/backend-core/agent/processStream";
 import type { LLMCoreStreamEvent } from "@argos/shared/types/core/llm-events";
 
 function makeMessageStore(): AgentMessageStore & { finalized: unknown[]; errored: unknown[] } {
@@ -38,7 +43,10 @@ describe("agentProcessStream", () => {
     const params: AgentProcessParams = {
       messages: [{ role: "user", content: "hello" }],
       tools: [],
-      toolPresenter: { callTool: vi.fn(), preCheckToolPermission: vi.fn(async () => null) } as unknown as AgentToolPresenter,
+      toolPresenter: {
+        callTool: vi.fn(),
+        preCheckToolPermission: vi.fn(async () => null),
+      } as unknown as AgentToolPresenter,
       coreStream: () => streamOf({ type: "text", content: "Hi there!" }, { type: "stop", stop_reason: "complete" }),
       providerId: "openai",
       modelId: "gpt-4o-mini",
@@ -113,7 +121,9 @@ describe("agentProcessStream", () => {
     expect(result.status).toBe("completed");
     expect(callTool).toHaveBeenCalledTimes(1);
     expect(messageStore.finalized.length).toBe(1);
-    expect(result.blocks.some((b) => b.type === "tool_call" && b.tool_call?.response === "weather is sunny")).toBe(true);
+    expect(result.blocks.some((b) => b.type === "tool_call" && b.tool_call?.response === "weather is sunny")).toBe(
+      true,
+    );
     expect(result.blocks.some((b) => b.type === "content" && b.content === "It is sunny.")).toBe(true);
   });
 

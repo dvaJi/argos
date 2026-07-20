@@ -1,4 +1,3 @@
-import { app } from "electron";
 import {
   ILlmProviderPresenter,
   LLM_PROVIDER,
@@ -34,7 +33,6 @@ import { EmbeddingManager } from "./managers/embeddingManager";
 import { ModelScopeSyncManager } from "./managers/modelScopeSyncManager";
 import type { OllamaProvider } from "./providers/ollamaProvider";
 import { ShowResponse } from "ollama";
-import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import type { ProviderMcpRuntimePort } from "./runtimePorts";
 
 const createAbortError = (): Error => {
@@ -97,7 +95,6 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
   private readonly ollamaManager: OllamaManager;
   private readonly embeddingManager: EmbeddingManager;
   private readonly modelScopeSyncManager: ModelScopeSyncManager;
-  private readonly acpSessionPersistence: AcpSessionPersistence;
 
   constructor(
     configPresenter: IConfigPresenter,
@@ -106,7 +103,6 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
   ) {
     this.configPresenter = configPresenter;
     this.rateLimitManager = new RateLimitManager(configPresenter);
-    this.acpSessionPersistence = new AcpSessionPersistence(sqlitePresenter, () => app.getPath("home"));
     this.providerInstanceManager = new ProviderInstanceManager({
       configPresenter,
       activeStreams: this.activeStreams,
@@ -115,7 +111,6 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
       setCurrentProviderId: (providerId) => {
         this.currentProviderId = providerId;
       },
-      acpSessionPersistence: this.acpSessionPersistence,
       mcpRuntime,
       sqlitePresenter,
     });

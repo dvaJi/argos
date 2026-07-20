@@ -10,15 +10,12 @@ import {
   webContents as electronWebContents,
   type WebPreferences,
 } from "electron";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import contextMenu from "#/contextMenuHelper";
 import { addWatermarkToNativeImage } from "#/lib/watermark";
 import { stitchImagesVertically } from "#/lib/scrollCapture";
 import { openExternalUrl } from "#/lib/externalUrl";
 import { resolveUiUrl } from "#/lib/daemonUi";
+import { getPreloadPath } from "#/lib/paths";
 import { presenter } from "./";
 import { getYoBrowserSession } from "./browser/yoBrowserSession";
 
@@ -192,7 +189,7 @@ export class TabPresenter implements ITabPresenter {
     // For browser windows, do not inject preload (for security)
     // For chat windows, inject preload
     if (windowType !== "browser") {
-      webPreferences.preload = join(__dirname, "../preload/index.mjs");
+      webPreferences.preload = getPreloadPath("index.mjs");
     }
 
     if (windowType === "browser") {

@@ -33,8 +33,19 @@
 - `setAcpWorkdir`/`getAcpWorkdir`/`getAcpProcessModes`/`setAcpPreferredProcessMode` delegate to the same `runtime.processManager` that `warmupAcpProcess`/`getAcpProcessConfigOptions` read from.
 - `getAcpSessionModes`/`setAcpSessionMode` delegate to `runtime.sessionManager`.
 
-## Out of scope
+## What was removed from desktop
 
-- Host-specific ACP process spawning glue (`createDesktopAcpPorts` vs `createDaemonAcpPorts`) — stays per-host; only the lifecycle *orchestration* moved to the daemon.
-- Non-ACP `llmProviderPresenter` methods (provider registry, model list, `executeWithRateLimit`, `generateText`/Completion, transcription, image gen, embeddings).
-- `AcpProvider` class itself — still used by the daemon's `AcpProcessManager` and the desktop `ProviderInstanceManager` for provider instantiation. The *lifecycle methods* on it are no longer called from desktop business code.
+- `providers/acpProvider.ts` (~48KB) — the full desktop `AcpProvider` class with its own in-process ACP runtime
+- `acp/desktopPorts.ts` — `createDesktopAcpPorts()` Electron-specific host ports
+- `AcpSessionPersistence` from `LLMProviderPresenter` — the desktop no longer owns ACP session persistence
+- `AcpProvider` creation from `ProviderInstanceManager` — ACP provider instances no longer created on desktop
+- `configPresenter.refreshAcpProviderAgents` body — replaced with no-op (daemon manages its own process lifecycle)
+- `app` (electron) import from `LLMProviderPresenter` — was only used for `AcpSessionPersistence`
+
+## What stays in desktop (intentional)
+
+- `@argos/acp-runtime` tests in `test/main/presenter/` — test the shared library used by the daemon
+- `configPresenter.syncAcpProviderEnabled` — operates on static provider config, no AcpProvider dependency
+- `AcpSessionsTable` in sqlitePresenter — data access layer, not business logic
+- Non-ACP `llmProviderPresenter` methods (provider registry, model list, `executeWithRateLimit`, `generateText`/Completion, transcription, image gen, embeddings)
+- `AcpProvider` class in `@argos/acp-runtime` (shared package) — used by the daemon's `AcpProviderExecutionPort`
