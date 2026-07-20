@@ -3,13 +3,19 @@ import { dispatchModelRoute } from "../../../../src/main/routes/models/modelRout
 import { modelsGetProviderCatalogRoute } from "@argos/shared-contracts/routes";
 
 describe("dispatchModelRoute models.getProviderCatalog", () => {
-  it("reads provider catalog from local configPresenter", async () => {
-    const invokeDaemonRoute = vi.fn<(...args: any[]) => any>();
+  it("proxies the provider catalog to the daemon", async () => {
+    const catalog = {
+      providerModels: [],
+      customModels: [],
+      dbProviderModels: [],
+      modelStatusMap: {},
+    };
+    const invokeDaemonRoute = vi.fn(async () => ({ catalog }));
     const configPresenter = {
-      getProviderModels: vi.fn(() => []),
-      getCustomModels: vi.fn(() => []),
-      getDbProviderModels: vi.fn(() => []),
-      getBatchModelStatus: vi.fn(() => ({})),
+      getProviderModels: vi.fn(),
+      getCustomModels: vi.fn(),
+      getDbProviderModels: vi.fn(),
+      getBatchModelStatus: vi.fn(),
     };
     const llmProviderPresenter = {
       getModelList: vi.fn(),
@@ -28,13 +34,10 @@ describe("dispatchModelRoute models.getProviderCatalog", () => {
       },
     )) as any;
 
-    expect(configPresenter.getProviderModels).toHaveBeenCalledWith("aihubmix");
-    expect(configPresenter.getCustomModels).toHaveBeenCalledWith("aihubmix");
-    expect(configPresenter.getDbProviderModels).toHaveBeenCalledWith("aihubmix");
-    expect(configPresenter.getBatchModelStatus).toHaveBeenCalled();
-    expect(invokeDaemonRoute).not.toHaveBeenCalled();
+    expect(invokeDaemonRoute).toHaveBeenCalledWith(modelsGetProviderCatalogRoute.name, { providerId: "aihubmix" });
+    expect(configPresenter.getProviderModels).not.toHaveBeenCalled();
     expect(llmProviderPresenter.getModelList).not.toHaveBeenCalled();
     expect(llmProviderPresenter.transcribeAudioStandalone).not.toHaveBeenCalled();
-    expect(result.catalog.dbProviderModels).toEqual([]);
+    expect(result.catalog).toEqual(catalog);
   });
 });

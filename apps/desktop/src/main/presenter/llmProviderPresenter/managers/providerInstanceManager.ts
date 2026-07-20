@@ -3,12 +3,10 @@ import { LLM_PROVIDER } from "@argos/shared/presenter";
 import { BaseLLMProvider } from "../baseProvider";
 import { GithubCopilotProvider } from "../providers/githubCopilotProvider";
 import { OllamaProvider } from "../providers/ollamaProvider";
-import { AcpProvider } from "../providers/acpProvider";
 import { VoiceAIProvider } from "../providers/voiceAIProvider";
 import { AiSdkProvider } from "../providers/aiSdkProvider";
 import { RateLimitManager } from "./rateLimitManager";
 import { StreamState } from "../types";
-import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
 import type { ProviderMcpRuntimePort } from "../runtimePorts";
 import { resolveAiSdkProviderDefinition } from "@argos/backend-core/provider/registry";
 
@@ -18,7 +16,6 @@ interface ProviderInstanceManagerOptions {
   rateLimitManager: RateLimitManager;
   getCurrentProviderId: () => string | null;
   setCurrentProviderId: (providerId: string | null) => void;
-  acpSessionPersistence?: AcpSessionPersistence;
   mcpRuntime?: ProviderMcpRuntimePort;
   sqlitePresenter?: import("@argos/shared/presenter").ISQLitePresenter;
 }
@@ -281,19 +278,6 @@ export class ProviderInstanceManager {
    */
   private createProviderInstance(provider: LLM_PROVIDER): BaseLLMProvider | undefined {
     try {
-      if (provider.id === "acp") {
-        if (!this.options.acpSessionPersistence) {
-          throw new Error("ACP session persistence is not configured");
-        }
-        return new AcpProvider(
-          provider,
-          this.options.configPresenter,
-          this.options.acpSessionPersistence,
-          this.options.mcpRuntime,
-          this.options.sqlitePresenter,
-        );
-      }
-
       if (provider.id === "github-copilot") {
         return new GithubCopilotProvider(provider, this.options.configPresenter);
       }

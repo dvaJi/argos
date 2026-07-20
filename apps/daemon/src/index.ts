@@ -52,6 +52,15 @@ type DaemonProviderExecutionPort = Required<
     | "getAcpProcessConfigOptions"
     | "runAcpDebugAction"
     | "getAcpAgentDiagnostics"
+    | "setAcpWorkdir"
+    | "getAcpWorkdir"
+    | "getAcpProcessModes"
+    | "setAcpPreferredProcessMode"
+    | "prepareAcpSession"
+    | "clearAcpSession"
+    | "getAcpSessionModes"
+    | "setAcpSessionMode"
+    | "resolveAgentPermission"
   >
 >;
 
@@ -273,7 +282,12 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
+  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(
+    configPresenter,
+    sessionRepository,
+    eventPublisher,
+    (sessionId) => mcpRuntime.listToolDefinitions(),
+  );
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),
@@ -336,6 +350,33 @@ export async function startDaemon(options?: {
     },
     async getAcpAgentDiagnostics(agentId, workdir) {
       return acpProviderExecutionPort.getAcpAgentDiagnostics(agentId, workdir);
+    },
+    async setAcpWorkdir(conversationId, agentId, workdir) {
+      return acpProviderExecutionPort.setAcpWorkdir(conversationId, agentId, workdir);
+    },
+    async getAcpWorkdir(conversationId, agentId) {
+      return acpProviderExecutionPort.getAcpWorkdir(conversationId, agentId);
+    },
+    async getAcpProcessModes(agentId, workdir) {
+      return acpProviderExecutionPort.getAcpProcessModes(agentId, workdir);
+    },
+    async setAcpPreferredProcessMode(agentId, modeId) {
+      return acpProviderExecutionPort.setAcpPreferredProcessMode(agentId, modeId);
+    },
+    async prepareAcpSession(conversationId, agentId, workdir) {
+      return acpProviderExecutionPort.prepareAcpSession(conversationId, agentId, workdir);
+    },
+    async clearAcpSession(sessionId) {
+      return acpProviderExecutionPort.clearAcpSession(sessionId);
+    },
+    async getAcpSessionModes(conversationId) {
+      return acpProviderExecutionPort.getAcpSessionModes(conversationId);
+    },
+    async setAcpSessionMode(conversationId, modeId) {
+      return acpProviderExecutionPort.setAcpSessionMode(conversationId, modeId);
+    },
+    async resolveAgentPermission(requestId, granted) {
+      return acpProviderExecutionPort.resolveAgentPermission(requestId, granted);
     },
   };
 

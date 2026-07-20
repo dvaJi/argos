@@ -81,10 +81,9 @@ import {
 import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import type {
-  DaemonAcpSessionPort,
+  AcpDaemonPort,
   DaemonSessionActionPort,
   DaemonSessionQueryPort,
-  ProviderSessionPort,
   SessionPermissionPort,
   SessionUiPort,
 } from "../runtimePorts";
@@ -263,12 +262,11 @@ export class AgentSessionPresenter {
   private configPresenter: IConfigPresenter;
   private legacyImportService: LegacyChatImportService;
   private skillPresenter?: Pick<ISkillPresenter, "setActiveSkills" | "clearNewAgentSessionSkills">;
-  private providerSessionPort?: ProviderSessionPort;
   private sessionPermissionPort?: SessionPermissionPort;
   private sessionUiPort?: SessionUiPort;
-  private daemonAcpSessionPort?: DaemonAcpSessionPort;
   private daemonSessionActionPort?: DaemonSessionActionPort;
   private daemonSessionQueryPort?: DaemonSessionQueryPort;
+  private acpDaemonPort?: AcpDaemonPort;
   private usageStatsBackfillPromise: Promise<void> | null = null;
   private mainlineNormalizationPromise: Promise<void> | null = null;
   private readonly sessionStatusSnapshots = new Map<string, SessionWithState["status"]>();
@@ -281,12 +279,11 @@ export class AgentSessionPresenter {
     skillPresenter?: Pick<ISkillPresenter, "setActiveSkills" | "clearNewAgentSessionSkills">,
     sessionRuntimePort?: LegacySessionRuntimePort,
     runtimePorts?: {
-      providerSessionPort?: ProviderSessionPort;
       sessionPermissionPort?: SessionPermissionPort;
       sessionUiPort?: SessionUiPort;
-      daemonAcpSessionPort?: DaemonAcpSessionPort;
       daemonSessionActionPort?: DaemonSessionActionPort;
       daemonSessionQueryPort?: DaemonSessionQueryPort;
+      acpDaemonPort?: AcpDaemonPort;
     },
   ) {
     this.sqlitePresenter = sqlitePresenter;
@@ -297,12 +294,11 @@ export class AgentSessionPresenter {
     this.sessionManager = new NewSessionManager(sqlitePresenter);
     this.messageManager = new NewMessageManager(this.agentRegistry);
     this.legacyImportService = new LegacyChatImportService(sqlitePresenter);
-    this.providerSessionPort = runtimePorts?.providerSessionPort;
     this.sessionPermissionPort = runtimePorts?.sessionPermissionPort ?? sessionRuntimePort;
     this.sessionUiPort = runtimePorts?.sessionUiPort ?? sessionRuntimePort;
-    this.daemonAcpSessionPort = runtimePorts?.daemonAcpSessionPort;
     this.daemonSessionActionPort = runtimePorts?.daemonSessionActionPort;
     this.daemonSessionQueryPort = runtimePorts?.daemonSessionQueryPort;
+    this.acpDaemonPort = runtimePorts?.acpDaemonPort;
 
     // Register the built-in argos agent
     this.agentRegistry.register({ id: "argos", name: "Argos", type: "argos", enabled: true }, agentRuntimeAgent);
@@ -697,8 +693,7 @@ export class AgentSessionPresenter {
       });
     }
 
-    await (this.providerSessionPort?.prepareAcpSession?.(record.id, agentId, projectDir) ??
-      this.llmProviderPresenter.prepareAcpSession(record.id, agentId, projectDir));
+    await this.acpDaemonPort?.prepareAcpSession(record.id, agentId, projectDir);
     this.emitSessionListUpdated({
       sessionIds: [record.id],
       reason: createdDraftSession ? "created" : "updated",
@@ -2124,9 +2119,7 @@ export class AgentSessionPresenter {
     if (!(await this.isAcpBackedSession(sessionId, session.agentId))) {
       return [];
     }
-    return await (this.daemonAcpSessionPort?.getAcpSessionCommands?.(sessionId) ??
-      this.providerSessionPort?.getAcpSessionCommands?.(sessionId) ??
-      this.llmProviderPresenter.getAcpSessionCommands(sessionId));
+    return (await this.acpDaemonPort?.getAcpSessionCommands(sessionId)) ?? [];
   }
 
   async getAcpSessionConfigOptions(sessionId: string): Promise<AcpConfigState | null> {
@@ -2138,11 +2131,7 @@ export class AgentSessionPresenter {
       return null;
     }
 
-    let configState =
-      (await this.daemonAcpSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
-      (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
-      (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
-
+    let configState = (await this.acpDaemonPort?.getAcpSessionConfigOptions(sessionId)) ?? null;
     if (hasAcpConfigStateData(configState) || !session.projectDir?.trim()) {
       return configState;
     }
@@ -2158,14 +2147,9 @@ export class AgentSessionPresenter {
       projectDir: session.projectDir,
       permissionMode,
     });
-    await (this.providerSessionPort?.prepareAcpSession?.(sessionId, session.agentId, session.projectDir) ??
-      this.llmProviderPresenter.prepareAcpSession(sessionId, session.agentId, session.projectDir));
+    await this.acpDaemonPort?.prepareAcpSession(sessionId, session.agentId, session.projectDir);
 
-    configState =
-      (await this.daemonAcpSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
-      (await this.providerSessionPort?.getAcpSessionConfigOptions?.(sessionId)) ??
-      (await this.llmProviderPresenter.getAcpSessionConfigOptions(sessionId));
-
+    configState = (await this.acpDaemonPort?.getAcpSessionConfigOptions(sessionId)) ?? null;
     return configState;
   }
 
@@ -2181,9 +2165,7 @@ export class AgentSessionPresenter {
     if (!(await this.isAcpBackedSession(sessionId, session.agentId))) {
       throw new Error("ACP session config options are only available for ACP sessions.");
     }
-    return await (this.daemonAcpSessionPort?.setAcpSessionConfigOption?.(sessionId, configId, value) ??
-      this.providerSessionPort?.setAcpSessionConfigOption?.(sessionId, configId, value) ??
-      this.llmProviderPresenter.setAcpSessionConfigOption(sessionId, configId, value));
+    return (await this.acpDaemonPort?.setAcpSessionConfigOption(sessionId, configId, value)) ?? null;
   }
 
   async getPermissionMode(sessionId: string): Promise<PermissionMode> {
@@ -2403,19 +2385,11 @@ export class AgentSessionPresenter {
 
       let generatedTitle: string;
       try {
-        generatedTitle = await this.llmProviderPresenter.summaryTitles(
-          titleMessages,
-          preferredProviderId,
-          preferredModelId,
-        );
+        generatedTitle = await this.generateTitleWithProvider(titleMessages, preferredProviderId, preferredModelId);
       } catch (error) {
         const shouldFallback = preferredProviderId !== fallbackProviderId || preferredModelId !== fallbackModelId;
         if (!shouldFallback) throw error;
-        generatedTitle = await this.llmProviderPresenter.summaryTitles(
-          titleMessages,
-          fallbackProviderId,
-          fallbackModelId,
-        );
+        generatedTitle = await this.generateTitleWithProvider(titleMessages, fallbackProviderId, fallbackModelId);
       }
 
       const normalized = this.normalizeGeneratedTitle(generatedTitle);
@@ -2827,8 +2801,7 @@ export class AgentSessionPresenter {
 
     if (previousAcpBacked) {
       try {
-        await (this.providerSessionPort?.clearAcpSession?.(sessionId) ??
-          this.llmProviderPresenter.clearAcpSession(sessionId));
+        await this.acpDaemonPort?.clearAcpSession(sessionId);
       } catch (error) {
         console.warn(`[AgentSessionPresenter] Failed to clear stale ACP binding after transfer ${sessionId}:`, error);
       }
@@ -2898,8 +2871,7 @@ export class AgentSessionPresenter {
       providerId = "acp";
     }
     if (providerId === "acp") {
-      await (this.providerSessionPort?.clearAcpSession?.(sessionId) ??
-        this.llmProviderPresenter.clearAcpSession(sessionId));
+      await this.acpDaemonPort?.clearAcpSession(sessionId);
     }
     await agent.destroySession(sessionId);
     this.sessionPermissionPort?.clearSessionPermissions(sessionId);
@@ -3011,12 +2983,7 @@ export class AgentSessionPresenter {
     }
 
     try {
-      await (this.providerSessionPort?.setAcpWorkdir?.(
-        conversationId,
-        resolveAcpAgentAlias(agentId),
-        normalizedProjectDir,
-      ) ??
-        this.llmProviderPresenter.setAcpWorkdir(conversationId, resolveAcpAgentAlias(agentId), normalizedProjectDir));
+      await this.acpDaemonPort?.setAcpWorkdir(conversationId, resolveAcpAgentAlias(agentId), normalizedProjectDir);
     } catch (error) {
       console.warn("[AgentSessionPresenter] Failed to sync ACP workdir for session:", {
         conversationId,
@@ -3035,8 +3002,7 @@ export class AgentSessionPresenter {
   ): Promise<void> {
     if (providerId === "acp") {
       try {
-        await (this.providerSessionPort?.clearAcpSession?.(sessionId) ??
-          this.llmProviderPresenter.clearAcpSession(sessionId));
+        await this.acpDaemonPort?.clearAcpSession(sessionId);
       } catch (error) {
         console.warn(
           `[AgentSessionPresenter] Failed to clear ACP session after initialization error ${sessionId}:`,
@@ -3609,6 +3575,23 @@ export class AgentSessionPresenter {
       cleaned = cleaned.slice(0, 80).trim();
     }
     return cleaned;
+  }
+
+  private async generateTitleWithProvider(
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+    providerId: string,
+    modelId: string,
+  ): Promise<string> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.summaryTitles({
+        messages,
+        providerId,
+        modelId,
+        temperature: 0.3,
+        maxTokens: 64,
+      });
+    }
+    return await this.llmProviderPresenter.summaryTitles(messages, providerId, modelId);
   }
 
   private buildForkTitle(sourceTitle: string, customTitle?: string): string {

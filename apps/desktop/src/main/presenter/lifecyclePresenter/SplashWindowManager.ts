@@ -2,11 +2,7 @@
  * SplashWindowManager - Manages splash screen display during application initialization
  */
 
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
 import { BrowserWindow, nativeImage } from "electron";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { eventBus } from "../../eventbus";
 import { LIFECYCLE_EVENTS, WINDOW_EVENTS } from "#/events";
 import { ISplashWindowManager } from "@argos/shared/presenter";
@@ -18,6 +14,7 @@ import { LifecyclePhase } from "@argos/shared/lifecycle";
 import { ErrorOccurredEventData, HookExecutedEventData, HookFailedEventData, ProgressUpdatedEventData } from "./types";
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import { activateAppOnMac } from "#/lib/activateApp";
+import { getPreloadPath } from "#/lib/paths";
 
 type SplashActivityStatus = "running" | "completed" | "failed";
 
@@ -144,7 +141,7 @@ export class SplashWindowManager implements ISplashWindowManager {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
-          preload: path.join(__dirname, "../preload/splash.mjs"),
+          preload: getPreloadPath("splash.mjs"),
           sandbox: false,
           devTools: is.dev,
         },

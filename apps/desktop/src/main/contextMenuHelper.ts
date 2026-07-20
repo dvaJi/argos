@@ -1,5 +1,5 @@
 import { BrowserWindow, Menu, MenuItemConstructorOptions, WebContents, dialog, net } from "electron";
-    import { writeFile } from "fs/promises";
+import { writeFile } from "fs/promises";
 import path from "path";
 import { callDaemonRoute } from "#/lib/daemonProxy";
 

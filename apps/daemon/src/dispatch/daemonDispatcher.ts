@@ -71,6 +71,10 @@ import {
   providersGetAcpAgentDiagnosticsRoute,
   providersGetAcpProcessConfigOptionsRoute,
   providersTestConnectionRoute,
+  providersSetAcpWorkdirRoute,
+  providersGetAcpWorkdirRoute,
+  providersGetAcpProcessModesRoute,
+  providersSetAcpPreferredProcessModeRoute,
   modelsGetProviderCatalogRoute,
   modelsGetConfigRoute,
   modelsSetConfigRoute,
@@ -104,6 +108,11 @@ import {
   sessionsGetAgentsRoute,
   sessionsGetAcpSessionCommandsRoute,
   sessionsGetAcpSessionConfigOptionsRoute,
+  sessionsPrepareAcpSessionRoute,
+  sessionsClearAcpSessionRoute,
+  sessionsGetAcpSessionModesRoute,
+  sessionsSetAcpSessionModeRoute,
+  sessionsResolveAgentPermissionRoute,
   sessionsQueuePendingInputRoute,
   sessionsUpdateQueuedInputRoute,
   sessionsMoveQueuedInputRoute,
@@ -120,6 +129,7 @@ import {
   sessionsGetViewManifestsRoute,
   sessionsGetViewLineageRoute,
   sessionsTranslateTextRoute,
+  sessionsSummaryTitlesRoute,
   sessionsCompactRoute,
   sessionsExportRoute,
   sessionsGetAgentTransferImpactRoute,
@@ -253,6 +263,11 @@ type DaemonAcpSessionExecutionPort = {
   >;
   getAcpSessionConfigOptions(sessionId: string): Promise<unknown>;
   setAcpSessionConfigOption(sessionId: string, configId: string, value: string | boolean): Promise<unknown>;
+  prepareAcpSession?(conversationId: string, agentId: string, workdir: string): Promise<void>;
+  clearAcpSession?(sessionId: string): Promise<void>;
+  getAcpSessionModes?(conversationId: string): Promise<unknown>;
+  setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
+  resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
 };
 
 type DaemonTranslatePort = {
@@ -282,6 +297,15 @@ type DaemonProviderExecutionPort = Required<
     | "getAcpAgentDiagnostics"
     | "transcribeAudio"
     | "generateCompletion"
+    | "setAcpWorkdir"
+    | "getAcpWorkdir"
+    | "getAcpProcessModes"
+    | "setAcpPreferredProcessMode"
+    | "prepareAcpSession"
+    | "clearAcpSession"
+    | "getAcpSessionModes"
+    | "setAcpSessionMode"
+    | "resolveAgentPermission"
   >
 > &
   DaemonTranslatePort;
@@ -1732,6 +1756,32 @@ export function createDaemonDispatcher(
       return providersGetAcpAgentDiagnosticsRoute.output.parse({ diagnostics });
     }
 
+    if (route === providersSetAcpWorkdirRoute.name) {
+      const input = providersSetAcpWorkdirRoute.input.parse(rawInput);
+      await runtime.providerExecutionPort.setAcpWorkdir(input.conversationId, input.agentId, input.workdir);
+      return providersSetAcpWorkdirRoute.output.parse({ ok: true });
+    }
+
+    if (route === providersGetAcpWorkdirRoute.name) {
+      const input = providersGetAcpWorkdirRoute.input.parse(rawInput);
+      const workdir = await runtime.providerExecutionPort.getAcpWorkdir(input.conversationId, input.agentId);
+      return providersGetAcpWorkdirRoute.output.parse({ workdir: workdir ?? null });
+    }
+
+    if (route === providersGetAcpProcessModesRoute.name) {
+      const input = providersGetAcpProcessModesRoute.input.parse(rawInput);
+      const result = await runtime.providerExecutionPort.getAcpProcessModes(input.agentId, input.workdir);
+      return providersGetAcpProcessModesRoute.output.parse({
+        modes: (result as any)?.availableModes ?? [],
+      });
+    }
+
+    if (route === providersSetAcpPreferredProcessModeRoute.name) {
+      const input = providersSetAcpPreferredProcessModeRoute.input.parse(rawInput);
+      await runtime.providerExecutionPort.setAcpPreferredProcessMode(input.agentId, input.mode);
+      return providersSetAcpPreferredProcessModeRoute.output.parse({ ok: true });
+    }
+
     if (route === providersListModelsRoute.name) {
       const input = providersListModelsRoute.input.parse(rawInput);
       // Lazy-fetch only when the provider has credentials; otherwise skip silently
@@ -2269,6 +2319,25 @@ export function createDaemonDispatcher(
       return sessionsTranslateTextRoute.output.parse({ text: translated.trim() });
     }
 
+    if (route === sessionsSummaryTitlesRoute.name) {
+      const input = sessionsSummaryTitlesRoute.input.parse(rawInput);
+      const title = await runtime.providerExecutionPort.generateCompletion({
+        providerId: input.providerId,
+        modelId: input.modelId,
+        temperature: input.temperature ?? 0.3,
+        maxTokens: input.maxTokens ?? 64,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a conversation title generator. Summarize the conversation into a concise, descriptive title of at most 8 words. Return only the title text with no quotes, preamble, or markdown.",
+          },
+          ...input.messages,
+        ],
+      });
+      return sessionsSummaryTitlesRoute.output.parse({ title: title.trim() });
+    }
+
     if (route === sessionsCompactRoute.name) {
       const input = sessionsCompactRoute.input.parse(rawInput);
       const session = await (runtime as any).sessionRepository.get(input.sessionId);
@@ -2563,6 +2632,38 @@ export function createDaemonDispatcher(
         input.value,
       );
       return sessionsSetAcpSessionConfigOptionRoute.output.parse({ state: state ?? null });
+    }
+
+    if (route === sessionsPrepareAcpSessionRoute.name) {
+      const input = sessionsPrepareAcpSessionRoute.input.parse(rawInput);
+      await acpSessionExecutionPort?.prepareAcpSession?.(input.sessionId, input.agentId, input.projectDir);
+      return sessionsPrepareAcpSessionRoute.output.parse({ prepared: true });
+    }
+
+    if (route === sessionsClearAcpSessionRoute.name) {
+      const input = sessionsClearAcpSessionRoute.input.parse(rawInput);
+      await acpSessionExecutionPort?.clearAcpSession?.(input.sessionId);
+      return sessionsClearAcpSessionRoute.output.parse({ cleared: true });
+    }
+
+    if (route === sessionsGetAcpSessionModesRoute.name) {
+      const input = sessionsGetAcpSessionModesRoute.input.parse(rawInput);
+      const result = await acpSessionExecutionPort?.getAcpSessionModes?.(input.sessionId);
+      return sessionsGetAcpSessionModesRoute.output.parse({
+        modes: (result as any)?.available?.map((m: any) => m.id) ?? [],
+      });
+    }
+
+    if (route === sessionsSetAcpSessionModeRoute.name) {
+      const input = sessionsSetAcpSessionModeRoute.input.parse(rawInput);
+      await acpSessionExecutionPort?.setAcpSessionMode?.(input.sessionId, input.mode);
+      return sessionsSetAcpSessionModeRoute.output.parse({ updated: true });
+    }
+
+    if (route === sessionsResolveAgentPermissionRoute.name) {
+      const input = sessionsResolveAgentPermissionRoute.input.parse(rawInput);
+      await acpSessionExecutionPort?.resolveAgentPermission?.(input.requestId, input.granted);
+      return sessionsResolveAgentPermissionRoute.output.parse({ resolved: true });
     }
 
     if (route === sessionsActivateRoute.name) {

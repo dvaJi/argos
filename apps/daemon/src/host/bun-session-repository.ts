@@ -1150,6 +1150,37 @@ export class BunSessionRepository implements SessionRepository {
     return id;
   }
 
+  async updateAssistantContent(messageId: string, blocks: unknown[]): Promise<void> {
+    this.db
+      .prepare(`UPDATE daemon_messages SET content = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`)
+      .run(JSON.stringify(blocks), Date.now(), messageId);
+  }
+
+  async finalizeAssistantMessage(messageId: string, blocks: unknown[], metadataJson: string): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE daemon_messages SET content = ?, status = 'success', metadata = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`,
+      )
+      .run(JSON.stringify(blocks), metadataJson, Date.now(), messageId);
+    this.emitSessionUpdated(this.sessionIdsForMessage(messageId), "updated");
+  }
+
+  async setMessageError(messageId: string, blocks: unknown[], metadataJson: string): Promise<void> {
+    this.db
+      .prepare(
+        `UPDATE daemon_messages SET content = ?, status = 'error', metadata = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`,
+      )
+      .run(JSON.stringify(blocks), metadataJson, Date.now(), messageId);
+    this.emitSessionUpdated(this.sessionIdsForMessage(messageId), "updated");
+  }
+
+  private sessionIdsForMessage(messageId: string): string[] {
+    const row = this.db.prepare(`SELECT session_id FROM daemon_messages WHERE id = ?`).get(messageId) as
+      | { session_id: string }
+      | undefined;
+    return row ? [row.session_id] : [];
+  }
+
   async listMessagesPage(
     sessionId: string,
     options?: {

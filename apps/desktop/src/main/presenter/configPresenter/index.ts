@@ -63,7 +63,6 @@ import { SystemPromptHelper, DEFAULT_SYSTEM_PROMPT } from "./systemPromptHelper"
 import { UiSettingsHelper } from "./uiSettingsHelper";
 import { AcpConfHelper, AcpRegistryService, AcpLaunchSpecService } from "@argos/acp-runtime";
 import { SVGSanitizer } from "@argos/backend-core";
-import { AcpProvider } from "../llmProviderPresenter/providers/acpProvider";
 import { DEFAULT_PROVIDERS, resolveAcpAgentAlias } from "@argos/backend-core";
 import { AgentRepository, BUILTIN_ARGOS_AGENT_ID } from "../agentRepository";
 import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
@@ -2716,22 +2715,8 @@ export class ConfigPresenter implements IConfigPresenter {
     void this.refreshAcpProviderAgents(agentIds);
   }
 
-  private async refreshAcpProviderAgents(agentIds?: string[]): Promise<void> {
-    try {
-      const providerInstance = presenter?.llmproviderPresenter?.getProviderInstance?.("acp");
-      if (!providerInstance) {
-        return;
-      }
-
-      const acpProvider = providerInstance as AcpProvider;
-      if (typeof acpProvider.refreshAgents !== "function") {
-        return;
-      }
-
-      await acpProvider.refreshAgents(agentIds);
-    } catch (error) {
-      console.warn("[ACP] Failed to refresh agent processes after config change:", error);
-    }
+  private async refreshAcpProviderAgents(_agentIds?: string[]): Promise<void> {
+    // ACP process lifecycle is now daemon-owned; no desktop-side refresh needed.
   }
 
   private notifyAcpAgentsChanged(agentIds?: string[]) {

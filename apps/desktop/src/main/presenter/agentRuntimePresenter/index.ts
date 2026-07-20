@@ -310,6 +310,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
   private readonly providerCatalogPort: Pick<ProviderCatalogPort, "getProviderModels" | "getCustomModels">;
   private readonly sessionPermissionPort?: SessionPermissionPort;
   private readonly sessionUiPort?: SessionUiPort;
+  private readonly resolveAgentPermissionDaemon?: (requestId: string, granted: boolean) => Promise<void>;
   private readonly cacheImage?: (data: string) => Promise<string>;
   private readonly skillPresenter?: Pick<
     ISkillPresenter,
@@ -345,6 +346,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
         | "discardDraftSkill"
       >;
       memoryPort?: MemoryInjectionPort;
+      resolveAgentPermission?: (requestId: string, granted: boolean) => Promise<void>;
     },
   ) {
     this.llmProviderPresenter = llmProviderPresenter;
@@ -378,6 +380,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
     };
     this.sessionPermissionPort = runtimePorts?.sessionPermissionPort;
     this.sessionUiPort = runtimePorts?.sessionUiPort;
+    this.resolveAgentPermissionDaemon = runtimePorts?.resolveAgentPermission;
     this.cacheImage = runtimePorts?.cacheImage;
     this.skillPresenter = runtimePorts?.skillPresenter;
     this.memoryPort = runtimePorts?.memoryPort;
@@ -4684,7 +4687,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       providerId,
       permissionType: permission.permissionType,
       resolve: async (granted: boolean) => {
-        await this.llmProviderPresenter.resolveAgentPermission(requestId, granted);
+        await this.resolveAgentPermissionDaemon?.(requestId, granted);
         commitDecision(granted);
       },
     });
@@ -4698,7 +4701,7 @@ export class AgentRuntimePresenter implements IAgentImplementation {
       resolution = await this.resolveProviderPermissionSafely(
         active
           ? () => active.resolve(input.granted)
-          : () => this.llmProviderPresenter.resolveAgentPermission(input.requestId, input.granted),
+          : () => this.resolveAgentPermissionDaemon!(input.requestId, input.granted),
       );
     } finally {
       this.activeProviderPermissions.delete(input.requestId);

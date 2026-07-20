@@ -17,6 +17,10 @@ import {
   providersSetByIdRoute,
   providersUpdateRoute,
   providersWarmupAcpProcessRoute,
+  providersSetAcpWorkdirRoute,
+  providersGetAcpWorkdirRoute,
+  providersGetAcpProcessModesRoute,
+  providersSetAcpPreferredProcessModeRoute,
 } from "@argos/shared-contracts/routes";
 import type { ProviderImportService } from "@argos/backend-core";
 
@@ -119,6 +123,30 @@ export async function dispatchProviderRoute(
       const input = providersGetAcpProcessConfigOptionsRoute.input.parse(rawInput);
       return providersGetAcpProcessConfigOptionsRoute.output.parse(
         await invokeDaemonRoute(providersGetAcpProcessConfigOptionsRoute.name, input),
+      );
+    }
+
+    case providersSetAcpWorkdirRoute.name: {
+      const input = providersSetAcpWorkdirRoute.input.parse(rawInput);
+      return providersSetAcpWorkdirRoute.output.parse(await invokeDaemonRoute(providersSetAcpWorkdirRoute.name, input));
+    }
+
+    case providersGetAcpWorkdirRoute.name: {
+      const input = providersGetAcpWorkdirRoute.input.parse(rawInput);
+      return providersGetAcpWorkdirRoute.output.parse(await invokeDaemonRoute(providersGetAcpWorkdirRoute.name, input));
+    }
+
+    case providersGetAcpProcessModesRoute.name: {
+      const input = providersGetAcpProcessModesRoute.input.parse(rawInput);
+      return providersGetAcpProcessModesRoute.output.parse(
+        await invokeDaemonRoute(providersGetAcpProcessModesRoute.name, input),
+      );
+    }
+
+    case providersSetAcpPreferredProcessModeRoute.name: {
+      const input = providersSetAcpPreferredProcessModeRoute.input.parse(rawInput);
+      return providersSetAcpPreferredProcessModeRoute.output.parse(
+        await invokeDaemonRoute(providersSetAcpPreferredProcessModeRoute.name, input),
       );
     }
 

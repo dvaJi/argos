@@ -495,32 +495,6 @@ describe("LLMProviderPresenter Integration Tests", () => {
       }).toThrow("Provider non-existent not found");
     });
 
-    it("should swallow ACP warmup shutdown errors", async () => {
-      const warnSpy = vi.spyOn<(...args: any[]) => any>(console, "warn").mockImplementation(() => {});
-      const mockAcpProvider = {
-        warmupProcess: vi
-          .fn<(...args: any[]) => any>()
-          .mockRejectedValue(new Error("[ACP] Process manager is shutting down, refusing to spawn")),
-      };
-      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(
-        mockAcpProvider as any,
-      );
-
-      await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).resolves.toBeUndefined();
-      warnSpy.mockRestore();
-    });
-
-    it("should rethrow non-shutdown ACP warmup errors", async () => {
-      const mockAcpProvider = {
-        warmupProcess: vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("boom")),
-      };
-      vi.spyOn<(...args: any[]) => any>(llmProviderPresenter as any, "getAcpProviderInstance").mockReturnValue(
-        mockAcpProvider as any,
-      );
-
-      await expect(llmProviderPresenter.warmupAcpProcess("agent-test", "/tmp")).rejects.toThrow("boom");
-    });
-
     it("should handle provider check failure for invalid config", async () => {
       vi.stubGlobal("fetch", vi.fn<(...args: any[]) => any>().mockRejectedValue(new Error("Network error")));
 

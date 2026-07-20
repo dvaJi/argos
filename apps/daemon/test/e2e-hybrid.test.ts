@@ -425,9 +425,22 @@ async function run(): Promise<void> {
       assert(result.ok, "should be ok");
     });
 
-    await test("chat.sendMessage returns coming soon", async () => {
-      const result = await postRoute(port, "chat.sendMessage", { sessionId: "test", content: "hi" });
-      assert(!result.ok, "should not be ok");
+    await test("chat.sendMessage dispatches to provider execution", async () => {
+      const createResult = await postRoute(port, "sessions.create", {
+        agentId: "argos",
+        message: "hi",
+      });
+      assert(createResult.ok, "session created");
+      const sessionId = createResult.output.session.id;
+
+      const result = await postRoute(port, "chat.sendMessage", { sessionId, content: "hi" });
+      // Route is recognized and reaches the provider execution port (not "unknown_route").
+      // It fails only because no real provider/API key is configured in this test env.
+      assert(!result.ok, "should not be ok without a configured provider");
+      assert(
+        result.error?.code !== "unknown_route",
+        `chat.sendMessage should be a known route, got: ${JSON.stringify(result.error)}`,
+      );
     });
 
     // === Invalid routes ===

@@ -167,6 +167,11 @@ import {
   sessionsRestoreRoute,
   sessionsSearchHistoryRoute,
   sessionsSetAcpSessionConfigOptionRoute,
+  sessionsPrepareAcpSessionRoute,
+  sessionsClearAcpSessionRoute,
+  sessionsGetAcpSessionModesRoute,
+  sessionsSetAcpSessionModeRoute,
+  sessionsResolveAgentPermissionRoute,
   sessionsSetModelRoute,
   sessionsSetPermissionModeRoute,
   sessionsSetProjectDirRoute,
@@ -995,7 +1000,6 @@ export async function dispatchArgosRoute(
   const modelResult = await runTrackedRouteTask(runtime, routeName, context, async () => {
     return await dispatchModelRoute(
       {
-        configPresenter: runtime.configPresenter,
         llmProviderPresenter: runtime.llmProviderPresenter,
         invokeDaemonRoute,
       },
@@ -1788,6 +1792,41 @@ export async function dispatchArgosRoute(
       const input = sessionsSetAcpSessionConfigOptionRoute.input.parse(rawInput);
       const state = await invokeDaemonRoute(sessionsSetAcpSessionConfigOptionRoute.name, input);
       return sessionsSetAcpSessionConfigOptionRoute.output.parse({ state });
+    }
+
+    case sessionsPrepareAcpSessionRoute.name: {
+      const input = sessionsPrepareAcpSessionRoute.input.parse(rawInput);
+      return sessionsPrepareAcpSessionRoute.output.parse(
+        await invokeDaemonRoute(sessionsPrepareAcpSessionRoute.name, input),
+      );
+    }
+
+    case sessionsClearAcpSessionRoute.name: {
+      const input = sessionsClearAcpSessionRoute.input.parse(rawInput);
+      return sessionsClearAcpSessionRoute.output.parse(
+        await invokeDaemonRoute(sessionsClearAcpSessionRoute.name, input),
+      );
+    }
+
+    case sessionsGetAcpSessionModesRoute.name: {
+      const input = sessionsGetAcpSessionModesRoute.input.parse(rawInput);
+      return sessionsGetAcpSessionModesRoute.output.parse(
+        await invokeDaemonRoute(sessionsGetAcpSessionModesRoute.name, input),
+      );
+    }
+
+    case sessionsSetAcpSessionModeRoute.name: {
+      const input = sessionsSetAcpSessionModeRoute.input.parse(rawInput);
+      return sessionsSetAcpSessionModeRoute.output.parse(
+        await invokeDaemonRoute(sessionsSetAcpSessionModeRoute.name, input),
+      );
+    }
+
+    case sessionsResolveAgentPermissionRoute.name: {
+      const input = sessionsResolveAgentPermissionRoute.input.parse(rawInput);
+      return sessionsResolveAgentPermissionRoute.output.parse(
+        await invokeDaemonRoute(sessionsResolveAgentPermissionRoute.name, input),
+      );
     }
 
     case sessionsGetPermissionModeRoute.name: {

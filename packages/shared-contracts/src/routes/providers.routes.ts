@@ -362,6 +362,51 @@ export const providersImportScanRoute = defineRouteContract({
   }),
 });
 
+export const providersSetAcpWorkdirRoute = defineRouteContract({
+  name: "providers.setAcpWorkdir",
+  input: zod.object({
+    conversationId: zod.string().min(1),
+    agentId: zod.string().min(1),
+    workdir: zod.string().min(1),
+  }),
+  output: zod.object({
+    ok: zod.boolean(),
+  }),
+});
+
+export const providersGetAcpWorkdirRoute = defineRouteContract({
+  name: "providers.getAcpWorkdir",
+  input: zod.object({
+    conversationId: zod.string().min(1),
+    agentId: zod.string().min(1),
+  }),
+  output: zod.object({
+    workdir: zod.string().nullable(),
+  }),
+});
+
+export const providersGetAcpProcessModesRoute = defineRouteContract({
+  name: "providers.getAcpProcessModes",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    workdir: zod.string().optional(),
+  }),
+  output: zod.object({
+    modes: zod.array(zod.string()),
+  }),
+});
+
+export const providersSetAcpPreferredProcessModeRoute = defineRouteContract({
+  name: "providers.setAcpPreferredProcessMode",
+  input: zod.object({
+    agentId: zod.string().min(1),
+    mode: zod.string().min(1),
+  }),
+  output: zod.object({
+    ok: zod.boolean(),
+  }),
+});
+
 export const providersImportApplyRoute = defineRouteContract({
   name: "providers.import.apply",
   input: zod.object({

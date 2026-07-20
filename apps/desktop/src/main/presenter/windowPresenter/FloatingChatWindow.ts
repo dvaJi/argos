@@ -1,8 +1,4 @@
 import { BrowserWindow, screen, nativeImage } from "electron";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import logger from "@argos/shared/logger";
 import { platform, is } from "@electron-toolkit/utils";
 import icon from "../../../../resources/icon.png?asset";
@@ -12,6 +8,7 @@ import { TAB_EVENTS } from "../../events";
 import { presenter } from "../";
 import { releasePresenterCallErrorStateForWebContents } from "../presenterCallErrorHandler";
 import { resolveUiUrl } from "#/lib/daemonUi";
+import { getPreloadPath } from "#/lib/paths";
 
 interface FloatingChatConfig {
   size: {
@@ -94,7 +91,7 @@ export class FloatingChatWindow {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
-          preload: path.join(__dirname, "../preload/index.mjs"),
+          preload: getPreloadPath("index.mjs"),
           webSecurity: false,
           devTools: isDev,
           sandbox: false,

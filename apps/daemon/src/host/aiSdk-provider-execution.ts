@@ -1,6 +1,14 @@
-import type { ProviderExecutionPort, IEventPublisher } from "@argos/backend-core";
+import type {
+  ProviderExecutionPort,
+  IEventPublisher,
+  AgentMessageStore,
+  AgentProcessResult,
+} from "@argos/backend-core";
+import { agentProcessStream } from "@argos/backend-core";
 import type { SendMessageInput, MessageStartResult } from "@argos/shared/types/agent-interface";
 import type { LLM_PROVIDER } from "@argos/shared/presenter";
+import type { ChatMessage } from "@argos/shared/types/core/chat-message";
+import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 import { streamText, generateText, transcribe } from "ai";
 import { createAiSdkProviderContext, type AiSdkProviderKind } from "@argos/backend-core/provider/aiSdk";
 import type { DaemonConfigPresenter } from "./daemonConfigPresenter";
@@ -8,9 +16,6 @@ import type { BunSessionRepository } from "./bun-session-repository";
 import { randomUUID } from "node:crypto";
 
 interface ProviderConfig extends LLM_PROVIDER {}
-
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. Be concise and direct.`;
-
 function extractTextFromMessageContent(raw: string): string {
   if (!raw) return "";
   try {
@@ -53,6 +58,7 @@ export class AiSdkProviderExecutionPort implements ProviderExecutionPort {
     private readonly configPresenter: DaemonConfigPresenter,
     private readonly sessionRepository: BunSessionRepository,
     private readonly eventPublisher?: IEventPublisher,
+    private readonly getTools?: (sessionId: string) => Promise<MCPToolDefinition[]>,
   ) {}
 
   private getProvider(providerId: string): ProviderConfig | undefined {
@@ -82,26 +88,9 @@ export class AiSdkProviderExecutionPort implements ProviderExecutionPort {
     );
 
     const userContentJson = JSON.stringify({ text: textContent, files: [] });
-    await this.sessionRepository.addMessage(sessionId, "user", userContentJson);
+    const userMessageId = await this.sessionRepository.addMessage(sessionId, "user", userContentJson);
 
-    let history: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: DEFAULT_SYSTEM_PROMPT },
-    ];
-    try {
-      const records = await this.sessionRepository.listMessages(sessionId);
-      history = [
-        { role: "system", content: DEFAULT_SYSTEM_PROMPT },
-        ...records
-          .filter((r: any) => r.role === "user" || r.role === "assistant")
-          .map((r: any) => ({
-            role: r.role as "user" | "assistant",
-            content: extractTextFromMessageContent(r.content),
-          })),
-      ];
-    } catch (histErr) {
-      console.warn(`[chat] history build failed (single-turn fallback):`, histErr);
-    }
-
+    const history = await this.buildHistory(sessionId);
     const providerKind = resolveProviderKind(provider);
     const ctx = createAiSdkProviderContext({
       providerKind,
@@ -115,61 +104,57 @@ export class AiSdkProviderExecutionPort implements ProviderExecutionPort {
     const controller = new AbortController();
     this.activeGenerations.set(sessionId, { controller, requestId });
 
-    let assistantMessageId: string | null = null;
-    try {
-      console.log(`[chat] streaming via AI SDK (${providerKind}) model=${modelId} msgs=${history.length}`);
+    const assistantMessageId = await this.sessionRepository.addMessage(sessionId, "assistant", JSON.stringify([]));
 
-      const result = streamText({
-        model: ctx.model,
+    const tools = this.getTools ? await this.getTools(sessionId) : [];
+    const permissionMode = (await this.sessionRepository.getPermissionMode(sessionId)) ?? "default";
+
+    const coreStream = this.buildCoreStream(ctx.model, controller.signal);
+
+    const messageStore: AgentMessageStore = {
+      updateAssistantContent: (id, blocks) => this.sessionRepository.updateAssistantContent(id, blocks as never[]),
+      finalizeAssistantMessage: (id, blocks, meta) =>
+        this.sessionRepository.finalizeAssistantMessage(id, blocks as never[], meta),
+      setMessageError: (id, blocks, meta) => this.sessionRepository.setMessageError(id, blocks as never[], meta),
+      getMessage: async (id) => {
+        const msg = await this.sessionRepository.getMessage(id);
+        return msg ? { role: msg.role, status: msg.status, content: msg.content } : null;
+      },
+    };
+
+    try {
+      const result: AgentProcessResult = await agentProcessStream({
         messages: history,
+        tools,
+        toolPresenter: this.buildToolPresenter(sessionId),
+        coreStream,
+        providerId,
+        modelId,
+        modelConfig: provider as any,
+        temperature: 0.7,
+        maxTokens: 4096,
+        permissionMode,
+        sessionId,
+        requestId,
+        messageId: assistantMessageId,
         abortSignal: controller.signal,
+        eventPublisher: this.eventPublisher as IEventPublisher,
+        messageStore,
+        refreshTools: this.getTools ? () => this.getTools!(sessionId) : undefined,
       });
 
-      let fullText = "";
-
-      for await (const delta of result.textStream) {
-        fullText += delta;
-
-        this.eventPublisher?.publish("chat.stream.updated", {
-          kind: "delta",
-          requestId,
-          sessionId,
-          delta,
-          updatedAt: Date.now(),
-        });
+      if (result.status === "error" && result.terminalError) {
+        throw new Error(result.terminalError);
       }
 
-      assistantMessageId = await this.sessionRepository.addMessage(
-        sessionId,
-        "assistant",
-        JSON.stringify([{ type: "content", content: fullText, status: "success", timestamp: Date.now() }]),
-      );
-
-      const now = Date.now();
-      this.eventPublisher?.publish("chat.stream.updated", {
-        kind: "snapshot",
-        requestId,
-        sessionId,
-        messageId: assistantMessageId,
-        updatedAt: now,
-        blocks: [{ type: "content", content: fullText, status: "success", timestamp: now }],
-      });
-      this.eventPublisher?.publish("chat.stream.completed", {
-        requestId,
-        sessionId,
-        messageId: assistantMessageId,
-        completedAt: now,
-      });
-
-      console.log(`[chat] stream complete msg=${assistantMessageId} len=${fullText.length}`);
-
+      console.log(`[chat] stream complete msg=${assistantMessageId} status=${result.status}`);
       return { requestId, messageId: assistantMessageId };
     } catch (error) {
       const failedAt = Date.now();
       this.eventPublisher?.publish("chat.stream.failed", {
         requestId,
         sessionId,
-        messageId: assistantMessageId ?? "",
+        messageId: assistantMessageId,
         failedAt,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -177,6 +162,77 @@ export class AiSdkProviderExecutionPort implements ProviderExecutionPort {
     } finally {
       this.activeGenerations.delete(sessionId);
     }
+  }
+
+  private async buildHistory(sessionId: string): Promise<ChatMessage[]> {
+    try {
+      const records = await this.sessionRepository.listMessages(sessionId);
+      return records
+        .filter((r: any) => r.role === "user" || r.role === "assistant")
+        .map((r: any) => ({
+          role: r.role as "user" | "assistant",
+          content: extractTextFromMessageContent(r.content),
+        })) as ChatMessage[];
+    } catch (histErr) {
+      console.warn(`[chat] history build failed (single-turn fallback):`, histErr);
+      return [];
+    }
+  }
+
+  private buildCoreStream(
+    model: any,
+    abortSignal: AbortSignal,
+  ): (
+    messages: ChatMessage[],
+    modelId: string,
+    modelConfig: any,
+    temperature: number,
+    maxTokens: number,
+    tools: MCPToolDefinition[],
+  ) => AsyncGenerator<any> {
+    return async function* (
+      messages: ChatMessage[],
+      _modelId: string,
+      _modelConfig: any,
+      temperature: number,
+      maxTokens: number,
+      tools: MCPToolDefinition[],
+    ) {
+      const result = streamText({
+        model,
+        messages: messages as any,
+        temperature,
+        maxOutputTokens: maxTokens,
+        tools: tools.length > 0 ? (tools as any) : undefined,
+        abortSignal,
+      });
+
+      for await (const textPart of result.textStream) {
+        yield { type: "text", content: textPart };
+      }
+
+      const usage = (await result.usage) as unknown as Record<string, number> | undefined;
+      if (usage) {
+        yield {
+          type: "usage",
+          usage: {
+            prompt_tokens: usage.promptTokens ?? usage.prompt_tokens ?? 0,
+            completion_tokens: usage.completionTokens ?? usage.completion_tokens ?? 0,
+            total_tokens: usage.totalTokens ?? usage.total_tokens ?? 0,
+            cached_tokens: usage.cachedPromptTokens ?? usage.cached_tokens,
+            cache_write_tokens: usage.cacheCreationTokens ?? usage.cache_write_tokens,
+          },
+        };
+      }
+      yield { type: "stop", stop_reason: "complete" };
+    };
+  }
+
+  private buildToolPresenter(_sessionId: string) {
+    return {
+      callTool: async () => ({ rawData: { toolCallId: "", content: "", isError: false } }),
+      preCheckToolPermission: async () => null,
+    };
   }
 
   getActiveGeneration(sessionId: string): { eventId: string; runId: string } | null {

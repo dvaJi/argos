@@ -1,14 +1,11 @@
 import { BrowserWindow, screen } from "electron";
-import path, { dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { is } from "@electron-toolkit/utils";
 import { FloatingButtonConfig, FloatingButtonState } from "./types";
 import logger from "@argos/shared/logger";
 import { FLOATING_WIDGET_LAYOUT, inferDockSide, type FloatingWidgetDockSide, type WidgetRect } from "./layout";
 import type { FloatingButtonBounds } from "@argos/shared/types/floating-widget";
 import { resolveUiUrl } from "#/lib/daemonUi";
+import { getPreloadPath } from "#/lib/paths";
 
 export class FloatingButtonWindow {
   private window: BrowserWindow | null = null;
@@ -64,7 +61,7 @@ export class FloatingButtonWindow {
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
-          preload: path.join(__dirname, "../preload/floating.mjs"),
+          preload: getPreloadPath("floating.mjs"),
           webSecurity: false,
           devTools: isDev,
           sandbox: false,

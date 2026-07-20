@@ -120,6 +120,10 @@ vi.mock("@electron-toolkit/utils", () => ({
   },
 }));
 
+vi.mock("#/lib/paths", () => ({
+  getPreloadPath: vi.fn<(...args: any[]) => any>((name: string) => `/mock/preload/${name}`),
+}));
+
 const flushPromises = async () => {
   for (let i = 0; i < 8; i++) {
     await Promise.resolve();

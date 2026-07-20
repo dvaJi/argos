@@ -1305,43 +1305,7 @@ export interface ILlmProviderPresenter {
     videoOptions?: VideoGenerationOptions,
     options?: { signal?: AbortSignal },
   ): Promise<StandaloneVideoGenerationResult>;
-  getAcpWorkdir(conversationId: string, agentId: string): Promise<AcpWorkdirInfo>;
-  setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void>;
-  warmupAcpProcess(agentId: string, workdir?: string): Promise<void>;
-  getAcpProcessModes(
-    agentId: string,
-    workdir?: string,
-  ): Promise<
-    | {
-        availableModes?: Array<{ id: string; name: string; description: string }>;
-        currentModeId?: string;
-      }
-    | undefined
-  >;
-  getAcpProcessConfigOptions(agentId: string, workdir?: string): Promise<AcpConfigState | null>;
-  setAcpPreferredProcessMode(agentId: string, workdir: string, modeId: string): Promise<void>;
-  setAcpSessionMode(conversationId: string, modeId: string): Promise<void>;
-  prepareAcpSession(conversationId: string, agentId: string, workdir: string): Promise<void>;
-  getAcpSessionModes(conversationId: string): Promise<{
-    current: string;
-    available: Array<{ id: string; name: string; description: string }>;
-  } | null>;
-  getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null>;
-  setAcpSessionConfigOption(
-    conversationId: string,
-    configId: string,
-    value: string | boolean,
-  ): Promise<AcpConfigState | null>;
-  getAcpSessionCommands(conversationId: string): Promise<
-    Array<{
-      name: string;
-      description: string;
-      input?: { hint: string } | null;
-    }>
-  >;
-  resolveAgentPermission(requestId: string, granted: boolean): Promise<void>;
-  runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
-  getAcpAgentDiagnostics(agentId: string, workdir?: string | null): AcpAgentDiagnostics;
+  clearAcpSession?(conversationId: string): Promise<void>;
   getProviderInstance(providerId: string): unknown;
   getExistingProviderInstance?(providerId: string): unknown;
 }
