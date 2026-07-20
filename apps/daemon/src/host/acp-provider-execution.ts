@@ -209,6 +209,140 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     return computeAcpDiagnostics(runtime.processManager, agentId, workdir);
   }
 
+  private async getAgentById(agentId: string): Promise<{ id: string; name: string } | null> {
+    const agents = (await this.configPresenter.getAcpAgents()) as Array<{ id: string; name: string }>;
+    return agents.find((a) => a.id === agentId) ?? null;
+  }
+
+  async prepareAcpSession(conversationId: string, agentId: string, workdir: string): Promise<void> {
+    const runtime = await this.getRuntime();
+    const agent = await this.getAgentById(agentId);
+    if (!agent) throw new Error(`ACP agent not found: ${agentId}`);
+
+    const requestedWorkdir = workdir?.trim();
+    const persistedWorkdir =
+      requestedWorkdir && runtime.sessionPersistence.isWorkdirUsable(requestedWorkdir) ? requestedWorkdir : null;
+    const normalizedWorkdir = runtime.sessionPersistence.resolveWorkdir(persistedWorkdir);
+
+    await runtime.sessionPersistence.updateWorkdir(conversationId, agent.id, persistedWorkdir);
+
+    await runtime.sessionManager.getOrCreateSession(
+      conversationId,
+      agent as never,
+      {
+        onSessionUpdate: () => {},
+        onPermission: async () => ({ outcome: { outcome: "cancelled" } }),
+      },
+      normalizedWorkdir,
+    );
+  }
+
+  async setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
+    const runtime = await this.getRuntime();
+    const requestedWorkdir = workdir?.trim() ? workdir.trim() : null;
+    const trimmed =
+      requestedWorkdir && runtime.sessionPersistence.isWorkdirUsable(requestedWorkdir) ? requestedWorkdir : null;
+
+    const existing = await runtime.sessionPersistence.getSessionData(conversationId, agentId);
+    const previous = existing?.workdir ?? null;
+    await runtime.sessionPersistence.updateWorkdir(conversationId, agentId, trimmed);
+    const previousResolved = runtime.sessionPersistence.resolveWorkdir(previous);
+    const nextResolved = runtime.sessionPersistence.resolveWorkdir(trimmed);
+    if (previousResolved !== nextResolved) {
+      try {
+        await runtime.sessionManager.clearSession(conversationId);
+      } catch {
+        // best-effort cleanup
+      }
+    }
+  }
+
+  async getAcpWorkdir(conversationId: string, agentId: string): Promise<string> {
+    const runtime = await this.getRuntime();
+    return runtime.sessionPersistence.getWorkdir(conversationId, agentId);
+  }
+
+  async clearAcpSession(sessionId: string): Promise<void> {
+    const runtime = await this.getRuntime();
+    try {
+      await runtime.sessionManager.clearSession(sessionId);
+    } catch {
+      // best-effort cleanup
+    }
+  }
+
+  async getAcpSessionModes(conversationId: string): Promise<{
+    current: string;
+    available: Array<{ id: string; name: string; description: string }>;
+  } | null> {
+    const runtime = await this.getRuntime();
+    const session = runtime.sessionManager.getSession(conversationId);
+    if (!session) return null;
+
+    const { getLegacyModeState } = await import("@argos/acp-runtime");
+    const legacyModeState = getLegacyModeState(session.configState);
+    if (legacyModeState) {
+      return {
+        current: legacyModeState.currentModeId ?? session.currentModeId ?? "default",
+        available: legacyModeState.availableModes,
+      };
+    }
+
+    return {
+      current: session.currentModeId ?? "default",
+      available: session.availableModes ?? [],
+    };
+  }
+
+  async setAcpSessionMode(conversationId: string, modeId: string): Promise<void> {
+    const runtime = await this.getRuntime();
+    const session = runtime.sessionManager.getSession(conversationId);
+    if (!session) throw new Error(`ACP session not found: ${conversationId}`);
+
+    await session.connection.agent.request(acpMethods.agent.session.setMode, {
+      sessionId: session.sessionId,
+      modeId,
+    });
+    session.currentModeId = modeId;
+    session.configState =
+      (await import("@argos/acp-runtime")).updateAcpConfigStateValue(
+        session.configState,
+        "__acp_legacy_mode__",
+        modeId,
+      ) ?? session.configState;
+    runtime.processManager.updateBoundProcessMode(conversationId, modeId);
+  }
+
+  async getAcpProcessModes(
+    agentId: string,
+    workdir?: string,
+  ): Promise<{
+    availableModes?: Array<{ id: string; name: string; description: string }>;
+    currentModeId?: string;
+  } | null> {
+    const runtime = await this.getRuntime();
+    return runtime.processManager.getProcessModes(agentId, workdir) ?? null;
+  }
+
+  async setAcpPreferredProcessMode(agentId: string, modeId: string): Promise<void> {
+    const runtime = await this.getRuntime();
+    const agent = await this.getAgentById(agentId);
+    if (!agent) return;
+    try {
+      await runtime.processManager.setPreferredMode(agent as never, "", modeId);
+    } catch (error) {
+      console.warn(`[ACP] Failed to set preferred mode "${modeId}" for agent ${agentId}:`, error);
+    }
+  }
+
+  async resolveAgentPermission(requestId: string, granted: boolean): Promise<void> {
+    const pending = this.pendingPermissions.get(requestId);
+    if (!pending) return;
+
+    this.pendingPermissions.delete(requestId);
+    pending.resolve(this.pickPermissionResponse(pending.options, granted));
+  }
+
   private async runTurn(
     runtime: AcpRuntime,
     sessionId: string,

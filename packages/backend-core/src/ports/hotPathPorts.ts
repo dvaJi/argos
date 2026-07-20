@@ -49,6 +49,15 @@ export interface ProviderExecutionPort {
   getAcpProcessConfigOptions?(agentId: string, workdir?: string): Promise<unknown>;
   runAcpDebugAction?(request: AcpDebugRequest): Promise<AcpDebugRunResult>;
   getAcpAgentDiagnostics?(agentId: string, workdir?: string | null): Promise<AcpAgentDiagnostics>;
+  setAcpWorkdir?(conversationId: string, agentId: string, workdir: string | null): Promise<void>;
+  getAcpWorkdir?(conversationId: string, agentId: string): Promise<string>;
+  getAcpProcessModes?(agentId: string, workdir?: string): Promise<unknown>;
+  setAcpPreferredProcessMode?(agentId: string, modeId: string): Promise<void>;
+  prepareAcpSession?(conversationId: string, agentId: string, workdir: string): Promise<void>;
+  clearAcpSession?(sessionId: string): Promise<void>;
+  getAcpSessionModes?(conversationId: string): Promise<unknown>;
+  setAcpSessionMode?(conversationId: string, modeId: string): Promise<void>;
+  resolveAgentPermission?(requestId: string, granted: boolean): Promise<void>;
   generateCompletion?(input: {
     providerId: string;
     modelId: string;

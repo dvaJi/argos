@@ -641,3 +641,58 @@ export const sessionsResumePendingQueueRoute = defineRouteContract({
     resumed: zod.literal(true),
   }),
 });
+
+export const sessionsPrepareAcpSessionRoute = defineRouteContract({
+  name: "sessions.prepareAcpSession",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    agentId: EntityIdSchema,
+    projectDir: zod.string().min(1),
+    permissionMode: PermissionModeSchema.optional(),
+  }),
+  output: zod.object({
+    prepared: zod.boolean(),
+  }),
+});
+
+export const sessionsClearAcpSessionRoute = defineRouteContract({
+  name: "sessions.clearAcpSession",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: zod.object({
+    cleared: zod.boolean(),
+  }),
+});
+
+export const sessionsGetAcpSessionModesRoute = defineRouteContract({
+  name: "sessions.getAcpSessionModes",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+  }),
+  output: zod.object({
+    modes: zod.array(zod.string()),
+  }),
+});
+
+export const sessionsSetAcpSessionModeRoute = defineRouteContract({
+  name: "sessions.setAcpSessionMode",
+  input: zod.object({
+    sessionId: EntityIdSchema,
+    mode: zod.string().min(1),
+  }),
+  output: zod.object({
+    updated: zod.boolean(),
+  }),
+});
+
+export const sessionsResolveAgentPermissionRoute = defineRouteContract({
+  name: "sessions.resolveAgentPermission",
+  input: zod.object({
+    requestId: zod.string().min(1),
+    granted: zod.boolean(),
+  }),
+  output: zod.object({
+    resolved: zod.boolean(),
+  }),
+});

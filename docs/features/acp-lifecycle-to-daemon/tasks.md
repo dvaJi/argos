@@ -1,0 +1,23 @@
+# Tasks: ACP session lifecycle → daemon
+
+- [x] Explore current ACP ownership (desktop vs daemon) — done in planning
+- [x] Step 1: Add 5 `sessions.*` ACP route contracts in `packages/shared-contracts/src/routes/sessions.routes.ts`
+- [x] Step 1: Add 4 `providers.*` ACP route contracts in `packages/shared-contracts/src/routes/providers.routes.ts`
+- [x] Step 1: Register all 9 routes in `packages/shared-contracts/src/routes.ts` (import + catalog key)
+- [x] Step 2: Add 9 ACP lifecycle methods to `apps/daemon/src/host/acp-provider-execution.ts`
+- [x] Step 2: Register new methods on `providerExecutionPort` / `acpSessionExecutionPort` in `apps/daemon/src/index.ts`; extend `DaemonProviderExecutionPort` type
+- [x] Step 2: Add `if (route === ...)` dispatch blocks in `apps/daemon/src/dispatch/daemonDispatcher.ts`; extend `DaemonAcpSessionExecutionPort`
+- [x] Step 3: Add desktop dispatcher `case` blocks in `apps/desktop/src/main/routes/index.ts` (sessions) and `providerRouteHandler.ts` (providers)
+- [x] Step 4: Add `AcpDaemonPort` interface in `runtimePorts.ts`; implement in `presenter/index.ts` via `invokeDaemonRoute`
+- [x] Step 4: Wire `AcpDaemonPort` into `sessionPresenter`, `agentSessionPresenter`, `agentRuntimePresenter`
+- [x] Step 4: Rewrite `sessionPresenter` ACP calls to use `acpDaemonPort` directly (no fallback)
+- [x] Step 4: Rewrite `agentSessionPresenter` ACP calls to use `acpDaemonPort` directly (no fallback)
+- [x] Step 4: Rewrite `agentRuntimePresenter` `resolveAgentPermission` to use daemon port (no fallback)
+- [x] Step 4: Rewrite `presenter/index.ts` `cleanupConversationRuntimeArtifacts` `clearAcpSession` to use `acpDaemonPortField`
+- [x] Step 5: Delete ACP methods from `LLMProviderPresenter` (16 methods + `getAcpProviderInstance` helper)
+- [x] Step 5: Remove `providerSessionPort` shim and `daemonAcpSessionPort` from `presenter/index.ts`
+- [x] Step 5: Remove `ProviderSessionPort` and `DaemonAcpSessionPort` from `runtimePorts.ts` imports (fields removed from `agentSessionPresenter`)
+- [x] Step 5: Remove ACP methods from `ILlmProviderPresenter` interface (`legacy.presenters.d.ts`, `llmprovider.presenter.d.ts`)
+- [x] Step 5: Remove ACP methods from `ISessionPresenter` interface (`session.presenter.d.ts`)
+- [x] Step 5: Update desktop tests (agentSessionPresenter, agentRuntimePresenter, llmProviderPresenter, integration, usageDashboard)
+- [x] Verify: typecheck (shared-contracts/daemon/desktop) + oxfmt + oxlint + daemon/desktop test suites

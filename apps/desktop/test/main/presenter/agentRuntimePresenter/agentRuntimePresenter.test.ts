@@ -591,6 +591,7 @@ describe("AgentRuntimePresenter", () => {
       {
         skillPresenter,
         sessionPermissionPort,
+        resolveAgentPermission: llmProvider.resolveAgentPermission,
       },
     );
   });

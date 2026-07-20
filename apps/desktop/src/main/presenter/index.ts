@@ -91,13 +91,22 @@ import {
   sessionsSetAcpSessionConfigOptionRoute,
   sessionsTranslateTextRoute,
   sessionsSummaryTitlesRoute,
+  sessionsPrepareAcpSessionRoute,
+  sessionsClearAcpSessionRoute,
+  sessionsGetAcpSessionModesRoute,
+  sessionsSetAcpSessionModeRoute,
+  sessionsResolveAgentPermissionRoute,
+  providersWarmupAcpProcessRoute,
+  providersSetAcpWorkdirRoute,
+  providersGetAcpWorkdirRoute,
+  providersGetAcpProcessModesRoute,
+  providersSetAcpPreferredProcessModeRoute,
 } from "@argos/shared-contracts/routes";
 import type {
-  DaemonAcpSessionPort,
+  AcpDaemonPort,
   DaemonSessionActionPort,
   DaemonSessionQueryPort,
   ProviderCatalogPort,
-  ProviderSessionPort,
   SessionPermissionPort,
   SessionUiPort,
 } from "./runtimePorts";
@@ -220,6 +229,7 @@ export class Presenter implements IPresenter {
   private sessionMessageManager: MessageManager;
   private sessionPresenterInternal?: SessionPresenter;
   private daemonSessionQueryPortField?: DaemonSessionQueryPort;
+  private acpDaemonPortField?: AcpDaemonPort;
   private hasInitialized = false;
   #remoteControlPresenter: RemoteControlPresenterLike;
   readonly #remoteControlBridge: IRemoteControlPresenter;
@@ -580,19 +590,6 @@ export class Presenter implements IPresenter {
         }
       },
     };
-    const providerSessionPort: ProviderSessionPort = {
-      setAcpWorkdir: async (conversationId, agentId, workdir) =>
-        await this.llmproviderPresenter.setAcpWorkdir(conversationId, agentId, workdir),
-      prepareAcpSession: async (conversationId, agentId, workdir) =>
-        await this.llmproviderPresenter.prepareAcpSession(conversationId, agentId, workdir),
-      getAcpSessionConfigOptions: async (conversationId) =>
-        await this.llmproviderPresenter.getAcpSessionConfigOptions(conversationId),
-      setAcpSessionConfigOption: async (conversationId, configId, value) =>
-        await this.llmproviderPresenter.setAcpSessionConfigOption(conversationId, configId, value),
-      getAcpSessionCommands: async (conversationId) =>
-        await this.llmproviderPresenter.getAcpSessionCommands(conversationId),
-      clearAcpSession: async (conversationId) => await this.llmproviderPresenter.clearAcpSession(conversationId),
-    };
     const daemonSessionQueryPort: DaemonSessionQueryPort = {
       searchHistory: async (query, options) => {
         const result = sessionsSearchHistoryRoute.output.parse(
@@ -637,7 +634,49 @@ export class Presenter implements IPresenter {
         return result.title;
       },
     };
-    const daemonAcpSessionPort: DaemonAcpSessionPort = {
+    const acpDaemonPort: AcpDaemonPort = {
+      prepareAcpSession: async (sessionId, agentId, projectDir) => {
+        await invokeDaemonRoute(sessionsPrepareAcpSessionRoute.name, { sessionId, agentId, projectDir });
+      },
+      clearAcpSession: async (sessionId) => {
+        await invokeDaemonRoute(sessionsClearAcpSessionRoute.name, { sessionId });
+      },
+      setAcpWorkdir: async (conversationId, agentId, workdir) => {
+        await invokeDaemonRoute(providersSetAcpWorkdirRoute.name, { conversationId, agentId, workdir });
+      },
+      getAcpWorkdir: async (conversationId, agentId) => {
+        const result = providersGetAcpWorkdirRoute.output.parse(
+          await invokeDaemonRoute(providersGetAcpWorkdirRoute.name, { conversationId, agentId }),
+        );
+        return result.workdir ?? "";
+      },
+      getAcpSessionModes: async (conversationId) => {
+        const result = sessionsGetAcpSessionModesRoute.output.parse(
+          await invokeDaemonRoute(sessionsGetAcpSessionModesRoute.name, { sessionId: conversationId }),
+        );
+        return {
+          current: result.modes[0] ?? "default",
+          available: result.modes.map((id) => ({ id, name: id, description: "" })),
+        };
+      },
+      setAcpSessionMode: async (conversationId, modeId) => {
+        await invokeDaemonRoute(sessionsSetAcpSessionModeRoute.name, { sessionId: conversationId, mode: modeId });
+      },
+      getAcpProcessModes: async (agentId, workdir) => {
+        const result = providersGetAcpProcessModesRoute.output.parse(
+          await invokeDaemonRoute(providersGetAcpProcessModesRoute.name, { agentId, workdir }),
+        );
+        return { availableModes: result.modes.map((id) => ({ id, name: id, description: "" })) };
+      },
+      setAcpPreferredProcessMode: async (agentId, modeId) => {
+        await invokeDaemonRoute(providersSetAcpPreferredProcessModeRoute.name, { agentId, mode: modeId });
+      },
+      warmupAcpProcess: async (agentId, workdir) => {
+        await invokeDaemonRoute(providersWarmupAcpProcessRoute.name, { agentId, workdir });
+      },
+      resolveAgentPermission: async (requestId, granted) => {
+        await invokeDaemonRoute(sessionsResolveAgentPermissionRoute.name, { requestId, granted });
+      },
       getAcpSessionConfigOptions: async (conversationId) => {
         const result = sessionsGetAcpSessionConfigOptionsRoute.output.parse(
           await invokeDaemonRoute(sessionsGetAcpSessionConfigOptionsRoute.name, { sessionId: conversationId }),
@@ -714,6 +753,7 @@ export class Presenter implements IPresenter {
         cacheImage: (data) => this.devicePresenter.cacheImage(data),
         skillPresenter: this.skillPresenter,
         memoryPort: memoryPresenter,
+        resolveAgentPermission: acpDaemonPort.resolveAgentPermission,
       },
     );
     this.agentSessionPresenter = new AgentSessionPresenter(
@@ -724,15 +764,15 @@ export class Presenter implements IPresenter {
       this.skillPresenter,
       undefined,
       {
-        providerSessionPort,
         sessionPermissionPort,
         sessionUiPort,
-        daemonAcpSessionPort,
         daemonSessionActionPort,
         daemonSessionQueryPort,
+        acpDaemonPort,
       },
     );
     this.daemonSessionQueryPortField = daemonSessionQueryPort;
+    this.acpDaemonPortField = acpDaemonPort;
     this.projectPresenter = new ProjectPresenter(
       this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
       this.devicePresenter,
@@ -759,7 +799,7 @@ export class Presenter implements IPresenter {
 
   async cleanupConversationRuntimeArtifacts(conversationId: string): Promise<void> {
     try {
-      await this.llmproviderPresenter.clearAcpSession(conversationId);
+      await this.acpDaemonPortField?.clearAcpSession(conversationId);
     } catch (error) {
       console.warn("[Presenter] Failed to clear ACP session:", error);
     }
@@ -775,6 +815,7 @@ export class Presenter implements IPresenter {
         exporter: this.exporter,
         commandPermissionService: this.commandPermissionService,
         daemonSessionQueryPort: this.daemonSessionQueryPortField,
+        acpDaemonPort: this.acpDaemonPortField,
       });
     }
 

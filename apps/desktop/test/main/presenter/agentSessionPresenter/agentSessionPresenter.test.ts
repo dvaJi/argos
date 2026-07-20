@@ -187,6 +187,58 @@ function createMockLlmProviderPresenter() {
   } as any;
 }
 
+function createMockAcpDaemonPort() {
+  return {
+    prepareAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    clearAcpSession: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    setAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getAcpWorkdir: vi.fn<(...args: any[]) => any>().mockResolvedValue("/tmp/workspace"),
+    getAcpSessionModes: vi.fn<(...args: any[]) => any>().mockResolvedValue({ current: "default", available: [] }),
+    setAcpSessionMode: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getAcpProcessModes: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
+    setAcpPreferredProcessMode: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    warmupAcpProcess: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    resolveAgentPermission: vi.fn<(...args: any[]) => any>().mockResolvedValue(undefined),
+    getAcpSessionConfigOptions: vi.fn<(...args: any[]) => any>().mockResolvedValue({
+      source: "configOptions",
+      options: [
+        {
+          id: "model",
+          label: "Model",
+          type: "select",
+          category: "model",
+          currentValue: "gpt-5",
+          options: [
+            { value: "gpt-5", label: "gpt-5" },
+            { value: "gpt-5-mini", label: "gpt-5-mini" },
+          ],
+        },
+      ],
+    }),
+    setAcpSessionConfigOption: vi
+      .fn<(...args: any[]) => any>()
+      .mockImplementation(async (_sessionId: string, configId: string, value: string | boolean) => ({
+        source: "configOptions",
+        options: [
+          {
+            id: configId,
+            label: "Model",
+            type: "select",
+            category: "model",
+            currentValue: value,
+            options: [
+              { value: "gpt-5", label: "gpt-5" },
+              { value: "gpt-5-mini", label: "gpt-5-mini" },
+            ],
+          },
+        ],
+      })),
+    getAcpSessionCommands: vi
+      .fn<(...args: any[]) => any>()
+      .mockResolvedValue([{ name: "review", description: "run review", input: { hint: "ticket id" } }]),
+  };
+}
+
 function createMockSkillPresenter() {
   return {
     setActiveSkills: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
@@ -310,6 +362,7 @@ describe("AgentSessionPresenter", () => {
   let configPresenter: ReturnType<typeof createMockConfigPresenter>;
   let sqlitePresenter: ReturnType<typeof createMockSqlitePresenter>;
   let skillPresenter: ReturnType<typeof createMockSkillPresenter>;
+  let acpDaemonPort: ReturnType<typeof createMockAcpDaemonPort>;
   let presenter: AgentSessionPresenter;
 
   beforeEach(() => {
@@ -319,12 +372,15 @@ describe("AgentSessionPresenter", () => {
     configPresenter = createMockConfigPresenter();
     sqlitePresenter = createMockSqlitePresenter();
     skillPresenter = createMockSkillPresenter();
+    acpDaemonPort = createMockAcpDaemonPort();
     presenter = new AgentSessionPresenter(
       argosAgent as any,
       llmProviderPresenter,
       configPresenter,
       sqlitePresenter,
       skillPresenter,
+      undefined,
+      { acpDaemonPort },
     );
   });
 
@@ -696,7 +752,7 @@ describe("AgentSessionPresenter", () => {
         1,
       );
 
-      expect(llmProviderPresenter.setAcpWorkdir).toHaveBeenCalledWith("mock-session-id", "acp-coder", "/tmp/workspace");
+      expect(acpDaemonPort.setAcpWorkdir).toHaveBeenCalledWith("mock-session-id", "acp-coder", "/tmp/workspace");
       await new Promise((r) => setTimeout(r, 0));
       expect(argosAgent.queuePendingInput).toHaveBeenCalledWith(
         "mock-session-id",
@@ -716,7 +772,7 @@ describe("AgentSessionPresenter", () => {
         modelId: "acp-coder",
         permissionMode: "full_access",
       });
-      llmProviderPresenter.setAcpWorkdir.mockRejectedValueOnce(new Error("sync failed"));
+      acpDaemonPort.setAcpWorkdir.mockRejectedValueOnce(new Error("sync failed"));
 
       await expect(
         presenter.createSession(
@@ -947,7 +1003,7 @@ describe("AgentSessionPresenter", () => {
           projectDir: "/tmp/workspace",
         },
       );
-      expect(llmProviderPresenter.setAcpWorkdir).toHaveBeenCalledWith("s-draft", "acp-coder", "/tmp/workspace");
+      expect(acpDaemonPort.setAcpWorkdir).toHaveBeenCalledWith("s-draft", "acp-coder", "/tmp/workspace");
     });
 
     it("routes to correct agent", async () => {
@@ -1116,7 +1172,7 @@ describe("AgentSessionPresenter", () => {
           permissionMode: "full_access",
         }),
       );
-      expect(llmProviderPresenter.prepareAcpSession).toHaveBeenCalledWith(
+      expect(acpDaemonPort.prepareAcpSession).toHaveBeenCalledWith(
         "mock-session-id",
         "acp-coder",
         "/tmp/workspace",
@@ -1155,7 +1211,7 @@ describe("AgentSessionPresenter", () => {
       });
 
       expect(sqlitePresenter.newSessionsTable.create).not.toHaveBeenCalled();
-      expect(llmProviderPresenter.prepareAcpSession).toHaveBeenCalledWith("draft-1", "acp-coder", "/tmp/workspace");
+      expect(acpDaemonPort.prepareAcpSession).toHaveBeenCalledWith("draft-1", "acp-coder", "/tmp/workspace");
       expect(session.id).toBe("draft-1");
       expect(session.isDraft).toBe(true);
     });
@@ -1248,7 +1304,7 @@ describe("AgentSessionPresenter", () => {
         }),
       );
       expect(skillPresenter.setActiveSkills).not.toHaveBeenCalled();
-      expect(llmProviderPresenter.setAcpWorkdir).toHaveBeenCalledWith("child-session-acp", "kimi", "/tmp/workspace");
+      expect(acpDaemonPort.setAcpWorkdir).toHaveBeenCalledWith("child-session-acp", "kimi", "/tmp/workspace");
       expect(session.id).toBe("child-session-acp");
       expect(session.providerId).toBe("acp");
       expect(session.modelId).toBe("kimi");
@@ -1289,7 +1345,7 @@ describe("AgentSessionPresenter", () => {
         sessionRows.delete(id);
       });
 
-      llmProviderPresenter.setAcpWorkdir
+      acpDaemonPort.setAcpWorkdir
         .mockRejectedValueOnce(new Error("warmup failed"))
         .mockResolvedValueOnce(undefined);
       argosAgent.getSessionState.mockResolvedValue({
@@ -1318,20 +1374,20 @@ describe("AgentSessionPresenter", () => {
 
       expect(sqlitePresenter.newSessionsTable.create).toHaveBeenCalledTimes(2);
       expect(argosAgent.initSession).toHaveBeenCalledTimes(2);
-      expect(llmProviderPresenter.setAcpWorkdir).toHaveBeenNthCalledWith(
+      expect(acpDaemonPort.setAcpWorkdir).toHaveBeenNthCalledWith(
         1,
         "child-session-1",
         "acp-reviewer",
         "/tmp/workspace",
       );
-      expect(llmProviderPresenter.setAcpWorkdir).toHaveBeenNthCalledWith(
+      expect(acpDaemonPort.setAcpWorkdir).toHaveBeenNthCalledWith(
         2,
         "child-session-2",
         "acp-reviewer",
         "/tmp/workspace",
       );
-      expect(llmProviderPresenter.clearAcpSession).toHaveBeenCalledTimes(1);
-      expect(llmProviderPresenter.clearAcpSession).toHaveBeenCalledWith("child-session-1");
+      expect(acpDaemonPort.clearAcpSession).toHaveBeenCalledTimes(1);
+      expect(acpDaemonPort.clearAcpSession).toHaveBeenCalledWith("child-session-1");
       expect(argosAgent.destroySession).toHaveBeenCalledTimes(1);
       expect(argosAgent.destroySession).toHaveBeenCalledWith("child-session-1");
       expect(session.id).toBe("child-session-2");
@@ -1712,7 +1768,7 @@ describe("AgentSessionPresenter", () => {
 
       await presenter.deleteSession("s-acp");
 
-      expect(llmProviderPresenter.clearAcpSession).toHaveBeenCalledWith("s-acp");
+      expect(acpDaemonPort.clearAcpSession).toHaveBeenCalledWith("s-acp");
       expect(argosAgent.destroySession).toHaveBeenCalledWith("s-acp");
     });
   });
@@ -2166,11 +2222,11 @@ describe("AgentSessionPresenter", () => {
           permissionMode: "full_access",
         }),
       );
-      expect(llmProviderPresenter.clearAcpSession).toHaveBeenCalledWith("s-acp");
-      expect(llmProviderPresenter.clearAcpSession.mock.invocationCallOrder[0]).toBeGreaterThan(
+      expect(acpDaemonPort.clearAcpSession).toHaveBeenCalledWith("s-acp");
+      expect(acpDaemonPort.clearAcpSession.mock.invocationCallOrder[0]).toBeGreaterThan(
         argosAgent.setSessionAgentContext.mock.invocationCallOrder[0],
       );
-      expect(llmProviderPresenter.clearAcpSession.mock.invocationCallOrder[0]).toBeGreaterThan(
+      expect(acpDaemonPort.clearAcpSession.mock.invocationCallOrder[0]).toBeGreaterThan(
         sqlitePresenter.newSessionsTable.updateAgentId.mock.invocationCallOrder[0],
       );
       expect(updated.agentId).toBe("argos-coder");
@@ -2223,7 +2279,7 @@ describe("AgentSessionPresenter", () => {
       await expect(presenter.moveSessionToAgent("s-acp", "argos-coder")).rejects.toThrow("ownership update failed");
 
       expect(argosAgent.setSessionAgentContext).toHaveBeenCalled();
-      expect(llmProviderPresenter.clearAcpSession).not.toHaveBeenCalled();
+      expect(acpDaemonPort.clearAcpSession).not.toHaveBeenCalled();
     });
 
     it("reports partial batch transfer failures after earlier sessions move", async () => {
@@ -2347,7 +2403,7 @@ describe("AgentSessionPresenter", () => {
       );
       expect(argosAgent.setSessionAgentContext).not.toHaveBeenCalled();
       expect(sqlitePresenter.newSessionsTable.updateAgentId).not.toHaveBeenCalled();
-      expect(llmProviderPresenter.clearAcpSession).not.toHaveBeenCalled();
+      expect(acpDaemonPort.clearAcpSession).not.toHaveBeenCalled();
     });
 
     it("rejects ACP targets for batch agent transfers before mutating sessions", async () => {
@@ -2404,7 +2460,7 @@ describe("AgentSessionPresenter", () => {
       );
       expect(argosAgent.setSessionAgentContext).not.toHaveBeenCalled();
       expect(sqlitePresenter.newSessionsTable.updateAgentId).not.toHaveBeenCalled();
-      expect(llmProviderPresenter.clearAcpSession).not.toHaveBeenCalled();
+      expect(acpDaemonPort.clearAcpSession).not.toHaveBeenCalled();
     });
 
     it("rejects moving an ACP conversation to another ACP target", async () => {
@@ -2439,7 +2495,7 @@ describe("AgentSessionPresenter", () => {
       );
       expect(argosAgent.setSessionAgentContext).not.toHaveBeenCalled();
       expect(sqlitePresenter.newSessionsTable.updateAgentId).not.toHaveBeenCalled();
-      expect(llmProviderPresenter.clearAcpSession).not.toHaveBeenCalled();
+      expect(acpDaemonPort.clearAcpSession).not.toHaveBeenCalled();
     });
   });
 
@@ -2620,12 +2676,11 @@ describe("AgentSessionPresenter", () => {
         modelId: "acp-coder",
         permissionMode: "full_access",
       });
-      const daemonAcpSessionPort = {
+      const customAcpDaemonPort = {
+        ...createMockAcpDaemonPort(),
         getAcpSessionCommands: vi
           .fn<(...args: any[]) => any>()
           .mockResolvedValue([{ name: "daemon-review", description: "daemon route", input: { hint: "ticket id" } }]),
-        getAcpSessionConfigOptions: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
-        setAcpSessionConfigOption: vi.fn<(...args: any[]) => any>().mockResolvedValue(null),
       };
       const daemonPresenter = new AgentSessionPresenter(
         argosAgent as any,
@@ -2635,14 +2690,13 @@ describe("AgentSessionPresenter", () => {
         skillPresenter,
         undefined,
         {
-          daemonAcpSessionPort,
+          acpDaemonPort: customAcpDaemonPort,
         },
       );
 
       const commands = await daemonPresenter.getAcpSessionCommands("s-acp");
 
-      expect(daemonAcpSessionPort.getAcpSessionCommands).toHaveBeenCalledWith("s-acp");
-      expect(llmProviderPresenter.getAcpSessionCommands).not.toHaveBeenCalled();
+      expect(customAcpDaemonPort.getAcpSessionCommands).toHaveBeenCalledWith("s-acp");
       expect(commands).toHaveLength(1);
       expect(commands[0].name).toBe("daemon-review");
     });
@@ -2660,7 +2714,7 @@ describe("AgentSessionPresenter", () => {
 
       const commands = await presenter.getAcpSessionCommands("s1");
       expect(commands).toEqual([]);
-      expect(llmProviderPresenter.getAcpSessionCommands).not.toHaveBeenCalled();
+      expect(acpDaemonPort.getAcpSessionCommands).not.toHaveBeenCalled();
     });
 
     it("fetches commands for ACP-backed sessions", async () => {
@@ -2683,7 +2737,7 @@ describe("AgentSessionPresenter", () => {
 
       const commands = await presenter.getAcpSessionCommands("s-acp");
 
-      expect(llmProviderPresenter.getAcpSessionCommands).toHaveBeenCalledWith("s-acp");
+      expect(acpDaemonPort.getAcpSessionCommands).toHaveBeenCalledWith("s-acp");
       expect(commands).toHaveLength(1);
       expect(commands[0].name).toBe("review");
     });
@@ -2704,7 +2758,7 @@ describe("AgentSessionPresenter", () => {
       const result = await presenter.getAcpSessionConfigOptions("s1");
 
       expect(result).toBeNull();
-      expect(llmProviderPresenter.getAcpSessionConfigOptions).not.toHaveBeenCalled();
+      expect(acpDaemonPort.getAcpSessionConfigOptions).not.toHaveBeenCalled();
     });
 
     it("proxies ACP session config option reads for ACP-backed sessions", async () => {
@@ -2727,7 +2781,7 @@ describe("AgentSessionPresenter", () => {
 
       const result = await presenter.getAcpSessionConfigOptions("s-acp");
 
-      expect(llmProviderPresenter.getAcpSessionConfigOptions).toHaveBeenCalledWith("s-acp");
+      expect(acpDaemonPort.getAcpSessionConfigOptions).toHaveBeenCalledWith("s-acp");
       expect(result?.options[0].currentValue).toBe("gpt-5");
     });
 
@@ -2751,7 +2805,7 @@ describe("AgentSessionPresenter", () => {
 
       const result = await presenter.setAcpSessionConfigOption("s-acp", "model", "gpt-5-mini");
 
-      expect(llmProviderPresenter.setAcpSessionConfigOption).toHaveBeenCalledWith("s-acp", "model", "gpt-5-mini");
+      expect(acpDaemonPort.setAcpSessionConfigOption).toHaveBeenCalledWith("s-acp", "model", "gpt-5-mini");
       expect(result?.options[0].currentValue).toBe("gpt-5-mini");
     });
   });

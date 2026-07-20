@@ -71,6 +71,41 @@ export interface DaemonAcpSessionPort {
   >;
 }
 
+export interface AcpDaemonPort {
+  prepareAcpSession(sessionId: string, agentId: string, projectDir: string): Promise<void>;
+  clearAcpSession(sessionId: string): Promise<void>;
+  setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void>;
+  getAcpWorkdir(conversationId: string, agentId: string): Promise<string>;
+  getAcpSessionModes(conversationId: string): Promise<{
+    current: string;
+    available: Array<{ id: string; name: string; description: string }>;
+  } | null>;
+  setAcpSessionMode(conversationId: string, modeId: string): Promise<void>;
+  getAcpProcessModes(
+    agentId: string,
+    workdir?: string,
+  ): Promise<{
+    availableModes?: Array<{ id: string; name: string; description: string }>;
+    currentModeId?: string;
+  } | null>;
+  setAcpPreferredProcessMode(agentId: string, modeId: string): Promise<void>;
+  warmupAcpProcess(agentId: string, workdir?: string): Promise<void>;
+  resolveAgentPermission(requestId: string, granted: boolean): Promise<void>;
+  getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null>;
+  setAcpSessionConfigOption(
+    conversationId: string,
+    configId: string,
+    value: string | boolean,
+  ): Promise<AcpConfigState | null>;
+  getAcpSessionCommands(conversationId: string): Promise<
+    Array<{
+      name: string;
+      description: string;
+      input?: { hint: string } | null;
+    }>
+  >;
+}
+
 export interface DaemonSessionQueryPort {
   searchHistory(query: string, options?: { limit?: number }): Promise<HistorySearchHit[]>;
   getSearchResults(messageId: string, searchId?: string): Promise<SearchResult[]>;

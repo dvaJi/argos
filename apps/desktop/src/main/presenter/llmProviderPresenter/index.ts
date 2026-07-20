@@ -15,12 +15,7 @@ import {
   ModelScopeMcpSyncResult,
   IConfigPresenter,
   ISQLitePresenter,
-  AcpConfigState,
   RateLimitQueueSnapshot,
-  AcpWorkdirInfo,
-  AcpDebugRequest,
-  AcpDebugRunResult,
-  AcpAgentDiagnostics,
 } from "@argos/shared/presenter";
 import { ApiEndpointType, ModelType } from "@argos/shared/model";
 import { normalizeImageGenerationOptions, type ImageGenerationOptions } from "@argos/shared/imageGenerationSettings";
@@ -40,7 +35,6 @@ import { ModelScopeSyncManager } from "./managers/modelScopeSyncManager";
 import type { OllamaProvider } from "./providers/ollamaProvider";
 import { ShowResponse } from "ollama";
 import { AcpSessionPersistence } from "@argos/acp-runtime/session/acpSessionPersistence";
-import { AcpProvider } from "./providers/acpProvider";
 import type { ProviderMcpRuntimePort } from "./runtimePorts";
 
 const createAbortError = (): Error => {
@@ -205,13 +199,8 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
     return this.providerInstanceManager.getExistingProviderInstance(providerId);
   }
 
-  async clearAcpSession(conversationId: string): Promise<void> {
-    const acpProvider = this.getExistingProviderInstance("acp") as
-      | { clearSession?: (conversationId: string) => Promise<void> }
-      | undefined;
-    if (acpProvider?.clearSession) {
-      await acpProvider.clearSession(conversationId);
-    }
+  async clearAcpSession(_conversationId: string): Promise<void> {
+    // ACP lifecycle is now daemon-owned; this method is a no-op kept for interface compatibility.
   }
 
   async getModelList(providerId: string): Promise<MODEL_META[]> {
@@ -794,170 +783,9 @@ export class LLMProviderPresenter implements ILlmProviderPresenter {
     return this.modelScopeSyncManager.syncModelScopeMcpServers(providerId, syncOptions);
   }
 
-  async getAcpWorkdir(conversationId: string, agentId: string): Promise<AcpWorkdirInfo> {
-    const record = await this.acpSessionPersistence.getSessionData(conversationId, agentId);
-    const path = this.acpSessionPersistence.resolveWorkdir(record?.workdir);
-    const isCustom = this.acpSessionPersistence.isWorkdirUsable(record?.workdir);
-    return { path, isCustom };
-  }
-
-  async setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
-    const provider = this.getAcpProviderInstance();
-    if (provider) {
-      await provider.updateAcpWorkdir(conversationId, agentId, workdir);
-      return;
-    }
-
-    const requestedWorkdir = workdir?.trim() ? workdir.trim() : null;
-    const trimmed =
-      requestedWorkdir && this.acpSessionPersistence.isWorkdirUsable(requestedWorkdir) ? requestedWorkdir : null;
-    if (requestedWorkdir && !trimmed) {
-      console.warn(
-        `[ACP] Ignoring unavailable ACP workdir "${requestedWorkdir}" for conversation ${conversationId} (agent ${agentId}); using default workdir.`,
-      );
-    }
-    await this.acpSessionPersistence.updateWorkdir(conversationId, agentId, trimmed);
-  }
-
-  async warmupAcpProcess(agentId: string, workdir?: string): Promise<void> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) return;
-    try {
-      await provider.warmupProcess(agentId, workdir);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("shutting down")) {
-        console.warn(`[ACP] Cannot warmup process for agent ${agentId}: process manager is shutting down`);
-        return;
-      }
-      throw error;
-    }
-  }
-
-  async getAcpProcessModes(
-    agentId: string,
-    workdir?: string,
-  ): Promise<
-    | {
-        availableModes?: Array<{ id: string; name: string; description: string }>;
-        currentModeId?: string;
-      }
-    | undefined
-  > {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      return undefined;
-    }
-    return provider.getProcessModes(agentId, workdir);
-  }
-
-  async getAcpProcessConfigOptions(agentId: string, workdir?: string): Promise<AcpConfigState | null> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      return null;
-    }
-    return provider.getProcessConfigOptions(agentId, workdir);
-  }
-
-  async setAcpPreferredProcessMode(agentId: string, workdir: string, modeId: string) {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) return;
-
-    await provider.setPreferredProcessMode(agentId, workdir, modeId);
-  }
-
-  async setAcpSessionMode(conversationId: string, modeId: string): Promise<void> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("[ACP] ACP provider not found");
-    }
-    await provider.setSessionMode(conversationId, modeId);
-  }
-
-  async prepareAcpSession(conversationId: string, agentId: string, workdir: string): Promise<void> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("[ACP] ACP provider not found");
-    }
-    await provider.prepareSession(conversationId, agentId, workdir);
-  }
-
-  async getAcpSessionModes(conversationId: string): Promise<{
-    current: string;
-    available: Array<{ id: string; name: string; description: string }>;
-  } | null> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      return null;
-    }
-    return await provider.getSessionModes(conversationId);
-  }
-
-  async getAcpSessionConfigOptions(conversationId: string): Promise<AcpConfigState | null> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      return null;
-    }
-    return await provider.getSessionConfigOptions(conversationId);
-  }
-
-  async setAcpSessionConfigOption(
-    conversationId: string,
-    configId: string,
-    value: string | boolean,
-  ): Promise<AcpConfigState | null> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("[ACP] ACP provider not found");
-    }
-    return await provider.setSessionConfigOption(conversationId, configId, value);
-  }
-
-  async getAcpSessionCommands(conversationId: string): Promise<
-    Array<{
-      name: string;
-      description: string;
-      input?: { hint: string } | null;
-    }>
-  > {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      return [];
-    }
-    return await provider.getSessionCommands(conversationId);
-  }
-
-  async runAcpDebugAction(request: AcpDebugRequest): Promise<AcpDebugRunResult> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("ACP provider unavailable");
-    }
-    return await provider.runDebugAction(request);
-  }
-
-  getAcpAgentDiagnostics(agentId: string, workdir?: string | null): AcpAgentDiagnostics {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("ACP provider unavailable");
-    }
-    return provider.getAcpDiagnostics(agentId, workdir);
-  }
-
-  async resolveAgentPermission(requestId: string, granted: boolean): Promise<void> {
-    const provider = this.getAcpProviderInstance();
-    if (!provider) {
-      throw new Error("ACP provider unavailable");
-    }
-    await provider.resolvePermissionRequest(requestId, granted);
-  }
-
-  private getAcpProviderInstance(): AcpProvider | null {
-    try {
-      const instance = this.getProviderInstance("acp");
-      return instance instanceof AcpProvider ? (instance as AcpProvider) : null;
-    } catch (error) {
-      console.warn("[LLMProviderPresenter] ACP provider unavailable:", error);
-      return null;
-    }
-  }
+  // ACP lifecycle methods (prepareAcpSession, setAcpWorkdir, getAcpWorkdir, warmupAcpProcess,
+  // getAcpProcessModes, getAcpProcessConfigOptions, setAcpPreferredProcessMode, setAcpSessionMode,
+  // getAcpSessionModes, getAcpSessionConfigOptions, setAcpSessionConfigOption, getAcpSessionCommands,
+  // runAcpDebugAction, getAcpAgentDiagnostics, resolveAgentPermission) have been removed.
+  // ACP lifecycle is now daemon-owned via AcpProviderExecutionPort + AcpDaemonPort.
 }

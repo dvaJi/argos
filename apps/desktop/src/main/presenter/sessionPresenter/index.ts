@@ -27,7 +27,7 @@ import { CommandPermissionService } from "../permission/commandPermissionService
 import { ConversationManager, type CreateConversationOptions } from "./managers/conversationManager";
 import type { ConversationExportFormat } from "../exporter/formats/conversationExporter";
 import { resolveSessionDir } from "./sessionPaths";
-import type { DaemonSessionQueryPort } from "../runtimePorts";
+import type { DaemonSessionQueryPort, AcpDaemonPort } from "../runtimePorts";
 
 const DEFAULT_MESSAGE_LENGTH = 300;
 
@@ -42,6 +42,7 @@ export class SessionPresenter implements ISessionPresenter {
   private activeConversationBindings: Map<number, string> = new Map();
   private legacyRuntimeInitialized = false;
   private daemonSessionQueryPort?: DaemonSessionQueryPort;
+  private acpDaemonPort?: AcpDaemonPort;
 
   constructor(options: {
     messageManager?: MessageManager;
@@ -51,6 +52,7 @@ export class SessionPresenter implements ISessionPresenter {
     exporter: IConversationExporter;
     commandPermissionService?: CommandPermissionService;
     daemonSessionQueryPort?: DaemonSessionQueryPort;
+    acpDaemonPort?: AcpDaemonPort;
   }) {
     this.sqlitePresenter = options.sqlitePresenter;
     this.messageManager = options.messageManager ?? new MessageManager(options.sqlitePresenter);
@@ -59,6 +61,7 @@ export class SessionPresenter implements ISessionPresenter {
     this.exporter = options.exporter;
     this.commandPermissionService = options.commandPermissionService ?? new CommandPermissionService();
     this.daemonSessionQueryPort = options.daemonSessionQueryPort;
+    this.acpDaemonPort = options.acpDaemonPort;
     this.conversationManager = new ConversationManager({
       sqlitePresenter: options.sqlitePresenter,
       configPresenter: options.configPresenter,
@@ -532,12 +535,13 @@ export class SessionPresenter implements ISessionPresenter {
       const tasks = Object.entries(settings.acpWorkdirMap)
         .filter(([, path]) => typeof path === "string" && path.trim().length > 0)
         .map(([agentId, path]) =>
-          this.llmProviderPresenter.setAcpWorkdir(conversationId, agentId, path as string).catch((error) =>
-            console.warn("[SessionPresenter] Failed to set ACP workdir during creation", {
-              conversationId,
-              agentId,
-              error,
-            }),
+          (this.acpDaemonPort?.setAcpWorkdir(conversationId, agentId, path as string) ?? Promise.resolve()).catch(
+            (error) =>
+              console.warn("[SessionPresenter] Failed to set ACP workdir during creation", {
+                conversationId,
+                agentId,
+                error,
+              }),
           ),
         );
 
@@ -872,15 +876,16 @@ export class SessionPresenter implements ISessionPresenter {
   }
 
   async getAcpWorkdir(conversationId: string, agentId: string): Promise<AcpWorkdirInfo> {
-    return this.llmProviderPresenter.getAcpWorkdir(conversationId, agentId);
+    const path = await this.acpDaemonPort?.getAcpWorkdir(conversationId, agentId);
+    return { path: path || "", isCustom: !!path };
   }
 
   async setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
-    await this.llmProviderPresenter.setAcpWorkdir(conversationId, agentId, workdir);
+    await this.acpDaemonPort?.setAcpWorkdir(conversationId, agentId, workdir);
   }
 
   async warmupAcpProcess(agentId: string, workdir?: string): Promise<void> {
-    await this.llmProviderPresenter.warmupAcpProcess(agentId, workdir);
+    await this.acpDaemonPort?.warmupAcpProcess(agentId, workdir);
   }
 
   async getAcpProcessModes(
@@ -893,22 +898,22 @@ export class SessionPresenter implements ISessionPresenter {
       }
     | undefined
   > {
-    return await this.llmProviderPresenter.getAcpProcessModes(agentId, workdir);
+    return (await this.acpDaemonPort?.getAcpProcessModes(agentId, workdir)) ?? undefined;
   }
 
-  async setAcpPreferredProcessMode(agentId: string, workdir: string, modeId: string) {
-    await this.llmProviderPresenter.setAcpPreferredProcessMode(agentId, workdir, modeId);
+  async setAcpPreferredProcessMode(agentId: string, _workdir: string, modeId: string) {
+    await this.acpDaemonPort?.setAcpPreferredProcessMode(agentId, modeId);
   }
 
   async setAcpSessionMode(conversationId: string, modeId: string): Promise<void> {
-    await this.llmProviderPresenter.setAcpSessionMode(conversationId, modeId);
+    await this.acpDaemonPort?.setAcpSessionMode(conversationId, modeId);
   }
 
   async getAcpSessionModes(conversationId: string): Promise<{
     current: string;
     available: Array<{ id: string; name: string; description: string }>;
   } | null> {
-    return await this.llmProviderPresenter.getAcpSessionModes(conversationId);
+    return (await this.acpDaemonPort?.getAcpSessionModes(conversationId)) ?? null;
   }
 
   /**
