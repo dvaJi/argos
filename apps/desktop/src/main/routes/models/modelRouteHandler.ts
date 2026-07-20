@@ -1,4 +1,4 @@
-import type { IConfigPresenter, ILlmProviderPresenter } from "@argos/shared/presenter";
+import type { ILlmProviderPresenter } from "@argos/shared/presenter";
 import {
   modelsAddCustomRoute,
   modelsExportConfigsRoute,
@@ -19,44 +19,25 @@ import {
 } from "@argos/shared-contracts/routes";
 export async function dispatchModelRoute(
   deps: {
-    configPresenter: IConfigPresenter;
     llmProviderPresenter: ILlmProviderPresenter;
     invokeDaemonRoute: (route: string, input: unknown) => Promise<unknown>;
   },
   routeName: string,
   rawInput: unknown,
 ): Promise<unknown> {
-  const { configPresenter, llmProviderPresenter, invokeDaemonRoute } = deps;
+  const { llmProviderPresenter, invokeDaemonRoute } = deps;
 
   switch (routeName) {
     case modelsGetProviderCatalogRoute.name: {
       const input = modelsGetProviderCatalogRoute.input.parse(rawInput);
-      const providerModels = configPresenter.getProviderModels(input.providerId) ?? [];
-      const customModels = configPresenter.getCustomModels(input.providerId) ?? [];
-      const dbProviderModels = configPresenter.getDbProviderModels(input.providerId) ?? [];
-      const modelIds = Array.from(
-        new Set([
-          ...providerModels.map((model) => model.id),
-          ...customModels.map((model) => model.id),
-          ...dbProviderModels.map((model) => model.id),
-        ]),
+      return modelsGetProviderCatalogRoute.output.parse(
+        await invokeDaemonRoute(modelsGetProviderCatalogRoute.name, input),
       );
-      const modelStatusMap = configPresenter.getBatchModelStatus(input.providerId, modelIds);
-      return modelsGetProviderCatalogRoute.output.parse({
-        catalog: {
-          providerModels,
-          customModels,
-          dbProviderModels,
-          modelStatusMap,
-        },
-      });
     }
 
     case modelsListRuntimeRoute.name: {
       const input = modelsListRuntimeRoute.input.parse(rawInput);
-      return modelsListRuntimeRoute.output.parse({
-        models: await llmProviderPresenter.getModelList(input.providerId),
-      });
+      return modelsListRuntimeRoute.output.parse(await invokeDaemonRoute(modelsListRuntimeRoute.name, input));
     }
 
     case modelsSetBatchStatusRoute.name: {

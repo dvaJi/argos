@@ -1209,4 +1209,42 @@ describe("daemon session migration routes", () => {
       }),
     );
   });
+
+  it("owns summaryTitles route dispatch and delegates to the provider execution port", async () => {
+    const providerExecutionPort = {
+      generateCompletion: vi.fn(async () => "Generated Title"),
+    };
+
+    const dispatcher = createDaemonDispatcher(
+      {
+        getDefaultModel: vi.fn(() => ({ providerId: "provider-1", modelId: "model-1" })),
+        getDefaultProjectPath: vi.fn(() => "/tmp/project"),
+      } as any,
+      undefined,
+      {} as any,
+      providerExecutionPort as any,
+    );
+
+    await expect(
+      dispatcher("sessions.summaryTitles", {
+        messages: [
+          { role: "user", content: "How do I port the agent loop to the daemon?" },
+          { role: "assistant", content: "Use a headless driver." },
+        ],
+        providerId: "provider-1",
+        modelId: "model-1",
+      }),
+    ).resolves.toEqual({ title: "Generated Title" });
+
+    expect(providerExecutionPort.generateCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerId: "provider-1",
+        modelId: "model-1",
+        messages: expect.arrayContaining([
+          expect.objectContaining({ role: "system" }),
+          expect.objectContaining({ role: "user", content: "How do I port the agent loop to the daemon?" }),
+        ]),
+      }),
+    );
+  });
 });

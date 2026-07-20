@@ -78,6 +78,13 @@ export interface DaemonSessionQueryPort {
   getViewManifests(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
   getViewLineage(sessionId: string): Promise<ArgosTapeViewManifestRecord[]>;
   translateText(text: string, locale?: string, agentId?: string): Promise<string>;
+  summaryTitles(input: {
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    providerId: string;
+    modelId: string;
+    temperature?: number;
+    maxTokens?: number;
+  }): Promise<string>;
 }
 
 export interface DaemonSessionActionPort {

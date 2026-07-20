@@ -32,6 +32,7 @@ export {
   terminateProcessTree,
 } from "./runtime";
 export { type RuntimeStreamState } from "./runtime/types";
+export * from "./agent/processStream";
 export * from "./scheduled";
 export * from "./tools";
 export * from "./mcp";

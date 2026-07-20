@@ -273,7 +273,12 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(configPresenter, sessionRepository, eventPublisher);
+  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(
+    configPresenter,
+    sessionRepository,
+    eventPublisher,
+    (sessionId) => mcpRuntime.listToolDefinitions(),
+  );
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
     appVersion: resolveDaemonVersion(),

@@ -90,6 +90,7 @@ import {
   sessionsMoveToAgentRoute,
   sessionsSetAcpSessionConfigOptionRoute,
   sessionsTranslateTextRoute,
+  sessionsSummaryTitlesRoute,
 } from "@argos/shared-contracts/routes";
 import type {
   DaemonAcpSessionPort,
@@ -218,6 +219,7 @@ export class Presenter implements IPresenter {
   startupWorkloadCoordinator: StartupWorkloadCoordinator;
   private sessionMessageManager: MessageManager;
   private sessionPresenterInternal?: SessionPresenter;
+  private daemonSessionQueryPortField?: DaemonSessionQueryPort;
   private hasInitialized = false;
   #remoteControlPresenter: RemoteControlPresenterLike;
   readonly #remoteControlBridge: IRemoteControlPresenter;
@@ -628,6 +630,12 @@ export class Presenter implements IPresenter {
         );
         return result.text;
       },
+      summaryTitles: async (input) => {
+        const result = sessionsSummaryTitlesRoute.output.parse(
+          await invokeDaemonRoute(sessionsSummaryTitlesRoute.name, input),
+        );
+        return result.title;
+      },
     };
     const daemonAcpSessionPort: DaemonAcpSessionPort = {
       getAcpSessionConfigOptions: async (conversationId) => {
@@ -724,6 +732,7 @@ export class Presenter implements IPresenter {
         daemonSessionQueryPort,
       },
     );
+    this.daemonSessionQueryPortField = daemonSessionQueryPort;
     this.projectPresenter = new ProjectPresenter(
       this.sqlitePresenter as unknown as import("./sqlitePresenter").SQLitePresenter,
       this.devicePresenter,
@@ -765,6 +774,7 @@ export class Presenter implements IPresenter {
         configPresenter: this.configPresenter,
         exporter: this.exporter,
         commandPermissionService: this.commandPermissionService,
+        daemonSessionQueryPort: this.daemonSessionQueryPortField,
       });
     }
 

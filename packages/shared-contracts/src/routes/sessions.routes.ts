@@ -368,6 +368,25 @@ export const sessionsTranslateTextRoute = defineRouteContract({
   }),
 });
 
+const SummaryTitleMessageSchema = zod.object({
+  role: zod.enum(["system", "user", "assistant"]),
+  content: zod.string(),
+});
+
+export const sessionsSummaryTitlesRoute = defineRouteContract({
+  name: "sessions.summaryTitles",
+  input: zod.object({
+    messages: zod.array(SummaryTitleMessageSchema).min(1),
+    providerId: zod.string().min(1),
+    modelId: zod.string().min(1),
+    temperature: zod.number().optional(),
+    maxTokens: zod.number().optional(),
+  }),
+  output: zod.object({
+    title: zod.string(),
+  }),
+});
+
 export const sessionsGetAgentsRoute = defineRouteContract({
   name: "sessions.getAgents",
   input: zod.object({}),

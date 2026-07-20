@@ -27,6 +27,7 @@ import { CommandPermissionService } from "../permission/commandPermissionService
 import { ConversationManager, type CreateConversationOptions } from "./managers/conversationManager";
 import type { ConversationExportFormat } from "../exporter/formats/conversationExporter";
 import { resolveSessionDir } from "./sessionPaths";
+import type { DaemonSessionQueryPort } from "../runtimePorts";
 
 const DEFAULT_MESSAGE_LENGTH = 300;
 
@@ -40,6 +41,7 @@ export class SessionPresenter implements ISessionPresenter {
   private commandPermissionService: CommandPermissionService;
   private activeConversationBindings: Map<number, string> = new Map();
   private legacyRuntimeInitialized = false;
+  private daemonSessionQueryPort?: DaemonSessionQueryPort;
 
   constructor(options: {
     messageManager?: MessageManager;
@@ -48,6 +50,7 @@ export class SessionPresenter implements ISessionPresenter {
     configPresenter: IConfigPresenter;
     exporter: IConversationExporter;
     commandPermissionService?: CommandPermissionService;
+    daemonSessionQueryPort?: DaemonSessionQueryPort;
   }) {
     this.sqlitePresenter = options.sqlitePresenter;
     this.messageManager = options.messageManager ?? new MessageManager(options.sqlitePresenter);
@@ -55,6 +58,7 @@ export class SessionPresenter implements ISessionPresenter {
     this.configPresenter = options.configPresenter;
     this.exporter = options.exporter;
     this.commandPermissionService = options.commandPermissionService ?? new CommandPermissionService();
+    this.daemonSessionQueryPort = options.daemonSessionQueryPort;
     this.conversationManager = new ConversationManager({
       sqlitePresenter: options.sqlitePresenter,
       configPresenter: options.configPresenter,
@@ -302,7 +306,7 @@ export class SessionPresenter implements ISessionPresenter {
 
     let title: string;
     try {
-      title = await this.llmProviderPresenter.summaryTitles(formattedMessages, preferredProviderId, preferredModelId);
+      title = await this.generateTitleWithProvider(formattedMessages, preferredProviderId, preferredModelId);
     } catch (error) {
       const shouldFallback = preferredProviderId !== fallbackProviderId || preferredModelId !== fallbackModelId;
       if (!shouldFallback) {
@@ -315,12 +319,29 @@ export class SessionPresenter implements ISessionPresenter {
         fallbackModelId,
         error,
       });
-      title = await this.llmProviderPresenter.summaryTitles(formattedMessages, fallbackProviderId, fallbackModelId);
+      title = await this.generateTitleWithProvider(formattedMessages, fallbackProviderId, fallbackModelId);
     }
 
     let cleanedTitle = title.replace(/<think>.*?<\/think>/g, "").trim();
     cleanedTitle = cleanedTitle.replace(/^<think>/, "").trim();
     return cleanedTitle;
+  }
+
+  private async generateTitleWithProvider(
+    messages: Array<{ role: "user" | "assistant"; content: string }>,
+    providerId: string,
+    modelId: string,
+  ): Promise<string> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.summaryTitles({
+        messages,
+        providerId,
+        modelId,
+        temperature: 0.3,
+        maxTokens: 64,
+      });
+    }
+    return await this.llmProviderPresenter.summaryTitles(messages, providerId, modelId);
   }
 
   async findWebContentsForConversation(conversationId: string): Promise<number | null> {

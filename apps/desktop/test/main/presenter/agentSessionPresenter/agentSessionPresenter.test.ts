@@ -754,6 +754,7 @@ describe("AgentSessionPresenter", () => {
         getViewManifests: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
         getViewLineage: vi.fn<(...args: any[]) => any>().mockResolvedValue([]),
         translateText: vi.fn<(...args: any[]) => any>().mockResolvedValue("daemon text"),
+        summaryTitles: vi.fn<(...args: any[]) => any>().mockResolvedValue("Daemon Title"),
       };
       const daemonPresenter = new AgentSessionPresenter(
         argosAgent as any,

@@ -56,10 +56,18 @@ export function accumulate(state: RuntimeStreamState, event: LLMCoreStreamEvent)
     case "tool_call_end": {
       const pending = state.pendingToolCalls.get(e.tool_call_id);
       if (pending) {
+        const finalArgs = e.tool_call_arguments_complete ?? pending.arguments;
         const block = state.blocks[pending.blockIndex] as any;
         if (block?.tool_call) {
-          block.tool_call.arguments = pending.arguments;
+          block.tool_call.arguments = finalArgs;
         }
+        state.completedToolCalls.push({
+          id: e.tool_call_id,
+          name: pending.name,
+          arguments: finalArgs,
+          ...(pending.providerOptions ? { providerOptions: pending.providerOptions } : {}),
+        });
+        state.pendingToolCalls.delete(e.tool_call_id);
       }
       state.dirty = true;
       break;
@@ -69,7 +77,8 @@ export function accumulate(state: RuntimeStreamState, event: LLMCoreStreamEvent)
       break;
     }
     case "stop": {
-      (state as any).stopReason = e.reason ?? "complete";
+      const reason = (e as any).stop_reason ?? (e as any).reason ?? "complete";
+      (state as any).stopReason = reason;
       break;
     }
   }

@@ -120,6 +120,7 @@ import {
   sessionsGetViewManifestsRoute,
   sessionsGetViewLineageRoute,
   sessionsTranslateTextRoute,
+  sessionsSummaryTitlesRoute,
   sessionsCompactRoute,
   sessionsExportRoute,
   sessionsGetAgentTransferImpactRoute,
@@ -2267,6 +2268,25 @@ export function createDaemonDispatcher(
         ],
       });
       return sessionsTranslateTextRoute.output.parse({ text: translated.trim() });
+    }
+
+    if (route === sessionsSummaryTitlesRoute.name) {
+      const input = sessionsSummaryTitlesRoute.input.parse(rawInput);
+      const title = await runtime.providerExecutionPort.generateCompletion({
+        providerId: input.providerId,
+        modelId: input.modelId,
+        temperature: input.temperature ?? 0.3,
+        maxTokens: input.maxTokens ?? 64,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a conversation title generator. Summarize the conversation into a concise, descriptive title of at most 8 words. Return only the title text with no quotes, preamble, or markdown.",
+          },
+          ...input.messages,
+        ],
+      });
+      return sessionsSummaryTitlesRoute.output.parse({ title: title.trim() });
     }
 
     if (route === sessionsCompactRoute.name) {

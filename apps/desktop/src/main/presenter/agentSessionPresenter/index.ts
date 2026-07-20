@@ -2403,19 +2403,11 @@ export class AgentSessionPresenter {
 
       let generatedTitle: string;
       try {
-        generatedTitle = await this.llmProviderPresenter.summaryTitles(
-          titleMessages,
-          preferredProviderId,
-          preferredModelId,
-        );
+        generatedTitle = await this.generateTitleWithProvider(titleMessages, preferredProviderId, preferredModelId);
       } catch (error) {
         const shouldFallback = preferredProviderId !== fallbackProviderId || preferredModelId !== fallbackModelId;
         if (!shouldFallback) throw error;
-        generatedTitle = await this.llmProviderPresenter.summaryTitles(
-          titleMessages,
-          fallbackProviderId,
-          fallbackModelId,
-        );
+        generatedTitle = await this.generateTitleWithProvider(titleMessages, fallbackProviderId, fallbackModelId);
       }
 
       const normalized = this.normalizeGeneratedTitle(generatedTitle);
@@ -3609,6 +3601,23 @@ export class AgentSessionPresenter {
       cleaned = cleaned.slice(0, 80).trim();
     }
     return cleaned;
+  }
+
+  private async generateTitleWithProvider(
+    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+    providerId: string,
+    modelId: string,
+  ): Promise<string> {
+    if (this.daemonSessionQueryPort) {
+      return await this.daemonSessionQueryPort.summaryTitles({
+        messages,
+        providerId,
+        modelId,
+        temperature: 0.3,
+        maxTokens: 64,
+      });
+    }
+    return await this.llmProviderPresenter.summaryTitles(messages, providerId, modelId);
   }
 
   private buildForkTitle(sourceTitle: string, customTitle?: string): string {

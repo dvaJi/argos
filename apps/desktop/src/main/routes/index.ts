@@ -995,7 +995,6 @@ export async function dispatchArgosRoute(
   const modelResult = await runTrackedRouteTask(runtime, routeName, context, async () => {
     return await dispatchModelRoute(
       {
-        configPresenter: runtime.configPresenter,
         llmProviderPresenter: runtime.llmProviderPresenter,
         invokeDaemonRoute,
       },
