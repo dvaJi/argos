@@ -155,6 +155,7 @@ export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block 
   }, [rawToolName]);
 
   const isProcessTool = useMemo(() => matchesToolContractName(rawToolName, "process"), [rawToolName]);
+  const isTerminalTool = isExecTool || isProcessTool;
 
   const shouldAutoExpand = useMemo(() => {
     if (isSubagentOrchestrator) return block.status === "loading";

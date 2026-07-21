@@ -219,6 +219,7 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
   };
 };
 
+// react-doctor-disable-next-line react-doctor/prefer-useReducer
 export default function ArgosAgentsSettings() {
   const { toast } = useToast();
   const configPresenter = usePresenter("configPresenter");
@@ -754,7 +755,7 @@ export default function ArgosAgentsSettings() {
     setForm(buildFormFromAgent(selectedAgent));
   }, [selectedAgent]);
 
-  const saveAgent = useCallback(async () => {
+  const saveAgent = useCallback(() => {
     if (!selectedAgent) {
       console.warn("[AgentsSettings] saveAgent: no selectedAgent — aborting");
       return;
@@ -767,99 +768,100 @@ export default function ArgosAgentsSettings() {
       lucideIcon: form.lucideIcon,
     });
     setSaving(true);
-    try {
-      const nextConfig: ArgosAgentConfig = {
-        systemPrompt: form.systemPrompt,
-        defaultProjectPath: form.defaultProjectPath.trim() || null,
-        permissionMode: form.permissionMode,
-        subagentEnabled: form.subagentEnabled,
-        subagents: normalizeArgosSubagentSlots(form.subagents),
-        disabledAgentTools: [...form.disabledAgentTools],
-        autoCompactionEnabled: form.autoCompactionEnabled,
-        autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
-          fallback: 80,
-          min: 5,
-          max: 95,
-        }),
-        autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
-          fallback: 2,
-          min: 1,
-          max: 10,
-          integer: true,
-        }),
-        defaultModelPreset:
-          form.defaultModelProviderId && form.defaultModelId
-            ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
-            : null,
-        assistantModel:
-          form.assistantModelProviderId && form.assistantModelId
-            ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
-            : null,
-        visionModel:
-          form.visionModelProviderId && form.visionModelId
-            ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
-            : null,
-        imageGenerationModel:
-          form.imageGenerationModelProviderId && form.imageGenerationModelId
-            ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
-            : null,
-        memoryEnabled: form.memoryEnabled,
-        memoryEmbedding:
-          form.memoryEnabled && form.memoryEmbeddingProviderId && form.memoryEmbeddingModelId
-            ? { providerId: form.memoryEmbeddingProviderId, modelId: form.memoryEmbeddingModelId }
-            : null,
-        memoryExtractionModel:
-          form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
-            ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
-            : null,
-        orchestrationEnabled: form.orchestrationEnabled,
-        ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
-      };
+    const nextConfig: ArgosAgentConfig = {
+      systemPrompt: form.systemPrompt,
+      defaultProjectPath: form.defaultProjectPath.trim() || null,
+      permissionMode: form.permissionMode,
+      subagentEnabled: form.subagentEnabled,
+      subagents: normalizeArgosSubagentSlots(form.subagents),
+      disabledAgentTools: [...form.disabledAgentTools],
+      autoCompactionEnabled: form.autoCompactionEnabled,
+      autoCompactionTriggerThreshold: normalizeNumericInput(form.autoCompactionTriggerThreshold, {
+        fallback: 80,
+        min: 5,
+        max: 95,
+      }),
+      autoCompactionRetainRecentPairs: normalizeNumericInput(form.autoCompactionRetainRecentPairs, {
+        fallback: 2,
+        min: 1,
+        max: 10,
+        integer: true,
+      }),
+      defaultModelPreset:
+        form.defaultModelProviderId && form.defaultModelId
+          ? { providerId: form.defaultModelProviderId, modelId: form.defaultModelId }
+          : null,
+      assistantModel:
+        form.assistantModelProviderId && form.assistantModelId
+          ? { providerId: form.assistantModelProviderId, modelId: form.assistantModelId }
+          : null,
+      visionModel:
+        form.visionModelProviderId && form.visionModelId
+          ? { providerId: form.visionModelProviderId, modelId: form.visionModelId }
+          : null,
+      imageGenerationModel:
+        form.imageGenerationModelProviderId && form.imageGenerationModelId
+          ? { providerId: form.imageGenerationModelProviderId, modelId: form.imageGenerationModelId }
+          : null,
+      memoryEnabled: form.memoryEnabled,
+      memoryEmbedding:
+        form.memoryEnabled && form.memoryEmbeddingProviderId && form.memoryEmbeddingModelId
+          ? { providerId: form.memoryEmbeddingProviderId, modelId: form.memoryEmbeddingModelId }
+          : null,
+      memoryExtractionModel:
+        form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
+          ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
+          : null,
+      orchestrationEnabled: form.orchestrationEnabled,
+      ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
+    };
 
-      // Only persist the avatar if the user actually changed it; otherwise keep
-      // the existing one (which may be a legacy icon or the built-in logo that
-      // the form's default "bot" would otherwise overwrite).
-      const nextAvatar = buildAvatarFromForm(form);
-      const avatarUnchanged =
-        initialAvatarRef.current != null && JSON.stringify(nextAvatar) === JSON.stringify(initialAvatarRef.current);
-      console.log("[AgentsSettings] saveAgent avatar check", {
-        nextAvatar,
-        baseline: initialAvatarRef.current,
-        avatarUnchanged,
-        sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
-      });
+    // Only persist the avatar if the user actually changed it; otherwise keep
+    // the existing one (which may be a legacy icon or the built-in logo that
+    // the form's default "bot" would otherwise overwrite).
+    const nextAvatar = buildAvatarFromForm(form);
+    const avatarUnchanged =
+      initialAvatarRef.current != null && JSON.stringify(nextAvatar) === JSON.stringify(initialAvatarRef.current);
+    console.log("[AgentsSettings] saveAgent avatar check", {
+      nextAvatar,
+      baseline: initialAvatarRef.current,
+      avatarUnchanged,
+      sendingAvatar: avatarUnchanged ? "(keep existing)" : nextAvatar,
+    });
 
-      const updated = await configPresenter.updateArgosAgent(selectedAgent.id, {
+    void configPresenter
+      .updateArgosAgent(selectedAgent.id, {
         name: form.name.trim(),
         description: form.description.trim(),
         enabled: form.enabled,
         avatar: avatarUnchanged ? undefined : nextAvatar,
         config: nextConfig,
-      });
-      console.log("[AgentsSettings] saveAgent response", {
-        id: selectedAgent.id,
-        updated: updated
-          ? { id: updated.id, name: updated.name, enabled: updated.enabled, avatar: updated.avatar }
-          : null,
-      });
-      if (!updated) {
-        toast({
-          title: "Couldn't save this agent",
-          description: "Only custom Argos agents can be edited here.",
-          variant: "destructive",
+      })
+      .then((updated) => {
+        console.log("[AgentsSettings] saveAgent response", {
+          id: selectedAgent.id,
+          updated: updated
+            ? { id: updated.id, name: updated.name, enabled: updated.enabled, avatar: updated.avatar }
+            : null,
         });
-        return;
-      }
-      initialAvatarRef.current = nextAvatar;
-      toast({ title: "Saved" });
-      setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
-      await loadAgents();
-    } catch (error) {
-      console.error("[AgentsSettings] saveAgent FAILED", error);
-      toast({ title: "Save failed", description: String(error), variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+        if (!updated) {
+          toast({
+            title: "Couldn't save this agent",
+            description: "Only custom Argos agents can be edited here.",
+            variant: "destructive",
+          });
+          return;
+        }
+        initialAvatarRef.current = nextAvatar;
+        toast({ title: "Saved" });
+        setAgents((prev) => prev.map((agent) => (agent.id === updated.id ? updated : agent)));
+        return loadAgents();
+      })
+      .catch((error) => {
+        console.error("[AgentsSettings] saveAgent FAILED", error);
+        toast({ title: "Save failed", description: String(error), variant: "destructive" });
+      })
+      .finally(() => setSaving(false));
   }, [configPresenter, form, loadAgents, selectedAgent, toast]);
 
   const modelFieldConfigs: Array<{

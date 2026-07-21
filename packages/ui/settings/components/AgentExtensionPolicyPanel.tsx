@@ -104,18 +104,16 @@ export default function AgentExtensionPolicyPanel({
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
   const configPresenter = usePresenter("configPresenter");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [mcpServers, setMcpServers] = useState<
     Array<{ id: string; label: string; pluginId?: string; source?: string; sourceId?: string }>
   >([]);
 
   useEffect(() => {
     let mounted = true;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const servers = await configPresenter.getMcpServers();
+    void configPresenter
+      .getMcpServers()
+      .then((servers) => {
         if (!mounted) {
           return;
         }
@@ -128,30 +126,24 @@ export default function AgentExtensionPolicyPanel({
           sourceId: config.sourceId,
         }));
         setMcpServers(entries);
-      } catch (error) {
-        console.error("Failed to load agent extension scope data:", error);
-      } finally {
+      })
+      .catch((error) => console.error("Failed to load agent extension scope data:", error))
+      .finally(() => {
         if (mounted) {
           setLoading(false);
         }
-      }
-    };
-
-    void load();
+      });
 
     return () => {
       mounted = false;
     };
   }, [configPresenter]);
 
-  const normalizedValue = useMemo(
-    () => ({
-      enabledMcpServerIds: Array.isArray(value.enabledMcpServerIds)
-        ? normalizeSelection(value.enabledMcpServerIds)
-        : undefined,
-    }),
-    [value.enabledMcpServerIds],
-  );
+  const normalizedValue = {
+    enabledMcpServerIds: Array.isArray(value.enabledMcpServerIds)
+      ? normalizeSelection(value.enabledMcpServerIds)
+      : undefined,
+  };
 
   const updateValue = (nextValue: AgentExtensionPolicyValue) => {
     onChange({

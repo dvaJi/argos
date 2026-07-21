@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -10,9 +10,9 @@ type PackageEntry = string | { source: string };
 type SearchResult = Awaited<ReturnType<ReturnType<typeof createPiPackageClient>["search"]>>[number];
 
 const sourceOf = (entry: PackageEntry) => (typeof entry === "string" ? entry : entry.source);
+const piPackageClient = createPiPackageClient();
 
 export default function PiPackagesPanel({ agentId, projectDir }: { agentId: string; projectDir?: string }) {
-  const client = useMemo(() => createPiPackageClient(), []);
   const [installed, setInstalled] = useState<PackageEntry[]>([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [query, setQuery] = useState("");
@@ -22,10 +22,9 @@ export default function PiPackagesPanel({ agentId, projectDir }: { agentId: stri
 
   useEffect(() => {
     let active = true;
-    setError("");
     void Promise.all([
-      client.list(agentId),
-      projectDir ? client.getProjectTrust(agentId, projectDir) : Promise.resolve(false),
+      piPackageClient.list(agentId),
+      projectDir ? piPackageClient.getProjectTrust(agentId, projectDir) : Promise.resolve(false),
     ])
       .then(([packages, projectTrusted]) => {
         if (!active) return;
@@ -36,42 +35,36 @@ export default function PiPackagesPanel({ agentId, projectDir }: { agentId: stri
     return () => {
       active = false;
     };
-  }, [agentId, client, projectDir]);
+  }, [agentId, projectDir]);
 
-  const installedSources = useMemo(() => new Set(installed.map(sourceOf)), [installed]);
+  const installedSources = new Set(installed.map(sourceOf));
 
-  const search = async () => {
+  const search = () => {
     setBusy(true);
     setError("");
-    try {
-      setResults(await client.search(query));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
+    void piPackageClient
+      .search(query)
+      .then(setResults)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setBusy(false));
   };
 
-  const install = async (source: string) => {
+  const install = (source: string) => {
     setBusy(true);
-    try {
-      setInstalled(await client.install(agentId, source));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
+    void piPackageClient
+      .install(agentId, source)
+      .then(setInstalled)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setBusy(false));
   };
 
-  const remove = async (source: string) => {
+  const remove = (source: string) => {
     setBusy(true);
-    try {
-      setInstalled(await client.remove(agentId, source));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
+    void piPackageClient
+      .remove(agentId, source)
+      .then(setInstalled)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setBusy(false));
   };
 
   return (
@@ -95,7 +88,7 @@ export default function PiPackagesPanel({ agentId, projectDir }: { agentId: stri
               disabled={busy}
               onCheckedChange={(value) => {
                 setBusy(true);
-                void client
+                void piPackageClient
                   .setProjectTrust(agentId, projectDir, value)
                   .then(setTrusted)
                   .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
