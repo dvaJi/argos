@@ -5,6 +5,7 @@ import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
 import { getRuntimeWebContentsId, usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
 import { ACP_DEBUG_EVENTS } from "#/events";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
@@ -40,7 +41,7 @@ const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
 
 export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName }: AcpDebugDialogProps) {
   const { toast } = useToast();
-  const llmProviderPresenter = usePresenter("llmproviderPresenter");
+  const providerClient = useMemo(() => createProviderClient(), []);
   const configPresenter = usePresenter("configPresenter");
 
   const [selectedMethod, setSelectedMethod] = useState<AcpDebugRequest["action"]>("newSession");
@@ -120,12 +121,11 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
   const handleSend = async () => {
     setLoading(true);
     try {
-      const result = await llmProviderPresenter.runAcpDebugAction({
+      const result = await providerClient.runAcpDebugAction({
         agentId,
         action: selectedMethod,
         payload: {},
         sessionId: debugSessionId,
-        webContentsId: webContentsId || undefined,
       });
       if (result?.events?.length) appendEvents(result.events);
       if (result?.sessionId) setDebugSessionId(result.sessionId);
@@ -144,11 +144,10 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
     setLoading(true);
     try {
       await configPresenter.ensureAcpAgentInstalled(agentId);
-      const initResult = await llmProviderPresenter.runAcpDebugAction({
+      const initResult = await providerClient.runAcpDebugAction({
         agentId,
         action: "initialize",
         payload: {},
-        webContentsId: webContentsId || undefined,
       });
       appendEvents(initResult.events ?? []);
       if (initResult.status === "error") throw new Error(initResult.error || "Failed");

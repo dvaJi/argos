@@ -14,7 +14,6 @@ export { traySetupHook } from "./after-start/traySetupHook";
 export { windowCreationHook } from "./after-start/windowCreationHook";
 export { acpRegistryMigrationHook } from "./after-start/acpRegistryMigrationHook";
 export { legacyImportHook } from "./after-start/legacyImportHook";
-export { rtkHealthCheckHook } from "./after-start/rtkHealthCheckHook";
 export { usageStatsBackfillHook } from "./after-start/usageStatsBackfillHook";
 export { sqliteMainlineNormalizationHook } from "./after-start/sqliteMainlineNormalizationHook";
 export { scheduledTasksStartHook } from "./after-start/scheduledTasksStartHook";

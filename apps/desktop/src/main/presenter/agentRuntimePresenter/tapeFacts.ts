@@ -150,9 +150,6 @@ export function appendToolFactsToTape(
       orderSeq: record.orderSeq,
       toolCallId,
       response: toolCall.response,
-      rtkApplied: toolCall.rtkApplied,
-      rtkMode: toolCall.rtkMode,
-      rtkFallbackReason: toolCall.rtkFallbackReason,
       imagePreviews: toolCall.imagePreviews,
     };
     table.append({

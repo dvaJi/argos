@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Button } from "#shadcn/components/ui/button";
-import { Badge } from "#shadcn/components/ui/badge";
 import { usePresenter } from "#api/presenterBridge";
-import { loadSkills, useSkillsStore } from "#/stores/skillsStore";
 
 type AgentExtensionPolicyValue = {
   enabledMcpServerIds?: string[];
-  enabledPluginIds?: string[];
-  enabledSkillNames?: string[];
 };
 
 type PolicyItem = {
@@ -66,9 +62,7 @@ function PolicyScopeList({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="text-sm font-semibold">{title}</div>
-            <Badge variant="outline" className="h-5 px-2 text-[10px] uppercase tracking-wide">
-              {scopeLabel}
-            </Badge>
+            <span className="rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide">{scopeLabel}</span>
           </div>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
@@ -110,7 +104,6 @@ export default function AgentExtensionPolicyPanel({
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
   const configPresenter = usePresenter("configPresenter");
-  const skillsStore = useSkillsStore();
   const [loading, setLoading] = useState(false);
   const [mcpServers, setMcpServers] = useState<
     Array<{ id: string; label: string; pluginId?: string; source?: string; sourceId?: string }>
@@ -123,7 +116,6 @@ export default function AgentExtensionPolicyPanel({
       setLoading(true);
       try {
         const servers = await configPresenter.getMcpServers();
-        await loadSkills();
         if (!mounted) {
           return;
         }
@@ -152,72 +144,38 @@ export default function AgentExtensionPolicyPanel({
     };
   }, [configPresenter]);
 
-  const availablePluginIds = useMemo(() => {
-    const pluginCounts = new Map<string, number>();
-    for (const server of mcpServers) {
-      if (!server.pluginId) continue;
-      pluginCounts.set(server.pluginId, (pluginCounts.get(server.pluginId) ?? 0) + 1);
-    }
-
-    return Array.from(pluginCounts.entries())
-      .map(([id, count]) => ({
-        id,
-        label: id,
-        description: `${count} MCP server${count === 1 ? "" : "s"}`,
-      }))
-      .sort((left, right) => left.label.localeCompare(right.label));
-  }, [mcpServers]);
-
-  const availableSkills = useMemo(() => {
-    return skillsStore.skills
-      .map((skill) => ({
-        id: skill.name,
-        label: skill.name,
-        description: skill.description?.trim() || skill.category?.trim() || undefined,
-      }))
-      .sort((left, right) => left.label.localeCompare(right.label));
-  }, [skillsStore.skills]);
-
   const normalizedValue = useMemo(
     () => ({
       enabledMcpServerIds: Array.isArray(value.enabledMcpServerIds)
         ? normalizeSelection(value.enabledMcpServerIds)
         : undefined,
-      enabledPluginIds: Array.isArray(value.enabledPluginIds) ? normalizeSelection(value.enabledPluginIds) : undefined,
-      enabledSkillNames: Array.isArray(value.enabledSkillNames)
-        ? normalizeSelection(value.enabledSkillNames)
-        : undefined,
     }),
-    [value.enabledMcpServerIds, value.enabledPluginIds, value.enabledSkillNames],
+    [value.enabledMcpServerIds],
   );
 
   const updateValue = (nextValue: AgentExtensionPolicyValue) => {
     onChange({
       enabledMcpServerIds:
         nextValue.enabledMcpServerIds === undefined ? undefined : normalizeSelection(nextValue.enabledMcpServerIds),
-      enabledPluginIds:
-        nextValue.enabledPluginIds === undefined ? undefined : normalizeSelection(nextValue.enabledPluginIds),
-      enabledSkillNames:
-        nextValue.enabledSkillNames === undefined ? undefined : normalizeSelection(nextValue.enabledSkillNames),
     });
   };
 
   return (
     <section className="space-y-4 rounded-2xl border border-border p-5">
       <div className="space-y-1">
-        <div className="text-sm font-semibold">Agent extension scope</div>
+        <div className="text-sm font-semibold">MCP scope</div>
         <p className="text-xs text-muted-foreground">
-          Leave a category unset to allow everything. An empty list blocks that category entirely.
+          Leave this unset to allow every configured MCP server. An empty list blocks MCP tools entirely.
         </p>
       </div>
 
       {loading ? (
         <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-xs text-muted-foreground">
-          Loading available servers and skills...
+          Loading available MCP servers...
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div>
         <PolicyScopeList
           title="MCP servers"
           description="Limit which MCP servers this agent can use."
@@ -230,34 +188,6 @@ export default function AgentExtensionPolicyPanel({
             });
           }}
           onClear={() => updateValue({ ...normalizedValue, enabledMcpServerIds: undefined })}
-          disabled={disabled}
-        />
-        <PolicyScopeList
-          title="Plugin IDs"
-          description="Allow only plugin-owned integrations from selected plugins."
-          items={availablePluginIds}
-          selectedIds={normalizedValue.enabledPluginIds}
-          onToggle={(itemId, checked) => {
-            updateValue({
-              ...normalizedValue,
-              enabledPluginIds: updateSelection(normalizedValue.enabledPluginIds, itemId, checked),
-            });
-          }}
-          onClear={() => updateValue({ ...normalizedValue, enabledPluginIds: undefined })}
-          disabled={disabled}
-        />
-        <PolicyScopeList
-          title="Skills"
-          description="Control which skills can be activated for this agent."
-          items={availableSkills}
-          selectedIds={normalizedValue.enabledSkillNames}
-          onToggle={(itemId, checked) => {
-            updateValue({
-              ...normalizedValue,
-              enabledSkillNames: updateSelection(normalizedValue.enabledSkillNames, itemId, checked),
-            });
-          }}
-          onClear={() => updateValue({ ...normalizedValue, enabledSkillNames: undefined })}
           disabled={disabled}
         />
       </div>

@@ -25,7 +25,6 @@ const ACTIVITY_LABELS: Record<string, string> = {
   "acp-registry-migration": "Migrating registry data",
   "window-creation": "Creating main window",
   "tray-setup": "Starting tray integration",
-  "rtk-health-check": "Checking runtime health",
   "legacy-import": "Queueing legacy import",
   "usage-stats-backfill": "Queueing usage stats backfill",
   "startup-error": "Startup error",

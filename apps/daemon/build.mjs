@@ -11,7 +11,16 @@ const version = process.env.DAEMON_VERSION || pkg.version;
 const isWin = process.env.ARGOS_TARGET_OS === "win32" || (!process.env.ARGOS_TARGET_OS && platform() === "win32");
 
 const outfile = isWin ? "dist/argos-daemon.exe" : "dist/argos-daemon";
+const workerOutfile = isWin ? "dist/argos-pi-worker.exe" : "dist/argos-pi-worker";
 const distDir = dirname(outfile);
+
+const worker = spawnSync("bun", ["build", "--compile", "src/host/piWorker.ts", "--outfile", workerOutfile], {
+  stdio: "inherit",
+});
+if (worker.error) throw worker.error;
+if (worker.status !== 0) {
+  throw new Error("Failed to build the isolated Pi worker");
+}
 
 // Bundle the provider catalog (single source: the desktop built-in) next to the
 // binary so the daemon can resolve provider-db models offline (e.g. DeepSeek).

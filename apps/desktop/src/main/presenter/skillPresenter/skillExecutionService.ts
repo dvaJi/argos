@@ -10,7 +10,6 @@ import type {
   SkillScriptDescriptor,
 } from "@argos/shared/types/skill";
 import { backgroundExecSessionManager } from "#/lib/agentRuntime/backgroundExecSessionManager";
-import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import {
   createUtf8OutputDecoderPair,
@@ -69,15 +68,13 @@ interface SpawnPlan {
 
 export class SkillExecutionService {
   private readonly runtimeHelper = RuntimeHelper.getInstance();
-  private readonly configPresenter?: Pick<IConfigPresenter, "getSetting">;
   private readonly resolveConversationWorkdir?: (conversationId: string) => Promise<string | null>;
 
   constructor(
     private readonly skillPresenter: ISkillPresenter,
-    configPresenter: IConfigPresenter,
+    _configPresenter: IConfigPresenter,
     options: SkillExecutionServiceOptions = {},
   ) {
-    this.configPresenter = configPresenter;
     this.resolveConversationWorkdir = options.resolveConversationWorkdir;
     this.runtimeHelper.initializeRuntimes();
   }
@@ -581,25 +578,7 @@ export class SkillExecutionService {
   }
 
   private async preparePlanForExecution(plan: SpawnPlan): Promise<SpawnPlan> {
-    if (!this.configPresenter || typeof this.configPresenter.getSetting !== "function") {
-      return plan;
-    }
-
-    const prepared = await rtkRuntimeService.prepareShellCommand(plan.shellCommand, plan.env, this.configPresenter);
-
-    if (!prepared.rewritten) {
-      return {
-        ...plan,
-        env: prepared.env,
-      };
-    }
-
-    return {
-      ...plan,
-      env: prepared.env,
-      shellCommand: prepared.command,
-      spawnMode: "shell",
-    };
+    return plan;
   }
 
   private buildShellCommand(command: string, args: string[]): string {

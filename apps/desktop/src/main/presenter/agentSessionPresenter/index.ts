@@ -78,7 +78,6 @@ import {
   resolveUsageModelId,
   resolveUsageProviderId,
 } from "../usageStats";
-import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { resolveAcpAgentAlias } from "@argos/backend-core";
 import type {
   AcpDaemonPort,
@@ -1527,14 +1526,6 @@ export class AgentSessionPresenter {
     return await this.mainlineNormalizationPromise;
   }
 
-  async startRtkHealthCheck(): Promise<void> {
-    await rtkRuntimeService.startHealthCheck();
-  }
-
-  async retryRtkHealthCheck(): Promise<void> {
-    await rtkRuntimeService.retryHealthCheck();
-  }
-
   async getUsageDashboard(): Promise<UsageDashboardData> {
     const backfillStatus = this.getUsageStatsBackfillStatus();
     const usageStatsTable = this.sqlitePresenter.argosUsageStatsTable;
@@ -1594,7 +1585,6 @@ export class AgentSessionPresenter {
       calendar,
       providerBreakdown,
       modelBreakdown,
-      rtk: await rtkRuntimeService.getDashboardData(this.configPresenter),
     };
   }
 

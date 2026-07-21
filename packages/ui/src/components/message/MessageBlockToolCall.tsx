@@ -279,16 +279,6 @@ export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block 
     return "space-y-2 flex-1 min-w-0";
   }, [hasDiff]);
 
-  const isTerminalTool = useMemo(() => {
-    const name = block.tool_call?.name?.toLowerCase() || "";
-    return name.includes("terminal") || name.includes("command") || name.includes("exec") || name.includes("skill_run");
-  }, [block.tool_call?.name]);
-
-  const showRtkBadge = useMemo(
-    () => isTerminalTool && block.tool_call?.rtkApplied === true,
-    [isTerminalTool, block.tool_call?.rtkApplied],
-  );
-
   const resetExpansionState = () => {
     setIsExpanded(false);
     setExpansionSource(null);
@@ -444,14 +434,6 @@ export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block 
             </span>
           )}
         </div>
-        {showRtkBadge && (
-          <span
-            data-testid="tool-call-rtk-badge"
-            className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700 dark:text-emerald-300"
-          >
-            RTK
-          </span>
-        )}
         {hasImagePreviews && (
           <span
             data-testid="tool-call-image-badge"

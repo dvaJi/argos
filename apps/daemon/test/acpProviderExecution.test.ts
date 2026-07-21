@@ -146,7 +146,13 @@ describe("AcpProviderExecutionPort", () => {
             supportsAuthLogout: true,
           },
         ],
-        getDebugEvents: () => [],
+        getDebugEvents: () => [
+          {
+            kind: "response",
+            action: "session/new",
+            timestamp: Date.now(),
+          },
+        ],
       },
     };
     (port as any).runtimePromise = Promise.resolve(runtime);

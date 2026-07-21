@@ -45,6 +45,7 @@ export interface ProviderExecutionPort {
   getActiveGeneration?(sessionId: string): { eventId: string; runId: string } | null;
   steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void>;
   cancelGeneration(sessionId: string): Promise<void>;
+  compactSession?(sessionId: string, instructions?: string): Promise<void>;
   warmupAcpProcess?(agentId: string, workdir?: string): Promise<void>;
   getAcpProcessConfigOptions?(agentId: string, workdir?: string): Promise<unknown>;
   runAcpDebugAction?(request: AcpDebugRequest): Promise<AcpDebugRunResult>;

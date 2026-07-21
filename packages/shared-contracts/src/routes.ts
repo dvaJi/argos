@@ -315,6 +315,14 @@ import {
   skillsUpdateFileRoute,
 } from "./routes/skills.routes";
 import {
+  piPackagesGetProjectTrustRoute,
+  piPackagesInstallRoute,
+  piPackagesListRoute,
+  piPackagesRemoveRoute,
+  piPackagesSearchRoute,
+  piPackagesSetProjectTrustRoute,
+} from "./routes/pi-packages.routes";
+import {
   syncGetBackupStatusRoute,
   syncImportRoute,
   syncListBackupsRoute,
@@ -400,6 +408,7 @@ export * from "./routes/settings.routes";
 export * from "./routes/startup.routes";
 export * from "./routes/sessions.routes";
 export * from "./routes/skills.routes";
+export * from "./routes/pi-packages.routes";
 export * from "./routes/sync.routes";
 export * from "./routes/system.routes";
 export * from "./routes/tab.routes";
@@ -666,6 +675,12 @@ export const ARGOS_ROUTE_CATALOG = {
   [skillsListScriptsRoute.name]: skillsListScriptsRoute,
   [skillsGetActiveRoute.name]: skillsGetActiveRoute,
   [skillsSetActiveRoute.name]: skillsSetActiveRoute,
+  [piPackagesListRoute.name]: piPackagesListRoute,
+  [piPackagesSearchRoute.name]: piPackagesSearchRoute,
+  [piPackagesInstallRoute.name]: piPackagesInstallRoute,
+  [piPackagesRemoveRoute.name]: piPackagesRemoveRoute,
+  [piPackagesGetProjectTrustRoute.name]: piPackagesGetProjectTrustRoute,
+  [piPackagesSetProjectTrustRoute.name]: piPackagesSetProjectTrustRoute,
   [mcpGetServersRoute.name]: mcpGetServersRoute,
   [mcpGetEnabledRoute.name]: mcpGetEnabledRoute,
   [mcpGetClientsRoute.name]: mcpGetClientsRoute,

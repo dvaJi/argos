@@ -192,6 +192,12 @@ import {
   skillsInstallFromUrlRoute,
   skillsUninstallRoute,
   skillsUpdateFileRoute,
+  piPackagesListRoute,
+  piPackagesSearchRoute,
+  piPackagesInstallRoute,
+  piPackagesRemoveRoute,
+  piPackagesGetProjectTrustRoute,
+  piPackagesSetProjectTrustRoute,
   skillsSaveWithExtensionRoute,
   skillsGetFolderTreeRoute,
   skillsOpenFolderRoute,
@@ -290,6 +296,7 @@ type DaemonProviderExecutionPort = Required<
     | "steerActiveTurn"
     | "respondToolInteraction"
     | "cancelGeneration"
+    | "compactSession"
     | "testConnection"
     | "warmupAcpProcess"
     | "getAcpProcessConfigOptions"
@@ -681,6 +688,14 @@ export function createDaemonDispatcher(
       listSkillScripts(name: string): Promise<unknown[]>;
       getActiveSkills(conversationId: string): Promise<string[]>;
       setActiveSkills(conversationId: string, skills: string[]): Promise<string[]>;
+    };
+    piProfiles?: {
+      listPackages(agentId: string): unknown[];
+      searchPackages(query: string): Promise<unknown[]>;
+      installPackage(agentId: string, entry: any): unknown[];
+      removePackage(agentId: string, source: string): unknown[];
+      isProjectTrusted(agentId: string, projectDir: string): boolean;
+      setProjectTrusted(agentId: string, projectDir: string, trusted: boolean): boolean;
     };
   },
   scheduledTasks: {
@@ -1116,6 +1131,47 @@ export function createDaemonDispatcher(
       const input = skillsSetActiveRoute.input.parse(rawInput);
       return skillsSetActiveRoute.output.parse({
         skills: await skillRuntime.presenter.setActiveSkills(String(input.conversationId), input.skills),
+      });
+    }
+
+    // === Pi package/profile routes ===
+    const piProfiles = skillRuntime?.piProfiles;
+    if (route === piPackagesListRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesListRoute.input.parse(rawInput);
+      return piPackagesListRoute.output.parse({ packages: piProfiles.listPackages(input.agentId) });
+    }
+    if (route === piPackagesSearchRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesSearchRoute.input.parse(rawInput);
+      return piPackagesSearchRoute.output.parse({ packages: await piProfiles.searchPackages(input.query) });
+    }
+    if (route === piPackagesInstallRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesInstallRoute.input.parse(rawInput);
+      return piPackagesInstallRoute.output.parse({
+        packages: piProfiles.installPackage(input.agentId, input.package),
+      });
+    }
+    if (route === piPackagesRemoveRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesRemoveRoute.input.parse(rawInput);
+      return piPackagesRemoveRoute.output.parse({
+        packages: piProfiles.removePackage(input.agentId, input.source),
+      });
+    }
+    if (route === piPackagesGetProjectTrustRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesGetProjectTrustRoute.input.parse(rawInput);
+      return piPackagesGetProjectTrustRoute.output.parse({
+        trusted: piProfiles.isProjectTrusted(input.agentId, input.projectDir),
+      });
+    }
+    if (route === piPackagesSetProjectTrustRoute.name) {
+      if (!piProfiles) throw new Error("Pi profiles are unavailable");
+      const input = piPackagesSetProjectTrustRoute.input.parse(rawInput);
+      return piPackagesSetProjectTrustRoute.output.parse({
+        trusted: piProfiles.setProjectTrusted(input.agentId, input.projectDir, input.trusted),
       });
     }
 
@@ -2344,12 +2400,15 @@ export function createDaemonDispatcher(
       if (!session) {
         throw new Error(`Session not found: ${input.sessionId}`);
       }
+      if (session.providerId !== "acp" && runtime.providerExecutionPort.compactSession) {
+        await runtime.providerExecutionPort.compactSession(input.sessionId);
+      }
       return sessionsCompactRoute.output.parse({
-        compacted: false,
+        compacted: session.providerId !== "acp",
         state: {
-          status: "idle",
+          status: session.providerId !== "acp" ? "compacted" : "idle",
           cursorOrderSeq: 1,
-          summaryUpdatedAt: null,
+          summaryUpdatedAt: session.providerId !== "acp" ? Date.now() : null,
         },
       });
     }

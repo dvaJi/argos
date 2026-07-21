@@ -176,5 +176,4 @@ export interface IAgentSessionPresenter {
     settings: Partial<SessionGenerationSettings>,
   ): Promise<SessionGenerationSettings>;
   getUsageDashboard(): Promise<UsageDashboardData>;
-  retryRtkHealthCheck(): Promise<void>;
 }

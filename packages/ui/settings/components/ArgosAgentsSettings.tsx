@@ -18,6 +18,7 @@ import AgentAvatar from "#/components/icons/AgentAvatar";
 import AgentTransferDialog, { type TransferDialogAgent } from "#/components/agent/AgentTransferDialog";
 import { MemoryManagerDialog } from "./MemoryManagerDialog";
 import AgentExtensionPolicyPanel from "./AgentExtensionPolicyPanel";
+import PiPackagesPanel from "./PiPackagesPanel";
 import { useModelStore } from "#/stores/modelStore";
 import type {
   Agent,
@@ -60,8 +61,7 @@ type AgentConfigForm = {
   subagents: ArgosSubagentSlot[];
   disabledAgentTools: string[];
   enabledMcpServerIds?: string[];
-  enabledPluginIds?: string[];
-  enabledSkillNames?: string[];
+  orchestrationEnabled: boolean;
   autoCompactionEnabled: boolean;
   autoCompactionTriggerThreshold: number;
   autoCompactionRetainRecentPairs: number;
@@ -105,8 +105,7 @@ const EMPTY_FORM: AgentConfigForm = {
   subagents: normalizeArgosSubagentSlots(createDefaultArgosSubagentSlots()),
   disabledAgentTools: [],
   enabledMcpServerIds: undefined,
-  enabledPluginIds: undefined,
-  enabledSkillNames: undefined,
+  orchestrationEnabled: false,
   autoCompactionEnabled: false,
   autoCompactionTriggerThreshold: 70,
   autoCompactionRetainRecentPairs: 6,
@@ -207,8 +206,7 @@ const buildFormFromAgent = (agent: Agent | null): AgentConfigForm => {
     subagents: normalizeArgosSubagentSlots(config.subagents ?? createDefaultArgosSubagentSlots()),
     disabledAgentTools: [...(config.disabledAgentTools ?? [])],
     enabledMcpServerIds: normalizeOptionalStringList(config.enabledMcpServerIds),
-    enabledPluginIds: normalizeOptionalStringList(config.enabledPluginIds),
-    enabledSkillNames: normalizeOptionalStringList(config.enabledSkillNames),
+    orchestrationEnabled: config.orchestrationEnabled ?? false,
     autoCompactionEnabled: config.autoCompactionEnabled ?? true,
     autoCompactionTriggerThreshold: config.autoCompactionTriggerThreshold ?? 80,
     autoCompactionRetainRecentPairs: config.autoCompactionRetainRecentPairs ?? 2,
@@ -814,9 +812,8 @@ export default function ArgosAgentsSettings() {
           form.memoryEnabled && form.memoryExtractionProviderId && form.memoryExtractionModelId
             ? { providerId: form.memoryExtractionProviderId, modelId: form.memoryExtractionModelId }
             : null,
+        orchestrationEnabled: form.orchestrationEnabled,
         ...(form.enabledMcpServerIds === undefined ? {} : { enabledMcpServerIds: [...form.enabledMcpServerIds] }),
-        ...(form.enabledPluginIds === undefined ? {} : { enabledPluginIds: [...form.enabledPluginIds] }),
-        ...(form.enabledSkillNames === undefined ? {} : { enabledSkillNames: [...form.enabledSkillNames] }),
       };
 
       // Only persist the avatar if the user actually changed it; otherwise keep
@@ -1339,16 +1336,30 @@ export default function ArgosAgentsSettings() {
             <AgentExtensionPolicyPanel
               value={{
                 enabledMcpServerIds: form.enabledMcpServerIds,
-                enabledPluginIds: form.enabledPluginIds,
-                enabledSkillNames: form.enabledSkillNames,
               }}
               onChange={(nextValue) => {
                 updateForm("enabledMcpServerIds", nextValue.enabledMcpServerIds);
-                updateForm("enabledPluginIds", nextValue.enabledPluginIds);
-                updateForm("enabledSkillNames", nextValue.enabledSkillNames);
               }}
               disabled={saving}
             />
+
+            <section className="space-y-3 rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold">Argos orchestration</div>
+                  <p className="text-xs text-muted-foreground">
+                    Give this Pi agent first-party Argos project and task tools. Argos controls their data and access.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.orchestrationEnabled}
+                  disabled={saving}
+                  onCheckedChange={(value) => updateForm("orchestrationEnabled", value)}
+                />
+              </div>
+            </section>
+
+            <PiPackagesPanel agentId={selectedAgent.id} projectDir={form.defaultProjectPath || undefined} />
 
             <section className="space-y-4 rounded-2xl border border-border p-5">
               <div className="flex items-center justify-between gap-3">

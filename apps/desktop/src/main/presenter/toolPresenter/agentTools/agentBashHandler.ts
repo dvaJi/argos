@@ -8,7 +8,6 @@ import type { IConfigPresenter } from "@argos/shared/presenter";
 import { getBackgroundExecConfig } from "#/lib/agentRuntime/backgroundExecSessionManager";
 import { backgroundExecSessionManager } from "#/lib/agentRuntime/backgroundExecSessionManager";
 import { terminateProcessTree } from "@argos/backend-core";
-import { rtkRuntimeService } from "#/lib/agentRuntime/rtkRuntimeService";
 import { getShellEnvironment, getUserShell, mergeCommandEnvironment } from "@argos/backend-core/runtime/shellEnv";
 import { createUtf8OutputDecoderPair, prepareShellCommandForUtf8Output } from "#/lib/agentRuntime/shellOutputEncoding";
 import { resolveUsableSpawnCwd } from "#/lib/agentRuntime/spawnGuard";
@@ -40,13 +39,8 @@ export interface ExecuteCommandOptions {
 }
 
 interface PreparedCommand {
-  originalCommand: string;
   command: string;
   env: Record<string, string>;
-  rewritten: boolean;
-  rtkApplied: boolean;
-  rtkMode: "rewrite" | "direct" | "bypass";
-  rtkFallbackReason?: string;
 }
 
 interface CompletedShellProcessResult {
@@ -68,19 +62,17 @@ type ShellProcessResult = CompletedShellProcessResult | RunningShellProcessResul
 export class AgentBashHandler {
   private allowedDirectories: string[];
   private readonly commandPermissionHandler?: CommandPermissionService;
-  private readonly configPresenter?: Pick<IConfigPresenter, "getSetting">;
 
   constructor(
     allowedDirectories: string[],
     commandPermissionHandler?: CommandPermissionService,
-    configPresenter?: Pick<IConfigPresenter, "getSetting">,
+    _configPresenter?: Pick<IConfigPresenter, "getSetting">,
   ) {
     if (allowedDirectories.length === 0) {
       throw new Error("At least one allowed directory must be provided");
     }
     this.allowedDirectories = allowedDirectories.map((dir) => this.normalizePath(path.resolve(this.expandHome(dir))));
     this.commandPermissionHandler = commandPermissionHandler;
-    this.configPresenter = configPresenter;
   }
 
   async executeCommand(
@@ -88,9 +80,6 @@ export class AgentBashHandler {
     options: ExecuteCommandOptions = {},
   ): Promise<{
     output: string | { status: "running"; sessionId: string };
-    rtkApplied: boolean;
-    rtkMode: "rewrite" | "direct" | "bypass";
-    rtkFallbackReason?: string;
   }> {
     const parsed = ExecuteCommandArgsSchema.safeParse(args);
     if (!parsed.success) {
@@ -136,46 +125,11 @@ export class AgentBashHandler {
     if (result.kind === "running") {
       return {
         output: { status: "running", sessionId: result.sessionId },
-        rtkApplied: prepared.rtkApplied,
-        rtkMode: prepared.rtkMode,
-        rtkFallbackReason: prepared.rtkFallbackReason,
       };
-    }
-
-    const fallbackReason = this.getRtkCapabilityFallbackReason(result.output);
-    if (prepared.rewritten && !result.timedOut && result.exitCode !== null && result.exitCode !== 0 && fallbackReason) {
-      logger.warn("[AgentBashHandler] Falling back to original command after RTK capability error", {
-        command,
-        rewrittenCommand: prepared.command,
-        originalCommand: prepared.originalCommand,
-        fallbackReason,
-      });
-
-      result = await this.runShellProcess(prepared.originalCommand, cwd, timeout ?? COMMAND_DEFAULT_TIMEOUT_MS, {
-        ...options,
-        env: prepared.env,
-        yieldMs,
-      });
-
-      prepared.rtkApplied = false;
-      prepared.rtkMode = "bypass";
-      prepared.rtkFallbackReason = fallbackReason;
-
-      if (result.kind === "running") {
-        return {
-          output: { status: "running", sessionId: result.sessionId },
-          rtkApplied: prepared.rtkApplied,
-          rtkMode: prepared.rtkMode,
-          rtkFallbackReason: prepared.rtkFallbackReason,
-        };
-      }
     }
 
     return {
       output: this.formatCompletedResult(result),
-      rtkApplied: prepared.rtkApplied,
-      rtkMode: prepared.rtkMode,
-      rtkFallbackReason: prepared.rtkFallbackReason,
     };
   }
 
@@ -500,9 +454,6 @@ export class AgentBashHandler {
     options: ExecuteCommandOptions,
   ): Promise<{
     output: { status: "running"; sessionId: string };
-    rtkApplied: boolean;
-    rtkMode: "rewrite" | "direct" | "bypass";
-    rtkFallbackReason?: string;
   }> {
     const conversationId = options.conversationId;
 
@@ -544,54 +495,16 @@ export class AgentBashHandler {
 
     return {
       output: { status: "running", sessionId: result.sessionId },
-      rtkApplied: prepared.rtkApplied,
-      rtkMode: prepared.rtkMode,
-      rtkFallbackReason: prepared.rtkFallbackReason,
     };
   }
 
   private async prepareCommand(command: string, env?: Record<string, string>): Promise<PreparedCommand> {
     const baseEnv = env ?? {};
-    if (!this.configPresenter) {
-      const shellEnv = await getShellEnvironment();
-      return {
-        originalCommand: command,
-        command,
-        env: mergeCommandEnvironment({
-          shellEnv,
-          overrides: baseEnv,
-        }),
-        rewritten: false,
-        rtkApplied: false,
-        rtkMode: "bypass",
-        rtkFallbackReason: "RTK settings are unavailable",
-      };
-    }
-
-    const prepared = await rtkRuntimeService.prepareShellCommand(command, baseEnv, this.configPresenter);
+    const shellEnv = await getShellEnvironment();
     return {
-      originalCommand: prepared.originalCommand,
-      command: prepared.command,
-      env: prepared.env,
-      rewritten: prepared.rewritten,
-      rtkApplied: prepared.rtkApplied,
-      rtkMode: prepared.rtkMode,
-      rtkFallbackReason: prepared.rtkFallbackReason,
+      command,
+      env: mergeCommandEnvironment({ shellEnv, overrides: baseEnv }),
     };
-  }
-
-  private getRtkCapabilityFallbackReason(output: string): string | undefined {
-    const normalized = output.toLowerCase();
-    if (normalized.includes("rtk find does not support compound predicates or actions")) {
-      return "RTK capability fallback after rewrite failure: unsupported find compound predicates or actions";
-    }
-    if (normalized.includes("unsupported predicate")) {
-      return "RTK capability fallback after rewrite failure: unsupported predicate";
-    }
-    if (normalized.includes("unsupported action")) {
-      return "RTK capability fallback after rewrite failure: unsupported action";
-    }
-    return undefined;
   }
 
   /**
