@@ -38,9 +38,9 @@ const FEATURES: Feature[] = [
     span: "lg:col-span-1",
   },
   {
-    title: "Remote control",
+    title: "Browser workspace",
     description:
-      "Drive sessions from Telegram, Discord, Feishu, QQ, and WeChat. Switch models and answer prompts away from the desk.",
+      "Serve the same chat and workspace shell from the daemon, then pair a browser session to use it without Electron.",
     icon: Broadcast,
     span: "lg:col-span-2",
   },

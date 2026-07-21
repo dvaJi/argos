@@ -29,9 +29,11 @@ Group=argos
 # Adjust the path if you install the binary elsewhere (e.g. /usr/local/bin/argos-daemon).
 ExecStart=/opt/argos-daemon/argos-daemon --host 127.0.0.1 --port 9527 --data-dir /opt/argos-daemon/data
 
-# To bind remotely, use an override (`systemctl edit argos-daemon`) with:
-#   Environment=ARGOS_HOST=0.0.0.0
-#   Environment=ARGOS_TOKEN=<secret>
+# To serve the browser workspace, use an override (`systemctl edit argos-daemon`)
+# with:
+#   Environment=ARGOS_WEB=1
+# Keep the loopback bind and use an HTTPS reverse proxy or private network for
+# remote browser access. Pair browser sessions with `argos-daemon --web --pair`.
 # Environment=ARGOS_NO_UPDATE_CHECK=1
 
 Restart=always

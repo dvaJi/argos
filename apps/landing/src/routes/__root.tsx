@@ -14,13 +14,14 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Argos unifies models, tools, and agents: multi-LLM chat, MCP tool calling, Skills, ACP integration, and remote control. Open-source desktop app for Windows, macOS, and Linux.",
+          "Argos unifies models, tools, and agents: multi-LLM chat, MCP tool calling, Skills, ACP integration, and remote control. Use it as a desktop app or a self-hosted web workspace.",
       },
       { name: "theme-color", content: "#050507" },
       { property: "og:title", content: "Argos - Open-Source AI Agent Platform" },
       {
         property: "og:description",
-        content: "Multi-LLM chat, MCP tools, Skills, ACP agents, and remote control in one open-source desktop app.",
+        content:
+          "Multi-LLM chat, MCP tools, Skills, ACP agents, and remote control in an open-source desktop or web workspace.",
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: "/icon.png" },

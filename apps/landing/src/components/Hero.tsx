@@ -1,6 +1,4 @@
-import { ArrowRight, DownloadSimple, GithubLogo } from "@phosphor-icons/react";
-
-const GITHUB_URL = "https://github.com/dvaJi/argos";
+import { DownloadSimple, TerminalWindow } from "@phosphor-icons/react";
 
 export function Hero() {
   return (
@@ -22,11 +20,12 @@ export function Hero() {
           </div>
 
           <h1 className="animate-fade-up-1 mt-7 text-balance text-[2.6rem] font-bold leading-[1.04] tracking-[-0.035em] text-white sm:text-6xl lg:text-[4rem]">
-            One desktop app for <span className="gradient-text">every model, tool, and agent.</span>
+            One AI workspace, on <span className="gradient-text">desktop or your own server.</span>
           </h1>
 
           <p className="animate-fade-up-2 mt-6 max-w-[52ch] text-pretty text-lg leading-relaxed text-slate-400">
-            Chat with 40+ LLMs, call MCP tools, install Skills, and run ACP agents, all in one native desktop app.
+            Chat with 40+ LLMs, call MCP tools, install Skills, and run ACP agents from the desktop app or a paired
+            browser.
           </p>
 
           <div className="animate-fade-up-3 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -38,14 +37,11 @@ export function Hero() {
               Download
             </a>
             <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
+              href="/docs"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/[0.03] px-7 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition-colors duration-300 hover:border-white/25 hover:bg-white/[0.07]"
             >
-              <GithubLogo size={19} weight="fill" />
-              Star on GitHub
-              <ArrowRight size={16} weight="bold" className="opacity-60" />
+              <TerminalWindow size={19} weight="bold" />
+              Run it headless
             </a>
           </div>
         </div>

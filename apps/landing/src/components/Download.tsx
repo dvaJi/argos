@@ -2,7 +2,6 @@ import { Command, SquaresFour, TerminalWindow } from "@phosphor-icons/react";
 import { Reveal } from "~/components/Reveal";
 
 const RELEASES_URL = "https://github.com/dvaJi/argos/releases";
-const GITHUB_URL = "https://github.com/dvaJi/argos";
 const INSTALL_RAW = "https://raw.githubusercontent.com/dvaJi/argos/main/distro/install";
 
 const PLATFORMS = [
@@ -56,7 +55,9 @@ export function Download() {
         <Reveal delay={120} className="surface mt-6 p-7 sm:p-9">
           <div className="text-center">
             <h3 className="text-lg font-semibold text-white">Run it headless</h3>
-            <p className="mt-2 text-sm text-slate-500">The same backend as a standalone CLI. No GUI required.</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Serve a paired browser workspace from the standalone daemon. No desktop app is required on the host.
+            </p>
           </div>
           <div className="mt-7 space-y-2.5">
             {DAEMON_INSTALLS.map((item) => (
@@ -70,14 +71,12 @@ export function Download() {
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-slate-600">
-            Full details in the{" "}
+            Before deploying on a VPS, read the{" "}
             <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noreferrer"
+              href="/docs"
               className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
-              GitHub repository
+              daemon handbook
             </a>
             .
           </p>

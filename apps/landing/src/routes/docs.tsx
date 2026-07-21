@@ -63,7 +63,7 @@ const runSteps = [
   },
   {
     title: "Promote to a service",
-    text: "For Linux servers, run it under systemd and restart the service after self-updates.",
+    text: "For Linux servers, run it under systemd and put an HTTPS reverse proxy in front of the loopback daemon.",
   },
 ] as const;
 
@@ -97,6 +97,7 @@ const toc = [
   ["Update", "update"],
   ["Deploy", "deploy"],
   ["Debug", "debug"],
+  ["Scope", "scope"],
 ] as const;
 
 export const Route = createFileRoute("/docs")({
@@ -107,7 +108,7 @@ export const Route = createFileRoute("/docs")({
       {
         name: "description",
         content:
-          "Install, run, update, and configure the Argos daemon for headless AI agent workflows on Windows, macOS, and Linux.",
+          "Install, run, update, and configure the Argos daemon for a paired browser workspace on Windows, macOS, and Linux.",
       },
     ],
   }),
@@ -133,8 +134,8 @@ function DocsPage() {
                   Run Argos as a headless control plane.
                 </h1>
                 <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-slate-400">
-                  Install the standalone daemon, expose the local route API, stream events over WebSocket, and keep a
-                  server-side agent runtime updated without opening the desktop app.
+                  Install the standalone daemon, serve a paired browser workspace, stream events over WebSocket, and
+                  keep a server-side agent runtime updated without opening the desktop app.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <a
@@ -164,7 +165,7 @@ function DocsPage() {
                   <span className="ml-2 font-mono text-xs text-slate-500">argos-daemon</span>
                 </div>
                 <div className="mt-4 space-y-3 font-mono text-sm leading-6">
-                  <p className="text-slate-500">$ argos-daemon</p>
+                  <p className="text-slate-500">$ argos-daemon --web --pair</p>
                   <p className="text-slate-300">[daemon] Listening on http://127.0.0.1:9527</p>
                   <p className="text-slate-300">[daemon] Health: http://127.0.0.1:9527/health</p>
                   <p className="text-slate-300">[daemon] Routes: POST /api/v1/route</p>
@@ -219,15 +220,15 @@ function DocsPage() {
               </Callout>
             </DocsSection>
 
-            <DocsSection eyebrow="02" id="run" title="Start local, then open access deliberately">
+            <DocsSection eyebrow="02" id="run" title="Start local, then pair a browser">
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="space-y-4">
-                  <CommandBlock command="argos-daemon" language="bash" />
+                  <CommandBlock command="argos-daemon --web --pair" language="bash" />
                   <CommandBlock command="curl http://127.0.0.1:9527/health" language="bash" />
                   <p>
-                    The health endpoint returns <code>status</code>, <code>version</code>, and <code>uptime</code>. Keep
-                    the default localhost bind while testing clients. Use <code>--web --pair</code> to generate a
-                    one-time URL for browser access.
+                    The health endpoint returns <code>status</code>, <code>version</code>, and <code>uptime</code>. The
+                    printed URL contains a short-lived, single-use pairing token. Open it in a browser to establish a
+                    revocable session, then the browser connects to the daemon over WebSocket.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
@@ -277,10 +278,12 @@ function DocsPage() {
               </div>
             </DocsSection>
 
-            <DocsSection eyebrow="05" id="deploy" title="Promote it to a service">
+            <DocsSection eyebrow="05" id="deploy" title="Deploy it on a VPS">
               <p>
                 Linux servers can use the reference unit at <code>distro/systemd/argos-daemon.service</code>. Copy it,
-                adjust the user, binary path, data directory, and environment, then enable the service.
+                adjust the user, binary path, data directory, and environment, then enable the service. Keep the daemon
+                bound to <code>127.0.0.1</code>; a reverse proxy on the same host should terminate HTTPS and forward
+                HTTP plus WebSocket traffic to it.
               </p>
               <CommandBlock
                 command={[
@@ -296,6 +299,11 @@ function DocsPage() {
                   <StepItem key={step.title} index={index + 1} title={step.title} text={step.text} />
                 ))}
               </div>
+              <Callout icon={ShieldCheck} title="Do not publish the daemon port directly">
+                The daemon speaks plain HTTP and WebSocket. Put it behind a TLS-capable reverse proxy or a private
+                network such as Tailscale, preserve WebSocket upgrades, and expose the proxy rather than port 9527.
+                Argos is a single-user daemon, not a multi-tenant hosted service.
+              </Callout>
             </DocsSection>
 
             <DocsSection eyebrow="06" id="debug" title="Debug the obvious things first">
@@ -309,6 +317,19 @@ function DocsPage() {
                 <ExternalLink href={RELEASES_URL} label="Releases" />
                 <ExternalLink href={ISSUES_URL} label="Issues" />
                 <ExternalLink href={GITHUB_URL} label="Source" icon={GithubLogo} />
+              </div>
+            </DocsSection>
+
+            <DocsSection id="scope" title="What the browser does not replace">
+              <p>
+                The web workspace covers chat, sessions, providers, MCP, skills, memory, scheduled tasks, sync, and
+                server-side agent runtimes. It does not replace Electron features that need a local operating system.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <CheckItem text="Use the desktop app for native windows, the embedded browser panel, overlays, and screen capture." />
+                <CheckItem text="Use the desktop app for file and directory dialogs, opening or revealing local files, and image clipboard actions." />
+                <CheckItem text="System fonts, app restart and update controls, tray integration, and desktop notifications are not browser features." />
+                <CheckItem text="Treat web mode as a useful single-user server workspace, not a promise of full desktop parity." />
               </div>
             </DocsSection>
           </article>
@@ -326,14 +347,14 @@ function DocsSection({
   children,
 }: {
   id: string;
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   children: ReactNode;
 }) {
   return (
     <section id={id} className="scroll-mt-28 space-y-6">
       <div className="grid gap-3 border-b border-white/[0.07] pb-4 sm:grid-cols-[72px_1fr]">
-        <p className="font-mono text-sm text-accent">{eyebrow}</p>
+        {eyebrow ? <p className="font-mono text-sm text-accent">{eyebrow}</p> : <span aria-hidden="true" />}
         <h2 className="text-balance text-3xl font-semibold leading-tight text-white sm:text-4xl">{title}</h2>
       </div>
       <div className="space-y-5 text-pretty text-base leading-7 text-slate-400">{children}</div>

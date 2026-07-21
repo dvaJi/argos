@@ -41,9 +41,12 @@ sudo systemctl enable --now argos-daemon
 sudo systemctl status argos-daemon
 ```
 
-The unit runs the daemon bound to `127.0.0.1:9527` by default. To expose it
-remotely, set `Environment=ARGOS_HOST=0.0.0.0` and `Environment=ARGOS_TOKEN=...`
-in a systemd override (`systemctl edit argos-daemon`).
+The unit runs the daemon bound to `127.0.0.1:9527` by default. Keep that bind
+address for a VPS deployment and place an HTTPS-capable reverse proxy or private
+network in front of it. Enable browser serving with
+`Environment=ARGOS_WEB=1`; start with `--pair` once to create a short-lived
+browser pairing URL. Do not expose port 9527 directly or use the removed
+`ARGOS_TOKEN` shared-secret model.
 
 ## 4. Updating
 
