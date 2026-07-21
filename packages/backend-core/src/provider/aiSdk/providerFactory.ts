@@ -431,7 +431,7 @@ export function createAiSdkProviderContext(params: CreateAiSdkProviderContextPar
     params.defaultHeaders,
     params.cleanHeaders === true,
     params.proxyUrl,
-  );
+  ) as typeof globalThis.fetch;
   const maybeWrapModel = (model: any): any =>
     params.wrapThinkReasoning === false
       ? model

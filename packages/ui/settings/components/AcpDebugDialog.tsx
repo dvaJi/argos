@@ -5,6 +5,7 @@ import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
 import { getRuntimeWebContentsId, usePresenter } from "#api/presenterBridge";
+import { createProviderClient } from "#api/ProviderClient";
 import { ACP_DEBUG_EVENTS } from "#/events";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
@@ -40,7 +41,7 @@ const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
 
 export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName }: AcpDebugDialogProps) {
   const { toast } = useToast();
-  const llmProviderPresenter = usePresenter("llmproviderPresenter");
+  const providerClient = useMemo(() => createProviderClient(), []);
   const configPresenter = usePresenter("configPresenter");
 
   const [selectedMethod, setSelectedMethod] = useState<AcpDebugRequest["action"]>("newSession");
@@ -117,49 +118,49 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
     };
   }, [agentId]);
 
-  const handleSend = async () => {
+  const handleSend = () => {
     setLoading(true);
-    try {
-      const result = await llmProviderPresenter.runAcpDebugAction({
+    void providerClient
+      .runAcpDebugAction({
         agentId,
         action: selectedMethod,
         payload: {},
         sessionId: debugSessionId,
-        webContentsId: webContentsId || undefined,
-      });
-      if (result?.events?.length) appendEvents(result.events);
-      if (result?.sessionId) setDebugSessionId(result.sessionId);
-      if (result?.status === "ok") setProcessReady(true);
-      if (result?.status === "error" && result.error) toast({ title: result.error, variant: "destructive" });
-    } catch (error) {
-      toast({ title: "Request failed", description: String(error), variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+      })
+      .then((result) => {
+        if (result?.events?.length) appendEvents(result.events);
+        if (result?.sessionId) setDebugSessionId(result.sessionId);
+        if (result?.status === "ok") setProcessReady(true);
+        if (result?.status === "error" && result.error) toast({ title: result.error, variant: "destructive" });
+      })
+      .catch((error) => toast({ title: "Request failed", description: String(error), variant: "destructive" }))
+      .finally(() => setLoading(false));
   };
 
-  const runHealthCheck = async () => {
+  const runHealthCheck = () => {
     setEvents([]);
     seenIds.current.clear();
     setLoading(true);
-    try {
-      await configPresenter.ensureAcpAgentInstalled(agentId);
-      const initResult = await llmProviderPresenter.runAcpDebugAction({
-        agentId,
-        action: "initialize",
-        payload: {},
-        webContentsId: webContentsId || undefined,
-      });
-      appendEvents(initResult.events ?? []);
-      if (initResult.status === "error") throw new Error(initResult.error || "Failed");
-      setProcessReady(true);
-      setSelectedMethod("newSession");
-    } catch (error) {
-      setProcessReady(false);
-      toast({ title: "Health check failed", description: String(error), variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    void configPresenter
+      .ensureAcpAgentInstalled(agentId)
+      .then(() =>
+        providerClient.runAcpDebugAction({
+          agentId,
+          action: "initialize",
+          payload: {},
+        }),
+      )
+      .then((initResult) => {
+        appendEvents(initResult.events ?? []);
+        if (initResult.status === "error") throw new Error(initResult.error || "Failed");
+        setProcessReady(true);
+        setSelectedMethod("newSession");
+      })
+      .catch((error) => {
+        setProcessReady(false);
+        toast({ title: "Health check failed", description: String(error), variant: "destructive" });
+      })
+      .finally(() => setLoading(false));
   };
 
   if (!open) return null;

@@ -13,12 +13,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.10",
     "@agentclientprotocol/sdk": "^1.2.1",
     "@argos/acp-runtime": "workspace:*",
     "@argos/agent-runtime": "workspace:*",
     "@argos/backend-core": "workspace:*",
     "@argos/mcp-runtime": "workspace:*",
     "@argos/memory-runtime": "workspace:*",
+    "@argos/pi-orchestrator-extension": "workspace:*",
     "@argos/remote-control-runtime": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
@@ -26,6 +28,7 @@
     "@duckdb/node-api": "1.5.3-r.1",
     "ai": "catalog:",
     "sharp": "^0.34.0",
+    "typebox": "1.1.38",
     "fflate": "catalog:",
     "gray-matter": "^4.0.3",
     "nanoid": "catalog:",

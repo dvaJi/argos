@@ -1,0 +1,19 @@
+{
+  "name": "@argos/pi-orchestrator-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@argos/shared": "workspace:*",
+    "@earendil-works/pi-coding-agent": "0.80.10",
+    "typebox": "1.1.38"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

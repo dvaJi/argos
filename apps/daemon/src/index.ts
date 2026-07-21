@@ -13,7 +13,9 @@ import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
 import { ProviderImportService } from "@argos/backend-core";
-import { AiSdkProviderExecutionPort } from "./host/aiSdk-provider-execution";
+import { PiProviderExecutionPort } from "./host/pi-provider-execution";
+import { PiAgentProfileManager } from "./host/piAgentProfileManager";
+import { ArgosOrchestrationRuntime } from "./host/argosOrchestrationRuntime";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
@@ -45,6 +47,7 @@ type DaemonProviderExecutionPort = Required<
     | "steerActiveTurn"
     | "respondToolInteraction"
     | "cancelGeneration"
+    | "compactSession"
     | "testConnection"
     | "generateCompletion"
     | "transcribeAudio"
@@ -273,6 +276,7 @@ export async function startDaemon(options?: {
 
   const { BunSessionRepository } = await import("./host/bun-session-repository");
   const sessionRepository = new BunSessionRepository(db, eventPublisher);
+  const orchestrationRuntime = new ArgosOrchestrationRuntime(db, () => configPresenter.listAgents());
 
   const sessions = await sessionRepository.list();
   logger.info(`[daemon] Restored ${sessions.length} session(s) from database`);
@@ -282,11 +286,29 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const httpProviderExecutionPort = new AiSdkProviderExecutionPort(
+  const piProfiles = new PiAgentProfileManager(paths.getDataDir());
+  const piProviderExecutionPort = new PiProviderExecutionPort(
     configPresenter,
     sessionRepository,
+    piProfiles,
     eventPublisher,
-    (sessionId) => mcpRuntime.listToolDefinitions(),
+    {
+      listTools: async (sessionId) => {
+        const session = await sessionRepository.get(sessionId);
+        const definitions = await mcpRuntime.listToolDefinitions();
+        if (!session) return definitions;
+        const agentConfig = await configPresenter.resolveArgosAgentConfig(session.agentId);
+        const allowed = agentConfig?.enabledMcpServerIds;
+        const scoped = Array.isArray(allowed)
+          ? definitions.filter((tool) => allowed.includes(tool.server.name))
+          : definitions;
+        return agentConfig?.orchestrationEnabled ? [...scoped, ...orchestrationRuntime.definitions()] : scoped;
+      },
+      callTool: (request) =>
+        orchestrationRuntime.handles((request as any).function?.name)
+          ? orchestrationRuntime.call(request as any)
+          : mcpRuntime.callApprovedTool(request),
+    },
   );
   const acpProviderExecutionPort = new AcpProviderExecutionPort(configPresenter, sessionRepository, eventPublisher, {
     dataDir: paths.getDataDir(),
@@ -297,47 +319,51 @@ export async function startDaemon(options?: {
   // Route execution by session provider: ACP-backed sessions go to the ACP port,
   // everything else to the HTTP/LLM port.
   const providerExecutionPort: DaemonProviderExecutionPort = {
-    ...httpProviderExecutionPort,
     getActiveGeneration(sessionId) {
       return (
         acpProviderExecutionPort.getActiveGeneration(sessionId) ??
-        httpProviderExecutionPort.getActiveGeneration(sessionId)
+        piProviderExecutionPort.getActiveGeneration(sessionId)
       );
     },
     async sendMessage(sessionId, content) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
         ? acpProviderExecutionPort.sendMessage(sessionId, content)
-        : httpProviderExecutionPort.sendMessage(sessionId, content);
+        : piProviderExecutionPort.sendMessage(sessionId, content);
     },
     async steerActiveTurn(sessionId, content) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
         ? acpProviderExecutionPort.steerActiveTurn(sessionId, content)
-        : httpProviderExecutionPort.steerActiveTurn(sessionId, content);
+        : piProviderExecutionPort.steerActiveTurn(sessionId, content);
     },
     async respondToolInteraction(sessionId, messageId, toolCallId, response) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
         ? acpProviderExecutionPort.respondToolInteraction(sessionId, messageId, toolCallId, response)
-        : httpProviderExecutionPort.respondToolInteraction(sessionId, messageId, toolCallId, response);
+        : piProviderExecutionPort.respondToolInteraction(sessionId, messageId, toolCallId, response);
     },
     async cancelGeneration(sessionId) {
       const session = await sessionRepository.get(sessionId);
       return (session as any)?.providerId === "acp"
         ? acpProviderExecutionPort.cancelGeneration(sessionId)
-        : httpProviderExecutionPort.cancelGeneration(sessionId);
+        : piProviderExecutionPort.cancelGeneration(sessionId);
+    },
+    async compactSession(sessionId, instructions) {
+      const session = await sessionRepository.get(sessionId);
+      if ((session as any)?.providerId === "acp") return;
+      return piProviderExecutionPort.compactSession(sessionId, instructions);
     },
     async testConnection(providerId, modelId) {
       return providerId === "acp"
         ? acpProviderExecutionPort.testConnection(providerId, modelId)
-        : httpProviderExecutionPort.testConnection(providerId, modelId);
+        : piProviderExecutionPort.testConnection(providerId, modelId);
     },
     async generateCompletion(input) {
-      return httpProviderExecutionPort.generateCompletion(input);
+      return piProviderExecutionPort.generateCompletion(input);
     },
     async transcribeAudio(providerId, modelId, audioBase64, mimeType, filename) {
-      return httpProviderExecutionPort.transcribeAudio(providerId, modelId, audioBase64, mimeType, filename);
+      return piProviderExecutionPort.transcribeAudio(providerId, modelId, audioBase64, mimeType, filename);
     },
     async warmupAcpProcess(agentId, workdir) {
       return acpProviderExecutionPort.warmupAcpProcess(agentId, workdir);
@@ -380,6 +406,12 @@ export async function startDaemon(options?: {
     },
   };
 
+  orchestrationRuntime.setSessionActions({
+    send: (sessionId, text) => providerExecutionPort.sendMessage(sessionId, text),
+    steer: (sessionId, text) => providerExecutionPort.steerActiveTurn(sessionId, text),
+    stop: (sessionId) => providerExecutionPort.cancelGeneration(sessionId),
+  });
+
   const sessionAuthRepo = new SessionAuthRepository(db);
 
   const mcpPorts = createDaemonMcpPorts({
@@ -406,6 +438,7 @@ export async function startDaemon(options?: {
     configPresenter,
     sessionRepository,
   });
+  (skillRuntime as typeof skillRuntime & { piProfiles: PiAgentProfileManager }).piProfiles = piProfiles;
   const syncRuntime = new DaemonSyncRuntime({
     configDir: paths.getConfigDir(),
     eventPublisher,
@@ -660,6 +693,11 @@ export async function startDaemon(options?: {
       logger.warn("[daemon] Failed to shut down plugin presenter cleanly");
     }
     try {
+      await piProviderExecutionPort.dispose();
+    } catch {
+      logger.warn("[daemon] Failed to shut down Pi workers cleanly");
+    }
+    try {
       db.close();
       logger.info("[daemon] Database closed");
     } catch {
@@ -673,6 +711,7 @@ export async function startDaemon(options?: {
       scheduledTasks.stop();
       await remoteControlRuntime.destroy();
       await pluginPresenter.shutdown();
+      await piProviderExecutionPort.dispose();
       (server as any).stop();
     },
     eventPublisher,

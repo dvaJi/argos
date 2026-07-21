@@ -858,9 +858,6 @@ export class AgentToolManager {
         content,
         rawData: {
           content,
-          rtkApplied: commandResult.rtkApplied,
-          rtkMode: commandResult.rtkMode,
-          rtkFallbackReason: commandResult.rtkFallbackReason,
         },
       };
     }

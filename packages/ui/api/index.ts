@@ -9,6 +9,7 @@ export * from "./McpClient";
 export * from "./MemoryClient";
 export * from "./ModelClient";
 export * from "./PluginClient";
+export * from "./PiPackageClient";
 export * from "./ProviderClient";
 export * from "./ProjectClient";
 export * from "./SessionClient";

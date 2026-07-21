@@ -7,11 +7,12 @@ const environment = { ...process.env, ARGOS_UI_DEV_SERVER_URL: uiUrl };
 const children = [];
 let shuttingDown = false;
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const nodeExecutable = process.env.NODE_BINARY?.trim() || "node";
 
 function startVite(workspace) {
   const workspaceDir = resolve(repoRoot, workspace);
   const viteCli = resolve(workspaceDir, "node_modules", "vite", "bin", "vite.js");
-  const child = spawn(process.execPath, [viteCli], { cwd: workspaceDir, env: environment, stdio: "inherit" });
+  const child = spawn(nodeExecutable, [viteCli], { cwd: workspaceDir, env: environment, stdio: "inherit" });
 
   children.push(child);
   child.on("error", (error) => {
@@ -54,6 +55,7 @@ async function waitForUiServer() {
 process.on("SIGINT", () => shutdown());
 process.on("SIGTERM", () => shutdown());
 
+console.log(`[dev] Starting UI Vite server at ${uiUrl}...`);
 const ui = startVite("packages/ui");
 ui.on("exit", (code) => {
   if (!shuttingDown) shutdown(code ?? 1);
@@ -67,6 +69,7 @@ try {
   process.exit();
 }
 
+console.log("[dev] UI ready. Starting desktop shell...");
 const desktop = startVite("apps/desktop");
 desktop.on("exit", (code) => {
   if (!shuttingDown) shutdown(code ?? 1);

@@ -154,6 +154,21 @@ export class DaemonMcpRuntime {
     return this.toolManager.callTool(request as never, undefined as never);
   }
 
+  /** Execute after the Pi/Argos permission gate has approved this call. */
+  async callApprovedTool(request: unknown) {
+    const toolCall = request as Parameters<ToolManager["callTool"]>[0];
+    const permission = await this.toolManager.preCheckToolPermission(toolCall);
+    if (permission) {
+      await this.toolManager.grantPermission(
+        permission.serverName,
+        permission.permissionType === "command" ? "all" : permission.permissionType,
+        false,
+        toolCall.conversationId,
+      );
+    }
+    return this.toolManager.callTool(toolCall);
+  }
+
   async listPrompts() {
     const enabled = await this.configPresenter.getMcpEnabled();
     const servers = await this.configPresenter.getMcpServers();

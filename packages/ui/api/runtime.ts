@@ -101,7 +101,7 @@ export function onIpcChannel(channel: string, listener: IpcListener): () => void
   const ipcRenderer = getIpcRenderer();
   if (!ipcRenderer) return () => {};
   const cleanup: unknown = ipcRenderer.on(channel, listener);
-  return typeof cleanup === "function" ? cleanup : () => {};
+  return typeof cleanup === "function" ? (cleanup as () => void) : () => {};
 }
 
 export function sendIpc(channel: string, ...args: unknown[]): void {

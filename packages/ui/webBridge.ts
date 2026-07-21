@@ -48,27 +48,6 @@ const EMPTY_USAGE_DASHBOARD = {
   calendar: [],
   providerBreakdown: [],
   modelBreakdown: [],
-  rtk: {
-    scope: "argos",
-    enabled: false,
-    effectiveEnabled: false,
-    available: false,
-    health: "checking",
-    checkedAt: null,
-    source: "none",
-    failureStage: null,
-    failureMessage: null,
-    summary: {
-      totalCommands: 0,
-      totalInputTokens: 0,
-      totalOutputTokens: 0,
-      totalSavedTokens: 0,
-      avgSavingsPct: 0,
-      totalTimeMs: 0,
-      avgTimeMs: 0,
-    },
-    daily: [],
-  },
 };
 
 // ── Presenter → daemon route mapping ──────────────────────────────────

@@ -11,7 +11,7 @@ Renderer
   -> shared/contracts/routes + shared/contracts/events
   -> src/main/routes dispatcher
   -> route services / presenter-backed ports
-  -> agentSessionPresenter / agentRuntimePresenter / toolPresenter / llmProviderPresenter
+  -> daemon typed routes -> PiProviderExecutionPort -> isolated Pi worker
 ```
 
 `useLegacyPresenter()`, `window.electron`, and `window.api` are only allowed inside the `src/renderer/api/legacy/**` quarantine as compatibility paths. New capabilities for business modules should enter through `renderer/api/*Client` and shared contracts.
@@ -22,7 +22,7 @@ Renderer
 | --- | --- |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Current main architecture, capability owners, typed boundary rules |
 | [FLOWS.md](./FLOWS.md) | Current messaging, tools, ACP, import, scheduled tasks, and remote control flows |
-| [architecture/agent-system.md](./architecture/agent-system.md) | `agentSessionPresenter` / `agentRuntimePresenter` details |
+| [architecture/agent-system.md](./architecture/agent-system.md) | Pi agent runtime, profiles, packages, tools, and projection flow |
 | [architecture/tool-system.md](./architecture/tool-system.md) | `ToolPresenter`, agent tools, ACP helper layering |
 | [architecture/session-management.md](./architecture/session-management.md) | New session management, paginated restore, legacy data plane boundary |
 | [architecture/event-system.md](./architecture/event-system.md) | Current division of responsibility between EventBus and typed events |

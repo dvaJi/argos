@@ -34,6 +34,7 @@ interface PendingInputRow {
 interface DaemonSessionMetadata {
   generationSettings?: Partial<SessionGenerationSettings> | null;
   disabledAgentTools?: string[];
+  piSessionFile?: string;
 }
 
 interface MessageSearchResultRow {
@@ -364,6 +365,41 @@ export class BunSessionRepository implements SessionRepository {
     }
     if (!messageColumns.has("trace_count")) {
       this.db.exec("ALTER TABLE daemon_messages ADD COLUMN trace_count INTEGER NOT NULL DEFAULT 0");
+    }
+    this.resetPrePiAgentSessions();
+  }
+
+  /**
+   * Pi JSONL sessions cannot safely continue the removed Argos message-loop
+   * history. This alpha migration deliberately removes non-ACP sessions once.
+   */
+  private resetPrePiAgentSessions(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS daemon_runtime_migrations (
+        id TEXT PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      )
+    `);
+    const migrationId = "pi-runtime-hard-cutover-v1";
+    const applied = this.db.prepare("SELECT 1 FROM daemon_runtime_migrations WHERE id = ?").get(migrationId);
+    if (applied) return;
+
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const obsolete = "SELECT id FROM daemon_sessions WHERE provider_id != 'acp'";
+      this.db.exec(`DELETE FROM daemon_pending_inputs WHERE session_id IN (${obsolete})`);
+      this.db.exec(`DELETE FROM daemon_message_search_results WHERE session_id IN (${obsolete})`);
+      this.db.exec(`DELETE FROM daemon_message_traces WHERE session_id IN (${obsolete})`);
+      this.db.exec(`DELETE FROM daemon_tape_entries WHERE session_id IN (${obsolete})`);
+      this.db.exec(`DELETE FROM daemon_messages WHERE session_id IN (${obsolete})`);
+      this.db.exec("DELETE FROM daemon_sessions WHERE provider_id != 'acp'");
+      this.db
+        .prepare("INSERT INTO daemon_runtime_migrations (id, applied_at) VALUES (?, ?)")
+        .run(migrationId, Date.now());
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
     }
   }
 
@@ -1006,6 +1042,14 @@ export class BunSessionRepository implements SessionRepository {
   async getDisabledAgentTools(sessionId: string): Promise<string[]> {
     const metadata = this.getSessionMetadata(sessionId);
     return normalizeDisabledAgentTools(metadata.disabledAgentTools);
+  }
+
+  getPiSessionFile(sessionId: string): string | undefined {
+    return this.getSessionMetadata(sessionId).piSessionFile;
+  }
+
+  setPiSessionFile(sessionId: string, sessionFile: string): void {
+    this.updateSessionMetadata(sessionId, (metadata) => ({ ...metadata, piSessionFile: sessionFile }));
   }
 
   async updateDisabledAgentTools(sessionId: string, disabledAgentTools: string[]): Promise<string[]> {
