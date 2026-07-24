@@ -139,11 +139,11 @@ These settings are not stored in the repository and must be configured manually 
 
 ## CI Guardrails
 
-- PRs targeting `master` must come from `release/<version>` branches.
-- The head commit of a PR targeting `master` must already be contained in `origin/master`.
-- Release tags must point to commits that are already reachable from `origin/master`.
+- Routine feature, bugfix, docs, and test PRs target `master` and run the PR checks in [`.github/workflows/prcheck.yml`](../.github/workflows/prcheck.yml) (lint, format, typecheck/build of affected packages, daemon unit tests).
+- Release review PRs (`release/<version>` → `master`) exist for review and CI only; do not click "Update branch" on them.
+- Release tags must point to commits that are already reachable from `origin/master`. This is enforced by the `validate-main-ancestor` job in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
-These rules are enforced in the repository workflows so the documented flow and the automation stay aligned.
+These rules keep the documented flow and the automation aligned.
 
 ## History Hygiene
 

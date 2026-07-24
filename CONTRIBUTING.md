@@ -93,9 +93,13 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 4. Install project dependencies:
 
    ```bash
-   pnpm install
-   pnpm run installRuntime
+   bun install
+   bun run installRuntime
+   # if you hit `No module named 'distutils'`:
+   pip install setuptools
    ```
+
+   > **Windows:** Enable Developer Mode so the installers can create symlinks.
 
 5. Start the development server:
    ```bash
@@ -104,67 +108,73 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 ## Project Structure
 
-- `src/main/`: Electron main process. Presenters, typed route handlers, runtime orchestration, and storage owners live here (window/tab/thread/config/llmProvider/mcp/knowledge/sync/floating button/deeplink/OAuth, etc.).
-- `src/preload/`: Context-isolated bridge. Exposes typed `window.argos` APIs plus a minimal legacy compatibility surface.
-- `src/renderer/`: React 19 + TanStack Router app. Business/UI code lives under `src/renderer/src` (components, stores, pages, lib). Secondary renderers: `src/renderer/settings` (React), `src/renderer/browser`, `src/renderer/floating`, `src/renderer/splash`.
-- `src/renderer/api/`: Renderer-main boundary layer. Put typed `*Client` classes, event subscriptions, and named runtime wrappers here. `src/renderer/api/legacy/` is quarantine-only compatibility code.
-- `src/shared/`: Shared route contracts, event contracts, types, and utilities used by both processes. Legacy presenter typings still exist for main internals and quarantine adapters.
-- `runtime/`: Bundled runtimes used by MCP and agent tooling (Bun/uv).
-- `scripts/`, `resources/`: Build, packaging, and asset pipelines.
-- `build/`, `out/`, `dist/`: Build outputs (do not edit manually).
-- `docs/`: Design docs and guides.
-- `test/`: Vitest suites for main/renderer.
+Argos is a Turborepo monorepo. The desktop app is an Electron **shell** that loads its UI over HTTP from the local daemon; `@argos/ui` is a standalone, reusable web package.
+
+- `apps/desktop/src/main/`: Electron main process (the **shell**) — presenters (window/tab/thread/config/llmProvider/mcp/...), typed route handlers, runtime orchestration, and the EventBus.
+- `apps/desktop/src/preload/`: Secure IPC bridge (contextIsolation on). Exposes the typed `window.argos` hybrid bridge → `packages/client-sdk` (WebSocket→daemon for routes, IPC→main for native-only routes).
+- `apps/daemon/` (`@argos/daemon`): Backend server (Bun) that serves the `@argos/ui` build over HTTP and exposes `/api/v1/route` + `/api/v1/events`.
+- `packages/ui/` (`@argos/ui`): React 19 + TanStack Router frontend. App code in `src/` (components, stores, pages, lib); UI↔backend boundary in `api/` (typed `*Client` classes). Secondary renderers: `settings/`, `floating/`, `splash/`, `browser-overlay/`, `web/`.
+- `packages/ui/shadcn/`: shadcn/ui components shared across renderers.
+- `packages/shared-contracts/` (`@argos/shared-contracts`): Zod-validated route contracts, event contracts, the `ArgosBridge` interface, and the `ARGOS_ROUTE_CATALOG`.
+- `packages/shared/` (`@argos/shared`): Shared types and utilities (web-safe).
+- `packages/backend-core/`, `packages/{acp,mcp,skills,memory,remote-control}-runtime/`, `packages/agent-runtime/`, `packages/pi-orchestrator-extension/`: Shared backend logic and host-port-injected runtimes.
+- `apps/landing/`: Marketing site + GitHub OAuth relay (Cloudflare Worker).
+- `runtime/`: Bundled runtimes used by MCP and agent tooling (Bun/uv/ripgrep/rtk) — installed via `bun run installRuntime`.
+- `scripts/`, `resources/`, `build/`: Build, packaging, and asset pipelines.
+- `dist/`, `out/`: Build outputs (do not edit manually).
+- `docs/`: Design docs, guides, and the SDD spec/plan/task records.
+- `apps/desktop/test/`: Vitest suites (`test/main`, `test/renderer`) mirroring source.
+
+See `AGENTS.md` for the path-alias table (`#/`, `#api`, `@argos/shared`, ...) and the renderer-main route/client pattern.
 
 ## Architecture Overview
 
 ### Design Principles
 
-- **Single-track renderer-main boundary**: New renderer business code should go through typed route contracts, typed event contracts, `src/renderer/api/*Client`, and named runtime wrappers. Do not treat presenter names as a public renderer API.
-- **Presenters stay in main**: Presenters still own most main-process capabilities, but on active paths they are an implementation detail behind routes, events, and wrappers. `src/renderer/api/legacy/**` is quarantine-only compatibility code.
+- **Desktop is a shell, daemon is the backend**: `@argos/desktop` (Electron main + preload) loads its UI over HTTP from the local `@argos/daemon` (Bun). The daemon serves the `@argos/ui` build and exposes `/api/v1/route` + `/api/v1/events`.
+- **Typed route/client boundary**: New renderer business code goes through Zod-validated route contracts (`packages/shared-contracts`), the `ArgosBridge`, typed `*Client` classes (`packages/ui/api/`), and named runtime wrappers. Do not treat presenter names as a public renderer API.
+- **Presenters stay in main**: Presenters still own most main-process capabilities, but on active paths they are an implementation detail behind routes, events, and wrappers. `packages/ui/api/legacy/` is quarantine-only compatibility code (max 3 files).
 - **Multi-window + multi-tab shell**: WindowPresenter and TabPresenter manage true Electron windows/BrowserViews with detach/move support; an EventBus fans out cross-process events.
-- **Clear data boundaries**: Chat data lives in SQLite (`app_db/chat.db`), settings in Electron Store, knowledge bases in DuckDB, and backups via SyncPresenter. Renderer never touches the filesystem directly.
-- **Tooling-first runtime**: LLMProviderPresenter handles streaming, rate limits, and provider instances (cloud/local/ACP agent). MCPPresenter boots MCP servers, router marketplace, and in-memory tools with a bundled Bun runtime.
+- **Clear data boundaries**: Chat data lives in SQLite, settings in Electron Store, knowledge/memory in DuckDB, and backups via SyncPresenter. The renderer never touches the filesystem directly.
+- **Tooling-first runtime**: Provider execution handles streaming, rate limits, and provider instances (cloud/local/ACP agent). The MCP runtime boots MCP servers, the router marketplace, and in-memory tools with a bundled Bun runtime.
 - **Safety & resilience**: `contextIsolation` is on; renderer-side OS/file/network access is gated behind typed bridges or quarantined wrappers; backup/import pipelines validate inputs; rate-limit guards prevent provider overload.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Electron Main (TS)                       │
+│            @argos/daemon (Bun) — backend server             │
+│  /api/v1/route (typed routes) + /api/v1/events (WebSocket)  │
+│  Serves @argos/ui build · provider/MCP/ACP/memory/sync      │
+└───────────────┬─────────────────────────────────────────────┘
+                │ HTTP / WebSocket
+┌───────────────▼─────────────────────────────────────────────┐
+│        @argos/desktop — Electron main (the shell)           │
 │  Presenters + routes + runtime owners + persistence         │
-│  window/tab/thread/config/llm/mcp/knowledge/sync/...        │
-│  Storage: SQLite chat.db, ElectronStore settings, backups   │
+│  window/tab/thread/config/llm/mcp/sync/... · EventBus       │
 └───────────────┬─────────────────────────────────────────────┘
-                │ Typed routes/events + limited legacy IPC
+                │ Secure IPC (contextIsolation on)
 ┌───────────────▼─────────────────────────────────────────────┐
-│         Preload (`window.argos` + compat whitelist)      │
+│  Preload → packages/client-sdk (window.argos hybrid bridge) │
+│  WebSocket→daemon for routes · IPC→main for native-only     │
 └───────────────┬─────────────────────────────────────────────┘
-                │ typed clients / runtime wrappers / quarantine
+                │ typed clients / runtime wrappers
 ┌───────────────▼─────────────────────────────────────────────┐
-│ Renderer boundary: `src/renderer/api/*Client` + wrappers    │
-│ quarantine: `src/renderer/api/legacy/**`                    │
-└───────────────┬─────────────────────────────────────────────┘
-                │
-┌───────────────▼─────────────────────────────────────────────┐
-│  Renderer business: `src/renderer/src/**`                   │
-│  Shell UI, chat flow, ACP workspace, MCP console, settings  │
-└───────────────┬─────────────────────────────────────────────┘
-                │
-┌───────────────▼─────────────────────────────────────────────┐
-│ Runtime add-ons: MCP Node runtime, Ollama controls, ACP     │
-│ agent processes, DuckDB knowledge, sync backups             │
+│      @argos/ui (React 19) — api/*Client + wrappers          │
+│  quarantine: api/legacy/**  ·  business: src/**             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Domain Modules & Feature Notes
 
-- **LLM pipeline**: `LLMProviderPresenter` orchestrates providers with rate-limit guards, per-provider instances, model discovery, ModelScope sync, custom model import, Ollama lifecycle, embeddings, and the agent loop (tool calls, streaming states). Session persistence for ACP agents lives in `AcpSessionPersistence`.
-- **MCP stack**: `McpPresenter` uses ServerManager/ToolManager/McpRouterManager to start/stop servers, choose package registries, auto-start default/builtin servers, and surface tools/prompts/resources. Supports StreamableHTTP/SSE/Stdio transports and a debugging UI.
-- **ACP (Agent Client Protocol)**: ACP providers spawn agent processes, map notifications into chat blocks, and feed the **ACP Workspace** (plan panel with incremental updates, terminal output, and a guarded file tree that requires `registerWorkdir`). PlanStateManager deduplicates plan items and keeps recent completions.
-- **Knowledge & search**: Built-in knowledge bases use DuckDB/vector pipelines with text splitters and MCP-backed configs; search assistants auto-select models and support API + simulated-browser engines via MCP or custom templates.
-- **Shell & UX**: Multi-window/multi-tab navigation, floating chat window, deeplink handling, sync/backup/restore (SQLite + configs zipped with manifest), notifications, and upgrade channel selection.
+- **LLM pipeline**: Provider execution orchestrates providers with rate-limit guards, per-provider instances, model discovery, custom model import, Ollama lifecycle, embeddings, and the agent loop (tool calls, streaming states). Most of this now runs daemon-side on Pi.
+- **MCP stack**: The MCP runtime uses ServerManager/ToolManager to start/stop servers, choose package registries, auto-start default/builtin servers, and surface tools/prompts/resources. Supports StreamableHTTP/SSE/Stdio transports and a debugging UI.
+- **ACP (Agent Client Protocol)**: ACP providers spawn agent processes, map notifications into chat blocks, and feed the **ACP Workspace** (plan panel, terminal output, guarded file tree requiring `registerWorkdir`).
+- **Skills**: Install from folders/ZIPs/URLs; enable per conversation; import/export with Claude Code, Codex, Cursor, Windsurf, Copilot, and more.
+- **Knowledge, memory & search**: DuckDB/vector pipelines for memory search (FTS + HTTP embeddings) and knowledge bases; search assistants auto-select models.
+- **Remote control**: Drive sessions from Telegram, Discord, Feishu/Lark, QQBot, and WeChat iLink via the remote-control runtime.
 
 ## Best Practices
 
-- **Use typed clients and runtime wrappers from renderer business code**: In `src/renderer/src/**`, prefer `src/renderer/api/*Client`, typed event helpers, and named runtime wrappers. Do not import `@api/legacy/presenters` or add new presenter-name-based transport there.
+- **Use typed clients and runtime wrappers from UI business code**: In `packages/ui/src/**`, prefer `packages/ui/api/*Client`, typed event helpers, and named runtime wrappers. Do not import `#api/legacy/presenters` or add new presenter-name-based transport there.
 - **Do not use Node APIs in the renderer**: All OS/network/filesystem work should go through `window.argos`, typed clients, or explicitly named wrappers. Keep features multi-window-safe by scoping state to `tabId`/`windowId`.
 - **State & UI**: Favor TanStack Store and composition utilities; keep components stateless where possible and compatible with detached tabs. Consider artifacts, variants, and streaming states when touching chat flows.
 - **LLM/MCP/ACP changes**: Respect rate limits; clean up active streams before switching providers; prefer typed events on migrated paths instead of adding new raw IPC or presenter reflection. For MCP, persist changes through main-owned config/runtime layers and surface server start/stop events. For ACP, always call `registerWorkdir` before reading the filesystem and clear plan/workspace state when sessions end.
@@ -176,7 +186,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 - TypeScript + React 19 + TanStack Router + TanStack Store; Tailwind CSS + shadcn/ui for styling.
 - Oxfmt enforces double quotes, semicolons, width 120, and trailing commas; `bun run format` before committing.
 - OxLint is used for linting (`bun run lint`). Type checking via `bun run typecheck` (node + web targets).
-- Tests use Vitest (`test/main`, `test/renderer`). Name tests `*.test.ts`/`*.test.tsx`/`*.spec.ts`.
+- Tests use Vitest, split into `apps/desktop/test/main` and `apps/desktop/test/renderer`. Name tests `*.test.ts`/`*.test.tsx`/`*.spec.ts`.
 - Follow naming conventions: PascalCase components/types, camelCase variables/functions, SCREAMING_SNAKE_CASE constants.
 
 ## Pull Request Process
