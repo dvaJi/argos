@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"],
+      "env": ["VITE_GITHUB_CLIENT_ID", "VITE_GITHUB_REDIRECT_URI", "VITE_PROVIDER_DB_URL"]
+    }
+  }
+}
