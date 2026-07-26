@@ -110,6 +110,19 @@ async function bootstrap(): Promise<void> {
 
   try {
     await bridge.connect();
+    const environment = await bridge.invoke("connection.describeEnvironment", {
+      protocolVersion: 1,
+      runtimeKind: "browser",
+    });
+    if (!environment.compatible || !environment.capabilities.includes("browser")) {
+      bridge.close();
+      renderPage(
+        "Argos",
+        "This Argos Server does not support the browser runtime. Update the server and try again.",
+        "#e00",
+      );
+      return;
+    }
     connected = true;
     renderPage("Argos", "Connected. Full UI loading...");
     stateListeners.forEach((fn) => fn({ connected, url: window.location.origin, lastError: null }));

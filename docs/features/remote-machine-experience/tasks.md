@@ -159,9 +159,9 @@ Phases 1–3 are implemented and tested.
 - [x] Remove pairing token material from browser URL/history immediately after
       exchange.
 - [ ] Verify HTTP-only cookie reconnect and expiry/revocation behavior.
-- [ ] Hide/disable unsupported browser/headless capabilities using the handshake
+- [x] Hide/disable unsupported browser/headless capabilities using the handshake
       catalog.
-- [ ] Eliminate controls that predictably fail with headless-only errors.
+- [x] Eliminate controls that predictably fail with headless-only errors.
 - [ ] Add browser smoke coverage for pair, reload, revoke, and re-pair.
 
 ## Phase 11 — Documentation and release positioning
