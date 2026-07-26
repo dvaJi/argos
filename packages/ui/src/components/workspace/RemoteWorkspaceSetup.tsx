@@ -36,7 +36,7 @@ type RemoteWorkspaceSetupProps = {
 
 type ConnectionState =
   | { kind: "idle" }
-  | { kind: "checking" }
+  | { kind: "checking"; stage: "reaching" | "pairing" | "verifying" | "saving" }
   | { kind: "success"; version?: string }
   | { kind: "error"; message: string };
 
@@ -124,19 +124,21 @@ export function RemoteWorkspaceSetup({
     }
 
     if (trimmedPairingUrl) {
-      setConnection({ kind: "checking" });
+      setConnection({ kind: "checking", stage: "pairing" });
       try {
         const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
         if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
           setConnection({ kind: "error", message: result?.error?.message ?? "Pairing failed." });
           return;
         }
+        setConnection({ kind: "checking", stage: "verifying" });
         const response = await fetch(`${result.remoteUrl}/health`);
         const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
         if (!response.ok || body.status !== "ok") {
           setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
           return;
         }
+        setConnection({ kind: "checking", stage: "saving" });
         await onAddWorkspace({
           name: deriveName(name, result.remoteUrl),
           remoteUrl: result.remoteUrl,
@@ -160,7 +162,7 @@ export function RemoteWorkspaceSetup({
       return;
     }
 
-    setConnection({ kind: "checking" });
+    setConnection({ kind: "checking", stage: "reaching" });
 
     try {
       const controller = new AbortController();
@@ -362,7 +364,14 @@ function ConnectionForm({
               </Button>
             )}
             <Button onClick={() => onConnect()} disabled={!canConnect}>
-              {connection.kind === "checking" ? "Connecting..." : "Pair and add"}
+              {connection.kind === "checking"
+                ? {
+                    reaching: "Checking server...",
+                    pairing: "Pairing...",
+                    verifying: "Verifying machine...",
+                    saving: "Saving machine...",
+                  }[connection.stage]
+                : "Pair and add"}
             </Button>
           </div>
         </div>
