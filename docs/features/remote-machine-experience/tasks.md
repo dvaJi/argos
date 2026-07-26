@@ -144,12 +144,12 @@ Phases 1–3 are implemented and tested.
       clients, and Advanced diagnostics sections.
 - [x] Add machine status, identity abbreviation, endpoint, version, last
       connected, TLS/exposure summary, and capabilities.
-- [ ] Add Retry, Rename, Pair again, Edit address, Copy diagnostics, and Forget.
+- [x] Add Retry, Rename, Pair again, Edit address, Copy diagnostics, and Forget.
 - [x] Add authenticated session list/revoke contracts and daemon handlers if not
       already exposed through the route catalog.
 - [x] Terminate or promptly invalidate active connections after revocation.
 - [x] Offer local forget and optional server-side revoke as distinct operations.
-- [ ] Explain that forgetting does not delete remote server data.
+- [x] Explain that forgetting does not delete remote server data.
 - [x] Handle partial failure where local removal succeeds but remote revocation
       cannot be completed.
 
