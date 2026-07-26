@@ -812,6 +812,7 @@ export function createDaemonDispatcher(
         runtimeKind: "daemon",
         capabilities: [...ARGOS_CAPABILITIES],
         compatible: input.protocolVersion === 1,
+        eventTransport: { ready: true, protocol: "argos-v1" },
       });
     }
 

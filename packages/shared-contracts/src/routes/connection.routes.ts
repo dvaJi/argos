@@ -18,6 +18,7 @@ export const connectionDescribeEnvironmentRoute = defineRouteContract({
     runtimeKind: zod.literal("daemon"),
     capabilities: zod.array(zod.enum(ARGOS_CAPABILITIES)),
     compatible: zod.boolean(),
+    eventTransport: zod.object({ ready: zod.boolean(), protocol: zod.literal("argos-v1") }),
   }),
 });
 

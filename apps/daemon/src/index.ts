@@ -609,6 +609,15 @@ export async function startDaemon(options?: {
       open(ws: any) {
         eventPublisher.addClient(ws);
         ws.subscribe("events");
+        ws.send(
+          JSON.stringify({
+            type: "welcome",
+            environmentId,
+            serverVersion: resolveDaemonVersion(),
+            protocolVersion: 1,
+            eventTransport: { ready: true, protocol: "argos-v1" },
+          }),
+        );
       },
       close(ws: any) {
         eventPublisher.removeClient(ws);
