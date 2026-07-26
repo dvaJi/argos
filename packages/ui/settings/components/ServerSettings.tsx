@@ -62,6 +62,35 @@ export default function ServerSettings() {
     toast({ title: "Workspace removed" });
   };
 
+  const handleRename = (workspace: WorkspaceEntry) => {
+    const name = window.prompt("Machine name", workspace.name)?.trim();
+    if (!name || name === workspace.name) return;
+    window.argos?.workspace?.rename(workspace.id, name);
+    const config = readWorkspaceConfig();
+    config.workspaces = config.workspaces.map((entry) => (entry.id === workspace.id ? { ...entry, name } : entry));
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
+    setWorkspaces(config.workspaces);
+  };
+
+  const handleCopyDiagnostics = async (workspace: WorkspaceEntry) => {
+    await navigator.clipboard?.writeText(
+      JSON.stringify(
+        {
+          machineId: workspace.id,
+          name: workspace.name,
+          endpoint: workspace.remoteUrl,
+          environmentId: workspace.environmentId ?? null,
+          serverVersion: workspace.lastKnownServerVersion ?? null,
+          trustState: workspace.trustState ?? "pairing-required",
+        },
+        null,
+        2,
+      ),
+    );
+    toast({ title: "Diagnostics copied" });
+  };
+
   const handleGeneratePairingUrl = async () => {
     setGenerating(true);
     let ok = false;
@@ -159,6 +188,15 @@ export default function ServerSettings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
+                        Edit address
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRename(workspace)}>
+                        Rename
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => void handleCopyDiagnostics(workspace)}>
+                        Diagnostics
+                      </Button>
                       {workspace.trustState === "pairing-required" && (
                         <Button variant="outline" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
                           Pair again

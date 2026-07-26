@@ -106,6 +106,32 @@ export default function WorkspaceSelector() {
     [store],
   );
 
+  const handleRename = useCallback(
+    (workspace: WorkspaceEntry) => {
+      const nextName = window.prompt("Machine name", workspace.name)?.trim();
+      if (!nextName || nextName === workspace.name) return;
+      window.argos?.workspace?.rename(workspace.id, nextName);
+      store.renameWorkspace(workspace.id, nextName);
+    },
+    [store],
+  );
+
+  const handleCopyDiagnostics = useCallback(async (workspace: WorkspaceEntry) => {
+    const diagnostics = JSON.stringify(
+      {
+        machineId: workspace.id,
+        name: workspace.name,
+        endpoint: workspace.remoteUrl,
+        environmentId: workspace.environmentId ?? null,
+        serverVersion: workspace.lastKnownServerVersion ?? null,
+        trustState: workspace.trustState ?? "pairing-required",
+      },
+      null,
+      2,
+    );
+    await navigator.clipboard?.writeText(diagnostics);
+  }, []);
+
   return (
     <>
       <DropdownMenu>
@@ -145,16 +171,48 @@ export default function WorkspaceSelector() {
                 </span>
                 {isActive && <Icon icon="lucide:check" className="size-3.5 text-muted-foreground" />}
                 {ws.mode === "remote" && (
-                  <button
-                    className="ml-1 rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void handleRemove(ws.id);
-                    }}
-                    title="Forget machine"
-                  >
-                    <Icon icon="lucide:x" className="size-3" />
-                  </button>
+                  <span className="ml-1 flex items-center gap-0.5">
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleSwitch(ws.id);
+                      }}
+                      title="Retry connection"
+                    >
+                      <Icon icon="lucide:refresh-cw" className="size-3" />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRename(ws);
+                      }}
+                      title="Rename machine"
+                    >
+                      <Icon icon="lucide:pencil" className="size-3" />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleCopyDiagnostics(ws);
+                      }}
+                      title="Copy diagnostics"
+                    >
+                      <Icon icon="lucide:clipboard-copy" className="size-3" />
+                    </button>
+                    <button
+                      className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleRemove(ws.id);
+                      }}
+                      title="Forget machine"
+                    >
+                      <Icon icon="lucide:x" className="size-3" />
+                    </button>
+                  </span>
                 )}
               </DropdownMenuItem>
             );
