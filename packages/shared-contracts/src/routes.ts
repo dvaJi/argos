@@ -19,6 +19,7 @@ import {
   chatStopStreamRoute,
 } from "./routes/chat.routes";
 import { imageProcessRoute } from "./routes/image.routes";
+import { connectionDescribeEnvironmentRoute } from "./routes/connection.routes";
 import {
   databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityRepairSchemaRoute,
@@ -391,6 +392,7 @@ import {
 export * from "./routes/browser.routes";
 export * from "./routes/chat.routes";
 export * from "./routes/image.routes";
+export * from "./routes/connection.routes";
 export * from "./routes/config.routes";
 export * from "./routes/database-security.routes";
 export * from "./routes/dialog.routes";
@@ -419,6 +421,7 @@ export * from "./routes/window.routes";
 export * from "./routes/workspace.routes";
 
 export const ARGOS_ROUTE_CATALOG = {
+  [connectionDescribeEnvironmentRoute.name]: connectionDescribeEnvironmentRoute,
   [windowGetCurrentStateRoute.name]: windowGetCurrentStateRoute,
   [windowMinimizeCurrentRoute.name]: windowMinimizeCurrentRoute,
   [windowToggleMaximizeCurrentRoute.name]: windowToggleMaximizeCurrentRoute,

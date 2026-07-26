@@ -24,8 +24,8 @@ export function Hero() {
           </h1>
 
           <p className="animate-fade-up-2 mt-6 max-w-[52ch] text-pretty text-lg leading-relaxed text-slate-400">
-            Chat with 40+ LLMs, call MCP tools, install Skills, and run ACP agents from the desktop app or a paired
-            browser.
+            Chat with 40+ LLMs, call MCP tools, install Skills, and run ACP agents from Argos Desktop or an Argos Server
+            on your own machine.
           </p>
 
           <div className="animate-fade-up-3 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

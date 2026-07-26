@@ -97,10 +97,10 @@ async function bootstrap(): Promise<void> {
       },
     },
     workspace: {
-      list: () => [{ id: "local", name: "Local", mode: "local", remoteUrl: "", createdAt: 0 }],
-      getActive: () => ({ id: "local", name: "Local", mode: "local", remoteUrl: "", createdAt: 0 }),
+      list: () => [{ id: "local", name: "This computer", mode: "local", remoteUrl: "", createdAt: 0 }],
+      getActive: () => ({ id: "local", name: "This computer", mode: "local", remoteUrl: "", createdAt: 0 }),
       switchTo: async () => {},
-      add: () => ({ id: "local", name: "Local", mode: "local", remoteUrl: "", createdAt: 0 }),
+      add: () => ({ id: "local", name: "This computer", mode: "local", remoteUrl: "", createdAt: 0 }),
       remove: () => {},
       rename: () => {},
     },

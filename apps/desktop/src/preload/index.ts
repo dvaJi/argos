@@ -126,6 +126,9 @@ const hybridBridge = new HybridBridge(ipcBridge);
 let cachedLocalDaemonPort: number | null = null;
 const workspaceConnections = new Map<string, WebSocketBridge | null>();
 let localDaemonConnectInFlight: Promise<WebSocketBridge | null> | null = null;
+const PAIR_REMOTE_MACHINE_CHANNEL = "pair-remote-machine";
+const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
+const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credential";
 
 async function fetchLocalDaemonPort(): Promise<number | null> {
   if (cachedLocalDaemonPort !== null) return cachedLocalDaemonPort;
@@ -161,8 +164,11 @@ async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocke
   if (existing && existing.isConnected()) return existing;
   if (existing) existing.close();
 
+  const stored = entry.credentialRef
+    ? await ipcRenderer.invoke(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, entry.credentialRef)
+    : null;
   const wsUrl = buildWsUrl(entry.remoteUrl);
-  const bridge = new WebSocketBridge(wsUrl);
+  const bridge = new WebSocketBridge(wsUrl, stored?.token);
   workspaceConnections.set(entry.id, bridge);
   hybridBridge.setWsBridge(bridge, "remote");
 
@@ -311,15 +317,23 @@ function buildWorkspaceApi() {
       return newEntry;
     },
 
+    pairRemote: async (pairingUrl: string) => {
+      return await ipcRenderer.invoke(PAIR_REMOTE_MACHINE_CHANNEL, pairingUrl);
+    },
+
     remove: (workspaceId: string): void => {
       if (workspaceId === LOCAL_WORKSPACE_ID) return;
       const config = readWorkspaceConfig();
+      const removed = config.workspaces.find((workspace) => workspace.id === workspaceId);
       config.workspaces = config.workspaces.filter((w) => w.id !== workspaceId);
       if (config.activeWorkspaceId === workspaceId) {
         config.activeWorkspaceId = LOCAL_WORKSPACE_ID;
       }
       writeWorkspaceConfig(config);
       disconnectRemoteWorkspace(workspaceId);
+      if (removed?.credentialRef) {
+        void ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, removed.credentialRef);
+      }
       notifyWorkspaceConfigChanged();
       void applyActiveWorkspace(config);
     },

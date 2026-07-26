@@ -73,6 +73,12 @@ export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): W
 export function removeWorkspace(id: string): void {
   if (id === LOCAL_WORKSPACE_ID) return;
 
+  try {
+    window.argos?.workspace?.remove(id);
+  } catch (err) {
+    console.warn("[workspaceStore] Preload remove failed:", err);
+  }
+
   workspaceStore.setState((prev) => {
     const nextWorkspaces = prev.workspaces.filter((w) => w.id !== id);
     const nextActiveId = prev.activeWorkspaceId === id ? LOCAL_WORKSPACE_ID : prev.activeWorkspaceId;

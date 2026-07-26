@@ -28,6 +28,7 @@ import { DaemonScheduledTasks } from "./host/daemonScheduledTasks";
 import { logger } from "./logging";
 import { checkForUpdate, runSelfUpdate } from "./update";
 import { resolveDaemonVersion } from "./version";
+import { loadOrCreateEnvironmentId } from "./host/environment-identity";
 import type { ProviderExecutionPort } from "@argos/backend-core";
 import type { SendMessageInput, ToolInteractionResponse } from "@argos/shared/types/agent-interface";
 import {
@@ -261,6 +262,7 @@ export async function startDaemon(options?: {
 
   const paths = new BunPathResolver(options?.dataDir);
   ensureDirectories(paths);
+  const environmentId = loadOrCreateEnvironmentId(paths.getDataDir());
 
   logger.info("[daemon] Initializing database...");
   const db = await initializeDatabase(paths.getDatabasePath());
@@ -496,6 +498,7 @@ export async function startDaemon(options?: {
       pluginPresenter,
       providerImportService,
       db,
+      environmentId,
     );
   setRouteDispatcher(dispatcher);
 
@@ -519,6 +522,7 @@ export async function startDaemon(options?: {
         return Response.json({
           status: "ok",
           version: resolveDaemonVersion(),
+          environmentId,
           uptime: Date.now() - startTime,
         });
       }
@@ -580,6 +584,7 @@ export async function startDaemon(options?: {
 
       if (url.pathname === "/api/v1/events") {
         const success = (server as any).upgrade(request, {
+          headers: request.headers.has("sec-websocket-protocol") ? { "Sec-WebSocket-Protocol": "argos-v1" } : undefined,
           data: {
             subscriptions: new Set<string>(),
             authContext: authResult.context,
@@ -611,6 +616,11 @@ export async function startDaemon(options?: {
       },
       async message(ws: any, message: string | Buffer) {
         if (typeof message !== "string") return;
+        const sessionId = ws.data?.authContext?.sessionId;
+        if (sessionId && !sessionAuthRepo.isSessionActive(sessionId)) {
+          ws.close?.(4001, "Session revoked");
+          return;
+        }
         let parsed: any;
         try {
           parsed = JSON.parse(message);
@@ -660,6 +670,11 @@ export async function startDaemon(options?: {
     const pairing = sessionAuthRepo.issuePairingToken("cli");
     const scheme = webRoot ? "http" : "http";
     console.log(`\n  Pairing URL: ${scheme}://${host}:${serverPort}/pair?token=${pairing.token}\n`);
+    if (host === "0.0.0.0" || host === "::") {
+      console.log(
+        "  Replace the wildcard host in this URL with the machine's reachable LAN or private-network address.\n",
+      );
+    }
     logger.info(`[daemon] Pairing token expires at ${new Date(pairing.expiresAt).toISOString()}`);
   }
 

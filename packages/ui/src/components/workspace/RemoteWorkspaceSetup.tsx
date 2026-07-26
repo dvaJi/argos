@@ -8,46 +8,27 @@ import { Label } from "#shadcn/components/ui/label";
 import { Separator } from "#shadcn/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { useToast } from "#/components/use-toast";
+import { getRemoteMachineCommands } from "@argos/shared/remoteMachineCommands";
 
-const INSTALL_RAW = "https://raw.githubusercontent.com/dvaJi/argos/main/distro/install";
-
-const INSTALL_OPTIONS = [
-  {
-    label: "Homebrew",
-    detail: "macOS or Linux with brew",
-    command: "brew install dvaJi/tap/argos-daemon",
-  },
-  {
-    label: "Shell",
-    detail: "macOS or Linux without brew",
-    command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`,
-  },
-  {
-    label: "PowerShell",
-    detail: "Windows hosts",
-    command: `irm ${INSTALL_RAW}/install.ps1 | iex`,
-  },
-] as const;
-
-const RUN_COMMANDS = [
-  {
-    label: "Start daemon",
-    command: "argos-daemon",
-  },
-  {
-    label: "Health check",
-    command: "curl http://127.0.0.1:9527/health",
-  },
-] as const;
+function getPlatformCommands() {
+  const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent.toLowerCase();
+  return getRemoteMachineCommands(
+    userAgent.includes("win") ? "windows" : userAgent.includes("mac") ? "macos" : "linux",
+  );
+}
 
 type WorkspaceDraft = {
   name: string;
   remoteUrl: string;
   daemonVersion?: string;
+  credentialRef?: string;
+  sessionId?: string;
+  environmentId?: string;
 };
 
 type RemoteWorkspaceSetupProps = {
   existingRemoteUrls?: string[];
+  initialRemoteUrl?: string;
   onAddWorkspace: (workspace: WorkspaceDraft) => void | Promise<void>;
   onCancel?: () => void;
   compact?: boolean;
@@ -99,11 +80,18 @@ function getValidationError(remoteUrl: string, existingRemoteUrls: string[]): st
   return null;
 }
 
-export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, onCancel }: RemoteWorkspaceSetupProps) {
+export function RemoteWorkspaceSetup({
+  existingRemoteUrls = [],
+  initialRemoteUrl = "",
+  onAddWorkspace,
+  onCancel,
+}: RemoteWorkspaceSetupProps) {
   const { toast } = useToast();
   const [view, setView] = useState<SetupView>("form");
   const [name, setName] = useState("");
-  const [remoteUrl, setRemoteUrl] = useState("");
+  const [pairingUrl, setPairingUrl] = useState("");
+  const [remoteUrl, setRemoteUrl] = useState(initialRemoteUrl);
+  const [advanced, setAdvanced] = useState(Boolean(initialRemoteUrl));
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
 
   const validationError = useMemo(
@@ -111,7 +99,7 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
     [remoteUrl, existingRemoteUrls],
   );
   const normalizedUrl = normalizeServerUrl(remoteUrl);
-  const canConnect = !validationError && connection.kind !== "checking";
+  const canConnect = connection.kind !== "checking" && (pairingUrl.trim().length > 0 || (advanced && !validationError));
 
   const copyCommand = useCallback(
     (command: string) => {
@@ -123,10 +111,49 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
 
   const resetFields = useCallback(() => {
     setName("");
+    setPairingUrl("");
     setRemoteUrl("");
+    setAdvanced(false);
   }, []);
 
   const handleConnect = useCallback(async () => {
+    const trimmedPairingUrl = pairingUrl.trim();
+    if (!trimmedPairingUrl && !advanced) {
+      setConnection({ kind: "error", message: "Paste the pairing link printed by Argos Server." });
+      return;
+    }
+
+    if (trimmedPairingUrl) {
+      setConnection({ kind: "checking" });
+      try {
+        const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
+        if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
+          setConnection({ kind: "error", message: result?.error?.message ?? "Pairing failed." });
+          return;
+        }
+        const response = await fetch(`${result.remoteUrl}/health`);
+        const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
+        if (!response.ok || body.status !== "ok") {
+          setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
+          return;
+        }
+        await onAddWorkspace({
+          name: deriveName(name, result.remoteUrl),
+          remoteUrl: result.remoteUrl,
+          daemonVersion: result.serverVersion ?? body.version,
+          credentialRef: result.credentialRef,
+          sessionId: result.sessionId,
+          environmentId: result.environmentId ?? body.environmentId,
+        });
+        setConnection({ kind: "success", version: body.version });
+        toast({ title: body.version ? `Connected to Argos Server v${body.version}` : "Remote machine paired" });
+        resetFields();
+      } catch (error) {
+        setConnection({ kind: "error", message: error instanceof Error ? error.message : "Pairing failed." });
+      }
+      return;
+    }
+
     const error = getValidationError(remoteUrl, existingRemoteUrls);
     if (error) {
       setConnection({ kind: "error", message: error });
@@ -170,9 +197,10 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-1 pr-8">
-        <h3 className="text-balance text-base font-semibold text-foreground">Add remote workspace</h3>
+        <h3 className="text-balance text-base font-semibold text-foreground">Connect a remote machine</h3>
         <p className="text-pretty text-sm leading-6 text-muted-foreground">
-          Connect to an Argos daemon running on another machine. Local workspace is already managed by the app.
+          This computer is managed automatically by Argos Desktop. Use Argos Server on another machine when you want
+          agents and project files to stay there.
         </p>
       </div>
 
@@ -191,11 +219,18 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
         <TabsContent value="form" className="mt-0">
           <ConnectionForm
             name={name}
+            pairingUrl={pairingUrl}
             remoteUrl={remoteUrl}
+            advanced={advanced}
             validationError={validationError}
             connection={connection}
             canConnect={canConnect}
             onNameChange={setName}
+            onPairingUrlChange={(value) => {
+              setPairingUrl(value);
+              setConnection({ kind: "idle" });
+            }}
+            onAdvancedChange={setAdvanced}
             onUrlChange={(value) => {
               setRemoteUrl(value);
               setConnection({ kind: "idle" });
@@ -216,22 +251,30 @@ export function RemoteWorkspaceSetup({ existingRemoteUrls = [], onAddWorkspace, 
 
 function ConnectionForm({
   name,
+  pairingUrl,
   remoteUrl,
+  advanced,
   validationError,
   connection,
   canConnect,
   onNameChange,
+  onPairingUrlChange,
+  onAdvancedChange,
   onUrlChange,
   onCancel,
   onConnect,
   onShowInstructions,
 }: {
   name: string;
+  pairingUrl: string;
   remoteUrl: string;
+  advanced: boolean;
   validationError: string | null;
   connection: ConnectionState;
   canConnect: boolean;
   onNameChange: (value: string) => void;
+  onPairingUrlChange: (value: string) => void;
+  onAdvancedChange: (value: boolean) => void;
   onUrlChange: (value: string) => void;
   onCancel?: () => void;
   onConnect: () => void;
@@ -241,31 +284,54 @@ function ConnectionForm({
     <section className="rounded-2xl border bg-background p-4">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="remote-workspace-name">Name</Label>
+          <Label htmlFor="remote-machine-pairing-url">Pairing link</Label>
+          <Input
+            id="remote-machine-pairing-url"
+            placeholder="Paste the link printed by argos-daemon --pair"
+            value={pairingUrl}
+            onChange={(event) => onPairingUrlChange(event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Pairing creates a revocable connection. You do not need to copy a bearer token.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="text-left text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
+          onClick={() => onAdvancedChange(!advanced)}
+        >
+          {advanced ? "Hide advanced URL connection" : "Advanced: connect by server URL"}
+        </button>
+
+        <div className="space-y-2">
+          <Label htmlFor="remote-workspace-name">Machine name</Label>
           <Input
             id="remote-workspace-name"
             placeholder="Build server"
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Optional. If empty, Argos uses the daemon host name.</p>
+          <p className="text-xs text-muted-foreground">Optional. If empty, Argos uses the server host name.</p>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="remote-workspace-url">Daemon URL</Label>
-          <Input
-            id="remote-workspace-url"
-            placeholder="http://192.168.1.100:9527"
-            value={remoteUrl}
-            onChange={(event) => onUrlChange(event.target.value)}
-            aria-invalid={Boolean(validationError && remoteUrl.trim())}
-          />
-          {validationError && remoteUrl.trim() ? (
-            <p className="text-xs text-destructive">{validationError}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground">Use the daemon HTTP address, not the WebSocket URL.</p>
-          )}
-        </div>
+        {advanced && (
+          <div className="space-y-2">
+            <Label htmlFor="remote-workspace-url">Daemon URL</Label>
+            <Input
+              id="remote-workspace-url"
+              placeholder="http://192.168.1.100:9527"
+              value={remoteUrl}
+              onChange={(event) => onUrlChange(event.target.value)}
+              aria-invalid={Boolean(validationError && remoteUrl.trim())}
+            />
+            {validationError && remoteUrl.trim() ? (
+              <p className="text-xs text-destructive">{validationError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Use the daemon HTTP address, not the WebSocket URL.</p>
+            )}
+          </div>
+        )}
 
         {connection.kind === "error" && (
           <Alert variant="destructive">
@@ -296,7 +362,7 @@ function ConnectionForm({
               </Button>
             )}
             <Button onClick={() => onConnect()} disabled={!canConnect}>
-              {connection.kind === "checking" ? "Checking..." : "Check and add"}
+              {connection.kind === "checking" ? "Connecting..." : "Pair and add"}
             </Button>
           </div>
         </div>
@@ -312,6 +378,7 @@ function InstructionsPanel({
   onCopyCommand: (command: string) => void;
   onShowForm: () => void;
 }) {
+  const commands = getPlatformCommands();
   return (
     <section className="rounded-2xl border bg-background p-4">
       <div className="space-y-1">
@@ -325,29 +392,21 @@ function InstructionsPanel({
 
       <div className="space-y-4">
         <InstructionGroup title="Install daemon" description="Pick the command that matches the remote host.">
-          {INSTALL_OPTIONS.map((option) => (
-            <CommandRow
-              key={option.label}
-              label={option.label}
-              detail={option.detail}
-              command={option.command}
-              onCopy={onCopyCommand}
-            />
-          ))}
+          <CommandRow label="Install" detail={commands.platform} command={commands.install} onCopy={onCopyCommand} />
         </InstructionGroup>
 
         <InstructionGroup title="Run and verify" description="Start the daemon and check that it is healthy.">
-          {RUN_COMMANDS.map((option) => (
-            <CommandRow key={option.label} label={option.label} command={option.command} onCopy={onCopyCommand} />
-          ))}
+          <CommandRow label="Start (local)" command={commands.start.loopback} onCopy={onCopyCommand} />
+          <CommandRow label="Health check" command={commands.health} onCopy={onCopyCommand} />
+          <CommandRow label="Version" command={commands.version} onCopy={onCopyCommand} />
         </InstructionGroup>
 
         <Alert>
           <Icon icon="lucide:shield-check" className="size-4" />
-          <AlertTitle>Remote pairing coming soon</AlertTitle>
+          <AlertTitle>Pairing is the recommended connection</AlertTitle>
           <AlertDescription>
-            Browser and remote access will use secure pairing to create revocable sessions. For now, the daemon binds to
-            localhost by default.
+            Start Argos Server with its pairing option on the remote machine, then paste the short-lived link above. For
+            internet-distance access, use a private overlay network or HTTPS reverse proxy.
           </AlertDescription>
         </Alert>
 

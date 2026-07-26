@@ -21,11 +21,18 @@ export default function ServerSettings() {
   const [workspaces, setWorkspaces] = useState<WorkspaceEntry[]>(() => readWorkspaceConfig().workspaces);
   const [pairing, setPairing] = useState<PairingResult>(null);
   const [generating, setGenerating] = useState(false);
+  const [recoveryWorkspace, setRecoveryWorkspace] = useState<WorkspaceEntry | null>(null);
 
   const remoteWorkspaces = workspaces.filter((workspace) => workspace.mode === "remote");
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
 
-  const handleAdd = (workspace: { name: string; remoteUrl: string; daemonVersion?: string }) => {
+  const handleAdd = (workspace: {
+    name: string;
+    remoteUrl: string;
+    daemonVersion?: string;
+    credentialRef?: string;
+    environmentId?: string;
+  }) => {
     const config = readWorkspaceConfig();
     const entry: WorkspaceEntry = {
       id: generateWorkspaceId(),
@@ -33,6 +40,10 @@ export default function ServerSettings() {
       mode: "remote",
       remoteUrl: workspace.remoteUrl,
       createdAt: Date.now(),
+      credentialRef: workspace.credentialRef,
+      environmentId: workspace.environmentId,
+      lastKnownServerVersion: workspace.daemonVersion,
+      trustState: workspace.credentialRef ? "paired" : "pairing-required",
     };
     config.workspaces.push(entry);
     writeWorkspaceConfig(config);
@@ -40,8 +51,9 @@ export default function ServerSettings() {
     setWorkspaces(config.workspaces);
   };
 
-  const handleRemove = (id: string) => {
+  const handleRemove = async (id: string) => {
     if (id === LOCAL_WORKSPACE_ID) return;
+    await window.argos?.workspace?.remove(id);
     const config = readWorkspaceConfig();
     config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
     writeWorkspaceConfig(config);
@@ -73,9 +85,10 @@ export default function ServerSettings() {
       <ScrollArea className="h-full w-full">
         <div className="flex max-w-5xl flex-col gap-6 p-4">
           <div className="space-y-1">
-            <div className="text-base font-medium">Workspaces</div>
+            <div className="text-base font-medium">Machines</div>
             <div className="text-sm text-muted-foreground">
-              Each workspace connects to a daemon, local or remote. Switch between them from the sidebar.
+              Each machine is backed by Argos Desktop locally or Argos Server remotely. Switch machines from the
+              sidebar.
             </div>
           </div>
 
@@ -84,9 +97,9 @@ export default function ServerSettings() {
               <div className="flex items-start gap-3">
                 <span className="mt-1 size-2 rounded-full bg-green-600" />
                 <div className="min-w-0 space-y-1">
-                  <div className="text-sm font-medium">Local</div>
+                  <div className="text-sm font-medium">This computer</div>
                   <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    The local daemon is managed automatically by the app and is always available as a workspace.
+                    Argos Desktop manages the local server automatically. Most users only need this machine.
                   </p>
                 </div>
               </div>
@@ -96,9 +109,9 @@ export default function ServerSettings() {
               <div className="flex items-start gap-3">
                 <Icon icon="lucide:server" className="mt-0.5 size-4 text-muted-foreground" />
                 <div className="min-w-0 space-y-1">
-                  <div className="text-sm font-medium">Remote</div>
+                  <div className="text-sm font-medium">Argos Server</div>
                   <p className="text-pretty text-xs leading-5 text-muted-foreground">
-                    Remote workspaces connect this app to an <code>argos-daemon</code> running on another machine.
+                    Install <code>argos-daemon</code> on another machine when agents and project files should run there.
                   </p>
                 </div>
               </div>
@@ -131,17 +144,30 @@ export default function ServerSettings() {
 
           {remoteWorkspaces.length > 0 && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Saved Remote Workspaces</Label>
+              <Label className="text-sm font-medium">Saved remote machines</Label>
               <div className="grid gap-2">
                 {remoteWorkspaces.map((workspace) => (
                   <div key={workspace.id} className="flex items-center justify-between gap-3 rounded-2xl border p-3">
                     <div className="min-w-0 space-y-0.5">
                       <div className="truncate text-sm font-medium">{workspace.name}</div>
                       <div className="truncate font-mono text-xs text-muted-foreground">{workspace.remoteUrl}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {workspace.lastKnownServerVersion
+                          ? `Argos Server v${workspace.lastKnownServerVersion}`
+                          : "Pairing verification required"}
+                        {workspace.environmentId ? ` · ${workspace.environmentId.slice(0, 8)}` : ""}
+                      </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => handleRemove(workspace.id)}>
-                      Remove
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {workspace.trustState === "pairing-required" && (
+                        <Button variant="outline" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
+                          Pair again
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => void handleRemove(workspace.id)}>
+                        Forget
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -149,7 +175,18 @@ export default function ServerSettings() {
           )}
 
           <div className="rounded-2xl border p-4">
-            <RemoteWorkspaceSetup existingRemoteUrls={remoteUrls} onAddWorkspace={handleAdd} compact />
+            <RemoteWorkspaceSetup
+              existingRemoteUrls={remoteUrls}
+              initialRemoteUrl={recoveryWorkspace?.remoteUrl}
+              onAddWorkspace={(workspace) => {
+                handleAdd(workspace);
+                if (recoveryWorkspace) {
+                  void handleRemove(recoveryWorkspace.id);
+                  setRecoveryWorkspace(null);
+                }
+              }}
+              compact
+            />
           </div>
         </div>
       </ScrollArea>

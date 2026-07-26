@@ -161,4 +161,11 @@ export class SessionAuthRepository {
     }
     return result.changes > 0;
   }
+
+  isSessionActive(sessionId: string): boolean {
+    const row = this.db
+      .query<{ expires_at: number; revoked: number }>("SELECT expires_at, revoked FROM auth_sessions WHERE id = ?")
+      .get(sessionId);
+    return Boolean(row && row.revoked === 0 && row.expires_at > Date.now());
+  }
 }

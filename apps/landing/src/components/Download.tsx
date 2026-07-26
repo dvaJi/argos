@@ -56,7 +56,8 @@ export function Download() {
           <div className="text-center">
             <h3 className="text-lg font-semibold text-white">Run it headless</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Serve a paired browser workspace from the standalone daemon. No desktop app is required on the host.
+              Desktop is all most users need. Install Argos Server separately only when another machine should run
+              agents and host project files.
             </p>
           </div>
           <div className="mt-7 space-y-2.5">
@@ -76,7 +77,7 @@ export function Download() {
               href="/docs"
               className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
-              daemon handbook
+              remote machine guide
             </a>
             .
           </p>

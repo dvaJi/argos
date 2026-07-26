@@ -29,6 +29,7 @@ Renderer
 | [guides/code-navigation.md](./guides/code-navigation.md) | Current code navigation entry point |
 | [guides/getting-started.md](./guides/getting-started.md) | Quick start for new developers |
 | [guides/plugin-packaging.md](./guides/plugin-packaging.md) | `.dcplugin` packaging, built-in distribution, and release rules |
+| [guides/remote-machines.md](./guides/remote-machines.md) | Desktop versus Argos Server, pairing, exposure, lifecycle, and recovery |
 | [spec-driven-dev.md](./spec-driven-dev.md) | SDD directory rules, retention periods, and cleanup rules |
 
 ## Baselines Still In Use At Runtime

@@ -125,9 +125,11 @@ export class WebSocketBridge implements ArgosBridge {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     return new Promise((resolve, reject) => {
-      const wsUrl = this.token ? `${this.url}?token=${encodeURIComponent(this.token)}` : this.url;
-
-      this.ws = new WebSocket(wsUrl);
+      // WebSocket browser clients cannot set arbitrary headers. Put the bearer
+      // in the negotiated subprotocol instead of the URL, where it would leak
+      // through history, proxy logs, and diagnostics.
+      const protocols = this.token ? ["argos-v1", `argos-bearer.${this.token}`] : undefined;
+      this.ws = protocols ? new WebSocket(this.url, protocols) : new WebSocket(this.url);
 
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
@@ -141,7 +143,12 @@ export class WebSocketBridge implements ArgosBridge {
         this.handleMessage(event.data);
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
+        if (event.code === 4001) {
+          this.closed = true;
+          this.emitConnectionState({ connected: false, lastError: "Remote session revoked. Pair this machine again." });
+          return;
+        }
         this.emitConnectionState({ connected: false, lastError: "Daemon connection closed" });
         if (!this.closed) {
           this.scheduleReconnect();
