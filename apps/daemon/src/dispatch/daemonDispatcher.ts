@@ -41,6 +41,7 @@ import {
   settingsUpdateRoute,
   settingsActivityListRoute,
   connectionDescribeEnvironmentRoute,
+  ARGOS_CAPABILITIES,
   settingsListSystemFontsRoute,
   databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityRepairSchemaRoute,
@@ -809,7 +810,7 @@ export function createDaemonDispatcher(
         serverVersion: resolveDaemonVersion(),
         protocolVersion: 1,
         runtimeKind: "daemon",
-        capabilities: ["chat", "sessions", "project-files", "mcp", "skills", "browser"],
+        capabilities: [...ARGOS_CAPABILITIES],
         compatible: input.protocolVersion === 1,
       });
     }

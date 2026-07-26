@@ -168,12 +168,12 @@ Phases 1–3 are implemented and tested.
 
 - [x] Create/update the durable remote-machines guide.
 - [x] Document Desktop versus Server and state that most users need only Desktop.
-- [ ] Document supported network topologies with diagrams.
+- [x] Document supported network topologies with diagrams.
 - [ ] Document install, exposure, pairing, browser access, lifecycle, data
       location, backup, updates, logs, revoke, uninstall, and troubleshooting.
 - [x] Update landing/download copy to label Desktop as recommended and Server as
       advanced/headless.
-- [ ] Add release-note template sections for Desktop and Server assets.
+- [x] Add release-note template sections for Desktop and Server assets.
 - [ ] Link the guide from the in-app wizard, settings, landing page, and release
       notes.
 - [ ] Verify commands in documentation against the shared command matrix.

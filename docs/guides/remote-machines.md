@@ -41,6 +41,14 @@ Desktop under **Machines → Connect a remote machine**.
 
 ## Network choices
 
+```text
+Argos Desktop ──authenticated session──> Argos Server
+     │                                      │
+     └── local managed daemon               └── projects, agents, data
+
+Browser/private overlay ──HTTPS or tunnel─> Argos Server (optional)
+```
+
 For a server on the same computer, bind to loopback:
 
 ```text
@@ -86,15 +94,10 @@ This computer.
 
 ## Manage a remote machine
 
-From the machine selector or Server settings you can:
-
-- retry a disconnected machine;
-- pair again after revocation or credential loss;
-- edit an advanced endpoint;
-- rename the machine;
-- copy redacted diagnostics;
-- forget the local connection;
-- revoke the current client session when the server supports it.
+From the machine selector or Server settings you can pair again after
+revocation or credential loss, and forget the local connection. Session
+revocation is also performed when forgetting a paired machine; if the server
+is offline, local removal still succeeds.
 
 Forgetting removes the Desktop credential and cached connection metadata. It
 does not uninstall Argos Server or delete projects and sessions on that host.
@@ -129,4 +132,3 @@ server data directory before upgrades or migrations.
 The server data directory is controlled by the daemon's `--data-dir` option (or
 its platform default). Treat it as the source of truth for remote sessions,
 configuration, and projects unless a feature explicitly documents synchronization.
-
