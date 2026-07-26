@@ -5,7 +5,7 @@ export const WORKSPACE_CONFIG_CHANGED_EVENT = "argos:workspace-config:changed";
 export const WORKSPACE_CONFIG_VERSION = 2;
 
 export type WorkspaceMode = "local" | "remote";
-export type WorkspaceTrustState = "managed-local" | "paired" | "pairing-required";
+export type WorkspaceTrustState = "managed-local" | "paired" | "pairing-required" | "identity-changed";
 
 export type WorkspaceEntry = {
   id: string;
@@ -62,7 +62,8 @@ function isWorkspaceEntry(value: unknown): value is WorkspaceEntry {
     (c.trustState === undefined ||
       c.trustState === "managed-local" ||
       c.trustState === "paired" ||
-      c.trustState === "pairing-required")
+      c.trustState === "pairing-required" ||
+      c.trustState === "identity-changed")
   );
 }
 

@@ -99,6 +99,14 @@ export function renameWorkspace(id: string, name: string): void {
   persist();
 }
 
+export function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
+  workspaceStore.setState((prev) => ({
+    ...prev,
+    workspaces: prev.workspaces.map((workspace) => (workspace.id === id ? { ...workspace, ...patch } : workspace)),
+  }));
+  persist();
+}
+
 export async function switchWorkspace(id: string): Promise<void> {
   const target = workspaceStore.state.workspaces.find((w) => w.id === id);
   if (!target) return;
@@ -134,6 +142,7 @@ export function useWorkspaceStore() {
     addWorkspace,
     removeWorkspace,
     renameWorkspace,
+    updateWorkspace,
     switchWorkspace,
     updateConnectionState,
   };

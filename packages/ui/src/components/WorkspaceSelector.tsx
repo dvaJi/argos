@@ -17,7 +17,9 @@ function deriveConnectionStatus(
   connections: Record<string, any>,
 ): "connected" | "connecting" | "disconnected" {
   if (entry.mode === "local") return "connected";
-  if (entry.trustState === "pairing-required" || !entry.credentialRef) return "disconnected";
+  if (entry.trustState === "pairing-required" || entry.trustState === "identity-changed" || !entry.credentialRef) {
+    return "disconnected";
+  }
   const conn = connections[entry.id];
   if (!conn) return "disconnected";
   if (conn.connected) return "connected";
@@ -64,6 +66,24 @@ export default function WorkspaceSelector() {
       environmentId?: string;
       daemonVersion?: string;
     }) => {
+      const existing = workspaces.find(
+        (candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl,
+      );
+      if (existing) {
+        const identityChanged = Boolean(
+          existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
+        );
+        store.updateWorkspace(existing.id, {
+          name: workspace.name || existing.name,
+          credentialRef: workspace.credentialRef,
+          environmentId: workspace.environmentId,
+          lastKnownServerVersion: workspace.daemonVersion,
+          trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
+        });
+        await store.switchWorkspace(existing.id);
+        setAddDialogOpen(false);
+        return;
+      }
       const entry = store.addWorkspace({
         name: workspace.name,
         mode: "remote",
@@ -76,7 +96,7 @@ export default function WorkspaceSelector() {
       await store.switchWorkspace(entry.id);
       setAddDialogOpen(false);
     },
-    [store],
+    [store, workspaces],
   );
 
   const handleRemove = useCallback(
@@ -116,9 +136,12 @@ export default function WorkspaceSelector() {
                 <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
                 <span className="flex-1 truncate text-sm">
                   {ws.name}
-                  {ws.mode === "remote" && ws.trustState === "pairing-required" && (
-                    <span className="ml-1 text-[10px] text-muted-foreground">(pair again)</span>
-                  )}
+                  {ws.mode === "remote" &&
+                    (ws.trustState === "pairing-required" || ws.trustState === "identity-changed") && (
+                      <span className="ml-1 text-[10px] text-muted-foreground">
+                        ({ws.trustState === "identity-changed" ? "identity changed" : "pair again"})
+                      </span>
+                    )}
                 </span>
                 {isActive && <Icon icon="lucide:check" className="size-3.5 text-muted-foreground" />}
                 {ws.mode === "remote" && (
