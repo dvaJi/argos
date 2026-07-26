@@ -6,14 +6,14 @@ Phases 1–3 are implemented and tested.
 
 ## Phase 0 — Baseline and terminology
 
-- [ ] Inventory every user-facing use of workspace, daemon, server, remote,
+- [x] Inventory every user-facing use of workspace, daemon, server, remote,
       browser access, and Remote Control.
-- [ ] Record the current remote connection sequence from sidebar, settings,
+- [x] Record the current remote connection sequence from sidebar, settings,
       preload, client SDK, daemon auth, and workspace persistence.
-- [ ] Record current release asset names and install-script support per
+- [x] Record current release asset names and install-script support per
       OS/architecture.
 - [x] Add the approved terminology table to the durable product documentation.
-- [ ] Define the specific legacy `WorkspaceEntry` fields and active-selection
+- [x] Define the specific legacy `WorkspaceEntry` fields and active-selection
       behavior that must survive migration.
 
 ## Phase 1 — Environment and capability contracts
@@ -25,7 +25,7 @@ Phases 1–3 are implemented and tested.
       versions, runtime kind, capabilities, compatibility, display metadata.
 - [x] Register the handshake route in `ARGOS_ROUTE_CATALOG`.
 - [x] Implement the daemon handshake handler.
-- [ ] Add a stable capability catalog for daemon, browser, and native-only
+- [x] Add a stable capability catalog for daemon, browser, and native-only
       features.
 - [x] Add protocol compatibility policy and tests.
 - [ ] Add server welcome/readiness data required to prove event transport.
@@ -34,7 +34,7 @@ Phases 1–3 are implemented and tested.
 
 ## Phase 2 — Machine model and compatibility
 
-- [ ] Introduce the versioned `MachineEntry` persistence model.
+- [x] Introduce the versioned `MachineEntry` persistence model.
 - [ ] Separate machine connection terminology from project-folder/workspace
       terminology in types exposed to new UI.
 - [x] Implement idempotent migration/adapter for existing remote
@@ -91,12 +91,12 @@ Phases 1–3 are implemented and tested.
 
 ## Phase 6 — Exposure/start command matrix
 
-- [ ] Replace hard-coded install/start arrays with a typed supported-platform
+- [x] Replace hard-coded install/start arrays with a typed supported-platform
       command matrix.
 - [ ] Align each install command with an asset actually produced by the release
       workflow.
 - [ ] Add `--version` coverage for every daemon artifact.
-- [ ] Define commands for loopback browser, trusted LAN/private overlay, and
+- [x] Define commands for loopback browser, trusted LAN/private overlay, and
       HTTPS/reverse-proxy deployments.
 - [ ] Ensure no command suggests a LAN URL while binding only to loopback.
 - [ ] Require explicit confirmation before showing network-accessible startup.
@@ -113,7 +113,7 @@ Phases 1–3 are implemented and tested.
 - [ ] Add copyable install, verify, start, and pairing instructions.
 - [ ] Make pairing link/code the default input.
 - [ ] Move raw endpoint entry under Advanced.
-- [ ] Add explicit progress stages for reachability, exchange, authentication,
+- [x] Add explicit progress stages for reachability, exchange, authentication,
       handshake, events, and capabilities.
 - [ ] Add a review screen with identity, endpoint, version, security summary,
       capabilities, limitations, and data-location statement.
@@ -155,8 +155,8 @@ Phases 1–3 are implemented and tested.
 
 ## Phase 10 — Browser pairing alignment
 
-- [ ] Reuse the canonical pairing entry format in browser bootstrap.
-- [ ] Remove pairing token material from browser URL/history immediately after
+- [x] Reuse the canonical pairing entry format in browser bootstrap.
+- [x] Remove pairing token material from browser URL/history immediately after
       exchange.
 - [ ] Verify HTTP-only cookie reconnect and expiry/revocation behavior.
 - [ ] Hide/disable unsupported browser/headless capabilities using the handshake
@@ -196,9 +196,9 @@ Phases 1–3 are implemented and tested.
 - [ ] Run browser pairing/reload/revoke smoke.
 - [ ] Run trusted LAN/private-network manual security smoke.
 - [ ] Confirm no secrets in logs, diagnostics, persisted config, or telemetry.
-- [ ] Run `bun run format`.
-- [ ] Run `bun run lint`.
-- [ ] Run `bun run typecheck`.
+- [x] Run `bun run format`.
+- [x] Run `bun run lint`.
+- [x] Run `bun run typecheck`.
 - [ ] Run relevant main, renderer, daemon, and E2E test suites.
 - [ ] Remove temporary feature flags and obsolete raw URL-first code.
 - [ ] Fold durable facts into current guides/architecture docs and retire
