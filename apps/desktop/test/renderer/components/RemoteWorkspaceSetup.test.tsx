@@ -69,6 +69,7 @@ describe("RemoteWorkspaceSetup", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This pairing link has expired");
     expect(screen.getByRole("alert")).toHaveTextContent("Generate a new pairing link on the server");
+    expect(screen.getByRole("alert")).toHaveFocus();
     expect(screen.queryByText("Review remote machine")).not.toBeInTheDocument();
   });
 

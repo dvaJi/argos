@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { Alert, AlertDescription, AlertTitle } from "#shadcn/components/ui/alert";
@@ -318,6 +318,14 @@ function ConnectionForm({
   onShowInstructions: () => void;
 }) {
   const recovery = connection.kind === "error" ? recoveryForPairingError(connection.code) : null;
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (connection.kind === "error") {
+      errorRef.current?.focus();
+    }
+  }, [connection.kind]);
+
   return (
     <section className="rounded-2xl border bg-background p-4">
       <div className="space-y-4">
@@ -353,7 +361,7 @@ function ConnectionForm({
         )}
 
         {connection.kind === "error" && (
-          <Alert variant="destructive" role="alert">
+          <Alert ref={errorRef} variant="destructive" role="alert" tabIndex={-1}>
             <Icon icon="lucide:circle-alert" className="size-4" />
             <AlertTitle>Connection failed</AlertTitle>
             <AlertDescription>
