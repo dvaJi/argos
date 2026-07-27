@@ -29,7 +29,8 @@ export const REMOTE_MACHINE_COMMANDS: readonly RemoteMachineCommandSet[] = [
   {
     platform: "linux",
     available: true,
-    install: "curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.sh | sh",
+    install:
+      "curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/v0.2.0/distro/install/install.sh | ARGOS_VERSION=v0.2.0 sh",
     start: {
       loopback: "argos-daemon --host 127.0.0.1 --web --pair",
       "private-network": "argos-daemon --host 0.0.0.0 --web --pair",
@@ -41,7 +42,8 @@ export const REMOTE_MACHINE_COMMANDS: readonly RemoteMachineCommandSet[] = [
   {
     platform: "windows",
     available: true,
-    install: "irm https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.ps1 | iex",
+    install:
+      "$env:ARGOS_VERSION='v0.2.0'; irm https://raw.githubusercontent.com/dvaJi/argos/v0.2.0/distro/install/install.ps1 | iex",
     start: {
       loopback: "argos-daemon.exe --host 127.0.0.1 --web --pair",
       "private-network": "argos-daemon.exe --host 0.0.0.0 --web --pair",

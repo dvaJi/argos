@@ -9,6 +9,7 @@ import { Separator } from "#shadcn/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { useToast } from "#/components/use-toast";
 import { getRemoteMachineCommands, type RemoteMachinePlatform } from "@argos/shared/remoteMachineCommands";
+import type { RemotePairingProgressStage } from "@argos/shared-contracts/bridge";
 
 function getDefaultRemotePlatform(): RemoteMachinePlatform {
   const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent.toLowerCase();
@@ -22,6 +23,9 @@ type WorkspaceDraft = {
   credentialRef?: string;
   sessionId?: string;
   environmentId?: string;
+  protocolVersion?: number;
+  runtimeKind?: "daemon";
+  capabilities?: string[];
 };
 
 type RemoteWorkspaceSetupProps = {
@@ -35,7 +39,7 @@ type RemoteWorkspaceSetupProps = {
 
 type ConnectionState =
   | { kind: "idle" }
-  | { kind: "checking"; stage: "reaching" | "pairing" | "verifying" | "saving" }
+  | { kind: "checking"; stage: RemotePairingProgressStage | "saving" }
   | { kind: "review" }
   | { kind: "success"; version?: string }
   | { kind: "error"; code?: string; message: string };
@@ -126,9 +130,18 @@ export function RemoteWorkspaceSetup({
   });
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
   const [pendingWorkspace, setPendingWorkspace] = useState<WorkspaceDraft | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [clientVersion, setClientVersion] = useState<string>();
 
   const { view, name, pairingUrl } = form;
   const canConnect = connection.kind !== "checking" && pairingUrl.trim().length > 0;
+
+  useEffect(() => {
+    void deviceClient
+      .getAppVersion()
+      .then(setClientVersion)
+      .catch(() => {});
+  }, []);
 
   const copyCommand = (command: string) => {
     deviceClient.copyText(command);
@@ -143,14 +156,16 @@ export function RemoteWorkspaceSetup({
   const handleConnect = async () => {
     const trimmedPairingUrl = pairingUrl.trim();
     if (!trimmedPairingUrl) {
-      setConnection({ kind: "error", message: "Paste the pairing link printed by Argos Server." });
+      setConnection({ kind: "error", message: "Paste the pairing link or code printed by Argos Server." });
       return;
     }
 
-    setConnection({ kind: "checking", stage: "pairing" });
+    setConnection({ kind: "checking", stage: "parsing" });
     let issuedCredentialRef: string | undefined;
     try {
-      const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
+      const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl, (stage) => {
+        setConnection({ kind: "checking", stage });
+      });
       if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
         setConnection({
           kind: "error",
@@ -164,7 +179,6 @@ export function RemoteWorkspaceSetup({
       // and event-readiness checks before returning. Do not turn a public health
       // endpoint into a second save gate: it cannot prove that a paired machine is
       // usable and may be deliberately unavailable behind a reverse proxy.
-      setConnection({ kind: "checking", stage: "verifying" });
       setPendingWorkspace({
         name: deriveName(name, result.remoteUrl),
         remoteUrl: result.remoteUrl,
@@ -172,6 +186,9 @@ export function RemoteWorkspaceSetup({
         credentialRef: result.credentialRef,
         sessionId: result.sessionId,
         environmentId: result.environmentId,
+        protocolVersion: result.protocolVersion,
+        runtimeKind: result.runtimeKind,
+        capabilities: result.capabilities,
       });
       setConnection({ kind: "review" });
     } catch (error) {
@@ -184,6 +201,7 @@ export function RemoteWorkspaceSetup({
 
   const handleSave = async (andSwitch: boolean) => {
     if (!pendingWorkspace) return;
+    setSaveError(null);
     setConnection({ kind: "checking", stage: "saving" });
     try {
       if (andSwitch && onSaveAndSwitch) {
@@ -199,10 +217,8 @@ export function RemoteWorkspaceSetup({
       });
       resetFields();
     } catch (error) {
-      setConnection({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Saving the machine failed.",
-      });
+      setSaveError(error instanceof Error ? error.message : "Saving the machine failed.");
+      setConnection({ kind: "review" });
     }
   };
 
@@ -242,7 +258,9 @@ export function RemoteWorkspaceSetup({
           {pendingWorkspace && connection.kind === "review" ? (
             <ReviewPanel
               workspace={pendingWorkspace}
+              clientVersion={clientVersion}
               canSwitch={Boolean(onSaveAndSwitch)}
+              saveError={saveError}
               onBack={() => {
                 void discardPendingCredential();
                 setPendingWorkspace(null);
@@ -320,10 +338,10 @@ function ConnectionForm({
     <section className="rounded-2xl border bg-background p-4">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="remote-machine-pairing-url">Pairing link</Label>
+          <Label htmlFor="remote-machine-pairing-url">Pairing link or code</Label>
           <Input
             id="remote-machine-pairing-url"
-            placeholder="Paste the link printed by argos-daemon --pair"
+            placeholder="Paste the link or ARGOS1 code printed by argos-daemon --pair"
             value={pairingUrl}
             onChange={(event) => onPairingUrlChange(event.target.value)}
           />
@@ -375,9 +393,15 @@ function ConnectionForm({
           <p className="sr-only" role="status" aria-live="polite">
             {
               {
+                parsing: "Checking the pairing entry.",
                 reaching: "Checking the server connection.",
-                pairing: "Pairing with the remote machine.",
-                verifying: "Verifying the remote machine.",
+                exchanging: "Exchanging the one-time pairing credential.",
+                authenticating: "Authenticating with Argos Server.",
+                storing: "Storing the session in the secure credential store.",
+                connecting: "Opening the authenticated event connection.",
+                events: "Confirming event readiness.",
+                handshaking: "Reading the verified server identity.",
+                capabilities: "Checking required server capabilities.",
                 saving: "Saving the remote machine.",
               }[connection.stage]
             }
@@ -397,9 +421,15 @@ function ConnectionForm({
             <Button onClick={() => onConnect()} disabled={!canConnect}>
               {connection.kind === "checking"
                 ? {
+                    parsing: "Checking entry...",
                     reaching: "Checking server...",
-                    pairing: "Pairing...",
-                    verifying: "Verifying machine...",
+                    exchanging: "Exchanging...",
+                    authenticating: "Authenticating...",
+                    storing: "Securing session...",
+                    connecting: "Connecting...",
+                    events: "Checking events...",
+                    handshaking: "Verifying identity...",
+                    capabilities: "Checking capabilities...",
                     saving: "Saving machine...",
                   }[connection.stage]
                 : "Pair and add"}
@@ -413,13 +443,17 @@ function ConnectionForm({
 
 function ReviewPanel({
   workspace,
+  clientVersion,
   canSwitch,
+  saveError,
   onBack,
   onSave,
   onSaveAndSwitch,
 }: {
   workspace: WorkspaceDraft;
+  clientVersion?: string;
   canSwitch: boolean;
+  saveError: string | null;
   onBack: () => void;
   onSave: () => void;
   onSaveAndSwitch: () => void;
@@ -441,6 +475,14 @@ function ReviewPanel({
           <dt className="text-xs text-muted-foreground">Server version</dt>
           <dd className="font-medium">{workspace.daemonVersion ?? "Unknown"}</dd>
         </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Protocol</dt>
+          <dd className="font-medium">{workspace.protocolVersion ?? "Unknown"}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Runtime</dt>
+          <dd className="font-medium">{workspace.runtimeKind === "daemon" ? "Argos Server" : "Unknown"}</dd>
+        </div>
         <div className="sm:col-span-2">
           <dt className="text-xs text-muted-foreground">Endpoint</dt>
           <dd className="break-all font-mono text-xs">{workspace.remoteUrl}</dd>
@@ -448,6 +490,20 @@ function ReviewPanel({
         <div className="sm:col-span-2">
           <dt className="text-xs text-muted-foreground">Environment identity</dt>
           <dd className="break-all font-mono text-xs">{workspace.environmentId ?? "Not available"}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-muted-foreground">Connection security</dt>
+          <dd className="text-xs">
+            {workspace.remoteUrl.startsWith("https://")
+              ? "TLS-protected endpoint"
+              : "Plain HTTP — use only on an explicitly trusted private network"}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-muted-foreground">Verified capabilities</dt>
+          <dd className="text-xs">
+            {workspace.capabilities?.length ? workspace.capabilities.join(", ") : "No capabilities reported"}
+          </dd>
         </div>
       </dl>
       <Alert>
@@ -458,6 +514,26 @@ function ReviewPanel({
           retained.
         </AlertDescription>
       </Alert>
+      {saveError && (
+        <Alert variant="destructive" role="alert">
+          <Icon icon="lucide:triangle-alert" className="size-4" />
+          <AlertTitle>Machine was not saved</AlertTitle>
+          <AlertDescription>{saveError} You can retry without pairing again.</AlertDescription>
+        </Alert>
+      )}
+      {clientVersion && workspace.daemonVersion && clientVersion !== workspace.daemonVersion && (
+        <Alert>
+          <Icon icon="lucide:badge-alert" className="size-4" />
+          <AlertTitle>Versions differ, but are compatible</AlertTitle>
+          <AlertDescription>
+            Desktop is v{clientVersion} and Argos Server is v{workspace.daemonVersion}. Their verified protocol is
+            compatible; update either side if you encounter a missing capability.
+          </AlertDescription>
+        </Alert>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Desktop-only features such as native windows and operating-system integration remain on this computer.
+      </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" onClick={onBack}>
           Back

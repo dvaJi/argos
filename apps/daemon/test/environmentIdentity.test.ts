@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -12,5 +12,16 @@ describe("loadOrCreateEnvironmentId", () => {
 
     expect(first).toBe(second);
     expect(readFileSync(join(dataDir, "environment-id"), "utf8").trim()).toBe(first);
+  });
+
+  it("repairs an empty identity file instead of returning a new ephemeral id on every start", () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "argos-environment-empty-"));
+    writeFileSync(join(dataDir, "environment-id"), "");
+
+    const repaired = loadOrCreateEnvironmentId(dataDir);
+
+    expect(repaired).toBeTruthy();
+    expect(loadOrCreateEnvironmentId(dataDir)).toBe(repaired);
+    expect(readFileSync(join(dataDir, "environment-id"), "utf8").trim()).toBe(repaired);
   });
 });

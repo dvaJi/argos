@@ -6,10 +6,17 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "#shadcn/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
-import { RemoteWorkspaceSetup } from "#/components/workspace/RemoteWorkspaceSetup";
+import {
+  AddRemoteMachineDialog,
+  EditMachineDialog,
+  type MachineEdit,
+  type WorkspaceDraft,
+} from "#/components/workspace/WorkspaceSelectorDialogs";
 import { getHasActiveSession } from "#/stores/ui/session";
 import { useWorkspaceStore, type WorkspaceEntry } from "#/stores/ui/workspace";
 
@@ -34,10 +41,106 @@ const STATUS_COLORS: Record<string, string> = {
   disconnected: "bg-gray-400",
 };
 
+function RemoteMachineActionItems({
+  workspace,
+  onRetry,
+  onRename,
+  onPairAgain,
+  onEditAddress,
+  onCopyDiagnostics,
+  onRemove,
+}: {
+  workspace: WorkspaceEntry;
+  onRetry: () => void | Promise<void>;
+  onRename: () => void;
+  onPairAgain: () => void;
+  onEditAddress: () => void | Promise<void>;
+  onCopyDiagnostics: () => void | Promise<void>;
+  onRemove: () => void | Promise<void>;
+}) {
+  const actions = [
+    {
+      title: "Retry machine connection",
+      label: `Retry ${workspace.name} connection`,
+      icon: "lucide:refresh-cw",
+      run: onRetry,
+    },
+    { title: "Rename machine", label: `Rename ${workspace.name}`, icon: "lucide:pencil", run: onRename },
+    { title: "Pair machine again", label: `Pair ${workspace.name} again`, icon: "lucide:key-round", run: onPairAgain },
+    { title: "Edit machine address", label: `Edit ${workspace.name} address`, icon: "lucide:link", run: onEditAddress },
+    {
+      title: "Copy diagnostics",
+      label: `Copy ${workspace.name} diagnostics`,
+      icon: "lucide:clipboard-copy",
+      run: onCopyDiagnostics,
+    },
+    { title: "Forget machine", label: `Forget ${workspace.name}`, icon: "lucide:x", run: onRemove, destructive: true },
+  ];
+
+  return (
+    <>
+      {actions.map((action) => (
+        <DropdownMenuItem
+          key={action.title}
+          variant={action.destructive ? "destructive" : "default"}
+          onSelect={(event) => {
+            event.stopPropagation();
+            void action.run();
+          }}
+          aria-label={action.label}
+        >
+          <Icon icon={action.icon} className="size-3" />
+          {action.title}
+        </DropdownMenuItem>
+      ))}
+    </>
+  );
+}
+
+async function copyMachineDiagnostics(workspace: WorkspaceEntry): Promise<void> {
+  let endpoint: { transport: "http" | "https" | "unknown"; hostKind: "loopback" | "private" | "other" } = {
+    transport: "unknown",
+    hostKind: "other",
+  };
+  try {
+    const parsed = new URL(workspace.remoteUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    const isLoopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+    const isPrivate =
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      hostname.endsWith(".local");
+    endpoint = {
+      transport: parsed.protocol === "https:" ? "https" : parsed.protocol === "http:" ? "http" : "unknown",
+      hostKind: isLoopback ? "loopback" : isPrivate ? "private" : "other",
+    };
+  } catch {
+    // Keep diagnostics useful without including an invalid raw endpoint.
+  }
+  const diagnostics = JSON.stringify(
+    {
+      machineId: workspace.id,
+      name: workspace.name,
+      endpoint,
+      environmentId: workspace.environmentId ? workspace.environmentId.slice(0, 8) : null,
+      serverVersion: workspace.lastKnownServerVersion ?? null,
+      protocolVersion: workspace.lastKnownProtocolVersion ?? null,
+      capabilities: workspace.lastKnownCapabilities ?? [],
+      trustState: workspace.trustState ?? "pairing-required",
+    },
+    null,
+    2,
+  );
+  await navigator.clipboard?.writeText(diagnostics);
+}
+
 export default function WorkspaceSelector() {
   const store = useWorkspaceStore();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [recoveryWorkspace, setRecoveryWorkspace] = useState<WorkspaceEntry | null>(null);
+  const [machineOperationStatus, setMachineOperationStatus] = useState("");
+  const [editMachine, setEditMachine] = useState<MachineEdit | null>(null);
 
   const activeWorkspace = store.activeWorkspace;
   const workspaces = store.workspaces;
@@ -68,13 +171,7 @@ export default function WorkspaceSelector() {
     await store.switchWorkspace(id);
   };
 
-  const saveWorkspace = async (workspace: {
-    name: string;
-    remoteUrl: string;
-    credentialRef?: string;
-    environmentId?: string;
-    daemonVersion?: string;
-  }) => {
+  const saveWorkspace = async (workspace: WorkspaceDraft) => {
     const existingByIdentity = workspace.environmentId
       ? workspaces.find(
           (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
@@ -93,6 +190,8 @@ export default function WorkspaceSelector() {
         credentialRef: workspace.credentialRef,
         environmentId: workspace.environmentId,
         lastKnownServerVersion: workspace.daemonVersion,
+        lastKnownProtocolVersion: workspace.protocolVersion,
+        lastKnownCapabilities: workspace.capabilities,
         trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
       });
       return existing.id;
@@ -104,29 +203,19 @@ export default function WorkspaceSelector() {
       credentialRef: workspace.credentialRef,
       environmentId: workspace.environmentId,
       lastKnownServerVersion: workspace.daemonVersion,
+      lastKnownProtocolVersion: workspace.protocolVersion,
+      lastKnownCapabilities: workspace.capabilities,
       trustState: workspace.credentialRef ? "paired" : "pairing-required",
     });
     return entry.id;
   };
 
-  const handleSave = async (workspace: {
-    name: string;
-    remoteUrl: string;
-    credentialRef?: string;
-    environmentId?: string;
-    daemonVersion?: string;
-  }) => {
+  const handleSave = async (workspace: WorkspaceDraft) => {
     await saveWorkspace(workspace);
     setAddDialogOpen(false);
   };
 
-  const handleSaveAndSwitch = async (workspace: {
-    name: string;
-    remoteUrl: string;
-    credentialRef?: string;
-    environmentId?: string;
-    daemonVersion?: string;
-  }) => {
+  const handleSaveAndSwitch = async (workspace: WorkspaceDraft) => {
     const id = await saveWorkspace(workspace);
     await store.switchWorkspace(id);
     setAddDialogOpen(false);
@@ -143,35 +232,100 @@ export default function WorkspaceSelector() {
     const revokeRemoteSession = window.confirm(
       `Also revoke this desktop session on ${workspace.name}? Choose Cancel to forget only from this computer.`,
     );
-    store.removeWorkspace(workspace.id, revokeRemoteSession);
+    setMachineOperationStatus(
+      revokeRemoteSession
+        ? `Revoking this desktop session on ${workspace.name} and forgetting the machine...`
+        : `Forgetting ${workspace.name} from this computer...`,
+    );
+    try {
+      const removal = await store.removeWorkspace(workspace.id, revokeRemoteSession);
+      if (revokeRemoteSession && removal.remoteRevoked === false) {
+        const message = `${workspace.name} was forgotten from this computer, but its remote session could not be revoked. Revoke it from Argos Server when the machine is reachable.`;
+        setMachineOperationStatus(message);
+        window.alert(message);
+      } else {
+        setMachineOperationStatus(
+          revokeRemoteSession
+            ? `${workspace.name} was forgotten and this desktop session was revoked.`
+            : `${workspace.name} was forgotten from this computer. Remote server data was not deleted.`,
+        );
+      }
+    } catch (error) {
+      setMachineOperationStatus(
+        error instanceof Error ? error.message : `Argos could not forget ${workspace.name}. Try again.`,
+      );
+    }
   };
 
   const handleRename = (workspace: WorkspaceEntry) => {
-    const nextName = window.prompt("Machine name", workspace.name)?.trim();
+    setEditMachine({ kind: "rename", workspace, value: workspace.name });
+  };
+
+  const saveRename = () => {
+    if (!editMachine || editMachine.kind !== "rename") return;
+    const { workspace } = editMachine;
+    const nextName = editMachine.value.trim();
     if (!nextName || nextName === workspace.name) return;
     window.argos?.workspace?.rename(workspace.id, nextName);
     store.renameWorkspace(workspace.id, nextName);
+    setEditMachine(null);
   };
 
-  const handleCopyDiagnostics = async (workspace: WorkspaceEntry) => {
-    const diagnostics = JSON.stringify(
-      {
-        machineId: workspace.id,
-        name: workspace.name,
-        endpoint: workspace.remoteUrl,
-        environmentId: workspace.environmentId ?? null,
-        serverVersion: workspace.lastKnownServerVersion ?? null,
-        trustState: workspace.trustState ?? "pairing-required",
-      },
-      null,
-      2,
-    );
-    await navigator.clipboard?.writeText(diagnostics);
+  const handlePairAgain = (workspace: WorkspaceEntry) => {
+    setRecoveryWorkspace(workspace);
+    setAddDialogOpen(true);
+  };
+
+  const handleEditAddress = async (workspace: WorkspaceEntry) => {
+    setEditMachine({ kind: "address", workspace, value: workspace.remoteUrl });
+  };
+
+  const saveAddress = async () => {
+    if (!editMachine || editMachine.kind !== "address") return;
+    const { workspace } = editMachine;
+    const candidate = editMachine.value.trim();
+    if (!candidate || candidate === workspace.remoteUrl) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(candidate);
+    } catch {
+      window.alert("Enter a valid HTTP or HTTPS address.");
+      return;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      window.alert("Enter a valid HTTP or HTTPS address.");
+      return;
+    }
+    parsed.username = "";
+    parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
+    parsed.pathname = "/";
+    const normalized = parsed.toString().replace(/\/$/, "");
+    if (
+      !window.confirm(
+        `Change ${workspace.name}'s address to ${normalized}? Argos will reconnect and require the same verified machine identity.`,
+      )
+    ) {
+      return;
+    }
+    const updateEndpoint = window.argos?.workspace?.updateEndpoint;
+    if (typeof updateEndpoint !== "function") {
+      window.alert("Changing a machine address is not supported in this runtime.");
+      return;
+    }
+    try {
+      await updateEndpoint(workspace.id, normalized);
+      store.updateWorkspace(workspace.id, { remoteUrl: normalized });
+      setEditMachine(null);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Argos could not verify the machine at that address.");
+    }
   };
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors duration-150 hover:bg-accent/50"
@@ -190,6 +344,39 @@ export default function WorkspaceSelector() {
           {workspaces.map((ws) => {
             const isActive = ws.id === store.activeWorkspaceId;
             const status = deriveConnectionStatus(ws, store.connections);
+            if (ws.mode === "remote") {
+              return (
+                <DropdownMenuSub key={ws.id}>
+                  <DropdownMenuSubTrigger className={isActive ? "bg-accent" : ""}>
+                    <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
+                    <span className="flex-1 truncate text-sm">
+                      {ws.name} <span className="text-[10px] text-muted-foreground">({status})</span>
+                      {(ws.trustState === "pairing-required" || ws.trustState === "identity-changed") && (
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          ({ws.trustState === "identity-changed" ? "identity changed" : "pair again"})
+                        </span>
+                      )}
+                    </span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="min-w-48">
+                    <DropdownMenuItem onSelect={() => void handleSwitch(ws.id)}>
+                      <Icon icon="lucide:monitor-up" className="size-3" />
+                      {isActive ? "Active machine" : "Switch to machine"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <RemoteMachineActionItems
+                      workspace={ws}
+                      onRetry={() => window.argos?.workspace?.switchTo(ws.id)}
+                      onRename={() => handleRename(ws)}
+                      onPairAgain={() => handlePairAgain(ws)}
+                      onEditAddress={() => handleEditAddress(ws)}
+                      onCopyDiagnostics={() => copyMachineDiagnostics(ws)}
+                      onRemove={() => handleRemove(ws)}
+                    />
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              );
+            }
             return (
               <DropdownMenuItem
                 key={ws.id}
@@ -197,64 +384,8 @@ export default function WorkspaceSelector() {
                 onSelect={() => void handleSwitch(ws.id)}
               >
                 <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
-                <span className="flex-1 truncate text-sm">
-                  {ws.name}
-                  {ws.mode === "remote" &&
-                    (ws.trustState === "pairing-required" || ws.trustState === "identity-changed") && (
-                      <span className="ml-1 text-[10px] text-muted-foreground">
-                        ({ws.trustState === "identity-changed" ? "identity changed" : "pair again"})
-                      </span>
-                    )}
-                </span>
+                <span className="flex-1 truncate text-sm">{ws.name}</span>
                 {isActive && <Icon icon="lucide:check" className="size-3.5 text-muted-foreground" />}
-                {ws.mode === "remote" && (
-                  <span className="ml-1 flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void window.argos?.workspace?.switchTo(ws.id);
-                      }}
-                      title="Retry machine connection"
-                    >
-                      <Icon icon="lucide:refresh-cw" className="size-3" />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleRename(ws);
-                      }}
-                      title="Rename machine"
-                    >
-                      <Icon icon="lucide:pencil" className="size-3" />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleCopyDiagnostics(ws);
-                      }}
-                      title="Copy diagnostics"
-                    >
-                      <Icon icon="lucide:clipboard-copy" className="size-3" />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleRemove(ws);
-                      }}
-                      title="Forget machine"
-                    >
-                      <Icon icon="lucide:x" className="size-3" />
-                    </button>
-                  </span>
-                )}
               </DropdownMenuItem>
             );
           })}
@@ -265,33 +396,37 @@ export default function WorkspaceSelector() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {machineOperationStatus && (
+        <p className="px-3 pt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
+          {machineOperationStatus}
+        </p>
+      )}
 
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Connect a remote machine</DialogTitle>
-            <DialogDescription>
-              Install Argos Server on another machine, pair it securely, and choose where work runs.
-            </DialogDescription>
-          </DialogHeader>
-          <RemoteWorkspaceSetup
-            existingRemoteUrls={remoteUrls}
-            initialRemoteUrl={recoveryWorkspace?.remoteUrl}
-            onAddWorkspace={async (workspace) => {
-              await handleSave(workspace);
-              setRecoveryWorkspace(null);
-            }}
-            onSaveAndSwitch={async (workspace) => {
-              await handleSaveAndSwitch(workspace);
-              setRecoveryWorkspace(null);
-            }}
-            onCancel={() => {
-              setRecoveryWorkspace(null);
-              setAddDialogOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <AddRemoteMachineDialog
+        open={addDialogOpen}
+        remoteUrls={remoteUrls}
+        recoveryWorkspace={recoveryWorkspace}
+        onOpenChange={setAddDialogOpen}
+        onSave={async (workspace) => {
+          await handleSave(workspace);
+          setRecoveryWorkspace(null);
+        }}
+        onSaveAndSwitch={async (workspace) => {
+          await handleSaveAndSwitch(workspace);
+          setRecoveryWorkspace(null);
+        }}
+        onCancel={() => {
+          setRecoveryWorkspace(null);
+          setAddDialogOpen(false);
+        }}
+      />
+      <EditMachineDialog
+        edit={editMachine}
+        onChange={(value) => setEditMachine((current) => (current ? { ...current, value } : current))}
+        onClose={() => setEditMachine(null)}
+        onSaveName={saveRename}
+        onSaveAddress={saveAddress}
+      />
     </>
   );
 }

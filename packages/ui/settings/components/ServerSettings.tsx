@@ -3,6 +3,14 @@ import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "#shadcn/components/ui/dialog";
 import { RemoteWorkspaceSetup } from "#/components/workspace/RemoteWorkspaceSetup";
 import { useToast } from "#/components/use-toast";
 import {
@@ -22,6 +30,8 @@ export default function ServerSettings() {
   const [pairing, setPairing] = useState<PairingResult>(null);
   const [generating, setGenerating] = useState(false);
   const [recoveryWorkspace, setRecoveryWorkspace] = useState<WorkspaceEntry | null>(null);
+  const [renameWorkspace, setRenameWorkspace] = useState<WorkspaceEntry | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const remoteWorkspaces = workspaces.filter((workspace) => workspace.mode === "remote");
   const remoteUrls = remoteWorkspaces.map((workspace) => workspace.remoteUrl);
@@ -103,8 +113,10 @@ export default function ServerSettings() {
     toast({ title: revokeRemoteSession ? "Machine forgotten and session revoked" : "Machine forgotten locally" });
   };
 
-  const handleRename = (workspace: WorkspaceEntry) => {
-    const name = window.prompt("Machine name", workspace.name)?.trim();
+  const handleRename = () => {
+    if (!renameWorkspace) return;
+    const name = renameValue.trim();
+    const workspace = renameWorkspace;
     if (!name || name === workspace.name) return;
     window.argos?.workspace?.rename(workspace.id, name);
     const config = readWorkspaceConfig();
@@ -112,6 +124,7 @@ export default function ServerSettings() {
     writeWorkspaceConfig(config);
     notifyWorkspaceConfigChanged();
     setWorkspaces(config.workspaces);
+    setRenameWorkspace(null);
   };
 
   const handleRetry = async (workspace: WorkspaceEntry) => {
@@ -124,13 +137,33 @@ export default function ServerSettings() {
   };
 
   const handleCopyDiagnostics = async (workspace: WorkspaceEntry) => {
+    let endpoint: { transport: "http" | "https" | "unknown"; hostKind: "loopback" | "private" | "other" } = {
+      transport: "unknown",
+      hostKind: "other",
+    };
+    try {
+      const parsed = new URL(workspace.remoteUrl);
+      const hostname = parsed.hostname.toLowerCase();
+      const loopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+      const privateHost =
+        hostname.startsWith("10.") ||
+        hostname.startsWith("192.168.") ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+        hostname.endsWith(".local");
+      endpoint = {
+        transport: parsed.protocol === "https:" ? "https" : parsed.protocol === "http:" ? "http" : "unknown",
+        hostKind: loopback ? "loopback" : privateHost ? "private" : "other",
+      };
+    } catch {
+      // Invalid endpoints remain redacted.
+    }
     await navigator.clipboard?.writeText(
       JSON.stringify(
         {
           machineId: workspace.id,
           name: workspace.name,
-          endpoint: workspace.remoteUrl,
-          environmentId: workspace.environmentId ?? null,
+          endpoint,
+          environmentId: workspace.environmentId?.slice(0, 8) ?? null,
           serverVersion: workspace.lastKnownServerVersion ?? null,
           trustState: workspace.trustState ?? "pairing-required",
         },
@@ -263,7 +296,14 @@ export default function ServerSettings() {
                       <Button variant="ghost" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
                         Edit address
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleRename(workspace)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRenameWorkspace(workspace);
+                          setRenameValue(workspace.name);
+                        }}
+                      >
                         Rename
                       </Button>
                       <Button variant="ghost" size="sm" onClick={() => void handleCopyDiagnostics(workspace)}>
@@ -295,6 +335,37 @@ export default function ServerSettings() {
               compact
             />
           </div>
+          <Dialog open={Boolean(renameWorkspace)} onOpenChange={(open) => !open && setRenameWorkspace(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename remote machine</DialogTitle>
+                <DialogDescription>
+                  Choose the name shown in Desktop. This does not rename the server.
+                </DialogDescription>
+              </DialogHeader>
+              <Label htmlFor="remote-machine-name">Machine name</Label>
+              <Input
+                id="remote-machine-name"
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                autoFocus
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") handleRename();
+                }}
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setRenameWorkspace(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleRename}
+                  disabled={!renameValue.trim() || renameValue.trim() === renameWorkspace?.name}
+                >
+                  Save name
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </ScrollArea>
     </div>

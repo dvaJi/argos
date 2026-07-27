@@ -3,6 +3,7 @@ import type { ServerWebSocket } from "bun";
 
 type WsData = {
   subscriptions: Set<string>;
+  authContext?: { sessionId?: string };
 };
 
 export class BunEventPublisher implements IEventPublisher {
@@ -15,6 +16,15 @@ export class BunEventPublisher implements IEventPublisher {
 
   removeClient(ws: ServerWebSocket<WsData>): void {
     this.clients.delete(ws);
+  }
+
+  revokeSession(sessionId: string): void {
+    for (const ws of this.clients) {
+      if (ws.data.authContext?.sessionId === sessionId) {
+        ws.close(4001, "Session revoked");
+        this.clients.delete(ws);
+      }
+    }
   }
 
   publish(eventName: string, payload: unknown): void {

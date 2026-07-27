@@ -377,6 +377,10 @@ export function clearSessionContextForMachineSwitch(): void {
     bootstrapActiveSession: null,
     activeSessionSummary: null,
     hasLoadedInitialPage: false,
+    loading: false,
+    loadingMore: false,
+    hasMore: false,
+    nextCursor: null,
     error: null,
   }));
   goToNewThread();

@@ -39,13 +39,33 @@ export type ParsedRemoteMachinePairing = {
 };
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const PAIRING_CODE_PREFIX = "ARGOS1";
+
+export function formatRemoteMachinePairingCode(pairingUrl: string): string | null {
+  try {
+    const parsed = new URL(pairingUrl);
+    const token = parsed.searchParams.get("token");
+    if (!token || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return null;
+    return `${PAIRING_CODE_PREFIX} ${parsed.protocol === "https:" ? "S" : "P"} ${parsed.host} ${token}`;
+  } catch {
+    return null;
+  }
+}
+
+function expandRemoteMachinePairingCode(value: string): string {
+  const parts = value.split(/\s+/);
+  if (parts.length !== 4 || parts[0].toUpperCase() !== PAIRING_CODE_PREFIX) return value;
+  const protocol = parts[1].toUpperCase() === "S" ? "https:" : parts[1].toUpperCase() === "P" ? "http:" : null;
+  if (!protocol) return value;
+  return `${protocol}//${parts[2]}/pair?token=${encodeURIComponent(parts[3])}`;
+}
 
 export function parseRemoteMachinePairingLink(
   input: string,
 ):
   | { ok: true; value: ParsedRemoteMachinePairing }
   | { ok: false; error: { code: "pairing_invalid" | "endpoint_loopback_remote"; message: string } } {
-  const value = input.trim();
+  const value = expandRemoteMachinePairingCode(input.trim());
   if (!value) return { ok: false, error: { code: "pairing_invalid", message: "Enter a pairing link." } };
 
   let parsed: URL;

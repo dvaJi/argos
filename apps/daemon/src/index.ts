@@ -31,6 +31,7 @@ import { resolveDaemonVersion } from "./version";
 import { loadOrCreateEnvironmentId } from "./host/environment-identity";
 import type { ProviderExecutionPort } from "@argos/backend-core";
 import type { SendMessageInput, ToolInteractionResponse } from "@argos/shared/types/agent-interface";
+import { formatRemoteMachinePairingCode } from "@argos/shared/remoteMachinePairing";
 import {
   parseArgs,
   mergeOptions,
@@ -579,7 +580,9 @@ export async function startDaemon(options?: {
 
       if (url.pathname.startsWith("/api/v1/sessions/") && request.method === "DELETE") {
         const sessionId = url.pathname.slice("/api/v1/sessions/".length);
-        return withCors(await handleRevokeSession(sessionAuthRepo, sessionId));
+        const response = handleRevokeSession(sessionAuthRepo, sessionId);
+        if (response.ok) eventPublisher.revokeSession(sessionId);
+        return withCors(response);
       }
 
       if (url.pathname === "/api/v1/events") {
@@ -678,10 +681,15 @@ export async function startDaemon(options?: {
   if (options?.pair) {
     const pairing = sessionAuthRepo.issuePairingToken("cli");
     const scheme = webRoot ? "http" : "http";
-    console.log(`\n  Pairing URL: ${scheme}://${host}:${serverPort}/pair?token=${pairing.token}\n`);
+    const pairingUrl = `${scheme}://${host}:${serverPort}/pair?token=${pairing.token}`;
+    console.log(`\n  Pairing URL: ${pairingUrl}`);
+    if (host !== "0.0.0.0" && host !== "::") {
+      console.log(`  Pairing code: ${formatRemoteMachinePairingCode(pairingUrl)}\n`);
+    }
     if (host === "0.0.0.0" || host === "::") {
       console.log(
-        "  Replace the wildcard host in this URL with the machine's reachable LAN or private-network address.\n",
+        "  Replace the wildcard host in this URL with the machine's reachable LAN or private-network address.\n" +
+          "  The resulting URL is the pairing entry for Desktop.\n",
       );
     }
     logger.info(`[daemon] Pairing token expires at ${new Date(pairing.expiresAt).toISOString()}`);
@@ -742,7 +750,7 @@ export async function startDaemon(options?: {
   };
 }
 
-if (import.meta.main) {
+export async function runDaemonCli(): Promise<void> {
   if (process.argv.includes("--version") || process.argv.includes("-V")) {
     console.log(resolveDaemonVersion());
     process.exit(0);
@@ -823,4 +831,8 @@ Environment variables:
     logger.error("[daemon] Failed to start:", error);
     process.exit(1);
   });
+}
+
+if (import.meta.main) {
+  void runDaemonCli();
 }

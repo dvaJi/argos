@@ -1,6 +1,6 @@
 # Argos Current Architecture Overview
 
-This document describes the main architecture as of `2026-05-28`. The current goal is not another full main-kernel rewrite, but rather to maintain the typed renderer-main boundary and wire new capabilities onto the existing route/runtime owners.
+This document describes the main architecture as of `2026-07-27`. The current goal is not another full main-kernel rewrite, but rather to maintain the typed renderer-main boundary and wire new capabilities onto the existing route/runtime owners.
 
 ## Main Path
 
@@ -46,6 +46,9 @@ Key takeaways:
 | `RemoteControlPresenter` | `src/main/presenter/remoteControlPresenter/` | Telegram, QQBot, Discord, WeChat iLink remote control |
 | `ScheduledTasksService` | `src/main/presenter/scheduledTasks/` | One-time, daily, and weekly task scheduling plus prompt/notify action dispatch |
 | Spotlight search | `src/renderer/src/stores/ui/spotlight.ts` | Global search, session/message navigation, settings navigation, and non-destructive actions |
+| Argos Server | `apps/daemon/` | Standalone/headless backend, authenticated routes/events, and served web UI |
+| reusable UI | `packages/ui/` | React frontend loaded by Desktop from its managed daemon and served directly by Argos Server |
+| client SDK | `packages/client-sdk/` | Authenticated WebSocket route/event transport used by Desktop and remote-machine validation |
 
 ## Current Layering
 
@@ -87,6 +90,31 @@ Still retained but only serving compatibility duties:
 - The old `conversations/messages` data domain, as an import-only source and export data source
 - `src/main/presenter/sessionPresenter/`, as an in-main compatibility/data facade
 - `src/main/eventbus.ts`, which continues to serve unmigrated paths; migrated UI notifications prefer typed events
+
+### 6. Desktop, Server, and Remote Machines
+
+Argos Desktop is an Electron shell, not a second backend implementation. It
+starts a private local `argos-daemon`, loads `@argos/ui` from that daemon, and
+uses the hybrid preload bridge:
+
+- native-only routes such as secure credential storage stay in Electron IPC;
+- local and remote backend routes use the typed client SDK over WebSocket;
+- a standalone Argos Server is the same daemon runtime without Desktop-owned
+  native capabilities.
+
+Remote machines are keyed by a persistent environment ID, not by URL. Pairing
+exchanges a short-lived single-use token for a revocable bearer session. The
+bearer is encrypted through Electron `safeStorage`; renderer state and machine
+configuration retain only an opaque credential reference. Before saving or
+updating an address, Desktop verifies authenticated route transport, event
+welcome/readiness, protocol compatibility, capabilities, and environment
+identity.
+
+Standalone Server executables embed Bun, the daemon code, DuckDB's target
+native binding, and its companion shared library. The shared library is
+materialized into a versioned runtime cache when the executable starts; users
+still download and launch one Server executable with no separate Bun, Node.js,
+or DuckDB installation.
 
 ## Anti-Regression Rules
 

@@ -161,7 +161,10 @@ export class WebSocketBridge implements ArgosBridge {
       this.ws.onclose = (event) => {
         if (event.code === 4001) {
           this.closed = true;
-          this.emitConnectionState({ connected: false, lastError: "Remote session revoked. Pair this machine again." });
+          const error = new Error("Remote session revoked. Pair this machine again.");
+          this.rejectPending(error);
+          this.emitConnectionState({ connected: false, lastError: error.message });
+          reject(error);
           return;
         }
         this.emitConnectionState({ connected: false, lastError: "Daemon connection closed" });
@@ -207,18 +210,23 @@ export class WebSocketBridge implements ArgosBridge {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    for (const pending of this.requestCallbacks.values()) {
-      clearTimeout(pending.timeout);
-      pending.reject(new Error("WebSocket closed"));
-    }
-    this.requestCallbacks.clear();
-    for (const waiter of this.welcomeWaiters) {
-      waiter.reject(new Error("WebSocket closed"));
-    }
-    this.welcomeWaiters.clear();
+    this.rejectPending(new Error("WebSocket closed"));
     this.ws?.close();
     this.ws = null;
     this.emitConnectionState({ connected: false });
+  }
+
+  private rejectPending(error: Error): void {
+    for (const pending of this.requestCallbacks.values()) {
+      clearTimeout(pending.timeout);
+      pending.reject(error);
+    }
+    this.requestCallbacks.clear();
+    for (const waiter of this.welcomeWaiters) {
+      waiter.reject(error);
+    }
+    this.welcomeWaiters.clear();
+    this.pendingMessages = [];
   }
 
   async invoke<T extends ArgosRouteName>(routeName: T, input: ArgosRouteInput<T>): Promise<ArgosRouteOutput<T>> {

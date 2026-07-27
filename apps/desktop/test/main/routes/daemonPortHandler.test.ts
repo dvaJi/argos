@@ -24,6 +24,12 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn((path: string) => state.files.has(path)),
   readFileSync: vi.fn((path: string) => state.files.get(path) ?? ""),
   writeFileSync: vi.fn((path: string, value: string) => state.files.set(path, value)),
+  renameSync: vi.fn((source: string, destination: string) => {
+    const value = state.files.get(source);
+    if (value !== undefined) state.files.set(destination, value);
+    state.files.delete(source);
+  }),
+  rmSync: vi.fn((path: string) => state.files.delete(path)),
 }));
 
 vi.mock("#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook", () => ({
@@ -51,7 +57,14 @@ describe("daemon remote machine credentials", () => {
       new Response(
         JSON.stringify({
           ok: true,
-          output: { environmentId: "environment-1", serverVersion: "0.2.0", compatible: true },
+          output: {
+            environmentId: "environment-1",
+            serverVersion: "0.2.0",
+            protocolVersion: 1,
+            runtimeKind: "daemon",
+            capabilities: ["chat", "sessions", "project-files"],
+            compatible: true,
+          },
         }),
         { status: 200 },
       ),
@@ -65,15 +78,29 @@ describe("daemon remote machine credentials", () => {
     expect(resolve).toBeDefined();
     expect(remove).toBeDefined();
 
-    const paired = await pair?.({}, "https://build.example.test/?token=one-time-token");
+    const send = vi.fn();
+    const paired = await pair?.({ sender: { send } }, "https://build.example.test/?token=one-time-token", "request-1");
     expect(paired).toMatchObject({
       ok: true,
       remoteUrl: "https://build.example.test",
       sessionId: "session-1",
       environmentId: "environment-1",
+      protocolVersion: 1,
+      runtimeKind: "daemon",
+      capabilities: ["chat", "sessions", "project-files"],
     });
     expect(paired).not.toHaveProperty("sessionToken");
     expect(paired).not.toHaveProperty("token");
+    expect(send.mock.calls.map(([, payload]) => payload.stage)).toEqual([
+      "parsing",
+      "reaching",
+      "exchanging",
+      "authenticating",
+      "storing",
+    ]);
+    const persistedCredentialFiles = [...state.files.values()].join("\n");
+    expect(persistedCredentialFiles).not.toContain("bearer-secret");
+    expect(persistedCredentialFiles).not.toContain("one-time-token");
 
     const resolved = await resolve?.({}, paired.credentialRef);
     expect(resolved).toEqual({
@@ -82,12 +109,52 @@ describe("daemon remote machine credentials", () => {
       sessionId: "session-1",
     });
 
-    expect(await remove?.({}, paired.credentialRef)).toBe(true);
+    expect(await remove?.({}, paired.credentialRef)).toEqual({ localRemoved: true, remoteRevoked: true });
     expect(await resolve?.({}, paired.credentialRef)).toBeNull();
     expect(fetchMock).toHaveBeenLastCalledWith(
       "https://build.example.test/api/v1/sessions/session-1",
       expect.objectContaining({ method: "DELETE", headers: { Authorization: "Bearer bearer-secret" } }),
     );
+  });
+
+  it("resolves the encrypted remote session again after a Desktop main-process restart", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, sessionId: "session-restart", sessionToken: "bearer-secret" }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            output: {
+              environmentId: "environment-1",
+              serverVersion: "0.2.0",
+              protocolVersion: 1,
+              runtimeKind: "daemon",
+              capabilities: ["chat", "sessions", "project-files"],
+              compatible: true,
+            },
+          }),
+          { status: 200 },
+        ),
+      );
+
+    const pair = state.handlers.get("pair-remote-machine");
+    const paired = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
+
+    vi.resetModules();
+    state.handlers.clear();
+    const { registerDaemonPortHandler } = await import("#/routes/daemonPortHandler");
+    registerDaemonPortHandler();
+
+    const resolve = state.handlers.get("get-remote-machine-credential");
+    expect(resolve?.({}, paired.credentialRef)).toEqual({
+      token: "bearer-secret",
+      remoteUrl: "https://build.example.test",
+      sessionId: "session-restart",
+    });
   });
 
   it("returns stable error codes for rejected links and TLS failures", async () => {
@@ -129,6 +196,29 @@ describe("daemon remote machine credentials", () => {
     });
   });
 
+  it("revokes a newly issued server session when authenticated verification fails", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, sessionId: "session-orphan", sessionToken: "bearer-secret" }), {
+        status: 200,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const pair = state.handlers.get("pair-remote-machine");
+    const result = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
+
+    expect(result).toMatchObject({ ok: false, error: { code: "authenticated_rpc_failed" } });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://build.example.test/api/v1/sessions/session-orphan",
+      expect.objectContaining({
+        method: "DELETE",
+        headers: { Authorization: "Bearer bearer-secret" },
+      }),
+    );
+  });
+
   it("forgets a credential locally without revoking its remote session when requested", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(
@@ -150,7 +240,40 @@ describe("daemon remote machine credentials", () => {
     const remove = state.handlers.get("delete-remote-machine-credential");
     const paired = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
 
-    expect(await remove?.({}, paired.credentialRef, false)).toBe(true);
+    expect(await remove?.({}, paired.credentialRef, false)).toEqual({
+      localRemoved: true,
+      remoteRevoked: null,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports remote revoke failure after still deleting the local credential", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, sessionId: "session-partial", sessionToken: "bearer-secret" }), {
+        status: 200,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          output: { environmentId: "environment-1", serverVersion: "0.2.0", compatible: true },
+        }),
+        { status: 200 },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const pair = state.handlers.get("pair-remote-machine");
+    const remove = state.handlers.get("delete-remote-machine-credential");
+    const resolve = state.handlers.get("get-remote-machine-credential");
+    const paired = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
+
+    expect(await remove?.({}, paired.credentialRef, true)).toEqual({
+      localRemoved: true,
+      remoteRevoked: false,
+    });
+    expect(resolve?.({}, paired.credentialRef)).toBeNull();
   });
 });

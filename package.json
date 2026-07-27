@@ -87,6 +87,7 @@
     "test:ui": "vitest --ui",
     "e2e:smoke": "node apps/desktop/node_modules/@playwright/test/cli.js test -c apps/desktop/test/e2e/playwright.config.ts",
     "e2e:smoke:ci": "node apps/desktop/node_modules/@playwright/test/cli.js test -c apps/desktop/test/e2e/playwright.ci.config.ts",
+    "e2e:remote-machine": "bun scripts/smoke-remote-machine-lifecycle.mjs",
     "format:check": "oxfmt --check .",
     "format": "oxfmt .",
     "lint": "bun run lint:agent-cleanup && bun run lint:architecture && bun run lint:route-catalog && oxlint --deny-warnings .",

@@ -1,4 +1,5 @@
 import type { SessionAuthRepository } from "../host/session-auth-repository";
+import { formatRemoteMachinePairingCode } from "@argos/shared/remoteMachinePairing";
 
 const SESSION_COOKIE_NAME = "argos_session";
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
@@ -88,5 +89,10 @@ export function handleRevokeSession(repo: SessionAuthRepository, sessionId: stri
 export function handleIssuePairingToken(repo: SessionAuthRepository, origin: string): Response {
   const pairing = repo.issuePairingToken("desktop");
   const pairingUrl = `${origin}/pair?token=${pairing.token}`;
-  return Response.json({ ok: true, pairingUrl, expiresAt: pairing.expiresAt });
+  return Response.json({
+    ok: true,
+    pairingUrl,
+    pairingCode: formatRemoteMachinePairingCode(pairingUrl),
+    expiresAt: pairing.expiresAt,
+  });
 }

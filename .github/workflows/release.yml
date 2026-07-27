@@ -232,6 +232,9 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($version)) { throw "Daemon did not report a version." }
           Write-Host "Daemon version: $version"
 
+      - name: Verify remote-machine lifecycle
+        run: bun run e2e:remote-machine
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -304,6 +307,9 @@ jobs:
           version="$(apps/daemon/dist/argos-daemon --version)"
           test -n "$version"
           echo "Daemon version: $version"
+
+      - name: Verify remote-machine lifecycle
+        run: bun run e2e:remote-machine
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

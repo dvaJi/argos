@@ -1,7 +1,7 @@
 # argos-daemon installer (Windows PowerShell)
 #
 # Usage:
-#   irm https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.ps1 | iex
+#   $env:ARGOS_VERSION = "v0.2.0"; irm https://raw.githubusercontent.com/dvaJi/argos/v0.2.0/distro/install/install.ps1 | iex
 #
 # Options (env):
 #   $env:ARGOS_VERSION       Pin a release tag (e.g. "v0.1.0"). Default: latest release.
@@ -61,25 +61,19 @@ try {
   Fail "Download failed for $BaseUrl/$Asset.`nThis platform may not have a published build yet.`nCheck available assets: https://github.com/$Repo/releases/tag/$Tag"
 }
 
-# --- verify (best effort) --------------------------------------------------
+# --- verify ---------------------------------------------------------------
 $ShaUri = "$BaseUrl/$ShaAsset"
-$ShaExists = $true
 try {
-  Invoke-WebRequest -Uri $ShaUri -Method Head -UseBasicParsing | Out-Null
+  $ShaContent = (Invoke-RestMethod -Uri $ShaUri).Trim()
 } catch {
-  $ShaExists = $false
+  Fail "Checksum asset is unavailable for $Asset; refusing to install."
 }
 
-if ($ShaExists) {
-  Write-Host "> Verifying checksum..."
-  $ShaContent = (Invoke-RestMethod -Uri $ShaUri).Trim()
-  $Expected = ($ShaContent -split '\s+')[0]
-  $Actual = (Get-FileHash -Path $AssetPath -Algorithm SHA256).Hash.ToLower()
-  if ($Expected.ToLower() -ne $Actual) {
-    Fail "Checksum mismatch.`n  expected: $Expected`n  actual:   $Actual"
-  }
-} else {
-  Write-Host "warning: no checksum asset published for $Asset; skipping verification." -ForegroundColor Yellow
+Write-Host "> Verifying checksum..."
+$Expected = ($ShaContent -split '\s+')[0]
+$Actual = (Get-FileHash -Path $AssetPath -Algorithm SHA256).Hash.ToLower()
+if ($Expected.ToLower() -ne $Actual) {
+  Fail "Checksum mismatch.`n  expected: $Expected`n  actual:   $Actual"
 }
 
 # --- install ---------------------------------------------------------------

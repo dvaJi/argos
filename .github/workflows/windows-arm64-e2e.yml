@@ -70,6 +70,9 @@ jobs:
           ARGOS_E2E_APP_MODE: packaged
           ARGOS_E2E_CLEAN_PROFILE: "1"
 
+      - name: Run standalone remote-machine lifecycle smoke
+        run: bun run e2e:remote-machine
+
       - name: Run packaged app process smoke
         shell: pwsh
         run: |

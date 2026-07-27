@@ -1,5 +1,5 @@
 import { app, ipcMain, safeStorage } from "electron";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
@@ -13,8 +13,10 @@ import {
 const DAEMON_PORT_CHANNEL = "get-daemon-port";
 const PAIRING_URL_CHANNEL = "generate-pairing-url";
 const PAIR_REMOTE_MACHINE_CHANNEL = "pair-remote-machine";
+const PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL = "pair-remote-machine-progress";
 const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
 const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credential";
+const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 
 type StoredCredential = { encrypted: string; remoteUrl: string; sessionId?: string };
 type StoredCredentials = Record<string, StoredCredential>;
@@ -43,7 +45,14 @@ function readCredentials(): StoredCredentials {
 }
 
 function writeCredentials(credentials: StoredCredentials): void {
-  writeFileSync(credentialPath(), JSON.stringify(credentials), "utf8");
+  const path = credentialPath();
+  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(credentials), { encoding: "utf8", flag: "wx", mode: 0o600 });
+    renameSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
 }
 
 function encryptCredential(value: string): string {
@@ -53,6 +62,19 @@ function encryptCredential(value: string): string {
 
 function decryptCredential(value: string): string {
   return safeStorage.decryptString(Buffer.from(value, "base64"));
+}
+
+async function revokeIssuedSession(remoteUrl: string, sessionId: string | undefined, token: string): Promise<void> {
+  if (!sessionId) return;
+  try {
+    await fetch(`${remoteUrl}/api/v1/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    // Best effort: the short-lived bootstrap session will still expire server-side.
+  }
 }
 
 export function registerDaemonPortHandler(): void {
@@ -80,18 +102,27 @@ export function registerDaemonPortHandler(): void {
   });
 
   ipcMain.removeHandler(PAIR_REMOTE_MACHINE_CHANNEL);
-  ipcMain.handle(PAIR_REMOTE_MACHINE_CHANNEL, async (_event, pairingUrl: unknown) => {
+  ipcMain.handle(PAIR_REMOTE_MACHINE_CHANNEL, async (event, pairingUrl: unknown, requestId: unknown) => {
+    const reportProgress = (stage: string) => {
+      if (typeof requestId === "string") {
+        event.sender?.send?.(PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL, { requestId, stage });
+      }
+    };
+    reportProgress("parsing");
     if (typeof pairingUrl !== "string") return pairingError("pairing_invalid", "Enter a pairing link.");
 
     const parsed = parseRemoteMachinePairingLink(pairingUrl);
     if (!parsed.ok) return pairingError(parsed.error.code, parsed.error.message);
 
+    let issuedSession: { remoteUrl: string; sessionId?: string; token: string } | null = null;
     try {
       const { remoteUrl, token } = parsed.value;
+      reportProgress("reaching");
       const response = await fetch(`${remoteUrl}/api/v1/pair`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, kind: "bearer" }),
+        signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
       });
       if (!response.ok) {
         const errorBody = (await response.json().catch(() => ({}))) as {
@@ -102,6 +133,7 @@ export function registerDaemonPortHandler(): void {
           errorBody.error?.message ?? "Pairing failed.",
         );
       }
+      reportProgress("exchanging");
       const body = (await response.json()) as {
         ok?: boolean;
         sessionId?: string;
@@ -111,6 +143,8 @@ export function registerDaemonPortHandler(): void {
       if (!body.ok || !body.sessionToken) {
         return pairingError(responsePairingErrorCode(body.error?.code), body.error?.message ?? "Pairing failed.");
       }
+      issuedSession = { remoteUrl, sessionId: body.sessionId, token: body.sessionToken };
+      reportProgress("authenticating");
       const verification = await fetch(`${remoteUrl}/api/v1/route`, {
         method: "POST",
         headers: {
@@ -121,8 +155,11 @@ export function registerDaemonPortHandler(): void {
           route: "connection.describeEnvironment",
           input: { protocolVersion: 1, runtimeKind: "electron" },
         }),
+        signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
       });
       if (!verification.ok) {
+        await revokeIssuedSession(remoteUrl, body.sessionId, body.sessionToken);
+        issuedSession = null;
         return pairingError(
           "authenticated_rpc_failed",
           "Pairing succeeded, but authenticated server verification failed.",
@@ -130,9 +167,18 @@ export function registerDaemonPortHandler(): void {
       }
       const verificationBody = (await verification.json()) as {
         ok?: boolean;
-        output?: { environmentId?: string; serverVersion?: string; compatible?: boolean };
+        output?: {
+          environmentId?: string;
+          serverVersion?: string;
+          protocolVersion?: number;
+          runtimeKind?: "daemon";
+          capabilities?: string[];
+          compatible?: boolean;
+        };
       };
       if (!verificationBody.ok || !verificationBody.output?.compatible) {
+        await revokeIssuedSession(remoteUrl, body.sessionId, body.sessionToken);
+        issuedSession = null;
         return pairingError(
           verificationBody.output && verificationBody.output.compatible === false
             ? "protocol_incompatible"
@@ -142,6 +188,7 @@ export function registerDaemonPortHandler(): void {
             : "Pairing succeeded, but authenticated server verification failed.",
         );
       }
+      reportProgress("storing");
       const credentialRef = `machine-${randomUUID()}`;
       const credentials = readCredentials();
       credentials[credentialRef] = {
@@ -150,6 +197,7 @@ export function registerDaemonPortHandler(): void {
         sessionId: body.sessionId,
       };
       writeCredentials(credentials);
+      issuedSession = null;
       return {
         ok: true,
         credentialRef,
@@ -157,8 +205,14 @@ export function registerDaemonPortHandler(): void {
         sessionId: body.sessionId,
         environmentId: verificationBody.output.environmentId,
         serverVersion: verificationBody.output.serverVersion,
+        protocolVersion: verificationBody.output.protocolVersion,
+        runtimeKind: verificationBody.output.runtimeKind,
+        capabilities: verificationBody.output.capabilities,
       };
     } catch (error) {
+      if (issuedSession) {
+        await revokeIssuedSession(issuedSession.remoteUrl, issuedSession.sessionId, issuedSession.token);
+      }
       const message = error instanceof Error ? error.message : "Unable to reach the remote server.";
       return pairingError(
         message.includes("Secure credential storage")
@@ -188,22 +242,24 @@ export function registerDaemonPortHandler(): void {
       if (typeof credentialRef !== "string") return false;
       const credentials = readCredentials();
       const stored = credentials[credentialRef];
-      if (!stored) return false;
+      if (!stored) return { localRemoved: false, remoteRevoked: null };
+      let remoteRevoked: boolean | null = null;
       if (revokeRemoteSession !== false && stored.sessionId) {
         try {
           const token = decryptCredential(stored.encrypted);
-          await fetch(`${stored.remoteUrl}/api/v1/sessions/${encodeURIComponent(stored.sessionId)}`, {
+          const response = await fetch(`${stored.remoteUrl}/api/v1/sessions/${encodeURIComponent(stored.sessionId)}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` },
+            signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
           });
+          remoteRevoked = response.ok;
         } catch {
-          // Local removal remains safe even if the server is offline. The server
-          // session will expire or can be revoked from its own settings.
+          remoteRevoked = false;
         }
       }
       delete credentials[credentialRef];
       writeCredentials(credentials);
-      return true;
+      return { localRemoved: true, remoteRevoked };
     },
   );
 }
