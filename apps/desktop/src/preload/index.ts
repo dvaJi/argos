@@ -174,6 +174,21 @@ async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocke
 
   try {
     await bridge.connect();
+    const environment = await bridge.invoke("connection.describeEnvironment", {
+      protocolVersion: 1,
+      runtimeKind: "electron",
+    });
+    if (entry.environmentId && environment.environmentId !== entry.environmentId) {
+      bridge.close();
+      const config = readWorkspaceConfig();
+      config.workspaces = config.workspaces.map((workspace) =>
+        workspace.id === entry.id ? { ...workspace, trustState: "identity-changed" } : workspace,
+      );
+      writeWorkspaceConfig(config);
+      notifyWorkspaceConfigChanged();
+      hybridBridge.setWsBridge(null, "remote");
+      throw new Error("The server identity changed. Review and pair this machine again.");
+    }
     console.log(`[preload] Connected to remote workspace "${entry.name}" at ${wsUrl}`);
   } catch (error) {
     console.warn(`[preload] Failed to connect to remote workspace "${entry.name}":`, error);

@@ -259,10 +259,7 @@ export default function ServerSettings() {
               initialRemoteUrl={recoveryWorkspace?.remoteUrl}
               onAddWorkspace={(workspace) => {
                 handleAdd(workspace);
-                if (recoveryWorkspace) {
-                  void handleRemove(recoveryWorkspace.id);
-                  setRecoveryWorkspace(null);
-                }
+                setRecoveryWorkspace(null);
               }}
               compact
             />

@@ -30,6 +30,7 @@ type RemoteWorkspaceSetupProps = {
   existingRemoteUrls?: string[];
   initialRemoteUrl?: string;
   onAddWorkspace: (workspace: WorkspaceDraft) => void | Promise<void>;
+  onSaveAndSwitch?: (workspace: WorkspaceDraft) => void | Promise<void>;
   onCancel?: () => void;
   compact?: boolean;
 };
@@ -37,6 +38,7 @@ type RemoteWorkspaceSetupProps = {
 type ConnectionState =
   | { kind: "idle" }
   | { kind: "checking"; stage: "reaching" | "pairing" | "verifying" | "saving" }
+  | { kind: "review" }
   | { kind: "success"; version?: string }
   | { kind: "error"; message: string };
 
@@ -85,6 +87,7 @@ export function RemoteWorkspaceSetup({
   existingRemoteUrls = [],
   initialRemoteUrl = "",
   onAddWorkspace,
+  onSaveAndSwitch,
   onCancel,
 }: RemoteWorkspaceSetupProps) {
   const { toast } = useToast();
@@ -94,6 +97,7 @@ export function RemoteWorkspaceSetup({
   const [remoteUrl, setRemoteUrl] = useState(initialRemoteUrl);
   const [advanced, setAdvanced] = useState(Boolean(initialRemoteUrl));
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
+  const [pendingWorkspace, setPendingWorkspace] = useState<WorkspaceDraft | null>(null);
 
   const validationError = useMemo(
     () => getValidationError(remoteUrl, existingRemoteUrls),
@@ -115,6 +119,7 @@ export function RemoteWorkspaceSetup({
     setPairingUrl("");
     setRemoteUrl("");
     setAdvanced(false);
+    setPendingWorkspace(null);
   }, []);
 
   const handleConnect = useCallback(async () => {
@@ -139,8 +144,7 @@ export function RemoteWorkspaceSetup({
           setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
           return;
         }
-        setConnection({ kind: "checking", stage: "saving" });
-        await onAddWorkspace({
+        setPendingWorkspace({
           name: deriveName(name, result.remoteUrl),
           remoteUrl: result.remoteUrl,
           daemonVersion: result.serverVersion ?? body.version,
@@ -148,9 +152,7 @@ export function RemoteWorkspaceSetup({
           sessionId: result.sessionId,
           environmentId: result.environmentId ?? body.environmentId,
         });
-        setConnection({ kind: "success", version: body.version });
-        toast({ title: body.version ? `Connected to Argos Server v${body.version}` : "Remote machine paired" });
-        resetFields();
+        setConnection({ kind: "review" });
       } catch (error) {
         setConnection({ kind: "error", message: error instanceof Error ? error.message : "Pairing failed." });
       }
@@ -182,20 +184,44 @@ export function RemoteWorkspaceSetup({
         return;
       }
 
-      await onAddWorkspace({
+      setPendingWorkspace({
         name: deriveName(name, normalizedUrl),
         remoteUrl: normalizedUrl,
         daemonVersion: body.version,
       });
-
-      setConnection({ kind: "success", version: body.version });
-      toast({ title: body.version ? `Connected to daemon v${body.version}` : "Connected to daemon" });
-      resetFields();
+      setConnection({ kind: "review" });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setConnection({ kind: "error", message });
     }
-  }, [existingRemoteUrls, name, normalizedUrl, onAddWorkspace, remoteUrl, resetFields, toast]);
+  }, [existingRemoteUrls, name, normalizedUrl, remoteUrl]);
+
+  const handleSave = useCallback(
+    async (andSwitch: boolean) => {
+      if (!pendingWorkspace) return;
+      setConnection({ kind: "checking", stage: "saving" });
+      try {
+        if (andSwitch && onSaveAndSwitch) {
+          await onSaveAndSwitch(pendingWorkspace);
+        } else {
+          await onAddWorkspace(pendingWorkspace);
+        }
+        setConnection({ kind: "success", version: pendingWorkspace.daemonVersion });
+        toast({
+          title: pendingWorkspace.daemonVersion
+            ? `Saved Argos Server v${pendingWorkspace.daemonVersion}`
+            : "Remote machine saved",
+        });
+        resetFields();
+      } catch (error) {
+        setConnection({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Saving the machine failed.",
+        });
+      }
+    },
+    [onAddWorkspace, onSaveAndSwitch, pendingWorkspace, resetFields, toast],
+  );
 
   return (
     <div className="min-w-0 space-y-4">
@@ -220,28 +246,41 @@ export function RemoteWorkspaceSetup({
         </TabsList>
 
         <TabsContent value="form" className="mt-0">
-          <ConnectionForm
-            name={name}
-            pairingUrl={pairingUrl}
-            remoteUrl={remoteUrl}
-            advanced={advanced}
-            validationError={validationError}
-            connection={connection}
-            canConnect={canConnect}
-            onNameChange={setName}
-            onPairingUrlChange={(value) => {
-              setPairingUrl(value);
-              setConnection({ kind: "idle" });
-            }}
-            onAdvancedChange={setAdvanced}
-            onUrlChange={(value) => {
-              setRemoteUrl(value);
-              setConnection({ kind: "idle" });
-            }}
-            onCancel={onCancel}
-            onConnect={handleConnect}
-            onShowInstructions={() => setView("instructions")}
-          />
+          {pendingWorkspace && connection.kind === "review" ? (
+            <ReviewPanel
+              workspace={pendingWorkspace}
+              canSwitch={Boolean(onSaveAndSwitch)}
+              onBack={() => {
+                setPendingWorkspace(null);
+                setConnection({ kind: "idle" });
+              }}
+              onSave={() => void handleSave(false)}
+              onSaveAndSwitch={() => void handleSave(true)}
+            />
+          ) : (
+            <ConnectionForm
+              name={name}
+              pairingUrl={pairingUrl}
+              remoteUrl={remoteUrl}
+              advanced={advanced}
+              validationError={validationError}
+              connection={connection}
+              canConnect={canConnect}
+              onNameChange={setName}
+              onPairingUrlChange={(value) => {
+                setPairingUrl(value);
+                setConnection({ kind: "idle" });
+              }}
+              onAdvancedChange={setAdvanced}
+              onUrlChange={(value) => {
+                setRemoteUrl(value);
+                setConnection({ kind: "idle" });
+              }}
+              onCancel={onCancel}
+              onConnect={handleConnect}
+              onShowInstructions={() => setView("instructions")}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="instructions" className="mt-0">
@@ -337,7 +376,7 @@ function ConnectionForm({
         )}
 
         {connection.kind === "error" && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" role="alert">
             <Icon icon="lucide:circle-alert" className="size-4" />
             <AlertTitle>Connection failed</AlertTitle>
             <AlertDescription>{connection.message}</AlertDescription>
@@ -345,7 +384,7 @@ function ConnectionForm({
         )}
 
         {connection.kind === "success" && (
-          <Alert>
+          <Alert role="status" aria-live="polite">
             <Icon icon="lucide:circle-check" className="size-4" />
             <AlertTitle>Workspace added</AlertTitle>
             <AlertDescription>
@@ -376,6 +415,66 @@ function ConnectionForm({
             </Button>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function ReviewPanel({
+  workspace,
+  canSwitch,
+  onBack,
+  onSave,
+  onSaveAndSwitch,
+}: {
+  workspace: WorkspaceDraft;
+  canSwitch: boolean;
+  onBack: () => void;
+  onSave: () => void;
+  onSaveAndSwitch: () => void;
+}) {
+  return (
+    <section className="space-y-4 rounded-2xl border bg-background p-4">
+      <div className="space-y-1">
+        <h4 className="text-sm font-medium text-foreground">Review remote machine</h4>
+        <p className="text-sm text-muted-foreground">
+          Pairing is verified. Work, project files, and agent processes remain on this machine.
+        </p>
+      </div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-muted-foreground">Machine</dt>
+          <dd className="font-medium">{workspace.name}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Server version</dt>
+          <dd className="font-medium">{workspace.daemonVersion ?? "Unknown"}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-muted-foreground">Endpoint</dt>
+          <dd className="break-all font-mono text-xs">{workspace.remoteUrl}</dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-muted-foreground">Environment identity</dt>
+          <dd className="break-all font-mono text-xs">{workspace.environmentId ?? "Not available"}</dd>
+        </div>
+      </dl>
+      <Alert>
+        <Icon icon="lucide:shield-check" className="size-4" />
+        <AlertTitle>Secure pairing</AlertTitle>
+        <AlertDescription>
+          Argos stores the revocable session credential in the operating system secure store; the pairing link is not
+          retained.
+        </AlertDescription>
+      </Alert>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variant="outline" onClick={onBack}>
+          Back
+        </Button>
+        <Button variant="secondary" onClick={onSave}>
+          Save machine
+        </Button>
+        {canSwitch && <Button onClick={onSaveAndSwitch}>Save and switch</Button>}
       </div>
     </section>
   );

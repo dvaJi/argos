@@ -84,7 +84,7 @@ Phases 1–3 are implemented and tested.
       successful connection.
 - [x] Stop retry churn on revoked/invalid authentication and surface Pair again.
 - [ ] Continue bounded/backoff reconnect for network failures.
-- [ ] Fail closed when environment identity changes.
+- [x] Fail closed when environment identity changes.
 - [x] Support endpoint update when the environment identity remains the same.
 - [ ] Prove remote route failures never fall back to local daemon execution.
 - [ ] Add reconnect tests across Desktop and daemon restarts.
@@ -115,9 +115,9 @@ Phases 1–3 are implemented and tested.
 - [x] Move raw endpoint entry under Advanced.
 - [x] Add explicit progress stages for reachability, exchange, authentication,
       handshake, events, and capabilities.
-- [ ] Add a review screen with identity, endpoint, version, security summary,
+- [x] Add a review screen with identity, endpoint, version, security summary,
       capabilities, limitations, and data-location statement.
-- [ ] Offer separate Save and Save and switch actions.
+- [x] Offer separate Save and Save and switch actions.
 - [ ] Implement every loading/error/recovery state listed in `spec.md`.
 - [x] Remove all "pairing coming soon" copy.
 - [ ] Add keyboard, focus, screen-reader status, QR alternative, responsive, and

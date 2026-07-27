@@ -61,7 +61,7 @@ export default function WorkspaceSelector() {
     [store],
   );
 
-  const handleAdd = useCallback(
+  const saveWorkspace = useCallback(
     async (workspace: {
       name: string;
       remoteUrl: string;
@@ -89,9 +89,7 @@ export default function WorkspaceSelector() {
           lastKnownServerVersion: workspace.daemonVersion,
           trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
         });
-        await store.switchWorkspace(existing.id);
-        setAddDialogOpen(false);
-        return;
+        return existing.id;
       }
       const entry = store.addWorkspace({
         name: workspace.name,
@@ -102,10 +100,38 @@ export default function WorkspaceSelector() {
         lastKnownServerVersion: workspace.daemonVersion,
         trustState: workspace.credentialRef ? "paired" : "pairing-required",
       });
-      await store.switchWorkspace(entry.id);
-      setAddDialogOpen(false);
+      return entry.id;
     },
     [store, workspaces],
+  );
+
+  const handleSave = useCallback(
+    async (workspace: {
+      name: string;
+      remoteUrl: string;
+      credentialRef?: string;
+      environmentId?: string;
+      daemonVersion?: string;
+    }) => {
+      await saveWorkspace(workspace);
+      setAddDialogOpen(false);
+    },
+    [saveWorkspace],
+  );
+
+  const handleSaveAndSwitch = useCallback(
+    async (workspace: {
+      name: string;
+      remoteUrl: string;
+      credentialRef?: string;
+      environmentId?: string;
+      daemonVersion?: string;
+    }) => {
+      const id = await saveWorkspace(workspace);
+      await store.switchWorkspace(id);
+      setAddDialogOpen(false);
+    },
+    [saveWorkspace, store],
   );
 
   const handleRemove = useCallback(
@@ -246,11 +272,12 @@ export default function WorkspaceSelector() {
             existingRemoteUrls={remoteUrls}
             initialRemoteUrl={recoveryWorkspace?.remoteUrl}
             onAddWorkspace={async (workspace) => {
-              await handleAdd(workspace);
-              if (recoveryWorkspace) {
-                store.removeWorkspace(recoveryWorkspace.id);
-                setRecoveryWorkspace(null);
-              }
+              await handleSave(workspace);
+              setRecoveryWorkspace(null);
+            }}
+            onSaveAndSwitch={async (workspace) => {
+              await handleSaveAndSwitch(workspace);
+              setRecoveryWorkspace(null);
             }}
             onCancel={() => {
               setRecoveryWorkspace(null);
