@@ -43,6 +43,7 @@ import { isManualCompactionCommand } from "#/components/chat/mentions/utils";
 import { filterUnsupportedAudioAttachments } from "#/lib/audioInputSupport";
 import { cancelChatInputHeroFlight, prepareChatInputHeroFlight } from "#/lib/chatInputHero";
 import { useRuntimeConnectionState } from "#/composables/useRuntimeConnectionState";
+import { useWorkspaceStore } from "#/stores/ui/workspace";
 import type { ArgosAgentConfig, MessageFile, SessionGenerationSettings } from "@argos/shared/types/agent-interface";
 
 const configClient = createConfigClient();
@@ -60,6 +61,7 @@ export function NewThreadPage() {
   const modelState = useStore(modelStore);
   const draftState = useStore(draftStore);
   const connectionState = useRuntimeConnectionState();
+  const activeMachine = useWorkspaceStore().activeWorkspace;
   const isDaemonConnected = connectionState.connected;
 
   const switchAgentGuide = useGuidedOnboardingStep("switch-agent");
@@ -728,6 +730,16 @@ export function NewThreadPage() {
           </div>
 
           <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>
+
+          <div
+            className="mb-2 inline-flex items-center gap-1.5 rounded-full border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
+            data-testid="new-thread-active-machine"
+          >
+            <Icon icon="lucide:monitor-dot" className="size-3.5" />
+            <span>Running on {activeMachine?.name ?? "This computer"}</span>
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

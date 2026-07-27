@@ -130,7 +130,7 @@ Phases 1–3 are implemented and tested.
 - [x] Rename Add Remote Workspace to Connect a remote machine.
 - [x] Audit remaining "workspace" copy and retain it only for filesystem/project
       concepts or compatibility internals.
-- [ ] Display the active machine before project selection and execution-sensitive
+- [x] Display the active machine before project selection and execution-sensitive
       actions.
 - [ ] Ensure new sessions inherit the explicitly active machine.
 - [x] Prevent machine switching from silently moving active sessions.
