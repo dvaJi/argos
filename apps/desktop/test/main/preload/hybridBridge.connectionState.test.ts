@@ -158,6 +158,31 @@ describe("HybridBridge connection state", () => {
     expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
+  it("routes a newly created session through the explicitly selected remote machine", async () => {
+    const localInvoke = vi.fn(() => Promise.resolve({ from: "local" }));
+    const remoteInvoke = vi.fn(() => Promise.resolve({ from: "remote" }));
+    const bridge = new HybridBridge(noopBridge);
+    const createSocket = (url: string, invoke: ReturnType<typeof vi.fn>) => ({
+      close: vi.fn(),
+      getUrl: () => url,
+      isConnected: () => true,
+      onConnectionStateChange: vi.fn(() => () => {}),
+      invoke,
+      on: vi.fn(() => () => {}),
+    });
+
+    const local = createSocket("ws://127.0.0.1:9527/api/v1/events", localInvoke);
+    const remote = createSocket("wss://build.example.test/api/v1/events", remoteInvoke);
+    bridge.setWsBridge(local as any, "local");
+    bridge.setWsBridge(remote as any, "remote");
+
+    await bridge.invoke("sessions.create" as any, {} as any);
+
+    expect(local.close).toHaveBeenCalledTimes(1);
+    expect(localInvoke).not.toHaveBeenCalled();
+    expect(remoteInvoke).toHaveBeenCalledTimes(1);
+  });
+
   it("waits for the initial daemon connection before invoking a route", async () => {
     const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
     let connected = false;

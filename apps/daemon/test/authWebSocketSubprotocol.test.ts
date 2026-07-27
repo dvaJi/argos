@@ -22,4 +22,43 @@ describe("WebSocket bearer subprotocol authentication", () => {
       },
     });
   });
+
+  it("accepts the HTTP-only browser session cookie on a reconnect request", async () => {
+    const verifySession = async (secret: string) =>
+      secret === "browser-secret" ? { sessionId: "browser-session", kind: "browser" } : null;
+
+    const result = await authorize(
+      new Request("https://daemon.test/api/v1/events", {
+        headers: { cookie: "theme=dark; argos_session=browser-secret" },
+      }),
+      {
+        exposureMode: "network-accessible",
+        verifySession,
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      context: {
+        credentialKind: "browser-session",
+        sessionId: "browser-session",
+        exposureMode: "network-accessible",
+        isLoopback: false,
+      },
+    });
+  });
+
+  it.each(["expired-secret", "revoked-secret"])("rejects an %s browser session cookie", async (secret) => {
+    const result = await authorize(
+      new Request("https://daemon.test/api/v1/events", {
+        headers: { cookie: `argos_session=${secret}` },
+      }),
+      {
+        exposureMode: "network-accessible",
+        verifySession: async () => null,
+      },
+    );
+
+    expect(result).toMatchObject({ ok: false, status: 401, code: "unauthorized" });
+  });
 });

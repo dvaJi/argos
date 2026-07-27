@@ -132,7 +132,7 @@ Phases 1–3 are implemented and tested.
       concepts or compatibility internals.
 - [x] Display the active machine before project selection and execution-sensitive
       actions.
-- [ ] Ensure new sessions inherit the explicitly active machine.
+- [x] Ensure new sessions inherit the explicitly active machine.
 - [x] Prevent machine switching from silently moving active sessions.
 - [x] Include target machine name in relevant destructive confirmations.
 - [x] Visually and textually distinguish Remote Control integrations from remote
@@ -158,7 +158,7 @@ Phases 1–3 are implemented and tested.
 - [x] Reuse the canonical pairing entry format in browser bootstrap.
 - [x] Remove pairing token material from browser URL/history immediately after
       exchange.
-- [ ] Verify HTTP-only cookie reconnect and expiry/revocation behavior.
+- [x] Verify HTTP-only cookie reconnect and expiry/revocation behavior.
 - [x] Hide/disable unsupported browser/headless capabilities using the handshake
       catalog.
 - [x] Eliminate controls that predictably fail with headless-only errors.
