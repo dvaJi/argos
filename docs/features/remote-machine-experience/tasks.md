@@ -42,9 +42,9 @@ Phases 1–3 are implemented and tested.
 - [x] Mark migrated remote records `pairing-required`; do not restore legacy raw
       credentials.
 - [x] Preserve names, endpoints, creation timestamps, and active selection.
-- [ ] Detect duplicate machines by environment ID rather than URL.
-- [ ] Add identity-change/replacement state for a known endpoint.
-- [ ] Add rollback-safe migration tests and fixtures.
+- [x] Detect duplicate machines by environment ID rather than URL.
+- [x] Add identity-change/replacement state for a known endpoint.
+- [x] Add rollback-safe migration tests and fixtures.
 
 ## Phase 3 — Secure Desktop credential storage
 
@@ -85,7 +85,7 @@ Phases 1–3 are implemented and tested.
 - [x] Stop retry churn on revoked/invalid authentication and surface Pair again.
 - [ ] Continue bounded/backoff reconnect for network failures.
 - [ ] Fail closed when environment identity changes.
-- [ ] Support endpoint update when the environment identity remains the same.
+- [x] Support endpoint update when the environment identity remains the same.
 - [ ] Prove remote route failures never fall back to local daemon execution.
 - [ ] Add reconnect tests across Desktop and daemon restarts.
 
@@ -128,7 +128,7 @@ Phases 1–3 are implemented and tested.
 - [x] Rename the daemon connection selector from Workspaces to Machines.
 - [x] Rename Local to This computer in user-facing UI.
 - [x] Rename Add Remote Workspace to Connect a remote machine.
-- [ ] Audit remaining "workspace" copy and retain it only for filesystem/project
+- [x] Audit remaining "workspace" copy and retain it only for filesystem/project
       concepts or compatibility internals.
 - [ ] Display the active machine before project selection and execution-sensitive
       actions.
@@ -169,18 +169,18 @@ Phases 1–3 are implemented and tested.
 - [x] Create/update the durable remote-machines guide.
 - [x] Document Desktop versus Server and state that most users need only Desktop.
 - [x] Document supported network topologies with diagrams.
-- [ ] Document install, exposure, pairing, browser access, lifecycle, data
+- [x] Document install, exposure, pairing, browser access, lifecycle, data
       location, backup, updates, logs, revoke, uninstall, and troubleshooting.
 - [x] Update landing/download copy to label Desktop as recommended and Server as
       advanced/headless.
 - [x] Add release-note template sections for Desktop and Server assets.
-- [ ] Link the guide from the in-app wizard, settings, landing page, and release
+- [x] Link the guide from the in-app wizard, settings, landing page, and release
       notes.
-- [ ] Verify commands in documentation against the shared command matrix.
+- [x] Verify commands in documentation against the shared command matrix.
 
 ## Phase 12 — Validation and rollout
 
-- [ ] Add unit coverage for parser, migration, identity, compatibility,
+- [x] Add unit coverage for parser, migration, identity, compatibility,
       capabilities, errors, and command matrix.
 - [ ] Add daemon coverage for pairing, handshake, session revoke, exposure, and
       credential redaction.

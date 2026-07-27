@@ -74,7 +74,7 @@ export function Download() {
           <p className="mt-6 text-center text-xs text-slate-600">
             Before deploying on a VPS, read the{" "}
             <a
-              href="/docs"
+              href="https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md"
               className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
               remote machine guide

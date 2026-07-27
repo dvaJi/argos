@@ -48,7 +48,10 @@ export default function WorkspaceSelector() {
     async (id: string) => {
       if (id === store.activeWorkspaceId) return;
       const target = store.getWorkspace(id);
-      if (target?.mode === "remote" && target.trustState === "pairing-required") {
+      if (
+        target?.mode === "remote" &&
+        (target.trustState === "pairing-required" || target.trustState === "identity-changed")
+      ) {
         setRecoveryWorkspace(target);
         setAddDialogOpen(true);
         return;
@@ -66,15 +69,21 @@ export default function WorkspaceSelector() {
       environmentId?: string;
       daemonVersion?: string;
     }) => {
-      const existing = workspaces.find(
-        (candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl,
-      );
+      const existingByIdentity = workspace.environmentId
+        ? workspaces.find(
+            (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
+          )
+        : undefined;
+      const existing =
+        existingByIdentity ??
+        workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
       if (existing) {
         const identityChanged = Boolean(
           existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
         );
         store.updateWorkspace(existing.id, {
           name: workspace.name || existing.name,
+          remoteUrl: workspace.remoteUrl,
           credentialRef: workspace.credentialRef,
           environmentId: workspace.environmentId,
           lastKnownServerVersion: workspace.daemonVersion,

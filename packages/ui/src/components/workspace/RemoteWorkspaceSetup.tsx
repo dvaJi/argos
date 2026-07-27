@@ -43,6 +43,7 @@ type ConnectionState =
 type SetupView = "form" | "instructions";
 
 const deviceClient = createDeviceClient();
+const REMOTE_MACHINE_GUIDE_URL = "https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md";
 
 function normalizeServerUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
@@ -418,6 +419,15 @@ function InstructionsPanel({
             internet-distance access, use a private overlay network or HTTPS reverse proxy.
           </AlertDescription>
         </Alert>
+
+        <a
+          href={REMOTE_MACHINE_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Open the remote-machine guide
+        </a>
 
         <div className="flex justify-end">
           <Button type="button" onClick={onShowForm}>

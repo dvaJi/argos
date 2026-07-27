@@ -24,6 +24,19 @@ Use a standalone `argos-daemon` release asset only on the machine that should
 run agents remotely. The release page labels these assets **Argos Server —
 advanced/headless**.
 
+The supported installers are:
+
+```text
+# macOS or Linux with Homebrew
+brew install dvaJi/tap/argos-daemon
+
+# Linux without Homebrew
+curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.sh | sh
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.ps1 | iex
+```
+
 After installing the matching OS/architecture binary, verify it:
 
 ```text
@@ -60,6 +73,15 @@ interface and restrict the host firewall to that network:
 
 ```text
 argos-daemon --host 0.0.0.0 --web --pair
+```
+
+On Windows, use the `.exe` form of the same commands:
+
+```text
+argos-daemon.exe --version
+argos-daemon.exe --host 127.0.0.1 --web --pair
+argos-daemon.exe --host 0.0.0.0 --web --pair
+irm http://127.0.0.1:9527/health
 ```
 
 Do not expose a daemon directly to the public internet over plain HTTP. Prefer
@@ -132,3 +154,21 @@ server data directory before upgrades or migrations.
 The server data directory is controlled by the daemon's `--data-dir` option (or
 its platform default). Treat it as the source of truth for remote sessions,
 configuration, and projects unless a feature explicitly documents synchronization.
+
+### Linux service operations
+
+For an always-on Linux host, install the supplied
+[`systemd` unit](../../distro/systemd/argos-daemon.service), then use:
+
+```text
+sudo systemctl enable --now argos-daemon
+sudo systemctl status argos-daemon
+sudo systemctl restart argos-daemon
+journalctl -u argos-daemon -f
+```
+
+Before an upgrade, back up the data directory. Use `argos-daemon update` when
+the installed release supports it, then restart the service. To uninstall a
+manual installation, stop and disable the service, remove the installed binary
+and unit, then remove the data directory only after confirming that its projects
+and sessions have been backed up.

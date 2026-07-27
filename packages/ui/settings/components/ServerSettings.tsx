@@ -34,6 +34,39 @@ export default function ServerSettings() {
     environmentId?: string;
   }) => {
     const config = readWorkspaceConfig();
+    const existing = workspace.environmentId
+      ? config.workspaces.find(
+          (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
+        )
+      : config.workspaces.find(
+          (candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl,
+        );
+    if (existing) {
+      const identityChanged = Boolean(
+        existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
+      );
+      config.workspaces = config.workspaces.map((candidate) =>
+        candidate.id === existing.id
+          ? {
+              ...candidate,
+              name: workspace.name || candidate.name,
+              remoteUrl: workspace.remoteUrl,
+              credentialRef: workspace.credentialRef,
+              environmentId: workspace.environmentId,
+              lastKnownServerVersion: workspace.daemonVersion,
+              trustState: identityChanged
+                ? "identity-changed"
+                : workspace.credentialRef
+                  ? "paired"
+                  : "pairing-required",
+            }
+          : candidate,
+      );
+      writeWorkspaceConfig(config);
+      notifyWorkspaceConfigChanged();
+      setWorkspaces(config.workspaces);
+      return;
+    }
     const entry: WorkspaceEntry = {
       id: generateWorkspaceId(),
       name: workspace.name,
@@ -119,6 +152,14 @@ export default function ServerSettings() {
               Each machine is backed by Argos Desktop locally or Argos Server remotely. Switch machines from the
               sidebar.
             </div>
+            <a
+              href="https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Open the remote-machine guide
+            </a>
           </div>
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -197,7 +238,7 @@ export default function ServerSettings() {
                       <Button variant="ghost" size="sm" onClick={() => void handleCopyDiagnostics(workspace)}>
                         Diagnostics
                       </Button>
-                      {workspace.trustState === "pairing-required" && (
+                      {(workspace.trustState === "pairing-required" || workspace.trustState === "identity-changed") && (
                         <Button variant="outline" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
                           Pair again
                         </Button>
