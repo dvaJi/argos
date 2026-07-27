@@ -15,6 +15,7 @@ import "../src/assets/main.css";
 import "katex/dist/katex.min.css";
 import { WebSocketBridge } from "@argos/client-sdk";
 import { browserLocalApi } from "#api/local-api";
+import { exchangeBrowserPairingToken, stripPairingToken } from "./browserPairing";
 
 declare global {
   interface Window {
@@ -43,25 +44,8 @@ function renderPage(_title: string, message: string, color = "#888"): void {
   }
 }
 
-async function exchangePairingToken(token: string): Promise<boolean> {
-  try {
-    const res = await fetch("/api/v1/pair", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, kind: "browser" }),
-    });
-    if (!res.ok) return false;
-    const body = await res.json();
-    return body.ok === true;
-  } catch {
-    return false;
-  }
-}
-
 function stripTokenParam(): void {
-  const url = new URL(window.location.href);
-  url.searchParams.delete("token");
-  window.history.replaceState({}, document.title, url.toString());
+  window.history.replaceState({}, document.title, stripPairingToken(window.location.href));
 }
 
 async function bootstrap(): Promise<void> {
@@ -70,9 +54,9 @@ async function bootstrap(): Promise<void> {
 
   if (pairToken) {
     renderPage("Argos", "Exchanging pairing token...");
-    const ok = await exchangePairingToken(pairToken);
+    const result = await exchangeBrowserPairingToken(pairToken);
     stripTokenParam();
-    if (!ok) {
+    if (!result.ok) {
       renderPage("Argos", "Pairing failed. The token may be invalid, expired, or already used.", "#e00");
       return;
     }
