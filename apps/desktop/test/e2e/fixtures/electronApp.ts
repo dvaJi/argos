@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const FIXTURE_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(FIXTURE_DIR, "..", "..", "..");
 const BUILT_MAIN_ENTRY = resolve(REPO_ROOT, "out", "main", "index.js");
-const BUILT_RENDERER_ENTRY = resolve(REPO_ROOT, "out", "renderer", "index.html");
+const BUILT_UI_ENTRY = resolve(REPO_ROOT, "..", "..", "packages", "ui", "dist", "index.html");
 const WINDOWS_PACKAGED_EXECUTABLE = resolve(
   REPO_ROOT,
   "dist",
@@ -157,10 +157,8 @@ const ensureLaunchTargetExists = (): void => {
     );
   }
 
-  if (!existsSync(BUILT_RENDERER_ENTRY)) {
-    throw new Error(
-      `Built renderer entry not found at ${BUILT_RENDERER_ENTRY}. Run "pnpm run build" before "pnpm run e2e:smoke".`,
-    );
+  if (!existsSync(BUILT_UI_ENTRY)) {
+    throw new Error(`Built UI entry not found at ${BUILT_UI_ENTRY}. Run "pnpm run build" before "pnpm run e2e:smoke".`);
   }
 };
 

@@ -7,7 +7,11 @@ const isSettingsWindow = async (page: Page): Promise<boolean> => {
     return false;
   }
 
-  if (url.includes("/renderer/settings/index.html") || url.includes("/settings/index.html")) {
+  if (
+    url.includes("/renderer/settings/index.html") ||
+    url.includes("/settings/index.html") ||
+    url.includes("/settings")
+  ) {
     return true;
   }
 
@@ -16,7 +20,16 @@ const isSettingsWindow = async (page: Page): Promise<boolean> => {
     return false;
   }
 
-  return title.includes("Settings");
+  if (title.includes("Settings")) {
+    return true;
+  }
+
+  return (
+    (await page
+      .getByTestId("settings-page")
+      .count()
+      .catch(() => 0)) > 0
+  );
 };
 
 export async function openSettings(app: ElectronAppInstance): Promise<Page> {
