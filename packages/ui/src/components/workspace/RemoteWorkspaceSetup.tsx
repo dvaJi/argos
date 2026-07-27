@@ -141,8 +141,13 @@ export function RemoteWorkspaceSetup({
         issuedCredentialRef = result.credentialRef;
         setConnection({ kind: "checking", stage: "verifying" });
         const response = await fetch(`${result.remoteUrl}/health`);
+        if (!response.ok) {
+          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
+          setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
+          return;
+        }
         const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
-        if (!response.ok || body.status !== "ok") {
+        if (body.status !== "ok") {
           await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
           setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
           return;
@@ -200,7 +205,7 @@ export function RemoteWorkspaceSetup({
       const message = error instanceof Error ? error.message : String(error);
       setConnection({ kind: "error", message });
     }
-  }, [existingRemoteUrls, name, normalizedUrl, remoteUrl]);
+  }, [advanced, existingRemoteUrls, name, normalizedUrl, pairingUrl, remoteUrl]);
 
   const handleSave = useCallback(
     async (andSwitch: boolean) => {

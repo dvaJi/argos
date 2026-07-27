@@ -84,13 +84,25 @@ export function registerDaemonPortHandler(): void {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, kind: "bearer" }),
       });
+      if (!response.ok) {
+        const errorBody = (await response.json().catch(() => ({}))) as {
+          error?: { code?: string; message?: string };
+        };
+        return {
+          ok: false,
+          error: {
+            code: errorBody.error?.code ?? "pairing_failed",
+            message: errorBody.error?.message ?? "Pairing failed.",
+          },
+        };
+      }
       const body = (await response.json()) as {
         ok?: boolean;
         sessionId?: string;
         sessionToken?: string;
         error?: { code?: string; message?: string };
       };
-      if (!response.ok || !body.ok || !body.sessionToken) {
+      if (!body.ok || !body.sessionToken) {
         return {
           ok: false,
           error: { code: body.error?.code ?? "pairing_failed", message: body.error?.message ?? "Pairing failed." },
@@ -107,11 +119,20 @@ export function registerDaemonPortHandler(): void {
           input: { protocolVersion: 1, runtimeKind: "electron" },
         }),
       });
+      if (!verification.ok) {
+        return {
+          ok: false,
+          error: {
+            code: "authenticated_rpc_failed",
+            message: "Pairing succeeded, but authenticated server verification failed.",
+          },
+        };
+      }
       const verificationBody = (await verification.json()) as {
         ok?: boolean;
         output?: { environmentId?: string; serverVersion?: string; compatible?: boolean };
       };
-      if (!verification.ok || !verificationBody.ok || !verificationBody.output?.compatible) {
+      if (!verificationBody.ok || !verificationBody.output?.compatible) {
         return {
           ok: false,
           error: {

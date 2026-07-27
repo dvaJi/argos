@@ -208,6 +208,7 @@ export default function WorkspaceSelector() {
                 {ws.mode === "remote" && (
                   <span className="ml-1 flex items-center gap-0.5">
                     <button
+                      type="button"
                       className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -218,6 +219,7 @@ export default function WorkspaceSelector() {
                       <Icon icon="lucide:refresh-cw" className="size-3" />
                     </button>
                     <button
+                      type="button"
                       className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -228,6 +230,7 @@ export default function WorkspaceSelector() {
                       <Icon icon="lucide:pencil" className="size-3" />
                     </button>
                     <button
+                      type="button"
                       className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       onClick={(event) => {
                         event.stopPropagation();
@@ -238,6 +241,7 @@ export default function WorkspaceSelector() {
                       <Icon icon="lucide:clipboard-copy" className="size-3" />
                     </button>
                     <button
+                      type="button"
                       className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       onClick={(event) => {
                         event.stopPropagation();
