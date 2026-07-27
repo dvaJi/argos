@@ -184,7 +184,7 @@ Phases 1–3 are implemented and tested.
       capabilities, errors, and command matrix.
 - [ ] Add daemon coverage for pairing, handshake, session revoke, exposure, and
       credential redaction.
-- [ ] Add main/preload/client coverage for secure storage, authenticated
+- [x] Add main/preload/client coverage for secure storage, authenticated
       transport, reconnect, and no-local-fallback.
 - [ ] Add renderer coverage for happy path, all error states, accessibility, and
       terminology.

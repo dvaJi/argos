@@ -293,4 +293,23 @@ describe("WebSocketBridge", () => {
 
     bridge.close();
   });
+
+  it("reconnects after a daemon restart and restores event subscriptions", async () => {
+    const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
+    await bridge.connect();
+    bridge.on("chat.stream.updated", vi.fn<(...args: any[]) => any>());
+
+    const beforeRestart = (bridge as any).ws as MockWebSocket;
+    beforeRestart.simulateUnexpectedClose();
+
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+
+    const afterRestart = (bridge as any).ws as MockWebSocket;
+    expect(afterRestart).not.toBe(beforeRestart);
+    expect(afterRestart.readyState).toBe(MockWebSocket.OPEN);
+    expect(afterRestart.sentMessages.map((message) => JSON.parse(message))).toContainEqual(
+      expect.objectContaining({ type: "subscribe", events: ["chat.stream.updated"] }),
+    );
+    bridge.close();
+  });
 });
