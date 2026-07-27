@@ -51,6 +51,17 @@ pnpm run build
 pnpm run e2e:smoke:ci
 ```
 
+To run the CI smoke suite against a fresh, temporary Desktop profile and a
+packaged executable, build the Windows artifact first and then run:
+
+```bash
+ARGOS_E2E_APP_MODE=packaged ARGOS_E2E_CLEAN_PROFILE=1 pnpm run e2e:smoke:ci
+```
+
+On Windows PowerShell, set those values with `$env:ARGOS_E2E_APP_MODE` and
+`$env:ARGOS_E2E_CLEAN_PROFILE` before invoking the command. The temporary
+profile is deleted after the test run.
+
 Set `RUN_PROVIDER_INTEGRATION=true` before running `pnpm run e2e:smoke` if you also want the
 live provider connectivity check in `05-settings-provider.smoke.spec.ts`.
 
@@ -69,3 +80,5 @@ The suite also attaches renderer console output and page errors to each test run
 - The provider connectivity check is opt-in because it requires live credentials and network access.
 - `pnpm run e2e:smoke:ci` uses the current profile and only runs non-provider smoke coverage; it is
   intended for CI and Windows ARM64 validation.
+- `ARGOS_E2E_CLEAN_PROFILE=1` opts into an isolated, disposable profile for
+  launch and packaged-build validation.

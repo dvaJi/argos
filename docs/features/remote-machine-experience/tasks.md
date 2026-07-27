@@ -72,8 +72,8 @@ Phases 1–3 are implemented and tested.
 - [x] Complete authenticated handshake and route round-trip verification.
 - [x] Close or adopt the verification transport deterministically.
 - [x] Delete newly issued credentials when cancelled before save.
-- [ ] Implement stable error codes for every specified setup failure.
-- [ ] Cover invalid, expired, consumed, unreachable, loopback, TLS, storage,
+- [x] Implement stable error codes for every specified setup failure.
+- [x] Cover invalid, expired, consumed, unreachable, loopback, TLS, storage,
       version, identity, RPC, and readiness failures.
 
 ## Phase 5 — Connection runtime integration
@@ -188,7 +188,7 @@ Phases 1–3 are implemented and tested.
       transport, reconnect, and no-local-fallback.
 - [ ] Add renderer coverage for happy path, all error states, accessibility, and
       terminology.
-- [ ] Run clean Desktop local-only packaged smoke.
+- [x] Run clean Desktop local-only packaged smoke.
 - [ ] Run clean server install + pair + Desktop connect smoke for every supported
       OS/architecture available in CI.
 - [ ] Run Desktop restart, daemon restart, session revoke, URL change, identity
@@ -199,7 +199,7 @@ Phases 1–3 are implemented and tested.
 - [x] Run `bun run format`.
 - [x] Run `bun run lint`.
 - [x] Run `bun run typecheck`.
-- [ ] Run relevant main, renderer, daemon, and E2E test suites.
+- [x] Run relevant main, renderer, daemon, and E2E test suites.
 - [ ] Remove temporary feature flags and obsolete raw URL-first code.
 - [ ] Fold durable facts into current guides/architecture docs and retire
       superseded active SDD folders according to repository policy.
