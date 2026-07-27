@@ -8,6 +8,7 @@ const guide = readFileSync(join(import.meta.dir, "../../../docs/guides/remote-ma
 describe("remote-machine guide", () => {
   test("documents every advertised installer and safe pairing commands", () => {
     for (const commandSet of REMOTE_MACHINE_COMMANDS) {
+      if (!commandSet.available) continue;
       expect(guide).toContain(commandSet.install);
       expect(guide).toContain(commandSet.start.loopback);
       expect(guide).toContain(commandSet.start["private-network"]);

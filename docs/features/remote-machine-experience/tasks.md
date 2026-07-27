@@ -93,7 +93,7 @@ Phases 1–3 are implemented and tested.
 
 - [x] Replace hard-coded install/start arrays with a typed supported-platform
       command matrix.
-- [ ] Align each install command with an asset actually produced by the release
+- [x] Align each install command with an asset actually produced by the release
       workflow.
 - [ ] Add `--version` coverage for every daemon artifact.
 - [x] Define commands for loopback browser, trusted LAN/private overlay, and
@@ -102,7 +102,7 @@ Phases 1–3 are implemented and tested.
 - [x] Require explicit confirmation before showing network-accessible startup.
 - [x] Add service install/status/restart instructions for supported platforms.
 - [x] Add update, logs, health, data-directory, and uninstall commands.
-- [ ] Add CI tests that fail when UI commands, asset names, and release workflow
+- [x] Add CI tests that fail when UI commands, asset names, and release workflow
       outputs diverge.
 
 ## Phase 7 — Setup wizard

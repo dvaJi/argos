@@ -24,18 +24,18 @@ Use a standalone `argos-daemon` release asset only on the machine that should
 run agents remotely. The release page labels these assets **Argos Server —
 advanced/headless**.
 
-The supported installers are:
+Standalone Argos Server releases are currently published for Linux and Windows:
 
 ```text
-# macOS or Linux with Homebrew
-brew install dvaJi/tap/argos-daemon
-
-# Linux without Homebrew
+# Linux
 curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.sh | sh
 
 # Windows PowerShell
 irm https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.ps1 | iex
 ```
+
+macOS users can run Argos Desktop locally; a standalone macOS Argos Server
+binary is not currently published.
 
 After installing the matching OS/architecture binary, verify it:
 

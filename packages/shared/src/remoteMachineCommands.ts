@@ -3,6 +3,8 @@ export type RemoteMachineExposure = "loopback" | "private-network";
 
 export type RemoteMachineCommandSet = {
   platform: RemoteMachinePlatform;
+  available: boolean;
+  unavailableReason?: string;
   install: string;
   start: Record<RemoteMachineExposure, string>;
   health: string;
@@ -13,7 +15,9 @@ export type RemoteMachineCommandSet = {
 export const REMOTE_MACHINE_COMMANDS: readonly RemoteMachineCommandSet[] = [
   {
     platform: "macos",
-    install: "brew install dvaJi/tap/argos-daemon",
+    available: false,
+    unavailableReason: "A standalone Argos Server binary for macOS is not published yet.",
+    install: "",
     start: {
       loopback: "argos-daemon --host 127.0.0.1 --web --pair",
       "private-network": "argos-daemon --host 0.0.0.0 --web --pair",
@@ -24,6 +28,7 @@ export const REMOTE_MACHINE_COMMANDS: readonly RemoteMachineCommandSet[] = [
   },
   {
     platform: "linux",
+    available: true,
     install: "curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.sh | sh",
     start: {
       loopback: "argos-daemon --host 127.0.0.1 --web --pair",
@@ -35,6 +40,7 @@ export const REMOTE_MACHINE_COMMANDS: readonly RemoteMachineCommandSet[] = [
   },
   {
     platform: "windows",
+    available: true,
     install: "irm https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.ps1 | iex",
     start: {
       loopback: "argos-daemon.exe --host 127.0.0.1 --web --pair",

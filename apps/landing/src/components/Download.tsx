@@ -11,8 +11,7 @@ const PLATFORMS = [
 ] as const;
 
 const DAEMON_INSTALLS = [
-  { command: "brew install dvaJi/tap/argos-daemon", label: "Homebrew" },
-  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "macOS / Linux" },
+  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "Linux" },
   { command: `irm ${INSTALL_RAW}/install.ps1 | iex`, label: "Windows" },
 ] as const;
 

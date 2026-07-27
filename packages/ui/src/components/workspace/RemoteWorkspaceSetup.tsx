@@ -522,38 +522,49 @@ function InstructionsPanel({
       <Separator className="my-4" />
 
       <div className="space-y-4">
+        {!commands.available && (
+          <Alert>
+            <Icon icon="lucide:info" className="size-4" />
+            <AlertTitle>Argos Server is not available for this platform</AlertTitle>
+            <AlertDescription>{commands.unavailableReason}</AlertDescription>
+          </Alert>
+        )}
         <InstructionGroup title="Install daemon" description="Pick the command that matches the remote host.">
-          <CommandRow label="Install" detail={commands.platform} command={commands.install} onCopy={onCopyCommand} />
+          {commands.available && (
+            <CommandRow label="Install" detail={commands.platform} command={commands.install} onCopy={onCopyCommand} />
+          )}
         </InstructionGroup>
 
-        <InstructionGroup title="Run and verify" description="Start the daemon and check that it is healthy.">
-          <CommandRow label="Start (local)" command={commands.start.loopback} onCopy={onCopyCommand} />
-          <CommandRow label="Health check" command={commands.health} onCopy={onCopyCommand} />
-          <CommandRow label="Version" command={commands.version} onCopy={onCopyCommand} />
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-            <p className="text-xs text-muted-foreground">
-              A LAN or private-overlay server is reachable by other devices. Restrict its firewall to trusted clients.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={() => setShowPrivateNetworkCommand((current) => !current)}
-            >
-              {showPrivateNetworkCommand ? "Hide network command" : "I understand — show network command"}
-            </Button>
-            {showPrivateNetworkCommand && (
-              <div className="mt-2">
-                <CommandRow
-                  label="Start (network)"
-                  command={commands.start["private-network"]}
-                  onCopy={onCopyCommand}
-                />
-              </div>
-            )}
-          </div>
-        </InstructionGroup>
+        {commands.available && (
+          <InstructionGroup title="Run and verify" description="Start the daemon and check that it is healthy.">
+            <CommandRow label="Start (local)" command={commands.start.loopback} onCopy={onCopyCommand} />
+            <CommandRow label="Health check" command={commands.health} onCopy={onCopyCommand} />
+            <CommandRow label="Version" command={commands.version} onCopy={onCopyCommand} />
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+              <p className="text-xs text-muted-foreground">
+                A LAN or private-overlay server is reachable by other devices. Restrict its firewall to trusted clients.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setShowPrivateNetworkCommand((current) => !current)}
+              >
+                {showPrivateNetworkCommand ? "Hide network command" : "I understand — show network command"}
+              </Button>
+              {showPrivateNetworkCommand && (
+                <div className="mt-2">
+                  <CommandRow
+                    label="Start (network)"
+                    command={commands.start["private-network"]}
+                    onCopy={onCopyCommand}
+                  />
+                </div>
+              )}
+            </div>
+          </InstructionGroup>
+        )}
 
         <Alert>
           <Icon icon="lucide:shield-check" className="size-4" />
