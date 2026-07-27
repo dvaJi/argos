@@ -99,20 +99,20 @@ Phases 1–3 are implemented and tested.
 - [x] Define commands for loopback browser, trusted LAN/private overlay, and
       HTTPS/reverse-proxy deployments.
 - [ ] Ensure no command suggests a LAN URL while binding only to loopback.
-- [ ] Require explicit confirmation before showing network-accessible startup.
-- [ ] Add service install/status/restart instructions for supported platforms.
-- [ ] Add update, logs, health, data-directory, and uninstall commands.
+- [x] Require explicit confirmation before showing network-accessible startup.
+- [x] Add service install/status/restart instructions for supported platforms.
+- [x] Add update, logs, health, data-directory, and uninstall commands.
 - [ ] Add CI tests that fail when UI commands, asset names, and release workflow
       outputs diverge.
 
 ## Phase 7 — Setup wizard
 
-- [ ] Replace `RemoteWorkspaceSetup` with a shared Connect Remote Machine wizard.
-- [ ] Add use-case and Desktop-versus-Server introduction.
-- [ ] Add platform/architecture and exposure-path selection.
-- [ ] Add copyable install, verify, start, and pairing instructions.
-- [ ] Make pairing link/code the default input.
-- [ ] Move raw endpoint entry under Advanced.
+- [x] Replace `RemoteWorkspaceSetup` with a shared Connect Remote Machine wizard.
+- [x] Add use-case and Desktop-versus-Server introduction.
+- [x] Add platform/architecture and exposure-path selection.
+- [x] Add copyable install, verify, start, and pairing instructions.
+- [x] Make pairing link/code the default input.
+- [x] Move raw endpoint entry under Advanced.
 - [x] Add explicit progress stages for reachability, exchange, authentication,
       handshake, events, and capabilities.
 - [ ] Add a review screen with identity, endpoint, version, security summary,
