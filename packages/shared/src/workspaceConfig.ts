@@ -18,6 +18,9 @@ export type WorkspaceEntry = {
   /** Stable identity reported by the remote daemon after verification. */
   environmentId?: string;
   lastKnownServerVersion?: string;
+  lastKnownProtocolVersion?: number;
+  lastKnownCapabilities?: string[];
+  lastConnectedAt?: number;
   trustState?: WorkspaceTrustState;
 };
 
@@ -59,6 +62,11 @@ function isWorkspaceEntry(value: unknown): value is WorkspaceEntry {
     (c.credentialRef === undefined || typeof c.credentialRef === "string") &&
     (c.environmentId === undefined || typeof c.environmentId === "string") &&
     (c.lastKnownServerVersion === undefined || typeof c.lastKnownServerVersion === "string") &&
+    (c.lastKnownProtocolVersion === undefined || typeof c.lastKnownProtocolVersion === "number") &&
+    (c.lastKnownCapabilities === undefined ||
+      (Array.isArray(c.lastKnownCapabilities) &&
+        c.lastKnownCapabilities.every((capability) => typeof capability === "string"))) &&
+    (c.lastConnectedAt === undefined || typeof c.lastConnectedAt === "number") &&
     (c.trustState === undefined ||
       c.trustState === "managed-local" ||
       c.trustState === "paired" ||

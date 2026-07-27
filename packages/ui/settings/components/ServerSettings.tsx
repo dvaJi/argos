@@ -244,6 +244,17 @@ export default function ServerSettings() {
                           : "Pairing verification required"}
                         {workspace.environmentId ? ` · ${workspace.environmentId.slice(0, 8)}` : ""}
                       </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        Protocol {workspace.lastKnownProtocolVersion ?? "unknown"}
+                        {workspace.lastConnectedAt
+                          ? ` · connected ${new Date(workspace.lastConnectedAt).toLocaleString()}`
+                          : " · not connected yet"}
+                      </div>
+                      {workspace.lastKnownCapabilities && workspace.lastKnownCapabilities.length > 0 && (
+                        <div className="truncate text-xs text-muted-foreground">
+                          Capabilities: {workspace.lastKnownCapabilities.join(", ")}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="sm" onClick={() => void handleRetry(workspace)}>

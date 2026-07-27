@@ -53,6 +53,36 @@ describe("workspace config migration", () => {
     expect(storage.get(WORKSPACE_CONFIG_STORAGE_KEY)).not.toContain("sessionToken");
   });
 
+  test("preserves verified machine metadata across configuration reads", () => {
+    const config = {
+      schemaVersion: 2,
+      activeWorkspaceId: "remote",
+      workspaces: [
+        { id: "local", name: "This computer", mode: "local", remoteUrl: "", createdAt: 0 },
+        {
+          id: "remote",
+          name: "Build host",
+          mode: "remote",
+          remoteUrl: "https://build.example.test",
+          createdAt: 1,
+          credentialRef: "machine-ref",
+          environmentId: "environment-1",
+          lastKnownServerVersion: "0.2.0",
+          lastKnownProtocolVersion: 1,
+          lastKnownCapabilities: ["chat", "sessions"],
+          lastConnectedAt: 123,
+        },
+      ],
+    };
+
+    localStorage.setItem(WORKSPACE_CONFIG_STORAGE_KEY, JSON.stringify(config));
+    expect(readWorkspaceConfig().workspaces[1]).toMatchObject({
+      lastKnownProtocolVersion: 1,
+      lastKnownCapabilities: ["chat", "sessions"],
+      lastConnectedAt: 123,
+    });
+  });
+
   test("persists an opaque credential reference without a bearer secret", () => {
     const bearer = "argos-secret-bearer-value";
     writeWorkspaceConfig({
