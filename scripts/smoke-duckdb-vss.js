@@ -1,12 +1,16 @@
 import { createRequire } from 'node:module'
+import { pathToFileURL } from 'node:url'
 
-const require = createRequire(import.meta.url)
+// DuckDB is intentionally a desktop dependency. Resolve it from the desktop
+// package so this root-level smoke command works in Bun workspace installs on
+// every CI architecture.
+const require = createRequire(new URL('../apps/desktop/package.json', import.meta.url))
 const duckdbPackage = require('@duckdb/node-api/package.json')
 
 async function main() {
   console.log(`[DuckDB Smoke] package version: ${duckdbPackage.version}`)
 
-  const duckdb = await import('@duckdb/node-api')
+  const duckdb = await import(pathToFileURL(require.resolve('@duckdb/node-api')).href)
   const instance = await duckdb.DuckDBInstance.create(':memory:')
   const connection = await instance.connect()
 

@@ -481,6 +481,11 @@ Run packaged or production-equivalent tests for:
 11. trusted LAN/private overlay topology;
 12. packaged Desktop with embedded local daemon unaffected.
 
+The Windows ARM64 gate also executes the DuckDB/VSS runtime smoke before
+packaging. Its resolver must load DuckDB through `@argos/desktop`, where that
+native dependency is declared, rather than assuming it is hoisted at the
+workspace root.
+
 ## Rollout
 
 ### Phase 1 — Contract and secure foundation
