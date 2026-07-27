@@ -65,12 +65,12 @@ Phases 1–3 are implemented and tested.
 - [x] Implement one shared pairing parser with URL normalization and redaction.
 - [x] Reject unsupported protocols, userinfo, malformed endpoints, and invalid
       pairing paths.
-- [ ] Implement the setup state machine from parsing through review/save.
+- [x] Implement the setup state machine from parsing through review/save.
 - [x] Exchange the one-time token without returning it to UI business state.
 - [x] Store the issued Desktop bearer session securely.
 - [x] Establish an authenticated WebSocket connection.
 - [x] Complete authenticated handshake and route round-trip verification.
-- [ ] Close or adopt the verification transport deterministically.
+- [x] Close or adopt the verification transport deterministically.
 - [x] Delete newly issued credentials when cancelled before save.
 - [ ] Implement stable error codes for every specified setup failure.
 - [ ] Cover invalid, expired, consumed, unreachable, loopback, TLS, storage,
@@ -98,7 +98,7 @@ Phases 1–3 are implemented and tested.
 - [ ] Add `--version` coverage for every daemon artifact.
 - [x] Define commands for loopback browser, trusted LAN/private overlay, and
       HTTPS/reverse-proxy deployments.
-- [ ] Ensure no command suggests a LAN URL while binding only to loopback.
+- [x] Ensure no command suggests a LAN URL while binding only to loopback.
 - [x] Require explicit confirmation before showing network-accessible startup.
 - [x] Add service install/status/restart instructions for supported platforms.
 - [x] Add update, logs, health, data-directory, and uninstall commands.
