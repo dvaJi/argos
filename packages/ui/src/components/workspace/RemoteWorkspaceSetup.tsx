@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useReducer, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { Alert, AlertDescription, AlertTitle } from "#shadcn/components/ui/alert";
@@ -43,6 +43,22 @@ type ConnectionState =
   | { kind: "error"; code?: string; message: string };
 
 type SetupView = "form" | "instructions";
+
+type SetupFormState = {
+  view: SetupView;
+  name: string;
+  pairingUrl: string;
+  remoteUrl: string;
+  advanced: boolean;
+};
+
+type SetupFormAction =
+  | { type: "set-view"; value: SetupView }
+  | { type: "set-name"; value: string }
+  | { type: "set-pairing-url"; value: string }
+  | { type: "set-remote-url"; value: string }
+  | { type: "set-advanced"; value: boolean }
+  | { type: "reset" };
 
 const deviceClient = createDeviceClient();
 const REMOTE_MACHINE_GUIDE_URL = "https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md";
@@ -105,6 +121,23 @@ function getValidationError(remoteUrl: string, existingRemoteUrls: string[]): st
   return null;
 }
 
+function setupFormReducer(state: SetupFormState, action: SetupFormAction): SetupFormState {
+  switch (action.type) {
+    case "set-view":
+      return { ...state, view: action.value };
+    case "set-name":
+      return { ...state, name: action.value };
+    case "set-pairing-url":
+      return { ...state, pairingUrl: action.value };
+    case "set-remote-url":
+      return { ...state, remoteUrl: action.value };
+    case "set-advanced":
+      return { ...state, advanced: action.value };
+    case "reset":
+      return { ...state, name: "", pairingUrl: "", remoteUrl: "", advanced: false };
+  }
+}
+
 export function RemoteWorkspaceSetup({
   existingRemoteUrls = [],
   initialRemoteUrl = "",
@@ -113,13 +146,17 @@ export function RemoteWorkspaceSetup({
   onCancel,
 }: RemoteWorkspaceSetupProps) {
   const { toast } = useToast();
-  const [view, setView] = useState<SetupView>("form");
-  const [name, setName] = useState("");
-  const [pairingUrl, setPairingUrl] = useState("");
-  const [remoteUrl, setRemoteUrl] = useState(initialRemoteUrl);
-  const [advanced, setAdvanced] = useState(Boolean(initialRemoteUrl));
+  const [form, dispatchForm] = useReducer(setupFormReducer, {
+    view: "form",
+    name: "",
+    pairingUrl: "",
+    remoteUrl: initialRemoteUrl,
+    advanced: Boolean(initialRemoteUrl),
+  });
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
   const [pendingWorkspace, setPendingWorkspace] = useState<WorkspaceDraft | null>(null);
+
+  const { view, name, pairingUrl, remoteUrl, advanced } = form;
 
   const validationError = useMemo(
     () => getValidationError(remoteUrl, existingRemoteUrls),
@@ -128,23 +165,17 @@ export function RemoteWorkspaceSetup({
   const normalizedUrl = normalizeServerUrl(remoteUrl);
   const canConnect = connection.kind !== "checking" && (pairingUrl.trim().length > 0 || (advanced && !validationError));
 
-  const copyCommand = useCallback(
-    (command: string) => {
-      deviceClient.copyText(command);
-      toast({ title: "Copied command", duration: 1600 });
-    },
-    [toast],
-  );
+  const copyCommand = (command: string) => {
+    deviceClient.copyText(command);
+    toast({ title: "Copied command", duration: 1600 });
+  };
 
-  const resetFields = useCallback(() => {
-    setName("");
-    setPairingUrl("");
-    setRemoteUrl("");
-    setAdvanced(false);
+  const resetFields = () => {
+    dispatchForm({ type: "reset" });
     setPendingWorkspace(null);
-  }, []);
+  };
 
-  const handleConnect = useCallback(async () => {
+  const handleConnect = async () => {
     const trimmedPairingUrl = pairingUrl.trim();
     if (!trimmedPairingUrl && !advanced) {
       setConnection({ kind: "error", message: "Paste the pairing link printed by Argos Server." });
@@ -231,40 +262,37 @@ export function RemoteWorkspaceSetup({
       const message = error instanceof Error ? error.message : String(error);
       setConnection({ kind: "error", message });
     }
-  }, [advanced, existingRemoteUrls, name, normalizedUrl, pairingUrl, remoteUrl]);
+  };
 
-  const handleSave = useCallback(
-    async (andSwitch: boolean) => {
-      if (!pendingWorkspace) return;
-      setConnection({ kind: "checking", stage: "saving" });
-      try {
-        if (andSwitch && onSaveAndSwitch) {
-          await onSaveAndSwitch(pendingWorkspace);
-        } else {
-          await onAddWorkspace(pendingWorkspace);
-        }
-        setConnection({ kind: "success", version: pendingWorkspace.daemonVersion });
-        toast({
-          title: pendingWorkspace.daemonVersion
-            ? `Saved Argos Server v${pendingWorkspace.daemonVersion}`
-            : "Remote machine saved",
-        });
-        resetFields();
-      } catch (error) {
-        setConnection({
-          kind: "error",
-          message: error instanceof Error ? error.message : "Saving the machine failed.",
-        });
+  const handleSave = async (andSwitch: boolean) => {
+    if (!pendingWorkspace) return;
+    setConnection({ kind: "checking", stage: "saving" });
+    try {
+      if (andSwitch && onSaveAndSwitch) {
+        await onSaveAndSwitch(pendingWorkspace);
+      } else {
+        await onAddWorkspace(pendingWorkspace);
       }
-    },
-    [onAddWorkspace, onSaveAndSwitch, pendingWorkspace, resetFields, toast],
-  );
+      setConnection({ kind: "success", version: pendingWorkspace.daemonVersion });
+      toast({
+        title: pendingWorkspace.daemonVersion
+          ? `Saved Argos Server v${pendingWorkspace.daemonVersion}`
+          : "Remote machine saved",
+      });
+      resetFields();
+    } catch (error) {
+      setConnection({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Saving the machine failed.",
+      });
+    }
+  };
 
-  const discardPendingCredential = useCallback(async () => {
+  const discardPendingCredential = async () => {
     if (pendingWorkspace?.credentialRef) {
       await window.argos?.workspace?.discardCredential?.(pendingWorkspace.credentialRef);
     }
-  }, [pendingWorkspace]);
+  };
 
   return (
     <div className="min-w-0 space-y-4">
@@ -276,7 +304,11 @@ export function RemoteWorkspaceSetup({
         </p>
       </div>
 
-      <Tabs value={view} onValueChange={(value) => setView(value as SetupView)} className="gap-4">
+      <Tabs
+        value={view}
+        onValueChange={(value) => dispatchForm({ type: "set-view", value: value as SetupView })}
+        className="gap-4"
+      >
         <TabsList className="w-full sm:w-fit">
           <TabsTrigger value="form" className="gap-1.5">
             <Icon icon="lucide:square-pen" className="size-3.5" />
@@ -310,14 +342,14 @@ export function RemoteWorkspaceSetup({
               validationError={validationError}
               connection={connection}
               canConnect={canConnect}
-              onNameChange={setName}
+              onNameChange={(value) => dispatchForm({ type: "set-name", value })}
               onPairingUrlChange={(value) => {
-                setPairingUrl(value);
+                dispatchForm({ type: "set-pairing-url", value });
                 setConnection({ kind: "idle" });
               }}
-              onAdvancedChange={setAdvanced}
+              onAdvancedChange={(value) => dispatchForm({ type: "set-advanced", value })}
               onUrlChange={(value) => {
-                setRemoteUrl(value);
+                dispatchForm({ type: "set-remote-url", value });
                 setConnection({ kind: "idle" });
               }}
               onCancel={() => {
@@ -325,13 +357,16 @@ export function RemoteWorkspaceSetup({
                 onCancel?.();
               }}
               onConnect={handleConnect}
-              onShowInstructions={() => setView("instructions")}
+              onShowInstructions={() => dispatchForm({ type: "set-view", value: "instructions" })}
             />
           )}
         </TabsContent>
 
         <TabsContent value="instructions" className="mt-0">
-          <InstructionsPanel onCopyCommand={copyCommand} onShowForm={() => setView("form")} />
+          <InstructionsPanel
+            onCopyCommand={copyCommand}
+            onShowForm={() => dispatchForm({ type: "set-view", value: "form" })}
+          />
         </TabsContent>
       </Tabs>
     </div>

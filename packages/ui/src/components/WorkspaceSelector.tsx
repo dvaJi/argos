@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   DropdownMenu,
@@ -45,130 +45,112 @@ export default function WorkspaceSelector() {
     .filter((workspace) => workspace.mode === "remote")
     .map((workspace) => workspace.remoteUrl);
 
-  const handleSwitch = useCallback(
-    async (id: string) => {
-      if (id === store.activeWorkspaceId) return;
-      const target = store.getWorkspace(id);
-      if (
-        target?.mode === "remote" &&
-        (target.trustState === "pairing-required" || target.trustState === "identity-changed")
-      ) {
-        setRecoveryWorkspace(target);
-        setAddDialogOpen(true);
-        return;
-      }
-      if (
-        target &&
-        getHasActiveSession() &&
-        !window.confirm(
-          `Switch active machine to ${target.name}? Your current chat stays on its current machine and will not be moved.`,
-        )
-      ) {
-        return;
-      }
-      await store.switchWorkspace(id);
-    },
-    [store],
-  );
+  const handleSwitch = async (id: string) => {
+    if (id === store.activeWorkspaceId) return;
+    const target = store.getWorkspace(id);
+    if (
+      target?.mode === "remote" &&
+      (target.trustState === "pairing-required" || target.trustState === "identity-changed")
+    ) {
+      setRecoveryWorkspace(target);
+      setAddDialogOpen(true);
+      return;
+    }
+    if (
+      target &&
+      getHasActiveSession() &&
+      !window.confirm(
+        `Switch active machine to ${target.name}? Your current chat stays on its current machine and will not be moved.`,
+      )
+    ) {
+      return;
+    }
+    await store.switchWorkspace(id);
+  };
 
-  const saveWorkspace = useCallback(
-    async (workspace: {
-      name: string;
-      remoteUrl: string;
-      credentialRef?: string;
-      environmentId?: string;
-      daemonVersion?: string;
-    }) => {
-      const existingByIdentity = workspace.environmentId
-        ? workspaces.find(
-            (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
-          )
-        : undefined;
-      const existing =
-        existingByIdentity ??
-        workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
-      if (existing) {
-        const identityChanged = Boolean(
-          existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
-        );
-        store.updateWorkspace(existing.id, {
-          name: workspace.name || existing.name,
-          remoteUrl: workspace.remoteUrl,
-          credentialRef: workspace.credentialRef,
-          environmentId: workspace.environmentId,
-          lastKnownServerVersion: workspace.daemonVersion,
-          trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
-        });
-        return existing.id;
-      }
-      const entry = store.addWorkspace({
-        name: workspace.name,
-        mode: "remote",
+  const saveWorkspace = async (workspace: {
+    name: string;
+    remoteUrl: string;
+    credentialRef?: string;
+    environmentId?: string;
+    daemonVersion?: string;
+  }) => {
+    const existingByIdentity = workspace.environmentId
+      ? workspaces.find(
+          (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
+        )
+      : undefined;
+    const existing =
+      existingByIdentity ??
+      workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
+    if (existing) {
+      const identityChanged = Boolean(
+        existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
+      );
+      store.updateWorkspace(existing.id, {
+        name: workspace.name || existing.name,
         remoteUrl: workspace.remoteUrl,
         credentialRef: workspace.credentialRef,
         environmentId: workspace.environmentId,
         lastKnownServerVersion: workspace.daemonVersion,
-        trustState: workspace.credentialRef ? "paired" : "pairing-required",
+        trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
       });
-      return entry.id;
-    },
-    [store, workspaces],
-  );
+      return existing.id;
+    }
+    const entry = store.addWorkspace({
+      name: workspace.name,
+      mode: "remote",
+      remoteUrl: workspace.remoteUrl,
+      credentialRef: workspace.credentialRef,
+      environmentId: workspace.environmentId,
+      lastKnownServerVersion: workspace.daemonVersion,
+      trustState: workspace.credentialRef ? "paired" : "pairing-required",
+    });
+    return entry.id;
+  };
 
-  const handleSave = useCallback(
-    async (workspace: {
-      name: string;
-      remoteUrl: string;
-      credentialRef?: string;
-      environmentId?: string;
-      daemonVersion?: string;
-    }) => {
-      await saveWorkspace(workspace);
-      setAddDialogOpen(false);
-    },
-    [saveWorkspace],
-  );
+  const handleSave = async (workspace: {
+    name: string;
+    remoteUrl: string;
+    credentialRef?: string;
+    environmentId?: string;
+    daemonVersion?: string;
+  }) => {
+    await saveWorkspace(workspace);
+    setAddDialogOpen(false);
+  };
 
-  const handleSaveAndSwitch = useCallback(
-    async (workspace: {
-      name: string;
-      remoteUrl: string;
-      credentialRef?: string;
-      environmentId?: string;
-      daemonVersion?: string;
-    }) => {
-      const id = await saveWorkspace(workspace);
-      await store.switchWorkspace(id);
-      setAddDialogOpen(false);
-    },
-    [saveWorkspace, store],
-  );
+  const handleSaveAndSwitch = async (workspace: {
+    name: string;
+    remoteUrl: string;
+    credentialRef?: string;
+    environmentId?: string;
+    daemonVersion?: string;
+  }) => {
+    const id = await saveWorkspace(workspace);
+    await store.switchWorkspace(id);
+    setAddDialogOpen(false);
+  };
 
-  const handleRemove = useCallback(
-    async (workspace: WorkspaceEntry) => {
-      if (
-        !window.confirm(
-          `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
-        )
-      ) {
-        return;
-      }
-      store.removeWorkspace(workspace.id);
-    },
-    [store],
-  );
+  const handleRemove = async (workspace: WorkspaceEntry) => {
+    if (
+      !window.confirm(
+        `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
+      )
+    ) {
+      return;
+    }
+    store.removeWorkspace(workspace.id);
+  };
 
-  const handleRename = useCallback(
-    (workspace: WorkspaceEntry) => {
-      const nextName = window.prompt("Machine name", workspace.name)?.trim();
-      if (!nextName || nextName === workspace.name) return;
-      window.argos?.workspace?.rename(workspace.id, nextName);
-      store.renameWorkspace(workspace.id, nextName);
-    },
-    [store],
-  );
+  const handleRename = (workspace: WorkspaceEntry) => {
+    const nextName = window.prompt("Machine name", workspace.name)?.trim();
+    if (!nextName || nextName === workspace.name) return;
+    window.argos?.workspace?.rename(workspace.id, nextName);
+    store.renameWorkspace(workspace.id, nextName);
+  };
 
-  const handleCopyDiagnostics = useCallback(async (workspace: WorkspaceEntry) => {
+  const handleCopyDiagnostics = async (workspace: WorkspaceEntry) => {
     const diagnostics = JSON.stringify(
       {
         machineId: workspace.id,
@@ -182,7 +164,7 @@ export default function WorkspaceSelector() {
       2,
     );
     await navigator.clipboard?.writeText(diagnostics);
-  }, []);
+  };
 
   return (
     <>
