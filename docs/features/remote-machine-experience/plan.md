@@ -193,6 +193,12 @@ Failure states retain safe retry context but never retain token material:
 Cancellation aborts fetch/transport work and deletes a newly issued credential
 if the machine has not been saved.
 
+The renderer may display preliminary reachability guidance, but it must not add
+`/health` as a post-pairing save condition. The native pairing result is usable
+only after authenticated transport, handshake, route, event, compatibility, and
+identity verification; a public health endpoint is neither necessary nor
+sufficient for that decision.
+
 ## Transport Integration
 
 - Extend the connection runtime so a remote machine resolves its bearer session
@@ -526,4 +532,3 @@ policy.
 - Durable user documentation is published and linked in-app.
 - `bun run format`, `bun run lint`, `bun run typecheck`, and relevant Vitest/E2E
   suites pass.
-

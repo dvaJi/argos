@@ -31,8 +31,6 @@ describe("RemoteWorkspaceSetup", () => {
       environmentId: "environment-1",
       serverVersion: "0.2.0",
     });
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ status: "ok", version: "0.2.0" })));
-
     render(<RemoteWorkspaceSetup onAddWorkspace={addWorkspace} />);
     fireEvent.change(screen.getByLabelText("Pairing link"), {
       target: { value: "https://build.example.test/pair?token=one-time-token" },
@@ -54,6 +52,7 @@ describe("RemoteWorkspaceSetup", () => {
       ),
     );
     expect(JSON.stringify(addWorkspace.mock.calls)).not.toContain("one-time-token");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("keeps the user in the form with the pairing failure recovery message", async () => {
@@ -110,8 +109,6 @@ describe("RemoteWorkspaceSetup", () => {
       credentialRef: "machine-unsaved-reference",
       environmentId: "environment-1",
     });
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ status: "ok" })));
-
     render(<RemoteWorkspaceSetup onAddWorkspace={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Pairing link"), {
       target: { value: "https://build.example.test/pair?token=one-time-token" },
@@ -122,6 +119,52 @@ describe("RemoteWorkspaceSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
     await waitFor(() => expect(discardCredential).toHaveBeenCalledWith("machine-unsaved-reference"));
     expect(screen.getByLabelText("Pairing link")).toBeInTheDocument();
+  });
+
+  it("keeps an authenticated pairing usable when the public health route is unavailable", async () => {
+    const addWorkspace = vi.fn();
+    vi.mocked((window as any).argos.workspace.pairRemote).mockResolvedValue({
+      ok: true,
+      remoteUrl: "https://private.example.test",
+      credentialRef: "machine-opaque-reference",
+      environmentId: "environment-1",
+      serverVersion: "0.2.0",
+    });
+
+    render(<RemoteWorkspaceSetup onAddWorkspace={addWorkspace} />);
+    fireEvent.change(screen.getByLabelText("Pairing link"), {
+      target: { value: "https://private.example.test/pair?token=one-time-token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pair and add" }));
+
+    await screen.findByText("Review remote machine");
+    fireEvent.click(screen.getByRole("button", { name: "Save machine" }));
+
+    await waitFor(() => expect(addWorkspace).toHaveBeenCalledTimes(1));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("offers an explicit save-and-switch action without switching on a normal save", async () => {
+    const addWorkspace = vi.fn();
+    const saveAndSwitch = vi.fn();
+    vi.mocked((window as any).argos.workspace.pairRemote).mockResolvedValue({
+      ok: true,
+      remoteUrl: "https://build.example.test",
+      credentialRef: "machine-opaque-reference",
+      environmentId: "environment-1",
+    });
+
+    render(<RemoteWorkspaceSetup onAddWorkspace={addWorkspace} onSaveAndSwitch={saveAndSwitch} />);
+    fireEvent.change(screen.getByLabelText("Pairing link"), {
+      target: { value: "https://build.example.test/pair?token=one-time-token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pair and add" }));
+
+    await screen.findByText("Review remote machine");
+    fireEvent.click(screen.getByRole("button", { name: "Save and switch" }));
+
+    await waitFor(() => expect(saveAndSwitch).toHaveBeenCalledTimes(1));
+    expect(addWorkspace).not.toHaveBeenCalled();
   });
 
   it("announces pairing progress to assistive technology", async () => {
@@ -145,5 +188,14 @@ describe("RemoteWorkspaceSetup", () => {
     expect(screen.queryByText("Advanced: connect by server URL")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Daemon URL")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pair and add" })).toBeDisabled();
+  });
+
+  it("requires an explicit confirmation before exposing a network startup command", () => {
+    render(<RemoteWorkspaceSetup onAddWorkspace={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Need install instructions?" }));
+
+    expect(screen.queryByText("Start (network)")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "I understand — show network command" }));
+    expect(screen.getByText("Start (network)")).toBeInTheDocument();
   });
 });

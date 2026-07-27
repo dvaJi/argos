@@ -162,26 +162,18 @@ export function RemoteWorkspaceSetup({
         return;
       }
       issuedCredentialRef = result.credentialRef;
+      // pairRemote performs the authenticated WebSocket, environment, capability,
+      // and event-readiness checks before returning. Do not turn a public health
+      // endpoint into a second save gate: it cannot prove that a paired machine is
+      // usable and may be deliberately unavailable behind a reverse proxy.
       setConnection({ kind: "checking", stage: "verifying" });
-      const response = await fetch(`${result.remoteUrl}/health`);
-      if (!response.ok) {
-        await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
-        setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
-        return;
-      }
-      const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
-      if (body.status !== "ok") {
-        await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
-        setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
-        return;
-      }
       setPendingWorkspace({
         name: deriveName(name, result.remoteUrl),
         remoteUrl: result.remoteUrl,
-        daemonVersion: result.serverVersion ?? body.version,
+        daemonVersion: result.serverVersion,
         credentialRef: result.credentialRef,
         sessionId: result.sessionId,
-        environmentId: result.environmentId ?? body.environmentId,
+        environmentId: result.environmentId,
       });
       setConnection({ kind: "review" });
     } catch (error) {

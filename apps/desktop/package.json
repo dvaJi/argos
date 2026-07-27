@@ -16,7 +16,7 @@
     "test:renderer": "vitest --config vitest.config.renderer.ts test/renderer",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck": "bun run typecheck:node",
-    "postinstall": "bun x electron-rebuild --force --only node-pty,classic-level"
+    "postinstall": "cd ../.. && bun x electron-builder install-app-deps"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.2.1",

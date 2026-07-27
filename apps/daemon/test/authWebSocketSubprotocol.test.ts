@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { authorize } from "../src/transport/auth";
 
 describe("WebSocket bearer subprotocol authentication", () => {
+  it("rejects anonymous non-loopback transport even when the daemon is network-accessible", async () => {
+    const result = await authorize(new Request("http://192.168.1.20:9527/api/v1/events"), {
+      exposureMode: "network-accessible",
+      verifySession: async () => null,
+    });
+
+    expect(result).toMatchObject({ ok: false, status: 401, code: "unauthorized" });
+  });
+
   it("accepts the SDK bearer subprotocol without a URL token", async () => {
     const request = new Request("http://192.168.1.20:9527/api/v1/events", {
       headers: { "sec-websocket-protocol": "argos-v1, argos-bearer.session-secret" },

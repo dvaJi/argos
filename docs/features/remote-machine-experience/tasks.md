@@ -182,7 +182,7 @@ Phases 1–3 are implemented and tested.
 
 - [x] Add unit coverage for parser, migration, identity, compatibility,
       capabilities, errors, and command matrix.
-- [ ] Add daemon coverage for pairing, handshake, session revoke, exposure, and
+- [x] Add daemon coverage for pairing, handshake, session revoke, exposure, and
       credential redaction.
 - [x] Add main/preload/client coverage for secure storage, authenticated
       transport, reconnect, and no-local-fallback.
