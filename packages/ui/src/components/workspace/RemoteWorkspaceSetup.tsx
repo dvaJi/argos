@@ -99,7 +99,7 @@ function getValidationError(remoteUrl: string, existingRemoteUrls: string[]): st
   }
 
   if (existingRemoteUrls.map(normalizeServerUrl).includes(normalized)) {
-    return "This daemon is already saved as a workspace.";
+    return "This machine is already saved.";
   }
 
   return null;
@@ -437,7 +437,7 @@ function ConnectionForm({
         {connection.kind === "success" && (
           <Alert role="status" aria-live="polite">
             <Icon icon="lucide:circle-check" className="size-4" />
-            <AlertTitle>Workspace added</AlertTitle>
+            <AlertTitle>Machine added</AlertTitle>
             <AlertDescription>
               {connection.version ? `Daemon v${connection.version} is ready.` : "The daemon is ready."}
             </AlertDescription>
@@ -545,7 +545,7 @@ function InstructionsPanel({
       <div className="space-y-1">
         <h3 className="text-sm font-medium text-foreground">Basic daemon instructions</h3>
         <p className="text-pretty text-sm leading-6 text-muted-foreground">
-          Install the daemon on the machine you want to use as a remote workspace, start it, then return to the form.
+          Install Argos Server on the machine you want to use remotely, start it, then return to the form.
         </p>
       </div>
 

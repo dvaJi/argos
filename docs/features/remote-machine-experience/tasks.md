@@ -35,7 +35,7 @@ Phases 1–3 are implemented and tested.
 ## Phase 2 — Machine model and compatibility
 
 - [x] Introduce the versioned `MachineEntry` persistence model.
-- [ ] Separate machine connection terminology from project-folder/workspace
+- [x] Separate machine connection terminology from project-folder/workspace
       terminology in types exposed to new UI.
 - [x] Implement idempotent migration/adapter for existing remote
       `WorkspaceEntry` records.
