@@ -68,6 +68,7 @@ describe("RemoteWorkspaceSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Pair and add" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This pairing link has expired");
+    expect(screen.getByRole("alert")).toHaveTextContent("Generate a new pairing link on the server");
     expect(screen.queryByText("Review remote machine")).not.toBeInTheDocument();
   });
 

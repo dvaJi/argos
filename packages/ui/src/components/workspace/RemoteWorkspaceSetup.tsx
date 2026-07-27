@@ -40,12 +40,34 @@ type ConnectionState =
   | { kind: "checking"; stage: "reaching" | "pairing" | "verifying" | "saving" }
   | { kind: "review" }
   | { kind: "success"; version?: string }
-  | { kind: "error"; message: string };
+  | { kind: "error"; code?: string; message: string };
 
 type SetupView = "form" | "instructions";
 
 const deviceClient = createDeviceClient();
 const REMOTE_MACHINE_GUIDE_URL = "https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md";
+
+function recoveryForPairingError(code?: string): string | null {
+  switch (code) {
+    case "pairing_expired":
+    case "pairing_consumed":
+      return "Generate a new pairing link on the server, then paste it here.";
+    case "endpoint_unreachable":
+      return "Check that Argos Server is running and that this computer can reach its address.";
+    case "endpoint_loopback_remote":
+      return "Use the server's private-network or HTTPS address instead of localhost.";
+    case "tls_untrusted":
+      return "Fix the server certificate or use its trusted private-network address. Argos will not bypass TLS errors.";
+    case "secure_storage_unavailable":
+      return "Unlock or enable your operating-system secure credential store, then try again.";
+    case "protocol_incompatible":
+      return "Update Argos Desktop or Argos Server so their supported protocol versions overlap.";
+    case "authenticated_rpc_failed":
+      return "Pair again. If this persists, verify the server is healthy and copy diagnostics from Machines.";
+    default:
+      return null;
+  }
+}
 
 function normalizeServerUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
@@ -135,7 +157,11 @@ export function RemoteWorkspaceSetup({
       try {
         const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
         if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
-          setConnection({ kind: "error", message: result?.error?.message ?? "Pairing failed." });
+          setConnection({
+            kind: "error",
+            code: result?.error?.code,
+            message: result?.error?.message ?? "Pairing failed.",
+          });
           return;
         }
         issuedCredentialRef = result.credentialRef;
@@ -343,6 +369,7 @@ function ConnectionForm({
   onConnect: () => void;
   onShowInstructions: () => void;
 }) {
+  const recovery = connection.kind === "error" ? recoveryForPairingError(connection.code) : null;
   return (
     <section className="rounded-2xl border bg-background p-4">
       <div className="space-y-4">
@@ -400,7 +427,10 @@ function ConnectionForm({
           <Alert variant="destructive" role="alert">
             <Icon icon="lucide:circle-alert" className="size-4" />
             <AlertTitle>Connection failed</AlertTitle>
-            <AlertDescription>{connection.message}</AlertDescription>
+            <AlertDescription>
+              <p>{connection.message}</p>
+              {recovery && <p className="mt-2">{recovery}</p>}
+            </AlertDescription>
           </Alert>
         )}
 
