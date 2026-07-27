@@ -107,4 +107,25 @@ describe("daemon remote machine credentials", () => {
       error: { code: "tls_untrusted" },
     });
   });
+
+  it("only passes documented pairing failure codes through from the server", async () => {
+    const pair = state.handlers.get("pair-remote-machine");
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: "pairing_expired", message: "Expired" } }), { status: 401 }),
+    );
+    expect(await pair?.({}, "https://build.example.test/pair?token=x")).toMatchObject({
+      ok: false,
+      error: { code: "pairing_expired", message: "Expired" },
+    });
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: "unexpected_internal_code", message: "Unexpected" } }), {
+        status: 500,
+      }),
+    );
+    expect(await pair?.({}, "https://build.example.test/pair?token=x")).toMatchObject({
+      ok: false,
+      error: { code: "pairing_failed", message: "Unexpected" },
+    });
+  });
 });

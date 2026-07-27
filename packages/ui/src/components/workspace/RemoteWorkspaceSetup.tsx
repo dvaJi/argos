@@ -68,6 +68,8 @@ function recoveryForPairingError(code?: string): string | null {
     case "pairing_expired":
     case "pairing_consumed":
       return "Generate a new pairing link on the server, then paste it here.";
+    case "pairing_invalid":
+      return "Paste the complete pairing link printed by Argos Server, or generate a fresh one.";
     case "endpoint_unreachable":
       return "Check that Argos Server is running and that this computer can reach its address.";
     case "endpoint_loopback_remote":
@@ -76,10 +78,18 @@ function recoveryForPairingError(code?: string): string | null {
       return "Fix the server certificate or use its trusted private-network address. Argos will not bypass TLS errors.";
     case "secure_storage_unavailable":
       return "Unlock or enable your operating-system secure credential store, then try again.";
+    case "session_revoked":
+      return "This machine revoked this desktop session. Generate a new pairing link and pair again.";
     case "protocol_incompatible":
       return "Update Argos Desktop or Argos Server so their supported protocol versions overlap.";
+    case "environment_identity_changed":
+      return "The server at this address is a different machine. Verify its identity before replacing the saved machine.";
     case "authenticated_rpc_failed":
       return "Pair again. If this persists, verify the server is healthy and copy diagnostics from Machines.";
+    case "event_readiness_failed":
+      return "The server did not confirm its event connection. Check server health, then try pairing again.";
+    case "capability_missing":
+      return "This server does not provide a capability required by Argos Desktop. Update or reconfigure the server.";
     default:
       return null;
   }

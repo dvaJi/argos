@@ -32,6 +32,19 @@ type ConnectionState = {
 
 type ConnectionStateListener = (state: ConnectionState) => void;
 
+export type EventTransportWelcome = {
+  environmentId: string;
+  serverVersion: string;
+  protocolVersion: number;
+  eventTransport: { ready: boolean; protocol: "argos-v1" };
+};
+
+type WelcomeWaiter = {
+  resolve: (welcome: EventTransportWelcome) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
 const REQUEST_TIMEOUT_MS = 30_000;
 
 const DEFAULT_DATABASE_DIAGNOSIS = {
@@ -69,6 +82,8 @@ export class WebSocketBridge implements ArgosBridge {
   private pendingMessages: string[] = [];
   private connected = false;
   private lastError: string | null = null;
+  private welcome: EventTransportWelcome | null = null;
+  private welcomeWaiters = new Set<WelcomeWaiter>();
 
   constructor(url: string, token?: string) {
     this.url = url;
@@ -164,6 +179,28 @@ export class WebSocketBridge implements ArgosBridge {
     });
   }
 
+  waitForWelcome(timeoutMs = 10_000): Promise<EventTransportWelcome> {
+    if (this.welcome) return Promise.resolve(this.welcome);
+
+    return new Promise((resolve, reject) => {
+      const waiter: WelcomeWaiter = {
+        resolve: (welcome) => {
+          clearTimeout(waiter.timeout);
+          resolve(welcome);
+        },
+        reject: (error) => {
+          clearTimeout(waiter.timeout);
+          reject(error);
+        },
+        timeout: setTimeout(() => {
+          this.welcomeWaiters.delete(waiter);
+          reject(new Error("Timed out waiting for daemon event readiness"));
+        }, timeoutMs),
+      };
+      this.welcomeWaiters.add(waiter);
+    });
+  }
+
   close(): void {
     this.closed = true;
     if (this.reconnectTimer) {
@@ -175,6 +212,10 @@ export class WebSocketBridge implements ArgosBridge {
       pending.reject(new Error("WebSocket closed"));
     }
     this.requestCallbacks.clear();
+    for (const waiter of this.welcomeWaiters) {
+      waiter.reject(new Error("WebSocket closed"));
+    }
+    this.welcomeWaiters.clear();
     this.ws?.close();
     this.ws = null;
     this.emitConnectionState({ connected: false });
@@ -272,9 +313,41 @@ export class WebSocketBridge implements ArgosBridge {
       return;
     }
 
+    if (parsed.type === "welcome") {
+      const welcome = this.parseWelcome(parsed);
+      if (!welcome) return;
+      this.welcome = welcome;
+      for (const waiter of this.welcomeWaiters) {
+        waiter.resolve(welcome);
+      }
+      this.welcomeWaiters.clear();
+      return;
+    }
+
     if (parsed.type === "event" && parsed.name) {
       this.dispatchEvent(parsed.name, parsed.payload);
     }
+  }
+
+  private parseWelcome(value: unknown): EventTransportWelcome | null {
+    if (!value || typeof value !== "object") return null;
+    const parsed = value as Partial<EventTransportWelcome>;
+    if (
+      typeof parsed.environmentId !== "string" ||
+      typeof parsed.serverVersion !== "string" ||
+      typeof parsed.protocolVersion !== "number" ||
+      !parsed.eventTransport ||
+      parsed.eventTransport.ready !== true ||
+      parsed.eventTransport.protocol !== "argos-v1"
+    ) {
+      return null;
+    }
+    return {
+      environmentId: parsed.environmentId,
+      serverVersion: parsed.serverVersion,
+      protocolVersion: parsed.protocolVersion,
+      eventTransport: parsed.eventTransport,
+    };
   }
 
   private dispatchEvent(eventName: string, payload: unknown): void {

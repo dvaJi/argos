@@ -1,11 +1,37 @@
 export type RemoteMachinePairingErrorCode =
   | "pairing_invalid"
+  | "pairing_expired"
+  | "pairing_consumed"
   | "endpoint_loopback_remote"
   | "endpoint_unreachable"
   | "tls_untrusted"
+  | "session_revoked"
   | "secure_storage_unavailable"
   | "authenticated_rpc_failed"
-  | "protocol_incompatible";
+  | "protocol_incompatible"
+  | "environment_identity_changed"
+  | "event_readiness_failed"
+  | "capability_missing";
+
+const REMOTE_MACHINE_PAIRING_ERROR_CODES = new Set<RemoteMachinePairingErrorCode>([
+  "pairing_invalid",
+  "pairing_expired",
+  "pairing_consumed",
+  "endpoint_loopback_remote",
+  "endpoint_unreachable",
+  "tls_untrusted",
+  "session_revoked",
+  "secure_storage_unavailable",
+  "authenticated_rpc_failed",
+  "protocol_incompatible",
+  "environment_identity_changed",
+  "event_readiness_failed",
+  "capability_missing",
+]);
+
+export function isRemoteMachinePairingErrorCode(value: unknown): value is RemoteMachinePairingErrorCode {
+  return typeof value === "string" && REMOTE_MACHINE_PAIRING_ERROR_CODES.has(value as RemoteMachinePairingErrorCode);
+}
 
 export type ParsedRemoteMachinePairing = {
   remoteUrl: string;

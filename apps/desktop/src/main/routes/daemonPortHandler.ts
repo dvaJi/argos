@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
 import {
   classifyRemoteMachineTransportError,
+  isRemoteMachinePairingErrorCode,
   parseRemoteMachinePairingLink,
   type RemoteMachinePairingErrorCode,
 } from "@argos/shared/remoteMachinePairing";
@@ -17,7 +18,11 @@ const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credenti
 
 type StoredCredential = { encrypted: string; remoteUrl: string; sessionId?: string };
 type StoredCredentials = Record<string, StoredCredential>;
-type PairingErrorCode = RemoteMachinePairingErrorCode | "pairing_expired" | "pairing_consumed" | "pairing_failed";
+type PairingErrorCode = RemoteMachinePairingErrorCode | "pairing_failed";
+
+function responsePairingErrorCode(value: unknown): PairingErrorCode {
+  return isRemoteMachinePairingErrorCode(value) ? value : "pairing_failed";
+}
 
 function pairingError(code: PairingErrorCode, message: string) {
   return { ok: false as const, error: { code, message } };
@@ -93,7 +98,7 @@ export function registerDaemonPortHandler(): void {
           error?: { code?: string; message?: string };
         };
         return pairingError(
-          (errorBody.error?.code as PairingErrorCode | undefined) ?? "pairing_failed",
+          responsePairingErrorCode(errorBody.error?.code),
           errorBody.error?.message ?? "Pairing failed.",
         );
       }
@@ -104,10 +109,7 @@ export function registerDaemonPortHandler(): void {
         error?: { code?: string; message?: string };
       };
       if (!body.ok || !body.sessionToken) {
-        return pairingError(
-          (body.error?.code as PairingErrorCode | undefined) ?? "pairing_failed",
-          body.error?.message ?? "Pairing failed.",
-        );
+        return pairingError(responsePairingErrorCode(body.error?.code), body.error?.message ?? "Pairing failed.");
       }
       const verification = await fetch(`${remoteUrl}/api/v1/route`, {
         method: "POST",

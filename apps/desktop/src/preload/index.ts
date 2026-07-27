@@ -3,6 +3,10 @@ import { clipboard, contextBridge, nativeImage, webUtils, webFrame, ipcRenderer,
 import { exposeElectronAPI } from "@electron-toolkit/preload";
 import { normalizeExternalUrl } from "@argos/shared/externalUrl";
 import {
+  classifyRemoteMachineTransportError,
+  type RemoteMachinePairingErrorCode,
+} from "@argos/shared/remoteMachinePairing";
+import {
   type WorkspaceEntry,
   LOCAL_WORKSPACE_ID,
   readWorkspaceConfig,
@@ -129,6 +133,77 @@ let localDaemonConnectInFlight: Promise<WebSocketBridge | null> | null = null;
 const PAIR_REMOTE_MACHINE_CHANNEL = "pair-remote-machine";
 const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
 const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credential";
+
+type RemotePairingResult = {
+  ok: boolean;
+  credentialRef?: string;
+  remoteUrl?: string;
+  sessionId?: string;
+  environmentId?: string;
+  serverVersion?: string;
+  error?: { code?: string; message?: string };
+};
+
+function pairingFailure(code: RemoteMachinePairingErrorCode, message: string): RemotePairingResult {
+  return { ok: false, error: { code, message } };
+}
+
+async function verifyPairedRemoteMachine(result: RemotePairingResult): Promise<RemotePairingResult> {
+  if (!result.ok || !result.credentialRef || !result.remoteUrl) return result;
+
+  const stored = await ipcRenderer.invoke(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+  if (!stored?.token) {
+    await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+    return pairingFailure("secure_storage_unavailable", "Argos could not read the secure pairing credential.");
+  }
+
+  const bridge = new WebSocketBridge(buildWsUrl(result.remoteUrl), stored.token);
+  let verified = false;
+  let eventReady = false;
+  try {
+    await bridge.connect();
+    const welcome = await bridge.waitForWelcome();
+    eventReady = true;
+    const environment = await bridge.invoke("connection.describeEnvironment", {
+      protocolVersion: 1,
+      runtimeKind: "electron",
+    });
+    if (!environment.compatible || environment.protocolVersion !== welcome.protocolVersion) {
+      return pairingFailure("protocol_incompatible", "This server is not compatible with this version of Argos.");
+    }
+    if (
+      environment.environmentId !== welcome.environmentId ||
+      (result.environmentId && result.environmentId !== environment.environmentId)
+    ) {
+      return pairingFailure(
+        "environment_identity_changed",
+        "The server identity changed while Argos was verifying it.",
+      );
+    }
+    const requiredCapabilities = ["chat", "sessions", "project-files"];
+    if (!requiredCapabilities.every((capability) => environment.capabilities.includes(capability as never))) {
+      return pairingFailure("capability_missing", "This server is missing a capability required by Argos Desktop.");
+    }
+    verified = true;
+    return {
+      ...result,
+      environmentId: environment.environmentId,
+      serverVersion: environment.serverVersion,
+    };
+  } catch (error) {
+    const code = eventReady
+      ? "authenticated_rpc_failed"
+      : error instanceof Error && error.message.includes("event readiness")
+        ? "event_readiness_failed"
+        : classifyRemoteMachineTransportError(error);
+    return pairingFailure(code, error instanceof Error ? error.message : "Remote machine verification failed.");
+  } finally {
+    bridge.close();
+    if (!verified) {
+      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+    }
+  }
+}
 
 async function fetchLocalDaemonPort(): Promise<number | null> {
   if (cachedLocalDaemonPort !== null) return cachedLocalDaemonPort;
@@ -333,7 +408,8 @@ function buildWorkspaceApi() {
     },
 
     pairRemote: async (pairingUrl: string) => {
-      return await ipcRenderer.invoke(PAIR_REMOTE_MACHINE_CHANNEL, pairingUrl);
+      const result = (await ipcRenderer.invoke(PAIR_REMOTE_MACHINE_CHANNEL, pairingUrl)) as RemotePairingResult;
+      return await verifyPairedRemoteMachine(result);
     },
 
     discardCredential: async (credentialRef: string): Promise<void> => {

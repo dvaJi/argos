@@ -72,6 +72,34 @@ describe("RemoteWorkspaceSetup", () => {
     expect(screen.queryByText("Review remote machine")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["pairing_invalid", "Paste the complete pairing link"],
+    ["pairing_consumed", "Generate a new pairing link"],
+    ["endpoint_unreachable", "Check that Argos Server is running"],
+    ["endpoint_loopback_remote", "private-network or HTTPS address"],
+    ["tls_untrusted", "will not bypass TLS errors"],
+    ["secure_storage_unavailable", "secure credential store"],
+    ["session_revoked", "pairing link and pair again"],
+    ["protocol_incompatible", "supported protocol versions overlap"],
+    ["environment_identity_changed", "different machine"],
+    ["authenticated_rpc_failed", "copy diagnostics from Machines"],
+    ["event_readiness_failed", "event connection"],
+    ["capability_missing", "required by Argos Desktop"],
+  ])("shows recovery guidance for %s", async (code, recovery) => {
+    vi.mocked((window as any).argos.workspace.pairRemote).mockResolvedValue({
+      ok: false,
+      error: { code, message: "Connection failed." },
+    });
+
+    render(<RemoteWorkspaceSetup onAddWorkspace={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Pairing link"), {
+      target: { value: "https://build.example.test/pair?token=one-time-token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pair and add" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(recovery);
+  });
+
   it("revokes an issued credential when the user returns from review without saving", async () => {
     const discardCredential = vi.mocked((window as any).argos.workspace.discardCredential);
     vi.mocked((window as any).argos.workspace.pairRemote).mockResolvedValue({
