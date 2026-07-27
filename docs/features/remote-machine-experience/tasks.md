@@ -134,7 +134,7 @@ Phases 1–3 are implemented and tested.
       actions.
 - [ ] Ensure new sessions inherit the explicitly active machine.
 - [x] Prevent machine switching from silently moving active sessions.
-- [ ] Include target machine name in relevant destructive confirmations.
+- [x] Include target machine name in relevant destructive confirmations.
 - [ ] Visually and textually distinguish Remote Control integrations from remote
       machines.
 

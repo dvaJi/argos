@@ -84,11 +84,18 @@ export default function ServerSettings() {
     setWorkspaces(config.workspaces);
   };
 
-  const handleRemove = async (id: string) => {
-    if (id === LOCAL_WORKSPACE_ID) return;
-    await window.argos?.workspace?.remove(id);
+  const handleRemove = async (workspace: WorkspaceEntry) => {
+    if (workspace.id === LOCAL_WORKSPACE_ID) return;
+    if (
+      !window.confirm(
+        `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
+      )
+    ) {
+      return;
+    }
+    await window.argos?.workspace?.remove(workspace.id);
     const config = readWorkspaceConfig();
-    config.workspaces = config.workspaces.filter((workspace) => workspace.id !== id);
+    config.workspaces = config.workspaces.filter((candidate) => candidate.id !== workspace.id);
     writeWorkspaceConfig(config);
     notifyWorkspaceConfigChanged();
     setWorkspaces(config.workspaces);
@@ -243,7 +250,7 @@ export default function ServerSettings() {
                           Pair again
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" onClick={() => void handleRemove(workspace.id)}>
+                      <Button variant="ghost" size="sm" onClick={() => void handleRemove(workspace)}>
                         Forget
                       </Button>
                     </div>

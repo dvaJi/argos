@@ -145,8 +145,15 @@ export default function WorkspaceSelector() {
   );
 
   const handleRemove = useCallback(
-    async (id: string) => {
-      store.removeWorkspace(id);
+    async (workspace: WorkspaceEntry) => {
+      if (
+        !window.confirm(
+          `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
+        )
+      ) {
+        return;
+      }
+      store.removeWorkspace(workspace.id);
     },
     [store],
   );
@@ -255,7 +262,7 @@ export default function WorkspaceSelector() {
                       className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       onClick={(event) => {
                         event.stopPropagation();
-                        void handleRemove(ws.id);
+                        void handleRemove(ws);
                       }}
                       title="Forget machine"
                     >
