@@ -133,7 +133,7 @@ Phases 1–3 are implemented and tested.
 - [ ] Display the active machine before project selection and execution-sensitive
       actions.
 - [ ] Ensure new sessions inherit the explicitly active machine.
-- [ ] Prevent machine switching from silently moving active sessions.
+- [x] Prevent machine switching from silently moving active sessions.
 - [ ] Include target machine name in relevant destructive confirmations.
 - [ ] Visually and textually distinguish Remote Control integrations from remote
       machines.

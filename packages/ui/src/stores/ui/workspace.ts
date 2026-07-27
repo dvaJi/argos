@@ -12,7 +12,7 @@ import {
   generateWorkspaceId,
 } from "@argos/shared/workspaceConfig";
 import type { ConnectionState } from "@argos/shared-contracts/connection";
-import { fetchSessions as originalFetchSessions } from "./session";
+import { clearSessionContextForMachineSwitch, fetchSessions as originalFetchSessions } from "./session";
 
 export type { WorkspaceEntry, WorkspaceMode };
 
@@ -116,7 +116,10 @@ export async function switchWorkspace(id: string): Promise<void> {
     await window.argos?.workspace?.switchTo(id);
   } catch (err) {
     console.warn("[workspaceStore] Preload switchTo failed:", err);
+    return;
   }
+
+  clearSessionContextForMachineSwitch();
 
   workspaceStore.setState((prev) => ({
     ...prev,

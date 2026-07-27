@@ -10,6 +10,7 @@ import {
 } from "#shadcn/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
 import { RemoteWorkspaceSetup } from "#/components/workspace/RemoteWorkspaceSetup";
+import { getHasActiveSession } from "#/stores/ui/session";
 import { useWorkspaceStore, type WorkspaceEntry } from "#/stores/ui/workspace";
 
 function deriveConnectionStatus(
@@ -54,6 +55,15 @@ export default function WorkspaceSelector() {
       ) {
         setRecoveryWorkspace(target);
         setAddDialogOpen(true);
+        return;
+      }
+      if (
+        target &&
+        getHasActiveSession() &&
+        !window.confirm(
+          `Switch active machine to ${target.name}? Your current chat stays on its current machine and will not be moved.`,
+        )
+      ) {
         return;
       }
       await store.switchWorkspace(id);
