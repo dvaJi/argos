@@ -412,11 +412,11 @@ function buildWorkspaceApi() {
       return await verifyPairedRemoteMachine(result);
     },
 
-    discardCredential: async (credentialRef: string): Promise<void> => {
-      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, credentialRef);
+    discardCredential: async (credentialRef: string, revokeRemoteSession = true): Promise<void> => {
+      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, credentialRef, revokeRemoteSession);
     },
 
-    remove: (workspaceId: string): void => {
+    remove: (workspaceId: string, revokeRemoteSession = false): void => {
       if (workspaceId === LOCAL_WORKSPACE_ID) return;
       const config = readWorkspaceConfig();
       const removed = config.workspaces.find((workspace) => workspace.id === workspaceId);
@@ -427,7 +427,7 @@ function buildWorkspaceApi() {
       writeWorkspaceConfig(config);
       disconnectRemoteWorkspace(workspaceId);
       if (removed?.credentialRef) {
-        void ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, removed.credentialRef);
+        void ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, removed.credentialRef, revokeRemoteSession);
       }
       notifyWorkspaceConfigChanged();
       void applyActiveWorkspace(config);

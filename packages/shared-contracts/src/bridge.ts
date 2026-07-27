@@ -9,10 +9,10 @@ export interface ArgosBridge {
     list: () => WorkspaceEntry[];
     getActive: () => WorkspaceEntry | undefined;
     add: (entry: Omit<WorkspaceEntry, "id" | "createdAt">) => WorkspaceEntry;
-    remove: (id: string) => void;
+    remove: (id: string, revokeRemoteSession?: boolean) => void;
     rename: (id: string, name: string) => void;
     switchTo: (id: string) => Promise<void>;
-    discardCredential?: (credentialRef: string) => Promise<void>;
+    discardCredential?: (credentialRef: string, revokeRemoteSession?: boolean) => Promise<void>;
     pairRemote?: (pairingUrl: string) => Promise<{
       ok: boolean;
       credentialRef?: string;

@@ -182,25 +182,28 @@ export function registerDaemonPortHandler(): void {
   });
 
   ipcMain.removeHandler(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL);
-  ipcMain.handle(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, async (_event, credentialRef: unknown) => {
-    if (typeof credentialRef !== "string") return false;
-    const credentials = readCredentials();
-    const stored = credentials[credentialRef];
-    if (!stored) return false;
-    if (stored.sessionId) {
-      try {
-        const token = decryptCredential(stored.encrypted);
-        await fetch(`${stored.remoteUrl}/api/v1/sessions/${encodeURIComponent(stored.sessionId)}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {
-        // Local removal remains safe even if the server is offline. The server
-        // session will expire or can be revoked from its own settings.
+  ipcMain.handle(
+    DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL,
+    async (_event, credentialRef: unknown, revokeRemoteSession: unknown = true) => {
+      if (typeof credentialRef !== "string") return false;
+      const credentials = readCredentials();
+      const stored = credentials[credentialRef];
+      if (!stored) return false;
+      if (revokeRemoteSession !== false && stored.sessionId) {
+        try {
+          const token = decryptCredential(stored.encrypted);
+          await fetch(`${stored.remoteUrl}/api/v1/sessions/${encodeURIComponent(stored.sessionId)}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {
+          // Local removal remains safe even if the server is offline. The server
+          // session will expire or can be revoked from its own settings.
+        }
       }
-    }
-    delete credentials[credentialRef];
-    writeCredentials(credentials);
-    return true;
-  });
+      delete credentials[credentialRef];
+      writeCredentials(credentials);
+      return true;
+    },
+  );
 }

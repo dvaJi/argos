@@ -128,4 +128,29 @@ describe("daemon remote machine credentials", () => {
       error: { code: "pairing_failed", message: "Unexpected" },
     });
   });
+
+  it("forgets a credential locally without revoking its remote session when requested", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, sessionId: "session-local-only", sessionToken: "bearer-secret" }), {
+        status: 200,
+      }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          output: { environmentId: "environment-1", serverVersion: "0.2.0", compatible: true },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const pair = state.handlers.get("pair-remote-machine");
+    const remove = state.handlers.get("delete-remote-machine-credential");
+    const paired = await pair?.({}, "https://build.example.test/pair?token=one-time-token");
+
+    expect(await remove?.({}, paired.credentialRef, false)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

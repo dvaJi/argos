@@ -135,12 +135,15 @@ export default function WorkspaceSelector() {
   const handleRemove = async (workspace: WorkspaceEntry) => {
     if (
       !window.confirm(
-        `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
+        `Forget ${workspace.name} from this computer? This removes its local pairing but does not delete data on the remote machine.`,
       )
     ) {
       return;
     }
-    store.removeWorkspace(workspace.id);
+    const revokeRemoteSession = window.confirm(
+      `Also revoke this desktop session on ${workspace.name}? Choose Cancel to forget only from this computer.`,
+    );
+    store.removeWorkspace(workspace.id, revokeRemoteSession);
   };
 
   const handleRename = (workspace: WorkspaceEntry) => {
@@ -211,9 +214,9 @@ export default function WorkspaceSelector() {
                       className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       onClick={(event) => {
                         event.stopPropagation();
-                        void handleSwitch(ws.id);
+                        void window.argos?.workspace?.switchTo(ws.id);
                       }}
-                      title="Retry connection"
+                      title="Retry machine connection"
                     >
                       <Icon icon="lucide:refresh-cw" className="size-3" />
                     </button>

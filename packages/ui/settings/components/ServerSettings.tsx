@@ -87,19 +87,20 @@ export default function ServerSettings() {
   const handleRemove = async (workspace: WorkspaceEntry) => {
     if (workspace.id === LOCAL_WORKSPACE_ID) return;
     if (
-      !window.confirm(
-        `Forget ${workspace.name}? This removes its pairing from this computer but does not delete data on the remote machine.`,
-      )
+      !window.confirm(`Forget ${workspace.name} from this computer? This does not delete data on the remote machine.`)
     ) {
       return;
     }
-    await window.argos?.workspace?.remove(workspace.id);
+    const revokeRemoteSession = window.confirm(
+      `Also revoke this desktop session on ${workspace.name}? Choose Cancel to forget only from this computer.`,
+    );
+    await window.argos?.workspace?.remove(workspace.id, revokeRemoteSession);
     const config = readWorkspaceConfig();
     config.workspaces = config.workspaces.filter((candidate) => candidate.id !== workspace.id);
     writeWorkspaceConfig(config);
     notifyWorkspaceConfigChanged();
     setWorkspaces(config.workspaces);
-    toast({ title: "Workspace removed" });
+    toast({ title: revokeRemoteSession ? "Machine forgotten and session revoked" : "Machine forgotten locally" });
   };
 
   const handleRename = (workspace: WorkspaceEntry) => {
@@ -111,6 +112,15 @@ export default function ServerSettings() {
     writeWorkspaceConfig(config);
     notifyWorkspaceConfigChanged();
     setWorkspaces(config.workspaces);
+  };
+
+  const handleRetry = async (workspace: WorkspaceEntry) => {
+    try {
+      await window.argos?.workspace?.switchTo(workspace.id);
+      toast({ title: `Retrying ${workspace.name}` });
+    } catch {
+      toast({ title: `Could not retry ${workspace.name}`, variant: "destructive" });
+    }
   };
 
   const handleCopyDiagnostics = async (workspace: WorkspaceEntry) => {
@@ -236,6 +246,9 @@ export default function ServerSettings() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => void handleRetry(workspace)}>
+                        Retry
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => setRecoveryWorkspace(workspace)}>
                         Edit address
                       </Button>

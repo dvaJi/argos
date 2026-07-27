@@ -70,11 +70,11 @@ export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): W
   return newEntry;
 }
 
-export function removeWorkspace(id: string): void {
+export function removeWorkspace(id: string, revokeRemoteSession = false): void {
   if (id === LOCAL_WORKSPACE_ID) return;
 
   try {
-    window.argos?.workspace?.remove(id);
+    window.argos?.workspace?.remove(id, revokeRemoteSession);
   } catch (err) {
     console.warn("[workspaceStore] Preload remove failed:", err);
   }
