@@ -484,7 +484,8 @@ Run packaged or production-equivalent tests for:
 The Windows ARM64 gate also executes the DuckDB/VSS runtime smoke before
 packaging. Its resolver must load DuckDB through `@argos/desktop`, where that
 native dependency is declared, rather than assuming it is hoisted at the
-workspace root.
+workspace root. Native modules are rebuilt by electron-builder for the package
+target; dependency installation must not perform a separate target rebuild.
 
 ## Rollout
 
