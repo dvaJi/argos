@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { WORKSPACE_CONFIG_STORAGE_KEY, readWorkspaceConfig, writeWorkspaceConfig } from "@argos/shared/workspaceConfig";
 
 const storage = new Map<string, string>();

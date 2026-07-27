@@ -1,9 +1,13 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, test } from "bun:test";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
 import { REMOTE_MACHINE_COMMANDS } from "@argos/shared/remoteMachineCommands";
 
-const guide = readFileSync(join(import.meta.dir, "../../../docs/guides/remote-machines.md"), "utf8");
+const guide = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../../../docs/guides/remote-machines.md"),
+  "utf8",
+);
 
 describe("remote-machine guide", () => {
   test("documents every advertised installer and safe pairing commands", () => {
