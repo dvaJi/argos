@@ -71,7 +71,7 @@ Phases 1–3 are implemented and tested.
 - [x] Establish an authenticated WebSocket connection.
 - [x] Complete authenticated handshake and route round-trip verification.
 - [ ] Close or adopt the verification transport deterministically.
-- [ ] Delete newly issued credentials when cancelled before save.
+- [x] Delete newly issued credentials when cancelled before save.
 - [ ] Implement stable error codes for every specified setup failure.
 - [ ] Cover invalid, expired, consumed, unreachable, loopback, TLS, storage,
       version, identity, RPC, and readiness failures.
@@ -83,7 +83,7 @@ Phases 1–3 are implemented and tested.
 - [x] Persist non-secret last-known identity/version metadata after a
       successful connection.
 - [x] Stop retry churn on revoked/invalid authentication and surface Pair again.
-- [ ] Continue bounded/backoff reconnect for network failures.
+- [x] Continue bounded/backoff reconnect for network failures.
 - [x] Fail closed when environment identity changes.
 - [x] Support endpoint update when the environment identity remains the same.
 - [ ] Prove remote route failures never fall back to local daemon execution.

@@ -12,6 +12,7 @@ export interface ArgosBridge {
     remove: (id: string) => void;
     rename: (id: string, name: string) => void;
     switchTo: (id: string) => Promise<void>;
+    discardCredential?: (credentialRef: string) => Promise<void>;
     pairRemote?: (pairingUrl: string) => Promise<{
       ok: boolean;
       credentialRef?: string;

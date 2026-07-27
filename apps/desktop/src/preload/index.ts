@@ -336,6 +336,10 @@ function buildWorkspaceApi() {
       return await ipcRenderer.invoke(PAIR_REMOTE_MACHINE_CHANNEL, pairingUrl);
     },
 
+    discardCredential: async (credentialRef: string): Promise<void> => {
+      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, credentialRef);
+    },
+
     remove: (workspaceId: string): void => {
       if (workspaceId === LOCAL_WORKSPACE_ID) return;
       const config = readWorkspaceConfig();

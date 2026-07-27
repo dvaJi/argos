@@ -131,16 +131,19 @@ export function RemoteWorkspaceSetup({
 
     if (trimmedPairingUrl) {
       setConnection({ kind: "checking", stage: "pairing" });
+      let issuedCredentialRef: string | undefined;
       try {
         const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
         if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
           setConnection({ kind: "error", message: result?.error?.message ?? "Pairing failed." });
           return;
         }
+        issuedCredentialRef = result.credentialRef;
         setConnection({ kind: "checking", stage: "verifying" });
         const response = await fetch(`${result.remoteUrl}/health`);
         const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
         if (!response.ok || body.status !== "ok") {
+          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
           setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
           return;
         }
@@ -154,6 +157,9 @@ export function RemoteWorkspaceSetup({
         });
         setConnection({ kind: "review" });
       } catch (error) {
+        if (issuedCredentialRef) {
+          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
+        }
         setConnection({ kind: "error", message: error instanceof Error ? error.message : "Pairing failed." });
       }
       return;
@@ -223,6 +229,12 @@ export function RemoteWorkspaceSetup({
     [onAddWorkspace, onSaveAndSwitch, pendingWorkspace, resetFields, toast],
   );
 
+  const discardPendingCredential = useCallback(async () => {
+    if (pendingWorkspace?.credentialRef) {
+      await window.argos?.workspace?.discardCredential?.(pendingWorkspace.credentialRef);
+    }
+  }, [pendingWorkspace]);
+
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-1 pr-8">
@@ -251,6 +263,7 @@ export function RemoteWorkspaceSetup({
               workspace={pendingWorkspace}
               canSwitch={Boolean(onSaveAndSwitch)}
               onBack={() => {
+                void discardPendingCredential();
                 setPendingWorkspace(null);
                 setConnection({ kind: "idle" });
               }}
@@ -276,7 +289,10 @@ export function RemoteWorkspaceSetup({
                 setRemoteUrl(value);
                 setConnection({ kind: "idle" });
               }}
-              onCancel={onCancel}
+              onCancel={() => {
+                void discardPendingCredential();
+                onCancel?.();
+              }}
               onConnect={handleConnect}
               onShowInstructions={() => setView("instructions")}
             />
