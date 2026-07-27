@@ -162,7 +162,7 @@ Phases 1–3 are implemented and tested.
 - [x] Hide/disable unsupported browser/headless capabilities using the handshake
       catalog.
 - [x] Eliminate controls that predictably fail with headless-only errors.
-- [ ] Add browser smoke coverage for pair, reload, revoke, and re-pair.
+- [x] Add browser smoke coverage for pair, reload, revoke, and re-pair.
 
 ## Phase 11 — Documentation and release positioning
 
@@ -193,7 +193,7 @@ Phases 1–3 are implemented and tested.
       OS/architecture available in CI.
 - [ ] Run Desktop restart, daemon restart, session revoke, URL change, identity
       change, and version-skew E2E scenarios.
-- [ ] Run browser pairing/reload/revoke smoke.
+- [x] Run browser pairing/reload/revoke smoke.
 - [ ] Run trusted LAN/private-network manual security smoke.
 - [ ] Confirm no secrets in logs, diagnostics, persisted config, or telemetry.
 - [x] Run `bun run format`.

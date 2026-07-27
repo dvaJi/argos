@@ -64,8 +64,11 @@ jobs:
           ARGOS_TARGET_OS: win32
           ARGOS_TARGET_ARCH: arm64
 
-      - name: Run Windows arm64 launch smoke test
-        run: bun x playwright test -c apps/desktop/test/e2e/playwright.ci.config.ts apps/desktop/test/e2e/specs/01-launch.smoke.spec.ts
+      - name: Run clean packaged Windows arm64 smoke tests
+        run: bun run e2e:smoke:ci
+        env:
+          ARGOS_E2E_APP_MODE: packaged
+          ARGOS_E2E_CLEAN_PROFILE: "1"
 
       - name: Run packaged app process smoke
         shell: pwsh
