@@ -200,6 +200,6 @@ Phases 1–3 are implemented and tested.
 - [x] Run `bun run lint`.
 - [x] Run `bun run typecheck`.
 - [x] Run relevant main, renderer, daemon, and E2E test suites.
-- [ ] Remove temporary feature flags and obsolete raw URL-first code.
+- [x] Remove temporary feature flags and obsolete raw URL-first code.
 - [ ] Fold durable facts into current guides/architecture docs and retire
       superseded active SDD folders according to repository policy.

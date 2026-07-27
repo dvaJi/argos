@@ -48,16 +48,12 @@ type SetupFormState = {
   view: SetupView;
   name: string;
   pairingUrl: string;
-  remoteUrl: string;
-  advanced: boolean;
 };
 
 type SetupFormAction =
   | { type: "set-view"; value: SetupView }
   | { type: "set-name"; value: string }
   | { type: "set-pairing-url"; value: string }
-  | { type: "set-remote-url"; value: string }
-  | { type: "set-advanced"; value: boolean }
   | { type: "reset" };
 
 const deviceClient = createDeviceClient();
@@ -95,10 +91,6 @@ function recoveryForPairingError(code?: string): string | null {
   }
 }
 
-function normalizeServerUrl(value: string): string {
-  return value.trim().replace(/\/+$/, "");
-}
-
 function deriveName(name: string, remoteUrl: string): string {
   const trimmed = name.trim();
   if (trimmed) return trimmed;
@@ -109,28 +101,6 @@ function deriveName(name: string, remoteUrl: string): string {
   }
 }
 
-function getValidationError(remoteUrl: string, existingRemoteUrls: string[]): string | null {
-  const normalized = normalizeServerUrl(remoteUrl);
-  if (!normalized) return "Enter the daemon URL before connecting.";
-
-  let parsed: URL;
-  try {
-    parsed = new URL(normalized);
-  } catch {
-    return "Use a full URL such as http://192.168.1.100:9527.";
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return "Use http:// or https:// for the daemon URL.";
-  }
-
-  if (existingRemoteUrls.map(normalizeServerUrl).includes(normalized)) {
-    return "This machine is already saved.";
-  }
-
-  return null;
-}
-
 function setupFormReducer(state: SetupFormState, action: SetupFormAction): SetupFormState {
   switch (action.type) {
     case "set-view":
@@ -139,17 +109,12 @@ function setupFormReducer(state: SetupFormState, action: SetupFormAction): Setup
       return { ...state, name: action.value };
     case "set-pairing-url":
       return { ...state, pairingUrl: action.value };
-    case "set-remote-url":
-      return { ...state, remoteUrl: action.value };
-    case "set-advanced":
-      return { ...state, advanced: action.value };
     case "reset":
-      return { ...state, name: "", pairingUrl: "", remoteUrl: "", advanced: false };
+      return { ...state, name: "", pairingUrl: "" };
   }
 }
 
 export function RemoteWorkspaceSetup({
-  existingRemoteUrls = [],
   initialRemoteUrl = "",
   onAddWorkspace,
   onSaveAndSwitch,
@@ -160,20 +125,12 @@ export function RemoteWorkspaceSetup({
     view: "form",
     name: "",
     pairingUrl: "",
-    remoteUrl: initialRemoteUrl,
-    advanced: Boolean(initialRemoteUrl),
   });
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
   const [pendingWorkspace, setPendingWorkspace] = useState<WorkspaceDraft | null>(null);
 
-  const { view, name, pairingUrl, remoteUrl, advanced } = form;
-
-  const validationError = useMemo(
-    () => getValidationError(remoteUrl, existingRemoteUrls),
-    [remoteUrl, existingRemoteUrls],
-  );
-  const normalizedUrl = normalizeServerUrl(remoteUrl);
-  const canConnect = connection.kind !== "checking" && (pairingUrl.trim().length > 0 || (advanced && !validationError));
+  const { view, name, pairingUrl } = form;
+  const canConnect = connection.kind !== "checking" && pairingUrl.trim().length > 0;
 
   const copyCommand = (command: string) => {
     deviceClient.copyText(command);
@@ -187,90 +144,51 @@ export function RemoteWorkspaceSetup({
 
   const handleConnect = async () => {
     const trimmedPairingUrl = pairingUrl.trim();
-    if (!trimmedPairingUrl && !advanced) {
+    if (!trimmedPairingUrl) {
       setConnection({ kind: "error", message: "Paste the pairing link printed by Argos Server." });
       return;
     }
 
-    if (trimmedPairingUrl) {
-      setConnection({ kind: "checking", stage: "pairing" });
-      let issuedCredentialRef: string | undefined;
-      try {
-        const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
-        if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
-          setConnection({
-            kind: "error",
-            code: result?.error?.code,
-            message: result?.error?.message ?? "Pairing failed.",
-          });
-          return;
-        }
-        issuedCredentialRef = result.credentialRef;
-        setConnection({ kind: "checking", stage: "verifying" });
-        const response = await fetch(`${result.remoteUrl}/health`);
-        if (!response.ok) {
-          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
-          setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
-          return;
-        }
-        const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
-        if (body.status !== "ok") {
-          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
-          setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
-          return;
-        }
-        setPendingWorkspace({
-          name: deriveName(name, result.remoteUrl),
-          remoteUrl: result.remoteUrl,
-          daemonVersion: result.serverVersion ?? body.version,
-          credentialRef: result.credentialRef,
-          sessionId: result.sessionId,
-          environmentId: result.environmentId ?? body.environmentId,
-        });
-        setConnection({ kind: "review" });
-      } catch (error) {
-        if (issuedCredentialRef) {
-          await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
-        }
-        setConnection({ kind: "error", message: error instanceof Error ? error.message : "Pairing failed." });
-      }
-      return;
-    }
-
-    const error = getValidationError(remoteUrl, existingRemoteUrls);
-    if (error) {
-      setConnection({ kind: "error", message: error });
-      return;
-    }
-
-    setConnection({ kind: "checking", stage: "reaching" });
-
+    setConnection({ kind: "checking", stage: "pairing" });
+    let issuedCredentialRef: string | undefined;
     try {
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${normalizedUrl}/health`, { signal: controller.signal });
-      window.clearTimeout(timeout);
-
+      const result = await window.argos?.workspace?.pairRemote?.(trimmedPairingUrl);
+      if (!result?.ok || !result.remoteUrl || !result.credentialRef) {
+        setConnection({
+          kind: "error",
+          code: result?.error?.code,
+          message: result?.error?.message ?? "Pairing failed.",
+        });
+        return;
+      }
+      issuedCredentialRef = result.credentialRef;
+      setConnection({ kind: "checking", stage: "verifying" });
+      const response = await fetch(`${result.remoteUrl}/health`);
       if (!response.ok) {
-        setConnection({ kind: "error", message: `Health check failed with HTTP ${response.status}.` });
+        await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
+        setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
         return;
       }
-
-      const body = (await response.json()) as { status?: string; version?: string };
+      const body = (await response.json()) as { status?: string; version?: string; environmentId?: string };
       if (body.status !== "ok") {
-        setConnection({ kind: "error", message: "The daemon responded, but it did not report a healthy status." });
+        await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
+        setConnection({ kind: "error", message: "The paired server did not report a healthy status." });
         return;
       }
-
       setPendingWorkspace({
-        name: deriveName(name, normalizedUrl),
-        remoteUrl: normalizedUrl,
-        daemonVersion: body.version,
+        name: deriveName(name, result.remoteUrl),
+        remoteUrl: result.remoteUrl,
+        daemonVersion: result.serverVersion ?? body.version,
+        credentialRef: result.credentialRef,
+        sessionId: result.sessionId,
+        environmentId: result.environmentId ?? body.environmentId,
       });
       setConnection({ kind: "review" });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setConnection({ kind: "error", message });
+      if (issuedCredentialRef) {
+        await window.argos?.workspace?.discardCredential?.(issuedCredentialRef);
+      }
+      setConnection({ kind: "error", message: error instanceof Error ? error.message : "Pairing failed." });
     }
   };
 
@@ -347,19 +265,12 @@ export function RemoteWorkspaceSetup({
             <ConnectionForm
               name={name}
               pairingUrl={pairingUrl}
-              remoteUrl={remoteUrl}
-              advanced={advanced}
-              validationError={validationError}
+              previousEndpoint={initialRemoteUrl}
               connection={connection}
               canConnect={canConnect}
               onNameChange={(value) => dispatchForm({ type: "set-name", value })}
               onPairingUrlChange={(value) => {
                 dispatchForm({ type: "set-pairing-url", value });
-                setConnection({ kind: "idle" });
-              }}
-              onAdvancedChange={(value) => dispatchForm({ type: "set-advanced", value })}
-              onUrlChange={(value) => {
-                dispatchForm({ type: "set-remote-url", value });
                 setConnection({ kind: "idle" });
               }}
               onCancel={() => {
@@ -386,30 +297,22 @@ export function RemoteWorkspaceSetup({
 function ConnectionForm({
   name,
   pairingUrl,
-  remoteUrl,
-  advanced,
-  validationError,
+  previousEndpoint,
   connection,
   canConnect,
   onNameChange,
   onPairingUrlChange,
-  onAdvancedChange,
-  onUrlChange,
   onCancel,
   onConnect,
   onShowInstructions,
 }: {
   name: string;
   pairingUrl: string;
-  remoteUrl: string;
-  advanced: boolean;
-  validationError: string | null;
+  previousEndpoint: string;
   connection: ConnectionState;
   canConnect: boolean;
   onNameChange: (value: string) => void;
   onPairingUrlChange: (value: string) => void;
-  onAdvancedChange: (value: boolean) => void;
-  onUrlChange: (value: string) => void;
   onCancel?: () => void;
   onConnect: () => void;
   onShowInstructions: () => void;
@@ -431,14 +334,6 @@ function ConnectionForm({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="text-left text-xs font-medium text-muted-foreground underline-offset-4 hover:underline"
-          onClick={() => onAdvancedChange(!advanced)}
-        >
-          {advanced ? "Hide advanced URL connection" : "Advanced: connect by server URL"}
-        </button>
-
         <div className="space-y-2">
           <Label htmlFor="remote-workspace-name">Machine name</Label>
           <Input
@@ -450,22 +345,11 @@ function ConnectionForm({
           <p className="text-xs text-muted-foreground">Optional. If empty, Argos uses the server host name.</p>
         </div>
 
-        {advanced && (
-          <div className="space-y-2">
-            <Label htmlFor="remote-workspace-url">Daemon URL</Label>
-            <Input
-              id="remote-workspace-url"
-              placeholder="http://192.168.1.100:9527"
-              value={remoteUrl}
-              onChange={(event) => onUrlChange(event.target.value)}
-              aria-invalid={Boolean(validationError && remoteUrl.trim())}
-            />
-            {validationError && remoteUrl.trim() ? (
-              <p className="text-xs text-destructive">{validationError}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Use the daemon HTTP address, not the WebSocket URL.</p>
-            )}
-          </div>
+        {previousEndpoint && (
+          <p className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+            Previously saved address: <span className="font-mono">{previousEndpoint}</span>. Pair again with a fresh
+            link to verify this machine before saving it.
+          </p>
         )}
 
         {connection.kind === "error" && (

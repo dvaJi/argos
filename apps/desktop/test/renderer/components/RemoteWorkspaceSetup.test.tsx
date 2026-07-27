@@ -133,4 +133,15 @@ describe("RemoteWorkspaceSetup", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Pairing with the remote machine.");
   });
+
+  it("requires a fresh pairing link instead of saving from a raw server URL", () => {
+    const { container } = render(
+      <RemoteWorkspaceSetup initialRemoteUrl="https://build.example.test" onAddWorkspace={vi.fn()} />,
+    );
+
+    expect(container).toHaveTextContent("Previously saved address: https://build.example.test");
+    expect(screen.queryByText("Advanced: connect by server URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Daemon URL")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pair and add" })).toBeDisabled();
+  });
 });
