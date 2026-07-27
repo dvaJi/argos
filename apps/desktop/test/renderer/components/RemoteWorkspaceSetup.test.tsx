@@ -53,6 +53,7 @@ describe("RemoteWorkspaceSetup", () => {
         }),
       ),
     );
+    expect(JSON.stringify(addWorkspace.mock.calls)).not.toContain("one-time-token");
   });
 
   it("keeps the user in the form with the pairing failure recovery message", async () => {
