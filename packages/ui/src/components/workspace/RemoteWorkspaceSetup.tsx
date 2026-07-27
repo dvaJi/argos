@@ -489,6 +489,19 @@ function ConnectionForm({
           </Alert>
         )}
 
+        {connection.kind === "checking" && (
+          <p className="sr-only" role="status" aria-live="polite">
+            {
+              {
+                reaching: "Checking the server connection.",
+                pairing: "Pairing with the remote machine.",
+                verifying: "Verifying the remote machine.",
+                saving: "Saving the remote machine.",
+              }[connection.stage]
+            }
+          </p>
+        )}
+
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
           <Button type="button" variant="ghost" onClick={onShowInstructions}>
             Need install instructions?

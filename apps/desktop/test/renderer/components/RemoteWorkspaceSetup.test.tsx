@@ -121,4 +121,16 @@ describe("RemoteWorkspaceSetup", () => {
     await waitFor(() => expect(discardCredential).toHaveBeenCalledWith("machine-unsaved-reference"));
     expect(screen.getByLabelText("Pairing link")).toBeInTheDocument();
   });
+
+  it("announces pairing progress to assistive technology", async () => {
+    vi.mocked((window as any).argos.workspace.pairRemote).mockImplementation(() => new Promise(() => {}));
+
+    render(<RemoteWorkspaceSetup onAddWorkspace={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Pairing link"), {
+      target: { value: "https://build.example.test/pair?token=one-time-token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pair and add" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Pairing with the remote machine.");
+  });
 });
