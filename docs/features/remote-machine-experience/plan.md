@@ -300,7 +300,7 @@ Use one responsive wizard/sheet/dialog shared by sidebar and settings:
    - stronger hardware;
    - browser/headless access.
 2. **Prepare the other machine**
-   - platform selector;
+   - platform selector for the other machine (the installer detects its supported architecture);
    - install and verify;
    - exposure choice and warning;
    - start/pair command.

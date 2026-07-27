@@ -198,4 +198,15 @@ describe("RemoteWorkspaceSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: "I understand — show network command" }));
     expect(screen.getByText("Start (network)")).toBeInTheDocument();
   });
+
+  it("shows installation commands for the selected remote machine platform", () => {
+    render(<RemoteWorkspaceSetup onAddWorkspace={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Need install instructions?" }));
+
+    fireEvent.change(screen.getByLabelText("Other machine"), { target: { value: "windows" } });
+
+    expect(screen.getByText("Windows")).toBeInTheDocument();
+    expect(screen.getByText(/install\.ps1/)).toBeInTheDocument();
+    expect(screen.getByText(/argos-daemon\.exe --version/)).toBeInTheDocument();
+  });
 });

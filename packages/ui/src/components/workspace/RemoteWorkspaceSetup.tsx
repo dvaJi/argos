@@ -8,13 +8,11 @@ import { Label } from "#shadcn/components/ui/label";
 import { Separator } from "#shadcn/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "#shadcn/components/ui/tabs";
 import { useToast } from "#/components/use-toast";
-import { getRemoteMachineCommands } from "@argos/shared/remoteMachineCommands";
+import { getRemoteMachineCommands, type RemoteMachinePlatform } from "@argos/shared/remoteMachineCommands";
 
-function getPlatformCommands() {
+function getDefaultRemotePlatform(): RemoteMachinePlatform {
   const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent.toLowerCase();
-  return getRemoteMachineCommands(
-    userAgent.includes("win") ? "windows" : userAgent.includes("mac") ? "macos" : "linux",
-  );
+  return userAgent.includes("win") ? "windows" : userAgent.includes("mac") ? "macos" : "linux";
 }
 
 type WorkspaceDraft = {
@@ -480,7 +478,8 @@ function InstructionsPanel({
   onCopyCommand: (command: string) => void;
   onShowForm: () => void;
 }) {
-  const commands = getPlatformCommands();
+  const [platform, setPlatform] = useState<RemoteMachinePlatform>(getDefaultRemotePlatform);
+  const commands = getRemoteMachineCommands(platform);
   const [showPrivateNetworkCommand, setShowPrivateNetworkCommand] = useState(false);
   return (
     <section className="rounded-2xl border bg-background p-4">
@@ -494,6 +493,24 @@ function InstructionsPanel({
       <Separator className="my-4" />
 
       <div className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="remote-machine-platform">Other machine</Label>
+          <select
+            id="remote-machine-platform"
+            value={platform}
+            onChange={(event) => setPlatform(event.target.value as RemoteMachinePlatform)}
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm sm:w-64"
+          >
+            <option value="linux">Linux</option>
+            <option value="windows">Windows</option>
+            <option value="macos">macOS</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Choose the platform of the machine that will run Argos Server. The installer detects its supported
+            architecture automatically.
+          </p>
+        </div>
+
         {!commands.available && (
           <Alert>
             <Icon icon="lucide:info" className="size-4" />
