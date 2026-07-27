@@ -21,4 +21,14 @@ describe("remote machine release matrix", () => {
       }
     }
   });
+
+  test("runs --version before staging every supported daemon artifact", () => {
+    const versionChecks = releaseWorkflow.match(/- name: Verify daemon version/g) ?? [];
+    const supportedPlatforms = REMOTE_MACHINE_COMMANDS.filter((commandSet) => commandSet.available).length;
+
+    expect(versionChecks).toHaveLength(supportedPlatforms);
+    expect(releaseWorkflow).toContain("arch: [x64, arm64]");
+    expect(releaseWorkflow).toContain('argos-daemon.exe" --version');
+    expect(releaseWorkflow).toContain("apps/daemon/dist/argos-daemon --version");
+  });
 });

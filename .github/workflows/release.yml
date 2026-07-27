@@ -224,6 +224,14 @@ jobs:
           [ "$DAEMON_OS" = "windows" ] && ext=".exe"
           cp "apps/daemon/dist/argos-daemon${ext}" "dist/daemon/argos-daemon-${DAEMON_OS}-${DAEMON_ARCH}${ext}"
 
+      - name: Verify daemon version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = & "apps/daemon/dist/argos-daemon.exe" --version
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "Daemon did not report a version." }
+          Write-Host "Daemon version: $version"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -289,6 +297,13 @@ jobs:
           ext=""
           [ "$DAEMON_OS" = "windows" ] && ext=".exe"
           cp "apps/daemon/dist/argos-daemon${ext}" "dist/daemon/argos-daemon-${DAEMON_OS}-${DAEMON_ARCH}${ext}"
+
+      - name: Verify daemon version
+        shell: bash
+        run: |
+          version="$(apps/daemon/dist/argos-daemon --version)"
+          test -n "$version"
+          echo "Daemon version: $version"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

@@ -95,7 +95,7 @@ Phases 1–3 are implemented and tested.
       command matrix.
 - [x] Align each install command with an asset actually produced by the release
       workflow.
-- [ ] Add `--version` coverage for every daemon artifact.
+- [x] Add `--version` coverage for every daemon artifact.
 - [x] Define commands for loopback browser, trusted LAN/private overlay, and
       HTTPS/reverse-proxy deployments.
 - [x] Ensure no command suggests a LAN URL while binding only to loopback.
