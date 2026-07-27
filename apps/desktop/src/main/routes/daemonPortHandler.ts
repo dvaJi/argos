@@ -3,6 +3,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { getSidecarHandle } from "#/presenter/lifecyclePresenter/hooks/init/daemonSidecarHook";
+import {
+  classifyRemoteMachineTransportError,
+  parseRemoteMachinePairingLink,
+  type RemoteMachinePairingErrorCode,
+} from "@argos/shared/remoteMachinePairing";
 
 const DAEMON_PORT_CHANNEL = "get-daemon-port";
 const PAIRING_URL_CHANNEL = "generate-pairing-url";
@@ -12,6 +17,11 @@ const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credenti
 
 type StoredCredential = { encrypted: string; remoteUrl: string; sessionId?: string };
 type StoredCredentials = Record<string, StoredCredential>;
+type PairingErrorCode = RemoteMachinePairingErrorCode | "pairing_expired" | "pairing_consumed" | "pairing_failed";
+
+function pairingError(code: PairingErrorCode, message: string) {
+  return { ok: false as const, error: { code, message } };
+}
 
 function credentialPath(): string {
   return join(app.getPath("userData"), "remote-machine-sessions.json");
@@ -66,19 +76,13 @@ export function registerDaemonPortHandler(): void {
 
   ipcMain.removeHandler(PAIR_REMOTE_MACHINE_CHANNEL);
   ipcMain.handle(PAIR_REMOTE_MACHINE_CHANNEL, async (_event, pairingUrl: unknown) => {
-    if (typeof pairingUrl !== "string" || !pairingUrl.trim()) {
-      return { ok: false, error: { code: "pairing_invalid", message: "Enter a pairing link." } };
-    }
+    if (typeof pairingUrl !== "string") return pairingError("pairing_invalid", "Enter a pairing link.");
+
+    const parsed = parseRemoteMachinePairingLink(pairingUrl);
+    if (!parsed.ok) return pairingError(parsed.error.code, parsed.error.message);
 
     try {
-      const parsed = new URL(pairingUrl.trim());
-      const token = parsed.searchParams.get("token");
-      if (!token || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) {
-        return { ok: false, error: { code: "pairing_invalid", message: "That pairing link is invalid." } };
-      }
-      parsed.search = "";
-      parsed.pathname = "/";
-      const remoteUrl = parsed.toString().replace(/\/$/, "");
+      const { remoteUrl, token } = parsed.value;
       const response = await fetch(`${remoteUrl}/api/v1/pair`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,13 +92,10 @@ export function registerDaemonPortHandler(): void {
         const errorBody = (await response.json().catch(() => ({}))) as {
           error?: { code?: string; message?: string };
         };
-        return {
-          ok: false,
-          error: {
-            code: errorBody.error?.code ?? "pairing_failed",
-            message: errorBody.error?.message ?? "Pairing failed.",
-          },
-        };
+        return pairingError(
+          (errorBody.error?.code as PairingErrorCode | undefined) ?? "pairing_failed",
+          errorBody.error?.message ?? "Pairing failed.",
+        );
       }
       const body = (await response.json()) as {
         ok?: boolean;
@@ -103,10 +104,10 @@ export function registerDaemonPortHandler(): void {
         error?: { code?: string; message?: string };
       };
       if (!body.ok || !body.sessionToken) {
-        return {
-          ok: false,
-          error: { code: body.error?.code ?? "pairing_failed", message: body.error?.message ?? "Pairing failed." },
-        };
+        return pairingError(
+          (body.error?.code as PairingErrorCode | undefined) ?? "pairing_failed",
+          body.error?.message ?? "Pairing failed.",
+        );
       }
       const verification = await fetch(`${remoteUrl}/api/v1/route`, {
         method: "POST",
@@ -120,26 +121,24 @@ export function registerDaemonPortHandler(): void {
         }),
       });
       if (!verification.ok) {
-        return {
-          ok: false,
-          error: {
-            code: "authenticated_rpc_failed",
-            message: "Pairing succeeded, but authenticated server verification failed.",
-          },
-        };
+        return pairingError(
+          "authenticated_rpc_failed",
+          "Pairing succeeded, but authenticated server verification failed.",
+        );
       }
       const verificationBody = (await verification.json()) as {
         ok?: boolean;
         output?: { environmentId?: string; serverVersion?: string; compatible?: boolean };
       };
       if (!verificationBody.ok || !verificationBody.output?.compatible) {
-        return {
-          ok: false,
-          error: {
-            code: "authenticated_rpc_failed",
-            message: "Pairing succeeded, but authenticated server verification failed.",
-          },
-        };
+        return pairingError(
+          verificationBody.output && verificationBody.output.compatible === false
+            ? "protocol_incompatible"
+            : "authenticated_rpc_failed",
+          verificationBody.output && verificationBody.output.compatible === false
+            ? "This server is not compatible with this version of Argos."
+            : "Pairing succeeded, but authenticated server verification failed.",
+        );
       }
       const credentialRef = `machine-${randomUUID()}`;
       const credentials = readCredentials();
@@ -158,14 +157,13 @@ export function registerDaemonPortHandler(): void {
         serverVersion: verificationBody.output.serverVersion,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Pairing failed.";
-      return {
-        ok: false,
-        error: {
-          code: message.includes("Secure credential storage") ? "secure_storage_unavailable" : "pairing_failed",
-          message,
-        },
-      };
+      const message = error instanceof Error ? error.message : "Unable to reach the remote server.";
+      return pairingError(
+        message.includes("Secure credential storage")
+          ? "secure_storage_unavailable"
+          : classifyRemoteMachineTransportError(error),
+        message,
+      );
     }
   });
 

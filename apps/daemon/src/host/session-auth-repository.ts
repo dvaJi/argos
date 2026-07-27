@@ -34,6 +34,8 @@ export type PairingTokenInfo = {
   expiresAt: number;
 };
 
+export type PairingTokenConsumption = "accepted" | "invalid" | "expired" | "consumed";
+
 const PAIRING_TOKEN_TTL_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_SLIDING_THRESHOLD_MS = 60 * 60 * 1000;
@@ -66,6 +68,10 @@ export class SessionAuthRepository {
   }
 
   consumePairingToken(token: string): boolean {
+    return this.consumePairingTokenWithStatus(token) === "accepted";
+  }
+
+  consumePairingTokenWithStatus(token: string): PairingTokenConsumption {
     const tokenHash = hashSecret(token);
     const now = Date.now();
 
@@ -75,15 +81,15 @@ export class SessionAuthRepository {
       )
       .get(tokenHash);
 
-    if (!row) return false;
-    if (row.consumed_at !== null) return false;
-    if (now > row.expires_at) return false;
+    if (!row) return "invalid";
+    if (row.consumed_at !== null) return "consumed";
+    if (now > row.expires_at) return "expired";
 
     const result = this.db
       .query("UPDATE auth_pairing_tokens SET consumed_at = ? WHERE token_hash = ? AND consumed_at IS NULL")
       .run(now, tokenHash);
 
-    return result.changes > 0;
+    return result.changes > 0 ? "accepted" : "consumed";
   }
 
   createSession(kind: SessionKind, label = ""): { sessionId: string; secret: string; expiresAt: number } {

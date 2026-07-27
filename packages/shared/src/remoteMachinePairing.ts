@@ -1,0 +1,64 @@
+export type RemoteMachinePairingErrorCode =
+  | "pairing_invalid"
+  | "endpoint_loopback_remote"
+  | "endpoint_unreachable"
+  | "tls_untrusted"
+  | "secure_storage_unavailable"
+  | "authenticated_rpc_failed"
+  | "protocol_incompatible";
+
+export type ParsedRemoteMachinePairing = {
+  remoteUrl: string;
+  token: string;
+};
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+export function parseRemoteMachinePairingLink(
+  input: string,
+):
+  | { ok: true; value: ParsedRemoteMachinePairing }
+  | { ok: false; error: { code: "pairing_invalid" | "endpoint_loopback_remote"; message: string } } {
+  const value = input.trim();
+  if (!value) return { ok: false, error: { code: "pairing_invalid", message: "Enter a pairing link." } };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return { ok: false, error: { code: "pairing_invalid", message: "That pairing link is invalid." } };
+  }
+
+  if (
+    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+    parsed.username ||
+    parsed.password ||
+    (parsed.pathname !== "/" && parsed.pathname !== "/pair")
+  ) {
+    return { ok: false, error: { code: "pairing_invalid", message: "That pairing link is invalid." } };
+  }
+
+  if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
+    return {
+      ok: false,
+      error: {
+        code: "endpoint_loopback_remote",
+        message: "This pairing link points to loopback. Use the server's reachable private-network or HTTPS address.",
+      },
+    };
+  }
+
+  const token = parsed.searchParams.get("token");
+  if (!token) return { ok: false, error: { code: "pairing_invalid", message: "That pairing link is invalid." } };
+
+  parsed.pathname = "/";
+  parsed.search = "";
+  parsed.hash = "";
+  return { ok: true, value: { remoteUrl: parsed.toString().replace(/\/$/, ""), token } };
+}
+
+export function classifyRemoteMachineTransportError(error: unknown): RemoteMachinePairingErrorCode {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("certificate") || message.includes("tls") || message.includes("ssl")) return "tls_untrusted";
+  return "endpoint_unreachable";
+}

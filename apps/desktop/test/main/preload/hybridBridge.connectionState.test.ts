@@ -132,6 +132,32 @@ describe("HybridBridge connection state", () => {
     expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
+  it("does not fall back to the local IPC daemon when a remote route fails", async () => {
+    const ipcInvoke = vi.fn(() => Promise.resolve({ from: "ipc" }));
+    const remoteFailure = new Error("remote daemon unavailable");
+    const wsInvoke = vi.fn(() => Promise.reject(remoteFailure));
+    const bridge = new HybridBridge({
+      invoke: ipcInvoke,
+      on: vi.fn(() => () => {}),
+    } as any);
+
+    bridge.setWsBridge(
+      {
+        close: vi.fn(),
+        getUrl: () => "ws://remote.example.test/api/v1/events",
+        isConnected: () => true,
+        onConnectionStateChange: vi.fn(() => () => {}),
+        invoke: wsInvoke,
+        on: vi.fn(() => () => {}),
+      } as any,
+      "remote",
+    );
+
+    await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("remote daemon unavailable");
+    expect(wsInvoke).toHaveBeenCalledTimes(1);
+    expect(ipcInvoke).not.toHaveBeenCalled();
+  });
+
   it("waits for the initial daemon connection before invoking a route", async () => {
     const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
     let connected = false;

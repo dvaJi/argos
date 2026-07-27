@@ -55,8 +55,8 @@ Phases 1–3 are implemented and tested.
 - [x] Ensure bearer secrets never enter React state, workspace/machine JSON,
       localStorage, logs, toasts, or analytics.
 - [x] Add an explicit `secure_storage_unavailable` error with remediation.
-- [ ] Add store/reconnect/delete tests.
-- [ ] Add regression tests that serialize relevant renderer/config state and
+- [x] Add store/reconnect/delete tests.
+- [x] Add regression tests that serialize relevant renderer/config state and
       prove the bearer value is absent.
 
 ## Phase 4 — Pairing parser and orchestrator
@@ -86,7 +86,7 @@ Phases 1–3 are implemented and tested.
 - [x] Continue bounded/backoff reconnect for network failures.
 - [x] Fail closed when environment identity changes.
 - [x] Support endpoint update when the environment identity remains the same.
-- [ ] Prove remote route failures never fall back to local daemon execution.
+- [x] Prove remote route failures never fall back to local daemon execution.
 - [ ] Add reconnect tests across Desktop and daemon restarts.
 
 ## Phase 6 — Exposure/start command matrix
