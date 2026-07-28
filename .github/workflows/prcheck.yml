@@ -41,3 +41,8 @@ jobs:
 
       - name: Daemon unit tests
         run: bun x turbo run test --filter=@argos/daemon --output-logs=new-only
+
+      - name: Build standalone Argos Server
+        run: bun run build:daemon
+      - name: Standalone remote-machine lifecycle smoke
+        run: bun run e2e:remote-machine

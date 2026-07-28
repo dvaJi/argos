@@ -368,6 +368,24 @@ export const getActiveSession = (): UIActiveSessionSummary | undefined => {
 
 export const getHasActiveSession = (): boolean => sessionStore.state.activeSessionId !== null;
 
+export function clearSessionContextForMachineSwitch(): void {
+  clearStreamingState();
+  setActiveSessionId(null);
+  sessionStore.setState((prev) => ({
+    ...prev,
+    sessions: [],
+    bootstrapActiveSession: null,
+    activeSessionSummary: null,
+    hasLoadedInitialPage: false,
+    loading: false,
+    loadingMore: false,
+    hasMore: false,
+    nextCursor: null,
+    error: null,
+  }));
+  goToNewThread();
+}
+
 export const getNewConversationTargetAgentId = (): string | null => {
   const selectedId =
     typeof agentStore.state.selectedAgentId === "string" ? agentStore.state.selectedAgentId.trim() : "";
@@ -1022,6 +1040,7 @@ export function useSessionStore() {
     ...state,
     getState: () => sessionStore.state,
     fetchSessions,
+    clearSessionContextForMachineSwitch,
     loadNextPage,
     refreshSessionsByIds,
     createSession,

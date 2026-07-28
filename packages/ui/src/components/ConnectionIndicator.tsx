@@ -43,7 +43,7 @@ export default function ConnectionIndicator() {
   const config = STATUS_CONFIG[status];
   const tooltipLabel =
     state.mode === "local"
-      ? "Local daemon"
+      ? "This computer"
       : state.url
         ? `Remote: ${state.url}${state.lastError ? ` — ${state.lastError}` : ""}`
         : "Remote (no URL configured)";
@@ -64,7 +64,7 @@ export default function ConnectionIndicator() {
       <TooltipContent side="right">
         <div className="flex items-center gap-2">
           <Icon icon={config.icon} className="w-3.5 h-3.5" />
-          <span>{state.mode === "local" ? "Local daemon" : `${config.label} — ${truncate(state.url ?? "")}`}</span>
+          <span>{state.mode === "local" ? "This computer" : `${config.label} — ${truncate(state.url ?? "")}`}</span>
         </div>
       </TooltipContent>
     </Tooltip>

@@ -1,9 +1,10 @@
 appId: com.wefonk.argos
 productName: Argos
 directories:
+  app: apps/desktop
   buildResources: apps/desktop/build
 files:
-  - "apps/desktop/out/**"
+  - "out/**"
   - "!**/.claude/*"
   - "!**/.github/*"
   - "!**/.cursor/*"
@@ -79,7 +80,7 @@ electronLanguages:
 win:
   executableName: Argos
 nsis:
-  artifactName: ${name}-${version}-windows-${arch}.${ext}
+  artifactName: argos-${version}-windows-${arch}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

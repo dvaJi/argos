@@ -132,6 +132,57 @@ describe("HybridBridge connection state", () => {
     expect(ipcInvoke).not.toHaveBeenCalled();
   });
 
+  it("does not fall back to the local IPC daemon when a remote route fails", async () => {
+    const ipcInvoke = vi.fn(() => Promise.resolve({ from: "ipc" }));
+    const remoteFailure = new Error("remote daemon unavailable");
+    const wsInvoke = vi.fn(() => Promise.reject(remoteFailure));
+    const bridge = new HybridBridge({
+      invoke: ipcInvoke,
+      on: vi.fn(() => () => {}),
+    } as any);
+
+    bridge.setWsBridge(
+      {
+        close: vi.fn(),
+        getUrl: () => "ws://remote.example.test/api/v1/events",
+        isConnected: () => true,
+        onConnectionStateChange: vi.fn(() => () => {}),
+        invoke: wsInvoke,
+        on: vi.fn(() => () => {}),
+      } as any,
+      "remote",
+    );
+
+    await expect(bridge.invoke("chat.sendMessage" as any, {} as any)).rejects.toThrow("remote daemon unavailable");
+    expect(wsInvoke).toHaveBeenCalledTimes(1);
+    expect(ipcInvoke).not.toHaveBeenCalled();
+  });
+
+  it("routes a newly created session through the explicitly selected remote machine", async () => {
+    const localInvoke = vi.fn(() => Promise.resolve({ from: "local" }));
+    const remoteInvoke = vi.fn(() => Promise.resolve({ from: "remote" }));
+    const bridge = new HybridBridge(noopBridge);
+    const createSocket = (url: string, invoke: ReturnType<typeof vi.fn>) => ({
+      close: vi.fn(),
+      getUrl: () => url,
+      isConnected: () => true,
+      onConnectionStateChange: vi.fn(() => () => {}),
+      invoke,
+      on: vi.fn(() => () => {}),
+    });
+
+    const local = createSocket("ws://127.0.0.1:9527/api/v1/events", localInvoke);
+    const remote = createSocket("wss://build.example.test/api/v1/events", remoteInvoke);
+    bridge.setWsBridge(local as any, "local");
+    bridge.setWsBridge(remote as any, "remote");
+
+    await bridge.invoke("sessions.create" as any, {} as any);
+
+    expect(local.close).toHaveBeenCalledTimes(1);
+    expect(localInvoke).not.toHaveBeenCalled();
+    expect(remoteInvoke).toHaveBeenCalledTimes(1);
+  });
+
   it("waits for the initial daemon connection before invoking a route", async () => {
     const wsInvoke = vi.fn(() => Promise.resolve({ from: "ws" }));
     let connected = false;

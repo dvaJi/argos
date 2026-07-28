@@ -11,8 +11,7 @@ const PLATFORMS = [
 ] as const;
 
 const DAEMON_INSTALLS = [
-  { command: "brew install dvaJi/tap/argos-daemon", label: "Homebrew" },
-  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "macOS / Linux" },
+  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "Linux" },
   { command: `irm ${INSTALL_RAW}/install.ps1 | iex`, label: "Windows" },
 ] as const;
 
@@ -56,7 +55,8 @@ export function Download() {
           <div className="text-center">
             <h3 className="text-lg font-semibold text-white">Run it headless</h3>
             <p className="mt-2 text-sm text-slate-500">
-              Serve a paired browser workspace from the standalone daemon. No desktop app is required on the host.
+              Desktop is all most users need. Install Argos Server separately only when another machine should run
+              agents and host project files.
             </p>
           </div>
           <div className="mt-7 space-y-2.5">
@@ -73,10 +73,10 @@ export function Download() {
           <p className="mt-6 text-center text-xs text-slate-600">
             Before deploying on a VPS, read the{" "}
             <a
-              href="/docs"
+              href="https://github.com/dvaJi/argos/blob/master/docs/guides/remote-machines.md"
               className="text-slate-400 underline decoration-white/10 underline-offset-4 transition-colors duration-300 hover:text-white"
             >
-              daemon handbook
+              remote machine guide
             </a>
             .
           </p>

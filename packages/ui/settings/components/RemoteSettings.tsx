@@ -158,7 +158,10 @@ export default function RemoteSettings() {
         <div className="flex flex-col gap-4 p-4">
           <div className="space-y-1">
             <div className="text-base font-medium">Remote Channels</div>
-            <div className="text-sm text-muted-foreground">Configure bot connections for various platforms</div>
+            <div className="text-sm text-muted-foreground">
+              Configure bot connections for various platforms. These integrations do not connect Argos to another
+              machine; use Machines to connect to Argos Server.
+            </div>
           </div>
 
           <Tabs value={activeChannel} onValueChange={(v) => setActiveChannel(v as ChannelKey)} className="space-y-4">

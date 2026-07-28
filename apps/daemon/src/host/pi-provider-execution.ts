@@ -44,6 +44,10 @@ interface PiWorkerHandle {
 }
 
 function resolveWorkerCommand(): { command: string; args: string[] } {
+  const embeddedWorker = process.env.ARGOS_PI_WORKER_PATH;
+  if (embeddedWorker) {
+    return { command: embeddedWorker, args: [] };
+  }
   const sourceWorker = path.join(import.meta.dir, "piWorker.ts");
   if (fs.existsSync(sourceWorker) && !process.execPath.toLowerCase().includes("argos-daemon")) {
     return { command: process.execPath, args: [sourceWorker] };

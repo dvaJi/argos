@@ -27,15 +27,23 @@ describe("Pi worker", () => {
     const ready = new Promise<Extract<PiWorkerEvent, { type: "ready" }>>((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error(`Worker timed out: ${errors.join("")}`)), 10_000);
       readline.createInterface({ input: child.stdout }).on("line", (line) => {
-        const event = JSON.parse(line) as PiWorkerEvent;
+        let event: PiWorkerEvent;
+        try {
+          event = JSON.parse(line) as PiWorkerEvent;
+        } catch {
+          errors.push(`Unexpected worker stdout: ${line}\n`);
+          return;
+        }
         if (event.type === "ready") {
           clearTimeout(timeout);
           resolve(event);
         }
-        if (event.type === "error") {
+        if (event.type === "error" && typeof event.message === "string") {
           clearTimeout(timeout);
-          reject(new Error(event.message));
+          errors.push(`Worker error event: ${line}\n`);
+          reject(new Error(`Pi worker reported an error during initialization: ${line}`));
         }
+        if (event.type === "error") errors.push(`Malformed worker error event: ${line}\n`);
       });
     });
 
@@ -62,6 +70,7 @@ describe("Pi worker", () => {
       },
       disabledTools: [],
       tools: [],
+      orchestrationTools: [],
       projectTrusted: false,
       permissionMode: "default",
       profileFingerprint: "test",

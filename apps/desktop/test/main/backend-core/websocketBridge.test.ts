@@ -10,6 +10,7 @@ class MockWebSocket {
 
   readyState = MockWebSocket.CONNECTING;
   url: string;
+  protocols?: string | string[];
   onopen: ((ev: Event) => void) | null = null;
   onclose: ((ev: CloseEvent) => void) | null = null;
   onmessage: ((ev: MessageEvent) => void) | null = null;
@@ -17,8 +18,9 @@ class MockWebSocket {
   sentMessages: string[] = [];
   private closeRequested = false;
 
-  constructor(url: string) {
+  constructor(url: string, protocols?: string | string[]) {
     this.url = url;
+    this.protocols = protocols;
     setTimeout(() => {
       if (!this.closeRequested) {
         this.readyState = MockWebSocket.OPEN;
@@ -81,10 +83,12 @@ describe("WebSocketBridge", () => {
     bridge.close();
   });
 
-  it("includes token in URL when provided", async () => {
+  it("uses a bearer subprotocol without putting the token in the URL", async () => {
     const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events", "test-token");
     await bridge.connect();
-    expect(bridge).toBeDefined();
+    const ws = (bridge as any).ws as MockWebSocket;
+    expect(ws.url).not.toContain("token=");
+    expect(ws.protocols).toEqual(["argos-v1", "argos-bearer.test-token"]);
     bridge.close();
   });
 
@@ -287,6 +291,25 @@ describe("WebSocketBridge", () => {
     expect(lastSubscribe.events).toContain("chat.stream.updated");
     expect(lastSubscribe.events).toContain("sessions.updated");
 
+    bridge.close();
+  });
+
+  it("reconnects after a daemon restart and restores event subscriptions", async () => {
+    const bridge = new WebSocketBridge("ws://localhost:9527/api/v1/events");
+    await bridge.connect();
+    bridge.on("chat.stream.updated", vi.fn<(...args: any[]) => any>());
+
+    const beforeRestart = (bridge as any).ws as MockWebSocket;
+    beforeRestart.simulateUnexpectedClose();
+
+    await new Promise((resolve) => setTimeout(resolve, 1_100));
+
+    const afterRestart = (bridge as any).ws as MockWebSocket;
+    expect(afterRestart).not.toBe(beforeRestart);
+    expect(afterRestart.readyState).toBe(MockWebSocket.OPEN);
+    expect(afterRestart.sentMessages.map((message) => JSON.parse(message))).toContainEqual(
+      expect.objectContaining({ type: "subscribe", events: ["chat.stream.updated"] }),
+    );
     bridge.close();
   });
 });

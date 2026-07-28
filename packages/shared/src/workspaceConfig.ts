@@ -2,8 +2,10 @@ import { readConfig } from "./serverConfig";
 
 export const WORKSPACE_CONFIG_STORAGE_KEY = "argos-workspace-config";
 export const WORKSPACE_CONFIG_CHANGED_EVENT = "argos:workspace-config:changed";
+export const WORKSPACE_CONFIG_VERSION = 2;
 
 export type WorkspaceMode = "local" | "remote";
+export type WorkspaceTrustState = "managed-local" | "paired" | "pairing-required" | "identity-changed";
 
 export type WorkspaceEntry = {
   id: string;
@@ -11,9 +13,22 @@ export type WorkspaceEntry = {
   mode: WorkspaceMode;
   remoteUrl: string;
   createdAt: number;
+  /** Opaque native secure-storage reference for a paired remote machine. */
+  credentialRef?: string;
+  /** Stable identity reported by the remote daemon after verification. */
+  environmentId?: string;
+  lastKnownServerVersion?: string;
+  lastKnownProtocolVersion?: number;
+  lastKnownCapabilities?: string[];
+  lastConnectedAt?: number;
+  trustState?: WorkspaceTrustState;
 };
 
+/** User-facing machine record; WorkspaceEntry remains the storage-compatible name. */
+export type MachineEntry = WorkspaceEntry;
+
 export type WorkspaceConfig = {
+  schemaVersion?: number;
   workspaces: WorkspaceEntry[];
   activeWorkspaceId: string;
 };
@@ -22,13 +37,15 @@ export const LOCAL_WORKSPACE_ID = "local";
 
 const LOCAL_WORKSPACE_ENTRY: WorkspaceEntry = {
   id: LOCAL_WORKSPACE_ID,
-  name: "Local",
+  name: "This computer",
   mode: "local",
   remoteUrl: "",
   createdAt: 0,
+  trustState: "managed-local",
 };
 
 export const DEFAULT_WORKSPACE_CONFIG: WorkspaceConfig = {
+  schemaVersion: WORKSPACE_CONFIG_VERSION,
   workspaces: [{ ...LOCAL_WORKSPACE_ENTRY }],
   activeWorkspaceId: LOCAL_WORKSPACE_ID,
 };
@@ -41,7 +58,20 @@ function isWorkspaceEntry(value: unknown): value is WorkspaceEntry {
     typeof c.name === "string" &&
     (c.mode === "local" || c.mode === "remote") &&
     typeof c.remoteUrl === "string" &&
-    typeof c.createdAt === "number"
+    typeof c.createdAt === "number" &&
+    (c.credentialRef === undefined || typeof c.credentialRef === "string") &&
+    (c.environmentId === undefined || typeof c.environmentId === "string") &&
+    (c.lastKnownServerVersion === undefined || typeof c.lastKnownServerVersion === "string") &&
+    (c.lastKnownProtocolVersion === undefined || typeof c.lastKnownProtocolVersion === "number") &&
+    (c.lastKnownCapabilities === undefined ||
+      (Array.isArray(c.lastKnownCapabilities) &&
+        c.lastKnownCapabilities.every((capability) => typeof capability === "string"))) &&
+    (c.lastConnectedAt === undefined || typeof c.lastConnectedAt === "number") &&
+    (c.trustState === undefined ||
+      c.trustState === "managed-local" ||
+      c.trustState === "paired" ||
+      c.trustState === "pairing-required" ||
+      c.trustState === "identity-changed")
   );
 }
 
@@ -52,7 +82,17 @@ function isWorkspaceConfig(value: unknown): value is WorkspaceConfig {
 }
 
 function migrateFromServerConfig(config: WorkspaceConfig): WorkspaceConfig {
-  if (config.workspaces.length > 1) return config;
+  const normalized: WorkspaceConfig = {
+    ...config,
+    schemaVersion: WORKSPACE_CONFIG_VERSION,
+    workspaces: config.workspaces.map((workspace) => ({
+      ...workspace,
+      trustState:
+        workspace.trustState ??
+        (workspace.mode === "local" ? "managed-local" : workspace.credentialRef ? "paired" : "pairing-required"),
+    })),
+  };
+  if (normalized.workspaces.length > 1) return normalized;
 
   try {
     const legacy = readConfig();
@@ -64,6 +104,7 @@ function migrateFromServerConfig(config: WorkspaceConfig): WorkspaceConfig {
         mode: "remote",
         remoteUrl: legacy.remoteUrl,
         createdAt: Date.now(),
+        trustState: "pairing-required",
       };
       return {
         workspaces: [{ ...LOCAL_WORKSPACE_ENTRY }, remoteEntry],
@@ -74,7 +115,7 @@ function migrateFromServerConfig(config: WorkspaceConfig): WorkspaceConfig {
     // ignore migration errors
   }
 
-  return config;
+  return normalized;
 }
 
 export function readWorkspaceConfig(): WorkspaceConfig {
@@ -89,7 +130,14 @@ export function readWorkspaceConfig(): WorkspaceConfig {
   } catch {
     // ignore corrupted entries
   }
-  return { ...DEFAULT_WORKSPACE_CONFIG };
+  return {
+    ...DEFAULT_WORKSPACE_CONFIG,
+    schemaVersion: WORKSPACE_CONFIG_VERSION,
+    workspaces: DEFAULT_WORKSPACE_CONFIG.workspaces.map((workspace) => ({
+      ...workspace,
+      trustState: "managed-local",
+    })),
+  };
 }
 
 export function writeWorkspaceConfig(config: WorkspaceConfig): void {

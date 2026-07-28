@@ -63,7 +63,17 @@ function getCookie(request: Request, name: string): string | null {
 function getBearerToken(request: Request): string | null {
   const authHeader = request.headers.get("authorization");
   const match = authHeader?.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1] : null;
+  if (match) return match[1];
+
+  // Browser WebSocket clients cannot set Authorization headers. The SDK uses
+  // a dedicated negotiated subprotocol for bearer-session authentication.
+  const protocols =
+    request.headers
+      .get("sec-websocket-protocol")
+      ?.split(",")
+      .map((value) => value.trim()) ?? [];
+  const bearerProtocol = protocols.find((value) => value.startsWith("argos-bearer."));
+  return bearerProtocol?.slice("argos-bearer.".length) || null;
 }
 
 /**

@@ -5,7 +5,7 @@ interface SettingsPageShellProps {
   title: string;
   description?: string;
   eyebrow?: string;
-  dataTestid?: string;
+  "data-testid"?: string;
   actions?: ReactNode;
   children?: ReactNode;
 }
@@ -14,7 +14,7 @@ export default function SettingsPageShell({
   title,
   description,
   eyebrow,
-  dataTestid,
+  "data-testid": dataTestid,
   actions,
   children,
 }: SettingsPageShellProps) {

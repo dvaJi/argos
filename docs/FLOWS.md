@@ -211,3 +211,47 @@ flowchart LR
 ```
 
 Unified remote control supports binding, default agent, default workdir, `/sessions`, `/model`, status output, media/Markdown rendering, and tool interaction prompts. Protocol differences per channel live in `remoteControlPresenter/<channel>/` and `remoteControlPresenter/services/*CommandRouter.ts`.
+
+## 10. Pair and Use a Remote Machine
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Desktop as Argos Desktop
+    participant Main as Electron main / safeStorage
+    participant SDK as client SDK
+    participant Server as Argos Server
+
+    User->>Server: start --host ... --pair
+    Server-->>User: one-time pairing link + ARGOS1 code
+    User->>Desktop: paste link/code
+    Desktop->>Main: pairRemote(entry)
+    Main->>Server: exchange one-time token
+    Server-->>Main: session id + bearer
+    Main->>Server: authenticated environment handshake
+    Main->>Main: encrypt bearer; retain opaque reference
+    Main-->>Desktop: verified non-secret metadata
+    Desktop->>SDK: connect with resolved bearer
+    SDK->>Server: authenticated WebSocket + event welcome
+    Server-->>Desktop: routes and events for selected machine
+```
+
+Important invariants:
+
+- `/health` proves reachability only and never marks a machine verified.
+- Pairing links and `ARGOS1 <S|P> <host[:port]> <token>` codes carry the same
+  short-lived single-use token.
+- The renderer never receives the bearer session; Electron resolves it only
+  when creating the authenticated transport.
+- Reconnect after Desktop or daemon restart reuses the encrypted session and
+  persistent environment identity.
+- Editing an address verifies the same environment identity before persistence.
+- A different environment at a known address fails closed and requires pairing.
+- Revocation invalidates HTTP requests immediately and closes an active
+  WebSocket when it next sends a message.
+- A failed remote action never falls back to This computer.
+
+The machine selector exposes connected/connecting/disconnected text, Pair
+again, identity-checked address editing, redacted diagnostics, and local
+forget/remote revoke outcomes. Remote Control integrations remain a separate
+feature and runtime flow.

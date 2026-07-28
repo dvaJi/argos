@@ -16,7 +16,7 @@
     "test:renderer": "vitest --config vitest.config.renderer.ts test/renderer",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck": "bun run typecheck:node",
-    "postinstall": "bun x electron-builder install-app-deps"
+    "postinstall": "cd ../.. && bun x electron-builder install-app-deps"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.2.1",
@@ -50,7 +50,7 @@
     "diff": "^9.0.0",
     "electron-log": "catalog:",
     "electron-store": "catalog:",
-    "electron-updater": "catalog:",
+    "electron-updater": "^6.8.9",
     "electron-window-state": "catalog:",
     "es-mime-types": "^0.1.4",
     "font-list": "^2.1.0",

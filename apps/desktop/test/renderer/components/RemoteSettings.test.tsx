@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 
 vi.mock("@iconify/react", () => ({
@@ -45,9 +45,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+beforeEach(() => {
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+
 const setup = async (options: SetupOptions = {}) => {
   vi.resetModules();
-  vi.useFakeTimers();
 
   const remoteState = {
     settings: {
@@ -74,72 +77,43 @@ const setup = async (options: SetupOptions = {}) => {
   };
 
   const remoteControlPresenter = {
-    listRemoteChannels: vi.fn<(...args: any[]) => any>(async () => [
-      { id: "telegram", implemented: true },
-      { id: "qqbot", implemented: true },
-      { id: "discord", implemented: true },
-      { id: "weixin-ilink", implemented: true },
-    ]),
-    getChannelSettings: vi.fn<(...args: any[]) => any>(async () => remoteState.settings),
-    saveChannelSettings: vi.fn<(...args: any[]) => any>(async (_channel: string, nextSettings: any) => {
+    getTelegramSettings: vi.fn<(...args: any[]) => any>(async () => remoteState.settings),
+    saveTelegramSettings: vi.fn<(...args: any[]) => any>(async (nextSettings: any) => {
       remoteState.settings = { ...nextSettings };
       remoteState.status.enabled = nextSettings.remoteEnabled;
       return { ...remoteState.settings };
     }),
-    getChannelStatus: vi.fn<(...args: any[]) => any>(async () => ({
-      channel: "telegram" as const,
-      ...remoteState.status,
-    })),
-    getChannelPairingSnapshot: vi.fn<(...args: any[]) => any>(async () => ({
+    getTelegramPairingSnapshot: vi.fn<(...args: any[]) => any>(async () => ({
       ...remoteState.pairingSnapshot,
       allowedUserIds: [...remoteState.pairingSnapshot.allowedUserIds],
     })),
-    createChannelPairCode: vi.fn<(...args: any[]) => any>(async () => {
+    createTelegramPairCode: vi.fn<(...args: any[]) => any>(async () => {
       remoteState.pairingSnapshot.pairCode = "654321";
       remoteState.pairingSnapshot.pairCodeExpiresAt = 123456789;
       return { code: "654321", expiresAt: 123456789 };
     }),
-    clearChannelPairCode: vi.fn<(...args: any[]) => any>(async () => {
+    clearTelegramPairCode: vi.fn<(...args: any[]) => any>(async () => {
       remoteState.pairingSnapshot.pairCode = null;
       remoteState.pairingSnapshot.pairCodeExpiresAt = null;
     }),
-    getChannelBindings: vi.fn<(...args: any[]) => any>(async () =>
-      remoteState.bindings.map((binding) => ({
-        channel: "telegram" as const,
-        ...binding,
-      })),
-    ),
-    removeChannelBinding: vi.fn<(...args: any[]) => any>(async (_channel: string, endpointKey: string) => {
-      remoteState.bindings = remoteState.bindings.filter((binding) => binding.endpointKey !== endpointKey);
-    }),
-    removeChannelPrincipal: vi.fn<(...args: any[]) => any>(async (_channel: string, principalId: string) => {
-      remoteState.pairingSnapshot.allowedUserIds = remoteState.pairingSnapshot.allowedUserIds.filter(
-        (value) => String(value) !== principalId,
-      );
-    }),
   };
 
-  const agentSessionPresenter = {
-    getAgents: vi.fn<(...args: any[]) => any>(async () => [
-      { id: "argos", name: "Argos", type: "argos", enabled: true },
-      { id: "argos-alt", name: "Argos Alt", type: "argos", enabled: false },
-      { id: "acp-agent", name: "ACP Agent", type: "acp", enabled: true },
-      ...(options.agents ?? []),
-    ]),
-  };
-  const projectPresenter = {
-    selectDirectory: vi.fn<(...args: any[]) => any>(async () => null),
+  const configPresenter = {
+    listAgents: vi.fn<(...args: any[]) => any>(async () =>
+      [
+        { id: "argos", name: "Argos", type: "argos", enabled: true },
+        { id: "argos-alt", name: "Argos Alt", type: "argos", enabled: false },
+        { id: "acp-agent", name: "ACP Agent", type: "acp", enabled: true },
+        ...(options.agents ?? []),
+      ].filter((agent) => agent.enabled),
+    ),
   };
 
   const toast = vi.fn<(...args: any[]) => any>();
 
   vi.doMock("#api/presenterBridge", () => ({
-    useLegacyPresenter: (name: string) => {
-      if (name === "agentSessionPresenter") return agentSessionPresenter;
-      if (name === "projectPresenter") return projectPresenter;
-      return null;
-    },
-    useLegacyRemoteControlPresenter: () => remoteControlPresenter,
+    usePresenter: () => configPresenter,
+    useRemoteControlPresenter: () => remoteControlPresenter,
   }));
   vi.doMock("#/components/use-toast", () => ({
     useToast: () => ({
@@ -157,8 +131,7 @@ const setup = async (options: SetupOptions = {}) => {
     ...result,
     remoteState,
     remoteControlPresenter,
-    agentSessionPresenter,
-    projectPresenter,
+    configPresenter,
     toast,
   };
 };
@@ -174,8 +147,8 @@ describe("RemoteSettings", () => {
       },
     });
 
-    expect(container.querySelector('[data-testid="remote-control-details"]')).toBeFalsy();
-    expect(container).not.toHaveTextContent("settings.remote.remoteControl.streamMode");
+    expect(screen.getByRole("switch")).toHaveAttribute("data-state", "unchecked");
+    expect(container).toHaveTextContent("These integrations do not connect Argos to another machine");
   });
 
   it("shows enabled ACP agents in the default agent options", async () => {
@@ -188,7 +161,8 @@ describe("RemoteSettings", () => {
       },
     });
 
-    expect(container).toHaveTextContent("ACP Agent (ACP)");
+    fireEvent.click(screen.getByRole("combobox"));
+    expect(await screen.findByText("ACP Agent")).toBeInTheDocument();
   });
 
   it("loads telegram settings without legacy hook fields", async () => {
@@ -202,16 +176,15 @@ describe("RemoteSettings", () => {
     });
 
     expect(toast).not.toHaveBeenCalled();
-    expect(container.querySelector('[data-testid="remote-default-agent-select"]')).toBeTruthy();
-    expect(container.querySelector('[data-testid="remote-allowed-user-ids-input"]')).toBeFalsy();
+    expect(screen.getByText("Default agent")).toBeInTheDocument();
+    expect(screen.queryByText("Allowed user IDs")).not.toBeInTheDocument();
   });
 
   it("uses remote control as the channel section title", async () => {
     const { container } = await setup();
 
-    const text = container.textContent!;
-    expect(text).not.toContain("settings.remote.sections.accessRules");
-    expect(text.match(/settings\.remote\.sections\.remoteControl/g)).toHaveLength(5);
+    expect(container).toHaveTextContent("Remote Channels");
+    expect(container).toHaveTextContent("use Machines to connect to Argos Server");
   });
 
   it("lists only enabled agents in the default agent selector area", async () => {
@@ -224,8 +197,9 @@ describe("RemoteSettings", () => {
       },
     });
 
-    expect(container).toHaveTextContent("Argos");
-    expect(container).not.toHaveTextContent("Argos Alt");
-    expect(container).toHaveTextContent("ACP Agent (ACP)");
+    fireEvent.click(screen.getByRole("combobox"));
+    expect((await screen.findAllByText("Argos")).length).toBeGreaterThan(1);
+    expect(screen.queryByText("Argos Alt")).not.toBeInTheDocument();
+    expect(screen.getByText("ACP Agent")).toBeInTheDocument();
   });
 });

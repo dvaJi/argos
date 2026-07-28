@@ -3,6 +3,10 @@ import { clipboard, contextBridge, nativeImage, webUtils, webFrame, ipcRenderer,
 import { exposeElectronAPI } from "@electron-toolkit/preload";
 import { normalizeExternalUrl } from "@argos/shared/externalUrl";
 import {
+  classifyRemoteMachineTransportError,
+  type RemoteMachinePairingErrorCode,
+} from "@argos/shared/remoteMachinePairing";
+import {
   type WorkspaceEntry,
   LOCAL_WORKSPACE_ID,
   readWorkspaceConfig,
@@ -14,6 +18,7 @@ import { createBridge } from "./createBridge";
 import { HybridBridge } from "./hybridBridge";
 import { WebSocketBridge } from "@argos/client-sdk";
 import { DAEMON_EVENTS } from "../main/events";
+import type { RemotePairingProgressStage } from "@argos/shared-contracts/bridge";
 
 const isDevHiddenApiEnabled = process.env.NODE_ENV === "development" || Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEV_WELCOME_OVERRIDE_KEY = "__argos_dev_force_welcome";
@@ -126,6 +131,94 @@ const hybridBridge = new HybridBridge(ipcBridge);
 let cachedLocalDaemonPort: number | null = null;
 const workspaceConnections = new Map<string, WebSocketBridge | null>();
 let localDaemonConnectInFlight: Promise<WebSocketBridge | null> | null = null;
+const PAIR_REMOTE_MACHINE_CHANNEL = "pair-remote-machine";
+const PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL = "pair-remote-machine-progress";
+const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
+const DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "delete-remote-machine-credential";
+
+type RemotePairingResult = {
+  ok: boolean;
+  credentialRef?: string;
+  remoteUrl?: string;
+  sessionId?: string;
+  environmentId?: string;
+  serverVersion?: string;
+  protocolVersion?: number;
+  runtimeKind?: "daemon";
+  capabilities?: string[];
+  error?: { code?: string; message?: string };
+};
+
+function pairingFailure(code: RemoteMachinePairingErrorCode, message: string): RemotePairingResult {
+  return { ok: false, error: { code, message } };
+}
+
+async function verifyPairedRemoteMachine(
+  result: RemotePairingResult,
+  onProgress?: (stage: RemotePairingProgressStage) => void,
+): Promise<RemotePairingResult> {
+  if (!result.ok || !result.credentialRef || !result.remoteUrl) return result;
+
+  const stored = await ipcRenderer.invoke(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+  if (!stored?.token) {
+    await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+    return pairingFailure("secure_storage_unavailable", "Argos could not read the secure pairing credential.");
+  }
+
+  const bridge = new WebSocketBridge(buildWsUrl(result.remoteUrl), stored.token);
+  let verified = false;
+  let eventReady = false;
+  try {
+    onProgress?.("connecting");
+    await bridge.connect();
+    onProgress?.("events");
+    const welcome = await bridge.waitForWelcome();
+    eventReady = true;
+    onProgress?.("handshaking");
+    const environment = await bridge.invoke("connection.describeEnvironment", {
+      protocolVersion: 1,
+      runtimeKind: "electron",
+    });
+    if (!environment.compatible || environment.protocolVersion !== welcome.protocolVersion) {
+      return pairingFailure("protocol_incompatible", "This server is not compatible with this version of Argos.");
+    }
+    if (
+      environment.environmentId !== welcome.environmentId ||
+      (result.environmentId && result.environmentId !== environment.environmentId)
+    ) {
+      return pairingFailure(
+        "environment_identity_changed",
+        "The server identity changed while Argos was verifying it.",
+      );
+    }
+    onProgress?.("capabilities");
+    const requiredCapabilities = ["chat", "sessions", "project-files"];
+    if (!requiredCapabilities.every((capability) => environment.capabilities.includes(capability as never))) {
+      return pairingFailure("capability_missing", "This server is missing a capability required by Argos Desktop.");
+    }
+    verified = true;
+    return {
+      ...result,
+      environmentId: environment.environmentId,
+      serverVersion: environment.serverVersion,
+      protocolVersion: environment.protocolVersion,
+      runtimeKind: environment.runtimeKind,
+      capabilities: environment.capabilities,
+    };
+  } catch (error) {
+    const code = eventReady
+      ? "authenticated_rpc_failed"
+      : error instanceof Error && error.message.includes("event readiness")
+        ? "event_readiness_failed"
+        : classifyRemoteMachineTransportError(error);
+    return pairingFailure(code, error instanceof Error ? error.message : "Remote machine verification failed.");
+  } finally {
+    bridge.close();
+    if (!verified) {
+      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, result.credentialRef);
+    }
+  }
+}
 
 async function fetchLocalDaemonPort(): Promise<number | null> {
   if (cachedLocalDaemonPort !== null) return cachedLocalDaemonPort;
@@ -156,21 +249,56 @@ async function waitForLocalDaemonPort(timeoutMs = 30000, intervalMs = 250): Prom
   return null;
 }
 
-async function connectToRemoteWorkspace(entry: WorkspaceEntry): Promise<WebSocketBridge> {
+async function connectToRemoteWorkspace(entry: WorkspaceEntry, throwOnFailure = false): Promise<WebSocketBridge> {
   const existing = workspaceConnections.get(entry.id);
   if (existing && existing.isConnected()) return existing;
   if (existing) existing.close();
 
+  const stored = entry.credentialRef
+    ? await ipcRenderer.invoke(GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL, entry.credentialRef)
+    : null;
   const wsUrl = buildWsUrl(entry.remoteUrl);
-  const bridge = new WebSocketBridge(wsUrl);
+  const bridge = new WebSocketBridge(wsUrl, stored?.token);
   workspaceConnections.set(entry.id, bridge);
   hybridBridge.setWsBridge(bridge, "remote");
 
   try {
     await bridge.connect();
+    const environment = await bridge.invoke("connection.describeEnvironment", {
+      protocolVersion: 1,
+      runtimeKind: "electron",
+    });
+    if (entry.environmentId && environment.environmentId !== entry.environmentId) {
+      bridge.close();
+      const config = readWorkspaceConfig();
+      config.workspaces = config.workspaces.map((workspace) =>
+        workspace.id === entry.id ? { ...workspace, trustState: "identity-changed" } : workspace,
+      );
+      writeWorkspaceConfig(config);
+      notifyWorkspaceConfigChanged();
+      hybridBridge.setWsBridge(null, "remote");
+      throw new Error("The server identity changed. Review and pair this machine again.");
+    }
+    const config = readWorkspaceConfig();
+    config.workspaces = config.workspaces.map((workspace) =>
+      workspace.id === entry.id
+        ? {
+            ...workspace,
+            environmentId: environment.environmentId,
+            lastKnownServerVersion: environment.serverVersion,
+            lastKnownProtocolVersion: environment.protocolVersion,
+            lastKnownCapabilities: environment.capabilities,
+            lastConnectedAt: Date.now(),
+            trustState: "paired",
+          }
+        : workspace,
+    );
+    writeWorkspaceConfig(config);
+    notifyWorkspaceConfigChanged();
     console.log(`[preload] Connected to remote workspace "${entry.name}" at ${wsUrl}`);
   } catch (error) {
     console.warn(`[preload] Failed to connect to remote workspace "${entry.name}":`, error);
+    if (throwOnFailure) throw error;
   }
 
   return bridge;
@@ -311,17 +439,55 @@ function buildWorkspaceApi() {
       return newEntry;
     },
 
-    remove: (workspaceId: string): void => {
-      if (workspaceId === LOCAL_WORKSPACE_ID) return;
+    pairRemote: async (pairingUrl: string, onProgress?: (stage: RemotePairingProgressStage) => void) => {
+      const requestId = crypto.randomUUID();
+      const progressListener = (
+        _event: Electron.IpcRendererEvent,
+        payload: { requestId?: string; stage?: RemotePairingProgressStage },
+      ) => {
+        if (payload?.requestId === requestId && payload.stage) onProgress?.(payload.stage);
+      };
+      ipcRenderer.on(PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL, progressListener);
+      try {
+        const result = (await ipcRenderer.invoke(
+          PAIR_REMOTE_MACHINE_CHANNEL,
+          pairingUrl,
+          requestId,
+        )) as RemotePairingResult;
+        return await verifyPairedRemoteMachine(result, onProgress);
+      } finally {
+        ipcRenderer.removeListener(PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL, progressListener);
+      }
+    },
+
+    discardCredential: async (credentialRef: string, revokeRemoteSession = true): Promise<void> => {
+      await ipcRenderer.invoke(DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL, credentialRef, revokeRemoteSession);
+    },
+
+    remove: async (
+      workspaceId: string,
+      revokeRemoteSession = false,
+    ): Promise<{ localRemoved: boolean; remoteRevoked: boolean | null }> => {
+      if (workspaceId === LOCAL_WORKSPACE_ID) return { localRemoved: false, remoteRevoked: null };
       const config = readWorkspaceConfig();
+      const removed = config.workspaces.find((workspace) => workspace.id === workspaceId);
       config.workspaces = config.workspaces.filter((w) => w.id !== workspaceId);
       if (config.activeWorkspaceId === workspaceId) {
         config.activeWorkspaceId = LOCAL_WORKSPACE_ID;
       }
       writeWorkspaceConfig(config);
       disconnectRemoteWorkspace(workspaceId);
+      let removal = { localRemoved: true, remoteRevoked: null as boolean | null };
+      if (removed?.credentialRef) {
+        removal = await ipcRenderer.invoke(
+          DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL,
+          removed.credentialRef,
+          revokeRemoteSession,
+        );
+      }
       notifyWorkspaceConfigChanged();
       void applyActiveWorkspace(config);
+      return removal;
     },
 
     rename: (workspaceId: string, name: string): void => {
@@ -330,6 +496,38 @@ function buildWorkspaceApi() {
       if (ws) {
         ws.name = name;
         writeWorkspaceConfig(config);
+        notifyWorkspaceConfigChanged();
+      }
+    },
+
+    updateEndpoint: async (workspaceId: string, remoteUrl: string): Promise<void> => {
+      const parsed = new URL(remoteUrl);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error("Remote machine addresses must use HTTP or HTTPS.");
+      }
+      parsed.username = "";
+      parsed.password = "";
+      parsed.search = "";
+      parsed.hash = "";
+      parsed.pathname = "/";
+      const normalizedUrl = parsed.toString().replace(/\/$/, "");
+      const config = readWorkspaceConfig();
+      const workspace = config.workspaces.find((candidate) => candidate.id === workspaceId);
+      if (!workspace || workspace.mode !== "remote") return;
+      const previousWorkspace = { ...workspace };
+      disconnectRemoteWorkspace(workspaceId);
+      try {
+        await connectToRemoteWorkspace({ ...workspace, remoteUrl: normalizedUrl }, true);
+      } catch (error) {
+        disconnectRemoteWorkspace(workspaceId);
+        await connectToRemoteWorkspace(previousWorkspace);
+        throw error;
+      }
+      const verifiedConfig = readWorkspaceConfig();
+      const verifiedWorkspace = verifiedConfig.workspaces.find((candidate) => candidate.id === workspaceId);
+      if (verifiedWorkspace?.mode === "remote") {
+        verifiedWorkspace.remoteUrl = normalizedUrl;
+        writeWorkspaceConfig(verifiedConfig);
         notifyWorkspaceConfigChanged();
       }
     },

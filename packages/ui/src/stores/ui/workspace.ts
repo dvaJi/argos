@@ -12,7 +12,7 @@ import {
   generateWorkspaceId,
 } from "@argos/shared/workspaceConfig";
 import type { ConnectionState } from "@argos/shared-contracts/connection";
-import { fetchSessions as originalFetchSessions } from "./session";
+import { clearSessionContextForMachineSwitch, fetchSessions as originalFetchSessions } from "./session";
 
 export type { WorkspaceEntry, WorkspaceMode };
 
@@ -70,8 +70,21 @@ export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): W
   return newEntry;
 }
 
-export function removeWorkspace(id: string): void {
-  if (id === LOCAL_WORKSPACE_ID) return;
+export async function removeWorkspace(
+  id: string,
+  revokeRemoteSession = false,
+): Promise<{ localRemoved: boolean; remoteRevoked: boolean | null }> {
+  if (id === LOCAL_WORKSPACE_ID) return { localRemoved: false, remoteRevoked: null };
+
+  let removal = { localRemoved: true, remoteRevoked: null as boolean | null };
+  try {
+    removal =
+      (await window.argos?.workspace?.remove(id, revokeRemoteSession)) ??
+      ({ localRemoved: true, remoteRevoked: null } as const);
+  } catch (err) {
+    console.warn("[workspaceStore] Preload remove failed:", err);
+    removal = { localRemoved: true, remoteRevoked: revokeRemoteSession ? false : null };
+  }
 
   workspaceStore.setState((prev) => {
     const nextWorkspaces = prev.workspaces.filter((w) => w.id !== id);
@@ -83,12 +96,21 @@ export function removeWorkspace(id: string): void {
     };
   });
   persist();
+  return removal;
 }
 
 export function renameWorkspace(id: string, name: string): void {
   workspaceStore.setState((prev) => ({
     ...prev,
     workspaces: prev.workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
+  }));
+  persist();
+}
+
+export function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
+  workspaceStore.setState((prev) => ({
+    ...prev,
+    workspaces: prev.workspaces.map((workspace) => (workspace.id === id ? { ...workspace, ...patch } : workspace)),
   }));
   persist();
 }
@@ -102,7 +124,10 @@ export async function switchWorkspace(id: string): Promise<void> {
     await window.argos?.workspace?.switchTo(id);
   } catch (err) {
     console.warn("[workspaceStore] Preload switchTo failed:", err);
+    return;
   }
+
+  clearSessionContextForMachineSwitch();
 
   workspaceStore.setState((prev) => ({
     ...prev,
@@ -128,6 +153,7 @@ export function useWorkspaceStore() {
     addWorkspace,
     removeWorkspace,
     renameWorkspace,
+    updateWorkspace,
     switchWorkspace,
     updateConnectionState,
   };

@@ -16,6 +16,13 @@ import { Type } from "typebox";
 import { createArgosOrchestratorExtension } from "@argos/pi-orchestrator-extension";
 import type { PiWorkerCommand, PiWorkerEvent, PiWorkerInit } from "./piWorkerProtocol";
 
+declare const __DAEMON_VERSION__: string | undefined;
+
+if (process.argv.includes("--version")) {
+  process.stdout.write(`${typeof __DAEMON_VERSION__ === "string" ? __DAEMON_VERSION__ : "development"}\n`);
+  process.exit(0);
+}
+
 let session: AgentSession | undefined;
 let init: PiWorkerInit | undefined;
 let activeCommandId: string | undefined;

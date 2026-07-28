@@ -40,6 +40,8 @@ import {
   settingsGetSnapshotRoute,
   settingsUpdateRoute,
   settingsActivityListRoute,
+  connectionDescribeEnvironmentRoute,
+  ARGOS_CAPABILITIES,
   settingsListSystemFontsRoute,
   databaseSecurityDiagnoseSchemaRoute,
   databaseSecurityRepairSchemaRoute,
@@ -784,6 +786,7 @@ export function createDaemonDispatcher(
       all(...p: unknown[]): unknown[];
     };
   },
+  environmentId = "unknown",
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -798,6 +801,19 @@ export function createDaemonDispatcher(
     if (route === tabNotifyRendererReadyRoute.name) {
       tabNotifyRendererReadyRoute.input.parse(rawInput);
       return tabNotifyRendererReadyRoute.output.parse({ notified: true });
+    }
+
+    if (route === connectionDescribeEnvironmentRoute.name) {
+      const input = connectionDescribeEnvironmentRoute.input.parse(rawInput);
+      return connectionDescribeEnvironmentRoute.output.parse({
+        environmentId,
+        serverVersion: resolveDaemonVersion(),
+        protocolVersion: 1,
+        runtimeKind: "daemon",
+        capabilities: [...ARGOS_CAPABILITIES],
+        compatible: input.protocolVersion === 1,
+        eventTransport: { ready: true, protocol: "argos-v1" },
+      });
     }
 
     if (route === windowGetCurrentStateRoute.name) {

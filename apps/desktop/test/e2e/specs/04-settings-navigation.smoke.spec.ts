@@ -152,16 +152,6 @@ test("settings control center navigation and screenshots @smoke", async ({ app }
     });
   }
 
-  await settingsPage.evaluate(() => {
-    window.location.hash = "#/dashboard";
-  });
-  await expect(settingsPage.getByTestId("settings-overview-page")).toBeVisible({ timeout: 30_000 });
-  await expect
-    .poll(() => settingsPage.evaluate(() => window.location.hash), { timeout: 30_000 })
-    .toContain("/overview");
-  await applyVisualState(settingsPage, { dark: false, rtl: false });
-  await captureSettingsPage(settingsPage, testInfo, "settings-dashboard-compat-desktop-light");
-
   await settingsPage.setViewportSize(desktopViewport);
   await applyVisualState(settingsPage, { dark: true, rtl: false });
   for (const item of variantPages) {

@@ -2,7 +2,7 @@
 # argos-daemon installer (macOS / Linux)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/main/distro/install/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/dvaJi/argos/v0.2.0/distro/install/install.sh | ARGOS_VERSION=v0.2.0 sh
 #
 # Options (env):
 #   ARGOS_VERSION   Pin a release tag (e.g. v0.1.0). Default: latest release.
@@ -71,24 +71,21 @@ This platform may not have a published build yet (macOS builds are staged).
 Check available assets: https://github.com/${REPO}/releases/tag/${tag}"
 fi
 
-# --- verify (best effort) --------------------------------------------------
-if curl -fsSI "${base_url}/${sha_asset}" >/dev/null 2>&1; then
-  info "Verifying checksum..."
-  curl -fsSL "${base_url}/${sha_asset}" -o "${tmpdir}/${sha_asset}"
-  expected=$(awk '{print $1}' "${tmpdir}/${sha_asset}" | tr -d '[:space:]')
-  if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum "${tmpdir}/${asset}" | awk '{print $1}')
-  elif command -v shasum >/dev/null 2>&1; then
-    actual=$(shasum -a 256 "${tmpdir}/${asset}" | awk '{print $1}')
-  else
-    err "Neither sha256sum nor shasum is available; cannot verify checksum."
-  fi
-  [ "$expected" = "$actual" ] || err "Checksum mismatch.
+# --- verify ---------------------------------------------------------------
+info "Verifying checksum..."
+curl -fsSL "${base_url}/${sha_asset}" -o "${tmpdir}/${sha_asset}" ||
+  err "Checksum asset is unavailable for ${asset}; refusing to install."
+expected=$(awk '{print $1}' "${tmpdir}/${sha_asset}" | tr -d '[:space:]')
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "${tmpdir}/${asset}" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+  actual=$(shasum -a 256 "${tmpdir}/${asset}" | awk '{print $1}')
+else
+  err "Neither sha256sum nor shasum is available; cannot verify checksum."
+fi
+[ "$expected" = "$actual" ] || err "Checksum mismatch.
   expected: $expected
   actual:   $actual"
-else
-  printf '\033[33mwarning:\033[0m no checksum asset published for %s; skipping verification.\n' "$asset"
-fi
 
 # --- install ---------------------------------------------------------------
 install_path="${install_dir}/${BINARY_NAME}"

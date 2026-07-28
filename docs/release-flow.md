@@ -8,6 +8,19 @@ This document defines the maintainer release flow for Argos.
 - Keep releases tag-driven through [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 - Avoid creating unnecessary merge commits on `master`.
 
+## Remote-machine release notes
+
+Every release that changes the daemon or desktop connection surface should
+include two clearly separated asset groups:
+
+- **Argos Desktop (recommended):** the normal platform installer for local use.
+- **Argos Server (advanced/headless):** the matching `argos-daemon-<os>-<arch>`
+  binary for a remote host, including its SHA-256 checksum.
+
+Release notes should link to the [remote-machine guide](guides/remote-machines.md)
+and state the supported pairing/protocol version. Do not tell local users to
+download the standalone daemon.
+
 ## Branch Roles
 
 - `master`: active development and integration branch.

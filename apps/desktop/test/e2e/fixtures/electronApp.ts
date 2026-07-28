@@ -5,22 +5,25 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { arch, homedir } from "node:os";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { arch, homedir, tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const FIXTURE_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(FIXTURE_DIR, "..", "..", "..");
 const BUILT_MAIN_ENTRY = resolve(REPO_ROOT, "out", "main", "index.js");
-const BUILT_RENDERER_ENTRY = resolve(REPO_ROOT, "out", "renderer", "index.html");
+const BUILT_UI_ENTRY = resolve(REPO_ROOT, "..", "..", "packages", "ui", "dist", "index.html");
 const WINDOWS_PACKAGED_EXECUTABLE = resolve(
   REPO_ROOT,
+  "..",
+  "..",
   "dist",
   arch() === "arm64" ? "win-arm64-unpacked" : "win-unpacked",
   "Argos.exe",
 );
 const MAX_MAIN_LOG_ATTACHMENT_BYTES = 512 * 1024;
+const CLEAN_PROFILE_PREFIX = "argos-e2e-";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -52,7 +55,15 @@ const waitForMainAppWindow = async (electronApp: ElectronApplication): Promise<P
     await delay(300);
   }
 
-  throw new Error("Main chat window did not become available within 30 seconds.");
+  const windows = await Promise.all(
+    electronApp.windows().map(async (candidate) => ({
+      title: await candidate.title().catch(() => "<unavailable>"),
+      url: candidate.url(),
+    })),
+  );
+  throw new Error(
+    `Main chat window did not become available within 30 seconds. Open windows: ${JSON.stringify(windows)}`,
+  );
 };
 
 export type ElectronAppInstance = {
@@ -157,10 +168,8 @@ const ensureLaunchTargetExists = (): void => {
     );
   }
 
-  if (!existsSync(BUILT_RENDERER_ENTRY)) {
-    throw new Error(
-      `Built renderer entry not found at ${BUILT_RENDERER_ENTRY}. Run "pnpm run build" before "pnpm run e2e:smoke".`,
-    );
+  if (!existsSync(BUILT_UI_ENTRY)) {
+    throw new Error(`Built UI entry not found at ${BUILT_UI_ENTRY}. Run "pnpm run build" before "pnpm run e2e:smoke".`);
   }
 };
 
@@ -170,6 +179,9 @@ export const test = base.extend<ElectronFixtures>({
 
     const consoleLogs: string[] = [];
     const pageErrors: string[] = [];
+    const cleanProfileDir = process.env.ARGOS_E2E_CLEAN_PROFILE
+      ? mkdtempSync(resolve(tmpdir(), CLEAN_PROFILE_PREFIX))
+      : undefined;
     const attachedPages = new WeakSet<Page>();
     const launchedApps = new Set<ElectronAppInstance>();
     let launchCount = 0;
@@ -205,7 +217,13 @@ export const test = base.extend<ElectronFixtures>({
               args: ["."],
             }),
         cwd: REPO_ROOT,
-        env: process.env,
+        env: cleanProfileDir
+          ? {
+              ...process.env,
+              APPDATA: cleanProfileDir,
+              LOCALAPPDATA: cleanProfileDir,
+            }
+          : process.env,
         timeout: 120_000,
       });
 
@@ -253,6 +271,9 @@ export const test = base.extend<ElectronFixtures>({
       }
 
       await attachDiagnostics(testInfo, consoleLogs, pageErrors);
+      if (cleanProfileDir) {
+        rmSync(cleanProfileDir, { recursive: true, force: true });
+      }
     }
   },
 

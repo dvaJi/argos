@@ -1,4 +1,5 @@
 import type { SessionAuthRepository } from "../host/session-auth-repository";
+import { formatRemoteMachinePairingCode } from "@argos/shared/remoteMachinePairing";
 
 const SESSION_COOKIE_NAME = "argos_session";
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
@@ -23,12 +24,18 @@ export async function handlePair(request: Request, repo: SessionAuthRepository):
     return Response.json({ ok: false, error: { code: "invalid_request", message: "Missing token" } }, { status: 400 });
   }
 
-  const consumed = repo.consumePairingToken(body.token);
-  if (!consumed) {
-    return Response.json(
-      { ok: false, error: { code: "invalid_token", message: "Invalid, expired, or already used pairing token" } },
-      { status: 401 },
-    );
+  const pairingToken = repo.consumePairingTokenWithStatus(body.token);
+  if (pairingToken !== "accepted") {
+    const error =
+      pairingToken === "expired"
+        ? { code: "pairing_expired", message: "This pairing link has expired. Generate a new one on the server." }
+        : pairingToken === "consumed"
+          ? {
+              code: "pairing_consumed",
+              message: "This pairing link has already been used. Generate a new one on the server.",
+            }
+          : { code: "pairing_invalid", message: "This pairing link is invalid." };
+    return Response.json({ ok: false, error }, { status: 401 });
   }
 
   const kind = body.kind === "browser" ? "browser" : "bearer";
@@ -81,6 +88,11 @@ export function handleRevokeSession(repo: SessionAuthRepository, sessionId: stri
  */
 export function handleIssuePairingToken(repo: SessionAuthRepository, origin: string): Response {
   const pairing = repo.issuePairingToken("desktop");
-  const pairingUrl = `${origin}/?token=${pairing.token}`;
-  return Response.json({ ok: true, pairingUrl, expiresAt: pairing.expiresAt });
+  const pairingUrl = `${origin}/pair?token=${pairing.token}`;
+  return Response.json({
+    ok: true,
+    pairingUrl,
+    pairingCode: formatRemoteMachinePairingCode(pairingUrl),
+    expiresAt: pairing.expiresAt,
+  });
 }
