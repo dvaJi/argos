@@ -85,7 +85,11 @@ function RemoteMachineActionItems({
           variant={action.destructive ? "destructive" : "default"}
           onSelect={(event) => {
             event.stopPropagation();
-            void action.run();
+            void Promise.resolve()
+              .then(action.run)
+              .catch((error) => {
+                console.warn(`Action "${action.title}" failed:`, error);
+              });
           }}
           aria-label={action.label}
         >
@@ -104,11 +108,14 @@ async function copyMachineDiagnostics(workspace: WorkspaceEntry): Promise<void> 
   };
   try {
     const parsed = new URL(workspace.remoteUrl);
-    const hostname = parsed.hostname.toLowerCase();
-    const isLoopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const isLoopback =
+      hostname === "localhost" || hostname === "::1" || hostname.startsWith("127.") || hostname.endsWith(".localhost");
     const isPrivate =
       hostname.startsWith("10.") ||
       hostname.startsWith("192.168.") ||
+      hostname.startsWith("169.254.") ||
+      hostname.startsWith("fe80:") ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
       hostname.endsWith(".local");
     endpoint = {
@@ -261,14 +268,18 @@ export default function WorkspaceSelector() {
     setEditMachine({ kind: "rename", workspace, value: workspace.name });
   };
 
-  const saveRename = () => {
+  const saveRename = async () => {
     if (!editMachine || editMachine.kind !== "rename") return;
     const { workspace } = editMachine;
     const nextName = editMachine.value.trim();
     if (!nextName || nextName === workspace.name) return;
-    window.argos?.workspace?.rename(workspace.id, nextName);
-    store.renameWorkspace(workspace.id, nextName);
-    setEditMachine(null);
+    try {
+      await window.argos?.workspace?.rename(workspace.id, nextName);
+      store.renameWorkspace(workspace.id, nextName);
+      setEditMachine(null);
+    } catch (error) {
+      setMachineOperationStatus(error instanceof Error ? error.message : `Could not rename ${workspace.name}.`);
+    }
   };
 
   const handlePairAgain = (workspace: WorkspaceEntry) => {
@@ -396,17 +407,18 @@ export default function WorkspaceSelector() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {machineOperationStatus && (
-        <p className="px-3 pt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
-          {machineOperationStatus}
-        </p>
-      )}
+      <p className="px-3 pt-1 text-xs text-muted-foreground" role="status" aria-live="polite">
+        {machineOperationStatus}
+      </p>
 
       <AddRemoteMachineDialog
         open={addDialogOpen}
         remoteUrls={remoteUrls}
         recoveryWorkspace={recoveryWorkspace}
-        onOpenChange={setAddDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) setRecoveryWorkspace(null);
+        }}
         onSave={async (workspace) => {
           await handleSave(workspace);
           setRecoveryWorkspace(null);
