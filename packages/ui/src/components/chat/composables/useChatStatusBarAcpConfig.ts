@@ -265,63 +265,53 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
       setAcpConfigState(null);
       setAcpConfigLoadedRequestKey(null);
 
-      let sessionConfigFailed = false;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      let loaded = false;
+      const delays = [0, 1500, 3000];
+      for (const delay of delays) {
+        if (delay > 0) {
+          await new Promise<void>((resolve) => setTimeout(resolve, delay));
+          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) return;
+        }
         try {
           const state = await options.sessionClient.getAcpSessionConfigOptions(options.activeAcpSessionId);
-          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) {
-            return;
-          }
-
+          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) return;
           setAcpConfigState(state);
           setAcpConfigLoadedRequestKey(requestKey);
           setAcpConfigError(null);
           clearAcpConfigLoadingRequest(requestKey);
-          return;
-        } catch (error) {
-          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) {
-            return;
-          }
-
-          if (attempt < 2) {
-            await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
-            if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) {
-              return;
-            }
-            continue;
-          }
-
-          console.warn("[ChatStatusBar] ACP session config loading failed, trying process fallback:", error);
-          sessionConfigFailed = true;
+          loaded = true;
+          break;
+        } catch {
+          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) return;
         }
       }
 
-      if (sessionConfigFailed && agentId && options.acpWorkspacePath) {
+      if (!loaded && agentId && options.acpWorkspacePath) {
         try {
           await options.providerClient.warmupAcpProcess(agentId, options.acpWorkspacePath ?? undefined);
           const state = await options.providerClient.getAcpProcessConfigOptions(
             agentId,
             options.acpWorkspacePath ?? undefined,
           );
-          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) {
-            return;
-          }
-
+          if (token !== acpConfigSyncTokenRef.current || acpConfigRequestKey !== requestKey) return;
           if (hasAcpConfigState(state)) {
             setAcpConfigState(state);
             setAcpConfigLoadedRequestKey(requestKey);
             setAcpConfigError(null);
             clearAcpConfigLoadingRequest(requestKey);
-            return;
+            loaded = true;
           }
         } catch (fallbackError) {
-          console.warn("[ChatStatusBar] ACP process config fallback also failed:", fallbackError);
+          console.warn("[ChatStatusBar] ACP config fallback failed:", fallbackError);
         }
       }
 
-      setAcpConfigState(null);
-      setAcpConfigLoadedRequestKey(null);
-      setAcpConfigError("Failed to load agent configuration");
+      if (!loaded) {
+        console.warn("[ChatStatusBar] All ACP config loading attempts failed");
+        setAcpConfigState(null);
+        setAcpConfigLoadedRequestKey(null);
+        setAcpConfigError("Failed to load agent configuration");
+      }
       clearAcpConfigLoadingRequest(requestKey);
       return;
     }
@@ -407,25 +397,14 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
         let updated: AcpConfigState | null = null;
         try {
           updated = await options.sessionClient.setAcpSessionConfigOption(sessionId, configId, value);
-        } catch (sessionError) {
-          console.warn("[ChatStatusBar] ACP session config update failed, re-preparing session:", sessionError);
+        } catch {
           const agentId = options.activeAcpAgentId;
           const workdir = options.acpWorkspacePath;
-          if (agentId && workdir) {
-            await options.sessionClient.prepareAcpSession({
-              sessionId,
-              agentId,
-              projectDir: workdir,
-            });
-            updated = await options.sessionClient.setAcpSessionConfigOption(sessionId, configId, value);
-          } else {
-            throw sessionError;
-          }
+          if (!agentId || !workdir) throw new Error("No agent or workspace to re-prepare");
+          await options.sessionClient.prepareAcpSession({ sessionId, agentId, projectDir: workdir });
+          updated = await options.sessionClient.setAcpSessionConfigOption(sessionId, configId, value);
         }
-        if (options.activeAcpSessionId !== sessionId) {
-          return;
-        }
-
+        if (options.activeAcpSessionId !== sessionId) return;
         setAcpConfigState(updated);
       } catch (error) {
         console.warn("[ChatStatusBar] Failed to update ACP config option:", error);
