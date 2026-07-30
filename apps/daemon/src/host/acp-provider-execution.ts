@@ -374,7 +374,6 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     workdir?: string,
   ): Promise<void> {
     const blocks: Array<Record<string, unknown>> = [];
-    console.log("[ACP] runTurn started — interleaved block ordering v2");
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
@@ -398,10 +397,6 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
           } else {
             blocks.push(block);
           }
-        }
-
-        for (const b of blocks) {
-          if (b.type === "content") b.status = "loading";
         }
 
         this.eventPublisher.publish("chat.stream.updated", {
@@ -437,6 +432,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
+      await this.sessionRepository.setMessageError(
+        assistantMessageId,
+        blocks.length > 0 ? blocks : [{ type: "error", content: errorMsg, status: "error", timestamp: Date.now() }],
+        JSON.stringify({ model: agent.id, provider: "acp" }),
+      );
       this.eventPublisher.publish("chat.stream.failed", {
         requestId,
         sessionId,

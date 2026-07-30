@@ -400,17 +400,21 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
         } catch {
           const agentId = options.activeAcpAgentId;
           const workdir = options.acpWorkspacePath;
-          if (!agentId || !workdir) throw new Error("No agent or workspace to re-prepare");
+          if (!agentId || !workdir) {
+            setAcpOptionSavingIds((prev) => prev.filter((id) => id !== configId));
+            console.warn("[ChatStatusBar] Cannot update config: no agent or workspace");
+            return;
+          }
           await options.sessionClient.prepareAcpSession({ sessionId, agentId, projectDir: workdir });
           updated = await options.sessionClient.setAcpSessionConfigOption(sessionId, configId, value);
         }
-        if (options.activeAcpSessionId !== sessionId) return;
-        setAcpConfigState(updated);
+        if (options.activeAcpSessionId === sessionId) {
+          setAcpConfigState(updated);
+        }
       } catch (error) {
         console.warn("[ChatStatusBar] Failed to update ACP config option:", error);
-      } finally {
-        setAcpOptionSavingIds((prev) => prev.filter((id) => id !== configId));
       }
+      setAcpOptionSavingIds((prev) => prev.filter((id) => id !== configId));
     },
     [
       options.activeAcpSessionId,

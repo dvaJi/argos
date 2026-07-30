@@ -225,7 +225,7 @@ async function main() {
     restarted.bridge.close();
     await assertRevoked(server, session.sessionToken);
 
-    const replacementPort = findAvailablePort(server.port);
+    const replacementPort = await findAvailablePort(server.port);
     await stopServer(server);
     server = await startServer(replacementDataDir, reachableAddress, replacementPort);
     const replacementSession = await pair(server);

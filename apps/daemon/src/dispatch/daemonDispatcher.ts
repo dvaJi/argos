@@ -2169,9 +2169,6 @@ export function createDaemonDispatcher(
         });
       }
       const page = await runtime.sessionRepository!.listMessagesPage(input.sessionId, { limit: input.limit });
-      console.log(
-        `[dispatch] sessions.restore: id=${input.sessionId} msgs=${page.messages.length} statuses=${page.messages.map((m: any) => `${m.role}:${m.status}`).join(",")}`,
-      );
       try {
         return sessionsRestoreRoute.output.parse({
           session,
@@ -2180,7 +2177,7 @@ export function createDaemonDispatcher(
           hasMore: page.hasMore,
         });
       } catch (parseError) {
-        console.error(`[dispatch] sessions.restore: OUTPUT PARSE FAILED`, parseError);
+        console.error(`[dispatch] sessions.restore: OUTPUT PARSE FAILED for ${input.sessionId}:`, parseError);
         throw parseError;
       }
     }

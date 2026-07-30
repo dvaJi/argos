@@ -1220,9 +1220,6 @@ export class BunSessionRepository implements SessionRepository {
         `UPDATE daemon_messages SET content = ?, status = 'sent', metadata = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`,
       )
       .run(JSON.stringify(blocks), metadataJson, Date.now(), messageId);
-    console.log(
-      `[db] finalizeAssistantMessage id=${messageId} changes=${result.changes} blocks=${blocks.length} contentLen=${JSON.stringify(blocks).length}`,
-    );
     this.emitSessionUpdated(this.sessionIdsForMessage(messageId), "updated");
   }
 
