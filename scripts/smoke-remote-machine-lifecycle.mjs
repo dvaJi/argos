@@ -115,12 +115,17 @@ async function startServer(dataDir, reachableAddress, port = 0) {
 async function stopServer(server) {
   if (server.child.exitCode !== null) return;
   server.child.kill();
-  await Promise.race([
-    once(server.child, "exit"),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Argos Server did not stop within 10 seconds.")), 10_000),
-    ),
-  ]);
+  let timer;
+  try {
+    await Promise.race([
+      once(server.child, "exit"),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("Argos Server did not stop within 10 seconds.")), 10_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function pair(server) {
@@ -220,7 +225,7 @@ async function main() {
     restarted.bridge.close();
     await assertRevoked(server, session.sessionToken);
 
-    const replacementPort = server.port;
+    const replacementPort = findAvailablePort(server.port);
     await stopServer(server);
     server = await startServer(replacementDataDir, reachableAddress, replacementPort);
     const replacementSession = await pair(server);

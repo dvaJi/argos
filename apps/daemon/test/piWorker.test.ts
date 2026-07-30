@@ -42,8 +42,9 @@ describe("Pi worker", () => {
           clearTimeout(timeout);
           errors.push(`Worker error event: ${line}\n`);
           reject(new Error(`Pi worker reported an error during initialization: ${line}`));
+        } else if (event.type === "error") {
+          errors.push(`Malformed worker error event: ${line}\n`);
         }
-        if (event.type === "error") errors.push(`Malformed worker error event: ${line}\n`);
       });
     });
 

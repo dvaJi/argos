@@ -501,7 +501,12 @@ function buildWorkspaceApi() {
     },
 
     updateEndpoint: async (workspaceId: string, remoteUrl: string): Promise<void> => {
-      const parsed = new URL(remoteUrl);
+      let parsed: URL;
+      try {
+        parsed = new URL(remoteUrl);
+      } catch {
+        throw new Error("Enter a valid remote machine address, for example https://machine.local:9527.");
+      }
       if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new Error("Remote machine addresses must use HTTP or HTTPS.");
       }

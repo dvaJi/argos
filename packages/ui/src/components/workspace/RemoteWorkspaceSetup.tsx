@@ -255,7 +255,8 @@ export function RemoteWorkspaceSetup({
         </TabsList>
 
         <TabsContent value="form" className="mt-0">
-          {pendingWorkspace && connection.kind === "review" ? (
+          {pendingWorkspace &&
+          (connection.kind === "review" || (connection.kind === "checking" && connection.stage === "saving")) ? (
             <ReviewPanel
               workspace={pendingWorkspace}
               clientVersion={clientVersion}

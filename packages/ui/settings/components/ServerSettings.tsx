@@ -143,11 +143,17 @@ export default function ServerSettings() {
     };
     try {
       const parsed = new URL(workspace.remoteUrl);
-      const hostname = parsed.hostname.toLowerCase();
-      const loopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+      const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+      const loopback =
+        hostname === "localhost" ||
+        hostname === "::1" ||
+        hostname.startsWith("127.") ||
+        hostname.endsWith(".localhost");
       const privateHost =
         hostname.startsWith("10.") ||
         hostname.startsWith("192.168.") ||
+        hostname.startsWith("169.254.") ||
+        hostname.startsWith("fe80:") ||
         /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
         hostname.endsWith(".local");
       endpoint = {
