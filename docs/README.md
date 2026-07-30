@@ -1,6 +1,6 @@
 # Argos Documentation Index
 
-This document reflects the current code structure as of `2026-05-28`. Historical SDDs follow a "keep only active goals" model: shipped implementations retain only maintenance information in current project documentation; one-off `spec/plan/tasks` process documents are no longer kept.
+This document reflects the current code structure as of `2026-07-30`. Historical SDDs follow a "keep only active goals" model: shipped implementations retain only maintenance information in current project documentation; one-off `spec/plan/tasks` process documents are no longer kept.
 
 The current default renderer-main path is typed client / typed event:
 
@@ -51,29 +51,42 @@ docs/
 ├── README.md
 ├── ARCHITECTURE.md
 ├── FLOWS.md
+├── release-flow.md
+├── spec-driven-dev.md
 ├── architecture/
-│   ├── agent-system.md
-│   ├── event-system.md
-│   ├── session-management.md
-│   ├── tool-system.md
-│   └── baselines/
-├── features/
-│   └── <active-feature-goal>/
+│   ├── agent-system.md          ← Pi agent runtime, profiles, packages, tools
+│   ├── event-system.md          ← EventBus vs typed events division
+│   ├── session-management.md    ← ACP session lifecycle, paginated restore
+│   ├── tool-system.md           ← ToolPresenter, agent tools, ACP layering
+│   ├── baselines/               ← generated metrics; do not delete
+│   ├── agent-scoped-extensions/ ← active: per-agent MCP/skill allowlists
+│   ├── argos-connect-relay/     ← active: future relay/cloud design
+│   ├── chat-scroll-windowing/   ← active: virtual scroll for large histories
+│   ├── electron-vite-to-vite-plugin-electron/ ← active: build toolchain migration
+│   ├── extract-ui/              ← active: @argos/ui extraction from desktop
+│   ├── memory-subsystem/        ← active: agentic memory / recall subsystem
+│   └── tape-subsystem/          ← active: tape manifest integrity and lineage
+├── archives/                    ← completed or stale SDD goal folders
+├── features/                    ← active feature goals only
+│   ├── acp-v1-reliability/
+│   ├── agent-state-semantics/
+│   ├── daemon-self-update/
+│   └── web-folder-picker/
 ├── issues/
 │   └── <recent-active-issue-goal>/
-├── guides/
-│   ├── getting-started.md
-│   ├── code-navigation.md
-│   ├── debugging.md
-│   └── plugin-packaging.md
-└── spec-driven-dev.md
+└── guides/
+    ├── getting-started.md
+    ├── code-navigation.md
+    ├── debugging.md
+    ├── plugin-packaging.md
+    └── remote-machines.md
 ```
 
 ## SDD Retention Rules
 
 - Goal folders under `docs/features/**`, `docs/issues/**`, and `docs/architecture/**` represent only active goals.
 - For implemented capabilities, fold current maintenance facts into `README.md`, `ARCHITECTURE.md`, `FLOWS.md`, or the corresponding guide, then delete the old SDD folder.
-- Bug-fix issue SDDs are cleaned up after two weeks; as of the current date `2026-05-28`, this cleanup cutoff is `2026-05-14`.
+- Bug-fix issue SDDs are cleaned up after two weeks; as of the current date `2026-07-30`, this cleanup cutoff is `2026-07-16`.
 - Expired, not-started, or SDDs that only describe removed implementations or old branches are deleted outright.
 
 ## Suggested Reading Order
