@@ -4,8 +4,9 @@ import { Input } from "#shadcn/components/ui/input";
 import { Badge } from "#shadcn/components/ui/badge";
 import { Icon } from "@iconify/react";
 import type { AcpDebugEventEntry, AcpDebugRequest } from "@argos/shared/presenter";
-import { getRuntimeWebContentsId, usePresenter } from "#api/presenterBridge";
+import { getRuntimeWebContentsId } from "#api/presenterBridge";
 import { createProviderClient } from "#api/ProviderClient";
+import { createConfigClient } from "#api/ConfigClient";
 import { ACP_DEBUG_EVENTS } from "#/events";
 import { useToast } from "#/components/use-toast";
 import { nanoid } from "nanoid";
@@ -42,7 +43,7 @@ const methodOptions: { value: AcpDebugRequest["action"]; label: string }[] = [
 export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName }: AcpDebugDialogProps) {
   const { toast } = useToast();
   const providerClient = useMemo(() => createProviderClient(), []);
-  const configPresenter = usePresenter("configPresenter");
+  const configClient = useMemo(() => createConfigClient(), []);
 
   const [selectedMethod, setSelectedMethod] = useState<AcpDebugRequest["action"]>("newSession");
   const [loading, setLoading] = useState(false);
@@ -141,7 +142,7 @@ export default function AcpDebugDialog({ open, onOpenChange, agentId, agentName 
     setEvents([]);
     seenIds.current.clear();
     setLoading(true);
-    void configPresenter
+    void configClient
       .ensureAcpAgentInstalled(agentId)
       .then(() =>
         providerClient.runAcpDebugAction({

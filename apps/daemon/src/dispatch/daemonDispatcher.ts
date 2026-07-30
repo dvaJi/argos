@@ -2160,6 +2160,7 @@ export function createDaemonDispatcher(
       const input = sessionsRestoreRoute.input.parse(rawInput);
       const session = await runtime.sessionRepository!.get(input.sessionId);
       if (!session) {
+        console.log(`[dispatch] sessions.restore: session NOT FOUND id=${input.sessionId}`);
         return sessionsRestoreRoute.output.parse({
           session: null,
           messages: [],
@@ -2168,12 +2169,20 @@ export function createDaemonDispatcher(
         });
       }
       const page = await runtime.sessionRepository!.listMessagesPage(input.sessionId, { limit: input.limit });
-      return sessionsRestoreRoute.output.parse({
-        session,
-        messages: page.messages,
-        nextCursor: page.nextCursor,
-        hasMore: page.hasMore,
-      });
+      console.log(
+        `[dispatch] sessions.restore: id=${input.sessionId} msgs=${page.messages.length} statuses=${page.messages.map((m: any) => `${m.role}:${m.status}`).join(",")}`,
+      );
+      try {
+        return sessionsRestoreRoute.output.parse({
+          session,
+          messages: page.messages,
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        });
+      } catch (parseError) {
+        console.error(`[dispatch] sessions.restore: OUTPUT PARSE FAILED`, parseError);
+        throw parseError;
+      }
     }
 
     if (route === sessionsListMessagesPageRoute.name) {
@@ -2192,6 +2201,9 @@ export function createDaemonDispatcher(
         throw new Error(`ACP agent not found: ${input.agentId}`);
       }
       const session = await runtime.sessionRepository!.createDraftAcpSession(input);
+      void acpSessionExecutionPort?.prepareAcpSession?.(session.id, input.agentId, input.projectDir).catch((error) => {
+        console.warn(`[ACP] Failed to prepare draft session ${session.id}:`, error);
+      });
       return sessionsEnsureAcpDraftRoute.output.parse({ session });
     }
 

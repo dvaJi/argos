@@ -21,7 +21,7 @@ import { createPathAliasPlugin } from "./vite-plugins/path-alias";
  * WebSocketBridge/HttpClient when served directly by the daemon).
  */
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const projectRoot = resolve(".");
 
   const daemonPort = parseInt(process.env.DAEMON_PORT || "9527", 10);
@@ -112,6 +112,16 @@ export default defineConfig(({ mode }) => {
       babel({
         presets: [reactCompilerPreset()],
       }),
+      ...(command === "build"
+        ? [
+            {
+              name: "strip-react-scan",
+              transformIndexHtml(html: string) {
+                return html.replace(/<script\b[^>]*\bsrc="[^"]*react-scan[^"]*"[^>]*><\/script>\s*/gi, "");
+              },
+            },
+          ]
+        : []),
     ],
   };
 });

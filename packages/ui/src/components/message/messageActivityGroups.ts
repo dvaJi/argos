@@ -77,6 +77,35 @@ const buildBlockKey = (block: DisplayAssistantMessageBlock, messageId: string, i
   return stableId ? `${messageId}:${stableId}` : `${messageId}:${index}`;
 };
 
+/**
+ * Pi streams status transitions (pending -> completed) as separate blocks that
+ * share the same stable ID. Without deduplication these collide as duplicate
+ * React keys. We keep the last occurrence per (type, stableId) so the completed
+ * version supersedes the pending one at the original position.
+ */
+const deduplicateBlocks = (blocks: DisplayAssistantMessageBlock[]): DisplayAssistantMessageBlock[] => {
+  const keyToIndex = new Map<string, number>();
+  const result: DisplayAssistantMessageBlock[] = [];
+
+  for (const block of blocks) {
+    const stableId = block.id ?? block.tool_call?.id;
+    if (!stableId) {
+      result.push(block);
+      continue;
+    }
+    const dedupKey = `${block.type}:${stableId}`;
+    const existing = keyToIndex.get(dedupKey);
+    if (existing !== undefined) {
+      result[existing] = block;
+    } else {
+      keyToIndex.set(dedupKey, result.length);
+      result.push(block);
+    }
+  }
+
+  return result;
+};
+
 const buildGroupKey = (messageId: string, buffer: BufferedActivityBlock[]): string => {
   const first = buffer[0]?.index ?? 0;
   const last = buffer[buffer.length - 1]?.index ?? first;
@@ -116,12 +145,13 @@ const buildActivityGroupItem = (
 };
 
 export const buildAssistantRenderItems = ({
-  blocks,
+  blocks: rawBlocks,
   messageId,
   messageUpdatedAt,
   shouldGroup,
   isInternalToolCall,
 }: BuildAssistantRenderItemsOptions): AssistantRenderItem[] => {
+  const blocks = deduplicateBlocks(rawBlocks);
   const items: AssistantRenderItem[] = [];
   let activityBuffer: BufferedActivityBlock[] = [];
 

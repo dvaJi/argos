@@ -84,6 +84,28 @@ describe("AcpLaunchSpecService", () => {
     });
   });
 
+  it("splits a multi-token command into command + args when no explicit args are provided", () => {
+    const service = createService();
+
+    expect(
+      service.resolveManualLaunchSpec({
+        id: "manual-1",
+        name: "Npx Agent",
+        command: "npx -y codebuff-agent-acp",
+        enabled: true,
+        source: "manual",
+      }),
+    ).toEqual({
+      agentId: "manual-1",
+      source: "manual",
+      distributionType: "manual",
+      command: "npx",
+      args: ["-y", "codebuff-agent-acp"],
+      env: {},
+      installDir: null,
+    });
+  });
+
   it("rejects unsafe registry install path segments", async () => {
     const service = createService();
     const platformMap: Record<string, string> = {
