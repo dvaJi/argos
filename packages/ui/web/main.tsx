@@ -54,8 +54,8 @@ async function bootstrap(): Promise<void> {
 
   if (pairToken) {
     renderPage("Argos", "Exchanging pairing token...");
-    const result = await exchangeBrowserPairingToken(pairToken);
     stripTokenParam();
+    const result = await exchangeBrowserPairingToken(pairToken);
     if (!result.ok) {
       renderPage("Argos", "Pairing failed. The token may be invalid, expired, or already used.", "#e00");
       return;

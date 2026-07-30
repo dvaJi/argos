@@ -97,6 +97,11 @@ export function EditMachineDialog({
           id="machine-edit-value"
           value={edit?.value ?? ""}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            void (edit?.kind === "rename" ? onSaveName() : onSaveAddress());
+          }}
           autoFocus
         />
         <DialogFooter>

@@ -39,7 +39,8 @@ function readCredentials(): StoredCredentials {
     if (!existsSync(credentialPath())) return {};
     const parsed = JSON.parse(readFileSync(credentialPath(), "utf8"));
     return parsed && typeof parsed === "object" ? (parsed as StoredCredentials) : {};
-  } catch {
+  } catch (error) {
+    console.warn("[Credentials] Failed to read credentials file, treating as empty:", error);
     return {};
   }
 }
@@ -239,7 +240,7 @@ export function registerDaemonPortHandler(): void {
   ipcMain.handle(
     DELETE_REMOTE_MACHINE_CREDENTIAL_CHANNEL,
     async (_event, credentialRef: unknown, revokeRemoteSession: unknown = true) => {
-      if (typeof credentialRef !== "string") return false;
+      if (typeof credentialRef !== "string") return { localRemoved: false, remoteRevoked: null };
       const credentials = readCredentials();
       const stored = credentials[credentialRef];
       if (!stored) return { localRemoved: false, remoteRevoked: null };

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Switch } from "#shadcn/components/ui/switch";
 import type { AcpConfigOption } from "@argos/shared/presenter";
 
@@ -17,12 +16,6 @@ interface AcpAdvancedSettingsProps {
 
 const switchId = (optionId: string) => `acp-advanced-option-${optionId}`;
 
-/**
- * Advanced Settings popover for ACP agents. Surfaces the config options that
- * don't fit inline in the status bar. Selects use a Select; booleans use a
- * Switch. Built entirely from semantic theme tokens so it renders correctly in
- * light and dark mode.
- */
 export default function AcpAdvancedSettings({
   options,
   readOnly,
@@ -32,6 +25,7 @@ export default function AcpAdvancedSettings({
   onBooleanOption,
 }: AcpAdvancedSettingsProps) {
   const [open, setOpen] = useState(false);
+  const [openSelectId, setOpenSelectId] = useState<string | null>(null);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -76,18 +70,54 @@ export default function AcpAdvancedSettings({
                   </div>
 
                   {option.type === "select" ? (
-                    <Select value={String(option.currentValue)} onValueChange={(v) => onSelectOption(option.id, v)}>
-                      <SelectTrigger disabled={disabled} className="h-8 w-[9rem] shrink-0 text-xs">
-                        <span className="truncate">{getOptionDisplayValue(option)}</span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(option.options ?? []).map((entry) => (
-                          <SelectItem key={`${option.id}-${entry.value}`} value={entry.value}>
-                            {entry.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover
+                      open={openSelectId === option.id}
+                      onOpenChange={(o) => setOpenSelectId(o ? option.id : null)}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={disabled}
+                          className="h-8 w-[9rem] shrink-0 justify-between text-xs"
+                        >
+                          <span className="truncate">{getOptionDisplayValue(option)}</span>
+                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" sideOffset={4} className="min-w-[180px] max-w-[280px] p-1.5">
+                        <div className="max-h-60 overflow-y-auto">
+                          {(option.options ?? []).map((entry) => {
+                            const isSelected = String(option.currentValue) === entry.value;
+                            return (
+                              <button
+                                key={`${option.id}-${entry.value}`}
+                                type="button"
+                                disabled={disabled || isSelected}
+                                className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors disabled:pointer-events-none ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                                onClick={() => {
+                                  onSelectOption(option.id, entry.value);
+                                  setOpenSelectId(null);
+                                }}
+                              >
+                                <Icon
+                                  icon={isSelected ? "lucide:check" : "lucide:circle"}
+                                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-medium">{entry.label}</div>
+                                  {entry.description && (
+                                    <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
+                                      {entry.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   ) : (
                     <div className="flex shrink-0 items-center gap-2 pt-0.5">
                       <span className="text-[11px] text-muted-foreground">

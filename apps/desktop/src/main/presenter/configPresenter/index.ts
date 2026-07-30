@@ -2333,6 +2333,15 @@ export class ConfigPresenter implements IConfigPresenter {
   }
 
   async ensureAcpAgentInstalled(agentId: string): Promise<AcpAgentInstallState> {
+    const resolvedId = resolveAcpAgentAlias(agentId);
+    const manualAgent = this.getAgentRepositoryOrThrow().getManualAcpAgent(resolvedId);
+    if (manualAgent) {
+      return {
+        status: "installed",
+        distributionType: "manual",
+        lastCheckedAt: Date.now(),
+      };
+    }
     const registryAgent = this.getRegistryAgentOrThrow(agentId);
     const currentState = this.getAgentRepositoryOrThrow().getAgentInstallState(registryAgent.id);
     const installingState: AcpAgentInstallState = {

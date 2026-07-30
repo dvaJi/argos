@@ -44,6 +44,8 @@ export default function AgentAvatar({
 
   const showAcpIcon = agent.type === "acp" && Boolean(agent.icon?.trim());
 
+  const showAcpTerminalIcon = agent.type === "acp" && !agent.icon?.trim() && agent.avatar?.kind !== "lucide";
+
   const showImageIcon =
     Boolean(agent.icon?.trim()) && !showBuiltinArgosLogo && !showAcpIcon && agent.avatar?.kind !== "lucide";
 
@@ -76,6 +78,16 @@ export default function AgentAvatar({
         style={lucideColor ? { color: lucideColor } : undefined}
       >
         <Icon icon={`lucide:${agent.avatar.icon}`} className="h-full w-full" />
+      </span>
+    );
+  }
+
+  if (showAcpTerminalIcon) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center text-muted-foreground ${className} ${fallbackClassName}`}
+      >
+        <Icon icon="lucide:terminal-square" className="h-full w-full" />
       </span>
     );
   }

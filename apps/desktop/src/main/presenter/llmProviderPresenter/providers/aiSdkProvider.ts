@@ -1885,12 +1885,13 @@ export class AiSdkProvider extends BaseLLMProvider {
   }
 
   public async getKeyStatus(): Promise<KeyStatus | null> {
+    const apiKey = this.provider.apiKey?.trim();
     switch (this.resolveKeyStatusStrategy()) {
       case "openrouter": {
         const response = await fetch("https://openrouter.ai/api/v1/key", {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         });
@@ -1918,7 +1919,7 @@ export class AiSdkProvider extends BaseLLMProvider {
           method: "GET",
           headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
           },
         });
         if (!response.ok) {
@@ -1950,7 +1951,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         const response = await fetch("https://api.ppinfra.com/v3/user", {
           method: "GET",
           headers: {
-            Authorization: this.provider.apiKey,
+            Authorization: apiKey,
             "Content-Type": "application/json",
           },
         });
@@ -1968,7 +1969,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         const response = await fetch(`${this.provider.baseUrl}/models`, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         });
@@ -1985,7 +1986,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         const response = await fetch("https://api.302.ai/dashboard/balance", {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         });
@@ -2004,7 +2005,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         const usageResponse = await fetch(`${baseUrl}/dashboard/billing/usage`, {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         });
@@ -2031,7 +2032,7 @@ export class AiSdkProvider extends BaseLLMProvider {
         const response = await fetch("https://api.siliconflow.cn/v1/user/info", {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${this.provider.apiKey}`,
+            Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
         });

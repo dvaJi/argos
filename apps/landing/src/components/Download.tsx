@@ -11,7 +11,7 @@ const PLATFORMS = [
 ] as const;
 
 const DAEMON_INSTALLS = [
-  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "Linux" },
+  { command: `curl -fsSL ${INSTALL_RAW}/install.sh | sh`, label: "Linux / macOS" },
   { command: `irm ${INSTALL_RAW}/install.ps1 | iex`, label: "Windows" },
 ] as const;
 
