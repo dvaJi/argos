@@ -174,4 +174,24 @@ describe("AiSdkProvider deepseek", () => {
     });
     expect(modelsUrlCalls).toHaveLength(0);
   });
+
+  it("getKeyStatus trims trailing whitespace from the api key before calling the balance endpoint", async () => {
+    const fetchMock = vi.fn<(...args: any[]) => any>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          is_available: true,
+          balance_infos: [{ currency: "USD", total_balance: "10.00" }],
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new AiSdkProvider(createProvider({ apiKey: "sk-test-deepseek-key\n" }), createConfigPresenter());
+    await provider.getKeyStatus();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers.Authorization).toBe("Bearer sk-test-deepseek-key");
+  });
 });

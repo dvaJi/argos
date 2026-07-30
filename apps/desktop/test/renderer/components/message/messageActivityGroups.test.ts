@@ -229,6 +229,46 @@ describe("messageActivityGroups", () => {
     });
   });
 
+  it("deduplicates blocks that share a stable id, keeping the last (completed supersedes pending)", () => {
+    const items = buildAssistantRenderItems({
+      messageId: "m1",
+      messageUpdatedAt: 12_000,
+      shouldGroup: false,
+      blocks: [
+        createBlock("tool_call", {
+          id: "tc-dup",
+          status: "pending",
+          tool_call: { id: "tc-dup", name: "spawn_agent" },
+        }),
+        createBlock("tool_call", {
+          id: "tc-dup",
+          status: "success",
+          tool_call: { id: "tc-dup", name: "spawn_agent" },
+        }),
+      ],
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "block",
+      block: { status: "success" },
+    });
+  });
+
+  it("does not deduplicate blocks of different types that share an id", () => {
+    const items = buildAssistantRenderItems({
+      messageId: "m1",
+      messageUpdatedAt: 12_000,
+      shouldGroup: false,
+      blocks: [
+        createBlock("action", { id: "shared", status: "pending" }),
+        createBlock("tool_call", { id: "shared", status: "success", tool_call: { id: "shared", name: "read" } }),
+      ],
+    });
+
+    expect(items).toHaveLength(2);
+  });
+
   it("formats duration up to days, hours, minutes, and seconds", () => {
     expect(formatActivityDuration(8_900, zhDurationLabels)).toBe("8s");
     expect(formatActivityDuration(192_000, zhDurationLabels)).toBe("3m 12s");

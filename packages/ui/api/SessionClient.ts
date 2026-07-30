@@ -32,6 +32,7 @@ import {
   sessionsGetGenerationSettingsRoute,
   sessionsGetPermissionModeRoute,
   sessionsGetSearchResultsRoute,
+  sessionsPrepareAcpSessionRoute,
   sessionsListLightweightRoute,
   sessionsListMessagesPageRoute,
   sessionsListRoute,
@@ -135,6 +136,15 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
   }) {
     const result = await bridge.invoke(sessionsEnsureAcpDraftRoute.name, input);
     return result.session;
+  }
+
+  async function prepareAcpSession(input: {
+    sessionId: string;
+    agentId: string;
+    projectDir: string;
+    permissionMode?: "default" | "full_access";
+  }) {
+    await bridge.invoke(sessionsPrepareAcpSessionRoute.name, input);
   }
 
   async function listPendingInputs(sessionId: string) {
@@ -476,6 +486,7 @@ export function createSessionClient(bridge: ArgosBridge = getArgosBridge()) {
     listLightweight,
     getLightweightByIds,
     ensureAcpDraftSession,
+    prepareAcpSession,
     listPendingInputs,
     queuePendingInput,
     updateQueuedInput,

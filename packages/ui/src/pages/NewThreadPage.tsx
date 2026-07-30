@@ -25,6 +25,7 @@ import {
   fetchProjects,
   loadDefaultProjectPath,
   selectProjectFolder,
+  swapProjectForAgent,
 } from "#/stores/ui/project";
 import { sessionStore, createSession, selectSession, sendMessage, fetchSessions } from "#/stores/ui/session";
 import { agentStore, selectedAgent as getSelectedAgent } from "#/stores/ui/agent";
@@ -98,6 +99,16 @@ export function NewThreadPage() {
   const [selectedProjectDirectoryStatus, setSelectedProjectDirectoryStatus] = useState<
     "none" | "checking" | "valid" | "invalid"
   >("none");
+
+  const prevAgentIdRef = useRef<string | null>(agentState.selectedAgentId);
+  useEffect(() => {
+    const nextId = agentState.selectedAgentId;
+    const prevId = prevAgentIdRef.current;
+    if (nextId && nextId !== prevId) {
+      swapProjectForAgent(nextId, prevId);
+      prevAgentIdRef.current = nextId;
+    }
+  }, [agentState.selectedAgentId]);
 
   const availableAgents = useMemo(
     () => (Array.isArray(agentState.agents) ? agentState.agents : []),
@@ -275,6 +286,7 @@ export function NewThreadPage() {
         if (isAcp && acpDraftSessionId) {
           await selectSession(acpDraftSessionId);
           await sendMessage(acpDraftSessionId, { text, files });
+          void fetchSessions();
           return;
         }
 

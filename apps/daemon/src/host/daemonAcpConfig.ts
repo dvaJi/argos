@@ -93,6 +93,14 @@ export class DaemonAcpConfig {
 
   async ensureAcpAgentInstalled(agentId: string): Promise<AcpAgentInstallState> {
     const resolvedId = resolveAcpAgentAlias(agentId);
+    const manualAgent = this.acpConfHelper.getManualAgents().find((agent) => agent.id === resolvedId);
+    if (manualAgent) {
+      return {
+        status: "installed",
+        distributionType: "manual",
+        lastCheckedAt: Date.now(),
+      };
+    }
     const registryAgent = this.getRegistryAgentOrThrow(resolvedId);
     const currentState = this.acpConfHelper.getInstallState(resolvedId);
     try {
@@ -210,6 +218,8 @@ export class DaemonAcpConfig {
             enabled: true,
             command: agent.command,
             args: agent.args,
+            icon: agent.icon,
+            description: agent.description,
           }) as AcpAgentConfig,
       );
 

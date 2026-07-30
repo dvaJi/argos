@@ -112,9 +112,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     const prompt: SendMessageInput = { text, files };
 
     const requestId = randomUUID();
-    const assistantMessageId = randomUUID();
 
-    // Persist the user message as JSON ({text, files}).
     await this.sessionRepository.addMessage(
       sessionId,
       "user",
@@ -129,6 +127,13 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         })),
       }),
     );
+
+    const assistantMessageId = await this.sessionRepository.addMessage(sessionId, "assistant", JSON.stringify([]));
+
+    if (session.isDraft) {
+      const title = text.slice(0, 80) || "New Chat";
+      await this.sessionRepository.activateDraftSession(sessionId, title);
+    }
 
     const runtime = await this.getRuntime();
     const record = await this.getSessionRecord(sessionId);
@@ -353,8 +358,8 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     assistantMessageId: string,
     workdir?: string,
   ): Promise<void> {
-    let accumulatedText = "";
-    const streamedBlocks: Array<Record<string, unknown>> = [];
+    const blocks: Array<Record<string, unknown>> = [];
+    console.log("[ACP] runTurn started — interleaved block ordering v2");
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
@@ -366,54 +371,53 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         if (controller.signal.aborted) break;
 
         const mapped = this.contentMapper.map(notification);
+        const now = Date.now();
         for (const block of mapped.blocks) {
-          if (block.type === "content") {
-            accumulatedText += block.content ?? "";
-          } else if (block.type === "reasoning_content" && streamedBlocks.at(-1)?.type === "reasoning_content") {
-            const previous = streamedBlocks.at(-1);
-            if (previous) {
-              previous.content = `${previous.content ?? ""}${block.content ?? ""}`;
-            }
+          const last = blocks.at(-1);
+          if (block.type === "content" && last?.type === "content") {
+            last.content = `${last.content ?? ""}${block.content ?? ""}`;
+          } else if (block.type === "reasoning_content" && last?.type === "reasoning_content") {
+            last.content = `${last.content ?? ""}${block.content ?? ""}`;
+          } else if (block.type === "content") {
+            blocks.push({ type: "content", content: block.content ?? "", status: "loading", timestamp: now });
           } else {
-            streamedBlocks.push(block);
+            blocks.push(block);
           }
         }
 
-        // Emit progressive snapshot so the renderer shows streaming text.
-        const now = Date.now();
+        for (const b of blocks) {
+          if (b.type === "content") b.status = "loading";
+        }
+
         this.eventPublisher.publish("chat.stream.updated", {
           kind: "snapshot",
           requestId,
           sessionId,
           messageId: assistantMessageId,
           updatedAt: now,
-          blocks: [{ type: "content", content: accumulatedText, status: "loading", timestamp: now }, ...streamedBlocks],
+          blocks,
         });
       }
 
-      // Persist the assistant reply.
-      const replyBlocks = [
-        { type: "content", content: accumulatedText, status: "success", timestamp: Date.now() },
-        ...streamedBlocks,
-      ];
-      const persistedMessageId = await this.sessionRepository.addMessage(
-        sessionId,
-        "assistant",
-        JSON.stringify(replyBlocks),
+      const replyBlocks = blocks.map((b) => (b.type === "content" ? { ...b, status: "success" } : b));
+      await this.sessionRepository.finalizeAssistantMessage(
+        assistantMessageId,
+        replyBlocks,
+        JSON.stringify({ model: agent.id, provider: "acp" }),
       );
 
       this.eventPublisher.publish("chat.stream.updated", {
         kind: "snapshot",
         requestId,
         sessionId,
-        messageId: persistedMessageId,
+        messageId: assistantMessageId,
         updatedAt: Date.now(),
         blocks: replyBlocks,
       });
       this.eventPublisher.publish("chat.stream.completed", {
         requestId,
         sessionId,
-        messageId: persistedMessageId,
+        messageId: assistantMessageId,
         completedAt: Date.now(),
       });
     } catch (error) {

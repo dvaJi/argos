@@ -38,6 +38,19 @@ const CAPABILITY_LABELS: Array<{ key: keyof AcpAgentDiagnostics["capabilities"];
 
 const DIAGNOSTICS_TIMEOUT_MS = 20000;
 
+/**
+ * ACP adapters that wrap an external CLI. When the CLI is missing from PATH
+ * the adapter process starts but its inner agent exits immediately, surfacing
+ * as a generic "stream was destroyed" or "connection closed" error. This map
+ * lets us show an actionable, agent-specific message instead.
+ */
+const ACP_ADAPTER_PREREQUISITES: Record<string, { cli: string; installHint?: string }> = {
+  "pi-acp": { cli: "pi", installHint: "npm install -g @anthropic-ai/pi" },
+  "claude-acp": { cli: "claude", installHint: "npm install -g @anthropic-ai/claude-code" },
+  "codex-acp": { cli: "codex", installHint: "npm install -g @openai/codex" },
+  "amp-acp": { cli: "amp" },
+};
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Diagnostics timed out")), ms);
@@ -74,16 +87,27 @@ function extractRemoteSessions(result: AcpDebugRunResult): AcpRemoteSessionSumma
   return sessions;
 }
 
-function getProbeErrorMessage(error: unknown): string {
+function getProbeErrorMessage(error: unknown, agentId?: string): string {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("Agent not found")) {
     return "This agent is not available to ACP. Enable it in Installed Agents, then try again.";
   }
-  if (message.includes("ACP connection closed")) {
-    return "The ACP adapter or a tool it wraps stopped while creating a session. Verify the workspace and any required CLI dependencies, then retry.";
+
+  const prerequisite = agentId ? ACP_ADAPTER_PREREQUISITES[agentId] : undefined;
+  const wrappedAgentDied = message.includes("stream was destroyed") || message.includes("ACP connection closed");
+
+  if (prerequisite && wrappedAgentDied) {
+    const install = prerequisite.installHint
+      ? ` Install it with \`${prerequisite.installHint}\` and`
+      : " Install it and";
+    return `This agent requires the \`${prerequisite.cli}\` CLI to be installed and available on your PATH.${install} try again.`;
   }
+
   if (message.includes("stream was destroyed")) {
     return "The ACP adapter started, but its wrapped agent stopped while creating a session. Verify that the required CLI is installed and available on PATH, then retry.";
+  }
+  if (message.includes("ACP connection closed")) {
+    return "The ACP adapter or a tool it wraps stopped while creating a session. Verify the workspace and any required CLI dependencies, then retry.";
   }
   return message;
 }
@@ -239,7 +263,7 @@ export default function AcpDiagnostics({
       }
       await refreshDiagnostics();
     } catch (error) {
-      setProbeError(getProbeErrorMessage(error));
+      setProbeError(getProbeErrorMessage(error, agentId));
     } finally {
       setProbing(false);
     }

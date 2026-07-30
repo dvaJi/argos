@@ -18,6 +18,8 @@ import { MessageToolbar } from "./MessageToolbar";
 import { MessageInfo } from "./MessageInfo";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import ModelIcon from "#/components/icons/ModelIcon";
+import AgentAvatar from "#/components/icons/AgentAvatar";
+import { agentStore } from "#/stores/ui/agent";
 import { Spinner } from "#shadcn/components/ui/spinner";
 import { MessageBlockAction } from "./MessageBlockAction";
 import { MessageBlockImage } from "./MessageBlockImage";
@@ -348,7 +350,14 @@ export const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageI
     >
       <div className="shrink-0 w-5 h-5 flex items-center justify-center">
         {currentMessage.model_provider === "acp" ? (
-          <ModelIcon modelId={currentMessage.model_id} isDark={themeStore.isDark} customClass="w-[18px] h-[18px]" />
+          (() => {
+            const agent = agentStore.state.agents.find((a) => a.id === currentMessage.model_id);
+            return agent ? (
+              <AgentAvatar agent={agent} className="w-[18px] h-[18px]" />
+            ) : (
+              <ModelIcon modelId={currentMessage.model_id} isDark={themeStore.isDark} customClass="w-[18px] h-[18px]" />
+            );
+          })()
         ) : (
           <ModelIcon
             modelId={currentMessage.model_provider}

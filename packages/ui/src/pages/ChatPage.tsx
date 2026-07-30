@@ -25,6 +25,7 @@ import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from
 import { useMessageStore } from "#/stores/ui/message";
 
 import { agentPlanStore } from "#/stores/ui/agentPlan";
+import { agentStore } from "#/stores/ui/agent";
 import { streamStateStore } from "#/stores/ui/stream";
 import {
   isAtCapacity,
@@ -899,7 +900,10 @@ export function ChatPage({ sessionId }: ChatPageProps) {
   function resolveAssistantModelName(modelId: string): string {
     if (!modelId) return "Assistant";
     const found = modelStore.findModelByIdOrName(modelId);
-    return found?.model?.name || modelId;
+    if (found?.model?.name) return found.model.name;
+    const agent = agentStore.state.agents.find((a) => a.id === modelId);
+    if (agent?.name) return agent.name;
+    return modelId;
   }
 
   function buildUsage(metadata: MessageMetadata): DisplayMessageUsage {

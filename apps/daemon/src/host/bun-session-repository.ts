@@ -907,6 +907,20 @@ export class BunSessionRepository implements SessionRepository {
     this.emitSessionUpdated([sessionId], "updated");
   }
 
+  async activateDraftSession(sessionId: string, title?: string): Promise<void> {
+    this.ensureSessionExists(sessionId);
+    if (title) {
+      this.db
+        .prepare("UPDATE daemon_sessions SET is_draft = 0, title = ?, status = 'active', updated_at = ? WHERE id = ?")
+        .run(title, Date.now(), sessionId);
+    } else {
+      this.db
+        .prepare("UPDATE daemon_sessions SET is_draft = 0, status = 'active', updated_at = ? WHERE id = ?")
+        .run(Date.now(), sessionId);
+    }
+    this.emitSessionUpdated([sessionId], "updated");
+  }
+
   async togglePinned(sessionId: string): Promise<void> {
     this.ensureSessionExists(sessionId);
     this.db
@@ -1201,11 +1215,14 @@ export class BunSessionRepository implements SessionRepository {
   }
 
   async finalizeAssistantMessage(messageId: string, blocks: unknown[], metadataJson: string): Promise<void> {
-    this.db
+    const result = this.db
       .prepare(
-        `UPDATE daemon_messages SET content = ?, status = 'success', metadata = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`,
+        `UPDATE daemon_messages SET content = ?, status = 'sent', metadata = ?, updated_at = ? WHERE id = ? AND role = 'assistant'`,
       )
       .run(JSON.stringify(blocks), metadataJson, Date.now(), messageId);
+    console.log(
+      `[db] finalizeAssistantMessage id=${messageId} changes=${result.changes} blocks=${blocks.length} contentLen=${JSON.stringify(blocks).length}`,
+    );
     this.emitSessionUpdated(this.sessionIdsForMessage(messageId), "updated");
   }
 
@@ -1402,7 +1419,7 @@ export class BunSessionRepository implements SessionRepository {
       orderSeq,
       role: row.role,
       content: coerceMessageContent(row.role, row.content),
-      status: row.status || "sent",
+      status: row.status === "success" ? "sent" : row.status || "sent",
       isContextEdge: Number(row.is_context_edge ?? 0),
       metadata: row.metadata ?? "{}",
       traceCount: Number(row.trace_count ?? 0),

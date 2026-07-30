@@ -294,12 +294,21 @@ export class AcpLaunchSpecService {
   }
 
   resolveManualLaunchSpec(agent: AcpManualAgent): AcpResolvedLaunchSpec {
+    let command = agent.command;
+    let args = agent.args ?? [];
+
+    if (args.length === 0 && command.includes(" ")) {
+      const tokens = command.split(/\s+/).filter(Boolean);
+      command = tokens[0];
+      args = tokens.slice(1);
+    }
+
     return {
       agentId: agent.id,
       source: "manual",
       distributionType: "manual",
-      command: agent.command,
-      args: agent.args ?? [],
+      command,
+      args,
       env: agent.env ?? {},
       installDir: null,
     };

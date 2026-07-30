@@ -20,6 +20,7 @@ interface ProjectState {
   defaultProjectPath: string | null;
   selectionSource: ProjectSelectionSource;
   error: string | null;
+  projectByAgentId: Record<string, string | null>;
 }
 
 const configClient = createConfigClient();
@@ -32,6 +33,7 @@ export const projectStore = new Store<ProjectState>({
   defaultProjectPath: null,
   selectionSource: "none",
   error: null,
+  projectByAgentId: {},
 });
 
 export const selectedProject = () =>
@@ -259,4 +261,25 @@ export async function selectProjectFolder(
 
 export function useProjectStore() {
   return useStore(projectStore);
+}
+
+/**
+ * Save the current project selection for the outgoing agent, then restore the
+ * stored project (or clear it) for the incoming agent. This gives each agent
+ * tab its own project context instead of sharing a single global selection.
+ */
+export function swapProjectForAgent(nextAgentId: string, prevAgentId: string | null): void {
+  if (nextAgentId === prevAgentId) return;
+
+  projectStore.setState((prev) => {
+    const updatedByAgent = { ...prev.projectByAgentId };
+
+    if (prevAgentId) {
+      updatedByAgent[prevAgentId] = prev.selectedProjectPath;
+    }
+
+    const restored = updatedByAgent[nextAgentId] ?? null;
+    const merged = { ...prev, selectedProjectPath: restored, selectionSource: "manual" as ProjectSelectionSource };
+    return { ...merged, projectByAgentId: updatedByAgent, projects: reconcileProjects(merged, prev.projects) };
+  });
 }
