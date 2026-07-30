@@ -73,6 +73,7 @@ import { useSessionStore, getActiveSession, getHasActiveSession } from "#/stores
 import { scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 import { useChatStatusBarAcpConfig } from "./composables/useChatStatusBarAcpConfig";
 import AcpAdvancedSettings from "./AcpAdvancedSettings";
+import AgentAvatar from "#/components/icons/AgentAvatar";
 
 type ModelSelection = {
   providerId: string;
@@ -466,6 +467,8 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
       acpAgentLabel,
       acpAgentIconId,
       isAcpConfigLoading,
+      acpConfigError,
+      hasAcpConfigOptions,
       getAcpOptionDisplayValue,
       isAcpOptionSaving,
       syncAcpConfigOptions,
@@ -488,6 +491,22 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
     const syncAcpConfigOptionsRef = useRef(syncAcpConfigOptions);
     syncAcpConfigOptionsRef.current = syncAcpConfigOptions;
+
+    const acpAgentForAvatar = useMemo(() => {
+      const agentId = activeAcpAgentId ?? lockedAcpModelId;
+      if (!agentId) return null;
+      return (
+        agentStore.agents.find((a) => a.id === agentId) ?? {
+          id: agentId,
+          name: acpAgentLabel,
+          type: "acp" as const,
+          agentType: "acp" as const,
+          enabled: true,
+          protected: false,
+          icon: undefined,
+        }
+      );
+    }, [activeAcpAgentId, lockedAcpModelId, agentStore.agents, acpAgentLabel]);
 
     useEffect(() => {
       if (!isAcpAgent) return;
@@ -586,14 +605,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
     const isModelSettingsReady = useMemo(() => {
       if (!isModelSettingsExpanded) return false;
       const target = modelSettingsTarget;
-      const effective = effectiveModelSelection;
-      if (!target || !effective) return false;
-      return (
-        isSameModelSelection(target, effective) &&
-        isSameModelSelection(loadedSettingsSelection, effective) &&
-        Boolean(localSettings)
-      );
-    }, [isModelSettingsExpanded, modelSettingsTarget, effectiveModelSelection, loadedSettingsSelection, localSettings]);
+      if (!target) return false;
+      return isSameModelSelection(loadedSettingsSelection, target) && Boolean(localSettings);
+    }, [isModelSettingsExpanded, modelSettingsTarget, loadedSettingsSelection, localSettings]);
 
     const modelSettingsModelName = useMemo(
       () => resolveModelName(modelSettingsTarget?.providerId ?? null, modelSettingsTarget?.modelId ?? null),
@@ -1098,18 +1112,45 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
     const openModelSettings = useCallback(
       async (providerId: string, modelId: string) => {
-        setModelSettingsSelection({ providerId, modelId });
+        const selection: ModelSelection = { providerId, modelId };
+        setModelSettingsSelection(selection);
         setIsModelSettingsExpanded(true);
+        setLocalSettings(null);
+        setLoadedSettingsSelection(null);
         const loadToken = ++modelSettingsTargetConfigTokenRef.current;
         try {
           const config = await modelClient.getModelConfig(providerId, modelId);
-          if (loadToken === modelSettingsTargetConfigTokenRef.current) {
-            setModelSettingsTargetConfig(config);
-            setModelSettingsTargetConfigSelection({ providerId, modelId });
+          if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
+          setModelSettingsTargetConfig(config);
+          setModelSettingsTargetConfigSelection(selection);
+
+          let settings: SessionGenerationSettings | null = null;
+          if (hasActiveSession && activeSession?.id) {
+            try {
+              settings = await sessionClient.getSessionGenerationSettings(activeSession.id);
+            } catch (e) {
+              console.warn("[ChatStatusBar] Failed to load session generation settings:", e);
+            }
           }
-        } catch {}
+          if (!settings && config) {
+            settings = {
+              systemPrompt: "",
+              temperature: typeof config.temperature === "number" ? config.temperature : 1,
+              maxTokens: typeof config.maxTokens === "number" ? config.maxTokens : 4096,
+              contextLength: typeof config.contextLength === "number" ? config.contextLength : 0,
+              timeout: typeof config.timeout === "number" ? config.timeout : DEFAULT_MODEL_TIMEOUT,
+            };
+          }
+          if (loadToken !== modelSettingsTargetConfigTokenRef.current) return;
+          if (settings) {
+            setLocalSettings(settings);
+            setLoadedSettingsSelection(selection);
+          }
+        } catch (e) {
+          console.warn("[ChatStatusBar] Failed to load model settings:", e);
+        }
       },
-      [modelClient],
+      [modelClient, sessionClient, hasActiveSession, activeSession],
     );
 
     const collapseModelSettings = useCallback(() => {
@@ -1199,7 +1240,11 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
             {isAcpAgent ? (
               <>
                 <div className="acp-agent-badge flex h-6 min-w-0 items-center gap-1 rounded-full px-2 text-xs text-muted-foreground backdrop-blur-lg">
-                  <ModelIcon modelId={acpAgentIconId} customClass="w-3.5 h-3.5 shrink-0" isDark={themeStore.isDark} />
+                  {acpAgentForAvatar ? (
+                    <AgentAvatar agent={acpAgentForAvatar} className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <ModelIcon modelId={acpAgentIconId} customClass="w-3.5 h-3.5 shrink-0" isDark={themeStore.isDark} />
+                  )}
                   <span className="truncate">{acpAgentLabel}</span>
                   {isAcpConfigLoading && (
                     <Icon
@@ -1208,57 +1253,176 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                     />
                   )}
                 </div>
-                {acpInlineOptions.map((option) => (
-                  <Popover
-                    key={option.id}
-                    open={acpInlineOpenOptionId === option.id}
-                    onOpenChange={(open) => onAcpInlineOptionOpenChange(option.id, open)}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        title={getAcpOptionDisplayValue(option)}
-                        data-option-id={option.id}
-                        className="acp-inline-option h-6 max-w-[9rem] min-w-0 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-                        disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
-                      >
-                        <span className="truncate">{getAcpOptionDisplayValue(option)}</span>
-                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start" className="w-56 overflow-hidden p-0">
-                      <div className="border-b px-3 py-2">
-                        <div data-option-id={option.id} className="acp-inline-option-title text-sm font-medium">
-                          {option.label}
+                {isAcpConfigLoading && !hasAcpConfigOptions && (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground">
+                          <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                          <span className="hidden sm:inline">Loading…</span>
                         </div>
-                      </div>
-                      {(option.options?.length ?? 0) > 0 ? (
-                        <div className="max-h-60 overflow-y-auto px-2 py-2">
-                          {(option.options ?? []).map((entry) => (
-                            <button
-                              key={`${option.id}-${entry.value}`}
-                              type="button"
-                              data-option-id={option.id}
-                              data-value={entry.value}
-                              disabled={
-                                acpConfigReadOnly ||
-                                isAcpOptionSaving(option.id) ||
-                                String(option.currentValue) === entry.value
-                              }
-                              className={`acp-inline-option-item flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition-colors disabled:pointer-events-none disabled:opacity-60 ${String(option.currentValue) === entry.value ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                              onClick={() => onAcpSelectOption(option.id, entry.value)}
-                            >
-                              {entry.value}
-                            </button>
-                          ))}
+                      </TooltipTrigger>
+                      <TooltipContent>Loading agent modes and models…</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {!isAcpConfigLoading && acpConfigError && !hasAcpConfigOptions && (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive">
+                          <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
+                          <span className="hidden sm:inline">Unavailable</span>
                         </div>
-                      ) : (
-                        <div className="px-3 py-4 text-xs text-muted-foreground">No options available</div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                ))}
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        Failed to load agent configuration: {acpConfigError}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {!isAcpConfigLoading && !acpConfigError && !hasAcpConfigOptions && acpConfigReadOnly && (
+                  <div className="flex h-6 items-center px-1 text-xs text-muted-foreground/60">
+                    <span className="hidden sm:inline">Select a project to configure</span>
+                  </div>
+                )}
+                {acpInlineOptions.map((option) => {
+                  const optionEntries = option.options ?? [];
+                  const grouped = optionEntries.reduce<
+                    Record<string, { label: string; entries: typeof optionEntries }>
+                  >((acc, entry) => {
+                    const key = entry.groupId ?? "__default__";
+                    if (!acc[key]) {
+                      acc[key] = { label: entry.groupLabel ?? "", entries: [] };
+                    }
+                    acc[key].entries.push(entry);
+                    return acc;
+                  }, {});
+                  const groupKeys = Object.keys(grouped);
+                  return (
+                    <Popover
+                      key={option.id}
+                      open={acpInlineOpenOptionId === option.id}
+                      onOpenChange={(open) => onAcpInlineOptionOpenChange(option.id, open)}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          data-option-id={option.id}
+                          className="acp-inline-option h-6 max-w-[12rem] min-w-0 gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                          disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
+                        >
+                          <Icon
+                            icon={
+                              {
+                                mode: "lucide:cpu",
+                                model: "lucide:box",
+                                temperature: "lucide:thermometer",
+                                "max-tokens": "lucide:hash",
+                                max_tokens: "lucide:hash",
+                                "system-prompt": "lucide:terminal",
+                                system_prompt: "lucide:terminal",
+                                "permission-mode": "lucide:shield",
+                                permission: "lucide:shield",
+                                context: "lucide:scan",
+                                reasoning: "lucide:brain",
+                              }[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"
+                            }
+                            className="h-3 w-3 shrink-0 text-muted-foreground/60"
+                          />
+                          <span className="truncate font-medium text-foreground/80">
+                            {isAcpOptionSaving(option.id) ? "Saving…" : getAcpOptionDisplayValue(option)}
+                          </span>
+                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="min-w-[200px] max-w-[320px] overflow-hidden p-0">
+                        <div className="border-b px-3 py-2.5">
+                          <div data-option-id={option.id} className="acp-inline-option-title text-sm font-semibold">
+                            {option.label}
+                          </div>
+                          {option.description && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">{option.description}</p>
+                          )}
+                        </div>
+                        {optionEntries.length > 0 ? (
+                          <div className="max-h-72 overflow-y-auto p-1.5">
+                            {groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== "__default__")
+                              ? groupKeys.map((groupKey) => {
+                                  const group = grouped[groupKey];
+                                  return (
+                                    <div key={groupKey} className="mb-1 last:mb-0">
+                                      {group.label && (
+                                        <div className="px-2 pb-1 pt-1.5 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                                          {group.label}
+                                        </div>
+                                      )}
+                                      {group.entries.map((entry) => {
+                                        const isSelected = String(option.currentValue) === entry.value;
+                                        return (
+                                          <button
+                                            key={`${option.id}-${entry.value}`}
+                                            type="button"
+                                            data-option-id={option.id}
+                                            data-value={entry.value}
+                                            disabled={acpConfigReadOnly || isAcpOptionSaving(option.id) || isSelected}
+                                            className={`acp-inline-option-item flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors disabled:pointer-events-none ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                                            onClick={() => onAcpSelectOption(option.id, entry.value)}
+                                          >
+                                            <Icon
+                                              icon={isSelected ? "lucide:check" : "lucide:circle"}
+                                              className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                              <div className="text-xs font-medium">{entry.label}</div>
+                                              {entry.description && (
+                                                <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
+                                                  {entry.description}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })
+                              : optionEntries.map((entry) => {
+                                  const isSelected = String(option.currentValue) === entry.value;
+                                  return (
+                                    <button
+                                      key={`${option.id}-${entry.value}`}
+                                      type="button"
+                                      data-option-id={option.id}
+                                      data-value={entry.value}
+                                      disabled={acpConfigReadOnly || isAcpOptionSaving(option.id) || isSelected}
+                                      className={`acp-inline-option-item flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors disabled:pointer-events-none ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                                      onClick={() => onAcpSelectOption(option.id, entry.value)}
+                                    >
+                                      <Icon
+                                        icon={isSelected ? "lucide:check" : "lucide:circle"}
+                                        className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-xs font-medium">{entry.label}</div>
+                                        {entry.description && (
+                                          <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
+                                            {entry.description}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-4 text-xs text-muted-foreground">No options available</div>
+                        )}
+                      </PopoverContent>
+                    </Popover>
+                  );
+                })}
               </>
             ) : showModelPopover ? (
               <Popover open={isModelPanelOpen} onOpenChange={setIsModelPanelOpen}>
