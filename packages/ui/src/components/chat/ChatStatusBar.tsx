@@ -1128,7 +1128,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
           if (hasActiveSession && activeSession?.id) {
             try {
               settings = await sessionClient.getSessionGenerationSettings(activeSession.id);
-            } catch {}
+            } catch (e) {
+              console.warn("[ChatStatusBar] Failed to load session generation settings:", e);
+            }
           }
           if (!settings && config) {
             settings = {
@@ -1144,7 +1146,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
             setLocalSettings(settings);
             setLoadedSettingsSelection(selection);
           }
-        } catch {}
+        } catch (e) {
+          console.warn("[ChatStatusBar] Failed to load model settings:", e);
+        }
       },
       [modelClient, sessionClient, hasActiveSession, activeSession],
     );

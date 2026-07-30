@@ -279,7 +279,11 @@ export function swapProjectForAgent(nextAgentId: string, prevAgentId: string | n
     }
 
     const restored = updatedByAgent[nextAgentId] ?? null;
-    const merged = { ...prev, selectedProjectPath: restored, selectionSource: "manual" as ProjectSelectionSource };
+    const merged = {
+      ...prev,
+      selectedProjectPath: restored,
+      selectionSource: (restored ? "manual" : "none") as ProjectSelectionSource,
+    };
     return { ...merged, projectByAgentId: updatedByAgent, projects: reconcileProjects(merged, prev.projects) };
   });
 }
