@@ -235,6 +235,21 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       },
       normalizedWorkdir,
     );
+
+    try {
+      const configState = await this.getAcpSessionConfigOptions(conversationId);
+      if (configState) {
+        this.eventPublisher.publish("sessions.acp.configOptions.ready", {
+          conversationId,
+          agentId,
+          workdir: normalizedWorkdir,
+          configState,
+          version: 1,
+        });
+      }
+    } catch (error) {
+      console.warn(`[ACP] Failed to publish config options after prepareSession:`, error);
+    }
   }
 
   async setAcpWorkdir(conversationId: string, agentId: string, workdir: string | null): Promise<void> {
