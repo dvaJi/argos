@@ -11,7 +11,6 @@ import {
 } from "@argos/shared/remoteMachinePairing";
 
 const DAEMON_PORT_CHANNEL = "get-daemon-port";
-const PAIRING_URL_CHANNEL = "generate-pairing-url";
 const PAIR_REMOTE_MACHINE_CHANNEL = "pair-remote-machine";
 const PAIR_REMOTE_MACHINE_PROGRESS_CHANNEL = "pair-remote-machine-progress";
 const GET_REMOTE_MACHINE_CREDENTIAL_CHANNEL = "get-remote-machine-credential";
@@ -86,20 +85,6 @@ export function registerDaemonPortHandler(): void {
       return { port: handle.port, host: "127.0.0.1" };
     }
     return null;
-  });
-
-  ipcMain.removeHandler(PAIRING_URL_CHANNEL);
-  ipcMain.handle(PAIRING_URL_CHANNEL, async () => {
-    const handle = getSidecarHandle();
-    if (!handle || handle.port <= 0) {
-      return { ok: false, error: { code: "daemon_not_running", message: "Daemon is not running" } };
-    }
-    try {
-      const res = await fetch(`http://127.0.0.1:${handle.port}/api/v1/pair/token`, { method: "POST" });
-      return await res.json();
-    } catch {
-      return { ok: false, error: { code: "daemon_unreachable", message: "Failed to reach daemon" } };
-    }
   });
 
   ipcMain.removeHandler(PAIR_REMOTE_MACHINE_CHANNEL);

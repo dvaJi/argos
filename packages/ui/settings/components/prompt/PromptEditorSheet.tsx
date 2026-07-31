@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { getRuntimePathForFile } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
 import { Label } from "#shadcn/components/ui/label";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
@@ -132,7 +133,7 @@ export default function PromptEditorSheet({ open, prompt, onUpdateOpen, onSubmit
         const newFiles: FileItem[] = [];
         await Promise.all(
           Array.from(files).map(async (file) => {
-            const path = window.api.getPathForFile(file);
+            const path = getRuntimePathForFile(file);
             const mimeType = await fileClient.getMimeType(path);
             const fileInfo = (await fileClient.prepareFile(path, mimeType)) as unknown as MessageFile;
             newFiles.push({

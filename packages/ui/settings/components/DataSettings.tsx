@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
+import { openRuntimeExternal } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Switch } from "#shadcn/components/ui/switch";
@@ -158,8 +159,9 @@ export default function DataSettings() {
   const availableBackups = syncStore.backups ?? [];
 
   const openExternalLink = useCallback((url: string) => {
-    if (window.api?.openExternal) window.api.openExternal(url);
-    else window.open(url, "_blank", "noopener,noreferrer");
+    openRuntimeExternal(url).catch(() => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
   }, []);
 
   const setCloudProvider = useCallback((mode: CloudSyncProviderMode) => {
