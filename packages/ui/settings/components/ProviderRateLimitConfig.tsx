@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createIpcSubscriptionScope } from "#api/runtime";
 import { Switch } from "#shadcn/components/ui/switch";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
@@ -89,17 +90,16 @@ export default function ProviderRateLimitConfig({ provider, onConfigChanged }: P
   useEffect(() => {
     void loadStatus();
 
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
-    window.electron.ipcRenderer.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
+    const rateLimitScope = createIpcSubscriptionScope();
+    rateLimitScope.on(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
+    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
+    rateLimitScope.on(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
 
     startStatusPolling();
 
     return () => {
       stopStatusPolling();
-      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.CONFIG_UPDATED, handleRateLimitEvent);
-      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.REQUEST_EXECUTED, handleRateLimitEvent);
-      window.electron.ipcRenderer.removeListener?.(RATE_LIMIT_EVENTS.REQUEST_QUEUED, handleRateLimitEvent);
+      rateLimitScope.cleanup();
     };
   }, [loadStatus, handleRateLimitEvent, startStatusPolling, stopStatusPolling]);
 

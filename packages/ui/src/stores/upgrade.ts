@@ -73,7 +73,7 @@ const deviceClient = createDeviceClient();
 let externalMutationToken = 0;
 let latestSyncRequestId = 0;
 
-export const upgradeStore = new Store<UpgradeState>({
+const upgradeStore = new Store<UpgradeState>({
   rawStatus: null,
   updateInfo: null,
   isUpdating: false,
@@ -85,13 +85,13 @@ export const upgradeStore = new Store<UpgradeState>({
   listenersReady: false,
 });
 
-export const isWindows = () => upgradeStore.state.platform === "win32";
+const isWindows = () => upgradeStore.state.platform === "win32";
 
-export const hasUpdate = () => Boolean(upgradeStore.state.updateInfo);
+const hasUpdate = () => Boolean(upgradeStore.state.updateInfo);
 
-export const isMockUpdate = () => Boolean(upgradeStore.state.updateInfo?.isMock);
+const isMockUpdate = () => Boolean(upgradeStore.state.updateInfo?.isMock);
 
-export const getUpdateState = (): UpdateState => {
+const getUpdateState = (): UpdateState => {
   const { rawStatus, updateInfo } = upgradeStore.state;
   switch (rawStatus) {
     case "checking":
@@ -109,12 +109,12 @@ export const getUpdateState = (): UpdateState => {
   }
 };
 
-export const isChecking = () => getUpdateState() === "checking";
-export const isDownloading = () => getUpdateState() === "downloading";
-export const isReadyToInstall = () => getUpdateState() === "ready_to_install";
-export const shouldShowUpdateNotes = () => hasUpdate();
-export const shouldShowTopbarInstallButton = () => isReadyToInstall();
-export const showManualDownloadOptions = () =>
+const isChecking = () => getUpdateState() === "checking";
+const isDownloading = () => getUpdateState() === "downloading";
+const isReadyToInstall = () => getUpdateState() === "ready_to_install";
+const shouldShowUpdateNotes = () => hasUpdate();
+const shouldShowTopbarInstallButton = () => isReadyToInstall();
+const showManualDownloadOptions = () =>
   upgradeStore.state.rawStatus === "error" && Boolean(upgradeStore.state.updateInfo);
 
 const applyProgress = (
@@ -131,7 +131,7 @@ const applyProgress = (
   upgradeStore.setState((prev) => ({ ...prev, updateProgress: toProgressInfo(progress) }));
 };
 
-export const syncFromPresenterStatus = async (): Promise<PresenterUpdateStatus> => {
+const syncFromPresenterStatus = async (): Promise<PresenterUpdateStatus> => {
   const requestId = ++latestSyncRequestId;
   const mutationTokenBeforeRequest = externalMutationToken;
   try {
@@ -154,7 +154,7 @@ export const syncFromPresenterStatus = async (): Promise<PresenterUpdateStatus> 
   }
 };
 
-export const applyStatus = (
+const applyStatus = (
   status: PresenterUpdateStatus,
   info?: UpdateInfo | null,
   error?: string | null,
@@ -248,7 +248,7 @@ const loadDeviceInfo = async () => {
 
 void loadDeviceInfo();
 
-export const checkUpdate = async (silent = true) => {
+const checkUpdate = async (silent = true) => {
   upgradeStore.setState((prev) => ({ ...prev, isSilent: silent }));
   if (isChecking()) return upgradeStore.state.rawStatus;
 
@@ -263,7 +263,7 @@ export const checkUpdate = async (silent = true) => {
   }
 };
 
-export const startUpdate = async (type: "github" | "official") => {
+const startUpdate = async (type: "github" | "official") => {
   try {
     return await upgradeClient.goDownloadUpgrade(type);
   } catch (error) {
@@ -272,7 +272,7 @@ export const startUpdate = async (type: "github" | "official") => {
   }
 };
 
-export const mockDownloadedUpdate = async () => {
+const mockDownloadedUpdate = async () => {
   try {
     const success = await upgradeClient.mockDownloadedUpdate();
     if (!success) {
@@ -287,7 +287,7 @@ export const mockDownloadedUpdate = async () => {
   }
 };
 
-export const clearMockUpdate = async () => {
+const clearMockUpdate = async () => {
   try {
     const success = await upgradeClient.clearMockUpdate();
     if (!success) {
@@ -302,7 +302,7 @@ export const clearMockUpdate = async () => {
   }
 };
 
-export const handleUpdate = async (type: "github" | "official" | "auto") => {
+const handleUpdate = async (type: "github" | "official" | "auto") => {
   upgradeStore.setState((prev) => ({ ...prev, isUpdating: true }));
   try {
     if (isReadyToInstall()) {

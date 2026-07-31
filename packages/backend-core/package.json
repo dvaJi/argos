@@ -16,7 +16,6 @@
     "@ai-sdk/google-vertex": "catalog:",
     "@ai-sdk/openai": "catalog:",
     "@ai-sdk/openai-compatible": "catalog:",
-    "@ai-sdk/provider": "catalog:",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
     "ai": "catalog:",

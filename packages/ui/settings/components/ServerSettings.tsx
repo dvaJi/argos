@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "@iconify/react";
+import { requestPairingToken } from "#api/ConnectionClient";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
@@ -184,7 +185,7 @@ export default function ServerSettings() {
     setGenerating(true);
     let ok = false;
     try {
-      const result = await window.electron.ipcRenderer.invoke("generate-pairing-url");
+      const result = await requestPairingToken();
       if (result?.ok) {
         setPairing({ pairingUrl: result.pairingUrl, expiresAt: result.expiresAt });
         toast({ title: "Pairing URL generated" });

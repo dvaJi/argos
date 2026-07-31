@@ -34,7 +34,7 @@ const getToolIconBg = (toolId: string): string => {
   return bgs[toolId] || "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400";
 };
 
-export const ToolSelector: FC<ToolSelectorProps> = ({ tools, selectedToolId, loading, onSelect }) => {
+const ToolSelector: FC<ToolSelectorProps> = ({ tools, selectedToolId, loading, onSelect }) => {
   const handleSelect = (tool: ScanResult) => {
     if (tool.available && tool.skills.length > 0) {
       onSelect(tool);

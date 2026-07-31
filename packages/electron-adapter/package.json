@@ -7,7 +7,8 @@
   "dependencies": {
     "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
-    "@argos/shared-contracts": "workspace:*"
+    "@argos/shared-contracts": "workspace:*",
+    "electron-store": "catalog:"
   },
   "devDependencies": {
     "electron": "catalog:",

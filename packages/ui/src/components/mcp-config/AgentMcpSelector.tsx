@@ -13,7 +13,7 @@ interface AgentMcpSelectorProps {
   onUpdateSelections?: (selections: string[]) => void;
 }
 
-export const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
+const AgentMcpSelector: FC<AgentMcpSelectorProps> = ({ onUpdateSelections }) => {
   const { toast } = useToast();
   const configClient = createConfigClient();
 

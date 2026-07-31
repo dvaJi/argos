@@ -28,7 +28,7 @@ export const skillsStore = new Store({
   error: null as string | null,
 });
 
-export const getSkillCount = () => skillsStore.state.skills.length;
+const getSkillCount = () => skillsStore.state.skills.length;
 
 export const loadSkillRuntime = async (name: string) => {
   try {
@@ -57,7 +57,7 @@ export const loadSkillRuntime = async (name: string) => {
   }
 };
 
-export const loadSkillRuntimeData = async (items?: SkillMetadata[]) => {
+const loadSkillRuntimeData = async (items?: SkillMetadata[]) => {
   const skills = items ?? skillsStore.state.skills;
   const nextExtensions: Record<string, SkillExtensionConfig> = {};
   const nextScripts: Record<string, SkillScriptDescriptor[]> = {};
@@ -147,15 +147,15 @@ export const uninstallSkill = async (name: string): Promise<SkillInstallResult> 
   }
 };
 
-export const getSkillsDir = async (): Promise<string> => {
+const getSkillsDir = async (): Promise<string> => {
   return await skillClient.getSkillsDir();
 };
 
-export const openSkillsFolder = async (): Promise<void> => {
+const openSkillsFolder = async (): Promise<void> => {
   await skillClient.openSkillsFolder();
 };
 
-export const updateSkillFile = async (name: string, content: string): Promise<SkillInstallResult> => {
+const updateSkillFile = async (name: string, content: string): Promise<SkillInstallResult> => {
   try {
     const result = await skillClient.updateSkillFile(name, content);
     if (result.success) await loadSkills();
@@ -165,7 +165,7 @@ export const updateSkillFile = async (name: string, content: string): Promise<Sk
   }
 };
 
-export const saveSkillExtension = async (name: string, config: SkillExtensionConfig): Promise<void> => {
+const saveSkillExtension = async (name: string, config: SkillExtensionConfig): Promise<void> => {
   await skillClient.saveSkillExtension(name, config);
   await loadSkillRuntime(name);
 };
@@ -199,13 +199,13 @@ export function useSkillsStore() {
   return useStore(skillsStore);
 }
 
-export interface SkillSourceGroup {
+interface SkillSourceGroup {
   id: string;
   label: string;
   skills: SkillMetadata[];
 }
 
-export function groupSkillsBySource(skills: SkillMetadata[]): SkillSourceGroup[] {
+function groupSkillsBySource(skills: SkillMetadata[]): SkillSourceGroup[] {
   const sourceMap = new Map<string, { label: string; skills: SkillMetadata[] }>();
 
   for (const skill of skills) {

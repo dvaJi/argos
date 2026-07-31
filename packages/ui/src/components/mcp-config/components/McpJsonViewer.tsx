@@ -11,7 +11,7 @@ interface McpJsonViewerProps {
   onFormat?: () => void;
 }
 
-export const McpJsonViewer: FC<McpJsonViewerProps> = ({
+const McpJsonViewer: FC<McpJsonViewerProps> = ({
   content,
   loading = false,
   title,

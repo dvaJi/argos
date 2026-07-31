@@ -35,7 +35,7 @@ const getResourceType = (uri: string) => {
   return "File";
 };
 
-export const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpenChange }) => {
+const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
 
   const [selectedResource, setSelectedResource] = useState("");

@@ -20,7 +20,7 @@ interface ExportWizardProps {
   onCancel: () => void;
 }
 
-export const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
+const ExportWizard: FC<ExportWizardProps> = ({ currentStep, onStepChange, onComplete, onCancel }) => {
   const { toast } = useToast();
   const skillSyncPresenter = usePresenter("skillSyncPresenter");
   const skillsStore = useSkillsStore();

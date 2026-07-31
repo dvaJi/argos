@@ -7,6 +7,7 @@ import { toast } from "#/components/use-toast";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Input } from "#shadcn/components/ui/input";
 import { usePresenter } from "#api/presenterBridge";
+import { copyRuntimeText, getRuntimePathForFile } from "#api/runtime";
 import KnowledgeFileItem from "./KnowledgeFileItem";
 import type { BuiltinKnowledgeConfig, KnowledgeFileMessage } from "@argos/shared/presenter";
 import { RAG_EVENTS } from "#/events";
@@ -64,7 +65,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
   const handleFileUpload = async (files: File[]) => {
     for (const file of files) {
       try {
-        const path = window.api.getPathForFile(file);
+        const path = getRuntimePathForFile(file);
         const validationResult = await knowledgePresenter.validateFile(path);
         if (!validationResult.isSupported) {
           toast({
@@ -152,7 +153,7 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
 
   const handleCopy = (content: string, id: string) => {
     setCopyId(id);
-    window.api.copyText(content);
+    copyRuntimeText(content);
   };
 
   const openSearchDialog = () => {

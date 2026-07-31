@@ -22,7 +22,7 @@ import { pageRouterStore, goToChat, goToNewThread } from "./pageRouter";
 import { messageStore, setCurrentSessionId, clearStreamingState, loadMessages } from "./message";
 import { bindSessionStoreIpc } from "./sessionIpc";
 
-export type UISessionStatus = "completed" | "working" | "error" | "none" | "new_results" | "blocked";
+type UISessionStatus = "completed" | "working" | "error" | "none" | "new_results" | "blocked";
 
 export interface UISession {
   id: string;
@@ -404,7 +404,7 @@ export const getNewConversationTargetAgentId = (): string | null => {
   return fallbackId || null;
 };
 
-export const getSessionGroups = (): SessionGroup[] => getFilteredGroups(null);
+const getSessionGroups = (): SessionGroup[] => getFilteredGroups(null);
 
 const syncSelectedAgentToSession = (sessionId: string | null, availableSessions?: UISession[]): void => {
   if (!sessionId) {
@@ -588,11 +588,11 @@ export async function fetchSessions(): Promise<void> {
   });
 }
 
-export async function loadNextPage(): Promise<void> {
+async function loadNextPage(): Promise<void> {
   await loadSessionPage({ reset: false });
 }
 
-export async function refreshSessionsByIds(sessionIds: string[]): Promise<void> {
+async function refreshSessionsByIds(sessionIds: string[]): Promise<void> {
   const normalizedIds = Array.from(new Set(sessionIds.map((sessionId) => sessionId.trim()).filter(Boolean)));
   if (normalizedIds.length === 0) {
     await loadSessionPage({
@@ -764,7 +764,7 @@ export async function sendMessage(sessionId: string, content: string | SendMessa
   }
 }
 
-export async function setSessionModel(sessionId: string, providerId: string, modelId: string): Promise<void> {
+async function setSessionModel(sessionId: string, providerId: string, modelId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const updated = await sessionClient.setSessionModel(sessionId, providerId, modelId);
@@ -782,7 +782,7 @@ export async function setSessionModel(sessionId: string, providerId: string, mod
   }
 }
 
-export async function deleteSession(sessionId: string): Promise<void> {
+async function deleteSession(sessionId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     await sessionClient.deleteSession(sessionId);
@@ -800,7 +800,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
   }
 }
 
-export async function setSessionSubagentEnabled(sessionId: string, enabled: boolean): Promise<void> {
+async function setSessionSubagentEnabled(sessionId: string, enabled: boolean): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const updated = await sessionClient.setSessionSubagentEnabled(sessionId, enabled);
@@ -817,7 +817,7 @@ export async function setSessionSubagentEnabled(sessionId: string, enabled: bool
   }
 }
 
-export async function setSessionProjectDir(sessionId: string, projectDir: string | null): Promise<void> {
+async function setSessionProjectDir(sessionId: string, projectDir: string | null): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const updated = await sessionClient.setSessionProjectDir(sessionId, projectDir);
@@ -834,7 +834,7 @@ export async function setSessionProjectDir(sessionId: string, projectDir: string
   }
 }
 
-export async function moveSessionToAgent(sessionId: string, toAgentId: string): Promise<void> {
+async function moveSessionToAgent(sessionId: string, toAgentId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const updated = await sessionClient.moveSessionToAgent(sessionId, toAgentId);
@@ -852,7 +852,7 @@ export async function moveSessionToAgent(sessionId: string, toAgentId: string): 
   }
 }
 
-export async function renameSession(sessionId: string, title: string): Promise<void> {
+async function renameSession(sessionId: string, title: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const normalized = title.trim();
@@ -881,7 +881,7 @@ export async function renameSession(sessionId: string, title: string): Promise<v
   }
 }
 
-export async function toggleSessionPinned(sessionId: string, pinned: boolean): Promise<void> {
+async function toggleSessionPinned(sessionId: string, pinned: boolean): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     await sessionClient.toggleSessionPinned(sessionId, pinned);
@@ -911,7 +911,7 @@ export async function toggleSessionPinned(sessionId: string, pinned: boolean): P
   }
 }
 
-export async function clearSessionMessages(sessionId: string): Promise<void> {
+async function clearSessionMessages(sessionId: string): Promise<void> {
   sessionStore.setState((prev) => ({ ...prev, error: null }));
   try {
     await sessionClient.clearSessionMessages(sessionId);
@@ -929,7 +929,7 @@ export async function clearSessionMessages(sessionId: string): Promise<void> {
   }
 }
 
-export async function exportSession(
+async function exportSession(
   sessionId: string,
   format: "markdown" | "html" | "txt" | "nowledge-mem",
 ): Promise<{ filename: string; content: string }> {
@@ -950,7 +950,7 @@ export async function exportSession(
   }
 }
 
-export async function toggleGroupMode(): Promise<void> {
+async function toggleGroupMode(): Promise<void> {
   const previousMode = sessionStore.state.groupMode;
   const nextMode = previousMode === "time" ? "project" : "time";
   const localVersion = ++groupModeUpdateVersion;
@@ -973,7 +973,7 @@ export async function toggleGroupMode(): Promise<void> {
   await groupModeWritePromise;
 }
 
-export function getPinnedSessions(agentId: string | null): UISession[] {
+function getPinnedSessions(agentId: string | null): UISession[] {
   const pinned = sortSessions(
     sessionStore.state.sessions.filter((session) => isRegularSession(session) && session.isPinned && !session.isDraft),
   );
@@ -983,7 +983,7 @@ export function getPinnedSessions(agentId: string | null): UISession[] {
   return pinned.filter((session) => session.agentId === agentId);
 }
 
-export function getFilteredGroups(agentId: string | null): SessionGroup[] {
+function getFilteredGroups(agentId: string | null): SessionGroup[] {
   const visibleSessions = sortSessions(
     sessionStore.state.sessions.filter((session) => isRegularSession(session) && !session.isDraft && !session.isPinned),
   );
@@ -1028,7 +1028,7 @@ const cleanupIpcBindings = bindSessionStoreIpc({
   },
 });
 
-export function cleanupSessionStore(): void {
+function cleanupSessionStore(): void {
   cleanupIpcBindings();
 }
 

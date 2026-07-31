@@ -13,7 +13,6 @@
     "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
-    "cross-spawn": "^7.0.6",
     "nanoid": "catalog:",
     "node-pty": "^1.1.0"
   },

@@ -63,7 +63,7 @@ function syncSelectedAgent(): void {
   }
 }
 
-export function applyAgents(nextAgents: Array<Agent | AgentBootstrapItem>): void {
+function applyAgents(nextAgents: Array<Agent | AgentBootstrapItem>): void {
   agentStore.setState((prev) => ({
     ...prev,
     agents: nextAgents.map(mapAgentToUiAgent),
@@ -71,7 +71,7 @@ export function applyAgents(nextAgents: Array<Agent | AgentBootstrapItem>): void
   syncSelectedAgent();
 }
 
-export function mergeAgents(nextAgents: Agent[]): void {
+function mergeAgents(nextAgents: Agent[]): void {
   const nextUiAgents = nextAgents.map(mapAgentToUiAgent);
   const nextAgentIds = new Set(nextUiAgents.map((agent) => agent.id));
   const currentAgentIds = new Set(agentStore.state.agents.map((agent) => agent.id));
@@ -126,7 +126,7 @@ function replaceAgentsByType(agentType: "argos" | "acp", nextAgents: Agent[]): v
   syncSelectedAgent();
 }
 
-export async function refreshAgentsByType(agentType: "argos" | "acp"): Promise<void> {
+async function refreshAgentsByType(agentType: "argos" | "acp"): Promise<void> {
   try {
     const result = await configClient.listAgents({ agentType });
     replaceAgentsByType(agentType, result);
@@ -186,7 +186,7 @@ export function setSelectedAgent(id: string | null): void {
   agentStore.setState((prev) => ({ ...prev, selectedAgentId: id }));
 }
 
-export function selectAgent(id: string | null): void {
+function selectAgent(id: string | null): void {
   agentStore.setState((prev) => ({
     ...prev,
     selectedAgentId: prev.selectedAgentId === id ? null : id,

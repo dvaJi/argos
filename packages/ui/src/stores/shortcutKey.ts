@@ -7,7 +7,7 @@ import { createConfigClient } from "../../api/ConfigClient";
 const configClient = createConfigClient();
 const shortcutRuntime = createShortcutRuntime();
 
-export const shortcutKeyStore = new Store({
+const shortcutKeyStore = new Store({
   shortcutKeys: undefined as ShortcutKeySetting | undefined,
 });
 

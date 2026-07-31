@@ -11,7 +11,7 @@ function hasAudioExtension(value: string | undefined): boolean {
   return AUDIO_FILE_EXTENSIONS.some((ext) => normalized.endsWith(ext));
 }
 
-export function isAudioAttachment(file: MessageFile): boolean {
+function isAudioAttachment(file: MessageFile): boolean {
   if (typeof file.mimeType === "string" && file.mimeType.toLowerCase().startsWith("audio/")) {
     return true;
   }

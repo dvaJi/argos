@@ -1,6 +1,6 @@
 import { guidedOnboardingStepIds, type GuidedOnboardingStepId } from "@argos/shared-contracts/routes";
 
-export const GUIDED_ONBOARDING_RESUME_STORAGE_KEY = "__argos_guided_onboarding_resume";
+const GUIDED_ONBOARDING_RESUME_STORAGE_KEY = "__argos_guided_onboarding_resume";
 export const GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT = "argos:guided-onboarding-resume-requested";
 
 const GUIDED_ONBOARDING_STEP_IDS: GuidedOnboardingStepId[] = [...guidedOnboardingStepIds];

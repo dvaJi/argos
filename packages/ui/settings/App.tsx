@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { createIpcSubscriptionScope } from "#api/runtime";
 import { Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { usePresenter } from "#api/presenterBridge";
@@ -551,8 +552,9 @@ export default function SettingsApp() {
       showDatabaseRepairSuggestedToast(payload as DatabaseRepairSuggestedPayload);
     };
 
-    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
-    window.electron.ipcRenderer.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, handleDatabaseRepairSuggested);
+    const notificationScope = createIpcSubscriptionScope();
+    notificationScope.on(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
+    notificationScope.on(NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED, handleDatabaseRepairSuggested);
 
     const init = async () => {
       const [settingsLoadResult, routerReadyResult, themeResult] = await Promise.allSettled([
@@ -605,11 +607,7 @@ export default function SettingsApp() {
         errorDisplayTimer.current = null;
       }
 
-      window.electron.ipcRenderer.removeListener?.(NOTIFICATION_EVENTS.SHOW_ERROR, handleShowError);
-      window.electron.ipcRenderer.removeListener?.(
-        NOTIFICATION_EVENTS.DATABASE_REPAIR_SUGGESTED,
-        handleDatabaseRepairSuggested,
-      );
+      notificationScope.cleanup();
       window.removeEventListener("focus", handleWindowFocus);
       cleanupMcpDeeplink();
     };

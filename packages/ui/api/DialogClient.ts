@@ -34,4 +34,4 @@ export function createDialogClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type DialogClient = ReturnType<typeof createDialogClient>;
+type DialogClient = ReturnType<typeof createDialogClient>;

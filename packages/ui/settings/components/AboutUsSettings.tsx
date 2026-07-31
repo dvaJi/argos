@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@iconify/react";
+import { openRuntimeExternal } from "#api/runtime";
 import { Button } from "#shadcn/components/ui/button";
 import {
   Dialog,
@@ -41,7 +42,7 @@ export default function AboutUsSettings() {
 
   const openExternalLink = useCallback((url: string) => {
     if (window.api?.openExternal) {
-      window.api.openExternal(url);
+      void openRuntimeExternal(url).catch(() => {});
     } else {
       window.open(url, "_blank", "noopener,noreferrer");
     }

@@ -341,4 +341,4 @@ export function createModelClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type ModelClient = ReturnType<typeof createModelClient>;
+type ModelClient = ReturnType<typeof createModelClient>;

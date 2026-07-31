@@ -53,6 +53,6 @@ export const toggleCollapsed = (sessionId: string): void => {
   setCollapsed(sessionId, !isCollapsed(sessionId));
 };
 
-export function useAgentPlanStore() {
+function useAgentPlanStore() {
   return useStore(agentPlanStore);
 }

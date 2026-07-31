@@ -158,4 +158,4 @@ export function createBrowserClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type BrowserClient = ReturnType<typeof createBrowserClient>;
+type BrowserClient = ReturnType<typeof createBrowserClient>;

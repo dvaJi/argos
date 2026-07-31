@@ -12,7 +12,7 @@ interface SkillSyncDialogProps {
   onCompleted: () => void;
 }
 
-export const SkillSyncDialog: FC<SkillSyncDialogProps> = ({
+const SkillSyncDialog: FC<SkillSyncDialogProps> = ({
   open,
   mode,
   initialToolId,

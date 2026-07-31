@@ -1,6 +1,6 @@
-export type RuntimeKind = "electron" | "browser";
+type RuntimeKind = "electron" | "browser";
 
-export function getRuntimeKind(): RuntimeKind {
+function getRuntimeKind(): RuntimeKind {
   if (typeof window !== "undefined" && window.__argosRuntimeKind === "browser") {
     return "browser";
   }

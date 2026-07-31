@@ -44,4 +44,4 @@ export function createPluginClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type PluginClient = ReturnType<typeof createPluginClient>;
+type PluginClient = ReturnType<typeof createPluginClient>;

@@ -18,7 +18,7 @@ interface ImportWizardProps {
   onCancel: () => void;
 }
 
-export const ImportWizard: FC<ImportWizardProps> = ({
+const ImportWizard: FC<ImportWizardProps> = ({
   currentStep,
   initialToolId,
   initialSkills,

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import os from "os";
-import { NullDatabase as Database } from "../../src/main/presenter/sqlitePresenter/dbType";
+import { NullDatabase as Database } from "../../../src/main/presenter/sqlitePresenter/dbType";
 import { unzipSync, zipSync } from "fflate";
 import * as fsMock from "fs";
 

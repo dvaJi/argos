@@ -262,7 +262,7 @@ vi.doMock("../../../src/main/presenter/sqlitePresenter/tables/configTables", () 
   ConfigTables: MockConfigTables,
 }));
 
-const { NullDatabase: Database } = await import("../../src/main/presenter/sqlitePresenter/dbType");
+const { NullDatabase: Database } = await import("../../../src/main/presenter/sqlitePresenter/dbType");
 const { SyncConfigImportService } = await import("../../../src/main/presenter/syncPresenter/configImportService");
 const { ConfigTables } = await import("../../../src/main/presenter/sqlitePresenter/tables/configTables");
 

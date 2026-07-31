@@ -64,7 +64,7 @@ const safeClone = (obj: unknown): unknown => {
   return cloned;
 };
 
-export interface CustomPromptSettingsSectionHandle {
+interface CustomPromptSettingsSectionHandle {
   importPrompts: () => void;
   exportPrompts: () => void;
 }

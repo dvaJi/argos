@@ -10,7 +10,7 @@ export const systemPromptStore = new Store({
   defaultPromptId: "default",
 });
 
-export const getDefaultPrompt = () => {
+const getDefaultPrompt = () => {
   const { prompts, defaultPromptId } = systemPromptStore.state;
   return prompts.find((prompt) => prompt.isDefault) ?? prompts.find((prompt) => prompt.id === defaultPromptId);
 };
@@ -21,20 +21,20 @@ export const loadSystemPrompts = async () => {
   systemPromptStore.setState((s) => ({ ...s, prompts, defaultPromptId }));
 };
 
-export const saveSystemPrompts = async (list: SystemPrompt[]) => {
+const saveSystemPrompts = async (list: SystemPrompt[]) => {
   systemPromptStore.setState((s) => ({ ...s, prompts: list }));
   await configClient.setSystemPrompts(list);
 };
 
-export const setDefaultSystemPrompt = async (content: string) => {
+const setDefaultSystemPrompt = async (content: string) => {
   await configClient.setDefaultSystemPrompt(content);
 };
 
-export const resetToDefaultPrompt = async () => {
+const resetToDefaultPrompt = async () => {
   await configClient.resetToDefaultPrompt();
 };
 
-export const clearSystemPrompt = async () => {
+const clearSystemPrompt = async () => {
   await configClient.clearSystemPrompt();
 };
 

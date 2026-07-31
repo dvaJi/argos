@@ -1,6 +1,6 @@
 import { ShowResponse } from "ollama";
 import type { ChatMessage } from "../core/chat-message";
-import { ModelType } from "../core/model";
+import { ModelType } from "../../model";
 import type { NewApiEndpointType } from "@argos/shared/model";
 import type { ImageGenerationOptions } from "../../imageGenerationSettings";
 import type { VideoGenerationOptions } from "../../videoGenerationSettings";

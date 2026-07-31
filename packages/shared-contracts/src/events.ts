@@ -69,6 +69,16 @@ import {
 } from "./events/upgrade.events";
 import { windowStateChangedEvent } from "./events/window.events";
 import { workspaceInvalidatedEvent } from "./events/workspace.events";
+import {
+  notificationsDatabaseRepairSuggestedEvent,
+  notificationsShowErrorEvent,
+} from "./events/notifications.events";
+import {
+  providersRateLimitConfigUpdatedEvent,
+  providersRateLimitLimitExceededEvent,
+  providersRateLimitRequestExecutedEvent,
+  providersRateLimitRequestQueuedEvent,
+} from "./events/rate-limit.events";
 
 export * from "./events/browser.events";
 export * from "./events/chat.events";
@@ -90,6 +100,12 @@ export * from "./events/workspace.events";
 export const ARGOS_EVENT_CATALOG = {
   [windowStateChangedEvent.name]: windowStateChangedEvent,
   [workspaceInvalidatedEvent.name]: workspaceInvalidatedEvent,
+  [notificationsShowErrorEvent.name]: notificationsShowErrorEvent,
+  [notificationsDatabaseRepairSuggestedEvent.name]: notificationsDatabaseRepairSuggestedEvent,
+  [providersRateLimitConfigUpdatedEvent.name]: providersRateLimitConfigUpdatedEvent,
+  [providersRateLimitRequestQueuedEvent.name]: providersRateLimitRequestQueuedEvent,
+  [providersRateLimitRequestExecutedEvent.name]: providersRateLimitRequestExecutedEvent,
+  [providersRateLimitLimitExceededEvent.name]: providersRateLimitLimitExceededEvent,
   [browserActivityChangedEvent.name]: browserActivityChangedEvent,
   [browserOpenRequestedEvent.name]: browserOpenRequestedEvent,
   [browserStatusChangedEvent.name]: browserStatusChangedEvent,

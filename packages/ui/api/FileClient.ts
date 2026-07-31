@@ -78,4 +78,4 @@ export function createFileClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type FileClient = ReturnType<typeof createFileClient>;
+type FileClient = ReturnType<typeof createFileClient>;

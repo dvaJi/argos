@@ -28,4 +28,4 @@ Actionable checklist (status of the migration). See `plan.md` for full detail.
 - [ ] Run `test/renderer` suite (aliases repointed, not yet run)
 
 ## Deferred (follow-up)
-- [ ] Migrate settings off `useLegacyPresenter()` → typed clients (pure-browser settings)
+- [x] Migrate settings off raw Electron IPC → typed clients / daemon (see `docs/architecture/settings-typed-clients/`)

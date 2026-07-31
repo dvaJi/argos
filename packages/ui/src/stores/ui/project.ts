@@ -168,7 +168,7 @@ export async function fetchProjects(): Promise<void> {
   }
 }
 
-export async function fetchEnvironments(): Promise<void> {
+async function fetchEnvironments(): Promise<void> {
   try {
     const envs = await projectClient.listEnvironments();
     projectStore.setState((prev) => ({ ...prev, environments: envs }));
@@ -226,7 +226,7 @@ export async function refreshEnvironmentData(): Promise<void> {
   await Promise.all([loadDefaultProjectPath(), fetchEnvironments()]);
 }
 
-export async function openFolderPicker(): Promise<void> {
+async function openFolderPicker(): Promise<void> {
   try {
     const selectedPath = await projectClient.selectDirectory();
     if (selectedPath) {

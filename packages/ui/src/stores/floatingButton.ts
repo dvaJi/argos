@@ -9,11 +9,11 @@ interface FloatingButtonState {
 const configClient = createConfigClient();
 let listenerRegistered = false;
 
-export const floatingButtonStore = new Store<FloatingButtonState>({
+const floatingButtonStore = new Store<FloatingButtonState>({
   enabled: false,
 });
 
-export const getFloatingButtonEnabled = async (): Promise<boolean> => {
+const getFloatingButtonEnabled = async (): Promise<boolean> => {
   try {
     return await configClient.getFloatingButtonEnabled();
   } catch (error) {
@@ -43,7 +43,7 @@ const setupFloatingButtonListener = () => {
   });
 };
 
-export const initializeState = async () => {
+const initializeState = async () => {
   try {
     const currentEnabled = await getFloatingButtonEnabled();
     floatingButtonStore.setState((prev) => ({ ...prev, enabled: currentEnabled }));

@@ -36,7 +36,7 @@ export const artifactStore = new Store<ArtifactStoreState>({
   completedContexts: new Set<string>(),
 });
 
-export const isOpen = () => {
+const isOpen = () => {
   const { currentArtifact, currentThreadId } = artifactStore.state;
   if (!currentArtifact || !currentThreadId) {
     return false;
@@ -102,7 +102,7 @@ export const showArtifact = (
   });
 };
 
-export const hideArtifact = () => {
+const hideArtifact = () => {
   const threadId = artifactStore.state.currentThreadId;
   artifactStore.setState((prev) => ({
     ...prev,
@@ -115,7 +115,7 @@ export const hideArtifact = () => {
   }
 };
 
-export const dismissArtifact = () => {
+const dismissArtifact = () => {
   const { currentArtifact, currentMessageId, currentThreadId } = artifactStore.state;
   if (currentArtifact && currentMessageId && currentThreadId) {
     const contextKey = makeContextKey(currentArtifact.id, currentMessageId, currentThreadId);
@@ -128,11 +128,11 @@ export const dismissArtifact = () => {
   hideArtifact();
 };
 
-export const validateContext = (messageId: string, threadId: string) => {
+const validateContext = (messageId: string, threadId: string) => {
   return artifactStore.state.currentMessageId === messageId && artifactStore.state.currentThreadId === threadId;
 };
 
-export const updateArtifactContent = (updates: Partial<ArtifactState>) => {
+const updateArtifactContent = (updates: Partial<ArtifactState>) => {
   if (artifactStore.state.currentArtifact) {
     artifactStore.setState((prev) => ({
       ...prev,
@@ -141,7 +141,7 @@ export const updateArtifactContent = (updates: Partial<ArtifactState>) => {
   }
 };
 
-export const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
   if (!artifactStore.state.currentArtifact || validateContext(messageId, threadId)) {
     artifactStore.setState((prev) => ({
       ...prev,
@@ -152,7 +152,7 @@ export const syncArtifact = (artifact: ArtifactState, messageId: string, threadI
   }
 };
 
-export const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
   const contextKey = makeContextKey(artifact.id, messageId, threadId);
   const panelWasHidden = !sidepanelStore.state.open;
   const currentMatches =

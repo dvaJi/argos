@@ -282,4 +282,4 @@ export function createMcpClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type McpClient = ReturnType<typeof createMcpClient>;
+type McpClient = ReturnType<typeof createMcpClient>;

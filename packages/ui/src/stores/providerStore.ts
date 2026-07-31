@@ -30,8 +30,8 @@ export const providerStore = new Store({
   initializationPromise: null as Promise<void> | null,
 });
 
-export const getEnabledProviders = () => providerStore.state.providers.filter((p) => p.enable);
-export const getDisabledProviders = () => providerStore.state.providers.filter((p) => !p.enable);
+const getEnabledProviders = () => providerStore.state.providers.filter((p) => p.enable);
+const getDisabledProviders = () => providerStore.state.providers.filter((p) => !p.enable);
 
 const ensureOrderIncludesProviders = (order: string[], list: LLM_PROVIDER[]) => {
   const seen = new Set<string>();
@@ -79,7 +79,7 @@ export const getSortedProviders = () => {
   return [...sortedEnabled, ...sortedDisabled];
 };
 
-export const loadProviderOrder = async () => {
+const loadProviderOrder = async () => {
   try {
     const savedOrder = await configClient.getSetting(PROVIDER_ORDER_KEY);
     if (savedOrder && savedOrder.length > 0) {
@@ -104,7 +104,7 @@ export const loadProviderOrder = async () => {
   }
 };
 
-export const saveProviderOrder = async () => {
+const saveProviderOrder = async () => {
   try {
     if (providerStore.state.providerOrder.length > 0) {
       await configClient.setSetting(PROVIDER_ORDER_KEY, [...providerStore.state.providerOrder]);
@@ -114,7 +114,7 @@ export const saveProviderOrder = async () => {
   }
 };
 
-export const loadProviderTimestamps = async () => {
+const loadProviderTimestamps = async () => {
   try {
     const savedTimestamps = await configClient.getSetting(PROVIDER_TIMESTAMP_KEY);
     providerStore.setState((prev) => ({
@@ -127,7 +127,7 @@ export const loadProviderTimestamps = async () => {
   }
 };
 
-export const saveProviderTimestamps = async () => {
+const saveProviderTimestamps = async () => {
   try {
     await configClient.setSetting(PROVIDER_TIMESTAMP_KEY, {
       ...providerStore.state.providerTimestamps,
@@ -148,12 +148,12 @@ async function loadDefaultProviders(): Promise<void> {
   providerStore.setState((prev) => ({ ...prev, defaultProviders: data as LLM_PROVIDER[] }));
 }
 
-export const refreshProviders = async () => {
+const refreshProviders = async () => {
   await loadProviderOrder();
   await loadProviders();
 };
 
-export const ensureDefaultProvidersReady = async () => {
+const ensureDefaultProvidersReady = async () => {
   if (providerStore.state.defaultProviders.length > 0) {
     return;
   }
@@ -161,7 +161,7 @@ export const ensureDefaultProvidersReady = async () => {
   await loadDefaultProviders();
 };
 
-export const setupProviderListeners = () => {
+const setupProviderListeners = () => {
   if (providerStore.state.listenersRegistered) return;
   providerStore.setState((prev) => ({ ...prev, listenersRegistered: true }));
 
@@ -170,7 +170,7 @@ export const setupProviderListeners = () => {
   });
 };
 
-export const updateProvider = async (id: string, provider: LLM_PROVIDER) => {
+const updateProvider = async (id: string, provider: LLM_PROVIDER) => {
   const current = providerStore.state.providers.find((item) => item.id === id);
   const previousEnable = current?.enable;
   const next = { ...provider };
@@ -180,7 +180,7 @@ export const updateProvider = async (id: string, provider: LLM_PROVIDER) => {
   return { previousEnable, next };
 };
 
-export const updateProviderConfig = async (providerId: string, updates: Partial<LLM_PROVIDER>) => {
+const updateProviderConfig = async (providerId: string, updates: Partial<LLM_PROVIDER>) => {
   const currentProvider = providerStore.state.providers.find((p) => p.id === providerId);
   if (!currentProvider) {
     throw new Error(`Provider ${providerId} not found`);
@@ -198,7 +198,7 @@ export const updateProviderApi = async (providerId: string, apiKey?: string, bas
   return updateProviderConfig(providerId, updates);
 };
 
-export const updateProvidersOrder = async (newProviders: LLM_PROVIDER[]) => {
+const updateProvidersOrder = async (newProviders: LLM_PROVIDER[]) => {
   try {
     const enabledList = newProviders.filter((provider) => provider.enable);
     const disabledList = newProviders.filter((provider) => !provider.enable);
@@ -218,7 +218,7 @@ export const updateProvidersOrder = async (newProviders: LLM_PROVIDER[]) => {
   }
 };
 
-export const optimizeProviderOrder = async (providerId: string, enable: boolean) => {
+const optimizeProviderOrder = async (providerId: string, enable: boolean) => {
   try {
     const currentOrder = [...providerStore.state.providerOrder];
     const index = currentOrder.indexOf(providerId);
@@ -286,7 +286,7 @@ export const addCustomProvider = async (provider: LLM_PROVIDER) => {
   await refreshProviders();
 };
 
-export const removeProvider = async (providerId: string) => {
+const removeProvider = async (providerId: string) => {
   await providerClient.removeProviderAtomic(providerId);
   providerStore.setState((prev) => ({
     ...prev,
@@ -296,27 +296,27 @@ export const removeProvider = async (providerId: string) => {
   await refreshProviders();
 };
 
-export const updateAwsBedrockProviderConfig = async (providerId: string, updates: Partial<AWS_BEDROCK_PROVIDER>) => {
+const updateAwsBedrockProviderConfig = async (providerId: string, updates: Partial<AWS_BEDROCK_PROVIDER>) => {
   return updateProviderConfig(providerId, updates);
 };
 
-export const updateVertexProviderConfig = async (providerId: string, updates: Partial<VERTEX_PROVIDER>) => {
+const updateVertexProviderConfig = async (providerId: string, updates: Partial<VERTEX_PROVIDER>) => {
   return updateProviderConfig(providerId, updates);
 };
 
-export const checkProvider = async (providerId: string, modelId?: string) => {
+const checkProvider = async (providerId: string, modelId?: string) => {
   return await providerClient.testConnection({ providerId, modelId });
 };
 
-export const setAzureApiVersion = async (version: string) => {
+const setAzureApiVersion = async (version: string) => {
   await configClient.setAzureApiVersion(version);
 };
 
-export const getAzureApiVersion = async (): Promise<string> => {
+const getAzureApiVersion = async (): Promise<string> => {
   return await configClient.getAzureApiVersion();
 };
 
-export const setGeminiSafety = async (
+const setGeminiSafety = async (
   key: string,
   value:
     | "BLOCK_NONE"
@@ -328,30 +328,30 @@ export const setGeminiSafety = async (
   await configClient.setGeminiSafety(key, value);
 };
 
-export const getGeminiSafety = async (key: string): Promise<string> => {
+const getGeminiSafety = async (key: string): Promise<string> => {
   return await configClient.getGeminiSafety(key);
 };
 
-export const setAwsBedrockCredential = async (credential: unknown) => {
+const setAwsBedrockCredential = async (credential: unknown) => {
   await configClient.setAwsBedrockCredential(credential);
 };
 
-export const getAwsBedrockCredential = async () => {
+const getAwsBedrockCredential = async () => {
   return await configClient.getAwsBedrockCredential();
 };
 
-export const getVoiceAIConfig = async (): Promise<VoiceAIConfig> => {
+const getVoiceAIConfig = async (): Promise<VoiceAIConfig> => {
   const config = await configClient.getVoiceAIConfig();
   providerStore.setState((prev) => ({ ...prev, voiceAIConfig: config }));
   return config;
 };
 
-export const updateVoiceAIConfig = async (updates: Partial<VoiceAIConfig>) => {
+const updateVoiceAIConfig = async (updates: Partial<VoiceAIConfig>) => {
   await configClient.updateVoiceAIConfig(updates);
   await getVoiceAIConfig();
 };
 
-export const updateProviderTimestamp = async (providerId: string) => {
+const updateProviderTimestamp = async (providerId: string) => {
   providerStore.setState((prev) => ({
     ...prev,
     providerTimestamps: { ...prev.providerTimestamps, [providerId]: Date.now() },
@@ -391,7 +391,7 @@ export const ensureInitialized = async () => {
   await initialize();
 };
 
-export const primeProviders = async () => {
+const primeProviders = async () => {
   setupProviderListeners();
   await loadProviders();
   await loadProviderOrder();

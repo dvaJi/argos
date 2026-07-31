@@ -61,7 +61,7 @@ describe("startSidecar", () => {
     const onStatusChange = vi.fn();
     const onPortAssigned = vi.fn();
 
-    const { startSidecar } = await import("../../../../src/main/presenter/sidecarManager");
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager");
 
     const sidecarPromise = startSidecar({
       dataDir: "/tmp/argos-data",
@@ -117,7 +117,7 @@ describe("startSidecar", () => {
     vi.spyOn(process, "cwd").mockReturnValue("/repo/apps/desktop/out/main");
     existsSyncMock.mockImplementation((candidate: string) => candidate.endsWith("/repo/apps/daemon/src/index.ts"));
 
-    const { startSidecar } = await import("../../../../src/main/presenter/sidecarManager");
+    const { startSidecar } = await import("../../../src/main/presenter/sidecarManager/index");
     const sidecarPromise = startSidecar({
       dataDir: "/tmp/argos-data",
       healthCheckIntervalMs: 5,

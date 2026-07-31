@@ -79,4 +79,4 @@ export function createChatClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type ChatClient = ReturnType<typeof createChatClient>;
+type ChatClient = ReturnType<typeof createChatClient>;

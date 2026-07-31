@@ -18,4 +18,4 @@ export function createShortcutRuntime(presenter: IShortcutPresenter = defaultSho
   };
 }
 
-export type ShortcutRuntime = ReturnType<typeof createShortcutRuntime>;
+type ShortcutRuntime = ReturnType<typeof createShortcutRuntime>;

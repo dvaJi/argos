@@ -116,7 +116,7 @@ const actionItems: Array<{
   },
 ];
 
-export interface SpotlightExternalStore {
+interface SpotlightExternalStore {
   getSessions: () => Array<{
     id: string;
     title: string;
@@ -139,7 +139,7 @@ export interface SpotlightExternalStore {
 
 let external: SpotlightExternalStore | undefined;
 
-export function connectSpotlightExternal(store: SpotlightExternalStore) {
+function connectSpotlightExternal(store: SpotlightExternalStore) {
   external = store;
 }
 
@@ -157,7 +157,7 @@ export const spotlightStore = new Store({
   pendingMessageJump: null as { sessionId: string; messageId: string } | null,
 });
 
-export const hasResults = () => spotlightStore.state.results.length > 0;
+const hasResults = () => spotlightStore.state.results.length > 0;
 
 const buildRecentSessionItems = (): SpotlightItem[] =>
   !external
@@ -368,13 +368,13 @@ const refreshOpenResults = (currentQuery: string) => {
   void runSearch(currentQuery, seq);
 };
 
-export const setQuery = (value: string) => {
+const setQuery = (value: string) => {
   spotlightStore.setState((prev) => ({ ...prev, query: value }));
   if (!spotlightStore.state.open) return;
   refreshOpenResults(value);
 };
 
-export const setOpen = (value: boolean) => {
+const setOpen = (value: boolean) => {
   if (value) {
     spotlightStore.setState((prev) => ({
       ...prev,
@@ -396,11 +396,11 @@ export const setOpen = (value: boolean) => {
   }));
 };
 
-export const openSpotlight = () => setOpen(true);
+const openSpotlight = () => setOpen(true);
 
-export const closeSpotlight = () => setOpen(false);
+const closeSpotlight = () => setOpen(false);
 
-export const toggleSpotlight = () => {
+const toggleSpotlight = () => {
   if (spotlightStore.state.open) {
     closeSpotlight();
     return;
@@ -408,7 +408,7 @@ export const toggleSpotlight = () => {
   openSpotlight();
 };
 
-export const setActiveItem = (index: number) => {
+const setActiveItem = (index: number) => {
   const { results } = spotlightStore.state;
   if (results.length === 0) {
     spotlightStore.setState((prev) => ({ ...prev, activeIndex: -1 }));
@@ -420,7 +420,7 @@ export const setActiveItem = (index: number) => {
   }));
 };
 
-export const moveActiveItem = (delta: number) => {
+const moveActiveItem = (delta: number) => {
   const { results, activeIndex } = spotlightStore.state;
   if (results.length === 0) {
     spotlightStore.setState((prev) => ({ ...prev, activeIndex: -1 }));
@@ -432,7 +432,7 @@ export const moveActiveItem = (delta: number) => {
   spotlightStore.setState((prev) => ({ ...prev, activeIndex: nextIndex }));
 };
 
-export const executeItem = async (item: SpotlightItem | undefined) => {
+const executeItem = async (item: SpotlightItem | undefined) => {
   if (!item) return;
 
   closeSpotlight();
@@ -485,13 +485,13 @@ export const executeItem = async (item: SpotlightItem | undefined) => {
   }
 };
 
-export const executeActiveItem = async () => {
+const executeActiveItem = async () => {
   const { activeIndex, results } = spotlightStore.state;
   if (activeIndex < 0) return;
   await executeItem(results[activeIndex]);
 };
 
-export const clearPendingMessageJump = () => {
+const clearPendingMessageJump = () => {
   spotlightStore.setState((prev) => ({ ...prev, pendingMessageJump: null }));
 };
 

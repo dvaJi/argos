@@ -2,14 +2,14 @@ import { useState, useCallback, useRef } from "react";
 import { createDeviceClient } from "#api/DeviceClient";
 import { createTabClient } from "#api/TabClient";
 
-export interface CaptureRect {
+interface CaptureRect {
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-export interface WatermarkConfig {
+interface WatermarkConfig {
   isDark?: boolean;
   version?: string;
   texts?: {
@@ -279,7 +279,7 @@ export function usePageCapture() {
   };
 }
 
-export const createCapturePresets = () => {
+const createCapturePresets = () => {
   const captureFullConversation = (watermarkConfig?: WatermarkConfig): CaptureConfig => ({
     container: ".message-list-container",
     getTargetRect: () => {

@@ -20,4 +20,4 @@ export function createToolClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type ToolClient = ReturnType<typeof createToolClient>;
+type ToolClient = ReturnType<typeof createToolClient>;

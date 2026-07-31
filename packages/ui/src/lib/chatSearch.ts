@@ -124,7 +124,7 @@ export const clearChatSearchHighlights = (root: ParentNode | null | undefined): 
   });
 };
 
-export const applyChatSearchHighlights = (root: ParentNode | null | undefined, query: string): ChatSearchMatch[] => {
+const applyChatSearchHighlights = (root: ParentNode | null | undefined, query: string): ChatSearchMatch[] => {
   if (!root) {
     return [];
   }

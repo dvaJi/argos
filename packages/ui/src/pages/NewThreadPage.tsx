@@ -54,7 +54,7 @@ const sessionClient = createSessionClient();
 
 type SubmissionModelSelection = { providerId: string; modelId: string };
 
-export function NewThreadPage() {
+function NewThreadPage() {
   const { toast } = useToast();
   const projectState = useStore(projectStore);
   const sessionState = useStore(sessionStore);

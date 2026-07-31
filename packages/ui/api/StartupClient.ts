@@ -20,4 +20,4 @@ export function createStartupClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type StartupClient = ReturnType<typeof createStartupClient>;
+type StartupClient = ReturnType<typeof createStartupClient>;

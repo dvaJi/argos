@@ -34,4 +34,4 @@ function ScrollBar(_props: React.ComponentProps<"div"> & { orientation?: "horizo
   return null;
 }
 
-export { ScrollArea, ScrollBar };
+export { ScrollArea,  };

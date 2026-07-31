@@ -26,7 +26,7 @@ const getEligibleModels = (
   return requiresVision ? group.models.filter((model) => model.vision) : group.models;
 };
 
-export const pickFirstChatModel = (
+const pickFirstChatModel = (
   modelGroups: ChatSelectableModelGroup[],
   requiresVision = false,
 ): ResolvedChatModel | null => {
