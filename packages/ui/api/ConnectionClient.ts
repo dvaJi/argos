@@ -13,6 +13,15 @@ export type PairingTokenResult =
  */
 export async function requestPairingToken(): Promise<PairingTokenResult> {
   const response = await fetch("/api/v1/pair/token", { method: "POST" });
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: {
+        code: "daemon_unreachable",
+        message: `Pairing endpoint returned ${response.status}`,
+      },
+    };
+  }
   return (await response.json()) as PairingTokenResult;
 }
 
