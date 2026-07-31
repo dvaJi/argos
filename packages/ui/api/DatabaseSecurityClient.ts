@@ -24,4 +24,4 @@ export function createDatabaseSecurityClient(bridge: ArgosBridge = getArgosBridg
   };
 }
 
-export type DatabaseSecurityClient = ReturnType<typeof createDatabaseSecurityClient>;
+type DatabaseSecurityClient = ReturnType<typeof createDatabaseSecurityClient>;

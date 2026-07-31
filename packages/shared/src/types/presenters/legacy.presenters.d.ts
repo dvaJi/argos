@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BrowserWindow } from "electron";
-import { MessageFile } from "./chat";
+import { MessageFile } from "../../chat";
 import { ShowResponse } from "ollama";
 import { ShortcutKeySetting } from "#/presenter/configPresenter/shortcutKeySettings";
 import type { NewApiEndpointType } from "@argos/shared/model";
@@ -14,7 +14,7 @@ import type { HookTestResult, HooksNotificationsSettings } from "../../hooksNoti
 import type { ScheduledTasksSettings } from "../../scheduledTasks";
 import type { NowledgeMemThread, NowledgeMemExportSummary } from "../nowledgeMem";
 import type { AcpConfigState } from "./llmprovider.presenter";
-import { ProviderChange, ProviderBatchUpdate } from "./provider-operations";
+import { ProviderChange, ProviderBatchUpdate } from "../../provider-operations";
 import type { AgentSessionLifecycleStatus } from "./agent-provider";
 import type { DatabaseRepairReport, DatabaseSchemaDiagnosis } from "../databaseSchema";
 import type { ISessionPresenter } from "./session.presenter";
@@ -1786,10 +1786,10 @@ export interface MCPToolResponse {
   };
 }
 
-export type McpSamplingMessage = import("../../core/mcp").McpSamplingMessage;
-export type McpSamplingRequestPayload = import("../../core/mcp").McpSamplingRequestPayload;
-export type McpSamplingDecision = import("../../core/mcp").McpSamplingDecision;
-export type McpSamplingModelPreferences = import("../../core/mcp").McpSamplingModelPreferences;
+export type McpSamplingMessage = import("../core/mcp").McpSamplingMessage;
+export type McpSamplingRequestPayload = import("../core/mcp").McpSamplingRequestPayload;
+export type McpSamplingDecision = import("../core/mcp").McpSamplingDecision;
+export type McpSamplingModelPreferences = import("../core/mcp").McpSamplingModelPreferences;
 
 /** Content item type */
 export type MCPContentItem = MCPTextContent | MCPImageContent | MCPResourceContent;
@@ -2035,15 +2035,15 @@ export interface SyncBackupInfo {
 }
 
 // Standardized events returned from LLM Provider's coreStream
-export type LLMCoreStreamEvent = import("../../core/llm-events").LLMCoreStreamEvent;
+export type LLMCoreStreamEvent = import("../core/llm-events").LLMCoreStreamEvent;
 
 // Define ChatMessage interface for unified message format
-export type ChatMessage = import("../../core/llm-events").ChatMessage;
+export type ChatMessage = import("../core/llm-events").ChatMessage;
 
-export type ChatMessageContent = import("../../core/llm-events").ChatMessageContent;
+export type ChatMessageContent = import("../core/llm-events").ChatMessageContent;
 
-export type LLMAgentEventData = import("../../core/agent-events").LLMAgentEventData;
-export type LLMAgentEvent = import("../../core/agent-events").LLMAgentEvent;
+export type LLMAgentEventData = import("../core/agent-events").LLMAgentEventData;
+export type LLMAgentEvent = import("../core/agent-events").LLMAgentEvent;
 
 export { ShortcutKey, ShortcutKeySetting } from "#/presenter/configPresenter/shortcutKeySettings";
 

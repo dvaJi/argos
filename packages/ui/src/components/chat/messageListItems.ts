@@ -44,7 +44,7 @@ export type DisplayUserMessageContent = {
   content?: (DisplayUserMessageTextBlock | DisplayUserMessageMentionBlock | DisplayUserMessageCodeBlock)[];
 };
 
-export type DisplayAssistantMessageExtra = Record<string, string | number | object[] | boolean> & {
+type DisplayAssistantMessageExtra = Record<string, string | number | object[] | boolean> & {
   needsUserAction?: boolean;
   permissionType?: "read" | "write" | "all" | "command";
   grantedPermissions?: "read" | "write" | "all" | "command";

@@ -57,4 +57,4 @@ export function createDeviceClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type DeviceClient = ReturnType<typeof createDeviceClient>;
+type DeviceClient = ReturnType<typeof createDeviceClient>;

@@ -104,4 +104,4 @@ export function createUpgradeClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type UpgradeClient = ReturnType<typeof createUpgradeClient>;
+type UpgradeClient = ReturnType<typeof createUpgradeClient>;

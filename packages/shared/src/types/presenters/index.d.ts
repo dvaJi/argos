@@ -52,9 +52,6 @@ export type {
   ISessionPresenter,
 } from "./session.presenter";
 
-// Search types
-export type { ISearchPresenter } from "./search.presenter";
-
 // Exporter types
 export type { IConversationExporter, NowledgeMemConfig } from "./exporter.presenter";
 

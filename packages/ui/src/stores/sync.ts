@@ -11,7 +11,7 @@ const deviceClient = createDeviceClient();
 let syncEventsRegistered = false;
 let syncSettingsListenerRegistered = false;
 
-export const syncStore = new Store({
+const syncStore = new Store({
   syncEnabled: false,
   syncFolderPath: "",
   lastSyncTime: 0,
@@ -30,9 +30,9 @@ export const syncStore = new Store({
   backupsLoading: false,
 });
 
-export const getSortedBackups = () => [...syncStore.state.backups].sort((a, b) => b.createdAt - a.createdAt);
+const getSortedBackups = () => [...syncStore.state.backups].sort((a, b) => b.createdAt - a.createdAt);
 
-export const refreshBackups = async () => {
+const refreshBackups = async () => {
   syncStore.setState((s) => ({ ...s, backupsLoading: true }));
   try {
     const backups = await syncClient.listBackups();
@@ -83,7 +83,7 @@ export const importData = async (backupFile: string, mode: "increment" | "overwr
   }
 };
 
-export const loadCloudConfig = async () => {
+const loadCloudConfig = async () => {
   try {
     const cloudConfig = await syncClient.getCloudConfig();
     syncStore.setState((s) => ({ ...s, cloudConfig }));
@@ -170,7 +170,7 @@ export const setSyncEnabled = async (enabled: boolean) => {
   await configClient.setSyncEnabled(enabled);
 };
 
-export const setSyncFolderPath = async (path: string) => {
+const setSyncFolderPath = async (path: string) => {
   syncStore.setState((s) => ({ ...s, syncFolderPath: path }));
   await configClient.setSyncFolderPath(path);
   await refreshBackups();
@@ -188,11 +188,11 @@ export const openSyncFolder = async () => {
   await syncClient.openSyncFolder(syncStore.state.syncFolderPath || undefined);
 };
 
-export const restartApp = async () => {
+const restartApp = async () => {
   await deviceClient.restartApp();
 };
 
-export const clearImportResult = () => {
+const clearImportResult = () => {
   syncStore.setState((s) => ({ ...s, importResult: null }));
 };
 

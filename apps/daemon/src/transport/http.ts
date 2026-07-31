@@ -1,7 +1,7 @@
 import { hasArgosRouteContract, ARGOS_ROUTE_CATALOG } from "@argos/shared-contracts/routes";
 import type { ArgosRouteName } from "@argos/shared-contracts/routes";
 
-export type RouteDispatchRequest = {
+type RouteDispatchRequest = {
   route: ArgosRouteName;
   input: unknown;
 };

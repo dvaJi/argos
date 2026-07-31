@@ -152,4 +152,4 @@ export function createSkillClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type SkillClient = ReturnType<typeof createSkillClient>;
+type SkillClient = ReturnType<typeof createSkillClient>;

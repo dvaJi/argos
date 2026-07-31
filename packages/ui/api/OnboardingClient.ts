@@ -93,4 +93,4 @@ export function createOnboardingClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type OnboardingClient = ReturnType<typeof createOnboardingClient>;
+type OnboardingClient = ReturnType<typeof createOnboardingClient>;

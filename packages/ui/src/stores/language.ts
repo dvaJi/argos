@@ -6,11 +6,11 @@ export const languageStore = new Store({
   dir: "ltr" as "auto" | "rtl" | "ltr",
 });
 
-export const initLanguage = async () => {
+const initLanguage = async () => {
   languageStore.setState((s) => ({ ...s, language: "en-US", dir: "ltr" }));
 };
 
-export const updateLanguage = async (_newLanguage: string) => {
+const updateLanguage = async (_newLanguage: string) => {
   languageStore.setState((s) => ({ ...s, language: "en-US", dir: "ltr" }));
 };
 

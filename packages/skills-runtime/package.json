@@ -9,7 +9,6 @@
     "./*": "./src/*"
   },
   "dependencies": {
-    "@argos/backend-core": "workspace:*",
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
     "chokidar": "^5.0.0",

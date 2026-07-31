@@ -11,11 +11,11 @@ export const modelCheckStore = new Store<ModelCheckState>({
   currentProviderId: "",
 });
 
-export const openDialog = (providerId: string) => {
+const openDialog = (providerId: string) => {
   modelCheckStore.setState((prev) => ({ ...prev, isDialogOpen: true, currentProviderId: providerId }));
 };
 
-export const closeDialog = () => {
+const closeDialog = () => {
   modelCheckStore.setState((prev) => ({ ...prev, isDialogOpen: false, currentProviderId: "" }));
 };
 

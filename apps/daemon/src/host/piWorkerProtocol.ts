@@ -84,7 +84,7 @@ export type PiWorkerEvent =
   | { type: "notification"; level: "info" | "warning" | "error"; message: string }
   | { type: "diagnostic"; diagnostic: PiWorkerDiagnostic };
 
-export interface PiWorkerDiagnostic {
+interface PiWorkerDiagnostic {
   severity: "info" | "warning" | "error";
   source: string;
   message: string;

@@ -14,9 +14,9 @@ import {
 import type { ConnectionState } from "@argos/shared-contracts/connection";
 import { clearSessionContextForMachineSwitch, fetchSessions as originalFetchSessions } from "./session";
 
-export type { WorkspaceEntry, WorkspaceMode };
+export type { WorkspaceEntry,  };
 
-export const workspaceStore = new Store<WorkspaceConfig>({
+const workspaceStore = new Store<WorkspaceConfig>({
   ...DEFAULT_WORKSPACE_CONFIG,
 });
 
@@ -37,25 +37,25 @@ export function initWorkspaceStore(): void {
   }));
 }
 
-export function getActiveWorkspace(): WorkspaceEntry | undefined {
+function getActiveWorkspace(): WorkspaceEntry | undefined {
   return workspaceStore.state.workspaces.find((w) => w.id === workspaceStore.state.activeWorkspaceId);
 }
 
-export function getWorkspaces(): WorkspaceEntry[] {
+function getWorkspaces(): WorkspaceEntry[] {
   return workspaceStore.state.workspaces;
 }
 
-export function getConnectionState(workspaceId: string): ConnectionState | undefined {
+function getConnectionState(workspaceId: string): ConnectionState | undefined {
   return connectionStore.state.connections[workspaceId];
 }
 
-export function updateConnectionState(workspaceId: string, state: ConnectionState): void {
+function updateConnectionState(workspaceId: string, state: ConnectionState): void {
   connectionStore.setState((prev) => ({
     connections: { ...prev.connections, [workspaceId]: state },
   }));
 }
 
-export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): WorkspaceEntry {
+function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): WorkspaceEntry {
   const newEntry: WorkspaceEntry = {
     ...entry,
     id: entry.mode === "local" ? LOCAL_WORKSPACE_ID : generateWorkspaceId(),
@@ -70,7 +70,7 @@ export function addWorkspace(entry: Omit<WorkspaceEntry, "id" | "createdAt">): W
   return newEntry;
 }
 
-export async function removeWorkspace(
+async function removeWorkspace(
   id: string,
   revokeRemoteSession = false,
 ): Promise<{ localRemoved: boolean; remoteRevoked: boolean | null }> {
@@ -99,7 +99,7 @@ export async function removeWorkspace(
   return removal;
 }
 
-export function renameWorkspace(id: string, name: string): void {
+function renameWorkspace(id: string, name: string): void {
   workspaceStore.setState((prev) => ({
     ...prev,
     workspaces: prev.workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
@@ -107,7 +107,7 @@ export function renameWorkspace(id: string, name: string): void {
   persist();
 }
 
-export function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
+function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, "id" | "createdAt">>): void {
   workspaceStore.setState((prev) => ({
     ...prev,
     workspaces: prev.workspaces.map((workspace) => (workspace.id === id ? { ...workspace, ...patch } : workspace)),
@@ -115,7 +115,7 @@ export function updateWorkspace(id: string, patch: Partial<Omit<WorkspaceEntry, 
   persist();
 }
 
-export async function switchWorkspace(id: string): Promise<void> {
+async function switchWorkspace(id: string): Promise<void> {
   const target = workspaceStore.state.workspaces.find((w) => w.id === id);
   if (!target) return;
   if (id === workspaceStore.state.activeWorkspaceId) return;

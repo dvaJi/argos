@@ -50,12 +50,12 @@ export const logger = {
   },
 };
 
-export type ErrorRecoveryResult = {
+type ErrorRecoveryResult = {
   recovered: boolean;
   error?: string;
 };
 
-export async function withErrorRecovery<T>(
+async function withErrorRecovery<T>(
   operation: () => Promise<T>,
   options: {
     retries?: number;
@@ -87,7 +87,7 @@ export async function withErrorRecovery<T>(
   throw lastError;
 }
 
-export function loadJsonFile<T>(filePath: string, fallback: T): T {
+function loadJsonFile<T>(filePath: string, fallback: T): T {
   if (!existsSync(filePath)) {
     return fallback;
   }
@@ -99,7 +99,7 @@ export function loadJsonFile<T>(filePath: string, fallback: T): T {
   }
 }
 
-export function saveJsonFile(filePath: string, data: unknown): void {
+function saveJsonFile(filePath: string, data: unknown): void {
   mkdirSync(dirname(filePath), { recursive: true });
   writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
 }

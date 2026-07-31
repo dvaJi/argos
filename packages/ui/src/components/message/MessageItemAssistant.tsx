@@ -113,7 +113,7 @@ type HandleActionType =
   | "fork"
   | "trace";
 
-export interface MessageItemAssistantRef {
+interface MessageItemAssistantRef {
   handleAction: (action: HandleActionType) => void;
 }
 
@@ -139,7 +139,7 @@ interface MessageItemAssistantProps {
   onSwitchProvider?: () => void;
 }
 
-export const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssistantProps>((props, ref) => {
+const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssistantProps>((props, ref) => {
   const {
     message,
     isCapturingImage,

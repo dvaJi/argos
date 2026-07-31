@@ -6,7 +6,7 @@ import SystemPromptSettingsSection from "./prompt/SystemPromptSettingsSection";
 import CustomPromptSettingsSection from "./prompt/CustomPromptSettingsSection";
 import SettingsPageShell from "./control-center/SettingsPageShell";
 
-export interface PromptSettingHandle {
+interface PromptSettingHandle {
   importPrompts: () => void;
   exportPrompts: () => void;
 }

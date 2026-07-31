@@ -13,7 +13,7 @@ const dialogClient = createDialogClient();
 let unsubscribeDialogRequested: (() => void) | null = null;
 let timer: NodeJS.Timeout | null = null;
 
-export const dialogStore = new Store<DialogState>({
+const dialogStore = new Store<DialogState>({
   dialogRequest: null,
   showDialog: false,
   timeoutMilliseconds: 0,
@@ -54,7 +54,7 @@ const handleDialogError = async (id: string) => {
   }
 };
 
-export const handleResponse = async (response: DialogResponse) => {
+const handleResponse = async (response: DialogResponse) => {
   try {
     clearTimer();
     if (!dialogStore.state.dialogRequest) {
@@ -99,11 +99,11 @@ const handleDialogRequested = async (event: DialogRequest) => {
   }
 };
 
-export const setupDialogListener = () => {
+const setupDialogListener = () => {
   unsubscribeDialogRequested = dialogClient.onRequested(handleDialogRequested);
 };
 
-export const removeDialogListener = () => {
+const removeDialogListener = () => {
   clearTimer();
   unsubscribeDialogRequested?.();
   unsubscribeDialogRequested = null;

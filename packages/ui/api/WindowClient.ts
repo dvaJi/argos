@@ -99,4 +99,4 @@ export function createWindowClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type WindowClient = ReturnType<typeof createWindowClient>;
+type WindowClient = ReturnType<typeof createWindowClient>;

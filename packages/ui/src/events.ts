@@ -8,7 +8,7 @@
  */
 
 // Configuration-related events
-export const CONFIG_EVENTS = {
+const CONFIG_EVENTS = {
   PROVIDER_CHANGED: "config:provider-changed", // Replaces provider-setting-changed
   PROVIDER_ATOMIC_UPDATE: "config:provider-atomic-update", // Atomic update for a single provider
   PROVIDER_BATCH_UPDATE: "config:provider-batch-update", // Batch provider update
@@ -38,7 +38,7 @@ export const CONFIG_EVENTS = {
 };
 
 // Conversation-related events
-export const CONVERSATION_EVENTS = {
+const CONVERSATION_EVENTS = {
   LIST_UPDATED: "conversation:list-updated", // New: used to push the full conversation list
 
   ACTIVATED: "conversation:activated", // Replaces conversation-activated
@@ -56,7 +56,7 @@ export const STREAM_EVENTS = {
 };
 
 // App update-related events
-export const UPDATE_EVENTS = {
+const UPDATE_EVENTS = {
   STATUS_CHANGED: "update:status-changed", // Replaces update-status-changed
   ERROR: "update:error", // Replaces update-error
   PROGRESS: "update:progress", // Download progress
@@ -64,7 +64,7 @@ export const UPDATE_EVENTS = {
 };
 
 // Window-related events
-export const WINDOW_EVENTS = {
+const WINDOW_EVENTS = {
   READY_TO_SHOW: "window:ready-to-show", // Replaces main-window-ready-to-show
   FORCE_QUIT_APP: "window:force-quit-app", // Replaces force-quit-app
   APP_FOCUS: "app:focus",
@@ -93,11 +93,11 @@ export const DEV_EVENTS = {
 };
 
 // Ollama-related events
-export const OLLAMA_EVENTS = {
+const OLLAMA_EVENTS = {
   PULL_MODEL_PROGRESS: "ollama:pull-model-progress",
 };
 // MCP-related events
-export const MCP_EVENTS = {
+const MCP_EVENTS = {
   SERVER_STARTED: "mcp:server-started",
   SERVER_STOPPED: "mcp:server-stopped",
   CONFIG_CHANGED: "mcp:config-changed",
@@ -109,7 +109,7 @@ export const MCP_EVENTS = {
 };
 
 // Sync-related events
-export const SYNC_EVENTS = {
+const SYNC_EVENTS = {
   BACKUP_STARTED: "sync:backup-started",
   BACKUP_COMPLETED: "sync:backup-completed",
   BACKUP_ERROR: "sync:backup-error",
@@ -143,7 +143,7 @@ export const NOTIFICATION_EVENTS = {
   DATA_RESET_COMPLETE_DEV: "notification:data-reset-complete-dev", // Dev environment data reset complete notification
 };
 
-export const PROVIDER_DB_EVENTS = {
+const PROVIDER_DB_EVENTS = {
   LOADED: "provider-db:loaded",
   UPDATED: "provider-db:updated",
 };
@@ -161,12 +161,12 @@ export const SHORTCUT_EVENTS = {
 };
 
 // Thread view related events
-export const THREAD_VIEW_EVENTS = {
+const THREAD_VIEW_EVENTS = {
   TOGGLE: "thread-view:toggle",
 };
 
 // Tab-related events
-export const TAB_EVENTS = {
+const TAB_EVENTS = {
   TITLE_UPDATED: "tab:title-updated", // Tab title updated
   CONTENT_UPDATED: "tab:content-updated", // Tab content updated
   STATE_CHANGED: "tab:state-changed", // Tab state changed
@@ -176,7 +176,7 @@ export const TAB_EVENTS = {
 };
 
 // Yo Browser-related events
-export const YO_BROWSER_EVENTS = {
+const YO_BROWSER_EVENTS = {
   OPEN_REQUESTED: "yo-browser:open-requested",
   WINDOW_CREATED: "yo-browser:window-created",
   WINDOW_UPDATED: "yo-browser:window-updated",
@@ -187,7 +187,7 @@ export const YO_BROWSER_EVENTS = {
 };
 
 // Skills-related events
-export const SKILL_EVENTS = {
+const SKILL_EVENTS = {
   ACTIVATED: "skill:activated",
   DEACTIVATED: "skill:deactivated",
 };
@@ -198,7 +198,7 @@ export const SKILL_SYNC_EVENTS = {
 };
 
 // Floating button-related events
-export const FLOATING_BUTTON_EVENTS = {
+const FLOATING_BUTTON_EVENTS = {
   CLICKED: "floating-button:clicked", // Floating button clicked
   RIGHT_CLICKED: "floating-button:right-clicked", // Floating button right-clicked
   VISIBILITY_CHANGED: "floating-button:visibility-changed", // Floating button visibility changed
@@ -220,7 +220,7 @@ export const FLOATING_BUTTON_EVENTS = {
 };
 
 // Dialog-related events
-export const DIALOG_EVENTS = {
+const DIALOG_EVENTS = {
   REQUEST: "dialog:request", // Main process -> renderer: request to show dialog
   RESPONSE: "dialog:response", // Renderer -> main process: dialog result returned
 };
@@ -231,7 +231,7 @@ export const RAG_EVENTS = {
   FILE_PROGRESS: "rag:file-progress", // File progress updated
 };
 // New agent session events
-export const SESSION_EVENTS = {
+const SESSION_EVENTS = {
   LIST_UPDATED: "session:list-updated",
   ACTIVATED: "session:activated",
   DEACTIVATED: "session:deactivated",
@@ -241,7 +241,7 @@ export const SESSION_EVENTS = {
 };
 
 // System-related events
-export const SYSTEM_EVENTS = {
+const SYSTEM_EVENTS = {
   SYSTEM_THEME_UPDATED: "system:theme-updated",
 };
 
@@ -253,7 +253,7 @@ export const WORKSPACE_EVENTS = {
 };
 
 // ACP-specific workspace events
-export const ACP_WORKSPACE_EVENTS = {
+const ACP_WORKSPACE_EVENTS = {
   SESSION_MODES_READY: "acp-workspace:session-modes-ready", // Session modes available
   SESSION_COMMANDS_READY: "acp-workspace:session-commands-ready", // Session commands available
   SESSION_CONFIG_OPTIONS_READY: "acp-workspace:session-config-options-ready", // Session config options available

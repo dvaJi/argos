@@ -9,7 +9,7 @@ interface ModelConfigState {
 
 const modelClient = createModelClient();
 
-export const modelConfigStore = new Store<ModelConfigState>({
+const modelConfigStore = new Store<ModelConfigState>({
   cache: {},
 });
 
@@ -36,7 +36,7 @@ export const setModelConfig = async (modelId: string, providerId: string, config
   }));
 };
 
-export const resetModelConfig = async (modelId: string, providerId: string) => {
+const resetModelConfig = async (modelId: string, providerId: string) => {
   await modelClient.resetModelConfig(modelId, providerId);
   modelConfigStore.setState((prev) => {
     const next = { ...prev.cache };
@@ -45,19 +45,19 @@ export const resetModelConfig = async (modelId: string, providerId: string) => {
   });
 };
 
-export const getProviderModelConfigs = async (providerId: string) => {
+const getProviderModelConfigs = async (providerId: string) => {
   return await modelClient.getProviderModelConfigs(providerId);
 };
 
-export const hasUserModelConfig = async (modelId: string, providerId: string) => {
+const hasUserModelConfig = async (modelId: string, providerId: string) => {
   return await modelClient.hasUserModelConfig(modelId, providerId);
 };
 
-export const importConfigs = async (configs: Record<string, IModelConfig>, overwrite = false) => {
+const importConfigs = async (configs: Record<string, IModelConfig>, overwrite = false) => {
   await modelClient.importModelConfigs(configs, overwrite);
 };
 
-export const exportConfigs = async () => {
+const exportConfigs = async () => {
   return await modelClient.exportModelConfigs();
 };
 

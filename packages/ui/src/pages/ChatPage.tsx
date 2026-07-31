@@ -77,7 +77,7 @@ const MESSAGE_JUMP_RETRY_INTERVAL = 80;
 const MESSAGE_HIGHLIGHT_DURATION = 2000;
 const MAX_MESSAGE_JUMP_RETRIES = 8;
 
-export function ChatPage({ sessionId }: ChatPageProps) {
+function ChatPage({ sessionId }: ChatPageProps) {
   const { toast } = useToast();
   const uiSettingsStore = useUiSettingsStore();
   const sessionState = useStore(sessionStore);

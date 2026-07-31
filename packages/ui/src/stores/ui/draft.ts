@@ -80,7 +80,7 @@ export function toGenerationSettings(): Partial<SessionGenerationSettings> | und
   return Object.keys(settings).length > 0 ? settings : undefined;
 }
 
-export function toCreateInput(message: string): CreateSessionInput {
+function toCreateInput(message: string): CreateSessionInput {
   const s = draftStore.state;
   return {
     agentId: s.agentId,
@@ -95,7 +95,7 @@ export function toCreateInput(message: string): CreateSessionInput {
   };
 }
 
-export function updateGenerationSettings(settings: Partial<SessionGenerationSettings>): void {
+function updateGenerationSettings(settings: Partial<SessionGenerationSettings>): void {
   const updates: Record<string, unknown> = {};
 
   if (Object.prototype.hasOwnProperty.call(settings, "systemPrompt")) {
@@ -141,7 +141,7 @@ export function updateGenerationSettings(settings: Partial<SessionGenerationSett
   draftStore.setState((prev) => ({ ...prev, ...updates }));
 }
 
-export function resetGenerationSettings(): void {
+function resetGenerationSettings(): void {
   draftStore.setState((prev) => ({
     ...prev,
     systemPrompt: undefined,
@@ -160,7 +160,7 @@ export function resetGenerationSettings(): void {
   }));
 }
 
-export function reset(): void {
+function reset(): void {
   nextStartToken = 0;
   draftStore.setState(() => ({
     providerId: undefined,
@@ -187,13 +187,13 @@ export function reset(): void {
   }));
 }
 
-export function setPendingStartDeeplink(payload: Omit<StartDeeplinkPayload, "token">): StartDeeplinkPayload {
+function setPendingStartDeeplink(payload: Omit<StartDeeplinkPayload, "token">): StartDeeplinkPayload {
   const nextPayload: StartDeeplinkPayload = { ...payload, token: ++nextStartToken };
   draftStore.setState((prev) => ({ ...prev, pendingStartDeeplink: nextPayload }));
   return nextPayload;
 }
 
-export function clearPendingStartDeeplink(): void {
+function clearPendingStartDeeplink(): void {
   draftStore.setState((prev) => ({ ...prev, pendingStartDeeplink: null }));
 }
 

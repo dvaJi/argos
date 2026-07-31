@@ -1,4 +1,4 @@
-export interface ScrollInfo {
+interface ScrollInfo {
   viewportHeight: number;
   contentHeight: number;
   scrollTop: number;
@@ -14,7 +14,7 @@ export interface CaptureOptions {
   };
 }
 
-export interface WatermarkConfig {
+interface WatermarkConfig {
   isDark: boolean;
   version: string;
   texts: {

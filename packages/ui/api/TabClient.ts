@@ -50,4 +50,4 @@ export function createTabClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type TabClient = ReturnType<typeof createTabClient>;
+type TabClient = ReturnType<typeof createTabClient>;

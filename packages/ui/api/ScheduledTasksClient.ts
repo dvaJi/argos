@@ -82,4 +82,4 @@ export function createScheduledTasksClient(bridge: ArgosBridge = getArgosBridge(
   };
 }
 
-export type ScheduledTasksClient = ReturnType<typeof createScheduledTasksClient>;
+type ScheduledTasksClient = ReturnType<typeof createScheduledTasksClient>;

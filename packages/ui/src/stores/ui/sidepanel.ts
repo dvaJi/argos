@@ -68,7 +68,7 @@ export const sidepanelStore = new Store({
   sessionStates: {} as Record<string, WorkspaceSessionState>,
 });
 
-export const getNormalizedWidth = () => {
+const getNormalizedWidth = () => {
   const maxWidth = Math.min(960, Math.round(sidepanelStore.state.viewportWidth * 0.62));
   const minWidth = Math.min(420, maxWidth);
   const widthValue = Number(sidepanelStore.state.width);
@@ -76,20 +76,20 @@ export const getNormalizedWidth = () => {
   return Math.min(maxWidth, Math.max(minWidth, Math.round(widthValue)));
 };
 
-export const getNavWidth = () => clampNavWidth(sidepanelStore.state.navWidthStorage);
+const getNavWidth = () => clampNavWidth(sidepanelStore.state.navWidthStorage);
 
-export const setNavWidth = (nextWidth: number) => {
+const setNavWidth = (nextWidth: number) => {
   const clamped = clampNavWidth(nextWidth);
   persistToStorage(NAV_WIDTH_KEY, clamped);
   sidepanelStore.setState((prev) => ({ ...prev, navWidthStorage: clamped }));
 };
 
-export const setNavCollapsed = (collapsed: boolean) => {
+const setNavCollapsed = (collapsed: boolean) => {
   persistToStorage(NAV_COLLAPSED_KEY, collapsed);
   sidepanelStore.setState((prev) => ({ ...prev, navCollapsed: collapsed }));
 };
 
-export const toggleNavCollapsed = () => {
+const toggleNavCollapsed = () => {
   const next = !sidepanelStore.state.navCollapsed;
   persistToStorage(NAV_COLLAPSED_KEY, next);
   sidepanelStore.setState((prev) => ({ ...prev, navCollapsed: next }));
@@ -121,7 +121,7 @@ if (typeof window !== "undefined") {
   cleanupResize = () => window.removeEventListener("resize", handleResize);
 }
 
-export const disposeSidepanel = () => {
+const disposeSidepanel = () => {
   cleanupResize?.();
   cleanupResize = null;
 };
@@ -141,11 +141,11 @@ export const getSessionState = (sessionId: string | null | undefined): Workspace
   return sidepanelStore.state.sessionStates[sessionId] ?? createSessionState();
 };
 
-export const ensureAndGetSessionState = (sessionId: string): WorkspaceSessionState => {
+const ensureAndGetSessionState = (sessionId: string): WorkspaceSessionState => {
   return ensureSessionState(sessionId);
 };
 
-export const setWidth = (nextWidth: number) => {
+const setWidth = (nextWidth: number) => {
   const maxWidth = Math.min(960, Math.round(sidepanelStore.state.viewportWidth * 0.62));
   const minWidth = Math.min(420, maxWidth);
   const widthValue = Number(nextWidth);
@@ -159,7 +159,7 @@ export const setWidth = (nextWidth: number) => {
   sidepanelStore.setState((prev) => ({ ...prev, width: clamped }));
 };
 
-export const openWorkspace = (sessionId?: string | null) => {
+const openWorkspace = (sessionId?: string | null) => {
   if (sessionId) ensureSessionState(sessionId);
   sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "workspace" }));
 };
@@ -168,7 +168,7 @@ export const openBrowser = () => {
   sidepanelStore.setState((prev) => ({ ...prev, open: true, activeTab: "browser" }));
 };
 
-export const closePanel = () => {
+const closePanel = () => {
   sidepanelStore.setState((prev) => ({ ...prev, open: false }));
 };
 
@@ -191,7 +191,7 @@ export const setViewMode = (sessionId: string, mode: WorkspaceViewMode) => {
   }));
 };
 
-export const toggleSection = (sessionId: string, section: WorkspaceNavSection) => {
+const toggleSection = (sessionId: string, section: WorkspaceNavSection) => {
   ensureSessionState(sessionId);
   const current = sidepanelStore.state.sessionStates[sessionId];
   sidepanelStore.setState((prev) => ({
@@ -260,7 +260,7 @@ export const selectFile = (
   }
 };
 
-export const selectDiff = (sessionId: string, filePath: string, options?: { open?: boolean }) => {
+const selectDiff = (sessionId: string, filePath: string, options?: { open?: boolean }) => {
   ensureSessionState(sessionId);
   const current = sidepanelStore.state.sessionStates[sessionId];
   sidepanelStore.setState((prev) => ({
@@ -294,7 +294,7 @@ export const clearArtifact = (sessionId: string) => {
   }));
 };
 
-export const clearFile = (sessionId: string) => {
+const clearFile = (sessionId: string) => {
   ensureSessionState(sessionId);
   const current = sidepanelStore.state.sessionStates[sessionId];
   sidepanelStore.setState((prev) => ({
@@ -306,7 +306,7 @@ export const clearFile = (sessionId: string) => {
   }));
 };
 
-export const clearDiff = (sessionId: string) => {
+const clearDiff = (sessionId: string) => {
   ensureSessionState(sessionId);
   const current = sidepanelStore.state.sessionStates[sessionId];
   sidepanelStore.setState((prev) => ({

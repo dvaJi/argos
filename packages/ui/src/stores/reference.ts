@@ -8,7 +8,7 @@ interface ReferenceState {
   previewRect: DOMRect | undefined;
 }
 
-export const referenceStore = new Store<ReferenceState>({
+const referenceStore = new Store<ReferenceState>({
   currentReference: undefined,
   showPreview: false,
   previewRect: undefined,
@@ -32,7 +32,7 @@ export const hideReference = () => {
   }));
 };
 
-export function useReferenceStore() {
+function useReferenceStore() {
   const state = useStore(referenceStore);
   return {
     ...state,

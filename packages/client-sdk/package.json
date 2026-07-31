@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "@argos/shared": "workspace:*",
-    "@argos/shared-contracts": "workspace:*",
-    "zod": "catalog:"
+    "@argos/shared-contracts": "workspace:*"
   },
   "devDependencies": {
     "electron": "catalog:",

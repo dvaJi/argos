@@ -18,7 +18,7 @@ function stripAngleBrackets(value: string) {
   return trimmed;
 }
 
-export function normalizeSingleHttpUrl(value: string): string | null {
+function normalizeSingleHttpUrl(value: string): string | null {
   const candidate = stripAngleBrackets(value.split("\u0000").join(""));
 
   if (!candidate || /\s/.test(candidate) || /[<>]/.test(candidate) || !HTTP_URL_PATTERN.test(candidate)) {

@@ -125,4 +125,4 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type WorkspaceClient = ReturnType<typeof createWorkspaceClient>;
+type WorkspaceClient = ReturnType<typeof createWorkspaceClient>;

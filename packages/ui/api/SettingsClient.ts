@@ -108,4 +108,4 @@ export function createSettingsClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type SettingsClient = ReturnType<typeof createSettingsClient>;
+type SettingsClient = ReturnType<typeof createSettingsClient>;

@@ -11,8 +11,6 @@
   "dependencies": {
     "@argos/shared": "workspace:*",
     "@argos/shared-contracts": "workspace:*",
-    "@larksuiteoapi/node-sdk": "^1.71.0",
-    "nanoid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

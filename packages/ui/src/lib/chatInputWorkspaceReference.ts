@@ -1,6 +1,6 @@
 import { createFileClient } from "#api/FileClient";
 
-export const CHAT_INPUT_WORKSPACE_ITEM_MIME = "application/x-argos-workspace-item";
+const CHAT_INPUT_WORKSPACE_ITEM_MIME = "application/x-argos-workspace-item";
 
 export interface ChatInputWorkspaceItemDragPayload {
   path: string;

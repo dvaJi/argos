@@ -11,7 +11,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 
-export interface CommandInputField {
+interface CommandInputField {
   name: string;
   label: string;
   description?: string;

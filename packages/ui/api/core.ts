@@ -9,7 +9,7 @@ export function getArgosBridge(): ArgosBridge {
   return window.argos;
 }
 
-export async function invokeArgosRoute<T extends ArgosRouteName>(
+async function invokeArgosRoute<T extends ArgosRouteName>(
   routeName: T,
   input: ArgosRouteInput<T>,
 ): Promise<ArgosRouteOutput<T>> {

@@ -62,7 +62,7 @@ interface MessageItemUserProps {
   onEditSave?: (payload: { messageId: string; text: string }) => void;
 }
 
-export const MessageItemUser: FC<MessageItemUserProps> = ({
+const MessageItemUser: FC<MessageItemUserProps> = ({
   message,
   isReadOnly = false,
   onRetry,

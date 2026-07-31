@@ -19,28 +19,28 @@ let unsubscribeOllamaPullProgress: (() => void) | null = null;
 let unsubscribeModelsChanged: (() => void) | null = null;
 const runtimeSyncVersions = new Map<string, number>();
 
-export const ollamaStore = new Store<OllamaState>({
+const ollamaStore = new Store<OllamaState>({
   initializedProviderIds: new Set<string>(),
   runningModels: {},
   localModels: {},
   pullingProgress: {},
 });
 
-export const setRunningModels = (providerId: string, models: OllamaModel[]) => {
+const setRunningModels = (providerId: string, models: OllamaModel[]) => {
   ollamaStore.setState((prev) => ({
     ...prev,
     runningModels: { ...prev.runningModels, [providerId]: models },
   }));
 };
 
-export const setLocalModels = (providerId: string, models: OllamaModel[]) => {
+const setLocalModels = (providerId: string, models: OllamaModel[]) => {
   ollamaStore.setState((prev) => ({
     ...prev,
     localModels: { ...prev.localModels, [providerId]: models },
   }));
 };
 
-export const updatePullingProgress = (providerId: string, modelName: string, progress?: number) => {
+const updatePullingProgress = (providerId: string, modelName: string, progress?: number) => {
   ollamaStore.setState((prev) => {
     const current = prev.pullingProgress[providerId] ?? {};
     const next = { ...current };
@@ -60,13 +60,13 @@ export const updatePullingProgress = (providerId: string, modelName: string, pro
   });
 };
 
-export const getOllamaRunningModels = (providerId: string): OllamaModel[] =>
+const getOllamaRunningModels = (providerId: string): OllamaModel[] =>
   ollamaStore.state.runningModels[providerId] || [];
 
-export const getOllamaLocalModels = (providerId: string): OllamaModel[] =>
+const getOllamaLocalModels = (providerId: string): OllamaModel[] =>
   ollamaStore.state.localModels[providerId] || [];
 
-export const getOllamaPullingModels = (providerId: string): Record<string, number> =>
+const getOllamaPullingModels = (providerId: string): Record<string, number> =>
   ollamaStore.state.pullingProgress[providerId] || {};
 
 const getNextRuntimeSyncVersion = (providerId: string) => {
@@ -79,7 +79,7 @@ const isLatestRuntimeSync = (providerId: string, version: number) => {
   return runtimeSyncVersions.get(providerId) === version;
 };
 
-export const syncOllamaRuntimeModels = async (
+const syncOllamaRuntimeModels = async (
   providerId: string,
 ): Promise<{ running: OllamaModel[]; local: OllamaModel[] }> => {
   const version = getNextRuntimeSyncVersion(providerId);
@@ -101,7 +101,7 @@ export const syncOllamaRuntimeModels = async (
   return { running, local };
 };
 
-export const refreshOllamaModels = async (providerId: string): Promise<boolean> => {
+const refreshOllamaModels = async (providerId: string): Promise<boolean> => {
   setupOllamaEventListeners();
 
   try {
@@ -115,7 +115,7 @@ export const refreshOllamaModels = async (providerId: string): Promise<boolean> 
   }
 };
 
-export const pullOllamaModel = async (providerId: string, modelName: string) => {
+const pullOllamaModel = async (providerId: string, modelName: string) => {
   setupOllamaEventListeners();
 
   try {
@@ -132,7 +132,7 @@ export const pullOllamaModel = async (providerId: string, modelName: string) => 
   }
 };
 
-export const handleOllamaModelPullEvent = (data: Record<string, unknown>) => {
+const handleOllamaModelPullEvent = (data: Record<string, unknown>) => {
   if (data?.eventId !== "pullOllamaModels") return;
   const providerId = data.providerId as string;
   const modelName = data.modelName as string;
@@ -155,7 +155,7 @@ export const handleOllamaModelPullEvent = (data: Record<string, unknown>) => {
   }
 };
 
-export const setupOllamaEventListeners = () => {
+const setupOllamaEventListeners = () => {
   if (!unsubscribeModelsChanged && typeof modelClient.onModelsChanged === "function") {
     unsubscribeModelsChanged = modelClient.onModelsChanged(({ providerId }) => {
       if (!providerId) return;
@@ -172,14 +172,14 @@ export const setupOllamaEventListeners = () => {
   }
 };
 
-export const removeOllamaEventListeners = () => {
+const removeOllamaEventListeners = () => {
   unsubscribeOllamaPullProgress?.();
   unsubscribeModelsChanged?.();
   unsubscribeOllamaPullProgress = null;
   unsubscribeModelsChanged = null;
 };
 
-export const clearOllamaProviderData = (providerId: string) => {
+const clearOllamaProviderData = (providerId: string) => {
   ollamaStore.setState((prev) => {
     const nextRunning = { ...prev.runningModels };
     const nextLocal = { ...prev.localModels };
@@ -207,11 +207,11 @@ export const clearOllamaProviderData = (providerId: string) => {
   });
 };
 
-export const isOllamaModelRunning = (providerId: string, modelName: string): boolean => {
+const isOllamaModelRunning = (providerId: string, modelName: string): boolean => {
   return getOllamaRunningModels(providerId).some((m) => m.name === modelName);
 };
 
-export const isOllamaModelLocal = (providerId: string, modelName: string): boolean => {
+const isOllamaModelLocal = (providerId: string, modelName: string): boolean => {
   return getOllamaLocalModels(providerId).some((m) => m.name === modelName);
 };
 

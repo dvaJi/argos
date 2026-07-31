@@ -15,7 +15,7 @@ interface McpPromptPanelProps {
   onOpenChange: (value: boolean) => void;
 }
 
-export const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChange }) => {
+const McpPromptPanel: FC<McpPromptPanelProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
 
   const [selectedPrompt, setSelectedPrompt] = useState("");

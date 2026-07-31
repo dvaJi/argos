@@ -668,7 +668,7 @@ const _refreshAllModelsInternal = async (): Promise<boolean> => {
 let lastRefreshAllTime = 0;
 let refreshAllTimer: ReturnType<typeof setTimeout> | null = null;
 
-export const refreshAllModels = async (): Promise<boolean> => {
+const refreshAllModels = async (): Promise<boolean> => {
   const now = Date.now();
   if (now - lastRefreshAllTime >= 1000) {
     lastRefreshAllTime = now;
@@ -687,7 +687,7 @@ export const refreshAllModels = async (): Promise<boolean> => {
   return true;
 };
 
-export const getActiveEnabledModels = () => {
+const getActiveEnabledModels = () => {
   const activeProviderIds = new Set(providerStore.state.providers.filter((p) => p.enable).map((p) => p.id));
   return modelStore.state.enabledModels.filter((group) => activeProviderIds.has(group.providerId));
 };
@@ -768,7 +768,7 @@ const searchModels = (query: string) => {
     .filter((group) => group.models.length > 0);
 };
 
-export const updateLocalModelStatus = (providerId: string, modelId: string, enabled: boolean) => {
+const updateLocalModelStatus = (providerId: string, modelId: string, enabled: boolean) => {
   modelStore.setState((prev) => {
     const providerEntry = prev.allProviderModels.find((p) => p.providerId === providerId);
     const customEntry = prev.customModels.find((p) => p.providerId === providerId);
@@ -863,7 +863,7 @@ export const updateLocalModelStatus = (providerId: string, modelId: string, enab
   });
 };
 
-export const getLocalModelEnabledState = (providerId: string, modelId: string): boolean | null => {
+const getLocalModelEnabledState = (providerId: string, modelId: string): boolean | null => {
   const provider = modelStore.state.allProviderModels.find((p) => p.providerId === providerId);
   const providerModel = provider?.models.find((m) => m.id === modelId);
   if (providerModel) {
@@ -884,7 +884,7 @@ export const getLocalModelEnabledState = (providerId: string, modelId: string): 
   return null;
 };
 
-export const updateModelStatus = async (providerId: string, modelId: string, enabled: boolean) => {
+const updateModelStatus = async (providerId: string, modelId: string, enabled: boolean) => {
   const actionStart = getPerfNow();
   const previousState = getLocalModelEnabledState(providerId, modelId);
   const localUpdateStart = getPerfNow();
@@ -927,7 +927,7 @@ export const updateModelStatus = async (providerId: string, modelId: string, ena
   }
 };
 
-export const addCustomModel = async (
+const addCustomModel = async (
   providerId: string,
   model: Omit<RENDERER_MODEL_META, "providerId" | "isCustom" | "group">,
 ) => {
@@ -941,7 +941,7 @@ export const addCustomModel = async (
   }
 };
 
-export const removeCustomModel = async (providerId: string, modelId: string) => {
+const removeCustomModel = async (providerId: string, modelId: string) => {
   try {
     const success = await modelClient.removeCustomModel(providerId, modelId);
     if (success) {
@@ -954,7 +954,7 @@ export const removeCustomModel = async (providerId: string, modelId: string) => 
   }
 };
 
-export const updateCustomModel = async (
+const updateCustomModel = async (
   providerId: string,
   modelId: string,
   updates: Partial<RENDERER_MODEL_META> & { enabled?: boolean },
@@ -971,7 +971,7 @@ export const updateCustomModel = async (
   }
 };
 
-export const enableAllModels = async (providerId: string, models: RENDERER_MODEL_META[] = []): Promise<void> => {
+const enableAllModels = async (providerId: string, models: RENDERER_MODEL_META[] = []): Promise<void> => {
   const actionStart = getPerfNow();
   let previousStates: Map<string, boolean | null> | null = null;
   let updates: { modelId: string; enabled: boolean }[] = [];
@@ -1010,7 +1010,7 @@ export const enableAllModels = async (providerId: string, models: RENDERER_MODEL
   }
 };
 
-export const disableAllModels = async (providerId: string, models: RENDERER_MODEL_META[] = []): Promise<void> => {
+const disableAllModels = async (providerId: string, models: RENDERER_MODEL_META[] = []): Promise<void> => {
   const actionStart = getPerfNow();
   let previousStates: Map<string, boolean | null> | null = null;
   let updates: { modelId: string; enabled: boolean }[] = [];
@@ -1049,7 +1049,7 @@ export const disableAllModels = async (providerId: string, models: RENDERER_MODE
   }
 };
 
-export const findModelByIdOrName = (modelId: string): { model: RENDERER_MODEL_META; providerId: string } | null => {
+const findModelByIdOrName = (modelId: string): { model: RENDERER_MODEL_META; providerId: string } | null => {
   for (const providerModels of modelStore.state.enabledModels) {
     const model = providerModels.models.find((m) => m.id === modelId);
     if (model) {
@@ -1196,7 +1196,7 @@ const refreshMaterializedProviders = async () => {
   }
 };
 
-export const cleanup = () => {
+const cleanup = () => {
   removeModelListeners?.();
   removeModelListeners = null;
   modelStore.setState((prev) => ({
@@ -1267,7 +1267,7 @@ const ensureProviderModelsReady = async (providerId: string) => {
   await refreshProviderModels(providerId);
 };
 
-export async function addCustomModelMutation(
+async function addCustomModelMutation(
   providerId: string,
   model: Omit<RENDERER_MODEL_META, "providerId" | "isCustom" | "group">,
 ) {
@@ -1276,7 +1276,7 @@ export async function addCustomModelMutation(
   return result;
 }
 
-export async function removeCustomModelMutation(providerId: string, modelId: string) {
+async function removeCustomModelMutation(providerId: string, modelId: string) {
   const result = await modelClient.removeCustomModel(providerId, modelId);
   if (result) {
     await refreshCustomModels(providerId);
@@ -1284,7 +1284,7 @@ export async function removeCustomModelMutation(providerId: string, modelId: str
   return result;
 }
 
-export async function updateCustomModelMutation(
+async function updateCustomModelMutation(
   providerId: string,
   modelId: string,
   updates: Partial<RENDERER_MODEL_META> & { enabled?: boolean },

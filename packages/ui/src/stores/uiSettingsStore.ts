@@ -6,13 +6,13 @@ import { createSettingsClient } from "../../api/SettingsClient";
 
 const FONT_SIZE_CLASSES = ["text-sm", "text-base", "text-lg", "text-xl", "text-2xl"];
 const DEFAULT_FONT_SIZE_LEVEL = 1;
-export const AUTO_COMPACTION_TRIGGER_THRESHOLD_MIN = 5;
-export const AUTO_COMPACTION_TRIGGER_THRESHOLD_MAX = 95;
-export const AUTO_COMPACTION_TRIGGER_THRESHOLD_STEP = 5;
-export const AUTO_COMPACTION_TRIGGER_THRESHOLD_DEFAULT = 80;
-export const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MIN = 1;
-export const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MAX = 10;
-export const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_DEFAULT = 2;
+const AUTO_COMPACTION_TRIGGER_THRESHOLD_MIN = 5;
+const AUTO_COMPACTION_TRIGGER_THRESHOLD_MAX = 95;
+const AUTO_COMPACTION_TRIGGER_THRESHOLD_STEP = 5;
+const AUTO_COMPACTION_TRIGGER_THRESHOLD_DEFAULT = 80;
+const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MIN = 1;
+const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MAX = 10;
+const AUTO_COMPACTION_RETAIN_RECENT_PAIRS_DEFAULT = 2;
 
 const clampFontSizeLevel = (level: number) => Math.max(0, Math.min(level, FONT_SIZE_CLASSES.length - 1));
 
@@ -173,13 +173,13 @@ export const setAutoScrollEnabled = async (enabled: boolean) => {
   await updateSettings([{ key: "autoScrollEnabled", value: nextValue }]);
 };
 
-export const setAutoCompactionEnabled = async (enabled: boolean) => {
+const setAutoCompactionEnabled = async (enabled: boolean) => {
   const nextValue = Boolean(enabled);
   uiSettingsStore.setState((s) => ({ ...s, autoCompactionEnabled: nextValue }));
   await updateSettings([{ key: "autoCompactionEnabled", value: nextValue }]);
 };
 
-export const setAutoCompactionTriggerThreshold = async (threshold: number) => {
+const setAutoCompactionTriggerThreshold = async (threshold: number) => {
   const rounded =
     Math.round(threshold / AUTO_COMPACTION_TRIGGER_THRESHOLD_STEP) * AUTO_COMPACTION_TRIGGER_THRESHOLD_STEP;
   const nextValue = Math.min(
@@ -190,7 +190,7 @@ export const setAutoCompactionTriggerThreshold = async (threshold: number) => {
   await updateSettings([{ key: "autoCompactionTriggerThreshold", value: nextValue }]);
 };
 
-export const setAutoCompactionRetainRecentPairs = async (count: number) => {
+const setAutoCompactionRetainRecentPairs = async (count: number) => {
   const nextValue = Math.min(
     AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MAX,
     Math.max(AUTO_COMPACTION_RETAIN_RECENT_PAIRS_MIN, Math.round(count)),
@@ -199,7 +199,7 @@ export const setAutoCompactionRetainRecentPairs = async (count: number) => {
   await updateSettings([{ key: "autoCompactionRetainRecentPairs", value: nextValue }]);
 };
 
-export const setArtifactsEffectEnabled = async (enabled: boolean) => {
+const setArtifactsEffectEnabled = async (enabled: boolean) => {
   const nextValue = Boolean(enabled);
   uiSettingsStore.setState((s) => ({ ...s, artifactsEffectEnabled: nextValue }));
   await updateSettings([{ key: "artifactsEffectEnabled", value: nextValue }]);
@@ -253,12 +253,12 @@ const setupListeners = () => {
   });
 };
 
-export const initUiSettings = () => {
+const initUiSettings = () => {
   void loadSettings();
   setupListeners();
 };
 
-export const destroyUiSettings = () => {
+const destroyUiSettings = () => {
   unsubscribeFromSettings?.();
   unsubscribeFromSettings = null;
 };

@@ -1,11 +1,11 @@
 import { toast as sonnerToast } from "sonner";
 import type { ReactNode } from "react";
 
-export type StringOrVNode = ReactNode;
+type StringOrVNode = ReactNode;
 
-export type ToastVariant = "default" | "destructive";
+type ToastVariant = "default" | "destructive";
 
-export type ToastOptions = {
+type ToastOptions = {
   id?: string | number;
   title?: StringOrVNode;
   description?: StringOrVNode;
@@ -14,7 +14,7 @@ export type ToastOptions = {
   onOpenChange?: (open: boolean) => void;
 };
 
-export type ToastInput = Omit<ToastOptions, "id">;
+type ToastInput = Omit<ToastOptions, "id">;
 
 const buildSonnerOptions = (options: ToastOptions) => ({
   id: options.id,

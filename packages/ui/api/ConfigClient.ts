@@ -640,4 +640,4 @@ export function createConfigClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type ConfigClient = ReturnType<typeof createConfigClient>;
+type ConfigClient = ReturnType<typeof createConfigClient>;

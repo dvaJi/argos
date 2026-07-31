@@ -12,7 +12,7 @@ interface SkillSelectorProps {
   onSelectedSkillsChange: (value: string[]) => void;
 }
 
-export const SkillSelector: FC<SkillSelectorProps> = ({
+const SkillSelector: FC<SkillSelectorProps> = ({
   skills,
   selectedSkills,
   conflicts,

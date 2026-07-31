@@ -105,7 +105,7 @@ const EXTENSION_MIME: Record<string, string> = {
   class: "application/octet-stream",
 };
 
-export function isTextLikeMime(mimeType: string): boolean {
+function isTextLikeMime(mimeType: string): boolean {
   return mimeType.startsWith("text/") || TEXT_LIKE_MIMES.has(mimeType);
 }
 
@@ -129,7 +129,7 @@ function sniffMagicMime(filePath: string): string | null {
   return null;
 }
 
-export function detectMimeType(filePath: string): string {
+function detectMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase().replace(/^\./, "");
   const magic = sniffMagicMime(filePath);
   if (magic) return magic;
@@ -137,7 +137,7 @@ export function detectMimeType(filePath: string): string {
   return "application/octet-stream";
 }
 
-export function isLikelyTextFile(filePath: string, bytesToRead = 1024): boolean {
+function isLikelyTextFile(filePath: string, bytesToRead = 1024): boolean {
   let fd: number | undefined;
   try {
     fd = fs.openSync(filePath, "r");

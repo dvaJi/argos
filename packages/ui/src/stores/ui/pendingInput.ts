@@ -7,7 +7,7 @@ const MAX_PENDING_INPUTS = 5;
 
 const sessionClient = createSessionClient();
 
-export const pendingInputStore = new Store({
+const pendingInputStore = new Store({
   currentSessionId: null as string | null,
   items: [] as PendingSessionInputRecord[],
   loading: false,
@@ -21,7 +21,7 @@ export const queueItems = () =>
     .filter((item) => item.mode === "queue")
     .sort((left, right) => (left.queueOrder ?? 0) - (right.queueOrder ?? 0));
 
-export const activeCount = () => queueItems().length;
+const activeCount = () => queueItems().length;
 
 export const isAtCapacity = () => activeCount() >= MAX_PENDING_INPUTS;
 
@@ -104,7 +104,7 @@ export async function moveQueueInput(sessionId: string, itemId: string, toIndex:
   }
 }
 
-export async function convertToSteer(sessionId: string, itemId: string): Promise<void> {
+async function convertToSteer(sessionId: string, itemId: string): Promise<void> {
   pendingInputStore.setState((prev) => ({ ...prev, error: null }));
   try {
     const updated = await sessionClient.convertPendingInputToSteer(sessionId, itemId);
@@ -173,10 +173,10 @@ const pendingInputsHandler = (payload: { sessionId: string; version: number }) =
 
 const unsubscribePendingInputs = sessionClient.onPendingInputsChanged(pendingInputsHandler);
 
-export const disposePendingInputListeners = () => {
+const disposePendingInputListeners = () => {
   unsubscribePendingInputs();
 };
 
-export function usePendingInputStore() {
+function usePendingInputStore() {
   return useStore(pendingInputStore);
 }

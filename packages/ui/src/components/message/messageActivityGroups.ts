@@ -56,7 +56,7 @@ const isEmptyReasoningBlock = (block: DisplayAssistantMessageBlock): boolean =>
   (block.type === "reasoning_content" || block.type === "artifact-thinking") &&
   (typeof block.content !== "string" || block.content.trim().length === 0);
 
-export const isCompletedActivityBlock = (block: DisplayAssistantMessageBlock): boolean => {
+const isCompletedActivityBlock = (block: DisplayAssistantMessageBlock): boolean => {
   if (!ACTIVITY_BLOCK_TYPES.has(block.type)) {
     return false;
   }

@@ -245,7 +245,7 @@ const startEnabledServers = async () => {
   }
 };
 
-export const updateAllServerStatuses = async () => {
+const updateAllServerStatuses = async () => {
   for (const serverName of Object.keys(mcpStore.state.config.mcpServers)) {
     await updateServerStatus(serverName, true);
   }
@@ -253,7 +253,7 @@ export const updateAllServerStatuses = async () => {
   await Promise.all([loadTools(), loadClients()]);
 };
 
-export const updateServerStatus = async (serverName: string, noRefresh = false) => {
+const updateServerStatus = async (serverName: string, noRefresh = false) => {
   try {
     const serverConfig = mcpStore.state.config.mcpServers[serverName];
     if (!mcpStore.state.config.mcpEnabled && !isPluginOwnedServerConfig(serverConfig)) {
@@ -324,7 +324,7 @@ export const loadTools = async () => {
   }
 };
 
-export const loadClients = async () => {
+const loadClients = async () => {
   if (!mcpStore.state.config.ready) return;
   try {
     const clients = (await mcpClient.getMcpClients()) ?? [];
@@ -346,7 +346,7 @@ export const loadPrompts = async () => {
   }
 };
 
-export const loadResources = async () => {
+const loadResources = async () => {
   if (!mcpStore.state.config.ready) return;
   try {
     const resources = (await mcpClient.getAllResources()) ?? [];
@@ -356,7 +356,7 @@ export const loadResources = async () => {
   }
 };
 
-export const setMcpEnabled = async (enabled: boolean) => {
+const setMcpEnabled = async (enabled: boolean) => {
   try {
     mcpStore.setState((s) => ({
       ...s,
@@ -411,7 +411,7 @@ export const setMcpEnabled = async (enabled: boolean) => {
   }
 };
 
-export const addServer = async (serverName: string, serverConfig: MCPServerConfig) => {
+const addServer = async (serverName: string, serverConfig: MCPServerConfig) => {
   try {
     const success = await mcpClient.addMcpServer(serverName, serverConfig);
     if (success) {
@@ -425,7 +425,7 @@ export const addServer = async (serverName: string, serverConfig: MCPServerConfi
   }
 };
 
-export const updateServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
+const updateServer = async (serverName: string, serverConfig: Partial<MCPServerConfig>) => {
   try {
     await mcpClient.updateMcpServer(serverName, serverConfig);
     await loadConfig();
@@ -436,7 +436,7 @@ export const updateServer = async (serverName: string, serverConfig: Partial<MCP
   }
 };
 
-export const removeServer = async (serverName: string) => {
+const removeServer = async (serverName: string) => {
   try {
     await mcpClient.removeMcpServer(serverName);
     await loadConfig();
@@ -447,7 +447,7 @@ export const removeServer = async (serverName: string) => {
   }
 };
 
-export const toggleServer = async (serverName: string) => {
+const toggleServer = async (serverName: string) => {
   if (mcpStore.state.serverLoadingStates[serverName]) return false;
 
   const serverConfig = mcpStore.state.config.mcpServers[serverName];
@@ -506,7 +506,7 @@ export const toggleServer = async (serverName: string) => {
   }
 };
 
-export const setServerRunning = async (
+const setServerRunning = async (
   serverName: string,
   shouldRun: boolean,
 ): Promise<{ success: boolean; error?: string }> => {
@@ -560,7 +560,7 @@ export const setServerRunning = async (
   }
 };
 
-export const updateToolInput = (toolName: string, paramName: string, value: string) => {
+const updateToolInput = (toolName: string, paramName: string, value: string) => {
   const current = mcpStore.state.toolInputs[toolName] ?? {};
   mcpStore.setState((s) => ({
     ...s,
@@ -571,7 +571,7 @@ export const updateToolInput = (toolName: string, paramName: string, value: stri
 type CallToolRequest = Parameters<(typeof mcpClient)["callTool"]>[0];
 type CallToolResult = Awaited<ReturnType<(typeof mcpClient)["callTool"]>>;
 
-export const callTool = async (toolName: string): Promise<CallToolResult> => {
+const callTool = async (toolName: string): Promise<CallToolResult> => {
   mcpStore.setState((s) => ({
     ...s,
     toolLoadingStates: { ...s.toolLoadingStates, [toolName]: true },
@@ -682,7 +682,7 @@ export const getPrompt = async (prompt: PromptListEntry, args?: Record<string, u
   }
 };
 
-export const readResource = async (resource: ResourceListEntry): Promise<Resource> => {
+const readResource = async (resource: ResourceListEntry): Promise<Resource> => {
   if (!mcpStore.state.config.mcpEnabled && !isPluginOwnedServerName(resource.client?.name))
     throw new Error("MCP is disabled");
   try {
@@ -748,7 +748,7 @@ const initEvents = () => {
   });
 };
 
-export const initMcp = async () => {
+const initMcp = async () => {
   initEvents();
   await loadEnabledToolNames();
   await loadConfig();
@@ -760,37 +760,37 @@ export const initMcp = async () => {
   }
 };
 
-export const getNpmRegistryStatus = async () => {
+const getNpmRegistryStatus = async () => {
   return await mcpClient.getNpmRegistryStatus();
 };
 
-export const refreshNpmRegistry = async (): Promise<string> => {
+const refreshNpmRegistry = async (): Promise<string> => {
   return await mcpClient.refreshNpmRegistry();
 };
 
-export const setCustomNpmRegistry = async (registry: string | undefined): Promise<void> => {
+const setCustomNpmRegistry = async (registry: string | undefined): Promise<void> => {
   await mcpClient.setCustomNpmRegistry(registry);
 };
 
-export const setAutoDetectNpmRegistry = async (enabled: boolean): Promise<void> => {
+const setAutoDetectNpmRegistry = async (enabled: boolean): Promise<void> => {
   await mcpClient.setAutoDetectNpmRegistry(enabled);
 };
 
-export const clearNpmRegistryCache = async (): Promise<void> => {
+const clearNpmRegistryCache = async (): Promise<void> => {
   await mcpClient.clearNpmRegistryCache();
 };
 
-export const setMcpInstallCache = (value: string | null) => {
+const setMcpInstallCache = (value: string | null) => {
   mcpStore.setState((s) => ({ ...s, mcpInstallCache: value }));
 };
 
-export const clearMcpInstallCache = () => {
+const clearMcpInstallCache = () => {
   mcpStore.setState((s) => ({ ...s, mcpInstallCache: null }));
 };
 
-export const isToolEnabled = (toolName: string): boolean => mcpStore.state.enabledToolNames.includes(toolName);
+const isToolEnabled = (toolName: string): boolean => mcpStore.state.enabledToolNames.includes(toolName);
 
-export const setToolEnabled = async (toolName: string, enabled: boolean): Promise<void> => {
+const setToolEnabled = async (toolName: string, enabled: boolean): Promise<void> => {
   const current = mcpStore.state.enabledToolNames;
   if (enabled) {
     await setEnabledToolNames([...current, toolName]);
@@ -801,25 +801,25 @@ export const setToolEnabled = async (toolName: string, enabled: boolean): Promis
 
 export const getVisibleTools = () => mcpStore.state.tools.filter((tool) => isVisibleServerName(tool.server.name));
 
-export const getPluginTools = () => mcpStore.state.tools.filter((tool) => isPluginOwnedServerName(tool.server.name));
+const getPluginTools = () => mcpStore.state.tools.filter((tool) => isPluginOwnedServerName(tool.server.name));
 
-export const getVisibleResources = () =>
+const getVisibleResources = () =>
   mcpStore.state.resources.filter((resource) => isVisibleServerName(resource.client.name));
 
-export const getVisiblePrompts = () =>
+const getVisiblePrompts = () =>
   mcpStore.state.prompts.filter((prompt) => isVisibleServerName(prompt.client?.name));
 
-export const getToolsLoading = () => (mcpStore.state.config.mcpEnabled ? mcpStore.state.toolsLoading : false);
+const getToolsLoading = () => (mcpStore.state.config.mcpEnabled ? mcpStore.state.toolsLoading : false);
 
-export const getToolsError = () => mcpStore.state.toolsError;
+const getToolsError = () => mcpStore.state.toolsError;
 
-export const getToolsErrorMessage = () => mcpStore.state.toolsErrorMessage;
+const getToolsErrorMessage = () => mcpStore.state.toolsErrorMessage;
 
-export const getServerError = (serverName: string) => mcpStore.state.serverErrors[serverName];
+const getServerError = (serverName: string) => mcpStore.state.serverErrors[serverName];
 
-export const getMcpEnabled = () => mcpStore.state.config.mcpEnabled;
+const getMcpEnabled = () => mcpStore.state.config.mcpEnabled;
 
-export const getAllServerList = () => {
+const getAllServerList = () => {
   const { config, serverStatuses, serverLoadingStates, serverErrors } = mcpStore.state;
   const servers = Object.entries(config.mcpServers ?? {}).map(([name, serverConfig]) => ({
     name,
@@ -838,9 +838,9 @@ export const getAllServerList = () => {
   });
 };
 
-export const getServerList = () => getAllServerList().filter((server) => !isPluginOwnedServerConfig(server));
+const getServerList = () => getAllServerList().filter((server) => !isPluginOwnedServerConfig(server));
 
-export const getPluginServerList = () => getAllServerList().filter(isPluginOwnedServerConfig);
+const getPluginServerList = () => getAllServerList().filter(isPluginOwnedServerConfig);
 
 export const getEnabledServers = () =>
   mcpStore.state.config.mcpEnabled ? getServerList().filter((server) => server.enabled) : [];
@@ -849,9 +849,9 @@ export const getEnabledPluginServers = () => getPluginServerList().filter((serve
 
 export const getEnabledServerCount = () => getEnabledServers().length;
 
-export const getToolCount = () => getVisibleTools().length;
+const getToolCount = () => getVisibleTools().length;
 
-export const getHasTools = () => getToolCount() > 0;
+const getHasTools = () => getToolCount() > 0;
 
 export function useMcpStore() {
   const state = useStore(mcpStore);

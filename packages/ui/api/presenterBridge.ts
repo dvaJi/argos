@@ -21,11 +21,11 @@ export function useRemoteControlPresenter(options?: PresenterOptions): IRemoteCo
   return useRemoteControlPresenterTransport(options);
 }
 
-export function getRemoteControlPresenter(options?: PresenterOptions): IRemoteControlPresenter {
+function getRemoteControlPresenter(options?: PresenterOptions): IRemoteControlPresenter {
   return getRemoteControlPresenterTransport(options);
 }
 
-export function useShortcutPresenter(options?: PresenterOptions) {
+function useShortcutPresenter(options?: PresenterOptions) {
   return usePresenter("shortcutPresenter", options);
 }
 

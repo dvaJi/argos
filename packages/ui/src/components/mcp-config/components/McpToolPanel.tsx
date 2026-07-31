@@ -27,7 +27,7 @@ interface McpToolPanelProps {
   onOpenChange: (value: boolean) => void;
 }
 
-export const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange }) => {
+const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange }) => {
   const mcpStore = useMcpStore();
 
   const [selectedTool, setSelectedTool] = useState<MCPToolDefinition | null>(null);

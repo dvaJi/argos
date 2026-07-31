@@ -147,7 +147,7 @@ function reuseStableAssistantBlocks(
   );
 }
 
-export function getAssistantMessageBlocks(record: ChatMessageRecord): DisplayAssistantMessageBlock[] {
+function getAssistantMessageBlocks(record: ChatMessageRecord): DisplayAssistantMessageBlock[] {
   const entry = getParsedEntry(record);
   if (entry.assistantBlocks) {
     return entry.assistantBlocks;
@@ -165,7 +165,7 @@ export function getAssistantMessageBlocks(record: ChatMessageRecord): DisplayAss
   return entry.assistantBlocks;
 }
 
-export function getUserMessageContent(record: ChatMessageRecord): DisplayUserMessageContent {
+function getUserMessageContent(record: ChatMessageRecord): DisplayUserMessageContent {
   const entry = getParsedEntry(record);
   if (entry.userContent) {
     return entry.userContent;
@@ -199,7 +199,7 @@ export function getUserMessageContent(record: ChatMessageRecord): DisplayUserMes
   return entry.userContent;
 }
 
-export function getMessageMetadata(record: ChatMessageRecord): MessageMetadata {
+function getMessageMetadata(record: ChatMessageRecord): MessageMetadata {
   const entry = getParsedEntry(record);
   if (entry.parsedMetadata) {
     return entry.parsedMetadata;
@@ -338,7 +338,7 @@ export async function loadMessages(sessionId: string, desiredCountOverride?: num
   }
 }
 
-export async function loadOlderMessages(): Promise<number> {
+async function loadOlderMessages(): Promise<number> {
   if (
     !messageStore.state.currentSessionId ||
     !messageStore.state.hasMoreHistory ||
@@ -388,13 +388,13 @@ export async function loadOlderMessages(): Promise<number> {
   }
 }
 
-export async function getMessage(id: string): Promise<ChatMessageRecord | null> {
+async function getMessage(id: string): Promise<ChatMessageRecord | null> {
   const cached = messageCache.get(id);
   if (cached) return cached;
   return null;
 }
 
-export function addOptimisticUserMessage(sessionId: string, text: string, files: MessageFile[] = []): void {
+function addOptimisticUserMessage(sessionId: string, text: string, files: MessageFile[] = []): void {
   const id = `__optimistic_user_${Date.now()}`;
   const record: ChatMessageRecord = {
     id,
@@ -413,7 +413,7 @@ export function addOptimisticUserMessage(sessionId: string, text: string, files:
   messageStore.setState((prev) => ({ ...prev, messageIds: [...prev.messageIds, id] }));
 }
 
-export function clear(): void {
+function clear(): void {
   latestLoadRequestId += 1;
   latestHistoryRequestId += 1;
   setCurrentSessionId(null);
@@ -438,7 +438,7 @@ function isEphemeralStreamMessageId(messageId: string): boolean {
   return EPHEMERAL_STREAM_MESSAGE_PREFIXES.some((prefix) => messageId.startsWith(prefix));
 }
 
-export function applyStreamingBlocksToMessage(
+function applyStreamingBlocksToMessage(
   messageId: string,
   conversationId: string,
   blocks: AssistantMessageBlock[],
@@ -488,7 +488,7 @@ const cleanupIpc = bindMessageStoreIpc({
   isEphemeralStreamMessageId,
 });
 
-export function cleanupMessageStore(): void {
+function cleanupMessageStore(): void {
   cleanupIpc();
 }
 

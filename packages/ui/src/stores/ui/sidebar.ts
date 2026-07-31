@@ -9,7 +9,7 @@ export const toggleSidebar = () => {
   sidebarStore.setState((prev) => ({ ...prev, collapsed: !prev.collapsed }));
 };
 
-export const setCollapsed = (value: boolean) => {
+const setCollapsed = (value: boolean) => {
   sidebarStore.setState((prev) => ({ ...prev, collapsed: value }));
 };
 

@@ -51,19 +51,19 @@ export const initTheme = async () => {
   setupThemeListeners();
 };
 
-export const setThemeMode = async (mode: ThemeMode) => {
+const setThemeMode = async (mode: ThemeMode) => {
   const isDarkMode = await configClient.setTheme(mode);
   applyDarkClass(isDarkMode);
   themeStore.setState((s) => ({ ...s, isDark: isDarkMode, themeMode: mode }));
 };
 
-export const cycleTheme = async () => {
+const cycleTheme = async () => {
   if (themeStore.state.themeMode === "light") await setThemeMode("dark");
   else if (themeStore.state.themeMode === "dark") await setThemeMode("system");
   else await setThemeMode("light");
 };
 
-export const toggleDark = (isDark?: boolean) => {
+const toggleDark = (isDark?: boolean) => {
   const next = isDark ?? !themeStore.state.isDark;
   applyDarkClass(next);
   themeStore.setState((s) => ({ ...s, isDark: next }));

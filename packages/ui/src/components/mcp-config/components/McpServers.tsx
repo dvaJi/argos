@@ -444,4 +444,3 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
 
 McpServers.displayName = "McpServers";
 
-export default McpServers;

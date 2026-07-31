@@ -49,6 +49,6 @@ export function createDaemonAcpPorts(deps: {
 }
 
 /** Resolve the daemon registry root (used by AcpLaunchSpecService). */
-export function daemonRegistryRoot(dataDir: string): string {
+function daemonRegistryRoot(dataDir: string): string {
   return path.join(dataDir, "acp-registry");
 }

@@ -25,7 +25,7 @@ import { initialize as initializeOllama } from "#/stores/ollamaStore";
 import { useStartupWorkloadStore } from "#/stores/startupWorkloadStore";
 import { markStartupInteractive, scheduleStartupDeferredTask } from "#/lib/startupDeferred";
 
-export function ChatTabView() {
+function ChatTabView() {
   const pageState = useStore(pageRouterStore);
   const sessionState = useStore(sessionStore);
   const agentState = useStore(agentStore);

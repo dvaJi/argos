@@ -35,4 +35,4 @@ export function createProjectClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type ProjectClient = ReturnType<typeof createProjectClient>;
+type ProjectClient = ReturnType<typeof createProjectClient>;

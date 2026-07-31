@@ -85,7 +85,7 @@ const CodeBlockNode: FC<{
   );
 };
 
-export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
+const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block }) => {
   const themeStore = useThemeStore();
   const deviceClient = createDeviceClient();
 
@@ -582,6 +582,6 @@ export const MessageBlockToolCallBase: FC<MessageBlockToolCallProps> = ({ block 
   );
 };
 
-export const MessageBlockToolCall = memo(MessageBlockToolCallBase);
+const MessageBlockToolCall = memo(MessageBlockToolCallBase);
 
 export default MessageBlockToolCall;

@@ -134,4 +134,4 @@ export function createSyncClient(bridge: ArgosBridge = getArgosBridge()) {
   };
 }
 
-export type SyncClient = ReturnType<typeof createSyncClient>;
+type SyncClient = ReturnType<typeof createSyncClient>;

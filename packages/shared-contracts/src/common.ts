@@ -225,8 +225,6 @@ export const SessionListItemSchema = SessionWithStateSchema.omit({
   modelId: true,
 });
 
-export const ActiveSessionSummarySchema = SessionWithStateSchema;
-
 export const SessionPageCursorSchema = zod.object({
   updatedAt: TimestampMsSchema,
   id: EntityIdSchema,

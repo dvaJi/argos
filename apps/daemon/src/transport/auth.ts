@@ -39,7 +39,7 @@ function clearFailures(ip: string): void {
   failedAttempts.delete(ip);
 }
 
-export function isLocalRequest(request: Request): boolean {
+function isLocalRequest(request: Request): boolean {
   const url = new URL(request.url);
   return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
 }

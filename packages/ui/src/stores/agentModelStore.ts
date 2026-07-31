@@ -20,7 +20,7 @@ const buildProcessKey = (providerId: string, agentId: string) => `${providerId}$
 
 const configClient = createConfigClient();
 
-export const agentModelStore = new Store<AgentModelState>({
+const agentModelStore = new Store<AgentModelState>({
   agentModels: {},
   sessionStatus: {},
   processStatus: {},
@@ -86,17 +86,17 @@ export const refreshAgentModels = async (providerId: string): Promise<AgentModel
   return { rendererModels, modelMetas };
 };
 
-export const getSessionStatus = (conversationId: string): AgentSessionState | null =>
+const getSessionStatus = (conversationId: string): AgentSessionState | null =>
   agentModelStore.state.sessionStatus[conversationId] ?? null;
 
-export const upsertSessionStatus = (session: AgentSessionState) => {
+const upsertSessionStatus = (session: AgentSessionState) => {
   agentModelStore.setState((prev) => ({
     ...prev,
     sessionStatus: { ...prev.sessionStatus, [session.conversationId]: session },
   }));
 };
 
-export const removeSessionStatus = (conversationId: string) => {
+const removeSessionStatus = (conversationId: string) => {
   if (!agentModelStore.state.sessionStatus[conversationId]) return;
   agentModelStore.setState((prev) => {
     const next = { ...prev.sessionStatus };
@@ -105,7 +105,7 @@ export const removeSessionStatus = (conversationId: string) => {
   });
 };
 
-export const clearSessions = (providerId?: string) => {
+const clearSessions = (providerId?: string) => {
   if (!providerId) {
     agentModelStore.setState((prev) => ({ ...prev, sessionStatus: {} }));
     return;
@@ -118,10 +118,10 @@ export const clearSessions = (providerId?: string) => {
   }));
 };
 
-export const getProcessStatus = (providerId: string, agentId: string): AgentProcessHandle | null =>
+const getProcessStatus = (providerId: string, agentId: string): AgentProcessHandle | null =>
   agentModelStore.state.processStatus[buildProcessKey(providerId, agentId)] ?? null;
 
-export const upsertProcessStatus = (handle: AgentProcessHandle) => {
+const upsertProcessStatus = (handle: AgentProcessHandle) => {
   agentModelStore.setState((prev) => ({
     ...prev,
     processStatus: {
@@ -131,7 +131,7 @@ export const upsertProcessStatus = (handle: AgentProcessHandle) => {
   }));
 };
 
-export const clearProcesses = (providerId?: string) => {
+const clearProcesses = (providerId?: string) => {
   if (!providerId) {
     agentModelStore.setState((prev) => ({ ...prev, processStatus: {} }));
     return;
@@ -144,6 +144,6 @@ export const clearProcesses = (providerId?: string) => {
   }));
 };
 
-export const clearAll = () => {
+const clearAll = () => {
   agentModelStore.setState((prev) => ({ ...prev, agentModels: {}, sessionStatus: {}, processStatus: {} }));
 };

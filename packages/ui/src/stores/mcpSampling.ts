@@ -39,7 +39,7 @@ export interface McpSamplingDeps {
 
 let deps: McpSamplingDeps | null = null;
 
-export const registerMcpSamplingDeps = (d: McpSamplingDeps) => {
+const registerMcpSamplingDeps = (d: McpSamplingDeps) => {
   deps = d;
 };
 
@@ -48,7 +48,7 @@ const requireDeps = (): McpSamplingDeps => {
   return deps;
 };
 
-export const resolveSamplingDefaultModel = (input: {
+const resolveSamplingDefaultModel = (input: {
   modelGroups: Array<{ providerId: string; models: RENDERER_MODEL_META[] }>;
   requiresVision: boolean;
   activeSelection?: ChatModelSelection | null;
@@ -64,7 +64,7 @@ export const resolveSamplingDefaultModel = (input: {
     : { providerId: null, model: null };
 };
 
-export const mcpSamplingStore = new Store({
+const mcpSamplingStore = new Store({
   request: null as McpSamplingRequestPayload | null,
   isOpen: false,
   isSubmitting: false,
@@ -79,7 +79,7 @@ export const getRequiresVision = () => mcpSamplingStore.state.request?.requiresV
 
 export const getSelectedModelSupportsVision = () => mcpSamplingStore.state.selectedModel?.vision ?? false;
 
-export const getSelectedProviderLabel = () => {
+const getSelectedProviderLabel = () => {
   const { selectedProviderId } = mcpSamplingStore.state;
   if (!selectedProviderId) return null;
   const d = requireDeps();
@@ -87,7 +87,7 @@ export const getSelectedProviderLabel = () => {
   return provider?.name ?? selectedProviderId;
 };
 
-export const getIsModelSelectionReady = () => {
+const getIsModelSelectionReady = () => {
   const d = requireDeps();
   return (
     d.modelStore.initialized &&
@@ -325,7 +325,7 @@ export const selectModel = (model: RENDERER_MODEL_META, providerId: string) => {
   }));
 };
 
-export const submitDecision = async (decision: McpSamplingDecision) => {
+const submitDecision = async (decision: McpSamplingDecision) => {
   const { request } = mcpSamplingStore.state;
   if (!request) return;
 
@@ -399,13 +399,13 @@ const handleSamplingDecision = (payload: { decision: unknown }) => {
     clearRequest();
 };
 
-export const initMcpSampling = () => {
+const initMcpSampling = () => {
   eventCleanups.push(mcpClient.onSamplingRequest(handleSamplingRequest));
   eventCleanups.push(mcpClient.onSamplingCancelled(handleSamplingCancelled));
   eventCleanups.push(mcpClient.onSamplingDecision(handleSamplingDecision));
 };
 
-export const cleanupMcpSampling = () => {
+const cleanupMcpSampling = () => {
   while (eventCleanups.length > 0) {
     eventCleanups.pop()?.();
   }

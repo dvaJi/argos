@@ -45,7 +45,7 @@ const formatJsonHeaders = (headers: Record<string, string>): string =>
 
 const createArgsRows = (values: string[]) => values.map((value) => ({ id: nanoid(), value }));
 
-export const McpServerForm: FC<McpServerFormProps> = ({
+const McpServerForm: FC<McpServerFormProps> = ({
   serverName: serverNameProp,
   initialConfig,
   editMode = false,

@@ -1,44 +1,103 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
     ".": {
-      "entry": "scripts/{architecture,agent-cleanup,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,ensure-pnpm-store,commit-check,architecture-paths-guard}.mjs",
-      "project": "scripts/**/*.mjs"
+      "entry": [
+        "scripts/{architecture-guard,agent-cleanup-guard,route-catalog-drift-guard,generate-architecture-baseline,build-cua-plugin-runtime,fetch-acp-registry,fetch-provider-db,package-plugin,pre-commit,validate-packaging-inputs}.mjs",
+        "scripts/afterPack.js",
+        "scripts/notarize.js"
+      ],
+      "project": "scripts/**/*.{mjs,js}"
     },
     "apps/desktop": {
       "entry": [
         "src/main/index.ts",
         "src/main/backgroundExecUtilityHostEntry.ts",
+        "src/main/presenter/toolPresenter/agentTools/index.ts",
         "src/preload/index.ts",
         "src/preload/splash-preload.ts",
         "src/preload/floating-preload.ts",
         "src/preload/browser-overlay-preload.ts",
-        "src/preload/plugin-settings-preload.ts",
-        "src/renderer/src/main.tsx",
-        "src/renderer/browser-overlay/main.tsx",
-        "src/renderer/floating/main.tsx",
-        "src/renderer/splash/main.tsx",
-        "src/renderer/settings/main.tsx"
+        "src/preload/plugin-settings-preload.ts"
       ],
       "project": "src/**/*.{ts,tsx}",
-      "ignore": ["resources/**", "build/**", "src/renderer/src/routeTree.gen.ts", "src/**/env.d.ts"]
+      "ignoreDependencies": [
+        "@ai-sdk/amazon-bedrock",
+        "@ai-sdk/anthropic",
+        "@ai-sdk/azure",
+        "@ai-sdk/google",
+        "@ai-sdk/google-vertex",
+        "@ai-sdk/openai",
+        "@ai-sdk/openai-compatible"
+      ]
     },
     "apps/daemon": {
-      "entry": ["src/index.ts"],
+      "entry": ["src/host/piWorker.ts"],
       "project": "src/**/*.ts"
     },
-    "packages/shared": { "entry": "src/index.ts", "project": "src/**/*.ts" },
-    "packages/shared-contracts": { "entry": "src/index.ts", "project": "src/**/*.ts" },
-    "packages/backend-core": { "entry": "src/index.ts", "project": "src/**/*.ts" },
-    "packages/client-sdk": { "entry": "src/index.ts", "project": "src/**/*.ts" },
-    "packages/electron-adapter": { "entry": "src/index.ts", "project": "src/**/*.ts" }
+    "apps/landing": {
+      "entry": ["src/router.tsx"],
+      "project": "src/**/*.{ts,tsx}",
+      "ignoreDependencies": [
+        "@fontsource-variable/geist",
+        "@fontsource-variable/jetbrains-mono",
+        "tailwindcss",
+        "cloudflare"
+      ]
+    },
+    "packages/ui": {
+      "entry": [
+        "src/main.tsx",
+        "settings/main.tsx",
+        "floating/main.tsx",
+        "splash/main.tsx",
+        "browser-overlay/main.tsx",
+        "web/main.tsx"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "api/**/*.ts",
+        "shadcn/**/*.{ts,tsx}",
+        "components/**/*.{ts,tsx}",
+        "settings/**/*.{ts,tsx}",
+        "floating/**/*.{ts,tsx}",
+        "splash/**/*.{ts,tsx}",
+        "browser-overlay/**/*.{ts,tsx}",
+        "web/**/*.{ts,tsx}",
+        "vite-plugins/**/*.ts",
+        "*.ts"
+      ],
+      "ignoreDependencies": [
+        "@fontsource-variable/inter",
+        "tailwindcss",
+        "@tailwindcss/typography",
+        "tailwind-scrollbar-hide",
+        "tailwindcss-animate",
+        "tw-animate-css"
+      ]
+    },
+    "packages/shared": { "project": "src/**/*.ts" },
+    "packages/shared-contracts": { "project": "src/**/*.ts" },
+    "packages/backend-core": { "project": "src/**/*.ts" },
+    "packages/client-sdk": { "project": "src/**/*.ts" },
+    "packages/electron-adapter": { "project": "src/**/*.ts" },
+    "packages/acp-runtime": { "project": "src/**/*.ts" },
+    "packages/agent-runtime": { "project": "src/**/*.ts" },
+    "packages/memory-runtime": { "project": "src/**/*.ts" },
+    "packages/mcp-runtime": {
+      "project": "src/**/*.ts",
+      "ignoreDependencies": ["jsonrepair"]
+    },
+    "packages/skills-runtime": { "project": "src/**/*.ts" },
+    "packages/remote-control-runtime": { "project": "src/**/*.ts" },
+    "packages/pi-orchestrator-extension": { "project": "src/**/*.ts" }
   },
   "ignoreDependencies": [
-    "typescript",
-    "@electron-toolkit/tsconfig",
-    "@types/node",
     "@argos/shared-contracts",
-    "ollama"
+    "ollama",
+    "@electron/rebuild",
+    "vite-plugin-electron",
+    "vite-plugin-electron-renderer"
   ],
-  "ignoreBinaries": ["bun"]
+  "ignoreBinaries": ["explorer", "start", "taskkill", "pkill", "scripts/notarize.js", "vitest"]
 }

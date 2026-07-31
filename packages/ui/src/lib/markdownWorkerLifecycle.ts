@@ -10,7 +10,7 @@
 
 let initialized = false;
 
-export function _resetForTesting(): void {
+function _resetForTesting(): void {
   initialized = false;
 }
 
@@ -18,6 +18,6 @@ export async function ensureMarkdownWorkers(): Promise<void> {
   initialized = true;
 }
 
-export function areMarkdownWorkersInitialized(): boolean {
+function areMarkdownWorkersInitialized(): boolean {
   return initialized;
 }

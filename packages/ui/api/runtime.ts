@@ -93,7 +93,7 @@ function getIpcRenderer(): IpcRendererLike | null {
   return (window as unknown as { electron?: { ipcRenderer?: IpcRendererLike } }).electron?.ipcRenderer ?? null;
 }
 
-export function hasIpcRenderer(): boolean {
+function hasIpcRenderer(): boolean {
   return getIpcRenderer() != null;
 }
 
@@ -104,7 +104,7 @@ export function onIpcChannel(channel: string, listener: IpcListener): () => void
   return typeof cleanup === "function" ? (cleanup as () => void) : () => {};
 }
 
-export function sendIpc(channel: string, ...args: unknown[]): void {
+function sendIpc(channel: string, ...args: unknown[]): void {
   getIpcRenderer()?.send(channel, ...args);
 }
 

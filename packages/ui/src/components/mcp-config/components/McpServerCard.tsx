@@ -48,7 +48,7 @@ interface McpServerCardProps {
   onClick?: () => void;
 }
 
-export const McpServerCard: FC<McpServerCardProps> = ({
+const McpServerCard: FC<McpServerCardProps> = ({
   server,
   isBuiltIn = false,
   isManaged = false,

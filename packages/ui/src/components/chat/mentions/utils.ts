@@ -6,7 +6,7 @@ export interface AcpSessionCommand {
   input?: { hint: string } | null;
 }
 
-export type SlashCategory = "command" | "skill" | "prompt" | "tool";
+type SlashCategory = "command" | "skill" | "prompt" | "tool";
 
 export interface SlashSuggestionItem {
   id: string;
@@ -16,7 +16,7 @@ export interface SlashSuggestionItem {
   payload: AcpSessionCommand | PromptListEntry | MCPToolDefinition | { name: string };
 }
 
-export const MAX_FILTERED_SLASH_SUGGESTIONS = 20;
+const MAX_FILTERED_SLASH_SUGGESTIONS = 20;
 
 const SLASH_CATEGORY_RANK: Record<SlashCategory, number> = {
   command: 0,
@@ -33,8 +33,8 @@ export type SlashActionDecision =
   | { kind: "insert-prompt"; prompt: PromptListEntry }
   | { kind: "request-prompt-args"; prompt: PromptListEntry };
 
-export const MANUAL_COMPACTION_COMMAND_NAME = "compact";
-export const MANUAL_COMPACTION_COMMAND_TEXT = `/${MANUAL_COMPACTION_COMMAND_NAME}`;
+const MANUAL_COMPACTION_COMMAND_NAME = "compact";
+const MANUAL_COMPACTION_COMMAND_TEXT = `/${MANUAL_COMPACTION_COMMAND_NAME}`;
 
 const uniq = (values: string[]) => {
   const seen = new Set<string>();
@@ -125,7 +125,7 @@ const collectPromptSegments = (value: unknown, segments: string[], visited: Set<
   }
 };
 
-export const extractPromptTextSegments = (value: unknown): string[] => {
+const extractPromptTextSegments = (value: unknown): string[] => {
   const segments: string[] = [];
   collectPromptSegments(value, segments, new Set());
   return uniq(segments);

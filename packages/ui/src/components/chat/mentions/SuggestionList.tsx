@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from "react";
 import { Icon } from "@iconify/react";
 
-export type SuggestionCategory = "file" | "command" | "skill" | "prompt" | "tool";
+type SuggestionCategory = "file" | "command" | "skill" | "prompt" | "tool";
 
-export interface SuggestionListItem {
+interface SuggestionListItem {
   id: string;
   label: string;
   description?: string;
