@@ -376,13 +376,24 @@ export const AcpManualAgentSchema = zod.looseObject({
   enabled: zod.boolean().optional(),
 });
 
-const ArgosSubagentSlotSchema = zod.object({
-  id: zod.string().min(1),
-  targetType: zod.enum(["self", "agent"]),
-  targetAgentId: zod.string().min(1).optional(),
-  displayName: zod.string(),
-  description: zod.string(),
-});
+const ArgosSubagentSlotSchema = zod
+  .object({
+    id: zod.string().min(1),
+    targetType: zod.enum(["self", "agent"]),
+    targetAgentId: zod.string().min(1).optional(),
+    displayName: zod.string(),
+    description: zod.string(),
+  })
+  .refine(
+    (slot) =>
+      slot.targetType === "agent"
+        ? typeof slot.targetAgentId === "string" && slot.targetAgentId.length > 0
+        : slot.targetAgentId === undefined,
+    {
+      message: "targetType 'agent' requires a targetAgentId; targetType 'self' must not specify one",
+      path: ["targetAgentId"],
+    },
+  );
 
 const ArgosAgentMemoryEmbeddingSchema = zod.object({
   providerId: zod.string().min(1),

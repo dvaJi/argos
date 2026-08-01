@@ -353,24 +353,32 @@ export class ArgosOrchestrationRuntime {
         break;
       case "argos_agents_create":
         result = await this.requireProvisioning().createAgent({
-          name: String(args.name),
+          name: this.requireString(args, "name"),
           ...(typeof args.description === "string" ? { description: args.description } : {}),
           ...(typeof args.enabled === "boolean" ? { enabled: args.enabled } : {}),
           ...(this.asRecord(args.config) ? { config: this.asRecord(args.config) } : {}),
         });
         break;
       case "argos_agents_update":
-        result = await this.requireProvisioning().updateAgent(String(args.agentId), this.asRecord(args.updates) ?? {});
+        result = await this.requireProvisioning().updateAgent(this.requireString(args, "agentId"), this.asRecord(args.updates) ?? {});
         break;
       case "argos_mcp_servers_list":
         result = await this.requireProvisioning().listMcpServers();
         break;
-      case "argos_mcp_server_upsert":
-        result = await this.requireProvisioning().upsertMcpServer(
-          String(args.serverName),
-          this.asRecord(args.config) ?? {},
-        );
+      case "argos_mcp_server_upsert": {
+        const serverName = this.requireString(args, "serverName");
+        const serverConfig = this.asRecord(args.config) ?? {};
+        // stdio servers run an arbitrary local command with model-supplied args/env.
+        // The orchestrator may only register http/sse (URL) transports; stdio servers
+        // must be configured manually by the user to avoid local code execution.
+        if (serverConfig.type === "stdio") {
+          throw new Error(
+            "The orchestrator cannot register stdio MCP servers (that would allow arbitrary local command execution). Configure stdio servers manually via Settings, or use an http/sse transport.",
+          );
+        }
+        result = await this.requireProvisioning().upsertMcpServer(serverName, serverConfig);
         break;
+      }
       case "argos_agent_mcp_servers_set":
         result = await this.requireProvisioning().setAgentMcpServers(
           String(args.agentId),
@@ -409,5 +417,13 @@ export class ArgosOrchestrationRuntime {
 
   private asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  }
+
+  private requireString(args: Record<string, unknown>, key: string): string {
+    const value = args[key];
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new Error(`Missing required argument: ${key}`);
+    }
+    return value;
   }
 }

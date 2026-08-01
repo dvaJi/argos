@@ -16,6 +16,7 @@ import { ProviderImportService } from "@argos/backend-core";
 import { PiProviderExecutionPort } from "./host/pi-provider-execution";
 import { PiAgentProfileManager } from "./host/piAgentProfileManager";
 import { ArgosOrchestrationRuntime } from "./host/argosOrchestrationRuntime";
+import { BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
@@ -443,16 +444,27 @@ export async function startDaemon(options?: {
     sessionRepository,
   });
   (skillRuntime as typeof skillRuntime & { piProfiles: PiAgentProfileManager }).piProfiles = piProfiles;
+  const SAFE_MCP_CONFIG_FIELDS = new Set(["type", "command", "descriptions", "description", "enabled", "disable"]);
+  const redactUnknownValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(() => "[configured]");
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.keys(value as Record<string, unknown>).map((key) => [key, "[configured]"]));
+    }
+    return "[configured]";
+  };
   const redactMcpServers = (servers: Record<string, unknown>) =>
     Object.fromEntries(
       Object.entries(servers).map(([name, value]) => {
         if (!value || typeof value !== "object" || Array.isArray(value)) return [name, value];
         const config = value as Record<string, unknown>;
-        const redactValues = (candidate: unknown) =>
-          candidate && typeof candidate === "object" && !Array.isArray(candidate)
-            ? Object.fromEntries(Object.keys(candidate as Record<string, unknown>).map((key) => [key, "[configured]"]))
-            : candidate;
-        return [name, { ...config, env: redactValues(config.env), customHeaders: redactValues(config.customHeaders) }];
+        const redacted: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(config)) {
+          // Only explicitly non-sensitive fields are exposed to the orchestrator model
+          // verbatim; everything else (env, customHeaders, args, baseUrl, unknown maps)
+          // is masked so credentials cannot leak.
+          redacted[key] = SAFE_MCP_CONFIG_FIELDS.has(key) ? val : redactUnknownValue(val);
+        }
+        return [name, redacted];
       }),
     );
   const validateProvisionedAgent = async (agentId: string, requireEnabled = true) => {
@@ -464,7 +476,7 @@ export async function startDaemon(options?: {
     const managedSkills = piProfiles.validateManagedSkills(agentId);
     const expectedSkills = agent.config?.enabledSkillNames ?? [];
     const checks = [
-      { name: "model", ok: Boolean(effectiveConfig.defaultModelPreset?.modelId) },
+      { name: "model", ok: Boolean(effectiveConfig.defaultModelPreset?.modelId) || Boolean(effectiveConfig.assistantModel?.modelId) },
       { name: "enabled", ok: !requireEnabled || agent.enabled },
       {
         name: "mcp-configured",
@@ -492,7 +504,7 @@ export async function startDaemon(options?: {
   const provisioningActions: Parameters<typeof orchestrationRuntime.setProvisioningActions>[0] = {
     createAgent: (input) => configPresenter.createArgosAgent(input),
     async updateAgent(agentId, updates) {
-      if (agentId === "argos") throw new Error("The protected default Argos agent cannot be changed by provisioning.");
+      if (agentId === BUILTIN_ARGOS_AGENT_ID) throw new Error("The protected default Argos agent cannot be changed by provisioning.");
       const agent = await configPresenter.getArgosAgent(agentId);
       if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
       return await configPresenter.updateArgosAgent(agentId, updates);
@@ -623,22 +635,46 @@ export async function startDaemon(options?: {
         const agent = await configPresenter.updateArgosAgent(created.id, { enabled });
         return { agent, validation: await validateProvisionedAgent(created.id, enabled), rolledBack: false };
       } catch (error) {
+        // Isolate each rollback step so one failure cannot skip remaining cleanup;
+        // collect every rollback error and surface it with the original cause.
+        // removeProfile recursively deletes the agent profile (incl. managed skills),
+        // so written skills are cleaned up too.
+        const rollbackErrors: { step: string; error: string }[] = [];
+        const rollbackStep = async (step: string, run: () => Promise<unknown> | unknown) => {
+          try {
+            await run();
+          } catch (rollbackError) {
+            rollbackErrors.push({
+              step,
+              error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+            });
+          }
+        };
         if (createdAgentId) {
-          await configPresenter.deleteArgosAgent(createdAgentId).catch(() => false);
-          piProfiles.removeProfile(createdAgentId);
+          const rollbackAgentId = createdAgentId;
+          await rollbackStep("delete-agent", () => configPresenter.deleteArgosAgent(rollbackAgentId));
+          await rollbackStep("remove-profile", () => piProfiles.removeProfile(rollbackAgentId));
         }
         for (const [serverName, snapshot] of snapshots) {
-          if (mcpRuntime.isServerRunning(serverName)) await mcpRuntime.stopServer(serverName).catch(() => undefined);
-          if (snapshot.config) {
-            await configPresenter.updateMcpServer(serverName, snapshot.config);
-            await configPresenter.setMcpServerEnabled(serverName, snapshot.config.enabled !== false);
-            if (snapshot.running) await mcpRuntime.startServer(serverName).catch(() => undefined);
-          } else {
-            await configPresenter.removeMcpServer(serverName);
-          }
+          await rollbackStep(`stop-server:${serverName}`, async () => {
+            if (mcpRuntime.isServerRunning(serverName)) await mcpRuntime.stopServer(serverName);
+          });
+          await rollbackStep(`restore-server:${serverName}`, async () => {
+            if (snapshot.config) {
+              await configPresenter.updateMcpServer(serverName, snapshot.config);
+              await configPresenter.setMcpServerEnabled(serverName, snapshot.config.enabled !== false);
+              if (snapshot.running) await mcpRuntime.startServer(serverName);
+            } else {
+              await configPresenter.removeMcpServer(serverName);
+            }
+          });
         }
-        await configPresenter.setMcpEnabled(beforeMcpEnabled);
-        throw new Error(`Agent provisioning rolled back: ${error instanceof Error ? error.message : String(error)}`);
+        await rollbackStep("set-mcp-enabled", () => configPresenter.setMcpEnabled(beforeMcpEnabled));
+        const originalMessage = error instanceof Error ? error.message : String(error);
+        const rollbackDetail = rollbackErrors.length
+          ? ` (rollback failures: ${rollbackErrors.map((entry) => `${entry.step} (${entry.error})`).join("; ")})`
+          : "";
+        throw new Error(`Agent provisioning rolled back: ${originalMessage}${rollbackDetail}`);
       }
     },
     validateAgent: (agentId) => validateProvisionedAgent(agentId),

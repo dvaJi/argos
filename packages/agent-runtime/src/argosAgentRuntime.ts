@@ -26,6 +26,23 @@ export const BUILTIN_ARGOS_ORCHESTRATOR_CONFIG: ArgosAgentConfig = {
 };
 
 /**
+ * Reassert the orchestrator's non-negotiable capability flags on every
+ * re-seed/update, while preserving user edits to editable fields. The built-in
+ * config supplies defaults for systemPrompt/permissionMode/disabledAgentTools;
+ * orchestration and subagent delegation are always enabled because they define
+ * the agent's purpose. Without this, spreading the built-in config last would
+ * clobber the user's systemPrompt/permissionMode on every restart.
+ */
+const applyOrchestratorInvariants = (config: ArgosAgentConfig): ArgosAgentConfig => ({
+  ...config,
+  systemPrompt: config.systemPrompt ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.systemPrompt,
+  permissionMode: config.permissionMode ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.permissionMode,
+  disabledAgentTools: config.disabledAgentTools ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.disabledAgentTools,
+  orchestrationEnabled: true,
+  subagentEnabled: true,
+});
+
+/**
  * Host-agnostic Argos-agent management facade. This is the desktop
  * `AgentRepository` Argos subset, decoupled from SQLite (uses {@link
  * ArgosAgentStore}) and from the session table (uses {@link
@@ -107,7 +124,7 @@ export class ArgosAgentRuntime {
     this.store.update(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, {
       source: "builtin",
       protected: true,
-      config_json: stringifyJson({ ...config, ...BUILTIN_ARGOS_ORCHESTRATOR_CONFIG }),
+      config_json: stringifyJson(applyOrchestratorInvariants(config)),
     });
     return toAgent(this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) as ArgosAgentRow);
   }
@@ -166,7 +183,7 @@ export class ArgosAgentRuntime {
     let nextConfig =
       updates.config === undefined ? currentConfig : { ...currentConfig, ...clone(updates.config ?? {}) };
     if (agentId === BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) {
-      nextConfig = { ...nextConfig, ...BUILTIN_ARGOS_ORCHESTRATOR_CONFIG };
+      nextConfig = applyOrchestratorInvariants(nextConfig);
     }
 
     this.store.update(agentId, {

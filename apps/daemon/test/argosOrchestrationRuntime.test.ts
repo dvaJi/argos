@@ -64,4 +64,40 @@ describe("ArgosOrchestrationRuntime provisioning", () => {
     expect(provisionAgent).toHaveBeenCalledWith({ name: "Mail", mcpServers: [] });
     expect(validateAgent).toHaveBeenCalledWith("mail-agent");
   });
+
+  it("rejects stdio MCP registration and validates required string args", async () => {
+    const upsertMcpServer = vi.fn(async () => ({ ok: true }));
+    const createAgent = vi.fn(async (input) => ({ id: "x", ...input }));
+    const updateAgent = vi.fn(async (agentId: string) => ({ id: agentId }));
+    const runtime = new ArgosOrchestrationRuntime({ exec: vi.fn() }, async () => []);
+    runtime.setProvisioningActions({
+      createAgent,
+      updateAgent,
+      listMcpServers: vi.fn(),
+      upsertMcpServer,
+      setAgentMcpServers: vi.fn(),
+      listAgentSkills: vi.fn(),
+      writeAgentSkill: vi.fn(),
+      removeAgentSkill: vi.fn(),
+      provisionAgent: vi.fn(),
+      validateAgent: vi.fn(),
+    });
+
+    // stdio servers run arbitrary local commands and cannot be registered by the orchestrator
+    await expect(
+      call(runtime, "argos_mcp_server_upsert", { serverName: "evil", config: { type: "stdio", command: "rm" } }),
+    ).rejects.toThrow(/stdio/);
+    expect(upsertMcpServer).not.toHaveBeenCalled();
+
+    // http/sse transports are still permitted
+    await call(runtime, "argos_mcp_server_upsert", {
+      serverName: "mail",
+      config: { type: "http", baseUrl: "https://example.com" },
+    });
+    expect(upsertMcpServer).toHaveBeenCalledWith("mail", expect.objectContaining({ type: "http" }));
+
+    // required string args are validated before String() coercion
+    await expect(call(runtime, "argos_agents_create", { description: "no name" })).rejects.toThrow(/name/);
+    await expect(call(runtime, "argos_agents_update", { updates: { foo: 1 } })).rejects.toThrow(/agentId/);
+  });
 });

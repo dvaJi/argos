@@ -93,15 +93,15 @@ describe("ArgosAgentRuntime", () => {
     expect(runtime.resolveArgosAgentConfig(seeded.id).orchestrationEnabled).toBe(true);
   });
 
-  it("preserves orchestration and unrestricted extension policy when resolving config", () => {
+  it("preserves orchestration and defaults extension policy to empty (deny-by-default)", () => {
     const { runtime } = makeRuntime(new Set());
     runtime.ensureBuiltinAgent({ config: { orchestrationEnabled: true } });
 
     const resolved = runtime.resolveArgosAgentConfig(BUILTIN_ARGOS_AGENT_ID);
     expect(resolved.orchestrationEnabled).toBe(true);
-    expect(resolved.enabledMcpServerIds).toBeUndefined();
-    expect(resolved.enabledPluginIds).toBeUndefined();
-    expect(resolved.enabledSkillNames).toBeUndefined();
+    expect(resolved.enabledMcpServerIds).toEqual([]);
+    expect(resolved.enabledPluginIds).toEqual([]);
+    expect(resolved.enabledSkillNames).toEqual([]);
   });
 
   it("lists only argos agents from the store", () => {

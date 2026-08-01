@@ -149,7 +149,7 @@ export class PiAgentProfileManager {
     const skillPath = path.join(skillDir, "SKILL.md");
     const temporaryPath = `${skillPath}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(temporaryPath, content, "utf8");
-    fs.renameSync(temporaryPath, skillPath);
+    this.atomicRename(temporaryPath, skillPath);
 
     const now = Date.now();
     const registry = this.readManagedSkillsRegistry(agentId);
@@ -315,14 +315,34 @@ export class PiAgentProfileManager {
     return name;
   }
 
+  /**
+   * Atomic-rename with a Windows fallback: POSIX rename atomically replaces an
+   * existing destination, but on Windows rename fails when the target exists, so
+   * remove the target and retry. Keeps updates portable across platforms.
+   */
+  private atomicRename(temporaryPath: string, targetPath: string): void {
+    try {
+      fs.renameSync(temporaryPath, targetPath);
+    } catch {
+      fs.rmSync(targetPath, { force: true });
+      fs.renameSync(temporaryPath, targetPath);
+    }
+  }
+
   private readManagedSkillsRegistry(agentId: string): ManagedAgentSkillRecord[] {
     const registryPath = this.getManagedSkillsRegistryPath(agentId);
     if (!fs.existsSync(registryPath)) return [];
     try {
       const parsed = JSON.parse(fs.readFileSync(registryPath, "utf8")) as { skills?: ManagedAgentSkillRecord[] };
       return Array.isArray(parsed.skills) ? parsed.skills : [];
-    } catch {
-      return [];
+    } catch (error) {
+      // A corrupt registry must not be silently treated as empty: that would let
+      // subsequent writes overwrite integrity records and lose track of skills.
+      throw new Error(
+        `Managed skills registry for agent ${agentId} is corrupt and could not be parsed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 
@@ -331,6 +351,6 @@ export class PiAgentProfileManager {
     fs.mkdirSync(path.dirname(registryPath), { recursive: true });
     const temporaryPath = `${registryPath}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(temporaryPath, `${JSON.stringify({ version: 1, skills }, null, 2)}\n`, "utf8");
-    fs.renameSync(temporaryPath, registryPath);
+    this.atomicRename(temporaryPath, registryPath);
   }
 }
