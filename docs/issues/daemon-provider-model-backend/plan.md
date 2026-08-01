@@ -68,7 +68,7 @@ logic is no longer the execution path for these routes.
 
 ## Validation
 
-- `pnpm --filter @argos/backend-core test`
-- `pnpm --filter @argos/daemon test`
-- `pnpm --filter @argos/desktop test -- deepseekProvider`
-- `pnpm run format && pnpm run lint && pnpm run typecheck`
+- `bun run --filter @argos/backend-core test`
+- `bun run --filter @argos/daemon test`
+- `bun run --filter @argos/desktop test -- deepseekProvider`
+- `bun run format && bun run lint && bun run typecheck`

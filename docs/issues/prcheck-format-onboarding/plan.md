@@ -2,7 +2,7 @@
 
 ## Diagnosis
 
-The local PR Check reproduction fails at `pnpm run format:check` for `src/main/routes/onboarding/onboardingRouteSupport.ts`.
+The local PR Check reproduction fails at `bun run format:check` for `src/main/routes/onboarding/onboardingRouteSupport.ts`.
 
 ## Approach
 
@@ -10,7 +10,7 @@ Run the repository formatter on the reported file, inspect the resulting diff, t
 
 ## Test Strategy
 
-- `pnpm run format:check`
-- `pnpm run i18n`
-- `pnpm run lint`
-- Continue to `pnpm run build` if earlier checks pass.
+- `bun run format:check`
+- `bun run i18n`
+- `bun run lint`
+- Continue to `bun run build` if earlier checks pass.

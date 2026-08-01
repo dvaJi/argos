@@ -36,7 +36,7 @@ export type SessionStatus = "idle" | "generating" | "blocked" | "done" | "error"
 
 - [ ] **Step 3: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS (no type errors from the enum extension)
 
 - [ ] **Step 4: Commit**
@@ -73,7 +73,7 @@ export const sessionsStatusChangedEvent = defineEventContract({
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -111,7 +111,7 @@ export const SessionStatusSchema = z.enum(["idle", "generating", "blocked", "don
 
 - [ ] **Step 3: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -169,7 +169,7 @@ private setSessionStatus(sessionId: string, status: ArgosSessionState["status"],
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS (all existing callers pass 2 args, reason is optional)
 
 - [ ] **Step 3: Commit**
@@ -215,7 +215,7 @@ this.setSessionStatus(sessionId, "blocked", "rate_limit");
 
 - [ ] **Step 4: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -261,7 +261,7 @@ The distinction: if the generation **completed successfully**, use `"done"`. If 
 
 - [ ] **Step 2: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -304,7 +304,7 @@ this.markSessionViewed(sessionId);
 
 - [ ] **Step 3: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -366,7 +366,7 @@ function onStatusChanged(
 
 - [ ] **Step 4: Run typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -414,7 +414,7 @@ For the `new_results` status, add a badge or distinct indicator:
 
 - [ ] **Step 4: Run typecheck and lint**
 
-Run: `pnpm run typecheck && pnpm run lint`
+Run: `bun run typecheck && bun run lint`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -460,7 +460,7 @@ function isSessionAtRest(status: SessionStatus): boolean {
 
 - [ ] **Step 3: Run typecheck and lint**
 
-Run: `pnpm run typecheck && pnpm run lint`
+Run: `bun run typecheck && bun run lint`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -480,25 +480,25 @@ git commit -m "fix(runtime): update status checks for backward compatibility wit
 
 - [ ] **Step 1: Run format**
 
-Run: `pnpm run format`
+Run: `bun run format`
 Expected: PASS
 
 - [ ] **Step 2: Run i18n validation**
 
-Run: `pnpm run i18n`
+Run: `bun run i18n`
 Expected: PASS
 
 - [ ] **Step 3: Run lint**
 
-Run: `pnpm run lint`
+Run: `bun run lint`
 Expected: PASS
 
 - [ ] **Step 4: Run full typecheck**
 
-Run: `pnpm run typecheck`
+Run: `bun run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Run tests**
 
-Run: `pnpm test`
+Run: `bun run test`
 Expected: PASS (existing tests should pass with extended enum)

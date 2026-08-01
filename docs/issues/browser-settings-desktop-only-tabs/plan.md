@@ -15,6 +15,6 @@
 
 ## Validation
 
-- `pnpm run format`
-- `pnpm run lint`
-- `pnpm run typecheck`
+- `bun run format`
+- `bun run lint`
+- `bun run typecheck`

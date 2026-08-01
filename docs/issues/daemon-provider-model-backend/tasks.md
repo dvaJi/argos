@@ -61,10 +61,10 @@
 
 ## Phase 4 — Validation
 
-- [x] `pnpm --filter @argos/daemon test` → `daemonProviderRefresh.test.ts` 3/3 pass (incl. DeepSeek catalog).
-- [x] `pnpm --filter @argos/desktop test -- deepseekProvider` → 3/3 pass (registry guard via shim).
-- [x] `pnpm run format && pnpm run lint` → oxfmt + architecture-guard + route-catalog-guard + oxlint all pass.
-- [~] `pnpm run typecheck` → desktop typecheck passes (resolves backend-core to source, so new files
+- [x] `bun run --filter @argos/daemon test` → `daemonProviderRefresh.test.ts` 3/3 pass (incl. DeepSeek catalog).
+- [x] `bun run --filter @argos/desktop test -- deepseekProvider` → 3/3 pass (registry guard via shim).
+- [x] `bun run format && bun run lint` → oxfmt + architecture-guard + route-catalog-guard + oxlint all pass.
+- [~] `bun run typecheck` → desktop typecheck passes (resolves backend-core to source, so new files
       typechecked transitively). Daemon/backend-core `tsc` shows pre-existing `fetch.preconnect` errors
       in `backend-core/.../providerFactory.ts` caused by Node 26 typing (engine wants <26); not introduced
       by this change.

@@ -1,5 +1,5 @@
 <p align='center'>
-<img src='./build/icon.png' width="150" height="150" alt="Argos AI Assistant Icon" />
+<img src='./apps/desktop/resources/icon.png' width="150" height="150" alt="Argos AI Assistant Icon" />
 </p>
 
 <h1 align="center">Argos - Powerful Open-Source AI Agent Platform</h1>
@@ -31,11 +31,11 @@ Beyond chat, Argos supports agentic workflows: rich tool calling via MCP (Model 
 <table align="center">
   <tr>
     <td align="center" style="padding: 10px;">
-      <img src='https://github.com/user-attachments/assets/6e932a65-78e0-4d2e-9654-ccc010f78bf7' alt="Argos Light Mode" width="400"/>
+      <img src='./apps/landing/public/shot-light.png' alt="Argos Light Mode" width="400"/>
       <br/>
     </td>
     <td align="center" style="padding: 10px;">
-      <img src='https://github.com/user-attachments/assets/ea6ccf60-32af-4bc1-91cc-e72703bdc1ff' alt="Argos Dark Mode" width="400"/>
+      <img src='./apps/landing/public/shot-dark.png' alt="Argos Dark Mode" width="400"/>
       <br/>
     </td>
   </tr>

@@ -22,10 +22,10 @@
 
 ## Phase 4 — Verify
 
-- [x] 4.1 `pnpm run build:daemon`; assert `--version`, `--help`, and `update` subcommand parsing.
+- [x] 4.1 `bun run build:daemon`; assert `--version`, `--help`, and `update` subcommand parsing.
 - [x] 4.2 Vitest unit tests (`apps/daemon/test/update-logic.test.ts`) cover `checkForUpdate` +
       `runSelfUpdate` happy/no-op/mismatch paths; e2e bun scripts excluded via
       `apps/daemon/vitest.config.ts`.
-- [x] 4.3 Wired into the pipeline: `@argos/daemon` `test` script + turbo task, root `pnpm test`
+- [x] 4.3 Wired into the pipeline: `@argos/daemon` `test` script + turbo task, root `bun run test`
       (`--filter=@argos/daemon`), and `prcheck.yml` "Daemon unit tests" step.
-- [x] 4.4 `pnpm run format && pnpm run lint` clean; daemon typecheck clean (pre-existing error only).
+- [x] 4.4 `bun run format && bun run lint` clean; daemon typecheck clean (pre-existing error only).

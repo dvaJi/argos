@@ -36,7 +36,7 @@ Plan: [plan.md](./plan.md)
   Owner: Maintainer
   Effort: S
   Status: Completed
-- [x] `T3.2` Run repository-required quality gates: `pnpm run format`, `pnpm run i18n`, and `pnpm run lint`.
+- [x] `T3.2` Run repository-required quality gates: `bun run format`, `bun run i18n`, and `bun run lint`.
   Owner: Maintainer
   Effort: S
   Status: Completed

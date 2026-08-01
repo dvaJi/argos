@@ -12,5 +12,5 @@ Update `DashboardSettings.tsx` to actively kick off usage backfill when availabl
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run lint`.

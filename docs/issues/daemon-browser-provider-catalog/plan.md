@@ -15,7 +15,7 @@
 
 ## Validation
 
-- `pnpm --filter @argos/daemon test -- e2e-hybrid.test.ts`
-- `pnpm run format`
-- `pnpm run lint`
-- `pnpm run typecheck`
+- `bun run --filter @argos/daemon test -- e2e-hybrid.test.ts`
+- `bun run format`
+- `bun run lint`
+- `bun run typecheck`

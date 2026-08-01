@@ -23,12 +23,12 @@
 ## Validation
 
 - Run `swift build --package-path plugins/cua/vendor/cua-driver/source --product cua-driver`.
-- Run `pnpm run format`.
-- Run `pnpm run i18n`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run i18n`.
+- Run `bun run lint`.
 - Run `git diff --check`.
-- Run `pnpm run plugin:cua:build:mac:arm64`.
-- Run `pnpm run plugin:validate -- --name cua --platform darwin --arch arm64`.
+- Run `bun run plugin:cua:build:mac:arm64`.
+- Run `bun run plugin:validate -- --name cua --platform darwin --arch arm64`.
 
 ## Risk
 

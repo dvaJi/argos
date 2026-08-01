@@ -84,7 +84,7 @@ Privilege/install layout is left to the operator (recommended: a dedicated `argo
 - `test/daemon/update.test.ts`: mock `fetch` to return a fake release; assert
   `checkForUpdate` mapping (hasUpdate true/false), asset-name detection, and that
   `runSelfUpdate` writes+renames when an update exists and short-circuits when current.
-- `ruby -c`/shellcheck not applicable; `pnpm run build:daemon` confirms the binary still
+- `ruby -c`/shellcheck not applicable; `bun run build:daemon` confirms the binary still
   compiles and `--version`/`update --help` behave.
 - Manual smoke on Linux: run `argos-daemon update` against a release with a newer tag,
   confirm swap + that a running daemon keeps serving until `systemctl restart`.

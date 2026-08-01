@@ -19,6 +19,6 @@ Patch `AgentSessionPresenter.getAcpSessionConfigOptions()` so that ACP-backed se
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run i18n`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run i18n`.
+- Run `bun run lint`.

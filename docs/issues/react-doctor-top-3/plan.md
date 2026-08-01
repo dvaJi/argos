@@ -9,6 +9,6 @@
 
 ## Validation
 
-- Run `pnpm run format`, `pnpm run i18n`, and `pnpm run lint` after the edits.
+- Run `bun run format`, `bun run i18n`, and `bun run lint` after the edits.
 - Re-run `npx react-doctor@latest --verbose` and confirm the three targeted warning groups are gone.
 

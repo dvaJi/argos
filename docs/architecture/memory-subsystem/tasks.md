@@ -163,15 +163,15 @@
 ## Phase 5: Final Integration + Gate
 
 ### T5.1 Full typecheck pass
-- Run `pnpm run typecheck` — fix any type errors across all phases
+- Run `bun run typecheck` — fix any type errors across all phases
 - **Depends**: all phases
 
 ### T5.2 Full test pass
-- Run `pnpm test` — ensure 0 failures
+- Run `bun run test` — ensure 0 failures
 - **Depends**: all phases
 
 ### T5.3 Lint + format
-- Run `pnpm run lint && pnpm run format`
+- Run `bun run lint && bun run format`
 - **Depends**: T5.1, T5.2
 
 ### T5.4 Update skill files

@@ -338,12 +338,12 @@ Integration/manual matrix:
 Quality gates:
 
 ```bash
-pnpm run format
-pnpm run i18n
-pnpm run lint
-pnpm run typecheck
-pnpm test -- test/main/presenter/llmProviderPresenter
-pnpm test -- test/main/presenter/acpProvider.test.ts
+bun run format
+bun run i18n
+bun run lint
+bun run typecheck
+bun run test -- test/main/presenter/llmProviderPresenter
+bun run test -- test/main/presenter/acpProvider.test.ts
 ```
 
 ## Risks and Mitigations

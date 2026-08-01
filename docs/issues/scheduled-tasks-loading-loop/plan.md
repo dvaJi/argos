@@ -12,5 +12,5 @@ Stabilize client instances in `ScheduledTasksSettings.tsx` with memoization so t
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run lint`.

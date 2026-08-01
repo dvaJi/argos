@@ -19,7 +19,7 @@
 
 ### Phase 4 — Daemon serves UI
 - [x] `resolveWebRoot` searches `packages/ui/dist` + `resources/web` (+ `../web` from executable dir).
-- [x] Help text updated (`pnpm --filter @argos/ui build`).
+- [x] Help text updated (`bun run --filter @argos/ui build`).
 
 ### Phase 5 — Build / packaging / guards
 - [x] `electron-builder.yml`: `packages/ui/dist` → `resources/web`.
@@ -31,7 +31,7 @@
 ### Phase 6 — Path-alias migration (`#` prefix)
 - [x] Codemod across 1740 files: `@/`→`#/`, `@api`→`#api`, `@shadcn`→`#shadcn`, `@settings`→`#settings`, `@shared`→`@argos/shared`, `@shared/contracts`→`@argos/shared-contracts`.
 - [x] Updated tsconfig path keys, vite path-alias plugins, vitest aliases, guard patterns.
-- [x] Deduped duplicate tsconfig path keys; fixed pre-existing `baseUrl` tsgo error in `shared-contracts` (now typechecks standalone).
+- [x] Deduped duplicate tsconfig path keys; fixed pre-existing `baseUrl` TypeScript error in `shared-contracts` (now typechecks standalone).
 
 ## Verified
 
@@ -43,11 +43,11 @@
 ## Remaining (this migration)
 
 ### Runtime / packaging verification (needs Electron + electron-builder; cannot run in this environment)
-- [ ] **End-to-end launch**: `pnpm dev` (after `pnpm --filter @argos/ui build`) → desktop window renders UI served by the daemon.
+- [ ] **End-to-end launch**: `bun run dev` (after `bun run --filter @argos/ui build`) → desktop window renders UI served by the daemon.
 - [ ] **Native routes under served model**: confirm file dialogs / `native_required` routes still work via the hybrid bridge when the UI is served over `http://127.0.0.1` (cross-origin preload injection).
 - [ ] **Splash startup ordering**: daemon ready before splash loads (inline fallback exercised).
 - [ ] **Packaged build**: `electron-builder` packaging — confirm `packages/ui/dist` → `resources/web` and daemon dist → `daemon`; packaged app loads UI from sidecar.
-- [x] **Dev HMR orchestration**: root `pnpm dev` runs the cross-platform `scripts/dev.mjs` launcher. It directly starts each workspace's Vite CLI (without Windows batch wrappers), verifies `@argos/ui` at IPv4 `127.0.0.1:5180`, then starts `@argos/desktop`. This prevents Electron from loading the UI before Vite is available and lets Ctrl+C terminate both process trees. `ARGOS_UI_DEV_SERVER_URL=http://127.0.0.1:5180` explicitly selects the UI server. Vite's internally assigned `VITE_DEV_SERVER_URL` remains reserved for its shell placeholder renderer.
+- [x] **Dev HMR orchestration**: root `bun run dev` runs the cross-platform `scripts/dev.mjs` launcher. It directly starts each workspace's Vite CLI (without Windows batch wrappers), verifies `@argos/ui` at IPv4 `127.0.0.1:5180`, then starts `@argos/desktop`. This prevents Electron from loading the UI before Vite is available and lets Ctrl+C terminate both process trees. `ARGOS_UI_DEV_SERVER_URL=http://127.0.0.1:5180` explicitly selects the UI server. Vite's internally assigned `VITE_DEV_SERVER_URL` remains reserved for its shell placeholder renderer.
 - [x] **Dev proxy isolation**: proxy only `/api/v1`, the daemon transport namespace. Do not proxy `/api/*` broadly because Vite serves the UI's `#api` source alias at paths such as `/api/ConfigClient.ts`.
 - [x] **Bridge startup readiness**: daemon routes wait for the preload WebSocket to open; chat composers remain disabled while connecting, so an initial prompt cannot be persisted without starting its agent run. The local connection indicator also reflects the actual WebSocket state.
 - [x] **Initial-turn dispatch**: `sessions.create` now creates only the session; the daemon starts its initial prompt through the same provider-execution path as `chat.sendMessage`, preventing user-only first sessions.

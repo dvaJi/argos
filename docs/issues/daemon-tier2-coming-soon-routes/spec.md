@@ -54,4 +54,4 @@ Out of scope:
 - Every Tier 2 route from the route catalog returns either a valid output or a
   specific service-unavailable error; no route returns the old generic message.
 - `bun run test` in `apps/daemon` passes.
-- `pnpm run format` and `pnpm run lint` pass for changed files.
+- `bun run format` and `bun run lint` pass for changed files.

@@ -9,10 +9,10 @@
 
 ## Validation
 
-- `pnpm run format`
-- `pnpm run lint`
-- `pnpm run typecheck`
-- `pnpm --filter @argos/ui run typecheck`
+- `bun run format`
+- `bun run lint`
+- `bun run typecheck`
+- `bun run --filter @argos/ui typecheck`
 - ACP runtime, main diagnostics, and renderer settings tests: 22 passed
 - React Doctor changed-file scan: 69/100; the remaining findings predate this health-check change and are tracked as
   broader ACP settings component cleanup.

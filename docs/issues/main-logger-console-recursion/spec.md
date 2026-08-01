@@ -14,6 +14,6 @@ fallback calls the hooked method again.
 
 ## Non-goals
 
-- Do not change Node or pnpm engine requirements.
+- Do not change Node or bun engine requirements.
 - Do not redesign logging transports or log-level configuration.
 
