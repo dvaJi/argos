@@ -14,5 +14,5 @@
 - [x] Add focused unit tests for YoBrowser handler behavior and agent runtime
       propagation.
 - [x] Run `bun run format`.
-- [x] Run `bun run i18n`.
+- [x] Run `i18n (N/A -- no root script)`.
 - [x] Run `bun run lint`.

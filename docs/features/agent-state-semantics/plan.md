@@ -485,7 +485,7 @@ Expected: PASS
 
 - [ ] **Step 2: Run i18n validation**
 
-Run: `bun run i18n`
+Run: `i18n (N/A -- no root script)`
 Expected: PASS
 
 - [ ] **Step 3: Run lint**

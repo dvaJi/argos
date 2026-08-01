@@ -11,6 +11,6 @@ Run the repository formatter on the reported file, inspect the resulting diff, t
 ## Test Strategy
 
 - `bun run format:check`
-- `bun run i18n`
+- `i18n (N/A -- no root script)`
 - `bun run lint`
 - Continue to `bun run build` if earlier checks pass.

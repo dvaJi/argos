@@ -14,7 +14,7 @@ This isolates two independent risks:
 - Argos imports DuckDB through `src/main/presenter/knowledgePresenter/database/duckdbPresenter.ts`.
 - The main-process startup path reaches built-in knowledge base code early enough that a missing native binding crashes the app before E2E can observe a window.
 - Argos's DuckDB flow uses both online `INSTALL/LOAD vss` and an offline copied extension path through `scripts/installVss.js` and runtime extension loading.
-- Project guidance requires keeping an SDD folder for active issue work and running `bun run format`, `bun run i18n`, and `bun run lint` after implementation.
+- Project guidance requires keeping an SDD folder for active issue work and running `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint` after implementation.
 
 ## Proposed Changes
 
@@ -58,7 +58,7 @@ Run:
 - a targeted DuckDB/VSS smoke command
 - any focused tests touching the changed code or scripts
 - `bun run format`
-- `bun run i18n`
+- `i18n (N/A -- no root script)`
 - `bun run lint`
 
 ### CI Validation

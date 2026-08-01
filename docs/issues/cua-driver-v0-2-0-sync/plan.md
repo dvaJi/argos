@@ -24,7 +24,7 @@
 
 - Run `swift build --package-path plugins/cua/vendor/cua-driver/source --product cua-driver`.
 - Run `bun run format`.
-- Run `bun run i18n`.
+- Run `i18n (N/A -- no root script)`.
 - Run `bun run lint`.
 - Run `git diff --check`.
 - Run `bun run plugin:cua:build:mac:arm64`.

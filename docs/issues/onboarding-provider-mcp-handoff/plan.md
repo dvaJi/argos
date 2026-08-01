@@ -37,6 +37,6 @@ in packaged builds because timing in production is less forgiving than in dev.
 ## Validation
 
 - `bun run format`
-- `bun run i18n`
+- `i18n (N/A -- no root script)`
 - `bun run lint`
 - `bun run typecheck`

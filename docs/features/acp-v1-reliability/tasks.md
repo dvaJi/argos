@@ -303,7 +303,7 @@ real remaining delta.
 ## 13. Final Quality Gates
 
 - [ ] Run `bun run format`.
-- [ ] Run `bun run i18n`.
+- [ ] Run `i18n (N/A -- no root script)`.
 - [ ] Run `bun run lint`.
 - [ ] Run `bun run typecheck`.
 - [ ] Run ACP main tests under `test/main/presenter/llmProviderPresenter`.

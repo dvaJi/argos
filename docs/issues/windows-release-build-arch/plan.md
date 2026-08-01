@@ -10,6 +10,6 @@
 ## Validation
 
 - Run `bun run format`.
-- Run `bun run i18n`.
+- Run `i18n (N/A -- no root script)`.
 - Run `bun run lint`.
 - Inspect workflow references for stale `windows-latest` usage.

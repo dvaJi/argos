@@ -21,4 +21,4 @@
 ## Validation
 
 - Run focused Vitest cases to verify session store sort regression.
-- After completion, run `bun run format`, `bun run i18n`, and `bun run lint`.
+- After completion, run `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.

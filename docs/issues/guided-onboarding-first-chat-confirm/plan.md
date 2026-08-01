@@ -14,4 +14,4 @@
 ## Validation
 
 - Run focused renderer tests for `NewThreadPage` onboarding and `ModelProviderSettings`.
-- Run the repository-required `bun run format`, `bun run i18n`, and `bun run lint` checks.
+- Run the repository-required `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint` checks.

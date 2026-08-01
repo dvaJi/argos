@@ -4,4 +4,4 @@
 - [x] Adjust the renderer session store's unified sort rule to alphabetical by title.
 - [x] Remove the reordering side effect on local `updatedAt` during pin / unpin.
 - [x] Update renderer store tests to cover sorting and pin regression scenarios.
-- [x] Run `bun run format`, `bun run i18n`, and `bun run lint`.
+- [x] Run `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.

@@ -9,5 +9,5 @@
 - [x] Replace global and targeted smooth scroll behavior with native/default scroll behavior.
 - [x] Tune macOS-only main/settings BrowserWindow material options.
 - [x] Run targeted tests.
-- [x] Run `bun run format`, `bun run i18n`, and `bun run lint`.
+- [x] Run `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.
 - [x] Run `bun run typecheck`.

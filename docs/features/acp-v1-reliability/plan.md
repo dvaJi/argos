@@ -339,7 +339,7 @@ Quality gates:
 
 ```bash
 bun run format
-bun run i18n
+i18n (N/A -- no root script)
 bun run lint
 bun run typecheck
 bun run test -- test/main/presenter/llmProviderPresenter

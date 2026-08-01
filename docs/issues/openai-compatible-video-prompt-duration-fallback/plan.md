@@ -17,5 +17,5 @@ Add a small runtime helper that extracts an integer duration from obvious prompt
 ## Validation
 - Focused AI SDK runtime tests for video request bodies.
 - `bun run format`
-- `bun run i18n`
+- `i18n (N/A -- no root script)`
 - `bun run lint`
