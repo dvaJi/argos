@@ -3,7 +3,7 @@ import type { MessageFile } from "@argos/shared/types/agent-interface";
 import { createFileClient } from "#api/FileClient";
 import { useToast } from "#/components/use-toast";
 import { calculateImageTokens, getClipboardImageInfo, imageFileToBase64 } from "#/lib/image";
-import { approximateTokenSize } from "tokenx";
+import { estimateTokenCount } from "tokenx";
 
 export interface PromptFileItem {
   id: string;
@@ -211,7 +211,7 @@ export function useChatInputFiles(
             fileCreated: new Date(fileItem.createdAt || Date.now()).toISOString(),
             fileModified: new Date(fileItem.createdAt || Date.now()).toISOString(),
           },
-          token: approximateTokenSize(fileItem.content || ""),
+          token: estimateTokenCount(fileItem.content || ""),
           path: fileItem.path || fileItem.name,
         };
 
@@ -219,7 +219,7 @@ export function useChatInputFiles(
           try {
             const fileContent = await fileClient.readFile(fileItem.path);
             messageFile.content = fileContent;
-            messageFile.token = approximateTokenSize(fileContent);
+            messageFile.token = estimateTokenCount(fileContent);
           } catch (error) {
             console.warn(`Failed to read file content: ${fileItem.path}`, error);
           }

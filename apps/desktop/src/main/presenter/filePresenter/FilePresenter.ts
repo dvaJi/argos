@@ -8,7 +8,7 @@ import { FileOperation, IConfigPresenter } from "@argos/shared/presenter";
 import { detectMimeType, getMimeTypeAdapterMap } from "./mime";
 import { IFilePresenter } from "@argos/shared/presenter";
 import { MessageFile } from "@argos/shared/chat";
-import { approximateTokenSize } from "tokenx";
+import { estimateTokenCount } from "tokenx";
 import { ImageFileAdapter } from "./ImageFileAdapter";
 import { nanoid } from "nanoid";
 import { DirectoryAdapter } from "./DirectoryAdapter";
@@ -186,7 +186,7 @@ export class FilePresenter implements IFilePresenter {
     await adapter.processDirectory();
     return {
       name: adapter.dirMetaData?.dirName ?? "",
-      token: approximateTokenSize(adapter.dirMetaData?.dirName ?? ""),
+      token: estimateTokenCount(adapter.dirMetaData?.dirName ?? ""),
       path: adapter.dirPath,
       mimeType: "directory",
       metadata: {
@@ -238,8 +238,8 @@ export class FilePresenter implements IFilePresenter {
             adapter.mimeType && adapter.mimeType.startsWith("image")
               ? calculateImageTokens(adapter as ImageFileAdapter)
               : adapter.mimeType && adapter.mimeType.startsWith("audio")
-                ? approximateTokenSize(`Audio file path: ${adapter.filePath}`)
-                : approximateTokenSize(content || ""),
+                ? estimateTokenCount(`Audio file path: ${adapter.filePath}`)
+                : estimateTokenCount(content || ""),
           path: adapter.filePath,
           mimeType: adapter.mimeType ?? "",
           metadata: adapter.fileMetaData ?? {

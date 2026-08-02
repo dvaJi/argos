@@ -20,7 +20,7 @@
     "@argos/shared-contracts": "workspace:*",
     "ai": "catalog:",
     "level": "catalog:",
-    "undici": "^8.7.0",
+    "undici": "^8.9.0",
     "yaml": "catalog:",
     "zod": "catalog:"
   },
