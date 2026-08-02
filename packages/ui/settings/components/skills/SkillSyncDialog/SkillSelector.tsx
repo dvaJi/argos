@@ -12,12 +12,7 @@ interface SkillSelectorProps {
   onSelectedSkillsChange: (value: string[]) => void;
 }
 
-const SkillSelector: FC<SkillSelectorProps> = ({
-  skills,
-  selectedSkills,
-  conflicts,
-  onSelectedSkillsChange,
-}) => {
+const SkillSelector: FC<SkillSelectorProps> = ({ skills, selectedSkills, conflicts, onSelectedSkillsChange }) => {
   const [skillCheckedState, setSkillCheckedState] = useState<Record<string, boolean>>({});
 
   useEffect(() => {

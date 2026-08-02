@@ -69,10 +69,7 @@ import {
 } from "./events/upgrade.events";
 import { windowStateChangedEvent } from "./events/window.events";
 import { workspaceInvalidatedEvent } from "./events/workspace.events";
-import {
-  notificationsDatabaseRepairSuggestedEvent,
-  notificationsShowErrorEvent,
-} from "./events/notifications.events";
+import { notificationsDatabaseRepairSuggestedEvent, notificationsShowErrorEvent } from "./events/notifications.events";
 import {
   providersRateLimitConfigUpdatedEvent,
   providersRateLimitLimitExceededEvent,

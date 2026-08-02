@@ -18,12 +18,7 @@ interface ConflictResolverProps {
   onStrategiesChange: (value: Record<string, ConflictStrategy>) => void;
 }
 
-const ConflictResolver: FC<ConflictResolverProps> = ({
-  conflicts,
-  strategies,
-  warnings,
-  onStrategiesChange,
-}) => {
+const ConflictResolver: FC<ConflictResolverProps> = ({ conflicts, strategies, warnings, onStrategiesChange }) => {
   const updateStrategy = (skillName: string, strategy: ConflictStrategy) => {
     onStrategiesChange({
       ...strategies,
