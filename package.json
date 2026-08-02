@@ -132,25 +132,25 @@
     "doctor": "bun x react-doctor@latest"
   },
   "dependencies": {
-    "fflate": "^0.8.3",
-    "nanoid": "^6.0.0",
-    "tokenx": "^2.0.0",
-    "zod": "^4.4.3"
+    "fflate": "catalog:",
+    "nanoid": "catalog:",
+    "tokenx": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
     "@electron/rebuild": "^4.2.0",
-    "electron": "^43.2.0",
-    "electron-builder": "^26.15.3",
+    "electron": "catalog:",
+    "electron-builder": "catalog:",
     "knip": "^6.31.0",
-    "oxfmt": "^0.61.0",
-    "oxlint": "^1.76.0",
-    "turbo": "^2.10.8",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "turbo": "catalog:",
     "tiny-runtime-injector": "^1.2.0",
     "@duckdb/node-api": "1.5.5-r.3",
-    "typescript": "^7.0.2",
-    "vite-plugin-electron": "^1.1.0",
-    "vite-plugin-electron-renderer": "^1.0.0",
-    "yaml": "^2.9.0"
+    "typescript": "catalog:",
+    "vite-plugin-electron": "catalog:",
+    "vite-plugin-electron-renderer": "catalog:",
+    "yaml": "catalog:"
   }
 }
