@@ -224,16 +224,11 @@ describe("AcpProviderExecutionPort", () => {
   });
 
   it("times out a hanging permission resolver with a cancelled outcome", async () => {
-    vi.useFakeTimers();
-    try {
-      const onTimeout = vi.fn();
-      const promise = resolvePermissionWithTimeout(() => new Promise(() => {}), 1000, onTimeout);
-      await vi.advanceTimersByTimeAsync(1000);
-      await expect(promise).resolves.toEqual({ outcome: { outcome: "cancelled" } });
-      expect(onTimeout).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    const onTimeout = vi.fn();
+    await expect(resolvePermissionWithTimeout(() => new Promise(() => {}), 50, onTimeout)).resolves.toEqual({
+      outcome: { outcome: "cancelled" },
+    });
+    expect(onTimeout).toHaveBeenCalledOnce();
   });
 
   it("returns the resolver result when it settles before the timeout", async () => {
