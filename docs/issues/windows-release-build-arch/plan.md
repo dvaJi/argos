@@ -9,7 +9,7 @@
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run i18n`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `i18n (N/A -- no root script)`.
+- Run `bun run lint`.
 - Inspect workflow references for stale `windows-latest` usage.

@@ -16,6 +16,6 @@ Add a small runtime helper that extracts an integer duration from obvious prompt
 
 ## Validation
 - Focused AI SDK runtime tests for video request bodies.
-- `pnpm run format`
-- `pnpm run i18n`
-- `pnpm run lint`
+- `bun run format`
+- `i18n (N/A -- no root script)`
+- `bun run lint`

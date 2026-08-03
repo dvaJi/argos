@@ -12,4 +12,4 @@
 - [x] Remove the utility-host session-path dependency on `electron.app`.
 - [x] Add tests for raw payload and MessageEvent payload handling.
 - [x] Run focused runtime tests and build/probe validation.
-- [x] Run `pnpm run format`, `pnpm run i18n`, and `pnpm run lint`.
+- [x] Run `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.

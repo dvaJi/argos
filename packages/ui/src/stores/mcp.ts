@@ -806,8 +806,7 @@ const getPluginTools = () => mcpStore.state.tools.filter((tool) => isPluginOwned
 const getVisibleResources = () =>
   mcpStore.state.resources.filter((resource) => isVisibleServerName(resource.client.name));
 
-const getVisiblePrompts = () =>
-  mcpStore.state.prompts.filter((prompt) => isVisibleServerName(prompt.client?.name));
+const getVisiblePrompts = () => mcpStore.state.prompts.filter((prompt) => isVisibleServerName(prompt.client?.name));
 
 const getToolsLoading = () => (mcpStore.state.config.mcpEnabled ? mcpStore.state.toolsLoading : false);
 

@@ -6,7 +6,7 @@ As a contributor, I want the PR Check workflow to pass for onboarding route chan
 
 ## Acceptance Criteria
 
-- `pnpm run format:check` passes locally.
+- `bun run format:check` passes locally.
 - The workflow-equivalent checks continue past formatting without introducing behavior changes.
 - The fix does not alter guided onboarding state semantics.
 

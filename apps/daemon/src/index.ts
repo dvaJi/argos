@@ -16,6 +16,7 @@ import { ProviderImportService } from "@argos/backend-core";
 import { PiProviderExecutionPort } from "./host/pi-provider-execution";
 import { PiAgentProfileManager } from "./host/piAgentProfileManager";
 import { ArgosOrchestrationRuntime } from "./host/argosOrchestrationRuntime";
+import { BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
 import { AcpProviderExecutionPort } from "./host/acp-provider-execution";
 import { createDaemonMcpPorts } from "./host/daemonMcpPorts";
 import { DaemonMcpRuntime } from "./host/daemonMcpRuntime";
@@ -274,6 +275,7 @@ export async function startDaemon(options?: {
 
   const argosAgentRuntimeHost = new DaemonArgosAgentRuntime(db);
   argosAgentRuntimeHost.ensureBuiltinAgent();
+  argosAgentRuntimeHost.ensureBuiltinOrchestratorAgent();
   configPresenter.setArgosAgentRuntime(argosAgentRuntimeHost.runtime);
   logger.info("[daemon] Argos agent runtime initialized");
 
@@ -289,7 +291,7 @@ export async function startDaemon(options?: {
     logger.info(`[daemon] Reset active sessions to idle`);
   }
 
-  const piProfiles = new PiAgentProfileManager(paths.getDataDir());
+  const piProfiles = new PiAgentProfileManager(paths.getDataDir(), resolveDaemonVersion());
   const piProviderExecutionPort = new PiProviderExecutionPort(
     configPresenter,
     sessionRepository,
@@ -442,6 +444,246 @@ export async function startDaemon(options?: {
     sessionRepository,
   });
   (skillRuntime as typeof skillRuntime & { piProfiles: PiAgentProfileManager }).piProfiles = piProfiles;
+  const SAFE_MCP_CONFIG_FIELDS = new Set(["type", "command", "descriptions", "description", "enabled", "disable"]);
+  const redactUnknownValue = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(() => "[configured]");
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.keys(value as Record<string, unknown>).map((key) => [key, "[configured]"]));
+    }
+    return "[configured]";
+  };
+  const redactMcpServers = (servers: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(servers).map(([name, value]) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [name, value];
+        const config = value as Record<string, unknown>;
+        const redacted: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(config)) {
+          // Only explicitly non-sensitive fields are exposed to the orchestrator model
+          // verbatim; everything else (env, customHeaders, args, baseUrl, unknown maps)
+          // is masked so credentials cannot leak.
+          redacted[key] = SAFE_MCP_CONFIG_FIELDS.has(key) ? val : redactUnknownValue(val);
+        }
+        return [name, redacted];
+      }),
+    );
+  const validateProvisionedAgent = async (agentId: string, requireEnabled = true) => {
+    const agent = await configPresenter.getArgosAgent(agentId);
+    if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
+    const effectiveConfig = await configPresenter.resolveArgosAgentConfig(agentId);
+    const configuredServers = (await configPresenter.getMcpServers()) as Record<string, any>;
+    const expectedServers = effectiveConfig.enabledMcpServerIds ?? [];
+    const managedSkills = piProfiles.validateManagedSkills(agentId);
+    const expectedSkills = agent.config?.enabledSkillNames ?? [];
+    const checks = [
+      {
+        name: "model",
+        ok: Boolean(effectiveConfig.defaultModelPreset?.modelId) || Boolean(effectiveConfig.assistantModel?.modelId),
+      },
+      { name: "enabled", ok: !requireEnabled || agent.enabled },
+      {
+        name: "mcp-configured",
+        ok: expectedServers.every((name: string) => Boolean(configuredServers[name]?.enabled)),
+        details: expectedServers,
+      },
+      {
+        name: "mcp-running",
+        ok: expectedServers.every((name: string) => mcpRuntime.isServerRunning(name)),
+        details: expectedServers.filter((name: string) => !mcpRuntime.isServerRunning(name)),
+      },
+      {
+        name: "skills-attached",
+        ok: managedSkills.every((skill) => expectedSkills.includes(skill.name)),
+        details: managedSkills.filter((skill) => !expectedSkills.includes(skill.name)).map((skill) => skill.name),
+      },
+      {
+        name: "skill-hashes",
+        ok: managedSkills.every((skill) => skill.exists && skill.hashMatches),
+        details: managedSkills.filter((skill) => !skill.exists || !skill.hashMatches),
+      },
+    ];
+    return { agentId, valid: checks.every((check) => check.ok), checks };
+  };
+  const provisioningActions: Parameters<typeof orchestrationRuntime.setProvisioningActions>[0] = {
+    createAgent: (input) => configPresenter.createArgosAgent(input),
+    async updateAgent(agentId, updates) {
+      if (agentId === BUILTIN_ARGOS_AGENT_ID)
+        throw new Error("The protected default Argos agent cannot be changed by provisioning.");
+      const agent = await configPresenter.getArgosAgent(agentId);
+      if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
+      return await configPresenter.updateArgosAgent(agentId, updates);
+    },
+    async listMcpServers() {
+      return redactMcpServers((await configPresenter.getMcpServers()) as Record<string, unknown>);
+    },
+    async upsertMcpServer(serverName, config) {
+      const name = serverName.trim();
+      if (!name) throw new Error("An MCP server name is required.");
+      const servers = (await configPresenter.getMcpServers()) as Record<string, unknown>;
+      const normalized = { ...config, enabled: true, disable: false };
+      if (Object.prototype.hasOwnProperty.call(servers, name)) {
+        await configPresenter.updateMcpServer(name, normalized);
+      } else {
+        await configPresenter.addMcpServer(name, normalized);
+      }
+      await configPresenter.setMcpEnabled(true);
+      await configPresenter.setMcpServerEnabled(name, true);
+      if (mcpRuntime.isServerRunning(name)) await mcpRuntime.stopServer(name);
+      await mcpRuntime.startServer(name);
+      const redacted = redactMcpServers((await configPresenter.getMcpServers()) as Record<string, unknown>);
+      return { serverName: name, config: redacted[name], running: true };
+    },
+    async setAgentMcpServers(agentId, serverNames) {
+      const agent = await configPresenter.getArgosAgent(agentId);
+      if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
+      const servers = (await configPresenter.getMcpServers()) as Record<string, unknown>;
+      const normalized = Array.from(new Set(serverNames.map((name) => name.trim()).filter(Boolean)));
+      const missing = normalized.filter((name) => !Object.prototype.hasOwnProperty.call(servers, name));
+      if (missing.length) throw new Error(`Unknown MCP server(s): ${missing.join(", ")}`);
+      const updated = await configPresenter.updateArgosAgent(agentId, {
+        config: { ...agent.config, enabledMcpServerIds: normalized },
+      });
+      return { agent: updated, enabledMcpServerIds: normalized };
+    },
+    async listAgentSkills(agentId) {
+      if (!(await configPresenter.getArgosAgent(agentId))) throw new Error(`Argos agent not found: ${agentId}`);
+      return piProfiles.listManagedSkills(agentId);
+    },
+    async writeAgentSkill(agentId, input) {
+      const agent = await configPresenter.getArgosAgent(agentId);
+      if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
+      const skill = piProfiles.writeManagedSkill(agentId, input);
+      const enabledSkillNames = Array.from(new Set([...(agent.config?.enabledSkillNames ?? []), skill.name]));
+      await configPresenter.updateArgosAgent(agentId, {
+        config: { ...agent.config, enabledSkillNames },
+      });
+      return { skill, enabledSkillNames };
+    },
+    async removeAgentSkill(agentId, name) {
+      const agent = await configPresenter.getArgosAgent(agentId);
+      if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
+      const removed = piProfiles.removeManagedSkill(agentId, name);
+      const normalizedName = name.trim().toLowerCase();
+      const enabledSkillNames = (agent.config?.enabledSkillNames ?? []).filter((item) => item !== normalizedName);
+      await configPresenter.updateArgosAgent(agentId, {
+        config: { ...agent.config, enabledSkillNames },
+      });
+      return { removed, name: normalizedName, enabledSkillNames };
+    },
+    async provisionAgent(input) {
+      const name = typeof input.name === "string" ? input.name.trim() : "";
+      if (!name) throw new Error("A provisioned agent name is required.");
+      const description = typeof input.description === "string" ? input.description : undefined;
+      const requestedConfig =
+        input.config && typeof input.config === "object" && !Array.isArray(input.config)
+          ? (input.config as Record<string, unknown>)
+          : {};
+      const mcpServers = Array.isArray(input.mcpServers)
+        ? input.mcpServers.filter((item): item is { serverName: string; config: Record<string, unknown> } =>
+            Boolean(
+              item &&
+              typeof item === "object" &&
+              typeof (item as any).serverName === "string" &&
+              (item as any).config &&
+              typeof (item as any).config === "object" &&
+              !Array.isArray((item as any).config),
+            ),
+          )
+        : [];
+      const skills = Array.isArray(input.skills)
+        ? input.skills.filter((item): item is { name: string; description: string; instructions: string } =>
+            Boolean(
+              item &&
+              typeof item === "object" &&
+              typeof (item as any).name === "string" &&
+              typeof (item as any).description === "string" &&
+              typeof (item as any).instructions === "string",
+            ),
+          )
+        : [];
+      const beforeMcpEnabled = await configPresenter.getMcpEnabled();
+      const beforeServers = (await configPresenter.getMcpServers()) as Record<string, any>;
+      const snapshots = new Map(
+        mcpServers.map(({ serverName }) => [
+          serverName.trim(),
+          {
+            config: beforeServers[serverName.trim()],
+            running: mcpRuntime.isServerRunning(serverName.trim()),
+          },
+        ]),
+      );
+      let createdAgentId: string | null = null;
+      try {
+        const created = await configPresenter.createArgosAgent({
+          name,
+          description,
+          enabled: false,
+          config: requestedConfig,
+        });
+        createdAgentId = created.id;
+        for (const server of mcpServers) {
+          await provisioningActions.upsertMcpServer(server.serverName, server.config);
+        }
+        await provisioningActions.setAgentMcpServers(
+          created.id,
+          mcpServers.map((server) => server.serverName),
+        );
+        for (const skill of skills) await provisioningActions.writeAgentSkill(created.id, skill);
+
+        const validation = await validateProvisionedAgent(created.id, false);
+        if (!validation.valid) {
+          const failed = validation.checks.filter((check) => !check.ok).map((check) => check.name);
+          throw new Error(`Provisioned agent validation failed: ${failed.join(", ")}`);
+        }
+        const enabled = input.enabled !== false;
+        const agent = await configPresenter.updateArgosAgent(created.id, { enabled });
+        return { agent, validation: await validateProvisionedAgent(created.id, enabled), rolledBack: false };
+      } catch (error) {
+        // Isolate each rollback step so one failure cannot skip remaining cleanup;
+        // collect every rollback error and surface it with the original cause.
+        // removeProfile recursively deletes the agent profile (incl. managed skills),
+        // so written skills are cleaned up too.
+        const rollbackErrors: { step: string; error: string }[] = [];
+        const rollbackStep = async (step: string, run: () => Promise<unknown> | unknown) => {
+          try {
+            await run();
+          } catch (rollbackError) {
+            rollbackErrors.push({
+              step,
+              error: rollbackError instanceof Error ? rollbackError.message : String(rollbackError),
+            });
+          }
+        };
+        if (createdAgentId) {
+          const rollbackAgentId = createdAgentId;
+          await rollbackStep("delete-agent", () => configPresenter.deleteArgosAgent(rollbackAgentId));
+          await rollbackStep("remove-profile", () => piProfiles.removeProfile(rollbackAgentId));
+        }
+        for (const [serverName, snapshot] of snapshots) {
+          await rollbackStep(`stop-server:${serverName}`, async () => {
+            if (mcpRuntime.isServerRunning(serverName)) await mcpRuntime.stopServer(serverName);
+          });
+          await rollbackStep(`restore-server:${serverName}`, async () => {
+            if (snapshot.config) {
+              await configPresenter.updateMcpServer(serverName, snapshot.config);
+              await configPresenter.setMcpServerEnabled(serverName, snapshot.config.enabled !== false);
+              if (snapshot.running) await mcpRuntime.startServer(serverName);
+            } else {
+              await configPresenter.removeMcpServer(serverName);
+            }
+          });
+        }
+        await rollbackStep("set-mcp-enabled", () => configPresenter.setMcpEnabled(beforeMcpEnabled));
+        const originalMessage = error instanceof Error ? error.message : String(error);
+        const rollbackDetail = rollbackErrors.length
+          ? ` (rollback failures: ${rollbackErrors.map((entry) => `${entry.step} (${entry.error})`).join("; ")})`
+          : "";
+        throw new Error(`Agent provisioning rolled back: ${originalMessage}${rollbackDetail}`);
+      }
+    },
+    validateAgent: (agentId) => validateProvisionedAgent(agentId),
+  };
+  orchestrationRuntime.setProvisioningActions(provisioningActions);
   const syncRuntime = new DaemonSyncRuntime({
     configDir: paths.getConfigDir(),
     eventPublisher,

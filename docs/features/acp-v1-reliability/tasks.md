@@ -302,10 +302,10 @@ real remaining delta.
 
 ## 13. Final Quality Gates
 
-- [ ] Run `pnpm run format`.
-- [ ] Run `pnpm run i18n`.
-- [ ] Run `pnpm run lint`.
-- [ ] Run `pnpm run typecheck`.
+- [ ] Run `bun run format`.
+- [ ] Run `i18n (N/A -- no root script)`.
+- [ ] Run `bun run lint`.
+- [ ] Run `bun run typecheck`.
 - [ ] Run ACP main tests under `test/main/presenter/llmProviderPresenter`.
 - [ ] Run `test/main/presenter/acpProvider.test.ts`.
 - [ ] Run renderer tests for diagnostics UI if UI is changed.

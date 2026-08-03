@@ -6,6 +6,6 @@
 
 ## Validation
 - [x] Run focused AI SDK runtime tests.
-- [x] Run `pnpm run format`.
-- [x] Run `pnpm run i18n`.
-- [x] Run `pnpm run lint`.
+- [x] Run `bun run format`.
+- [x] Run `i18n (N/A -- no root script)`.
+- [x] Run `bun run lint`.

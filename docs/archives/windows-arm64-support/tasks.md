@@ -14,4 +14,8 @@
 - [x] Attach main-process logs directly to E2E test results.
 - [x] Upgrade `sharp` to a version with Windows ARM64 optional dependency support.
 - [x] Add targeted unit coverage for runtime fallback paths.
-- [ ] Enable Windows ARM64 in the release workflow after the manual workflow passes on GitHub.
+- [x] Enable Windows ARM64 in the release workflow after the manual workflow passes on GitHub. DONE:
+      the manual `windows-arm64-e2e.yml` workflow passed (latest runs success, 2026-07-27), and
+      ARM64 is enabled in `release.yml` (build-windows matrix includes arch=arm64 on
+      windows-11-arm; the release job depends on build-windows and merges argos-win-arm64
+      artifacts into latest.yml/beta.yml).

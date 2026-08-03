@@ -2,7 +2,7 @@
 
 Baseline refreshed on `2026-06-21`. **Suite is green** as of commit `f9130c1`.
 
-Totals: **0 failed / 2267 passed / 71 skipped** of 2338 tests (vitest, `pnpm test`).
+Totals: **0 failed / 2267 passed / 71 skipped** of 2338 tests (vitest, `bun run test`).
 
 The suite was previously understating itself: a broken `@electron-toolkit/utils`
 load masked ~525 tests, and 11 provider test files couldn't load due to a
@@ -39,7 +39,7 @@ Fixing those (global mocks + lazy presenter access) made the suite comprehensive
 ## Environment-gated (skipped with reasons, not failing)
 
 - `pluginPresenter.test.ts` — `describe.skipIf` when `plugins/cua/plugin.json` is
-  absent (only present after `pnpm run plugin:cua:build`). 28 tests.
+  absent (only present after `bun run plugin:cua:build`). 28 tests.
 - `acpFsHandler.test.ts` — symlink tests `it.skipIf(os.platform() === "win32")`
   (needs Developer Mode/admin). 2 tests.
 - Global mocks in `test/setup.ts`: `@electron-toolkit/utils`, `electron-store`,

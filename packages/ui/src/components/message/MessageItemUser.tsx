@@ -62,13 +62,7 @@ interface MessageItemUserProps {
   onEditSave?: (payload: { messageId: string; text: string }) => void;
 }
 
-const MessageItemUser: FC<MessageItemUserProps> = ({
-  message,
-  isReadOnly = false,
-  onRetry,
-  onDelete,
-  onEditSave,
-}) => {
+const MessageItemUser: FC<MessageItemUserProps> = ({ message, isReadOnly = false, onRetry, onDelete, onEditSave }) => {
   const deviceClient = createDeviceClient();
   const windowClient = createWindowClient();
 

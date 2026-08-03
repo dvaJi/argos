@@ -14,18 +14,18 @@ This isolates two independent risks:
 - Argos imports DuckDB through `src/main/presenter/knowledgePresenter/database/duckdbPresenter.ts`.
 - The main-process startup path reaches built-in knowledge base code early enough that a missing native binding crashes the app before E2E can observe a window.
 - Argos's DuckDB flow uses both online `INSTALL/LOAD vss` and an offline copied extension path through `scripts/installVss.js` and runtime extension loading.
-- Project guidance requires keeping an SDD folder for active issue work and running `pnpm run format`, `pnpm run i18n`, and `pnpm run lint` after implementation.
+- Project guidance requires keeping an SDD folder for active issue work and running `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint` after implementation.
 
 ## Proposed Changes
 
 ### 1. Dependency Upgrade
 
-Update `package.json` to `@duckdb/node-api@1.5.3-r.1` and refresh `pnpm-lock.yaml`.
+Update `package.json` to `@duckdb/node-api@1.5.3-r.1` and refresh `bun.lock`.
 
 Expected effect:
 
-- pnpm resolves `@duckdb/node-bindings@1.5.3-r.1`
-- pnpm resolves `@duckdb/node-bindings-win32-arm64@1.5.3-r.1`
+- bun resolves `@duckdb/node-bindings@1.5.3-r.1`
+- bun resolves `@duckdb/node-bindings-win32-arm64@1.5.3-r.1`
 - Windows ARM64 can load the native binding instead of failing during module initialization
 
 ### 2. Early Windows ARM64 Verification
@@ -57,9 +57,9 @@ Run:
 
 - a targeted DuckDB/VSS smoke command
 - any focused tests touching the changed code or scripts
-- `pnpm run format`
-- `pnpm run i18n`
-- `pnpm run lint`
+- `bun run format`
+- `i18n (N/A -- no root script)`
+- `bun run lint`
 
 ### CI Validation
 

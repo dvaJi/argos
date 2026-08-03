@@ -14,7 +14,7 @@ Actionable checklist (status of the migration). See `plan.md` for full detail.
 - [x] AGENTS.md rewritten
 
 ## TODO — runtime/packaging verification (needs Electron; not runnable here)
-- [ ] E2E launch: `pnpm --filter @argos/ui build && pnpm dev` → window renders daemon-served UI
+- [ ] E2E launch: `bun run --filter @argos/ui build && bun run dev` → window renders daemon-served UI
 - [ ] Native-only routes still work via hybrid bridge over `http://127.0.0.1` origin
 - [ ] Splash startup ordering (inline fallback path)
 - [ ] `electron-builder` packaging produces working app (web + daemon bundled)

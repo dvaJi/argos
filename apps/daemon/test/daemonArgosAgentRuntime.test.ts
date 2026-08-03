@@ -75,14 +75,20 @@ function makeFakeDb() {
 }
 
 describe("DaemonArgosAgentRuntime", () => {
-  it("seeds the builtin agent on construction", () => {
+  it("seeds both built-in agents", () => {
     const db = makeFakeDb();
     const host = new DaemonArgosAgentRuntime(db as never);
     host.ensureBuiltinAgent();
+    host.ensureBuiltinOrchestratorAgent();
 
     const agents = host.runtime.listAgents();
-    expect(agents).toHaveLength(1);
-    expect(agents[0]).toMatchObject({ id: "argos", type: "argos", protected: true, enabled: true });
+    expect(agents).toHaveLength(2);
+    expect(agents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "argos", type: "argos", protected: true, enabled: true }),
+        expect.objectContaining({ id: "argos-orchestrator", type: "argos", protected: true, enabled: false }),
+      ]),
+    );
   });
 
   it("create/delete round-trips and respects the session guard", () => {

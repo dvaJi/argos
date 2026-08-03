@@ -9,5 +9,5 @@
 4. [x] `FloatingButtonPresenter`: read persisted bounds on create and pass them in;
        persist snapped bounds on `DRAG_END`.
 5. [x] Update `index.test.ts` mock config; add a persistence test for `DRAG_END`.
-6. [x] Quality gates: `pnpm run format`, `pnpm run i18n`, `pnpm run lint`,
-       `pnpm run typecheck`, `pnpm test` (floating button suites).
+6. [x] Quality gates: `bun run format`, `i18n (N/A -- no root script)`, `bun run lint`,
+       `bun run typecheck`, `bun run test` (floating button suites).

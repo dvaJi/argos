@@ -12,5 +12,5 @@ Update `MessageBlockThink.tsx` only.
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run lint`.

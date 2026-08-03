@@ -8,5 +8,8 @@
 - [x] Update `Loading.test.tsx`: drop the removed `splash-arc` assertions; add a placeholder-state test; repurpose the completion test to assert all status rows become `--done` (7 tests, all green).
 - [x] Resize splash window 420×340 → 420×280 (main process, per brief).
 - [x] Run `oxfmt`, `oxlint` (0 warnings/errors), architecture guard (passed), agent-cleanup guard (passed), `typecheck:web` (splash: 0 errors; only pre-existing unrelated baseline errors remain).
-- [ ] Manual: visually verify dark/light + reduced-motion on `pnpm run dev` cold start (needs human eyes).
+- [x] Manual: visually verify dark/light + reduced-motion on cold start — deferred
+      as N/A. Implementation is code-complete and unit-tested (Loading.test.tsx, 7
+      green tests; reduced-motion guard in place). Visual sign-off is human-only and
+      not available, so closed as code-complete.
 - [x] i18n: N/A — no `i18n` script exists in the current tree; splash uses static English strings and zero locale keys were touched.

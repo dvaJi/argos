@@ -11,4 +11,4 @@
 - [x] Remove TIER2_PREFIXES and “Coming soon” error block.
 - [x] Add/update daemon tests for new handlers.
 - [x] Run `bun run test` in apps/daemon.
-- [x] Run `pnpm run format` and `pnpm run lint`.
+- [x] Run `bun run format` and `bun run lint`.

@@ -29,4 +29,4 @@ message list jump visibly while row measurement catches up.
 ## Validation
 
 - Run focused renderer tests for message activity grouping.
-- Run repository-required quality gates: `pnpm run format`, `pnpm run i18n`, and `pnpm run lint`.
+- Run repository-required quality gates: `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.

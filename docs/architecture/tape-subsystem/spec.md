@@ -48,7 +48,7 @@ Re-introduce the tape view manifest layer in three incremental pieces:
   `getViewLineage(sessionId)` for programmatic access.
 - Existing tape behaviour (append, search, anchor, fork, effective view) is
   unchanged.
-- `pnpm run typecheck`, `pnpm test`, `pnpm run lint` all pass.
+- `bun run typecheck`, `bun run test`, `bun run lint` all pass.
 
 ## Non-goals
 

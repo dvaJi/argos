@@ -38,7 +38,7 @@ Argos records are the source of truth for conversation data. Sessions returned b
 - `usage_update`, `session_info_update`, plan, mode, config options, and slash commands all reach the Argos state layer or debug log.
 - The Argos conversation is the final persisted source of truth; remote session list/load/resume only create or update `AcpSessionLink`, and never re-create a local conversation for the same remote session.
 - Remote history import is first converted to the Argos message/block format, then deduplicated and persisted by a stable fingerprint.
-- On completion, run `pnpm run format`, `pnpm run i18n`, `pnpm run lint`, `pnpm run typecheck`, and the ACP-related Vitest suites.
+- On completion, run `bun run format`, `i18n (N/A -- no root script)`, `bun run lint`, `bun run typecheck`, and the ACP-related Vitest suites.
 
 ## Local Agent Samples
 

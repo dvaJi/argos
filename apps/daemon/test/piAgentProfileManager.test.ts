@@ -13,7 +13,7 @@ afterEach(() => {
 function createManager() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "argos-pi-profile-"));
   directories.push(directory);
-  return new PiAgentProfileManager(directory);
+  return new PiAgentProfileManager(directory, "1.2.3");
 }
 
 describe("PiAgentProfileManager", () => {
@@ -65,5 +65,47 @@ describe("PiAgentProfileManager", () => {
   it("rejects agent ids that cannot form a safe profile name", () => {
     const manager = createManager();
     expect(() => manager.ensureProfile("///")).toThrow("valid agent id");
+  });
+
+  it("persists managed skills in .argos with a hash registry and Pi location", () => {
+    const manager = createManager();
+    const first = manager.writeManagedSkill("mail-agent", {
+      name: "zoho-mail",
+      description: "Use Zoho Mail through its MCP server.",
+      instructions: "Use the Zoho MCP tools for inbox and message operations.",
+    });
+
+    expect(first).toMatchObject({ name: "zoho-mail", managedVersion: "1.2.3" });
+    expect(first.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      fs.readFileSync(path.join(manager.getManagedSkillsDir("mail-agent"), "zoho-mail", "SKILL.md"), "utf8"),
+    ).toContain("name: zoho-mail");
+    expect(manager.readSettings("mail-agent").skills).toContain(manager.getManagedSkillsDir("mail-agent"));
+    expect(manager.listManagedSkills("mail-agent")).toEqual([first]);
+    expect(manager.validateManagedSkills("mail-agent")).toEqual([{ ...first, exists: true, hashMatches: true }]);
+    fs.appendFileSync(path.join(manager.getManagedSkillsDir("mail-agent"), "zoho-mail", "SKILL.md"), "tampered");
+    expect(manager.validateManagedSkills("mail-agent")[0]?.hashMatches).toBe(false);
+
+    const updated = manager.writeManagedSkill("mail-agent", {
+      name: "zoho-mail",
+      description: "Use Zoho Mail safely.",
+      instructions: "Never place credentials in messages.",
+    });
+    expect(updated.installedAt).toBe(first.installedAt);
+    expect(updated.sha256).not.toBe(first.sha256);
+    expect(manager.removeManagedSkill("mail-agent", "zoho-mail")).toBe(true);
+    expect(manager.listManagedSkills("mail-agent")).toEqual([]);
+    expect(manager.removeProfile("mail-agent")).toBe(true);
+  });
+
+  it("rejects unsafe managed skill names", () => {
+    const manager = createManager();
+    expect(() =>
+      manager.writeManagedSkill("mail-agent", {
+        name: "../escape",
+        description: "unsafe",
+        instructions: "unsafe",
+      }),
+    ).toThrow("Skill names must be");
   });
 });

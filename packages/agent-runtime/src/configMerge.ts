@@ -18,6 +18,7 @@ export const mergeArgosConfig = (baseConfig: ArgosAgentConfig, overrideConfig: A
     enabledMcpServerIds: overrideConfig.enabledMcpServerIds ?? baseConfig.enabledMcpServerIds ?? [],
     enabledPluginIds: overrideConfig.enabledPluginIds ?? baseConfig.enabledPluginIds ?? [],
     enabledSkillNames: overrideConfig.enabledSkillNames ?? baseConfig.enabledSkillNames ?? [],
+    orchestrationEnabled: overrideConfig.orchestrationEnabled ?? baseConfig.orchestrationEnabled ?? false,
     subagentEnabled: overrideConfig.subagentEnabled ?? baseConfig.subagentEnabled ?? true,
     subagents: overrideConfig.subagents ?? baseConfig.subagents ?? createDefaultArgosSubagentSlots(),
     autoCompactionEnabled: overrideConfig.autoCompactionEnabled ?? baseConfig.autoCompactionEnabled ?? true,

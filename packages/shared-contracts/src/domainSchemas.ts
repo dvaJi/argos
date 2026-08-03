@@ -376,6 +376,43 @@ export const AcpManualAgentSchema = zod.looseObject({
   enabled: zod.boolean().optional(),
 });
 
+const ArgosSubagentSlotSchema = zod
+  .object({
+    id: zod.string().min(1),
+    targetType: zod.enum(["self", "agent"]),
+    targetAgentId: zod.string().min(1).optional(),
+    displayName: zod.string(),
+    description: zod.string(),
+  })
+  .refine(
+    (slot) =>
+      slot.targetType === "agent"
+        ? typeof slot.targetAgentId === "string" && slot.targetAgentId.length > 0
+        : slot.targetAgentId === undefined,
+    {
+      message: "targetType 'agent' requires a targetAgentId; targetType 'self' must not specify one",
+      path: ["targetAgentId"],
+    },
+  );
+
+const ArgosAgentMemoryEmbeddingSchema = zod.object({
+  providerId: zod.string().min(1),
+  modelId: zod.string().min(1),
+});
+
+const ArgosAgentMemoryRetrievalSchema = zod.object({
+  topK: zod.number().optional(),
+  rrfK: zod.number().optional(),
+  similarityThreshold: zod.number().optional(),
+  weights: zod
+    .object({
+      similarity: zod.number(),
+      recency: zod.number(),
+      importance: zod.number(),
+    })
+    .optional(),
+});
+
 export const ArgosAgentConfigSchema = zod.looseObject({
   defaultModelPreset: ArgosAgentModelPresetSchema.nullable().optional(),
   assistantModel: ModelSelectionSchema.nullable().optional(),
@@ -387,8 +424,18 @@ export const ArgosAgentConfigSchema = zod.looseObject({
   enabledMcpServerIds: zod.array(zod.string()).optional(),
   enabledPluginIds: zod.array(zod.string()).optional(),
   enabledSkillNames: zod.array(zod.string()).optional(),
+  orchestrationEnabled: zod.boolean().optional(),
   subagentEnabled: zod.boolean().optional(),
+  subagents: zod.array(ArgosSubagentSlotSchema).optional(),
   defaultProjectPath: zod.string().nullable().optional(),
+  autoCompactionEnabled: zod.boolean().optional(),
+  autoCompactionTriggerThreshold: zod.number().optional(),
+  autoCompactionRetainRecentPairs: zod.number().int().optional(),
+  memoryEnabled: zod.boolean().optional(),
+  memoryEmbedding: ArgosAgentMemoryEmbeddingSchema.nullable().optional(),
+  memoryExtractionModel: ModelSelectionSchema.nullable().optional(),
+  memoryRetrieval: ArgosAgentMemoryRetrievalSchema.nullable().optional(),
+  personaEvolutionEnabled: zod.boolean().optional(),
 });
 
 export const ConfigValueSchema = zod.union([zod.boolean(), zod.number(), zod.string(), zod.null(), JsonValueSchema]);

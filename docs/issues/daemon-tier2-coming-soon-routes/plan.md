@@ -55,7 +55,7 @@ highest-risk (chat/provider runtime).
 - Add a test in `apps/daemon/test/daemonSessionRoutes.test.ts` (or new file) that
   iterates logged-in Tier 2 route names and asserts they do not produce the old
   message.
-- Run `bun run test`, `pnpm run format`, `pnpm run lint`.
+- Run `bun run test`, `bun run format`, `bun run lint`.
 
 ## Risks and Mitigations
 

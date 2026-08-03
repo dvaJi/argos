@@ -36,7 +36,7 @@ in packaged builds because timing in production is less forgiving than in dev.
 
 ## Validation
 
-- `pnpm run format`
-- `pnpm run i18n`
-- `pnpm run lint`
-- `pnpm run typecheck`
+- `bun run format`
+- `i18n (N/A -- no root script)`
+- `bun run lint`
+- `bun run typecheck`

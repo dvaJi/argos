@@ -8,10 +8,10 @@
 
 ## Validation
 
-- `pnpm run format`
-- `pnpm run format:check`
-- `pnpm run lint`
-- `pnpm run typecheck`
-- `pnpm --filter @argos/ui run typecheck`
+- `bun run format`
+- `bun run format:check`
+- `bun run lint`
+- `bun run typecheck`
+- `bun run --filter @argos/ui typecheck`
 - Focused MCP, daemon connection, preload, and renderer tests: 40 passed
 - React Doctor full scan completed; the repository-wide backlog remains, and no diagnostic targets the new MCP card lifecycle control or daemon banner.

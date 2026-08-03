@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ArgosAgentRuntime, BUILTIN_ARGOS_AGENT_ID } from "@argos/agent-runtime";
+import { ArgosAgentRuntime, BUILTIN_ARGOS_AGENT_ID, BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID } from "@argos/agent-runtime";
 import type { AgentSessionLookupPort, ArgosAgentRow, ArgosAgentStore } from "@argos/agent-runtime";
 
 const makeRow = (overrides: Partial<ArgosAgentRow>): ArgosAgentRow => ({
@@ -67,6 +67,41 @@ describe("ArgosAgentRuntime", () => {
     const second = runtime.ensureBuiltinAgent({ name: "Should not duplicate" });
     expect(store.rows.size).toBe(1);
     expect(second.name).toBe("Argos");
+  });
+
+  it("seeds a disabled orchestrator and preserves its enabled state", () => {
+    const { runtime } = makeRuntime(new Set());
+    runtime.ensureBuiltinAgent({ config: { orchestrationEnabled: false } });
+
+    const seeded = runtime.ensureBuiltinOrchestratorAgent();
+    expect(seeded).toMatchObject({
+      id: BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
+      source: "builtin",
+      protected: true,
+      enabled: false,
+    });
+    expect(runtime.resolveArgosAgentConfig(seeded.id)).toMatchObject({
+      orchestrationEnabled: true,
+      subagentEnabled: true,
+      permissionMode: "full_access",
+      disabledAgentTools: [],
+    });
+
+    runtime.updateArgosAgent(seeded.id, { enabled: true, config: { orchestrationEnabled: false } });
+    const afterRestart = runtime.ensureBuiltinOrchestratorAgent();
+    expect(afterRestart.enabled).toBe(true);
+    expect(runtime.resolveArgosAgentConfig(seeded.id).orchestrationEnabled).toBe(true);
+  });
+
+  it("preserves orchestration and defaults extension policy to empty (deny-by-default)", () => {
+    const { runtime } = makeRuntime(new Set());
+    runtime.ensureBuiltinAgent({ config: { orchestrationEnabled: true } });
+
+    const resolved = runtime.resolveArgosAgentConfig(BUILTIN_ARGOS_AGENT_ID);
+    expect(resolved.orchestrationEnabled).toBe(true);
+    expect(resolved.enabledMcpServerIds).toEqual([]);
+    expect(resolved.enabledPluginIds).toEqual([]);
+    expect(resolved.enabledSkillNames).toEqual([]);
   });
 
   it("lists only argos agents from the store", () => {

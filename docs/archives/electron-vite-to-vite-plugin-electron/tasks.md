@@ -1,5 +1,18 @@
 # electron-vite → vite-plugin-electron — Task List
 
+> **STATUS: COMPLETE — archived.** The migration landed in code. Evidence: `apps/desktop`
+> uses `vite-plugin-electron` (`electronSimple` from `vite-plugin-electron/multi-env`) with
+> `apps/desktop/vite.config.ts`; `electron.vite.config.ts` and `tsconfig.app.tsgo.json` are
+> deleted; `apps/desktop` `dev` script is `vite`. Catalog (now in `package.json` workspaces,
+> not `pnpm-workspace.yaml`): `electron@^43.1.0`, `vite@^8.1.4`, `vite-plugin-electron@^1.1.0`
+> (exceeds the plan's targets). Verification gates (`bun run format`, `lint`, `typecheck`)
+> pass on TypeScript 7 (`tsc`, the Go rewrite — `tsgo` is retired).
+>
+> The per-phase items below are left as the historical plan; several reference files that no
+> longer exist post-migration (`pnpm-workspace.yaml`, `tsconfig.app.tsgo.json`) and the
+> `pnpm`/`tsgo` toolchain that has since moved to `bun`/TypeScript 7. They are intentionally
+> not edited — this banner is the authoritative completion record.
+
 ## Phase 0: SDD spec docs
 
 - [x] Create `docs/architecture/electron-vite-to-vite-plugin-electron/spec.md`

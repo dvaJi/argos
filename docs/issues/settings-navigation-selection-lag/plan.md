@@ -11,5 +11,5 @@ Update `src/renderer/settings/App.tsx` to subscribe to TanStack Router state thr
 
 ## Validation
 
-- Run `pnpm run format`.
-- Run `pnpm run lint`.
+- Run `bun run format`.
+- Run `bun run lint`.

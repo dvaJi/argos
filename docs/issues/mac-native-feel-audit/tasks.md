@@ -9,5 +9,5 @@
 - [x] Replace global and targeted smooth scroll behavior with native/default scroll behavior.
 - [x] Tune macOS-only main/settings BrowserWindow material options.
 - [x] Run targeted tests.
-- [x] Run `pnpm run format`, `pnpm run i18n`, and `pnpm run lint`.
-- [x] Run `pnpm run typecheck`.
+- [x] Run `bun run format`, `i18n (N/A -- no root script)`, and `bun run lint`.
+- [x] Run `bun run typecheck`.

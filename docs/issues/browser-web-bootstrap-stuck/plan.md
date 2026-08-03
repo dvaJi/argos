@@ -15,5 +15,5 @@
 ## Test Strategy
 
 - Run the daemon web-root resolver test to ensure the previous fix remains intact.
-- Run `pnpm --filter @argos/desktop build:web`.
+- Run `bun run --filter @argos/desktop build:web`.
 - Rebuild daemon and smoke-test the served page to verify the full app bundle is requested.

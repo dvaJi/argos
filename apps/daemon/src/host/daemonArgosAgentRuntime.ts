@@ -29,4 +29,9 @@ export class DaemonArgosAgentRuntime {
   ensureBuiltinAgent() {
     return this.runtime.ensureBuiltinAgent();
   }
+
+  /** Seed the disabled-by-default built-in orchestration specialist. */
+  ensureBuiltinOrchestratorAgent() {
+    return this.runtime.ensureBuiltinOrchestratorAgent();
+  }
 }

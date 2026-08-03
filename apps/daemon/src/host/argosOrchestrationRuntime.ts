@@ -8,6 +8,22 @@ type SessionActions = {
   stop(sessionId: string): Promise<void>;
 };
 
+type ProvisioningActions = {
+  createAgent(input: Record<string, unknown>): Promise<unknown>;
+  updateAgent(agentId: string, updates: Record<string, unknown>): Promise<unknown>;
+  listMcpServers(): Promise<unknown>;
+  upsertMcpServer(serverName: string, config: Record<string, unknown>): Promise<unknown>;
+  setAgentMcpServers(agentId: string, serverNames: string[]): Promise<unknown>;
+  listAgentSkills(agentId: string): Promise<unknown>;
+  writeAgentSkill(
+    agentId: string,
+    input: { name: string; description: string; instructions: string },
+  ): Promise<unknown>;
+  removeAgentSkill(agentId: string, name: string): Promise<unknown>;
+  provisionAgent(input: Record<string, unknown>): Promise<unknown>;
+  validateAgent(agentId: string): Promise<unknown>;
+};
+
 const tool = (
   name: string,
   description: string,
@@ -22,6 +38,7 @@ const tool = (
 
 export class ArgosOrchestrationRuntime {
   private sessionActions?: SessionActions;
+  private provisioningActions?: ProvisioningActions;
 
   constructor(
     private readonly db: Database,
@@ -85,6 +102,121 @@ export class ArgosOrchestrationRuntime {
         "sessionId",
       ]),
       tool("argos_agents_list", "List Argos agents available for delegation.", {}),
+      tool(
+        "argos_agents_create",
+        "Create a custom Argos agent. Pass config to set its prompt, model, permissions, tools, MCP servers, plugins, skills, memory, or subagents.",
+        {
+          name: { type: "string" },
+          description: { type: "string" },
+          enabled: { type: "boolean" },
+          config: { type: "object", additionalProperties: true },
+        },
+        ["name"],
+      ),
+      tool(
+        "argos_agents_update",
+        "Update a custom Argos agent or the orchestrator itself. The default protected Argos agent cannot be changed here.",
+        {
+          agentId: { type: "string" },
+          updates: { type: "object", additionalProperties: true },
+        },
+        ["agentId", "updates"],
+      ),
+      tool("argos_mcp_servers_list", "List globally configured MCP servers and their current configuration.", {}),
+      tool(
+        "argos_mcp_server_upsert",
+        "Add or update and start an MCP server. Environment values are persisted in the existing Argos MCP configuration; never place secrets in skill instructions.",
+        {
+          serverName: { type: "string" },
+          config: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["stdio", "sse", "http"] },
+              command: { type: "string" },
+              args: { type: "array", items: { type: "string" } },
+              env: { type: "object", additionalProperties: true },
+              baseUrl: { type: "string" },
+              customHeaders: { type: "object", additionalProperties: { type: "string" } },
+              descriptions: { type: "string" },
+              enabled: { type: "boolean" },
+            },
+            additionalProperties: true,
+          },
+        },
+        ["serverName", "config"],
+      ),
+      tool(
+        "argos_agent_mcp_servers_set",
+        "Replace an agent's MCP server allowlist. An empty list gives the agent no MCP servers.",
+        {
+          agentId: { type: "string" },
+          serverNames: { type: "array", items: { type: "string" } },
+        },
+        ["agentId", "serverNames"],
+      ),
+      tool(
+        "argos_agent_skills_list",
+        "List disk-backed Argos-managed skills attached to one agent, including hash and managed version.",
+        { agentId: { type: "string" } },
+        ["agentId"],
+      ),
+      tool(
+        "argos_agent_skill_write",
+        "Create or update an agent-specific skill under its managed .argos/skills directory and attach it to that agent.",
+        {
+          agentId: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          instructions: { type: "string" },
+        },
+        ["agentId", "name", "description", "instructions"],
+      ),
+      tool(
+        "argos_agent_skill_remove",
+        "Remove an Argos-managed skill from one agent and detach it from that agent's skill allowlist.",
+        { agentId: { type: "string" }, name: { type: "string" } },
+        ["agentId", "name"],
+      ),
+      tool(
+        "argos_agent_provision",
+        "Atomically create and validate a specialized agent with MCP servers and durable managed skills. The incomplete agent and MCP changes are rolled back on failure.",
+        {
+          name: { type: "string" },
+          description: { type: "string" },
+          enabled: { type: "boolean" },
+          config: { type: "object", additionalProperties: true },
+          mcpServers: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                serverName: { type: "string" },
+                config: { type: "object", additionalProperties: true },
+              },
+              required: ["serverName", "config"],
+            },
+          },
+          skills: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                description: { type: "string" },
+                instructions: { type: "string" },
+              },
+              required: ["name", "description", "instructions"],
+            },
+          },
+        },
+        ["name"],
+      ),
+      tool(
+        "argos_agent_validate",
+        "Validate an Argos agent's model, MCP configuration/runtime, allowlists, managed skill files, and enabled state.",
+        { agentId: { type: "string" } },
+        ["agentId"],
+      ),
     ];
   }
 
@@ -94,6 +226,10 @@ export class ArgosOrchestrationRuntime {
 
   setSessionActions(actions: SessionActions): void {
     this.sessionActions = actions;
+  }
+
+  setProvisioningActions(actions: ProvisioningActions): void {
+    this.provisioningActions = actions;
   }
 
   async call(request: MCPToolCall): Promise<MCPToolResponse> {
@@ -215,9 +351,82 @@ export class ArgosOrchestrationRuntime {
       case "argos_agents_list":
         result = await this.listAgents();
         break;
+      case "argos_agents_create":
+        result = await this.requireProvisioning().createAgent({
+          name: this.requireString(args, "name"),
+          ...(typeof args.description === "string" ? { description: args.description } : {}),
+          ...(typeof args.enabled === "boolean" ? { enabled: args.enabled } : {}),
+          ...(this.asRecord(args.config) ? { config: this.asRecord(args.config) } : {}),
+        });
+        break;
+      case "argos_agents_update":
+        result = await this.requireProvisioning().updateAgent(
+          this.requireString(args, "agentId"),
+          this.asRecord(args.updates) ?? {},
+        );
+        break;
+      case "argos_mcp_servers_list":
+        result = await this.requireProvisioning().listMcpServers();
+        break;
+      case "argos_mcp_server_upsert": {
+        const serverName = this.requireString(args, "serverName");
+        const serverConfig = this.asRecord(args.config) ?? {};
+        // stdio servers run an arbitrary local command with model-supplied args/env.
+        // The orchestrator may only register http/sse (URL) transports; stdio servers
+        // must be configured manually by the user to avoid local code execution.
+        if (serverConfig.type === "stdio") {
+          throw new Error(
+            "The orchestrator cannot register stdio MCP servers (that would allow arbitrary local command execution). Configure stdio servers manually via Settings, or use an http/sse transport.",
+          );
+        }
+        result = await this.requireProvisioning().upsertMcpServer(serverName, serverConfig);
+        break;
+      }
+      case "argos_agent_mcp_servers_set":
+        result = await this.requireProvisioning().setAgentMcpServers(
+          String(args.agentId),
+          Array.isArray(args.serverNames) ? args.serverNames.map(String) : [],
+        );
+        break;
+      case "argos_agent_skills_list":
+        result = await this.requireProvisioning().listAgentSkills(String(args.agentId));
+        break;
+      case "argos_agent_skill_write":
+        result = await this.requireProvisioning().writeAgentSkill(String(args.agentId), {
+          name: String(args.name),
+          description: String(args.description),
+          instructions: String(args.instructions),
+        });
+        break;
+      case "argos_agent_skill_remove":
+        result = await this.requireProvisioning().removeAgentSkill(String(args.agentId), String(args.name));
+        break;
+      case "argos_agent_provision":
+        result = await this.requireProvisioning().provisionAgent(args);
+        break;
+      case "argos_agent_validate":
+        result = await this.requireProvisioning().validateAgent(String(args.agentId));
+        break;
       default:
         throw new Error(`Unknown Argos orchestration tool: ${request.function.name}`);
     }
     return { toolCallId: request.id, content: [{ type: "text", text: JSON.stringify(result) }], toolResult: result };
+  }
+
+  private requireProvisioning(): ProvisioningActions {
+    if (!this.provisioningActions) throw new Error("Argos provisioning is not ready.");
+    return this.provisioningActions;
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  }
+
+  private requireString(args: Record<string, unknown>, key: string): string {
+    const value = args[key];
+    if (typeof value !== "string" || value.trim().length === 0) {
+      throw new Error(`Missing required argument: ${key}`);
+    }
+    return value;
   }
 }

@@ -17,5 +17,5 @@
 
 ## Validation
 
-- Run `pnpm test test/main/presenter/remoteControlPresenter/telegramClient.test.ts` (extended) and a new `telegramMarkdown.test.ts` covering core conversion rules, table fallback, and chunk-boundary behavior.
-- Run `pnpm run typecheck:node` to confirm no signature break in callers (Poller, Adapter).
+- Run `bun run test test/main/presenter/remoteControlPresenter/telegramClient.test.ts` (extended) and a new `telegramMarkdown.test.ts` covering core conversion rules, table fallback, and chunk-boundary behavior.
+- Run `bun run typecheck:node` to confirm no signature break in callers (Poller, Adapter).

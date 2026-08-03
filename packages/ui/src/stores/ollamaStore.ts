@@ -60,11 +60,9 @@ const updatePullingProgress = (providerId: string, modelName: string, progress?:
   });
 };
 
-const getOllamaRunningModels = (providerId: string): OllamaModel[] =>
-  ollamaStore.state.runningModels[providerId] || [];
+const getOllamaRunningModels = (providerId: string): OllamaModel[] => ollamaStore.state.runningModels[providerId] || [];
 
-const getOllamaLocalModels = (providerId: string): OllamaModel[] =>
-  ollamaStore.state.localModels[providerId] || [];
+const getOllamaLocalModels = (providerId: string): OllamaModel[] => ollamaStore.state.localModels[providerId] || [];
 
 const getOllamaPullingModels = (providerId: string): Record<string, number> =>
   ollamaStore.state.pullingProgress[providerId] || {};

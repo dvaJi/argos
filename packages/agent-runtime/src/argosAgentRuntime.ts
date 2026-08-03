@@ -13,6 +13,34 @@ import { normalizeArgosSubagentConfig } from "@argos/shared/lib/argosSubagents";
 
 /** Stable id of the built-in Argos agent. */
 export const BUILTIN_ARGOS_AGENT_ID = "argos";
+/** Stable id of the built-in, opt-in orchestration specialist. */
+export const BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID = "argos-orchestrator";
+
+export const BUILTIN_ARGOS_ORCHESTRATOR_CONFIG: ArgosAgentConfig = {
+  systemPrompt:
+    "You are the Argos Orchestrator. Coordinate complex work end-to-end by inspecting projects, creating and assigning tasks, provisioning specialized agents, delegating independent work, monitoring sessions, steering them when needed, and synthesizing results. You may register MCP servers, scope them to agents, and write durable agent-specific skills that explain when and how to use those integrations. Store operational guidance in managed skills, never secrets; credentials belong only in MCP configuration. Prefer delegation and parallel execution when work can be separated safely, while retaining responsibility for verification and the final outcome.",
+  permissionMode: "full_access",
+  disabledAgentTools: [],
+  orchestrationEnabled: true,
+  subagentEnabled: true,
+};
+
+/**
+ * Reassert the orchestrator's non-negotiable capability flags on every
+ * re-seed/update, while preserving user edits to editable fields. The built-in
+ * config supplies defaults for systemPrompt/permissionMode/disabledAgentTools;
+ * orchestration and subagent delegation are always enabled because they define
+ * the agent's purpose. Without this, spreading the built-in config last would
+ * clobber the user's systemPrompt/permissionMode on every restart.
+ */
+const applyOrchestratorInvariants = (config: ArgosAgentConfig): ArgosAgentConfig => ({
+  ...config,
+  systemPrompt: config.systemPrompt ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.systemPrompt,
+  permissionMode: config.permissionMode ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.permissionMode,
+  disabledAgentTools: config.disabledAgentTools ?? BUILTIN_ARGOS_ORCHESTRATOR_CONFIG.disabledAgentTools,
+  orchestrationEnabled: true,
+  subagentEnabled: true,
+});
 
 /**
  * Host-agnostic Argos-agent management facade. This is the desktop
@@ -68,6 +96,39 @@ export class ArgosAgentRuntime {
     return toAgent(this.store.get(BUILTIN_ARGOS_AGENT_ID) as ArgosAgentRow);
   }
 
+  /**
+   * Seed the opt-in orchestration specialist. Unlike the default Argos agent,
+   * startup never forces this agent enabled, so the user's choice survives.
+   */
+  ensureBuiltinOrchestratorAgent(): Agent {
+    const existing = this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID);
+    if (!existing) {
+      const now = Date.now();
+      this.store.insert({
+        id: BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID,
+        source: "builtin",
+        name: "Orchestrator",
+        enabled: false,
+        protected: true,
+        description: "Coordinates projects, tasks, sessions, and delegated agents.",
+        icon: "brain",
+        avatar_json: stringifyJson({ kind: "lucide", icon: "brain" }),
+        config_json: stringifyJson(BUILTIN_ARGOS_ORCHESTRATOR_CONFIG),
+        created_at: now,
+        updated_at: now,
+      });
+      return toAgent(this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) as ArgosAgentRow);
+    }
+
+    const config = parseJson<ArgosAgentConfig>(existing.config_json) ?? {};
+    this.store.update(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID, {
+      source: "builtin",
+      protected: true,
+      config_json: stringifyJson(applyOrchestratorInvariants(config)),
+    });
+    return toAgent(this.store.get(BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) as ArgosAgentRow);
+  }
+
   getArgosAgentConfig(agentId: string): ArgosAgentConfig | null {
     const row = this.store.get(agentId);
     if (!row) {
@@ -119,8 +180,11 @@ export class ArgosAgentRuntime {
     }
 
     const currentConfig = parseJson<ArgosAgentConfig>(row.config_json) ?? {};
-    const nextConfig =
+    let nextConfig =
       updates.config === undefined ? currentConfig : { ...currentConfig, ...clone(updates.config ?? {}) };
+    if (agentId === BUILTIN_ARGOS_ORCHESTRATOR_AGENT_ID) {
+      nextConfig = applyOrchestratorInvariants(nextConfig);
+    }
 
     this.store.update(agentId, {
       name: updates.name?.trim() || row.name,
