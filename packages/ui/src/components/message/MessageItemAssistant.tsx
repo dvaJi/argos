@@ -268,10 +268,13 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     window.dispatchEvent(new CustomEvent("context-menu-ask-ai", { detail: text }));
   };
 
-  const handleBlockContinue = (conversationId: string, messageId: string) => {
-    if (isReadOnly) return;
-    props.onContinue?.(conversationId, messageId);
-  };
+  const handleBlockContinue = useCallback(
+    (conversationId: string, messageId: string) => {
+      if (isReadOnly) return;
+      props.onContinue?.(conversationId, messageId);
+    },
+    [isReadOnly, props.onContinue],
+  );
 
   const handleBlockSwitchProvider = () => {
     if (isReadOnly) return;

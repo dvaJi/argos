@@ -914,17 +914,22 @@ function ChatPage({ sessionId }: ChatPageProps) {
 
   const messageWindow = useMessageWindow(displayMessages);
 
-  const onMessageMeasure = useCallback(
-    (payload: { messageId: string; height: number }) => {
-      const isBottomFollowing = scrollMode === "initial-bottom" || scrollMode === "auto-follow";
-      const delta = messageWindow.setMeasuredHeight(payload.messageId, payload.height);
-      if (delta === 0) return;
-      if (isBottomFollowing) {
-        scrollToBottom(scrollMode === "initial-bottom");
-      }
-    },
-    [scrollMode, messageWindow, scrollToBottom],
-  );
+  const scrollModeRef = useRef(scrollMode);
+  scrollModeRef.current = scrollMode;
+  const messageWindowRef = useRef(messageWindow);
+  messageWindowRef.current = messageWindow;
+  const scrollToBottomRef = useRef(scrollToBottom);
+  scrollToBottomRef.current = scrollToBottom;
+
+  const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
+    const mode = scrollModeRef.current;
+    const isBottomFollowing = mode === "initial-bottom" || mode === "auto-follow";
+    const delta = messageWindowRef.current.setMeasuredHeight(payload.messageId, payload.height);
+    if (delta === 0) return;
+    if (isBottomFollowing) {
+      scrollToBottomRef.current(mode === "initial-bottom");
+    }
+  }, []);
 
   function resolveAssistantModelName(modelId: string): string {
     if (!modelId) return "Assistant";

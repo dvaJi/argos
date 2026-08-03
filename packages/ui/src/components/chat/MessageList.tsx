@@ -1,4 +1,4 @@
-import { type FC, useCallback, useMemo } from "react";
+import { type FC, useCallback, useMemo, useRef } from "react";
 import { MessageBlockAction } from "#/components/message/MessageBlockAction";
 import { useMessageCapture } from "#/composables/message/useMessageCapture";
 import { useThemeStore } from "#/stores/theme";
@@ -43,6 +43,8 @@ const MessageList: FC<MessageListProps> = ({
   const allRenderedMessages = useMemo(() => messages, [messages]);
   const displayMessages = useMemo(() => allRenderedMessages, [allRenderedMessages]);
   const { isCapturing, captureMessage } = useMessageCapture(themeStore.isDark);
+  const captureMessageRef = useRef(captureMessage);
+  captureMessageRef.current = captureMessage;
 
   const resolveCaptureParentId = useCallback(
     (messageId: string, parentId?: string): string | undefined => {
@@ -70,9 +72,9 @@ const MessageList: FC<MessageListProps> = ({
       modelInfo: { model_name: string; model_provider: string },
     ) => {
       const resolvedParentId = resolveCaptureParentId(messageId, parentId);
-      await captureMessage({ messageId, parentId: resolvedParentId, fromTop, modelInfo });
+      await captureMessageRef.current({ messageId, parentId: resolvedParentId, fromTop, modelInfo });
     },
-    [resolveCaptureParentId, captureMessage],
+    [resolveCaptureParentId],
   );
 
   return (

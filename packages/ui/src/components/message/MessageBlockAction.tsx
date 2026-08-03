@@ -22,6 +22,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   const progressTimer = useRef<number | null>(null);
   const isReadOnly = isReadOnlyProp === true;
   const isRateLimitBlock = block.action_type === "rate_limit";
+  const isRateLimitActive = isRateLimitBlock && (block.status === "loading" || block.status === "pending");
 
   const elapsedSeconds = useMemo(() => {
     if (!isRateLimitBlock) return 0;
@@ -40,7 +41,10 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   };
 
   useEffect(() => {
-    if (isRateLimitBlock) {
+    if (isRateLimitActive) {
+      // Don't keep historical/stale rate-limit blocks ticking forever — they
+      // accumulate across a long conversation and re-render every second.
+      if (Date.now() - block.timestamp > 180_000) return;
       progressTimer.current = window.setInterval(() => {
         setCurrentTime(Date.now());
       }, 1000);
@@ -50,7 +54,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
         clearInterval(progressTimer.current);
       }
     };
-  }, [isRateLimitBlock]);
+  }, [isRateLimitActive, block.timestamp]);
 
   return (
     <div className={containerClass}>
