@@ -51,4 +51,4 @@ function PopoverDescription({ className, ...props }: React.ComponentProps<"p">) 
   return <p data-slot="popover-description" className={cn("text-muted-foreground", className)} {...props} />;
 }
 
-export { Popover,  PopoverContent,    PopoverTrigger };
+export { Popover, PopoverContent, PopoverTrigger };

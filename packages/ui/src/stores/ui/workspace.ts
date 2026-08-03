@@ -14,7 +14,7 @@ import {
 import type { ConnectionState } from "@argos/shared-contracts/connection";
 import { clearSessionContextForMachineSwitch, fetchSessions as originalFetchSessions } from "./session";
 
-export type { WorkspaceEntry,  };
+export type { WorkspaceEntry };
 
 const workspaceStore = new Store<WorkspaceConfig>({
   ...DEFAULT_WORKSPACE_CONFIG,
