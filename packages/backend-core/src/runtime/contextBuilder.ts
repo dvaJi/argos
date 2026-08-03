@@ -1,4 +1,4 @@
-import { approximateTokenSize } from "tokenx";
+import { estimateTokenCount } from "tokenx";
 import type { ChatMessage } from "@argos/shared/types/core/chat-message";
 import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 
@@ -14,11 +14,11 @@ function estimateMessageTokens(message: ChatMessage): number {
   let tokens = 0;
 
   if (typeof message.content === "string") {
-    tokens += approximateTokenSize(message.content);
+    tokens += estimateTokenCount(message.content);
   } else if (Array.isArray(message.content)) {
     for (const part of message.content) {
       if (part.type === "text" && typeof part.text === "string") {
-        tokens += approximateTokenSize(part.text);
+        tokens += estimateTokenCount(part.text);
       } else if (part.type === "image_url") {
         tokens += 1000;
       }
@@ -30,13 +30,13 @@ function estimateMessageTokens(message: ChatMessage): number {
   if (Array.isArray(message.tool_calls)) {
     for (const toolCall of message.tool_calls) {
       tokens += 4;
-      if (toolCall.function?.name) tokens += approximateTokenSize(toolCall.function.name);
-      if (toolCall.function?.arguments) tokens += approximateTokenSize(toolCall.function.arguments);
+      if (toolCall.function?.name) tokens += estimateTokenCount(toolCall.function.name);
+      if (toolCall.function?.arguments) tokens += estimateTokenCount(toolCall.function.arguments);
     }
   }
 
   if (message.tool_call_id) {
-    tokens += approximateTokenSize(message.tool_call_id);
+    tokens += estimateTokenCount(message.tool_call_id);
   }
 
   return tokens;
@@ -46,10 +46,10 @@ export function estimateToolDefinitionTokens(tools: MCPToolDefinition[]): number
   let total = 0;
   for (const tool of tools) {
     total += 4;
-    if (tool.function?.name) total += approximateTokenSize(tool.function.name);
-    if (tool.function?.description) total += approximateTokenSize(tool.function.description);
+    if (tool.function?.name) total += estimateTokenCount(tool.function.name);
+    if (tool.function?.description) total += estimateTokenCount(tool.function.description);
     if (tool.function?.parameters) {
-      total += approximateTokenSize(JSON.stringify(tool.function.parameters));
+      total += estimateTokenCount(JSON.stringify(tool.function.parameters));
     }
   }
   return total;

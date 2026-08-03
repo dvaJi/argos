@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { approximateTokenSize } from "tokenx";
+import { estimateTokenCount } from "tokenx";
 import type { ChatMessage, ChatMessageProviderOptions } from "@argos/shared/types/core/chat-message";
 import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 import type {
@@ -458,7 +458,7 @@ export function createUserChatMessage(
 
 function estimateMessageTokens(message: ChatMessage): number {
   if (typeof message.content === "string") {
-    return approximateTokenSize(message.content);
+    return estimateTokenCount(message.content);
   }
   if (!Array.isArray(message.content)) {
     return 0;
@@ -466,7 +466,7 @@ function estimateMessageTokens(message: ChatMessage): number {
   let total = 0;
   for (const part of message.content) {
     if (part.type === "text") {
-      total += approximateTokenSize(part.text);
+      total += estimateTokenCount(part.text);
     } else if (part.type === "image_url") {
       total += IMAGE_TOKEN_ESTIMATE;
     } else if (part.type === "input_audio") {
@@ -475,12 +475,12 @@ function estimateMessageTokens(message: ChatMessage): number {
   }
   if (Array.isArray(message.tool_calls)) {
     for (const toolCall of message.tool_calls) {
-      total += approximateTokenSize(toolCall.function.name);
-      total += approximateTokenSize(toolCall.function.arguments);
+      total += estimateTokenCount(toolCall.function.name);
+      total += estimateTokenCount(toolCall.function.arguments);
     }
   }
   if (message.reasoning_content) {
-    total += approximateTokenSize(message.reasoning_content);
+    total += estimateTokenCount(message.reasoning_content);
   }
   return total;
 }
@@ -490,7 +490,7 @@ export function estimateMessagesTokens(messages: ChatMessage[]): number {
 }
 
 export function estimateToolDefinitionTokens(toolDefinitions: MCPToolDefinition[]): number {
-  return toolDefinitions.reduce((total, tool) => total + approximateTokenSize(JSON.stringify(tool)), 0);
+  return toolDefinitions.reduce((total, tool) => total + estimateTokenCount(JSON.stringify(tool)), 0);
 }
 
 export function normalizeAssistantErrorReason(value: string): string {
@@ -906,7 +906,7 @@ export function buildContextWithMetadata(
   );
 
   const newUserMessage = createUserChatMessage(newUserContent, supportsVision, supportsAudioInput);
-  const systemPromptTokens = systemPrompt ? approximateTokenSize(systemPrompt) : 0;
+  const systemPromptTokens = systemPrompt ? estimateTokenCount(systemPrompt) : 0;
   const newUserTokens = estimateMessageTokens(newUserMessage);
   const available =
     contextLength - systemPromptTokens - newUserTokens - reserveTokens - (options.extraReserveTokens ?? 0);
@@ -1024,7 +1024,7 @@ export function buildResumeContext(
     options.preserveEmptyInterleavedReasoning ?? false,
     supportsAudioInput,
   );
-  const systemPromptTokens = systemPrompt ? approximateTokenSize(systemPrompt) : 0;
+  const systemPromptTokens = systemPrompt ? estimateTokenCount(systemPrompt) : 0;
   const available = contextLength - systemPromptTokens - reserveTokens - (options.extraReserveTokens ?? 0);
   const selectedHistory = selectTurnHistory(historyTurns, available, options.fallbackProtectedTurnCount ?? 1);
 

@@ -1,4 +1,4 @@
-import { approximateTokenSize } from "tokenx";
+import { estimateTokenCount } from "tokenx";
 
 export interface CompactionResult {
   compactedMessages: Array<{ role: string; content: string }>;
@@ -13,7 +13,7 @@ export function compactMessages(
 ): CompactionResult {
   let totalTokens = 0;
   for (const msg of messages) {
-    totalTokens += approximateTokenSize(msg.content);
+    totalTokens += estimateTokenCount(msg.content);
   }
 
   if (totalTokens <= targetTokens) {
@@ -33,7 +33,7 @@ export function compactMessages(
 
   let compactedTokens = 0;
   for (const msg of compacted) {
-    compactedTokens += approximateTokenSize(msg.content);
+    compactedTokens += estimateTokenCount(msg.content);
   }
 
   return {
