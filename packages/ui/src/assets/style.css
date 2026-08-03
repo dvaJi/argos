@@ -2,7 +2,6 @@
 @import "tw-animate-css";
 @import "tailwind-scrollbar-hide/v4";
 @import "../../components/agent-elements/agent-ui.css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
 @plugin "@tailwindcss/typography";
