@@ -360,7 +360,10 @@ export class ArgosOrchestrationRuntime {
         });
         break;
       case "argos_agents_update":
-        result = await this.requireProvisioning().updateAgent(this.requireString(args, "agentId"), this.asRecord(args.updates) ?? {});
+        result = await this.requireProvisioning().updateAgent(
+          this.requireString(args, "agentId"),
+          this.asRecord(args.updates) ?? {},
+        );
         break;
       case "argos_mcp_servers_list":
         result = await this.requireProvisioning().listMcpServers();

@@ -476,7 +476,10 @@ export async function startDaemon(options?: {
     const managedSkills = piProfiles.validateManagedSkills(agentId);
     const expectedSkills = agent.config?.enabledSkillNames ?? [];
     const checks = [
-      { name: "model", ok: Boolean(effectiveConfig.defaultModelPreset?.modelId) || Boolean(effectiveConfig.assistantModel?.modelId) },
+      {
+        name: "model",
+        ok: Boolean(effectiveConfig.defaultModelPreset?.modelId) || Boolean(effectiveConfig.assistantModel?.modelId),
+      },
       { name: "enabled", ok: !requireEnabled || agent.enabled },
       {
         name: "mcp-configured",
@@ -504,7 +507,8 @@ export async function startDaemon(options?: {
   const provisioningActions: Parameters<typeof orchestrationRuntime.setProvisioningActions>[0] = {
     createAgent: (input) => configPresenter.createArgosAgent(input),
     async updateAgent(agentId, updates) {
-      if (agentId === BUILTIN_ARGOS_AGENT_ID) throw new Error("The protected default Argos agent cannot be changed by provisioning.");
+      if (agentId === BUILTIN_ARGOS_AGENT_ID)
+        throw new Error("The protected default Argos agent cannot be changed by provisioning.");
       const agent = await configPresenter.getArgosAgent(agentId);
       if (!agent) throw new Error(`Argos agent not found: ${agentId}`);
       return await configPresenter.updateArgosAgent(agentId, updates);
