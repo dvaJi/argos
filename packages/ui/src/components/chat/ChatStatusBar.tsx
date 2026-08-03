@@ -88,6 +88,39 @@ const isSameModelSelection = (
   right: ModelSelection | null | undefined,
 ): boolean => Boolean(left && right && left.providerId === right.providerId && left.modelId === right.modelId);
 
+type AcpOptionValueLike = {
+  value: string;
+  label: string;
+  groupId?: string | null;
+  groupLabel?: string | null;
+};
+
+const resolveAcpOptionGroup = (entry: AcpOptionValueLike): { key: string; label: string } => {
+  if (entry.groupId && entry.groupId.trim()) {
+    return { key: entry.groupId, label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId };
+  }
+
+  const valueSlash = entry.value.indexOf("/");
+  const labelSlash = entry.label.indexOf("/");
+  const labSource = valueSlash > 0 ? entry.value : labelSlash > 0 ? entry.label : "";
+  if (labSource) {
+    const lab = labSource.slice(0, labSource.indexOf("/"));
+    if (lab.trim()) {
+      return { key: `__lab__${lab.toLowerCase()}`, label: lab };
+    }
+  }
+
+  return { key: "__default__", label: "" };
+};
+
+const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
+  const idx = entry.label.indexOf("/");
+  if (idx > 0 && entry.label.slice(idx + 1).trim()) {
+    return entry.label.slice(idx + 1);
+  }
+  return entry.label;
+};
+
 type SystemPromptOption = {
   id: string;
   label: string;
@@ -99,6 +132,18 @@ type GroupedModelList = {
   providerId: string;
   providerName: string;
   models: RENDERER_MODEL_META[];
+};
+
+type ModelDisplayEntry = {
+  model: RENDERER_MODEL_META;
+  providerId: string;
+  displayName: string;
+};
+
+type ModelDisplaySection = {
+  key: string;
+  label: string;
+  entries: ModelDisplayEntry[];
 };
 
 const TEMPERATURE_STEP = 0.1;
@@ -359,6 +404,30 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         })
         .filter((group) => group.models.length > 0);
     }, [modelSearchKeyword, modelGroups]);
+
+    const modelDisplaySections = useMemo<ModelDisplaySection[]>(() => {
+      const sections: ModelDisplaySection[] = [];
+      const sectionIndex = new Map<string, number>();
+      for (const group of filteredModelGroups) {
+        for (const model of group.models) {
+          const slashIndex = model.id.indexOf("/");
+          const hasLabSplit = slashIndex > 0 && model.id.slice(slashIndex + 1).trim().length > 0;
+          const sectionKey = hasLabSplit
+            ? `${group.providerId}::${model.id.slice(0, slashIndex).toLowerCase()}`
+            : group.providerId;
+          const sectionLabel = hasLabSplit ? model.id.slice(0, slashIndex) : group.providerName;
+          const displayName = hasLabSplit ? model.id.slice(slashIndex + 1) : model.id;
+          let idx = sectionIndex.get(sectionKey);
+          if (idx === undefined) {
+            idx = sections.length;
+            sections.push({ key: sectionKey, label: sectionLabel, entries: [] });
+            sectionIndex.set(sectionKey, idx);
+          }
+          sections[idx].entries.push({ model, providerId: group.providerId, displayName });
+        }
+      }
+      return sections;
+    }, [filteredModelGroups]);
 
     const modelSettingsTarget = useMemo<ModelSelection | null>(
       () => modelSettingsSelection ?? effectiveModelSelection,
@@ -1291,11 +1360,11 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   const grouped = optionEntries.reduce<
                     Record<string, { label: string; entries: typeof optionEntries }>
                   >((acc, entry) => {
-                    const key = entry.groupId ?? "__default__";
-                    if (!acc[key]) {
-                      acc[key] = { label: entry.groupLabel ?? "", entries: [] };
+                    const g = resolveAcpOptionGroup(entry);
+                    if (!acc[g.key]) {
+                      acc[g.key] = { label: g.label, entries: [] };
                     }
-                    acc[key].entries.push(entry);
+                    acc[g.key].entries.push(entry);
                     return acc;
                   }, {});
                   const groupKeys = Object.keys(grouped);
@@ -1375,7 +1444,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                               className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
                                             />
                                             <div className="min-w-0 flex-1">
-                                              <div className="text-xs font-medium">{entry.label}</div>
+                                              <div className="text-xs font-medium">
+                                                {resolveAcpOptionDisplayLabel(entry)}
+                                              </div>
                                               {entry.description && (
                                                 <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
                                                   {entry.description}
@@ -1405,7 +1476,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                         className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
                                       />
                                       <div className="min-w-0 flex-1">
-                                        <div className="text-xs font-medium">{entry.label}</div>
+                                        <div className="text-xs font-medium">{resolveAcpOptionDisplayLabel(entry)}</div>
                                         {entry.description && (
                                           <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
                                             {entry.description}
@@ -1500,45 +1571,53 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                         )}
                         {!showModelOptionsLoading && !hasModelOptionsError && filteredModelGroups.length > 0 && (
                           <div className="space-y-3">
-                            {filteredModelGroups.map((group) => (
-                              <div key={group.providerId} className="space-y-1">
+                            {modelDisplaySections.map((section) => (
+                              <div key={section.key} className="space-y-1">
                                 <div className="px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                  {group.providerName}
+                                  {section.label}
                                 </div>
                                 <div className="space-y-1">
-                                  {group.models.map((model) => (
-                                    <div key={`${group.providerId}-${model.id}`} className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        data-testid="model-option"
-                                        data-provider-id={group.providerId}
-                                        data-model-id={model.id}
-                                        className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs transition-colors ${isModelSelected(group.providerId, model.id) ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                                        onClick={() => void handleModelQuickSelect(group.providerId, model.id)}
-                                      >
-                                        <ModelIcon
-                                          modelId={resolveModelIconId(group.providerId, model.id)}
-                                          customClass="w-3.5 h-3.5 shrink-0"
-                                          isDark={themeStore.isDark}
-                                        />
-                                        <span className="min-w-0 flex-1 truncate font-medium">{model.id}</span>
-                                      </button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-                                        aria-label="Advanced settings"
-                                        title="Advanced settings"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void openModelSettings(group.providerId, model.id);
-                                        }}
-                                      >
-                                        <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </div>
-                                  ))}
+                                  {section.entries.map((entry) => {
+                                    const { model, providerId, displayName } = entry;
+                                    return (
+                                      <div key={`${providerId}-${model.id}`} className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          data-testid="model-option"
+                                          data-provider-id={providerId}
+                                          data-model-id={model.id}
+                                          className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs transition-colors ${isModelSelected(providerId, model.id) ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                                          onClick={() => void handleModelQuickSelect(providerId, model.id)}
+                                        >
+                                          <ModelIcon
+                                            modelId={resolveModelIconId(providerId, model.id)}
+                                            customClass="w-3.5 h-3.5 shrink-0"
+                                            isDark={themeStore.isDark}
+                                          />
+                                          <span
+                                            className="min-w-0 flex-1 truncate font-medium"
+                                            title={displayName === model.id ? displayName : model.id}
+                                          >
+                                            {displayName}
+                                          </span>
+                                        </button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                                          aria-label="Advanced settings"
+                                          title="Advanced settings"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            void openModelSettings(providerId, model.id);
+                                          }}
+                                        >
+                                          <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}

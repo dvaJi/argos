@@ -22,7 +22,7 @@ import { createChatClient } from "../../api/ChatClient";
 import { createModelClient } from "#api/ModelClient";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
-import { useMessageStore } from "#/stores/ui/message";
+import { useMessageStore, addOptimisticUserMessage } from "#/stores/ui/message";
 
 import { agentPlanStore } from "#/stores/ui/agentPlan";
 import { agentStore } from "#/stores/ui/agent";
@@ -106,6 +106,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
+    clearInput: () => void;
   } | null>(null);
   const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
 
@@ -123,6 +124,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
   const isVoiceInputEnabled = false;
   const [isHandlingInteraction, setIsHandlingInteraction] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const spotlightJumpTimerRef = useRef<number | null>(null);
   const scrollReadFrameRef = useRef<number | null>(null);
@@ -443,15 +445,22 @@ function ChatPage({ sessionId }: ChatPageProps) {
       if (!isGenerating) setMessage("");
       return;
     }
-    if (isGenerating) {
-      await queueInput(sessionId, { text, files });
-    } else {
-      clearPlanSnapshot(sessionId);
-      await chatClient.sendMessage(sessionId, { text, files });
+    try {
+      if (isGenerating) {
+        await queueInput(sessionId, { text, files });
+      } else {
+        clearPlanSnapshot(sessionId);
+        addOptimisticUserMessage(sessionId, text, files);
+        await chatClient.sendMessage(sessionId, { text, files });
+      }
+    } catch (error) {
+      console.error("[ChatPage] send message failed:", error);
+    } finally {
+      setMessage("");
+      setAttachedFiles([]);
+      chatInputRef.current?.clearInput();
+      schedulePostSubmitScrollToBottom();
     }
-    setMessage("");
-    setAttachedFiles([]);
-    schedulePostSubmitScrollToBottom();
   }, [
     isReadOnlySession,
     isAcpWorkdirMissing,
@@ -476,14 +485,21 @@ function ChatPage({ sessionId }: ChatPageProps) {
       if (!text) return;
       if (await handleManualCompactionCommand(text)) return;
       const files = await prepareFilesForCurrentModel([...attachedFiles]);
-      if (isGenerating) {
-        await queueInput(sessionId, { text, files });
-      } else {
-        clearPlanSnapshot(sessionId);
-        await chatClient.sendMessage(sessionId, { text, files });
+      try {
+        if (isGenerating) {
+          await queueInput(sessionId, { text, files });
+        } else {
+          clearPlanSnapshot(sessionId);
+          addOptimisticUserMessage(sessionId, text, files);
+          await chatClient.sendMessage(sessionId, { text, files });
+        }
+      } catch (error) {
+        console.error("[ChatPage] send command failed:", error);
+      } finally {
+        setAttachedFiles([]);
+        chatInputRef.current?.clearInput();
+        schedulePostSubmitScrollToBottom();
       }
-      setAttachedFiles([]);
-      schedulePostSubmitScrollToBottom();
     },
     [
       isReadOnlySession,
@@ -531,9 +547,16 @@ function ChatPage({ sessionId }: ChatPageProps) {
     if (!text && files.length === 0) return;
     if (await handleManualCompactionCommand(text)) return;
     clearPlanSnapshot(sessionId);
-    await chatClient.steerActiveTurn(sessionId, { text, files });
-    setMessage("");
-    setAttachedFiles([]);
+    addOptimisticUserMessage(sessionId, text, files);
+    try {
+      await chatClient.steerActiveTurn(sessionId, { text, files });
+    } catch (error) {
+      console.error("[ChatPage] steer failed:", error);
+    } finally {
+      setMessage("");
+      setAttachedFiles([]);
+      chatInputRef.current?.clearInput();
+    }
   }, [
     isReadOnlySession,
     isAcpWorkdirMissing,
@@ -584,13 +607,19 @@ function ChatPage({ sessionId }: ChatPageProps) {
   );
 
   const onStop = useCallback(async () => {
-    if (isReadOnlySession || !isGenerating) return;
+    if (isReadOnlySession || !isGenerating || isCancelling) return;
+    setIsCancelling(true);
     try {
       await chatClient.stopStream({ sessionId });
     } catch (error) {
       console.error("[ChatPage] cancel generation failed:", error);
+      setIsCancelling(false);
     }
-  }, [isReadOnlySession, isGenerating, sessionId, chatClient]);
+  }, [isReadOnlySession, isGenerating, isCancelling, sessionId, chatClient]);
+
+  useEffect(() => {
+    if (!isGenerating) setIsCancelling(false);
+  }, [isGenerating]);
 
   const onMessageRetry = useCallback(
     async (messageId: string) => {
@@ -1164,6 +1193,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
                         toolbar={
                           <ChatInputToolbar
                             isGenerating={isGenerating}
+                            isCancelling={isCancelling}
                             hasInput={hasDraftInput}
                             sendDisabled={isInputSubmitDisabled}
                             queueDisabled={isQueueSubmitDisabled}

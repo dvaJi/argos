@@ -394,7 +394,7 @@ async function getMessage(id: string): Promise<ChatMessageRecord | null> {
   return null;
 }
 
-function addOptimisticUserMessage(sessionId: string, text: string, files: MessageFile[] = []): void {
+export function addOptimisticUserMessage(sessionId: string, text: string, files: MessageFile[] = []): void {
   const id = `__optimistic_user_${Date.now()}`;
   const record: ChatMessageRecord = {
     id,

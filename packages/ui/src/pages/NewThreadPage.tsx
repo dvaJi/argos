@@ -84,6 +84,7 @@ function NewThreadPage() {
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
+    clearInput: () => void;
   } | null>(null);
   const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null);
   const [acpDraftModelSelection, setAcpDraftModelSelection] = useState<SubmissionModelSelection | null>(null);
@@ -814,7 +815,6 @@ function NewThreadPage() {
           )}
 
           <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
-            {/* @ts-expect-error - Complex type intersection issue */}
             <ChatInputBox
               ref={chatInputRef}
               modelValue={message}
@@ -829,20 +829,21 @@ function NewThreadPage() {
               onCommandSubmit={onCommandSubmit}
               onSubmit={onSubmit}
               onToggleVoiceInput={() => {}}
-            >
-              <ChatInputToolbar
-                onQueue={() => {}}
-                onSteer={() => {}}
-                onStop={() => {}}
-                showVoiceInput={isVoiceInputEnabled}
-                isVoiceInputListening={false}
-                isVoiceInputTranscribing={false}
-                sendDisabled={isAcpWorkdirUnavailable || !isDaemonConnected || !message.trim()}
-                onAttach={onAttach}
-                onVoiceInput={() => {}}
-                onSend={onSubmit}
-              />
-            </ChatInputBox>
+              toolbar={
+                <ChatInputToolbar
+                  onQueue={() => {}}
+                  onSteer={() => {}}
+                  onStop={() => {}}
+                  showVoiceInput={isVoiceInputEnabled}
+                  isVoiceInputListening={false}
+                  isVoiceInputTranscribing={false}
+                  sendDisabled={isAcpWorkdirUnavailable || !isDaemonConnected || !message.trim()}
+                  onAttach={onAttach}
+                  onVoiceInput={() => {}}
+                  onSend={onSubmit}
+                />
+              }
+            />
           </div>
 
           <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />

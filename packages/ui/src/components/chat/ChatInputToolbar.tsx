@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/t
 
 interface ChatInputToolbarProps {
   isGenerating?: boolean;
+  isCancelling?: boolean;
   hasInput?: boolean;
   hasText?: boolean;
   sendDisabled?: boolean;
@@ -22,6 +23,7 @@ interface ChatInputToolbarProps {
 
 const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   isGenerating = false,
+  isCancelling = false,
   hasInput = false,
   hasText = false,
   sendDisabled = false,
@@ -70,10 +72,10 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
   }, [isGenerating, hasActiveInput]);
 
   const primaryTooltip = useMemo(() => {
-    if (buttonMode === "stop") return "Stop";
+    if (buttonMode === "stop") return isCancelling ? "Cancelling…" : "Stop";
     if (buttonMode === "queue") return "Queue";
     return "Send";
-  }, [buttonMode]);
+  }, [buttonMode, isCancelling]);
 
   const handlePrimaryAction = () => {
     if (buttonMode === "stop") {
@@ -164,27 +166,38 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
             <Button
               data-testid={
                 buttonMode === "stop"
-                  ? "chat-stop-button"
+                  ? isCancelling
+                    ? "chat-cancelling-button"
+                    : "chat-stop-button"
                   : buttonMode === "queue"
                     ? "chat-queue-button"
                     : "chat-send-button"
               }
               data-mode={buttonMode}
+              data-cancelling={buttonMode === "stop" && isCancelling ? "true" : undefined}
               variant={buttonMode === "stop" ? "outline" : "default"}
               size="icon"
               className="h-7 w-7 rounded-full"
-              disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : false}
+              disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : isCancelling}
               onClick={handlePrimaryAction}
             >
               <Icon
                 icon={
                   buttonMode === "stop"
-                    ? "lucide:square"
+                    ? isCancelling
+                      ? "lucide:loader-circle"
+                      : "lucide:square"
                     : buttonMode === "queue"
                       ? "lucide:list-plus"
                       : "lucide:arrow-up"
                 }
-                className={buttonMode === "stop" ? "w-4 h-4 text-red-500" : "w-4 h-4"}
+                className={
+                  buttonMode === "stop"
+                    ? isCancelling
+                      ? "w-4 h-4 text-muted-foreground animate-spin"
+                      : "w-4 h-4 text-red-500"
+                    : "w-4 h-4"
+                }
               />
             </Button>
           </TooltipTrigger>

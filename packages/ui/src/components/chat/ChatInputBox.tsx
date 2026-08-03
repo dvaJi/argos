@@ -65,6 +65,7 @@ const ChatInputBox = forwardRef<
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
+    clearInput: () => void;
   },
   ChatInputBoxProps
 >(
@@ -338,6 +339,12 @@ const ChatInputBox = forwardRef<
       if (editor) setCaretToEnd(editor);
     }
 
+    function clearInput() {
+      const ed = editorRef.current;
+      if (!ed) return;
+      ed.commands.setContent(toEditorDoc(""), { emitUpdate: false });
+    }
+
     useImperativeHandle(
       ref,
       () => ({
@@ -346,6 +353,7 @@ const ChatInputBox = forwardRef<
         insertWorkspaceReference,
         getPendingSkillsSnapshot,
         focusInput,
+        clearInput,
       }),
       [editor],
     );

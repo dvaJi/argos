@@ -84,6 +84,7 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
   const [acpInlineOpenOptionId, setAcpInlineOpenOptionId] = useState<string | null>(null);
   const [acpOptionSavingIds, setAcpOptionSavingIds] = useState<string[]>([]);
   const [acpConfigError, setAcpConfigError] = useState<string | null>(null);
+  const [isAcpSessionConfigLoading, setIsAcpSessionConfigLoading] = useState(false);
   const acpConfigCacheByKeyRef = useRef(new Map<string, AcpConfigState>());
   const acpConfigSyncTokenRef = useRef(0);
 
@@ -143,7 +144,15 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
 
   const acpConfigOptions = useMemo(() => acpConfigState?.options ?? [], [acpConfigState]);
   const isAcpConfigLoading = useMemo(() => {
-    if (!options.isAcpAgent || options.activeAcpSessionId || !options.acpWorkspacePath) {
+    if (!options.isAcpAgent) {
+      return false;
+    }
+
+    if (options.activeAcpSessionId) {
+      return isAcpSessionConfigLoading;
+    }
+
+    if (!options.acpWorkspacePath) {
       return false;
     }
 
@@ -152,6 +161,7 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
   }, [
     options.isAcpAgent,
     options.activeAcpSessionId,
+    isAcpSessionConfigLoading,
     options.acpWorkspacePath,
     acpConfigRequestKey,
     acpConfigLoadingRequestKey,
@@ -255,6 +265,7 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
       setAcpConfigLoadedRequestKey(null);
       setAcpConfigLoadingRequestKey(null);
       setAcpConfigError(null);
+      setIsAcpSessionConfigLoading(false);
       return;
     }
 
@@ -264,6 +275,7 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
       setAcpConfigLoadingRequestKey(null);
       setAcpConfigState(null);
       setAcpConfigLoadedRequestKey(null);
+      setIsAcpSessionConfigLoading(true);
 
       let loaded = false;
       const delays = [0, 1500, 3000];
@@ -312,11 +324,13 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
         setAcpConfigLoadedRequestKey(null);
         setAcpConfigError("Failed to load agent configuration");
       }
+      setIsAcpSessionConfigLoading(false);
       clearAcpConfigLoadingRequest(requestKey);
       return;
     }
 
     setAcpConfigLoadedRequestKey(null);
+    setIsAcpSessionConfigLoading(false);
     const cacheKey = acpConfigCacheKey;
     const cachedState = getCachedAcpConfigState(cacheKey);
     setAcpConfigState(cachedState);
