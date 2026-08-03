@@ -1,4 +1,4 @@
-import { type FC, useMemo } from "react";
+import { type FC, useCallback, useMemo } from "react";
 import { MessageBlockAction } from "#/components/message/MessageBlockAction";
 import { useMessageCapture } from "#/composables/message/useMessageCapture";
 import { useThemeStore } from "#/stores/theme";
@@ -44,30 +44,36 @@ const MessageList: FC<MessageListProps> = ({
   const displayMessages = useMemo(() => allRenderedMessages, [allRenderedMessages]);
   const { isCapturing, captureMessage } = useMessageCapture(themeStore.isDark);
 
-  const resolveCaptureParentId = (messageId: string, parentId?: string): string | undefined => {
-    const messageItems = displayMessages;
-    if (parentId) {
-      const parentMessage = messageItems.find((msg) => msg.id === parentId);
-      if (parentMessage?.role === "user") return parentId;
-    }
-    const messageIndex = messageItems.findIndex((msg) => msg.id === messageId);
-    if (messageIndex <= 0) return undefined;
-    for (let index = messageIndex - 1; index >= 0; index -= 1) {
-      const candidate = messageItems[index] as DisplayMessage;
-      if (candidate.role === "user") return candidate.id;
-    }
-    return undefined;
-  };
+  const resolveCaptureParentId = useCallback(
+    (messageId: string, parentId?: string): string | undefined => {
+      const messageItems = displayMessages;
+      if (parentId) {
+        const parentMessage = messageItems.find((msg) => msg.id === parentId);
+        if (parentMessage?.role === "user") return parentId;
+      }
+      const messageIndex = messageItems.findIndex((msg) => msg.id === messageId);
+      if (messageIndex <= 0) return undefined;
+      for (let index = messageIndex - 1; index >= 0; index -= 1) {
+        const candidate = messageItems[index] as DisplayMessage;
+        if (candidate.role === "user") return candidate.id;
+      }
+      return undefined;
+    },
+    [displayMessages],
+  );
 
-  const handleCopyImage = async (
-    messageId: string,
-    parentId: string | undefined,
-    fromTop: boolean,
-    modelInfo: { model_name: string; model_provider: string },
-  ) => {
-    const resolvedParentId = resolveCaptureParentId(messageId, parentId);
-    await captureMessage({ messageId, parentId: resolvedParentId, fromTop, modelInfo });
-  };
+  const handleCopyImage = useCallback(
+    async (
+      messageId: string,
+      parentId: string | undefined,
+      fromTop: boolean,
+      modelInfo: { model_name: string; model_provider: string },
+    ) => {
+      const resolvedParentId = resolveCaptureParentId(messageId, parentId);
+      await captureMessage({ messageId, parentId: resolvedParentId, fromTop, modelInfo });
+    },
+    [resolveCaptureParentId, captureMessage],
+  );
 
   return (
     <div data-testid="chat-message-list" className="chat-message-list w-full min-w-0">

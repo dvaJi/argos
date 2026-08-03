@@ -338,6 +338,24 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
     }
   };
 
+  const handleActionRef = useRef(handleAction);
+  handleActionRef.current = handleAction;
+
+  const toolbarHandlers = useMemo(
+    () => ({
+      retry: () => handleActionRef.current("retry"),
+      delete: () => handleActionRef.current("delete"),
+      copy: () => handleActionRef.current("copy"),
+      copyImage: () => handleActionRef.current("copyImage"),
+      copyImageFromTop: () => handleActionRef.current("copyImageFromTop"),
+      prev: () => handleActionRef.current("prev"),
+      next: () => handleActionRef.current("next"),
+      fork: () => handleActionRef.current("fork"),
+      trace: () => handleActionRef.current("trace"),
+    }),
+    [],
+  );
+
   useImperativeHandle(ref, () => ({ handleAction }));
 
   const content = (
@@ -478,15 +496,15 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
           isCapturingImage={isCapturingImage}
           showTrace={showTrace}
           isReadOnly={isReadOnly}
-          onRetry={() => handleAction("retry")}
-          onDelete={() => handleAction("delete")}
-          onCopy={() => handleAction("copy")}
-          onCopyImage={() => handleAction("copyImage")}
-          onCopyImageFromTop={() => handleAction("copyImageFromTop")}
-          onPrev={() => handleAction("prev")}
-          onNext={() => handleAction("next")}
-          onFork={() => handleAction("fork")}
-          onTrace={() => handleAction("trace")}
+          onRetry={toolbarHandlers.retry}
+          onDelete={toolbarHandlers.delete}
+          onCopy={toolbarHandlers.copy}
+          onCopyImage={toolbarHandlers.copyImage}
+          onCopyImageFromTop={toolbarHandlers.copyImageFromTop}
+          onPrev={toolbarHandlers.prev}
+          onNext={toolbarHandlers.next}
+          onFork={toolbarHandlers.fork}
+          onTrace={toolbarHandlers.trace}
         />
       </div>
     </div>

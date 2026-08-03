@@ -1,6 +1,6 @@
 import { type FC, useEffect, useMemo, useRef } from "react";
 import { useBlockContent, type ProcessedPart } from "#/composables/useArtifacts";
-import { useArtifactStore } from "#/stores/artifact";
+import { completeArtifact, syncArtifact } from "#/stores/artifact";
 import { ArtifactThinking } from "../artifacts/ArtifactThinking";
 import { ArtifactPreview } from "../artifacts/ArtifactPreview";
 import { ToolCallPreview } from "../artifacts/ToolCallPreview";
@@ -14,14 +14,14 @@ interface MessageBlockContentProps {
 }
 
 export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
-  const artifactState = useArtifactStore();
-
   const propsRef = useRef({ block, messageId, threadId });
   propsRef.current = { block, messageId, threadId };
 
   const { processedContent } = useBlockContent({ block });
 
   const shouldSmoothStream = useMemo(() => block.status === "pending" || block.status === "loading", [block.status]);
+
+  const linkContext = useMemo(() => ({ source: "chat" as const, sessionId: threadId }), [threadId]);
 
   const lastArtifactSnapshot = useRef<string>("");
 
@@ -74,12 +74,12 @@ export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messa
         } as const;
 
         if (loading) {
-          artifactState.syncArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
+          syncArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
         } else {
-          artifactState.completeArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
+          completeArtifact(nextArtifact, currentProps.messageId, currentProps.threadId);
         }
       } else {
-        artifactState.completeArtifact(
+        completeArtifact(
           {
             id: artifact.identifier,
             type,
@@ -106,7 +106,7 @@ export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messa
               smoothStreaming={shouldSmoothStream}
               messageId={messageId}
               threadId={threadId}
-              linkContext={{ source: "chat", sessionId: threadId }}
+              linkContext={linkContext}
             />
           );
         }
