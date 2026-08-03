@@ -32,13 +32,19 @@ describe("AcpProviderExecutionPort", () => {
   });
 
   it("publishes and persists decoded ACP assistant text chunks", async () => {
-    const addMessage = vi.fn(async () => "persisted-assistant-1");
+    const finalizeAssistantMessage = vi.fn(async () => undefined);
+    const setMessageError = vi.fn(async () => undefined);
     const publish = vi.fn();
-    const port = new AcpProviderExecutionPort({} as never, { addMessage } as never, { publish } as never, {
-      dataDir: "/tmp",
-      appVersion: "1.0.0",
-      db: { prepare: vi.fn() },
-    });
+    const port = new AcpProviderExecutionPort(
+      {} as never,
+      { finalizeAssistantMessage, setMessageError } as never,
+      { publish } as never,
+      {
+        dataDir: "/tmp",
+        appVersion: "1.0.0",
+        db: { prepare: vi.fn() },
+      },
+    );
     const runtime = {
       async *runPromptTurn() {
         yield {
@@ -96,7 +102,7 @@ describe("AcpProviderExecutionPort", () => {
       expect.objectContaining({
         requestId: "request-1",
         sessionId: "conversation-1",
-        messageId: "persisted-assistant-1",
+        messageId: "assistant-1",
         blocks: expect.arrayContaining([
           expect.objectContaining({ content: "OpenCode", status: "success" }),
           expect.objectContaining({ type: "reasoning_content", content: "The user" }),
@@ -104,7 +110,12 @@ describe("AcpProviderExecutionPort", () => {
         ]),
       }),
     );
-    expect(addMessage).toHaveBeenCalledWith("conversation-1", "assistant", expect.stringContaining("OpenCode"));
+    expect(finalizeAssistantMessage).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.arrayContaining([expect.objectContaining({ content: "OpenCode", status: "success" })]),
+      expect.any(String),
+    );
+    expect(setMessageError).not.toHaveBeenCalled();
   });
 
   it("allows ACP tool permissions once in full access mode", async () => {
