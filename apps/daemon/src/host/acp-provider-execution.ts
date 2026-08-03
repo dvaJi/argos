@@ -29,6 +29,12 @@ import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunR
 
 const ACP_PROVIDER_ID = "acp";
 
+const normalizePlanStatus = (status: unknown): "pending" | "in_progress" | "completed" => {
+  if (status === "completed" || status === "done") return "completed";
+  if (status === "in_progress") return "in_progress";
+  return "pending";
+};
+
 type PendingAcpPermission = {
   sessionId: string;
   toolCallId: string;
@@ -393,6 +399,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     workdir?: string,
   ): Promise<void> {
     const blocks: Array<Record<string, unknown>> = [];
+    let planRevision = 0;
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
@@ -404,8 +411,26 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         if (controller.signal.aborted) break;
 
         const mapped = this.contentMapper.map(notification);
+
+        if (mapped.planEntries && mapped.planEntries.length > 0) {
+          planRevision += 1;
+          const plan = mapped.planEntries
+            .map((entry) => ({ step: (entry.content ?? "").trim(), status: normalizePlanStatus(entry.status) }))
+            .filter((item) => item.step.length > 0);
+          if (plan.length > 0) {
+            this.eventPublisher.publish("chat.plan.updated", {
+              sessionId,
+              messageId: assistantMessageId,
+              plan,
+              revision: planRevision,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+
         const now = Date.now();
         for (const block of mapped.blocks) {
+          if (block.type === "plan") continue;
           const last = blocks.at(-1);
           if (block.type === "content" && last?.type === "content") {
             last.content = `${last.content ?? ""}${block.content ?? ""}`;
