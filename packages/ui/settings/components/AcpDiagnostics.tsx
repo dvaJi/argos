@@ -316,32 +316,36 @@ export default function AcpDiagnostics({
           <TooltipProvider>
             <div className="flex shrink-0 items-center gap-1">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={checkLabel}
-                    disabled={probing || !canRun}
-                    onClick={() => void runDiagnostics()}
-                  >
-                    {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={checkLabel}
+                      disabled={probing || !canRun}
+                      onClick={() => void runDiagnostics()}
+                    >
+                      {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
+                    </Button>
+                  }
+                />
                 <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={detailsLabel}
-                    aria-expanded={detailsOpen}
-                    aria-controls={`acp-details-${agentId}`}
-                    onClick={() => setManualDetailsOpen(!detailsOpen)}
-                  >
-                    <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
-                  </Button>
-                </TooltipTrigger>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={detailsLabel}
+                      aria-expanded={detailsOpen}
+                      aria-controls={`acp-details-${agentId}`}
+                      onClick={() => setManualDetailsOpen(!detailsOpen)}
+                    >
+                      <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
+                    </Button>
+                  }
+                />
                 <TooltipContent>{detailsLabel}</TooltipContent>
               </Tooltip>
             </div>

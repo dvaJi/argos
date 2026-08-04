@@ -119,29 +119,33 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
         <span className={loading ? "hidden" : "flex flex-row gap-3"}>
           {isEditMode ? (
             <>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={onSave}
-                  >
-                    <Icon icon="lucide:check" className="w-3 h-3" />
-                  </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                      onClick={onSave}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:check" className="w-3 h-3" />
                 </TooltipTrigger>
                 <TooltipContent>Save</TooltipContent>
               </Tooltip>
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={onCancel}
-                  >
-                    <Icon icon="lucide:x" className="w-3 h-3" />
-                  </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                      onClick={onCancel}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:x" className="w-3 h-3" />
                 </TooltipTrigger>
                 <TooltipContent>Cancel</TooltipContent>
               </Tooltip>
@@ -149,32 +153,36 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
           ) : (
             <>
               {!isAssistant && !isEditMode && !isReadOnly && (
-                <Tooltip delayDuration={200}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onRetry}
-                    >
-                      <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
-                    </Button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onRetry}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Retry</TooltipContent>
                 </Tooltip>
               )}
 
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
-                    disabled={currentVariantIndex === 0}
-                    onClick={onPrev}
-                  >
-                    <Icon icon="lucide:chevron-left" className="w-3 h-3" />
-                  </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
+                      disabled={currentVariantIndex === 0}
+                      onClick={onPrev}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:chevron-left" className="w-3 h-3" />
                 </TooltipTrigger>
                 <TooltipContent>Previous variant</TooltipContent>
               </Tooltip>
@@ -183,67 +191,73 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
                 {(currentVariantIndex ?? 0) + 1} / {totalVariants}
               </span>
 
-              <Tooltip delayDuration={200}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
-                    disabled={(currentVariantIndex ?? 0) >= (totalVariants || 0) - 1}
-                    onClick={onNext}
-                  >
-                    <Icon icon="lucide:chevron-right" className="w-3 h-3" />
-                  </Button>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant && hasVariants ? "" : "hidden"}`}
+                      disabled={(currentVariantIndex ?? 0) >= (totalVariants || 0) - 1}
+                      onClick={onNext}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:chevron-right" className="w-3 h-3" />
                 </TooltipTrigger>
                 <TooltipContent>Next variant</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                    onClick={handleCopy}
-                  >
-                    <Icon icon="lucide:copy" className="w-3 h-3" />
-                    {showCopyTip && (
-                      <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                        Copied
-                      </span>
-                    )}
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                      onClick={handleCopy}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:copy" className="w-3 h-3" />
+                  {showCopyTip && (
+                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
+                      Copied
+                    </span>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent>Copy</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? "" : "hidden"}`}
-                    disabled={isCapturingImage}
-                    onMouseDown={handleCopyImageStart}
-                    onMouseUp={handleCopyImageEnd}
-                    onMouseLeave={handleCopyImageCancel}
-                  >
-                    {isCapturingImage ? (
-                      <Icon icon="lucide:loader" className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Icon icon="lucide:images" className="w-3 h-3" />
-                    )}
-                    {showCopyImageTip && (
-                      <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                        Image copied
-                      </span>
-                    )}
-                    {showCopyFromTopTip && (
-                      <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
-                        Copied from top
-                      </span>
-                    )}
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`relative w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)] ${isAssistant ? "" : "hidden"}`}
+                      disabled={isCapturingImage}
+                      onMouseDown={handleCopyImageStart}
+                      onMouseUp={handleCopyImageEnd}
+                      onMouseLeave={handleCopyImageCancel}
+                    />
+                  }
+                >
+                  {isCapturingImage ? (
+                    <Icon icon="lucide:loader" className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Icon icon="lucide:images" className="w-3 h-3" />
+                  )}
+                  {showCopyImageTip && (
+                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
+                      Image copied
+                    </span>
+                  )}
+                  {showCopyFromTopTip && (
+                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-background border px-2 py-1 rounded text-xs whitespace-nowrap z-50">
+                      Copied from top
+                    </span>
+                  )}
                 </TooltipTrigger>
                 <TooltipContent>
                   {isCapturingImage ? "Capturing..." : "Copy image (long press for from top)"}
@@ -252,15 +266,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
               {isAssistant && !isReadOnly && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onRetry}
-                    >
-                      <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onRetry}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:refresh-cw" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Retry</TooltipContent>
                 </Tooltip>
@@ -268,15 +284,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
               {isAssistant && traceDebugEnabled && allowTrace && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onTrace}
-                    >
-                      <Icon icon="lucide:bug" className="w-3 h-3" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onTrace}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:bug" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Trace debug</TooltipContent>
                 </Tooltip>
@@ -284,15 +302,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
               {isAssistant && !loading && !isInGeneratingThread && !isReadOnly && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onFork}
-                    >
-                      <Icon icon="lucide:git-branch" className="w-3 h-3" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onFork}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:git-branch" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Fork</TooltipContent>
                 </Tooltip>
@@ -300,15 +320,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
               {!isAssistant && !isEditMode && !isReadOnly && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onEdit}
-                    >
-                      <Icon icon="lucide:edit" className="w-3 h-3" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onEdit}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:edit" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Edit</TooltipContent>
                 </Tooltip>
@@ -316,15 +338,17 @@ export const MessageToolbar: FC<MessageToolbarProps> = ({
 
               {!isReadOnly && (
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
-                      onClick={onDelete}
-                    >
-                      <Icon icon="lucide:trash-2" className="w-3 h-3" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-4 h-4 text-muted-foreground hover:text-primary hover:bg-transparent transition-colors duration-[var(--dc-motion-fast)] ease-[var(--dc-ease-out-soft)]"
+                        onClick={onDelete}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:trash-2" className="w-3 h-3" />
                   </TooltipTrigger>
                   <TooltipContent>Delete</TooltipContent>
                 </Tooltip>

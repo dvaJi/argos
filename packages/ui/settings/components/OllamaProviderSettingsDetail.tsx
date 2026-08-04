@@ -439,17 +439,19 @@ export default function OllamaProviderSettingsDetail({
           />
           <div className="text-xs text-muted-foreground">
             {hasDefaultBaseUrl ? (
-              <TooltipProvider delayDuration={200}>
+              <TooltipProvider delay={200}>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
-                      aria-label="Fill default URL"
-                      onClick={() => void fillDefaultBaseUrl()}
-                    >
-                      Default: {defaultBaseUrl}
-                    </button>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+                        aria-label="Fill default URL"
+                        onClick={() => void fillDefaultBaseUrl()}
+                      />
+                    }
+                  >
+                    Default: {defaultBaseUrl}
                   </TooltipTrigger>
                   <TooltipContent>Fill with default base URL</TooltipContent>
                 </Tooltip>

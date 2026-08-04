@@ -124,15 +124,17 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
                 <span>{selectedPreview?.title || "Image Preview"}</span>
                 {selectedPreview && (
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                        onClick={handleSaveSelectedPreview}
-                      >
-                        <Icon icon="lucide:download" className="h-4 w-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                          onClick={handleSaveSelectedPreview}
+                        />
+                      }
+                    >
+                      <Icon icon="lucide:download" className="h-4 w-4" />
                     </TooltipTrigger>
                     <TooltipContent>Save</TooltipContent>
                   </Tooltip>

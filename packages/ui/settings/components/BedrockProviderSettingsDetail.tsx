@@ -286,7 +286,7 @@ export default function BedrockProviderSettingsDetail({
               <Icon icon="lucide:check-check" className="w-4 h-4 text-muted-foreground" />
               Verify
             </Button>
-            <TooltipProvider delayDuration={200}>
+            <TooltipProvider delay={200}>
               <Tooltip>
                 <TooltipTrigger>
                   <Icon icon="lucide:help-circle" className="w-4 h-4 text-muted-foreground" />

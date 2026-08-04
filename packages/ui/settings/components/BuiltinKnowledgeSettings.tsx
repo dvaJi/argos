@@ -129,10 +129,12 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
         </div>
         <div className="flex items-center gap-2">
           <TooltipProvider>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
-              </TooltipTrigger>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
+                }
+              />
               {!mcpStore.mcpEnabled && (
                 <TooltipContent>
                   <p>Enable MCP to access</p>

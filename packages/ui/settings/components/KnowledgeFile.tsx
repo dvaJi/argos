@@ -300,16 +300,18 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
                       score:{(item.distance * 100).toFixed(2) + "%"}
                     </div>
                     <TooltipProvider>
-                      <Tooltip delayDuration={200}>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
-                            onClick={() => handleCopy(item.metadata.content, item.id)}
-                          >
-                            <Icon icon={copyId === item.id ? "lucide:check" : "lucide:copy"} />
-                          </Button>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
+                              onClick={() => handleCopy(item.metadata.content, item.id)}
+                            />
+                          }
+                        >
+                          <Icon icon={copyId === item.id ? "lucide:check" : "lucide:copy"} />
                         </TooltipTrigger>
                         <TooltipContent>{copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
                       </Tooltip>

@@ -1323,26 +1323,26 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   )}
                 </div>
                 {isAcpConfigLoading && !hasAcpConfigOptions && (
-                  <TooltipProvider delayDuration={200}>
+                  <TooltipProvider delay={200}>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground">
-                          <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
-                          <span className="hidden sm:inline">Loading…</span>
-                        </div>
+                      <TooltipTrigger
+                        render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground" />}
+                      >
+                        <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                        <span className="hidden sm:inline">Loading…</span>
                       </TooltipTrigger>
                       <TooltipContent>Loading agent modes and models…</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 )}
                 {!isAcpConfigLoading && acpConfigError && !hasAcpConfigOptions && (
-                  <TooltipProvider delayDuration={200}>
+                  <TooltipProvider delay={200}>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive">
-                          <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
-                          <span className="hidden sm:inline">Unavailable</span>
-                        </div>
+                      <TooltipTrigger
+                        render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive" />}
+                      >
+                        <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
+                        <span className="hidden sm:inline">Unavailable</span>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         Failed to load agent configuration: {acpConfigError}
@@ -1656,7 +1656,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                             </div>
                           )}
                           {isModelSettingsReady && localSettings && (
-                            <TooltipProvider delayDuration={200}>
+                            <TooltipProvider delay={200}>
                               {!showOpenAIMediaGenerationSettings && showTemperatureControl && (
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-medium">Temperature</label>

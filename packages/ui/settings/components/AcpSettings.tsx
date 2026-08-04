@@ -630,21 +630,23 @@ export default function AcpSettings() {
                                 />
                               </div>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    aria-label={`${agentConfigurationOpen[agent.id] ? "Hide" : "Show"} ${agent.name} setup`}
-                                    aria-expanded={Boolean(agentConfigurationOpen[agent.id])}
-                                    onClick={() =>
-                                      setAgentConfigurationOpen((current) => ({
-                                        ...current,
-                                        [agent.id]: !current[agent.id],
-                                      }))
-                                    }
-                                  >
-                                    <Icon icon="lucide:settings-2" />
-                                  </Button>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      size="icon-sm"
+                                      variant="ghost"
+                                      aria-label={`${agentConfigurationOpen[agent.id] ? "Hide" : "Show"} ${agent.name} setup`}
+                                      aria-expanded={Boolean(agentConfigurationOpen[agent.id])}
+                                      onClick={() =>
+                                        setAgentConfigurationOpen((current) => ({
+                                          ...current,
+                                          [agent.id]: !current[agent.id],
+                                        }))
+                                      }
+                                    />
+                                  }
+                                >
+                                  <Icon icon="lucide:settings-2" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   {agentConfigurationOpen[agent.id] ? "Hide setup" : "Configure agent"}
@@ -821,49 +823,55 @@ export default function AcpSettings() {
                                 />
                               </div>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    aria-label={`Edit ${agent.name}`}
-                                    onClick={() => openManualDialog(agent)}
-                                  >
-                                    <Icon icon="lucide:pencil" />
-                                  </Button>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      size="icon-sm"
+                                      variant="ghost"
+                                      aria-label={`Edit ${agent.name}`}
+                                      onClick={() => openManualDialog(agent)}
+                                    />
+                                  }
+                                >
+                                  <Icon icon="lucide:pencil" />
                                 </TooltipTrigger>
                                 <TooltipContent>Edit agent</TooltipContent>
                               </Tooltip>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    aria-label={`Open ${agent.name} debug console`}
-                                    disabled={!agent.enabled}
-                                    onClick={() => openInspector(agent.id, agent.name)}
-                                  >
-                                    <Icon icon="lucide:bug" />
-                                  </Button>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      size="icon-sm"
+                                      variant="ghost"
+                                      aria-label={`Open ${agent.name} debug console`}
+                                      disabled={!agent.enabled}
+                                      onClick={() => openInspector(agent.id, agent.name)}
+                                    />
+                                  }
+                                >
+                                  <Icon icon="lucide:bug" />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   {agent.enabled ? "Open debug console" : "Enable the agent before debugging"}
                                 </TooltipContent>
                               </Tooltip>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    className="text-destructive hover:text-destructive"
-                                    aria-label={`Delete ${agent.name}`}
-                                    onClick={() => {
-                                      if (window.confirm(`Delete agent "${agent.name}"?`)) {
-                                        void deleteManualAgent(agent);
-                                      }
-                                    }}
-                                  >
-                                    <Icon icon="lucide:trash-2" />
-                                  </Button>
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      size="icon-sm"
+                                      variant="ghost"
+                                      className="text-destructive hover:text-destructive"
+                                      aria-label={`Delete ${agent.name}`}
+                                      onClick={() => {
+                                        if (window.confirm(`Delete agent "${agent.name}"?`)) {
+                                          void deleteManualAgent(agent);
+                                        }
+                                      }}
+                                    />
+                                  }
+                                >
+                                  <Icon icon="lucide:trash-2" />
                                 </TooltipTrigger>
                                 <TooltipContent>Delete agent</TooltipContent>
                               </Tooltip>

@@ -735,7 +735,7 @@ function NewThreadPage() {
   };
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delay={200}>
       <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div className="mb-4">

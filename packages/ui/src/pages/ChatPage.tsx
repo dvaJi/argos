@@ -1053,7 +1053,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delay={200}>
       <div
         ref={scrollContainerRef}
         data-testid="chat-page"

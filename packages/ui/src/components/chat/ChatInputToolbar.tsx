@@ -93,15 +93,17 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
     <div className="flex items-center justify-between px-3 py-2">
       <div className="flex items-center gap-1">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-              onClick={onAttach}
-            >
-              <Icon icon="lucide:plus" className="w-4 h-4" />
-            </Button>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                onClick={onAttach}
+              />
+            }
+          >
+            <Icon icon="lucide:plus" className="w-4 h-4" />
           </TooltipTrigger>
           <TooltipContent>
             <p>Attach file</p>
@@ -112,28 +114,30 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
       <div className="flex items-center gap-1">
         {showVoiceInput && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="chat-voice-input-button"
-                variant="ghost"
-                size="icon"
-                className={voiceInputButtonClass}
-                aria-pressed={isVoiceInputListening || isVoiceInputTranscribing}
-                aria-busy={isVoiceInputTranscribing || undefined}
-                onClick={onVoiceInput}
-              >
-                {isVoiceInputListening && (
-                  <span aria-hidden="true" className="absolute inset-0 rounded-lg bg-cyan-500/14 animate-pulse" />
-                )}
-                {isVoiceInputListening ? (
-                  <Icon
-                    icon="lucide:square"
-                    className="absolute inset-0 m-auto z-10 hidden w-4 h-4 text-red-500 group-hover:block"
-                  />
-                ) : (
-                  <Icon icon={voiceInputIcon} className={voiceInputIconClass} />
-                )}
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="chat-voice-input-button"
+                  variant="ghost"
+                  size="icon"
+                  className={voiceInputButtonClass}
+                  aria-pressed={isVoiceInputListening || isVoiceInputTranscribing}
+                  aria-busy={isVoiceInputTranscribing || undefined}
+                  onClick={onVoiceInput}
+                />
+              }
+            >
+              {isVoiceInputListening && (
+                <span aria-hidden="true" className="absolute inset-0 rounded-lg bg-cyan-500/14 animate-pulse" />
+              )}
+              {isVoiceInputListening ? (
+                <Icon
+                  icon="lucide:square"
+                  className="absolute inset-0 m-auto z-10 hidden w-4 h-4 text-red-500 group-hover:block"
+                />
+              ) : (
+                <Icon icon={voiceInputIcon} className={voiceInputIconClass} />
+              )}
             </TooltipTrigger>
             <TooltipContent>
               <p>{voiceInputTooltip}</p>
@@ -143,17 +147,19 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
 
         {isGenerating && hasActiveInput && (
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="chat-steer-button"
-                variant="outline"
-                size="sm"
-                className="h-7 shrink-0 gap-1 rounded-lg border-border/60 px-2.5 text-[13px] text-foreground"
-                onClick={onSteer}
-              >
-                <Icon icon="lucide:compass" className="w-3.5 h-3.5" />
-                <span>Steer</span>
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="chat-steer-button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 gap-1 rounded-lg border-border/60 px-2.5 text-[13px] text-foreground"
+                  onClick={onSteer}
+                />
+              }
+            >
+              <Icon icon="lucide:compass" className="w-3.5 h-3.5" />
+              <span>Steer</span>
             </TooltipTrigger>
             <TooltipContent>
               <p>Interrupt & send as next turn</p>
@@ -162,44 +168,46 @@ const ChatInputToolbar: FC<ChatInputToolbarProps> = ({
         )}
 
         <Tooltip key={buttonMode}>
-          <TooltipTrigger asChild>
-            <Button
-              data-testid={
+          <TooltipTrigger
+            render={
+              <Button
+                data-testid={
+                  buttonMode === "stop"
+                    ? isCancelling
+                      ? "chat-cancelling-button"
+                      : "chat-stop-button"
+                    : buttonMode === "queue"
+                      ? "chat-queue-button"
+                      : "chat-send-button"
+                }
+                data-mode={buttonMode}
+                data-cancelling={buttonMode === "stop" && isCancelling ? "true" : undefined}
+                variant={buttonMode === "stop" ? "outline" : "default"}
+                size="icon"
+                className="h-7 w-7 rounded-full"
+                disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : isCancelling}
+                onClick={handlePrimaryAction}
+              />
+            }
+          >
+            <Icon
+              icon={
                 buttonMode === "stop"
                   ? isCancelling
-                    ? "chat-cancelling-button"
-                    : "chat-stop-button"
+                    ? "lucide:loader-circle"
+                    : "lucide:square"
                   : buttonMode === "queue"
-                    ? "chat-queue-button"
-                    : "chat-send-button"
+                    ? "lucide:list-plus"
+                    : "lucide:arrow-up"
               }
-              data-mode={buttonMode}
-              data-cancelling={buttonMode === "stop" && isCancelling ? "true" : undefined}
-              variant={buttonMode === "stop" ? "outline" : "default"}
-              size="icon"
-              className="h-7 w-7 rounded-full"
-              disabled={buttonMode === "send" ? sendDisabled : buttonMode === "queue" ? queueDisabled : isCancelling}
-              onClick={handlePrimaryAction}
-            >
-              <Icon
-                icon={
-                  buttonMode === "stop"
-                    ? isCancelling
-                      ? "lucide:loader-circle"
-                      : "lucide:square"
-                    : buttonMode === "queue"
-                      ? "lucide:list-plus"
-                      : "lucide:arrow-up"
-                }
-                className={
-                  buttonMode === "stop"
-                    ? isCancelling
-                      ? "w-4 h-4 text-muted-foreground animate-spin"
-                      : "w-4 h-4 text-red-500"
-                    : "w-4 h-4"
-                }
-              />
-            </Button>
+              className={
+                buttonMode === "stop"
+                  ? isCancelling
+                    ? "w-4 h-4 text-muted-foreground animate-spin"
+                    : "w-4 h-4 text-red-500"
+                  : "w-4 h-4"
+              }
+            />
           </TooltipTrigger>
           <TooltipContent>
             <p>{primaryTooltip}</p>

@@ -158,15 +158,17 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
               <div className="flex items-center justify-between gap-2 pr-8">
                 <span>Image</span>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                      onClick={handleSaveImage}
-                    >
-                      <Icon icon="lucide:download" className="h-4 w-4" />
-                    </Button>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                        onClick={handleSaveImage}
+                      />
+                    }
+                  >
+                    <Icon icon="lucide:download" className="h-4 w-4" />
                   </TooltipTrigger>
                   <TooltipContent>Save</TooltipContent>
                 </Tooltip>
