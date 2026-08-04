@@ -197,7 +197,12 @@ export default function SystemPromptSettingsSection() {
           <Label className="text-sm font-medium flex-1">Default System Prompt</Label>
           <p className="text-xs text-muted-foreground">Configure the default system prompt used for conversations.</p>
         </div>
-        <Select value={selectedSystemPromptId} onValueChange={handleSystemPromptChange}>
+        <Select
+          value={selectedSystemPromptId}
+          onValueChange={(v) => {
+            if (v) void handleSystemPromptChange(v);
+          }}
+        >
           <SelectTrigger className="h-8! w-32 border-border hover:bg-accent">
             <SelectValue placeholder="Select" />
           </SelectTrigger>

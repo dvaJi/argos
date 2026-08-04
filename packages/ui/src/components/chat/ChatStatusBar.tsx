@@ -1370,37 +1370,39 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                       open={acpInlineOpenOptionId === option.id}
                       onOpenChange={(open) => onAcpInlineOptionOpenChange(option.id, open)}
                     >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          data-option-id={option.id}
-                          className="acp-inline-option h-6 max-w-[12rem] min-w-0 gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-                          disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
-                        >
-                          <Icon
-                            icon={
-                              {
-                                mode: "lucide:cpu",
-                                model: "lucide:box",
-                                temperature: "lucide:thermometer",
-                                "max-tokens": "lucide:hash",
-                                max_tokens: "lucide:hash",
-                                "system-prompt": "lucide:terminal",
-                                system_prompt: "lucide:terminal",
-                                "permission-mode": "lucide:shield",
-                                permission: "lucide:shield",
-                                context: "lucide:scan",
-                                reasoning: "lucide:brain",
-                              }[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"
-                            }
-                            className="h-3 w-3 shrink-0 text-muted-foreground/60"
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-option-id={option.id}
+                            className="acp-inline-option h-6 max-w-[12rem] min-w-0 gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                            disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
                           />
-                          <span className="truncate font-medium text-foreground/80">
-                            {isAcpOptionSaving(option.id) ? "Saving…" : getAcpOptionDisplayValue(option)}
-                          </span>
-                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
+                        }
+                      >
+                        <Icon
+                          icon={
+                            {
+                              mode: "lucide:cpu",
+                              model: "lucide:box",
+                              temperature: "lucide:thermometer",
+                              "max-tokens": "lucide:hash",
+                              max_tokens: "lucide:hash",
+                              "system-prompt": "lucide:terminal",
+                              system_prompt: "lucide:terminal",
+                              "permission-mode": "lucide:shield",
+                              permission: "lucide:shield",
+                              context: "lucide:scan",
+                              reasoning: "lucide:brain",
+                            }[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"
+                          }
+                          className="h-3 w-3 shrink-0 text-muted-foreground/60"
+                        />
+                        <span className="truncate font-medium text-foreground/80">
+                          {isAcpOptionSaving(option.id) ? "Saving…" : getAcpOptionDisplayValue(option)}
+                        </span>
+                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
                       </PopoverTrigger>
                       <PopoverContent align="start" className="min-w-[200px] max-w-[320px] overflow-hidden p-0">
                         <div className="border-b px-3 py-2.5">
@@ -1493,24 +1495,26 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
               </>
             ) : showModelPopover ? (
               <Popover open={isModelPanelOpen} onOpenChange={setIsModelPanelOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    data-testid="app-model-switcher"
-                    data-selected-provider-id={effectiveModelSelection?.providerId ?? ""}
-                    data-selected-model-id={effectiveModelSelection?.modelId ?? ""}
-                    variant="ghost"
-                    size="sm"
-                    className={`h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg ${!isModelOptionsReady ? "opacity-70" : ""}`}
-                    aria-busy={!isModelOptionsReady}
-                  >
-                    <ModelIcon modelId={displayIconId} customClass="w-3.5 h-3.5" isDark={themeStore.isDark} />
-                    <span>{displayModelText}</span>
-                    {showModelOptionsLoading ? (
-                      <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Icon icon="lucide:chevron-down" className="w-3 h-3" />
-                    )}
-                  </Button>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      data-testid="app-model-switcher"
+                      data-selected-provider-id={effectiveModelSelection?.providerId ?? ""}
+                      data-selected-model-id={effectiveModelSelection?.modelId ?? ""}
+                      variant="ghost"
+                      size="sm"
+                      className={`h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg ${!isModelOptionsReady ? "opacity-70" : ""}`}
+                      aria-busy={!isModelOptionsReady}
+                    />
+                  }
+                >
+                  <ModelIcon modelId={displayIconId} customClass="w-3.5 h-3.5" isDark={themeStore.isDark} />
+                  <span>{displayModelText}</span>
+                  {showModelOptionsLoading ? (
+                    <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Icon icon="lucide:chevron-down" className="w-3 h-3" />
+                  )}
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
@@ -1940,7 +1944,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Reasoning Effort</label>
                                   <Select
                                     value={localSettings.reasoningEffort ?? effortOptions[0]?.value}
-                                    onValueChange={(v) => onReasoningEffortSelect(v)}
+                                    onValueChange={(v) => onReasoningEffortSelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -1960,7 +1964,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Reasoning Visibility</label>
                                   <Select
                                     value={localSettings.reasoningVisibility ?? reasoningVisibilityOptions[0]?.value}
-                                    onValueChange={(v) => onReasoningVisibilitySelect(v)}
+                                    onValueChange={(v) => onReasoningVisibilitySelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -1980,7 +1984,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Verbosity</label>
                                   <Select
                                     value={localSettings.verbosity ?? verbosityOptions[0]?.value}
-                                    onValueChange={(v) => onVerbositySelect(v)}
+                                    onValueChange={(v) => onVerbositySelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -2124,16 +2128,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
             {!isAcpAgent && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-6 px-2 gap-1.5 text-xs backdrop-blur-lg ${permissionMode === "full_access" ? "text-orange-500 hover:text-orange-600" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    <Icon icon={permissionIcon} className="w-3.5 h-3.5" />
-                    <span>{permissionModeLabel}</span>
-                    <Icon icon="lucide:chevron-down" className="w-3 h-3" />
-                  </Button>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-6 px-2 gap-1.5 text-xs backdrop-blur-lg ${permissionMode === "full_access" ? "text-orange-500 hover:text-orange-600" : "text-muted-foreground hover:text-foreground"}`}
+                    />
+                  }
+                >
+                  <Icon icon={permissionIcon} className="w-3.5 h-3.5" />
+                  <span>{permissionModeLabel}</span>
+                  <Icon icon="lucide:chevron-down" className="w-3 h-3" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-48">
                   {permissionOptions.map((option) => (

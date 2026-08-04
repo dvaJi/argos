@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { cn } from "#shadcn/lib/utils";
+import { cn } from "shadcn/lib/utils";
 
 function Card({ className, size = "default", ...props }: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
   return (
@@ -64,4 +64,4 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent };
+export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };

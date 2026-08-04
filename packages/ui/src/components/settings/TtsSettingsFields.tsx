@@ -91,7 +91,7 @@ export default function TtsSettingsFields({ modelValue, onValueChange }: TtsSett
 
       <div className="space-y-2">
         <Label>Audio Format</Label>
-        <Select value={optionSelectValue(tts.responseFormat)} onValueChange={onResponseFormatSelect}>
+        <Select value={optionSelectValue(tts.responseFormat)} onValueChange={(v) => onResponseFormatSelect(v ?? "")}>
           <SelectTrigger>
             <SelectValue placeholder="Select format" />
           </SelectTrigger>

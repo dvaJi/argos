@@ -385,15 +385,17 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
           </Button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                title="Share / Export"
-              >
-                <Icon icon="lucide:share" className="w-4 h-4" />
-              </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  title="Share / Export"
+                />
+              }
+            >
+              <Icon icon="lucide:share" className="w-4 h-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onSelect={() => void handleExport("markdown")}>
@@ -417,15 +419,17 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
 
           {!isReadOnly && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  title="More options"
-                >
-                  <Icon icon="lucide:ellipsis" className="w-4 h-4" />
-                </Button>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    title="More options"
+                  />
+                }
+              >
+                <Icon icon="lucide:ellipsis" className="w-4 h-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onSelect={() => void handleTogglePin()}>

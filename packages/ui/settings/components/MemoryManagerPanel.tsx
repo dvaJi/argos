@@ -356,7 +356,7 @@ export function MemoryManagerPanel({
                 </SelectContent>
               </Select>
             )}
-            <Select value={addCategory} onValueChange={setAddCategory}>
+            <Select value={addCategory} onValueChange={(v) => setAddCategory(v ?? "")}>
               <SelectTrigger className="h-8 w-full text-xs" aria-label="Category">
                 <SelectValue />
               </SelectTrigger>

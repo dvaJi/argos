@@ -104,14 +104,16 @@ export default function McpSamplingDialog() {
             <div className="flex flex-1 flex-col gap-4 overflow-hidden px-6 pb-4">
               {store.request.systemPrompt && (
                 <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between py-2 hover:bg-muted/20 rounded-md px-3 -mx-3">
-                      <h4 className="text-sm font-semibold text-muted-foreground">System Prompt</h4>
-                      <Icon
-                        icon="lucide:chevron-right"
-                        className="w-4 h-4 text-muted-foreground transition-transform duration-200"
-                      />
-                    </div>
+                  <CollapsibleTrigger
+                    render={
+                      <div className="flex items-center justify-between py-2 hover:bg-muted/20 rounded-md px-3 -mx-3" />
+                    }
+                  >
+                    <h4 className="text-sm font-semibold text-muted-foreground">System Prompt</h4>
+                    <Icon
+                      icon="lucide:chevron-right"
+                      className="w-4 h-4 text-muted-foreground transition-transform duration-200"
+                    />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="max-h-48 overflow-y-auto rounded-md border bg-muted/40 p-3 pr-2">
@@ -172,14 +174,16 @@ export default function McpSamplingDialog() {
 
               {preferenceSummary.length > 0 && (
                 <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between py-2 hover:bg-muted/20 rounded-md px-3 -mx-3">
-                      <h4 className="text-sm font-semibold text-muted-foreground">Model Preferences</h4>
-                      <Icon
-                        icon="lucide:chevron-right"
-                        className="w-4 h-4 text-muted-foreground transition-transform duration-200"
-                      />
-                    </div>
+                  <CollapsibleTrigger
+                    render={
+                      <div className="flex items-center justify-between py-2 hover:bg-muted/20 rounded-md px-3 -mx-3" />
+                    }
+                  >
+                    <h4 className="text-sm font-semibold text-muted-foreground">Model Preferences</h4>
+                    <Icon
+                      icon="lucide:chevron-right"
+                      className="w-4 h-4 text-muted-foreground transition-transform duration-200"
+                    />
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="rounded-md border bg-muted/30 p-3">
@@ -225,19 +229,21 @@ export default function McpSamplingDialog() {
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-muted-foreground">Respond with</span>
                     <Popover open={modelSelectOpen} onOpenChange={setModelSelectOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          size="sm"
-                          disabled={!getHasEligibleModel()}
-                        >
-                          {store.selectedModel && <ModelIcon modelId={store.selectedProviderId ?? ""} isDark={true} />}
-                          <span className="text-xs font-semibold truncate max-w-[140px] text-foreground">
-                            {store.selectedModel?.name || "Select model"}
-                          </span>
-                          <Icon icon="lucide:chevron-right" className="w-4 h-4 text-muted-foreground" />
-                        </Button>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            className="flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                            size="sm"
+                            disabled={!getHasEligibleModel()}
+                          />
+                        }
+                      >
+                        {store.selectedModel && <ModelIcon modelId={store.selectedProviderId ?? ""} isDark={true} />}
+                        <span className="text-xs font-semibold truncate max-w-[140px] text-foreground">
+                          {store.selectedModel?.name || "Select model"}
+                        </span>
+                        <Icon icon="lucide:chevron-right" className="w-4 h-4 text-muted-foreground" />
                       </PopoverTrigger>
                       <PopoverContent align="start" className="w-80 border-none bg-transparent p-0 shadow-none">
                         <ModelChooser

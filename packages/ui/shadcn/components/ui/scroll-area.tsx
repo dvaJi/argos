@@ -1,37 +1,38 @@
 import * as React from "react";
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
-import { cn } from "#shadcn/lib/utils";
+import { cn } from "shadcn/lib/utils";
 
-type ScrollAreaProps = React.ComponentProps<"div"> & {
-  type?: "auto" | "always" | "scroll" | "hover";
-  scrollHideDelay?: number;
-};
-
-function ScrollArea({
-  className,
-  children,
-  type: _type,
-  scrollHideDelay: _scrollHideDelay,
-  ...props
-}: ScrollAreaProps) {
+function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
   return (
-    <div
-      data-slot="scroll-area"
+    <ScrollAreaPrimitive.Root data-slot="scroll-area" className={cn("relative", className)} {...props}>
+      <ScrollAreaPrimitive.Viewport
+        data-slot="scroll-area-viewport"
+        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
+}
+
+function ScrollBar({ className, orientation = "vertical", ...props }: ScrollAreaPrimitive.Scrollbar.Props) {
+  return (
+    <ScrollAreaPrimitive.Scrollbar
+      data-slot="scroll-area-scrollbar"
+      data-orientation={orientation}
+      orientation={orientation}
       className={cn(
-        "relative overflow-auto rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1",
+        "flex touch-none p-px transition-colors select-none data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent",
         className,
       )}
       {...props}
     >
-      <div data-slot="scroll-area-viewport" className="min-h-full min-w-full rounded-[inherit]">
-        {children}
-      </div>
-    </div>
+      <ScrollAreaPrimitive.Thumb data-slot="scroll-area-thumb" className="relative flex-1 rounded-full bg-border" />
+    </ScrollAreaPrimitive.Scrollbar>
   );
 }
 
-function ScrollBar(_props: React.ComponentProps<"div"> & { orientation?: "horizontal" | "vertical" }) {
-  return null;
-}
-
-export { ScrollArea };
+export { ScrollArea, ScrollBar };

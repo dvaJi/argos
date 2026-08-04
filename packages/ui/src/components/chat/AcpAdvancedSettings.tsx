@@ -62,16 +62,18 @@ export default function AcpAdvancedSettings({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="acp-overflow-button h-6 w-6 px-0 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-          title="Advanced settings"
-          aria-label="Advanced settings"
-        >
-          <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className="acp-overflow-button h-6 w-6 px-0 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+            title="Advanced settings"
+            aria-label="Advanced settings"
+          />
+        }
+      >
+        <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
       </PopoverTrigger>
       <PopoverContent align="end" sideOffset={6} className="w-[19rem] overflow-hidden border border-border p-0">
         <div className="border-b border-border px-3 py-3">
@@ -121,16 +123,18 @@ export default function AcpAdvancedSettings({
                       open={openSelectId === option.id}
                       onOpenChange={(o) => setOpenSelectId(o ? option.id : null)}
                     >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={disabled}
-                          className="h-8 w-[9rem] shrink-0 justify-between text-xs"
-                        >
-                          <span className="truncate">{getOptionDisplayValue(option)}</span>
-                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={disabled}
+                            className="h-8 w-[9rem] shrink-0 justify-between text-xs"
+                          />
+                        }
+                      >
+                        <span className="truncate">{getOptionDisplayValue(option)}</span>
+                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
                       </PopoverTrigger>
                       <PopoverContent align="end" sideOffset={4} className="min-w-[180px] max-w-[280px] p-1.5">
                         <div className="max-h-60 overflow-y-auto">

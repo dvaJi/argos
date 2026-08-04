@@ -111,12 +111,6 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
     if (resolvedImageData) setShowFullImage(true);
   };
 
-  const handleImageDialogOpenAutoFocus = (event: Event) => {
-    event.preventDefault();
-    const target = event.target as HTMLElement | null;
-    target?.focus();
-  };
-
   const handleSaveImage = () => {
     if (!resolvedImageSrc) return;
     void saveImage({ source: resolvedImageSrc, mimeType: resolvedImageMimeType });
@@ -149,10 +143,7 @@ export const MessageBlockImage: FC<MessageBlockImageProps> = ({ block }) => {
       </div>
 
       <Dialog open={showFullImage} onOpenChange={setShowFullImage}>
-        <DialogContent
-          className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none"
-          onOpenAutoFocus={handleImageDialogOpenAutoFocus}
-        >
+        <DialogContent className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none">
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center justify-between gap-2 pr-8">

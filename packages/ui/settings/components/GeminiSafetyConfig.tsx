@@ -60,7 +60,7 @@ export default function GeminiSafetyConfig({
 
   return (
     <div className="flex flex-col items-start gap-2 border rounded-lg p-2">
-      <Accordion type="single" collapsible className="w-full">
+      <Accordion className="w-full">
         <AccordionItem value="safety-settings">
           <AccordionTrigger className="text-sm font-medium">Safety Settings</AccordionTrigger>
           <AccordionContent className="pt-4 px-1">

@@ -592,7 +592,7 @@ export default function OllamaProviderSettingsDetail({
                               Pulling
                             </span>
                             <span className="w-[50px]">
-                              <Progress value={pullingModels.get(model.name)} className="h-1.5" />
+                              <Progress value={pullingModels.get(model.name) ?? null} className="h-1.5" />
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">{formatModelSize(model.size)}</span>

@@ -76,7 +76,7 @@ export default function ProxySettingsSection() {
           <span className="truncate">Proxy mode</span>
         </span>
         <div className="ml-auto w-auto">
-          <Select value={selectedProxyMode} onValueChange={setSelectedProxyMode}>
+          <Select value={selectedProxyMode} onValueChange={(v) => setSelectedProxyMode(v ?? "")}>
             <SelectTrigger className="h-8! text-sm border-border hover:bg-accent">
               <SelectValue placeholder="Select proxy mode" />
             </SelectTrigger>

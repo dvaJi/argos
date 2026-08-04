@@ -214,7 +214,7 @@ export default function RemoteSettings() {
                         <Label>Default agent</Label>
                         <Select
                           value={telegramSettings?.defaultAgentId ?? ""}
-                          onValueChange={(v) => void handleTelegramAgentChange(v)}
+                          onValueChange={(v) => void handleTelegramAgentChange(v ?? "")}
                         >
                           <SelectTrigger className="h-9">
                             <SelectValue placeholder="Select an agent" />

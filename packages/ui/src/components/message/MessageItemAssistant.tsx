@@ -547,7 +547,7 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>{content}</ContextMenuTrigger>
+      <ContextMenuTrigger render={<div />}>{content}</ContextMenuTrigger>
       <ContextMenuContent className="w-56">
         {showSelectionMenu ? (
           <>

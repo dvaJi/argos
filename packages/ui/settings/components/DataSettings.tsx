@@ -477,11 +477,18 @@ export default function DataSettings() {
               </Button>
 
               <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto" disabled={!syncStore.syncEnabled} dir={dir}>
-                    <Icon icon="lucide:download" className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Import Data</span>
-                  </Button>
+                <DialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={!syncStore.syncEnabled}
+                      dir={dir}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:download" className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Import Data</span>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -495,7 +502,7 @@ export default function DataSettings() {
                       </Label>
                       <Select
                         value={selectedBackup}
-                        onValueChange={setSelectedBackup}
+                        onValueChange={(v) => setSelectedBackup(v ?? "")}
                         disabled={!availableBackups.length}
                       >
                         <SelectTrigger className="h-8!" dir={dir}>

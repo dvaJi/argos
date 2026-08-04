@@ -62,12 +62,6 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
     });
   };
 
-  const handleImageDialogOpenAutoFocus = (event: Event) => {
-    event.preventDefault();
-    const target = event.target as HTMLElement | null;
-    target?.focus();
-  };
-
   const handleSaveSelectedPreview = () => {
     if (!selectedPreview || !selectedPreviewSrc) return;
     void saveImage({ source: selectedPreviewSrc, mimeType: selectedPreviewMimeType });
@@ -114,10 +108,7 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
       </div>
 
       <Dialog open={selectedPreview !== null} onOpenChange={handleDialogOpenChange}>
-        <DialogContent
-          className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none"
-          onOpenAutoFocus={handleImageDialogOpenAutoFocus}
-        >
+        <DialogContent className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none">
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center justify-between gap-2 pr-8">

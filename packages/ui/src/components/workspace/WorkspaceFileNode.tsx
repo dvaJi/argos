@@ -102,26 +102,28 @@ export default function WorkspaceFileNode({
   return (
     <div>
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <button
-            className="flex w-full cursor-grab items-center gap-1.5 px-4 py-1 text-left text-xs transition hover:bg-muted/40 active:cursor-grabbing"
-            style={{ paddingLeft: `${16 + depth * 12}px` }}
-            type="button"
-            draggable
-            onClick={handleClick}
-            onDragStart={handleDragStart}
-          >
-            {node.isDirectory ? (
-              <Icon
-                icon={node.expanded ? "lucide:chevron-down" : "lucide:chevron-right"}
-                className="h-3 w-3 shrink-0 text-muted-foreground"
-              />
-            ) : (
-              <span className="w-3" />
-            )}
-            <Icon icon={iconName} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate text-foreground/90 dark:text-white/80">{node.name}</span>
-          </button>
+        <ContextMenuTrigger
+          render={
+            <button
+              className="flex w-full cursor-grab items-center gap-1.5 px-4 py-1 text-left text-xs transition hover:bg-muted/40 active:cursor-grabbing"
+              style={{ paddingLeft: `${16 + depth * 12}px` }}
+              type="button"
+              draggable
+              onClick={handleClick}
+              onDragStart={handleDragStart}
+            />
+          }
+        >
+          {node.isDirectory ? (
+            <Icon
+              icon={node.expanded ? "lucide:chevron-down" : "lucide:chevron-right"}
+              className="h-3 w-3 shrink-0 text-muted-foreground"
+            />
+          ) : (
+            <span className="w-3" />
+          )}
+          <Icon icon={iconName} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate text-foreground/90 dark:text-white/80">{node.name}</span>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {!node.isDirectory && (

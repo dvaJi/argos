@@ -97,18 +97,20 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
     persistUpdates.current({ agentId });
   }, [agentId]);
 
-  const onTemperatureChange = (value: number[] | undefined) => {
-    if (!value || value[0] === undefined) return;
-    setTemperature(value[0]);
+  const onTemperatureChange = (value: number | readonly number[]) => {
+    const next = Array.isArray(value) ? value[0] : value;
+    if (next === undefined) return;
+    setTemperature(next);
     if (hydratingRef.current) return;
-    persistUpdates.current({ temperature: value[0] });
+    persistUpdates.current({ temperature: next });
   };
 
-  const onTopPChange = (value: number[] | undefined) => {
-    if (!value || value[0] === undefined) return;
-    setTopP(value[0]);
+  const onTopPChange = (value: number | readonly number[]) => {
+    const next = Array.isArray(value) ? value[0] : value;
+    if (next === undefined) return;
+    setTopP(next);
     if (hydratingRef.current) return;
-    persistUpdates.current({ topP: value[0] });
+    persistUpdates.current({ topP: next });
   };
 
   return (
@@ -131,7 +133,7 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
             <Label htmlFor={`${provider.id}-audio-format`} className="text-xs font-medium">
               Audio Format
             </Label>
-            <Select value={audioFormat} onValueChange={setAudioFormat} disabled={isHydrating}>
+            <Select value={audioFormat} onValueChange={(v) => setAudioFormat(v ?? "")} disabled={isHydrating}>
               <SelectTrigger id={`${provider.id}-audio-format`}>
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
@@ -148,7 +150,7 @@ export default function VoiceAIProviderConfig({ provider }: VoiceAIProviderConfi
             <Label htmlFor={`${provider.id}-language`} className="text-xs font-medium">
               Language
             </Label>
-            <Select value={language} onValueChange={setLanguage} disabled={isHydrating}>
+            <Select value={language} onValueChange={(v) => setLanguage(v ?? "")} disabled={isHydrating}>
               <SelectTrigger id={`${provider.id}-language`}>
                 <SelectValue placeholder="Select language" />
               </SelectTrigger>

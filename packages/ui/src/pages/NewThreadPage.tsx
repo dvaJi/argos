@@ -753,20 +753,22 @@ function NewThreadPage() {
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              data-testid="new-thread-project-trigger"
-              className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6"
-            >
-              <span>{selectedProjectName}</span>
-              {selectedProjectDirectoryInvalid && (
-                <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
-                  ⚠
-                </span>
-              )}
-            </Button>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="new-thread-project-trigger"
+                className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6"
+              />
+            }
+          >
+            <span>{selectedProjectName}</span>
+            {selectedProjectDirectoryInvalid && (
+              <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
+                ⚠
+              </span>
+            )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="min-w-[200px]">
             <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>

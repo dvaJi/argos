@@ -1,12 +1,10 @@
-"use client";
-
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "#shadcn/lib/utils";
-import { Button } from "#shadcn/components/ui/button";
-import { Input } from "#shadcn/components/ui/input";
-import { Textarea } from "#shadcn/components/ui/textarea";
+import { cn } from "shadcn/lib/utils";
+import { Button } from "shadcn/components/ui/button";
+import { Input } from "shadcn/components/ui/input";
+import { Textarea } from "shadcn/components/ui/textarea";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -82,7 +80,10 @@ function InputGroupButton({
   variant = "ghost",
   size = "xs",
   ...props
-}: Omit<React.ComponentProps<typeof Button>, "size"> & VariantProps<typeof inputGroupButtonVariants>) {
+}: Omit<React.ComponentProps<typeof Button>, "size" | "type"> &
+  VariantProps<typeof inputGroupButtonVariants> & {
+    type?: "button" | "submit" | "reset";
+  }) {
   return (
     <Button
       type={type}
@@ -132,4 +133,4 @@ function InputGroupTextarea({ className, ...props }: React.ComponentProps<"texta
   );
 }
 
-export { InputGroup, InputGroupAddon, InputGroupInput };
+export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupInput, InputGroupTextarea };

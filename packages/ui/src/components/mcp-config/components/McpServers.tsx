@@ -305,11 +305,9 @@ export const McpServers = forwardRef<McpServersRef, McpServersProps>(
             <div className="flex space-x-2">
               <Dialog open={isAddServerDialogOpen} onOpenChange={setIsAddServerDialogOpen}>
                 {showFooterAddButton && (
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="h-8 px-3 text-xs">
-                      <Icon icon="lucide:plus" className="mr-1.5 h-3 w-3" />
-                      Add
-                    </Button>
+                  <DialogTrigger render={<Button size="sm" className="h-8 px-3 text-xs" />}>
+                    <Icon icon="lucide:plus" className="mr-1.5 h-3 w-3" />
+                    Add
                   </DialogTrigger>
                 )}
                 <DialogContent className="w-[95vw] max-w-[500px] px-0 h-[85vh] max-h-[500px] flex flex-col">

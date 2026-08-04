@@ -436,10 +436,10 @@ export default function EmojiPicker({ modelValue, onModelValueChange }: EmojiPic
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="w-10 flex items-center justify-center text-sm">
-          {modelValue || "📁"}
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="icon" className="w-10 flex items-center justify-center text-sm" />}
+      >
+        {modelValue || "📁"}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-0">
         <div className="p-2">

@@ -1,9 +1,11 @@
+"use client";
+
 import { useMemo } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "#shadcn/lib/utils";
-import { Label } from "#shadcn/components/ui/label";
-import { Separator } from "#shadcn/components/ui/separator";
+import { cn } from "shadcn/lib/utils";
+import { Label } from "shadcn/components/ui/label";
+import { Separator } from "shadcn/components/ui/separator";
 
 function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
   return (
@@ -202,4 +204,15 @@ function FieldError({
   );
 }
 
-export { Field, FieldLabel, FieldDescription, FieldGroup };
+export {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+  FieldContent,
+  FieldTitle,
+};
