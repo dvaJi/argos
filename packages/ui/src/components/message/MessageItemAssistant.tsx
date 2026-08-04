@@ -374,7 +374,7 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
           (() => {
             const agent = agentStore.state.agents.find((a) => a.id === currentMessage.model_id);
             return agent ? (
-              <AgentAvatar agent={agent} className="w-[18px] h-[18px]" />
+              <AgentAvatar agent={agent} className="w-4.5 h-4.5" />
             ) : (
               <ModelIcon modelId={currentMessage.model_id} isDark={themeStore.isDark} customClass="w-[18px] h-[18px]" />
             );
