@@ -1,4 +1,4 @@
-import { type FC, useEffect, useMemo, useRef } from "react";
+import { type FC, useEffect, useMemo, useRef, memo } from "react";
 import { useBlockContent, type ProcessedPart } from "#/composables/useArtifacts";
 import { completeArtifact, syncArtifact } from "#/stores/artifact";
 import { ArtifactThinking } from "../artifacts/ArtifactThinking";
@@ -13,7 +13,7 @@ interface MessageBlockContentProps {
   threadId: string;
 }
 
-export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
+const MessageBlockContentBase: FC<MessageBlockContentProps> = ({ block, messageId, threadId }) => {
   const propsRef = useRef({ block, messageId, threadId });
   propsRef.current = { block, messageId, threadId };
 
@@ -141,3 +141,5 @@ export const MessageBlockContent: FC<MessageBlockContentProps> = ({ block, messa
     </>
   );
 };
+
+export const MessageBlockContent = memo(MessageBlockContentBase);

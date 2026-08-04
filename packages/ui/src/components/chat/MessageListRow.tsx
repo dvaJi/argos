@@ -1,4 +1,4 @@
-import { type FC, useEffect, useRef, useCallback } from "react";
+import { type FC, useEffect, useRef, useCallback, memo } from "react";
 import MessageItemAssistant from "#/components/message/MessageItemAssistant";
 import MessageItemUser from "#/components/message/MessageItemUser";
 import {
@@ -29,7 +29,7 @@ interface MessageListRowProps {
   onMeasure: (payload: { messageId: string; height: number }) => void;
 }
 
-const MessageListRow: FC<MessageListRowProps> = ({
+const MessageListRowBase: FC<MessageListRowProps> = ({
   item,
   isGenerating = false,
   showTrace = false,
@@ -154,5 +154,8 @@ const MessageListRow: FC<MessageListRowProps> = ({
     </div>
   );
 };
+
+const MessageListRow = memo(MessageListRowBase);
+MessageListRow.displayName = "MessageListRow";
 
 export default MessageListRow;
