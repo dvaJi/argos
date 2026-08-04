@@ -17,6 +17,7 @@ export const SETTINGS_KEYS = [
   "traceDebugEnabled",
   "copyWithCotEnabled",
   "loggingEnabled",
+  "showContinueIndicator",
 ] as const;
 
 export const SettingsKeySchema = zod.enum(SETTINGS_KEYS);
@@ -37,6 +38,7 @@ export const SettingsSnapshotValuesSchema = zod.object({
   traceDebugEnabled: zod.boolean(),
   copyWithCotEnabled: zod.boolean(),
   loggingEnabled: zod.boolean(),
+  showContinueIndicator: zod.boolean(),
 });
 
 export const SettingsChangeSchema = zod.discriminatedUnion("key", [
@@ -98,6 +100,10 @@ export const SettingsChangeSchema = zod.discriminatedUnion("key", [
   }),
   zod.object({
     key: zod.literal("loggingEnabled"),
+    value: zod.boolean(),
+  }),
+  zod.object({
+    key: zod.literal("showContinueIndicator"),
     value: zod.boolean(),
   }),
 ]);

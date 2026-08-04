@@ -1,7 +1,9 @@
 import { type FC, useState, useEffect, useMemo, useRef } from "react";
+import { useSelector } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
+import { uiSettingsStore } from "#/stores/uiSettingsStore";
 
 interface MessageBlockActionProps {
   messageId: string;
@@ -23,6 +25,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   const isReadOnly = isReadOnlyProp === true;
   const isRateLimitBlock = block.action_type === "rate_limit";
   const isRateLimitActive = isRateLimitBlock && (block.status === "loading" || block.status === "pending");
+  const showContinueIndicator = useSelector(uiSettingsStore, (s) => s.showContinueIndicator);
 
   const elapsedSeconds = useMemo(() => {
     if (!isRateLimitBlock) return 0;
@@ -88,7 +91,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
         </div>
       ) : null}
 
-      {!block.extra?.needContinue && block.action_type !== "rate_limit" && (
+      {!block.extra?.needContinue && block.action_type !== "rate_limit" && showContinueIndicator && (
         <div className="text-xs text-gray-500 flex flex-row gap-2 items-center">
           <Icon icon="lucide:check" className="w-4 h-4" />
           Continued

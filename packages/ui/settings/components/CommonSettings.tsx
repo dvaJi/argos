@@ -7,6 +7,7 @@ import {
   setLaunchAtLoginEnabled,
   setCopyWithCotEnabled,
   setTraceDebugEnabled,
+  setShowContinueIndicator,
 } from "#/stores/uiSettingsStore";
 import ProxySettingsSection from "./common/ProxySettingsSection";
 import LoggingSettingsSection from "./common/LoggingSettingsSection";
@@ -20,6 +21,10 @@ export default function CommonSettings() {
   const autoScrollEnabled = useMemo(() => uiSettingsStore.autoScrollEnabled, [uiSettingsStore.autoScrollEnabled]);
   const copyWithCotEnabled = useMemo(() => uiSettingsStore.copyWithCotEnabled, [uiSettingsStore.copyWithCotEnabled]);
   const traceDebugEnabled = useMemo(() => uiSettingsStore.traceDebugEnabled, [uiSettingsStore.traceDebugEnabled]);
+  const showContinueIndicator = useMemo(
+    () => uiSettingsStore.showContinueIndicator,
+    [uiSettingsStore.showContinueIndicator],
+  );
   const launchAtLoginEnabled = useMemo(
     () => uiSettingsStore.launchAtLoginEnabled,
     [uiSettingsStore.launchAtLoginEnabled],
@@ -29,6 +34,7 @@ export default function CommonSettings() {
   const handleLaunchAtLoginChange = useCallback((value: boolean) => setLaunchAtLoginEnabled(value), []);
   const handleCopyWithCotChange = useCallback((value: boolean) => setCopyWithCotEnabled(value), []);
   const handleTraceDebugChange = useCallback((value: boolean) => setTraceDebugEnabled(value), []);
+  const handleShowContinueIndicatorChange = useCallback((value: boolean) => setShowContinueIndicator(value), []);
 
   return (
     <SettingsPageShell title="General" eyebrow="Setup" data-testid="settings-general-page">
@@ -62,6 +68,13 @@ export default function CommonSettings() {
           label="Trace Debug"
           modelValue={traceDebugEnabled}
           onUpdateModelValue={handleTraceDebugChange}
+        />
+        <SettingToggleRow
+          id="show-continue-indicator-switch"
+          icon="lucide:rotate-cw"
+          label="Show 'Continued' Indicator"
+          modelValue={showContinueIndicator}
+          onUpdateModelValue={handleShowContinueIndicatorChange}
         />
         <LoggingSettingsSection />
       </div>
