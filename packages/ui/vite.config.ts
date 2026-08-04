@@ -53,6 +53,7 @@ export default defineConfig(({ mode, command }) => {
         { find: "@argos/shared", replacement: path.resolve(projectRoot, "..", "..", "packages", "shared", "src") },
         { find: "#api", replacement: resolve("api") },
         { find: "#shadcn", replacement: resolve("shadcn") },
+        { find: "shadcn", replacement: resolve("shadcn") },
         { find: "#settings", replacement: resolve("settings") },
       ],
     },

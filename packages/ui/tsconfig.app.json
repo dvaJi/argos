@@ -48,6 +48,9 @@
       "#shadcn/*": [
         "./shadcn/*"
       ],
+      "shadcn/*": [
+        "./shadcn/*"
+      ],
       "#settings/*": [
         "./settings/*"
       ]
