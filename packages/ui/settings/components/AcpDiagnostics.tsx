@@ -6,7 +6,7 @@ import { Input } from "#shadcn/components/ui/input";
 import { Field, FieldDescription, FieldLabel } from "#shadcn/components/ui/field";
 import { Spinner } from "#shadcn/components/ui/spinner";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { cn } from "#shadcn/lib/utils";
 import type { AcpAgentDiagnostics, AcpRemoteSessionSummary, AcpDebugRunResult } from "@argos/shared/presenter";
 import { toast } from "#/components/use-toast";
@@ -313,43 +313,41 @@ export default function AcpDiagnostics({
           </Badge>
           <p className="min-w-0 flex-1 truncate text-muted-foreground">{connectionCopy.description}</p>
 
-          <TooltipProvider>
-            <div className="flex shrink-0 items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={checkLabel}
-                      disabled={probing || !canRun}
-                      onClick={() => void runDiagnostics()}
-                    >
-                      {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
-                    </Button>
-                  }
-                />
-                <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      aria-label={detailsLabel}
-                      aria-expanded={detailsOpen}
-                      aria-controls={`acp-details-${agentId}`}
-                      onClick={() => setManualDetailsOpen(!detailsOpen)}
-                    >
-                      <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
-                    </Button>
-                  }
-                />
-                <TooltipContent>{detailsLabel}</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
+          <div className="flex shrink-0 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={checkLabel}
+                    disabled={probing || !canRun}
+                    onClick={() => void runDiagnostics()}
+                  >
+                    {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
+                  </Button>
+                }
+              />
+              <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={detailsLabel}
+                    aria-expanded={detailsOpen}
+                    aria-controls={`acp-details-${agentId}`}
+                    onClick={() => setManualDetailsOpen(!detailsOpen)}
+                  >
+                    <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
+                  </Button>
+                }
+              />
+              <TooltipContent>{detailsLabel}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <CollapsibleContent id={`acp-details-${agentId}`}>

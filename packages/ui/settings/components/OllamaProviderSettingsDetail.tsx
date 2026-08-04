@@ -3,7 +3,7 @@ import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
 import { Progress } from "#shadcn/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import {
   Dialog,
@@ -439,23 +439,21 @@ export default function OllamaProviderSettingsDetail({
           />
           <div className="text-xs text-muted-foreground">
             {hasDefaultBaseUrl ? (
-              <TooltipProvider delay={200}>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
-                        aria-label="Fill default URL"
-                        onClick={() => void fillDefaultBaseUrl()}
-                      />
-                    }
-                  >
-                    Default: {defaultBaseUrl}
-                  </TooltipTrigger>
-                  <TooltipContent>Fill with default base URL</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
+                      aria-label="Fill default URL"
+                      onClick={() => void fillDefaultBaseUrl()}
+                    />
+                  }
+                >
+                  Default: {defaultBaseUrl}
+                </TooltipTrigger>
+                <TooltipContent>Fill with default base URL</TooltipContent>
+              </Tooltip>
             ) : (
               <span>Default: {defaultBaseUrl}</span>
             )}

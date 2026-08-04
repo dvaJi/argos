@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "#shadcn/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { toast } from "#/components/use-toast";
 import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Input } from "#shadcn/components/ui/input";
@@ -299,23 +299,21 @@ export default function KnowledgeFile({ builtinKnowledgeDetail, onHideKnowledgeF
                     <div className="absolute right-10 top-1 text-xs text-white p-1 rounded-sm bg-primary-600">
                       score:{(item.distance * 100).toFixed(2) + "%"}
                     </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
-                              onClick={() => handleCopy(item.metadata.content, item.id)}
-                            />
-                          }
-                        >
-                          <Icon icon={copyId === item.id ? "lucide:check" : "lucide:copy"} />
-                        </TooltipTrigger>
-                        <TooltipContent>{copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-2 top-1 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-primary/80 hover:text-white transition-colors"
+                            onClick={() => handleCopy(item.metadata.content, item.id)}
+                          />
+                        }
+                      >
+                        <Icon icon={copyId === item.id ? "lucide:check" : "lucide:copy"} />
+                      </TooltipTrigger>
+                      <TooltipContent>{copyId === item.id ? "Copied" : "Copy"}</TooltipContent>
+                    </Tooltip>
                     <div className="text-xs">{item.metadata.content}</div>
                     <div className="border-t border-gray-300 pt-2 mt-2 text-xs text-muted-foreground">
                       Source: {item.metadata.from}

@@ -9,7 +9,7 @@ import {
 } from "#shadcn/components/ui/dropdown-menu";
 import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Switch } from "#shadcn/components/ui/switch";
 import type { ModelConfig, RENDERER_MODEL_META, SystemPrompt } from "@argos/shared/presenter";
@@ -1323,32 +1323,28 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   )}
                 </div>
                 {isAcpConfigLoading && !hasAcpConfigOptions && (
-                  <TooltipProvider delay={200}>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground" />}
-                      >
-                        <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
-                        <span className="hidden sm:inline">Loading…</span>
-                      </TooltipTrigger>
-                      <TooltipContent>Loading agent modes and models…</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground" />}
+                    >
+                      <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                      <span className="hidden sm:inline">Loading…</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Loading agent modes and models…</TooltipContent>
+                  </Tooltip>
                 )}
                 {!isAcpConfigLoading && acpConfigError && !hasAcpConfigOptions && (
-                  <TooltipProvider delay={200}>
-                    <Tooltip>
-                      <TooltipTrigger
-                        render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive" />}
-                      >
-                        <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
-                        <span className="hidden sm:inline">Unavailable</span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        Failed to load agent configuration: {acpConfigError}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive" />}
+                    >
+                      <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
+                      <span className="hidden sm:inline">Unavailable</span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Failed to load agent configuration: {acpConfigError}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {!isAcpConfigLoading && !acpConfigError && !hasAcpConfigOptions && acpConfigReadOnly && (
                   <div className="flex h-6 items-center px-1 text-xs text-muted-foreground/60">
@@ -1656,7 +1652,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                             </div>
                           )}
                           {isModelSettingsReady && localSettings && (
-                            <TooltipProvider delay={200}>
+                            <>
                               {!showOpenAIMediaGenerationSettings && showTemperatureControl && (
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-medium">Temperature</label>
@@ -2080,7 +2076,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   </div>
                                 </div>
                               )}
-                            </TooltipProvider>
+                            </>
                           )}
                         </div>
                       </div>

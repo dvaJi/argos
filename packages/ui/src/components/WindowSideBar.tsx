@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import {
@@ -309,7 +309,7 @@ export default function WindowSideBar() {
     showShortcutBadges && visibleShortcutSessions.some((s) => s.id === sessionId);
 
   return (
-    <TooltipProvider delay={200}>
+    <>
       <div
         data-testid="window-sidebar"
         className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden window-drag-region transition-[width] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " w-12" : " w-[288px]"}`}
@@ -662,6 +662,6 @@ export default function WindowSideBar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
+    </>
   );
 }

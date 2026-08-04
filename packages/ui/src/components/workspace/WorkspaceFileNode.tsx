@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import {
   ContextMenu,
   ContextMenuContent,
