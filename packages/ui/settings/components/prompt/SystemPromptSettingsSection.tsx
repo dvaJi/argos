@@ -246,15 +246,17 @@ export default function SystemPromptSettingsSection() {
               </Button>
             ) : (
               <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
-                    Delete
-                  </Button>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    />
+                  }
+                >
+                  <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
+                  Delete
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

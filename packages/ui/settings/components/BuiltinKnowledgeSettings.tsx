@@ -164,10 +164,8 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
                     <Icon icon="lucide:edit" className="h-4 w-4" />
                   </button>
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button className="text-muted-foreground hover:text-destructive">
-                        <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                      </button>
+                    <AlertDialogTrigger render={<button className="text-muted-foreground hover:text-destructive" />}>
+                      <Icon icon="lucide:trash-2" className="h-4 w-4" />
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>

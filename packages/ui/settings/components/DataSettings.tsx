@@ -998,14 +998,21 @@ export default function DataSettings() {
                 </div>
               </div>
               <AlertDialog open={isClearSandboxDialogOpen} onOpenChange={setIsClearSandboxDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="w-full shrink-0 lg:w-56" disabled={isClearingSandbox} dir={dir}>
-                    <Icon
-                      icon={isClearingSandbox ? "lucide:loader-2" : "lucide:trash-2"}
-                      className={`h-4 w-4 text-muted-foreground ${isClearingSandbox ? "animate-spin" : ""}`}
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="w-full shrink-0 lg:w-56"
+                      disabled={isClearingSandbox}
+                      dir={dir}
                     />
-                    <span className="text-sm font-medium">{isClearingSandbox ? "Clearing..." : "Clear Sandbox"}</span>
-                  </Button>
+                  }
+                >
+                  <Icon
+                    icon={isClearingSandbox ? "lucide:loader-2" : "lucide:trash-2"}
+                    className={`h-4 w-4 text-muted-foreground ${isClearingSandbox ? "animate-spin" : ""}`}
+                  />
+                  <span className="text-sm font-medium">{isClearingSandbox ? "Clearing..." : "Clear Sandbox"}</span>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
