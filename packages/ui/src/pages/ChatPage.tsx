@@ -619,7 +619,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
 
   useEffect(() => {
     if (!isGenerating) setIsCancelling(false);
-  }, [isGenerating]);
+  }, [isGenerating, sessionId]);
 
   const onMessageRetry = useCallback(
     async (messageId: string) => {
@@ -915,11 +915,13 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const messageWindow = useMessageWindow(displayMessages);
 
   const scrollModeRef = useRef(scrollMode);
-  scrollModeRef.current = scrollMode;
   const messageWindowRef = useRef(messageWindow);
-  messageWindowRef.current = messageWindow;
   const scrollToBottomRef = useRef(scrollToBottom);
-  scrollToBottomRef.current = scrollToBottom;
+  useEffect(() => {
+    scrollModeRef.current = scrollMode;
+    messageWindowRef.current = messageWindow;
+    scrollToBottomRef.current = scrollToBottom;
+  });
 
   const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
     const mode = scrollModeRef.current;

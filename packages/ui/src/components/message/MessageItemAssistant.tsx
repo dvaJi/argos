@@ -342,7 +342,9 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
   };
 
   const handleActionRef = useRef(handleAction);
-  handleActionRef.current = handleAction;
+  useEffect(() => {
+    handleActionRef.current = handleAction;
+  });
 
   const toolbarHandlers = useMemo(
     () => ({

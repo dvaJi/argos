@@ -44,14 +44,19 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   };
 
   useEffect(() => {
-    if (isRateLimitActive) {
-      // Don't keep historical/stale rate-limit blocks ticking forever — they
-      // accumulate across a long conversation and re-render every second.
-      if (Date.now() - block.timestamp > 180_000) return;
-      progressTimer.current = window.setInterval(() => {
-        setCurrentTime(Date.now());
-      }, 1000);
-    }
+    if (!isRateLimitActive) return;
+    if (Date.now() - block.timestamp > 180_000) return;
+
+    progressTimer.current = window.setInterval(() => {
+      setCurrentTime(Date.now());
+      if (Date.now() - block.timestamp > 180_000) {
+        if (progressTimer.current) {
+          clearInterval(progressTimer.current);
+          progressTimer.current = null;
+        }
+      }
+    }, 1000);
+
     return () => {
       if (progressTimer.current) {
         clearInterval(progressTimer.current);

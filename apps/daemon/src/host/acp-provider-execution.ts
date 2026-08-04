@@ -560,6 +560,12 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
 
     active.controller.abort();
 
+    for (const [toolCallId, pending] of this.pendingPermissions) {
+      if (pending.sessionId !== sessionId) continue;
+      this.pendingPermissions.delete(toolCallId);
+      pending.resolve({ outcome: { outcome: "cancelled" } });
+    }
+
     try {
       const runtime = await this.getRuntime();
       const session = runtime.sessionManager.getSession(sessionId);

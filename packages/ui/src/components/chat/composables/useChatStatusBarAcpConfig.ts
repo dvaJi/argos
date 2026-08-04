@@ -466,6 +466,7 @@ export function useChatStatusBarAcpConfig(options: UseChatStatusBarAcpConfigOpti
         setAcpConfigState(payload.configState);
         setAcpConfigLoadedRequestKey(`session:${conversationId}`);
         setAcpConfigError(null);
+        setIsAcpSessionConfigLoading(false);
         clearAcpConfigLoadingRequest(`session:${conversationId}`);
         return;
       }
