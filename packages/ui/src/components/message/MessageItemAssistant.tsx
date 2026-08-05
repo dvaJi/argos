@@ -26,7 +26,7 @@ import { MessageBlockImage } from "./MessageBlockImage";
 import { MessageBlockAudio } from "./MessageBlockAudio";
 import { MessageBlockVideo } from "./MessageBlockVideo";
 import { MessageBlockPlan } from "./MessageBlockPlan";
-import { MessageBlockActivityGroup } from "./MessageBlockActivityGroup";
+import { MessageTurnFold } from "./MessageTurnFold";
 import { buildAssistantRenderItems } from "./messageActivityGroups";
 import {
   Dialog,
@@ -397,17 +397,14 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
         ) : (
           <div className="flex flex-col w-full gap-1.5" data-message-content="true">
             {currentRenderItems.map((item) => {
-              if (item.kind === "activity-group") {
+              if (item.kind === "turn-fold") {
                 return (
-                  <MessageBlockActivityGroup
+                  <MessageTurnFold
                     key={item.key}
                     blocks={item.blocks}
                     messageId={currentMessage.id}
                     threadId={currentThreadId}
-                    usage={currentMessage.usage}
                     durationMs={item.durationMs}
-                    reasoningCount={item.reasoningCount}
-                    toolCallCount={item.toolCallCount}
                     onToggleCollapse={handleCollapseToggle}
                   />
                 );

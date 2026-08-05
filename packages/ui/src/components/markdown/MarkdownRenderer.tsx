@@ -1,6 +1,7 @@
 import {
   type AnchorHTMLAttributes,
   type HTMLAttributes,
+  isValidElement,
   useCallback,
   useEffect,
   useMemo,
@@ -12,7 +13,6 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
-import rehypeHighlight from "rehype-highlight";
 import { createSessionClient } from "#api/SessionClient";
 import { showArtifact } from "#/stores/artifact";
 import { showReference, hideReference } from "#/stores/reference";
@@ -59,23 +59,9 @@ function extractNodeText(node: ReactNode): string {
   return "";
 }
 
-/**
- * Strip a single trailing newline from the last text segment of ReactNode
- * children so highlighted code blocks don't render an extra blank line.
- */
-function stripTrailingNewline(node: ReactNode): ReactNode {
-  if (typeof node === "string") return node.replace(/\n$/, "");
-  if (Array.isArray(node) && node.length > 0) {
-    const next = node.slice();
-    next[next.length - 1] = stripTrailingNewline(next[next.length - 1]);
-    return next;
-  }
-  return node;
-}
-
 // Stable plugin arrays so ReactMarkdown doesn't re-render from new references each pass.
 const REMARK_PLUGINS = [remarkGfm];
-const REHYPE_PLUGINS = [rehypeKatex, rehypeHighlight];
+const REHYPE_PLUGINS = [rehypeKatex];
 
 export function MarkdownRenderer({
   content,
@@ -204,6 +190,19 @@ export function MarkdownRenderer({
           </LinkNode>
         );
       },
+      // Fenced code blocks arrive as <pre><code class="language-x">…</code></pre>.
+      // The code override already renders language blocks as CodeBlock cards, so
+      // unwrap them here — nesting the card in <pre> is invalid HTML and fights
+      // the prose styles. Language-less fences render as bare, text-only blocks.
+      pre: ({ children }: HTMLAttributes<HTMLPreElement> & { children?: ReactNode }) => {
+        const child = Array.isArray(children) ? children[0] : children;
+        if (isValidElement(child) && child.type === CodeBlock) {
+          return <>{children}</>;
+        }
+        return (
+          <pre className="not-prose my-[0.65rem] overflow-auto font-mono text-[0.75rem] leading-5">{children}</pre>
+        );
+      },
       code: ({
         className: codeClassName,
         children,
@@ -242,9 +241,7 @@ export function MarkdownRenderer({
                   node: { code: string };
                 }) => void
               }
-            >
-              {stripTrailingNewline(children)}
-            </CodeBlock>
+            />
           );
         }
 

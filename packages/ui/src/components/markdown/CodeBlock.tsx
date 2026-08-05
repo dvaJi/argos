@@ -1,5 +1,6 @@
-import { useCallback, useState, type ReactNode } from "react";
-import { useThemeStore } from "#/stores/theme";
+import { useCallback, useMemo, useState, Fragment, type ReactNode } from "react";
+import { Icon } from "@iconify/react";
+import { highlighter } from "./highlight";
 
 export interface CodeBlockNodeData {
   type?: "code_block";
@@ -25,7 +26,7 @@ interface CodeBlockProps {
   showFontSizeButtons?: boolean;
   monacoOptions?: Record<string, unknown>;
   className?: string;
-  /** Highlighted React nodes (from rehype-highlight). Falls back to node.code. */
+  /** Optional pre-highlighted React nodes; when omitted the block is tokenized in-app. */
   children?: ReactNode;
   onPreviewCode?: (payload: {
     id: string;
@@ -36,41 +37,74 @@ interface CodeBlockProps {
   }) => void;
 }
 
-export function CodeBlock({
-  node,
-  isDark: isDarkProp,
-  showHeader = true,
-  showCopyButton = true,
-  className,
-  children,
-}: CodeBlockProps) {
-  const themeStore = useThemeStore();
-  const isDark = isDarkProp ?? themeStore.isDark;
+const HEADER_BUTTON_CLASSES =
+  "flex h-[22px] w-[22px] items-center justify-center rounded-md text-muted-foreground transition-colors duration-(--dc-motion-fast) ease-(--dc-ease-out-soft) hover:bg-foreground/10 hover:text-foreground";
+
+function HighlightedCode({ code, lang }: { code: string; lang: string }) {
+  const { tokens } = useMemo(() => highlighter.tokenize(code, { lang }), [code, lang]);
+  return (
+    <>
+      {tokens.map((token, index) =>
+        token.className ? (
+          <span key={index} className={`th-${token.className}`}>
+            {token.value}
+          </span>
+        ) : (
+          <Fragment key={index}>{token.value}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
+export function CodeBlock({ node, showHeader = true, showCopyButton = true, className, children }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [wrapped, setWrapped] = useState(false);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(node.code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard
+      .writeText(node.code)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
   }, [node.code]);
 
   const lang = node.language || "";
 
   return (
-    <div className={`rounded-lg overflow-hidden ${className ?? ""}`}>
+    <div
+      className={`not-prose my-[0.65rem] overflow-hidden rounded-xl border border-border bg-muted/75 ${className ?? ""}`}
+    >
       {showHeader && (
-        <div className="flex items-center justify-between px-3 py-1.5 text-xs bg-muted border-b border-border">
-          <span className="font-mono text-muted-foreground">{lang}</span>
-          {showCopyButton && (
-            <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground transition-colors">
-              {copied ? "Copied" : "Copy"}
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted py-1 pl-[0.7rem] pr-1.5">
+          <span className="min-w-0 truncate font-mono text-[0.6875rem] text-muted-foreground">{lang || "text"}</span>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              aria-label={wrapped ? "Disable line wrapping" : "Enable line wrapping"}
+              aria-pressed={wrapped}
+              onClick={() => setWrapped((prev) => !prev)}
+              className={HEADER_BUTTON_CLASSES}
+            >
+              <Icon icon="lucide:wrap-text" className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
-          )}
+            {showCopyButton && (
+              <button type="button" aria-label="Copy code" onClick={handleCopy} className={HEADER_BUTTON_CLASSES}>
+                <Icon icon={copied ? "lucide:check" : "lucide:copy"} className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
       )}
-      <pre className={`text-xs overflow-auto p-3 ${isDark ? "bg-zinc-900 text-zinc-100" : "bg-zinc-50 text-zinc-900"}`}>
-        <code className={`hljs ${lang ? `language-${lang}` : ""}`}>{children ?? node.code}</code>
+      <pre
+        data-wrap={wrapped}
+        className={`m-0 overflow-auto px-2.5 py-2 text-[0.75rem] leading-5 ${wrapped ? "whitespace-pre-wrap wrap-anywhere" : ""}`}
+      >
+        <code className={`font-mono ${lang ? `language-${lang}` : ""}`}>
+          {children ?? <HighlightedCode code={node.code} lang={lang} />}
+        </code>
       </pre>
     </div>
   );
