@@ -1,4 +1,4 @@
-import { cn } from "shadcn/lib/utils";
+import { cn } from "#shadcn/lib/utils";
 
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (

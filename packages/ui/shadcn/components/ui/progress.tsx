@@ -1,6 +1,6 @@
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 
-import { cn } from "shadcn/lib/utils";
+import { cn } from "#shadcn/lib/utils";
 
 function Progress({ className, children, value, ...props }: ProgressPrimitive.Root.Props) {
   return (
