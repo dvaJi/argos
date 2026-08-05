@@ -42,29 +42,30 @@ const MessageList: FC<MessageListProps> = ({
   const traceMessageIdSet = useMemo(() => new Set(traceMessageIds), [traceMessageIds]);
   const allRenderedMessages = useMemo(() => messages, [messages]);
   const displayMessages = useMemo(() => allRenderedMessages, [allRenderedMessages]);
+  const displayMessagesRef = useRef(displayMessages);
+  useEffect(() => {
+    displayMessagesRef.current = displayMessages;
+  });
   const { isCapturing, captureMessage } = useMessageCapture(themeStore.isDark);
   const captureMessageRef = useRef(captureMessage);
   useEffect(() => {
     captureMessageRef.current = captureMessage;
   });
 
-  const resolveCaptureParentId = useCallback(
-    (messageId: string, parentId?: string): string | undefined => {
-      const messageItems = displayMessages;
-      if (parentId) {
-        const parentMessage = messageItems.find((msg) => msg.id === parentId);
-        if (parentMessage?.role === "user") return parentId;
-      }
-      const messageIndex = messageItems.findIndex((msg) => msg.id === messageId);
-      if (messageIndex <= 0) return undefined;
-      for (let index = messageIndex - 1; index >= 0; index -= 1) {
-        const candidate = messageItems[index] as DisplayMessage;
-        if (candidate.role === "user") return candidate.id;
-      }
-      return undefined;
-    },
-    [displayMessages],
-  );
+  const resolveCaptureParentId = useCallback((messageId: string, parentId?: string): string | undefined => {
+    const messageItems = displayMessagesRef.current;
+    if (parentId) {
+      const parentMessage = messageItems.find((msg) => msg.id === parentId);
+      if (parentMessage?.role === "user") return parentId;
+    }
+    const messageIndex = messageItems.findIndex((msg) => msg.id === messageId);
+    if (messageIndex <= 0) return undefined;
+    for (let index = messageIndex - 1; index >= 0; index -= 1) {
+      const candidate = messageItems[index] as DisplayMessage;
+      if (candidate.role === "user") return candidate.id;
+    }
+    return undefined;
+  }, []);
 
   const handleCopyImage = useCallback(
     async (

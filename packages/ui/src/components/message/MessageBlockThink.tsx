@@ -1,4 +1,4 @@
-import { type FC, useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { type FC, useState, useEffect, useMemo, useRef, useCallback, memo } from "react";
 import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
@@ -27,7 +27,7 @@ const toReasoningTimeRange = (value: DisplayAssistantMessageBlock["reasoning_tim
 const UPDATE_INTERVAL = 1000;
 const UPDATE_OFFSET = 80;
 
-export const MessageBlockThink: FC<MessageBlockThinkProps> = ({ block, usage, onToggleCollapse }) => {
+const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onToggleCollapse }) => {
   const [collapse, setCollapse] = useState(false);
   const [displayedSeconds, setDisplayedSeconds] = useState(0);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -136,9 +136,11 @@ export const MessageBlockThink: FC<MessageBlockThinkProps> = ({ block, usage, on
 
       {!collapse && (
         <div className="border-t bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground whitespace-pre-wrap break-words">
-          {block.content}
+          {block.content?.trim()}
         </div>
       )}
     </div>
   );
 };
+
+export const MessageBlockThink = memo(MessageBlockThinkBase);

@@ -67,7 +67,7 @@ export const MessageBlockAction: FC<MessageBlockActionProps> = ({
   const hasContent =
     Boolean(block.extra?.needContinue) ||
     isRateLimitBlock ||
-    (!Boolean(block.extra?.needContinue) && block.action_type !== "rate_limit" && showContinueIndicator);
+    (!block.extra?.needContinue && block.action_type !== "rate_limit" && showContinueIndicator);
 
   if (!hasContent) return null;
 
