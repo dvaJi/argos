@@ -322,7 +322,7 @@ export default function WindowSideBar() {
                   data-testid="sidebar-agent-all-button"
                   data-agent-id="__all__"
                   data-selected={String(sidebarSelectedAgentId === null)}
-                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150${
+                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150${
                     sidebarSelectedAgentId === null
                       ? " bg-card/50 border-white/70 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
                       : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
@@ -348,7 +348,7 @@ export default function WindowSideBar() {
                     data-agent-type={agent.agentType ?? agent.type}
                     data-selected={String(sidebarSelectedAgentId === agent.id)}
                     size="icon"
-                    className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150${
+                    className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150${
                       sidebarSelectedAgentId === agent.id
                         ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
                         : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
@@ -370,7 +370,7 @@ export default function WindowSideBar() {
             <TooltipTrigger
               render={
                 <Button
-                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150 shadow-none${
+                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150 shadow-none${
                     spotlightStore.open
                       ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10"
                       : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10"
@@ -460,7 +460,7 @@ export default function WindowSideBar() {
                 <TooltipTrigger
                   render={
                     <button
-                      className={`flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150${
+                      className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150${
                         sessionStore.groupMode === "project"
                           ? " text-foreground bg-accent/80"
                           : " text-muted-foreground hover:text-foreground hover:bg-accent/50"
@@ -480,7 +480,7 @@ export default function WindowSideBar() {
                   render={
                     <button
                       data-testid="app-new-chat-button"
-                      className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-150"
+                      className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors duration-150"
                       onClick={handleNewChat}
                     />
                   }
