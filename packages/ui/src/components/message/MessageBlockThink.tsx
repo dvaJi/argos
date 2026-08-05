@@ -3,6 +3,28 @@ import { Icon } from "@iconify/react";
 import { createConfigClient } from "#api/ConfigClient";
 import type { DisplayAssistantMessageBlock } from "#/components/chat/messageListItems";
 
+function formatDuration(input: number) {
+  if (input < 1000) {
+    return `${input}ms`;
+  }
+  if (input < 60000) {
+    return `${(input / 1000).toFixed(1)}s`;
+  }
+  if (input < 3600000) {
+    const minutes = Math.floor(input / 60000);
+    const seconds = Math.floor((input % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  }
+  if (input < 86400000) {
+    const hours = Math.floor(input / 3600000);
+    const minutes = Math.floor((input % 3600000) / 60000);
+    return `${hours}h ${minutes}m`;
+  }
+  const days = Math.floor(input / 86400000);
+  const hours = Math.floor((input % 86400000) / 3600000);
+  return `${days}d ${hours}h`;
+}
+
 interface MessageBlockThinkProps {
   block: DisplayAssistantMessageBlock;
   usage: {
@@ -29,7 +51,7 @@ const UPDATE_OFFSET = 80;
 
 const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onToggleCollapse }) => {
   const [collapse, setCollapse] = useState(false);
-  const [displayedSeconds, setDisplayedSeconds] = useState(0);
+  const [displayedDurationMs, setDisplayedDurationMs] = useState(0);
   const updateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const configClient = useMemo(() => createConfigClient(), []);
@@ -49,10 +71,9 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
   const isModeChange = useMemo(() => block.extra?.mode_change !== undefined, [block.extra]);
   const modeChangeId = useMemo(() => block.extra?.mode_change as string, [block.extra]);
 
-  const updateDisplayedSecondsLocal = useCallback(() => {
+  const updateDisplayedDuration = useCallback(() => {
     const normalized = Number.isFinite(reasoningDuration) ? reasoningDuration : 0;
-    const value = Math.max(0, Math.floor(normalized));
-    setDisplayedSeconds(value);
+    setDisplayedDurationMs(Math.max(0, Math.round(normalized * 1000)));
   }, [reasoningDuration]);
 
   const stopTimer = useCallback(() => {
@@ -74,13 +95,13 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
     const delay = Math.max(UPDATE_INTERVAL - remainder, 0) + UPDATE_OFFSET;
 
     updateTimer.current = setTimeout(() => {
-      updateDisplayedSecondsLocal();
+      updateDisplayedDuration();
       scheduleNextUpdate();
     }, delay);
-  }, [block.status, reasoningDuration, reasoningTimeRange, stopTimer, updateDisplayedSecondsLocal]);
+  }, [block.status, reasoningDuration, reasoningTimeRange, stopTimer, updateDisplayedDuration]);
 
   useEffect(() => {
-    updateDisplayedSecondsLocal();
+    updateDisplayedDuration();
     if (block.status === "loading") {
       scheduleNextUpdate();
     } else {
@@ -89,8 +110,8 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
   }, [block.status, reasoningTimeRange?.start, reasoningTimeRange?.end]);
 
   useEffect(() => {
-    updateDisplayedSecondsLocal();
-  }, [reasoningDuration, updateDisplayedSecondsLocal]);
+    updateDisplayedDuration();
+  }, [reasoningDuration, updateDisplayedDuration]);
 
   useEffect(() => {
     void configClient.getSetting("think_collapse").then((val) => {
@@ -112,9 +133,9 @@ const MessageBlockThinkBase: FC<MessageBlockThinkProps> = ({ block, usage, onTog
 
   const headerText = useMemo(() => {
     if (isModeChange) return `Mode changed to ${modeChangeId}`;
-    const seconds = displayedSeconds;
-    return block.status === "loading" ? `Thinking for ${seconds}s...` : `Thought for ${seconds}s`;
-  }, [isModeChange, modeChangeId, displayedSeconds, block.status]);
+    const formatted = formatDuration(displayedDurationMs);
+    return block.status === "loading" ? `Thinking for ${formatted}...` : `Thought for ${formatted}`;
+  }, [isModeChange, modeChangeId, displayedDurationMs, block.status]);
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all duration-200">
