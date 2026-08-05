@@ -87,17 +87,18 @@ export default function AcpAdvancedSettings({
             {options.map((option) => {
               const disabled = readOnly || isOptionSaving(option.id);
               const selectEntries = option.type === "select" ? (option.options ?? []) : [];
-              const selectGrouped = selectEntries.reduce<
-                Record<string, { label: string; entries: typeof selectEntries }>
-              >((acc, entry) => {
-                const g = resolveAcpOptionGroup(entry);
-                if (!acc[g.key]) {
-                  acc[g.key] = { label: g.label, entries: [] };
-                }
-                acc[g.key].entries.push(entry);
-                return acc;
-              }, {});
-              const selectGroupKeys = Object.keys(selectGrouped);
+              const selectGrouped = selectEntries.reduce<Map<string, { label: string; entries: typeof selectEntries }>>(
+                (acc, entry) => {
+                  const g = resolveAcpOptionGroup(entry);
+                  if (!acc.has(g.key)) {
+                    acc.set(g.key, { label: g.label, entries: [] });
+                  }
+                  acc.get(g.key)!.entries.push(entry);
+                  return acc;
+                },
+                new Map(),
+              );
+              const selectGroupKeys = [...selectGrouped.keys()];
               const hasSelectGroups =
                 selectGroupKeys.length > 1 || (selectGroupKeys.length === 1 && selectGroupKeys[0] !== "__default__");
               return (
@@ -139,7 +140,7 @@ export default function AcpAdvancedSettings({
                       <PopoverContent align="end" sideOffset={4} className="min-w-[180px] max-w-[280px] p-1.5">
                         <div className="max-h-60 overflow-y-auto">
                           {selectGroupKeys.map((groupKey) => {
-                            const group = selectGrouped[groupKey];
+                            const group = selectGrouped.get(groupKey)!;
                             return (
                               <div key={groupKey} className={hasSelectGroups ? "mb-1 last:mb-0" : ""}>
                                 {hasSelectGroups && group.label && (

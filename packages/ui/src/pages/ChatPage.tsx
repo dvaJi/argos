@@ -444,22 +444,17 @@ function ChatPage({ sessionId }: ChatPageProps) {
       if (!isGenerating) setMessage("");
       return;
     }
-    try {
-      if (isGenerating) {
-        await queueInput(sessionId, { text, files });
-      } else {
-        clearPlanSnapshot(sessionId);
-        addOptimisticUserMessage(sessionId, text, files);
-        await chatClient.sendMessage(sessionId, { text, files });
-      }
-    } catch (error) {
-      console.error("[ChatPage] send message failed:", error);
-    } finally {
-      setMessage("");
-      setAttachedFiles([]);
-      chatInputRef.current?.clearInput();
-      schedulePostSubmitScrollToBottom();
+    if (isGenerating) {
+      await queueInput(sessionId, { text, files });
+    } else {
+      clearPlanSnapshot(sessionId);
+      addOptimisticUserMessage(sessionId, text, files);
+      await chatClient.sendMessage(sessionId, { text, files });
     }
+    setMessage("");
+    setAttachedFiles([]);
+    chatInputRef.current?.clearInput();
+    schedulePostSubmitScrollToBottom();
   }, [
     isReadOnlySession,
     isAcpWorkdirMissing,
@@ -484,21 +479,16 @@ function ChatPage({ sessionId }: ChatPageProps) {
       if (!text) return;
       if (await handleManualCompactionCommand(text)) return;
       const files = await prepareFilesForCurrentModel([...attachedFiles]);
-      try {
-        if (isGenerating) {
-          await queueInput(sessionId, { text, files });
-        } else {
-          clearPlanSnapshot(sessionId);
-          addOptimisticUserMessage(sessionId, text, files);
-          await chatClient.sendMessage(sessionId, { text, files });
-        }
-      } catch (error) {
-        console.error("[ChatPage] send command failed:", error);
-      } finally {
-        setAttachedFiles([]);
-        chatInputRef.current?.clearInput();
-        schedulePostSubmitScrollToBottom();
+      if (isGenerating) {
+        await queueInput(sessionId, { text, files });
+      } else {
+        clearPlanSnapshot(sessionId);
+        addOptimisticUserMessage(sessionId, text, files);
+        await chatClient.sendMessage(sessionId, { text, files });
       }
+      setAttachedFiles([]);
+      chatInputRef.current?.clearInput();
+      schedulePostSubmitScrollToBottom();
     },
     [
       isReadOnlySession,
@@ -549,12 +539,11 @@ function ChatPage({ sessionId }: ChatPageProps) {
     addOptimisticUserMessage(sessionId, text, files);
     try {
       await chatClient.steerActiveTurn(sessionId, { text, files });
-    } catch (error) {
-      console.error("[ChatPage] steer failed:", error);
-    } finally {
       setMessage("");
       setAttachedFiles([]);
       chatInputRef.current?.clearInput();
+    } catch (error) {
+      console.error("[ChatPage] steer failed:", error);
     }
   }, [
     isReadOnlySession,
