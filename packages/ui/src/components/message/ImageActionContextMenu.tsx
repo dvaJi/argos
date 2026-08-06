@@ -39,7 +39,7 @@ export const ImageActionContextMenu: FC<ImageActionContextMenuProps> = ({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger render={<div />}>{children}</ContextMenuTrigger>
+      <ContextMenuTrigger render={<div className="contents" />}>{children}</ContextMenuTrigger>
       <ContextMenuContent className="w-48">
         <ContextMenuItem onSelect={handleCopy}>
           <Icon icon="lucide:copy" className="h-4 w-4" />

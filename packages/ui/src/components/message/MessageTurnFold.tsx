@@ -190,12 +190,10 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
   );
 
   const toggleExpanded = useCallback(() => {
-    setIsExpanded((prev) => {
-      const next = !prev;
-      onToggleCollapse?.(!next);
-      return next;
-    });
-  }, [onToggleCollapse]);
+    const next = !isExpanded;
+    setIsExpanded(next);
+    onToggleCollapse?.(!next);
+  }, [isExpanded, onToggleCollapse]);
 
   return (
     <div className="flex w-full flex-col" data-testid="turn-fold">
@@ -223,9 +221,13 @@ const MessageTurnFoldBase: FC<MessageTurnFoldProps> = ({
       >
         <div className="min-h-0 overflow-hidden">
           <div className="mt-1 flex w-full flex-col gap-px" data-testid="turn-fold-body">
-            {blocks.map((rowBlock, index) => (
+            {blocks.map((rowBlock) => (
               <FoldRow
-                key={rowBlock.id ?? rowBlock.tool_call?.id ?? `${rowBlock.type}:${rowBlock.timestamp}:${index}`}
+                key={
+                  rowBlock.id ??
+                  rowBlock.tool_call?.id ??
+                  `${rowBlock.type}:${rowBlock.timestamp ?? "no-ts"}:${rowBlock.tool_call?.name ?? "anonymous"}:${Array.isArray(rowBlock.content) ? rowBlock.content.join("").length : (rowBlock.content?.length ?? 0)}`
+                }
                 block={rowBlock}
                 messageId={messageId}
                 threadId={threadId}

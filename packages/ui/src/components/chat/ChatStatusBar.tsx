@@ -1353,17 +1353,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                 )}
                 {acpInlineOptions.map((option) => {
                   const optionEntries = option.options ?? [];
-                  const grouped = optionEntries.reduce<
-                    Record<string, { label: string; entries: typeof optionEntries }>
-                  >((acc, entry) => {
-                    const g = resolveAcpOptionGroup(entry);
-                    if (!acc[g.key]) {
-                      acc[g.key] = { label: g.label, entries: [] };
-                    }
-                    acc[g.key].entries.push(entry);
-                    return acc;
-                  }, {});
-                  const groupKeys = Object.keys(grouped);
+                  const grouped = optionEntries.reduce<Map<string, { label: string; entries: typeof optionEntries }>>(
+                    (acc, entry) => {
+                      const g = resolveAcpOptionGroup(entry);
+                      if (!acc.has(g.key)) {
+                        acc.set(g.key, { label: g.label, entries: [] });
+                      }
+                      acc.get(g.key)!.entries.push(entry);
+                      return acc;
+                    },
+                    new Map(),
+                  );
+                  const groupKeys = [...grouped.keys()];
                   return (
                     <Popover
                       key={option.id}
@@ -1417,7 +1418,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                           <div className="max-h-72 overflow-y-auto p-1.5">
                             {groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== "__default__")
                               ? groupKeys.map((groupKey) => {
-                                  const group = grouped[groupKey];
+                                  const group = grouped.get(groupKey)!;
                                   return (
                                     <div key={groupKey} className="mb-1 last:mb-0">
                                       {group.label && (

@@ -189,13 +189,20 @@ const buildTurnFoldItem = (
     return null;
   }
 
-  const activityTimestamps = buffer
-    .filter(({ block }) => isCompletedActivityBlock(block))
-    .map(({ block }) => block.timestamp)
-    .filter(isFiniteTimestamp);
+  const activityTimestamps: number[] = [];
+  for (const { block } of buffer) {
+    if (isCompletedActivityBlock(block)) {
+      activityTimestamps.push(block.timestamp);
+    }
+  }
+  const finiteTimestamps = activityTimestamps.filter(isFiniteTimestamp);
 
-  const startedAt = activityTimestamps.length > 0 ? Math.min(...activityTimestamps) : messageUpdatedAt;
-  const endedAt = Math.max(startedAt, activityTimestamps.length > 0 ? Math.max(...activityTimestamps) : startedAt);
+  let startedAt = messageUpdatedAt;
+  let endedAt = messageUpdatedAt;
+  for (const timestamp of finiteTimestamps) {
+    if (timestamp < startedAt) startedAt = timestamp;
+    if (timestamp > endedAt) endedAt = timestamp;
+  }
 
   return {
     kind: "turn-fold",

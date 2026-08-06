@@ -66,7 +66,11 @@ function getThinkCollapseSetting(): Promise<boolean> {
   thinkCollapseRequest ??= getConfigClient()
     .getSetting("think_collapse")
     .then((val) => {
-      thinkCollapseCache = Boolean(val);
+      // Only apply the fetched value while the cache is still empty so a newer
+      // toggle write-through cannot be overwritten by a stale in-flight read.
+      if (thinkCollapseCache === null) {
+        thinkCollapseCache = Boolean(val);
+      }
       return thinkCollapseCache;
     })
     .catch((err: unknown) => {

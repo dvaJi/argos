@@ -488,6 +488,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
       }
       setAttachedFiles([]);
       chatInputRef.current?.clearInput();
+      setMessage("");
       schedulePostSubmitScrollToBottom();
     },
     [
@@ -608,6 +609,11 @@ function ChatPage({ sessionId }: ChatPageProps) {
   useEffect(() => {
     if (!isGenerating) setIsCancelling(false);
   }, [isGenerating, sessionId]);
+
+  useEffect(() => {
+    // A session change must not carry over the previous session's cancelling state.
+    setIsCancelling(false);
+  }, [sessionId]);
 
   const onMessageRetry = useCallback(
     async (messageId: string) => {
