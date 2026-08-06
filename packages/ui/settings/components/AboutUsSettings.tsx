@@ -150,6 +150,7 @@ export default function AboutUsSettings() {
               <Select
                 value={updateChannel}
                 onValueChange={async (channel) => {
+                  if (!channel) return;
                   try {
                     await configPresenter.setUpdateChannel(channel);
                     setUpdateChannel(channel);

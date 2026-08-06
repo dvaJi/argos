@@ -50,16 +50,18 @@ export default function ConnectionIndicator() {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          className="flex items-center justify-center w-9 h-9 cursor-default"
-          aria-label={tooltipLabel}
-          data-testid="connection-indicator"
-          data-mode={state.mode}
-          data-status={status}
-        >
-          <span className={`w-2.5 h-2.5 rounded-full ${config.color}`} />
-        </div>
+      <TooltipTrigger
+        render={
+          <div
+            className="flex items-center justify-center w-9 h-9 cursor-default"
+            aria-label={tooltipLabel}
+            data-testid="connection-indicator"
+            data-mode={state.mode}
+            data-status={status}
+          />
+        }
+      >
+        <span className={`w-2.5 h-2.5 rounded-full ${config.color}`} />
       </TooltipTrigger>
       <TooltipContent side="right">
         <div className="flex items-center gap-2">

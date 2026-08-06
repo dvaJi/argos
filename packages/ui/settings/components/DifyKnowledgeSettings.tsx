@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { useMcpStore } from "#/stores/mcp";
 import { useToast } from "#/components/use-toast";
 import difyPng from "#/assets/images/dify.png";
@@ -166,18 +166,18 @@ const DifyKnowledgeSettings = () => {
           <p className="text-sm text-muted-foreground mt-1">Connect to Dify knowledge bases</p>
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger
+              render={
                 <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
-              </TooltipTrigger>
-              {!mcpStore.mcpEnabled && (
-                <TooltipContent>
-                  <p>Enable MCP to access</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+              }
+            />
+            {!mcpStore.mcpEnabled && (
+              <TooltipContent>
+                <p>Enable MCP to access</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           <Icon icon={isConfigPanelOpen ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
         </div>
       </div>

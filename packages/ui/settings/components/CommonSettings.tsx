@@ -1,4 +1,3 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import {
@@ -7,6 +6,7 @@ import {
   setLaunchAtLoginEnabled,
   setCopyWithCotEnabled,
   setTraceDebugEnabled,
+  setShowContinueIndicator,
 } from "#/stores/uiSettingsStore";
 import ProxySettingsSection from "./common/ProxySettingsSection";
 import LoggingSettingsSection from "./common/LoggingSettingsSection";
@@ -17,18 +17,8 @@ import SettingsPageShell from "./control-center/SettingsPageShell";
 export default function CommonSettings() {
   const uiSettingsStore = useUiSettingsStore();
 
-  const autoScrollEnabled = useMemo(() => uiSettingsStore.autoScrollEnabled, [uiSettingsStore.autoScrollEnabled]);
-  const copyWithCotEnabled = useMemo(() => uiSettingsStore.copyWithCotEnabled, [uiSettingsStore.copyWithCotEnabled]);
-  const traceDebugEnabled = useMemo(() => uiSettingsStore.traceDebugEnabled, [uiSettingsStore.traceDebugEnabled]);
-  const launchAtLoginEnabled = useMemo(
-    () => uiSettingsStore.launchAtLoginEnabled,
-    [uiSettingsStore.launchAtLoginEnabled],
-  );
-
-  const handleAutoScrollChange = useCallback((value: boolean) => setAutoScrollEnabled(value), []);
-  const handleLaunchAtLoginChange = useCallback((value: boolean) => setLaunchAtLoginEnabled(value), []);
-  const handleCopyWithCotChange = useCallback((value: boolean) => setCopyWithCotEnabled(value), []);
-  const handleTraceDebugChange = useCallback((value: boolean) => setTraceDebugEnabled(value), []);
+  const { autoScrollEnabled, copyWithCotEnabled, traceDebugEnabled, showContinueIndicator, launchAtLoginEnabled } =
+    uiSettingsStore;
 
   return (
     <SettingsPageShell title="General" eyebrow="Setup" data-testid="settings-general-page">
@@ -40,28 +30,35 @@ export default function CommonSettings() {
           icon="lucide:power"
           label="Launch at Login"
           modelValue={launchAtLoginEnabled}
-          onUpdateModelValue={handleLaunchAtLoginChange}
+          onUpdateModelValue={setLaunchAtLoginEnabled}
         />
         <SettingToggleRow
           id="auto-scroll-switch"
           icon="lucide:arrow-down"
           label="Auto Scroll"
           modelValue={autoScrollEnabled}
-          onUpdateModelValue={handleAutoScrollChange}
+          onUpdateModelValue={setAutoScrollEnabled}
         />
         <SettingToggleRow
           id="copy-with-cot-switch"
           icon="lucide:file-text"
           label="Copy with Chain of Thought"
           modelValue={copyWithCotEnabled}
-          onUpdateModelValue={handleCopyWithCotChange}
+          onUpdateModelValue={setCopyWithCotEnabled}
         />
         <SettingToggleRow
           id="trace-debug-switch"
           icon="lucide:bug"
           label="Trace Debug"
           modelValue={traceDebugEnabled}
-          onUpdateModelValue={handleTraceDebugChange}
+          onUpdateModelValue={setTraceDebugEnabled}
+        />
+        <SettingToggleRow
+          id="show-continue-indicator-switch"
+          icon="lucide:rotate-cw"
+          label="Show 'Continued' Indicator"
+          modelValue={showContinueIndicator}
+          onUpdateModelValue={setShowContinueIndicator}
         />
         <LoggingSettingsSection />
       </div>

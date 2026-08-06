@@ -6,7 +6,7 @@ import { ScrollArea } from "#shadcn/components/ui/scroll-area";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import ProviderModelManager from "./ProviderModelManager";
 import ProviderDialogContainer from "./ProviderDialogContainer";
@@ -286,16 +286,14 @@ export default function BedrockProviderSettingsDetail({
               <Icon icon="lucide:check-check" className="w-4 h-4 text-muted-foreground" />
               Verify
             </Button>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Icon icon="lucide:help-circle" className="w-4 h-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Verifies your AWS credentials and lists available Bedrock models.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Icon icon="lucide:help-circle" className="w-4 h-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Verifies your AWS credentials and lists available Bedrock models.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="text-xs leading-4 text-muted-foreground">

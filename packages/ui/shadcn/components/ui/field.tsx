@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -202,4 +204,15 @@ function FieldError({
   );
 }
 
-export { Field, FieldLabel, FieldDescription, FieldGroup };
+export {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+  FieldContent,
+  FieldTitle,
+};

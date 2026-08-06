@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, type FocusEvent } from "react";
 import { Label } from "#shadcn/components/ui/label";
 import { Input } from "#shadcn/components/ui/input";
 import { Button } from "#shadcn/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import GitHubCopilotOAuth from "./GitHubCopilotOAuth";
 import { usePresenter } from "#api/presenterBridge";
@@ -254,21 +254,21 @@ export default function ProviderApiConfig({
         )}
         <div className="text-xs text-muted-foreground">
           {hasDefaultBaseUrl && !showLockedBaseUrl ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
+            <Tooltip>
+              <TooltipTrigger
+                render={
                   <button
                     type="button"
                     className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2 transition-colors hover:text-foreground"
                     aria-label="Fill default URL"
                     onClick={fillDefaultBaseUrl}
-                  >
-                    Default: {defaultBaseUrl}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Fill with default base URL</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                  />
+                }
+              >
+                Default: {defaultBaseUrl}
+              </TooltipTrigger>
+              <TooltipContent>Fill with default base URL</TooltipContent>
+            </Tooltip>
           ) : showLockedBaseUrl ? (
             <span>Base URL is locked for this provider.</span>
           ) : (

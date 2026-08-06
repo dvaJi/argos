@@ -333,15 +333,17 @@ const CustomPromptSettingsSection = forwardRef<CustomPromptSettingsSectionHandle
                       <Icon icon="lucide:pencil" className="h-3.5 w-3.5" />
                     </Button>
                     <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          title="Delete"
-                        >
-                          <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
-                        </Button>
+                      <AlertDialogTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            title="Delete"
+                          />
+                        }
+                      >
+                        <Icon icon="lucide:trash-2" className="h-3.5 w-3.5" />
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-store";
-import { TooltipProvider } from "#shadcn/components/ui/tooltip";
 import ChatTopBar from "#/components/chat/ChatTopBar";
 import ChatSearchBar from "#/components/chat/ChatSearchBar";
 import MessageList from "#/components/chat/MessageList";
@@ -22,7 +21,7 @@ import { createChatClient } from "../../api/ChatClient";
 import { createModelClient } from "#api/ModelClient";
 import { useUiSettingsStore } from "#/stores/uiSettingsStore";
 import { sessionStore, fetchSessions, selectSession, applyRestoredSession } from "#/stores/ui/session";
-import { useMessageStore } from "#/stores/ui/message";
+import { useMessageStore, addOptimisticUserMessage } from "#/stores/ui/message";
 
 import { agentPlanStore } from "#/stores/ui/agentPlan";
 import { agentStore } from "#/stores/ui/agent";
@@ -106,6 +105,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
+    clearInput: () => void;
   } | null>(null);
   const chatSearchBarRef = useRef<{ focusInput: () => void; selectInput: () => void } | null>(null);
 
@@ -123,6 +123,7 @@ function ChatPage({ sessionId }: ChatPageProps) {
   const [attachedFiles, setAttachedFiles] = useState<MessageFile[]>([]);
   const isVoiceInputEnabled = false;
   const [isHandlingInteraction, setIsHandlingInteraction] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const spotlightJumpTimerRef = useRef<number | null>(null);
   const scrollReadFrameRef = useRef<number | null>(null);
@@ -447,10 +448,12 @@ function ChatPage({ sessionId }: ChatPageProps) {
       await queueInput(sessionId, { text, files });
     } else {
       clearPlanSnapshot(sessionId);
+      addOptimisticUserMessage(sessionId, text, files);
       await chatClient.sendMessage(sessionId, { text, files });
     }
     setMessage("");
     setAttachedFiles([]);
+    chatInputRef.current?.clearInput();
     schedulePostSubmitScrollToBottom();
   }, [
     isReadOnlySession,
@@ -480,9 +483,12 @@ function ChatPage({ sessionId }: ChatPageProps) {
         await queueInput(sessionId, { text, files });
       } else {
         clearPlanSnapshot(sessionId);
+        addOptimisticUserMessage(sessionId, text, files);
         await chatClient.sendMessage(sessionId, { text, files });
       }
       setAttachedFiles([]);
+      chatInputRef.current?.clearInput();
+      setMessage("");
       schedulePostSubmitScrollToBottom();
     },
     [
@@ -531,9 +537,15 @@ function ChatPage({ sessionId }: ChatPageProps) {
     if (!text && files.length === 0) return;
     if (await handleManualCompactionCommand(text)) return;
     clearPlanSnapshot(sessionId);
-    await chatClient.steerActiveTurn(sessionId, { text, files });
-    setMessage("");
-    setAttachedFiles([]);
+    addOptimisticUserMessage(sessionId, text, files);
+    try {
+      await chatClient.steerActiveTurn(sessionId, { text, files });
+      setMessage("");
+      setAttachedFiles([]);
+      chatInputRef.current?.clearInput();
+    } catch (error) {
+      console.error("[ChatPage] steer failed:", error);
+    }
   }, [
     isReadOnlySession,
     isAcpWorkdirMissing,
@@ -584,13 +596,24 @@ function ChatPage({ sessionId }: ChatPageProps) {
   );
 
   const onStop = useCallback(async () => {
-    if (isReadOnlySession || !isGenerating) return;
+    if (isReadOnlySession || !isGenerating || isCancelling) return;
+    setIsCancelling(true);
     try {
       await chatClient.stopStream({ sessionId });
     } catch (error) {
       console.error("[ChatPage] cancel generation failed:", error);
+      setIsCancelling(false);
     }
-  }, [isReadOnlySession, isGenerating, sessionId, chatClient]);
+  }, [isReadOnlySession, isGenerating, isCancelling, sessionId, chatClient]);
+
+  useEffect(() => {
+    if (!isGenerating) setIsCancelling(false);
+  }, [isGenerating, sessionId]);
+
+  useEffect(() => {
+    // A session change must not carry over the previous session's cancelling state.
+    setIsCancelling(false);
+  }, [sessionId]);
 
   const onMessageRetry = useCallback(
     async (messageId: string) => {
@@ -885,17 +908,24 @@ function ChatPage({ sessionId }: ChatPageProps) {
 
   const messageWindow = useMessageWindow(displayMessages);
 
-  const onMessageMeasure = useCallback(
-    (payload: { messageId: string; height: number }) => {
-      const isBottomFollowing = scrollMode === "initial-bottom" || scrollMode === "auto-follow";
-      const delta = messageWindow.setMeasuredHeight(payload.messageId, payload.height);
-      if (delta === 0) return;
-      if (isBottomFollowing) {
-        scrollToBottom(scrollMode === "initial-bottom");
-      }
-    },
-    [scrollMode, messageWindow, scrollToBottom],
-  );
+  const scrollModeRef = useRef(scrollMode);
+  const messageWindowRef = useRef(messageWindow);
+  const scrollToBottomRef = useRef(scrollToBottom);
+  useEffect(() => {
+    scrollModeRef.current = scrollMode;
+    messageWindowRef.current = messageWindow;
+    scrollToBottomRef.current = scrollToBottom;
+  });
+
+  const onMessageMeasure = useCallback((payload: { messageId: string; height: number }) => {
+    const mode = scrollModeRef.current;
+    const isBottomFollowing = mode === "initial-bottom" || mode === "auto-follow";
+    const delta = messageWindowRef.current.setMeasuredHeight(payload.messageId, payload.height);
+    if (delta === 0) return;
+    if (isBottomFollowing) {
+      scrollToBottomRef.current(mode === "initial-bottom");
+    }
+  }, []);
 
   function resolveAssistantModelName(modelId: string): string {
     if (!modelId) return "Assistant";
@@ -1017,180 +1047,179 @@ function ChatPage({ sessionId }: ChatPageProps) {
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div
-        ref={scrollContainerRef}
-        data-testid="chat-page"
-        data-generating={String(isGenerating)}
-        className="message-list-container h-full w-full min-w-0 overflow-y-auto"
-        onScroll={onScroll}
-      >
-        <ChatTopBar
-          className="chat-capture-hide"
-          sessionId={sessionId}
-          title={sessionTitle}
-          project={sessionProject}
-          isReadOnly={isReadOnlySession}
-        />
-        {isChatSearchOpen && (
-          <div className="pointer-events-none sticky top-14 z-20 px-6">
-            <div className="mx-auto flex w-full max-w-5xl justify-end">
-              <div className="pointer-events-auto">
-                <ChatSearchBar
-                  ref={chatSearchBarRef}
-                  modelValue={chatSearchQuery}
-                  onUpdateModelValue={setChatSearchQuery}
-                  activeMatch={activeChatSearchIndex}
-                  totalMatches={chatSearchMatches.length}
-                  onPrevious={() => {
-                    if (chatSearchMatches.length === 0) return;
-                    const next = (activeChatSearchIndex - 1 + chatSearchMatches.length) % chatSearchMatches.length;
-                    setActiveChatSearchIndex(next);
-                    setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
-                  }}
-                  onNext={() => {
-                    if (chatSearchMatches.length === 0) return;
-                    const next = (activeChatSearchIndex + 1) % chatSearchMatches.length;
-                    setActiveChatSearchIndex(next);
-                    setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
-                  }}
-                  onClose={closeChatSearch}
-                />
-              </div>
+    <div
+      ref={scrollContainerRef}
+      data-testid="chat-page"
+      data-generating={String(isGenerating)}
+      className="message-list-container h-full w-full min-w-0 overflow-y-auto"
+      onScroll={onScroll}
+    >
+      <ChatTopBar
+        className="chat-capture-hide"
+        sessionId={sessionId}
+        title={sessionTitle}
+        project={sessionProject}
+        isReadOnly={isReadOnlySession}
+      />
+      {isChatSearchOpen && (
+        <div className="pointer-events-none sticky top-14 z-20 px-6">
+          <div className="mx-auto flex w-full max-w-5xl justify-end">
+            <div className="pointer-events-auto">
+              <ChatSearchBar
+                ref={chatSearchBarRef}
+                modelValue={chatSearchQuery}
+                onUpdateModelValue={setChatSearchQuery}
+                activeMatch={activeChatSearchIndex}
+                totalMatches={chatSearchMatches.length}
+                onPrevious={() => {
+                  if (chatSearchMatches.length === 0) return;
+                  const next = (activeChatSearchIndex - 1 + chatSearchMatches.length) % chatSearchMatches.length;
+                  setActiveChatSearchIndex(next);
+                  setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
+                }}
+                onNext={() => {
+                  if (chatSearchMatches.length === 0) return;
+                  const next = (activeChatSearchIndex + 1) % chatSearchMatches.length;
+                  setActiveChatSearchIndex(next);
+                  setActiveChatSearchMatch(chatSearchMatches, next, { behavior: "smooth" });
+                }}
+                onClose={closeChatSearch}
+              />
             </div>
           </div>
-        )}
-        <div ref={messageSearchRootRef} className="min-h-[calc(100%-242px)]" style={messageSearchRootStyle}>
-          {messageStore.isLoadingHistory && (
-            <div className="pointer-events-none px-6 py-2 text-center text-xs text-muted-foreground">Loading...</div>
-          )}
-          <MessageList
-            messages={displayMessages}
-            conversationId={sessionId}
-            ephemeralRateLimitBlock={ephemeralRateLimitBlock}
-            ephemeralRateLimitMessageId={ephemeralRateLimitMessageId}
-            isGenerating={isGenerating}
-            traceMessageIds={traceMessageIds}
-            isReadOnly={isReadOnlySession}
-            onRetry={onMessageRetry}
-            onDelete={onMessageDelete}
-            onFork={onMessageFork}
-            onContinue={onMessageContinue}
-            onTrace={onMessageTrace}
-            onEditSave={onMessageEditSave}
-            onMeasure={onMessageMeasure}
-          />
-          <div ref={bottomScrollAnchorRef} className="h-px w-full" aria-hidden="true" />
         </div>
-        <TraceDialog messageId={traceMessageId} sessionId={sessionId} onClose={() => setTraceMessageId(null)} />
+      )}
+      <div ref={messageSearchRootRef} className="min-h-[calc(100%-242px)]" style={messageSearchRootStyle}>
+        {messageStore.isLoadingHistory && (
+          <div className="pointer-events-none px-6 py-2 text-center text-xs text-muted-foreground">Loading...</div>
+        )}
+        <MessageList
+          messages={displayMessages}
+          conversationId={sessionId}
+          ephemeralRateLimitBlock={ephemeralRateLimitBlock}
+          ephemeralRateLimitMessageId={ephemeralRateLimitMessageId}
+          isGenerating={isGenerating}
+          traceMessageIds={traceMessageIds}
+          isReadOnly={isReadOnlySession}
+          onRetry={onMessageRetry}
+          onDelete={onMessageDelete}
+          onFork={onMessageFork}
+          onContinue={onMessageContinue}
+          onTrace={onMessageTrace}
+          onEditSave={onMessageEditSave}
+          onMeasure={onMessageMeasure}
+        />
+        <div ref={bottomScrollAnchorRef} className="h-px w-full" aria-hidden="true" />
+      </div>
+      <TraceDialog messageId={traceMessageId} sessionId={sessionId} onClose={() => setTraceMessageId(null)} />
 
-        {!isReadOnlySession && (
-          <div className="chat-capture-hide sticky bottom-0 z-10 w-full px-6 pb-3 pt-3">
-            <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col items-center">
-              <div className="relative w-full">
-                <PendingInputLane
-                  steerItems={getSteerItems()}
-                  queueItems={getQueueItems()}
-                  disableSteerAction={isAtCapacity()}
-                  isGenerating={isGenerating}
-                  onDeleteQueue={onPendingInputDelete}
-                  onSteerQueueItem={onSteerPendingInput}
-                />
-                <div>
-                  {(latestPlanSnapshot || activePendingInteraction) && (
-                    <div
-                      ref={planFloatLayerRef}
-                      className="pointer-events-none absolute inset-x-0 bottom-[calc(100%+0.75rem)] z-20 flex w-full flex-col items-end gap-2"
-                      data-testid="agent-progress-float-layer"
-                    >
-                      {activePendingInteraction && latestPlanSnapshot && (
-                        <div className="agent-question-panel pointer-events-auto mx-auto w-full max-w-2xl overflow-hidden rounded-[20px] text-foreground backdrop-blur-[26px]">
-                          <div className="agent-question-panel__backdrop" aria-hidden="true" />
-                          <AgentProgressFloat
-                            snapshot={latestPlanSnapshot}
-                            collapsed={isPlanFloatCollapsed}
-                            embedded={true}
-                            onDismiss={onDismissPlanFloat}
-                            onToggleCollapse={() => toggleCollapsed(sessionId)}
-                          />
-                          <div className="agent-question-divider" aria-hidden="true" />
-                          <ChatToolInteractionOverlay
-                            embedded={true}
-                            interaction={activePendingInteraction}
-                            processing={isHandlingInteraction}
-                            onRespond={onToolInteractionRespond}
-                          />
-                        </div>
-                      )}
-                      {activePendingInteraction && !latestPlanSnapshot && (
-                        <div className="pointer-events-auto mx-auto">
-                          <ChatToolInteractionOverlay
-                            interaction={activePendingInteraction}
-                            processing={isHandlingInteraction}
-                            onRespond={onToolInteractionRespond}
-                          />
-                        </div>
-                      )}
-                      {!activePendingInteraction && latestPlanSnapshot && (
+      {!isReadOnlySession && (
+        <div className="chat-capture-hide sticky bottom-0 z-10 w-full px-6 pb-3 pt-3">
+          <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col items-center">
+            <div className="relative w-full">
+              <PendingInputLane
+                steerItems={getSteerItems()}
+                queueItems={getQueueItems()}
+                disableSteerAction={isAtCapacity()}
+                isGenerating={isGenerating}
+                onDeleteQueue={onPendingInputDelete}
+                onSteerQueueItem={onSteerPendingInput}
+              />
+              <div>
+                {(latestPlanSnapshot || activePendingInteraction) && (
+                  <div
+                    ref={planFloatLayerRef}
+                    className="pointer-events-none absolute inset-x-0 bottom-[calc(100%+0.75rem)] z-20 flex w-full flex-col items-end gap-2"
+                    data-testid="agent-progress-float-layer"
+                  >
+                    {activePendingInteraction && latestPlanSnapshot && (
+                      <div className="agent-question-panel pointer-events-auto mx-auto w-full max-w-2xl overflow-hidden rounded-[20px] text-foreground backdrop-blur-[26px]">
+                        <div className="agent-question-panel__backdrop" aria-hidden="true" />
                         <AgentProgressFloat
                           snapshot={latestPlanSnapshot}
                           collapsed={isPlanFloatCollapsed}
+                          embedded={true}
                           onDismiss={onDismissPlanFloat}
                           onToggleCollapse={() => toggleCollapsed(sessionId)}
                         />
-                      )}
-                    </div>
-                  )}
-                  {!activePendingInteraction && (
-                    <div ref={chatInputHeroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
-                      <ChatInputBox
-                        ref={chatInputRef}
-                        modelValue={message}
-                        onUpdateModelValue={setMessage}
-                        maxWidthClass="max-w-4xl"
-                        files={attachedFiles}
-                        sessionId={sessionId}
-                        workspacePath={activeSession?.projectDir ?? null}
-                        isAcpSession={activeSession?.providerId === "acp"}
-                        isGenerating={isGenerating}
-                        submitDisabled={isInputSubmitDisabled}
-                        queueSubmitEnabled={isGenerating && hasDraftInput}
-                        queueSubmitDisabled={isQueueSubmitDisabled}
-                        onUpdateFiles={onFilesChange}
-                        onCommandSubmit={onCommandSubmit}
-                        onQueueSubmit={onQueueSubmit}
-                        onSubmit={onSubmit}
-                        onToggleVoiceInput={() => {}}
-                        toolbar={
-                          <ChatInputToolbar
-                            isGenerating={isGenerating}
-                            hasInput={hasDraftInput}
-                            sendDisabled={isInputSubmitDisabled}
-                            queueDisabled={isQueueSubmitDisabled}
-                            showVoiceInput={isVoiceInputEnabled}
-                            isVoiceInputListening={false}
-                            isVoiceInputTranscribing={false}
-                            onAttach={onAttach}
-                            onVoiceInput={() => {}}
-                            onQueue={onQueueSubmit}
-                            onSteer={onSteer}
-                            onSend={onSubmit}
-                            onStop={onStop}
-                          />
-                        }
+                        <div className="agent-question-divider" aria-hidden="true" />
+                        <ChatToolInteractionOverlay
+                          embedded={true}
+                          interaction={activePendingInteraction}
+                          processing={isHandlingInteraction}
+                          onRespond={onToolInteractionRespond}
+                        />
+                      </div>
+                    )}
+                    {activePendingInteraction && !latestPlanSnapshot && (
+                      <div className="pointer-events-auto mx-auto">
+                        <ChatToolInteractionOverlay
+                          interaction={activePendingInteraction}
+                          processing={isHandlingInteraction}
+                          onRespond={onToolInteractionRespond}
+                        />
+                      </div>
+                    )}
+                    {!activePendingInteraction && latestPlanSnapshot && (
+                      <AgentProgressFloat
+                        snapshot={latestPlanSnapshot}
+                        collapsed={isPlanFloatCollapsed}
+                        onDismiss={onDismissPlanFloat}
+                        onToggleCollapse={() => toggleCollapsed(sessionId)}
                       />
-                      <ErrorBoundary>
-                        <ChatStatusBar maxWidthClass="max-w-4xl" />
-                      </ErrorBoundary>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+                {!activePendingInteraction && (
+                  <div ref={chatInputHeroHostRef} className="mx-auto flex w-full max-w-4xl flex-col">
+                    <ChatInputBox
+                      ref={chatInputRef}
+                      modelValue={message}
+                      onUpdateModelValue={setMessage}
+                      maxWidthClass="max-w-4xl"
+                      files={attachedFiles}
+                      sessionId={sessionId}
+                      workspacePath={activeSession?.projectDir ?? null}
+                      isAcpSession={activeSession?.providerId === "acp"}
+                      isGenerating={isGenerating}
+                      submitDisabled={isInputSubmitDisabled}
+                      queueSubmitEnabled={isGenerating && hasDraftInput}
+                      queueSubmitDisabled={isQueueSubmitDisabled}
+                      onUpdateFiles={onFilesChange}
+                      onCommandSubmit={onCommandSubmit}
+                      onQueueSubmit={onQueueSubmit}
+                      onSubmit={onSubmit}
+                      onToggleVoiceInput={() => {}}
+                      toolbar={
+                        <ChatInputToolbar
+                          isGenerating={isGenerating}
+                          isCancelling={isCancelling}
+                          hasInput={hasDraftInput}
+                          sendDisabled={isInputSubmitDisabled}
+                          queueDisabled={isQueueSubmitDisabled}
+                          showVoiceInput={isVoiceInputEnabled}
+                          isVoiceInputListening={false}
+                          isVoiceInputTranscribing={false}
+                          onAttach={onAttach}
+                          onVoiceInput={() => {}}
+                          onQueue={onQueueSubmit}
+                          onSteer={onSteer}
+                          onSend={onSubmit}
+                          onStop={onStop}
+                        />
+                      }
+                    />
+                    <ErrorBoundary>
+                      <ChatStatusBar maxWidthClass="max-w-4xl" />
+                    </ErrorBoundary>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </TooltipProvider>
+        </div>
+      )}
+    </div>
   );
 }
 

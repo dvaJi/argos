@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "#shadcn/components/ui/dialog";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,18 +128,18 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
           <p className="text-sm text-muted-foreground mt-1">Local vector knowledge base</p>
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
+          <Tooltip>
+            <TooltipTrigger
+              render={
                 <Switch checked={isMcpEnabled} disabled={!mcpStore.mcpEnabled} onCheckedChange={toggleMcpServer} />
-              </TooltipTrigger>
-              {!mcpStore.mcpEnabled && (
-                <TooltipContent>
-                  <p>Enable MCP to access</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+              }
+            />
+            {!mcpStore.mcpEnabled && (
+              <TooltipContent>
+                <p>Enable MCP to access</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
           <Icon icon={isConfigPanelOpen ? "lucide:chevron-up" : "lucide:chevron-down"} className="w-4 h-4" />
         </div>
       </div>
@@ -164,10 +164,8 @@ export default function BuiltinKnowledgeSettings({ onShowDetail }: BuiltinKnowle
                     <Icon icon="lucide:edit" className="h-4 w-4" />
                   </button>
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <button className="text-muted-foreground hover:text-destructive">
-                        <Icon icon="lucide:trash-2" className="h-4 w-4" />
-                      </button>
+                    <AlertDialogTrigger render={<button className="text-muted-foreground hover:text-destructive" />}>
+                      <Icon icon="lucide:trash-2" className="h-4 w-4" />
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>

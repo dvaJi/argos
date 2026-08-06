@@ -309,27 +309,29 @@ export default function McpIndicator({
 
   return (
     <Popover open={panelOpen} onOpenChange={setPanelOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={
-            isArgosContext
-              ? "h-6 w-6 p-0 text-muted-foreground hover:text-foreground backdrop-blur-lg"
-              : "h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-          }
-          title={triggerTitle}
-          aria-label={triggerTitle}
-        >
-          {isArgosContext ? (
-            <Icon icon="lucide:sliders-horizontal" className="h-3.5 w-3.5" />
-          ) : (
-            <>
-              <span>{triggerLabel}</span>
-              <Icon icon="lucide:chevron-down" className="h-3 w-3" />
-            </>
-          )}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            className={
+              isArgosContext
+                ? "h-6 w-6 p-0 text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                : "h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+            }
+            title={triggerTitle}
+            aria-label={triggerTitle}
+          />
+        }
+      >
+        {isArgosContext ? (
+          <Icon icon="lucide:sliders-horizontal" className="h-3.5 w-3.5" />
+        ) : (
+          <>
+            <span>{triggerLabel}</span>
+            <Icon icon="lucide:chevron-down" className="h-3 w-3" />
+          </>
+        )}
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-80 overflow-hidden p-0">
@@ -356,7 +358,7 @@ export default function McpIndicator({
                   <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     System Prompt
                   </div>
-                  <Select value={selectedSystemPromptId} onValueChange={(v) => onSelectSystemPrompt?.(v)}>
+                  <Select value={selectedSystemPromptId} onValueChange={(v) => onSelectSystemPrompt?.(v ?? "")}>
                     <SelectTrigger className="mt-3 h-8 text-xs">
                       <SelectValue placeholder="Select system prompt" />
                     </SelectTrigger>

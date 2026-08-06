@@ -38,6 +38,7 @@ export const uiSettingsStore = new Store({
   traceDebugEnabled: false,
   notificationsEnabled: true,
   loggingEnabled: false,
+  showContinueIndicator: false,
 });
 
 export const getFontSizeClass = (fontSizeLevel?: number) =>
@@ -94,6 +95,9 @@ const applySettingsValues = (values: Partial<SettingsSnapshotValues>) => {
   }
   if (typeof values.loggingEnabled === "boolean") {
     patch.loggingEnabled = values.loggingEnabled;
+  }
+  if (typeof values.showContinueIndicator === "boolean") {
+    patch.showContinueIndicator = values.showContinueIndicator;
   }
   if (Object.keys(patch).length > 0) {
     uiSettingsStore.setState((s) => ({ ...s, ...patch }));
@@ -244,6 +248,12 @@ export const setLoggingEnabled = async (enabled: boolean) => {
   const nextValue = Boolean(enabled);
   uiSettingsStore.setState((s) => ({ ...s, loggingEnabled: nextValue }));
   await updateSettings([{ key: "loggingEnabled", value: nextValue }]);
+};
+
+export const setShowContinueIndicator = async (enabled: boolean) => {
+  const nextValue = Boolean(enabled);
+  uiSettingsStore.setState((s) => ({ ...s, showContinueIndicator: nextValue }));
+  await updateSettings([{ key: "showContinueIndicator", value: nextValue }]);
 };
 
 const setupListeners = () => {

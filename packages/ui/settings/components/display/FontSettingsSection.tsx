@@ -114,11 +114,11 @@ export default function FontSettingsSection() {
     onSelect: (font: string) => void,
   ) => (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-between h-9" style={{ fontFamily: previewFont }}>
-          <span className="truncate">{label}</span>
-          <Icon icon="lucide:chevrons-up-down" className="h-4 w-4 text-muted-foreground/70" />
-        </Button>
+      <PopoverTrigger
+        render={<Button variant="outline" className="w-full justify-between h-9" style={{ fontFamily: previewFont }} />}
+      >
+        <span className="truncate">{label}</span>
+        <Icon icon="lucide:chevrons-up-down" className="h-4 w-4 text-muted-foreground/70" />
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
         <div className="p-2" style={{ fontFamily: PREVIEW_FALLBACK }}>

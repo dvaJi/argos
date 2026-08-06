@@ -229,17 +229,19 @@ export default function FolderPicker({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          className={`justify-start font-normal ${value ? "text-foreground" : "text-muted-foreground"} ${className ?? ""}`}
-          disabled={disabled}
-        >
-          <Icon icon="lucide:folder" className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
-          <span className="truncate">{displayValue}</span>
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            className={`justify-start font-normal ${value ? "text-foreground" : "text-muted-foreground"} ${className ?? ""}`}
+            disabled={disabled}
+          />
+        }
+      >
+        <Icon icon="lucide:folder" className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="truncate">{displayValue}</span>
       </PopoverTrigger>
       <PopoverContent className="w-[460px] p-2" align="start">
         <FolderPickerBody

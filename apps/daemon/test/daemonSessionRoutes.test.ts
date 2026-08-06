@@ -887,6 +887,7 @@ describe("daemon ACP session routes", () => {
 
     vi.spyOn(provider as any, "getRuntime").mockResolvedValue(runtime);
     vi.spyOn(provider as any, "cancelGeneration").mockResolvedValue(undefined);
+    vi.spyOn(provider as any, "interruptActiveTurn").mockResolvedValue(undefined);
     vi.spyOn(provider as any, "sendMessage").mockResolvedValue({ requestId: null, messageId: null });
 
     await expect(provider.setAcpSessionConfigOption("session-1", "__acp_legacy_model__", "model-b")).resolves.toEqual({
@@ -905,7 +906,7 @@ describe("daemon ACP session routes", () => {
     });
 
     await expect(provider.steerActiveTurn("session-1", "steer this")).resolves.toBeUndefined();
-    expect(provider.cancelGeneration).toHaveBeenCalledWith("session-1");
+    expect(provider.interruptActiveTurn).toHaveBeenCalledWith("session-1");
     expect(provider.sendMessage).toHaveBeenCalledWith("session-1", "steer this");
     expect(runtime.processManager.updateBoundProcessConfigState).toHaveBeenCalledWith("session-1", {
       source: "legacy",

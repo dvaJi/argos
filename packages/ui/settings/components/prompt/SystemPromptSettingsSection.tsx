@@ -197,7 +197,12 @@ export default function SystemPromptSettingsSection() {
           <Label className="text-sm font-medium flex-1">Default System Prompt</Label>
           <p className="text-xs text-muted-foreground">Configure the default system prompt used for conversations.</p>
         </div>
-        <Select value={selectedSystemPromptId} onValueChange={handleSystemPromptChange}>
+        <Select
+          value={selectedSystemPromptId}
+          onValueChange={(v) => {
+            if (v) void handleSystemPromptChange(v);
+          }}
+        >
           <SelectTrigger className="h-8! w-32 border-border hover:bg-accent">
             <SelectValue placeholder="Select" />
           </SelectTrigger>
@@ -246,15 +251,17 @@ export default function SystemPromptSettingsSection() {
               </Button>
             ) : (
               <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
-                    Delete
-                  </Button>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    />
+                  }
+                >
+                  <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
+                  Delete
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

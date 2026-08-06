@@ -29,6 +29,12 @@ import type { AcpConfigState, AcpAgentDiagnostics, AcpDebugRequest, AcpDebugRunR
 
 const ACP_PROVIDER_ID = "acp";
 
+const normalizePlanStatus = (status: unknown): "pending" | "in_progress" | "completed" => {
+  if (status === "completed" || status === "done") return "completed";
+  if (status === "in_progress") return "in_progress";
+  return "pending";
+};
+
 type PendingAcpPermission = {
   sessionId: string;
   toolCallId: string;
@@ -47,7 +53,16 @@ type PendingAcpPermission = {
  */
 export class AcpProviderExecutionPort implements ProviderExecutionPort {
   private runtimePromise: Promise<AcpRuntime> | null = null;
-  private activeTurns = new Map<string, { controller: AbortController; eventId: string; runId: string }>();
+  private activeTurns = new Map<
+    string,
+    {
+      controller: AbortController;
+      eventId: string;
+      runId: string;
+      donePromise: Promise<void>;
+      doneResolve: () => void;
+    }
+  >();
   private pendingPermissions = new Map<string, PendingAcpPermission>();
   private readonly contentMapper = new AcpContentMapper();
 
@@ -138,10 +153,16 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     const runtime = await this.getRuntime();
     const record = await this.getSessionRecord(sessionId);
     const controller = new AbortController();
+    let doneResolve!: () => void;
+    const donePromise = new Promise<void>((resolve) => {
+      doneResolve = resolve;
+    });
     this.activeTurns.set(sessionId, {
       controller,
       eventId: assistantMessageId,
       runId: requestId,
+      donePromise,
+      doneResolve,
     });
 
     void this.runTurn(
@@ -154,7 +175,11 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
       assistantMessageId,
       record?.workdir,
     ).finally(() => {
-      this.activeTurns.delete(sessionId);
+      const current = this.activeTurns.get(sessionId);
+      if (current && current.runId === requestId) {
+        this.activeTurns.delete(sessionId);
+      }
+      doneResolve();
     });
 
     return { requestId, messageId: assistantMessageId };
@@ -374,6 +399,7 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     workdir?: string,
   ): Promise<void> {
     const blocks: Array<Record<string, unknown>> = [];
+    let planRevision = 0;
     try {
       for await (const notification of runtime.runPromptTurn({
         conversationId: sessionId,
@@ -385,8 +411,26 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
         if (controller.signal.aborted) break;
 
         const mapped = this.contentMapper.map(notification);
+
+        if (mapped.planEntries && mapped.planEntries.length > 0) {
+          planRevision += 1;
+          const plan = mapped.planEntries
+            .map((entry) => ({ step: (entry.content ?? "").trim(), status: normalizePlanStatus(entry.status) }))
+            .filter((item) => item.step.length > 0);
+          if (plan.length > 0) {
+            this.eventPublisher.publish("chat.plan.updated", {
+              sessionId,
+              messageId: assistantMessageId,
+              plan,
+              revision: planRevision,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+
         const now = Date.now();
         for (const block of mapped.blocks) {
+          if (block.type === "plan") continue;
           const last = blocks.at(-1);
           if (block.type === "content" && last?.type === "content") {
             last.content = `${last.content ?? ""}${block.content ?? ""}`;
@@ -498,9 +542,43 @@ export class AcpProviderExecutionPort implements ProviderExecutionPort {
     });
   }
 
-  async steerActiveTurn(_sessionId: string, _content: string | SendMessageInput): Promise<void> {
-    await this.cancelGeneration(_sessionId);
-    await this.sendMessage(_sessionId, _content);
+  async steerActiveTurn(sessionId: string, content: string | SendMessageInput): Promise<void> {
+    await this.interruptActiveTurn(sessionId);
+    await this.sendMessage(sessionId, content);
+  }
+
+  /**
+   * Non-destructively interrupts the in-flight ACP prompt for a session so a new
+   * turn can follow (used by steer). Unlike {@link cancelGeneration}, this does
+   * NOT tear down the session or unbind the agent process: it asks the agent to
+   * cancel the active `session/prompt` request, aborts local streaming, and
+   * waits for the turn to settle before returning.
+   */
+  private async interruptActiveTurn(sessionId: string): Promise<void> {
+    const active = this.activeTurns.get(sessionId);
+    if (!active) return;
+
+    active.controller.abort();
+
+    for (const [toolCallId, pending] of this.pendingPermissions) {
+      if (pending.sessionId !== sessionId) continue;
+      this.pendingPermissions.delete(toolCallId);
+      pending.resolve({ outcome: { outcome: "cancelled" } });
+    }
+
+    try {
+      const runtime = await this.getRuntime();
+      const session = runtime.sessionManager.getSession(sessionId);
+      if (session) {
+        await session.connection.agent.notify(acpMethods.agent.session.cancel, {
+          sessionId: session.sessionId,
+        } as schema.CancelNotification);
+      }
+    } catch (error) {
+      console.warn("[ACP] Failed to send session/cancel for steer:", error);
+    }
+
+    await Promise.race([active.donePromise, new Promise<void>((resolve) => setTimeout(resolve, 4000))]).catch(() => {});
   }
 
   async getAcpSessionCommands(conversationId: string): Promise<

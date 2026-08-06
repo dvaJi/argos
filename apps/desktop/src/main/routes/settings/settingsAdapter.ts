@@ -30,6 +30,7 @@ export const readSettingsSnapshot = (configPresenter: IConfigPresenter): Setting
   traceDebugEnabled: configPresenter.getSetting<boolean>("traceDebugEnabled") ?? false,
   copyWithCotEnabled: configPresenter.getCopyWithCotEnabled(),
   loggingEnabled: configPresenter.getLoggingEnabled(),
+  showContinueIndicator: configPresenter.getSetting<boolean>("showContinueIndicator") ?? false,
 });
 
 export const pickSettingsSnapshot = (
@@ -92,6 +93,9 @@ export const applySettingChange = (configPresenter: IConfigPresenter, change: Se
       return;
     case "loggingEnabled":
       configPresenter.setLoggingEnabled(change.value);
+      return;
+    case "showContinueIndicator":
+      configPresenter.setSetting("showContinueIndicator", change.value);
       return;
   }
 };

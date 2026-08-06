@@ -9,7 +9,7 @@ import {
 } from "#shadcn/components/ui/dropdown-menu";
 import { Input } from "#shadcn/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "#shadcn/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#shadcn/components/ui/select";
 import { Switch } from "#shadcn/components/ui/switch";
 import type { ModelConfig, RENDERER_MODEL_META, SystemPrompt } from "@argos/shared/presenter";
@@ -88,6 +88,39 @@ const isSameModelSelection = (
   right: ModelSelection | null | undefined,
 ): boolean => Boolean(left && right && left.providerId === right.providerId && left.modelId === right.modelId);
 
+type AcpOptionValueLike = {
+  value: string;
+  label: string;
+  groupId?: string | null;
+  groupLabel?: string | null;
+};
+
+const resolveAcpOptionGroup = (entry: AcpOptionValueLike): { key: string; label: string } => {
+  if (entry.groupId && entry.groupId.trim()) {
+    return { key: entry.groupId, label: entry.groupLabel?.trim() ? entry.groupLabel : entry.groupId };
+  }
+
+  const valueSlash = entry.value.indexOf("/");
+  const labelSlash = entry.label.indexOf("/");
+  const labSource = valueSlash > 0 ? entry.value : labelSlash > 0 ? entry.label : "";
+  if (labSource) {
+    const lab = labSource.slice(0, labSource.indexOf("/"));
+    if (lab.trim()) {
+      return { key: `__lab__${lab.toLowerCase()}`, label: lab };
+    }
+  }
+
+  return { key: "__default__", label: "" };
+};
+
+const resolveAcpOptionDisplayLabel = (entry: { label: string }): string => {
+  const idx = entry.label.indexOf("/");
+  if (idx > 0 && entry.label.slice(idx + 1).trim()) {
+    return entry.label.slice(idx + 1);
+  }
+  return entry.label;
+};
+
 type SystemPromptOption = {
   id: string;
   label: string;
@@ -99,6 +132,18 @@ type GroupedModelList = {
   providerId: string;
   providerName: string;
   models: RENDERER_MODEL_META[];
+};
+
+type ModelDisplayEntry = {
+  model: RENDERER_MODEL_META;
+  providerId: string;
+  displayName: string;
+};
+
+type ModelDisplaySection = {
+  key: string;
+  label: string;
+  entries: ModelDisplayEntry[];
 };
 
 const TEMPERATURE_STEP = 0.1;
@@ -359,6 +404,30 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
         })
         .filter((group) => group.models.length > 0);
     }, [modelSearchKeyword, modelGroups]);
+
+    const modelDisplaySections = useMemo<ModelDisplaySection[]>(() => {
+      const sections: ModelDisplaySection[] = [];
+      const sectionIndex = new Map<string, number>();
+      for (const group of filteredModelGroups) {
+        for (const model of group.models) {
+          const slashIndex = model.id.indexOf("/");
+          const hasLabSplit = slashIndex > 0 && model.id.slice(slashIndex + 1).trim().length > 0;
+          const sectionKey = hasLabSplit
+            ? `${group.providerId}::${model.id.slice(0, slashIndex).toLowerCase()}`
+            : group.providerId;
+          const sectionLabel = hasLabSplit ? model.id.slice(0, slashIndex) : group.providerName;
+          const displayName = hasLabSplit ? model.id.slice(slashIndex + 1) : model.id;
+          let idx = sectionIndex.get(sectionKey);
+          if (idx === undefined) {
+            idx = sections.length;
+            sections.push({ key: sectionKey, label: sectionLabel, entries: [] });
+            sectionIndex.set(sectionKey, idx);
+          }
+          sections[idx].entries.push({ model, providerId: group.providerId, displayName });
+        }
+      }
+      return sections;
+    }, [filteredModelGroups]);
 
     const modelSettingsTarget = useMemo<ModelSelection | null>(
       () => modelSettingsSelection ?? effectiveModelSelection,
@@ -1254,32 +1323,28 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                   )}
                 </div>
                 {isAcpConfigLoading && !hasAcpConfigOptions && (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground">
-                          <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
-                          <span className="hidden sm:inline">Loading…</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>Loading agent modes and models…</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-muted-foreground" />}
+                    >
+                      <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                      <span className="hidden sm:inline">Loading…</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Loading agent modes and models…</TooltipContent>
+                  </Tooltip>
                 )}
                 {!isAcpConfigLoading && acpConfigError && !hasAcpConfigOptions && (
-                  <TooltipProvider delayDuration={200}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive">
-                          <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
-                          <span className="hidden sm:inline">Unavailable</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        Failed to load agent configuration: {acpConfigError}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<div className="flex h-6 items-center gap-1 px-1 text-xs text-destructive" />}
+                    >
+                      <Icon icon="lucide:alert-circle" className="h-3 w-3 shrink-0" />
+                      <span className="hidden sm:inline">Unavailable</span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      Failed to load agent configuration: {acpConfigError}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {!isAcpConfigLoading && !acpConfigError && !hasAcpConfigOptions && acpConfigReadOnly && (
                   <div className="flex h-6 items-center px-1 text-xs text-muted-foreground/60">
@@ -1288,54 +1353,57 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                 )}
                 {acpInlineOptions.map((option) => {
                   const optionEntries = option.options ?? [];
-                  const grouped = optionEntries.reduce<
-                    Record<string, { label: string; entries: typeof optionEntries }>
-                  >((acc, entry) => {
-                    const key = entry.groupId ?? "__default__";
-                    if (!acc[key]) {
-                      acc[key] = { label: entry.groupLabel ?? "", entries: [] };
-                    }
-                    acc[key].entries.push(entry);
-                    return acc;
-                  }, {});
-                  const groupKeys = Object.keys(grouped);
+                  const grouped = optionEntries.reduce<Map<string, { label: string; entries: typeof optionEntries }>>(
+                    (acc, entry) => {
+                      const g = resolveAcpOptionGroup(entry);
+                      if (!acc.has(g.key)) {
+                        acc.set(g.key, { label: g.label, entries: [] });
+                      }
+                      acc.get(g.key)!.entries.push(entry);
+                      return acc;
+                    },
+                    new Map(),
+                  );
+                  const groupKeys = [...grouped.keys()];
                   return (
                     <Popover
                       key={option.id}
                       open={acpInlineOpenOptionId === option.id}
                       onOpenChange={(open) => onAcpInlineOptionOpenChange(option.id, open)}
                     >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          data-option-id={option.id}
-                          className="acp-inline-option h-6 max-w-[12rem] min-w-0 gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
-                          disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
-                        >
-                          <Icon
-                            icon={
-                              {
-                                mode: "lucide:cpu",
-                                model: "lucide:box",
-                                temperature: "lucide:thermometer",
-                                "max-tokens": "lucide:hash",
-                                max_tokens: "lucide:hash",
-                                "system-prompt": "lucide:terminal",
-                                system_prompt: "lucide:terminal",
-                                "permission-mode": "lucide:shield",
-                                permission: "lucide:shield",
-                                context: "lucide:scan",
-                                reasoning: "lucide:brain",
-                              }[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"
-                            }
-                            className="h-3 w-3 shrink-0 text-muted-foreground/60"
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-option-id={option.id}
+                            className="acp-inline-option h-6 max-w-[12rem] min-w-0 gap-1 rounded-full px-2 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg"
+                            disabled={acpConfigReadOnly || isAcpOptionSaving(option.id)}
                           />
-                          <span className="truncate font-medium text-foreground/80">
-                            {isAcpOptionSaving(option.id) ? "Saving…" : getAcpOptionDisplayValue(option)}
-                          </span>
-                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
-                        </Button>
+                        }
+                      >
+                        <Icon
+                          icon={
+                            {
+                              mode: "lucide:cpu",
+                              model: "lucide:box",
+                              temperature: "lucide:thermometer",
+                              "max-tokens": "lucide:hash",
+                              max_tokens: "lucide:hash",
+                              "system-prompt": "lucide:terminal",
+                              system_prompt: "lucide:terminal",
+                              "permission-mode": "lucide:shield",
+                              permission: "lucide:shield",
+                              context: "lucide:scan",
+                              reasoning: "lucide:brain",
+                            }[option.id.toLowerCase().replace(/\s+/g, "-")] ?? "lucide:sliders-horizontal"
+                          }
+                          className="h-3 w-3 shrink-0 text-muted-foreground/60"
+                        />
+                        <span className="truncate font-medium text-foreground/80">
+                          {isAcpOptionSaving(option.id) ? "Saving…" : getAcpOptionDisplayValue(option)}
+                        </span>
+                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 opacity-50" />
                       </PopoverTrigger>
                       <PopoverContent align="start" className="min-w-[200px] max-w-[320px] overflow-hidden p-0">
                         <div className="border-b px-3 py-2.5">
@@ -1350,7 +1418,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                           <div className="max-h-72 overflow-y-auto p-1.5">
                             {groupKeys.length > 1 || (groupKeys.length === 1 && groupKeys[0] !== "__default__")
                               ? groupKeys.map((groupKey) => {
-                                  const group = grouped[groupKey];
+                                  const group = grouped.get(groupKey)!;
                                   return (
                                     <div key={groupKey} className="mb-1 last:mb-0">
                                       {group.label && (
@@ -1375,7 +1443,9 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                               className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
                                             />
                                             <div className="min-w-0 flex-1">
-                                              <div className="text-xs font-medium">{entry.label}</div>
+                                              <div className="text-xs font-medium">
+                                                {resolveAcpOptionDisplayLabel(entry)}
+                                              </div>
                                               {entry.description && (
                                                 <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
                                                   {entry.description}
@@ -1405,7 +1475,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                         className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isSelected ? "text-primary" : "text-transparent"}`}
                                       />
                                       <div className="min-w-0 flex-1">
-                                        <div className="text-xs font-medium">{entry.label}</div>
+                                        <div className="text-xs font-medium">{resolveAcpOptionDisplayLabel(entry)}</div>
                                         {entry.description && (
                                           <div className="mt-0.5 text-[0.65rem] leading-relaxed text-muted-foreground/70">
                                             {entry.description}
@@ -1426,24 +1496,26 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
               </>
             ) : showModelPopover ? (
               <Popover open={isModelPanelOpen} onOpenChange={setIsModelPanelOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    data-testid="app-model-switcher"
-                    data-selected-provider-id={effectiveModelSelection?.providerId ?? ""}
-                    data-selected-model-id={effectiveModelSelection?.modelId ?? ""}
-                    variant="ghost"
-                    size="sm"
-                    className={`h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg ${!isModelOptionsReady ? "opacity-70" : ""}`}
-                    aria-busy={!isModelOptionsReady}
-                  >
-                    <ModelIcon modelId={displayIconId} customClass="w-3.5 h-3.5" isDark={themeStore.isDark} />
-                    <span>{displayModelText}</span>
-                    {showModelOptionsLoading ? (
-                      <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Icon icon="lucide:chevron-down" className="w-3 h-3" />
-                    )}
-                  </Button>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      data-testid="app-model-switcher"
+                      data-selected-provider-id={effectiveModelSelection?.providerId ?? ""}
+                      data-selected-model-id={effectiveModelSelection?.modelId ?? ""}
+                      variant="ghost"
+                      size="sm"
+                      className={`h-6 px-2 gap-1 text-xs text-muted-foreground hover:text-foreground backdrop-blur-lg ${!isModelOptionsReady ? "opacity-70" : ""}`}
+                      aria-busy={!isModelOptionsReady}
+                    />
+                  }
+                >
+                  <ModelIcon modelId={displayIconId} customClass="w-3.5 h-3.5" isDark={themeStore.isDark} />
+                  <span>{displayModelText}</span>
+                  {showModelOptionsLoading ? (
+                    <Icon icon="lucide:loader-2" className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Icon icon="lucide:chevron-down" className="w-3 h-3" />
+                  )}
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
@@ -1500,45 +1572,53 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                         )}
                         {!showModelOptionsLoading && !hasModelOptionsError && filteredModelGroups.length > 0 && (
                           <div className="space-y-3">
-                            {filteredModelGroups.map((group) => (
-                              <div key={group.providerId} className="space-y-1">
+                            {modelDisplaySections.map((section) => (
+                              <div key={section.key} className="space-y-1">
                                 <div className="px-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                  {group.providerName}
+                                  {section.label}
                                 </div>
                                 <div className="space-y-1">
-                                  {group.models.map((model) => (
-                                    <div key={`${group.providerId}-${model.id}`} className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        data-testid="model-option"
-                                        data-provider-id={group.providerId}
-                                        data-model-id={model.id}
-                                        className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs transition-colors ${isModelSelected(group.providerId, model.id) ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                                        onClick={() => void handleModelQuickSelect(group.providerId, model.id)}
-                                      >
-                                        <ModelIcon
-                                          modelId={resolveModelIconId(group.providerId, model.id)}
-                                          customClass="w-3.5 h-3.5 shrink-0"
-                                          isDark={themeStore.isDark}
-                                        />
-                                        <span className="min-w-0 flex-1 truncate font-medium">{model.id}</span>
-                                      </button>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-                                        aria-label="Advanced settings"
-                                        title="Advanced settings"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          void openModelSettings(group.providerId, model.id);
-                                        }}
-                                      >
-                                        <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </div>
-                                  ))}
+                                  {section.entries.map((entry) => {
+                                    const { model, providerId, displayName } = entry;
+                                    return (
+                                      <div key={`${providerId}-${model.id}`} className="flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          data-testid="model-option"
+                                          data-provider-id={providerId}
+                                          data-model-id={model.id}
+                                          className={`flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-left text-xs transition-colors ${isModelSelected(providerId, model.id) ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                                          onClick={() => void handleModelQuickSelect(providerId, model.id)}
+                                        >
+                                          <ModelIcon
+                                            modelId={resolveModelIconId(providerId, model.id)}
+                                            customClass="w-3.5 h-3.5 shrink-0"
+                                            isDark={themeStore.isDark}
+                                          />
+                                          <span
+                                            className="min-w-0 flex-1 truncate font-medium"
+                                            title={displayName === model.id ? displayName : model.id}
+                                          >
+                                            {displayName}
+                                          </span>
+                                        </button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                                          aria-label="Advanced settings"
+                                          title="Advanced settings"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            void openModelSettings(providerId, model.id);
+                                          }}
+                                        >
+                                          <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -1577,7 +1657,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                             </div>
                           )}
                           {isModelSettingsReady && localSettings && (
-                            <TooltipProvider delayDuration={200}>
+                            <>
                               {!showOpenAIMediaGenerationSettings && showTemperatureControl && (
                                 <div className="space-y-1.5">
                                   <label className="text-xs font-medium">Temperature</label>
@@ -1865,7 +1945,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Reasoning Effort</label>
                                   <Select
                                     value={localSettings.reasoningEffort ?? effortOptions[0]?.value}
-                                    onValueChange={(v) => onReasoningEffortSelect(v)}
+                                    onValueChange={(v) => onReasoningEffortSelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -1885,7 +1965,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Reasoning Visibility</label>
                                   <Select
                                     value={localSettings.reasoningVisibility ?? reasoningVisibilityOptions[0]?.value}
-                                    onValueChange={(v) => onReasoningVisibilitySelect(v)}
+                                    onValueChange={(v) => onReasoningVisibilitySelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -1905,7 +1985,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   <label className="text-xs font-medium">Verbosity</label>
                                   <Select
                                     value={localSettings.verbosity ?? verbosityOptions[0]?.value}
-                                    onValueChange={(v) => onVerbositySelect(v)}
+                                    onValueChange={(v) => onVerbositySelect(v ?? "")}
                                   >
                                     <SelectTrigger className="h-8 text-xs">
                                       <SelectValue placeholder="Select..." />
@@ -2001,7 +2081,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                                   </div>
                                 </div>
                               )}
-                            </TooltipProvider>
+                            </>
                           )}
                         </div>
                       </div>
@@ -2049,16 +2129,18 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
 
             {!isAcpAgent && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-6 px-2 gap-1.5 text-xs backdrop-blur-lg ${permissionMode === "full_access" ? "text-orange-500 hover:text-orange-600" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    <Icon icon={permissionIcon} className="w-3.5 h-3.5" />
-                    <span>{permissionModeLabel}</span>
-                    <Icon icon="lucide:chevron-down" className="w-3 h-3" />
-                  </Button>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-6 px-2 gap-1.5 text-xs backdrop-blur-lg ${permissionMode === "full_access" ? "text-orange-500 hover:text-orange-600" : "text-muted-foreground hover:text-foreground"}`}
+                    />
+                  }
+                >
+                  <Icon icon={permissionIcon} className="w-3.5 h-3.5" />
+                  <span>{permissionModeLabel}</span>
+                  <Icon icon="lucide:chevron-down" className="w-3 h-3" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-48">
                   {permissionOptions.map((option) => (

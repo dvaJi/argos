@@ -109,15 +109,17 @@ export default function KnowledgeFileItem({ file, onDelete, onReAdd }: Knowledge
 
         {file.status !== "processing" && (
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors"
-                title="Re-add"
-              >
-                <Icon icon="lucide:refresh-ccw" className="text-base text-gray-500" />
-              </Button>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors"
+                  title="Re-add"
+                />
+              }
+            >
+              <Icon icon="lucide:refresh-ccw" className="text-base text-gray-500" />
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -133,15 +135,17 @@ export default function KnowledgeFileItem({ file, onDelete, onReAdd }: Knowledge
         )}
 
         <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors"
-              title="Delete"
-            >
-              <Icon icon="lucide:trash" className="text-base text-red-400" />
-            </Button>
+          <AlertDialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-blue-100 transition-colors"
+                title="Delete"
+              />
+            }
+          >
+            <Icon icon="lucide:trash" className="text-base text-red-400" />
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>

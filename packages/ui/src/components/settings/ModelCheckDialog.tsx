@@ -144,7 +144,7 @@ export default function ModelCheckDialog({ open, providerId, onOpenChange }: Mod
                 <Label htmlFor="model" className="text-right">
                   Model
                 </Label>
-                <Select value={selectedModelId} onValueChange={setSelectedModelId}>
+                <Select value={selectedModelId} onValueChange={(v) => setSelectedModelId(v ?? "")}>
                   <SelectTrigger data-testid="model-check-select" className="col-span-3">
                     <SelectValue placeholder="Select a model" />
                   </SelectTrigger>

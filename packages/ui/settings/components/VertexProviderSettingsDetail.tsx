@@ -122,7 +122,7 @@ export default function VertexProviderSettingsDetail({
           <Label htmlFor={`${provider.id}-apiVersion`} className="flex-1">
             API Version
           </Label>
-          <Select value={apiVersion} onValueChange={(v) => void handleApiVersionChange(v)}>
+          <Select value={apiVersion} onValueChange={(v) => void handleApiVersionChange(v ?? "")}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="v1" />
             </SelectTrigger>
@@ -137,7 +137,7 @@ export default function VertexProviderSettingsDetail({
           <Label htmlFor={`${provider.id}-endpointMode`} className="flex-1">
             Endpoint Mode
           </Label>
-          <Select value={endpointMode} onValueChange={(v) => void handleEndpointModeChange(v)}>
+          <Select value={endpointMode} onValueChange={(v) => void handleEndpointModeChange(v ?? "")}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Endpoint Mode" />
             </SelectTrigger>

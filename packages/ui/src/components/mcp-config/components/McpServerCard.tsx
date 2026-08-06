@@ -2,7 +2,7 @@ import type { FC } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Switch } from "#shadcn/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,15 +117,17 @@ const McpServerCard: FC<McpServerCardProps> = ({
 
           {hasMenuActions && (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Icon icon="lucide:more-horizontal" className="h-3 w-3" />
-                </Button>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                }
+              >
+                <Icon icon="lucide:more-horizontal" className="h-3 w-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {canEdit && (
@@ -171,16 +173,14 @@ const McpServerCard: FC<McpServerCardProps> = ({
             <div className={["w-2 h-2 rounded-full", statusConfig.dot].join(" ")} />
             <span className={["text-xs", statusConfig.color].join(" ")}>{statusConfig.text}</span>
             {server.errorMessage && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Icon icon="lucide:alert-circle" className="w-3 h-3 text-red-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="text-xs max-w-xs">{server.errorMessage}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Icon icon="lucide:alert-circle" className="w-3 h-3 text-red-500" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-xs">{server.errorMessage}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
 

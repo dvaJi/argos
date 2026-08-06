@@ -32,13 +32,19 @@ describe("AcpProviderExecutionPort", () => {
   });
 
   it("publishes and persists decoded ACP assistant text chunks", async () => {
-    const addMessage = vi.fn(async () => "persisted-assistant-1");
+    const finalizeAssistantMessage = vi.fn(async () => undefined);
+    const setMessageError = vi.fn(async () => undefined);
     const publish = vi.fn();
-    const port = new AcpProviderExecutionPort({} as never, { addMessage } as never, { publish } as never, {
-      dataDir: "/tmp",
-      appVersion: "1.0.0",
-      db: { prepare: vi.fn() },
-    });
+    const port = new AcpProviderExecutionPort(
+      {} as never,
+      { finalizeAssistantMessage, setMessageError } as never,
+      { publish } as never,
+      {
+        dataDir: "/tmp",
+        appVersion: "1.0.0",
+        db: { prepare: vi.fn() },
+      },
+    );
     const runtime = {
       async *runPromptTurn() {
         yield {
@@ -96,7 +102,7 @@ describe("AcpProviderExecutionPort", () => {
       expect.objectContaining({
         requestId: "request-1",
         sessionId: "conversation-1",
-        messageId: "persisted-assistant-1",
+        messageId: "assistant-1",
         blocks: expect.arrayContaining([
           expect.objectContaining({ content: "OpenCode", status: "success" }),
           expect.objectContaining({ type: "reasoning_content", content: "The user" }),
@@ -104,7 +110,83 @@ describe("AcpProviderExecutionPort", () => {
         ]),
       }),
     );
-    expect(addMessage).toHaveBeenCalledWith("conversation-1", "assistant", expect.stringContaining("OpenCode"));
+    expect(finalizeAssistantMessage).toHaveBeenCalledWith(
+      "assistant-1",
+      expect.arrayContaining([expect.objectContaining({ content: "OpenCode", status: "success" })]),
+      expect.any(String),
+    );
+    expect(setMessageError).not.toHaveBeenCalled();
+  });
+
+  it("routes ACP plan updates to the plan widget and skips inline plan blocks", async () => {
+    const finalizeAssistantMessage = vi.fn(async () => undefined);
+    const setMessageError = vi.fn(async () => undefined);
+    const publish = vi.fn();
+    const port = new AcpProviderExecutionPort(
+      {} as never,
+      { finalizeAssistantMessage, setMessageError } as never,
+      { publish } as never,
+      {
+        dataDir: "/tmp",
+        appVersion: "1.0.0",
+        db: { prepare: vi.fn() },
+      },
+    );
+    const runtime = {
+      async *runPromptTurn() {
+        yield {
+          sessionId: "acp-session",
+          update: {
+            sessionUpdate: "plan",
+            entries: [
+              { content: "Analyze", status: "completed" },
+              { content: "Implement", status: "in_progress" },
+              { content: "Test", status: "pending" },
+            ],
+          },
+        };
+        yield {
+          sessionId: "acp-session",
+          update: {
+            sessionUpdate: "plan",
+            entries: [
+              { content: "Analyze", status: "completed" },
+              { content: "Implement", status: "completed" },
+              { content: "Test", status: "in_progress" },
+            ],
+          },
+        };
+      },
+    };
+
+    await (port as any).runTurn(
+      runtime,
+      "conversation-1",
+      { id: "opencode", name: "OpenCode" },
+      [{ type: "text", text: "hello" }],
+      new AbortController(),
+      "request-1",
+      "assistant-1",
+    );
+
+    const planCalls = publish.mock.calls.filter((call) => call[0] === "chat.plan.updated");
+    expect(planCalls).toHaveLength(2);
+    expect(planCalls[0][1]).toMatchObject({
+      sessionId: "conversation-1",
+      messageId: "assistant-1",
+      revision: 1,
+      plan: [
+        { step: "Analyze", status: "completed" },
+        { step: "Implement", status: "in_progress" },
+        { step: "Test", status: "pending" },
+      ],
+    });
+    expect(planCalls[1][1]).toMatchObject({ revision: 2 });
+
+    for (const call of publish.mock.calls) {
+      if (call[0] !== "chat.stream.updated") continue;
+      expect((call[1] as { blocks: Array<{ type: string }> }).blocks.some((b) => b.type === "plan")).toBe(false);
+    }
   });
 
   it("allows ACP tool permissions once in full access mode", async () => {
@@ -213,16 +295,11 @@ describe("AcpProviderExecutionPort", () => {
   });
 
   it("times out a hanging permission resolver with a cancelled outcome", async () => {
-    vi.useFakeTimers();
-    try {
-      const onTimeout = vi.fn();
-      const promise = resolvePermissionWithTimeout(() => new Promise(() => {}), 1000, onTimeout);
-      await vi.advanceTimersByTimeAsync(1000);
-      await expect(promise).resolves.toEqual({ outcome: { outcome: "cancelled" } });
-      expect(onTimeout).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    const onTimeout = vi.fn();
+    await expect(resolvePermissionWithTimeout(() => new Promise(() => {}), 50, onTimeout)).resolves.toEqual({
+      outcome: { outcome: "cancelled" },
+    });
+    expect(onTimeout).toHaveBeenCalledOnce();
   });
 
   it("returns the resolver result when it settles before the timeout", async () => {

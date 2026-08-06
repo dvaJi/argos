@@ -62,12 +62,6 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
     });
   };
 
-  const handleImageDialogOpenAutoFocus = (event: Event) => {
-    event.preventDefault();
-    const target = event.target as HTMLElement | null;
-    target?.focus();
-  };
-
   const handleSaveSelectedPreview = () => {
     if (!selectedPreview || !selectedPreviewSrc) return;
     void saveImage({ source: selectedPreviewSrc, mimeType: selectedPreviewMimeType });
@@ -114,25 +108,24 @@ export const MessageBlockToolCallImagePreview: FC<MessageBlockToolCallImagePrevi
       </div>
 
       <Dialog open={selectedPreview !== null} onOpenChange={handleDialogOpenChange}>
-        <DialogContent
-          className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none"
-          onOpenAutoFocus={handleImageDialogOpenAutoFocus}
-        >
+        <DialogContent className="sm:max-w-[800px] p-3 bg-background border-0 shadow-none focus:outline-none">
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center justify-between gap-2 pr-8">
                 <span>{selectedPreview?.title || "Image Preview"}</span>
                 {selectedPreview && (
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                        onClick={handleSaveSelectedPreview}
-                      >
-                        <Icon icon="lucide:download" className="h-4 w-4" />
-                      </Button>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                          onClick={handleSaveSelectedPreview}
+                        />
+                      }
+                    >
+                      <Icon icon="lucide:download" className="h-4 w-4" />
                     </TooltipTrigger>
                     <TooltipContent>Save</TooltipContent>
                   </Tooltip>

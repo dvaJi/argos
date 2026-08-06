@@ -337,17 +337,19 @@ export default function WorkspaceSelector() {
   return (
     <>
       <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <button
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors duration-150 hover:bg-accent/50"
-            data-testid="workspace-selector-trigger"
-          >
-            <span
-              className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[deriveConnectionStatus(activeWorkspace ?? workspaces[0], store.connections)]}`}
+        <DropdownMenuTrigger
+          render={
+            <button
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground transition-colors duration-150 hover:bg-accent/50"
+              data-testid="workspace-selector-trigger"
             />
-            <span className="flex-1 truncate">{activeWorkspace?.name ?? "This computer"}</span>
-            <Icon icon="lucide:chevrons-up-down" className="size-3.5 shrink-0 text-muted-foreground" />
-          </button>
+          }
+        >
+          <span
+            className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[deriveConnectionStatus(activeWorkspace ?? workspaces[0], store.connections)]}`}
+          />
+          <span className="flex-1 truncate">{activeWorkspace?.name ?? "This computer"}</span>
+          <Icon icon="lucide:chevrons-up-down" className="size-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuLabel className="text-xs">Machines</DropdownMenuLabel>

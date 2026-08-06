@@ -1233,27 +1233,29 @@ export default function ArgosAgentsSettings() {
                       open={openModelPicker[field.key] ?? false}
                       onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
                     >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-lg px-2.5 text-xs"
-                        >
-                          <div className="flex min-w-0 items-center gap-1.5">
-                            {field.providerId ? (
-                              <ModelIcon
-                                modelId={getModelIconId(field.providerId, field.modelId)}
-                                customClass="h-3.5 w-3.5 shrink-0"
-                              />
-                            ) : (
-                              <Icon icon="lucide:box" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            )}
-                            <span className="truncate">{getModelLabel(field.providerId, field.modelId)}</span>
-                          </div>
-                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        </Button>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-lg px-2.5 text-xs"
+                          />
+                        }
+                      >
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          {field.providerId ? (
+                            <ModelIcon
+                              modelId={getModelIconId(field.providerId, field.modelId)}
+                              customClass="h-3.5 w-3.5 shrink-0"
+                            />
+                          ) : (
+                            <Icon icon="lucide:box" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="truncate">{getModelLabel(field.providerId, field.modelId)}</span>
+                        </div>
+                        <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
                       </PopoverTrigger>
-                      <PopoverContent forceMount className="w-[320px] p-0" align="start">
+                      <PopoverContent className="w-[320px] p-0" align="start">
                         <div className="flex items-center justify-between border-b px-3 py-2">
                           <div className="text-sm font-medium">{field.label}</div>
                           {field.modelId && (
@@ -1452,27 +1454,29 @@ export default function ArgosAgentsSettings() {
                         open={openModelPicker[field.key] ?? false}
                         onOpenChange={(open) => setOpenModelPicker((prev) => ({ ...prev, [field.key]: open }))}
                       >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-lg px-2.5 text-xs"
-                          >
-                            <div className="flex min-w-0 items-center gap-1.5">
-                              {field.providerId ? (
-                                <ModelIcon
-                                  modelId={getModelIconId(field.providerId, field.modelId)}
-                                  customClass="h-3.5 w-3.5 shrink-0"
-                                />
-                              ) : (
-                                <Icon icon="lucide:box" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              )}
-                              <span className="truncate">{getModelLabel(field.providerId, field.modelId)}</span>
-                            </div>
-                            <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          </Button>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-full min-w-0 justify-between gap-1.5 rounded-lg px-2.5 text-xs"
+                            />
+                          }
+                        >
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {field.providerId ? (
+                              <ModelIcon
+                                modelId={getModelIconId(field.providerId, field.modelId)}
+                                customClass="h-3.5 w-3.5 shrink-0"
+                              />
+                            ) : (
+                              <Icon icon="lucide:box" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            )}
+                            <span className="truncate">{getModelLabel(field.providerId, field.modelId)}</span>
+                          </div>
+                          <Icon icon="lucide:chevron-down" className="h-3 w-3 shrink-0 text-muted-foreground" />
                         </PopoverTrigger>
-                        <PopoverContent forceMount className="w-[320px] p-0" align="start">
+                        <PopoverContent className="w-[320px] p-0" align="start">
                           <div className="flex items-center justify-between border-b px-3 py-2">
                             <div className="text-sm font-medium">{field.label}</div>
                             {field.modelId && (

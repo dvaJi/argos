@@ -288,17 +288,17 @@ export default function NotificationsHooksSettings() {
             </div>
 
             <Collapsible open={guideOpen} onOpenChange={setGuideOpen} className="rounded-md border bg-muted/20">
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="flex h-auto w-full items-center justify-between p-4">
-                  <div className="min-w-0 text-left">
-                    <div className="text-sm font-medium">Command Guide</div>
-                    <p className="mt-1 text-xs text-muted-foreground">Learn how to configure hook commands</p>
-                  </div>
-                  <Icon
-                    icon={guideOpen ? "lucide:chevron-up" : "lucide:chevron-down"}
-                    className="ml-3 h-4 w-4 shrink-0 text-muted-foreground"
-                  />
-                </Button>
+              <CollapsibleTrigger
+                render={<Button variant="ghost" className="flex h-auto w-full items-center justify-between p-4" />}
+              >
+                <div className="min-w-0 text-left">
+                  <div className="text-sm font-medium">Command Guide</div>
+                  <p className="mt-1 text-xs text-muted-foreground">Learn how to configure hook commands</p>
+                </div>
+                <Icon
+                  icon={guideOpen ? "lucide:chevron-up" : "lucide:chevron-down"}
+                  className="ml-3 h-4 w-4 shrink-0 text-muted-foreground"
+                />
               </CollapsibleTrigger>
               <CollapsibleContent className="border-t px-4 pb-4">
                 <div className="space-y-4 pt-4">

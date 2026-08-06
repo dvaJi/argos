@@ -477,11 +477,18 @@ export default function DataSettings() {
               </Button>
 
               <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto" disabled={!syncStore.syncEnabled} dir={dir}>
-                    <Icon icon="lucide:download" className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Import Data</span>
-                  </Button>
+                <DialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      disabled={!syncStore.syncEnabled}
+                      dir={dir}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:download" className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Import Data</span>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
@@ -495,7 +502,7 @@ export default function DataSettings() {
                       </Label>
                       <Select
                         value={selectedBackup}
-                        onValueChange={setSelectedBackup}
+                        onValueChange={(v) => setSelectedBackup(v ?? "")}
                         disabled={!availableBackups.length}
                       >
                         <SelectTrigger className="h-8!" dir={dir}>
@@ -998,14 +1005,21 @@ export default function DataSettings() {
                 </div>
               </div>
               <AlertDialog open={isClearSandboxDialogOpen} onOpenChange={setIsClearSandboxDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="w-full shrink-0 lg:w-56" disabled={isClearingSandbox} dir={dir}>
-                    <Icon
-                      icon={isClearingSandbox ? "lucide:loader-2" : "lucide:trash-2"}
-                      className={`h-4 w-4 text-muted-foreground ${isClearingSandbox ? "animate-spin" : ""}`}
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="w-full shrink-0 lg:w-56"
+                      disabled={isClearingSandbox}
+                      dir={dir}
                     />
-                    <span className="text-sm font-medium">{isClearingSandbox ? "Clearing..." : "Clear Sandbox"}</span>
-                  </Button>
+                  }
+                >
+                  <Icon
+                    icon={isClearingSandbox ? "lucide:loader-2" : "lucide:trash-2"}
+                    className={`h-4 w-4 text-muted-foreground ${isClearingSandbox ? "animate-spin" : ""}`}
+                  />
+                  <span className="text-sm font-medium">{isClearingSandbox ? "Clearing..." : "Clear Sandbox"}</span>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

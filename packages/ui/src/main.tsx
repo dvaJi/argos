@@ -2,6 +2,7 @@ import "./assets/main.css";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
+import {} from "#shadcn/components/ui/tooltip";
 import { router } from "./router";
 import "katex/dist/katex.min.css";
 import { ensureMarkdownWorkers } from "./lib/markdownWorkerLifecycle";

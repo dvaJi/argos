@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
-import { TooltipProvider } from "#shadcn/components/ui/tooltip";
 import { Button } from "#shadcn/components/ui/button";
 import {
   DropdownMenu,
@@ -84,6 +83,7 @@ function NewThreadPage() {
     insertWorkspaceReference: (targetPath: string) => boolean;
     getPendingSkillsSnapshot: () => string[];
     focusInput: () => void;
+    clearInput: () => void;
   } | null>(null);
   const [acpDraftSessionId, setAcpDraftSessionId] = useState<string | null>(null);
   const [acpDraftModelSelection, setAcpDraftModelSelection] = useState<SubmissionModelSelection | null>(null);
@@ -734,102 +734,99 @@ function NewThreadPage() {
   };
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          <div className="mb-4">
-            <img src={logoDark} alt="Argos" className="w-14 h-14" loading="lazy" />
-          </div>
+    <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center px-6">
+        <div className="mb-4">
+          <img src={logoDark} alt="Argos" className="w-14 h-14" loading="lazy" />
+        </div>
 
-          <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>
+        <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>
 
-          <div
-            className="mb-2 inline-flex items-center gap-1.5 rounded-full border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
-            role="status"
-            aria-live="polite"
-            data-testid="new-thread-active-machine"
-          >
-            <Icon icon="lucide:monitor-dot" className="size-3.5" />
-            <span>Running on {activeMachine?.name ?? "This computer"}</span>
-          </div>
+        <div
+          className="mb-2 inline-flex items-center gap-1.5 rounded-full border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
+          role="status"
+          aria-live="polite"
+          data-testid="new-thread-active-machine"
+        >
+          <Icon icon="lucide:monitor-dot" className="size-3.5" />
+          <span>Running on {activeMachine?.name ?? "This computer"}</span>
+        </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
               <Button
                 variant="ghost"
                 size="sm"
                 data-testid="new-thread-project-trigger"
                 className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6"
+              />
+            }
+          >
+            <span>{selectedProjectName}</span>
+            {selectedProjectDirectoryInvalid && (
+              <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
+                ⚠
+              </span>
+            )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[200px]">
+            <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
+            <DropdownMenuItem
+              data-testid="new-thread-clear-project"
+              className="gap-2 text-xs py-1.5 px-2"
+              disabled={!canClearProjectSelection}
+              onClick={clearSelectedProject}
+            >
+              <span>No Project</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {projectState.projects.map((project) => (
+              <DropdownMenuItem
+                key={project.path}
+                className="gap-2 text-xs py-1.5 px-2"
+                onClick={() => selectProject(project.path)}
               >
-                <span>{selectedProjectName}</span>
-                {selectedProjectDirectoryInvalid && (
-                  <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="truncate">{project.name}</span>
+                  <span className="text-[10px] text-muted-foreground truncate">{project.path}</span>
+                </div>
+                {isSelectedInvalidProjectPath(project.path) && (
+                  <span data-testid="new-thread-project-menu-missing-warning" title={selectedProjectUnavailableTooltip}>
                     ⚠
                   </span>
                 )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="min-w-[200px]">
-              <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
-              <DropdownMenuItem
-                data-testid="new-thread-clear-project"
-                className="gap-2 text-xs py-1.5 px-2"
-                disabled={!canClearProjectSelection}
-                onClick={clearSelectedProject}
-              >
-                <span>No Project</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {projectState.projects.map((project) => (
-                <DropdownMenuItem
-                  key={project.path}
-                  className="gap-2 text-xs py-1.5 px-2"
-                  onClick={() => selectProject(project.path)}
-                >
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <span className="truncate">{project.name}</span>
-                    <span className="text-[10px] text-muted-foreground truncate">{project.path}</span>
-                  </div>
-                  {isSelectedInvalidProjectPath(project.path) && (
-                    <span
-                      data-testid="new-thread-project-menu-missing-warning"
-                      title={selectedProjectUnavailableTooltip}
-                    >
-                      ⚠
-                    </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
-                <span>Open Folder</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            ))}
+            <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
+              <span>Open Folder</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-          {isAcpWorkdirMissing && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-              <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
-              <span>This agent needs a project. Pick one above to start chatting.</span>
-            </div>
-          )}
+        {isAcpWorkdirMissing && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
+            <span>This agent needs a project. Pick one above to start chatting.</span>
+          </div>
+        )}
 
-          <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
-            {/* @ts-expect-error - Complex type intersection issue */}
-            <ChatInputBox
-              ref={chatInputRef}
-              modelValue={message}
-              onUpdateModelValue={(value: string) => setMessage(value)}
-              files={attachedFiles}
-              sessionId={acpDraftSessionId}
-              workspacePath={projectState.selectedProjectPath ?? null}
-              isAcpSession={isAcpSelectedAgent}
-              submitDisabled={isAcpWorkdirUnavailable || !isDaemonConnected}
-              onUpdateFiles={onFilesChange}
-              onPendingSkillsChange={onPendingSkillsChange}
-              onCommandSubmit={onCommandSubmit}
-              onSubmit={onSubmit}
-              onToggleVoiceInput={() => {}}
-            >
+        <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
+          <ChatInputBox
+            ref={chatInputRef}
+            modelValue={message}
+            onUpdateModelValue={(value: string) => setMessage(value)}
+            files={attachedFiles}
+            sessionId={acpDraftSessionId}
+            workspacePath={projectState.selectedProjectPath ?? null}
+            isAcpSession={isAcpSelectedAgent}
+            submitDisabled={isAcpWorkdirUnavailable || !isDaemonConnected}
+            onUpdateFiles={onFilesChange}
+            onPendingSkillsChange={onPendingSkillsChange}
+            onCommandSubmit={onCommandSubmit}
+            onSubmit={onSubmit}
+            onToggleVoiceInput={() => {}}
+            toolbar={
               <ChatInputToolbar
                 onQueue={() => {}}
                 onSteer={() => {}}
@@ -842,41 +839,41 @@ function NewThreadPage() {
                 onVoiceInput={() => {}}
                 onSend={onSubmit}
               />
-            </ChatInputBox>
-          </div>
-
-          <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />
+            }
+          />
         </div>
 
-        <GuidedOnboardingOverlay
-          visible={Boolean(activeChatGuide?.targetEl)}
-          containerEl={guideRootRef.current}
-          targetEl={activeChatGuide?.targetEl ?? null}
-          preferredPanelPlacement={activeChatGuide?.preferredPanelPlacement ?? "auto"}
-          eyebrow="Getting Started"
-          title={activeChatGuide?.title ?? ""}
-          description={activeChatGuide?.description ?? ""}
-          caption={activeChatGuide?.caption}
-          stepIndex={activeChatGuide?.stepIndex ?? 1}
-          totalSteps={activeChatGuide?.totalSteps ?? 1}
-          closeLabel="Close"
-          backLabel={activeChatGuide ? "Back" : undefined}
-          expertLabel={activeChatGuide ? "Skip All" : undefined}
-          primaryLabel={activeChatGuidePrimaryLabel}
-          primaryDisabled={activeChatGuidePrimaryDisabled}
-          onClose={() => activeChatGuide?.dismiss()}
-          onBack={() => void handleActiveChatGuideBack()}
-          onExpert={() => void handleActiveChatGuideExpert()}
-          onPrimary={() => void handleActiveChatGuidePrimary()}
-        />
-        <FolderPickerDialog
-          open={folderPickerOpen}
-          onOpenChange={setFolderPickerOpen}
-          initialPath={projectStore.state.selectedProjectPath ?? undefined}
-          onSelect={(path) => void selectProjectFolder(path, "manual")}
-        />
+        <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />
       </div>
-    </TooltipProvider>
+
+      <GuidedOnboardingOverlay
+        visible={Boolean(activeChatGuide?.targetEl)}
+        containerEl={guideRootRef.current}
+        targetEl={activeChatGuide?.targetEl ?? null}
+        preferredPanelPlacement={activeChatGuide?.preferredPanelPlacement ?? "auto"}
+        eyebrow="Getting Started"
+        title={activeChatGuide?.title ?? ""}
+        description={activeChatGuide?.description ?? ""}
+        caption={activeChatGuide?.caption}
+        stepIndex={activeChatGuide?.stepIndex ?? 1}
+        totalSteps={activeChatGuide?.totalSteps ?? 1}
+        closeLabel="Close"
+        backLabel={activeChatGuide ? "Back" : undefined}
+        expertLabel={activeChatGuide ? "Skip All" : undefined}
+        primaryLabel={activeChatGuidePrimaryLabel}
+        primaryDisabled={activeChatGuidePrimaryDisabled}
+        onClose={() => activeChatGuide?.dismiss()}
+        onBack={() => void handleActiveChatGuideBack()}
+        onExpert={() => void handleActiveChatGuideExpert()}
+        onPrimary={() => void handleActiveChatGuidePrimary()}
+      />
+      <FolderPickerDialog
+        open={folderPickerOpen}
+        onOpenChange={setFolderPickerOpen}
+        initialPath={projectStore.state.selectedProjectPath ?? undefined}
+        onSelect={(path) => void selectProjectFolder(path, "manual")}
+      />
+    </div>
   );
 }
 

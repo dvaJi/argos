@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Icon } from "@iconify/react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import {
@@ -309,27 +309,29 @@ export default function WindowSideBar() {
     showShortcutBadges && visibleShortcutSessions.some((s) => s.id === sessionId);
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <>
       <div
         data-testid="window-sidebar"
         className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden window-drag-region transition-[width] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " w-12" : " w-[288px]"}`}
       >
         <div className="window-no-drag-region flex flex-col items-center shrink-0 pt-2 pb-2 gap-1 w-12">
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="sidebar-agent-all-button"
-                data-agent-id="__all__"
-                data-selected={String(sidebarSelectedAgentId === null)}
-                className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150${
-                  sidebarSelectedAgentId === null
-                    ? " bg-card/50 border-white/70 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
-                    : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
-                }`}
-                onClick={() => handleAgentSelect(null)}
-              >
-                <Icon icon="lucide:layers" className="w-4 h-4 text-foreground/80" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="sidebar-agent-all-button"
+                  data-agent-id="__all__"
+                  data-selected={String(sidebarSelectedAgentId === null)}
+                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150${
+                    sidebarSelectedAgentId === null
+                      ? " bg-card/50 border-white/70 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
+                      : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                  }`}
+                  onClick={() => handleAgentSelect(null)}
+                />
+              }
+            >
+              <Icon icon="lucide:layers" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">All Agents</TooltipContent>
           </Tooltip>
@@ -338,22 +340,24 @@ export default function WindowSideBar() {
 
           {agentStore.enabledAgents.map((agent) => (
             <Tooltip key={agent.id}>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="sidebar-agent-button"
-                  data-agent-id={agent.id}
-                  data-agent-type={agent.agentType ?? agent.type}
-                  data-selected={String(sidebarSelectedAgentId === agent.id)}
-                  size="icon"
-                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150${
-                    sidebarSelectedAgentId === agent.id
-                      ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
-                      : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
-                  }`}
-                  onClick={() => handleAgentSelect(agent.id)}
-                >
-                  <AgentAvatar agent={agent} className="w-4 h-4" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    data-testid="sidebar-agent-button"
+                    data-agent-id={agent.id}
+                    data-agent-type={agent.agentType ?? agent.type}
+                    data-selected={String(sidebarSelectedAgentId === agent.id)}
+                    size="icon"
+                    className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150${
+                      sidebarSelectedAgentId === agent.id
+                        ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10 hover:bg-white/30 dark:hover:bg-white/10"
+                        : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                    }`}
+                    onClick={() => handleAgentSelect(agent.id)}
+                  />
+                }
+              >
+                <AgentAvatar agent={agent} className="w-4 h-4" />
               </TooltipTrigger>
               <TooltipContent side="right">{agent.name}</TooltipContent>
             </Tooltip>
@@ -363,63 +367,71 @@ export default function WindowSideBar() {
           <div className="w-5 h-px bg-border my-1" />
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-all duration-150 shadow-none${
-                  spotlightStore.open
-                    ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10"
-                    : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10"
-                }`}
-                title="Search"
-                onClick={() => spotlightStore.toggleSpotlight()}
-              >
-                <Icon icon="lucide:search" className="w-4 h-4 text-foreground/80" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors duration-150 shadow-none${
+                    spotlightStore.open
+                      ? " bg-card/50 border-white/80 dark:border-white/20 ring-1 ring-black/10"
+                      : " bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10"
+                  }`}
+                  title="Search"
+                  onClick={() => spotlightStore.toggleSpotlight()}
+                />
+              }
+            >
+              <Icon icon="lucide:search" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">Search</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="window-sidebar-theme-toggle"
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
-                onClick={() => themeStore.cycleTheme()}
-              >
-                <span className="theme-icon-wrap">
-                  <Icon key={themeIcon} icon={themeIcon} className="theme-icon text-foreground/90" />
-                </span>
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="window-sidebar-theme-toggle"
+                  className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                  onClick={() => themeStore.cycleTheme()}
+                />
+              }
+            >
+              <span className="theme-icon-wrap">
+                <Icon key={themeIcon} icon={themeIcon} className="theme-icon text-foreground/90" />
+              </span>
             </TooltipTrigger>
             <TooltipContent side="right">Theme · {themeModeLabel}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="window-sidebar-toggle"
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
-                onClick={() => sidebarStore.toggleSidebar()}
-              >
-                <Icon
-                  icon={collapsed ? "lucide:panel-left-open" : "lucide:panel-left-close"}
-                  className="w-4 h-4 text-foreground/80"
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="window-sidebar-toggle"
+                  className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                  onClick={() => sidebarStore.toggleSidebar()}
                 />
-              </Button>
+              }
+            >
+              <Icon
+                icon={collapsed ? "lucide:panel-left-open" : "lucide:panel-left-close"}
+                className="w-4 h-4 text-foreground/80"
+              />
             </TooltipTrigger>
             <TooltipContent side="right">{collapsed ? "Expand Sidebar" : "Collapse Sidebar"}</TooltipContent>
           </Tooltip>
 
           <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                data-testid="app-settings-button"
-                className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
-                title="Settings"
-                onClick={openSettings}
-              >
-                <Icon icon="lucide:ellipsis" className="w-4 h-4 text-foreground/80" />
-              </Button>
+            <TooltipTrigger
+              render={
+                <Button
+                  data-testid="app-settings-button"
+                  className="flex items-center justify-center w-9 h-9 rounded-xl bg-transparent border-none hover:bg-white/30 dark:hover:bg-white/10 shadow-none"
+                  title="Settings"
+                  onClick={openSettings}
+                />
+              }
+            >
+              <Icon icon="lucide:ellipsis" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
@@ -445,31 +457,35 @@ export default function WindowSideBar() {
             <span className="text-sm font-medium text-foreground truncate">{selectedAgentName}</span>
             <div className="flex items-center gap-0.5">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150${
-                      sessionStore.groupMode === "project"
-                        ? " text-foreground bg-accent/80"
-                        : " text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                    }`}
-                    onClick={() => sessionStore.toggleGroupMode()}
-                  >
-                    <Icon icon="lucide:folder-kanban" className="w-4 h-4" />
-                  </button>
+                <TooltipTrigger
+                  render={
+                    <button
+                      className={`flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150${
+                        sessionStore.groupMode === "project"
+                          ? " text-foreground bg-accent/80"
+                          : " text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }`}
+                      onClick={() => sessionStore.toggleGroupMode()}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:folder-kanban" className="w-4 h-4" />
                 </TooltipTrigger>
                 <TooltipContent>
                   {sessionStore.groupMode === "project" ? "Group by Date" : "Group by Project"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    data-testid="app-new-chat-button"
-                    className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-150"
-                    onClick={handleNewChat}
-                  >
-                    <Icon icon="lucide:plus" className="w-4 h-4" />
-                  </button>
+                <TooltipTrigger
+                  render={
+                    <button
+                      data-testid="app-new-chat-button"
+                      className="flex items-center justify-center w-7 h-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors duration-150"
+                      onClick={handleNewChat}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:plus" className="w-4 h-4" />
                 </TooltipTrigger>
                 <TooltipContent>New Chat</TooltipContent>
               </Tooltip>
@@ -646,6 +662,6 @@ export default function WindowSideBar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </TooltipProvider>
+    </>
   );
 }

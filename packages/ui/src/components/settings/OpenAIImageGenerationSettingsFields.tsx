@@ -170,7 +170,7 @@ export default function OpenAIImageGenerationSettingsFields({
     <div className={containerClass}>
       <div className={fieldClass}>
         <Label className={labelClass}>Image Size</Label>
-        <Select value={sizeSelectValue} onValueChange={onSizeSelect}>
+        <Select value={sizeSelectValue} onValueChange={(v) => onSizeSelect(v ?? "")}>
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Default" />
           </SelectTrigger>
@@ -205,7 +205,7 @@ export default function OpenAIImageGenerationSettingsFields({
 
       <div className={fieldClass}>
         <Label className={labelClass}>Quality</Label>
-        <Select value={optionSelectValue(imageGeneration.quality)} onValueChange={onQualitySelect}>
+        <Select value={optionSelectValue(imageGeneration.quality)} onValueChange={(v) => onQualitySelect(v ?? "")}>
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Default" />
           </SelectTrigger>
@@ -222,7 +222,10 @@ export default function OpenAIImageGenerationSettingsFields({
 
       <div className={fieldClass}>
         <Label className={labelClass}>Output Format</Label>
-        <Select value={optionSelectValue(imageGeneration.outputFormat)} onValueChange={onOutputFormatSelect}>
+        <Select
+          value={optionSelectValue(imageGeneration.outputFormat)}
+          onValueChange={(v) => onOutputFormatSelect(v ?? "")}
+        >
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Default" />
           </SelectTrigger>
@@ -260,7 +263,10 @@ export default function OpenAIImageGenerationSettingsFields({
 
       <div className={fieldClass}>
         <Label className={labelClass}>Background</Label>
-        <Select value={optionSelectValue(imageGeneration.background)} onValueChange={onBackgroundSelect}>
+        <Select
+          value={optionSelectValue(imageGeneration.background)}
+          onValueChange={(v) => onBackgroundSelect(v ?? "")}
+        >
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Default" />
           </SelectTrigger>
@@ -277,7 +283,10 @@ export default function OpenAIImageGenerationSettingsFields({
 
       <div className={fieldClass}>
         <Label className={labelClass}>Moderation</Label>
-        <Select value={optionSelectValue(imageGeneration.moderation)} onValueChange={onModerationSelect}>
+        <Select
+          value={optionSelectValue(imageGeneration.moderation)}
+          onValueChange={(v) => onModerationSelect(v ?? "")}
+        >
           <SelectTrigger className={triggerClass}>
             <SelectValue placeholder="Default" />
           </SelectTrigger>

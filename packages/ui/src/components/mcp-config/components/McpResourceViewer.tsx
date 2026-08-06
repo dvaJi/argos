@@ -113,7 +113,7 @@ const McpResourceViewer: FC<McpResourceViewerProps> = ({ serverName, open, onOpe
 
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="shrink-0 px-4 py-4 lg:hidden">
-            <Select value={selectedResource} onValueChange={setSelectedResource}>
+            <Select value={selectedResource} onValueChange={(v) => setSelectedResource(v ?? "")}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a resource" />
               </SelectTrigger>

@@ -298,11 +298,11 @@ export function MemoryManagerPanel({
           </Button>
           {memories.length > 0 && (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive">
-                  <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
-                  Clear all
-                </Button>
+              <AlertDialogTrigger
+                render={<Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive" />}
+              >
+                <Icon icon="lucide:trash-2" className="mr-1 h-3.5 w-3.5" />
+                Clear all
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -356,7 +356,7 @@ export function MemoryManagerPanel({
                 </SelectContent>
               </Select>
             )}
-            <Select value={addCategory} onValueChange={setAddCategory}>
+            <Select value={addCategory} onValueChange={(v) => setAddCategory(v ?? "")}>
               <SelectTrigger className="h-8 w-full text-xs" aria-label="Category">
                 <SelectValue />
               </SelectTrigger>
@@ -470,15 +470,17 @@ export function MemoryManagerPanel({
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-destructive"
-                        aria-label="Delete permanently"
-                      >
-                        <Icon icon="lucide:x" className="h-3.5 w-3.5" />
-                      </Button>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-destructive"
+                          aria-label="Delete permanently"
+                        />
+                      }
+                    >
+                      <Icon icon="lucide:x" className="h-3.5 w-3.5" />
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>

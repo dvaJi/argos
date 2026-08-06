@@ -401,19 +401,21 @@ export default function ProviderModelList({
           />
 
           <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-accent-400/40 bg-accent-400/10" : ""}`}
-              >
-                <Icon icon="lucide:funnel" className="mr-2 h-4 w-4 text-muted-foreground" />
-                Filter
-                {activeAdvancedFilterCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {activeAdvancedFilterCount}
-                  </Badge>
-                )}
-              </Button>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className={`px-3 text-xs ${activeAdvancedFilterCount ? "border-accent-400/40 bg-accent-400/10" : ""}`}
+                />
+              }
+            >
+              <Icon icon="lucide:funnel" className="mr-2 h-4 w-4 text-muted-foreground" />
+              Filter
+              {activeAdvancedFilterCount > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {activeAdvancedFilterCount}
+                </Badge>
+              )}
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[320px] p-4">
               <div className="space-y-4">
@@ -482,11 +484,9 @@ export default function ProviderModelList({
           </Popover>
 
           <Popover open={sortPopoverOpen} onOpenChange={setSortPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="px-3 text-xs">
-                <Icon icon="lucide:arrow-up-down" className="mr-2 h-4 w-4 text-muted-foreground" />
-                {currentSortLabel}
-              </Button>
+            <PopoverTrigger render={<Button variant="outline" className="px-3 text-xs" />}>
+              <Icon icon="lucide:arrow-up-down" className="mr-2 h-4 w-4 text-muted-foreground" />
+              {currentSortLabel}
             </PopoverTrigger>
             <PopoverContent align="end" className="w-48 p-2">
               <div className="space-y-1">

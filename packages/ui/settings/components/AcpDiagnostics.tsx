@@ -6,7 +6,7 @@ import { Input } from "#shadcn/components/ui/input";
 import { Field, FieldDescription, FieldLabel } from "#shadcn/components/ui/field";
 import { Spinner } from "#shadcn/components/ui/spinner";
 import { Collapsible, CollapsibleContent } from "#shadcn/components/ui/collapsible";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#shadcn/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "#shadcn/components/ui/tooltip";
 import { cn } from "#shadcn/lib/utils";
 import type { AcpAgentDiagnostics, AcpRemoteSessionSummary, AcpDebugRunResult } from "@argos/shared/presenter";
 import { toast } from "#/components/use-toast";
@@ -313,10 +313,10 @@ export default function AcpDiagnostics({
           </Badge>
           <p className="min-w-0 flex-1 truncate text-muted-foreground">{connectionCopy.description}</p>
 
-          <TooltipProvider>
-            <div className="flex shrink-0 items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
+          <div className="flex shrink-0 items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
                   <Button
                     size="icon-sm"
                     variant="ghost"
@@ -326,11 +326,13 @@ export default function AcpDiagnostics({
                   >
                     {probing ? <Spinner /> : <Icon icon="lucide:refresh-cw" />}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
+                }
+              />
+              <TooltipContent>{canRun ? checkLabel : `Enable ${agentName} before checking`}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
                   <Button
                     size="icon-sm"
                     variant="ghost"
@@ -341,11 +343,11 @@ export default function AcpDiagnostics({
                   >
                     <Icon icon={detailsOpen ? "lucide:chevron-up" : "lucide:chevron-down"} />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>{detailsLabel}</TooltipContent>
-              </Tooltip>
-            </div>
-          </TooltipProvider>
+                }
+              />
+              <TooltipContent>{detailsLabel}</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <CollapsibleContent id={`acp-details-${agentId}`}>

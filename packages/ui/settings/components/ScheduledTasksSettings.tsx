@@ -244,32 +244,34 @@ export default function ScheduledTasksSettings() {
                       className={`border-b last:border-b-0 transition-colors ${openTaskIds.includes(task.id) ? "bg-muted/30" : "hover:bg-muted/20"}`}
                     >
                       <div className="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
-                        <CollapsibleTrigger asChild>
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none"
-                          >
-                            <Icon
-                              icon="lucide:chevron-right"
-                              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openTaskIds.includes(task.id) ? "rotate-90" : ""}`}
+                        <CollapsibleTrigger
+                          render={
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none"
                             />
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
-                              {index + 1}
+                          }
+                        >
+                          <Icon
+                            icon="lucide:chevron-right"
+                            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${openTaskIds.includes(task.id) ? "rotate-90" : ""}`}
+                          />
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="truncate text-sm font-medium">{task.name || "New Task"}</div>
+                              <span
+                                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${task.action.kind === "prompt" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
+                              >
+                                {task.action.kind === "prompt" ? "Prompt" : "Notify"}
+                              </span>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <div className="truncate text-sm font-medium">{task.name || "New Task"}</div>
-                                <span
-                                  className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${task.action.kind === "prompt" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                                >
-                                  {task.action.kind === "prompt" ? "Prompt" : "Notify"}
-                                </span>
-                              </div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {getTriggerSummary(task.trigger)}
-                              </div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {getTriggerSummary(task.trigger)}
                             </div>
-                          </button>
+                          </div>
                         </CollapsibleTrigger>
                         <div className="flex shrink-0 items-center gap-1">
                           <Switch
@@ -633,7 +635,7 @@ export default function ScheduledTasksSettings() {
                                               ...settings!,
                                               tasks: settings.tasks.map((t, i) =>
                                                 i === index
-                                                  ? {
+                                                  ? ({
                                                       ...t,
                                                       action: {
                                                         ...t.action,
@@ -645,7 +647,7 @@ export default function ScheduledTasksSettings() {
                                                             }
                                                           : {}),
                                                       },
-                                                    }
+                                                    } as ScheduledTask)
                                                   : t,
                                               ),
                                             };
@@ -678,25 +680,24 @@ export default function ScheduledTasksSettings() {
                                             }))
                                           }
                                         >
-                                          <PopoverTrigger asChild>
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              className="h-8! w-full min-w-0 justify-between px-3 text-left font-normal"
-                                            >
-                                              <span className="flex min-w-0 items-center gap-2">
-                                                {(task.action as PromptAction).providerId && (
-                                                  <ModelIcon modelId={(task.action as PromptAction).providerId ?? ""} />
-                                                )}
-                                                <span className="truncate">
-                                                  {getModelLabel(task.action as PromptAction)}
-                                                </span>
-                                              </span>
-                                              <Icon
-                                                icon="lucide:chevron-down"
-                                                className="h-4 w-4 shrink-0 opacity-50"
+                                          <PopoverTrigger
+                                            render={
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="h-8! w-full min-w-0 justify-between px-3 text-left font-normal"
                                               />
-                                            </Button>
+                                            }
+                                          >
+                                            <span className="flex min-w-0 items-center gap-2">
+                                              {(task.action as PromptAction).providerId && (
+                                                <ModelIcon modelId={(task.action as PromptAction).providerId ?? ""} />
+                                              )}
+                                              <span className="truncate">
+                                                {getModelLabel(task.action as PromptAction)}
+                                              </span>
+                                            </span>
+                                            <Icon icon="lucide:chevron-down" className="h-4 w-4 shrink-0 opacity-50" />
                                           </PopoverTrigger>
                                           <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-0">
                                             <ModelSelect

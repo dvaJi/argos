@@ -364,17 +364,19 @@ export default function McpSettings() {
             }
             footerActionsAfter={
               <Dialog open={npmAdvancedDialogOpen} onOpenChange={setNpmAdvancedDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 max-w-[18rem] gap-1.5 px-3 text-xs"
-                    title={npmRegistryStatus.currentRegistry || "Default"}
-                  >
-                    <Icon icon="lucide:settings-2" className="h-3.5 w-3.5 shrink-0" />
-                    <span className="hidden text-muted-foreground sm:inline">NPM Registry</span>
-                    <span className="truncate font-mono">{npmRegistryStatus.currentRegistry || "Default"}</span>
-                  </Button>
+                <DialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 max-w-[18rem] gap-1.5 px-3 text-xs"
+                      title={npmRegistryStatus.currentRegistry || "Default"}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:settings-2" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden text-muted-foreground sm:inline">NPM Registry</span>
+                  <span className="truncate font-mono">{npmRegistryStatus.currentRegistry || "Default"}</span>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>

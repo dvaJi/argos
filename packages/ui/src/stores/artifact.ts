@@ -141,7 +141,7 @@ const updateArtifactContent = (updates: Partial<ArtifactState>) => {
   }
 };
 
-const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+export const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
   if (!artifactStore.state.currentArtifact || validateContext(messageId, threadId)) {
     artifactStore.setState((prev) => ({
       ...prev,
@@ -152,7 +152,7 @@ const syncArtifact = (artifact: ArtifactState, messageId: string, threadId: stri
   }
 };
 
-const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
+export const completeArtifact = (artifact: ArtifactState, messageId: string, threadId: string) => {
   const contextKey = makeContextKey(artifact.id, messageId, threadId);
   const panelWasHidden = !sidepanelStore.state.open;
   const currentMatches =

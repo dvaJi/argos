@@ -137,7 +137,7 @@ const McpToolPanel: FC<McpToolPanelProps> = ({ serverName, open, onOpenChange })
         <div className="flex flex-col flex-1 overflow-hidden">
           {showTopSelector && (
             <div className="shrink-0 px-4 py-4">
-              <Select value={selectedToolName} onValueChange={setSelectedToolName}>
+              <Select value={selectedToolName} onValueChange={(v) => setSelectedToolName(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a tool to debug" />
                 </SelectTrigger>
