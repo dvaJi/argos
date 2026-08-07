@@ -1,28 +1,28 @@
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "@tanstack/react-store";
 import { useNavigate } from "@tanstack/react-router";
+import { Icon } from "@iconify/react";
 import { themeStore } from "#/stores/theme";
 import { goToNewThread as goToNewThreadAction } from "#/stores/ui/pageRouter";
 import { createConfigClient } from "#api/ConfigClient";
 import { createOnboardingClient } from "#api/OnboardingClient";
 import { isBrowserMode } from "#api/runtimeKind";
 import { persistGuidedOnboardingResumeIntent, type GuidedOnboardingResumeTrigger } from "#/lib/onboardingResume";
+import { cn } from "#/lib/utils";
+import logo from "#/assets/logo.png";
 import logoDark from "#/assets/logo-dark.png";
 import {
   getNextGuidedOnboardingStepId,
-  getPreviousGuidedOnboardingStepId,
   isGuidedOnboardingChatStepId,
   resolveGuidedOnboardingStepTarget,
   type GuidedOnboardingSettingsRouteName,
 } from "@argos/shared/guidedOnboarding";
 import { resolveSettingsNavigationPath } from "@argos/shared/settingsNavigation";
 import ModelIcon from "#/components/icons/ModelIcon";
-import OnBoardingSpotlight from "#/components/onboarding/OnBoardingSpotlight";
-import { useOnBoarding } from "#/composables/useOnBoarding";
 import type {
   GuidedOnboardingState,
   GuidedOnboardingStepId,
-  GuidedOnboardingStepStatus,
+  GuidedOnboardingStepState,
 } from "@argos/shared-contracts/routes";
 
 const configClient = createConfigClient();
@@ -44,48 +44,47 @@ type SettingsWindowState = Window & {
 
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
 
+const entranceClass = "animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-300 ease-out";
+
+function stepStatusIcon(status: GuidedOnboardingStepState["status"], isCurrent: boolean) {
+  if (status === "completed") {
+    return { icon: "lucide:circle-check", className: "text-accent-500" };
+  }
+  if (status === "skipped") {
+    return { icon: "lucide:circle-minus", className: "text-muted-foreground/50" };
+  }
+  if (isCurrent || status === "in_progress") {
+    return { icon: "lucide:circle-dot", className: "text-accent-500" };
+  }
+  return { icon: "lucide:circle", className: "text-muted-foreground/40" };
+}
+
 export function WelcomePage() {
   const navigate = useNavigate();
   const theme = useStore(themeStore);
 
   const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const guideCardRef = useRef<HTMLDivElement>(null);
-  const providerGridRef = useRef<HTMLDivElement>(null);
-  const [guideCoachmarkDismissed, setGuideCoachmarkDismissed] = useState(false);
-  const coachmarkPanelRef = useRef<HTMLDivElement>(null);
 
-  const requiredGuideSteps = useMemo(
-    () => onboardingState?.steps?.filter((step) => step.required) ?? [],
-    [onboardingState],
-  );
-  const optionalGuideSteps = useMemo(
-    () => onboardingState?.steps?.filter((step) => !step.required) ?? [],
-    [onboardingState],
-  );
-  const completedRequiredSteps = useMemo(
-    () => requiredGuideSteps.filter((step) => step.status === "completed").length,
-    [requiredGuideSteps],
-  );
+  const guideSteps = useMemo(() => onboardingState?.steps ?? [], [onboardingState]);
 
   const guideStepTitle = (stepId: GuidedOnboardingStepId): string => {
     switch (stepId) {
       case "select-provider":
-        return "Select Provider";
+        return "Select a provider";
       case "provider-api-key":
-        return "API Key";
+        return "Add an API key";
       case "provider-model":
-        return "Select Model";
+        return "Pick a default model";
       case "switch-agent":
-        return "Switch Agent";
+        return "Choose your agent";
       case "mcp":
-        return "MCP";
+        return "Connect MCP servers";
       case "skills":
-        return "Skills";
+        return "Install skills";
       case "switch-model":
-        return "Switch Model";
+        return "Switch models mid-chat";
       case "first-chat":
-        return "First Chat";
+        return "Send your first message";
       default:
         return stepId;
     }
@@ -98,42 +97,14 @@ export function WelcomePage() {
     return onboardingState?.steps?.find((step) => step.status === "pending")?.id ?? "select-provider";
   }, [onboardingState]);
 
-  const currentGuideStepTitle = useMemo(() => guideStepTitle(currentGuideStepId), [currentGuideStepId]);
-
-  const primaryGuideActionLabel = useMemo(
-    () => (isGuidedOnboardingChatStepId(currentGuideStepId) ? "Go to Chat" : "Continue Setup"),
-    [currentGuideStepId],
+  const completedStepCount = useMemo(
+    () => guideSteps.filter((step) => step.status === "completed").length,
+    [guideSteps],
   );
 
-  const guideStepIds = useMemo(() => onboardingState?.steps?.map((step) => step.id) ?? [], [onboardingState]);
+  const primaryGuideActionLabel = isGuidedOnboardingChatStepId(currentGuideStepId) ? "Go to chat" : "Continue";
 
-  const coachmarkStepId = currentGuideStepId;
-  const coachmarkStepTitle = guideStepTitle(coachmarkStepId);
-  const showGuideImportAction = coachmarkStepId === "select-provider";
-  const showGuideCoachmark = onboardingState?.status === "active" && !guideCoachmarkDismissed;
-  const coachmarkTargetSurface = coachmarkStepId === "select-provider" ? "providers" : "guide-card";
-  const coachmarkStepIndex = useMemo(() => {
-    const idx = guideStepIds.findIndex((id) => id === coachmarkStepId);
-    return idx >= 0 ? idx + 1 : 1;
-  }, [guideStepIds, coachmarkStepId]);
-  const coachmarkTotalSteps = onboardingState?.steps?.length ?? 1;
-  const canGoToPreviousGuideStep = Boolean(getPreviousGuidedOnboardingStepId(currentGuideStepId));
-  const canGoToNextGuideStep = coachmarkStepIndex < coachmarkTotalSteps;
-
-  const resolveCoachmarkTargetElement = () =>
-    coachmarkTargetSurface === "providers" ? providerGridRef.current : guideCardRef.current;
-
-  const coachmarkTargetEl = showGuideCoachmark ? resolveCoachmarkTargetElement() : null;
-
-  const {
-    viewportWidth: coachmarkViewportWidth,
-    viewportHeight: coachmarkViewportHeight,
-    pathD: coachmarkPathD,
-    cutoutPathD: coachmarkCutoutPathD,
-  } = useOnBoarding(coachmarkTargetEl, {
-    visible: showGuideCoachmark,
-    radius: 28,
-  });
+  const showGuide = Boolean(onboardingState && onboardingState.status !== "completed");
 
   const persistGuideResumeIntent = (
     trigger: GuidedOnboardingResumeTrigger,
@@ -147,7 +118,6 @@ export function WelcomePage() {
     try {
       const state = await onboardingClient.getState();
       setOnboardingState(state.status === "idle" ? await onboardingClient.start() : state);
-      setGuideCoachmarkDismissed(false);
     } catch (error) {
       console.error("Failed to sync welcome onboarding state:", error);
     }
@@ -215,41 +185,8 @@ export function WelcomePage() {
     await openSettings(action.routeName, action.stepId);
   };
 
-  const goToPreviousGuideStep = async () => {
-    const previousStepId = getPreviousGuidedOnboardingStepId(currentGuideStepId);
-    if (!previousStepId) return;
-    await resumeGuideStep(previousStepId);
-  };
-
-  const goToNextGuideStep = async () => {
-    if (!canGoToNextGuideStep) return;
-    await handlePrimaryGuideAction();
-  };
-
-  const guideStepClass = (_stepId: GuidedOnboardingStepId, status: GuidedOnboardingStepStatus) => {
-    if (status === "completed") {
-      return "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-    }
-    if (status === "in_progress") {
-      return "border-primary/60 bg-primary/10 text-foreground";
-    }
-    return "border-border/70 bg-background/60 text-muted-foreground";
-  };
-
-  const guideStepIconClass = (_stepId: GuidedOnboardingStepId, status: GuidedOnboardingStepStatus) => {
-    if (status === "completed") return "text-emerald-600 dark:text-emerald-300";
-    if (status === "in_progress") return "text-primary";
-    return "text-muted-foreground/70";
-  };
-
   const handlePrimaryGuideAction = async () => {
-    const action = resolveGuideAction(currentGuideStepId);
-    if (action.kind === "chat") {
-      await goToChat(action.stepId);
-      return;
-    }
-    persistGuideResumeIntent("window-focus", action.stepId);
-    await openSettings(action.routeName, action.stepId);
+    await resumeGuideStep(currentGuideStepId);
   };
 
   const handleExperiencedGuideAction = async () => {
@@ -288,235 +225,165 @@ export function WelcomePage() {
   }, []);
 
   return (
-    <div
-      ref={rootRef}
-      className="relative h-full w-full flex flex-col overflow-y-auto"
-      style={{ WebkitAppRegion: "drag" } as CSSProperties}
-    >
-      {showGuideCoachmark && (
-        <div
-          data-testid="welcome-guide-coachmark"
-          data-guide-target={coachmarkTargetSurface}
-          className="pointer-events-none fixed inset-0 z-70"
+    <div className="window-drag-region relative flex h-full w-full flex-col overflow-y-auto">
+      {showGuide && (
+        <button
+          data-testid="welcome-guide-expert-action"
+          type="button"
+          className={`window-no-drag-region absolute right-5 top-5 z-10 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground ${entranceClass}`}
+          onClick={() => void handleExperiencedGuideAction()}
+          aria-label="Skip setup"
         >
-          <OnBoardingSpotlight
-            pathD={coachmarkPathD}
-            cutoutPathD={coachmarkCutoutPathD}
-            viewportWidth={coachmarkViewportWidth}
-            viewportHeight={coachmarkViewportHeight}
-            fillOpacity={0.56}
-          />
-
-          <div
-            ref={coachmarkPanelRef}
-            data-testid="welcome-guide-panel"
-            role="dialog"
-            aria-modal="true"
-            className="welcome-guide-coachmark pointer-events-auto absolute rounded-2xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur"
-            style={{ top: "24px", left: "24px", width: "min(320px, calc(100% - 32px))" }}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-primary/80">Getting Started</p>
-              <span className="rounded-full border border-border/70 bg-muted/80 px-2 py-0.5 text-[11px] text-muted-foreground">
-                {coachmarkStepIndex}/{coachmarkTotalSteps}
-              </span>
-            </div>
-
-            <div className="mt-3 flex min-w-0 items-center gap-2 overflow-hidden">
-              <h2 className="shrink-0 text-sm font-semibold text-foreground">{coachmarkStepTitle}</h2>
-              {showGuideImportAction && (
-                <>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">or</span>
-                  <button
-                    data-testid="welcome-guide-import-action"
-                    type="button"
-                    className="inline-flex min-w-0 max-w-[220px] items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary shadow-sm transition-all duration-150 hover:border-primary/60 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 active:scale-[0.99]"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void onImportProviders();
-                    }}
-                  >
-                    <span className="truncate">Import Providers</span>
-                  </button>
-                </>
-              )}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Complete the {coachmarkStepTitle} step to continue.
-            </p>
-
-            <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
-              <div className="flex max-w-full flex-wrap items-center gap-2">
-                <button
-                  data-testid="welcome-guide-prev-action"
-                  type="button"
-                  className={`whitespace-nowrap rounded-lg border border-border/80 px-3 py-1.5 text-xs transition-colors ${
-                    canGoToPreviousGuideStep
-                      ? "text-foreground hover:bg-accent/50"
-                      : "cursor-not-allowed text-muted-foreground/50"
-                  }`}
-                  disabled={!canGoToPreviousGuideStep}
-                  onClick={() => void goToPreviousGuideStep()}
-                >
-                  Back
-                </button>
-                <button
-                  data-testid="welcome-guide-next-action"
-                  type="button"
-                  className={`whitespace-nowrap rounded-lg border border-border/80 px-3 py-1.5 text-xs transition-colors ${
-                    canGoToNextGuideStep
-                      ? "text-foreground hover:bg-accent/50"
-                      : "cursor-not-allowed text-muted-foreground/50"
-                  }`}
-                  disabled={!canGoToNextGuideStep}
-                  onClick={() => void goToNextGuideStep()}
-                >
-                  Next
-                </button>
-              </div>
-
-              <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-                <button
-                  data-testid="welcome-guide-close-action"
-                  type="button"
-                  className="whitespace-nowrap rounded-lg border border-border/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                  onClick={() => setGuideCoachmarkDismissed(true)}
-                >
-                  Close
-                </button>
-                <button
-                  data-testid="welcome-guide-expert-action"
-                  type="button"
-                  className="whitespace-nowrap rounded-lg border border-border/80 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                  onClick={() => void handleExperiencedGuideAction()}
-                >
-                  Skip All
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+          Skip setup
+        </button>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-start py-8 px-4 sm:px-6 sm:justify-center">
-        <div className="mb-5">
-          <img src={logoDark} alt="Argos" className="w-16 h-16" loading="lazy" />
-        </div>
+      <div className="window-no-drag-region mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-8 px-6 py-10">
+        <header className={`flex flex-col items-center text-center ${entranceClass}`}>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-card/60">
+            <img src={theme.isDark ? logoDark : logo} alt="Argos" className="h-6 w-6" loading="lazy" />
+          </div>
+          <h1 className="mt-4 text-balance text-xl font-semibold tracking-tight text-foreground">Welcome to Argos</h1>
+          <p className="mt-1.5 max-w-xs text-balance text-[13px] leading-5 text-muted-foreground">
+            Connect a model provider and start your first chat.
+          </p>
+        </header>
 
-        <h1 className="text-3xl font-semibold text-foreground mb-2">Welcome</h1>
-        <p className="text-sm text-muted-foreground text-center max-w-md mb-10">
-          Set up your AI providers and start chatting.
-        </p>
-
-        {onboardingState && (
-          <div
-            ref={guideCardRef}
+        {showGuide && onboardingState && (
+          <section
             data-testid="welcome-guide-card"
-            className="w-full max-w-sm mb-6 rounded-2xl border border-border/70 bg-card/50 px-4 py-4 shadow-sm"
+            aria-label="Setup progress"
+            className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${entranceClass}`}
+            style={{ animationDelay: "60ms" }}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70">Getting Started</p>
-                <p className="mt-2 text-sm text-foreground/85">
-                  Complete the {currentGuideStepTitle} step to continue.
+                <p className="truncate text-[13px] font-medium text-foreground">Get started</p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                  {completedStepCount} of {guideSteps.length} steps complete
                 </p>
               </div>
               <button
                 data-testid="welcome-guide-primary-action"
-                className="shrink-0 whitespace-nowrap rounded-lg border border-border/80 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-accent/50"
+                type="button"
+                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98]"
                 onClick={() => void handlePrimaryGuideAction()}
               >
                 {primaryGuideActionLabel}
               </button>
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Progress</span>
-              <span>
-                {completedRequiredSteps}/{requiredGuideSteps.length}
-              </span>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {requiredGuideSteps.map((step) => (
-                <div key={step.id} className={`rounded-xl border px-3 py-2 ${guideStepClass(step.id, step.status)}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`h-3.5 w-3.5 shrink-0 ${guideStepIconClass(step.id, step.status)}`}>
-                      {step.status === "completed" ? "✓" : step.status === "in_progress" ? "●" : "○"}
-                    </span>
-                    <span className="truncate text-[11px] font-medium">{guideStepTitle(step.id)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {optionalGuideSteps.length > 0 && (
-              <div className="mt-4">
-                <p className="text-[11px] text-muted-foreground/70">Optional</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {optionalGuideSteps.map((step) => (
-                    <span
-                      key={step.id}
-                      className="rounded-full border border-border/70 px-2.5 py-1 text-[11px] text-muted-foreground"
-                    >
-                      {guideStepTitle(step.id)}
-                    </span>
-                  ))}
-                </div>
+            <div className="px-4 pt-3">
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={guideSteps.length}
+                aria-valuenow={completedStepCount}
+                className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
+              >
+                <div
+                  className="h-full rounded-full bg-accent-500 transition-[width] duration-300 ease-out"
+                  style={{ width: `${guideSteps.length > 0 ? (completedStepCount / guideSteps.length) * 100 : 0}%` }}
+                />
               </div>
-            )}
-          </div>
+            </div>
+
+            <ul className="mt-2 divide-y divide-border/50 py-1" aria-label="Setup steps">
+              {guideSteps.map((step: GuidedOnboardingStepState) => {
+                const isCurrent = step.id === currentGuideStepId && onboardingState.status === "active";
+                const statusIcon = stepStatusIcon(step.status, isCurrent);
+                return (
+                  <li key={step.id}>
+                    <button
+                      type="button"
+                      className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-accent/50"
+                      onClick={() => void resumeGuideStep(step.id)}
+                    >
+                      <Icon
+                        icon={statusIcon.icon}
+                        aria-hidden="true"
+                        className={cn("h-4 w-4 shrink-0", statusIcon.className)}
+                      />
+                      <span
+                        className={cn(
+                          "flex-1 truncate text-[13px]",
+                          step.status === "completed" || step.status === "skipped"
+                            ? "text-muted-foreground"
+                            : isCurrent
+                              ? "font-medium text-foreground"
+                              : "text-foreground/80",
+                        )}
+                      >
+                        {guideStepTitle(step.id)}
+                      </span>
+                      {isCurrent && <span className="shrink-0 text-xs font-medium text-accent-500">Up next</span>}
+                      <Icon
+                        icon="lucide:arrow-right"
+                        aria-hidden="true"
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100",
+                          isCurrent && "text-accent-500/80",
+                        )}
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         )}
 
-        <div
-          ref={providerGridRef}
-          data-testid="welcome-provider-grid"
-          className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-w-sm mb-4"
-        >
-          {providers.map((provider) => (
+        <div className={`w-full ${entranceClass}`} style={{ animationDelay: showGuide ? "120ms" : "60ms" }}>
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="text-xs font-medium text-muted-foreground">Add a provider</p>
             <button
-              key={provider.id}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-4 hover:bg-accent/50 hover:border-border transition-all duration-150"
-              style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-              onClick={() => void onAddProvider()}
+              data-testid="welcome-guide-import-action"
+              type="button"
+              className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground"
+              onClick={() => void onImportProviders()}
             >
-              <ModelIcon modelId={provider.id} customClass="w-6 h-6" isDark={theme.isDark} />
-              <span className="text-xs text-foreground/80">{provider.name}</span>
+              Import existing setup
             </button>
-          ))}
-        </div>
-
-        <div className="mb-12 flex flex-wrap items-center justify-center gap-3">
-          <button
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
-            onClick={() => void onAddProvider()}
-          >
-            Browse Providers
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center gap-3 w-full max-w-sm">
-          <div className="flex items-center gap-3 w-full">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground/60">Connect Agent</span>
-            <div className="flex-1 h-px bg-border" />
           </div>
 
+          <div data-testid="welcome-provider-grid" className="mt-2 grid w-full grid-cols-3 gap-2">
+            {providers.map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                className="flex flex-col items-center gap-2 rounded-lg border border-border/70 bg-card/40 px-3 py-3.5 transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.98]"
+                onClick={() => void onAddProvider()}
+              >
+                <ModelIcon modelId={provider.id} customClass="h-5 w-5" isDark={theme.isDark} />
+                <span className="text-xs text-foreground/80">{provider.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          className={`w-full border-t border-border/60 pt-4 ${entranceClass}`}
+          style={{ animationDelay: showGuide ? "180ms" : "120ms" }}
+        >
           <button
-            className="flex items-center gap-3 w-full rounded-xl border border-dashed border-border/60 px-4 py-3 hover:bg-accent/30 hover:border-border transition-all duration-150"
-            style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
+            type="button"
+            className="group flex w-full items-center gap-3 rounded-lg border border-border/70 px-3.5 py-3 text-left transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.99]"
             onClick={() => void onSetupAcp()}
           >
-            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/60 shrink-0">
-              <span className="w-4 h-4 text-muted-foreground">›</span>
-            </div>
-            <div className="text-left">
-              <p className="text-sm text-foreground/80">Connect ACP Agent</p>
-              <p className="text-xs text-muted-foreground/60">
-                Connect an external agent via the Agent Communication Protocol
-              </p>
-            </div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
+              <Icon icon="lucide:plug-zap" aria-hidden="true" className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-foreground">Connect an ACP agent</span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                Use an external agent through ACP
+              </span>
+            </span>
+            <Icon
+              icon="lucide:arrow-right"
+              aria-hidden="true"
+              className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 opacity-0 transition duration-150 group-hover:translate-x-0.5 group-hover:opacity-100"
+            />
           </button>
         </div>
       </div>

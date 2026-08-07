@@ -5,6 +5,7 @@ import { Button } from "#shadcn/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -12,7 +13,6 @@ import {
 } from "#shadcn/components/ui/dropdown-menu";
 import ChatInputBox from "#/components/chat/ChatInputBox";
 import { FolderPickerDialog } from "#/components/FolderPicker";
-import logoDark from "#/assets/logo-dark.png";
 import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
 import { useToast } from "#/components/use-toast";
@@ -734,80 +734,27 @@ function NewThreadPage() {
   };
 
   return (
-    <div ref={guideRootRef} data-testid="new-thread-page" className="relative h-full w-full flex flex-col">
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
-        <div className="mb-4">
-          <img src={logoDark} alt="Argos" className="w-14 h-14" loading="lazy" />
-        </div>
+    <div
+      ref={guideRootRef}
+      data-testid="new-thread-page"
+      className="relative h-full w-full flex flex-col overflow-hidden"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-[5%] z-0 text-center select-none animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
+      >
+        <span className="bg-gradient-to-b from-foreground/[0.07] via-foreground/[0.03] to-transparent bg-clip-text font-black lowercase leading-none tracking-[-0.05em] text-transparent text-[clamp(7rem,26vw,15rem)] [mask-image:linear-gradient(to_bottom,black_30%,transparent_85%)]">
+          argos
+        </span>
+      </div>
 
-        <h1 className="text-3xl font-semibold text-foreground mb-4">New Thread</h1>
-
-        <div
-          className="mb-2 inline-flex items-center gap-1.5 rounded-full border bg-muted/30 px-2.5 py-1 text-xs text-muted-foreground"
-          role="status"
-          aria-live="polite"
-          data-testid="new-thread-active-machine"
-        >
-          <Icon icon="lucide:monitor-dot" className="size-3.5" />
-          <span>Running on {activeMachine?.name ?? "This computer"}</span>
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                data-testid="new-thread-project-trigger"
-                className="h-7 px-2.5 gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-6"
-              />
-            }
-          >
-            <span>{selectedProjectName}</span>
-            {selectedProjectDirectoryInvalid && (
-              <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
-                ⚠
-              </span>
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="min-w-[200px]">
-            <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
-            <DropdownMenuItem
-              data-testid="new-thread-clear-project"
-              className="gap-2 text-xs py-1.5 px-2"
-              disabled={!canClearProjectSelection}
-              onClick={clearSelectedProject}
-            >
-              <span>No Project</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {projectState.projects.map((project) => (
-              <DropdownMenuItem
-                key={project.path}
-                className="gap-2 text-xs py-1.5 px-2"
-                onClick={() => selectProject(project.path)}
-              >
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="truncate">{project.name}</span>
-                  <span className="text-[10px] text-muted-foreground truncate">{project.path}</span>
-                </div>
-                {isSelectedInvalidProjectPath(project.path) && (
-                  <span data-testid="new-thread-project-menu-missing-warning" title={selectedProjectUnavailableTooltip}>
-                    ⚠
-                  </span>
-                )}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
-              <span>Open Folder</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="relative z-[1] flex-1 flex flex-col items-center justify-center px-6">
+        <h1 className="sr-only">New thread</h1>
 
         {isAcpWorkdirMissing && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
-            <span>This agent needs a project. Pick one above to start chatting.</span>
+            <span>This agent needs a project. Pick one below to start chatting.</span>
           </div>
         )}
 
@@ -841,6 +788,75 @@ function NewThreadPage() {
               />
             }
           />
+        </div>
+
+        <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <span
+            role="status"
+            aria-live="polite"
+            data-testid="new-thread-active-machine"
+            className="inline-flex items-center gap-1.5"
+          >
+            <Icon icon="lucide:monitor-dot" className="size-3.5" />
+            <span>Running on {activeMachine?.name ?? "This computer"}</span>
+          </span>
+          <span aria-hidden="true" className="h-3 w-px bg-border/60" />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="new-thread-project-trigger"
+                  className="h-7 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                />
+              }
+            >
+              <span>{selectedProjectName}</span>
+              {selectedProjectDirectoryInvalid && (
+                <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
+                  ⚠
+                </span>
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="min-w-[200px]">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
+                <DropdownMenuItem
+                  data-testid="new-thread-clear-project"
+                  className="gap-2 text-xs py-1.5 px-2"
+                  disabled={!canClearProjectSelection}
+                  onClick={clearSelectedProject}
+                >
+                  <span>No Project</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {projectState.projects.map((project) => (
+                  <DropdownMenuItem
+                    key={project.path}
+                    className="gap-2 text-xs py-1.5 px-2"
+                    onClick={() => selectProject(project.path)}
+                  >
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="truncate">{project.name}</span>
+                      <span className="text-[10px] text-muted-foreground truncate">{project.path}</span>
+                    </div>
+                    {isSelectedInvalidProjectPath(project.path) && (
+                      <span
+                        data-testid="new-thread-project-menu-missing-warning"
+                        title={selectedProjectUnavailableTooltip}
+                      >
+                        ⚠
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
+                  <span>Open Folder</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />

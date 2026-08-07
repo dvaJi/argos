@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -12,13 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "#shadcn/components/ui/dropdown-menu";
 import {
-  AddRemoteMachineDialog,
   EditMachineDialog,
   type MachineEdit,
   type WorkspaceDraft,
 } from "#/components/workspace/WorkspaceSelectorDialogs";
 import { getHasActiveSession } from "#/stores/ui/session";
 import { useWorkspaceStore, type WorkspaceEntry } from "#/stores/ui/workspace";
+import { useRemoteSetupStore } from "#/stores/ui/remoteSetup";
 
 function deriveConnectionStatus(
   entry: WorkspaceEntry,
@@ -83,7 +84,7 @@ function RemoteMachineActionItems({
         <DropdownMenuItem
           key={action.title}
           variant={action.destructive ? "destructive" : "default"}
-          onSelect={(event) => {
+          onClick={(event) => {
             event.stopPropagation();
             void Promise.resolve()
               .then(action.run)
@@ -144,7 +145,7 @@ async function copyMachineDiagnostics(workspace: WorkspaceEntry): Promise<void> 
 
 export default function WorkspaceSelector() {
   const store = useWorkspaceStore();
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const remoteSetup = useRemoteSetupStore();
   const [recoveryWorkspace, setRecoveryWorkspace] = useState<WorkspaceEntry | null>(null);
   const [machineOperationStatus, setMachineOperationStatus] = useState("");
   const [editMachine, setEditMachine] = useState<MachineEdit | null>(null);
@@ -155,30 +156,7 @@ export default function WorkspaceSelector() {
     .filter((workspace) => workspace.mode === "remote")
     .map((workspace) => workspace.remoteUrl);
 
-  const handleSwitch = async (id: string) => {
-    if (id === store.activeWorkspaceId) return;
-    const target = store.getWorkspace(id);
-    if (
-      target?.mode === "remote" &&
-      (target.trustState === "pairing-required" || target.trustState === "identity-changed")
-    ) {
-      setRecoveryWorkspace(target);
-      setAddDialogOpen(true);
-      return;
-    }
-    if (
-      target &&
-      getHasActiveSession() &&
-      !window.confirm(
-        `Switch active machine to ${target.name}? Your current chat stays on its current machine and will not be moved.`,
-      )
-    ) {
-      return;
-    }
-    await store.switchWorkspace(id);
-  };
-
-  const saveWorkspace = async (workspace: WorkspaceDraft) => {
+  const saveWorkspaceInternal = async (workspace: WorkspaceDraft) => {
     const existingByIdentity = workspace.environmentId
       ? workspaces.find(
           (candidate) => candidate.mode === "remote" && candidate.environmentId === workspace.environmentId,
@@ -218,14 +196,49 @@ export default function WorkspaceSelector() {
   };
 
   const handleSave = async (workspace: WorkspaceDraft) => {
-    await saveWorkspace(workspace);
-    setAddDialogOpen(false);
+    await saveWorkspaceInternal(workspace);
+    setRecoveryWorkspace(null);
   };
 
   const handleSaveAndSwitch = async (workspace: WorkspaceDraft) => {
-    const id = await saveWorkspace(workspace);
+    const id = await saveWorkspaceInternal(workspace);
     await store.switchWorkspace(id);
-    setAddDialogOpen(false);
+    setRecoveryWorkspace(null);
+  };
+
+  useEffect(() => {
+    remoteSetup.registerHandlers({
+      remoteUrls,
+      onSave: handleSave,
+      onSaveAndSwitch: handleSaveAndSwitch,
+    });
+    return () => {
+      remoteSetup.clearHandlers();
+    };
+    // handleSave/handleSaveAndSwitch close over `store` and `workspaces`; re-register when workspaces change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces, store]);
+
+  const handleSwitch = async (id: string) => {
+    if (id === store.activeWorkspaceId) return;
+    const target = store.getWorkspace(id);
+    if (
+      target?.mode === "remote" &&
+      (target.trustState === "pairing-required" || target.trustState === "identity-changed")
+    ) {
+      remoteSetup.openRemoteDialog(target);
+      return;
+    }
+    if (
+      target &&
+      getHasActiveSession() &&
+      !window.confirm(
+        `Switch active machine to ${target.name}? Your current chat stays on its current machine and will not be moved.`,
+      )
+    ) {
+      return;
+    }
+    await store.switchWorkspace(id);
   };
 
   const handleRemove = async (workspace: WorkspaceEntry) => {
@@ -283,8 +296,7 @@ export default function WorkspaceSelector() {
   };
 
   const handlePairAgain = (workspace: WorkspaceEntry) => {
-    setRecoveryWorkspace(workspace);
-    setAddDialogOpen(true);
+    remoteSetup.openRemoteDialog(workspace);
   };
 
   const handleEditAddress = async (workspace: WorkspaceEntry) => {
@@ -352,58 +364,63 @@ export default function WorkspaceSelector() {
           <Icon icon="lucide:chevrons-up-down" className="size-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel className="text-xs">Machines</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {workspaces.map((ws) => {
-            const isActive = ws.id === store.activeWorkspaceId;
-            const status = deriveConnectionStatus(ws, store.connections);
-            if (ws.mode === "remote") {
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs">Machines</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {workspaces.map((ws) => {
+              const isActive = ws.id === store.activeWorkspaceId;
+              const status = deriveConnectionStatus(ws, store.connections);
+              if (ws.mode === "remote") {
+                return (
+                  <DropdownMenuSub key={ws.id}>
+                    <DropdownMenuSubTrigger className={isActive ? "bg-accent" : ""}>
+                      <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
+                      <span className="flex-1 truncate text-sm">
+                        {ws.name} <span className="text-[10px] text-muted-foreground">({status})</span>
+                        {(ws.trustState === "pairing-required" || ws.trustState === "identity-changed") && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            ({ws.trustState === "identity-changed" ? "identity changed" : "pair again"})
+                          </span>
+                        )}
+                      </span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="min-w-48">
+                      <DropdownMenuItem onClick={() => void handleSwitch(ws.id)}>
+                        <Icon icon="lucide:monitor-up" className="size-3" />
+                        {isActive ? "Active machine" : "Switch to machine"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <RemoteMachineActionItems
+                        workspace={ws}
+                        onRetry={() => window.argos?.workspace?.switchTo(ws.id)}
+                        onRename={() => handleRename(ws)}
+                        onPairAgain={() => handlePairAgain(ws)}
+                        onEditAddress={() => handleEditAddress(ws)}
+                        onCopyDiagnostics={() => copyMachineDiagnostics(ws)}
+                        onRemove={() => handleRemove(ws)}
+                      />
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                );
+              }
               return (
-                <DropdownMenuSub key={ws.id}>
-                  <DropdownMenuSubTrigger className={isActive ? "bg-accent" : ""}>
-                    <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
-                    <span className="flex-1 truncate text-sm">
-                      {ws.name} <span className="text-[10px] text-muted-foreground">({status})</span>
-                      {(ws.trustState === "pairing-required" || ws.trustState === "identity-changed") && (
-                        <span className="ml-1 text-[10px] text-muted-foreground">
-                          ({ws.trustState === "identity-changed" ? "identity changed" : "pair again"})
-                        </span>
-                      )}
-                    </span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="min-w-48">
-                    <DropdownMenuItem onSelect={() => void handleSwitch(ws.id)}>
-                      <Icon icon="lucide:monitor-up" className="size-3" />
-                      {isActive ? "Active machine" : "Switch to machine"}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <RemoteMachineActionItems
-                      workspace={ws}
-                      onRetry={() => window.argos?.workspace?.switchTo(ws.id)}
-                      onRename={() => handleRename(ws)}
-                      onPairAgain={() => handlePairAgain(ws)}
-                      onEditAddress={() => handleEditAddress(ws)}
-                      onCopyDiagnostics={() => copyMachineDiagnostics(ws)}
-                      onRemove={() => handleRemove(ws)}
-                    />
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuItem
+                  key={ws.id}
+                  className={`flex cursor-pointer items-center gap-2 ${isActive ? "bg-accent" : ""}`}
+                  onClick={() => void handleSwitch(ws.id)}
+                >
+                  <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
+                  <span className="flex-1 truncate text-sm">{ws.name}</span>
+                  {isActive && <Icon icon="lucide:check" className="size-3.5 text-muted-foreground" />}
+                </DropdownMenuItem>
               );
-            }
-            return (
-              <DropdownMenuItem
-                key={ws.id}
-                className={`flex cursor-pointer items-center gap-2 ${isActive ? "bg-accent" : ""}`}
-                onSelect={() => void handleSwitch(ws.id)}
-              >
-                <span className={`size-2 shrink-0 rounded-full ${STATUS_COLORS[status]}`} />
-                <span className="flex-1 truncate text-sm">{ws.name}</span>
-                {isActive && <Icon icon="lucide:check" className="size-3.5 text-muted-foreground" />}
-              </DropdownMenuItem>
-            );
-          })}
+            })}
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-2" onSelect={() => setAddDialogOpen(true)}>
+          <DropdownMenuItem
+            className="flex cursor-pointer items-center gap-2"
+            onClick={() => remoteSetup.openRemoteDialog(null)}
+          >
             <Icon icon="lucide:plus" className="size-3.5" />
             <span className="text-sm">Connect a remote machine</span>
           </DropdownMenuItem>
@@ -413,27 +430,6 @@ export default function WorkspaceSelector() {
         {machineOperationStatus}
       </p>
 
-      <AddRemoteMachineDialog
-        open={addDialogOpen}
-        remoteUrls={remoteUrls}
-        recoveryWorkspace={recoveryWorkspace}
-        onOpenChange={(open) => {
-          setAddDialogOpen(open);
-          if (!open) setRecoveryWorkspace(null);
-        }}
-        onSave={async (workspace) => {
-          await handleSave(workspace);
-          setRecoveryWorkspace(null);
-        }}
-        onSaveAndSwitch={async (workspace) => {
-          await handleSaveAndSwitch(workspace);
-          setRecoveryWorkspace(null);
-        }}
-        onCancel={() => {
-          setRecoveryWorkspace(null);
-          setAddDialogOpen(false);
-        }}
-      />
       <EditMachineDialog
         edit={editMachine}
         onChange={(value) => setEditMachine((current) => (current ? { ...current, value } : current))}
