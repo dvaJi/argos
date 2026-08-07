@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { agentStore } from "#/stores/ui/agent";
@@ -16,8 +15,8 @@ export function AgentWelcomePage() {
   const agents = useStore(agentStore, (s) => s.agents);
   const isDark = useStore(themeStore, (s) => s.isDark);
 
-  const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
-  const displayedAgents = useMemo(() => enabledAgents.slice(0, 9), [enabledAgents]);
+  const enabledAgents = agents.filter((a) => a.enabled);
+  const displayedAgents = enabledAgents.slice(0, 9);
   const hiddenAgentCount = enabledAgents.length - displayedAgents.length;
 
   const selectAgent = (agentId: string) => {
