@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "#shadcn/components/ui/dropdown-menu";
 import ChatInputBox from "#/components/chat/ChatInputBox";
+import { BrandWordmark } from "#/components/brand/BrandWordmark";
 import { FolderPickerDialog } from "#/components/FolderPicker";
 import ChatInputToolbar from "#/components/chat/ChatInputToolbar";
 import ChatStatusBar from "#/components/chat/ChatStatusBar";
@@ -50,6 +51,7 @@ const configClient = createConfigClient();
 const fileClient = createFileClient();
 const modelClient = createModelClient();
 const sessionClient = createSessionClient();
+const PROJECT_MENU_LIMIT = 8;
 
 type SubmissionModelSelection = { providerId: string; modelId: string };
 
@@ -737,27 +739,19 @@ function NewThreadPage() {
     <div
       ref={guideRootRef}
       data-testid="new-thread-page"
-      className="relative h-full w-full flex flex-col overflow-hidden"
+      className="relative h-full w-full flex flex-col overflow-y-auto overflow-x-clip"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-[5%] z-0 text-center select-none animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
-      >
-        <span className="bg-gradient-to-b from-foreground/[0.07] via-foreground/[0.03] to-transparent bg-clip-text font-black lowercase leading-none tracking-[-0.05em] text-transparent text-[clamp(7rem,26vw,15rem)] [mask-image:linear-gradient(to_bottom,black_30%,transparent_85%)]">
-          argos
-        </span>
-      </div>
+      <BrandWordmark topOffset="top-[5%]" />
 
-      <div className="relative z-[1] flex-1 flex flex-col items-center justify-center px-6">
+      <div className="relative z-[1] mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-6 py-10">
+        {" "}
         <h1 className="sr-only">New thread</h1>
-
         {isAcpWorkdirMissing && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
             <Icon icon="lucide:folder-open" className="h-4 w-4 shrink-0" />
             <span>This agent needs a project. Pick one below to start chatting.</span>
           </div>
         )}
-
         <div ref={firstChatGuideHostRef} className="w-full max-w-4xl flex justify-center">
           <ChatInputBox
             ref={chatInputRef}
@@ -789,14 +783,8 @@ function NewThreadPage() {
             }
           />
         </div>
-
         <div className="mt-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
-          <span
-            role="status"
-            aria-live="polite"
-            data-testid="new-thread-active-machine"
-            className="inline-flex items-center gap-1.5"
-          >
+          <span role="status" data-testid="new-thread-active-machine" className="inline-flex items-center gap-1.5">
             <Icon icon="lucide:monitor-dot" className="size-3.5" />
             <span>Running on {activeMachine?.name ?? "This computer"}</span>
           </span>
@@ -814,24 +802,29 @@ function NewThreadPage() {
             >
               <span>{selectedProjectName}</span>
               {selectedProjectDirectoryInvalid && (
-                <span data-testid="new-thread-project-missing-warning" title={selectedProjectUnavailableTooltip}>
+                <span
+                  role="img"
+                  aria-label={selectedProjectUnavailableTooltip}
+                  title={selectedProjectUnavailableTooltip}
+                  data-testid="new-thread-project-missing-warning"
+                >
                   ⚠
                 </span>
               )}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="min-w-[200px]">
+              <DropdownMenuItem
+                data-testid="new-thread-clear-project"
+                className="gap-2 text-xs py-1.5 px-2"
+                disabled={!canClearProjectSelection}
+                onClick={clearSelectedProject}
+              >
+                <span>No Project</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuLabel className="text-xs">Recent Projects</DropdownMenuLabel>
-                <DropdownMenuItem
-                  data-testid="new-thread-clear-project"
-                  className="gap-2 text-xs py-1.5 px-2"
-                  disabled={!canClearProjectSelection}
-                  onClick={clearSelectedProject}
-                >
-                  <span>No Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {projectState.projects.map((project) => (
+                {projectState.projects.slice(0, PROJECT_MENU_LIMIT).map((project) => (
                   <DropdownMenuItem
                     key={project.path}
                     className="gap-2 text-xs py-1.5 px-2"
@@ -843,22 +836,24 @@ function NewThreadPage() {
                     </div>
                     {isSelectedInvalidProjectPath(project.path) && (
                       <span
-                        data-testid="new-thread-project-menu-missing-warning"
+                        role="img"
+                        aria-label={selectedProjectUnavailableTooltip}
                         title={selectedProjectUnavailableTooltip}
+                        data-testid="new-thread-project-menu-missing-warning"
                       >
                         ⚠
                       </span>
                     )}
                   </DropdownMenuItem>
                 ))}
-                <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
-                  <span>Open Folder</span>
-                </DropdownMenuItem>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 text-xs py-1.5 px-2" onClick={() => setFolderPickerOpen(true)}>
+                <span>Open Folder</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-
         <ChatStatusBar acpDraftSessionId={acpDraftSessionId ?? undefined} />
       </div>
 

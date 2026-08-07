@@ -146,7 +146,6 @@ async function copyMachineDiagnostics(workspace: WorkspaceEntry): Promise<void> 
 export default function WorkspaceSelector() {
   const store = useWorkspaceStore();
   const remoteSetup = useRemoteSetupStore();
-  const [recoveryWorkspace, setRecoveryWorkspace] = useState<WorkspaceEntry | null>(null);
   const [machineOperationStatus, setMachineOperationStatus] = useState("");
   const [editMachine, setEditMachine] = useState<MachineEdit | null>(null);
 
@@ -166,9 +165,6 @@ export default function WorkspaceSelector() {
       existingByIdentity ??
       workspaces.find((candidate) => candidate.mode === "remote" && candidate.remoteUrl === workspace.remoteUrl);
     if (existing) {
-      const identityChanged = Boolean(
-        existing.environmentId && workspace.environmentId && existing.environmentId !== workspace.environmentId,
-      );
       store.updateWorkspace(existing.id, {
         name: workspace.name || existing.name,
         remoteUrl: workspace.remoteUrl,
@@ -177,7 +173,7 @@ export default function WorkspaceSelector() {
         lastKnownServerVersion: workspace.daemonVersion,
         lastKnownProtocolVersion: workspace.protocolVersion,
         lastKnownCapabilities: workspace.capabilities,
-        trustState: identityChanged ? "identity-changed" : workspace.credentialRef ? "paired" : "pairing-required",
+        trustState: workspace.credentialRef ? "paired" : "pairing-required",
       });
       return existing.id;
     }
@@ -197,13 +193,11 @@ export default function WorkspaceSelector() {
 
   const handleSave = async (workspace: WorkspaceDraft) => {
     await saveWorkspaceInternal(workspace);
-    setRecoveryWorkspace(null);
   };
 
   const handleSaveAndSwitch = async (workspace: WorkspaceDraft) => {
     const id = await saveWorkspaceInternal(workspace);
     await store.switchWorkspace(id);
-    setRecoveryWorkspace(null);
   };
 
   useEffect(() => {
@@ -212,10 +206,8 @@ export default function WorkspaceSelector() {
       onSave: handleSave,
       onSaveAndSwitch: handleSaveAndSwitch,
     });
-    return () => {
-      remoteSetup.clearHandlers();
-    };
-    // handleSave/handleSaveAndSwitch close over `store` and `workspaces`; re-register when workspaces change.
+    // Keep the handlers registered for the app lifetime: the global AddRemoteMachineDialog
+    // (rendered in MainLayout) stays open across sidebar collapse, which unmounts this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaces, store]);
 

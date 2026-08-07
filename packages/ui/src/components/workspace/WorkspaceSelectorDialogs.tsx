@@ -48,7 +48,7 @@ export function AddRemoteMachineDialog() {
             Install Argos Server on another machine, pair it securely, and choose where work runs.
           </DialogDescription>
         </DialogHeader>
-        {handlers && (
+        {handlers ? (
           <RemoteWorkspaceSetup
             existingRemoteUrls={handlers.remoteUrls}
             initialRemoteUrl={remoteSetup.recoveryWorkspace?.remoteUrl}
@@ -56,6 +56,15 @@ export function AddRemoteMachineDialog() {
             onSaveAndSwitch={handlers.onSaveAndSwitch ? remoteSetup.saveWorkspaceAndSwitch : undefined}
             onCancel={remoteSetup.closeRemoteDialog}
           />
+        ) : (
+          <div className="flex flex-col items-start gap-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Remote workspace management is temporarily unavailable. Re-open the machine list and try again.
+            </p>
+            <Button variant="outline" onClick={remoteSetup.closeRemoteDialog}>
+              Close
+            </Button>
+          </div>
         )}
       </DialogContent>
     </Dialog>

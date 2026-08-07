@@ -15,20 +15,18 @@ interface RemoteSetupState {
   open: boolean;
   recoveryWorkspace: WorkspaceEntry | null;
   handlers: RemoteSetupHandlers | null;
+  pendingCredentialRef: string | null;
 }
 
 const remoteSetupStore = new Store<RemoteSetupState>({
   open: false,
   recoveryWorkspace: null,
   handlers: null,
+  pendingCredentialRef: null,
 });
 
 function registerHandlers(handlers: RemoteSetupHandlers): void {
   remoteSetupStore.setState((prev) => ({ ...prev, handlers }));
-}
-
-function clearHandlers(): void {
-  remoteSetupStore.setState((prev) => ({ ...prev, handlers: null }));
 }
 
 function openRemoteDialog(workspace?: WorkspaceEntry | null): void {
@@ -39,26 +37,47 @@ function openRemoteDialog(workspace?: WorkspaceEntry | null): void {
   }));
 }
 
-function closeRemoteDialog(): void {
+function setPendingCredentialRef(credentialRef: string | null): void {
+  remoteSetupStore.setState((prev) => ({ ...prev, pendingCredentialRef: credentialRef }));
+}
+
+async function closeRemoteDialog(): Promise<void> {
+  const { pendingCredentialRef } = remoteSetupStore.state;
+  if (pendingCredentialRef) {
+    try {
+      await window.argos?.workspace?.discardCredential?.(pendingCredentialRef);
+    } catch {
+      // The stored credential is revocable; failing to revoke here is non-fatal.
+    }
+  }
   remoteSetupStore.setState((prev) => ({
     ...prev,
     open: false,
     recoveryWorkspace: null,
+    pendingCredentialRef: null,
   }));
 }
 
 async function saveWorkspace(workspace: WorkspaceDraft): Promise<void> {
-  const { handlers } = remoteSetupStore.state;
-  if (!handlers) return;
+  const { handlers, pendingCredentialRef } = remoteSetupStore.state;
+  if (!handlers) {
+    if (pendingCredentialRef) await closeRemoteDialog();
+    return;
+  }
   await handlers.onSave(workspace);
-  closeRemoteDialog();
+  remoteSetupStore.setState((prev) => ({ ...prev, pendingCredentialRef: null }));
+  closeRemoteDialog().catch(() => undefined);
 }
 
 async function saveWorkspaceAndSwitch(workspace: WorkspaceDraft): Promise<void> {
-  const { handlers } = remoteSetupStore.state;
-  if (!handlers?.onSaveAndSwitch) return;
+  const { handlers, pendingCredentialRef } = remoteSetupStore.state;
+  if (!handlers?.onSaveAndSwitch) {
+    if (pendingCredentialRef) await closeRemoteDialog();
+    return;
+  }
   await handlers.onSaveAndSwitch(workspace);
-  closeRemoteDialog();
+  remoteSetupStore.setState((prev) => ({ ...prev, pendingCredentialRef: null }));
+  closeRemoteDialog().catch(() => undefined);
 }
 
 export function useRemoteSetupStore() {
@@ -66,8 +85,8 @@ export function useRemoteSetupStore() {
   return {
     ...state,
     registerHandlers,
-    clearHandlers,
     openRemoteDialog,
+    setPendingCredentialRef,
     closeRemoteDialog,
     saveWorkspace,
     saveWorkspaceAndSwitch,

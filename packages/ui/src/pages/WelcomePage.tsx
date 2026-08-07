@@ -9,6 +9,7 @@ import { createOnboardingClient } from "#api/OnboardingClient";
 import { isBrowserMode } from "#api/runtimeKind";
 import { persistGuidedOnboardingResumeIntent, type GuidedOnboardingResumeTrigger } from "#/lib/onboardingResume";
 import { cn } from "#/lib/utils";
+import { ENTRANCE_CLASS } from "#/lib/pageMotion";
 import logo from "#/assets/logo.png";
 import logoDark from "#/assets/logo-dark.png";
 import {
@@ -44,8 +45,6 @@ type SettingsWindowState = Window & {
 
 const SETTINGS_SECTION_EVENT = "argos:settings-section";
 
-const entranceClass = "animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-300 ease-out";
-
 function stepStatusIcon(status: GuidedOnboardingStepState["status"], isCurrent: boolean) {
   if (status === "completed") {
     return { icon: "lucide:circle-check", className: "text-accent-500" };
@@ -59,6 +58,21 @@ function stepStatusIcon(status: GuidedOnboardingStepState["status"], isCurrent: 
   return { icon: "lucide:circle", className: "text-muted-foreground/40" };
 }
 
+const GUIDED_STEP_TITLES: Record<GuidedOnboardingStepId, string> = {
+  "select-provider": "Select a provider",
+  "provider-api-key": "Add an API key",
+  "provider-model": "Pick a default model",
+  "switch-agent": "Choose your agent",
+  mcp: "Connect MCP servers",
+  skills: "Install skills",
+  "switch-model": "Switch models mid-chat",
+  "first-chat": "Send your first message",
+};
+
+function guideStepTitle(stepId: GuidedOnboardingStepId): string {
+  return GUIDED_STEP_TITLES[stepId] ?? stepId;
+}
+
 export function WelcomePage() {
   const navigate = useNavigate();
   const theme = useStore(themeStore);
@@ -66,29 +80,6 @@ export function WelcomePage() {
   const [onboardingState, setOnboardingState] = useState<GuidedOnboardingState | null>(null);
 
   const guideSteps = useMemo(() => onboardingState?.steps ?? [], [onboardingState]);
-
-  const guideStepTitle = (stepId: GuidedOnboardingStepId): string => {
-    switch (stepId) {
-      case "select-provider":
-        return "Select a provider";
-      case "provider-api-key":
-        return "Add an API key";
-      case "provider-model":
-        return "Pick a default model";
-      case "switch-agent":
-        return "Choose your agent";
-      case "mcp":
-        return "Connect MCP servers";
-      case "skills":
-        return "Install skills";
-      case "switch-model":
-        return "Switch models mid-chat";
-      case "first-chat":
-        return "Send your first message";
-      default:
-        return stepId;
-    }
-  };
 
   const currentGuideStepId = useMemo<GuidedOnboardingStepId>(() => {
     if (onboardingState?.currentStepId) {
@@ -98,7 +89,7 @@ export function WelcomePage() {
   }, [onboardingState]);
 
   const completedStepCount = useMemo(
-    () => guideSteps.filter((step) => step.status === "completed").length,
+    () => guideSteps.filter((step) => step.status === "completed" || step.status === "skipped").length,
     [guideSteps],
   );
 
@@ -230,7 +221,7 @@ export function WelcomePage() {
         <button
           data-testid="welcome-guide-expert-action"
           type="button"
-          className={`window-no-drag-region absolute right-5 top-5 z-10 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground ${entranceClass}`}
+          className={`window-no-drag-region absolute right-5 top-5 z-10 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 ${ENTRANCE_CLASS}`}
           onClick={() => void handleExperiencedGuideAction()}
           aria-label="Skip setup"
         >
@@ -239,7 +230,7 @@ export function WelcomePage() {
       )}
 
       <div className="window-no-drag-region mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-8 px-6 py-10">
-        <header className={`flex flex-col items-center text-center ${entranceClass}`}>
+        <header className={`flex flex-col items-center text-center ${ENTRANCE_CLASS}`}>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-card/60">
             <img src={theme.isDark ? logoDark : logo} alt="Argos" className="h-6 w-6" loading="lazy" />
           </div>
@@ -253,7 +244,7 @@ export function WelcomePage() {
           <section
             data-testid="welcome-guide-card"
             aria-label="Setup progress"
-            className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${entranceClass}`}
+            className={`w-full overflow-hidden rounded-xl border border-border/70 bg-card/60 ${ENTRANCE_CLASS}`}
             style={{ animationDelay: "60ms" }}
           >
             <div className="flex items-center justify-between gap-3 px-4 pt-3.5">
@@ -266,7 +257,7 @@ export function WelcomePage() {
               <button
                 data-testid="welcome-guide-primary-action"
                 type="button"
-                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98]"
+                className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition duration-150 hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
                 onClick={() => void handlePrimaryGuideAction()}
               >
                 {primaryGuideActionLabel}
@@ -276,8 +267,9 @@ export function WelcomePage() {
             <div className="px-4 pt-3">
               <div
                 role="progressbar"
+                aria-label="Setup progress"
                 aria-valuemin={0}
-                aria-valuemax={guideSteps.length}
+                aria-valuemax={Math.max(guideSteps.length, 1)}
                 aria-valuenow={completedStepCount}
                 className="h-0.5 w-full overflow-hidden rounded-full bg-muted"
               >
@@ -296,7 +288,7 @@ export function WelcomePage() {
                   <li key={step.id}>
                     <button
                       type="button"
-                      className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-accent/50"
+                      className="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
                       onClick={() => void resumeGuideStep(step.id)}
                     >
                       <Icon
@@ -333,13 +325,13 @@ export function WelcomePage() {
           </section>
         )}
 
-        <div className={`w-full ${entranceClass}`} style={{ animationDelay: showGuide ? "120ms" : "60ms" }}>
+        <div className={`w-full ${ENTRANCE_CLASS}`} style={{ animationDelay: showGuide ? "120ms" : "60ms" }}>
           <div className="flex items-center justify-between gap-3 px-1">
             <p className="text-xs font-medium text-muted-foreground">Add a provider</p>
             <button
               data-testid="welcome-guide-import-action"
               type="button"
-              className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground"
+              className="text-xs text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
               onClick={() => void onImportProviders()}
             >
               Import existing setup
@@ -351,7 +343,7 @@ export function WelcomePage() {
               <button
                 key={provider.id}
                 type="button"
-                className="flex flex-col items-center gap-2 rounded-lg border border-border/70 bg-card/40 px-3 py-3.5 transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.98]"
+                className="flex flex-col items-center gap-2 rounded-lg border border-border/70 bg-card/40 px-3 py-3.5 transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
                 onClick={() => void onAddProvider()}
               >
                 <ModelIcon modelId={provider.id} customClass="h-5 w-5" isDark={theme.isDark} />
@@ -362,12 +354,12 @@ export function WelcomePage() {
         </div>
 
         <div
-          className={`w-full border-t border-border/60 pt-4 ${entranceClass}`}
+          className={`w-full border-t border-border/60 pt-4 ${ENTRANCE_CLASS}`}
           style={{ animationDelay: showGuide ? "180ms" : "120ms" }}
         >
           <button
             type="button"
-            className="group flex w-full items-center gap-3 rounded-lg border border-border/70 px-3.5 py-3 text-left transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.99]"
+            className="group flex w-full items-center gap-3 rounded-lg border border-border/70 px-3.5 py-3 text-left transition duration-150 hover:border-border hover:bg-accent/50 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
             onClick={() => void onSetupAcp()}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">

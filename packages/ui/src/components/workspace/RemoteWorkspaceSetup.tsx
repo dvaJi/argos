@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { createDeviceClient } from "#api/DeviceClient";
+import { useRemoteSetupStore } from "#/stores/ui/remoteSetup";
 import { Alert, AlertDescription, AlertTitle } from "#shadcn/components/ui/alert";
 import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
@@ -145,6 +146,7 @@ export function RemoteWorkspaceSetup({
   onCancel,
 }: RemoteWorkspaceSetupProps) {
   const { toast } = useToast();
+  const remoteSetup = useRemoteSetupStore();
   const [form, dispatchForm] = useReducer(setupFormReducer, { name: "", pairingUrl: "" });
   const [connection, setConnection] = useState<ConnectionState>({ kind: "idle" });
   const [pendingWorkspace, setPendingWorkspace] = useState<WorkspaceDraft | null>(null);
@@ -194,6 +196,7 @@ export function RemoteWorkspaceSetup({
         return;
       }
       issuedCredentialRef = result.credentialRef;
+      remoteSetup.setPendingCredentialRef(result.credentialRef);
       setPendingWorkspace({
         name: deriveName(name, result.remoteUrl),
         remoteUrl: result.remoteUrl,
@@ -241,6 +244,7 @@ export function RemoteWorkspaceSetup({
     if (pendingWorkspace?.credentialRef) {
       await window.argos?.workspace?.discardCredential?.(pendingWorkspace.credentialRef);
     }
+    remoteSetup.setPendingCredentialRef(null);
   };
 
   const isReviewing =
@@ -301,6 +305,11 @@ export function RemoteWorkspaceSetup({
   );
 }
 
+const VIEW_TOGGLE_ITEMS: { value: View; label: string; icon: string }[] = [
+  { value: "form", label: "Form", icon: "lucide:square-pen" },
+  { value: "instructions", label: "Instructions", icon: "lucide:book-open" },
+];
+
 function ViewToggle({
   view,
   onChange,
@@ -311,17 +320,13 @@ function ViewToggle({
   connectionKind: ConnectionState["kind"];
 }) {
   if (connectionKind === "checking" || connectionKind === "success") return null;
-  const items: { value: View; label: string; icon: string }[] = [
-    { value: "form", label: "Form", icon: "lucide:square-pen" },
-    { value: "instructions", label: "Instructions", icon: "lucide:book-open" },
-  ];
   return (
     <div
       role="tablist"
       aria-label="Setup view"
       className="inline-flex w-full items-center gap-1 rounded-lg bg-muted p-1 text-muted-foreground sm:w-fit"
     >
-      {items.map((item) => {
+      {VIEW_TOGGLE_ITEMS.map((item) => {
         const active = view === item.value;
         return (
           <button

@@ -1,22 +1,24 @@
 import { useMemo } from "react";
-import { useSelector, useStore } from "@tanstack/react-store";
+import { useStore } from "@tanstack/react-store";
 import { Icon } from "@iconify/react";
 import { agentStore } from "#/stores/ui/agent";
 import { themeStore } from "#/stores/theme";
 import { createSettingsClient } from "#api/SettingsClient";
+import { BrandWordmark } from "#/components/brand/BrandWordmark";
+import { ENTRANCE_CLASS } from "#/lib/pageMotion";
 import AgentAvatar from "#/components/icons/AgentAvatar";
 import logo from "#/assets/logo.png";
 import logoDark from "#/assets/logo-dark.png";
 
 const settingsClient = createSettingsClient();
 
-const entranceClass = "animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-300 ease-out";
-
 export function AgentWelcomePage() {
-  const agentState = useSelector(agentStore, (s) => s);
-  const theme = useStore(themeStore);
+  const agents = useStore(agentStore, (s) => s.agents);
+  const isDark = useStore(themeStore, (s) => s.isDark);
 
-  const displayedAgents = useMemo(() => agentState.agents.filter((a) => a.enabled).slice(0, 9), [agentState.agents]);
+  const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
+  const displayedAgents = useMemo(() => enabledAgents.slice(0, 9), [enabledAgents]);
+  const hiddenAgentCount = enabledAgents.length - displayedAgents.length;
 
   const selectAgent = (agentId: string) => {
     agentStore.setState((s) => ({ ...s, selectedAgentId: agentId }));
@@ -32,19 +34,12 @@ export function AgentWelcomePage() {
 
   return (
     <div className="window-drag-region relative flex h-full w-full flex-col overflow-y-auto overflow-x-clip">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-[4%] z-0 text-center select-none animate-in fade-in zoom-in-95 duration-500 fill-mode-both"
-      >
-        <span className="bg-gradient-to-b from-foreground/[0.07] via-foreground/[0.03] to-transparent bg-clip-text font-black lowercase leading-none tracking-[-0.05em] text-transparent text-[clamp(7rem,26vw,15rem)] [mask-image:linear-gradient(to_bottom,black_30%,transparent_85%)]">
-          argos
-        </span>
-      </div>
+      <BrandWordmark topOffset="top-[4%]" />
 
       <div className="window-no-drag-region relative z-[1] mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-8 px-6 py-10">
-        <header className={`flex flex-col items-center text-center ${entranceClass}`}>
+        <header className={`flex flex-col items-center text-center ${ENTRANCE_CLASS}`}>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-card/60">
-            <img src={theme.isDark ? logoDark : logo} alt="Argos" className="h-6 w-6" loading="lazy" />
+            <img src={isDark ? logoDark : logo} alt="Argos" className="h-6 w-6" loading="lazy" />
           </div>
           <h1 className="mt-4 text-balance text-xl font-semibold tracking-tight text-foreground">Select an agent</h1>
           <p className="mt-1.5 max-w-xs text-balance text-[13px] leading-5 text-muted-foreground">
@@ -53,7 +48,7 @@ export function AgentWelcomePage() {
         </header>
 
         {displayedAgents.length > 0 ? (
-          <div className={`w-full ${entranceClass}`} style={{ animationDelay: "60ms" }}>
+          <div className={`w-full ${ENTRANCE_CLASS}`} style={{ animationDelay: "60ms" }}>
             <div className="flex items-center justify-between gap-3 px-1">
               <p className="text-xs font-medium text-muted-foreground">Agents</p>
               <button
@@ -86,10 +81,21 @@ export function AgentWelcomePage() {
                 </button>
               ))}
             </div>
+
+            {hiddenAgentCount > 0 && (
+              <button
+                type="button"
+                data-testid="agent-welcome-show-all-action"
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/70 px-3.5 py-2.5 text-xs text-muted-foreground transition duration-150 hover:border-border hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+                onClick={() => void openAgentSettings()}
+              >
+                Show all {enabledAgents.length} agents
+              </button>
+            )}
           </div>
         ) : (
           <div
-            className={`flex w-full flex-col items-center rounded-xl border border-dashed border-border/70 px-6 py-10 text-center ${entranceClass}`}
+            className={`flex w-full flex-col items-center rounded-xl border border-dashed border-border/70 px-6 py-10 text-center ${ENTRANCE_CLASS}`}
             style={{ animationDelay: "60ms" }}
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-muted/70 text-muted-foreground">
