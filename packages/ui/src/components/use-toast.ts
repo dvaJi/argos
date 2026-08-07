@@ -5,12 +5,18 @@ type StringOrVNode = ReactNode;
 
 type ToastVariant = "default" | "destructive";
 
+type ToastAction = {
+  label: string;
+  onClick: () => void;
+};
+
 type ToastOptions = {
   id?: string | number;
   title?: StringOrVNode;
   description?: StringOrVNode;
   variant?: ToastVariant;
   duration?: number;
+  action?: ToastAction;
   onOpenChange?: (open: boolean) => void;
 };
 
@@ -20,6 +26,7 @@ const buildSonnerOptions = (options: ToastOptions) => ({
   id: options.id,
   description: options.description,
   duration: options.duration ?? 5000,
+  action: options.action ? { label: options.action.label, onClick: options.action.onClick } : undefined,
   onDismiss: () => options.onOpenChange?.(false),
   onAutoClose: () => options.onOpenChange?.(false),
 });

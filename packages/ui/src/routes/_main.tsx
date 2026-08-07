@@ -29,6 +29,7 @@ import { sidebarStore, toggleSidebar } from "../stores/ui/sidebar";
 import { providerStore, ensureInitialized as ensureProvidersInitialized } from "../stores/providerStore";
 import { modelStore, initialize as initializeModels } from "../stores/modelStore";
 import { useAppIpcRuntime } from "../composables/useAppIpcRuntime";
+import { useAcpAgentUpdateNotifications } from "../composables/useAcpAgentUpdateNotifications";
 import {
   clearGuidedOnboardingResumeIntent,
   GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
@@ -49,6 +50,7 @@ const windowClient = createWindowClient();
 
 function MainLayout() {
   const routerInstance = useRouter();
+  useAcpAgentUpdateNotifications();
 
   const draftState = useStore(draftStore);
   const sessionState = useStore(sessionStore);
