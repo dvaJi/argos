@@ -1,0 +1,10 @@
+# Tasks — Welcome Page Redesign
+
+- [x] 1. Write SDD artifacts (spec.md, plan.md, tasks.md)
+- [x] 2. Rewrite `packages/ui/src/pages/WelcomePage.tsx` (remove tour, new layout, keep behavior + stable test ids)
+- [x] 3. Run `bun run format`, `bun run lint`, `bun run typecheck`; fix findings
+- [x] 4. Visual verification via `@argos/ui` production build (module graph + Tailwind compile)
+- [x] 5. Fix click-blocking on the welcome page: scope the window drag region to the page background and mark the interactive column + skip action with the `window-no-drag-region` CSS class (dual `-webkit-app-region`/`app-region` properties — same mechanism as AppBar/sidebar) instead of per-button inline `WebkitAppRegion` styles
+- [x] 6. Verify with a temporary Playwright probe (removed after run): `elementFromPoint` hit-tests confirmed the provider tile, import action, and window controls receive clicks, and a real click on a provider tile opened `/#/settings/provider/...`. Screenshot reviewed for dark-mode rendering quality.
+- [x] 7. Redesign `AgentWelcomePage.tsx` to the same language (theme-aware logo tile, centered column, 2-col hairline agent grid, empty state with a single primary action, entrance stagger). Behavior preserved: `agentStore.selectedAgentId` selection and `settings-argos-agents` handoff. Verified with a temporary Playwright probe (removed after run): surface renders with real agents, first tile hit-test clickable, screenshot reviewed.
+- [x] 8. Redesign the `NewThreadPage.tsx` empty state: giant "argos" wordmark backdrop (opencode-style) using a `foreground`-token gradient via `bg-clip-text` with a bottom mask fade, behind a centered composer; remove the now-redundant small logo + "New Thread" heading; fold the machine pill + project dropdown into a single quiet meta row beneath the composer; adjust the ACP helper copy. Kept all test ids (`new-thread-active-machine`, `new-thread-project-trigger`, guide refs) and behavior. Format / lint / typecheck / build all pass; dist rebuilt.

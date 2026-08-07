@@ -127,17 +127,17 @@ export default function WorkspaceFileNode({
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
           {!node.isDirectory && (
-            <ContextMenuItem onSelect={handleOpenFile}>
+            <ContextMenuItem onClick={handleOpenFile}>
               <Icon icon="lucide:external-link" className="h-4 w-4" />
               Open File
             </ContextMenuItem>
           )}
-          <ContextMenuItem onSelect={handleRevealInFolder}>
+          <ContextMenuItem onClick={handleRevealInFolder}>
             <Icon icon="lucide:folder-open-dot" className="h-4 w-4" />
             Reveal in Folder
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <ContextMenuItem onSelect={() => onInsertPath?.(node.path)}>
+          <ContextMenuItem onClick={() => onInsertPath?.(node.path)}>
             <Icon icon="lucide:arrow-down-left" className="h-4 w-4" />
             Insert Path
           </ContextMenuItem>

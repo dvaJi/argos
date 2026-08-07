@@ -312,7 +312,7 @@ export default function WindowSideBar() {
     <>
       <div
         data-testid="window-sidebar"
-        className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden window-drag-region transition-[width] duration-[var(--dc-motion-default)] ease-[var(--dc-ease-out-express)]${collapsed ? " w-12" : " w-[288px]"}`}
+        className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
       >
         <div className="window-no-drag-region flex flex-col items-center shrink-0 pt-2 pb-2 gap-1 w-12">
           <Tooltip>

@@ -548,24 +548,24 @@ const MessageItemAssistant = forwardRef<MessageItemAssistantRef, MessageItemAssi
       <ContextMenuContent className="w-56">
         {showSelectionMenu ? (
           <>
-            <ContextMenuItem onSelect={handleSelectionCopy}>Copy</ContextMenuItem>
-            <ContextMenuItem onSelect={handleSelectionTranslate}>Translate</ContextMenuItem>
-            {!isReadOnly && <ContextMenuItem onSelect={handleSelectionAskAI}>Ask AI</ContextMenuItem>}
+            <ContextMenuItem onClick={handleSelectionCopy}>Copy</ContextMenuItem>
+            <ContextMenuItem onClick={handleSelectionTranslate}>Translate</ContextMenuItem>
+            {!isReadOnly && <ContextMenuItem onClick={handleSelectionAskAI}>Ask AI</ContextMenuItem>}
           </>
         ) : (
           <>
-            <ContextMenuItem onSelect={() => handleAction("copy")}>Copy</ContextMenuItem>
-            {!isReadOnly && <ContextMenuItem onSelect={() => handleAction("retry")}>Retry</ContextMenuItem>}
+            <ContextMenuItem onClick={() => handleAction("copy")}>Copy</ContextMenuItem>
+            {!isReadOnly && <ContextMenuItem onClick={() => handleAction("retry")}>Retry</ContextMenuItem>}
             {!isReadOnly && (
               <ContextMenuItem
                 disabled={message.status === "pending" || resolvedIsInGeneratingThread}
-                onSelect={() => handleAction("fork")}
+                onClick={() => handleAction("fork")}
               >
                 Fork
               </ContextMenuItem>
             )}
             {!isReadOnly && <ContextMenuSeparator />}
-            {!isReadOnly && <ContextMenuItem onSelect={() => handleAction("delete")}>Delete</ContextMenuItem>}
+            {!isReadOnly && <ContextMenuItem onClick={() => handleAction("delete")}>Delete</ContextMenuItem>}
           </>
         )}
       </ContextMenuContent>

@@ -273,7 +273,7 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
     <>
       <div
         {...attrs}
-        className={`sticky top-0 z-10 flex h-12 items-center justify-between bg-background/60 px-4 backdrop-blur-lg window-drag-region transition-[padding] duration-200 ease-out ${showCollapsedNewChatSpacer ? "pl-12" : ""}`}
+        className={`sticky top-0 z-10 flex h-12 items-center justify-between bg-background/60 px-4 backdrop-blur-lg window-drag-region ${showCollapsedNewChatSpacer ? "pl-12" : ""}`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {showCollapsedNewChatButton && (
@@ -398,19 +398,19 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
               <Icon icon="lucide:share" className="w-4 h-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem onSelect={() => void handleExport("markdown")}>
+              <DropdownMenuItem onClick={() => void handleExport("markdown")}>
                 <Icon icon="lucide:file-text" className="mr-2 h-4 w-4" />
                 <span>Markdown Document (.md)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport("html")}>
+              <DropdownMenuItem onClick={() => void handleExport("html")}>
                 <Icon icon="lucide:globe" className="mr-2 h-4 w-4" />
                 <span>HTML Document (.html)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport("txt")}>
+              <DropdownMenuItem onClick={() => void handleExport("txt")}>
                 <Icon icon="lucide:file-type" className="mr-2 h-4 w-4" />
                 <span>Plain Text (.txt)</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void handleExport("nowledge-mem")}>
+              <DropdownMenuItem onClick={() => void handleExport("nowledge-mem")}>
                 <Icon icon="lucide:brain" className="mr-2 h-4 w-4" />
                 <span>Nowledge Memory (.json)</span>
               </DropdownMenuItem>
@@ -432,20 +432,20 @@ const ChatTopBar: FC<ChatTopBarProps> = ({
                 <Icon icon="lucide:ellipsis" className="w-4 h-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onSelect={() => void handleTogglePin()}>
+                <DropdownMenuItem onClick={() => void handleTogglePin()}>
                   <Icon icon={isPinned ? "lucide:pin-off" : "lucide:pin"} className="mr-2 h-4 w-4" />
                   <span>{isPinned ? "Unpin" : "Pin"}</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled={!canMoveConversation} onSelect={() => void openMoveDialog()}>
+                <DropdownMenuItem disabled={!canMoveConversation} onClick={() => void openMoveDialog()}>
                   <Icon icon="lucide:move-right" className="mr-2 h-4 w-4" />
                   <span>Move conversation</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={openClearDialog}>
+                <DropdownMenuItem onClick={openClearDialog}>
                   <Icon icon="lucide:eraser" className="mr-2 h-4 w-4" />
                   <span>Clear messages</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive" onSelect={openDeleteDialog}>
+                <DropdownMenuItem className="text-destructive" onClick={openDeleteDialog}>
                   <Icon icon="lucide:trash-2" className="mr-2 h-4 w-4" />
                   <span>Delete</span>
                 </DropdownMenuItem>

@@ -10,6 +10,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { Input } from "#shadcn/components/ui/input";
 import { Label } from "#shadcn/components/ui/label";
 import { RemoteWorkspaceSetup } from "./RemoteWorkspaceSetup";
+import { useRemoteSetupStore } from "#/stores/ui/remoteSetup";
 import type { WorkspaceEntry } from "#/stores/ui/workspace";
 
 export type WorkspaceDraft = {
@@ -28,25 +29,18 @@ export type MachineEdit = {
   value: string;
 };
 
-export function AddRemoteMachineDialog({
-  open,
-  remoteUrls,
-  recoveryWorkspace,
-  onOpenChange,
-  onSave,
-  onSaveAndSwitch,
-  onCancel,
-}: {
-  open: boolean;
-  remoteUrls: string[];
-  recoveryWorkspace: WorkspaceEntry | null;
-  onOpenChange: (open: boolean) => void;
-  onSave: (workspace: WorkspaceDraft) => Promise<void>;
-  onSaveAndSwitch: (workspace: WorkspaceDraft) => Promise<void>;
-  onCancel: () => void;
-}) {
+export function AddRemoteMachineDialog() {
+  const remoteSetup = useRemoteSetupStore();
+  const handlers = remoteSetup.handlers;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={remoteSetup.open}
+      onOpenChange={(open) => {
+        if (!open) remoteSetup.closeRemoteDialog();
+      }}
+      modal={false}
+    >
       <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Connect a remote machine</DialogTitle>
@@ -54,13 +48,24 @@ export function AddRemoteMachineDialog({
             Install Argos Server on another machine, pair it securely, and choose where work runs.
           </DialogDescription>
         </DialogHeader>
-        <RemoteWorkspaceSetup
-          existingRemoteUrls={remoteUrls}
-          initialRemoteUrl={recoveryWorkspace?.remoteUrl}
-          onAddWorkspace={onSave}
-          onSaveAndSwitch={onSaveAndSwitch}
-          onCancel={onCancel}
-        />
+        {handlers ? (
+          <RemoteWorkspaceSetup
+            existingRemoteUrls={handlers.remoteUrls}
+            initialRemoteUrl={remoteSetup.recoveryWorkspace?.remoteUrl}
+            onAddWorkspace={remoteSetup.saveWorkspace}
+            onSaveAndSwitch={handlers.onSaveAndSwitch ? remoteSetup.saveWorkspaceAndSwitch : undefined}
+            onCancel={remoteSetup.closeRemoteDialog}
+          />
+        ) : (
+          <div className="flex flex-col items-start gap-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Remote workspace management is temporarily unavailable. Re-open the machine list and try again.
+            </p>
+            <Button variant="outline" onClick={remoteSetup.closeRemoteDialog}>
+              Close
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

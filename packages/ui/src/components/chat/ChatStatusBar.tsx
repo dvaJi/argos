@@ -2147,7 +2147,7 @@ const ChatStatusBar = forwardRef<any, ChatStatusBarProps>(
                     <DropdownMenuItem
                       key={option.value}
                       className="gap-2 text-xs py-1.5 px-2"
-                      onSelect={() => void selectPermissionMode(option.value)}
+                      onClick={() => void selectPermissionMode(option.value)}
                     >
                       <Icon icon={option.icon} className={`h-3.5 w-3.5 shrink-0 ${option.iconClass}`} />
                       <span className="flex-1">{option.label}</span>
