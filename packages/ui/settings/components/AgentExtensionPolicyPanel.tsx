@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Button } from "#shadcn/components/ui/button";
-import { usePresenter } from "#api/presenterBridge";
+import { createMcpClient } from "#api/McpClient";
 
 type AgentExtensionPolicyValue = {
   enabledMcpServerIds?: string[];
@@ -26,14 +26,6 @@ const normalizeSelection = (value?: string[]): string[] => {
   return Array.from(new Set(value.map((item) => item.trim()).filter(Boolean)));
 };
 
-const updateSelection = (current: string[] | undefined, itemId: string, checked: boolean): string[] => {
-  const currentSelection = normalizeSelection(current);
-  if (checked) {
-    return Array.from(new Set([...currentSelection, itemId]));
-  }
-  return currentSelection.filter((id) => id !== itemId);
-};
-
 function PolicyScopeList({
   title,
   description,
@@ -51,8 +43,11 @@ function PolicyScopeList({
   onClear: () => void;
   disabled?: boolean;
 }) {
-  const selectedSet = useMemo(() => new Set(normalizeSelection(selectedIds)), [selectedIds]);
-  const selectedCount = selectedSet.size;
+  const selectedSet = useMemo(
+    () => new Set(selectedIds === undefined ? items.map((item) => item.id) : normalizeSelection(selectedIds)),
+    [selectedIds, items],
+  );
+  const selectedCount = selectedIds === undefined ? items.length : selectedSet.size;
   const scopeLabel =
     selectedIds === undefined ? "All allowed" : selectedCount === 0 ? "None allowed" : `${selectedCount} selected`;
 
@@ -103,7 +98,7 @@ export default function AgentExtensionPolicyPanel({
   onChange,
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
-  const configPresenter = usePresenter("configPresenter");
+  const mcpClient = useMemo(() => createMcpClient(), []);
   const [loading, setLoading] = useState(true);
   const [mcpServers, setMcpServers] = useState<
     Array<{ id: string; label: string; pluginId?: string; source?: string; sourceId?: string }>
@@ -111,7 +106,7 @@ export default function AgentExtensionPolicyPanel({
 
   useEffect(() => {
     let mounted = true;
-    void configPresenter
+    void mcpClient
       .getMcpServers()
       .then((servers) => {
         if (!mounted) {
@@ -137,7 +132,7 @@ export default function AgentExtensionPolicyPanel({
     return () => {
       mounted = false;
     };
-  }, [configPresenter]);
+  }, [mcpClient]);
 
   const normalizedValue = {
     enabledMcpServerIds: Array.isArray(value.enabledMcpServerIds)
@@ -152,12 +147,30 @@ export default function AgentExtensionPolicyPanel({
     });
   };
 
+  const handleToggle = (itemId: string, checked: boolean) => {
+    const allIds = mcpServers.map((item) => item.id);
+    const current = normalizedValue.enabledMcpServerIds;
+    if (checked) {
+      const explicit = normalizeSelection(current);
+      const next = Array.from(new Set([...explicit, itemId]));
+      if (allIds.every((id) => next.includes(id))) {
+        updateValue({ ...normalizedValue, enabledMcpServerIds: undefined });
+        return;
+      }
+      updateValue({ ...normalizedValue, enabledMcpServerIds: next });
+      return;
+    }
+    const base = current === undefined ? allIds : current;
+    updateValue({ ...normalizedValue, enabledMcpServerIds: base.filter((id) => id !== itemId) });
+  };
+
   return (
     <section className="space-y-4 rounded-2xl border border-border p-5">
       <div className="space-y-1">
         <div className="text-sm font-semibold">MCP scope</div>
         <p className="text-xs text-muted-foreground">
-          Leave this unset to allow every configured MCP server. An empty list blocks MCP tools entirely.
+          Checked servers are available to this agent. Uncheck when everything is allowed to create an explicit
+          blocklist.
         </p>
       </div>
 
@@ -173,12 +186,7 @@ export default function AgentExtensionPolicyPanel({
           description="Limit which MCP servers this agent can use."
           items={mcpServers}
           selectedIds={normalizedValue.enabledMcpServerIds}
-          onToggle={(itemId, checked) => {
-            updateValue({
-              ...normalizedValue,
-              enabledMcpServerIds: updateSelection(normalizedValue.enabledMcpServerIds, itemId, checked),
-            });
-          }}
+          onToggle={handleToggle}
           onClear={() => updateValue({ ...normalizedValue, enabledMcpServerIds: undefined })}
           disabled={disabled}
         />

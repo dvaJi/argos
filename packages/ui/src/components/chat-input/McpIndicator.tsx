@@ -29,7 +29,15 @@ type ToolGroup = { name: string; label: string; items: ToolGroupItem[] };
 
 type SystemPromptMenuOption = { id: string; label: string; disabled?: boolean };
 
-const GROUP_ORDER = ["agent-filesystem", "agent-core", "agent-skills", "argos-settings", "yobrowser"];
+const GROUP_ORDER = [
+  "agent-filesystem",
+  "agent-core",
+  "agent-skills",
+  "argos-settings",
+  "argos-orchestration",
+  "pi",
+  "yobrowser",
+];
 
 interface McpIndicatorProps {
   showSystemPromptSection?: boolean;
@@ -108,6 +116,8 @@ export default function McpIndicator({
       "agent-core": "Core",
       "agent-skills": "Skills",
       "argos-settings": "Settings",
+      "argos-orchestration": "Orchestration",
+      pi: "Pi",
       yobrowser: "Browser",
     };
     return labels[serverName] ?? serverName;

@@ -1,6 +1,19 @@
 import { useMemo } from "react";
 import { Icon } from "@iconify/react";
 import type { UISession } from "#/stores/ui/session";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "#shadcn/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "#shadcn/components/ui/context-menu";
 
 type PinFeedbackMode = "pinning" | "unpinning";
 type SessionItemRegion = "pinned" | "grouped";
@@ -89,90 +102,109 @@ export default function WindowSideBarSessionItem({
   const shortcutBadgeTitle = shortcutBadgeLabel ? `Switch with ${shortcutBadgeLabel}` : "";
 
   return (
-    <div
-      data-testid="sidebar-session-item"
-      className={`session-item no-drag flex w-full select-none items-center rounded-lg px-2.5 text-left transition-colors duration-150${
-        active ? " bg-accent text-accent-foreground" : " text-foreground/80 hover:bg-accent/50"
-      }${heroHidden ? " is-hero-hidden" : ""}`}
-      data-pin-fx={pinFeedbackMode ?? undefined}
-      data-pin-placeholder={heroPlaceholder ? "true" : undefined}
-      data-pin-state={pinState}
-      data-active={String(active)}
-      data-session-region={region}
-      data-session-id={session.id}
-      onClick={() => onSelect(session)}
-    >
-      <button
-        type="button"
-        className={`session-action-button pin-button flex h-7 w-7 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40${
-          session.isPinned ? " pin-button--active" : " pin-button--idle"
-        }`}
-        title={pinActionLabel}
-        aria-label={pinActionLabel}
-        aria-pressed={session.isPinned}
-        onClick={(e) => {
-          e.stopPropagation();
-          onTogglePin(session);
-        }}
-      >
-        <Icon icon="lucide:pin" className="pin-button__icon h-4 w-4" />
-      </button>
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <div
+            data-testid="sidebar-session-item"
+            className={`session-item group no-drag flex w-full select-none items-center rounded-lg px-2.5 text-left transition-colors duration-150${
+              active ? " bg-accent text-accent-foreground" : " text-foreground/80 hover:bg-accent/50"
+            }${heroHidden ? " is-hero-hidden" : ""}`}
+            data-pin-fx={pinFeedbackMode ?? undefined}
+            data-pin-placeholder={heroPlaceholder ? "true" : undefined}
+            data-pin-state={pinState}
+            data-active={String(active)}
+            data-session-region={region}
+            data-session-id={session.id}
+            onClick={() => onSelect(session)}
+          >
+            <div className="session-content flex min-w-0 flex-1 items-center gap-1.5">
+              <span
+                className={`session-title min-w-0 flex-1 max-h-7 truncate text-sm${
+                  isWorking ? " session-title--loading" : ""
+                }`}
+              >
+                <span className="session-title__label">
+                  {titleSegments.map((segment, index) =>
+                    segment.match ? (
+                      <mark key={`${session.id}-${index}`} className="session-title__highlight">
+                        {segment.text}
+                      </mark>
+                    ) : (
+                      <span key={`${session.id}-${index}`}>{segment.text}</span>
+                    ),
+                  )}
+                </span>
+                {isWorking && (
+                  <span aria-hidden="true" className="session-title__sheen">
+                    {session.title}
+                  </span>
+                )}
+              </span>
 
-      <div className="session-content flex min-w-0 flex-1 items-center gap-1.5">
-        <span className={`session-title min-w-0 flex-1 text-sm${isWorking ? " session-title--loading" : ""}`}>
-          <span className="session-title__label">
-            {titleSegments.map((segment, index) =>
-              segment.match ? (
-                <mark key={`${session.id}-${index}`} className="session-title__highlight">
-                  {segment.text}
-                </mark>
-              ) : (
-                <span key={`${session.id}-${index}`}>{segment.text}</span>
-              ),
-            )}
-          </span>
-          {isWorking && (
-            <span aria-hidden="true" className="session-title__sheen">
-              {session.title}
+              {statusIcon && (
+                <span className="session-status shrink-0">
+                  <Icon icon={statusIcon.icon} className={`h-3.5 w-3.5 ${statusIcon.className}`} />
+                </span>
+              )}
+            </div>
+
+            <span
+              className="right-button flex shrink-0 items-center gap-0.5"
+              data-shortcut-badge-visible={shortcutBadgeVisible ? "true" : undefined}
+            >
+              {shortcutBadgeVisible && shortcutBadgeLabel && (
+                <span
+                  data-testid="sidebar-session-shortcut-badge"
+                  className="shortcut-badge"
+                  title={shortcutBadgeTitle}
+                  aria-label={shortcutBadgeTitle}
+                >
+                  {shortcutBadgeLabel}
+                </span>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="session-more-button flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground opacity-0 transition-opacity duration-150 hover:bg-accent/70 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 group-hover:opacity-100 data-popup-open:opacity-100"
+                      title="More options"
+                      aria-label="More options"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                >
+                  <Icon icon="lucide:ellipsis-vertical" className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[9rem]">
+                  <DropdownMenuItem variant="default" onClick={() => onTogglePin(session)}>
+                    <Icon icon={session.isPinned ? "lucide:pin-off" : "lucide:pin"} className="size-4" />
+                    {pinActionLabel}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(session)}>
+                    <Icon icon="lucide:trash-2" className="size-4" />
+                    {deleteActionLabel}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </span>
-          )}
-        </span>
-
-        {statusIcon && (
-          <span className="session-status shrink-0">
-            <Icon icon={statusIcon.icon} className={`h-3.5 w-3.5 ${statusIcon.className}`} />
-          </span>
-        )}
-      </div>
-
-      <span
-        className="right-button flex items-center"
-        data-shortcut-badge-visible={shortcutBadgeVisible ? "true" : undefined}
+          </div>
+        }
       >
-        {shortcutBadgeVisible && shortcutBadgeLabel ? (
-          <span
-            data-testid="sidebar-session-shortcut-badge"
-            className="shortcut-badge"
-            title={shortcutBadgeTitle}
-            aria-label={shortcutBadgeTitle}
-          >
-            {shortcutBadgeLabel}
-          </span>
-        ) : (
-          <button
-            type="button"
-            className="session-action-button right-button__action flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive/30"
-            title={deleteActionLabel}
-            aria-label={deleteActionLabel}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(session);
-            }}
-          >
-            <Icon icon="lucide:trash-2" className="h-4 w-4" />
-          </button>
-        )}
-      </span>
-    </div>
+        <ContextMenuContent className="min-w-[9rem]">
+          <ContextMenuItem onClick={() => onSelect(session)}>Open</ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={() => onTogglePin(session)}>
+            <Icon icon={session.isPinned ? "lucide:pin-off" : "lucide:pin"} className="size-4" />
+            {pinActionLabel}
+          </ContextMenuItem>
+          <ContextMenuItem variant="destructive" onClick={() => onDelete(session)}>
+            <Icon icon="lucide:trash-2" className="size-4" />
+            {deleteActionLabel}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenuTrigger>
+    </ContextMenu>
   );
 }

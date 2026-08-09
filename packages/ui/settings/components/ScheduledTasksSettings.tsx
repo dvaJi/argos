@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shadcn/components/ui/collapsible";
@@ -62,6 +62,10 @@ export default function ScheduledTasksSettings() {
   const [recurringTimeValues, setRecurringTimeValues] = useState<string[]>([]);
 
   const tasks = useMemo(() => settings?.tasks ?? [], [settings]);
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
   const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
 
   const getModelLabel = useCallback(
@@ -103,6 +107,7 @@ export default function ScheduledTasksSettings() {
       setSettings(nextSettings);
       setAgents(nextAgents);
     } catch (error) {
+      console.error("[ScheduledTasks] Failed to load settings:", error);
       toast({
         title: "Operation failed",
         description: error instanceof Error ? error.message : String(error),
@@ -126,6 +131,7 @@ export default function ScheduledTasksSettings() {
         });
         setSettings(response.settings);
       } catch (error) {
+        console.error("[ScheduledTasks] Failed to persist task:", task.id, error);
         toast({
           title: "Operation failed",
           description: error instanceof Error ? error.message : String(error),
@@ -139,12 +145,12 @@ export default function ScheduledTasksSettings() {
   );
 
   const commitTask = useCallback(
-    async (index: number) => {
-      const task = tasks[index];
+    async (index: number, override?: ScheduledTask) => {
+      const task = override ?? settingsRef.current?.tasks[index];
       if (!task) return;
       await persistTask(task);
     },
-    [tasks, persistTask],
+    [persistTask],
   );
 
   useEffect(() => {
@@ -182,7 +188,12 @@ export default function ScheduledTasksSettings() {
                   setSettings(response.settings);
                   if (response.task) setOpenTaskIds((prev) => [...prev, response.task!.id]);
                 } catch (error) {
-                  toast({ title: "Operation failed", variant: "destructive" });
+                  console.error("[ScheduledTasks] Failed to add task:", error);
+                  toast({
+                    title: "Operation failed",
+                    description: error instanceof Error ? error.message : String(error),
+                    variant: "destructive",
+                  });
                 } finally {
                   setIsSaving(false);
                 }
@@ -282,7 +293,12 @@ export default function ScheduledTasksSettings() {
                                 const response = await client.toggle(task.id, value);
                                 setSettings(response.settings);
                               } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
+                                console.error("[ScheduledTasks] Failed to toggle task:", task.id, error);
+                                toast({
+                                  title: "Operation failed",
+                                  description: error instanceof Error ? error.message : String(error),
+                                  variant: "destructive",
+                                });
                               }
                             }}
                           />
@@ -299,7 +315,12 @@ export default function ScheduledTasksSettings() {
                                 setSettings(response.settings);
                                 toast({ title: "Task executed", description: response.task.name });
                               } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
+                                console.error("[ScheduledTasks] Failed to run task:", task.id, error);
+                                toast({
+                                  title: "Operation failed",
+                                  description: error instanceof Error ? error.message : String(error),
+                                  variant: "destructive",
+                                });
                               } finally {
                                 setFiringId(null);
                               }
@@ -321,7 +342,12 @@ export default function ScheduledTasksSettings() {
                                 const response = await client.remove(task.id);
                                 setSettings(response);
                               } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
+                                console.error("[ScheduledTasks] Failed to delete task:", task.id, error);
+                                toast({
+                                  title: "Operation failed",
+                                  description: error instanceof Error ? error.message : String(error),
+                                  variant: "destructive",
+                                });
                               }
                             }}
                           >
@@ -385,7 +411,7 @@ export default function ScheduledTasksSettings() {
                                         tasks: settings.tasks.map((t, i) => (i === index ? { ...t, trigger } : t)),
                                       };
                                       setSettings(next);
-                                      void commitTask(index);
+                                      void commitTask(index, next.tasks[index]);
                                     }}
                                   >
                                     <SelectTrigger className="h-8! w-full min-w-0">
@@ -446,7 +472,7 @@ export default function ScheduledTasksSettings() {
                                               ),
                                             };
                                             setSettings(next);
-                                            void commitTask(index);
+                                            void commitTask(index, next.tasks[index]);
                                           }}
                                         >
                                           <SelectTrigger className="h-8! w-full min-w-0">
@@ -535,7 +561,7 @@ export default function ScheduledTasksSettings() {
                                           tasks: settings.tasks.map((t, i) => (i === index ? { ...t, action } : t)),
                                         };
                                         setSettings(next);
-                                        void commitTask(index);
+                                        void commitTask(index, next.tasks[index]);
                                       }}
                                     >
                                       <SelectTrigger className="h-8! w-full min-w-0">
@@ -652,7 +678,7 @@ export default function ScheduledTasksSettings() {
                                               ),
                                             };
                                             setSettings(next);
-                                            void commitTask(index);
+                                            void commitTask(index, next.tasks[index]);
                                           }}
                                         >
                                           <SelectTrigger className="h-8! w-full min-w-0">
@@ -726,7 +752,7 @@ export default function ScheduledTasksSettings() {
                                                   ...prev,
                                                   [task.id]: false,
                                                 }));
-                                                void commitTask(index);
+                                                void commitTask(index, next.tasks[index]);
                                               }}
                                             />
                                           </PopoverContent>

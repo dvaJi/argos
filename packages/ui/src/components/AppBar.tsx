@@ -18,6 +18,7 @@ export default function AppBar() {
   const upgrade = useUpgradeStore();
 
   const [isMacOS, setIsMacOS] = useState(false);
+  const [isWindows, setIsWindows] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreened, setIsFullscreened] = useState(false);
   const [stopListener, setStopListener] = useState<(() => void) | null>(null);
@@ -50,6 +51,7 @@ export default function AppBar() {
     void upgrade.refreshStatus();
     deviceClient.getDeviceInfo().then((deviceInfo) => {
       setIsMacOS(deviceInfo.platform === "darwin");
+      setIsWindows(deviceInfo.platform === "win32");
     });
 
     void windowClient.getCurrentState().then((state) => {
@@ -70,8 +72,12 @@ export default function AppBar() {
 
   const roundedClass = !isFullscreened && isMacOS ? "" : " rounded-t-none";
 
+  // Windows uses the native window controls overlay (caption buttons drawn by the OS over
+  // the title bar). Only draw custom in-app buttons on Linux (frameless) and browser mode.
+  const showCustomWindowButtons = !isMacOS && !isWindows;
+
   return (
-    <div className={`flex flex-row h-9 min-h-9 relative overflow-hidden${roundedClass}`} dir={langStore.dir}>
+    <div className={`flex flex-row h-9 min-h-9 relative overflow-hidden bg-sidebar${roundedClass}`} dir={langStore.dir}>
       <div className="h-full shrink-0 w-0 flex-1 flex select-none text-center text-sm font-medium flex-row items-center justify-start window-drag-region">
         {!isFullscreened && isMacOS && <div className="shrink-0 w-20 h-full window-drag-region" />}
         {showUpdateButton && (
@@ -87,7 +93,7 @@ export default function AppBar() {
         )}
         <div className="flex-1" />
 
-        {(!isMacOS || isBrowser) && (
+        {(showCustomWindowButtons || isBrowser) && (
           <Button
             className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
             title="Minimize"
@@ -98,7 +104,7 @@ export default function AppBar() {
             </div>
           </Button>
         )}
-        {(!isMacOS || isBrowser) && (
+        {(showCustomWindowButtons || isBrowser) && (
           <Button
             className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-card/80 text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
             title={isMaximized ? "Restore" : "Maximize"}
@@ -116,7 +122,7 @@ export default function AppBar() {
             )}
           </Button>
         )}
-        {(!isMacOS || isBrowser) && (
+        {(showCustomWindowButtons || isBrowser) && (
           <Button
             className="window-no-drag-region shrink-0 w-12 bg-transparent shadow-none rounded-none hover:bg-red-700/80 hover:text-white text-xs font-medium text-foreground flex items-center justify-center transition-all duration-200 group"
             title="Close"

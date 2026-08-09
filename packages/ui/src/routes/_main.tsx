@@ -509,7 +509,7 @@ function MainLayout() {
   return (
     <>
       <AppBar />
-      <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir="ltr">
+      <div className="flex flex-row h-0 grow relative overflow-hidden bg-sidebar" dir="ltr">
         <WindowSideBar />
 
         <div

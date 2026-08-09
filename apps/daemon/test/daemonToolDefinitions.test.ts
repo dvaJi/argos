@@ -39,16 +39,78 @@ describe("daemon tool definitions", () => {
           agentWorkspacePath: "/tmp/project",
           conversationId: "session-1",
         }),
-      ).resolves.toEqual({
-        tools: [
-          expect.objectContaining({
-            name: "test-tool",
-            description: "Test tool",
-            enabledMcpTools: ["server-a"],
-          }),
-        ],
-      });
+      ).resolves.toEqual(
+        expect.objectContaining({
+          tools: expect.arrayContaining([
+            expect.objectContaining({
+              name: "test-tool",
+              description: "Test tool",
+              enabledMcpTools: ["server-a"],
+            }),
+          ]),
+        }),
+      );
       expect(mcpRuntime.listToolDefinitions).toHaveBeenCalledWith(["server-a"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("appends orchestration tools to the daemon tool definitions", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "argos-daemon-tools-orchestration-"));
+    try {
+      const configPresenter = new DaemonConfigPresenter(path.join(root, "config"), path.join(root, "data"));
+      const mcpRuntime = {
+        listToolDefinitions: vi.fn(async () => [
+          {
+            name: "mcp-tool",
+            description: "MCP tool",
+            server: { name: "server-a" },
+          },
+        ]),
+      };
+      const orchestrationRuntime = {
+        definitions: vi.fn(() => [
+          {
+            source: "agent",
+            function: { name: "argos_projects_list", description: "List projects." },
+            server: { name: "argos-orchestration", description: "First-party tools" },
+          },
+        ]),
+      };
+
+      const dispatcher = createDaemonDispatcher(
+        configPresenter as any,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        mcpRuntime as any,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        "test-env",
+        orchestrationRuntime as any,
+      );
+      const result = (await dispatcher(toolsListDefinitionsRoute.name, {})) as { tools: unknown[] };
+      expect(result.tools).toContainEqual(expect.objectContaining({ name: "mcp-tool" }));
+      const orchestrationTool = result.tools.find(
+        (tool) => (tool as { server?: { name?: string } }).server?.name === "argos-orchestration",
+      ) as { source?: string };
+      expect(orchestrationTool).toBeDefined();
+      expect(orchestrationTool.source).toBe("agent");
+      const piTool = result.tools.find((tool) => (tool as { server?: { name?: string } }).server?.name === "pi") as {
+        function?: { name?: string };
+        source?: string;
+      };
+      expect(piTool).toBeDefined();
+      expect(piTool.function?.name).toBe("read");
+      expect(piTool.source).toBe("agent");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

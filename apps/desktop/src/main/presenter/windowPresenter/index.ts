@@ -1,5 +1,13 @@
 // src\main\presenter\windowPresenter\index.ts
-import { BrowserWindow, shell, nativeImage, ipcMain, screen, webContents as electronWebContents } from "electron";
+import {
+  BrowserWindow,
+  shell,
+  nativeImage,
+  nativeTheme,
+  ipcMain,
+  screen,
+  webContents as electronWebContents,
+} from "electron";
 import icon from "../../../../resources/icon.png?asset"; // App icon (macOS/Linux)
 import iconWin from "../../../../resources/icon.ico?asset"; // App icon (Windows)
 import { is } from "@electron-toolkit/utils"; // Electron utilities
@@ -32,6 +40,26 @@ type PendingSettingsMessage = {
   channel: string;
   args: unknown[];
 };
+
+// Window Controls Overlay (WCO): on Windows the native caption buttons are drawn by
+// Chromium into the top-right of the web contents. The overlay height matches the AppBar
+// (h-9 = 36px); the overlay color is effectively transparent so the buttons float directly
+// on the sidebar-toned AppBar surface. Symbol colors mirror the sidebar-foreground token.
+const TITLEBAR_OVERLAY_HEIGHT = 36;
+const TITLEBAR_OVERLAY_COLOR = "#01000000"; // "#00000000" renders black on some platforms
+const TITLEBAR_OVERLAY_SYMBOL_LIGHT = "#43434c"; // sidebar foreground (light) oklch(0.38 0 0)
+const TITLEBAR_OVERLAY_SYMBOL_DARK = "#b9b9c0"; // sidebar foreground (dark) oklch(0.78 0 0)
+
+function getTitleBarOverlayOptions(): Electron.TitleBarOverlayOptions | undefined {
+  if (process.platform !== "win32") {
+    return undefined;
+  }
+  return {
+    color: TITLEBAR_OVERLAY_COLOR,
+    height: TITLEBAR_OVERLAY_HEIGHT,
+    symbolColor: nativeTheme.shouldUseDarkColors ? TITLEBAR_OVERLAY_SYMBOL_DARK : TITLEBAR_OVERLAY_SYMBOL_LIGHT,
+  };
+}
 
 /**
  * Window Presenter, responsible for managing all BrowserWindow instances and their lifecycles.
@@ -635,14 +663,19 @@ export class WindowPresenter implements IWindowPresenter {
       show: false, // Hide until ready-to-show to avoid a white flash
       autoHideMenuBar: true, // Hide the menu bar
       icon: iconFile, // Window icon
-      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : undefined, // macOS-style title bar
+      // macOS: hidden inset title bar with traffic lights. Windows: hidden title bar with
+      // native window controls overlay (WCO) — the OS caption buttons drawn over the AppBar.
+      // Linux: frameless with the custom in-app window buttons.
+      titleBarStyle:
+        process.platform === "darwin" ? "hiddenInset" : process.platform === "win32" ? "hidden" : undefined,
+      titleBarOverlay: getTitleBarOverlayOptions(), // Native Windows caption buttons (WCO)
       transparent: process.platform === "darwin", // Transparent title bar on macOS
       vibrancy: process.platform === "darwin" ? "under-window" : undefined, // macOS vibrancy effect
       visualEffectState: process.platform === "darwin" ? "followWindow" : undefined,
       backgroundMaterial: process.platform === "win32" ? "mica" : undefined, // Windows 11 material effect
       backgroundColor: "#00ffffff", // Transparent background color
       maximizable: true, // Allow maximizing
-      frame: process.platform === "darwin", // Frameless on macOS
+      frame: process.platform !== "linux", // Frameless only on Linux (WCO needs the OS frame on Windows)
       hasShadow: true, // macOS shadow
       trafficLightPosition: process.platform === "darwin" ? { x: 12, y: 10 } : undefined, // macOS traffic light position
       webPreferences: {
@@ -1004,6 +1037,30 @@ export class WindowPresenter implements IWindowPresenter {
    */
   getAllWindows(): BrowserWindow[] {
     return Array.from(this.windows.values()).filter((window) => !window.isDestroyed());
+  }
+
+  /**
+   * Re-apply the Window Controls Overlay after a light/dark theme change so the native
+   * caption button symbols keep matching the sidebar surface. (Windows only.)
+   */
+  syncWindowTitleBarAppearance(): void {
+    if (process.platform !== "win32") {
+      return;
+    }
+    const overlay = getTitleBarOverlayOptions();
+    if (!overlay) {
+      return;
+    }
+    for (const window of this.windows.values()) {
+      if (window.isDestroyed()) {
+        continue;
+      }
+      try {
+        window.setTitleBarOverlay(overlay);
+      } catch (error) {
+        console.error("Failed to re-apply window controls overlay:", error);
+      }
+    }
   }
 
   /**

@@ -147,6 +147,8 @@ const GROUP_ORDER = [
   "agent-image-generation",
   "agent-skills",
   "argos-settings",
+  "argos-orchestration",
+  "pi",
   "yobrowser",
 ] as const;
 
@@ -238,6 +240,7 @@ export default function ArgosAgentsSettings() {
   const [form, setForm] = useState<AgentConfigForm>({ ...EMPTY_FORM });
   const [openModelPicker, setOpenModelPicker] = useState<Record<string, boolean>>({});
   const [tools, setTools] = useState<MCPToolDefinition[]>([]);
+  const [expandedToolGroups, setExpandedToolGroups] = useState<Set<string>>(new Set());
   const [systemPromptDialogOpen, setSystemPromptDialogOpen] = useState(false);
   const [memoryDialogOpen, setMemoryDialogOpen] = useState(false);
   const [loadingSystemPrompts, setLoadingSystemPrompts] = useState(false);
@@ -557,7 +560,7 @@ export default function ArgosAgentsSettings() {
     () => [
       {
         value: CURRENT_SUBAGENT_TARGET,
-        label: "settings.argosAgents.subagentTargetSelf",
+        label: "Self",
       },
       ...availableSubagentTargetAgents.map((agent) => ({ value: agent.id, label: agent.name })),
     ],
@@ -576,6 +579,10 @@ export default function ArgosAgentsSettings() {
         return "Skills";
       case "argos-settings":
         return "Settings";
+      case "argos-orchestration":
+        return "Orchestration";
+      case "pi":
+        return "Pi";
       case "yobrowser":
         return "Browser";
       default:
@@ -1005,13 +1012,13 @@ export default function ArgosAgentsSettings() {
                 type="button"
                 className="w-full rounded-xl border border-accent-400/40 bg-accent-400/10 px-3 py-2 text-left"
               >
-                <span className="sr-only">settings.argosAgents.unnamed</span>
+                <span className="sr-only">Unnamed Agent</span>
                 <div className="text-sm font-semibold">{newAgentName.trim() || "Unnamed Agent"}</div>
               </button>
               <Input
                 value={newAgentName}
                 onChange={(e) => setNewAgentName(e.target.value)}
-                placeholder="settings.argosAgents.namePlaceholder"
+                placeholder="Enter agent name"
                 autoFocus
               />
               <div className="flex gap-2">
@@ -1075,7 +1082,7 @@ export default function ArgosAgentsSettings() {
                 <Input
                   value={form.name}
                   onChange={(e) => updateForm("name", e.target.value)}
-                  placeholder="settings.argosAgents.namePlaceholder"
+                  placeholder="Enter agent name"
                 />
               </label>
               <div className="space-y-2">
@@ -1207,12 +1214,12 @@ export default function ArgosAgentsSettings() {
                     <div className="text-[11px] font-medium text-muted-foreground">
                       {field.key === "visionModel" ? (
                         <>
-                          <span className="sr-only">settings.argosAgents.visionModel</span>
+                          <span className="sr-only">Vision model</span>
                           <span>Vision model</span>
                         </>
                       ) : field.key === "imageGenerationModel" ? (
                         <>
-                          <span className="sr-only">settings.argosAgents.imageGenerationModel</span>
+                          <span className="sr-only">Image generation model</span>
                           <span>Image generation model</span>
                         </>
                       ) : (
@@ -1377,7 +1384,7 @@ export default function ArgosAgentsSettings() {
                 value={form.systemPrompt}
                 onChange={(e) => updateForm("systemPrompt", e.target.value)}
                 className="min-h-35 font-mono text-xs"
-                placeholder="settings.argosAgents.systemPromptPlaceholder"
+                placeholder="Enter a system prompt to guide the agent's behavior. This will be prepended to every user message."
               />
             </section>
 
@@ -1589,46 +1596,105 @@ export default function ArgosAgentsSettings() {
               </div>
             </section>
 
-            <section className="space-y-4 rounded-2xl border border-border p-5">
-              <div className="text-sm font-semibold">Tools</div>
+            <section className="space-y-3 rounded-2xl border border-border p-5">
+              <div>
+                <div className="text-sm font-semibold">Tools</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  First-party tools this agent can use.{" "}
+                  {form.orchestrationEnabled
+                    ? "Toggle groups to enable or disable them in bulk."
+                    : "Argos orchestration is off, so this agent can't use these tools yet."}
+                </p>
+              </div>
               {groupedTools.length === 0 ? (
                 <div className="rounded-lg border border-dashed px-3 py-3 text-xs text-muted-foreground">
                   No agent tools available.
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {groupedTools.map((group) => (
-                    <div key={group.name} className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          {group.label}
-                        </div>
-                        <Switch
-                          checked={isGroupEnabled(group)}
-                          aria-label={group.label}
-                          onCheckedChange={(value) => setGroupEnabled(group, value)}
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {group.tools.map((tool) => (
-                          <Button
-                            key={tool.function.name}
+                <div className="space-y-3">
+                  {groupedTools.map((group) => {
+                    const gateOff = group.name === "argos-orchestration" && !form.orchestrationEnabled;
+                    const groupEnabled = !gateOff && isGroupEnabled(group);
+                    const isExpanded = expandedToolGroups.has(group.name);
+                    return (
+                      <div
+                        key={group.name}
+                        className={`overflow-hidden rounded-xl border ${gateOff ? "border-border/60" : "border-border"}`}
+                      >
+                        <div className="flex items-center justify-between gap-2 bg-muted/50 py-2.5 pl-2 pr-4">
+                          <button
                             type="button"
-                            variant="outline"
-                            size="sm"
-                            className={`h-10 rounded-xl px-4 text-sm shadow-none transition-colors ${
-                              isToolEnabled(tool.function.name)
-                                ? "border-accent-400/40 bg-accent-400/10 text-foreground hover:bg-accent-400/15"
-                                : "border-border bg-background text-foreground hover:bg-muted"
-                            }`}
-                            onClick={() => setToolEnabled(tool.function.name, !isToolEnabled(tool.function.name))}
+                            onClick={() =>
+                              setExpandedToolGroups((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(group.name)) next.delete(group.name);
+                                else next.add(group.name);
+                                return next;
+                              })
+                            }
+                            aria-expanded={isExpanded}
+                            className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-muted"
                           >
-                            {tool.function.name}
-                          </Button>
-                        ))}
+                            <Icon
+                              icon={isExpanded ? "lucide:chevron-down" : "lucide:chevron-right"}
+                              className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                            />
+                            <span className="text-xs font-medium">{group.label}</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {group.tools.length} tool{group.tools.length === 1 ? "" : "s"}
+                            </span>
+                            {gateOff && (
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Requires Argos orchestration
+                              </span>
+                            )}
+                          </button>
+                          <Switch
+                            checked={groupEnabled}
+                            disabled={gateOff}
+                            aria-label={`Toggle ${group.label} group`}
+                            onCheckedChange={(value) => setGroupEnabled(group, value)}
+                          />
+                        </div>
+                        {isExpanded && (
+                          <div className={`border-t ${gateOff ? "border-border/40" : "border-border/60"}`}>
+                            {group.tools.map((tool, toolIndex) => {
+                              const enabled = !gateOff && isToolEnabled(tool.function.name);
+                              return (
+                                <div
+                                  key={tool.function.name}
+                                  className={`flex items-start gap-3 px-4 py-2.5 ${
+                                    toolIndex > 0 ? "border-t border-border/60" : ""
+                                  } ${gateOff ? "opacity-60" : ""}`}
+                                >
+                                  <span
+                                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                                      enabled ? "bg-accent-400" : "bg-border"
+                                    }`}
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-mono text-[13px] leading-snug text-foreground">
+                                      {tool.function.name}
+                                    </div>
+                                    <div className="mt-1 text-xs leading-snug text-muted-foreground">
+                                      {tool.function.description || "No description provided."}
+                                    </div>
+                                  </div>
+                                  <Switch
+                                    checked={enabled}
+                                    disabled={gateOff}
+                                    aria-label={`Toggle ${tool.function.name}`}
+                                    onCheckedChange={(value) => setToolEnabled(tool.function.name, value)}
+                                    className="mt-0.5"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -1709,7 +1775,7 @@ export default function ArgosAgentsSettings() {
                 value={form.systemPrompt}
                 onChange={(e) => updateForm("systemPrompt", e.target.value)}
                 className="min-h-35 font-mono text-xs"
-                placeholder="settings.argosAgents.systemPromptPlaceholder"
+                placeholder="Enter a system prompt to guide the agent's behavior. You can also select a saved system prompt using the button above."
               />
             </div>
           </div>

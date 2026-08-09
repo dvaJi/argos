@@ -742,6 +742,7 @@ export async function startDaemon(options?: {
       providerImportService,
       db,
       environmentId,
+      orchestrationRuntime,
     );
   setRouteDispatcher(dispatcher);
 

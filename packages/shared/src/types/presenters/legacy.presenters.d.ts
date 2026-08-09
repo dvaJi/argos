@@ -297,6 +297,7 @@ export interface IWindowPresenter {
   sendToWebContents(webContentsId: number, channel: string, ...args: unknown[]): Promise<boolean>;
   sendToActiveTab(windowId: number, channel: string, ...args: unknown[]): Promise<boolean>;
   getAllWindows(): BrowserWindow[];
+  syncWindowTitleBarAppearance(): void;
   toggleFloatingChatWindow(floatingButtonPosition?: {
     x: number;
     y: number;
