@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "#shadcn/components/ui/collapsible";
@@ -54,7 +54,10 @@ export default function ScheduledTasksSettings() {
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // Counter of in-flight mutations. A single boolean races when two operations
+  // (e.g. toggling one task while saving another) overlap — the first to finish
+  // would flip the indicator off while the second is still pending.
+  const [pendingMutations, setPendingMutations] = useState(0);
   const [firingId, setFiringId] = useState<string | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState<Record<string, boolean>>({});
   const [openTaskIds, setOpenTaskIds] = useState<string[]>([]);
@@ -62,6 +65,15 @@ export default function ScheduledTasksSettings() {
   const [recurringTimeValues, setRecurringTimeValues] = useState<string[]>([]);
 
   const tasks = useMemo(() => settings?.tasks ?? [], [settings]);
+  const settingsRef = useRef(settings);
+  // Single ordered queue for EVERY settings-mutating operation (upsert, toggle,
+  // remove, fireNow). Each op chains onto the previous one so complete-settings
+  // responses are applied in submission order — an out-of-order response can no
+  // longer restore older fields across different tasks or operation types.
+  const mutationQueueRef = useRef<Promise<unknown> | null>(null);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
   const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
 
   const getModelLabel = useCallback(
@@ -96,27 +108,61 @@ export default function ScheduledTasksSettings() {
     );
   }, [tasks]);
 
-  const loadSettings = useCallback(async () => {
+  // Run a settings-mutating operation through the single ordered queue. Errors
+  // are surfaced via toast and logged with `label`; the pending counter is
+  // always balanced via promise chaining (no try/finally, so React Compiler can
+  // still optimize this component). Returns fn's result on success.
+  const runMutation = useCallback(
+    <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+      setPendingMutations((n) => n + 1);
+      const previous = mutationQueueRef.current ?? Promise.resolve();
+      // A failed previous op must not block this one — swallow its rejection.
+      const run = previous
+        .catch(() => {})
+        .then(fn)
+        .then(
+          (result) => {
+            setPendingMutations((n) => Math.max(0, n - 1));
+            return result;
+          },
+          (error: unknown) => {
+            console.error(`[ScheduledTasks] ${label} failed:`, error);
+            toast({
+              title: "Operation failed",
+              description: error instanceof Error ? error.message : String(error),
+              variant: "destructive",
+            });
+            setPendingMutations((n) => Math.max(0, n - 1));
+            throw error;
+          },
+        );
+      mutationQueueRef.current = run.catch(() => {});
+      return run;
+    },
+    [toast],
+  );
+
+  const loadSettings = useCallback(() => {
     setIsLoading(true);
-    try {
-      const [nextSettings, nextAgents] = await Promise.all([client.list(), configClient.listAgents()]);
-      setSettings(nextSettings);
-      setAgents(nextAgents);
-    } catch (error) {
-      toast({
-        title: "Operation failed",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    return Promise.all([client.list(), configClient.listAgents()])
+      .then(([nextSettings, nextAgents]) => {
+        setSettings(nextSettings);
+        setAgents(nextAgents);
+      })
+      .catch((error: unknown) => {
+        console.error("[ScheduledTasks] Failed to load settings:", error);
+        toast({
+          title: "Operation failed",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      })
+      .finally(() => setIsLoading(false));
   }, [client, configClient, toast]);
 
   const persistTask = useCallback(
-    async (task: ScheduledTask) => {
-      setIsSaving(true);
-      try {
+    (task: ScheduledTask) =>
+      runMutation(`persist task ${task.id}`, async () => {
         const response = await client.upsert({
           id: task.id,
           name: task.name,
@@ -125,32 +171,22 @@ export default function ScheduledTasksSettings() {
           action: structuredClone(task.action),
         });
         setSettings(response.settings);
-      } catch (error) {
-        toast({
-          title: "Operation failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [client, toast],
+      }),
+    [client, runMutation],
   );
 
   const commitTask = useCallback(
-    async (index: number) => {
-      const task = tasks[index];
-      if (!task) return;
-      await persistTask(task);
+    (index: number, override?: ScheduledTask) => {
+      const task = override ?? settingsRef.current?.tasks[index];
+      if (!task) return Promise.resolve();
+      return persistTask(task);
     },
-    [tasks, persistTask],
+    [persistTask],
   );
 
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
-
   useEffect(() => {
     refreshFormBuffers();
   }, [tasks, refreshFormBuffers]);
@@ -164,15 +200,14 @@ export default function ScheduledTasksSettings() {
       actions={
         settings && !isLoading ? (
           <>
-            {isSaving && (
+            {pendingMutations > 0 && (
               <span className="rounded-full border bg-muted px-2 py-0.5 text-xs text-muted-foreground">Saving</span>
             )}
             <Button
               data-testid="scheduled-tasks-add"
               size="sm"
-              onClick={async () => {
-                setIsSaving(true);
-                try {
+              onClick={() => {
+                void runMutation("create task", async () => {
                   const response = await client.upsert({
                     name: "New Task",
                     enabled: false,
@@ -181,11 +216,7 @@ export default function ScheduledTasksSettings() {
                   });
                   setSettings(response.settings);
                   if (response.task) setOpenTaskIds((prev) => [...prev, response.task!.id]);
-                } catch (error) {
-                  toast({ title: "Operation failed", variant: "destructive" });
-                } finally {
-                  setIsSaving(false);
-                }
+                });
               }}
             >
               <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
@@ -215,14 +246,16 @@ export default function ScheduledTasksSettings() {
                 variant="outline"
                 size="sm"
                 className="mt-2"
-                onClick={async () => {
-                  const response = await client.upsert({
-                    name: "New Task",
-                    enabled: false,
-                    trigger: { kind: "daily", hour: 9, minute: 0 },
-                    action: { kind: "notify", title: "Notification", body: "" },
+                onClick={() => {
+                  void runMutation("create task", async () => {
+                    const response = await client.upsert({
+                      name: "New Task",
+                      enabled: false,
+                      trigger: { kind: "daily", hour: 9, minute: 0 },
+                      action: { kind: "notify", title: "Notification", body: "" },
+                    });
+                    setSettings(response.settings);
                   });
-                  setSettings(response.settings);
                 }}
               >
                 <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
@@ -277,13 +310,11 @@ export default function ScheduledTasksSettings() {
                           <Switch
                             checked={task.enabled}
                             aria-label={task.enabled ? "Enabled" : "Disabled"}
-                            onCheckedChange={async (value) => {
-                              try {
+                            onCheckedChange={(value) => {
+                              void runMutation(`toggle task ${task.id}`, async () => {
                                 const response = await client.toggle(task.id, value);
                                 setSettings(response.settings);
-                              } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
-                              }
+                              });
                             }}
                           />
                           <Button
@@ -292,17 +323,13 @@ export default function ScheduledTasksSettings() {
                             className="h-8 w-8"
                             disabled={firingId === task.id}
                             title="Run now"
-                            onClick={async () => {
+                            onClick={() => {
                               setFiringId(task.id);
-                              try {
+                              void runMutation(`run task ${task.id}`, async () => {
                                 const response = await client.fireNow(task.id);
                                 setSettings(response.settings);
                                 toast({ title: "Task executed", description: response.task.name });
-                              } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
-                              } finally {
-                                setFiringId(null);
-                              }
+                              }).finally(() => setFiringId(null));
                             }}
                           >
                             <Icon
@@ -316,13 +343,11 @@ export default function ScheduledTasksSettings() {
                             className="h-8 w-8"
                             aria-label="Delete"
                             title="Delete"
-                            onClick={async () => {
-                              try {
+                            onClick={() => {
+                              void runMutation(`delete task ${task.id}`, async () => {
                                 const response = await client.remove(task.id);
                                 setSettings(response);
-                              } catch (error) {
-                                toast({ title: "Operation failed", variant: "destructive" });
-                              }
+                              });
                             }}
                           >
                             <Icon icon="lucide:trash-2" className="h-4 w-4 text-destructive" />
@@ -385,7 +410,7 @@ export default function ScheduledTasksSettings() {
                                         tasks: settings.tasks.map((t, i) => (i === index ? { ...t, trigger } : t)),
                                       };
                                       setSettings(next);
-                                      void commitTask(index);
+                                      void commitTask(index, next.tasks[index]);
                                     }}
                                   >
                                     <SelectTrigger className="h-8! w-full min-w-0">
@@ -446,7 +471,7 @@ export default function ScheduledTasksSettings() {
                                               ),
                                             };
                                             setSettings(next);
-                                            void commitTask(index);
+                                            void commitTask(index, next.tasks[index]);
                                           }}
                                         >
                                           <SelectTrigger className="h-8! w-full min-w-0">
@@ -535,7 +560,7 @@ export default function ScheduledTasksSettings() {
                                           tasks: settings.tasks.map((t, i) => (i === index ? { ...t, action } : t)),
                                         };
                                         setSettings(next);
-                                        void commitTask(index);
+                                        void commitTask(index, next.tasks[index]);
                                       }}
                                     >
                                       <SelectTrigger className="h-8! w-full min-w-0">
@@ -652,7 +677,7 @@ export default function ScheduledTasksSettings() {
                                               ),
                                             };
                                             setSettings(next);
-                                            void commitTask(index);
+                                            void commitTask(index, next.tasks[index]);
                                           }}
                                         >
                                           <SelectTrigger className="h-8! w-full min-w-0">
@@ -726,7 +751,7 @@ export default function ScheduledTasksSettings() {
                                                   ...prev,
                                                   [task.id]: false,
                                                 }));
-                                                void commitTask(index);
+                                                void commitTask(index, next.tasks[index]);
                                               }}
                                             />
                                           </PopoverContent>

@@ -29,6 +29,7 @@ import { sidebarStore, toggleSidebar } from "../stores/ui/sidebar";
 import { providerStore, ensureInitialized as ensureProvidersInitialized } from "../stores/providerStore";
 import { modelStore, initialize as initializeModels } from "../stores/modelStore";
 import { useAppIpcRuntime } from "../composables/useAppIpcRuntime";
+import { useAcpAgentUpdateNotifications } from "../composables/useAcpAgentUpdateNotifications";
 import {
   clearGuidedOnboardingResumeIntent,
   GUIDED_ONBOARDING_RESUME_REQUESTED_EVENT,
@@ -49,6 +50,7 @@ const windowClient = createWindowClient();
 
 function MainLayout() {
   const routerInstance = useRouter();
+  useAcpAgentUpdateNotifications();
 
   const draftState = useStore(draftStore);
   const sessionState = useStore(sessionStore);
@@ -507,7 +509,7 @@ function MainLayout() {
   return (
     <>
       <AppBar />
-      <div className="flex flex-row h-0 grow relative overflow-hidden px-px py-px" dir="ltr">
+      <div className="flex flex-row h-0 grow relative overflow-hidden bg-sidebar" dir="ltr">
         <WindowSideBar />
 
         <div

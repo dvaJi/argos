@@ -207,7 +207,7 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
     >
       {sessionId && (
         <aside
-          className={`chat-side-panel-surface absolute inset-y-0 flex h-full min-h-0 w-full origin-right flex-col bg-background ${
+          className={`chat-side-panel-surface absolute inset-y-0 flex h-full min-h-0 w-full origin-right flex-col bg-sidebar ${
             isWorkspaceFullscreenActive ? "inset-x-0 border shadow-xl" : "right-0 border-l shadow-lg"
           } ${panelVisible ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0 shadow-none"} ${
             fullscreenMotionState === "expanding"

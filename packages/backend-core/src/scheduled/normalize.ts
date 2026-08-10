@@ -167,20 +167,22 @@ export const computeNextFireAt = (task: ScheduledTask, after: number): number | 
       return trigger.firesAt > after ? trigger.firesAt : null;
     }
     case "daily": {
-      let candidate = buildWallClockToday(after, trigger.hour, trigger.minute, 0);
-      if (candidate <= after) {
-        candidate = buildWallClockToday(after, trigger.hour, trigger.minute, 1);
+      const effectiveAfter = task.lastFiredAt != null ? Math.max(after, task.lastFiredAt) : after;
+      let candidate = buildWallClockToday(effectiveAfter, trigger.hour, trigger.minute, 0);
+      if (candidate <= effectiveAfter) {
+        candidate = buildWallClockToday(effectiveAfter, trigger.hour, trigger.minute, 1);
       }
       return candidate;
     }
     case "weekly": {
-      const reference = new Date(after);
+      const effectiveAfter = task.lastFiredAt != null ? Math.max(after, task.lastFiredAt) : after;
+      const reference = new Date(effectiveAfter);
       const currentDay = reference.getDay();
       let dayOffset = (trigger.dayOfWeek - currentDay + 7) % 7;
-      let candidate = buildWallClockToday(after, trigger.hour, trigger.minute, dayOffset);
-      if (candidate <= after) {
+      let candidate = buildWallClockToday(effectiveAfter, trigger.hour, trigger.minute, dayOffset);
+      if (candidate <= effectiveAfter) {
         dayOffset += 7;
-        candidate = buildWallClockToday(after, trigger.hour, trigger.minute, dayOffset);
+        candidate = buildWallClockToday(effectiveAfter, trigger.hour, trigger.minute, dayOffset);
       }
       return candidate;
     }

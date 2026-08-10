@@ -57,6 +57,7 @@ export async function dispatchRoute(route: string, input: unknown): Promise<Rout
     const parsedOutput = contract.output.parse(output);
     return ensureJsonSerializableRouteResponse({ ok: true, output: parsedOutput });
   } catch (error) {
+    console.error(`[dispatch] Route "${String(route)}" failed:`, error);
     const message = error instanceof Error ? error.message : String(error);
     const code = message.includes("validation") ? "validation_error" : "dispatch_error";
     return { ok: false, error: { code, message } };

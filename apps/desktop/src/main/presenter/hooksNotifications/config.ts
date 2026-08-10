@@ -80,6 +80,9 @@ export const normalizeHooksNotificationsConfig = (input: unknown): HooksNotifica
   }
 
   const defaults = createDefaultHooksNotificationsConfig();
+  if (input === undefined || input === null) {
+    return defaults;
+  }
   const parsed = HooksNotificationsSchema.safeParse(input);
   if (!parsed.success) {
     log.warn("[HooksNotifications] Invalid config, using defaults:", parsed.error?.message);

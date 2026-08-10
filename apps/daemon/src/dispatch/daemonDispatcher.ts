@@ -26,6 +26,7 @@ import type {
 import type { IConfigPresenter } from "@argos/shared/presenter";
 import { resolveDaemonVersion } from "../version";
 import { diagnoseDaemonSchema, repairDaemonSchema } from "../host/daemonSchemaDiagnostics";
+import { getPiToolDefinitions } from "../host/piToolCatalog";
 import type {
   IEventPublisher,
   ProviderExecutionPort,
@@ -787,6 +788,9 @@ export function createDaemonDispatcher(
     };
   },
   environmentId = "unknown",
+  orchestrationRuntime?: {
+    definitions(): unknown[];
+  },
 ): RouteDispatcher {
   const settingsHandler = new SettingsRouteHandler(createSettingsRouteAdapter(configPresenter));
   const runtime: {
@@ -1730,8 +1734,13 @@ export function createDaemonDispatcher(
 
     if (route === toolsListDefinitionsRoute.name) {
       const input = toolsListDefinitionsRoute.input.parse(rawInput);
+      const orchestrationTools = orchestrationRuntime?.definitions() ?? [];
       return toolsListDefinitionsRoute.output.parse({
-        tools: await mcpRuntime.listToolDefinitions(input.enabledMcpTools),
+        tools: [
+          ...(await mcpRuntime.listToolDefinitions(input.enabledMcpTools)),
+          ...getPiToolDefinitions(),
+          ...orchestrationTools,
+        ],
       });
     }
 

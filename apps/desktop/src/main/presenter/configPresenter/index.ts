@@ -2838,6 +2838,12 @@ export class ConfigPresenter implements IConfigPresenter {
     }
     // Listen for system theme changes
     nativeTheme.on("updated", () => {
+      // Re-sync the Windows window controls overlay symbol colors when the theme flips
+      try {
+        presenter.windowPresenter.syncWindowTitleBarAppearance();
+      } catch (error) {
+        console.error("Failed to sync window controls overlay theme:", error);
+      }
       // Only notify the renderer of system theme changes when the theme is set to "system"
       if (nativeTheme.themeSource === "system") {
         eventBus.sendToMain(SYSTEM_EVENTS.SYSTEM_THEME_UPDATED, nativeTheme.shouldUseDarkColors);
@@ -2854,6 +2860,12 @@ export class ConfigPresenter implements IConfigPresenter {
   async setTheme(theme: "dark" | "light" | "system"): Promise<boolean> {
     nativeTheme.themeSource = theme;
     this.setSetting("appTheme", theme);
+    // Re-sync the Windows native window controls overlay after an explicit theme change
+    try {
+      presenter.windowPresenter.syncWindowTitleBarAppearance();
+    } catch (error) {
+      console.error("Failed to sync window title bar appearance:", error);
+    }
     // Notify all windows that the theme has changed
     eventBus.send(CONFIG_EVENTS.THEME_CHANGED, SendTarget.ALL_WINDOWS, theme);
 

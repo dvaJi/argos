@@ -22,10 +22,7 @@ class DaemonScheduledTasksNotificationPresenter {
 }
 
 class DaemonScheduledTasksWindowPresenter {
-  readonly mainWindow = {
-    id: -1,
-    isDestroyed: () => false,
-  };
+  readonly mainWindow = null;
 
   sendToWindow(): never {
     throw new Error("Scheduled task prompt drafts require a desktop window");

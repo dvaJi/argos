@@ -23,7 +23,6 @@ import {
 } from "#/stores/ui/session";
 import { useSpotlightStore } from "#/stores/ui/spotlight";
 import AgentAvatar from "./icons/AgentAvatar";
-import ConnectionIndicator from "./ConnectionIndicator";
 import WindowSideBarSessionItem from "./WindowSideBarSessionItem";
 import WorkspaceSelector from "./WorkspaceSelector";
 import { useSidebarStore } from "#/stores/ui/sidebar";
@@ -312,7 +311,7 @@ export default function WindowSideBar() {
     <>
       <div
         data-testid="window-sidebar"
-        className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
+        className={`window-sidebar-shell flex flex-row h-full shrink-0 overflow-hidden bg-sidebar window-drag-region${collapsed ? " w-12" : " w-[288px]"}`}
       >
         <div className="window-no-drag-region flex flex-col items-center shrink-0 pt-2 pb-2 gap-1 w-12">
           <Tooltip>
@@ -331,7 +330,7 @@ export default function WindowSideBar() {
                 />
               }
             >
-              <Icon icon="lucide:layers" className="w-4 h-4 text-foreground/80" />
+              <Icon icon="uil:layers" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">All Agents</TooltipContent>
           </Tooltip>
@@ -380,7 +379,7 @@ export default function WindowSideBar() {
                 />
               }
             >
-              <Icon icon="lucide:search" className="w-4 h-4 text-foreground/80" />
+              <Icon icon="uil:search" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">Search</TooltipContent>
           </Tooltip>
@@ -431,12 +430,10 @@ export default function WindowSideBar() {
                 />
               }
             >
-              <Icon icon="lucide:ellipsis" className="w-4 h-4 text-foreground/80" />
+              <Icon icon="uil:setting" className="w-4 h-4 text-foreground/80" />
             </TooltipTrigger>
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
-
-          <ConnectionIndicator />
         </div>
 
         <div
@@ -469,7 +466,7 @@ export default function WindowSideBar() {
                     />
                   }
                 >
-                  <Icon icon="lucide:folder-kanban" className="w-4 h-4" />
+                  <Icon icon="hugeicons:folder-kanban" className="w-4 h-4" />
                 </TooltipTrigger>
                 <TooltipContent>
                   {sessionStore.groupMode === "project" ? "Group by Date" : "Group by Project"}
@@ -485,7 +482,7 @@ export default function WindowSideBar() {
                     />
                   }
                 >
-                  <Icon icon="lucide:plus" className="w-4 h-4" />
+                  <Icon icon="uil:plus" className="w-4 h-4" />
                 </TooltipTrigger>
                 <TooltipContent>New Chat</TooltipContent>
               </Tooltip>
@@ -559,7 +556,7 @@ export default function WindowSideBar() {
                 >
                   <span className="shrink-0 size-6 flex items-center justify-center">
                     <Icon
-                      icon={isPinnedSectionCollapsed ? "lucide:folder-closed" : "lucide:folder-open"}
+                      icon={isPinnedSectionCollapsed ? "hugeicons:folder-01" : "hugeicons:folder-open"}
                       className="size-4"
                     />
                   </span>
@@ -601,7 +598,7 @@ export default function WindowSideBar() {
                 >
                   <span className="shrink-0 size-6 flex items-center justify-center">
                     <Icon
-                      icon={isGroupCollapsed(group) ? "lucide:folder-closed" : "lucide:folder-open"}
+                      icon={isGroupCollapsed(group) ? "hugeicons:folder-01" : "hugeicons:folder-open"}
                       className="size-4"
                     />
                   </span>

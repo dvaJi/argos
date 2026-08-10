@@ -18,6 +18,7 @@ describe("EventBus event bus", () => {
       sendToDefaultTab: vi.fn<(...args: any[]) => any>(),
       sendToWebContents: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
       sendToActiveTab: vi.fn<(...args: any[]) => any>().mockResolvedValue(true),
+      syncWindowTitleBarAppearance: vi.fn<(...args: any[]) => any>(),
     } as Partial<IWindowPresenter> as IWindowPresenter;
 
     // Mock TabPresenter
