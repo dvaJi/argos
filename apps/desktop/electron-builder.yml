@@ -106,6 +106,7 @@ linux:
   target:
     - AppImage
     - tar.gz
+  executableName: argos
   maintainer: dvaJi
   category: Utility
   artifactName: ${name}-${version}-linux-${arch}.${ext}
