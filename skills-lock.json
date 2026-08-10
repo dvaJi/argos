@@ -5,7 +5,7 @@
       "source": "devmartinese/awwwards-animations-skill",
       "sourceType": "github",
       "skillPath": "SKILL.md",
-      "computedHash": "756ae9d3de844d8a88aa85257a35bb16e6f9cf7a43ffa9eeb8b9b6788bdd1f4b"
+      "computedHash": "10574282bd24f42072059efa58cfce6ff3a80347505eb191af55544426fe4c3a"
     },
     "baseline-ui": {
       "source": "ibelick/ui-skills",
@@ -19,17 +19,11 @@
       "skillPath": "skills/taste-skill/SKILL.md",
       "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
     },
-    "migrate-radix-to-base": {
-      "source": "shadcn/ui",
-      "sourceType": "github",
-      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
-      "computedHash": "4fdc31bf287f674ba6bf91a648120f7b34cd7ef370f998f2cc116fed067789c5"
-    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "4f78ff7cd3a4f637b6fe30dbbab4a80a19dd63fa62d9352bed461ccfdbcbbf43"
+      "computedHash": "f99ef49d9909d380ca683ceb8dc8c25775c20ee38140112c394e037d8c11ee18"
     },
     "tanstack-form": {
       "source": "tanstack-skills/tanstack-skills",
