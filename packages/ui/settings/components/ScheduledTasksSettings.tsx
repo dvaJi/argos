@@ -54,7 +54,10 @@ export default function ScheduledTasksSettings() {
   const [settings, setSettings] = useState<ScheduledTasksSettings | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  // Counter of in-flight mutations. A single boolean races when two operations
+  // (e.g. toggling one task while saving another) overlap — the first to finish
+  // would flip the indicator off while the second is still pending.
+  const [pendingMutations, setPendingMutations] = useState(0);
   const [firingId, setFiringId] = useState<string | null>(null);
   const [modelPickerOpen, setModelPickerOpen] = useState<Record<string, boolean>>({});
   const [openTaskIds, setOpenTaskIds] = useState<string[]>([]);
@@ -63,9 +66,11 @@ export default function ScheduledTasksSettings() {
 
   const tasks = useMemo(() => settings?.tasks ?? [], [settings]);
   const settingsRef = useRef(settings);
-  // Per-task promise chain that serializes upsert requests so concurrent edits to
-  // the same task can't interleave or apply out of order. See `persistTask`.
-  const persistChainRef = useRef<Map<string, Promise<unknown>>>(new Map());
+  // Single ordered queue for EVERY settings-mutating operation (upsert, toggle,
+  // remove, fireNow). Each op chains onto the previous one so complete-settings
+  // responses are applied in submission order — an out-of-order response can no
+  // longer restore older fields across different tasks or operation types.
+  const mutationQueueRef = useRef<Promise<unknown> | null>(null);
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
@@ -103,72 +108,78 @@ export default function ScheduledTasksSettings() {
     );
   }, [tasks]);
 
-  const loadSettings = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [nextSettings, nextAgents] = await Promise.all([client.list(), configClient.listAgents()]);
-      setSettings(nextSettings);
-      setAgents(nextAgents);
-    } catch (error) {
-      console.error("[ScheduledTasks] Failed to load settings:", error);
-      toast({
-        title: "Operation failed",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [client, configClient, toast]);
-
-  const persistTask = useCallback(
-    async (task: ScheduledTask) => {
-      // Serialize upserts per task id. Two edits landing on the same task (e.g. a
-      // field blur racing a select change) would otherwise send two snapshots and
-      // an out-of-order response could restore older fields. Each task chains onto
-      // the previous in-flight request so responses apply in submission order.
-      const previous = persistChainRef.current.get(task.id) ?? Promise.resolve();
+  // Run a settings-mutating operation through the single ordered queue. Errors
+  // are surfaced via toast and logged with `label`; the pending counter is
+  // always balanced via promise chaining (no try/finally, so React Compiler can
+  // still optimize this component). Returns fn's result on success.
+  const runMutation = useCallback(
+    <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+      setPendingMutations((n) => n + 1);
+      const previous = mutationQueueRef.current ?? Promise.resolve();
+      // A failed previous op must not block this one — swallow its rejection.
       const run = previous
         .catch(() => {})
-        .then(async () => {
-          setIsSaving(true);
-          try {
-            const response = await client.upsert({
-              id: task.id,
-              name: task.name,
-              enabled: task.enabled,
-              trigger: structuredClone(task.trigger),
-              action: structuredClone(task.action),
-            });
-            setSettings(response.settings);
-          } catch (error) {
-            console.error("[ScheduledTasks] Failed to persist task:", task.id, error);
+        .then(fn)
+        .then(
+          (result) => {
+            setPendingMutations((n) => Math.max(0, n - 1));
+            return result;
+          },
+          (error: unknown) => {
+            console.error(`[ScheduledTasks] ${label} failed:`, error);
             toast({
               title: "Operation failed",
               description: error instanceof Error ? error.message : String(error),
               variant: "destructive",
             });
-          } finally {
-            setIsSaving(false);
-          }
-        });
-      persistChainRef.current.set(task.id, run);
-      // Clear the chain entry once settled so the map doesn't grow unbounded.
-      void run.finally(() => {
-        if (persistChainRef.current.get(task.id) === run) {
-          persistChainRef.current.delete(task.id);
-        }
-      });
+            setPendingMutations((n) => Math.max(0, n - 1));
+            throw error;
+          },
+        );
+      mutationQueueRef.current = run.catch(() => {});
       return run;
     },
-    [client, toast],
+    [toast],
+  );
+
+  const loadSettings = useCallback(() => {
+    setIsLoading(true);
+    return Promise.all([client.list(), configClient.listAgents()])
+      .then(([nextSettings, nextAgents]) => {
+        setSettings(nextSettings);
+        setAgents(nextAgents);
+      })
+      .catch((error: unknown) => {
+        console.error("[ScheduledTasks] Failed to load settings:", error);
+        toast({
+          title: "Operation failed",
+          description: error instanceof Error ? error.message : String(error),
+          variant: "destructive",
+        });
+      })
+      .finally(() => setIsLoading(false));
+  }, [client, configClient, toast]);
+
+  const persistTask = useCallback(
+    (task: ScheduledTask) =>
+      runMutation(`persist task ${task.id}`, async () => {
+        const response = await client.upsert({
+          id: task.id,
+          name: task.name,
+          enabled: task.enabled,
+          trigger: structuredClone(task.trigger),
+          action: structuredClone(task.action),
+        });
+        setSettings(response.settings);
+      }),
+    [client, runMutation],
   );
 
   const commitTask = useCallback(
-    async (index: number, override?: ScheduledTask) => {
+    (index: number, override?: ScheduledTask) => {
       const task = override ?? settingsRef.current?.tasks[index];
-      if (!task) return;
-      await persistTask(task);
+      if (!task) return Promise.resolve();
+      return persistTask(task);
     },
     [persistTask],
   );
@@ -176,7 +187,6 @@ export default function ScheduledTasksSettings() {
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
-
   useEffect(() => {
     refreshFormBuffers();
   }, [tasks, refreshFormBuffers]);
@@ -190,15 +200,14 @@ export default function ScheduledTasksSettings() {
       actions={
         settings && !isLoading ? (
           <>
-            {isSaving && (
+            {pendingMutations > 0 && (
               <span className="rounded-full border bg-muted px-2 py-0.5 text-xs text-muted-foreground">Saving</span>
             )}
             <Button
               data-testid="scheduled-tasks-add"
               size="sm"
-              onClick={async () => {
-                setIsSaving(true);
-                try {
+              onClick={() => {
+                void runMutation("create task", async () => {
                   const response = await client.upsert({
                     name: "New Task",
                     enabled: false,
@@ -207,16 +216,7 @@ export default function ScheduledTasksSettings() {
                   });
                   setSettings(response.settings);
                   if (response.task) setOpenTaskIds((prev) => [...prev, response.task!.id]);
-                } catch (error) {
-                  console.error("[ScheduledTasks] Failed to add task:", error);
-                  toast({
-                    title: "Operation failed",
-                    description: error instanceof Error ? error.message : String(error),
-                    variant: "destructive",
-                  });
-                } finally {
-                  setIsSaving(false);
-                }
+                });
               }}
             >
               <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
@@ -246,14 +246,16 @@ export default function ScheduledTasksSettings() {
                 variant="outline"
                 size="sm"
                 className="mt-2"
-                onClick={async () => {
-                  const response = await client.upsert({
-                    name: "New Task",
-                    enabled: false,
-                    trigger: { kind: "daily", hour: 9, minute: 0 },
-                    action: { kind: "notify", title: "Notification", body: "" },
+                onClick={() => {
+                  void runMutation("create task", async () => {
+                    const response = await client.upsert({
+                      name: "New Task",
+                      enabled: false,
+                      trigger: { kind: "daily", hour: 9, minute: 0 },
+                      action: { kind: "notify", title: "Notification", body: "" },
+                    });
+                    setSettings(response.settings);
                   });
-                  setSettings(response.settings);
                 }}
               >
                 <Icon icon="lucide:plus" className="mr-1 h-4 w-4" />
@@ -308,18 +310,11 @@ export default function ScheduledTasksSettings() {
                           <Switch
                             checked={task.enabled}
                             aria-label={task.enabled ? "Enabled" : "Disabled"}
-                            onCheckedChange={async (value) => {
-                              try {
+                            onCheckedChange={(value) => {
+                              void runMutation(`toggle task ${task.id}`, async () => {
                                 const response = await client.toggle(task.id, value);
                                 setSettings(response.settings);
-                              } catch (error) {
-                                console.error("[ScheduledTasks] Failed to toggle task:", task.id, error);
-                                toast({
-                                  title: "Operation failed",
-                                  description: error instanceof Error ? error.message : String(error),
-                                  variant: "destructive",
-                                });
-                              }
+                              });
                             }}
                           />
                           <Button
@@ -328,22 +323,13 @@ export default function ScheduledTasksSettings() {
                             className="h-8 w-8"
                             disabled={firingId === task.id}
                             title="Run now"
-                            onClick={async () => {
+                            onClick={() => {
                               setFiringId(task.id);
-                              try {
+                              void runMutation(`run task ${task.id}`, async () => {
                                 const response = await client.fireNow(task.id);
                                 setSettings(response.settings);
                                 toast({ title: "Task executed", description: response.task.name });
-                              } catch (error) {
-                                console.error("[ScheduledTasks] Failed to run task:", task.id, error);
-                                toast({
-                                  title: "Operation failed",
-                                  description: error instanceof Error ? error.message : String(error),
-                                  variant: "destructive",
-                                });
-                              } finally {
-                                setFiringId(null);
-                              }
+                              }).finally(() => setFiringId(null));
                             }}
                           >
                             <Icon
@@ -357,18 +343,11 @@ export default function ScheduledTasksSettings() {
                             className="h-8 w-8"
                             aria-label="Delete"
                             title="Delete"
-                            onClick={async () => {
-                              try {
+                            onClick={() => {
+                              void runMutation(`delete task ${task.id}`, async () => {
                                 const response = await client.remove(task.id);
                                 setSettings(response);
-                              } catch (error) {
-                                console.error("[ScheduledTasks] Failed to delete task:", task.id, error);
-                                toast({
-                                  title: "Operation failed",
-                                  description: error instanceof Error ? error.message : String(error),
-                                  variant: "destructive",
-                                });
-                              }
+                              });
                             }}
                           >
                             <Icon icon="lucide:trash-2" className="h-4 w-4 text-destructive" />
