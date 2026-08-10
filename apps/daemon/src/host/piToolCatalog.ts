@@ -1,8 +1,22 @@
 import type { MCPToolDefinition } from "@argos/shared/types/core/mcp";
 
+// JSON-Schema-compatible property descriptor. `properties`/`items` can themselves
+// describe nested objects (e.g. `edit.edits[]` with its own `properties` and
+// `required`), so this is recursive rather than a flat `{ type, description }`.
+type JsonSchemaType = "string" | "number" | "integer" | "boolean" | "array" | "object" | "null";
+
+type CatalogProperty = {
+  type: JsonSchemaType;
+  description: string;
+  items?: CatalogProperty;
+  properties?: Record<string, CatalogProperty>;
+  required?: string[];
+  enum?: (string | number)[];
+};
+
 type CatalogEntry = {
   description: string;
-  properties: Record<string, { type: string; items?: { type: string; description?: string }; description: string }>;
+  properties: Record<string, CatalogProperty>;
   required?: string[];
 };
 
@@ -33,7 +47,18 @@ const PI_TOOL_CATALOG: Record<string, CatalogEntry> = {
       path: { type: "string", description: "Path of the file to edit." },
       edits: {
         type: "array",
-        items: { type: "object", description: "A single replacement: oldText to find and newText to replace it with." },
+        items: {
+          type: "object",
+          description: "A single replacement: oldText to find and newText to replace it with.",
+          properties: {
+            oldText: {
+              type: "string",
+              description: "Exact text to find in the file. Must be unique and non-overlapping.",
+            },
+            newText: { type: "string", description: "Text to replace the matched region with." },
+          },
+          required: ["oldText", "newText"],
+        },
         description: "The edits to apply.",
       },
     },

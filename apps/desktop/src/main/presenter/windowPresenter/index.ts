@@ -54,6 +54,15 @@ function getTitleBarOverlayOptions(): Electron.TitleBarOverlayOptions | undefine
   if (process.platform !== "win32") {
     return undefined;
   }
+  // In Windows High Contrast / forced-colors mode, omit `symbolColor` so the OS
+  // paints the caption buttons with the user's accessibility palette. Setting an
+  // explicit symbol color in that mode overrides — and breaks — native contrast.
+  if (nativeTheme.shouldUseHighContrastColors || nativeTheme.inForcedColorsMode) {
+    return {
+      color: TITLEBAR_OVERLAY_COLOR,
+      height: TITLEBAR_OVERLAY_HEIGHT,
+    };
+  }
   return {
     color: TITLEBAR_OVERLAY_COLOR,
     height: TITLEBAR_OVERLAY_HEIGHT,

@@ -104,13 +104,40 @@ describe("daemon tool definitions", () => {
       ) as { source?: string };
       expect(orchestrationTool).toBeDefined();
       expect(orchestrationTool.source).toBe("agent");
-      const piTool = result.tools.find((tool) => (tool as { server?: { name?: string } }).server?.name === "pi") as {
-        function?: { name?: string };
+
+      // Every Pi tool should be present, tagged as an agent source, and carry a
+      // well-formed function schema (name + description + object parameters).
+      const piTools = result.tools.filter(
+        (tool) => (tool as { server?: { name?: string } }).server?.name === "pi",
+      ) as Array<{
         source?: string;
+        function?: { name?: string; description?: string; parameters?: { type?: string; properties?: unknown } };
+      }>;
+      const piByName = new Map(piTools.map((tool) => [tool.function?.name, tool]));
+      const expectedPiTools = ["read", "bash", "edit", "write", "grep", "find", "ls"];
+      expect(piTools.map((tool) => tool.function?.name).sort()).toEqual([...expectedPiTools].sort());
+      for (const name of expectedPiTools) {
+        const tool = piByName.get(name);
+        expect(tool).toBeDefined();
+        expect(tool!.source).toBe("agent");
+        expect(tool!.function?.description).toBeTruthy();
+        expect(tool!.function?.parameters?.type).toBe("object");
+        expect(tool!.function?.parameters?.properties).toBeDefined();
+      }
+
+      // The edit tool's `edits[]` must describe its inner object shape so callers
+      // can construct valid calls (regression for the under-typed catalog entry).
+      const editTool = piByName.get("edit");
+      const editParams = editTool!.function!.parameters as {
+        properties?: {
+          edits?: { type?: string; items?: { properties?: Record<string, unknown>; required?: string[] } };
+        };
       };
-      expect(piTool).toBeDefined();
-      expect(piTool.function?.name).toBe("read");
-      expect(piTool.source).toBe("agent");
+      const edits = editParams.properties?.edits;
+      expect(edits?.type).toBe("array");
+      expect(edits?.items?.properties?.oldText).toBeDefined();
+      expect(edits?.items?.properties?.newText).toBeDefined();
+      expect(edits?.items?.required).toEqual(["oldText", "newText"]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

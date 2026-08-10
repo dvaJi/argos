@@ -10,6 +10,7 @@ import { toast } from "#/components/use-toast";
 const notifiedAgentVersions = new Map<string, string>();
 
 let checkInFlight = false;
+let recheckRequested = false;
 
 const getUpdateAvailableAgents = (agents: AcpRegistryAgent[]): AcpRegistryAgent[] =>
   agents.filter(
@@ -20,7 +21,13 @@ const getUpdateAvailableAgents = (agents: AcpRegistryAgent[]): AcpRegistryAgent[
   );
 
 async function checkForAgentUpdates(): Promise<void> {
-  if (checkInFlight) return;
+  // If a check is already running, remember that another was requested so we run
+  // exactly one follow-up afterwards — a config event arriving mid-check could
+  // carry a newer registry version the in-flight check hasn't seen yet.
+  if (checkInFlight) {
+    recheckRequested = true;
+    return;
+  }
   checkInFlight = true;
 
   try {
@@ -71,6 +78,10 @@ async function checkForAgentUpdates(): Promise<void> {
     console.warn("[Agents] Failed to check for ACP agent updates:", error);
   } finally {
     checkInFlight = false;
+    if (recheckRequested) {
+      recheckRequested = false;
+      void checkForAgentUpdates();
+    }
   }
 }
 

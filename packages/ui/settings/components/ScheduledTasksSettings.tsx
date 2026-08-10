@@ -63,6 +63,9 @@ export default function ScheduledTasksSettings() {
 
   const tasks = useMemo(() => settings?.tasks ?? [], [settings]);
   const settingsRef = useRef(settings);
+  // Per-task promise chain that serializes upsert requests so concurrent edits to
+  // the same task can't interleave or apply out of order. See `persistTask`.
+  const persistChainRef = useRef<Map<string, Promise<unknown>>>(new Map());
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
@@ -120,26 +123,43 @@ export default function ScheduledTasksSettings() {
 
   const persistTask = useCallback(
     async (task: ScheduledTask) => {
-      setIsSaving(true);
-      try {
-        const response = await client.upsert({
-          id: task.id,
-          name: task.name,
-          enabled: task.enabled,
-          trigger: structuredClone(task.trigger),
-          action: structuredClone(task.action),
+      // Serialize upserts per task id. Two edits landing on the same task (e.g. a
+      // field blur racing a select change) would otherwise send two snapshots and
+      // an out-of-order response could restore older fields. Each task chains onto
+      // the previous in-flight request so responses apply in submission order.
+      const previous = persistChainRef.current.get(task.id) ?? Promise.resolve();
+      const run = previous
+        .catch(() => {})
+        .then(async () => {
+          setIsSaving(true);
+          try {
+            const response = await client.upsert({
+              id: task.id,
+              name: task.name,
+              enabled: task.enabled,
+              trigger: structuredClone(task.trigger),
+              action: structuredClone(task.action),
+            });
+            setSettings(response.settings);
+          } catch (error) {
+            console.error("[ScheduledTasks] Failed to persist task:", task.id, error);
+            toast({
+              title: "Operation failed",
+              description: error instanceof Error ? error.message : String(error),
+              variant: "destructive",
+            });
+          } finally {
+            setIsSaving(false);
+          }
         });
-        setSettings(response.settings);
-      } catch (error) {
-        console.error("[ScheduledTasks] Failed to persist task:", task.id, error);
-        toast({
-          title: "Operation failed",
-          description: error instanceof Error ? error.message : String(error),
-          variant: "destructive",
-        });
-      } finally {
-        setIsSaving(false);
-      }
+      persistChainRef.current.set(task.id, run);
+      // Clear the chain entry once settled so the map doesn't grow unbounded.
+      void run.finally(() => {
+        if (persistChainRef.current.get(task.id) === run) {
+          persistChainRef.current.delete(task.id);
+        }
+      });
+      return run;
     },
     [client, toast],
   );

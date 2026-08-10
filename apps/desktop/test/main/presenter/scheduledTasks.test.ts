@@ -148,6 +148,104 @@ describe("computeNextFireAt", () => {
     const expected = new Date("2026-01-13T09:00:00");
     expect(computeNextFireAt(task, reference.getTime())).toBe(expected.getTime());
   });
+
+  // Regression: previously daily/weekly ignored lastFiredAt, so the 60s drift
+  // tolerance reselected the just-consumed slot → delay=0 → infinite refire loop.
+  // lastFiredAt now acts as a floor (effectiveAfter = max(after, lastFiredAt)).
+  it("skips the same-day daily slot when lastFiredAt is at or after that slot", () => {
+    // Slot is 09:30 today; lastFiredAt is 09:30:05 (5s after the slot).
+    const reference = new Date();
+    reference.setHours(9, 30, 5, 0);
+    const slotToday = new Date(reference);
+    slotToday.setHours(9, 30, 0, 0);
+    const task = baseTask<ScheduledTask>({
+      id: "1",
+      name: "daily",
+      enabled: true,
+      trigger: { kind: "daily", hour: 9, minute: 30 },
+      action: { kind: "notify", title: "t", body: "b" },
+      createdAt: 0,
+      lastFiredAt: reference.getTime(),
+    });
+
+    const next = computeNextFireAt(task, reference.getTime());
+    expect(next).not.toBeNull();
+    expect(next!).toBeGreaterThan(reference.getTime());
+    // Must not be the same-day slot that already fired.
+    expect(next).not.toBe(slotToday.getTime());
+  });
+
+  it("treats lastFiredAt as a floor even when after is earlier (daily)", () => {
+    // after is 09:29 but lastFiredAt is 09:30:05 → effectiveAfter wins → next day.
+    const after = new Date();
+    after.setHours(9, 29, 0, 0);
+    const lastFired = new Date();
+    lastFired.setHours(9, 30, 5, 0);
+    const task = baseTask<ScheduledTask>({
+      id: "1",
+      name: "daily",
+      enabled: true,
+      trigger: { kind: "daily", hour: 9, minute: 30 },
+      action: { kind: "notify", title: "t", body: "b" },
+      createdAt: 0,
+      lastFiredAt: lastFired.getTime(),
+    });
+
+    const next = computeNextFireAt(task, after.getTime());
+    expect(next).not.toBeNull();
+    expect(next!).toBeGreaterThan(lastFired.getTime());
+  });
+
+  it("skips the just-fired weekly slot and advances to the next week", () => {
+    // Tuesday 09:00:05, just fired the Tuesday 09:00 slot → next is next Tuesday 09:00.
+    const reference = new Date("2026-01-06T09:00:05");
+    expect(reference.getDay()).toBe(2);
+    const task = baseTask<ScheduledTask>({
+      id: "1",
+      name: "weekly",
+      enabled: true,
+      trigger: { kind: "weekly", dayOfWeek: 2, hour: 9, minute: 0 },
+      action: { kind: "notify", title: "t", body: "b" },
+      createdAt: 0,
+      lastFiredAt: reference.getTime(),
+    });
+
+    const next = computeNextFireAt(task, reference.getTime());
+    const expected = new Date("2026-01-13T09:00:00");
+    expect(next).toBe(expected.getTime());
+  });
+
+  it("never returns a candidate at or before lastFiredAt for daily or weekly", () => {
+    const dailyTask = baseTask<ScheduledTask>({
+      id: "d",
+      name: "daily",
+      enabled: true,
+      trigger: { kind: "daily", hour: 9, minute: 30 },
+      action: { kind: "notify", title: "t", body: "b" },
+      createdAt: 0,
+      lastFiredAt: new Date("2026-01-06T09:30:00").getTime(),
+    });
+    const weeklyTask = baseTask<ScheduledTask>({
+      id: "w",
+      name: "weekly",
+      enabled: true,
+      trigger: { kind: "weekly", dayOfWeek: 2, hour: 9, minute: 30 },
+      action: { kind: "notify", title: "t", body: "b" },
+      createdAt: 0,
+      lastFiredAt: new Date("2026-01-06T09:30:00").getTime(),
+    });
+
+    // `after` earlier than, equal to, and later than lastFiredAt.
+    for (const afterOffset of [-60_000, 0, 60_000]) {
+      const after = dailyTask.lastFiredAt! + afterOffset;
+      const dailyNext = computeNextFireAt(dailyTask, after);
+      const weeklyNext = computeNextFireAt(weeklyTask, after);
+      expect(dailyNext).not.toBeNull();
+      expect(weeklyNext).not.toBeNull();
+      expect(dailyNext!).toBeGreaterThan(dailyTask.lastFiredAt!);
+      expect(weeklyNext!).toBeGreaterThan(weeklyTask.lastFiredAt!);
+    }
+  });
 });
 
 describe("shouldBackfillOneShot", () => {

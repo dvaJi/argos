@@ -91,7 +91,7 @@ describe("DaemonScheduledTasks", () => {
     });
   });
 
-  it("rejects draft prompt tasks because headless daemon has no desktop window", async () => {
+  it("falls back to notification-only for draft prompt tasks (headless daemon has no window)", async () => {
     const task = {
       id: "task-3",
       name: "Draft",
@@ -108,6 +108,18 @@ describe("DaemonScheduledTasks", () => {
     } as const;
     const harness = createHarness([task as never]);
 
-    await expect(harness.runtime.fireNow("task-3")).rejects.toThrow("desktop window");
+    // The headless daemon has no desktop window, so draft (non-auto-send) prompt
+    // tasks can't open a draft UI. They must not crash — they fall through to a
+    // notification so the user still sees the task fired.
+    const result = await harness.runtime.fireNow("task-3");
+
+    expect(harness.sessionRepository.create).not.toHaveBeenCalled();
+    expect(harness.providerExecutionPort.sendMessage).not.toHaveBeenCalled();
+    expect(harness.eventPublisher.publish).toHaveBeenCalledWith("scheduledTasks.notification", {
+      id: "scheduled:task-3",
+      title: "Draft",
+      body: "Open the draft",
+    });
+    expect(result.task.lastFiredAt).toEqual(expect.any(Number));
   });
 });

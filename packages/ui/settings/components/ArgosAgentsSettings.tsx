@@ -1012,7 +1012,6 @@ export default function ArgosAgentsSettings() {
                 type="button"
                 className="w-full rounded-xl border border-accent-400/40 bg-accent-400/10 px-3 py-2 text-left"
               >
-                <span className="sr-only">Unnamed Agent</span>
                 <div className="text-sm font-semibold">{newAgentName.trim() || "Unnamed Agent"}</div>
               </button>
               <Input
@@ -1212,19 +1211,11 @@ export default function ArgosAgentsSettings() {
                 {modelFieldConfigs.map((field) => (
                   <div key={field.key} className="space-y-1.5">
                     <div className="text-[11px] font-medium text-muted-foreground">
-                      {field.key === "visionModel" ? (
-                        <>
-                          <span className="sr-only">Vision model</span>
-                          <span>Vision model</span>
-                        </>
-                      ) : field.key === "imageGenerationModel" ? (
-                        <>
-                          <span className="sr-only">Image generation model</span>
-                          <span>Image generation model</span>
-                        </>
-                      ) : (
-                        field.label
-                      )}
+                      {field.key === "visionModel"
+                        ? "Vision model"
+                        : field.key === "imageGenerationModel"
+                          ? "Image generation model"
+                          : field.label}
                     </div>
                     <div data-testid="model-select-stub" className="sr-only">
                       <ModelSelect

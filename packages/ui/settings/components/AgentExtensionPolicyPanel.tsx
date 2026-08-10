@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Checkbox } from "#shadcn/components/ui/checkbox";
 import { Button } from "#shadcn/components/ui/button";
 import { createMcpClient } from "#api/McpClient";
@@ -43,9 +43,8 @@ function PolicyScopeList({
   onClear: () => void;
   disabled?: boolean;
 }) {
-  const selectedSet = useMemo(
-    () => new Set(selectedIds === undefined ? items.map((item) => item.id) : normalizeSelection(selectedIds)),
-    [selectedIds, items],
+  const selectedSet = new Set(
+    selectedIds === undefined ? items.map((item) => item.id) : normalizeSelection(selectedIds),
   );
   const selectedCount = selectedIds === undefined ? items.length : selectedSet.size;
   const scopeLabel =
@@ -98,7 +97,7 @@ export default function AgentExtensionPolicyPanel({
   onChange,
   disabled = false,
 }: AgentExtensionPolicyPanelProps) {
-  const mcpClient = useMemo(() => createMcpClient(), []);
+  const mcpClient = createMcpClient();
   const [loading, setLoading] = useState(true);
   const [mcpServers, setMcpServers] = useState<
     Array<{ id: string; label: string; pluginId?: string; source?: string; sourceId?: string }>
@@ -153,7 +152,8 @@ export default function AgentExtensionPolicyPanel({
     if (checked) {
       const explicit = normalizeSelection(current);
       const next = Array.from(new Set([...explicit, itemId]));
-      if (allIds.every((id) => next.includes(id))) {
+      const nextSet = new Set(next);
+      if (allIds.every((id) => nextSet.has(id))) {
         updateValue({ ...normalizedValue, enabledMcpServerIds: undefined });
         return;
       }
@@ -170,7 +170,7 @@ export default function AgentExtensionPolicyPanel({
         <div className="text-sm font-semibold">MCP scope</div>
         <p className="text-xs text-muted-foreground">
           Checked servers are available to this agent. Uncheck when everything is allowed to create an explicit
-          blocklist.
+          allowlist.
         </p>
       </div>
 

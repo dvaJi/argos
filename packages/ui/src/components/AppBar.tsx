@@ -17,8 +17,8 @@ export default function AppBar() {
   const langStore = useLanguageStore();
   const upgrade = useUpgradeStore();
 
-  const [isMacOS, setIsMacOS] = useState(false);
-  const [isWindows, setIsWindows] = useState(false);
+  const [isMacOS, setIsMacOS] = useState<boolean | null>(null);
+  const [isWindows, setIsWindows] = useState<boolean | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isFullscreened, setIsFullscreened] = useState(false);
   const [stopListener, setStopListener] = useState<(() => void) | null>(null);
@@ -74,7 +74,9 @@ export default function AppBar() {
 
   // Windows uses the native window controls overlay (caption buttons drawn by the OS over
   // the title bar). Only draw custom in-app buttons on Linux (frameless) and browser mode.
-  const showCustomWindowButtons = !isMacOS && !isWindows;
+  // Gate on platform detection completing (null = still loading) so native Windows/macOS
+  // renders don't flash custom controls before getDeviceInfo() resolves.
+  const showCustomWindowButtons = isMacOS === false && isWindows === false;
 
   return (
     <div className={`flex flex-row h-9 min-h-9 relative overflow-hidden bg-sidebar${roundedClass}`} dir={langStore.dir}>

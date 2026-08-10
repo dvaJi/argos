@@ -116,7 +116,17 @@ export default function WindowSideBarSessionItem({
             data-active={String(active)}
             data-session-region={region}
             data-session-id={session.id}
+            role="button"
+            tabIndex={0}
+            aria-label={session.title || "Open session"}
+            aria-pressed={active}
             onClick={() => onSelect(session)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(session);
+              }
+            }}
           >
             <div className="session-content flex min-w-0 flex-1 items-center gap-1.5">
               <span
