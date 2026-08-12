@@ -150,6 +150,9 @@ export function TreesFileTree({ workspacePath, sessionId, onInsertFileReference 
     (selected: readonly string[]) => {
       const first = selected[0];
       if (!first) return;
+      // Trees marks directories with a trailing slash; opening a directory in the
+      // file viewer would only fail (no file preview), so ignore dir selections.
+      if (first.endsWith("/")) return;
       sidepanelStore.selectFile(sessionId, toAbsolutePath(workspacePath, first), { open: false });
     },
     [sessionId, sidepanelStore, workspacePath],

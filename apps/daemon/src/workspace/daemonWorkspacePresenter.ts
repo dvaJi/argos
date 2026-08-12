@@ -171,12 +171,23 @@ export class DaemonWorkspacePresenter {
     await this.unregisterWorkspace(workdir);
   }
 
-  /** Public for the HTTP preview endpoint. */
+  /** Public for the HTTP preview endpoint. Authorizes reads/previews only. */
   isPathAllowed(targetPath: string): boolean {
+    return (
+      this.isPathWithinRegisteredWorkspace(targetPath) ||
+      this.allowedExactPaths.has(this.normalizePathForAccess(targetPath))
+    );
+  }
+
+  /**
+   * Stricter check for mutations (write/delete/rename/create): the target must
+   * live inside a *registered workspace*. Exact-file authorization (granted to
+   * external files resolved from chat links, for read/preview only) intentionally
+   * does NOT grant mutation access — otherwise a resolved external file could be
+   * overwritten/deleted.
+   */
+  private isPathWithinRegisteredWorkspace(targetPath: string): boolean {
     const normalizedTarget = this.normalizePathForAccess(targetPath);
-    if (this.allowedExactPaths.has(normalizedTarget)) {
-      return true;
-    }
     const targetWithSep = normalizedTarget.endsWith(path.sep) ? normalizedTarget : `${normalizedTarget}${path.sep}`;
     for (const workspace of this.allowedPaths) {
       const normalizedWorkspace = this.normalizePathForAccess(workspace);
@@ -570,7 +581,9 @@ export class DaemonWorkspacePresenter {
   }
 
   async writeFile(filePath: string, content: string): Promise<void> {
-    if (!this.isPathAllowed(filePath)) return;
+    if (!this.isPathWithinRegisteredWorkspace(filePath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized write: ${filePath}`);
+    }
     const normalizedPath = path.resolve(filePath);
     await fsp.mkdir(path.dirname(normalizedPath), { recursive: true });
     await fsp.writeFile(normalizedPath, content, "utf8");
@@ -578,22 +591,32 @@ export class DaemonWorkspacePresenter {
 
   async createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string> {
     if (!isSafeEntryName(name)) throw new Error(`[DaemonWorkspace] Invalid entry name: ${name}`);
-    if (!this.isPathAllowed(parentDir)) throw new Error(`[DaemonWorkspace] Unauthorized parent: ${parentDir}`);
+    if (!this.isPathWithinRegisteredWorkspace(parentDir)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized parent: ${parentDir}`);
+    }
     const targetPath = path.join(path.resolve(parentDir), name);
-    if (!this.isPathAllowed(targetPath)) throw new Error(`[DaemonWorkspace] Unauthorized entry path: ${targetPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized entry path: ${targetPath}`);
+    }
     if (isDirectory) await fsp.mkdir(targetPath, { recursive: false });
     else await fsp.writeFile(targetPath, "", "utf8");
     return targetPath;
   }
 
   async deletePath(targetPath: string): Promise<void> {
-    if (!this.isPathAllowed(targetPath)) throw new Error(`[DaemonWorkspace] Unauthorized path: ${targetPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized path: ${targetPath}`);
+    }
     await fsp.rm(path.resolve(targetPath), { recursive: true, force: false });
   }
 
   async renameOrMovePath(fromPath: string, toPath: string): Promise<string> {
-    if (!this.isPathAllowed(fromPath)) throw new Error(`[DaemonWorkspace] Unauthorized source: ${fromPath}`);
-    if (!this.isPathAllowed(toPath)) throw new Error(`[DaemonWorkspace] Unauthorized target: ${toPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(fromPath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized source: ${fromPath}`);
+    }
+    if (!this.isPathWithinRegisteredWorkspace(toPath)) {
+      throw new Error(`[DaemonWorkspace] Unauthorized target: ${toPath}`);
+    }
     const resolvedTo = path.resolve(toPath);
     await fsp.mkdir(path.dirname(resolvedTo), { recursive: true });
     await fsp.rename(path.resolve(fromPath), resolvedTo);
@@ -751,10 +774,11 @@ export class DaemonWorkspacePresenter {
   // ---- search ----
 
   async searchFiles(workspacePath: string, query: string): Promise<WorkspaceFileNode[]> {
-    if (!this.isPathAllowed(workspacePath) || !query.trim()) return [];
+    if (!this.isPathWithinRegisteredWorkspace(workspacePath) || !query.trim()) return [];
     const results: WorkspaceFileNode[] = [];
     const needle = query.toLowerCase();
-    await this.collectSearchMatches(path.resolve(workspacePath), needle, "", results, SEARCH_MAX_RESULTS);
+    const visited = new Set<string>();
+    await this.collectSearchMatches(path.resolve(workspacePath), needle, "", results, SEARCH_MAX_RESULTS, visited);
     return results;
   }
 
@@ -764,8 +788,20 @@ export class DaemonWorkspacePresenter {
     relativePrefix: string,
     results: WorkspaceFileNode[],
     limit: number,
+    visited: Set<string>,
   ): Promise<void> {
     if (results.length >= limit) return;
+    // Cycle guard: track visited real paths so a symlink loop can't exhaust CPU/IO.
+    let resolvedDir: string;
+    try {
+      resolvedDir = this.normalizePathForAccess(dirPath);
+    } catch {
+      return;
+    }
+    const key = `${resolvedDir}\0`;
+    if (visited.has(key)) return;
+    visited.add(key);
+
     let names: string[];
     try {
       names = (await fsp.readdir(dirPath)) as string[];
@@ -778,18 +814,22 @@ export class DaemonWorkspacePresenter {
         continue;
       }
       const childPath = path.join(dirPath, name);
-      let isDirectory = false;
+      // Use lstat to detect symlinks: don't follow them (avoids escaping the
+      // workspace via a symlinked directory or traversing external/ancestor dirs).
+      let lstat: fs.Stats;
       try {
-        isDirectory = (await fsp.stat(childPath)).isDirectory();
+        lstat = await fsp.lstat(childPath);
       } catch {
         continue;
       }
+      if (lstat.isSymbolicLink()) continue;
+      const isDirectory = lstat.isDirectory();
       const relativePath = relativePrefix ? `${relativePrefix}/${name}` : name;
       if (name.toLowerCase().includes(needle)) {
         results.push({ name, path: childPath, isDirectory });
       }
       if (isDirectory) {
-        await this.collectSearchMatches(childPath, needle, relativePath, results, limit);
+        await this.collectSearchMatches(childPath, needle, relativePath, results, limit, visited);
       }
     }
   }

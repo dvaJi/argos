@@ -408,12 +408,22 @@ export class WorkspacePresenter implements IWorkspacePresenter {
    * Uses realpathSync when possible and falls back to resolved paths for deleted files.
    */
   private isPathAllowed(targetPath: string): boolean {
+    return (
+      this.isPathWithinRegisteredWorkspace(targetPath) ||
+      this.allowedExactPaths.has(this.normalizePathForAccess(targetPath))
+    );
+  }
+
+  /**
+   * Stricter check for mutations (write/delete/rename/create): the target must
+   * live inside a *registered workspace*. Exact-file authorization (granted to
+   * external files resolved from markdown links, for read/preview only) does NOT
+   * grant mutation access — otherwise a resolved external file could be
+   * overwritten/deleted.
+   */
+  private isPathWithinRegisteredWorkspace(targetPath: string): boolean {
     const normalizedTarget = this.normalizePathForAccess(targetPath);
     const targetWithSep = normalizedTarget.endsWith(path.sep) ? normalizedTarget : `${normalizedTarget}${path.sep}`;
-
-    if (this.allowedExactPaths.has(normalizedTarget)) {
-      return true;
-    }
 
     for (const workspace of this.allowedPaths) {
       const normalizedWorkspace = this.normalizePathForAccess(workspace);
@@ -978,9 +988,8 @@ export class WorkspacePresenter implements IWorkspacePresenter {
   }
 
   async writeFile(filePath: string, content: string): Promise<void> {
-    if (!this.isPathAllowed(filePath)) {
-      console.warn(`[Workspace] Blocked write attempt for unauthorized path: ${filePath}`);
-      return;
+    if (!this.isPathWithinRegisteredWorkspace(filePath)) {
+      throw new Error(`[Workspace] Unauthorized write: ${filePath}`);
     }
 
     const normalizedPath = path.resolve(filePath);
@@ -998,14 +1007,13 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       throw new Error(`[Workspace] Invalid entry name: ${name}`);
     }
 
-    if (!this.isPathAllowed(parentDir)) {
-      console.warn(`[Workspace] Blocked create attempt for unauthorized parent: ${parentDir}`);
+    if (!this.isPathWithinRegisteredWorkspace(parentDir)) {
       throw new Error(`[Workspace] Unauthorized parent directory: ${parentDir}`);
     }
 
     const resolvedParent = path.resolve(parentDir);
     const targetPath = path.join(resolvedParent, name);
-    if (!this.isPathAllowed(targetPath)) {
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
       throw new Error(`[Workspace] Resolved entry path is not allowed: ${targetPath}`);
     }
 
@@ -1023,8 +1031,7 @@ export class WorkspacePresenter implements IWorkspacePresenter {
   }
 
   async deletePath(targetPath: string): Promise<void> {
-    if (!this.isPathAllowed(targetPath)) {
-      console.warn(`[Workspace] Blocked delete attempt for unauthorized path: ${targetPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(targetPath)) {
       throw new Error(`[Workspace] Unauthorized path: ${targetPath}`);
     }
 
@@ -1038,12 +1045,10 @@ export class WorkspacePresenter implements IWorkspacePresenter {
   }
 
   async renameOrMovePath(fromPath: string, toPath: string): Promise<string> {
-    if (!this.isPathAllowed(fromPath)) {
-      console.warn(`[Workspace] Blocked rename source attempt for unauthorized path: ${fromPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(fromPath)) {
       throw new Error(`[Workspace] Unauthorized source path: ${fromPath}`);
     }
-    if (!this.isPathAllowed(toPath)) {
-      console.warn(`[Workspace] Blocked rename target attempt for unauthorized path: ${toPath}`);
+    if (!this.isPathWithinRegisteredWorkspace(toPath)) {
       throw new Error(`[Workspace] Unauthorized target path: ${toPath}`);
     }
 

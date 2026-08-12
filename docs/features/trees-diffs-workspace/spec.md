@@ -37,18 +37,18 @@ Replace the workspace sidepanel's tree, code viewer, and diff renderer with the 
 - **AC-4** Drag-and-drop in the tree moves files/directories on disk and refreshes the tree.
 - **AC-5** Context menu + tree affordances support "New File" and "New Folder" creation and "Delete".
 - **AC-6** Git-status row signals (added/modified/deleted/untracked/...) render in the tree via Trees' built-in `gitStatus`.
-- **AC-7** Selecting a changed file in the Git section renders its diff with `@pierre/diffs <PatchDiff>` (staged + unstaged).
-- **AC-8** A new top-level **Diffs** tab exists beside Workspace/Browser; it lists all changed files (from `getGitStatus`) and renders them via `@pierre/diffs <CodeView>` (virtualized multi-file) using the workspace's unified diff.
-- **AC-9** All write operations enforce the existing workspace path allow-list (`isPathAllowed`); unauthorized paths are rejected.
+- **AC-7** Selecting a changed file in the Diffs tab renders its diff with `@pierre/diffs <PatchDiff>` (staged + unstaged, split per file).
+- **AC-8** A new top-level **Diffs** tab exists beside Workspace/Browser; it lists all changed files (from `getGitStatus`) and renders each via `@pierre/diffs <PatchDiff>` (one per file / selection), using the workspace's unified diff. (A virtualized `<CodeView>` multi-file view is a future enhancement.)
+- **AC-9** All write operations enforce the registered-workspace boundary (`isPathWithinRegisteredWorkspace`); paths outside a registered workspace are rejected (throw). Exact-file authorization granted to chat-link-resolved files is read/preview-only and does NOT permit mutation.
 - **AC-10** Write operations trigger the existing `workspace.invalidated` invalidation flow so the tree/diffs refresh.
 - **AC-11** `bun run typecheck`, `bun run lint`, `bun run format`, and the relevant `bun test` suites pass.
 - **AC-12** `@argos/ui` build (`bun run build`) succeeds with the new dependencies bundled.
 
 ## Constraints
 
-- Follow the typed route/client boundary: new capabilities go through `shared-contracts/routes`, `routes/index.ts` dispatcher, `WorkspacePresenter`, and `WorkspaceClient`. No new `window.api`/legacy paths.
-- All filesystem writes must be inside a registered workspace/workdir (security boundary already enforced by `isPathAllowed`).
-- Desktop is the primary target (the presenter lives in main). The daemon/headless path only needs to remain non-breaking for the existing read routes; write routes are desktop-only for now.
+- Follow the typed route/client boundary: new capabilities go through `shared-contracts/routes`, the dispatcher, the presenter, and `WorkspaceClient`. No new `window.api`/legacy paths.
+- All filesystem writes must be inside a registered workspace/workdir. Read/preview also accepts exact-file-authorized paths (resolved from chat links), but mutations do not.
+- Workspace routes are implemented in the **daemon** (`DaemonWorkspacePresenter`) so they work in desktop and web/headless mode; only `revealFileInFolder`/`openFile` stay desktop-only (Electron `shell`).
 - Do not regress the markdown/html/pdf/svg/image preview pane or the artifact viewer.
 - Editing uses `@pierre/diffs` (`EditProvider` + `Editor` + `<File edit>`); Monaco is removed entirely.
 - `@pierre/trees` is `1.0.0-beta.x`; pin a caret range and treat beta API drift as a tracked risk.
@@ -56,8 +56,8 @@ Replace the workspace sidepanel's tree, code viewer, and diff renderer with the 
 ## Non-Goals
 
 - Replace the markdown/html/image/pdf preview pane with `@pierre/diffs`.
-- Port write/edit routes to the daemon (web/headless mode stays read-only for workspace files in this iteration).
 - Multi-file staging/unstaging/commit actions in the Diffs tab (future work).
+- Virtualized `<CodeView>` multi-file Diffs view (current impl uses per-file `<PatchDiff>`).
 - Migrating the unrelated "WorkspaceSelector" (machine switcher) feature.
 
 ## Open Questions

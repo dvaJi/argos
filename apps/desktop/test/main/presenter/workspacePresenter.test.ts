@@ -642,7 +642,7 @@ describe("WorkspacePresenter file editing", () => {
 
   it("does not write outside an allowed workspace", async () => {
     const file = path.join(outsidePath, "nope.txt");
-    await presenter.writeFile(file, "x");
+    await expect(presenter.writeFile(file, "x")).rejects.toThrow();
     expect(fs.existsSync(file)).toBe(false);
   });
 
