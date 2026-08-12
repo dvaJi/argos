@@ -7,14 +7,19 @@ import {
   workspaceOpenFileRoute,
   workspaceReadDirectoryRoute,
   workspaceReadFilePreviewRoute,
+  workspaceReadFileTextRoute,
   workspaceRegisterRoute,
+  workspaceRenameOrMovePathRoute,
   workspaceResolveMarkdownLinkedFileRoute,
   workspaceRevealFileInFolderRoute,
   workspaceSearchFilesRoute,
+  workspaceBrowseDirectoryRoute,
+  workspaceCreateEntryRoute,
+  workspaceDeletePathRoute,
   workspaceUnregisterRoute,
   workspaceUnwatchRoute,
   workspaceWatchRoute,
-  workspaceBrowseDirectoryRoute,
+  workspaceWriteFileRoute,
 } from "@argos/shared-contracts/routes";
 import { getArgosBridge } from "./core";
 
@@ -95,6 +100,27 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     return await bridge.invoke(workspaceBrowseDirectoryRoute.name, path ? { path } : {});
   }
 
+  /** Read raw UTF-8 text for editing (null content for binary/non-text/oversized). */
+  async function readFileText(path: string) {
+    return await bridge.invoke(workspaceReadFileTextRoute.name, { path });
+  }
+
+  async function writeFile(path: string, content: string) {
+    return await bridge.invoke(workspaceWriteFileRoute.name, { path, content });
+  }
+
+  async function createEntry(parentDir: string, name: string, isDirectory: boolean) {
+    return await bridge.invoke(workspaceCreateEntryRoute.name, { parentDir, name, isDirectory });
+  }
+
+  async function deletePath(path: string) {
+    return await bridge.invoke(workspaceDeletePathRoute.name, { path });
+  }
+
+  async function renameOrMovePath(fromPath: string, toPath: string) {
+    return await bridge.invoke(workspaceRenameOrMovePathRoute.name, { fromPath, toPath });
+  }
+
   function onInvalidated(
     listener: (payload: {
       workspacePath: string;
@@ -121,6 +147,11 @@ export function createWorkspaceClient(bridge: ArgosBridge = getArgosBridge()) {
     getGitDiff,
     searchFiles,
     browseDirectory,
+    readFileText,
+    writeFile,
+    createEntry,
+    deletePath,
+    renameOrMovePath,
     onInvalidated,
   };
 }

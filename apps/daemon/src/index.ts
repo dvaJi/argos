@@ -12,6 +12,7 @@ import { DaemonArgosAgentRuntime } from "./host/daemonArgosAgentRuntime";
 import { BunEventPublisher } from "./host/bun-event-publisher";
 import { initializeDatabase } from "./host/db-init";
 import { createDaemonDispatcher } from "./dispatch/daemonDispatcher";
+import { DaemonWorkspacePresenter } from "./workspace/daemonWorkspacePresenter";
 import { ProviderImportService } from "@argos/backend-core";
 import { PiProviderExecutionPort } from "./host/pi-provider-execution";
 import { PiAgentProfileManager } from "./host/piAgentProfileManager";
@@ -148,6 +149,14 @@ function withCors(response: Response): Response {
     statusText: response.statusText,
     headers,
   });
+}
+
+function inferPreviewContentType(filePath: string): string {
+  const ext = filePath.slice(filePath.lastIndexOf(".") + 1).toLowerCase();
+  if (ext === "html" || ext === "htm") return "text/html; charset=utf-8";
+  if (ext === "svg") return "image/svg+xml";
+  if (ext === "pdf") return "application/pdf";
+  return "application/octet-stream";
 }
 
 function serveStaticWeb(webRoot: string, pathname: string): Response {
@@ -724,6 +733,8 @@ export async function startDaemon(options?: {
     },
   });
 
+  const workspacePresenter = new DaemonWorkspacePresenter(eventPublisher, "http://127.0.0.1:0");
+
   const dispatcher =
     options?.dispatcher ??
     createDaemonDispatcher(
@@ -743,6 +754,7 @@ export async function startDaemon(options?: {
       db,
       environmentId,
       orchestrationRuntime,
+      workspacePresenter,
     );
   setRouteDispatcher(dispatcher);
 
@@ -811,6 +823,26 @@ export async function startDaemon(options?: {
 
       if (url.pathname === "/api/v1/route" && request.method === "POST") {
         return withCors(await handleRouteDispatch(request));
+      }
+
+      // Workspace file preview (html/pdf/svg) served as raw bytes. The path must
+      // resolve inside a registered/allow-listed workspace; otherwise 404.
+      if (url.pathname === "/api/v1/workspace/preview" && request.method === "GET") {
+        const targetPath = url.searchParams.get("path");
+        if (!targetPath || !workspacePresenter.isPathAllowed(targetPath)) {
+          return new Response("Not found", { status: 404 });
+        }
+        try {
+          const file = Bun.file(targetPath);
+          if (!(await file.exists())) return new Response("Not found", { status: 404 });
+          return withCors(
+            new Response(file, {
+              headers: { "Content-Type": inferPreviewContentType(targetPath), "Cache-Control": "no-store" },
+            }),
+          );
+        } catch {
+          return new Response("Not found", { status: 404 });
+        }
       }
 
       if (url.pathname === "/api/v1/sessions" && request.method === "GET") {
@@ -909,6 +941,7 @@ export async function startDaemon(options?: {
   });
 
   const serverPort = (server as any).port ?? port;
+  workspacePresenter.setBaseUrl(`http://${host}:${serverPort}`);
   if (!isNonLoopbackHost(host)) {
     const originHost = host === "::1" ? "[::1]" : host;
     pluginPresenter.setSettingsBaseUrl(`http://${originHost}:${serverPort}`);

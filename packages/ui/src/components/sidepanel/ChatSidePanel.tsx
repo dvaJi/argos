@@ -4,6 +4,7 @@ import { Button } from "#shadcn/components/ui/button";
 import { createBrowserClient } from "#api/BrowserClient";
 import { BrowserPanel } from "./BrowserPanel";
 import { WorkspacePanel } from "./WorkspacePanel";
+import { DiffsPanel } from "./DiffsPanel";
 import { WORKSPACE_EVENTS } from "#/events";
 import { useSidepanelStore } from "#/stores/ui/sidepanel";
 
@@ -241,6 +242,17 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
               </button>
               <button
                 className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${
+                  sidepanelStore.activeTab === "diffs"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+                type="button"
+                onClick={() => sidepanelStore.openDiffs()}
+              >
+                Diffs
+              </button>
+              <button
+                className={`rounded-md px-2.5 py-1 text-xs transition-colors duration-200 ease-out ${
                   sidepanelStore.activeTab === "browser"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground"
@@ -264,6 +276,8 @@ export function ChatSidePanel({ sessionId, workspacePath }: ChatSidePanelProps) 
               onToggleFullscreen={toggleWorkspaceFullscreen}
               onInsertFileReference={handleWorkspaceInsertFileReference}
             />
+          ) : sidepanelStore.activeTab === "diffs" ? (
+            <DiffsPanel sessionId={sessionId} workspacePath={workspacePath} />
           ) : (
             <BrowserPanel sessionId={sessionId} />
           )}

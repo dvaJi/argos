@@ -522,8 +522,10 @@ export const WorkspaceFileMetadataSchema = zod.object({
   fileName: zod.string(),
   fileSize: zod.number(),
   fileDescription: zod.string().optional(),
-  fileCreated: zod.date(),
-  fileModified: zod.date(),
+  // `coerce.date()`: Electron IPC preserves Date instances, but the daemon sends
+  // JSON over WebSocket where dates arrive as ISO strings. Coerce so both paths parse.
+  fileCreated: zod.coerce.date(),
+  fileModified: zod.coerce.date(),
 });
 
 export const WorkspaceFilePreviewSchema = zod.object({

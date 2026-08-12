@@ -45,7 +45,7 @@ Beyond chat, Argos supports agentic workflows: rich tool calling via MCP (Model 
 
 - **Multiple Cloud LLM Providers**: DeepSeek, OpenAI, Moonshot/Kimi, Grok, Gemini, Anthropic, and more — plus any OpenAI-, Gemini-, or Anthropic-compatible API.
 - **Local Model Deployment**: Integrated Ollama with download, deploy, and run controls — no command line needed.
-- **Rich Chat Experience**: Markdown + [CodeMirror](https://codemirror.net/) rendering, multi-window/multi-tab parallelism, Artifacts, message retry and conversation forking, multi-modal (images, Mermaid, text-to-image), inline source highlighting.
+- **Rich Chat Experience**: Markdown + `@tanstack/highlight` code rendering, multi-window/multi-tab parallelism, Artifacts, message retry and conversation forking, multi-modal (images, Mermaid, text-to-image), inline source highlighting.
 - **Search Extensions**: Built-in BoSearch and Brave Search MCP integrations, plus any custom search engine via a search-assistant model.
 - **MCP Support**: Full Resources/Prompts/Tools coverage, semantic workflows, inMemory services, StreamableHTTP/SSE/Stdio transports, visual debugging, and bundled Bun interpreter.
 - **Skills**: Install from folders, ZIPs, or URLs; enable per conversation; import/export with Claude Code, Codex, Cursor, Windsurf, GitHub Copilot, Kiro, Antigravity, OpenCode, Goose, Kilo Code, and more. Built-ins cover code review, document collaboration, Office/PDF, frontend design, MCP development, and others.

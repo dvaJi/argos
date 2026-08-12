@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { Button } from "#shadcn/components/ui/button";
 import { createWorkspaceClient } from "#api/WorkspaceClient";
@@ -6,10 +6,11 @@ import { useSidepanelStore, getSessionState } from "#/stores/ui/sidepanel";
 import type { ArtifactState } from "#/stores/artifact";
 import type { WorkspaceFilePreview, WorkspaceGitDiff } from "@argos/shared/presenter";
 import { useWorkspaceViewerModel } from "./composables/useWorkspaceViewerModel";
-import { WorkspaceCodePane } from "./viewer/WorkspaceCodePane";
+import { DiffsCodePane } from "./viewer/DiffsCodePane";
+import { DiffsEditorPane } from "./viewer/DiffsEditorPane";
+import { DiffsPatchPane } from "./viewer/DiffsPatchPane";
 import { WorkspacePreviewPane } from "./viewer/WorkspacePreviewPane";
 import { WorkspaceInfoPane } from "./viewer/WorkspaceInfoPane";
-import { WorkspaceDiffView } from "./viewer/WorkspaceDiffView";
 
 interface WorkspaceViewerProps {
   sessionId: string;
@@ -41,7 +42,9 @@ export function WorkspaceViewer({
   const sidepanelStore = useSidepanelStore();
   const workspaceClient = createWorkspaceClient();
 
-  const sessionState = useMemo(() => getSessionState(sessionId), [sessionId]);
+  // Read reactively from the store (NOT memoized by sessionId) so selection and
+  // view-mode updates propagate to `activeSource`/`paneKind` immediately.
+  const sessionState = getSessionState(sessionId);
 
   const { activeSource, effectiveViewMode, paneKind, previewKind, shouldShowTabs } = useWorkspaceViewerModel({
     artifact: useMemo(() => artifact, [artifact]),
@@ -96,6 +99,37 @@ export function WorkspaceViewer({
     return filePreview?.path ?? sessionState.selectedFilePath;
   }, [activeSource, filePreview, sessionState]);
 
+  const canEdit = activeSource === "file" && filePreview?.kind === "text" && Boolean(openFilePath);
+
+  // Edit mode (inline file editing via Monaco). Reset when the file changes.
+  const [editMode, setEditMode] = useState(false);
+  const [editContent, setEditContent] = useState<string>("");
+  const [loadingEdit, setLoadingEdit] = useState(false);
+
+  useEffect(() => {
+    setEditMode(false);
+    setEditContent("");
+  }, [openFilePath]);
+
+  const enterEditMode = useCallback(async () => {
+    if (!openFilePath) return;
+    setLoadingEdit(true);
+    try {
+      const result = await workspaceClient.readFileText(openFilePath);
+      if (result.content === null) return;
+      setEditContent(result.content);
+      setEditMode(true);
+    } catch (error) {
+      console.error("[WorkspaceViewer] failed to load file for editing", error);
+    } finally {
+      setLoadingEdit(false);
+    }
+  }, [openFilePath, workspaceClient]);
+
+  const exitEditMode = useCallback(() => {
+    setEditMode(false);
+  }, []);
+
   const emptyMessage = useMemo(() => {
     if (activeSource === "file" && !loadingFilePreview) return "No file selected";
     return "Workspace";
@@ -117,7 +151,7 @@ export function WorkspaceViewer({
         </div>
 
         <div className="flex items-center gap-2">
-          {shouldShowTabs && (
+          {shouldShowTabs && !editMode && (
             <div className="flex items-center rounded-lg bg-muted p-0.5 text-xs text-muted-foreground">
               <button
                 className={`rounded-md px-2 py-1 transition-colors ${effectiveViewMode === "preview" ? "bg-background text-foreground shadow-sm" : ""}`}
@@ -136,6 +170,26 @@ export function WorkspaceViewer({
             </div>
           )}
 
+          {canEdit && !editMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={enterEditMode}
+              disabled={loadingEdit}
+              title="Edit file"
+            >
+              <Icon icon="lucide:pencil" className="mr-1 h-3.5 w-3.5" />
+              {loadingEdit ? "..." : "Edit"}
+            </Button>
+          )}
+          {editMode && (
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={exitEditMode} title="Stop editing">
+              <Icon icon="lucide:eye" className="mr-1 h-3.5 w-3.5" />
+              View
+            </Button>
+          )}
+
           <Button
             variant="ghost"
             size="icon"
@@ -148,7 +202,7 @@ export function WorkspaceViewer({
             <Icon icon={isFullscreen ? "lucide:minimize-2" : "lucide:maximize-2"} className="h-4 w-4" />
           </Button>
 
-          {openFilePath && (
+          {openFilePath && !editMode && (
             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleOpenFile}>
               Open File
             </Button>
@@ -157,65 +211,83 @@ export function WorkspaceViewer({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="workspace-viewer-body">
-        {paneKind === "empty" && !(activeSource === "file" && loadingFilePreview) && (
-          <div className="flex h-full items-center justify-center px-6">
-            <div className="text-center text-sm text-muted-foreground">{emptyMessage}</div>
-          </div>
-        )}
-
-        {activeSource === "file" && loadingFilePreview && (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            Loading...
-          </div>
-        )}
-
-        {paneKind === "git-diff" && !(activeSource === "file" && loadingFilePreview) && (
-          <div className="h-full overflow-auto bg-background py-3 text-xs leading-6">
-            {loadingGitDiff ? (
-              <div className="px-4 text-muted-foreground">Loading...</div>
-            ) : gitDiff ? (
-              <>
-                {gitDiff.staged && (
-                  <section className="mb-4">
-                    <h4 className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Staged
-                    </h4>
-                    <WorkspaceDiffView diff={gitDiff.staged} />
-                  </section>
-                )}
-                {gitDiff.unstaged && (
-                  <section>
-                    <h4 className="mb-2 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Unstaged
-                    </h4>
-                    <WorkspaceDiffView diff={gitDiff.unstaged} />
-                  </section>
-                )}
-                {!gitDiff.staged && !gitDiff.unstaged && <div className="px-4 text-muted-foreground">No changes</div>}
-              </>
-            ) : (
-              <div className="px-4 text-muted-foreground">No changes</div>
-            )}
-          </div>
-        )}
-
-        {paneKind === "code" && codeSource && <WorkspaceCodePane source={codeSource} />}
-
-        {paneKind === "preview" && previewKind && (
-          <WorkspacePreviewPane
-            sessionId={sessionId}
-            previewKind={previewKind}
-            artifact={previewArtifact}
-            filePreview={previewFilePreview}
+        {editMode && openFilePath ? (
+          <DiffsEditorPane
+            key={openFilePath}
+            filePath={openFilePath}
+            initialContent={editContent}
+            language={filePreview?.language ?? null}
+            onSaved={exitEditMode}
           />
-        )}
+        ) : (
+          <>
+            {paneKind === "empty" && !(activeSource === "file" && loadingFilePreview) && (
+              <div className="flex h-full items-center justify-center px-6">
+                <div className="text-center text-sm text-muted-foreground">{emptyMessage}</div>
+              </div>
+            )}
 
-        {paneKind === "info" && filePreview && <WorkspaceInfoPane filePreview={filePreview} />}
+            {activeSource === "file" && loadingFilePreview && (
+              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                Loading...
+              </div>
+            )}
 
-        {!["empty", "git-diff", "code", "preview", "info"].includes(paneKind) && (
-          <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-            Workspace
-          </div>
+            {paneKind === "git-diff" && !(activeSource === "file" && loadingFilePreview) && (
+              <div className="flex h-full min-h-0 flex-col gap-2 py-2" data-testid="workspace-git-diff">
+                {loadingGitDiff ? (
+                  <div className="px-4 text-xs text-muted-foreground">Loading...</div>
+                ) : gitDiff ? (
+                  <>
+                    {gitDiff.staged && (
+                      <section className="flex min-h-0 flex-1 flex-col">
+                        <h4 className="mb-1 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Staged
+                        </h4>
+                        <div className="min-h-0 flex-1">
+                          <DiffsPatchPane patch={gitDiff.staged} />
+                        </div>
+                      </section>
+                    )}
+                    {gitDiff.unstaged && (
+                      <section className="flex min-h-0 flex-1 flex-col">
+                        <h4 className="mb-1 px-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Unstaged
+                        </h4>
+                        <div className="min-h-0 flex-1">
+                          <DiffsPatchPane patch={gitDiff.unstaged} />
+                        </div>
+                      </section>
+                    )}
+                    {!gitDiff.staged && !gitDiff.unstaged && (
+                      <div className="px-4 text-xs text-muted-foreground">No changes</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="px-4 text-xs text-muted-foreground">No changes</div>
+                )}
+              </div>
+            )}
+
+            {paneKind === "code" && codeSource && <DiffsCodePane source={codeSource} />}
+
+            {paneKind === "preview" && previewKind && (
+              <WorkspacePreviewPane
+                sessionId={sessionId}
+                previewKind={previewKind}
+                artifact={previewArtifact}
+                filePreview={previewFilePreview}
+              />
+            )}
+
+            {paneKind === "info" && filePreview && <WorkspaceInfoPane filePreview={filePreview} />}
+
+            {!["empty", "git-diff", "code", "preview", "info"].includes(paneKind) && (
+              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                Workspace
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

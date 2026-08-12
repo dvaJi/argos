@@ -3,7 +3,6 @@ import { resolve } from "path";
 import { defineConfig, loadEnv } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
-import monacoEditorPlugin from "@dvaji/vite-plugin-monaco-editor";
 import tailwindcss from "@tailwindcss/vite";
 import babel from "@rolldown/plugin-babel";
 import { createPathAliasPlugin } from "./vite-plugins/path-alias";
@@ -57,8 +56,7 @@ export default defineConfig(({ mode, command }) => {
       ],
     },
     optimizeDeps: {
-      exclude: ["stream-monaco"],
-      include: ["@antv/infographic", "monaco-editor", "axios"],
+      include: ["@antv/infographic", "axios"],
     },
     server: {
       host: "127.0.0.1",
@@ -95,19 +93,6 @@ export default defineConfig(({ mode, command }) => {
         generatedRouteTree: resolve("src/routeTree.gen.ts"),
       }),
       tailwindcss(),
-      monacoEditorPlugin({
-        languageWorkers: [],
-        customWorkers: [
-          { label: "editorWorkerService", entry: "monaco-editor/esm/vs/editor/editor.worker.js" },
-          { label: "typescript", entry: "monaco-editor/esm/vs/language/typescript/ts.worker.js" },
-          { label: "css", entry: "monaco-editor/esm/vs/language/css/css.worker.js" },
-          { label: "html", entry: "monaco-editor/esm/vs/language/html/html.worker.js" },
-          { label: "json", entry: "monaco-editor/esm/vs/language/json/json.worker.js" },
-        ],
-        customDistPath(_root, buildOutDir, _base) {
-          return path.resolve(buildOutDir, "monacoeditorwork");
-        },
-      }),
       react(),
       babel({
         presets: [reactCompilerPreset()],

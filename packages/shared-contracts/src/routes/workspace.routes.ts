@@ -175,3 +175,67 @@ export const workspaceBrowseDirectoryRoute = defineRouteContract({
     ),
   }),
 });
+
+/**
+ * Read raw UTF-8 text for editing. Distinct from `readFilePreview`, which
+ * normalizes content for preview rendering. Returns null content when the file
+ * is binary, non-text, or above the size cap.
+ */
+export const workspaceReadFileTextRoute = defineRouteContract({
+  name: "workspace.readFileText",
+  input: zod.object({
+    path: zod.string().min(1),
+  }),
+  output: zod.object({
+    content: zod.string().nullable(),
+    exists: zod.boolean(),
+  }),
+});
+
+/** Write file content to disk (overwrites). */
+export const workspaceWriteFileRoute = defineRouteContract({
+  name: "workspace.writeFile",
+  input: zod.object({
+    path: zod.string().min(1),
+    content: zod.string(),
+  }),
+  output: zod.object({
+    written: zod.boolean(),
+  }),
+});
+
+/** Create a new file or directory. */
+export const workspaceCreateEntryRoute = defineRouteContract({
+  name: "workspace.createEntry",
+  input: zod.object({
+    parentDir: zod.string().min(1),
+    name: zod.string().min(1),
+    isDirectory: zod.boolean(),
+  }),
+  output: zod.object({
+    path: zod.string(),
+  }),
+});
+
+/** Delete a file or directory (recursive). */
+export const workspaceDeletePathRoute = defineRouteContract({
+  name: "workspace.deletePath",
+  input: zod.object({
+    path: zod.string().min(1),
+  }),
+  output: zod.object({
+    deleted: zod.boolean(),
+  }),
+});
+
+/** Rename or move a file/directory. */
+export const workspaceRenameOrMovePathRoute = defineRouteContract({
+  name: "workspace.renameOrMovePath",
+  input: zod.object({
+    fromPath: zod.string().min(1),
+    toPath: zod.string().min(1),
+  }),
+  output: zod.object({
+    path: zod.string(),
+  }),
+});

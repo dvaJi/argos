@@ -69,6 +69,11 @@ const WATCH_DEBOUNCE_MS = 120;
 const WATCH_STABILITY_THRESHOLD_MS = 250;
 const WATCH_POLL_INTERVAL_MS = 100;
 
+/** Max file size for `readFileText` (editing). Larger files are not loaded into the editor. */
+const READ_TEXT_MAX_BYTES = 2 * 1024 * 1024;
+/** Number of leading bytes scanned for a NUL to detect binary files cheaply. */
+const BINARY_SNIFF_BYTES = 8192;
+
 type WorkspaceWatchRuntime = {
   workspacePath: string;
   refCount: number;
@@ -937,5 +942,144 @@ export class WorkspacePresenter implements IWorkspacePresenter {
       return [];
     }
     return await searchWorkspaceFiles(workspacePath, query);
+  }
+
+  async readFileText(filePath: string): Promise<{ content: string | null; exists: boolean }> {
+    if (!this.isPathAllowed(filePath)) {
+      console.warn(`[Workspace] Blocked read-text attempt for unauthorized path: ${filePath}`);
+      return { content: null, exists: false };
+    }
+
+    let stats: fs.Stats;
+    try {
+      stats = fs.statSync(filePath);
+    } catch {
+      return { content: null, exists: false };
+    }
+
+    if (!stats.isFile()) {
+      return { content: null, exists: true };
+    }
+
+    if (stats.size > READ_TEXT_MAX_BYTES) {
+      return { content: null, exists: true };
+    }
+
+    try {
+      const buffer = await fs.promises.readFile(filePath);
+      if (this.looksBinary(buffer)) {
+        return { content: null, exists: true };
+      }
+      return { content: buffer.toString("utf8"), exists: true };
+    } catch (error) {
+      console.error(`[Workspace] Failed to read file text: ${filePath}`, error);
+      return { content: null, exists: true };
+    }
+  }
+
+  async writeFile(filePath: string, content: string): Promise<void> {
+    if (!this.isPathAllowed(filePath)) {
+      console.warn(`[Workspace] Blocked write attempt for unauthorized path: ${filePath}`);
+      return;
+    }
+
+    const normalizedPath = path.resolve(filePath);
+    try {
+      await fs.promises.mkdir(path.dirname(normalizedPath), { recursive: true });
+      await fs.promises.writeFile(normalizedPath, content, "utf8");
+    } catch (error) {
+      console.error(`[Workspace] Failed to write file: ${normalizedPath}`, error);
+      throw error;
+    }
+  }
+
+  async createEntry(parentDir: string, name: string, isDirectory: boolean): Promise<string> {
+    if (!this.isSafeEntryName(name)) {
+      throw new Error(`[Workspace] Invalid entry name: ${name}`);
+    }
+
+    if (!this.isPathAllowed(parentDir)) {
+      console.warn(`[Workspace] Blocked create attempt for unauthorized parent: ${parentDir}`);
+      throw new Error(`[Workspace] Unauthorized parent directory: ${parentDir}`);
+    }
+
+    const resolvedParent = path.resolve(parentDir);
+    const targetPath = path.join(resolvedParent, name);
+    if (!this.isPathAllowed(targetPath)) {
+      throw new Error(`[Workspace] Resolved entry path is not allowed: ${targetPath}`);
+    }
+
+    try {
+      if (isDirectory) {
+        await fs.promises.mkdir(targetPath, { recursive: false });
+      } else {
+        await fs.promises.writeFile(targetPath, "", "utf8");
+      }
+      return targetPath;
+    } catch (error) {
+      console.error(`[Workspace] Failed to create entry: ${targetPath}`, error);
+      throw error;
+    }
+  }
+
+  async deletePath(targetPath: string): Promise<void> {
+    if (!this.isPathAllowed(targetPath)) {
+      console.warn(`[Workspace] Blocked delete attempt for unauthorized path: ${targetPath}`);
+      throw new Error(`[Workspace] Unauthorized path: ${targetPath}`);
+    }
+
+    const normalizedPath = path.resolve(targetPath);
+    try {
+      await fs.promises.rm(normalizedPath, { recursive: true, force: false });
+    } catch (error) {
+      console.error(`[Workspace] Failed to delete path: ${normalizedPath}`, error);
+      throw error;
+    }
+  }
+
+  async renameOrMovePath(fromPath: string, toPath: string): Promise<string> {
+    if (!this.isPathAllowed(fromPath)) {
+      console.warn(`[Workspace] Blocked rename source attempt for unauthorized path: ${fromPath}`);
+      throw new Error(`[Workspace] Unauthorized source path: ${fromPath}`);
+    }
+    if (!this.isPathAllowed(toPath)) {
+      console.warn(`[Workspace] Blocked rename target attempt for unauthorized path: ${toPath}`);
+      throw new Error(`[Workspace] Unauthorized target path: ${toPath}`);
+    }
+
+    const resolvedFrom = path.resolve(fromPath);
+    const resolvedTo = path.resolve(toPath);
+    try {
+      await fs.promises.mkdir(path.dirname(resolvedTo), { recursive: true });
+      await fs.promises.rename(resolvedFrom, resolvedTo);
+      return resolvedTo;
+    } catch (error) {
+      console.error(`[Workspace] Failed to rename/move ${resolvedFrom} -> ${resolvedTo}`, error);
+      throw error;
+    }
+  }
+
+  private looksBinary(buffer: Buffer): boolean {
+    const scanLength = Math.min(buffer.length, BINARY_SNIFF_BYTES);
+    for (let index = 0; index < scanLength; index += 1) {
+      if (buffer[index] === 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isSafeEntryName(name: string): boolean {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === "." || trimmed === "..") {
+      return false;
+    }
+    if (trimmed.includes("/") || trimmed.includes("\\") || trimmed.includes(path.sep)) {
+      return false;
+    }
+    if (trimmed.includes("\0")) {
+      return false;
+    }
+    return true;
   }
 }
